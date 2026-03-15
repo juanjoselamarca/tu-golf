@@ -226,7 +226,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
               />
               {selectedProfile && (
                 <div style={{ fontSize: '11px', color: '#c4992a', marginTop: '3px' }}>
-                  ✓ {selectedProfile.name} — idx {selectedProfile.indice ?? '—'}
+                  ✓ {selectedProfile.name}{selectedProfile.indice != null ? ` — Hcp ${Number(selectedProfile.indice).toFixed(1)}` : ''}
                 </div>
               )}
               {showResults && results.length > 0 && !selectedProfile && (
