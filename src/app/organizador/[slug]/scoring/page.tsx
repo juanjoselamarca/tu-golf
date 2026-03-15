@@ -64,6 +64,12 @@ export default function ScoringPage() {
   const [saving,            setSaving]            = useState(false)
   const [loading,           setLoading]           = useState(true)
 
+  // Estadísticas adicionales por hoyo
+  const [showStats,    setShowStats]    = useState(false)
+  const [holePutts,    setHolePutts]    = useState<Record<number, number | null>>({})
+  const [holeFairway,  setHoleFairway]  = useState<Record<number, boolean | null>>({})
+  const [holeGir,      setHoleGir]      = useState<Record<number, boolean | null>>({})
+
   // Load all data
   useEffect(() => {
     const load = async () => {
@@ -105,20 +111,43 @@ export default function ScoringPage() {
   const loadScores = useCallback(async (playerId: string) => {
     const player = players.find((p) => p.id === playerId)
     const roundId = player?.rounds?.[0]?.id
-    if (!roundId) { setCurrentScores({}); return }
+    if (!roundId) {
+      setCurrentScores({})
+      setHolePutts({})
+      setHoleFairway({})
+      setHoleGir({})
+      return
+    }
 
     const supabase = createClient()
     const { data } = await supabase
       .from('hole_scores')
-      .select('hole_number, gross_score')
+      .select('hole_number, gross_score, putts, fairway_hit, gir')
       .eq('round_id', roundId)
       .not('gross_score', 'is', null)
 
-    const map: Record<number, number> = {}
-    ;(data || []).forEach((s: { hole_number: number; gross_score: number | null }) => {
-      if (s.gross_score != null) map[s.hole_number] = s.gross_score
+    const scores:  Record<number, number>          = {}
+    const putts:   Record<number, number | null>   = {}
+    const fairway: Record<number, boolean | null>  = {}
+    const gir:     Record<number, boolean | null>  = {}
+
+    ;(data || []).forEach((s: {
+      hole_number: number
+      gross_score: number | null
+      putts:       number | null
+      fairway_hit: boolean | null
+      gir:         boolean | null
+    }) => {
+      if (s.gross_score != null) scores[s.hole_number]  = s.gross_score
+      putts[s.hole_number]   = s.putts   ?? null
+      fairway[s.hole_number] = s.fairway_hit ?? null
+      gir[s.hole_number]     = s.gir     ?? null
     })
-    setCurrentScores(map)
+
+    setCurrentScores(scores)
+    setHolePutts(putts)
+    setHoleFairway(fairway)
+    setHoleGir(gir)
   }, [players])
 
   useEffect(() => {
@@ -167,6 +196,9 @@ export default function ScoringPage() {
         gross_score:   gross,
         net_score:     netScore,
         points,
+        putts:         holePutts[holeNumber]   ?? null,
+        fairway_hit:   holeFairway[holeNumber] ?? null,
+        gir:           holeGir[holeNumber]     ?? null,
       }),
     })
     setSaving(false)
@@ -226,6 +258,9 @@ export default function ScoringPage() {
     setPlayers((p as unknown as Player[]) || [])
     setSelectedId(null)
     setCurrentScores({})
+    setHolePutts({})
+    setHoleFairway({})
+    setHoleGir({})
   }
 
   if (loading) {
@@ -407,6 +442,135 @@ export default function ScoringPage() {
                   </div>
                 )
               })}
+            </div>
+
+            {/* ── Estadísticas adicionales (colapsable) ── */}
+            <div style={{ borderTop: '1px solid rgba(122,143,168,0.1)' }}>
+              <button
+                type="button"
+                onClick={() => setShowStats(!showStats)}
+                style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#7a8fa8', fontSize: '13px' }}
+              >
+                <span style={{ transition: 'transform 200ms', transform: showStats ? 'rotate(90deg)' : 'rotate(0)', display: 'inline-block' }}>▶</span>
+                Estadísticas adicionales — Putts · Fairway · GIR (opcional)
+              </button>
+
+              {showStats && (
+                <div style={{ padding: '0 20px 20px', overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: '480px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(122,143,168,0.15)' }}>
+                        {['Hoyo', 'Gross', 'Putts (0-6)', 'Fairway hit', 'GIR'].map((h) => (
+                          <th key={h} style={{ color: '#7a8fa8', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {holes.map((h) => {
+                        const gross    = currentScores[h]
+                        const disabled = gross == null
+                        const hole     = courseHoles.find((ch) => ch.numero === h)
+                        const par      = hole?.par ?? 4
+                        const isFairwayApplicable = par >= 4
+
+                        return (
+                          <tr key={h} style={{ borderBottom: '1px solid rgba(122,143,168,0.06)', opacity: disabled ? 0.4 : 1 }}>
+                            <td style={{ textAlign: 'center', color: '#7a8fa8', padding: '6px 8px', fontSize: '12px' }}>H{h} P{par}</td>
+                            <td style={{ textAlign: 'center', color: '#edeae4', padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}>{gross ?? '—'}</td>
+
+                            {/* Putts */}
+                            <td style={{ textAlign: 'center', padding: '4px 6px' }}>
+                              <input
+                                type="number" min={0} max={6} inputMode="numeric"
+                                disabled={disabled}
+                                value={holePutts[h] ?? ''}
+                                onChange={(e) => {
+                                  const n = parseInt(e.target.value)
+                                  setHolePutts((prev) => ({ ...prev, [h]: isNaN(n) || n < 0 || n > 6 ? null : n }))
+                                }}
+                                onBlur={async () => {
+                                  if (disabled || !tournament || !selectedId) return
+                                  const player = players.find((p) => p.id === selectedId)
+                                  const round  = player?.rounds?.[0]
+                                  if (!round) return
+                                  await fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+                                    action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
+                                    hole_number: h, par, gross_score: gross,
+                                    net_score: gross, points: 0,
+                                    putts: holePutts[h] ?? null,
+                                  })})
+                                }}
+                                style={{ width: '48px', background: 'rgba(7,13,24,0.5)', border: '1px solid rgba(122,143,168,0.2)', borderRadius: '4px', color: '#edeae4', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
+                                placeholder="—"
+                              />
+                            </td>
+
+                            {/* Fairway hit */}
+                            <td style={{ textAlign: 'center', padding: '4px 6px' }}>
+                              {isFairwayApplicable ? (
+                                <div style={{ display: 'inline-flex', gap: '4px' }}>
+                                  {([true, false, null] as (boolean | null)[]).map((v) => (
+                                    <button key={String(v)} type="button" disabled={disabled}
+                                      onClick={async () => {
+                                        if (disabled) return
+                                        setHoleFairway((prev) => ({ ...prev, [h]: v }))
+                                        const player = players.find((p) => p.id === selectedId)
+                                        const round  = player?.rounds?.[0]
+                                        if (!round || !tournament) return
+                                        await fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+                                          action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
+                                          hole_number: h, par, gross_score: gross,
+                                          net_score: gross, points: 0, fairway_hit: v,
+                                        })})
+                                      }}
+                                      style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
+                                        background:  holeFairway[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
+                                        borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#7a8fa8') : 'rgba(122,143,168,0.2)',
+                                        color:       holeFairway[h] === v ? '#edeae4' : '#7a8fa8',
+                                      }}>
+                                      {v === true ? 'Sí' : v === false ? 'No' : '—'}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#3a4a5a', fontSize: '12px' }}>N/A</span>
+                              )}
+                            </td>
+
+                            {/* GIR */}
+                            <td style={{ textAlign: 'center', padding: '4px 6px' }}>
+                              <div style={{ display: 'inline-flex', gap: '4px' }}>
+                                {([true, false, null] as (boolean | null)[]).map((v) => (
+                                  <button key={String(v)} type="button" disabled={disabled}
+                                    onClick={async () => {
+                                      if (disabled) return
+                                      setHoleGir((prev) => ({ ...prev, [h]: v }))
+                                      const player = players.find((p) => p.id === selectedId)
+                                      const round  = player?.rounds?.[0]
+                                      if (!round || !tournament) return
+                                      await fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+                                        action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
+                                        hole_number: h, par, gross_score: gross,
+                                        net_score: gross, points: 0, gir: v,
+                                      })})
+                                    }}
+                                    style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
+                                      background:  holeGir[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
+                                      borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#7a8fa8') : 'rgba(122,143,168,0.2)',
+                                      color:       holeGir[h] === v ? '#edeae4' : '#7a8fa8',
+                                    }}>
+                                    {v === true ? 'Sí' : v === false ? 'No' : '—'}
+                                  </button>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* Finalize button */}

@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import HeroSection  from '@/components/HeroSection'
-import StatsSection from '@/components/StatsSection'
+import HeroSection   from '@/components/HeroSection'
+import StatsSection  from '@/components/StatsSection'
+import PGALiveWidget from '@/components/PGALiveWidget'
 
 const STEPS = [
   {
@@ -31,6 +32,22 @@ export default function Home() {
 
       {/* ── Stats ─────────────────────────────────────── */}
       <StatsSection />
+
+      {/* ── PGA Tour en vivo ──────────────────────────── */}
+      <section style={{ padding: '60px 20px', background: '#070d18' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <h2 style={{
+            color:        '#c4992a',
+            fontFamily:   'Playfair Display, serif',
+            fontSize:     '1.5rem',
+            textAlign:    'center',
+            marginBottom: '24px',
+          }}>
+            🏌️ PGA Tour — En Vivo
+          </h2>
+          <PGALiveWidget />
+        </div>
+      </section>
 
       {/* ── Cómo funciona ─────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-28">

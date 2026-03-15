@@ -28,7 +28,73 @@ interface DBTournament {
   hole_count: number
   date_start: string | null
   status: string
-  courses: { nombre: string; ciudad: string; par_total: number } | null
+  courses: { id: string; nombre: string; ciudad: string; par_total: number } | null
+}
+
+interface DBCourseHole { numero: number; par: number }
+
+interface TourneyStats {
+  bestName:    string
+  bestNet:     number
+  avgNet:      number
+  eagles:      number
+  birdies:     number
+  hardestHole: { hole: number; avg: number } | null
+  easiestHole: { hole: number; avg: number } | null
+}
+
+function computeStats(dbPlayers: DBPlayer[], courseHoles: DBCourseHole[], parTotal: number): TourneyStats | null {
+  const withScores = dbPlayers.filter((p) => p.rounds?.[0]?.hole_scores?.some((hs) => hs.gross_score != null))
+  if (withScores.length === 0) return null
+
+  const parMap = new Map<number, number>()
+  courseHoles.forEach((h) => parMap.set(h.numero, h.par))
+
+  // Best card
+  const bySortedNet = [...withScores].sort((a, b) => (a.rounds[0].total_net ?? 999) - (b.rounds[0].total_net ?? 999))
+  const bestName    = bySortedNet[0]?.profiles?.name ?? '—'
+  const bestNet     = bySortedNet[0]?.rounds[0].total_net ?? 0
+
+  // Avg net vs par
+  const netVals = withScores.filter((p) => p.rounds[0].total_net != null)
+    .map((p) => p.rounds[0].total_net - parTotal)
+  const avgNet  = netVals.length > 0 ? netVals.reduce((s, v) => s + v, 0) / netVals.length : 0
+
+  // Eagles, birdies, hole difficulty
+  let eagles = 0, birdies = 0
+  const holeSums: Record<number, { total: number; count: number }> = {}
+
+  withScores.forEach((p) => {
+    p.rounds[0].hole_scores.forEach((hs) => {
+      if (hs.gross_score == null) return
+      const par = parMap.get(hs.hole_number)
+      if (par == null) return
+      const diff = hs.gross_score - par
+      if (diff <= -2) eagles++
+      if (diff === -1) birdies++
+      if (!holeSums[hs.hole_number]) holeSums[hs.hole_number] = { total: 0, count: 0 }
+      holeSums[hs.hole_number].total += diff
+      holeSums[hs.hole_number].count++
+    })
+  })
+
+  let hardestHole: TourneyStats['hardestHole'] = null
+  let easiestHole: TourneyStats['easiestHole'] = null
+  let maxAvg = -Infinity, minAvg = Infinity
+
+  Object.entries(holeSums).forEach(([hStr, { total, count }]) => {
+    const avg = total / count
+    const h   = parseInt(hStr)
+    if (avg > maxAvg) { maxAvg = avg; hardestHole = { hole: h, avg } }
+    if (avg < minAvg) { minAvg = avg; easiestHole = { hole: h, avg } }
+  })
+
+  return { bestName, bestNet, avgNet, eagles, birdies, hardestHole, easiestHole }
+}
+
+function fmtNet(n: number) {
+  if (n === 0) return 'E'
+  return n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1)
 }
 
 export default async function TorneoPage({ params }: { params: { slug: string } }) {
@@ -37,18 +103,19 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   // Try to fetch real tournament
   const { data: rawTournament } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, hole_count, date_start, status, courses(nombre, ciudad, par_total)')
+    .select('id, name, slug, format, hole_count, date_start, status, courses(id, nombre, ciudad, par_total)')
     .eq('slug', params.slug)
     .single()
 
   const tournament = rawTournament as unknown as DBTournament | null
 
   // Fetch real players if tournament found
-  let players: Player[] = []
-  let tournamentName    = 'TPC Sawgrass Amateur 2025'
-  let parTotal          = 72
-  let dateDisplay       = '12 Mar 2025'
-  let isLive            = false
+  let players: Player[]          = []
+  let tournamentName             = 'TPC Sawgrass Amateur 2025'
+  let parTotal                   = 72
+  let dateDisplay                = '12 Mar 2025'
+  let isLive                     = false
+  let stats: TourneyStats | null = null
 
   if (tournament) {
     tournamentName = tournament.name
@@ -73,6 +140,14 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       .eq('tournament_id', tournament.id)
 
     const dbPlayers = (rawPlayers as unknown as DBPlayer[]) || []
+
+    // Course holes for stats
+    let courseHoles: DBCourseHole[] = []
+    if (tournament.courses?.id) {
+      const { data: ch } = await supabase
+        .from('course_holes').select('numero, par').eq('course_id', tournament.courses.id)
+      courseHoles = (ch as DBCourseHole[]) || []
+    }
 
     if (dbPlayers.length > 0) {
       // Map to Player type expected by LeaderboardTable
@@ -126,15 +201,15 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           scores:  new Array(18).fill(null),
         })
       })
+      stats = computeStats(dbPlayers, courseHoles, parTotal)
     } else {
-      // No players yet — show empty state via empty array
       players = []
     }
   } else {
     // Demo fallback
-    players       = PLAYERS
-    parTotal      = 72
-    isLive        = true
+    players  = PLAYERS
+    parTotal = PAR.reduce((s: number, p: number) => s + p, 0)
+    isLive   = true
   }
 
   // Use real cover or default golf photo
@@ -205,6 +280,61 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           </div>
         )}
       </div>
+
+      {/* Tournament stats */}
+      {stats && (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="gold-divider mb-8" />
+          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', marginBottom: '20px', fontWeight: 600 }}>
+            Estadísticas del torneo
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            {/* Mejor tarjeta */}
+            <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', marginBottom: '8px' }}>🏆</div>
+              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Mejor tarjeta</div>
+              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', fontWeight: 700, marginBottom: '4px' }}>{stats.bestName}</div>
+              <div style={{ fontSize: '14px', color: '#c4992a', fontWeight: 600 }}>{fmtNet(stats.bestNet - parTotal)}</div>
+            </div>
+            {/* Scoring average */}
+            <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', marginBottom: '8px' }}>📊</div>
+              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Scoring average</div>
+              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{fmtNet(stats.avgNet)}</div>
+            </div>
+            {/* Eagles */}
+            <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', marginBottom: '8px' }}>🦅</div>
+              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Eagles</div>
+              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{stats.eagles}</div>
+            </div>
+            {/* Birdies */}
+            <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', marginBottom: '8px' }}>🐦</div>
+              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Birdies</div>
+              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{stats.birdies}</div>
+            </div>
+            {/* Hardest hole */}
+            {stats.hardestHole && (
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '28px', marginBottom: '8px' }}>⛳</div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Hoyo más difícil</div>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>Hoyo {stats.hardestHole.hole}</div>
+                <div style={{ fontSize: '13px', color: '#7a8fa8' }}>Avg {fmtNet(stats.hardestHole.avg)} vs par</div>
+              </div>
+            )}
+            {/* Easiest hole */}
+            {stats.easiestHole && (
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '28px', marginBottom: '8px' }}>💪</div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Hoyo más fácil</div>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>Hoyo {stats.easiestHole.hole}</div>
+                <div style={{ fontSize: '13px', color: '#7a8fa8' }}>Avg {fmtNet(stats.easiestHole.avg)} vs par</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Viral footer */}
       <footer className="bg-bg-deep">

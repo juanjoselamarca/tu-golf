@@ -113,9 +113,15 @@ export default async function DashboardPage() {
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '38px', color: '#edeae4', marginBottom: '8px', lineHeight: 1.2 }}>
           Hola, {userName} 👋
         </h1>
-        <p style={{ fontSize: '16px', color: '#7a8fa8', marginBottom: '40px' }}>
+        <p style={{ fontSize: '16px', color: '#7a8fa8', marginBottom: '20px' }}>
           ¿Listo para tu próximo torneo?
         </p>
+        <Link
+          href="/perfil/historial"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#c4992a', textDecoration: 'none', marginBottom: '32px', padding: '8px 16px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '8px' }}
+        >
+          📋 Mi historial de tarjetas →
+        </Link>
 
         {/* Gold divider */}
         <div style={{ height: '1px', background: 'linear-gradient(90deg, #c4992a, transparent)', marginBottom: '40px' }} />

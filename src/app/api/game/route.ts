@@ -66,19 +66,18 @@ export async function POST(request: NextRequest) {
 
   // ── upsert_score ────────────────────────────────────────
   if (action === 'upsert_score') {
-    const { round_id, hole_number, par, gross_score, net_score, points } = body
+    const { round_id, hole_number, par, gross_score, net_score, points, putts, fairway_hit, gir } = body
+
+    const upsertData: Record<string, unknown> = {
+      round_id, hole_number, par, gross_score, net_score, points,
+      source: 'manual_organizer', status: 'loaded',
+    }
+    if (putts       !== undefined && putts       !== null) upsertData.putts       = putts
+    if (fairway_hit !== undefined && fairway_hit !== null) upsertData.fairway_hit = fairway_hit
+    if (gir         !== undefined && gir         !== null) upsertData.gir         = gir
 
     const { error } = await svc.from('hole_scores').upsert(
-      {
-        round_id,
-        hole_number,
-        par,
-        gross_score,
-        net_score,
-        points,
-        source: 'manual_organizer',
-        status: 'loaded',
-      },
+      upsertData,
       { onConflict: 'round_id,hole_number' }
     )
 
