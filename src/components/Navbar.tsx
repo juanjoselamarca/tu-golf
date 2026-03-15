@@ -110,6 +110,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-7">
             {navLink('/', 'Inicio')}
             {navLink('/leaderboard', 'Leaderboard')}
+            {user && navLink('/ronda-libre/nueva', '⛳ Ronda Libre')}
           </div>
 
           {/* Desktop auth */}
@@ -261,6 +262,7 @@ export default function Navbar() {
           >
             <Link href="/" className="text-ivory/70 hover:text-ivory text-sm font-medium font-sans" onClick={() => setMenuOpen(false)}>Inicio</Link>
             <Link href="/leaderboard" className="text-ivory/70 hover:text-ivory text-sm font-medium font-sans" onClick={() => setMenuOpen(false)}>Leaderboard</Link>
+            {user && <Link href="/ronda-libre/nueva" className="text-ivory/70 hover:text-ivory text-sm font-medium font-sans" onClick={() => setMenuOpen(false)}>⛳ Ronda Libre</Link>}
             <Link
               href="/torneo/tpc-sawgrass-amateur-2025"
               className="flex items-center gap-1.5 text-ivory text-sm font-medium font-sans"

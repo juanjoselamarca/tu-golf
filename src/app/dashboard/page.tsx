@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import LogoutButton from '@/components/LogoutButton'
 import CopyLinkButton from '@/components/CopyLinkButton'
+import QRModal from '@/components/QRModal'
 
 interface Tournament {
   id: string
@@ -11,6 +12,14 @@ interface Tournament {
   status: string
   date_start: string | null
   courses: { nombre: string } | null
+}
+
+interface RondaLibre {
+  id: string
+  codigo: string
+  course_name: string
+  fecha: string
+  estado: string
 }
 
 const STATUS_LABEL: Record<string, { label: string; bg: string; color: string }> = {
@@ -74,6 +83,16 @@ export default async function DashboardPage() {
     .eq('tournaments.organizer_id', user.id)
 
   const latestTournament = tournaments[0] || null
+
+  // Mis rondas libres
+  const { data: rondasRaw } = await supabase
+    .from('rondas_libres')
+    .select('id, codigo, course_name, fecha, estado')
+    .eq('creador_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  const rondasLibres = (rondasRaw as RondaLibre[]) || []
 
   return (
     <div style={{ background: '#070d18', minHeight: '100vh' }}>
@@ -165,6 +184,16 @@ export default async function DashboardPage() {
               Crear torneo →
             </Link>
           </div>
+
+          {/* Card 3 — Ronda Libre */}
+          <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
+            <div style={{ fontSize: '44px', marginBottom: '16px' }}>⛳</div>
+            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', marginBottom: '8px' }}>Ronda Libre</h2>
+            <p style={{ fontSize: '14px', color: '#7a8fa8', marginBottom: '24px' }}>Juega con amigos, score en vivo, sin torneo formal</p>
+            <Link href="/ronda-libre/nueva" style={{ display: 'inline-block', background: '#c4992a', color: '#070d18', fontWeight: 700, borderRadius: '8px', padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
+              Nueva ronda →
+            </Link>
+          </div>
         </div>
 
         {/* ── Mis torneos como organizador ─────────────────────── */}
@@ -218,6 +247,7 @@ export default async function DashboardPage() {
                       Jugadores
                     </Link>
                     <CopyLinkButton slug={t.slug} />
+                    <QRModal slug={t.slug} />
                     {isActive && (
                       <Link
                         href={`/organizador/${t.slug}/scoring`}
@@ -259,6 +289,61 @@ export default async function DashboardPage() {
                   </div>
                   <Link href={`/torneo/${t.slug}`} style={{ background: 'rgba(122,143,168,0.1)', border: '1px solid rgba(122,143,168,0.25)', color: '#edeae4', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', textDecoration: 'none', fontWeight: 500 }}>
                     Ver leaderboard →
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* ── Mis rondas libres ─────────────────────────── */}
+        <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '56px 0 40px' }} />
+        <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', marginBottom: '24px' }}>
+          Mis rondas libres
+        </h2>
+        {rondasLibres.length === 0 ? (
+          <div style={{ background: '#0e1c2f', border: '1px dashed rgba(122,143,168,0.2)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
+            <p style={{ color: '#7a8fa8', fontSize: '15px', margin: 0 }}>
+              Aún no has creado ninguna ronda libre.{' '}
+              <Link href="/ronda-libre/nueva" style={{ color: '#c4992a', textDecoration: 'none' }}>Nueva ronda →</Link>
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {rondasLibres.map((r) => {
+              const isEnCurso = r.estado === 'en_curso'
+              const fechaDisplay = r.fecha
+                ? new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
+                : ''
+              return (
+                <div
+                  key={r.id}
+                  style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                      <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: '#edeae4', fontWeight: 600 }}>
+                        {r.course_name}
+                      </span>
+                      <span style={{
+                        background: isEnCurso ? 'rgba(34,197,94,0.12)' : 'rgba(122,143,168,0.12)',
+                        color: isEnCurso ? '#22c55e' : '#7a8fa8',
+                        border: `1px solid ${isEnCurso ? 'rgba(34,197,94,0.3)' : 'rgba(122,143,168,0.3)'}`,
+                        padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
+                      }}>
+                        {isEnCurso ? 'En curso' : 'Finalizada'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#7a8fa8' }}>
+                      {fechaDisplay} &nbsp;·&nbsp;
+                      <span style={{ fontFamily: 'monospace', color: '#c4992a', fontSize: '12px' }}>{r.codigo}</span>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/ronda-libre/${r.codigo}`}
+                    style={{ background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', textDecoration: 'none', fontWeight: 500 }}
+                  >
+                    Ver →
                   </Link>
                 </div>
               )

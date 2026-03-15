@@ -238,6 +238,20 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           </Link>
         </div>
 
+        {/* TV button */}
+        {tournament && (
+          <div className="absolute top-4 right-4 sm:top-5 sm:right-6 z-10">
+            <Link
+              href={`/torneo/${tournament.slug}/tv`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ background: 'rgba(14,28,47,0.85)', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '7px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+            >
+              📺 Modo TV
+            </Link>
+          </div>
+        )}
+
         {/* Content */}
         <div className="relative h-full flex flex-col items-center justify-center text-center px-4 pb-4 pt-16">
           {isLive && (
