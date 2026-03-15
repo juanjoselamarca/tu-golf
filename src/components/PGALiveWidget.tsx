@@ -61,18 +61,46 @@ export default function PGALiveWidget() {
     return '#edeae4'
   }
 
-  const getFlagEmoji = (country: string): string => {
-    const flags: Record<string, string> = {
-      'United States': '🇺🇸', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-      'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Ireland': '🇮🇪', 'Northern Ireland': '🇬🇧',
-      'Sweden': '🇸🇪', 'Spain': '🇪🇸', 'Germany': '🇩🇪', 'France': '🇫🇷',
-      'Australia': '🇦🇺', 'Canada': '🇨🇦', 'Japan': '🇯🇵', 'South Korea': '🇰🇷',
-      'South Africa': '🇿🇦', 'Argentina': '🇦🇷', 'Chile': '🇨🇱', 'Colombia': '🇨🇴',
-      'Mexico': '🇲🇽', 'Austria': '🇦🇹', 'Belgium': '🇧🇪', 'Denmark': '🇩🇰',
-      'Norway': '🇳🇴', 'Finland': '🇫🇮', 'Netherlands': '🇳🇱', 'Italy': '🇮🇹',
-      'New Zealand': '🇳🇿', 'China': '🇨🇳', 'Thailand': '🇹🇭', 'Philippines': '🇵🇭',
+  const getCountryCode = (country: string): string => {
+    const codes: Record<string, string> = {
+      'United States':    'us',
+      'England':          'gb-eng',
+      'Scotland':         'gb-sct',
+      'Wales':            'gb-wls',
+      'Northern Ireland': 'gb-nir',
+      'Ireland':          'ie',
+      'Sweden':           'se',
+      'Spain':            'es',
+      'Germany':          'de',
+      'France':           'fr',
+      'Australia':        'au',
+      'Canada':           'ca',
+      'Japan':            'jp',
+      'South Korea':      'kr',
+      'South Africa':     'za',
+      'Argentina':        'ar',
+      'Chile':            'cl',
+      'Colombia':         'co',
+      'Mexico':           'mx',
+      'Austria':          'at',
+      'Belgium':          'be',
+      'Denmark':          'dk',
+      'Norway':           'no',
+      'Finland':          'fi',
+      'Netherlands':      'nl',
+      'Italy':            'it',
+      'New Zealand':      'nz',
+      'China':            'cn',
+      'Thailand':         'th',
+      'Philippines':      'ph',
+      'Singapore':        'sg',
+      'Zimbabwe':         'zw',
+      'Fiji':             'fj',
+      'Venezuela':        've',
+      'Czech Republic':   'cz',
+      'Portugal':         'pt',
     }
-    return flags[country] || '🏌️'
+    return codes[country] || ''
   }
 
   const badge = data.live
@@ -135,8 +163,17 @@ export default function PGALiveWidget() {
               {p.name}
             </span>
             {hasCountry && (
-              <span style={{ textAlign: 'center', fontSize: '1.1rem' }}>
-                {p.country ? getFlagEmoji(p.country) : ''}
+              <span style={{ textAlign: 'center' }}>
+                {p.country && getCountryCode(p.country) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`https://flagcdn.com/20x15/${getCountryCode(p.country)}.png`}
+                    width="20"
+                    height="15"
+                    alt={p.country}
+                    style={{ borderRadius: '2px', verticalAlign: 'middle' }}
+                  />
+                )}
               </span>
             )}
             <span style={{ color: getScoreColor(p.score), textAlign: 'center', fontWeight: 700, fontSize: '0.9rem' }}>
