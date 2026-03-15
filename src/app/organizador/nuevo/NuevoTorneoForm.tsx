@@ -409,7 +409,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
               {categories.map(cat => (
                 <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '20px', padding: '4px 12px' }}>
-                  <span style={{ color: '#edeae4', fontSize: '13px', fontWeight: 600 }}>Cat. {cat}</span>
+                  <span style={{ color: '#edeae4', fontSize: '13px', fontWeight: 600 }}>{cat}</span>
                   {categories.length > 1 && (
                     <button type="button" onClick={() => removeCategory(cat)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7a8fa8', fontSize: '14px', lineHeight: 1, padding: '0 2px' }}>
@@ -424,7 +424,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                 onChange={(e) => setNewCat(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory() } }}
                 style={{ ...inputStyle('categories'), flex: 1, padding: '8px 12px', fontSize: '14px' }}
-                maxLength={5} />
+                maxLength={20} />
               <button type="button" onClick={addCategory}
                 style={{ background: 'rgba(196,153,42,0.15)', border: '1px solid rgba(196,153,42,0.4)', color: '#c4992a', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
                 +
