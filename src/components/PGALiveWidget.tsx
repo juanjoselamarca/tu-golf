@@ -61,6 +61,20 @@ export default function PGALiveWidget() {
     return '#edeae4'
   }
 
+  const getFlagEmoji = (country: string): string => {
+    const flags: Record<string, string> = {
+      'United States': '🇺🇸', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+      'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Ireland': '🇮🇪', 'Northern Ireland': '🇬🇧',
+      'Sweden': '🇸🇪', 'Spain': '🇪🇸', 'Germany': '🇩🇪', 'France': '🇫🇷',
+      'Australia': '🇦🇺', 'Canada': '🇨🇦', 'Japan': '🇯🇵', 'South Korea': '🇰🇷',
+      'South Africa': '🇿🇦', 'Argentina': '🇦🇷', 'Chile': '🇨🇱', 'Colombia': '🇨🇴',
+      'Mexico': '🇲🇽', 'Austria': '🇦🇹', 'Belgium': '🇧🇪', 'Denmark': '🇩🇰',
+      'Norway': '🇳🇴', 'Finland': '🇫🇮', 'Netherlands': '🇳🇱', 'Italy': '🇮🇹',
+      'New Zealand': '🇳🇿', 'China': '🇨🇳', 'Thailand': '🇹🇭', 'Philippines': '🇵🇭',
+    }
+    return flags[country] || '🏌️'
+  }
+
   const badge = data.live
     ? { bg: '#dc2626', color: 'white',   text: '● EN VIVO'      }
     : data.complete
@@ -121,8 +135,8 @@ export default function PGALiveWidget() {
               {p.name}
             </span>
             {hasCountry && (
-              <span style={{ color: '#7a8fa8', fontSize: '0.75rem', textAlign: 'center' }}>
-                {p.country ?? ''}
+              <span style={{ textAlign: 'center', fontSize: '1.1rem' }}>
+                {p.country ? getFlagEmoji(p.country) : ''}
               </span>
             )}
             <span style={{ color: getScoreColor(p.score), textAlign: 'center', fontWeight: 700, fontSize: '0.9rem' }}>
