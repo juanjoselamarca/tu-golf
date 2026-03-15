@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 
@@ -52,6 +53,8 @@ function translateLoginError(message: string): { title: string; body: string; ty
 export default function LoginPage() {
   const router  = useRouter()
   const { showError, showWarning } = useToast()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/dashboard'
 
   const [email,   setEmail]   = useState('')
   const [password, setPassword] = useState('')
@@ -63,7 +66,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo:  `${window.location.origin}/auth/callback`,
+        redirectTo:  `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
         queryParams: { access_type: 'offline', prompt: 'select_account' },
       },
     })
@@ -82,7 +85,7 @@ export default function LoginPage() {
       else showError(title, body)
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      router.push(redirectTo)
     }
   }
 

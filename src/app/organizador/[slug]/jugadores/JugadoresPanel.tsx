@@ -98,9 +98,9 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
   }
 
   const handleInscribir = async () => {
-    if (!selectedProfile) { showWarning('Selecciona un jugador', 'Busca y selecciona un jugador antes de inscribir.'); return }
+    if (!selectedProfile) { showWarning('Jugador requerido', 'Busca y selecciona un jugador primero.'); return }
     if (!selectedCat)     { showWarning('Categoría requerida', 'Selecciona la categoría del jugador.'); return }
-    if (!selectedFlight)  { showWarning('Flight requerido', 'Selecciona el flight del jugador.'); return }
+    if (!selectedFlight)  { showWarning('Flight requerido', 'Selecciona un flight para inscribir al jugador.'); return }
 
     setLoading(true)
     const supabase = createClient()

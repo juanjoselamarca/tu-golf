@@ -46,8 +46,20 @@ export async function POST(request: NextRequest) {
     .eq('id', tournament_id)
     .single()
 
-  if (!tournament || tournament.organizer_id !== user.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Si no es organizador, verifica si es el jugador de la ronda
+  let isAllowed = tournament && tournament.organizer_id === user.id
+  if (!isAllowed && action === 'upsert_score') {
+    const { round_id } = body
+    const { data: round } = await supabase
+      .from('rounds')
+      .select('player_id, players(user_id)')
+      .eq('id', round_id)
+      .single()
+    const playerUserId = (round?.players as unknown as { user_id: string } | null)?.user_id
+    isAllowed = playerUserId === user.id
+  }
+  if (!isAllowed) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
   }
 
   const svc = serviceClient()

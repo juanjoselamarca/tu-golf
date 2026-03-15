@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import LogoutButton from '@/components/LogoutButton'
+import CopyLinkButton from '@/components/CopyLinkButton'
 
 interface Tournament {
   id: string
@@ -50,6 +51,30 @@ export default async function DashboardPage() {
 
   const tournaments = (myTournaments as unknown as Tournament[]) || []
 
+  // Torneos jugados como jugador
+  const { data: playedRaw } = await supabase
+    .from('players')
+    .select('tournaments(id, name, slug, status, date_start, courses(nombre))')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  const playedTournaments = ((playedRaw || [])
+    .map((p: unknown) => (p as { tournaments: Tournament | null }).tournaments)
+    .filter(Boolean)) as Tournament[]
+
+  // Métricas organizador
+  const { count: totalTournaments } = await supabase
+    .from('tournaments')
+    .select('*', { count: 'exact', head: true })
+    .eq('organizer_id', user.id)
+
+  const { count: totalPlayers } = await supabase
+    .from('players')
+    .select('id, tournaments!inner(organizer_id)', { count: 'exact', head: true })
+    .eq('tournaments.organizer_id', user.id)
+
+  const latestTournament = tournaments[0] || null
+
   return (
     <div style={{ background: '#070d18', minHeight: '100vh' }}>
       {/* Navbar */}
@@ -94,6 +119,23 @@ export default async function DashboardPage() {
 
         {/* Gold divider */}
         <div style={{ height: '1px', background: 'linear-gradient(90deg, #c4992a, transparent)', marginBottom: '40px' }} />
+
+        {/* Métricas */}
+        {(totalTournaments ?? 0) > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '40px' }}>
+            {[
+              { label: 'Torneos organizados', value: totalTournaments ?? 0, icon: '🏆' },
+              { label: 'Jugadores inscritos', value: totalPlayers ?? 0, icon: '👥' },
+              { label: 'Último torneo', value: latestTournament?.name || '—', icon: '📅', small: true },
+            ].map((m) => (
+              <div key={m.label} style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '28px', marginBottom: '8px' }}>{m.icon}</div>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: m.small ? '14px' : '28px', color: '#c4992a', fontWeight: 700, marginBottom: '4px', lineHeight: 1.2 }}>{m.value}</div>
+                <div style={{ fontSize: '12px', color: '#7a8fa8' }}>{m.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Quick action cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '56px' }}>
@@ -156,13 +198,20 @@ export default async function DashboardPage() {
                       {t.date_start && <span style={{ marginLeft: '12px' }}>📅 {new Date(t.date_start).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <Link
+                      href={`/organizador/${t.slug}/editar`}
+                      style={{ background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', textDecoration: 'none', fontWeight: 500 }}
+                    >
+                      Editar
+                    </Link>
                     <Link
                       href={`/organizador/${t.slug}/jugadores`}
                       style={{ background: 'rgba(122,143,168,0.1)', border: '1px solid rgba(122,143,168,0.25)', color: '#edeae4', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', textDecoration: 'none', fontWeight: 500 }}
                     >
                       Jugadores
                     </Link>
+                    <CopyLinkButton slug={t.slug} />
                     {isActive && (
                       <Link
                         href={`/organizador/${t.slug}/scoring`}
@@ -172,6 +221,39 @@ export default async function DashboardPage() {
                       </Link>
                     )}
                   </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {/* Historial como jugador */}
+        <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '56px 0 40px' }} />
+        <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', marginBottom: '24px' }}>
+          Torneos en que he jugado
+        </h2>
+        {playedTournaments.length === 0 ? (
+          <div style={{ background: '#0e1c2f', border: '1px dashed rgba(122,143,168,0.2)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
+            <p style={{ color: '#7a8fa8', fontSize: '15px' }}>Aún no has jugado en ningún torneo.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {playedTournaments.map((t) => {
+              const st = STATUS_LABEL[t.status] ?? STATUS_LABEL.draft
+              return (
+                <div key={t.id} style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                      <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', fontWeight: 600 }}>{t.name}</span>
+                      <span style={{ background: st.bg, color: st.color, border: `1px solid ${st.color}40`, padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{st.label}</span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#7a8fa8' }}>
+                      {t.courses?.nombre && <span>⛳ {t.courses.nombre}</span>}
+                      {t.date_start && <span style={{ marginLeft: '12px' }}>📅 {new Date(t.date_start).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                    </div>
+                  </div>
+                  <Link href={`/torneo/${t.slug}`} style={{ background: 'rgba(122,143,168,0.1)', border: '1px solid rgba(122,143,168,0.25)', color: '#edeae4', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', textDecoration: 'none', fontWeight: 500 }}>
+                    Ver leaderboard →
+                  </Link>
                 </div>
               )
             })}

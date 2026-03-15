@@ -215,6 +215,15 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             <span className="font-display font-bold text-2xl text-gold"> Golf</span>
           </div>
           <p className="font-sans text-ivory/70 text-base mb-7">Seguí este torneo con Tu Golf</p>
+          {tournament && (tournament.status === 'active' || tournament.status === 'in_progress') && (
+            <Link
+              href={`/torneo/${tournament.slug}/score`}
+              className="inline-flex items-center gap-2 font-sans font-bold text-base px-10 py-4 mb-4 transition-all duration-200 hover:brightness-110"
+              style={{ background: 'rgba(196,153,42,0.15)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.4)', borderRadius: '4px', textDecoration: 'none' }}
+            >
+              Ingresar mi score →
+            </Link>
+          )}
           <Link
             href="/"
             className="inline-flex items-center gap-2 font-sans font-bold text-base px-10 py-4 transition-all duration-200 hover:brightness-110"

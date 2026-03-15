@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { useFormErrors } from '@/hooks/useFormErrors'
@@ -57,6 +58,8 @@ export default function RegisterPage() {
   const router = useRouter()
   const { showError } = useToast()
   const { fieldError, setFieldError, clearAll } = useFormErrors()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/dashboard'
 
   const [isOpen,   setIsOpen]   = useState(false)
   const [name,     setName]     = useState('')
@@ -71,7 +74,7 @@ export default function RegisterPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo:  `${window.location.origin}/auth/callback`,
+        redirectTo:  `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
         queryParams: { access_type: 'offline', prompt: 'select_account' },
       },
     })
@@ -107,7 +110,7 @@ export default function RegisterPage() {
       showError(title, body)
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      router.push(redirectTo)
     }
   }
 

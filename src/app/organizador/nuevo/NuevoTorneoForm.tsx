@@ -54,6 +54,8 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
   const [holeCount,      setHoleCount]      = useState(18)
   const [tees,           setTees]           = useState('blanco')
   const [useHandicap,    setUseHandicap]    = useState(true)
+  const [categories,     setCategories]     = useState<string[]>(['A', 'B', 'C'])
+  const [newCat,         setNewCat]         = useState('')
   const [day,            setDay]            = useState('')
   const [month,          setMonth]          = useState('')
   const [year,           setYear]           = useState('')
@@ -75,6 +77,17 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  const addCategory = () => {
+    const cat = newCat.trim().toUpperCase()
+    if (!cat || categories.includes(cat)) return
+    setCategories(prev => [...prev, cat])
+    setNewCat('')
+  }
+  const removeCategory = (cat: string) => {
+    if (categories.length <= 1) return
+    setCategories(prev => prev.filter(c => c !== cat))
+  }
 
   // Input style helper — red border on error
   const inputStyle = (field: string): React.CSSProperties => ({
@@ -118,6 +131,10 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
     }
     if (!dateISO) {
       setFieldError('date', 'La fecha del torneo es obligatoria.')
+      hasErrors = true
+    }
+    if (categories.length < 1) {
+      setFieldError('categories', 'Necesitas al menos 1 categoría.')
       hasErrors = true
     }
     if (hasErrors) return
@@ -182,10 +199,14 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
     }
 
     await Promise.all([
-      supabase.from('categories').insert([
-        { tournament_id: tournament.id, name: 'A', handicap_min: 0,  handicap_max: 12 },
-        { tournament_id: tournament.id, name: 'B', handicap_min: 13, handicap_max: 36 },
-      ]),
+      supabase.from('categories').insert(
+        categories.map((cat, i) => ({
+          tournament_id: tournament.id,
+          name: cat,
+          handicap_min: i === 0 ? 0 : null,
+          handicap_max: i === 0 ? 18 : null,
+        }))
+      ),
       supabase.from('flights').insert([
         { tournament_id: tournament.id, name: 'Flight 1', tee_time: dateISO ? `${dateISO}T08:00:00` : null },
       ]),
@@ -380,6 +401,36 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
             >
               <span style={{ position: 'absolute', top: '3px', left: useHandicap ? '25px' : '3px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 200ms' }} />
             </button>
+          </div>
+
+          {/* Categorías */}
+          <div>
+            <label style={labelStyle}>Categorías del torneo</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+              {categories.map(cat => (
+                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '20px', padding: '4px 12px' }}>
+                  <span style={{ color: '#edeae4', fontSize: '13px', fontWeight: 600 }}>Cat. {cat}</span>
+                  {categories.length > 1 && (
+                    <button type="button" onClick={() => removeCategory(cat)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7a8fa8', fontSize: '14px', lineHeight: 1, padding: '0 2px' }}>
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input type="text" placeholder="Nueva categoría (ej: C)" value={newCat}
+                onChange={(e) => setNewCat(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory() } }}
+                style={{ ...inputStyle('categories'), flex: 1, padding: '8px 12px', fontSize: '14px' }}
+                maxLength={5} />
+              <button type="button" onClick={addCategory}
+                style={{ background: 'rgba(196,153,42,0.15)', border: '1px solid rgba(196,153,42,0.4)', color: '#c4992a', borderRadius: '8px', padding: '8px 16px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                +
+              </button>
+            </div>
+            <FieldErr msg={fieldError('categories')} />
           </div>
 
           {/* 7. Fecha */}
