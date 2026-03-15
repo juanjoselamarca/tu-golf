@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
@@ -50,7 +50,7 @@ function translateLoginError(message: string): { title: string; body: string; ty
   return { type: 'error', title: 'Error al iniciar sesión', body: 'No pudimos procesar tu solicitud. Por favor intenta nuevamente.' }
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const router  = useRouter()
   const { showError, showWarning } = useToast()
   const searchParams = useSearchParams()
@@ -202,5 +202,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ background: '#070d18', minHeight: '100vh' }} />}>
+      <LoginContent />
+    </Suspense>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
@@ -54,7 +54,7 @@ function translateRegisterError(message: string) {
   return { field: null, title: 'Error al registrarse', body: 'No pudimos crear tu cuenta. Por favor intenta nuevamente.' }
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter()
   const { showError } = useToast()
   const { fieldError, setFieldError, clearAll } = useFormErrors()
@@ -270,5 +270,13 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div style={{ background: '#070d18', minHeight: '100vh' }} />}>
+      <RegisterContent />
+    </Suspense>
   )
 }
