@@ -83,6 +83,13 @@ export default function NuevaRondaLibrePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!userId || !cancha) return
+
+    const jugadoresValidos = jugadores.filter(j => j.trim() !== '')
+    if (jugadoresValidos.length === 0) {
+      alert('Agrega al menos un jugador para crear la ronda.')
+      return
+    }
+
     setLoading(true)
 
     const supabase = createClient()
@@ -114,13 +121,12 @@ export default function NuevaRondaLibrePage() {
       return
     }
 
-    // Insert jugadores
-    const nonEmpty = jugadores.map((j, i) => ({ nombre: j.trim(), idx: i })).filter((j) => j.nombre)
-    for (const { nombre, idx } of nonEmpty) {
+    // Insert jugadores (jugadoresValidos already filtered above)
+    for (let i = 0; i < jugadoresValidos.length; i++) {
       await supabase.from('ronda_libre_jugadores').insert({
         ronda_id: ronda.id,
-        nombre,
-        user_id: idx === 0 ? userId : null,
+        nombre: jugadoresValidos[i],
+        user_id: i === 0 ? userId : null,
         scores: {},
       })
     }
@@ -297,7 +303,7 @@ export default function NuevaRondaLibrePage() {
                     <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <input
                         type="text"
-                        placeholder={`Jugador ${idx + 1}`}
+                        placeholder="Nombre del jugador"
                         value={jugadores[idx]}
                         onChange={(e) => {
                           const next = [...jugadores]
