@@ -121,3 +121,74 @@
 .count-enter {
   animation: count-up 0.6s ease-out forwards;
 }
+
+/* Score change pop (scorecard) */
+@keyframes score-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.score-pop {
+  animation: score-pop 0.2s ease-out;
+}
+
+/* ── M1: Mobile-first global rules ──────────────────────── */
+
+/* Prevenir zoom en inputs en iOS */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Touch targets mínimos 44×44px (Apple HIG) */
+button, a, [role="button"] {
+  min-height: 44px;
+  min-width:  44px;
+}
+
+/* Evitar tap highlight azul en iOS */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Scroll suave nativo en iOS */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevenir text-size-adjust en landscape */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust:          100%;
+}
+
+/* Safe area para notch y home indicator (iPhone X+) */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Altura real del viewport en mobile */
+.full-height {
+  height: 100dvh;
+}
+
+/* Dashboard metrics grid — responsive */
+.dashboard-metrics-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .dashboard-metrics-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ── M12: Landscape scorecard ───────────────────────────── */
+@media (orientation: landscape) and (max-height: 500px) {
+  .hole-number   { font-size: 3rem  !important; }
+  .score-display { font-size: 3rem  !important; }
+  .score-controls-row { gap: 12px  !important; }
+}

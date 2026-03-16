@@ -1,0 +1,32 @@
+
+> tu-golf@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.5
+  - Local:        http://localhost:3001
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1480ms
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1352ms (123 modules)
+ ○ Compiling /leaderboard ...
+ ✓ Compiled /leaderboard in 10.7s (630 modules)
+ GET /perfil 200 in 11331ms
+ GET /leaderboard 200 in 11351ms
+ GET /leaderboard 200 in 11354ms
+ GET /leaderboard 200 in 75ms
+ GET /leaderboard 200 in 72ms
+ ✓ Compiled /_not-found in 353ms (619 modules)
+ GET /perfil 404 in 544ms
+ ✓ Compiled /ronda-libre/nueva in 281ms (625 modules)
+ GET /ronda-libre/nueva 200 in 414ms
+ ✓ Compiled /ronda-libre/[codigo] in 348ms (633 modules)
+ GET /ronda-libre/demo 200 in 1389ms
+ ✓ Compiled /ronda-libre/[codigo]/score in 400ms (641 modules)
+ GET /ronda-libre/demo/score 200 in 1448ms
+ ✓ Compiled /login in 324ms (647 modules)
+ GET /login 200 in 440ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 2.9s (852 modules)
+ GET /perfil 500 in 3232ms

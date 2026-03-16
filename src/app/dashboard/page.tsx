@@ -82,7 +82,7 @@ export default async function DashboardPage() {
         </div>
       </nav>
 
-      <main style={{ padding: '48px 32px', maxWidth: '1100px', margin: '0 auto' }}>
+      <main style={{ padding: 'clamp(24px, 4vw, 48px) clamp(16px, 4vw, 32px)', maxWidth: '1100px', margin: '0 auto' }}>
 
         {/* 1 — Saludo */}
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '38px', color: '#edeae4', marginBottom: '8px', lineHeight: 1.2 }}>
@@ -243,7 +243,7 @@ export default async function DashboardPage() {
         {(totalTournaments ?? 0) > 0 && (
           <>
             <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '56px 0 40px' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            <div className="dashboard-metrics-grid">
               {[
                 { label: 'Torneos organizados', value: totalTournaments ?? 0, icon: '🏆' },
                 { label: 'Jugadores inscritos',  value: totalPlayers ?? 0,    icon: '👥' },

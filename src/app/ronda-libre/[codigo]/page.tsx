@@ -278,39 +278,40 @@ export default function RondaLibrePage() {
             ¿Cómo quieres unirte a esta ronda?
           </p>
 
+          {/* M4: welcome buttons 80px, 20px font */}
           <button
             onClick={() => chooseRole('jugador')}
             style={{
-              width: '100%', maxWidth: '360px',
+              width: '100%', maxWidth: '360px', minHeight: '80px',
               background: '#c4992a', color: '#070d18',
-              border: 'none', borderRadius: '14px',
+              border: 'none', borderRadius: '16px',
               padding: '20px 24px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '16px',
+              display: 'flex', alignItems: 'center', gap: '20px',
               textAlign: 'left',
             }}
           >
-            <span style={{ fontSize: '36px' }}>🏌️</span>
+            <span style={{ fontSize: '44px', flexShrink: 0 }}>🏌️</span>
             <div>
-              <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '3px' }}>Soy jugador</div>
-              <div style={{ fontSize: '13px', opacity: 0.75 }}>Ingresaré mi propio score</div>
+              <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Soy jugador</div>
+              <div style={{ fontSize: '14px', opacity: 0.8 }}>Ingresaré mi propio score</div>
             </div>
           </button>
 
           <button
             onClick={() => chooseRole('espectador')}
             style={{
-              width: '100%', maxWidth: '360px',
+              width: '100%', maxWidth: '360px', minHeight: '80px',
               background: 'rgba(14,28,47,0.8)', color: '#edeae4',
-              border: '1px solid rgba(196,153,42,0.3)', borderRadius: '14px',
+              border: '1px solid rgba(196,153,42,0.3)', borderRadius: '16px',
               padding: '20px 24px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '16px',
+              display: 'flex', alignItems: 'center', gap: '20px',
               textAlign: 'left',
             }}
           >
-            <span style={{ fontSize: '36px' }}>👁</span>
+            <span style={{ fontSize: '44px', flexShrink: 0 }}>👁</span>
             <div>
-              <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '3px' }}>Solo ver</div>
-              <div style={{ fontSize: '13px', color: '#7a8fa8' }}>Seguiré el marcador en vivo</div>
+              <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Solo ver</div>
+              <div style={{ fontSize: '14px', color: '#7a8fa8' }}>Seguiré el marcador en vivo</div>
             </div>
           </button>
 

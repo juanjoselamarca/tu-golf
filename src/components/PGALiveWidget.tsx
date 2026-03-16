@@ -112,37 +112,36 @@ export default function PGALiveWidget() {
   const hasCountry = data.players?.some((p) => p.country)
 
   return (
-    <div style={{ background: '#0e1c2f', borderRadius: '12px', overflow: 'hidden', maxWidth: '600px', margin: '0 auto' }}>
+    <div style={{ background: '#0e1c2f', borderRadius: '12px', overflow: 'hidden', width: '100%', maxWidth: '600px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ background: '#132540', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ color: '#c4992a', fontFamily: 'Playfair Display, serif', fontSize: '1.1rem', fontWeight: 700 }}>
+      <div style={{ background: '#132540', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: '#c4992a', fontFamily: 'Playfair Display, serif', fontSize: '1rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             🏆 {data.tournament}
           </div>
-          <div style={{ color: '#7a8fa8', fontSize: '0.8rem', marginTop: '2px' }}>
+          <div style={{ color: '#7a8fa8', fontSize: '0.78rem', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {data.round} · {data.course}
           </div>
         </div>
-        <div style={{ background: badge.bg, color: badge.color, fontSize: '0.7rem', fontWeight: 700, padding: '4px 8px', borderRadius: '4px', letterSpacing: '0.05em' }}>
+        <div style={{ background: badge.bg, color: badge.color, fontSize: '0.68rem', fontWeight: 700, padding: '4px 8px', borderRadius: '4px', letterSpacing: '0.05em', flexShrink: 0 }}>
           {badge.text}
         </div>
       </div>
 
-      {/* Tabla */}
-      <div style={{ padding: '0 8px 8px' }}>
+      {/* M8: tabla responsive — mobile muestra POS, NOMBRE, TOTAL */}
+      <div style={{ padding: '0 4px 8px' }}>
         {/* Headers */}
         <div style={{
           display:             'grid',
-          gridTemplateColumns: hasCountry ? '40px 1fr 36px 60px 60px 50px' : '40px 1fr 60px 60px 50px',
-          padding:             '8px 12px',
+          gridTemplateColumns: '38px 1fr 58px 58px 46px',
+          padding:             '8px 10px',
           color:               '#7a8fa8',
-          fontSize:            '0.75rem',
+          fontSize:            '0.72rem',
           textTransform:       'uppercase',
           letterSpacing:       '0.05em',
         }}>
           <span>Pos</span>
           <span>Jugador</span>
-          {hasCountry && <span />}
           <span style={{ textAlign: 'center' }}>Total</span>
           <span style={{ textAlign: 'center' }}>Hoy</span>
           <span style={{ textAlign: 'center' }}>Hoyo</span>
@@ -151,38 +150,36 @@ export default function PGALiveWidget() {
         {data.players?.map((p, i) => (
           <div key={i} style={{
             display:             'grid',
-            gridTemplateColumns: hasCountry ? '40px 1fr 36px 60px 60px 50px' : '40px 1fr 60px 60px 50px',
-            padding:             '10px 12px',
+            gridTemplateColumns: '38px 1fr 58px 58px 46px',
+            padding:             '10px 10px',
             borderTop:           '1px solid #132540',
             alignItems:          'center',
           }}>
             <span style={{ color: i === 0 ? '#c4992a' : '#7a8fa8', fontWeight: i === 0 ? 700 : 400, fontSize: '0.85rem' }}>
               {p.position}
             </span>
-            <span style={{ color: '#edeae4', fontSize: '0.9rem', fontWeight: i === 0 ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {p.name}
-            </span>
-            {hasCountry && (
-              <span style={{ textAlign: 'center' }}>
-                {p.country && getCountryCode(p.country) && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={`https://flagcdn.com/20x15/${getCountryCode(p.country)}.png`}
-                    width="20"
-                    height="15"
-                    alt={p.country}
-                    style={{ borderRadius: '2px', verticalAlign: 'middle' }}
-                  />
-                )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+              {hasCountry && p.country && getCountryCode(p.country) && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`https://flagcdn.com/20x15/${getCountryCode(p.country)}.png`}
+                  width="18"
+                  height="13"
+                  alt={p.country}
+                  style={{ borderRadius: '2px', verticalAlign: 'middle', flexShrink: 0 }}
+                />
+              )}
+              <span style={{ color: '#edeae4', fontSize: '0.9rem', fontWeight: i === 0 ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {p.name}
               </span>
-            )}
+            </div>
             <span style={{ color: getScoreColor(p.score), textAlign: 'center', fontWeight: 700, fontSize: '0.9rem' }}>
               {p.score}
             </span>
             <span style={{ color: getScoreColor(p.today), textAlign: 'center', fontSize: '0.85rem' }}>
               {p.today}
             </span>
-            <span style={{ color: '#7a8fa8', textAlign: 'center', fontSize: '0.8rem' }}>
+            <span style={{ color: '#7a8fa8', textAlign: 'center', fontSize: '0.78rem' }}>
               {p.thru}
             </span>
           </div>
@@ -190,7 +187,7 @@ export default function PGALiveWidget() {
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '8px 20px 12px', textAlign: 'center', color: '#7a8fa8', fontSize: '0.72rem', borderTop: '1px solid #132540' }}>
+      <div style={{ padding: '8px 16px 12px', textAlign: 'center', color: '#7a8fa8', fontSize: '0.72rem', borderTop: '1px solid #132540' }}>
         ↻ Actualiza cada 60s · Datos ESPN
       </div>
     </div>

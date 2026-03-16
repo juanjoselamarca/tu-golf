@@ -23,11 +23,26 @@ export const metadata: Metadata = {
   description:
     'Plataforma de live scoring para torneos amateur de golf. Organiza, juega y sigue tus torneos en tiempo real.',
   keywords: ['golf', 'torneo', 'live scoring', 'amateur', 'puntaje'],
+  // M13: PWA-ready
+  applicationName: 'Tu Golf',
+  appleWebApp: {
+    capable:         true,
+    statusBarStyle:  'black-translucent',
+    title:           'Tu Golf',
+  },
+  formatDetection: { telephone: false },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${playfair.variable} ${dmSans.variable}`}>
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="theme-color" content="#070d18" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+      </head>
       <body>
         <Navbar />
         <ToastContainer />

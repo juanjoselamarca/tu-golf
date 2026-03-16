@@ -38,11 +38,12 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid rgba(122,143,168,0.3)',
   color: '#edeae4',
   borderRadius: '8px',
-  padding: '10px 12px',
-  fontSize: '14px',
+  padding: '12px 14px',
+  fontSize: '16px',   // M6: prevenir zoom iOS
   outline: 'none',
   width: '100%',
   boxSizing: 'border-box',
+  minHeight: '52px',  // M6: touch target
 }
 
 export default function NuevaRondaLibrePage() {
@@ -375,8 +376,9 @@ export default function NuevaRondaLibrePage() {
                 background: loading || !cancha ? 'rgba(196,153,42,0.4)' : '#c4992a',
                 color: '#070d18',
                 fontWeight: 700,
-                fontSize: '16px',
-                padding: '14px',
+                fontSize: '18px',  // M6: 18px submit
+                padding: '16px',
+                height: '56px',    // M6: 56px submit button
                 borderRadius: '10px',
                 border: 'none',
                 cursor: loading || !cancha ? 'not-allowed' : 'pointer',

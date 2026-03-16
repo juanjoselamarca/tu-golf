@@ -37,6 +37,13 @@ function lsLoad(codigo: string, jugadorId: string): Record<number, number> {
   try { return JSON.parse(localStorage.getItem(lsKey(codigo, jugadorId)) ?? '{}') } catch { return {} }
 }
 
+/* ── Haptic helper ─────────────────────────────────────────────────────────── */
+function haptic(pattern: number | number[]) {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    navigator.vibrate(pattern)
+  }
+}
+
 /* ── Quick-pick chips ──────────────────────────────────────────────────────── */
 function quickScores(par: number): { label: string; value: number }[] {
   const chips = []
@@ -64,12 +71,13 @@ function ScorePageContent() {
   const [scores,           setScores]           = useState<Record<string, Record<number, number>>>({})
   const [parMap,           setParMap]           = useState<Record<number, number>>({})
 
-  const [saving,    setSaving]    = useState(false)
-  const [saved,     setSaved]     = useState(false)
-  const [saveError, setSaveError] = useState(false)
-  const [isOnline,  setIsOnline]  = useState(true)
-  const [hasUnsaved, setHasUnsaved] = useState(false)
-  const [showQR,    setShowQR]    = useState(false)
+  const [saving,       setSaving]       = useState(false)
+  const [saved,        setSaved]        = useState(false)
+  const [saveError,    setSaveError]    = useState(false)
+  const [isOnline,     setIsOnline]     = useState(true)
+  const [hasUnsaved,   setHasUnsaved]   = useState(false)
+  const [showQR,       setShowQR]       = useState(false)
+  const [scoreAnimKey, setScoreAnimKey] = useState(0)
 
   const debounceRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retryCountRef = useRef(0)
@@ -181,15 +189,24 @@ function ScorePageContent() {
     if (!activeJugadorId) return
     const clamped = Math.max(1, Math.min(12, value))
 
+    // M11: light haptic on every tap
+    haptic(10)
+
     setScores((prev) => {
       const next = { ...prev, [activeJugadorId]: { ...(prev[activeJugadorId] ?? {}), [hole]: clamped } }
       setHasUnsaved(true)
+      setScoreAnimKey((k) => k + 1)  // trigger score pop animation
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => saveScores(activeJugadorId, next[activeJugadorId]), 600)
+
+      // M11: success haptic for birdie or better
+      const holePar = next[activeJugadorId] ? (parMap[hole] ?? 4) : 4
+      if (clamped - holePar <= -1) haptic([15, 30, 15])
+
       return next
     })
     setSaved(false)
-  }, [activeJugadorId, saveScores])
+  }, [activeJugadorId, saveScores, parMap])
 
   /* ── Hold to increment ───────────────────────────────────────────────────── */
   const startHold = (direction: 1 | -1) => {
@@ -227,6 +244,8 @@ function ScorePageContent() {
   /* ── Go next / finalize ──────────────────────────────────────────────────── */
   const handleNext = async () => {
     if (!ronda || !activeJugadorId) return
+    // M11: medium haptic on hole change
+    haptic(30)
     // Force-save current state
     if (debounceRef.current) clearTimeout(debounceRef.current)
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
@@ -336,24 +355,25 @@ function ScorePageContent() {
         </div>
       </div>
 
-      {/* ── Player tabs ────────────────────────────────────────────────────── */}
+      {/* ── Player tabs — M3: 52px height, 16px font, scroll horizontal ──── */}
       {jugadores.length > 1 && (
         <div style={{ background: '#0e1c2f', borderBottom: '1px solid rgba(196,153,42,0.1)' }}>
-          <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', overflowX: 'auto' }}>
+          <div className="scroll-container" style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
             {jugadores.map((j) => {
-              const active    = j.id === activeJugadorId
-              const filled    = scores[j.id]?.[currentHole] != null
+              const active = j.id === activeJugadorId
+              const filled = scores[j.id]?.[currentHole] != null
               return (
                 <button
                   key={j.id}
                   onClick={() => setActiveJugadorId(j.id)}
                   style={{
-                    padding: '10px 18px', border: 'none',
-                    borderBottom: active ? '2px solid #c4992a' : '2px solid transparent',
+                    padding: '0 20px', height: '52px', border: 'none',
+                    borderBottom: active ? '3px solid #c4992a' : '3px solid transparent',
                     background: 'transparent',
                     color: active ? '#c4992a' : '#7a8fa8',
                     fontWeight: active ? 700 : 400,
-                    fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                    fontSize: '16px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                    minHeight: 0, minWidth: 0,
                   }}
                 >
                   {j.nombre} {filled ? '✓' : ''}
@@ -386,12 +406,12 @@ function ScorePageContent() {
           </div>
         </div>
 
-        {/* Hole number */}
+        {/* Hole number — M3 */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '6rem', color: '#c4992a', lineHeight: 1, fontWeight: 900 }}>
+          <div className="hole-number" style={{ fontFamily: '"Playfair Display", serif', fontSize: '6rem', color: '#c4992a', lineHeight: 1, fontWeight: 900 }}>
             {currentHole}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '14px', color: '#7a8fa8', marginTop: '4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '18px', color: '#7a8fa8', marginTop: '6px' }}>
             <span>PAR {par}</span>
             <span>·</span>
             <span>SI {currentHole}</span>
@@ -399,16 +419,16 @@ function ScorePageContent() {
         </div>
 
         {/* Result label */}
-        <div style={{ textAlign: 'center', minHeight: '28px' }}>
+        <div style={{ textAlign: 'center', minHeight: '32px' }}>
           {diff !== undefined && (
-            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: scoreCol, letterSpacing: '0.06em' }}>
+            <span style={{ fontSize: '1.2rem', fontWeight: 700, color: scoreCol, letterSpacing: '0.08em' }}>
               {label}
             </span>
           )}
         </div>
 
-        {/* Score controls */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
+        {/* Score controls — M3: 72px buttons, gold+ / red- */}
+        <div className="score-controls-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px' }}>
           {/* Minus */}
           <button
             onClick={() => handleScoreChange(currentHole, (score ?? par) - 1)}
@@ -419,22 +439,27 @@ function ScorePageContent() {
             onTouchEnd={(e) => { e.stopPropagation(); stopHold() }}
             disabled={score !== undefined && score <= 1}
             style={{
-              width: '64px', height: '64px', borderRadius: '50%',
-              border: '2px solid rgba(122,143,168,0.4)',
-              background: 'rgba(122,143,168,0.08)',
-              color: '#edeae4', fontSize: '2rem', cursor: 'pointer',
+              width: '72px', height: '72px', borderRadius: '50%',
+              border: '2px solid rgba(220,38,38,0.5)',
+              background: 'rgba(220,38,38,0.12)',
+              color: '#f87171', fontSize: '2.2rem', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               opacity: score !== undefined && score <= 1 ? 0.3 : 1,
               transition: 'all 0.1s',
               WebkitTapHighlightColor: 'transparent',
+              minHeight: 0, minWidth: 0,
             }}
           >
             −
           </button>
 
-          {/* Score display */}
-          <div style={{ textAlign: 'center', minWidth: '80px' }}>
-            <div style={{ fontSize: '3.5rem', fontWeight: 900, color: scoreCol, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+          {/* Score display — M3: 80px font, pop animation */}
+          <div className="score-display" style={{ textAlign: 'center', minWidth: '90px' }}>
+            <div
+              key={scoreAnimKey}
+              className="score-pop"
+              style={{ fontSize: '5rem', fontWeight: 900, color: scoreCol, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}
+            >
               {score ?? '—'}
             </div>
           </div>
@@ -449,22 +474,23 @@ function ScorePageContent() {
             onTouchEnd={(e) => { e.stopPropagation(); stopHold() }}
             disabled={score !== undefined && score >= 12}
             style={{
-              width: '64px', height: '64px', borderRadius: '50%',
-              border: '2px solid rgba(122,143,168,0.4)',
-              background: 'rgba(122,143,168,0.08)',
-              color: '#edeae4', fontSize: '2rem', cursor: 'pointer',
+              width: '72px', height: '72px', borderRadius: '50%',
+              border: '2px solid rgba(196,153,42,0.6)',
+              background: 'rgba(196,153,42,0.15)',
+              color: '#c4992a', fontSize: '2.2rem', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               opacity: score !== undefined && score >= 12 ? 0.3 : 1,
               transition: 'all 0.1s',
               WebkitTapHighlightColor: 'transparent',
+              minHeight: 0, minWidth: 0,
             }}
           >
             +
           </button>
         </div>
 
-        {/* Quick-pick chips */}
-        <div style={{ overflowX: 'auto', display: 'flex', gap: '8px', padding: '4px 0', WebkitOverflowScrolling: 'touch' }}>
+        {/* Quick-pick chips — M3: 44px height, 16px font, scroll horizontal */}
+        <div className="scroll-container" style={{ overflowX: 'auto', display: 'flex', gap: '10px', padding: '4px 2px', WebkitOverflowScrolling: 'touch' }}>
           {chips.map((c) => {
             const isActive = score === c.value
             const cDiff    = c.value - par
@@ -475,19 +501,20 @@ function ScorePageContent() {
                 onClick={() => handleScoreChange(currentHole, c.value)}
                 style={{
                   flexShrink: 0,
-                  minHeight: '46px',
-                  padding: '10px 18px', borderRadius: '23px',
+                  minHeight: '44px',
+                  padding: '10px 20px', borderRadius: '24px',
                   border: `1px solid ${isActive ? cColor : 'rgba(122,143,168,0.25)'}`,
                   background: isActive ? `${cColor}22` : 'transparent',
                   color: isActive ? cColor : '#7a8fa8',
-                  fontWeight: isActive ? 700 : 400,
-                  fontSize: '13px', cursor: 'pointer',
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: '15px', cursor: 'pointer',
                   WebkitTapHighlightColor: 'transparent',
                   transition: 'all 0.15s',
+                  minWidth: 0,
                 }}
               >
                 {c.label}
-                <span style={{ marginLeft: '4px', fontSize: '11px', opacity: 0.7 }}>
+                <span style={{ marginLeft: '5px', fontSize: '12px', opacity: 0.7 }}>
                   ({cDiff >= 0 ? '+' : ''}{cDiff === 0 ? 'E' : cDiff})
                 </span>
               </button>
@@ -563,8 +590,8 @@ function ScorePageContent() {
         )}
       </div>
 
-      {/* ── Siguiente / Finalizar button ────────────────────────────────────── */}
-      <div style={{ position: 'sticky', bottom: 0, padding: '12px 16px', background: 'rgba(7,13,24,0.97)', borderTop: '1px solid rgba(196,153,42,0.1)' }}>
+      {/* ── Siguiente / Finalizar button — M3: 64px, safe-area ─────────────── */}
+      <div style={{ position: 'sticky', bottom: 0, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', background: 'rgba(7,13,24,0.97)', borderTop: '1px solid rgba(196,153,42,0.1)' }}>
         <div style={{ maxWidth: '480px', margin: '0 auto' }}>
           {currentHole > 1 && (
             <button
@@ -592,14 +619,15 @@ function ScorePageContent() {
             onClick={handleNext}
             disabled={saving}
             style={{
-              width: '100%', height: '56px',
+              width: '100%', height: '64px',
               background: '#c4992a', color: '#070d18',
-              fontWeight: 700, fontSize: '16px',
+              fontWeight: 700, fontSize: '20px',
               borderRadius: '12px', border: 'none',
               cursor: saving ? 'not-allowed' : 'pointer',
               opacity: saving ? 0.7 : 1,
               transition: 'opacity 0.15s',
               WebkitTapHighlightColor: 'transparent',
+              minHeight: 0,
             }}
           >
             {saving ? 'Guardando...' : currentHole < (ronda?.holes ?? 18) ? `Hoyo siguiente →` : '✓ Finalizar ronda'}
