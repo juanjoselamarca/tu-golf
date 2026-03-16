@@ -279,6 +279,28 @@ export default function ScoringPage() {
     )
   }
 
+  if (players.length === 0) {
+    return (
+      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <div style={{ fontSize: '56px', marginBottom: '20px' }}>🏌️</div>
+          <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', marginBottom: '10px' }}>
+            Sin jugadores inscritos
+          </h3>
+          <p style={{ color: '#7a8fa8', marginBottom: '24px', fontSize: '15px' }}>
+            Inscribe jugadores antes de ingresar scores
+          </p>
+          <button
+            onClick={() => window.location.href = `/organizador/${slug}/jugadores`}
+            style={{ background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '15px', padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: 'pointer' }}
+          >
+            Inscribir jugadores →
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const holeCount      = tournament.hole_count || 18
   const holes          = Array.from({ length: holeCount }, (_, i) => i + 1)
   const selectedPlayer = players.find((p) => p.id === selectedId)

@@ -141,10 +141,20 @@ export default function PerfilPage() {
             <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{tourneysPlayed}</div>
             <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '4px' }}>Torneos jugados</div>
           </div>
-          <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '32px', marginBottom: '8px' }}>📊</div>
-            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#7a8fa8', fontWeight: 600 }}>Próximamente</div>
-            <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '4px' }}>Estadísticas</div>
+          <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: profile.indice == null ? 'pointer' : 'default' }}
+            onClick={() => profile.indice == null && setEditing(true)}>
+            <div style={{ fontSize: '32px', marginBottom: '8px' }}>🏌️</div>
+            {profile.indice != null ? (
+              <>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{profile.indice}</div>
+                <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '4px' }}>Índice de golf</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '13px', color: '#c4992a', fontWeight: 600 }}>Sin índice</div>
+                <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '4px' }}>Agregar →</div>
+              </>
+            )}
           </div>
         </div>
 

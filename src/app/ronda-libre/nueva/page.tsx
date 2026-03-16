@@ -106,7 +106,11 @@ export default function NuevaRondaLibrePage() {
 
     if (rondaError || !ronda) {
       setLoading(false)
-      alert('Error al crear la ronda: ' + rondaError?.message)
+      if (rondaError?.message?.includes("'public.rondas_libres'") || rondaError?.message?.includes('relation') || rondaError?.code === '42P01') {
+        alert('La base de datos aún no está configurada. Ejecuta el archivo EJECUTAR_EN_SUPABASE.sql en el panel de Supabase.')
+      } else {
+        alert('Error al crear la ronda: ' + rondaError?.message)
+      }
       return
     }
 

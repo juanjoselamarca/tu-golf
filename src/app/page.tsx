@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import HeroSection   from '@/components/HeroSection'
-import StatsSection  from '@/components/StatsSection'
-import PGALiveWidget from '@/components/PGALiveWidget'
+import HeroSection  from '@/components/HeroSection'
+import StatsSection from '@/components/StatsSection'
+import { createClient } from '@/utils/supabase/server'
 
 const STEPS = [
   {
@@ -24,30 +24,21 @@ const STEPS = [
   },
 ]
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient()
+
+  const [{ count: torneos }, { count: golfistas }] = await Promise.all([
+    supabase.from('tournaments').select('*', { count: 'exact', head: true }),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+  ])
+
   return (
     <div>
       {/* ── Hero ──────────────────────────────────────── */}
       <HeroSection />
 
       {/* ── Stats ─────────────────────────────────────── */}
-      <StatsSection />
-
-      {/* ── PGA Tour en vivo ──────────────────────────── */}
-      <section style={{ padding: '60px 20px', background: '#070d18' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <h2 style={{
-            color:        '#c4992a',
-            fontFamily:   'Playfair Display, serif',
-            fontSize:     '1.5rem',
-            textAlign:    'center',
-            marginBottom: '24px',
-          }}>
-            🏌️ PGA Tour — En Vivo
-          </h2>
-          <PGALiveWidget />
-        </div>
-      </section>
+      <StatsSection torneos={torneos ?? 0} golfistas={golfistas ?? 0} />
 
       {/* ── Cómo funciona ─────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-28">
@@ -86,7 +77,6 @@ export default function Home() {
                 >
                   {s.num}
                 </span>
-                {/* Icon sits on top-left of the watermark */}
                 <span
                   className="absolute top-1 left-1 text-xl"
                   style={{ filter: 'drop-shadow(0 0 6px rgba(196,153,42,0.5))' }}

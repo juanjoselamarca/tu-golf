@@ -3,20 +3,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import PGALiveWidget from '@/components/PGALiveWidget'
 
 const IMAGES = [
   'https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1920&q=80',
   'https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1920&q=80',
   'https://images.unsplash.com/photo-1592919505780-303950717480?w=1920&q=80',
   'https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=1920&q=80',
-]
-
-const PREVIEW_PLAYERS = [
-  { pos: 1, name: 'C. Méndez',  score: -8 },
-  { pos: 2, name: 'R. Silva',   score: -5 },
-  { pos: 3, name: 'A. Torres',  score: -3 },
-  { pos: 4, name: 'F. García',  score: -2 },
-  { pos: 5, name: 'M. Ríos',    score: -1 },
 ]
 
 export default function HeroSection() {
@@ -122,55 +115,8 @@ export default function HeroSection() {
 
           {/* Right (40%) — desktop only ─────────────────── */}
           <div className="hidden lg:flex lg:col-span-2 items-center justify-center">
-            <div
-              className="glass-card rounded-xl p-5 select-none w-full"
-              style={{
-                maxWidth:  320,
-                boxShadow: '0 25px 60px rgba(0,0,0,0.55)',
-              }}
-            >
-              {/* Card header */}
-              <div
-                className="flex items-center justify-between mb-4 pb-3"
-                style={{ borderBottom: '1px solid rgba(196,153,42,0.2)' }}
-              >
-                <span className="font-display text-sm font-bold text-ivory">
-                  🏆 TPC Sawgrass Amateur
-                </span>
-                <span className="flex items-center gap-1.5 text-xs font-sans font-semibold text-score-bogey">
-                  <span className="w-1.5 h-1.5 rounded-full bg-score-bogey live-dot inline-block" />
-                  EN VIVO
-                </span>
-              </div>
-
-              {/* Column headers */}
-              <div className="grid grid-cols-3 text-[10px] font-sans text-gray-soft uppercase tracking-widest mb-1 px-2">
-                <span>POS</span>
-                <span>JUGADOR</span>
-                <span className="text-right">SCORE</span>
-              </div>
-
-              {/* Rows */}
-              {PREVIEW_PLAYERS.map((p, i) => (
-                <div
-                  key={p.name}
-                  className={`grid grid-cols-3 items-center px-2 py-2.5 rounded text-sm font-sans ${
-                    i === 0 ? 'leader-row' : ''
-                  }`}
-                >
-                  <span className="text-gray-soft">{p.pos}</span>
-                  <span className="text-ivory font-medium">{p.name}</span>
-                  <span className="text-right font-bold text-score-birdie">{p.score}</span>
-                </div>
-              ))}
-
-              {/* Card footer */}
-              <div
-                className="mt-4 pt-3 text-[11px] font-sans text-gray-soft text-right"
-                style={{ borderTop: '1px solid rgba(196,153,42,0.12)' }}
-              >
-                Última actualización: hace 30s
-              </div>
+            <div style={{ width: '100%', maxWidth: 360 }}>
+              <PGALiveWidget />
             </div>
           </div>
 
