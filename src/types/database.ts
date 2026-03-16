@@ -94,9 +94,67 @@ export interface RondaLibreJugador {
 }
 
 export interface Profile {
-  id:         string
-  name:       string
-  email:      string
-  indice:     number | null
-  avatar_url: string | null
+  id:                    string
+  name:                  string
+  email:                 string
+  indice:                number | null
+  avatar_url:            string | null
+  patterns_need_recalc?: boolean
+}
+
+export interface PlayerPattern {
+  id:             string
+  user_id:        string
+  pattern_type:   string
+  confidence:     number
+  data_points:    number
+  metadata:       Record<string, number>
+  first_detected: string
+  last_updated:   string
+  status:         'active' | 'improving' | 'resolved'
+}
+
+export interface TaigerSession {
+  id:                  string
+  user_id:             string
+  session_type:        'post_round' | 'weekly_plan' | 'pre_tournament' | 'onboarding'
+  tournament_id:       string | null
+  ronda_libre_id:      string | null
+  messages:            unknown[]
+  techniques_assigned: unknown[]
+  mental_notes:        string | null
+  next_focus:          string | null
+  created_at:          string
+}
+
+export interface PlayerPsychProfile {
+  id:                   string
+  user_id:              string
+  onboarding_completed: boolean
+  onboarding_answers:   Record<string, unknown>
+  identity_score:       number | null
+  pressure_response:    'activacion' | 'paralisis' | 'mixto' | null
+  motivation_type:      'competitivo' | 'disfrute' | 'social' | null
+  primary_fear:         string | null
+  updated_at:           string
+}
+
+export interface GarminConnection {
+  id:               string
+  user_id:          string
+  access_token:     string | null
+  refresh_token:    string | null
+  token_expires_at: string | null
+  garmin_user_id:   string | null
+  last_sync:        string | null
+  status:           'pending' | 'active' | 'expired' | 'revoked'
+  created_at:       string
+}
+
+export interface HandicapHistory {
+  id:             string
+  user_id:        string
+  handicap_index: number
+  source:         'manual' | 'calculated' | 'garmin'
+  calculated_at:  string
 }
