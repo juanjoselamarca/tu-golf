@@ -3,6 +3,8 @@
 // NOTE: course_holes uses "numero" (not hole_number).
 // NOTE: courses uses "nombre", "ciudad", "pais" (not name/city/country).
 
+export type ModoJuego = 'gross' | 'neto' | 'stableford'
+
 export interface Course {
   id:            string
   nombre:        string
@@ -22,6 +24,7 @@ export interface CourseHole {
   yardaje_blanco:       number
   yardaje_azul:         number
   yardaje_campeonato:   number
+  yardaje_rojo?:        number
 }
 
 export interface Tournament {
@@ -29,6 +32,7 @@ export interface Tournament {
   name:         string
   slug:         string
   format:       string
+  modo_juego:   ModoJuego
   hole_count:   number
   date_start:   string | null
   status:       string
@@ -81,6 +85,7 @@ export interface RondaLibre {
   holes:       number
   fecha:       string
   estado:      'en_curso' | 'finalizada'
+  modo_juego:  ModoJuego
   created_at:  string
 }
 
@@ -120,8 +125,8 @@ export interface TaigerSession {
   session_type:        'post_round' | 'weekly_plan' | 'pre_tournament' | 'onboarding'
   tournament_id:       string | null
   ronda_libre_id:      string | null
-  messages:            unknown[]
-  techniques_assigned: unknown[]
+  messages:            Array<{ role: 'user' | 'assistant'; content: string }>
+  techniques_assigned: string[]
   mental_notes:        string | null
   next_focus:          string | null
   created_at:          string
@@ -142,10 +147,10 @@ export interface PlayerPsychProfile {
 export interface GarminConnection {
   id:               string
   user_id:          string
-  access_token:     string | null
-  refresh_token:    string | null
-  token_expires_at: string | null
-  garmin_user_id:   string | null
+  access_token?:    string | null
+  refresh_token?:   string | null
+  token_expires_at?: string | null
+  garmin_user_id?:  string | null
   last_sync:        string | null
   status:           'pending' | 'active' | 'expired' | 'revoked'
   created_at:       string

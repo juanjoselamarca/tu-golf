@@ -38,6 +38,7 @@ interface HistoricalRound {
   played_at:   string
   scores:      (number | null)[]
   total_gross: number | null
+  modo_juego:  string | null
   notes:       string | null
   privacy:     string
   created_at:  string
@@ -111,8 +112,9 @@ function HistorialContent() {
   const [month, setMonth] = useState(String(new Date().getMonth() + 1))
   const [year,  setYear]  = useState(String(THIS_YEAR))
   const [scores, setScores] = useState<(number | null)[]>(Array(18).fill(null))
-  const [notes,   setNotes]   = useState('')
-  const [privacy, setPrivacy] = useState('private')
+  const [notes,      setNotes]      = useState('')
+  const [privacy,    setPrivacy]    = useState('private')
+  const [modoJuego,  setModoJuego]  = useState<'gross' | 'neto' | 'stableford'>('gross')
 
   const formStats  = computeStats(scores)
   const totalGross = formStats?.total ?? null
@@ -145,7 +147,7 @@ function HistorialContent() {
     const supabase = createClient()
     const { data } = await supabase
       .from('historical_rounds')
-      .select('id, course_name, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
+      .select('id, course_name, tee_color, played_at, scores, total_gross, modo_juego, notes, privacy, created_at')
       .order('played_at', { ascending: false })
       .limit(50)
     setRounds((data as HistoricalRound[]) || [])
@@ -156,7 +158,7 @@ function HistorialContent() {
   const resetForm = () => {
     setCourseName(''); setTeeColor('')
     setDay(String(new Date().getDate())); setMonth(String(new Date().getMonth() + 1)); setYear(String(THIS_YEAR))
-    setScores(Array(18).fill(null)); setNotes(''); setPrivacy('private')
+    setScores(Array(18).fill(null)); setNotes(''); setPrivacy('private'); setModoJuego('gross')
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -169,6 +171,7 @@ function HistorialContent() {
       user_id: userId, course_name: courseName,
       tee_color: teeColor || null, played_at: playedAt,
       scores, total_gross: totalGross,
+      modo_juego: modoJuego,
       notes: notes || null, privacy,
     })
     setSaving(false)
@@ -342,6 +345,22 @@ function HistorialContent() {
               </div>
             </div>
 
+            {/* Modo de juego */}
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '8px' }}>Modo de juego</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {([['gross', 'Gross'], ['neto', 'Neto'], ['stableford', 'Stableford']] as const).map(([val, lbl]) => (
+                  <button key={val} type="button" onClick={() => setModoJuego(val)} style={{
+                    flex: 1, padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                    border: `1px solid ${modoJuego === val ? '#c4992a' : 'rgba(122,143,168,0.25)'}`,
+                    background: modoJuego === val ? 'rgba(196,153,42,0.15)' : 'transparent',
+                    color: modoJuego === val ? '#c4992a' : '#7a8fa8',
+                    fontWeight: modoJuego === val ? 700 : 400, fontSize: '13px',
+                  }}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+
             {/* Scores por hoyo — front 9 + back 9 */}
             <div style={{ marginBottom: '18px' }}>
               <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '8px' }}>
@@ -481,6 +500,11 @@ function HistorialContent() {
                           <div style={{ fontSize: '11px', color: '#7a8fa8', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <span>{dateStr}</span>
                             {r.tee_color && <span style={{ background: 'rgba(196,153,42,0.1)', padding: '1px 6px', borderRadius: '8px', color: '#c4992a', fontSize: '10px' }}>Tee {r.tee_color}</span>}
+                            {r.modo_juego && r.modo_juego !== 'gross' && (
+                              <span style={{ background: 'rgba(96,165,250,0.1)', padding: '1px 6px', borderRadius: '8px', color: '#93c5fd', fontSize: '10px' }}>
+                                {r.modo_juego === 'neto' ? 'Neto' : 'Stableford'}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <button

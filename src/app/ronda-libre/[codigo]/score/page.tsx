@@ -6,6 +6,12 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { QRCodeSVG } from 'qrcode.react'
 import { getScoreColor, getScoreLabel, formatOverUnder } from '@/constants/golf'
+import {
+  strokesRecibidosEnHoyo,
+  puntosStablefordHoyo,
+  labelResultado,
+} from '@/lib/scoring'
+import type { ModoJuego } from '@/lib/scoring'
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 interface Jugador {
@@ -19,11 +25,19 @@ interface RondaLibre {
   id:                     string
   codigo:                 string
   course_name:            string
+  course_id:              string | null
   tees:                   string
   holes:                  number
   fecha:                  string
   estado:                 string
+  modo_juego:             ModoJuego
   ronda_libre_jugadores:  Jugador[]
+}
+
+interface HoleData {
+  numero:       number
+  par:          number
+  stroke_index: number
 }
 
 /* ── LS backup ─────────────────────────────────────────────────────────────── */
@@ -56,6 +70,26 @@ function quickScores(par: number): { label: string; value: number }[] {
   return chips.filter((c) => c.value >= 1)
 }
 
+/* ── Stableford helpers ─────────────────────────────────────────────────────── */
+function stablefordColor(pts: number): string {
+  if (pts >= 4) return '#60a5fa'  // blue  — eagle neto
+  if (pts === 3) return '#4ade80' // green — birdie neto
+  if (pts === 2) return '#94a3b8' // gray  — par neto
+  if (pts === 1) return '#c4992a' // gold  — bogey neto
+  return '#ef4444'                // red   — 0 pts
+}
+
+function stablefordChips(par: number, strokesRec: number): { label: string; value: number; pts: number; color: string }[] {
+  const base = par + strokesRec
+  return [
+    { label: '4 pts', value: Math.max(1, base - 2), pts: 4, color: '#60a5fa' },
+    { label: '3 pts', value: Math.max(1, base - 1), pts: 3, color: '#4ade80' },
+    { label: '2 pts', value: base,                  pts: 2, color: '#94a3b8' },
+    { label: '1 pt',  value: base + 1,               pts: 1, color: '#c4992a' },
+    { label: '0 pts', value: base + 2,               pts: 0, color: '#ef4444' },
+  ]
+}
+
 /* ── Main component ────────────────────────────────────────────────────────── */
 function ScorePageContent() {
   const params       = useParams()
@@ -70,6 +104,8 @@ function ScorePageContent() {
   const [currentHole,      setCurrentHole]      = useState(1)
   const [scores,           setScores]           = useState<Record<string, Record<number, number>>>({})
   const [parMap,           setParMap]           = useState<Record<number, number>>({})
+  const [holeDataMap,      setHoleDataMap]      = useState<Record<number, HoleData>>({})
+  const [playerHcp,        setPlayerHcp]        = useState<Record<string, number>>({})
 
   const [saving,       setSaving]       = useState(false)
   const [saved,        setSaved]        = useState(false)
@@ -109,7 +145,7 @@ function ScorePageContent() {
       const supabase = createClient()
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, tees, holes, fecha, estado, ronda_libre_jugadores(id, nombre, user_id, scores)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, ronda_libre_jugadores(id, nombre, user_id, scores)')
         .eq('codigo', codigo)
         .single()
 
@@ -125,7 +161,6 @@ function ScorePageContent() {
         if (j.scores) {
           for (const [k, v] of Object.entries(j.scores)) dbScores[parseInt(k)] = v as number
         }
-        // Merge localStorage backup (prefer DB scores)
         const ls = lsLoad(codigo, j.id)
         initialScores[j.id] = { ...ls, ...dbScores }
       }
@@ -133,8 +168,47 @@ function ScorePageContent() {
 
       // Default par = 4 for all holes
       const pm: Record<number, number> = {}
-      for (let i = 1; i <= r.holes; i++) pm[i] = 4
+      const hdm: Record<number, HoleData> = {}
+      for (let i = 1; i <= r.holes; i++) {
+        pm[i] = 4
+        hdm[i] = { numero: i, par: 4, stroke_index: i }
+      }
       setParMap(pm)
+
+      // Fetch course holes if linked
+      if (r.course_id) {
+        const { data: holes } = await supabase
+          .from('course_holes')
+          .select('numero, par, stroke_index')
+          .eq('course_id', r.course_id)
+          .order('numero')
+        if (holes) {
+          const pm2: Record<number, number> = {}
+          const hdm2: Record<number, HoleData> = {}
+          for (const h of holes as HoleData[]) {
+            pm2[h.numero]  = h.par
+            hdm2[h.numero] = h
+          }
+          setParMap(pm2)
+          setHoleDataMap(hdm2)
+        } else {
+          setHoleDataMap(hdm)
+        }
+      } else {
+        setHoleDataMap(hdm)
+      }
+
+      // Fetch handicaps for linked players
+      const hcpMap: Record<string, number> = {}
+      for (const j of r.ronda_libre_jugadores) {
+        if (j.user_id) {
+          const { data: prof } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single()
+          hcpMap[j.id] = prof?.indice ?? 18
+        } else {
+          hcpMap[j.id] = 18
+        }
+      }
+      setPlayerHcp(hcpMap)
 
       // Pre-select player from URL param or first
       const preselect = jugadorParam
@@ -275,12 +349,33 @@ function ScorePageContent() {
 
   const jugadores    = ronda.ronda_libre_jugadores
   const holes        = ronda.holes
+  const modo         = ronda.modo_juego
   const par          = parMap[currentHole] ?? 4
   const score        = scores[activeJugadorId]?.[currentHole]
   const diff         = score !== undefined ? score - par : undefined
-  const scoreCol     = diff !== undefined ? getScoreColor(score!, par) : '#edeae4'
-  const label        = diff !== undefined ? getScoreLabel(score!, par) : ''
+
+  // Mode-aware scoring
+  const holeData        = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole }
+  const hcp             = playerHcp[activeJugadorId] ?? 18
+  const strokesRec      = strokesRecibidosEnHoyo(hcp, holeData.stroke_index)
+  const netoScore       = score !== undefined ? score - strokesRec : undefined
+  const netoOverUnder   = netoScore !== undefined ? netoScore - par : undefined
+  const stablefordPts   = score !== undefined ? puntosStablefordHoyo(score, par, hcp, holeData.stroke_index) : undefined
+
+  const scoreCol = modo === 'stableford' && stablefordPts !== undefined
+    ? stablefordColor(stablefordPts)
+    : modo === 'neto' && netoOverUnder !== undefined
+    ? getScoreColor(netoScore!, par)
+    : diff !== undefined ? getScoreColor(score!, par) : '#edeae4'
+
+  const label = modo === 'stableford' && stablefordPts !== undefined
+    ? `${stablefordPts} PTS`
+    : modo === 'neto' && netoOverUnder !== undefined
+    ? getScoreLabel(netoScore!, par)
+    : diff !== undefined ? getScoreLabel(score!, par) : ''
+
   const chips        = quickScores(par)
+  const sfChips      = stablefordChips(par, strokesRec)
 
   const qrUrl        = typeof window !== 'undefined'
     ? `${window.location.origin}/ronda-libre/${codigo}`
@@ -292,11 +387,17 @@ function ScorePageContent() {
 
   // Totals for active player
   let outGross = 0, outPar = 0, inGross = 0, inPar = 0, totalGross = 0, totalParPlayed = 0
+  let totalNeto = 0, totalStableford = 0
   for (let h = 1; h <= holes; h++) {
-    const s = scores[activeJugadorId]?.[h]
-    const p = parMap[h] ?? 4
+    const s  = scores[activeJugadorId]?.[h]
+    const p  = parMap[h] ?? 4
+    const hd2 = holeDataMap[h] ?? { numero: h, par: p, stroke_index: h }
     if (s != null) {
-      totalGross += s; totalParPlayed += p
+      totalGross     += s
+      totalParPlayed += p
+      const sr  = strokesRecibidosEnHoyo(playerHcp[activeJugadorId] ?? 18, hd2.stroke_index)
+      totalNeto      += (s - sr) - p
+      totalStableford += puntosStablefordHoyo(s, p, playerHcp[activeJugadorId] ?? 18, hd2.stroke_index)
       if (h <= 9)  { outGross += s; outPar += p }
       else         { inGross  += s; inPar  += p }
     }
@@ -414,7 +515,10 @@ function ScorePageContent() {
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '18px', color: '#7a8fa8', marginTop: '6px' }}>
             <span>PAR {par}</span>
             <span>·</span>
-            <span>SI {currentHole}</span>
+            <span>SI {holeData.stroke_index}</span>
+            {modo !== 'gross' && strokesRec > 0 && (
+              <span style={{ fontSize: '14px', color: '#c4992a' }}>{'•'.repeat(strokesRec)}</span>
+            )}
           </div>
         </div>
 
@@ -462,6 +566,18 @@ function ScorePageContent() {
             >
               {score ?? '—'}
             </div>
+            {/* Neto sub-label */}
+            {modo === 'neto' && score !== undefined && netoScore !== undefined && (
+              <div style={{ fontSize: '13px', color: '#c4992a', marginTop: '4px' }}>
+                Neto: {netoScore} {netoOverUnder !== undefined ? `(${netoOverUnder >= 0 ? '+' : ''}${netoOverUnder === 0 ? 'E' : netoOverUnder})` : ''}
+              </div>
+            )}
+            {/* Stableford PTS sub-label */}
+            {modo === 'stableford' && score !== undefined && stablefordPts !== undefined && (
+              <div style={{ fontSize: '13px', color: stablefordColor(stablefordPts), marginTop: '4px', fontWeight: 700 }}>
+                {stablefordPts} {stablefordPts === 1 ? 'punto' : 'puntos'}
+              </div>
+            )}
           </div>
 
           {/* Plus */}
@@ -491,35 +607,58 @@ function ScorePageContent() {
 
         {/* Quick-pick chips — M3: 44px height, 16px font, scroll horizontal */}
         <div className="scroll-container" style={{ overflowX: 'auto', display: 'flex', gap: '10px', padding: '4px 2px', WebkitOverflowScrolling: 'touch' }}>
-          {chips.map((c) => {
-            const isActive = score === c.value
-            const cDiff    = c.value - par
-            const cColor   = getScoreColor(c.value, par)
-            return (
-              <button
-                key={c.label}
-                onClick={() => handleScoreChange(currentHole, c.value)}
-                style={{
-                  flexShrink: 0,
-                  minHeight: '44px',
-                  padding: '10px 20px', borderRadius: '24px',
-                  border: `1px solid ${isActive ? cColor : 'rgba(122,143,168,0.25)'}`,
-                  background: isActive ? `${cColor}22` : 'transparent',
-                  color: isActive ? cColor : '#7a8fa8',
-                  fontWeight: isActive ? 700 : 500,
-                  fontSize: '15px', cursor: 'pointer',
-                  WebkitTapHighlightColor: 'transparent',
-                  transition: 'all 0.15s',
-                  minWidth: 0,
-                }}
-              >
-                {c.label}
-                <span style={{ marginLeft: '5px', fontSize: '12px', opacity: 0.7 }}>
-                  ({cDiff >= 0 ? '+' : ''}{cDiff === 0 ? 'E' : cDiff})
-                </span>
-              </button>
-            )
-          })}
+          {modo === 'stableford'
+            ? sfChips.map((c) => {
+                const isActive = score === c.value
+                return (
+                  <button
+                    key={c.label}
+                    onClick={() => handleScoreChange(currentHole, c.value)}
+                    style={{
+                      flexShrink: 0, minHeight: '44px',
+                      padding: '10px 16px', borderRadius: '24px',
+                      border: `1px solid ${isActive ? c.color : 'rgba(122,143,168,0.25)'}`,
+                      background: isActive ? `${c.color}22` : 'transparent',
+                      color: isActive ? c.color : '#7a8fa8',
+                      fontWeight: isActive ? 700 : 500,
+                      fontSize: '14px', cursor: 'pointer',
+                      WebkitTapHighlightColor: 'transparent',
+                      transition: 'all 0.15s', minWidth: 0,
+                    }}
+                  >
+                    {c.label}
+                    <span style={{ marginLeft: '5px', fontSize: '11px', opacity: 0.7 }}>({c.value})</span>
+                  </button>
+                )
+              })
+            : chips.map((c) => {
+                const isActive = score === c.value
+                const cDiff    = c.value - par
+                const cColor   = getScoreColor(c.value, par)
+                return (
+                  <button
+                    key={c.label}
+                    onClick={() => handleScoreChange(currentHole, c.value)}
+                    style={{
+                      flexShrink: 0, minHeight: '44px',
+                      padding: '10px 20px', borderRadius: '24px',
+                      border: `1px solid ${isActive ? cColor : 'rgba(122,143,168,0.25)'}`,
+                      background: isActive ? `${cColor}22` : 'transparent',
+                      color: isActive ? cColor : '#7a8fa8',
+                      fontWeight: isActive ? 700 : 500,
+                      fontSize: '15px', cursor: 'pointer',
+                      WebkitTapHighlightColor: 'transparent',
+                      transition: 'all 0.15s', minWidth: 0,
+                    }}
+                  >
+                    {c.label}
+                    <span style={{ marginLeft: '5px', fontSize: '12px', opacity: 0.7 }}>
+                      ({cDiff >= 0 ? '+' : ''}{cDiff === 0 ? 'E' : cDiff})
+                    </span>
+                  </button>
+                )
+              })
+          }
         </div>
 
         {/* Progress mini-grid */}
@@ -530,16 +669,29 @@ function ScorePageContent() {
               const p    = parMap[h] ?? 4
               const d    = s !== undefined ? s - p : null
               const isCurrent = h === currentHole
+              const hd   = holeDataMap[h] ?? { numero: h, par: p, stroke_index: h }
 
-              let bg = 'rgba(122,143,168,0.1)'
-              let border = '1px solid rgba(122,143,168,0.2)'
-              let textColor = '#3a4a5a'
+              let cellColor = '#3a4a5a'
+              let displayVal: string | number = '·'
 
-              if (d !== null) {
-                bg     = `${getScoreColor(s!, p)}22`
-                border = `1px solid ${getScoreColor(s!, p)}55`
-                textColor = getScoreColor(s!, p)
+              if (s != null) {
+                if (modo === 'stableford') {
+                  const pts = puntosStablefordHoyo(s, p, hcp, hd.stroke_index)
+                  cellColor = stablefordColor(pts)
+                  displayVal = pts
+                } else if (modo === 'neto') {
+                  const sr  = strokesRecibidosEnHoyo(hcp, hd.stroke_index)
+                  const nOu = (s - sr) - p
+                  cellColor = getScoreColor(s - sr, p)
+                  displayVal = nOu === 0 ? 'E' : nOu > 0 ? `+${nOu}` : nOu
+                } else {
+                  cellColor = getScoreColor(s, p)
+                  displayVal = d === 0 ? 'E' : d! > 0 ? `+${d}` : d!
+                }
               }
+
+              const bg     = s != null ? `${cellColor}22` : 'rgba(122,143,168,0.1)'
+              const border = s != null ? `1px solid ${cellColor}55` : '1px solid rgba(122,143,168,0.2)'
 
               return (
                 <button
@@ -555,8 +707,8 @@ function ScorePageContent() {
                   }}
                 >
                   <span style={{ fontSize: '9px', color: isCurrent ? '#c4992a' : '#7a8fa8', lineHeight: 1 }}>{h}</span>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: isCurrent ? '#c4992a' : textColor, lineHeight: 1 }}>
-                    {s != null ? (d === 0 ? 'E' : d! > 0 ? `+${d}` : d) : '·'}
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: isCurrent ? '#c4992a' : cellColor, lineHeight: 1 }}>
+                    {displayVal}
                   </span>
                 </button>
               )
@@ -567,25 +719,48 @@ function ScorePageContent() {
         {/* Running totals */}
         {holesPlayed > 0 && (
           <div style={{ background: '#0e1c2f', borderRadius: '10px', padding: '12px 16px', display: 'flex', justifyContent: 'space-around', border: '1px solid rgba(196,153,42,0.1)' }}>
-            {holes === 18 && outGross > 0 && (
+            {modo !== 'stableford' && holes === 18 && outGross > 0 && (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '11px', color: '#7a8fa8', marginBottom: '2px' }}>Out</div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#edeae4' }}>{outGross}</div>
                 <div style={{ fontSize: '11px', color: getScoreColor(outGross, outPar) }}>{formatOverUnder(outGross - outPar)}</div>
               </div>
             )}
-            {holes === 18 && inGross > 0 && (
+            {modo !== 'stableford' && holes === 18 && inGross > 0 && (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '11px', color: '#7a8fa8', marginBottom: '2px' }}>In</div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#edeae4' }}>{inGross}</div>
                 <div style={{ fontSize: '11px', color: getScoreColor(inGross, inPar) }}>{formatOverUnder(inGross - inPar)}</div>
               </div>
             )}
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: '#7a8fa8', marginBottom: '2px' }}>Total ({holesPlayed}/{holes})</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#edeae4' }}>{totalGross}</div>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: getScoreColor(totalGross, totalParPlayed) }}>{formatOverUnder(totalGross - totalParPlayed)}</div>
-            </div>
+            {/* Gross total always visible */}
+            {modo !== 'stableford' && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', marginBottom: '2px' }}>Total ({holesPlayed}/{holes})</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#edeae4' }}>{totalGross}</div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: getScoreColor(totalGross, totalParPlayed) }}>{formatOverUnder(totalGross - totalParPlayed)}</div>
+              </div>
+            )}
+            {/* Neto total */}
+            {modo === 'neto' && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#c4992a', marginBottom: '2px' }}>Neto</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#c4992a' }}>{formatOverUnder(totalNeto)}</div>
+              </div>
+            )}
+            {/* Stableford total */}
+            {modo === 'stableford' && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', marginBottom: '2px' }}>Gross</div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#edeae4' }}>{totalGross}</div>
+              </div>
+            )}
+            {modo === 'stableford' && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#c4992a', marginBottom: '2px' }}>Stableford</div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: totalStableford >= holesPlayed * 2 ? '#4ade80' : '#c4992a' }}>{totalStableford} pts</div>
+              </div>
+            )}
           </div>
         )}
       </div>

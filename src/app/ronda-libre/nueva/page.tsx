@@ -31,6 +31,11 @@ const CANCHAS_CHILE = [
 ]
 
 const TEES_OPTIONS = ['Campeonato', 'Azul', 'Blanco', 'Rojo']
+const MODOS: { value: 'gross' | 'neto' | 'stableford'; label: string; desc: string }[] = [
+  { value: 'gross',      label: 'Score Gross',  desc: 'Score real sin ajuste de índice' },
+  { value: 'neto',       label: 'Score Neto',   desc: 'Score ajustado por índice de handicap' },
+  { value: 'stableford', label: 'Stableford',   desc: 'Puntos por hoyo (neto)' },
+]
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 const inputStyle: React.CSSProperties = {
@@ -52,7 +57,8 @@ export default function NuevaRondaLibrePage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [cancha, setCancha] = useState('')
   const [tees, setTees] = useState('blanco')
-  const [holes, setHoles] = useState<18 | 9>(18)
+  const [holes,      setHoles]      = useState<18 | 9>(18)
+  const [modoJuego,  setModoJuego]  = useState<'gross' | 'neto' | 'stableford'>('gross')
   const [fecha, setFecha] = useState({
     day: new Date().getDate(),
     month: new Date().getMonth() + 1,
@@ -108,6 +114,7 @@ export default function NuevaRondaLibrePage() {
         holes,
         fecha: fechaStr,
         estado: 'en_curso',
+        modo_juego: modoJuego,
       })
       .select('id')
       .single()
@@ -241,6 +248,42 @@ export default function NuevaRondaLibrePage() {
                   )
                 })}
               </div>
+            </div>
+
+            {/* Modo de Juego */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Modo de Juego
+              </label>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {MODOS.map((m) => {
+                  const active = modoJuego === m.value
+                  return (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => setModoJuego(m.value)}
+                      style={{
+                        padding: '8px 16px', borderRadius: '8px', border: '1px solid',
+                        cursor: 'pointer', fontSize: '14px', fontWeight: active ? 700 : 400,
+                        background: active ? '#c4992a' : 'transparent',
+                        borderColor: active ? '#c4992a' : 'rgba(122,143,168,0.3)',
+                        color: active ? '#070d18' : '#7a8fa8', transition: 'all 0.15s',
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{ marginTop: '6px', fontSize: '12px', color: '#c4992a' }}>
+                {MODOS.find(m => m.value === modoJuego)?.desc}
+              </div>
+              {(modoJuego === 'neto' || modoJuego === 'stableford') && (
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#7a8fa8', background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '8px', padding: '8px 12px' }}>
+                  ℹ️ Cada jugador debe tener su índice registrado en su perfil para el cálculo correcto
+                </div>
+              )}
             </div>
 
             {/* Fecha */}

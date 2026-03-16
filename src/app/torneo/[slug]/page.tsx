@@ -1,9 +1,13 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link'
 import LeaderboardTable from '@/components/LeaderboardTable'
+import GWILeaderboard from '@/components/GWILeaderboard'
 import { PLAYERS, PAR } from '@/lib/golf-data'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
+import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
+import type { ModoJuego } from '@/lib/scoring'
+import type { JugadorGWIInput } from '@/lib/gwi'
 
 interface DBPlayer {
   id: string
@@ -26,12 +30,13 @@ interface DBTournament {
   slug: string
   format: string
   hole_count: number
+  modo_juego: ModoJuego | null
   date_start: string | null
   status: string
   courses: { id: string; nombre: string; ciudad: string; par_total: number } | null
 }
 
-interface DBCourseHole { numero: number; par: number }
+interface DBCourseHole { numero: number; par: number; stroke_index: number }
 
 interface TourneyStats {
   bestName:    string
@@ -103,23 +108,28 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   // Try to fetch real tournament
   const { data: rawTournament } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, hole_count, date_start, status, courses(id, nombre, ciudad, par_total)')
+    .select('id, name, slug, format, hole_count, modo_juego, date_start, status, courses(id, nombre, ciudad, par_total)')
     .eq('slug', params.slug)
     .single()
 
   const tournament = rawTournament as unknown as DBTournament | null
 
   // Fetch real players if tournament found
-  let players: Player[]          = []
-  let tournamentName             = 'TPC Sawgrass Amateur 2025'
-  let parTotal                   = 72
-  let dateDisplay                = '12 Mar 2025'
-  let isLive                     = false
-  let stats: TourneyStats | null = null
+  let players: Player[]                = []
+  let gwiInputs: JugadorGWIInput[]     = []
+  let tournamentName                   = 'TPC Sawgrass Amateur 2025'
+  let parTotal                         = 72
+  let modoJuego: ModoJuego             = 'gross'
+  let totalHoyos                       = 18
+  let dateDisplay                      = '12 Mar 2025'
+  let isLive                           = false
+  let stats: TourneyStats | null       = null
 
   if (tournament) {
     tournamentName = tournament.name
     parTotal       = tournament.courses?.par_total ?? 72
+    modoJuego      = tournament.modo_juego ?? 'gross'
+    totalHoyos     = tournament.hole_count ?? 18
     isLive         = tournament.status === 'active' || tournament.status === 'in_progress'
 
     if (tournament.date_start) {
@@ -141,12 +151,15 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
     const dbPlayers = (rawPlayers as unknown as DBPlayer[]) || []
 
-    // Course holes for stats
+    // Course holes for stats + GWI
     let courseHoles: DBCourseHole[] = []
     if (tournament.courses?.id) {
       const { data: ch } = await supabase
-        .from('course_holes').select('numero, par').eq('course_id', tournament.courses.id)
+        .from('course_holes').select('numero, par, stroke_index').eq('course_id', tournament.courses.id)
       courseHoles = (ch as DBCourseHole[]) || []
+    }
+    if (courseHoles.length === 0) {
+      for (let i = 1; i <= totalHoyos; i++) courseHoles.push({ numero: i, par: 4, stroke_index: i })
     }
 
     if (dbPlayers.length > 0) {
@@ -202,6 +215,43 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         })
       })
       stats = computeStats(dbPlayers, courseHoles, parTotal)
+
+      // GWI inputs
+      const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
+      gwiInputs = dbPlayers
+        .filter((p) => p.rounds?.length > 0)
+        .map((p) => {
+          const hcp        = p.handicap_at_registration ?? 18
+          const holeScores = p.rounds[0].hole_scores ?? []
+          let overUnderGross = 0, overUnderNeto = 0, totalSF = 0, hoyosComp = 0
+
+          for (const hs of holeScores) {
+            if (!hs.gross_score) continue
+            const hole = holeMap.get(hs.hole_number)
+            if (!hole) continue
+            hoyosComp++
+            overUnderGross += hs.gross_score - hole.par
+            overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(hcp, hole.stroke_index)) - hole.par
+            totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, hole.stroke_index)
+          }
+
+          const currentScore = modoJuego === 'stableford' ? totalSF
+            : modoJuego === 'neto' ? overUnderNeto : overUnderGross
+
+          return {
+            id:                   p.id,
+            nombre:               p.profiles?.name ?? 'Jugador',
+            handicapIndex:        hcp,
+            currentScore,
+            hoyosCompletados:     hoyosComp,
+            modoJuego,
+            historicalAvg:        null,
+            historicalRoundsCount: 0,
+            courseAvg:            null,
+            courseRoundsCount:    0,
+            patterns:             null,
+          } satisfies JugadorGWIInput
+        })
     } else {
       players = []
     }
@@ -278,8 +328,30 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
       {/* Leaderboard */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
+        {/* Modo badge */}
+        {tournament && (
+          <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '12px', padding: '3px 10px', borderRadius: '8px', fontWeight: 600 }}>
+              {modoJuego === 'gross' ? 'Gross' : modoJuego === 'neto' ? 'Neto' : 'Stableford'}
+            </span>
+            {isLive && <span style={{ fontSize: '12px', color: '#7a8fa8' }}>{totalHoyos} hoyos</span>}
+          </div>
+        )}
         {players.length > 0 ? (
-          <LeaderboardTable players={players} />
+          <>
+            <LeaderboardTable players={players} modoJuego={modoJuego} />
+            {/* GWI panel — only when enough data */}
+            {isLive && gwiInputs.length >= 2 && (
+              <div style={{ marginTop: '24px' }}>
+                <GWILeaderboard
+                  jugadores={gwiInputs}
+                  hoyosRestantes={totalHoyos - (gwiInputs.reduce((mx, g) => Math.max(mx, g.hoyosCompletados), 0))}
+                  totalHoyos={totalHoyos}
+                  modoJuego={modoJuego}
+                />
+              </div>
+            )}
+          </>
         ) : (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#7a8fa8' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>

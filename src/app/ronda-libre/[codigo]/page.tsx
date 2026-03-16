@@ -5,6 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
+import GWILeaderboard from '@/components/GWILeaderboard'
+import { calcularGWI } from '@/lib/gwi'
+import type { JugadorGWIInput, GWIResult } from '@/lib/gwi'
+import type { ModoJuego } from '@/lib/scoring'
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 interface Jugador {
@@ -21,14 +25,15 @@ interface CourseHole {
 }
 
 interface RondaLibre {
-  id: string
-  codigo: string
-  course_name: string
-  course_id: string | null
-  tees: string
-  holes: number
-  fecha: string
-  estado: string
+  id:                    string
+  codigo:                string
+  course_name:           string
+  course_id:             string | null
+  tees:                  string
+  holes:                 number
+  fecha:                 string
+  estado:                string
+  modo_juego:            ModoJuego
   ronda_libre_jugadores: Jugador[]
 }
 
@@ -96,13 +101,28 @@ export default function RondaLibrePage() {
   const [expanded,    setExpanded]    = useState<string | null>(null)
   const [countdown,   setCountdown]   = useState(15)
   const [copied,      setCopied]      = useState(false)
+  const [gwiInputs,   setGwiInputs]   = useState<JugadorGWIInput[]>([])
+  const [_gwiResults, setGwiResults]  = useState<GWIResult[]>([])
+
+  /* ── Fetch GWI ── */
+  const fetchGWI = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/gwi/ronda-libre/${codigo}`)
+      if (!res.ok) return
+      const json = await res.json()
+      if (json.inputs) {
+        setGwiInputs(json.inputs)
+        setGwiResults(calcularGWI(json.inputs, json.totalHoyos))
+      }
+    } catch {}
+  }, [codigo])
 
   /* ── Fetch ronda ── */
   const fetchRonda = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase
       .from('rondas_libres')
-      .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, ronda_libre_jugadores(id, nombre, user_id, scores)')
+      .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, ronda_libre_jugadores(id, nombre, user_id, scores)')
       .eq('codigo', codigo)
       .single()
 
@@ -138,9 +158,10 @@ export default function RondaLibrePage() {
   // Polling every 15s (spectator only)
   useEffect(() => {
     if (role !== 'espectador') return
-    const interval = setInterval(() => { fetchRonda(); setCountdown(15) }, 15000)
+    fetchGWI()
+    const interval = setInterval(() => { fetchRonda(); fetchGWI(); setCountdown(15) }, 15000)
     return () => clearInterval(interval)
-  }, [fetchRonda, role])
+  }, [fetchRonda, fetchGWI, role])
 
   // Countdown tick
   useEffect(() => {
@@ -264,6 +285,12 @@ export default function RondaLibrePage() {
                 <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modalidad</div>
                 <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>
                   {ronda.holes} hoyos
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modo</div>
+                <div style={{ fontSize: '14px', color: '#c4992a', fontWeight: 700, textTransform: 'capitalize' }}>
+                  {ronda.modo_juego === 'stableford' ? '⭐ Stableford' : ronda.modo_juego === 'neto' ? '🏌️ Neto' : '🏌️ Gross'}
                 </div>
               </div>
               <div>
@@ -423,6 +450,16 @@ export default function RondaLibrePage() {
                 })}
               </div>
             </div>
+          )}
+
+          {/* GWI — solo si hay ≥ 2 jugadores y al menos 3 hoyos jugados */}
+          {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+            <GWILeaderboard
+              jugadores={gwiInputs}
+              hoyosRestantes={ronda.holes - Math.max(...gwiInputs.map(j => j.hoyosCompletados), 0)}
+              totalHoyos={ronda.holes}
+              modoJuego={ronda.modo_juego || 'gross'}
+            />
           )}
 
           {/* Leaderboard */}

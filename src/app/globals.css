@@ -75,17 +75,48 @@
     @apply bg-bg-card rounded-xl border border-bg-hover p-6;
   }
 
-  /* Buttons */
+  /* Buttons — pure CSS (no broken @apply tokens) */
   .btn-primary {
-    @apply bg-players-blue text-white font-semibold py-2.5 px-6 rounded-lg
-           hover:bg-blue-600 transition-colors duration-200
-           focus:outline-none focus:ring-2 focus:ring-players-blue focus:ring-offset-2
-           disabled:opacity-50 disabled:cursor-not-allowed;
+    background: linear-gradient(135deg, #c4992a, #e8c06a, #c4992a);
+    background-size: 200% 200%;
+    color: #070d18;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 28px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 44px;
+  }
+  .btn-primary:hover {
+    background-position: right center;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(196, 153, 42, 0.35);
+  }
+  .btn-primary:active  { transform: translateY(0); box-shadow: none; }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
 
   .btn-secondary {
-    @apply bg-transparent text-gold font-semibold py-2.5 px-6 rounded
-           border border-gold hover:bg-gold/10 transition-colors duration-200;
+    background: transparent;
+    color: #c4992a;
+    border: 1.5px solid #c4992a;
+    border-radius: 12px;
+    padding: 13px 27px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    min-height: 44px;
+  }
+  .btn-secondary:hover {
+    background: rgba(196, 153, 42, 0.08);
+    transform: translateY(-2px);
   }
 
   .input-field {
@@ -254,6 +285,16 @@ html {
 .score-changed {
   animation: scoreChange 0.8s ease-out forwards;
 }
+
+/* ── GWI probability bars ─────────────────────────────────── */
+.gwi-bar {
+  height: 8px;
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.gwi-bar-leader { background: linear-gradient(90deg, #c4992a, #e8c06a); }
+.gwi-bar-second { background: #1a4fd6; }
+.gwi-bar-other  { background: #374151; }
 
 /* ── Sprint 9: countUp entrance ─────────────────────────── */
 @keyframes countUp {

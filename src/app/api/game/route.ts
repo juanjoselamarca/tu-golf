@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
 
 async function getAuthUser() {
   const cookieStore = await cookies()
@@ -66,7 +67,52 @@ export async function POST(request: NextRequest) {
 
   // ── upsert_score ────────────────────────────────────────
   if (action === 'upsert_score') {
-    const { round_id, hole_number, par, gross_score, net_score, points, putts, fairway_hit, gir } = body
+    const { round_id, hole_number, par, gross_score, putts, fairway_hit, gir } = body
+    let { net_score, points } = body as { net_score: number | null; points: number | null }
+
+    // Auto-calculate net_score and points if not provided
+    if (gross_score != null && (net_score == null || points == null)) {
+      // Look up player HCP and stroke_index
+      const { data: roundData } = await svc
+        .from('rounds')
+        .select('player_id, players(handicap_at_registration, tournament_id)')
+        .eq('id', round_id)
+        .single()
+      const rd = roundData as unknown as {
+        player_id: string
+        players: { handicap_at_registration: number | null; tournament_id: string } | null
+      } | null
+
+      if (rd?.players) {
+        const hcp          = rd.players.handicap_at_registration ?? 18
+        const tournId      = rd.players.tournament_id
+        const { data: chData } = await svc
+          .from('tournaments')
+          .select('courses(id)')
+          .eq('id', tournId)
+          .single()
+        const courseId = (chData as unknown as { courses: { id: string } | null } | null)?.courses?.id
+
+        let strokeIndex = hole_number  // fallback
+        if (courseId) {
+          const { data: holeRow } = await svc
+            .from('course_holes')
+            .select('stroke_index')
+            .eq('course_id', courseId)
+            .eq('numero', hole_number)
+            .single()
+          if (holeRow) strokeIndex = (holeRow as unknown as { stroke_index: number }).stroke_index
+        }
+
+        if (net_score == null) {
+          const grossNeto = gross_score - strokesRecibidosEnHoyo(hcp, strokeIndex)
+          net_score       = grossNeto  // store gross-strokes (absolute), not over/under
+        }
+        if (points == null) {
+          points = puntosStablefordHoyo(gross_score, par, hcp, strokeIndex)
+        }
+      }
+    }
 
     const upsertData: Record<string, unknown> = {
       round_id, hole_number, par, gross_score, net_score, points,
