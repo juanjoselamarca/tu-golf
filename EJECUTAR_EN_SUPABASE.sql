@@ -78,3 +78,18 @@ CREATE POLICY "public_historical_rounds" ON historical_rounds
 ALTER TABLE hole_scores ADD COLUMN IF NOT EXISTS putts       INTEGER;
 ALTER TABLE hole_scores ADD COLUMN IF NOT EXISTS fairway_hit BOOLEAN;
 ALTER TABLE hole_scores ADD COLUMN IF NOT EXISTS gir         BOOLEAN;
+
+-- ── Índices para queries frecuentes ───────────────────────────────────────────
+
+CREATE INDEX IF NOT EXISTS idx_rondas_libres_codigo
+  ON rondas_libres(codigo);
+CREATE INDEX IF NOT EXISTS idx_rondas_libres_creador
+  ON rondas_libres(creador_id);
+CREATE INDEX IF NOT EXISTS idx_ronda_jugadores_ronda
+  ON ronda_libre_jugadores(ronda_id);
+CREATE INDEX IF NOT EXISTS idx_course_holes_course
+  ON course_holes(course_id);
+CREATE INDEX IF NOT EXISTS idx_tournaments_organizer
+  ON tournaments(organizer_id);
+CREATE INDEX IF NOT EXISTS idx_players_tournament
+  ON players(tournament_id);

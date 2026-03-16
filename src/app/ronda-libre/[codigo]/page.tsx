@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { getScoreColor, formatOverUnder } from '@/constants/golf'
 
-/* ── Types ─────────────────────────────────────────────── */
+/* ── Types ──────────────────────────────────────────────────────────────── */
 interface Jugador {
   id: string
   nombre: string
@@ -13,10 +14,17 @@ interface Jugador {
   scores: Record<string, number>
 }
 
+interface CourseHole {
+  numero: number
+  par: number
+  stroke_index: number
+}
+
 interface RondaLibre {
   id: string
   codigo: string
   course_name: string
+  course_id: string | null
   tees: string
   holes: number
   fecha: string
@@ -24,45 +32,50 @@ interface RondaLibre {
   ronda_libre_jugadores: Jugador[]
 }
 
-/* ── Score helpers ─────────────────────────────────────── */
-const scoreColor = (diff: number): string => {
-  if (diff <= -2) return '#3b82f6'
-  if (diff === -1) return '#22c55e'
-  if (diff === 0)  return '#edeae4'
-  if (diff === 1)  return '#c4992a'
-  return '#dc2626'
-}
+type Role = 'espectador' | 'jugador' | null
 
-const DEFAULT_PAR = 4
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+const SS_KEY = (codigo: string) => `ronda-${codigo}-role`
 
-function computePlayerTotals(jugador: Jugador, holes: number): { gross: number; vsPar: number; holesPlayed: number } {
-  let gross = 0, vsPar = 0, holesPlayed = 0
+function getVsPar(scores: Record<string, number>, holes: number, parMap: Record<number, number>): number {
+  let total = 0
   for (let h = 1; h <= holes; h++) {
-    const s = jugador.scores[String(h)] ?? jugador.scores[h]
-    if (s != null) {
-      gross += s
-      vsPar += s - DEFAULT_PAR
-      holesPlayed++
-    }
+    const s = scores[String(h)] ?? scores[h]
+    if (s != null) total += s - (parMap[h] ?? 4)
   }
-  return { gross, vsPar, holesPlayed }
+  return total
 }
 
+function getHolesPlayed(scores: Record<string, number>, holes: number): number {
+  let count = 0
+  for (let h = 1; h <= holes; h++) {
+    if ((scores[String(h)] ?? scores[h]) != null) count++
+  }
+  return count
+}
+
+/* ── Main Component ─────────────────────────────────────────────────────── */
 export default function RondaLibrePage() {
-  const params = useParams()
-  const codigo = params.codigo as string
+  const params  = useParams()
+  const router  = useRouter()
+  const codigo  = params.codigo as string
 
-  const [ronda,     setRonda]     = useState<RondaLibre | null>(null)
-  const [loading,   setLoading]   = useState(true)
-  const [notFound,  setNotFound]  = useState(false)
-  const [countdown, setCountdown] = useState(15)
-  const [copied,    setCopied]    = useState(false)
+  const [ronda,       setRonda]       = useState<RondaLibre | null>(null)
+  const [parMap,      setParMap]      = useState<Record<number, number>>({})
+  const [loading,     setLoading]     = useState(true)
+  const [notFound,    setNotFound]    = useState(false)
+  const [role,        setRole]        = useState<Role>(null)
+  const [selectedJ,   setSelectedJ]   = useState<string>('')
+  const [expanded,    setExpanded]    = useState<string | null>(null)
+  const [countdown,   setCountdown]   = useState(15)
+  const [copied,      setCopied]      = useState(false)
 
+  /* ── Fetch ronda ── */
   const fetchRonda = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase
       .from('rondas_libres')
-      .select('id, codigo, course_name, tees, holes, fecha, estado, ronda_libre_jugadores(id, nombre, user_id, scores)')
+      .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, ronda_libre_jugadores(id, nombre, user_id, scores)')
       .eq('codigo', codigo)
       .single()
 
@@ -70,54 +83,81 @@ export default function RondaLibrePage() {
       setNotFound(true)
     } else {
       setRonda(data as unknown as RondaLibre)
+      // Fetch hole pars if course linked
+      if ((data as unknown as RondaLibre).course_id) {
+        const { data: holes } = await supabase
+          .from('course_holes')
+          .select('numero, par, stroke_index')
+          .eq('course_id', (data as unknown as RondaLibre).course_id)
+          .order('numero')
+        if (holes) {
+          const pm: Record<number, number> = {}
+          ;(holes as CourseHole[]).forEach(h => { pm[h.numero] = h.par })
+          setParMap(pm)
+        }
+      }
     }
     setLoading(false)
   }, [codigo])
 
-  // Initial load
   useEffect(() => { fetchRonda() }, [fetchRonda])
 
-  // Polling every 15 seconds
+  // Restore role from sessionStorage
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchRonda()
-      setCountdown(15)
-    }, 15000)
+    const saved = sessionStorage.getItem(SS_KEY(codigo))
+    if (saved === 'espectador' || saved === 'jugador') setRole(saved)
+  }, [codigo])
+
+  // Polling every 15s (spectator only)
+  useEffect(() => {
+    if (role !== 'espectador') return
+    const interval = setInterval(() => { fetchRonda(); setCountdown(15) }, 15000)
     return () => clearInterval(interval)
-  }, [fetchRonda])
+  }, [fetchRonda, role])
 
-  // Countdown
+  // Countdown tick
   useEffect(() => {
-    const tick = setInterval(() => {
-      setCountdown((c) => (c <= 1 ? 15 : c - 1))
-    }, 1000)
+    if (role !== 'espectador') return
+    const tick = setInterval(() => setCountdown(c => c <= 1 ? 15 : c - 1), 1000)
     return () => clearInterval(tick)
-  }, [])
+  }, [role])
 
-  const handleCopy = () => {
-    const url = `${window.location.origin}/ronda-libre/${codigo}`
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+  /* ── Handlers ── */
+  const chooseRole = (r: Role) => {
+    if (!r) return
+    sessionStorage.setItem(SS_KEY(codigo), r)
+    setRole(r)
+    if (r === 'espectador') setCountdown(15)
   }
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/ronda-libre/${codigo}`)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+  }
+
+  const handleGoScore = () => {
+    if (!selectedJ) return
+    router.push(`/ronda-libre/${codigo}/score?j=${selectedJ}`)
+  }
+
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8fa8' }}>
+      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8fa8', fontFamily: 'DM Sans, sans-serif' }}>
         Cargando ronda...
       </div>
     )
   }
 
+  /* ── Not found ── */
   if (notFound || !ronda) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', fontFamily: 'DM Sans, sans-serif' }}>
         <div style={{ fontSize: '64px' }}>🏌️</div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', textAlign: 'center' }}>
           Ronda no encontrada
         </h1>
-        <p style={{ color: '#7a8fa8', textAlign: 'center' }}>El código {codigo} no existe o fue eliminada.</p>
+        <p style={{ color: '#7a8fa8', textAlign: 'center' }}>El código <strong style={{ color: '#c4992a' }}>{codigo}</strong> no existe o fue eliminado.</p>
         <Link href="/dashboard" style={{ color: '#c4992a', textDecoration: 'none', fontSize: '14px' }}>← Volver al dashboard</Link>
       </div>
     )
@@ -128,137 +168,395 @@ export default function RondaLibrePage() {
     : ''
 
   const isEnCurso = ronda.estado === 'en_curso'
+  const hasCourse = Object.keys(parMap).length > 0
 
-  // Sort players by total score (fewer strokes = better)
-  const sortedJugadores = [...ronda.ronda_libre_jugadores]
-    .map((j) => ({ ...j, ...computePlayerTotals(j, ronda.holes) }))
+  // Sorted leaderboard
+  const leaderboard = [...ronda.ronda_libre_jugadores]
+    .map(j => ({
+      ...j,
+      vsPar:       getVsPar(j.scores, ronda.holes, parMap),
+      holesPlayed: getHolesPlayed(j.scores, ronda.holes),
+    }))
     .sort((a, b) => {
       if (a.holesPlayed === 0 && b.holesPlayed === 0) return 0
       if (a.holesPlayed === 0) return 1
       if (b.holesPlayed === 0) return -1
-      return a.gross - b.gross
+      return a.vsPar - b.vsPar
     })
 
-  return (
-    <div style={{ background: '#070d18', minHeight: '100vh' }}>
+  /* ─────────────────────────────────────────────────────────────────────── */
+  /* ── WELCOME SCREEN ─────────────────────────────────────────────────── */
+  /* ─────────────────────────────────────────────────────────────────────── */
+  if (!role) {
+    return (
+      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
+        {/* Header */}
+        <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '24px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '10px' }}>⛳</div>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#edeae4', margin: '0 0 6px' }}>
+            Ronda Libre
+          </h1>
+          <p style={{ color: '#7a8fa8', fontSize: '14px', margin: 0 }}>
+            {ronda.course_name} · {fechaDisplay}
+          </p>
+          <div style={{ marginTop: '8px' }}>
+            <span style={{ fontFamily: 'monospace', color: '#c4992a', fontWeight: 700, fontSize: '18px', letterSpacing: '2px' }}>
+              {ronda.codigo}
+            </span>
+          </div>
+        </div>
 
-      {/* ── Header ──────────────────────────────────────── */}
-      <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '20px 16px' }}>
-        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+        {/* Role selection */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', gap: '16px' }}>
+          <p style={{ color: '#7a8fa8', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
+            ¿Cómo quieres unirte a esta ronda?
+          </p>
+
+          <button
+            onClick={() => chooseRole('jugador')}
+            style={{
+              width: '100%', maxWidth: '360px',
+              background: '#c4992a', color: '#070d18',
+              border: 'none', borderRadius: '14px',
+              padding: '20px 24px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '16px',
+              textAlign: 'left',
+            }}
+          >
+            <span style={{ fontSize: '36px' }}>🏌️</span>
             <div>
-              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#edeae4', margin: '0 0 8px' }}>
-                🏌️ Ronda Libre
-              </h1>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '5px',
-                  background: isEnCurso ? 'rgba(34,197,94,0.12)' : 'rgba(122,143,168,0.12)',
-                  color: isEnCurso ? '#22c55e' : '#7a8fa8',
-                  border: `1px solid ${isEnCurso ? 'rgba(34,197,94,0.3)' : 'rgba(122,143,168,0.3)'}`,
-                  padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
-                }}>
-                  {isEnCurso ? '● EN CURSO' : '✓ FINALIZADA'}
-                </span>
-              </div>
-              <div style={{ fontSize: '13px', color: '#7a8fa8' }}>
-                {ronda.course_name} · {fechaDisplay}
-              </div>
-              <div style={{ fontSize: '13px', marginTop: '4px' }}>
-                Código: <span style={{ fontFamily: 'monospace', color: '#c4992a', fontWeight: 700, fontSize: '14px' }}>{ronda.codigo}</span>
-              </div>
+              <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '3px' }}>Soy jugador</div>
+              <div style={{ fontSize: '13px', opacity: 0.75 }}>Ingresaré mi propio score</div>
             </div>
+          </button>
+
+          <button
+            onClick={() => chooseRole('espectador')}
+            style={{
+              width: '100%', maxWidth: '360px',
+              background: 'rgba(14,28,47,0.8)', color: '#edeae4',
+              border: '1px solid rgba(196,153,42,0.3)', borderRadius: '14px',
+              padding: '20px 24px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '16px',
+              textAlign: 'left',
+            }}
+          >
+            <span style={{ fontSize: '36px' }}>👁</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '3px' }}>Solo ver</div>
+              <div style={{ fontSize: '13px', color: '#7a8fa8' }}>Seguiré el marcador en vivo</div>
+            </div>
+          </button>
+
+          {/* Player count hint */}
+          {ronda.ronda_libre_jugadores.length > 0 && (
+            <p style={{ color: '#7a8fa8', fontSize: '13px', marginTop: '8px', textAlign: 'center' }}>
+              {ronda.ronda_libre_jugadores.length} jugador{ronda.ronda_libre_jugadores.length !== 1 ? 'es' : ''} en esta ronda
+            </p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────── */
+  /* ── SHARED HEADER ──────────────────────────────────────────────────── */
+  /* ─────────────────────────────────────────────────────────────────────── */
+  const sharedHeader = (
+    <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '16px' }}>
+      <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div>
+            <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', margin: '0 0 4px' }}>
+              {role === 'espectador' ? '👁 Marcador en vivo' : '🏌️ Unirse a la ronda'}
+            </h1>
+            <div style={{ fontSize: '13px', color: '#7a8fa8' }}>
+              {ronda.course_name} · {fechaDisplay}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '4px',
+              background: isEnCurso ? 'rgba(34,197,94,0.12)' : 'rgba(122,143,168,0.12)',
+              color: isEnCurso ? '#22c55e' : '#7a8fa8',
+              border: `1px solid ${isEnCurso ? 'rgba(34,197,94,0.3)' : 'rgba(122,143,168,0.3)'}`,
+              padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
+            }}>
+              {isEnCurso ? '● EN CURSO' : '✓ FINALIZADA'}
+            </span>
+            <button
+              onClick={() => { sessionStorage.removeItem(SS_KEY(codigo)); setRole(null) }}
+              style={{ background: 'none', border: 'none', color: '#7a8fa8', fontSize: '12px', cursor: 'pointer', padding: 0 }}
+            >
+              Cambiar rol
+            </button>
           </div>
         </div>
       </div>
+    </div>
+  )
 
-      {/* ── Leaderboard ─────────────────────────────────── */}
-      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
+  /* ─────────────────────────────────────────────────────────────────────── */
+  /* ── SPECTATOR VIEW ─────────────────────────────────────────────────── */
+  /* ─────────────────────────────────────────────────────────────────────── */
+  if (role === 'espectador') {
+    return (
+      <div style={{ background: '#070d18', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
+        {sharedHeader}
 
-        <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', overflow: 'hidden', marginBottom: '16px' }}>
-          {/* Header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 80px 70px', padding: '10px 16px', background: 'rgba(196,153,42,0.05)', borderBottom: '1px solid rgba(196,153,42,0.1)' }}>
-            <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase' }}>#</span>
-            <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase' }}>Jugador</span>
-            <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', textAlign: 'center' }}>Score</span>
-            <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
+        <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
+
+          {/* Leaderboard */}
+          <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px' }}>
+
+            {/* Table header */}
+            <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px', padding: '10px 16px', background: 'rgba(196,153,42,0.05)', borderBottom: '1px solid rgba(196,153,42,0.1)' }}>
+              <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase' }}>#</span>
+              <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase' }}>Jugador</span>
+              <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', textAlign: 'center' }}>
+                {hasCourse ? '+/- Par' : 'Score'}
+              </span>
+              <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
+            </div>
+
+            {leaderboard.length === 0 && (
+              <div style={{ padding: '32px', textAlign: 'center', color: '#7a8fa8', fontSize: '14px' }}>
+                Aún no hay jugadores en esta ronda
+              </div>
+            )}
+
+            {leaderboard.map((j, idx) => {
+              const isExpanded = expanded === j.id
+              const par    = hasCourse ? parMap[1] ?? 4 : 4  // fallback
+              const color  = j.holesPlayed > 0
+                ? getScoreColor(j.vsPar + par, par)  // use vsPar directly
+                : '#7a8fa8'
+
+              // Correct color directly from vsPar
+              const vsParColor = (() => {
+                if (j.holesPlayed === 0) return '#7a8fa8'
+                if (j.vsPar <= -2) return '#3b82f6'
+                if (j.vsPar === -1) return '#22c55e'
+                if (j.vsPar === 0)  return '#edeae4'
+                if (j.vsPar === 1)  return '#c4992a'
+                return '#dc2626'
+              })()
+
+              const vsParStr = j.holesPlayed > 0 ? formatOverUnder(j.vsPar) : '—'
+              const holeNums = Array.from({ length: ronda.holes }, (_, i) => i + 1)
+
+              return (
+                <div key={j.id} style={{ borderBottom: '1px solid rgba(122,143,168,0.07)' }}>
+                  {/* Row */}
+                  <button
+                    onClick={() => setExpanded(isExpanded ? null : j.id)}
+                    style={{
+                      width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                      display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px',
+                      padding: '13px 16px', alignItems: 'center', textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ fontSize: '14px', color: '#7a8fa8', fontWeight: 600 }}>{idx + 1}</span>
+                    <span style={{ fontSize: '15px', color: '#edeae4', fontWeight: 600 }}>
+                      {j.nombre}
+                      {j.holesPlayed > 0 && (
+                        <span style={{ fontSize: '11px', color: '#7a8fa8', fontWeight: 400, marginLeft: '6px' }}>
+                          {isExpanded ? '▲' : '▼'}
+                        </span>
+                      )}
+                    </span>
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ fontSize: '17px', fontWeight: 700, color: vsParColor }}>
+                        {vsParStr}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '13px', color: '#7a8fa8', textAlign: 'right' }}>
+                      {j.holesPlayed}/{ronda.holes}
+                    </span>
+                  </button>
+
+                  {/* Expandable mini scorecard */}
+                  {isExpanded && j.holesPlayed > 0 && (
+                    <div style={{ padding: '4px 16px 14px', background: 'rgba(7,13,24,0.4)' }}>
+                      {/* Hole numbers row */}
+                      <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                        <div style={{ minWidth: '28px', fontSize: '10px', color: '#7a8fa8', textAlign: 'center', padding: '2px 0', fontWeight: 600 }}>H</div>
+                        {holeNums.map(h => (
+                          <div key={h} style={{ minWidth: '28px', fontSize: '10px', color: '#7a8fa8', textAlign: 'center', padding: '2px 0' }}>
+                            {h}
+                          </div>
+                        ))}
+                      </div>
+                      {/* Par row (only if course linked) */}
+                      {hasCourse && (
+                        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                          <div style={{ minWidth: '28px', fontSize: '10px', color: '#7a8fa8', textAlign: 'center', padding: '2px 0', fontWeight: 600 }}>P</div>
+                          {holeNums.map(h => (
+                            <div key={h} style={{ minWidth: '28px', fontSize: '10px', color: '#7a8fa8', textAlign: 'center', padding: '2px 0' }}>
+                              {parMap[h] ?? '—'}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Score row */}
+                      <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                        <div style={{ minWidth: '28px', fontSize: '10px', color: '#edeae4', textAlign: 'center', padding: '3px 0', fontWeight: 700 }}>S</div>
+                        {holeNums.map(h => {
+                          const s    = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
+                          const p    = parMap[h] ?? 4
+                          const diff = s != null ? s - p : null
+                          const bg   = diff != null ? `${getScoreColor(s!, p)}22` : 'rgba(7,13,24,0.4)'
+                          const bdr  = diff != null ? `1px solid ${getScoreColor(s!, p)}44` : '1px solid transparent'
+                          return (
+                            <div
+                              key={h}
+                              style={{
+                                minWidth: '28px', textAlign: 'center',
+                                background: bg, borderRadius: '4px',
+                                padding: '3px 2px', border: bdr,
+                              }}
+                            >
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: diff != null ? getScoreColor(s!, p) : '#3a4a5a' }}>
+                                {s ?? '·'}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
-          {sortedJugadores.map((j, idx) => {
-            const color = j.holesPlayed > 0 ? scoreColor(j.vsPar) : '#7a8fa8'
-            const vsParStr = j.holesPlayed > 0
-              ? j.vsPar === 0 ? 'E' : j.vsPar > 0 ? `+${j.vsPar}` : String(j.vsPar)
-              : '—'
-
-            // Mini scorecard colors
-            const holeNumbers = Array.from({ length: ronda.holes }, (_, i) => i + 1)
-
-            return (
-              <div key={j.id} style={{ borderBottom: '1px solid rgba(122,143,168,0.07)' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 80px 70px', padding: '12px 16px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '14px', color: '#7a8fa8', fontWeight: 600 }}>{idx + 1}</span>
-                  <span style={{ fontSize: '15px', color: '#edeae4', fontWeight: 600 }}>{j.nombre}</span>
-                  <div style={{ textAlign: 'center' }}>
-                    <span style={{ fontSize: '16px', fontWeight: 700, color }}>
-                      {j.holesPlayed > 0 ? j.gross : '—'}
-                    </span>
-                    <span style={{ fontSize: '12px', color, marginLeft: '5px' }}>{vsParStr}</span>
-                  </div>
-                  <span style={{ fontSize: '13px', color: '#7a8fa8', textAlign: 'right' }}>
-                    {j.holesPlayed}/{ronda.holes}
-                  </span>
-                </div>
-
-                {/* Mini scorecard */}
-                {j.holesPlayed > 0 && (
-                  <div style={{ padding: '0 16px 10px', display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                    {holeNumbers.map((h) => {
-                      const s = j.scores[String(h)] ?? j.scores[h]
-                      const diff = s != null ? s - DEFAULT_PAR : null
-                      return (
-                        <div
-                          key={h}
-                          style={{
-                            minWidth: '24px',
-                            textAlign: 'center',
-                            background: diff != null ? `${scoreColor(diff)}22` : 'rgba(7,13,24,0.4)',
-                            borderRadius: '4px',
-                            padding: '3px 2px',
-                            border: `1px solid ${diff != null ? scoreColor(diff) + '44' : 'transparent'}`,
-                          }}
-                        >
-                          <div style={{ fontSize: '9px', color: '#7a8fa8' }}>{h}</div>
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: diff != null ? scoreColor(diff) : '#3a4a5a' }}>
-                            {s ?? '—'}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {/* Countdown + copy */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <span style={{ color: '#7a8fa8', fontSize: '12px' }}>
+              ↻ Actualiza en {countdown}s
+            </span>
+            <button
+              onClick={handleCopy}
+              style={{ background: 'none', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              {copied ? '✓ Link copiado' : 'Copiar link'}
+            </button>
+          </div>
         </div>
+      </div>
+    )
+  }
 
-        {/* Countdown */}
-        <div style={{ textAlign: 'center', color: '#7a8fa8', fontSize: '12px', marginBottom: '20px' }}>
-          ↻ Actualiza en {countdown}s
-        </div>
+  /* ─────────────────────────────────────────────────────────────────────── */
+  /* ── PLAYER VIEW ────────────────────────────────────────────────────── */
+  /* ─────────────────────────────────────────────────────────────────────── */
+  return (
+    <div style={{ background: '#070d18', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
+      {sharedHeader}
 
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
-          <Link
-            href={`/ronda-libre/${codigo}/score`}
-            style={{ display: 'block', background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '15px', padding: '14px', borderRadius: '10px', textDecoration: 'none', textAlign: 'center' }}
+      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '24px 16px' }}>
+        <p style={{ color: '#edeae4', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
+          ¿Cuál es tu nombre?
+        </p>
+        <p style={{ color: '#7a8fa8', fontSize: '14px', marginBottom: '24px' }}>
+          Selecciona tu nombre de la lista para ingresar tu score
+        </p>
+
+        {ronda.ronda_libre_jugadores.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#7a8fa8', fontSize: '14px' }}>
+            No hay jugadores registrados en esta ronda aún.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '32px' }}>
+            {ronda.ronda_libre_jugadores.map(j => {
+              const hp       = getHolesPlayed(j.scores, ronda.holes)
+              const vp       = getVsPar(j.scores, ronda.holes, parMap)
+              const isSelected = selectedJ === j.id
+
+              return (
+                <label
+                  key={j.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '14px',
+                    background: isSelected ? 'rgba(196,153,42,0.1)' : '#0e1c2f',
+                    border: `2px solid ${isSelected ? '#c4992a' : 'rgba(122,143,168,0.12)'}`,
+                    borderRadius: '12px', padding: '16px', cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {/* Custom radio */}
+                  <div style={{
+                    width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
+                    border: `2px solid ${isSelected ? '#c4992a' : '#3a4a5a'}`,
+                    background: isSelected ? '#c4992a' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {isSelected && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#070d18' }} />}
+                  </div>
+                  <input
+                    type="radio"
+                    name="jugador"
+                    value={j.id}
+                    checked={isSelected}
+                    onChange={() => setSelectedJ(j.id)}
+                    style={{ display: 'none' }}
+                  />
+
+                  {/* Info */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#edeae4' }}>{j.nombre}</div>
+                    <div style={{ fontSize: '13px', color: '#7a8fa8', marginTop: '2px' }}>
+                      {hp === 0 ? 'Sin scores aún' : `${hp}/${ronda.holes} hoyos · ${formatOverUnder(vp)}`}
+                    </div>
+                  </div>
+
+                  {/* Progress indicator */}
+                  {hp > 0 && (
+                    <div style={{
+                      fontSize: '14px', fontWeight: 700,
+                      color: (() => {
+                        if (vp <= -2) return '#3b82f6'
+                        if (vp === -1) return '#22c55e'
+                        if (vp === 0)  return '#edeae4'
+                        if (vp === 1)  return '#c4992a'
+                        return '#dc2626'
+                      })(),
+                    }}>
+                      {formatOverUnder(vp)}
+                    </div>
+                  )}
+                </label>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Confirm button */}
+        {ronda.ronda_libre_jugadores.length > 0 && (
+          <button
+            onClick={handleGoScore}
+            disabled={!selectedJ}
+            style={{
+              width: '100%', padding: '18px',
+              background: selectedJ ? '#c4992a' : 'rgba(196,153,42,0.25)',
+              color: selectedJ ? '#070d18' : '#7a8fa8',
+              border: 'none', borderRadius: '12px',
+              fontWeight: 700, fontSize: '16px',
+              cursor: selectedJ ? 'pointer' : 'not-allowed',
+              transition: 'all 0.15s',
+            }}
           >
-            Ingresar mi score
-          </Link>
+            {selectedJ ? 'Ingresar mi score →' : 'Selecciona tu nombre'}
+          </button>
+        )}
+
+        {/* Copy link */}
+        <div style={{ textAlign: 'center', marginTop: '20px' }}>
           <button
             onClick={handleCopy}
-            style={{ background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', fontWeight: 600, fontSize: '15px', padding: '14px', borderRadius: '10px', cursor: 'pointer' }}
+            style={{ background: 'none', border: 'none', color: '#7a8fa8', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline' }}
           >
-            {copied ? '✓ Link copiado' : 'Copiar link'}
+            {copied ? '✓ Link copiado' : 'Copiar link para compartir'}
           </button>
         </div>
       </div>
