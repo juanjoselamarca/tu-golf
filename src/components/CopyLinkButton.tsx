@@ -13,11 +13,33 @@ export default function CopyLinkButton({ slug }: { slug: string }) {
   }
 
   return (
-    <button onClick={handleCopy}
-      style={{ background: 'transparent', border: '1px solid rgba(122,143,168,0.25)', color: '#7a8fa8', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 500, transition: 'all 200ms' }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(196,153,42,0.5)'; (e.currentTarget as HTMLButtonElement).style.color = '#c4992a' }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(122,143,168,0.25)'; (e.currentTarget as HTMLButtonElement).style.color = '#7a8fa8' }}>
-      {copied ? '✓ Copiado' : '🔗 Link inscripción'}
+    <button
+      onClick={handleCopy}
+      style={{
+        background: copied ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.03)',
+        border: `1px solid ${copied ? 'rgba(34,197,94,0.32)' : 'rgba(122,143,168,0.25)'}`,
+        color: copied ? '#86efac' : '#7a8fa8',
+        padding: '8px 16px',
+        borderRadius: '10px',
+        fontSize: '13px',
+        cursor: 'pointer',
+        fontWeight: 600,
+        transition: 'all 200ms',
+      }}
+      onMouseEnter={(e) => {
+        if (!copied) {
+          ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(196,153,42,0.5)'
+          ;(e.currentTarget as HTMLButtonElement).style.color = '#c4992a'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!copied) {
+          ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(122,143,168,0.25)'
+          ;(e.currentTarget as HTMLButtonElement).style.color = '#7a8fa8'
+        }
+      }}
+    >
+      {copied ? '✓ Link copiado' : 'Compartir link'}
     </button>
   )
 }

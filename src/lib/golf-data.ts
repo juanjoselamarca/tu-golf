@@ -97,6 +97,7 @@ export function formatScore(n: number): string {
 }
 
 export function scoreColor(n: number): string {
+  if (n <= -2) return '#c8a55a'
   if (n < 0) return '#16a34a'
   if (n > 0) return '#dc2626'
   return '#edeae4'
@@ -112,7 +113,7 @@ export function holeResult(score: number, par: number): HoleResult {
 }
 
 export const HOLE_STYLE: Record<HoleResult, { border: string; background: string }> = {
-  eagle:  { border: '2px solid #2563eb', background: 'rgba(37,99,235,0.12)'  },
+  eagle:  { border: '2px solid #c8a55a', background: 'rgba(200,165,90,0.16)'  },
   birdie: { border: '2px solid #16a34a', background: 'rgba(22,163,74,0.12)'  },
   par:    { border: '1px solid rgba(255,255,255,0.09)', background: 'transparent' },
   bogey:  { border: '2px solid #dc2626', background: 'rgba(220,38,38,0.08)'  },

@@ -240,6 +240,10 @@ function ScorePageContent() {
     }
   }
 
+  const handlePrev = () => {
+    if (currentHole > 1) setCurrentHole((h) => h - 1)
+  }
+
   /* ── Render ──────────────────────────────────────────────────────────────── */
   if (loading) {
     return (
@@ -279,6 +283,7 @@ function ScorePageContent() {
     }
   }
   const holesPlayed = Object.keys(scores[activeJugadorId] ?? {}).length
+  const activePlayer = jugadores.find((player) => player.id === activeJugadorId) ?? null
 
   return (
     <div
@@ -361,6 +366,25 @@ function ScorePageContent() {
 
       {/* ── Main content ───────────────────────────────────────────────────── */}
       <div style={{ flex: 1, maxWidth: '480px', margin: '0 auto', width: '100%', padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div
+          style={{
+            background: 'linear-gradient(135deg, rgba(23,49,41,0.95) 0%, rgba(14,28,47,0.92) 100%)',
+            border: '1px solid rgba(196,153,42,0.16)',
+            borderRadius: '14px',
+            padding: '14px 16px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugador activo</div>
+              <div style={{ fontSize: '18px', color: '#edeae4', fontWeight: 700 }}>{activePlayer?.nombre ?? 'Jugador'}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Progreso</div>
+              <div style={{ fontSize: '18px', color: '#c4992a', fontWeight: 700 }}>{holesPlayed}/{holes}</div>
+            </div>
+          </div>
+        </div>
 
         {/* Hole number */}
         <div style={{ textAlign: 'center' }}>
@@ -451,7 +475,8 @@ function ScorePageContent() {
                 onClick={() => handleScoreChange(currentHole, c.value)}
                 style={{
                   flexShrink: 0,
-                  padding: '8px 16px', borderRadius: '20px',
+                  minHeight: '46px',
+                  padding: '10px 18px', borderRadius: '23px',
                   border: `1px solid ${isActive ? cColor : 'rgba(122,143,168,0.25)'}`,
                   background: isActive ? `${cColor}22` : 'transparent',
                   color: isActive ? cColor : '#7a8fa8',
@@ -541,6 +566,28 @@ function ScorePageContent() {
       {/* ── Siguiente / Finalizar button ────────────────────────────────────── */}
       <div style={{ position: 'sticky', bottom: 0, padding: '12px 16px', background: 'rgba(7,13,24,0.97)', borderTop: '1px solid rgba(196,153,42,0.1)' }}>
         <div style={{ maxWidth: '480px', margin: '0 auto' }}>
+          {currentHole > 1 && (
+            <button
+              onClick={handlePrev}
+              disabled={saving}
+              style={{
+                width: '100%',
+                height: '46px',
+                background: 'rgba(196,153,42,0.08)',
+                color: '#c4992a',
+                fontWeight: 700,
+                fontSize: '14px',
+                borderRadius: '12px',
+                border: '1px solid rgba(196,153,42,0.24)',
+                cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.7 : 1,
+                marginBottom: '8px',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              ← Volver al hoyo anterior
+            </button>
+          )}
           <button
             onClick={handleNext}
             disabled={saving}

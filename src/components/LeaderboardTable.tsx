@@ -500,9 +500,43 @@ export default function LeaderboardTable({ players }: { players: Player[] }) {
   const handleToggle = (pos: number) =>
     setExpandedId(prev => prev === pos ? null : pos)
 
+  const leader = filtered[0] ?? null
+  const liveCount = filtered.filter((player) => player.status !== 'F').length
+
   // ─────────────────────────────────────────────────────
   return (
     <>
+      <div
+        className="glass-card rounded-xl p-4 mb-5"
+        style={{ background: 'linear-gradient(135deg, rgba(23,49,41,0.96) 0%, rgba(10,21,37,0.92) 100%)' }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-sans text-[11px] uppercase tracking-[0.18em]" style={{ color: '#9fb4aa' }}>
+              Broadcast leaderboard
+            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+              <span
+                className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
+                style={{ background: 'rgba(34,197,94,0.12)', color: '#9ae6b4', border: '1px solid rgba(34,197,94,0.24)' }}
+              >
+                <span className="live-dot inline-block h-2 w-2 rounded-full bg-green-400" />
+                {liveCount > 0 ? `${liveCount} en cancha` : 'Ronda cerrada'}
+              </span>
+              {leader && (
+                <span className="font-sans text-sm" style={{ color: '#f3efe6' }}>
+                  Lider: <strong style={{ color: '#c8a55a' }}>{leader.name}</strong> {formatScore(leader.total)}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 font-sans text-sm" style={{ color: '#9fb4aa' }}>
+            <span>{filtered.length} jugadores</span>
+            <span>Tap en jugador para tarjeta</span>
+          </div>
+        </div>
+      </div>
+
       {/* ── Category Tabs ──────────────────────────────── */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         {(['General', 'Categoría A', 'Categoría B'] as Category[]).map(tab => {
@@ -536,9 +570,10 @@ export default function LeaderboardTable({ players }: { players: Player[] }) {
                   { label: 'POS',    align: 'center', w: 60  },
                   { label: 'JUGADOR',align: 'left',   w: 'auto' },
                   { label: 'HCP',    align: 'center', w: 60  },
+                  { label: 'PAR',    align: 'center', w: 70  },
                   { label: 'HOY',    align: 'center', w: 80  },
                   { label: 'TOTAL',  align: 'center', w: 80  },
-                  { label: 'HOYOS', align: 'center', w: 110 },
+                  { label: 'HOYO',   align: 'center', w: 110 },
                 ].map(col => (
                   <th
                     key={col.label}
@@ -563,6 +598,8 @@ export default function LeaderboardTable({ players }: { players: Player[] }) {
                 const isLeader   = player.pos === 1
                 const isExpanded = expandedId === player.pos
                 const rowBg      = isLeader ? 'rgba(196,153,42,0.05)' : '#070d18'
+                const currentHoleLabel = player.status === 'F' ? 'F' : `${player.holes}/18`
+                const parState = player.today === 0 ? 'E' : player.today > 0 ? `+${player.today}` : `${player.today}`
 
                 return (
                   <Fragment key={player.pos}>
@@ -603,6 +640,20 @@ export default function LeaderboardTable({ players }: { players: Player[] }) {
                       {/* HCP */}
                       <td className="py-3.5 px-4 text-center font-sans text-sm text-gray-soft">{player.hcp}</td>
 
+                      {/* PAR */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className="inline-flex min-w-[46px] items-center justify-center rounded-full px-2.5 py-1 font-sans text-xs font-semibold"
+                          style={{
+                            background: 'rgba(243,239,230,0.06)',
+                            color: scoreColor(player.today),
+                            border: `1px solid ${player.today === 0 ? 'rgba(243,239,230,0.12)' : 'rgba(200,165,90,0.18)'}`,
+                          }}
+                        >
+                          {parState}
+                        </span>
+                      </td>
+
                       {/* HOY */}
                       <td className="py-3.5 px-4 text-center font-sans font-bold"
                         style={{ fontSize: 18, color: scoreColor(player.today) }}>
@@ -623,7 +674,7 @@ export default function LeaderboardTable({ players }: { players: Player[] }) {
                           ) : (
                             <>
                               <span className="font-sans font-semibold text-sm" style={{ color: '#c4992a' }}>
-                                Hoyo {player.holes}
+                                {currentHoleLabel}
                               </span>
                               <div className="rounded-full overflow-hidden" style={{ width: 56, height: 3, background: '#132540' }}>
                                 <div
@@ -639,7 +690,7 @@ export default function LeaderboardTable({ players }: { players: Player[] }) {
 
                     {/* Accordion */}
                     <tr style={{ background: '#0a1525' }}>
-                      <td colSpan={6} style={{ padding: 0 }}>
+                      <td colSpan={7} style={{ padding: 0 }}>
                         <div style={{ display: 'grid', gridTemplateRows: isExpanded ? '1fr' : '0fr', transition: 'grid-template-rows 300ms ease' }}>
                           <div style={{ overflow: 'hidden' }}>
                             <Scorecard player={player} onShare={handleShare} />
@@ -653,7 +704,7 @@ export default function LeaderboardTable({ players }: { players: Player[] }) {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-14 text-center font-sans text-gray-soft">
+                  <td colSpan={7} className="py-14 text-center font-sans text-gray-soft">
                     No hay jugadores en esta categoría.
                   </td>
                 </tr>

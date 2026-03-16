@@ -1,10 +1,10 @@
 // ─── Golf Constants & Helpers ────────────────────────────────────────────────
 
 export const SCORE_COLORS = {
-  eagle_or_better: '#3b82f6',  // azul
+  eagle_or_better: '#c8a55a',  // gold
   birdie:          '#22c55e',  // verde
   par:             '#edeae4',  // ivory
-  bogey:           '#c4992a',  // gold
+  bogey:           '#dc2626',  // rojo
   double_or_worse: '#dc2626',  // rojo
 } as const
 

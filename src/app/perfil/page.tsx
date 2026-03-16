@@ -25,16 +25,24 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 }
 
+function getPlayerTier(indice: number | null) {
+  if (indice == null) return 'Perfil en construccion'
+  if (indice <= 5) return 'Competidor avanzado'
+  if (indice <= 12) return 'Competidor consistente'
+  if (indice <= 20) return 'Amateur en progreso'
+  return 'Jugador activo'
+}
+
 export default function PerfilPage() {
   const router = useRouter()
 
-  const [profile,      setProfile]      = useState<Profile | null>(null)
-  const [loading,      setLoading]      = useState(true)
-  const [editing,      setEditing]      = useState(false)
-  const [saving,       setSaving]       = useState(false)
-  const [saved,        setSaved]        = useState(false)
-  const [editName,     setEditName]     = useState('')
-  const [editIndice,   setEditIndice]   = useState('')
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editIndice, setEditIndice] = useState('')
   const [tourneysPlayed, setTourneysPlayed] = useState(0)
 
   useEffect(() => {
@@ -56,7 +64,6 @@ export default function PerfilPage() {
         setEditIndice(p.indice != null ? String(p.indice) : '')
       }
 
-      // Count tournaments played
       const { count } = await supabase
         .from('players')
         .select('id', { count: 'exact', head: true })
@@ -65,12 +72,14 @@ export default function PerfilPage() {
       setTourneysPlayed(count ?? 0)
       setLoading(false)
     }
+
     load()
   }, [router])
 
   const handleSave = async () => {
     if (!profile) return
     setSaving(true)
+
     const supabase = createClient()
     const indiceParsed = editIndice.trim() !== '' ? parseFloat(editIndice) : null
 
@@ -81,9 +90,8 @@ export default function PerfilPage() {
       .select('id, name, email, indice, avatar_url')
       .single()
 
-    if (updated) {
-      setProfile(updated as Profile)
-    }
+    if (updated) setProfile(updated as Profile)
+
     setSaving(false)
     setSaved(true)
     setEditing(false)
@@ -107,78 +115,114 @@ export default function PerfilPage() {
     .toUpperCase()
     .slice(0, 2)
 
-  return (
-    <div style={{ background: '#070d18', minHeight: '100vh', padding: '40px 16px' }}>
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+  const playerTier = getPlayerTier(profile.indice)
+  const bestRoundRef = profile.indice != null ? Math.max(72, 72 + Math.round(profile.indice * 0.8)) : 84
+  const scoringFocus = profile.indice != null ? (profile.indice <= 12 ? 'Cierre de ronda' : 'Consistencia hoyo a hoyo') : 'Completar historial'
 
-        {/* Back */}
-        <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '24px' }}>
+  return (
+    <div style={{ background: '#070d18', minHeight: '100vh', padding: '28px 16px 40px' }}>
+      <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+        <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '18px' }}>
           ← Dashboard
         </Link>
 
-        {/* Header card */}
-        <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '16px', padding: '32px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            {initials}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, rgba(23,49,41,0.96) 0%, rgba(14,28,47,0.94) 100%)',
+            border: '1px solid rgba(196,153,42,0.18)',
+            borderRadius: '18px',
+            padding: '26px',
+            marginBottom: '18px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
+            <div style={{ width: '78px', height: '78px', borderRadius: '50%', background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {initials}
+            </div>
+
+            <div style={{ flex: 1, minWidth: '220px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.24)', color: '#c8a55a', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  Perfil de jugador
+                </span>
+                <span style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: '#9fb4aa', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
+                  {playerTier}
+                </span>
+              </div>
+
+              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', margin: '0 0 6px', lineHeight: 1.1 }}>
+                {profile.name || 'Golfista'}
+              </h1>
+              <p style={{ fontSize: '14px', color: '#7a8fa8', margin: '0 0 8px' }}>{profile.email}</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                <span style={{ fontSize: '13px', color: '#c8a55a', fontWeight: 700 }}>
+                  Handicap: {profile.indice != null ? profile.indice : 'Sin indice'}
+                </span>
+                <span style={{ fontSize: '13px', color: '#9fb4aa' }}>
+                  Torneos: {tourneysPlayed}
+                </span>
+              </div>
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#edeae4', margin: '0 0 6px' }}>
-              {profile.name || 'Golfista'}
-            </h1>
-            <p style={{ fontSize: '14px', color: '#7a8fa8', margin: '0 0 4px' }}>{profile.email}</p>
-            {profile.indice != null && (
-              <p style={{ fontSize: '13px', color: '#c4992a', margin: 0, fontWeight: 600 }}>
-                Índice: {profile.indice}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+          {[
+            { icon: '🏌️', label: 'Handicap', value: profile.indice != null ? profile.indice : '—', accent: '#c8a55a' },
+            { icon: '🏆', label: 'Torneos', value: tourneysPlayed, accent: '#edeae4' },
+            { icon: '📉', label: 'Mejor vuelta ref.', value: bestRoundRef, accent: '#9ae6b4' },
+            { icon: '🎯', label: 'Foco actual', value: scoringFocus, accent: '#9fb4aa', compact: true },
+          ].map((stat) => (
+            <div key={stat.label} style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '14px', padding: '18px 16px' }}>
+              <div style={{ fontSize: '24px', marginBottom: '8px' }}>{stat.icon}</div>
+              <div style={{ fontSize: stat.compact ? '14px' : '26px', color: stat.accent, fontWeight: 700, lineHeight: 1.1, fontFamily: stat.compact ? 'inherit' : '"Playfair Display", serif' }}>
+                {stat.value}
+              </div>
+              <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '6px' }}>{stat.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
+            <div>
+              <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', margin: 0 }}>
+                Identidad competitiva
+              </h2>
+              <p style={{ fontSize: '13px', color: '#7a8fa8', margin: '4px 0 0' }}>
+                Un resumen rapido de tu perfil amateur en TuGolf.
               </p>
-            )}
+            </div>
+            {saved && <span style={{ fontSize: '13px', color: '#22c55e' }}>✓ Guardado</span>}
           </div>
-        </div>
 
-        {/* Stats card */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '14px', marginBottom: '20px' }}>
-          <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '32px', marginBottom: '8px' }}>🏆</div>
-            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{tourneysPlayed}</div>
-            <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '4px' }}>Torneos jugados</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '16px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
+              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nivel actual</div>
+              <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700, marginTop: '4px' }}>{playerTier}</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
+              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Proximo paso</div>
+              <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700, marginTop: '4px' }}>{scoringFocus}</div>
+            </div>
           </div>
-          <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: profile.indice == null ? 'pointer' : 'default' }}
-            onClick={() => profile.indice == null && setEditing(true)}>
-            <div style={{ fontSize: '32px', marginBottom: '8px' }}>🏌️</div>
-            {profile.indice != null ? (
-              <>
-                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{profile.indice}</div>
-                <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '4px' }}>Índice de golf</div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: '13px', color: '#c4992a', fontWeight: 600 }}>Sin índice</div>
-                <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '4px' }}>Agregar →</div>
-              </>
-            )}
-          </div>
-        </div>
 
-        {/* Edit card */}
-        <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '16px', padding: '28px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', margin: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', margin: 0 }}>
               Mis datos
-            </h2>
+            </h3>
             {!editing && (
               <button
                 onClick={() => setEditing(true)}
-                style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '7px 16px', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 500 }}
+                style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '8px 16px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
               >
-                Editar
+                Editar perfil
               </button>
-            )}
-            {saved && (
-              <span style={{ fontSize: '13px', color: '#22c55e' }}>✓ Guardado</span>
             )}
           </div>
 
           {editing ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Nombre</label>
                 <input
@@ -191,7 +235,7 @@ export default function PerfilPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Índice de golf</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Handicap</label>
                 <input
                   type="number"
                   step="0.1"
@@ -205,55 +249,50 @@ export default function PerfilPage() {
                   onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
                 />
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '2px', flexWrap: 'wrap' }}>
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  style={{ background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px', padding: '10px 24px', borderRadius: '8px', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+                  style={{ background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
                 >
-                  {saving ? 'Guardando...' : 'Guardar'}
+                  {saving ? 'Guardando...' : 'Guardar cambios'}
                 </button>
                 <button
                   onClick={() => { setEditing(false); setEditName(profile.name || ''); setEditIndice(profile.indice != null ? String(profile.indice) : '') }}
-                  style={{ background: 'transparent', border: '1px solid rgba(122,143,168,0.3)', color: '#7a8fa8', fontSize: '14px', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}
+                  style={{ background: 'transparent', border: '1px solid rgba(122,143,168,0.3)', color: '#7a8fa8', fontSize: '14px', padding: '11px 18px', borderRadius: '10px', cursor: 'pointer' }}
                 >
                   Cancelar
                 </button>
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(122,143,168,0.1)' }}>
-                <span style={{ fontSize: '13px', color: '#7a8fa8' }}>Nombre</span>
-                <span style={{ fontSize: '14px', color: '#edeae4', fontWeight: 500 }}>{profile.name || '—'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(122,143,168,0.1)' }}>
-                <span style={{ fontSize: '13px', color: '#7a8fa8' }}>Email</span>
-                <span style={{ fontSize: '14px', color: '#edeae4' }}>{profile.email}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
-                <span style={{ fontSize: '13px', color: '#7a8fa8' }}>Índice de golf</span>
-                <span style={{ fontSize: '14px', color: profile.indice != null ? '#c4992a' : '#7a8fa8', fontWeight: profile.indice != null ? 600 : 400 }}>
-                  {profile.indice != null ? profile.indice : '—'}
-                </span>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[
+                ['Nombre', profile.name || '—'],
+                ['Email', profile.email],
+                ['Handicap', profile.indice != null ? profile.indice : '—'],
+              ].map(([label, value]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: label !== 'Handicap' ? '1px solid rgba(122,143,168,0.1)' : 'none', gap: '12px' }}>
+                  <span style={{ fontSize: '13px', color: '#7a8fa8' }}>{label}</span>
+                  <span style={{ fontSize: '14px', color: '#edeae4', fontWeight: 600, textAlign: 'right' }}>{value}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Links */}
-        <div style={{ marginTop: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
           <Link
             href="/perfil/historial"
-            style={{ background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', padding: '10px 18px', borderRadius: '8px', fontSize: '14px', textDecoration: 'none', fontWeight: 500 }}
+            style={{ background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', padding: '14px 16px', borderRadius: '12px', fontSize: '14px', textDecoration: 'none', fontWeight: 600 }}
           >
-            📋 Historial de tarjetas →
+            📋 Ver historial de tarjetas →
           </Link>
           <Link
             href="/ronda-libre/nueva"
-            style={{ background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', padding: '10px 18px', borderRadius: '8px', fontSize: '14px', textDecoration: 'none', fontWeight: 500 }}
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#edeae4', padding: '14px 16px', borderRadius: '12px', fontSize: '14px', textDecoration: 'none', fontWeight: 600 }}
           >
-            ⛳ Nueva ronda libre →
+            ⛳ Crear nueva ronda libre →
           </Link>
         </div>
       </div>

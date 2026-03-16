@@ -33,6 +33,12 @@ interface RondaLibre {
 }
 
 type Role = 'espectador' | 'jugador' | null
+type TimelineEvent = {
+  jugador: string
+  hole: number
+  score: number
+  diff: number
+}
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
 const SS_KEY = (codigo: string) => `ronda-${codigo}-role`
@@ -52,6 +58,27 @@ function getHolesPlayed(scores: Record<string, number>, holes: number): number {
     if ((scores[String(h)] ?? scores[h]) != null) count++
   }
   return count
+}
+
+function buildTimelineEvents(
+  jugadores: Jugador[],
+  holes: number,
+  parMap: Record<number, number>
+): TimelineEvent[] {
+  return jugadores
+    .map((jugador) => {
+      for (let h = holes; h >= 1; h--) {
+        const score = jugador.scores[String(h)] ?? jugador.scores[h]
+        if (score != null) {
+          const par = parMap[h] ?? 4
+          return { jugador: jugador.nombre, hole: h, score, diff: score - par }
+        }
+      }
+      return null
+    })
+    .filter((event): event is TimelineEvent => event !== null)
+    .sort((a, b) => b.hole - a.hole)
+    .slice(0, 4)
 }
 
 /* ── Main Component ─────────────────────────────────────────────────────── */
@@ -169,6 +196,7 @@ export default function RondaLibrePage() {
 
   const isEnCurso = ronda.estado === 'en_curso'
   const hasCourse = Object.keys(parMap).length > 0
+  const timelineEvents = buildTimelineEvents(ronda.ronda_libre_jugadores, ronda.holes, parMap)
 
   // Sorted leaderboard
   const leaderboard = [...ronda.ronda_libre_jugadores]
@@ -208,6 +236,44 @@ export default function RondaLibrePage() {
 
         {/* Role selection */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', gap: '16px' }}>
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '360px',
+              background: 'rgba(14,28,47,0.9)',
+              border: '1px solid rgba(196,153,42,0.16)',
+              borderRadius: '16px',
+              padding: '18px 18px 16px',
+              marginBottom: '4px',
+            }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estado</div>
+                <div style={{ fontSize: '14px', color: isEnCurso ? '#22c55e' : '#edeae4', fontWeight: 700 }}>
+                  {isEnCurso ? 'En vivo ahora' : 'Ronda finalizada'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
+                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>
+                  {ronda.ronda_libre_jugadores.length}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modalidad</div>
+                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>
+                  {ronda.holes} hoyos
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tees</div>
+                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700, textTransform: 'capitalize' }}>
+                  {ronda.tees}
+                </div>
+              </div>
+            </div>
+          </div>
           <p style={{ color: '#7a8fa8', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
             ¿Cómo quieres unirte a esta ronda?
           </p>
@@ -305,6 +371,58 @@ export default function RondaLibrePage() {
         {sharedHeader}
 
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(23,49,41,0.95) 0%, rgba(14,28,47,0.92) 100%)',
+              border: '1px solid rgba(196,153,42,0.14)',
+              borderRadius: '14px',
+              padding: '16px',
+              marginBottom: '12px',
+            }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Club</div>
+                <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{ronda.course_name}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Fecha</div>
+                <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{fechaDisplay}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
+                <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{ronda.ronda_libre_jugadores.length}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Formato</div>
+                <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{ronda.holes} hoyos</div>
+              </div>
+            </div>
+          </div>
+
+          {timelineEvents.length > 0 && (
+            <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', padding: '14px 16px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Momentos recientes</span>
+                <span style={{ fontSize: '12px', color: '#c4992a' }}>Actualiza cada 15s</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {timelineEvents.map((event) => {
+                  const label = event.diff <= -2 ? 'Eagle' : event.diff === -1 ? 'Birdie' : event.diff === 0 ? 'Par' : event.diff === 1 ? 'Bogey' : `+${event.diff}`
+                  const color = event.diff <= -2 ? '#c8a55a' : event.diff === -1 ? '#22c55e' : event.diff === 0 ? '#edeae4' : '#dc2626'
+                  return (
+                    <div key={`${event.jugador}-${event.hole}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div>
+                        <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>{event.jugador}</div>
+                        <div style={{ fontSize: '12px', color: '#7a8fa8' }}>Hoyo {event.hole} · {event.score} golpes</div>
+                      </div>
+                      <span style={{ color, fontSize: '13px', fontWeight: 700 }}>{label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Leaderboard */}
           <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px' }}>
@@ -335,10 +453,10 @@ export default function RondaLibrePage() {
               // Correct color directly from vsPar
               const vsParColor = (() => {
                 if (j.holesPlayed === 0) return '#7a8fa8'
-                if (j.vsPar <= -2) return '#3b82f6'
+                if (j.vsPar <= -2) return '#c8a55a'
                 if (j.vsPar === -1) return '#22c55e'
                 if (j.vsPar === 0)  return '#edeae4'
-                if (j.vsPar === 1)  return '#c4992a'
+                if (j.vsPar === 1)  return '#dc2626'
                 return '#dc2626'
               })()
 
