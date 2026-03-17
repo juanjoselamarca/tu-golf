@@ -24,7 +24,7 @@ interface User {
   id: string
   name: string | null
   email: string | null
-  handicap_index: number | null
+  indice: number | null
   created_at: string
   role: string | null
   avatar_url: string | null
@@ -156,7 +156,7 @@ function UserDrawer({ user, onClose }: { user: User; onClose: () => void }) {
             </div>
             <div style={{ ...font.label, marginTop: '4px' }}>{user.email || 'Sin email'}</div>
           </div>
-          {user.handicap_index !== null && user.handicap_index !== undefined && (
+          {user.indice !== null && user.indice !== undefined && (
             <div
               style={{
                 background: colors.bg,
@@ -166,7 +166,7 @@ function UserDrawer({ user, onClose }: { user: User; onClose: () => void }) {
                 textAlign: 'center',
               }}
             >
-              <div style={font.kpi as React.CSSProperties}>{user.handicap_index}</div>
+              <div style={font.kpi as React.CSSProperties}>{user.indice}</div>
               <div style={font.label}>HCP Index</div>
             </div>
           )}
@@ -443,7 +443,7 @@ export default function AdminUsuariosPage() {
                   {user.email || '-'}
                 </span>
                 <span style={{ fontSize: '14px', color: colors.gold, fontWeight: 600 }}>
-                  {user.handicap_index ?? '-'}
+                  {user.indice ?? '-'}
                 </span>
                 <span style={{ ...font.label, fontSize: '12px' }}>{formatDate(user.created_at)}</span>
                 <span
