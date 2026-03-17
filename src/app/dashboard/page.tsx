@@ -95,7 +95,7 @@ export default async function DashboardPage() {
         <div style={{ height: '1px', background: 'linear-gradient(90deg, #c4992a, transparent)', marginBottom: '40px' }} />
 
         {/* 2 — Action cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '56px' }}>
+        <div className="dashboard-actions" style={{ gap: '20px', marginBottom: '56px' }}>
           {/* Ronda Libre — gold, prominent */}
           <div style={{ background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(196,153,42,0.35)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
             <div style={{ fontSize: '44px', marginBottom: '16px' }}>⛳</div>
@@ -111,11 +111,29 @@ export default async function DashboardPage() {
             <div style={{ fontSize: '44px', marginBottom: '16px' }}>🏆</div>
             <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', marginBottom: '8px' }}>Organizar un torneo</h2>
             <p style={{ fontSize: '14px', color: '#7a8fa8', marginBottom: '24px' }}>Crea y gestiona tu propio torneo en minutos.</p>
-            <Link href="/organizador/nuevo" style={{ display: 'inline-block', background: '#1a4fd6', color: 'white', fontWeight: 600, borderRadius: '8px', padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
+            <Link href="/organizador/nuevo" style={{ display: 'inline-block', background: '#c4992a', color: '#070d18', fontWeight: 600, borderRadius: '8px', padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
               Crear torneo →
             </Link>
           </div>
         </div>
+
+        {/* Stats card */}
+        <Link href="/perfil/stats" style={{
+          display: 'block', textDecoration: 'none',
+          background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)',
+          borderRadius: '14px', padding: '20px', marginBottom: '24px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '24px' }}>📊</span>
+            <span style={{ color: '#edeae4', fontSize: '16px', fontWeight: 600 }}>Mis estadísticas</span>
+          </div>
+          <p style={{ color: '#7a8fa8', fontSize: '13px', margin: '0 0 12px' }}>
+            GWI, scoring trend, evolución del índice
+          </p>
+          <span style={{ color: '#c4992a', fontSize: '13px', fontWeight: 600 }}>
+            Ver estadísticas →
+          </span>
+        </Link>
 
         {/* 3 — Mis torneos como organizador */}
         <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', marginBottom: '40px' }} />

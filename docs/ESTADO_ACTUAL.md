@@ -1,15 +1,15 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-17 | Commit: `d716954`
+> Auto-generado: 2026-03-17 | Commit: `b1cd349`
 
 ## Último deploy
 
-- **Commit:** `d716954` — chore: redeploy para activar ANTHROPIC_API_KEY
+- **Commit:** `b1cd349` — fix: chat session_type free + API acepta message y messages
 - **Fecha:** 2026-03-17
-- **Branch:** main (30 commits total)
+- **Branch:** main (35 commits total)
 - **URL:** https://tu-golf.vercel.app
 
-## Páginas en producción (31 páginas)
+## Páginas en producción (32 páginas)
 
 - `/admin/configuracion`
 - `/admin/crecimiento`
@@ -35,6 +35,7 @@
 - `/organizador/[slug]/scoring`
 - `/perfil/historial`
 - `/perfil`
+- `/perfil/stats`
 - `/register`
 - `/ronda-libre/nueva`
 - `/ronda-libre/[codigo]`

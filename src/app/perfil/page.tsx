@@ -281,6 +281,16 @@ export default function PerfilPage() {
           )}
         </div>
 
+        <Link href="/perfil/stats" style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: '100%', minHeight: '48px',
+          background: 'transparent', border: '1px solid rgba(196,153,42,0.4)',
+          color: '#c4992a', borderRadius: '10px', fontSize: '15px',
+          fontWeight: 600, textDecoration: 'none', marginBottom: '18px',
+        }}>
+          Ver mis estadísticas completas →
+        </Link>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
           <Link
             href="/perfil/historial"

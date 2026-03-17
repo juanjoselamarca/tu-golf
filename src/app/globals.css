@@ -310,3 +310,32 @@ html {
   .pga-col-hoy { display: none !important; }
   .pga-col-flag { display: none !important; }
 }
+
+/* ── Sprint: Page entrance animation ──────────────────── */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+main {
+  animation: pageIn 0.2s ease forwards;
+}
+
+/* ── Safe area bottom padding ─────────────────────────── */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
+}
+
+/* ── Dashboard action cards — responsive ──────────────── */
+.dashboard-actions {
+  display: flex;
+  gap: 16px;
+  flex-direction: column;
+}
+@media (min-width: 768px) {
+  .dashboard-actions {
+    flex-direction: row;
+  }
+  .dashboard-actions > * {
+    flex: 1;
+  }
+}

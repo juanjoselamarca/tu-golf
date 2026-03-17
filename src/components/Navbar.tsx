@@ -118,7 +118,7 @@ export default function Navbar() {
                   <button
                     onClick={() => setDropdownOpen(!dropdownOpen)}
                     className="flex items-center gap-2 cursor-pointer"
-                    style={{ background: 'none', border: 'none', padding: 0, minHeight: 0, minWidth: 0 }}
+                    style={{ background: 'none', border: 'none', padding: '6px', minHeight: '44px', minWidth: '44px' }}
                   >
                     <div
                       style={{

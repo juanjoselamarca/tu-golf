@@ -154,6 +154,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
+        {/* Mobile tab bar */}
+        <div className="admin-mobile-tabs" style={{
+          display: 'none',
+          overflowX: 'auto',
+          gap: '8px',
+          padding: '12px 16px',
+          borderBottom: '1px solid #132540',
+          WebkitOverflowScrolling: 'touch',
+        }}>
+          {NAV_ITEMS.map(item => (
+            <Link key={item.href} href={item.href} style={{
+              flexShrink: 0,
+              height: '36px',
+              padding: '0 14px',
+              borderRadius: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '13px',
+              fontWeight: isActive(item.href) ? 600 : 400,
+              background: isActive(item.href) ? '#c4992a' : 'rgba(255,255,255,0.05)',
+              color: isActive(item.href) ? '#070d18' : '#7a8fa8',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}>
+              <span style={{ fontSize: '14px' }}>{item.icon}</span>
+              {item.label}
+            </Link>
+          ))}
+        </div>
+
         <main style={{ padding: '24px 20px', maxWidth: '1400px' }}>
           {children}
         </main>
@@ -164,6 +195,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           .admin-sidebar { display: flex !important; flex-direction: column; }
           .admin-main { margin-left: 240px !important; }
           .admin-hamburger { display: none !important; }
+        }
+        @media (max-width: 1023px) {
+          .admin-mobile-tabs { display: flex !important; }
         }
       `}</style>
     </div>

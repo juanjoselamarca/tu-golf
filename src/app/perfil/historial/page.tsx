@@ -132,26 +132,50 @@ function HistorialContent() {
   }
   const avgOv = ovCount > 0 ? Math.round(ovSum / ovCount * 10) / 10 : null
 
+  const [loadError, setLoadError] = useState(false)
+
   /* Auth */
   useEffect(() => {
     const check = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login?redirect=/perfil/historial'); return }
-      setUserId(user.id)
-      setLoading(false)
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { router.replace('/login?redirect=/perfil/historial'); return }
+        setUserId(user.id)
+        setLoading(false)
+      } catch {
+        setLoading(false)
+        setLoadError(true)
+      }
     }
     check()
   }, [router])
 
+  /* Timeout — si loading dura más de 8s, mostrar estado vacío */
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        setLoading(false)
+        setLoadError(true)
+      }
+    }, 8000)
+    return () => clearTimeout(timeout)
+  }, [loading])
+
   const loadRounds = useCallback(async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('historical_rounds')
-      .select('id, course_name, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
-      .order('played_at', { ascending: false })
-      .limit(50)
-    setRounds((data as HistoricalRound[]) || [])
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('historical_rounds')
+        .select('id, course_name, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
+        .order('played_at', { ascending: false })
+        .limit(50)
+      if (error) { setLoadError(true); return }
+      setRounds((data as HistoricalRound[]) || [])
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    }
   }, [])
 
   useEffect(() => { if (!loading) loadRounds() }, [loading, loadRounds])
@@ -198,6 +222,31 @@ function HistorialContent() {
   if (loading) return (
     <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8fa8' }}>
       Cargando...
+    </div>
+  )
+
+  if (loadError && rounds.length === 0) return (
+    <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '20px' }}>
+      <div style={{ fontSize: '48px' }}>⚠️</div>
+      <p style={{ color: '#edeae4', fontSize: '16px', textAlign: 'center', margin: 0 }}>
+        No se pudieron cargar las tarjetas
+      </p>
+      <p style={{ color: '#7a8fa8', fontSize: '13px', textAlign: 'center', margin: 0 }}>
+        Revisa tu conexión e intenta de nuevo
+      </p>
+      <button
+        onClick={() => { setLoadError(false); setLoading(true); }}
+        style={{
+          background: '#c4992a', color: '#070d18', fontWeight: 700,
+          fontSize: '14px', padding: '12px 28px', borderRadius: '10px',
+          border: 'none', cursor: 'pointer', marginTop: '8px',
+        }}
+      >
+        Reintentar
+      </button>
+      <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none', marginTop: '4px' }}>
+        ← Volver al dashboard
+      </Link>
     </div>
   )
 

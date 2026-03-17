@@ -218,8 +218,8 @@ export default function CoachDashboard() {
           ].map((btn) => (
             <Link key={btn.href} href={btn.href} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              minHeight: '48px', background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.3)',
-              borderRadius: '10px', color: '#edeae4', fontSize: '15px', fontWeight: 500,
+              width: '100%', minHeight: '56px', background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.3)',
+              borderRadius: '10px', color: '#edeae4', fontSize: '16px', fontWeight: 500,
               textDecoration: 'none', transition: 'all 0.2s ease',
             }}>
               {btn.label}
