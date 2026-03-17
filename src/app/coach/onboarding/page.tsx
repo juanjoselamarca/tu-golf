@@ -19,37 +19,6 @@ const QUESTIONS = [
   { id: 'objetivo_taiger', text: '¿Qué quieres lograr con el tAIger?', options: ['Bajar mi índice', 'Rendir mejor en torneos', 'Disfrutar más el golf', 'Todo lo anterior'] },
 ] as const
 
-function derivePressureResponse(answers: Record<string, string>): string {
-  const bogey = answers['reaccion_bogey']
-  const presion = answers['juego_presion']
-  const hoyo_malo = answers['reaccion_hoyo_malo']
-
-  if (bogey === 'Me afecta el resto de la ronda' || presion === 'Me pongo tenso' || hoyo_malo === 'Me enojo') {
-    return 'reactive'
-  }
-  if (bogey === 'Lo supero rápido' && presion === 'Subo mi nivel' && hoyo_malo === 'Analizo qué falló') {
-    return 'resilient'
-  }
-  return 'moderate'
-}
-
-function deriveMotivationType(answers: Record<string, string>): string {
-  const motivacion = answers['motivacion']
-  const score = answers['importancia_score']
-  const objetivo = answers['objetivo_taiger']
-
-  if (motivacion === 'Ganar torneos' || score === 'Muchísimo') {
-    return 'competitive'
-  }
-  if (motivacion === 'Disfrutar con amigos' || score === 'Me importa más disfrutar') {
-    return 'recreational'
-  }
-  if (objetivo === 'Bajar mi índice' || motivacion === 'Mejorar mi índice') {
-    return 'improvement'
-  }
-  return 'balanced'
-}
-
 export default function CoachOnboarding() {
   const router = useRouter()
   const [currentQ, setCurrentQ] = useState(0)
@@ -86,33 +55,30 @@ export default function CoachOnboarding() {
     } else {
       // Last question answered — save profile
       setSaving(true)
+      setSaveError('')
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const pressure_response = derivePressureResponse(newAnswers)
-      const motivation_type = deriveMotivationType(newAnswers)
+      if (!user) {
+        setSaveError('Debes estar logueado para continuar')
+        setSaving(false)
+        return
+      }
 
       const { error } = await supabase.from('player_psych_profile').upsert({
         user_id: user.id,
         onboarding_completed: true,
         onboarding_answers: newAnswers,
-        pressure_response,
-        motivation_type,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 
       if (error) {
-        console.error('Error guardando onboarding:', error)
+        console.error('Onboarding error completo:', JSON.stringify(error))
         setSaving(false)
-        setSaveError('Error al guardar tu perfil. Intenta de nuevo.')
+        setSaveError(error.message || 'Error desconocido al guardar')
         return
       }
 
-      await trackEvent(supabase, user.id, 'onboarding_completado', {
-        pressure_response,
-        motivation_type,
-      })
+      await trackEvent(supabase, user.id, 'onboarding_completado', {})
 
       setSaving(false)
       setCompleted(true)
