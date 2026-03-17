@@ -45,7 +45,7 @@
   --eagle:  #3B82F6;
   --birdie: #EF4444;
   --par:    #6B7280;
-  --bogey:  #F59E0B;
+  --bogey:  #C4992A;
   --double: #DC2626;
 }
 
@@ -65,9 +65,9 @@
     min-width: 320px;
   }
 
-  h1, h2, h3 {
-    font-family: var(--font-playfair);
-  }
+  h1 { font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
+  h2 { font-size: 17px; font-weight: 600; color: var(--text); letter-spacing: -0.2px; }
+  h3 { font-size: 14px; font-weight: 500; color: var(--text-2); }
 }
 
 /* ── Component classes ─────────────────────────────────── */

@@ -66,7 +66,7 @@ function cellBg(score: number | null): React.CSSProperties {
   if (score == null) return { background: 'rgba(7,13,24,0.4)', color: '#3a4a5a' }
   if (score <= 2)    return { background: 'rgba(37,99,235,0.38)',  color: '#93c5fd' }
   if (score === 3)   return { background: 'rgba(22,163,74,0.38)',  color: '#86efac' }
-  if (score === 4)   return { background: 'rgba(255,255,255,0.05)',color: '#edeae4' }
+  if (score === 4)   return { background: 'rgba(255,255,255,0.05)',color: 'var(--text)' }
   if (score === 5)   return { background: 'rgba(196,153,42,0.25)', color: '#fcd34d' }
   return               { background: 'rgba(220,38,38,0.30)',  color: '#fca5a5' }
 }
@@ -84,9 +84,9 @@ function taigerMessage(count: number): string {
 
 /* ─── Estilos base ─────────────────────────────────────── */
 const inputBase: React.CSSProperties = {
-  background:   'rgba(7,13,24,0.6)',
-  border:       '1px solid rgba(122,143,168,0.3)',
-  color:        '#edeae4',
+  background:   'var(--input-bg)',
+  border:       '1px solid var(--input-border)',
+  color:        'var(--text)',
   borderRadius: '8px',
   padding:      '10px 12px',
   outline:      'none',
@@ -220,18 +220,18 @@ function HistorialContent() {
   }
 
   if (loading) return (
-    <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8fa8' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>
       Cargando...
     </div>
   )
 
   if (loadError && rounds.length === 0) return (
-    <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '20px' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '20px' }}>
       <div style={{ fontSize: '48px' }}>⚠️</div>
-      <p style={{ color: '#edeae4', fontSize: '16px', textAlign: 'center', margin: 0 }}>
+      <p style={{ color: 'var(--text)', fontSize: '16px', textAlign: 'center', margin: 0 }}>
         No se pudieron cargar las tarjetas
       </p>
-      <p style={{ color: '#7a8fa8', fontSize: '13px', textAlign: 'center', margin: 0 }}>
+      <p style={{ color: 'var(--text-2)', fontSize: '13px', textAlign: 'center', margin: 0 }}>
         Revisa tu conexión e intenta de nuevo
       </p>
       <button
@@ -244,7 +244,7 @@ function HistorialContent() {
       >
         Reintentar
       </button>
-      <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none', marginTop: '4px' }}>
+      <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', marginTop: '4px' }}>
         ← Volver al dashboard
       </Link>
     </div>
@@ -253,15 +253,15 @@ function HistorialContent() {
   const progress = Math.min(rounds.length / 50, 1)
 
   return (
-    <div style={{ background: '#070d18', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
 
       {/* ── Header ── */}
-      <div style={{ background: 'rgba(14,28,47,0.98)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '20px 24px' }}>
+      <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '20px 24px' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
             <div>
-              <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '12px', textDecoration: 'none', display: 'block', marginBottom: '6px' }}>← Dashboard</Link>
-              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#edeae4', margin: 0 }}>
+              <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none', display: 'block', marginBottom: '6px' }}>← Dashboard</Link>
+              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: 'var(--text)', margin: 0 }}>
                 Mi Historial
               </h1>
             </div>
@@ -292,7 +292,7 @@ function HistorialContent() {
                 borderRadius: '20px', padding: '5px 14px',
                 display: 'flex', gap: '6px', alignItems: 'center',
               }}>
-                <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{pill.label}</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{pill.label}</span>
                 <span style={{ fontSize: '14px', color: '#c4992a', fontWeight: 700 }}>{pill.value}</span>
               </div>
             ))}
@@ -301,8 +301,8 @@ function HistorialContent() {
           {/* tAIger progress bar */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-              <span style={{ fontSize: '11px', color: '#7a8fa8' }}>🐯 {taigerMessage(rounds.length)}</span>
-              <span style={{ fontSize: '11px', color: '#7a8fa8' }}>{rounds.length}/50</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>🐯 {taigerMessage(rounds.length)}</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{rounds.length}/50</span>
             </div>
             <div style={{ height: '4px', background: 'rgba(196,153,42,0.15)', borderRadius: '2px', overflow: 'hidden' }}>
               <div style={{
@@ -331,13 +331,13 @@ function HistorialContent() {
               borderRadius: '12px', padding: '16px 20px', marginBottom: '24px',
               borderLeft: '3px solid #c4992a',
             }}>
-              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: '#edeae4', marginBottom: '4px' }}>
+              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: 'var(--text)', marginBottom: '4px' }}>
                 {courseName || 'Tu cancha'}
-                {teeColor && <span style={{ fontSize: '12px', color: '#7a8fa8', marginLeft: '8px' }}>· Tee {teeColor}</span>}
+                {teeColor && <span style={{ fontSize: '12px', color: 'var(--text-2)', marginLeft: '8px' }}>· Tee {teeColor}</span>}
               </div>
               {formStats && totalGross != null ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
-                  <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '2rem', color: '#edeae4', fontWeight: 700 }}>
+                  <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '2rem', color: 'var(--text)', fontWeight: 700 }}>
                     {totalGross}
                   </span>
                   <span style={{
@@ -347,17 +347,17 @@ function HistorialContent() {
                   }}>
                     {formatOv(formStats.overUnder)} par
                   </span>
-                  <span style={{ fontSize: '12px', color: '#7a8fa8' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
                     {formStats.birdies > 0 && `🐦 ${formStats.birdies} `}
                     {formStats.bogeys  > 0 && `📌 ${formStats.bogeys} `}
                     {formStats.doubles > 0 && `🔴 ${formStats.doubles}`}
                   </span>
                 </div>
               ) : (
-                <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '4px' }}>Ingresa tus scores hoyo a hoyo...</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>Ingresa tus scores hoyo a hoyo...</div>
               )}
               {formStats && (
-                <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '6px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>
                   Total: {formStats.total} · {formStats.overUnder > 0 ? '+' : ''}{formStats.overUnder === 0 ? 'E' : formStats.overUnder} · {formStats.birdies} birdies · {formStats.pars} pares · {formStats.bogeys} bogeys
                 </div>
               )}
@@ -366,7 +366,7 @@ function HistorialContent() {
             {/* Cancha + Tee */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', marginBottom: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '5px' }}>Cancha *</label>
+                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '5px' }}>Cancha *</label>
                 <select required value={courseName} onChange={e => setCourseName(e.target.value)}
                   style={{ ...inputBase, cursor: 'pointer' }}>
                   <option value="">— Seleccionar cancha —</option>
@@ -374,7 +374,7 @@ function HistorialContent() {
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '5px' }}>Tees</label>
+                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '5px' }}>Tees</label>
                 <select value={teeColor} onChange={e => setTeeColor(e.target.value)}
                   style={{ ...inputBase, cursor: 'pointer', width: '110px' }}>
                   <option value="">—</option>
@@ -385,7 +385,7 @@ function HistorialContent() {
 
             {/* Fecha */}
             <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '5px' }}>Fecha *</label>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '5px' }}>Fecha *</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <select value={day}   onChange={e => setDay(e.target.value)}   style={{ ...inputBase, width: '70px',  cursor: 'pointer' }}>
                   {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
@@ -401,19 +401,19 @@ function HistorialContent() {
 
             {/* Scores por hoyo — front 9 + back 9 */}
             <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '8px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px' }}>
                 Scores por hoyo (par 4 asumido)
               </label>
               {(['Front 9', 'Back 9'] as const).map((half, halfIdx) => (
                 <div key={half} style={{ marginBottom: '10px' }}>
-                  <div style={{ fontSize: '11px', color: '#7a8fa8', marginBottom: '5px' }}>{half}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '5px' }}>{half}</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '5px' }}>
                     {Array.from({ length: 9 }, (_, j) => {
                       const idx = halfIdx * 9 + j
                       const val = scores[idx]
                       return (
                         <div key={idx} style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '9px', color: '#7a8fa8', marginBottom: '3px' }}>H{idx + 1}</div>
+                          <div style={{ fontSize: '9px', color: 'var(--text-2)', marginBottom: '3px' }}>H{idx + 1}</div>
                           <input
                             type="number" min={1} max={20} inputMode="numeric"
                             placeholder="—"
@@ -445,7 +445,7 @@ function HistorialContent() {
 
             {/* Notas */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '5px' }}>Notas (opcional)</label>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '5px' }}>Notas (opcional)</label>
               <textarea
                 placeholder="¿Algo memorable de esta ronda?"
                 value={notes} onChange={e => setNotes(e.target.value)} rows={2}
@@ -466,7 +466,7 @@ function HistorialContent() {
               }}>
                 {saving ? 'Guardando...' : 'Guardar y ver mi análisis →'}
               </button>
-              <div style={{ textAlign: 'center', fontSize: '12px', color: '#7a8fa8', marginTop: '8px' }}>
+              <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
                 🐯 el tAIger analizará esta ronda automáticamente
               </div>
             </div>
@@ -477,10 +477,10 @@ function HistorialContent() {
         {rounds.length === 0 && !showForm && (
           <div style={{ textAlign: 'center', padding: '80px 20px' }}>
             <div style={{ fontSize: '56px', marginBottom: '16px' }}>🐯</div>
-            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', marginBottom: '8px' }}>
+            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '8px' }}>
               el tAIger está esperando tus datos
             </div>
-            <div style={{ fontSize: '14px', color: '#7a8fa8', marginBottom: '28px', maxWidth: '320px', margin: '0 auto 28px' }}>
+            <div style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '28px', maxWidth: '320px', margin: '0 auto 28px' }}>
               Registra tu primera ronda y el tAIger comenzará a analizar tu juego
             </div>
             <div style={{ fontSize: '12px', color: 'rgba(196,153,42,0.6)', padding: '10px 16px', background: 'rgba(196,153,42,0.06)', borderRadius: '8px', display: 'inline-block' }}>
@@ -505,7 +505,7 @@ function HistorialContent() {
                     key={r.id}
                     className="card-animate"
                     style={{
-                      background: '#0e1c2f',
+                      background: 'var(--bg-surface)',
                       border: '1px solid rgba(122,143,168,0.12)',
                       borderRadius: '14px',
                       overflow: 'hidden',
@@ -532,10 +532,10 @@ function HistorialContent() {
                       {/* Course + date + delete */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '10px' }}>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '14px', color: '#edeae4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '14px', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {r.course_name}
                           </div>
-                          <div style={{ fontSize: '11px', color: '#7a8fa8', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <span>{dateStr}</span>
                             {r.tee_color && <span style={{ background: 'rgba(196,153,42,0.1)', padding: '1px 6px', borderRadius: '8px', color: '#c4992a', fontSize: '10px' }}>Tee {r.tee_color}</span>}
                           </div>
@@ -552,7 +552,7 @@ function HistorialContent() {
                       {/* Big score */}
                       {r.total_gross != null && (
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '10px' }}>
-                          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '2.8rem', color: '#edeae4', fontWeight: 700, lineHeight: 1 }}>
+                          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '2.8rem', color: 'var(--text)', fontWeight: 700, lineHeight: 1 }}>
                             {r.total_gross}
                           </span>
                           {ov != null && (
@@ -572,11 +572,11 @@ function HistorialContent() {
                         <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
                           {stats.eagles  > 0 && <span style={{ fontSize: '11px', color: '#93c5fd' }}>🦅 {stats.eagles}</span>}
                           {stats.birdies > 0 && <span style={{ fontSize: '11px', color: '#86efac' }}>🐦 {stats.birdies}</span>}
-                          {stats.pars    > 0 && <span style={{ fontSize: '11px', color: '#7a8fa8' }}>📍 {stats.pars}</span>}
+                          {stats.pars    > 0 && <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>📍 {stats.pars}</span>}
                           {stats.bogeys  > 0 && <span style={{ fontSize: '11px', color: '#fcd34d' }}>📌 {stats.bogeys}</span>}
                           {stats.doubles > 0 && <span style={{ fontSize: '11px', color: '#fca5a5' }}>🔴 {stats.doubles}</span>}
                           {stats.filledHoles < 18 && (
-                            <span style={{ fontSize: '11px', color: '#7a8fa8' }}>{stats.filledHoles} hoyos</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{stats.filledHoles} hoyos</span>
                           )}
                         </div>
                       )}
@@ -585,7 +585,7 @@ function HistorialContent() {
                       <button
                         onClick={() => toggleExpand(r.id)}
                         style={{
-                          background: 'transparent', border: 'none', color: '#7a8fa8',
+                          background: 'transparent', border: 'none', color: 'var(--text-2)',
                           fontSize: '11px', cursor: 'pointer', padding: 0, minHeight: 0, minWidth: 0,
                         }}
                       >
@@ -611,7 +611,7 @@ function HistorialContent() {
                             </div>
                           ))}
                           {r.notes && (
-                            <div style={{ fontSize: '11px', color: '#7a8fa8', fontStyle: 'italic', marginTop: '6px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-2)', fontStyle: 'italic', marginTop: '6px' }}>
                               &ldquo;{r.notes}&rdquo;
                             </div>
                           )}
@@ -622,7 +622,7 @@ function HistorialContent() {
                 )
               })}
             </div>
-            <p style={{ textAlign: 'center', fontSize: '12px', color: '#7a8fa8', marginTop: '20px' }}>
+            <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-2)', marginTop: '20px' }}>
               {rounds.length}/50 tarjetas guardadas
             </p>
           </>
@@ -634,7 +634,7 @@ function HistorialContent() {
 
 export default function HistorialPage() {
   return (
-    <Suspense fallback={<div style={{ background: '#070d18', minHeight: '100vh' }} />}>
+    <Suspense fallback={<div style={{ background: 'var(--bg)', minHeight: '100vh' }} />}>
       <HistorialContent />
     </Suspense>
   )
