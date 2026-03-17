@@ -43,7 +43,7 @@ function ChatContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: allMessages,
-          session_type: tipo === 'weekly_plan' ? 'weekly_plan' : 'post_round',
+          session_type: tipo === 'weekly_plan' ? 'weekly_plan' : 'free',
         }),
       })
 

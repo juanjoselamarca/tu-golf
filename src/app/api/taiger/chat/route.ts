@@ -20,15 +20,32 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { message, session_type = 'chat', ronda_libre_id } = body as {
-      message: string
+    const { ronda_libre_id } = body as {
+      message?: string
+      messages?: Array<{ role: string; content: string }>
       session_type?: string
       ronda_libre_id?: string
     }
 
-    if (!message || typeof message !== 'string') {
+    // Accept both 'message' (string) and 'messages' (array)
+    let userMessage: string
+    if (body.message && typeof body.message === 'string') {
+      userMessage = body.message
+    } else if (Array.isArray(body.messages) && body.messages.length > 0) {
+      const lastUser = [...body.messages].reverse().find((m: { role: string }) => m.role === 'user')
+      userMessage = lastUser?.content ?? ''
+    } else {
+      userMessage = ''
+    }
+
+    if (!userMessage.trim()) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 })
     }
+
+    // Normalize session_type to valid DB values
+    const validTypes = ['post_round', 'weekly_plan', 'pre_tournament', 'onboarding']
+    const rawType = body.session_type || 'post_round'
+    const session_type = validTypes.includes(rawType) ? rawType : 'post_round'
 
     // Prevent duplicate sessions for same ronda_libre_id
     if (ronda_libre_id) {
@@ -87,7 +104,7 @@ export async function POST(req: NextRequest) {
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: `${TAIGER_SYSTEM_PROMPT}\n\nDATOS DEL JUGADOR:\n${contextString}`,
-      messages: [{ role: 'user', content: message }],
+      messages: [{ role: 'user', content: userMessage }],
     })
 
     let fullResponse = ''
@@ -108,17 +125,21 @@ export async function POST(req: NextRequest) {
           }
 
           // Save session after streaming completes
-          await supabase.from('taiger_sessions').insert({
+          const { data: savedSession } = await supabase.from('taiger_sessions').insert({
             user_id: user.id,
             session_type,
             ronda_libre_id: ronda_libre_id || null,
-            user_message: message,
-            coach_response: fullResponse,
+            messages: [
+              { role: 'user', content: userMessage },
+              { role: 'assistant', content: fullResponse },
+            ],
             techniques_assigned: [],
-            next_focus: null,
-          })
+            next_focus: fullResponse.substring(0, 200),
+          }).select('id').single()
 
-          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
+          controller.enqueue(new TextEncoder().encode(
+            `data: ${JSON.stringify({ done: true, session_id: savedSession?.id ?? null })}\n\n`
+          ))
           controller.close()
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'Stream error'
