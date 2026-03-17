@@ -4,6 +4,28 @@
 
 ---
 
+## Sprint 10 — el tAIger v1 🐯
+**Fecha:** 17 Mar 2026
+**Estado:** ✅ COMPLETO
+
+### Entregado
+- @anthropic-ai/sdk integrado con modelo claude-sonnet-4-6
+- src/lib/taiger-prompt.ts — system prompt v1.0 + context builder
+- /api/taiger/chat — streaming SSE con Claude API
+- /api/taiger/analyze-round — análisis post-ronda automático
+- /coach/onboarding — 12 preguntas psicológicas, 1 a la vez
+- /coach — dashboard con patrones, sesiones, freemium counter
+- /coach/sesion/nueva — selector de tipo de sesión
+- /coach/sesion/nueva/chat — chat streaming con follow-ups
+- /coach/sesion/[id] — vista de sesión con seguimiento
+- Integración automática post-ronda en scorecard
+- "🐯 Mi Coach" en navbar desktop + mobile
+- Health check Claude API corregido
+- Freemium: 3 sesiones/mes, prevención duplicados
+- Analytics: onboarding_completado, taiger_sesion_iniciada
+
+---
+
 ## Admin Dashboard — 9 pestañas operacionales
 **Fecha:** 17 Mar 2026
 **Estado:** ✅ COMPLETO

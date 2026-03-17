@@ -108,6 +108,7 @@ export default function Navbar() {
               {navLink('/', 'Inicio')}
               {navLink('/leaderboard', 'Leaderboard')}
               {user && navLink('/ronda-libre/nueva', '⛳ Ronda Libre')}
+              {user && navLink('/coach', '🐯 Mi Coach')}
             </div>
 
             {/* Desktop auth */}
@@ -276,6 +277,7 @@ export default function Navbar() {
             { href: '/',                   icon: '🏠', label: 'Inicio'        },
             { href: '/leaderboard',         icon: '📊', label: 'Leaderboard'  },
             ...(user ? [{ href: '/ronda-libre/nueva', icon: '⛳', label: 'Ronda Libre'   }] : []),
+            ...(user ? [{ href: '/coach', icon: '🐯', label: 'Mi Coach' }] : []),
             ...(user ? [{ href: '/dashboard',          icon: '📋', label: 'Mi Dashboard' }] : []),
             ...(user ? [{ href: '/perfil',             icon: '👤', label: 'Mi Perfil'    }] : []),
           ].map((item) => (

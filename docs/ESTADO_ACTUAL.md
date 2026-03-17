@@ -1,15 +1,15 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-17 | Commit: `ae07373`
+> Auto-generado: 2026-03-17 | Commit: `d716954`
 
 ## Último deploy
 
-- **Commit:** `ae07373` — fix: Sprint 9C — fixes urgentes + sistema docs auto-actualizable
+- **Commit:** `d716954` — chore: redeploy para activar ANTHROPIC_API_KEY
 - **Fecha:** 2026-03-17
-- **Branch:** main (25 commits total)
+- **Branch:** main (30 commits total)
 - **URL:** https://tu-golf.vercel.app
 
-## Páginas en producción (26 páginas)
+## Páginas en producción (31 páginas)
 
 - `/admin/configuracion`
 - `/admin/crecimiento`
@@ -21,6 +21,11 @@
 - `/admin/taiger`
 - `/admin/usuarios`
 - `/auth/auth-code-error`
+- `/coach/onboarding`
+- `/coach`
+- `/coach/sesion/nueva/chat`
+- `/coach/sesion/nueva`
+- `/coach/sesion/[id]`
 - `/dashboard`
 - `/leaderboard`
 - `/login`
@@ -57,25 +62,25 @@
 
 ---
 
-## Admin Dashboard — 9 pestañas operacionales
+## Sprint 10 — el tAIger v1 🐯
 **Fecha:** 17 Mar 2026
 **Estado:** ✅ COMPLETO
 
 ### Entregado
-- src/lib/admin.ts — seguridad por email
-- src/lib/analytics.ts — tracking de eventos
-- src/lib/supabaseAdmin.ts — cliente service-role
-- ADMIN_SUPABASE.sql — analytics_events + vista admin_daily_metrics
-- APIs: /api/admin/overview, users, activity, health
-- Layout admin con sidebar responsive + header
-- /admin — Overview con KPIs, gráfico actividad, health panel
-- /admin/usuarios — tabla paginada con búsqueda y drawer lateral
-- /admin/crecimiento — funnel activación + KPIs growth
-- /admin/golf — métricas torneos, rondas, tarjetas, distribución HCP
-- /admin/taiger — sesiones, patrones, costo API, system prompt
-- /admin/monetizacion — MRR/ARR, proyecciones con slider, costos
-- /admin/geografia — distribución países, canchas
-- /admin/sistema — health check, BD metrics, env vars, errores
+- @anthropic-ai/sdk integrado con modelo claude-sonnet-4-6
+- src/lib/taiger-prompt.ts — system prompt v1.0 + context builder
+- /api/taiger/chat — streaming SSE con Claude API
+- /api/taiger/analyze-round — análisis post-ronda automático
+- /coach/onboarding — 12 preguntas psicológicas, 1 a la vez
+- /coach — dashboard con patrones, sesiones, freemium counter
+- /coach/sesion/nueva — selector de tipo de sesión
+- /coach/sesion/nueva/chat — chat streaming con follow-ups
+- /coach/sesion/[id] — vista de sesión con seguimiento
+- Integración automática post-ronda en scorecard
+- "🐯 Mi Coach" en navbar desktop + mobile
+- Health check Claude API corregido
+- Freemium: 3 sesiones/mes, prevención duplicados
+- Analytics: onboarding_completado, taiger_sesion_iniciada
 
 ---
 

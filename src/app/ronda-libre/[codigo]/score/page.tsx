@@ -115,6 +115,8 @@ function ScorePageContent() {
   const [hasUnsaved,   setHasUnsaved]   = useState(false)
   const [showQR,       setShowQR]       = useState(false)
   const [scoreAnimKey, setScoreAnimKey] = useState(0)
+  const [taigerStatus, setTaigerStatus] = useState<'idle' | 'analyzing' | 'ready' | 'error'>('idle')
+  const [taigerSessionId, setTaigerSessionId] = useState<string | null>(null)
 
   const debounceRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retryCountRef = useRef(0)
@@ -330,12 +332,29 @@ function ScorePageContent() {
     if (currentHole < ronda.holes) {
       setCurrentHole((h) => h + 1)
     } else {
-      // Finalize: redirect to spectator view
+      // Finalize
       const supabase = createClient()
       const { data: { user: authUser } } = await supabase.auth.getUser()
       await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
       setHasUnsaved(false)
-      router.push(`/ronda-libre/${codigo}`)
+
+      // Trigger tAIger analysis in background
+      setTaigerStatus('analyzing')
+      fetch('/api/taiger/analyze-round', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ronda_libre_id: codigo })
+      }).then(r => r.json()).then(data => {
+        if (data.session_id) {
+          setTaigerStatus('ready')
+          setTaigerSessionId(data.session_id)
+        } else {
+          // Still redirect if analysis fails/limit
+          router.push(`/ronda-libre/${codigo}`)
+        }
+      }).catch(() => {
+        router.push(`/ronda-libre/${codigo}`)
+      })
     }
   }
 
@@ -818,6 +837,44 @@ function ScorePageContent() {
           </p>
         </div>
       </div>
+
+      {/* tAIger analysis banner */}
+      {taigerStatus === 'analyzing' && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90,
+          background: 'rgba(14,28,47,0.97)', borderTop: '1px solid rgba(196,153,42,0.3)',
+          padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+          textAlign: 'center',
+        }}>
+          <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
+            🐯 el tAIger está analizando tu ronda...
+          </div>
+          <div style={{ color: '#7a8fa8', fontSize: '13px' }}>Esto toma unos segundos</div>
+        </div>
+      )}
+
+      {taigerStatus === 'ready' && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90,
+          background: 'rgba(14,28,47,0.97)', borderTop: '1px solid rgba(196,153,42,0.3)',
+          padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+          textAlign: 'center',
+        }}>
+          <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
+            🐯 Tu análisis está listo
+          </div>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'}
+              style={{ background: '#c4992a', color: '#070d18', padding: '12px 24px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}>
+              Ver análisis →
+            </Link>
+            <Link href={`/ronda-libre/${codigo}`}
+              style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '12px 24px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>
+              Ver scorecard
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ── QR Modal ─────────────────────────────────────────────────────────── */}
       {showQR && (

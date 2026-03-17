@@ -49,7 +49,11 @@ export async function GET() {
     services: {
       supabase: { ok: supabaseOk, ms: supabaseMs },
       espn: { ok: espnOk, ms: espnMs },
-      claude: { ok: false, ms: 0, status: 'not_configured' },
+      claude: {
+        ok: !!process.env.ANTHROPIC_API_KEY,
+        ms: 0,
+        status: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not_configured'
+      },
       garmin: { ok: false, ms: 0, status: 'not_configured' },
       vercel: { ok: true, ms: 0, commit: process.env.VERCEL_GIT_COMMIT_SHA || 'local' },
     },
