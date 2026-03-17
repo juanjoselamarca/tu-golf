@@ -118,9 +118,37 @@ export default function CoachOnboarding() {
         <h1 style={{ color: '#c4992a', fontSize: '24px', fontFamily: '"Playfair Display", serif', fontWeight: 700, marginBottom: '12px' }}>
           Perfecto. Ya conozco tu perfil.
         </h1>
-        <p style={{ color: '#7a8fa8', fontSize: '15px', marginBottom: '32px' }}>
+        <p style={{ color: '#7a8fa8', fontSize: '15px', marginBottom: '24px' }}>
           Ahora puedo darte insights personalizados sobre tu juego mental.
         </p>
+
+        {/* Progression levels */}
+        <div style={{
+          background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)',
+          borderRadius: '10px', padding: '16px 20px', marginBottom: '32px',
+          textAlign: 'left',
+        }}>
+          <p style={{ color: '#7a8fa8', fontSize: '12px', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Cómo mejora el tAIger con el tiempo
+          </p>
+          {[
+            { icon: '📊', range: '1-4 rondas', desc: 'Análisis orientativo' },
+            { icon: '📈', range: '5-9 rondas', desc: 'Tendencias detectadas' },
+            { icon: '🎯', range: '10-19 rondas', desc: 'Patrones estadísticos' },
+            { icon: '🔬', range: '20-39 rondas', desc: 'Perfil profundo' },
+            { icon: '🏆', range: '40+ rondas', desc: 'Precisión de élite' },
+          ].map((l) => (
+            <div key={l.range} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
+              <span style={{ fontSize: '14px', width: '20px', textAlign: 'center' }}>{l.icon}</span>
+              <span style={{ color: '#7a8fa8', fontSize: '13px', width: '90px', flexShrink: 0 }}>{l.range}</span>
+              <span style={{ color: '#edeae4', fontSize: '13px' }}>{l.desc}</span>
+            </div>
+          ))}
+          <p style={{ color: '#7a8fa8', fontSize: '12px', marginTop: '12px', fontStyle: 'italic' }}>
+            Mientras más registres, más preciso seré.
+          </p>
+        </div>
+
         <button
           onClick={() => router.push('/coach')}
           style={{

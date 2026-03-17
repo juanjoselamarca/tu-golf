@@ -20,8 +20,9 @@ interface Session {
 interface ContextData {
   patterns: Pattern[]
   stats: Record<string, unknown>
-  player_name: string
-  rounds_count: number
+  player: { name: string; handicap: number | null; total_rounds: number }
+  player_name?: string
+  rounds_count?: number
 }
 
 export default function CoachDashboard() {
@@ -111,9 +112,46 @@ export default function CoachDashboard() {
           🐯 el tAIger
         </h1>
         <p style={{ color: '#7a8fa8', fontSize: '14px', margin: 0 }}>
-          Tu coach mental{context?.player_name ? ` · ${context.player_name}` : ''}
+          Tu coach mental{context?.player?.name ? ` · ${context.player.name}` : ''}
         </p>
       </div>
+
+      {/* NIVEL DE ANÁLISIS */}
+      {context && (() => {
+        const totalRounds = context.player?.total_rounds ?? context.rounds_count ?? 0
+        const level = totalRounds === 0 ? 0 : totalRounds < 5 ? 1 : totalRounds < 10 ? 2 : totalRounds < 20 ? 3 : totalRounds < 40 ? 4 : 5
+        const configs = [
+          { border: 'rgba(196,153,42,0.3)', text: 'el tAIger te conoce por tu perfil psicológico. Registra tus primeras rondas para análisis estadísticos.', label: 'Orientativo', link: true },
+          { border: 'rgba(196,153,42,0.4)', text: `Con ${totalRounds} rondas tengo señales tempranas. Registra más rondas para patrones confirmados.`, label: 'Básico', link: true },
+          { border: 'rgba(196,153,42,0.5)', text: `Con ${totalRounds} rondas detecto tendencias reales. Con 10 rondas los análisis serán mucho más precisos.`, label: 'Básico' },
+          { border: '#c4992a', text: `Con ${totalRounds} rondas los patrones que veo son estadísticamente sólidos.`, label: 'Avanzado' },
+          { border: '#c4992a', text: `Con ${totalRounds} rondas tengo un perfil profundo de tu juego.`, label: 'Experto', glow: true },
+          { border: '#c4992a', text: `Con ${totalRounds} rondas tengo más datos que la mayoría de coaches tienen de sus atletas.`, label: 'Élite', glow: true },
+        ]
+        const cfg = configs[level]
+        return (
+          <div style={{
+            background: '#0e1c2f', borderLeft: `3px solid ${cfg.border}`,
+            borderRadius: '10px', padding: '14px 16px', marginBottom: '24px',
+            boxShadow: cfg.glow ? '0 0 12px rgba(196,153,42,0.15)' : 'none',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '14px' }}>🐯</span>
+              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(196,153,42,0.15)', color: '#c4992a', fontWeight: 600 }}>
+                Nivel {cfg.label}
+              </span>
+            </div>
+            <p style={{ color: '#edeae4', fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
+              {cfg.text}
+            </p>
+            {cfg.link && (
+              <Link href="/perfil/historial" style={{ color: '#c4992a', fontSize: '12px', marginTop: '8px', display: 'inline-block', textDecoration: 'none' }}>
+                Agregar tarjeta histórica →
+              </Link>
+            )}
+          </div>
+        )
+      })()}
 
       {/* PATRONES */}
       <section style={{ marginBottom: '32px' }}>
@@ -155,12 +193,12 @@ export default function CoachDashboard() {
             borderRadius: '10px', padding: '20px 16px', textAlign: 'center',
           }}>
             <p style={{ color: '#edeae4', fontSize: '14px', margin: '0 0 12px' }}>
-              Necesito al menos 5 rondas para detectar patrones. Llevas {context?.rounds_count ?? 0}.
+              Necesito al menos 5 rondas para detectar patrones. Llevas {context?.player?.total_rounds ?? context?.rounds_count ?? 0}.
             </p>
             <div style={{ background: 'rgba(122,143,168,0.15)', borderRadius: '4px', height: '8px', overflow: 'hidden', maxWidth: '200px', margin: '0 auto' }}>
               <div style={{
                 background: '#c4992a', height: '100%', borderRadius: '4px',
-                width: `${Math.min(((context?.rounds_count ?? 0) / 5) * 100, 100)}%`, transition: 'width 0.5s ease',
+                width: `${Math.min(((context?.player?.total_rounds ?? context?.rounds_count ?? 0) / 5) * 100, 100)}%`, transition: 'width 0.5s ease',
               }} />
             </div>
           </div>

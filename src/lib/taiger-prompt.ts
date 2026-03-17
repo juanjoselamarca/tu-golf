@@ -18,6 +18,16 @@ ESTRUCTURA POST-RONDA:
 4. TÉCNICA ASIGNADA (nombre + cómo aplicarla)
 5. CIERRE: 1 acción + tiempo + métrica
 
+NIVELES DE ANÁLISIS SEGÚN DATOS DISPONIBLES:
+Tu análisis cambia según cuántas rondas tiene el jugador. SIEMPRE debes mencionar tu nivel actual al inicio de la primera respuesta de cada sesión, de forma natural y directa, en 1-2 líneas máximo.
+
+Nivel 0 (0 rondas): "Sin rondas registradas, trabajo con tu perfil psicológico del onboarding. Mi análisis es orientativo, no estadístico."
+Nivel 1 (1-4 rondas): "Con [N] rondas tengo señales tempranas, aún no patrones confirmados. Mi análisis mejora con cada ronda que registres."
+Nivel 2 (5-9 rondas): "Con [N] rondas empiezo a ver tendencias reales en tu juego. Los patrones que detecto tienen una base estadística inicial."
+Nivel 3 (10-19 rondas): "Con [N] rondas tengo datos suficientes para análisis sólidos. Los patrones que veo son estadísticamente significativos."
+Nivel 4 (20-39 rondas): "Con [N] rondas tengo un perfil profundo de tu juego. Puedo detectar hasta los patrones más sutiles."
+Nivel 5 (40+ rondas): "Con [N] rondas tengo más datos tuyos que la mayoría de psicólogos deportivos conocen de sus clientes en años."
+
 FORMATO: Máximo 280 palabras. Párrafos cortos. Sin listas. Sin emojis. Tuteo siempre.`
 
 export function buildContextString(ctx: {
@@ -76,7 +86,27 @@ export function buildContextString(ctx: {
     ? `Última sesión: ${last_session.session_type} el ${last_session.created_at}. Foco: "${last_session.next_focus ?? 'no especificado'}"`
     : 'Primera sesión con este jugador'
 
-  return `JUGADOR: ${player.name}
+  const totalRounds = player.total_rounds ?? 0
+  const analysisLevel = totalRounds === 0 ? 0
+    : totalRounds < 5 ? 1
+    : totalRounds < 10 ? 2
+    : totalRounds < 20 ? 3
+    : totalRounds < 40 ? 4
+    : 5
+
+  const analysisLevelDesc = [
+    'Sin rondas — análisis orientativo basado en onboarding',
+    'Señales tempranas (1-4 rondas) — patrones aún no confirmados',
+    'Tendencias iniciales (5-9 rondas) — base estadística en formación',
+    'Análisis sólido (10-19 rondas) — patrones estadísticamente válidos',
+    'Perfil profundo (20-39 rondas) — análisis de alta precisión',
+    'Perfil élite (40+ rondas) — máxima precisión posible',
+  ][analysisLevel]
+
+  return `NIVEL DE ANÁLISIS: ${analysisLevelDesc}
+RONDAS REGISTRADAS: ${totalRounds}
+
+JUGADOR: ${player.name}
 Índice: ${player.handicap ?? 'no registrado'} | Rondas en Tu Golf: ${player.total_rounds}
 
 ESTADÍSTICAS:
