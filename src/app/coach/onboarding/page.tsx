@@ -56,6 +56,7 @@ export default function CoachOnboarding() {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [completed, setCompleted] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   // Check if already completed
   useEffect(() => {
@@ -92,7 +93,7 @@ export default function CoachOnboarding() {
       const pressure_response = derivePressureResponse(newAnswers)
       const motivation_type = deriveMotivationType(newAnswers)
 
-      await supabase.from('player_psych_profile').upsert({
+      const { error } = await supabase.from('player_psych_profile').upsert({
         user_id: user.id,
         onboarding_completed: true,
         onboarding_answers: newAnswers,
@@ -100,6 +101,13 @@ export default function CoachOnboarding() {
         motivation_type,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
+
+      if (error) {
+        console.error('Error guardando onboarding:', error)
+        setSaving(false)
+        setSaveError('Error al guardar tu perfil. Intenta de nuevo.')
+        return
+      }
 
       await trackEvent(supabase, user.id, 'onboarding_completado', {
         pressure_response,
@@ -167,6 +175,25 @@ export default function CoachOnboarding() {
     return (
       <div style={{ padding: '60px 20px', textAlign: 'center', color: '#7a8fa8' }}>
         Guardando tu perfil...
+      </div>
+    )
+  }
+
+  if (saveError && !completed) {
+    return (
+      <div style={{ maxWidth: '500px', margin: '0 auto', padding: '60px 20px', textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '20px' }}>🐯</div>
+        <p style={{ color: '#dc2626', fontSize: '15px', marginBottom: '20px' }}>{saveError}</p>
+        <button
+          onClick={() => { setSaveError(''); handleSelect(answers[QUESTIONS[QUESTIONS.length - 1].id]) }}
+          style={{
+            background: '#c4992a', color: '#070d18', border: 'none',
+            borderRadius: '10px', padding: '14px 32px', fontSize: '16px',
+            fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Reintentar
+        </button>
       </div>
     )
   }
