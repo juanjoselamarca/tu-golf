@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import LogoutButton from '@/components/LogoutButton'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
+import { HoleColorBar } from '@/components/HoleColorBar'
 
 interface Tournament {
   id: string
@@ -218,26 +219,56 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {rondasLibres.map((r) => {
-              const isEnCurso   = r.estado === 'en_curso'
-              const fechaDisplay = r.fecha
-                ? new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
-                : ''
+            {/* Active ronda card — highlighted */}
+            {(() => {
+              const activa = rondasLibres.find(r => r.estado === 'en_curso')
+              if (!activa) return null
+              const fechaA = activa.fecha ? new Date(activa.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
               return (
-                <div key={r.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                      <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: 'var(--text)', fontWeight: 600 }}>{r.course_name}</span>
-                      <span style={{ background: isEnCurso ? 'rgba(34,197,94,0.12)' : 'rgba(122,143,168,0.12)', color: isEnCurso ? '#22c55e' : '#7a8fa8', border: `1px solid ${isEnCurso ? 'rgba(34,197,94,0.3)' : 'rgba(122,143,168,0.3)'}`, padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
-                        {isEnCurso ? 'En curso' : 'Finalizada'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
-                      {fechaDisplay} &nbsp;·&nbsp;
-                      <span style={{ fontFamily: 'monospace', color: '#c4992a', fontSize: '12px' }}>{r.codigo}</span>
-                    </div>
+                <div style={{
+                  background: 'rgba(196,153,42,0.05)', border: '1px solid rgba(196,153,42,0.2)',
+                  borderLeft: '3px solid #C4992A', borderRadius: '14px', padding: '16px', marginBottom: '8px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#C4992A' }} />
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ronda en curso</span>
                   </div>
-                  <Link href={`/ronda-libre/${r.codigo}`} style={{ ...btnSecondary }}>Ver →</Link>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{activa.course_name}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '2px' }}>{fechaA}</div>
+                  <HoleColorBar scores={[]} totalHoles={18} />
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+                    <Link href={`/ronda-libre/${activa.codigo}/score`} style={{ flex: 1, padding: '12px', background: '#C4992A', color: '#070D18', borderRadius: '10px', fontSize: '14px', fontWeight: 600, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
+                      Continuar →
+                    </Link>
+                    <Link href={`/ronda-libre/${activa.codigo}`} style={{ padding: '12px 16px', background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--text-3)', borderRadius: '10px', fontSize: '14px', textDecoration: 'none', display: 'block' }}>
+                      Ver
+                    </Link>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {rondasLibres.map((r) => {
+              const isEnCurso = r.estado === 'en_curso'
+              if (isEnCurso && rondasLibres.find(x => x.estado === 'en_curso')?.id === r.id) return null
+              const fechaDisplay = r.fecha ? new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+              return (
+                <div key={r.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600 }}>{r.course_name}</span>
+                        <span style={{ background: isEnCurso ? 'rgba(34,197,94,0.12)' : 'rgba(122,143,168,0.12)', color: isEnCurso ? '#22c55e' : 'var(--text-3)', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
+                          {isEnCurso ? 'En curso' : 'Finalizada'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+                        {fechaDisplay} · <span style={{ fontFamily: 'monospace', color: '#c4992a', fontSize: '11px' }}>{r.codigo}</span>
+                      </div>
+                    </div>
+                    <Link href={`/ronda-libre/${r.codigo}`} style={{ ...btnSecondary, flexShrink: 0 }}>Ver →</Link>
+                  </div>
+                  <HoleColorBar scores={[]} totalHoles={18} />
                 </div>
               )
             })}

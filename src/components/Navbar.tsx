@@ -267,7 +267,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile bottom nav */}
+      {/* Mobile bottom nav with FAB */}
       {user && (
         <div className="nav-bottom-bar" style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
@@ -277,13 +277,42 @@ export default function Navbar() {
           display: 'none', justifyContent: 'space-around', alignItems: 'center',
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}>
+          {/* Left items */}
           {[
             { href: '/', icon: '🏠', label: 'Inicio' },
             { href: '/leaderboard', icon: '📊', label: 'Ranking' },
-            { href: '/ronda-libre/nueva', icon: '⛳', label: 'Ronda' },
-            { href: '/coach', icon: '🐯', label: 'Coach' },
           ].map(item => {
-            const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href.replace('/nueva', '')))
+            const active = pathname === item.href
+            return (
+              <Link key={item.href} href={item.href} style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', gap: '2px',
+                minWidth: '60px', minHeight: '44px',
+                color: active ? '#C4992A' : '#9CA3AF',
+                textDecoration: 'none', fontSize: '10px', fontWeight: active ? 600 : 400,
+              }}>
+                <span style={{ fontSize: '20px' }}>{item.icon}</span>
+                {item.label}
+              </Link>
+            )
+          })}
+
+          {/* FAB central */}
+          <Link href="/ronda-libre/nueva" style={{
+            width: '48px', height: '48px', borderRadius: '50%',
+            background: '#C4992A', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: '10px', boxShadow: '0 2px 12px rgba(196,153,42,0.3)',
+            textDecoration: 'none', flexShrink: 0, WebkitTapHighlightColor: 'transparent',
+          }}>
+            <span style={{ fontSize: '20px' }}>⛳</span>
+          </Link>
+
+          {/* Right items */}
+          {[
+            { href: '/coach', icon: '🐯', label: 'Coach' },
+            { href: '/perfil', icon: '👤', label: 'Perfil' },
+          ].map(item => {
+            const active = pathname === item.href || pathname.startsWith(item.href + '/')
             return (
               <Link key={item.href} href={item.href} style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',

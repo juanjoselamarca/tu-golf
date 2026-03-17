@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
+import { HoleColorBar } from '@/components/HoleColorBar'
 
 /* ─── Datos ────────────────────────────────────────────── */
 const CANCHAS_CHILE = [
@@ -505,119 +506,46 @@ function HistorialContent() {
                     key={r.id}
                     className="card-animate"
                     style={{
-                      background: 'var(--bg-surface)',
-                      border: '1px solid rgba(122,143,168,0.12)',
+                      background: 'var(--bg-card-light)',
+                      border: '1px solid var(--border)',
                       borderRadius: '14px',
-                      overflow: 'hidden',
-                      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                    }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)'
-                      ;(e.currentTarget as HTMLDivElement).style.boxShadow = '0 12px 32px rgba(0,0,0,0.4)'
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'
-                      ;(e.currentTarget as HTMLDivElement).style.boxShadow = 'none'
+                      padding: '14px 16px',
+                      cursor: 'pointer',
                     }}
                   >
-                    {/* Top band */}
-                    <div style={{
-                      height: '3px',
-                      background: isGood
-                        ? 'linear-gradient(90deg, #c4992a, #e8c06a)'
-                        : 'linear-gradient(90deg, rgba(122,143,168,0.3), rgba(122,143,168,0.1))',
-                    }} />
-
-                    <div style={{ padding: '16px' }}>
-                      {/* Course + date + delete */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '10px' }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '14px', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {r.course_name}
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '2px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <span>{dateStr}</span>
-                            {r.tee_color && <span style={{ background: 'rgba(196,153,42,0.1)', padding: '1px 6px', borderRadius: '8px', color: '#c4992a', fontSize: '10px' }}>Tee {r.tee_color}</span>}
-                          </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1, marginRight: '12px', minWidth: 0 }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {r.course_name}
                         </div>
-                        <button
-                          onClick={() => handleDelete(r.id)}
-                          disabled={deleting === r.id}
-                          style={{ background: 'transparent', border: 'none', color: 'rgba(248,113,113,0.4)', cursor: 'pointer', fontSize: '16px', flexShrink: 0, padding: '2px 4px', minHeight: 0, minWidth: 0 }}
-                        >
-                          {deleting === r.id ? '…' : '×'}
-                        </button>
+                        <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '3px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <span>{dateStr}</span>
+                          {r.tee_color && <span>· Tee {r.tee_color}</span>}
+                        </div>
                       </div>
-
-                      {/* Big score */}
-                      {r.total_gross != null && (
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '10px' }}>
-                          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '2.8rem', color: 'var(--text)', fontWeight: 700, lineHeight: 1 }}>
-                            {r.total_gross}
-                          </span>
-                          {ov != null && (
-                            <span style={{
-                              fontSize: '13px', fontWeight: 700, padding: '3px 10px', borderRadius: '12px',
-                              background: isGood ? 'rgba(196,153,42,0.15)' : 'rgba(220,38,38,0.12)',
-                              color: isGood ? '#c4992a' : '#f87171',
-                            }}>
-                              {formatOv(ov)}
-                            </span>
-                          )}
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                          {r.total_gross ?? '—'}
                         </div>
-                      )}
-
-                      {/* Stats row */}
-                      {stats && (
-                        <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                          {stats.eagles  > 0 && <span style={{ fontSize: '11px', color: '#93c5fd' }}>🦅 {stats.eagles}</span>}
-                          {stats.birdies > 0 && <span style={{ fontSize: '11px', color: '#86efac' }}>🐦 {stats.birdies}</span>}
-                          {stats.pars    > 0 && <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>📍 {stats.pars}</span>}
-                          {stats.bogeys  > 0 && <span style={{ fontSize: '11px', color: '#fcd34d' }}>📌 {stats.bogeys}</span>}
-                          {stats.doubles > 0 && <span style={{ fontSize: '11px', color: '#fca5a5' }}>🔴 {stats.doubles}</span>}
-                          {stats.filledHoles < 18 && (
-                            <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{stats.filledHoles} hoyos</span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Expand toggle */}
+                        {ov != null && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
+                            {formatOv(ov)}
+                          </div>
+                        )}
+                      </div>
                       <button
-                        onClick={() => toggleExpand(r.id)}
-                        style={{
-                          background: 'transparent', border: 'none', color: 'var(--text-2)',
-                          fontSize: '11px', cursor: 'pointer', padding: 0, minHeight: 0, minWidth: 0,
-                        }}
+                        onClick={(e) => { e.stopPropagation(); handleDelete(r.id) }}
+                        disabled={deleting === r.id}
+                        style={{ background: 'transparent', border: 'none', color: 'rgba(248,113,113,0.4)', cursor: 'pointer', fontSize: '14px', flexShrink: 0, padding: '2px 4px', minHeight: 0, minWidth: 0, marginLeft: '8px' }}
                       >
-                        {isOpen ? '▲ Ocultar scorecard' : '▼ Ver scorecard'}
+                        {deleting === r.id ? '…' : '×'}
                       </button>
-
-                      {/* Mini scorecard */}
-                      {isOpen && (
-                        <div style={{ marginTop: '10px' }}>
-                          {[0, 9].map(start => (
-                            <div key={start} style={{ marginBottom: '6px' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px' }}>
-                                {r.scores.slice(start, start + 9).map((s, j) => (
-                                  <div key={j} style={{
-                                    ...cellBg(s),
-                                    borderRadius: '4px', textAlign: 'center', padding: '3px 1px',
-                                  }}>
-                                    <div style={{ fontSize: '8px', opacity: 0.6, marginBottom: '1px' }}>H{start + j + 1}</div>
-                                    <div style={{ fontSize: '12px', fontWeight: 600 }}>{s ?? '—'}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                          {r.notes && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-2)', fontStyle: 'italic', marginTop: '6px' }}>
-                              &ldquo;{r.notes}&rdquo;
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
+
+                    <HoleColorBar
+                      scores={(r.scores ?? []).map((s: number | null) => s != null ? { gross: s, par: 4 } : null)}
+                      totalHoles={18}
+                    />
                   </div>
                 )
               })}
