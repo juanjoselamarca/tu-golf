@@ -166,6 +166,46 @@ export default function PerfilPage() {
           </div>
         </div>
 
+        {/* Progress bar */}
+        {(!profile.indice || tourneysPlayed === 0) && (
+          <div style={{
+            background: 'var(--brand-light)', border: '1px solid rgba(196,153,42,0.2)',
+            borderRadius: '14px', padding: '16px', marginBottom: '18px',
+          }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginBottom: '12px' }}>
+              Completa tu perfil
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: 'var(--brand)', fontWeight: 600 }}>✅</span>
+                <span style={{ color: 'var(--brand)', fontWeight: 600, fontSize: '14px' }}>Cuenta creada</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: profile.indice != null ? 'var(--brand)' : 'var(--text-3)' }}>{profile.indice != null ? '✅' : '○'}</span>
+                <span style={{ color: profile.indice != null ? 'var(--brand)' : 'var(--text-3)', fontSize: '14px' }}>
+                  Agregar índice / handicap
+                </span>
+                {profile.indice == null && (
+                  <button onClick={() => setEditing(true)} style={{ color: 'var(--brand)', fontSize: '13px', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, marginLeft: 'auto' }}>
+                    Completar →
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: tourneysPlayed > 0 ? 'var(--brand)' : 'var(--text-3)' }}>{tourneysPlayed > 0 ? '✅' : '○'}</span>
+                <span style={{ color: tourneysPlayed > 0 ? 'var(--brand)' : 'var(--text-3)', fontSize: '14px' }}>
+                  Primera ronda
+                </span>
+                {tourneysPlayed === 0 && (
+                  <Link href="/ronda-libre/nueva" style={{ color: 'var(--brand)', fontSize: '13px', textDecoration: 'none', fontWeight: 600, marginLeft: 'auto' }}>
+                    Jugar ahora →
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))', gap: '12px', marginBottom: '18px' }}>
           {[
             { icon: '🏌️', label: 'Handicap', value: profile.indice != null ? profile.indice : '—', accent: '#c8a55a' },

@@ -2,8 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import LogoutButton from '@/components/LogoutButton'
-import CopyLinkButton from '@/components/CopyLinkButton'
-import QRModal from '@/components/QRModal'
+import TournamentCardMenu from '@/components/TournamentCardMenu'
 
 interface Tournament {
   id: string
@@ -155,8 +154,8 @@ export default async function DashboardPage() {
               const st       = STATUS_LABEL[t.status] ?? STATUS_LABEL.draft
               const isActive = t.status === 'active' || t.status === 'in_progress'
               return (
-                <div key={t.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-                  <div>
+                <div key={t.id} style={{ background: 'var(--bg-card-light)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px', boxShadow: 'var(--shadow-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                       <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', fontWeight: 600 }}>{t.name}</span>
                       <span style={{ background: st.bg, color: st.color, border: `1px solid ${st.color}40`, padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{st.label}</span>
@@ -166,19 +165,7 @@ export default async function DashboardPage() {
                       {t.date_start && <span style={{ marginLeft: '12px' }}>📅 {new Date(t.date_start).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {/* Primario */}
-                    <Link href={`/organizador/${t.slug}/jugadores`} style={{ ...btnPrimary }}>Jugadores</Link>
-                    {/* Secundarios */}
-                    <Link href={`/organizador/${t.slug}/editar`} style={{ ...btnSecondary }}>Editar</Link>
-                    <CopyLinkButton slug={t.slug} />
-                    <QRModal slug={t.slug} />
-                    {isActive && (
-                      <Link href={`/organizador/${t.slug}/scoring`} style={{ background: '#1a4fd6', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', textDecoration: 'none', fontWeight: 600 }}>
-                        Scoring
-                      </Link>
-                    )}
-                  </div>
+                  <TournamentCardMenu slug={t.slug} isActive={isActive} />
                 </div>
               )
             })}

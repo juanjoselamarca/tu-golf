@@ -37,7 +37,7 @@ const MODOS: { value: 'gross' | 'neto' | 'stableford'; label: string; desc: stri
   { value: 'neto',       label: 'Score Neto',   desc: 'Score ajustado por índice de handicap' },
   { value: 'stableford', label: 'Stableford',   desc: 'Puntos por hoyo (neto)' },
 ]
-const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+// MONTHS removed — using native date input
 
 const inputStyle: React.CSSProperties = {
   background: 'var(--input-bg)',
@@ -68,10 +68,9 @@ export default function NuevaRondaLibrePage() {
   const [tees, setTees] = useState('blanco')
   const [holes,      setHoles]      = useState<18 | 9>(18)
   const [modoJuego,  setModoJuego]  = useState<'gross' | 'neto' | 'stableford'>('gross')
-  const [fecha, setFecha] = useState({
-    day: new Date().getDate(),
-    month: new Date().getMonth() + 1,
-    year: new Date().getFullYear(),
+  const [fechaStr, setFechaStr] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
   const [jugadores, setJugadores] = useState<string[]>(['', '', '', ''])
   const [loading, setLoading] = useState(false)
@@ -117,7 +116,6 @@ export default function NuevaRondaLibrePage() {
 
     const supabase = createClient()
     const codigo = Math.random().toString(36).substring(2, 8).toUpperCase()
-    const fechaStr = `${fecha.year}-${String(fecha.month).padStart(2, '0')}-${String(fecha.day).padStart(2, '0')}`
 
     // Insert ronda libre
     const baseData = {
@@ -194,8 +192,6 @@ export default function NuevaRondaLibrePage() {
   }
 
   const filledCount = jugadores.filter((j) => j.trim()).length
-  const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '40px 16px' }}>
@@ -268,15 +264,16 @@ export default function NuevaRondaLibrePage() {
                       type="button"
                       onClick={() => setTees(val)}
                       style={{
-                        padding: '8px 18px',
-                        borderRadius: '8px',
+                        padding: '12px 16px',
+                        borderRadius: '10px',
                         border: '1px solid',
                         cursor: 'pointer',
                         fontSize: '14px',
+                        minHeight: '44px',
                         fontWeight: active ? 700 : 400,
-                        background: active ? '#c4992a' : 'transparent',
-                        borderColor: active ? '#c4992a' : 'rgba(122,143,168,0.3)',
-                        color: active ? '#070d18' : '#7a8fa8',
+                        background: active ? 'var(--brand)' : 'var(--bg-card-light)',
+                        borderColor: active ? 'var(--brand)' : 'var(--border-md)',
+                        color: active ? '#070d18' : 'var(--text-2)',
                         transition: 'all 0.15s',
                       }}
                     >
@@ -301,15 +298,16 @@ export default function NuevaRondaLibrePage() {
                       type="button"
                       onClick={() => setHoles(h)}
                       style={{
-                        padding: '8px 24px',
-                        borderRadius: '8px',
+                        padding: '12px 24px',
+                        borderRadius: '10px',
                         border: '1px solid',
                         cursor: 'pointer',
                         fontSize: '14px',
+                        minHeight: '44px',
                         fontWeight: active ? 700 : 400,
-                        background: active ? '#c4992a' : 'transparent',
-                        borderColor: active ? '#c4992a' : 'rgba(122,143,168,0.3)',
-                        color: active ? '#070d18' : '#7a8fa8',
+                        background: active ? 'var(--brand)' : 'var(--bg-card-light)',
+                        borderColor: active ? 'var(--brand)' : 'var(--border-md)',
+                        color: active ? '#070d18' : 'var(--text-2)',
                         transition: 'all 0.15s',
                       }}
                     >
@@ -334,11 +332,12 @@ export default function NuevaRondaLibrePage() {
                       type="button"
                       onClick={() => setModoJuego(m.value)}
                       style={{
-                        padding: '8px 16px', borderRadius: '8px', border: '1px solid',
-                        cursor: 'pointer', fontSize: '14px', fontWeight: active ? 700 : 400,
-                        background: active ? '#c4992a' : 'transparent',
-                        borderColor: active ? '#c4992a' : 'rgba(122,143,168,0.3)',
-                        color: active ? '#070d18' : '#7a8fa8', transition: 'all 0.15s',
+                        padding: '12px 16px', borderRadius: '10px', border: '1px solid',
+                        cursor: 'pointer', fontSize: '14px', minHeight: '44px',
+                        fontWeight: active ? 700 : 400,
+                        background: active ? 'var(--brand)' : 'var(--bg-card-light)',
+                        borderColor: active ? 'var(--brand)' : 'var(--border-md)',
+                        color: active ? '#070d18' : 'var(--text-2)', transition: 'all 0.15s',
                       }}
                     >
                       {m.label}
@@ -361,33 +360,20 @@ export default function NuevaRondaLibrePage() {
               <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Fecha
               </label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <select
-                  value={fecha.day}
-                  onChange={(e) => setFecha({ ...fecha, day: parseInt(e.target.value) })}
-                  style={{ ...inputStyle, width: '75px', cursor: 'pointer' }}
-                >
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-                <select
-                  value={fecha.month}
-                  onChange={(e) => setFecha({ ...fecha, month: parseInt(e.target.value) })}
-                  style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
-                >
-                  {MONTHS.map((m, i) => (
-                    <option key={i} value={i + 1}>{m}</option>
-                  ))}
-                </select>
-                <select
-                  value={fecha.year}
-                  onChange={(e) => setFecha({ ...fecha, year: parseInt(e.target.value) })}
-                  style={{ ...inputStyle, width: '95px', cursor: 'pointer' }}
-                >
-                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </div>
+              <input
+                type="date"
+                value={fechaStr}
+                onChange={(e) => setFechaStr(e.target.value)}
+                style={{
+                  ...inputStyle,
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  WebkitAppearance: 'none' as const,
+                  appearance: 'none' as const,
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--input-focus)')}
+                onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--input-border)')}
+              />
             </div>
 
             {/* Jugadores */}
@@ -486,15 +472,15 @@ export default function NuevaRondaLibrePage() {
               disabled={loading || !cancha}
               style={{
                 width: '100%',
-                background: loading || !cancha ? 'rgba(196,153,42,0.4)' : '#c4992a',
+                background: 'var(--brand)',
                 color: '#070d18',
                 fontWeight: 700,
-                fontSize: '18px',  // M6: 18px submit
+                fontSize: '16px',
                 padding: '16px',
-                height: '56px',    // M6: 56px submit button
-                borderRadius: '10px',
+                borderRadius: '14px',
                 border: 'none',
                 cursor: loading || !cancha ? 'not-allowed' : 'pointer',
+                opacity: loading || !cancha ? 0.35 : 1,
                 transition: 'all 0.15s',
               }}
             >
