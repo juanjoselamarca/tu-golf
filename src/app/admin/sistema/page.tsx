@@ -190,7 +190,7 @@ export default function SistemaPage() {
               gap: '12px',
             }}
           >
-            {Object.entries(health.tables).map(([table, count]) => (
+            {Object.entries(health.tables ?? {}).map(([table, count]) => (
               <div key={table} style={card}>
                 <p style={{ color: '#7a8fa8', fontSize: '0.8rem', marginBottom: '8px' }}>
                   {table}
@@ -227,7 +227,7 @@ export default function SistemaPage() {
           </h2>
           <div style={card}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {Object.entries(health.env).map(([key, present]) => (
+              {Object.entries(health.env ?? {}).map(([key, present]) => (
                 <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '1rem' }}>{present ? '\u2705' : '\u274C'}</span>
                   <span style={{ color: '#edeae4', fontSize: '0.9rem', fontFamily: 'monospace' }}>

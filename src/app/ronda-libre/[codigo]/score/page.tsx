@@ -183,7 +183,7 @@ function ScorePageContent() {
           .select('numero, par, stroke_index')
           .eq('course_id', r.course_id)
           .order('numero')
-        if (holes) {
+        if (holes && holes.length > 0) {
           const pm2: Record<number, number> = {}
           const hdm2: Record<number, HoleData> = {}
           for (const h of holes as HoleData[]) {
@@ -193,9 +193,11 @@ function ScorePageContent() {
           setParMap(pm2)
           setHoleDataMap(hdm2)
         } else {
+          console.warn(`[Score] course_id=${r.course_id} no tiene course_holes en BD — usando par 4 como fallback`)
           setHoleDataMap(hdm)
         }
       } else {
+        console.warn('[Score] course_id es null — usando par 4 como fallback para todos los hoyos')
         setHoleDataMap(hdm)
       }
 

@@ -42,8 +42,25 @@ interface HealthService {
   status: 'ok' | 'error' | 'not_configured'
 }
 
-interface HealthData {
-  services: HealthService[]
+interface HealthRaw {
+  services: {
+    supabase?: { ok: boolean; ms: number }
+    espn?: { ok: boolean; ms: number }
+    claude?: { ok: boolean; ms: number; status?: string }
+    garmin?: { ok: boolean; ms: number; status?: string }
+    vercel?: { ok: boolean; ms: number; commit?: string }
+  }
+}
+
+function parseHealthServices(raw: HealthRaw | null): HealthService[] {
+  if (!raw?.services) return []
+  const s = raw.services
+  return [
+    { name: 'Supabase', status: s.supabase?.ok ? 'ok' : 'not_configured' },
+    { name: 'Vercel', status: s.vercel?.ok ? 'ok' : s.vercel ? 'error' : 'not_configured' },
+    { name: 'ESPN API', status: s.espn?.ok ? 'ok' : s.espn ? 'error' : 'not_configured' },
+    { name: 'tAIger', status: s.claude?.status === 'not_configured' ? 'not_configured' : s.claude?.ok ? 'ok' : 'error' },
+  ]
 }
 
 interface ActivityPoint {
@@ -198,7 +215,7 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
 // ── Main ──
 export default function AdminOverviewPage() {
   const [overview, setOverview] = useState<OverviewData | null>(null)
-  const [health, setHealth] = useState<HealthData | null>(null)
+  const [health, setHealth] = useState<HealthRaw | null>(null)
   const [activity, setActivity] = useState<ActivityPoint[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -224,15 +241,7 @@ export default function AdminOverviewPage() {
         setHealth(data)
       }
     } catch {
-      // fallback health
-      setHealth({
-        services: [
-          { name: 'Supabase', status: 'not_configured' },
-          { name: 'Vercel', status: 'not_configured' },
-          { name: 'ESPN API', status: 'not_configured' },
-          { name: 'tAIger', status: 'not_configured' },
-        ],
-      })
+      setHealth(null)
     }
   }, [])
 
@@ -288,12 +297,14 @@ export default function AdminOverviewPage() {
     },
   ]
 
-  const healthServices: HealthService[] = health?.services ?? [
-    { name: 'Supabase', status: 'not_configured' },
-    { name: 'Vercel', status: 'not_configured' },
-    { name: 'ESPN API', status: 'not_configured' },
-    { name: 'tAIger', status: 'not_configured' },
-  ]
+  const healthServices: HealthService[] = health
+    ? parseHealthServices(health)
+    : [
+        { name: 'Supabase', status: 'not_configured' },
+        { name: 'Vercel', status: 'not_configured' },
+        { name: 'ESPN API', status: 'not_configured' },
+        { name: 'tAIger', status: 'not_configured' },
+      ]
 
   return (
     <>
