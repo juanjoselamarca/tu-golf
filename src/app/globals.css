@@ -380,6 +380,7 @@ body[data-page="scorecard"] {
 
 /* ── PR1: Score animations ── */
 .score-changing { animation: scoreChange 0.15s ease-out; }
+.score-animating { animation: scoreChange 0.15s ease-out; }
 .ctrl-btn:active { transform: scale(0.88); }
 
 /* ── PR1: Bottom nav spacing ── */
