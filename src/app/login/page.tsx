@@ -28,9 +28,9 @@ function GoogleIcon() {
 }
 
 const inputStyle: React.CSSProperties = {
-  background:   'rgba(7,13,24,0.6)',
-  border:       '1px solid rgba(122,143,168,0.3)',
-  color:        '#edeae4',
+  background:   'var(--input-bg)',
+  border:       '1px solid var(--input-border)',
+  color:        'var(--text)',
   borderRadius: '8px',
   padding:      '12px',
   width:        '100%',
@@ -102,16 +102,15 @@ function LoginContent() {
         position:           'relative',
       }}
     >
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(7,13,24,0.82)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.85)' }} />
 
       <div
         style={{
           position:             'relative',
           zIndex:               10,
-          background:           'rgba(14,28,47,0.92)',
-          backdropFilter:       'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border:               '1px solid rgba(196,153,42,0.25)',
+          background:           'var(--bg-card-light)',
+          border:               '1px solid var(--border)',
+          boxShadow:            'var(--shadow-lg)',
           borderRadius:         '16px',
           padding:              '40px',
           maxWidth:             '420px',
@@ -125,10 +124,10 @@ function LoginContent() {
           </span>
         </div>
 
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', textAlign: 'center', margin: '12px 0 4px' }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>
           Bienvenido de vuelta
         </h1>
-        <p style={{ fontSize: '14px', color: '#7a8fa8', textAlign: 'center', marginBottom: '28px' }}>
+        <p style={{ fontSize: '14px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '28px' }}>
           Inicia sesión para continuar
         </p>
 
@@ -146,7 +145,7 @@ function LoginContent() {
         {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
           <div style={{ flex: 1, height: '1px', background: 'rgba(122,143,168,0.25)' }} />
-          <span style={{ fontSize: '12px', color: '#7a8fa8', whiteSpace: 'nowrap' }}>o continúa con email</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>o continúa con email</span>
           <div style={{ flex: 1, height: '1px', background: 'rgba(122,143,168,0.25)' }} />
         </div>
 
@@ -174,7 +173,7 @@ function LoginContent() {
               onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
               onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
             />
-            <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#7a8fa8', padding: '2px', display: 'flex', alignItems: 'center' }}>
+            <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: '2px', display: 'flex', alignItems: 'center' }}>
               {showPwd
                 ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
                 : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
@@ -194,7 +193,7 @@ function LoginContent() {
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', fontSize: '14px', color: '#7a8fa8', marginTop: '24px' }}>
+        <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
           ¿No tienes cuenta?{' '}
           <Link href="/register" style={{ color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>
             Regístrate gratis →
@@ -207,7 +206,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div style={{ background: '#070d18', minHeight: '100vh' }} />}>
+    <Suspense fallback={<div style={{ background: 'var(--bg)', minHeight: '100vh' }} />}>
       <LoginContent />
     </Suspense>
   )

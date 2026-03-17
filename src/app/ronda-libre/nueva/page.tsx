@@ -40,9 +40,9 @@ const MODOS: { value: 'gross' | 'neto' | 'stableford'; label: string; desc: stri
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 const inputStyle: React.CSSProperties = {
-  background: 'rgba(7,13,24,0.6)',
-  border: '1px solid rgba(122,143,168,0.3)',
-  color: '#edeae4',
+  background: 'var(--input-bg)',
+  border: '1px solid var(--input-border)',
+  color: 'var(--text)',
   borderRadius: '8px',
   padding: '12px 14px',
   fontSize: '16px',   // M6: prevenir zoom iOS
@@ -198,16 +198,16 @@ export default function NuevaRondaLibrePage() {
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
   return (
-    <div style={{ background: '#070d18', minHeight: '100vh', padding: '40px 16px' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '40px 16px' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
 
         {/* Back link */}
-        <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '24px' }}>
+        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '24px' }}>
           ← Dashboard
         </Link>
 
         {/* Card */}
-        <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '16px', padding: '32px' }}>
+        <div style={{ background: 'var(--bg-card-light)', border: '1px solid var(--border)', borderRadius: '16px', padding: '32px' }}>
 
           {/* Title */}
           <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', marginBottom: '28px', marginTop: 0 }}>
@@ -218,7 +218,7 @@ export default function NuevaRondaLibrePage() {
 
             {/* Cancha */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Cancha *
               </label>
               <select
@@ -255,7 +255,7 @@ export default function NuevaRondaLibrePage() {
 
             {/* Tees */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Tees
               </label>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -289,7 +289,7 @@ export default function NuevaRondaLibrePage() {
 
             {/* Hoyos */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Hoyos
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -322,7 +322,7 @@ export default function NuevaRondaLibrePage() {
 
             {/* Modo de Juego */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Modo de Juego
               </label>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -350,7 +350,7 @@ export default function NuevaRondaLibrePage() {
                 {MODOS.find(m => m.value === modoJuego)?.desc}
               </div>
               {(modoJuego === 'neto' || modoJuego === 'stableford') && (
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#7a8fa8', background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '8px', padding: '8px 12px' }}>
+                <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-2)', background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '8px', padding: '8px 12px' }}>
                   ℹ️ Cada jugador debe tener su índice registrado en su perfil para el cálculo correcto
                 </div>
               )}
@@ -358,7 +358,7 @@ export default function NuevaRondaLibrePage() {
 
             {/* Fecha */}
             <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Fecha
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -392,7 +392,7 @@ export default function NuevaRondaLibrePage() {
 
             {/* Jugadores */}
             <div style={{ marginBottom: '28px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Jugadores ({filledCount}/4)
               </label>
 
@@ -404,7 +404,7 @@ export default function NuevaRondaLibrePage() {
                     value={jugadores[0]}
                     style={{ ...inputStyle, color: '#c4992a', cursor: 'default', paddingRight: '60px' }}
                   />
-                  <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: '#7a8fa8', background: 'rgba(196,153,42,0.1)', padding: '2px 7px', borderRadius: '10px' }}>
+                  <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--text-2)', background: 'rgba(196,153,42,0.1)', padding: '2px 7px', borderRadius: '10px' }}>
                     Tú
                   </span>
                 </div>

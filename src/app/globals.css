@@ -15,6 +15,38 @@
   --ivory: #f3efe6;
   --sage: #9fb4aa;
   --line: rgba(200, 165, 90, 0.18);
+
+  /* ── PR1: Light theme tokens ── */
+  --brand:       #C4992A;
+  --brand-hover: #A67D1E;
+  --brand-dark:  #070D18;
+  --brand-light: #FDF6E3;
+
+  --bg:          #FFFFFF;
+  --bg-surface:  #F5F7F5;
+  --bg-card-light: #FFFFFF;
+
+  --text:        #111827;
+  --text-2:      #4B5563;
+  --text-3:      #9CA3AF;
+
+  --border:      #E5E7EB;
+  --border-md:   #D1D5DB;
+
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:   0 4px 12px rgba(0,0,0,0.10);
+  --shadow-lg:   0 8px 24px rgba(0,0,0,0.12);
+  --shadow-card: 0 2px 8px rgba(196,153,42,0.08);
+
+  --input-bg:     #FFFFFF;
+  --input-border: #D1D5DB;
+  --input-focus:  #C4992A;
+
+  --eagle:  #3B82F6;
+  --birdie: #EF4444;
+  --par:    #6B7280;
+  --bogey:  #F59E0B;
+  --double: #DC2626;
 }
 
 /* ── Base styles ───────────────────────────────────────── */
@@ -338,4 +370,19 @@ main {
   .dashboard-actions > * {
     flex: 1;
   }
+}
+
+/* ── PR1: Scorecard dark context ── */
+body[data-page="scorecard"] {
+  background: #070D18;
+  color: #EDE9E4;
+}
+
+/* ── PR1: Score animations ── */
+.score-changing { animation: scoreChange 0.15s ease-out; }
+.ctrl-btn:active { transform: scale(0.88); }
+
+/* ── PR1: Bottom nav spacing ── */
+.has-bottom-nav {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
 }

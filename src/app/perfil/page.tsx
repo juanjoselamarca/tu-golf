@@ -14,9 +14,9 @@ interface Profile {
 }
 
 const inputStyle: React.CSSProperties = {
-  background: 'rgba(7,13,24,0.6)',
-  border: '1px solid rgba(122,143,168,0.3)',
-  color: '#edeae4',
+  background: 'var(--input-bg)',
+  border: '1px solid var(--input-border)',
+  color: 'var(--text)',
   borderRadius: '8px',
   padding: '10px 12px',
   fontSize: '14px',
@@ -100,7 +100,7 @@ export default function PerfilPage() {
 
   if (loading) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8fa8' }}>
+      <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>
         Cargando perfil...
       </div>
     )
@@ -120,9 +120,9 @@ export default function PerfilPage() {
   const scoringFocus = profile.indice != null ? (profile.indice <= 12 ? 'Cierre de ronda' : 'Consistencia hoyo a hoyo') : 'Completar historial'
 
   return (
-    <div style={{ background: '#070d18', minHeight: '100vh', padding: '28px 16px 40px' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '28px 16px 40px' }}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-        <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '18px' }}>
+        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '18px' }}>
           ← Dashboard
         </Link>
 
@@ -150,10 +150,10 @@ export default function PerfilPage() {
                 </span>
               </div>
 
-              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', margin: '0 0 6px', lineHeight: 1.1 }}>
+              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: '0 0 6px', lineHeight: 1.1 }}>
                 {profile.name || 'Golfista'}
               </h1>
-              <p style={{ fontSize: '14px', color: '#7a8fa8', margin: '0 0 8px' }}>{profile.email}</p>
+              <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 8px' }}>{profile.email}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                 <span style={{ fontSize: '13px', color: '#c8a55a', fontWeight: 700 }}>
                   Handicap: {profile.indice != null ? profile.indice : 'Sin indice'}
@@ -173,23 +173,23 @@ export default function PerfilPage() {
             { icon: '📉', label: 'Mejor vuelta ref.', value: bestRoundRef, accent: '#9ae6b4' },
             { icon: '🎯', label: 'Foco actual', value: scoringFocus, accent: '#9fb4aa', compact: true },
           ].map((stat) => (
-            <div key={stat.label} style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '14px', padding: '18px 16px' }}>
+            <div key={stat.label} style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '14px', padding: '18px 16px' }}>
               <div style={{ fontSize: '24px', marginBottom: '8px' }}>{stat.icon}</div>
               <div style={{ fontSize: stat.compact ? '14px' : '26px', color: stat.accent, fontWeight: 700, lineHeight: 1.1, fontFamily: stat.compact ? 'inherit' : '"Playfair Display", serif' }}>
                 {stat.value}
               </div>
-              <div style={{ fontSize: '12px', color: '#7a8fa8', marginTop: '6px' }}>{stat.label}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>{stat.label}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '18px' }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
             <div>
-              <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', margin: 0 }}>
+              <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: 0 }}>
                 Identidad competitiva
               </h2>
-              <p style={{ fontSize: '13px', color: '#7a8fa8', margin: '4px 0 0' }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '4px 0 0' }}>
                 Un resumen rapido de tu perfil amateur en TuGolf.
               </p>
             </div>
@@ -198,17 +198,17 @@ export default function PerfilPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '16px' }}>
             <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nivel actual</div>
-              <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700, marginTop: '4px' }}>{playerTier}</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nivel actual</div>
+              <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 700, marginTop: '4px' }}>{playerTier}</div>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Proximo paso</div>
-              <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700, marginTop: '4px' }}>{scoringFocus}</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Proximo paso</div>
+              <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 700, marginTop: '4px' }}>{scoringFocus}</div>
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', margin: 0 }}>
+            <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: 0 }}>
               Mis datos
             </h3>
             {!editing && (
@@ -224,7 +224,7 @@ export default function PerfilPage() {
           {editing ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Nombre</label>
+                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre</label>
                 <input
                   type="text"
                   value={editName}
@@ -235,7 +235,7 @@ export default function PerfilPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Handicap</label>
+                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap</label>
                 <input
                   type="number"
                   step="0.1"
@@ -259,7 +259,7 @@ export default function PerfilPage() {
                 </button>
                 <button
                   onClick={() => { setEditing(false); setEditName(profile.name || ''); setEditIndice(profile.indice != null ? String(profile.indice) : '') }}
-                  style={{ background: 'transparent', border: '1px solid rgba(122,143,168,0.3)', color: '#7a8fa8', fontSize: '14px', padding: '11px 18px', borderRadius: '10px', cursor: 'pointer' }}
+                  style={{ background: 'transparent', border: '1px solid rgba(122,143,168,0.3)', color: 'var(--text-2)', fontSize: '14px', padding: '11px 18px', borderRadius: '10px', cursor: 'pointer' }}
                 >
                   Cancelar
                 </button>
@@ -273,8 +273,8 @@ export default function PerfilPage() {
                 ['Handicap', profile.indice != null ? profile.indice : '—'],
               ].map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: label !== 'Handicap' ? '1px solid rgba(122,143,168,0.1)' : 'none', gap: '12px' }}>
-                  <span style={{ fontSize: '13px', color: '#7a8fa8' }}>{label}</span>
-                  <span style={{ fontSize: '14px', color: '#edeae4', fontWeight: 600, textAlign: 'right' }}>{value}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{label}</span>
+                  <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
                 </div>
               ))}
             </div>
@@ -300,7 +300,7 @@ export default function PerfilPage() {
           </Link>
           <Link
             href="/ronda-libre/nueva"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#edeae4', padding: '14px 16px', borderRadius: '12px', fontSize: '14px', textDecoration: 'none', fontWeight: 600 }}
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text)', padding: '14px 16px', borderRadius: '12px', fontSize: '14px', textDecoration: 'none', fontWeight: 600 }}
           >
             ⛳ Crear nueva ronda libre →
           </Link>

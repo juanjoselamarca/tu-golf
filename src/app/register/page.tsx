@@ -29,8 +29,8 @@ function GoogleIcon() {
 }
 
 const baseInput: React.CSSProperties = {
-  background:   'rgba(7,13,24,0.6)',
-  color:        '#edeae4',
+  background:   'var(--input-bg)',
+  color:        'var(--text)',
   borderRadius: '8px',
   padding:      '12px',
   width:        '100%',
@@ -133,7 +133,7 @@ function RegisterContent() {
         padding:            '24px 0',
       }}
     >
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(7,13,24,0.82)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.85)' }} />
 
       <div
         style={{
@@ -152,8 +152,8 @@ function RegisterContent() {
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#c4992a', fontWeight: 700 }}>⛳ Tu Golf</span>
         </div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', textAlign: 'center', margin: '12px 0 4px' }}>Crea tu cuenta</h1>
-        <p style={{ fontSize: '14px', color: '#7a8fa8', textAlign: 'center', marginBottom: '28px' }}>Únete a miles de golfistas</p>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>Crea tu cuenta</h1>
+        <p style={{ fontSize: '14px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '28px' }}>Únete a miles de golfistas</p>
 
         {/* Google */}
         <button
@@ -169,7 +169,7 @@ function RegisterContent() {
         {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
           <div style={{ flex: 1, height: '1px', background: 'rgba(122,143,168,0.25)' }} />
-          <span style={{ fontSize: '12px', color: '#7a8fa8', whiteSpace: 'nowrap' }}>o regístrate express</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>o regístrate express</span>
           <div style={{ flex: 1, height: '1px', background: 'rgba(122,143,168,0.25)' }} />
         </div>
 
@@ -184,11 +184,11 @@ function RegisterContent() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '18px', color: '#c4992a' }}>⚡</span>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ color: '#edeae4', fontSize: '14px', fontWeight: 500 }}>Registro Express — solo 4 campos</div>
-              <div style={{ color: '#7a8fa8', fontSize: '11px' }}>Menos de 20 segundos</div>
+              <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>Registro Express — solo 4 campos</div>
+              <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>Menos de 20 segundos</div>
             </div>
           </div>
-          <span style={{ color: '#7a8fa8', fontSize: '14px', transition: 'transform 200ms', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
+          <span style={{ color: 'var(--text-2)', fontSize: '14px', transition: 'transform 200ms', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
         </button>
 
         {/* Accordion content */}
@@ -197,7 +197,7 @@ function RegisterContent() {
 
             {/* Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Nombre completo</label>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre completo</label>
               <input type="text" placeholder="Tu nombre y apellido" required value={name} onChange={(e) => setName(e.target.value)}
                 style={inputStyle('name')}
                 onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
@@ -206,7 +206,7 @@ function RegisterContent() {
 
             {/* Email */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Email</label>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Email</label>
               <input type="email" placeholder="tu@email.com" required value={email} onChange={(e) => setEmail(e.target.value)}
                 style={inputStyle('email')}
                 onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
@@ -216,7 +216,7 @@ function RegisterContent() {
 
             {/* Password */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Contraseña</label>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Contraseña</label>
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPwd ? 'text' : 'password'}
@@ -228,7 +228,7 @@ function RegisterContent() {
                   onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
                   onBlur={(e) => (e.currentTarget.style.borderColor = fieldError('password') ? '#dc2626' : 'rgba(122,143,168,0.3)')}
                 />
-                <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#7a8fa8', padding: '2px', display: 'flex', alignItems: 'center' }}>
+                <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: '2px', display: 'flex', alignItems: 'center' }}>
                   {showPwd
                     ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
                     : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
@@ -240,7 +240,7 @@ function RegisterContent() {
 
             {/* Índice */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Índice de hándicap (opcional)</label>
+              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice de hándicap (opcional)</label>
               <input type="number" min={0} max={54} step={0.1} placeholder="ej: 12.4 — déjalo vacío si no lo sabes" value={indice} onChange={(e) => setIndice(e.target.value)}
                 style={{ ...baseInput, border: '1px solid rgba(122,143,168,0.3)' }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
@@ -258,13 +258,13 @@ function RegisterContent() {
               {loading && <Spinner />}
               {loading ? 'Creando cuenta...' : 'Crear mi cuenta →'}
             </button>
-            <p style={{ fontSize: '11px', color: '#7a8fa8', textAlign: 'center', margin: '2px 0 0' }}>
+            <p style={{ fontSize: '11px', color: 'var(--text-2)', textAlign: 'center', margin: '2px 0 0' }}>
               ✓ Gratis &nbsp;·&nbsp; ✓ Sin tarjeta &nbsp;·&nbsp; ✓ Sin spam
             </p>
           </form>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: '14px', color: '#7a8fa8', marginTop: '24px' }}>
+        <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
           ¿Ya tienes cuenta?{' '}
           <Link href="/login" style={{ color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>Inicia sesión →</Link>
         </p>
