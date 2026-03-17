@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { isAdmin } from '@/lib/admin'
 import type { User } from '@supabase/supabase-js'
 
 export default function Navbar() {
@@ -169,6 +170,15 @@ export default function Navbar() {
                         </span>
                         Ver torneo en vivo
                       </Link>
+                      {isAdmin(user?.email) && (
+                        <>
+                          <div style={{ height: '1px', background: 'rgba(196,153,42,0.15)', margin: '4px 0' }} />
+                          <Link href="/admin" onClick={() => setDropdownOpen(false)}
+                            style={{ display: 'block', padding: '8px 16px', color: '#c4992a', textDecoration: 'none', fontSize: '14px' }}>
+                            ⚙️ Admin
+                          </Link>
+                        </>
+                      )}
                       <div style={{ height: '1px', background: 'rgba(196,153,42,0.15)', margin: '4px 0' }} />
                       <button
                         onClick={handleLogout}
@@ -292,26 +302,49 @@ export default function Navbar() {
           ))}
 
           {user ? (
-            <button
-              onClick={handleLogout}
-              style={{
-                display:    'flex',
-                alignItems: 'center',
-                gap:        '16px',
-                padding:    '14px 8px',
-                width:      '100%',
-                minHeight:  '56px',
-                background: 'none',
-                border:     'none',
-                cursor:     'pointer',
-                color:      '#7a8fa8',
-                fontSize:   '18px',
-                textAlign:  'left',
-              }}
-            >
-              <span style={{ fontSize: '22px', width: '28px', textAlign: 'center', flexShrink: 0 }}>🚪</span>
-              Cerrar sesión
-            </button>
+            <>
+              {isAdmin(user?.email) && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMenuOpen(false)}
+                  style={{
+                    display:        'flex',
+                    alignItems:     'center',
+                    gap:            '16px',
+                    padding:        '14px 8px',
+                    minHeight:      '56px',
+                    borderBottom:   '1px solid rgba(255,255,255,0.04)',
+                    textDecoration: 'none',
+                    color:          pathname === '/admin' ? '#c4992a' : '#edeae4',
+                    fontSize:       '18px',
+                    fontWeight:     pathname === '/admin' ? 700 : 400,
+                  }}
+                >
+                  <span style={{ fontSize: '22px', width: '28px', textAlign: 'center', flexShrink: 0 }}>⚙️</span>
+                  Admin
+                </Link>
+              )}
+              <button
+                onClick={handleLogout}
+                style={{
+                  display:    'flex',
+                  alignItems: 'center',
+                  gap:        '16px',
+                  padding:    '14px 8px',
+                  width:      '100%',
+                  minHeight:  '56px',
+                  background: 'none',
+                  border:     'none',
+                  cursor:     'pointer',
+                  color:      '#7a8fa8',
+                  fontSize:   '18px',
+                  textAlign:  'left',
+                }}
+              >
+                <span style={{ fontSize: '22px', width: '28px', textAlign: 'center', flexShrink: 0 }}>🚪</span>
+                Cerrar sesión
+              </button>
+            </>
           ) : (
             <div style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <Link href="/login" onClick={() => setMenuOpen(false)}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { trackEvent } from '@/lib/analytics'
 import { QRCodeSVG } from 'qrcode.react'
 import { getScoreColor, getScoreLabel, formatOverUnder } from '@/constants/golf'
 import {
@@ -328,6 +329,9 @@ function ScorePageContent() {
       setCurrentHole((h) => h + 1)
     } else {
       // Finalize: redirect to spectator view
+      const supabase = createClient()
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
       setHasUnsaved(false)
       router.push(`/ronda-libre/${codigo}`)
     }

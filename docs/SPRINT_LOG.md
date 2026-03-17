@@ -4,15 +4,42 @@
 
 ---
 
+## Admin Dashboard — 9 pestañas operacionales
+**Fecha:** 17 Mar 2026
+**Estado:** ✅ COMPLETO
+
+### Entregado
+- src/lib/admin.ts — seguridad por email
+- src/lib/analytics.ts — tracking de eventos
+- src/lib/supabaseAdmin.ts — cliente service-role
+- ADMIN_SUPABASE.sql — analytics_events + vista admin_daily_metrics
+- APIs: /api/admin/overview, users, activity, health
+- Layout admin con sidebar responsive + header
+- /admin — Overview con KPIs, gráfico actividad, health panel
+- /admin/usuarios — tabla paginada con búsqueda y drawer lateral
+- /admin/crecimiento — funnel activación + KPIs growth
+- /admin/golf — métricas torneos, rondas, tarjetas, distribución HCP
+- /admin/taiger — sesiones, patrones, costo API, system prompt
+- /admin/monetizacion — MRR/ARR, proyecciones con slider, costos
+- /admin/geografia — distribución países, canchas
+- /admin/sistema — health check, BD metrics, env vars, errores
+- /admin/configuracion — general, tAIger, admins
+- Link admin en navbar (solo para juanjoselamarca@gmail.com)
+- trackEvent en 4 puntos: ronda_creada, torneo_creado, tarjeta_historica, ronda_completada
+
+---
+
 ## Sprint 9C — Fixes urgentes
 **Fecha:** 17 Mar 2026
-**Estado:** 🔧 EN CURSO
+**Commit:** ae07373
+**Estado:** ✅ COMPLETO
 
-### Pendiente
+### Entregado
 - Fix PGA widget invisible en mobile
-- Fix error modo_juego
+- Fix error modo_juego — graceful fallback
 - Historial siempre gross
 - SQL idempotente
+- CSS mobile responsive
 
 ---
 

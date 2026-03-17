@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { trackEvent } from '@/lib/analytics'
 
 /* ─── Datos ────────────────────────────────────────────── */
 const CANCHAS_CHILE = [
@@ -174,7 +175,7 @@ function HistorialContent() {
       notes: notes || null, privacy,
     })
     setSaving(false)
-    if (!error) { resetForm(); setShowForm(false); await loadRounds() }
+    if (!error) { await trackEvent(supabase, userId!, 'tarjeta_historica_agregada', { course_name: courseName }); resetForm(); setShowForm(false); await loadRounds() }
   }
 
   const handleDelete = async (id: string) => {

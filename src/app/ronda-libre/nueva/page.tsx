@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { trackEvent } from '@/lib/analytics'
 
 const CANCHAS_CHILE = [
   'Club de Golf Los Leones','Club de Golf La Dehesa','Club de Golf Los Arrayanes',
@@ -172,6 +173,7 @@ export default function NuevaRondaLibrePage() {
       })
     }
 
+    await trackEvent(supabase, userId, 'ronda_creada', { codigo, cancha, holes })
     router.push(`/ronda-libre/${codigo}/score`)
   }
 

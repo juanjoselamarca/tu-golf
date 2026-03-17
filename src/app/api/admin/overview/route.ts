@@ -1,0 +1,62 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
+import { isAdmin } from '@/lib/admin'
+
+export async function GET() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!isAdmin(user?.email)) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+
+  const admin = createAdminClient()
+
+  const [
+    totalUsers, newUsers7d, newUsers30d,
+    totalTournaments, tournaments30d,
+    totalRounds, freeRounds7d,
+    totalHistorical,
+    taigerSessions, usersWithPatterns,
+    totalRondasLibres,
+  ] = await Promise.all([
+    admin.from('profiles').select('*', { count: 'exact', head: true }),
+    admin.from('profiles').select('*', { count: 'exact', head: true })
+      .gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()),
+    admin.from('profiles').select('*', { count: 'exact', head: true })
+      .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString()),
+    admin.from('tournaments').select('*', { count: 'exact', head: true }),
+    admin.from('tournaments').select('*', { count: 'exact', head: true })
+      .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString()),
+    admin.from('rounds').select('*', { count: 'exact', head: true }),
+    admin.from('rondas_libres').select('*', { count: 'exact', head: true })
+      .gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()),
+    admin.from('historical_rounds').select('*', { count: 'exact', head: true }),
+    admin.from('taiger_sessions').select('*', { count: 'exact', head: true }),
+    admin.from('player_patterns').select('user_id', { count: 'exact', head: true }),
+    admin.from('rondas_libres').select('*', { count: 'exact', head: true }),
+  ])
+
+  return NextResponse.json({
+    users: {
+      total: totalUsers.count ?? 0,
+      new7d: newUsers7d.count ?? 0,
+      new30d: newUsers30d.count ?? 0,
+    },
+    tournaments: {
+      total: totalTournaments.count ?? 0,
+      last30d: tournaments30d.count ?? 0,
+    },
+    rounds: {
+      total: totalRounds.count ?? 0,
+      freeRoundsTotal: totalRondasLibres.count ?? 0,
+      freeRounds7d: freeRounds7d.count ?? 0,
+    },
+    historical: {
+      total: totalHistorical.count ?? 0,
+    },
+    taiger: {
+      sessions: taigerSessions.count ?? 0,
+      usersWithPatterns: usersWithPatterns.count ?? 0,
+    },
+    proUsers: 0,
+  })
+}

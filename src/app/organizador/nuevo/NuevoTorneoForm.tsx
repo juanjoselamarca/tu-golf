@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { trackEvent } from '@/lib/analytics'
 import { useToast } from '@/hooks/useToast'
 import { useFormErrors } from '@/hooks/useFormErrors'
 import type { CourseOption } from './page'
@@ -222,6 +223,8 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
       setLoading(false)
       return
     }
+
+    await trackEvent(supabase, userId, 'torneo_creado', { name: name.trim(), slug })
 
     await Promise.all([
       supabase.from('categories').insert(

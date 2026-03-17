@@ -1,16 +1,25 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-17 | Commit: `f73964b`
+> Auto-generado: 2026-03-17 | Commit: `ae07373`
 
 ## Último deploy
 
-- **Commit:** `f73964b` — feat: Sprint 9B — scoring gross/neto/stableford + GWI probabilidades de ganar
-- **Fecha:** 2026-03-16
-- **Branch:** main (24 commits total)
+- **Commit:** `ae07373` — fix: Sprint 9C — fixes urgentes + sistema docs auto-actualizable
+- **Fecha:** 2026-03-17
+- **Branch:** main (25 commits total)
 - **URL:** https://tu-golf.vercel.app
 
-## Páginas en producción (17 páginas)
+## Páginas en producción (26 páginas)
 
+- `/admin/configuracion`
+- `/admin/crecimiento`
+- `/admin/geografia`
+- `/admin/golf`
+- `/admin/monetizacion`
+- `/admin`
+- `/admin/sistema`
+- `/admin/taiger`
+- `/admin/usuarios`
 - `/auth/auth-code-error`
 - `/dashboard`
 - `/leaderboard`
@@ -48,25 +57,25 @@
 
 ---
 
-## Sprint 9C — Fixes urgentes
+## Admin Dashboard — 9 pestañas operacionales
 **Fecha:** 17 Mar 2026
-**Estado:** 🔧 EN CURSO
-
-### Pendiente
-- Fix PGA widget invisible en mobile
-- Fix error modo_juego
-- Historial siempre gross
-- SQL idempotente
-
----
-
-## Sprint 9B — GWI + Gross/Neto/Stableford
-**Fecha:** 17 Mar 2026
-**Commit:** f73964b
 **Estado:** ✅ COMPLETO
 
 ### Entregado
-- src/lib/scoring.ts — matemáticas golf completas
+- src/lib/admin.ts — seguridad por email
+- src/lib/analytics.ts — tracking de eventos
+- src/lib/supabaseAdmin.ts — cliente service-role
+- ADMIN_SUPABASE.sql — analytics_events + vista admin_daily_metrics
+- APIs: /api/admin/overview, users, activity, health
+- Layout admin con sidebar responsive + header
+- /admin — Overview con KPIs, gráfico actividad, health panel
+- /admin/usuarios — tabla paginada con búsqueda y drawer lateral
+- /admin/crecimiento — funnel activación + KPIs growth
+- /admin/golf — métricas torneos, rondas, tarjetas, distribución HCP
+- /admin/taiger — sesiones, patrones, costo API, system prompt
+- /admin/monetizacion — MRR/ARR, proyecciones con slider, costos
+- /admin/geografia — distribución países, canchas
+- /admin/sistema — health check, BD metrics, env vars, errores
 
 ---
 

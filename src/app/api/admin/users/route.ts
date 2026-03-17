@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
+import { isAdmin } from '@/lib/admin'
+
+export async function GET(request: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!isAdmin(user?.email)) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+
+  const admin = createAdminClient()
+  const { searchParams } = new URL(request.url)
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '20')
+  const search = searchParams.get('search') || ''
+  const offset = (page - 1) * limit
+
+  let query = admin.from('profiles')
+    .select('id, name, email, handicap_index, created_at, role', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (search) {
+    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`)
+  }
+
+  const { data, count, error } = await query
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({
+    users: data || [],
+    total: count ?? 0,
+    page,
+    limit,
+    totalPages: Math.ceil((count ?? 0) / limit),
+  })
+}
