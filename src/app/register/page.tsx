@@ -126,22 +126,17 @@ function RegisterContent() {
         display:            'flex',
         alignItems:         'center',
         justifyContent:     'center',
-        backgroundImage:    'url(https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1920&q=80)',
-        backgroundSize:     'cover',
-        backgroundPosition: 'center',
+        background:         'var(--bg-surface)',
         position:           'relative',
         padding:            '24px 0',
       }}
     >
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.85)' }} />
 
       <div
         style={{
           position:             'relative',
           zIndex:               10,
-          background:           'rgba(14,28,47,0.92)',
-          backdropFilter:       'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          background:           'var(--bg-card-light)',
           border:               '1px solid rgba(196,153,42,0.25)',
           borderRadius:         '16px',
           padding:              '40px',

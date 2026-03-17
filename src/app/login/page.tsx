@@ -96,13 +96,10 @@ function LoginContent() {
         display:            'flex',
         alignItems:         'center',
         justifyContent:     'center',
-        backgroundImage:    'url(https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1920&q=80)',
-        backgroundSize:     'cover',
-        backgroundPosition: 'center',
+        background:         'var(--bg-surface)',
         position:           'relative',
       }}
     >
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.85)' }} />
 
       <div
         style={{

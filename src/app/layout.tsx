@@ -64,14 +64,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="min-h-screen">{children}</main>
 
         {/* Footer */}
-        <footer className="bg-bg-deep pt-1">
-          <div className="gold-divider" />
+        <footer style={{ background: 'var(--bg-surface)', paddingTop: '1px' }}>
+          <div style={{ height: '1px', background: 'var(--border)' }} />
           <div className="py-10 text-center">
             <p className="font-display text-xl mb-2">
-              <span className="text-ivory">Tu</span>
-              <span className="text-gold"> Golf</span>
+              <span style={{ color: 'var(--text)' }}>Tu</span>
+              <span style={{ color: '#c4992a' }}> Golf</span>
             </p>
-            <p className="text-gray-soft text-sm font-sans">
+            <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>
               © {new Date().getFullYear()} Tu Golf · Hecho para el golf amateur
             </p>
           </div>
