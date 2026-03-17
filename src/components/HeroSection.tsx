@@ -65,9 +65,9 @@ export default function HeroSection() {
 
       {/* ── Content ──────────────────────────────────────── */}
       <div className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
-        <div className="grid lg:grid-cols-5 gap-12 lg:gap-16 items-center">
+        <div className="flex flex-col lg:grid lg:grid-cols-5 gap-12 lg:gap-16 items-center">
 
-          {/* Left (60%) ────────────────────────────────── */}
+          {/* Left — text + CTAs ─────────────────────────── */}
           <div className="lg:col-span-3">
 
             {/* Badge */}
@@ -113,9 +113,9 @@ export default function HeroSection() {
             </div>
           </div>
 
-          {/* Right (40%) — desktop only ─────────────────── */}
-          <div className="hidden lg:flex lg:col-span-2 items-center justify-center">
-            <div style={{ width: '100%', maxWidth: 360 }}>
+          {/* Right — PGA widget, visible on ALL sizes ──── */}
+          <div className="w-full lg:col-span-2 flex items-center justify-center">
+            <div style={{ width: '100%', maxWidth: 680 }}>
               <PGALiveWidget />
             </div>
           </div>

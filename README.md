@@ -1,78 +1,30 @@
-# Tu Golf 🏌️
+# Tu Golf
 
-Plataforma web de **live scoring** para torneos amateur de golf. Permite organizar, gestionar y seguir torneos en tiempo real desde cualquier dispositivo.
+Live scoring para torneos amateur · https://tu-golf.vercel.app
 
-## Características principales
+## Documentación — EMPEZAR AQUÍ
 
-- **Live Scoring en tiempo real** — los jugadores ingresan sus puntajes desde el campo y todos los ven al instante
-- **Gestión de torneos** — crea y administra torneos con múltiples formatos (stroke play, stableford, match play)
-- **Tablas de posiciones** — leaderboards actualizados automáticamente
-- **Autenticación segura** — login y registro con Supabase Auth
-- **Diseño responsive** — pensado para móvil, desde la cancha
+→ [docs/ESTADO_ACTUAL.md](docs/ESTADO_ACTUAL.md)
 
-## Stack tecnológico
+| Documento | Descripción |
+|-----------|-------------|
+| [ESTADO_ACTUAL.md](docs/ESTADO_ACTUAL.md) | ← Empezar aquí |
+| [SPRINT_LOG.md](docs/SPRINT_LOG.md) | Historial sprints |
+| [ROADMAP_COMPLETO.md](docs/ROADMAP_COMPLETO.md) | Visión futura |
+| [ARQUITECTURA.md](docs/ARQUITECTURA.md) | Stack y schema BD |
+| [TAIGER_SYSTEM_PROMPT.md](docs/TAIGER_SYSTEM_PROMPT.md) | tAIger |
+| [GWI_MODELO.md](docs/GWI_MODELO.md) | Probabilidades |
+| [SQL_PENDIENTE.md](docs/SQL_PENDIENTE.md) | SQL Supabase |
 
-| Capa | Tecnología |
-|------|-----------|
-| Framework | Next.js 14 (App Router) |
-| Estilos | Tailwind CSS |
-| Base de datos | Supabase (PostgreSQL) |
-| Autenticación | Supabase Auth |
-| Lenguaje | TypeScript |
-
-## Primeros pasos
-
-### 1. Instalar dependencias
-
-```bash
-npm install
-```
-
-### 2. Variables de entorno
-
-Crea un archivo `.env.local` en la raíz del proyecto (ya incluido):
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
-```
-
-### 3. Iniciar en modo desarrollo
-
-```bash
-npm run dev
-```
-
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
-
-### 4. Build para producción
-
-```bash
-npm run build
-npm start
-```
-
-## Estructura del proyecto
+## Antes de trabajar siempre
 
 ```
-src/
-├── app/
-│   ├── layout.tsx          # Layout principal con navbar
-│   ├── page.tsx            # Página de inicio
-│   ├── login/
-│   │   └── page.tsx        # Página de login
-│   └── register/
-│       └── page.tsx        # Página de registro
-├── components/
-│   └── Navbar.tsx          # Barra de navegación
-└── lib/
-    └── supabase.ts         # Cliente de Supabase
+git remote -v  → debe mostrar github.com/juanjoselamarca/tu-golf.git
+git pull origin main
 ```
 
-## Despliegue
+## Schema BD crítico
 
-El proyecto está optimizado para desplegarse en [Vercel](https://vercel.com). Solo conecta el repositorio y agrega las variables de entorno en el dashboard.
-
----
-
-Construido con Next.js y Supabase.
+course_holes → columna: numero (NO hole_number)
+courses → columna: nombre (NO name)
+Siempre guardar: gross_score + net_score + points

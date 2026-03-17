@@ -157,23 +157,48 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
 
     await supabase.from('profiles').update({ role: 'organizer' }).eq('id', userId)
 
-    const { data: tournament, error: tError } = await supabase
+    const tournamentBase = {
+      name:            name.trim(),
+      slug,
+      organizer_id:    userId,
+      course_id:       selectedCourse!.id,
+      format,
+      hole_count:      holeCount,
+      tees,
+      use_handicap:    useHandicap,
+      cover_image_url: coverUrl.trim() || null,
+      status:          'draft',
+      date_start:      dateISO,
+    }
+
+    // Intento 1: con modo_juego
+    let tError: { message?: string; code?: string } | null = null
+    let tournament: Record<string, unknown> | null = null
+
+    const { data: t1, error: te1 } = await supabase
       .from('tournaments')
-      .insert({
-        name:            name.trim(),
-        slug,
-        organizer_id:    userId,
-        course_id:       selectedCourse!.id,
-        format,
-        hole_count:      holeCount,
-        tees,
-        use_handicap:    useHandicap,
-        cover_image_url: coverUrl.trim() || null,
-        status:          'draft',
-        date_start:      dateISO,
-      })
+      .insert({ ...tournamentBase, modo_juego: 'gross' })
       .select()
       .single()
+
+    if (!te1) {
+      tournament = t1
+    } else if (
+      te1.message?.includes('modo_juego') ||
+      te1.message?.includes('schema cache') ||
+      te1.code === '42703'
+    ) {
+      // Columna no existe — reintentar sin modo_juego
+      const { data: t2, error: te2 } = await supabase
+        .from('tournaments')
+        .insert(tournamentBase)
+        .select()
+        .single()
+      tournament = t2
+      tError = te2
+    } else {
+      tError = te1
+    }
 
     if (tError || !tournament) {
       // ── Server error translation ─────────────────────────

@@ -114,7 +114,7 @@ export default function PGALiveWidget() {
     return (
       <div style={{ background: '#0e1c2f', borderRadius: '12px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto' }}>
         <div style={{ background: headerBg, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ background: '#00205b', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 900, color: 'white', letterSpacing: '0.08em', flexShrink: 0 }}>
+          <div style={{ background: '#003087', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 900, color: 'white', letterSpacing: '0.08em', flexShrink: 0 }}>
             PGA TOUR
           </div>
           <span style={{ color: '#7a8fa8', fontSize: '0.9rem' }}>Sin torneo activo esta semana</span>
@@ -146,22 +146,20 @@ export default function PGALiveWidget() {
     <div style={{ background: '#0e1c2f', borderRadius: '12px', overflow: 'hidden', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
 
       {/* Header */}
-      <div style={{ background: headerBg, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-          <div style={{ background: '#00205b', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '4px', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 900, color: 'white', letterSpacing: '0.08em', flexShrink: 0 }}>
+      <div style={{ background: headerBg, padding: '14px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+          <div style={{ background: '#003087', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '3px', padding: '3px 7px', fontSize: '9px', fontWeight: 900, color: 'white', letterSpacing: '0.1em', flexShrink: 0 }}>
             PGA TOUR
           </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ color: accentColor, fontFamily: 'Playfair Display, serif', fontSize: '1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              🏆 {data.tournament}
-            </div>
-            <div style={{ color: '#7a8fa8', fontSize: '0.78rem', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {data.round} · {data.course}
-            </div>
+          <div style={{ background: badge.bg, color: badge.color, fontSize: '0.68rem', fontWeight: 700, padding: '4px 8px', borderRadius: '4px', letterSpacing: '0.05em', flexShrink: 0 }}>
+            {badge.text}
           </div>
         </div>
-        <div style={{ background: badge.bg, color: badge.color, fontSize: '0.68rem', fontWeight: 700, padding: '4px 8px', borderRadius: '4px', letterSpacing: '0.05em', flexShrink: 0 }}>
-          {badge.text}
+        <div style={{ color: accentColor, fontFamily: 'Playfair Display, serif', fontSize: '14px', fontWeight: 700, marginBottom: '4px' }}>
+          {data.tournament}
+        </div>
+        <div style={{ color: '#7a8fa8', fontSize: '0.78rem' }}>
+          {data.course} · {data.round}
         </div>
       </div>
 
@@ -175,10 +173,10 @@ export default function PGALiveWidget() {
           color: '#7a8fa8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em',
         }}>
           <span>Pos</span>
-          {hasCountry && <span />}
+          {hasCountry && <span className="pga-col-flag" />}
           <span>Jugador</span>
           <span style={{ textAlign: 'center' }}>Total</span>
-          <span style={{ textAlign: 'center' }}>Hoy</span>
+          <span className="pga-col-hoy" style={{ textAlign: 'center' }}>Hoy</span>
           <span style={{ textAlign: 'center' }}>Hoyo</span>
         </div>
 
@@ -198,14 +196,14 @@ export default function PGALiveWidget() {
                 padding: '10px 10px',
                 borderTop: '1px solid #132540',
                 alignItems: 'center',
-                background: isLeader ? 'rgba(196,153,42,0.06)' : 'transparent',
-                borderLeft: isLeader ? '3px solid rgba(196,153,42,0.5)' : '3px solid transparent',
+                background: isLeader ? 'rgba(196,153,42,0.07)' : 'transparent',
+                borderLeft: isLeader ? '3px solid #c4992a' : '3px solid transparent',
               }}>
                 <span style={{ color: isLeader ? '#c4992a' : '#7a8fa8', fontWeight: isLeader ? 700 : 400, fontSize: '0.85rem' }}>
                   {p.position}
                 </span>
                 {hasCountry && (
-                  <span>
+                  <span className="pga-col-flag">
                     {code && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -223,7 +221,7 @@ export default function PGALiveWidget() {
                 <span style={{ color: getScoreColor(p.score), textAlign: 'center', fontWeight: 700, fontSize: '0.9rem' }}>
                   {p.score}
                 </span>
-                <span style={{ color: getScoreColor(p.today), textAlign: 'center', fontSize: '0.85rem' }}>
+                <span className="pga-col-hoy" style={{ color: getScoreColor(p.today), textAlign: 'center', fontSize: '0.85rem' }}>
                   {p.today}
                 </span>
                 <span style={{ color: '#7a8fa8', textAlign: 'center', fontSize: '0.78rem' }}>

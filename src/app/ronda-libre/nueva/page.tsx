@@ -104,28 +104,61 @@ export default function NuevaRondaLibrePage() {
     const fechaStr = `${fecha.year}-${String(fecha.month).padStart(2, '0')}-${String(fecha.day).padStart(2, '0')}`
 
     // Insert ronda libre
-    const { data: ronda, error: rondaError } = await supabase
+    const baseData = {
+      codigo,
+      creador_id: userId,
+      course_name: cancha,
+      tees,
+      holes,
+      fecha: fechaStr,
+      estado: 'en_curso',
+    }
+
+    // Intento 1: con modo_juego
+    const { data: d1, error: e1 } = await supabase
       .from('rondas_libres')
-      .insert({
-        codigo,
-        creador_id: userId,
-        course_name: cancha,
-        tees,
-        holes,
-        fecha: fechaStr,
-        estado: 'en_curso',
-        modo_juego: modoJuego,
-      })
+      .insert({ ...baseData, modo_juego: modoJuego })
       .select('id')
       .single()
 
-    if (rondaError || !ronda) {
-      setLoading(false)
-      if (rondaError?.message?.includes("'public.rondas_libres'") || rondaError?.message?.includes('relation') || rondaError?.code === '42P01') {
+    let ronda = d1
+    if (e1) {
+      if (
+        e1.message?.includes('modo_juego') ||
+        e1.message?.includes('schema cache') ||
+        e1.code === '42703'
+      ) {
+        // Columna no existe aún — reintentar SIN modo_juego
+        const { data: d2, error: e2 } = await supabase
+          .from('rondas_libres')
+          .insert(baseData)
+          .select('id')
+          .single()
+
+        if (e2 || !d2) {
+          setLoading(false)
+          if (e2?.message?.includes("'public.rondas_libres'") || e2?.message?.includes('relation') || e2?.code === '42P01') {
+            alert('La base de datos aún no está configurada. Ejecuta el archivo EJECUTAR_EN_SUPABASE.sql en el panel de Supabase.')
+          } else {
+            alert('Error al crear la ronda: ' + e2?.message)
+          }
+          return
+        }
+        ronda = d2
+      } else if (e1.message?.includes("'public.rondas_libres'") || e1.message?.includes('relation') || e1.code === '42P01') {
+        setLoading(false)
         alert('La base de datos aún no está configurada. Ejecuta el archivo EJECUTAR_EN_SUPABASE.sql en el panel de Supabase.')
+        return
       } else {
-        alert('Error al crear la ronda: ' + rondaError?.message)
+        setLoading(false)
+        alert('Error al crear la ronda: ' + e1.message)
+        return
       }
+    }
+
+    if (!ronda) {
+      setLoading(false)
+      alert('Error al crear la ronda.')
       return
     }
 

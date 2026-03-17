@@ -48,3 +48,16 @@ Esto es normal y esperado en este entorno.
 - PM: Juan José Lamarca (juanjoselamarca@gmail.com)
 - CTO: Claude
 - Producción: https://tu-golf.vercel.app
+
+---
+
+## DOCUMENTACIÓN — ACTUALIZAR AL FINAL DE CADA SPRINT
+
+OBLIGATORIO antes de cada push de sprint:
+
+1. Agregar entrada en docs/SPRINT_LOG.md (al inicio del archivo)
+2. Ejecutar: node scripts/update-docs.js
+3. Incluir docs/ en el commit del sprint
+
+Los docs son la memoria del proyecto.
+Sin docs actualizados, la próxima IA empieza de cero.
