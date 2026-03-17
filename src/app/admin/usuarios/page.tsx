@@ -22,7 +22,7 @@ const font = {
 // ── Types ──
 interface User {
   id: string
-  full_name: string | null
+  name: string | null
   email: string | null
   handicap_index: number | null
   created_at: string
@@ -141,7 +141,7 @@ function UserDrawer({ user, onClose }: { user: User; onClose: () => void }) {
               fontWeight: 700,
             }}
           >
-            {getInitials(user.full_name)}
+            {getInitials(user.name)}
           </div>
           <div style={{ textAlign: 'center' }}>
             <div
@@ -152,7 +152,7 @@ function UserDrawer({ user, onClose }: { user: User; onClose: () => void }) {
                 fontWeight: 700,
               }}
             >
-              {user.full_name || 'Sin nombre'}
+              {user.name || 'Sin nombre'}
             </div>
             <div style={{ ...font.label, marginTop: '4px' }}>{user.email || 'Sin email'}</div>
           </div>
@@ -249,7 +249,7 @@ export default function AdminUsuariosPage() {
     if (!search) return true
     const q = search.toLowerCase()
     return (
-      (u.full_name && u.full_name.toLowerCase().includes(q)) ||
+      (u.name && u.name.toLowerCase().includes(q)) ||
       (u.email && u.email.toLowerCase().includes(q))
     )
   })
@@ -429,7 +429,7 @@ export default function AdminUsuariosPage() {
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {user.full_name || 'Sin nombre'}
+                  {user.name || 'Sin nombre'}
                 </span>
                 <span
                   style={{

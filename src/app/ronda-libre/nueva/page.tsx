@@ -52,11 +52,19 @@ const inputStyle: React.CSSProperties = {
   minHeight: '52px',  // M6: touch target
 }
 
+interface CourseDB {
+  id: string
+  nombre: string
+  ciudad: string | null
+}
+
 export default function NuevaRondaLibrePage() {
   const router = useRouter()
 
   const [userId, setUserId] = useState<string | null>(null)
   const [cancha, setCancha] = useState('')
+  const [courseId, setCourseId] = useState<string | null>(null)
+  const [coursesDB, setCoursesDB] = useState<CourseDB[]>([])
   const [tees, setTees] = useState('blanco')
   const [holes,      setHoles]      = useState<18 | 9>(18)
   const [modoJuego,  setModoJuego]  = useState<'gross' | 'neto' | 'stableford'>('gross')
@@ -84,6 +92,13 @@ export default function NuevaRondaLibrePage() {
 
       const name = profile?.name || user.user_metadata?.name || user.email?.split('@')[0] || 'Jugador'
       setJugadores([name, '', '', ''])
+
+      // Fetch courses from DB
+      const { data: courses } = await supabase
+        .from('courses')
+        .select('id, nombre, ciudad')
+        .order('nombre')
+      setCoursesDB((courses as CourseDB[]) || [])
     }
     check()
   }, [router])
@@ -108,6 +123,7 @@ export default function NuevaRondaLibrePage() {
     const baseData = {
       codigo,
       creador_id: userId,
+      course_id: courseId || null,
       course_name: cancha,
       tees,
       holes,
@@ -208,13 +224,32 @@ export default function NuevaRondaLibrePage() {
               <select
                 required
                 value={cancha}
-                onChange={(e) => setCancha(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setCancha(val)
+                  // Match to DB course by nombre
+                  const match = coursesDB.find(c => c.nombre === val)
+                  setCourseId(match?.id ?? null)
+                }}
                 style={{ ...inputStyle, cursor: 'pointer' }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
                 onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
               >
                 <option value="">— Seleccionar cancha —</option>
-                {CANCHAS_CHILE.map((c) => <option key={c} value={c}>{c}</option>)}
+                {coursesDB.length > 0 && (
+                  <optgroup label="Canchas con datos de hoyos">
+                    {coursesDB.map((c) => (
+                      <option key={c.id} value={c.nombre}>
+                        {c.nombre}{c.ciudad ? ` — ${c.ciudad}` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <optgroup label="Otras canchas">
+                  {CANCHAS_CHILE.filter(c => !coursesDB.some(db => db.nombre === c)).map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
 
