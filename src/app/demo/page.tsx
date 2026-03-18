@@ -23,9 +23,16 @@ interface DemoProfile {
   }>
 }
 
-const TABS = ['Resumen', 'Estadísticas', 'Historial', 'Análisis']
+const TABS = ['Resumen', 'Estadisticas', 'Historial', 'Analisis']
 const GOLD = '#c4992a'
 const BG = '#070d18'
+const CARD = 'rgba(255,255,255,0.03)'
+const CARD_BORDER = 'rgba(255,255,255,0.06)'
+const GREEN = '#00e676'
+const RED = '#ff1744'
+const MUTED = 'rgba(255,255,255,0.35)'
+const MONO = 'var(--font-dm-mono), monospace'
+const SERIF = 'var(--font-cormorant), serif'
 
 export default function DemoPage() {
   const [data, setData] = useState<DemoProfile | null>(null)
@@ -43,112 +50,171 @@ export default function DemoPage() {
 
   if (loading) return (
     <div style={{ background: BG, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '13px' }}>Cargando perfil demo...</div>
+      <div style={{ color: MUTED, fontFamily: MONO, fontSize: '13px' }}>Cargando perfil demo...</div>
     </div>
   )
 
   if (!data) return (
     <div style={{ background: BG, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: '#ff4444', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '13px' }}>Error al cargar datos demo</div>
+      <div style={{ color: RED, fontFamily: MONO, fontSize: '13px' }}>Error al cargar datos demo</div>
     </div>
   )
 
   const { player, stats, patterns, historial } = data
 
-  const filteredHistorial = courseFilter === 'Todo' ? historial : historial.filter(h => h.course === courseFilter)
+  const filteredHistorial = courseFilter === 'Todo' ? historial : historial.filter(h => h.course.includes(courseFilter))
   const visibleHistorial = showAll ? filteredHistorial : filteredHistorial.slice(0, 10)
 
-  const vsParBadge = (v: number) => {
-    const color = v < 0 ? '#00e676' : v > 0 ? '#ff4444' : 'rgba(255,255,255,0.4)'
-    const bg = v < 0 ? 'rgba(0,230,118,0.12)' : v > 0 ? 'rgba(255,68,68,0.12)' : 'rgba(255,255,255,0.06)'
-    const text = v < 0 ? String(v) : v > 0 ? `+${v}` : 'E'
-    return <span style={{ padding: '2px 8px', borderRadius: '8px', background: bg, color, fontSize: '12px', fontFamily: 'var(--font-dm-mono), monospace', fontWeight: 500 }}>{text}</span>
+  const bestGross = Math.min(...historial.map(r => r.gross))
+
+  const vsParColor = (v: number) => v < 0 ? GREEN : v > 0 ? RED : 'rgba(255,255,255,0.4)'
+  const vsParBg = (v: number) => v < 0 ? 'rgba(0,230,118,0.12)' : v > 0 ? 'rgba(255,23,68,0.12)' : 'rgba(255,255,255,0.06)'
+  const vsParText = (v: number) => v < 0 ? String(v) : v > 0 ? `+${v}` : 'E'
+  const borderColor = (v: number) => v < 0 ? GREEN : v > 0 ? RED : 'rgba(255,255,255,0.12)'
+
+  const shortCourse = (name: string) => name.replace(/^Club de Golf\s+/, '').replace(/\s+Country Club$/, '')
+
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso + 'T12:00:00')
+    return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
   }
 
-  const scorePill = (score: number, par: number) => {
-    const diff = score - par
-    const color = diff < 0 ? '#00e676' : diff > 0 ? '#ff4444' : 'rgba(255,255,255,0.6)'
-    return <span style={{ padding: '4px 10px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', color, fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace' }}>{score}</span>
+  const patternLabel = (type: string) => {
+    if (type.includes('specialist') || type.includes('par')) return 'FORTALEZA'
+    if (type.includes('back9') || type.includes('analysis')) return 'PATRON'
+    if (type.includes('improv') || type.includes('trend')) return 'TENDENCIA'
+    return 'INSIGHT'
   }
 
-  // SVG scoring trend
-  const renderTrend = () => {
+  const patternBorderColor = (color: string) => color === 'green' ? GREEN : color === 'yellow' ? '#ffab40' : RED
+
+  // SVG scoring trend with par 72 reference
+  const renderTrendSVG = () => {
     const vals = stats.scoring_trend.slice(-10)
     if (vals.length < 2) return null
-    const min = Math.min(...vals) - 2
-    const max = Math.max(...vals) + 2
-    const w = 100, h = 180
-    const points = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - ((v - min) / (max - min)) * (h - 20) - 10}`).join(' ')
+    const allVals = [...vals, 72]
+    const min = Math.min(...allVals) - 2
+    const max = Math.max(...allVals) + 2
+    const w = 300, h = 160, padX = 30, padY = 20
+    const chartW = w - padX * 2, chartH = h - padY * 2
+
+    const toX = (i: number) => padX + (i / (vals.length - 1)) * chartW
+    const toY = (v: number) => padY + chartH - ((v - min) / (max - min)) * chartH
+
+    const parY = toY(72)
+    const points = vals.map((v, i) => `${toX(i)},${toY(v)}`).join(' ')
+
     return (
-      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '180px' }} preserveAspectRatio="none">
-        <polyline points={points} fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-        {vals.map((v, i) => {
-          const x = (i / (vals.length - 1)) * w
-          const y = h - ((v - min) / (max - min)) * (h - 20) - 10
-          return <circle key={i} cx={x} cy={y} r="2.5" fill={GOLD} />
-        })}
+      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '160px' }} preserveAspectRatio="xMidYMid meet">
+        {/* Par 72 reference line */}
+        <line x1={padX} y1={parY} x2={w - padX} y2={parY} stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4,4" />
+        <text x={w - padX + 4} y={parY + 3} fill={MUTED} fontSize="9" fontFamily={MONO}>72</text>
+
+        {/* Grid lines */}
+        {[min, min + (max - min) / 2, max].map((v, i) => (
+          <text key={i} x={padX - 4} y={toY(v) + 3} fill="rgba(255,255,255,0.15)" fontSize="8" fontFamily={MONO} textAnchor="end">
+            {Math.round(v)}
+          </text>
+        ))}
+
+        {/* Area fill */}
+        <polygon
+          points={`${toX(0)},${toY(vals[0])} ${points} ${toX(vals.length - 1)},${h - padY} ${toX(0)},${h - padY}`}
+          fill={`url(#trendGrad)`} opacity="0.3"
+        />
+        <defs>
+          <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={GOLD} stopOpacity="0.4" />
+            <stop offset="100%" stopColor={GOLD} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Line */}
+        <polyline points={points} fill="none" stroke={GOLD} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* Dots */}
+        {vals.map((v, i) => (
+          <g key={i}>
+            <circle cx={toX(i)} cy={toY(v)} r="3.5" fill={BG} stroke={GOLD} strokeWidth="1.5" />
+            <text x={toX(i)} y={toY(v) - 8} fill="rgba(255,255,255,0.5)" fontSize="8" fontFamily={MONO} textAnchor="middle">
+              {v}
+            </text>
+          </g>
+        ))}
       </svg>
     )
   }
 
-  const patternBorder = (color: string) => color === 'green' ? '#00e676' : color === 'yellow' ? '#ffab40' : '#ff4444'
-
   return (
     <div style={{ background: BG, minHeight: '100vh', color: '#fff', paddingBottom: '80px' }}>
-      {/* Demo banner */}
+
+      {/* === BANNER === */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 40,
-        background: `linear-gradient(135deg, ${GOLD}, #8a6d1b)`,
+        background: 'linear-gradient(90deg, rgba(196,153,42,0.12), rgba(196,153,42,0.04))',
+        borderBottom: '1px solid rgba(196,153,42,0.25)',
         padding: '10px 16px',
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
       }}>
-        <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff', fontFamily: 'var(--font-dm-mono), monospace' }}>
-          ✦ PERFIL DEMO
+        <span style={{ fontSize: '13px', fontWeight: 600, color: GOLD, fontFamily: MONO, letterSpacing: '0.05em' }}>
+          PERFIL DEMO
         </span>
         <Link href="/register" style={{
-          background: '#fff', color: '#111', padding: '6px 16px', borderRadius: '8px',
+          border: '1px solid rgba(196,153,42,0.5)', background: 'rgba(196,153,42,0.1)',
+          color: GOLD, padding: '6px 16px', borderRadius: '8px',
           fontSize: '13px', fontWeight: 600, textDecoration: 'none',
         }}>
-          Crear mi cuenta gratis →
+          Crear mi cuenta gratis
         </Link>
       </div>
 
-      {/* Profile header */}
-      <div style={{ padding: '28px 16px 20px', textAlign: 'center' }}>
-        <div style={{
-          width: '72px', height: '72px', borderRadius: '50%', margin: '0 auto 12px',
-          background: `linear-gradient(135deg, ${GOLD}, #8a6d1b)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '24px', fontWeight: 700, color: '#fff', fontFamily: 'var(--font-cormorant), serif',
-        }}>CM</div>
-        <div style={{ fontSize: '22px', fontWeight: 600, fontFamily: 'var(--font-cormorant), serif' }}>
-          {player.name} <span style={{ fontSize: '20px' }}>🇨🇱</span>
-        </div>
-        <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '4px', fontFamily: 'var(--font-dm-mono), monospace' }}>
-          Índice oficial: {player.indice} · Categoría {player.categoria}
-        </div>
+      {/* === HEADER — single consolidated card === */}
+      <div style={{
+        margin: '16px', padding: '20px',
+        background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '16px',
+      }}>
+        {/* Desktop: avatar left + info right. Mobile: centered stack */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {/* Avatar */}
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '50%', flexShrink: 0,
+            background: `linear-gradient(135deg, ${GOLD}, #8a6d1b)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '22px', fontWeight: 700, color: '#fff', fontFamily: SERIF,
+          }}>CM</div>
 
-        {/* GWI hero bar */}
-        <div style={{
-          display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '20px',
-          flexWrap: 'wrap',
-        }}>
-          {[
-            { label: 'GWI', value: data.gwi.toFixed(1) },
-            { label: 'DELTA', value: `${data.gwi_delta > 0 ? '+' : ''}${data.gwi_delta.toFixed(1)}`, color: data.gwi_delta > 0 ? '#00e676' : data.gwi_delta < 0 ? '#ff4444' : undefined },
-            { label: 'NIVEL', value: data.gwi_level },
-            { label: 'ESTADO', value: data.gwi_delta > 0 ? 'Mejorando' : data.gwi_delta < 0 ? 'Bajando' : 'Estable' },
-          ].map((m, i) => (
-            <div key={i} style={{ textAlign: 'center', minWidth: '60px' }}>
-              <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', fontFamily: 'var(--font-dm-mono), monospace', marginBottom: '4px' }}>{m.label}</div>
-              <div style={{ fontSize: '18px', fontWeight: 600, color: m.color ?? GOLD, fontFamily: 'var(--font-cormorant), serif' }}>{m.value}</div>
+          {/* Info */}
+          <div style={{ flex: 1, minWidth: '180px' }}>
+            <div style={{ fontSize: '20px', fontWeight: 600, fontFamily: SERIF }}>
+              {player.name}
             </div>
-          ))}
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO, marginTop: '2px' }}>
+              Indice {player.indice} · Cat {player.categoria} · {stats.total_rounds} rondas
+            </div>
+
+            {/* GWI bar — single instance */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{ fontSize: '9px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em' }}>GWI</span>
+                <span style={{ fontSize: '28px', fontWeight: 300, color: GOLD, fontFamily: SERIF, lineHeight: 1 }}>{data.gwi.toFixed(1)}</span>
+              </div>
+              <span style={{
+                fontSize: '12px', fontFamily: MONO, fontWeight: 500,
+                color: data.gwi_delta > 0 ? GREEN : data.gwi_delta < 0 ? RED : MUTED,
+              }}>
+                {data.gwi_delta > 0 ? '+' : ''}{data.gwi_delta.toFixed(1)}
+              </span>
+              <span style={{
+                padding: '2px 8px', borderRadius: '8px', fontSize: '9px', fontWeight: 600,
+                background: 'rgba(201,168,76,0.12)', color: GOLD, fontFamily: MONO, letterSpacing: '0.08em',
+              }}>{data.gwi_level}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      {/* === TAB BAR === */}
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderBottom: `1px solid ${CARD_BORDER}` }}>
         <div style={{ display: 'flex', minWidth: 'max-content', padding: '0 16px' }}>
           {TABS.map((tab, i) => (
             <button key={tab} onClick={() => setActiveTab(i)} style={{
@@ -156,48 +222,58 @@ export default function DemoPage() {
               color: activeTab === i ? GOLD : 'rgba(255,255,255,0.4)',
               fontSize: '13px', fontWeight: activeTab === i ? 700 : 400,
               borderBottom: activeTab === i ? `2px solid ${GOLD}` : '2px solid transparent',
-              fontFamily: 'var(--font-dm-mono), monospace', whiteSpace: 'nowrap',
+              fontFamily: MONO, whiteSpace: 'nowrap',
             }}>{tab}</button>
           ))}
         </div>
       </div>
 
-      {/* Tab content */}
+      {/* === TAB CONTENT === */}
       <div style={{ padding: '20px 16px' }}>
 
-        {/* TAB RESUMEN */}
+        {/* ——— TAB RESUMEN ——— */}
         {activeTab === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <GWIDisplay
-              gwi={data.gwi} delta={data.gwi_delta} series={data.gwi_series}
-              level={data.gwi_level} totalRounds={stats.total_rounds}
-              bestRound={stats.best_score} trend={data.gwi_delta > 0 ? 'up' : data.gwi_delta < 0 ? 'down' : 'stable'}
-              vsIndex={null}
-            />
+            {/* 2-col on desktop: gauge left, recent rounds right */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+              {/* Left: GWI gauge */}
+              <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '20px' }}>
+                <GWIDisplay
+                  gwi={data.gwi} delta={data.gwi_delta} series={data.gwi_series}
+                  level={data.gwi_level} totalRounds={stats.total_rounds}
+                  bestRound={stats.best_score} trend={data.gwi_delta > 0 ? 'up' : data.gwi_delta < 0 ? 'down' : 'stable'}
+                  vsIndex={null}
+                />
+              </div>
 
-            {/* Last 5 rounds */}
-            <div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-dm-mono), monospace', marginBottom: '10px', letterSpacing: '0.08em' }}>ÚLTIMAS 5 RONDAS</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {historial.slice(0, 5).map((r, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '10px 14px',
-                  }}>
-                    <div>
-                      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>{r.course}</div>
-                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>{r.date}</div>
+              {/* Right: Recent rounds */}
+              <div>
+                <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>ULTIMAS 5 RONDAS</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {historial.slice(0, 5).map((r, i) => (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      background: CARD, borderRadius: '10px', padding: '10px 14px',
+                      borderLeft: `3px solid ${borderColor(r.score_vs_par)}`,
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>{shortCourse(r.course)}</div>
+                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontFamily: MONO }}>{fmtDate(r.date)}</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontFamily: MONO }}>{r.gross}</span>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: '8px', fontSize: '12px', fontFamily: MONO, fontWeight: 500,
+                          background: vsParBg(r.score_vs_par), color: vsParColor(r.score_vs_par),
+                        }}>{vsParText(r.score_vs_par)}</span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {scorePill(r.gross, 72)}
-                      {vsParBadge(r.score_vs_par)}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Quick stats */}
+            {/* Stats row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               {[
                 { label: 'Promedio', value: stats.avg_score.toFixed(1) },
@@ -206,49 +282,66 @@ export default function DemoPage() {
                 { label: 'Putts avg', value: stats.avg_putts.toFixed(1) },
               ].map((s, i) => (
                 <div key={i} style={{
-                  background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px 8px', textAlign: 'center',
+                  background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '10px', padding: '12px 8px', textAlign: 'center',
                 }}>
-                  <div style={{ fontSize: '18px', fontWeight: 600, color: GOLD, fontFamily: 'var(--font-cormorant), serif' }}>{s.value}</div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-dm-mono), monospace', marginTop: '4px', letterSpacing: '0.05em' }}>{s.label}</div>
+                  <div style={{ fontSize: '18px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
+                  <div style={{ fontSize: '9px', color: MUTED, fontFamily: MONO, marginTop: '4px', letterSpacing: '0.05em' }}>{s.label}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* TAB ESTADÍSTICAS */}
+        {/* ——— TAB ESTADISTICAS ——— */}
         {activeTab === 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Scoring trend */}
+            {/* Scoring trend SVG */}
             <div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-dm-mono), monospace', marginBottom: '10px', letterSpacing: '0.08em' }}>TENDENCIA DE SCORING</div>
-              <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px' }}>
-                {renderTrend()}
+              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>TENDENCIA DE SCORING</div>
+              <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px' }}>
+                {renderTrendSVG()}
               </div>
             </div>
 
-            {/* Par performance */}
+            {/* Par performance — dual bars */}
             <div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-dm-mono), monospace', marginBottom: '10px', letterSpacing: '0.08em' }}>RENDIMIENTO POR PAR</div>
-              {[
-                { label: 'Par 3', avg: stats.par3_avg, par: 3 },
-                { label: 'Par 4', avg: stats.par4_avg, par: 4 },
-                { label: 'Par 5', avg: stats.par5_avg, par: 5 },
-              ].map((p, i) => {
-                const pct = Math.min((p.avg / (p.par + 2)) * 100, 100)
-                const color = p.avg <= p.par ? '#00e676' : p.avg <= p.par + 0.5 ? GOLD : '#ff4444'
-                return (
-                  <div key={i} style={{ marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>{p.label}</span>
-                      <span style={{ fontSize: '12px', color, fontFamily: 'var(--font-dm-mono), monospace' }}>{p.avg.toFixed(2)}</span>
+              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>RENDIMIENTO POR PAR</div>
+              <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {[
+                  { label: 'Par 3', avg: stats.par3_avg, par: 3 },
+                  { label: 'Par 4', avg: stats.par4_avg, par: 4 },
+                  { label: 'Par 5', avg: stats.par5_avg, par: 5 },
+                ].map((p, i) => {
+                  const maxVal = p.par + 1.5
+                  const parPct = ((p.par - (p.par - 0.5)) / (maxVal - (p.par - 0.5))) * 100
+                  const avgPct = ((p.avg - (p.par - 0.5)) / (maxVal - (p.par - 0.5))) * 100
+                  const color = p.avg <= p.par ? GREEN : p.avg <= p.par + 0.5 ? GOLD : RED
+                  return (
+                    <div key={i}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontFamily: MONO }}>{p.label}</span>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                          <span style={{ fontSize: '12px', color: MUTED, fontFamily: MONO }}>par {p.par}</span>
+                          <span style={{ fontSize: '12px', color, fontFamily: MONO, fontWeight: 600 }}>{p.avg.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      {/* Dual bar track */}
+                      <div style={{ position: 'relative', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px' }}>
+                        {/* Par reference mark */}
+                        <div style={{
+                          position: 'absolute', left: `${Math.min(100, Math.max(0, parPct))}%`, top: '-2px',
+                          width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)',
+                        }} />
+                        {/* Avg fill */}
+                        <div style={{
+                          height: '100%', width: `${Math.min(100, Math.max(4, avgPct))}%`,
+                          background: color, borderRadius: '4px', transition: 'width 0.6s ease',
+                        }} />
+                      </div>
                     </div>
-                    <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '3px', transition: 'width 0.6s ease' }} />
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
 
             {/* Front 9 vs Back 9 */}
@@ -258,40 +351,71 @@ export default function DemoPage() {
                 { label: 'Back 9', value: stats.back9_avg.toFixed(1) },
               ].map((s, i) => (
                 <div key={i} style={{
-                  background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px', textAlign: 'center',
+                  background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px', textAlign: 'center',
                 }}>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-dm-mono), monospace', letterSpacing: '0.1em', marginBottom: '6px' }}>{s.label}</div>
-                  <div style={{ fontSize: '28px', fontWeight: 600, color: GOLD, fontFamily: 'var(--font-cormorant), serif' }}>{s.value}</div>
+                  <div style={{ fontSize: '9px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em', marginBottom: '6px' }}>{s.label}</div>
+                  <div style={{ fontSize: '28px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
                 </div>
               ))}
             </div>
 
-            {/* Score distribution */}
+            {/* Score distribution — proportional colored bars + percentages */}
             <div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-dm-mono), monospace', marginBottom: '10px', letterSpacing: '0.08em' }}>DISTRIBUCIÓN DE SCORES</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
-                {[
-                  { label: 'Eagles', count: stats.eagles_total, color: '#00e676' },
-                  { label: 'Birdies', count: stats.birdies_total, color: '#4caf50' },
-                  { label: 'Pars', count: stats.pars_total, color: GOLD },
-                  { label: 'Bogeys', count: stats.bogeys_total, color: '#ffab40' },
-                  { label: 'Dobles+', count: stats.doubles_total, color: '#ff4444' },
-                ].map((d, i) => (
-                  <div key={i} style={{
-                    background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '10px 4px', textAlign: 'center',
-                  }}>
-                    <div style={{ fontSize: '20px', fontWeight: 700, color: d.color, fontFamily: 'var(--font-cormorant), serif' }}>{d.count}</div>
-                    <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-dm-mono), monospace', marginTop: '4px' }}>{d.label}</div>
-                  </div>
-                ))}
+              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>DISTRIBUCION DE SCORES</div>
+              <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px' }}>
+                {(() => {
+                  const items = [
+                    { label: 'Eagles', count: stats.eagles_total, color: '#00e676' },
+                    { label: 'Birdies', count: stats.birdies_total, color: '#4caf50' },
+                    { label: 'Pars', count: stats.pars_total, color: GOLD },
+                    { label: 'Bogeys', count: stats.bogeys_total, color: '#ffab40' },
+                    { label: 'Dobles+', count: stats.doubles_total, color: '#ff4444' },
+                  ]
+                  const total = items.reduce((a, d) => a + d.count, 0) || 1
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {items.map((d, i) => {
+                        const pct = (d.count / total) * 100
+                        return (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ width: '52px', fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO, textAlign: 'right' }}>{d.label}</span>
+                            <div style={{ flex: 1, height: '14px', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${Math.max(2, pct)}%`, background: d.color, borderRadius: '4px', transition: 'width 0.5s ease' }} />
+                            </div>
+                            <span style={{ width: '28px', fontSize: '11px', color: d.color, fontFamily: MONO, fontWeight: 600, textAlign: 'right' }}>{d.count}</span>
+                            <span style={{ width: '36px', fontSize: '10px', color: MUTED, fontFamily: MONO }}>{pct.toFixed(0)}%</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB HISTORIAL */}
+        {/* ——— TAB HISTORIAL ——— */}
         {activeTab === 2 && (
           <div>
+            {/* Summary header */}
+            <div style={{
+              display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap',
+              background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '14px 16px',
+            }}>
+              {[
+                { label: 'Rondas', value: String(filteredHistorial.length) },
+                { label: 'Promedio', value: filteredHistorial.length > 0 ? (filteredHistorial.reduce((a, r) => a + r.gross, 0) / filteredHistorial.length).toFixed(1) : '--' },
+                { label: 'Mejor', value: filteredHistorial.length > 0 ? String(Math.min(...filteredHistorial.map(r => r.gross))) : '--' },
+                { label: 'Peor', value: filteredHistorial.length > 0 ? String(Math.max(...filteredHistorial.map(r => r.gross))) : '--' },
+              ].map((s, i) => (
+                <div key={i} style={{ textAlign: 'center', flex: 1, minWidth: '50px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
+                  <div style={{ fontSize: '9px', color: MUTED, fontFamily: MONO, letterSpacing: '0.05em' }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
             {/* Course filter */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
               {['Todo', 'Los Leones', 'Prince of Wales', 'La Dehesa'].map(c => (
@@ -299,85 +423,113 @@ export default function DemoPage() {
                   padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
                   background: courseFilter === c ? GOLD : 'rgba(255,255,255,0.06)',
                   color: courseFilter === c ? '#111' : 'rgba(255,255,255,0.5)',
-                  fontSize: '12px', fontWeight: courseFilter === c ? 700 : 400,
-                  fontFamily: 'var(--font-dm-mono), monospace',
+                  fontSize: '12px', fontWeight: courseFilter === c ? 700 : 400, fontFamily: MONO,
                 }}>{c}</button>
               ))}
             </div>
 
-            {/* Table */}
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                    {['#', 'Fecha', 'Cancha', 'Gross', 'vs Par'].map(h => (
-                      <th key={h} style={{
-                        padding: '8px 10px', textAlign: 'left', color: 'rgba(255,255,255,0.35)',
-                        fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', fontWeight: 500, letterSpacing: '0.08em',
-                      }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleHistorial.map((r, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <td style={{ padding: '10px', color: 'rgba(255,255,255,0.25)', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px' }}>{r.index}</td>
-                      <td style={{ padding: '10px', color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '12px', whiteSpace: 'nowrap' }}>{r.date}</td>
-                      <td style={{ padding: '10px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>{r.course}</td>
-                      <td style={{ padding: '10px', color: 'rgba(255,255,255,0.85)', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace' }}>{r.gross}</td>
-                      <td style={{ padding: '10px' }}>{vsParBadge(r.score_vs_par)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Round cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {visibleHistorial.map((r, i) => {
+                const isBest = r.gross === bestGross
+                return (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: CARD, borderRadius: '10px', padding: '10px 14px',
+                    borderLeft: `3px solid ${borderColor(r.score_vs_par)}`,
+                    border: isBest ? `1px solid rgba(196,153,42,0.3)` : `1px solid ${CARD_BORDER}`,
+                    borderLeftWidth: '3px', borderLeftStyle: 'solid', borderLeftColor: borderColor(r.score_vs_par),
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', fontFamily: MONO, minWidth: '20px' }}>#{r.index}</span>
+                      <div>
+                        <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
+                          {shortCourse(r.course)}{isBest ? ' \u2605' : ''}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontFamily: MONO }}>{fmtDate(r.date)}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontFamily: MONO }}>{r.gross}</span>
+                      <span style={{
+                        padding: '2px 8px', borderRadius: '8px', fontSize: '11px', fontFamily: MONO, fontWeight: 500,
+                        background: vsParBg(r.score_vs_par), color: vsParColor(r.score_vs_par),
+                      }}>{vsParText(r.score_vs_par)}</span>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
 
             {!showAll && filteredHistorial.length > 10 && (
               <button onClick={() => setShowAll(true)} style={{
                 width: '100%', padding: '12px', marginTop: '12px', background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', cursor: 'pointer',
-                color: GOLD, fontSize: '13px', fontFamily: 'var(--font-dm-mono), monospace',
-              }}>Ver más ({filteredHistorial.length - 10} rondas)</button>
+                border: `1px solid ${CARD_BORDER}`, borderRadius: '10px', cursor: 'pointer',
+                color: GOLD, fontSize: '13px', fontFamily: MONO,
+              }}>Ver mas ({filteredHistorial.length - 10} rondas)</button>
             )}
           </div>
         )}
 
-        {/* TAB ANÁLISIS */}
+        {/* ——— TAB ANALISIS ——— */}
         {activeTab === 3 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {patterns.map((p, i) => (
-              <div key={i} style={{
-                background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px',
-                borderLeft: `3px solid ${patternBorder(p.color)}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <span style={{
-                    padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,
-                    background: `${patternBorder(p.color)}18`, color: patternBorder(p.color),
-                    fontFamily: 'var(--font-dm-mono), monospace',
-                  }}>{p.type}</span>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{p.title}</span>
-                </div>
-                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{p.description}</div>
-              </div>
-            ))}
+            {patterns.map((p, i) => {
+              const bc = patternBorderColor(p.color)
+              const label = patternLabel(p.type)
+              return (
+                <div key={i} style={{
+                  background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px',
+                  borderLeft: `3px solid ${bc}`,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <span style={{
+                      padding: '2px 8px', borderRadius: '6px', fontSize: '9px', fontWeight: 700,
+                      background: `${bc}18`, color: bc, fontFamily: MONO, letterSpacing: '0.08em',
+                    }}>{label}</span>
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{p.title}</span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: '12px' }}>{p.description}</div>
 
-            {/* CTA */}
+                  {/* Inline comparison bar */}
+                  {p.type === 'back9_analysis' && (
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, width: '40px' }}>F9</span>
+                      <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px' }}>
+                        <div style={{ height: '100%', width: `${(stats.front9_avg / 50) * 100}%`, background: GREEN, borderRadius: '3px' }} />
+                      </div>
+                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO, width: '28px' }}>{stats.front9_avg}</span>
+                    </div>
+                  )}
+                  {p.type === 'back9_analysis' && (
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                      <span style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, width: '40px' }}>B9</span>
+                      <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px' }}>
+                        <div style={{ height: '100%', width: `${(stats.back9_avg / 50) * 100}%`, background: '#ffab40', borderRadius: '3px' }} />
+                      </div>
+                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO, width: '28px' }}>{stats.back9_avg}</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Premium CTA */}
             <div style={{
-              background: `linear-gradient(135deg, ${GOLD}12, ${GOLD}06)`,
-              border: `1px solid ${GOLD}30`, borderRadius: '14px', padding: '24px', textAlign: 'center', marginTop: '10px',
+              background: 'linear-gradient(135deg, rgba(196,153,42,0.08), rgba(196,153,42,0.02))',
+              border: '1px solid rgba(196,153,42,0.2)', borderRadius: '14px', padding: '24px', textAlign: 'center', marginTop: '10px',
             }}>
               <div style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginBottom: '8px' }}>
-                ¿Quieres ver los patrones de tu propio juego?
+                Analisis personalizado con IA
               </div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '16px' }}>
-                Registra tus rondas y obtén análisis personalizado con inteligencia artificial.
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '16px', lineHeight: 1.5 }}>
+                Registra tus rondas y obtiene patrones, predicciones y recomendaciones basadas en tu juego real.
               </div>
               <Link href="/register" style={{
-                display: 'inline-block', background: GOLD, color: '#111', padding: '10px 24px',
-                borderRadius: '10px', fontSize: '14px', fontWeight: 700, textDecoration: 'none',
+                display: 'inline-block', border: `1px solid ${GOLD}`, background: 'rgba(196,153,42,0.1)',
+                color: GOLD, padding: '10px 24px', borderRadius: '10px', fontSize: '14px', fontWeight: 700, textDecoration: 'none',
               }}>
-                Registrarme gratis →
+                Registrarme gratis
               </Link>
             </div>
           </div>
@@ -388,16 +540,18 @@ export default function DemoPage() {
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
         padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
-        background: 'linear-gradient(to top, #070d18 60%, transparent)',
+        background: 'linear-gradient(to top, #070d18 70%, transparent)',
       }}
         className="block md:hidden"
       >
         <Link href="/register" style={{
           display: 'block', width: '100%', textAlign: 'center',
-          background: GOLD, color: '#111', padding: '14px', borderRadius: '12px',
+          background: `linear-gradient(135deg, ${GOLD}, #a8821e)`, color: '#fff',
+          padding: '14px', borderRadius: '12px',
           fontSize: '15px', fontWeight: 700, textDecoration: 'none',
+          boxShadow: '0 4px 20px rgba(196,153,42,0.3)',
         }}>
-          Crear mi cuenta gratis →
+          Crear mi cuenta gratis
         </Link>
       </div>
     </div>

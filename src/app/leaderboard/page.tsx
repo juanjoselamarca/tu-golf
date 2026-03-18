@@ -86,7 +86,7 @@ export default function LeaderboardPage() {
   return (
     <div className="min-h-screen bg-bg-deep">
       {/* ── Hero — desktop ─────────────────────────────── */}
-      <div className="hidden md:block relative overflow-hidden" style={{ minHeight: 'clamp(240px, 34vw, 320px)' }}>
+      <div className="hidden md:block relative overflow-hidden" style={{ minHeight: '160px', maxHeight: '200px' }}>
         <img
           src="https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1920&q=80"
           alt=""
@@ -104,21 +104,8 @@ export default function LeaderboardPage() {
           <h1 className="font-display font-bold text-ivory" style={{ fontSize: 'clamp(24px, 4vw, 42px)', lineHeight: 1.05 }}>
             Copa Golfers+ Demo 2026
           </h1>
-          <p className="font-sans text-sm text-gray-soft max-w-2xl">
-            Simulacion en vivo — los jugadores avanzan hoyo a hoyo con scores realistas segun su indice.
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-1">
-            {[
-              { label: 'Cancha', value: 'Club de Golf Los Leones' },
-              { label: 'Ronda', value: String(roundNumber) },
-              { label: 'Par', value: '72' },
-              { label: 'En cancha', value: `${playingCount} jugadores` },
-            ].map(item => (
-              <div key={item.label} className="glass-card rounded-xl px-3 py-3" style={{ background: 'rgba(13,27,23,0.76)' }}>
-                <div className="font-sans text-[11px] uppercase tracking-[0.12em]" style={{ color: '#9fb4aa' }}>{item.label}</div>
-                <div className="font-sans text-sm font-semibold text-ivory mt-1">{item.value}</div>
-              </div>
-            ))}
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace', marginTop: '8px' }}>
+            Club de Golf Los Leones &middot; Par 72 &middot; Ronda {roundNumber} &middot; {playingCount} en cancha
           </div>
         </div>
       </div>

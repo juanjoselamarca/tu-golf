@@ -3,35 +3,64 @@ import { NextResponse } from 'next/server'
 const PARS = [4,5,3,4,3,4,4,3,5,4,5,4,3,5,4,5,3,4]
 const PAR_TOTAL = 72
 
+const CARLOS_TOTALS = [
+  76, 74, 75, 73, 74, 72, 75, 73, 71, 74,
+  73, 72, 74, 71, 73, 72, 70, 73, 72, 71,
+  74, 71, 72, 70, 73, 71, 72, 70, 71, 70
+]
+
 function carlosRound(weekIndex: number) {
-  const scores: Record<number, number> = {}
-  const progression = weekIndex / 30
-  let gir = 0, putts = 0, fairways = 0
+  const target = CARLOS_TOTALS[weekIndex] ?? 72
+  const overshoot = target - 72
+  const holes = [...PARS]
 
-  PARS.forEach((par, i) => {
-    const hoyo = i + 1
-    const wave = Math.sin(hoyo * 1.3 + weekIndex * 0.7)
-    const normalized = (wave + 1) / 2
+  // Distribute overshoot deterministically
+  const order = Array.from({length: 18}, (_, i) => i)
+    .sort((a, b) => Math.sin(a * 7.3 + weekIndex * 13.1) - Math.sin(b * 7.3 + weekIndex * 13.1))
 
-    let score = par
-    if (normalized < 0.12) score = par - 1
-    else if (normalized < 0.65) score = par
-    else if (normalized < 0.90) score = par + 1
-    else score = par + 2
+  let remaining = Math.abs(overshoot)
+  if (overshoot > 0) {
+    for (const i of order) {
+      if (remaining <= 0) break
+      if (remaining >= 2 && Math.sin(i * 3 + weekIndex) > 0.6) {
+        holes[i] += 2; remaining -= 2
+      } else {
+        holes[i] += 1; remaining -= 1
+      }
+    }
+  } else if (overshoot < 0) {
+    for (const i of order) {
+      if (remaining <= 0) break
+      if (holes[i] > 2) { holes[i] -= 1; remaining -= 1 }
+    }
+  }
 
-    if (progression > 0.6 && normalized < 0.20) score = par - 1
+  // Add some birdies for realism (swap bogeys for birdies in pairs)
+  if (overshoot <= 2) {
+    const birdieSeeds = order.slice(0, 3)
+    for (const i of birdieSeeds) {
+      if (holes[i] === PARS[i] && Math.sin(i * 5.7 + weekIndex * 2.3) > 0.2) {
+        // Find a par hole to make bogey to compensate
+        const comp = order.find(j => j !== i && holes[j] === PARS[j] && Math.sin(j * 4.1 + weekIndex) > 0)
+        if (comp !== undefined) {
+          holes[i] -= 1 // birdie
+          holes[comp] += 1 // bogey
+        }
+      }
+    }
+  }
 
-    scores[hoyo] = Math.max(1, score)
-
-    if (score <= par) gir++
-    putts += score <= par ? 2 : Math.min(3, score - par + 2)
-    if ((par === 4 || par === 5) && normalized > 0.3) fairways++
-  })
-
-  const total_gross = Object.values(scores).reduce((a, b) => a + b, 0)
-  const scoresArr = Object.entries(scores).sort(([a],[b]) => parseInt(a) - parseInt(b)).map(([,v]) => v)
+  const scoresArr = holes.map(s => Math.max(1, s))
+  const total_gross = scoresArr.reduce((a, b) => a + b, 0)
   const front9 = scoresArr.slice(0, 9).reduce((a, b) => a + b, 0)
   const back9 = scoresArr.slice(9).reduce((a, b) => a + b, 0)
+
+  let gir = 0, putts = 0, fairways = 0
+  scoresArr.forEach((s, i) => {
+    if (s <= PARS[i]) gir++
+    putts += s <= PARS[i] ? 2 : Math.min(3, s - PARS[i] + 2)
+    if ((PARS[i] === 4 || PARS[i] === 5) && Math.sin(i * 2.1 + weekIndex * 1.7) > -0.3) fairways++
+  })
 
   return { scores: scoresArr, total_gross, front9, back9, gir, putts, fairways }
 }

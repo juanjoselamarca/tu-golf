@@ -193,7 +193,8 @@ export function useDemoSimulation() {
           holesCompleted: newHolesCompleted,
           status: newHolesCompleted >= 18 ? 'finished' : 'playing',
           gwi: newGwi,
-          gwiDelta: Math.round((newGwi - player.gwi) * 10) / 10,
+          // Delta = current round GWI vs historical base GWI
+          gwiDelta: Math.round((newGwi - (BASE_GWI[player.id]?.[BASE_GWI[player.id].length - 1] ?? 70)) * 10) / 10,
           gwiSeries: [...player.gwiSeries.slice(-9), newGwi],
           justScored: true,
           grossTotal: getGrossTotal(newScores),
