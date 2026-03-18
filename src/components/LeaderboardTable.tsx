@@ -7,6 +7,38 @@ import {
   type Player, type Category, type HoleResult,
   getInitials, formatScore, scoreColor, holeResult,
 } from '@/lib/golf-data'
+import { GWICell } from '@/components/GWICell'
+
+// GWI demo data keyed by player name
+function generateGWISeries(indice: number, seed: number): number[] {
+  const s: number[] = []
+  for (let i = 0; i < 10; i++) {
+    const base = 100 - (indice * 3.2)
+    const v = Math.sin(seed * 13.7 + i * 7.3) * 6
+    s.push(Math.round(Math.max(20, Math.min(98, base + v + i * 0.4)) * 10) / 10)
+  }
+  return s
+}
+const GWI_DATA: Record<string, { gwi: number; delta: number; series: number[]; level: string }> = Object.fromEntries(
+  [
+    { name: 'Carlos Méndez', indice: 2 },
+    { name: 'Roberto Silva', indice: 4 },
+    { name: 'Andrés Torres', indice: 1 },
+    { name: 'Felipe García', indice: 6 },
+    { name: 'Miguel Ríos', indice: 3 },
+    { name: 'Sebastián López', indice: 5 },
+    { name: 'Diego Vargas', indice: 7 },
+    { name: 'Martín Pérez', indice: 8 },
+    { name: 'Alejandro Cruz', indice: 9 },
+    { name: 'Valentina Mora', indice: 12 },
+  ].map((p, i) => {
+    const series = generateGWISeries(p.indice, i + 1)
+    const gwi = series[series.length - 1]
+    const delta = Math.round((series[series.length - 1] - series[series.length - 2]) * 10) / 10
+    const level = gwi >= 85 ? 'ÉLITE' : gwi >= 70 ? 'AVANZADO' : gwi >= 50 ? 'INTERMEDIO' : 'BÁSICO'
+    return [p.name, { gwi, delta, series, level }]
+  })
+)
 
 // ─────────────────────────────────────────────────────────
 // TOAST SYSTEM
@@ -574,6 +606,7 @@ export default function LeaderboardTable({ players, modoJuego }: { players: Play
                   { label: modoJuego === 'stableford' ? 'PTS' : 'HOY',   align: 'center', w: 80  },
                   { label: modoJuego === 'stableford' ? 'TOTAL PTS' : 'TOTAL', align: 'center', w: 80  },
                   { label: 'HOYO',   align: 'center', w: 110 },
+                  { label: 'GWI™',   align: 'right',  w: 100 },
                 ].map(col => (
                   <th
                     key={col.label}
@@ -686,11 +719,20 @@ export default function LeaderboardTable({ players, modoJuego }: { players: Play
                           )}
                         </div>
                       </td>
+
+                      {/* GWI™ */}
+                      <td className="py-3.5 px-4">
+                        {(() => {
+                          const gd = GWI_DATA[player.name]
+                          if (!gd) return <span style={{ color: '#3a4a5a', fontSize: 12 }}>—</span>
+                          return <GWICell gwi={gd.gwi} delta={gd.delta} series={gd.series} level={gd.level} />
+                        })()}
+                      </td>
                     </tr>
 
                     {/* Accordion */}
                     <tr style={{ background: '#0a1525' }}>
-                      <td colSpan={7} style={{ padding: 0 }}>
+                      <td colSpan={8} style={{ padding: 0 }}>
                         <div style={{ display: 'grid', gridTemplateRows: isExpanded ? '1fr' : '0fr', transition: 'grid-template-rows 300ms ease' }}>
                           <div style={{ overflow: 'hidden' }}>
                             <Scorecard player={player} onShare={handleShare} />
@@ -704,7 +746,7 @@ export default function LeaderboardTable({ players, modoJuego }: { players: Play
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-14 text-center font-sans text-gray-soft">
+                  <td colSpan={8} className="py-14 text-center font-sans text-gray-soft">
                     No hay jugadores en esta categoría.
                   </td>
                 </tr>
