@@ -60,6 +60,7 @@ function ScorePageContent() {
   const [isOnline, setIsOnline] = useState(true)
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [scoreAnimating, setScoreAnimating] = useState(false)
+  const [showMiniCard, setShowMiniCard] = useState(false)
   const [taigerStatus, setTaigerStatus] = useState<'idle' | 'analyzing' | 'ready' | 'error'>('idle')
   const [taigerSessionId, setTaigerSessionId] = useState<string | null>(null)
 
@@ -262,12 +263,27 @@ function ScorePageContent() {
         </div>
       )}
 
+      {/* ── Save indicator bar ── */}
+      {saveStatus !== 'idle' && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20,
+          height: '3px', transition: 'opacity 0.3s',
+          background: saveStatus === 'saving' ? '#C4992A'
+            : saveStatus === 'saved' ? '#00e676'
+            : saveStatus === 'offline' ? '#FCD34D'
+            : '#ff4444',
+          opacity: saveStatus === 'saved' ? 0.6 : 1,
+          animation: saveStatus === 'saving' ? 'savePulse 1s ease infinite' : 'none',
+        }} />
+      )}
+
       {/* ── Header 48px ── */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 16px', height: '48px',
         borderBottom: '1px solid rgba(196,153,42,0.12)',
-        background: 'rgba(7,13,24,0.9)',
+        background: 'rgba(7,13,24,0.95)',
+        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={handleExit} style={{
@@ -277,14 +293,64 @@ function ScorePageContent() {
           display: 'flex', alignItems: 'center',
           WebkitTapHighlightColor: 'transparent',
         }}>← Salir</button>
-        <div style={{ textAlign: 'center' }}>
+        <button onClick={() => setShowMiniCard(!showMiniCard)} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          textAlign: 'center', padding: '4px 8px', minHeight: '44px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          WebkitTapHighlightColor: 'transparent',
+        }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
-          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>{ronda.course_name}</div>
-        </div>
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>
+            {ronda.course_name} {showMiniCard ? '▲' : '▼'}
+          </div>
+        </button>
         <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)', minWidth: '44px', textAlign: 'right' }}>
           {currentHole}/{totalHoles}
         </div>
       </header>
+
+      {/* ── Mini scorecard (collapsible) ── */}
+      {showMiniCard && (
+        <div style={{
+          background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)',
+          padding: '10px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+        }}>
+          <div style={{ display: 'flex', gap: '2px', minWidth: 'max-content', justifyContent: 'center' }}>
+            {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
+              const s = scores[activeJugadorId]?.[h]
+              const p = parMap[h] ?? 4
+              const isActive = h === currentHole
+              const diff = s != null ? s - p : null
+
+              let bg = 'rgba(255,255,255,0.04)'
+              let color = 'rgba(255,255,255,0.2)'
+              if (isActive) { bg = 'rgba(196,153,42,0.2)'; color = '#C4992A' }
+              else if (diff != null) {
+                if (diff <= -2) { bg = 'rgba(59,130,246,0.15)'; color = '#93C5FD' }
+                else if (diff === -1) { bg = 'rgba(34,197,94,0.15)'; color = '#6EE7B7' }
+                else if (diff === 0) { bg = 'rgba(255,255,255,0.08)'; color = 'rgba(255,255,255,0.6)' }
+                else if (diff === 1) { bg = 'rgba(196,153,42,0.15)'; color = '#FCD34D' }
+                else { bg = 'rgba(220,38,38,0.15)'; color = '#FCA5A5' }
+              }
+
+              return (
+                <button key={h} onClick={() => { setCurrentHole(h); setShowMiniCard(false) }} style={{
+                  width: '28px', height: '36px', borderRadius: '6px',
+                  background: bg, border: isActive ? '1px solid #C4992A' : '1px solid transparent',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', flexShrink: 0, padding: 0,
+                  WebkitTapHighlightColor: 'transparent',
+                }}>
+                  <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', lineHeight: 1 }}>{h}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color, lineHeight: 1.2 }}>
+                    {s ?? '·'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Player tabs (multi-player only) ── */}
       {jugadores.length > 1 && (
@@ -397,33 +463,26 @@ function ScorePageContent() {
         >+</button>
       </div>
 
-      {/* ── Save feedback ── */}
-      <div style={{ height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 400 }}>
-        {saveStatus === 'saving' && <span style={{ color: 'rgba(255,255,255,0.3)' }}>Guardando…</span>}
-        {saveStatus === 'saved' && <span style={{ color: '#6EE7B7' }}>✓ Guardado</span>}
-        {saveStatus === 'offline' && <span style={{ color: '#FCD34D' }}>Sin conexión — guardado local</span>}
-        {saveStatus === 'error' && <span style={{ color: '#FCA5A5' }}>Error al guardar</span>}
-      </div>
-
-      {/* ── Progress dots ── */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '5px', padding: '4px 20px 12px', flexWrap: 'wrap' }}>
+      {/* ── Progress dots (enlarged for outdoor visibility) ── */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', padding: '6px 12px 12px', flexWrap: 'wrap' }}>
         {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
           const s = scores[activeJugadorId]?.[h]
           const p = parMap[h] ?? 4
           const isActive = h === currentHole
           const isDone = s != null
 
-          let bg = 'rgba(255,255,255,0.1)'
-          let size = '10px'
-          let border = '1px solid rgba(255,255,255,0.18)'
+          let bg = 'rgba(255,255,255,0.12)'
+          let size = '14px'
+          let border = '1.5px solid rgba(255,255,255,0.2)'
+          let shadow = 'none'
 
-          if (isActive) { bg = '#C4992A'; size = '13px'; border = 'none' }
+          if (isActive) { bg = '#C4992A'; size = '18px'; border = 'none'; shadow = '0 0 8px rgba(196,153,42,0.4)' }
           else if (isDone) {
             const d = s - p
-            if (d <= -2) bg = '#93C5FD'
-            else if (d === -1) bg = '#FCA5A5'
-            else if (d === 0) bg = '#6EE7B7'
-            else if (d === 1) bg = '#FCD34D'
+            if (d <= -2) bg = '#60A5FA'
+            else if (d === -1) bg = '#4ADE80'
+            else if (d === 0) bg = '#A1A1AA'
+            else if (d === 1) bg = '#FBBF24'
             else bg = '#F87171'
             border = 'none'
           }
@@ -431,7 +490,7 @@ function ScorePageContent() {
           return (
             <div key={h} onClick={() => setCurrentHole(h)} style={{
               width: size, height: size, borderRadius: '50%',
-              background: bg, border, cursor: 'pointer',
+              background: bg, border, cursor: 'pointer', boxShadow: shadow,
               transition: 'all 0.18s ease', flexShrink: 0,
             }} />
           )

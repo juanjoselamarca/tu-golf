@@ -72,18 +72,18 @@ export default async function Home() {
       <StatsSection torneos={torneos ?? 0} golfistas={golfistas ?? 0} />
 
       {/* ── Cómo funciona ─────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-28">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-28">
 
-        <div className="text-center mb-20">
-          <h2 className="font-display font-bold text-4xl lg:text-5xl text-ivory mb-4">
+        <div className="text-center mb-12 md:mb-20">
+          <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-ivory mb-4">
             Tan simple como jugar golf
           </h2>
-          <p className="font-sans text-gray-soft text-lg">
+          <p className="font-sans text-gray-soft text-base md:text-lg">
             De la configuración al leaderboard en minutos
           </p>
         </div>
 
-        <div className="relative grid md:grid-cols-3 gap-x-12 gap-y-16">
+        <div className="relative grid md:grid-cols-3 gap-x-12 gap-y-10 md:gap-y-16">
 
           {/* Horizontal connector line (desktop) */}
           <div
@@ -103,7 +103,7 @@ export default async function Home() {
               {/* Watermark number + icon */}
               <div className="relative mb-5 h-20 flex items-start">
                 <span
-                  className="font-display font-black text-[90px] leading-none select-none"
+                  className="font-display font-black text-[60px] md:text-[90px] leading-none select-none"
                   style={{ color: 'rgba(196,153,42,0.14)', lineHeight: 1 }}
                 >
                   {s.num}
@@ -131,10 +131,10 @@ export default async function Home() {
       <section className="bg-bg-card">
         <div className="gold-divider" />
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
-          <h2 className="font-display font-bold text-4xl lg:text-5xl text-ivory mb-6">
+          <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-ivory mb-6">
             Empieza a jugar diferente
           </h2>
-          <p className="font-sans text-gray-soft text-lg mb-10">
+          <p className="font-sans text-gray-soft text-base md:text-lg mb-10">
             Únete gratis. Sin tarjeta. Sin descargas. Tu primer torneo listo en menos de 2 minutos.
           </p>
           <Link

@@ -217,7 +217,7 @@ export default function PerfilPage() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '18px' }}>
           {[
             { icon: '🏌️', label: 'Handicap', value: profile.indice != null ? profile.indice : '—', accent: '#c8a55a' },
             { icon: '🏆', label: 'Torneos', value: tourneysPlayed, accent: '#edeae4' },

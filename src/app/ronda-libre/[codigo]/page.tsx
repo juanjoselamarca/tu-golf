@@ -178,9 +178,22 @@ export default function RondaLibrePage() {
     if (r === 'espectador') setCountdown(15)
   }
 
+  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/ronda-libre/${codigo}` : ''
+  const shareText = ronda ? `Sigue mi ronda en ${ronda.course_name} en vivo` : 'Sigue la ronda en vivo'
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/ronda-libre/${codigo}`)
+    navigator.clipboard.writeText(shareUrl)
       .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+  }
+
+  const handleShare = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: 'Golfers+ — Ronda en vivo', text: shareText, url: shareUrl })
+      } catch { /* user cancelled */ }
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${shareUrl}`)}`, '_blank')
+    }
   }
 
   const handleGoScore = () => {
@@ -533,52 +546,53 @@ export default function RondaLibrePage() {
 
                   {/* Expandable mini scorecard */}
                   {isExpanded && j.holesPlayed > 0 && (
-                    <div style={{ padding: '4px 16px 14px', background: 'rgba(7,13,24,0.4)' }}>
-                      {/* Hole numbers row */}
-                      <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                        <div style={{ minWidth: '28px', fontSize: '10px', color: '#7a8fa8', textAlign: 'center', padding: '2px 0', fontWeight: 600 }}>H</div>
-                        {holeNums.map(h => (
-                          <div key={h} style={{ minWidth: '28px', fontSize: '10px', color: '#7a8fa8', textAlign: 'center', padding: '2px 0' }}>
-                            {h}
-                          </div>
-                        ))}
+                    <div style={{ padding: '4px 12px 14px', background: 'rgba(7,13,24,0.4)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                      {/* Front 9 */}
+                      <div style={{ fontSize: '9px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                        Front 9
                       </div>
-                      {/* Par row (only if course linked) */}
-                      {hasCourse && (
-                        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                          <div style={{ minWidth: '28px', fontSize: '10px', color: '#7a8fa8', textAlign: 'center', padding: '2px 0', fontWeight: 600 }}>P</div>
-                          {holeNums.map(h => (
-                            <div key={h} style={{ minWidth: '28px', fontSize: '10px', color: '#7a8fa8', textAlign: 'center', padding: '2px 0' }}>
-                              {parMap[h] ?? '—'}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {/* Score row */}
-                      <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                        <div style={{ minWidth: '28px', fontSize: '10px', color: '#edeae4', textAlign: 'center', padding: '3px 0', fontWeight: 700 }}>S</div>
-                        {holeNums.map(h => {
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', marginBottom: '8px' }}>
+                        {holeNums.slice(0, 9).map(h => {
                           const s    = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
                           const p    = parMap[h] ?? 4
                           const diff = s != null ? s - p : null
                           const bg   = diff != null ? `${getScoreColor(s!, p)}22` : 'rgba(7,13,24,0.4)'
                           const bdr  = diff != null ? `1px solid ${getScoreColor(s!, p)}44` : '1px solid transparent'
                           return (
-                            <div
-                              key={h}
-                              style={{
-                                minWidth: '28px', textAlign: 'center',
-                                background: bg, borderRadius: '4px',
-                                padding: '3px 2px', border: bdr,
-                              }}
-                            >
-                              <div style={{ fontSize: '12px', fontWeight: 700, color: diff != null ? getScoreColor(s!, p) : '#3a4a5a' }}>
+                            <div key={h} style={{ textAlign: 'center', background: bg, borderRadius: '4px', padding: '3px 1px', border: bdr }}>
+                              <div style={{ fontSize: '8px', color: '#7a8fa8', lineHeight: 1 }}>{h}</div>
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: diff != null ? getScoreColor(s!, p) : '#3a4a5a', lineHeight: 1.3 }}>
                                 {s ?? '·'}
                               </div>
                             </div>
                           )
                         })}
                       </div>
+                      {/* Back 9 */}
+                      {ronda.holes > 9 && (
+                        <>
+                          <div style={{ fontSize: '9px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                            Back 9
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                            {holeNums.slice(9, 18).map(h => {
+                              const s    = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
+                              const p    = parMap[h] ?? 4
+                              const diff = s != null ? s - p : null
+                              const bg   = diff != null ? `${getScoreColor(s!, p)}22` : 'rgba(7,13,24,0.4)'
+                              const bdr  = diff != null ? `1px solid ${getScoreColor(s!, p)}44` : '1px solid transparent'
+                              return (
+                                <div key={h} style={{ textAlign: 'center', background: bg, borderRadius: '4px', padding: '3px 1px', border: bdr }}>
+                                  <div style={{ fontSize: '8px', color: '#7a8fa8', lineHeight: 1 }}>{h}</div>
+                                  <div style={{ fontSize: '12px', fontWeight: 700, color: diff != null ? getScoreColor(s!, p) : '#3a4a5a', lineHeight: 1.3 }}>
+                                    {s ?? '·'}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -586,17 +600,25 @@ export default function RondaLibrePage() {
             })}
           </div>
 
-          {/* Countdown + copy */}
+          {/* Countdown + share */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
             <span style={{ color: '#7a8fa8', fontSize: '12px' }}>
               ↻ Actualiza en {countdown}s
             </span>
-            <button
-              onClick={handleCopy}
-              style={{ background: 'none', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer' }}
-            >
-              {copied ? '✓ Link copiado' : 'Copiar link'}
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={handleShare}
+                style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366', fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Compartir
+              </button>
+              <button
+                onClick={handleCopy}
+                style={{ background: 'none', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '12px', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                {copied ? '✓ Copiado' : 'Copiar'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -706,13 +728,19 @@ export default function RondaLibrePage() {
           </button>
         )}
 
-        {/* Copy link */}
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
+        {/* Share + Copy */}
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+          <button
+            onClick={handleShare}
+            style={{ background: 'rgba(37,211,102,0.12)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366', fontSize: '13px', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+          >
+            Compartir por WhatsApp
+          </button>
           <button
             onClick={handleCopy}
-            style={{ background: 'none', border: 'none', color: '#7a8fa8', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline' }}
+            style={{ background: 'none', border: '1px solid rgba(196,153,42,0.2)', color: '#7a8fa8', fontSize: '13px', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer' }}
           >
-            {copied ? '✓ Link copiado' : 'Copiar link para compartir'}
+            {copied ? '✓ Copiado' : 'Copiar link'}
           </button>
         </div>
       </div>

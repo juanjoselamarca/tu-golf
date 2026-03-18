@@ -58,7 +58,7 @@ export default function Navbar() {
     pathname.startsWith('/dashboard')
   ) return null
 
-  const isDarkPage = pathname === '/' || pathname === '/leaderboard'
+  const isDarkPage = pathname === '/' || pathname === '/leaderboard' || pathname.startsWith('/ronda-libre') || pathname.startsWith('/perfil') || pathname.startsWith('/coach') || pathname.startsWith('/demo')
 
   const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'
@@ -284,9 +284,10 @@ export default function Navbar() {
       {user && (
         <div className="nav-bottom-bar" style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-          height: '56px', background: 'rgba(255,255,255,0.95)',
+          height: '56px',
+          background: isDarkPage ? 'rgba(7,13,24,0.95)' : 'rgba(255,255,255,0.95)',
           backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-          borderTop: '1px solid #E5E7EB',
+          borderTop: isDarkPage ? '1px solid rgba(196,153,42,0.15)' : '1px solid #E5E7EB',
           display: 'none', justifyContent: 'space-around', alignItems: 'center',
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}>
@@ -296,12 +297,13 @@ export default function Navbar() {
             { href: '/leaderboard', icon: '📊', label: 'Ranking' },
           ].map(item => {
             const active = pathname === item.href
+            const inactiveColor = isDarkPage ? 'rgba(255,255,255,0.4)' : '#9CA3AF'
             return (
               <Link key={item.href} href={item.href} style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', gap: '2px',
                 minWidth: '60px', minHeight: '44px',
-                color: active ? '#C4992A' : '#9CA3AF',
+                color: active ? '#C4992A' : inactiveColor,
                 textDecoration: 'none', fontSize: '10px', fontWeight: active ? 600 : 400,
               }}>
                 <span style={{ fontSize: '20px' }}>{item.icon}</span>
@@ -326,12 +328,13 @@ export default function Navbar() {
             { href: '/perfil', icon: '👤', label: 'Perfil' },
           ].map(item => {
             const active = pathname === item.href || pathname.startsWith(item.href + '/')
+            const inactiveColor = isDarkPage ? 'rgba(255,255,255,0.4)' : '#9CA3AF'
             return (
               <Link key={item.href} href={item.href} style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', gap: '2px',
                 minWidth: '60px', minHeight: '44px',
-                color: active ? '#C4992A' : '#9CA3AF',
+                color: active ? '#C4992A' : inactiveColor,
                 textDecoration: 'none', fontSize: '10px', fontWeight: active ? 600 : 400,
               }}>
                 <span style={{ fontSize: '20px' }}>{item.icon}</span>

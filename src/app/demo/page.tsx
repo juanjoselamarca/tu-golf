@@ -214,7 +214,8 @@ export default function DemoPage() {
       </div>
 
       {/* === TAB BAR === */}
-      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderBottom: `1px solid ${CARD_BORDER}` }}>
+      <div style={{ position: 'relative', borderBottom: `1px solid ${CARD_BORDER}` }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <div style={{ display: 'flex', minWidth: 'max-content', padding: '0 16px' }}>
           {TABS.map((tab, i) => (
             <button key={tab} onClick={() => setActiveTab(i)} style={{
@@ -226,6 +227,13 @@ export default function DemoPage() {
             }}>{tab}</button>
           ))}
         </div>
+        </div>
+        {/* Scroll fade indicator */}
+        <div style={{
+          position: 'absolute', right: 0, top: 0, bottom: 0, width: '40px',
+          background: `linear-gradient(to right, transparent, ${BG})`,
+          pointerEvents: 'none',
+        }} />
       </div>
 
       {/* === TAB CONTENT === */}
