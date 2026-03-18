@@ -37,7 +37,7 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
           🐯 el tAIger
         </span>
         <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none' }}>
-          ← Volver a Tu Golf
+          ← Volver a Golfers+
         </Link>
       </header>
       {children}

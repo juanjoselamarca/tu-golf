@@ -79,19 +79,18 @@ export default function HeroSection() {
                 color:      '#e8c06a',
               }}
             >
-              ⛳ Live Scoring · Torneos Amateur
+              Golfers+ · Datos + Mente + Resultados
             </div>
 
             {/* H1 */}
             <h1 className="font-display font-black leading-[1.05] mb-6 text-[42px] lg:text-[72px]">
-              <span className="text-ivory block">Tu torneo de golf,</span>
-              <span className="text-gold">en tiempo real</span>
+              <span className="text-ivory block">Tu golf,</span>
+              <span className="text-gold">potenciado por IA</span>
             </h1>
 
             {/* Subtitle */}
             <p className="font-sans text-lg text-ivory/75 mb-10 leading-relaxed max-w-lg">
-              La plataforma más simple para organizar y seguir torneos amateur.
-              Live scoring, leaderboard en vivo y gestión completa desde tu celular.
+              La única plataforma en español que convierte tus datos de golf en trabajo mental específico para bajar tu score. Scoring en vivo, análisis estadístico y el tAIger, tu coach de rendimiento.
             </p>
 
             {/* Buttons */}

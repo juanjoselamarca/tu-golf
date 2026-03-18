@@ -145,10 +145,10 @@ function RegisterContent() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#c4992a', fontWeight: 700 }}>⛳ Tu Golf</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#edeae4', fontWeight: 700 }}>Golfers<span style={{ color: '#c4992a' }}>+</span></span>
         </div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>Crea tu cuenta</h1>
-        <p style={{ fontSize: '14px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '28px' }}>Únete a miles de golfistas</p>
+        <p style={{ fontSize: '14px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '28px' }}>Únete a Golfers+</p>
 
         {/* Google */}
         <button

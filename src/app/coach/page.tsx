@@ -112,7 +112,7 @@ export default function CoachDashboard() {
           🐯 el tAIger
         </h1>
         <p style={{ color: '#7a8fa8', fontSize: '14px', margin: 0 }}>
-          Tu coach mental{context?.player?.name ? ` · ${context.player.name}` : ''}
+          Tu coach mental · Golfers+{context?.player?.name ? ` · ${context.player.name}` : ''}
         </p>
       </div>
 

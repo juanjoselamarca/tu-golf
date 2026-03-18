@@ -86,8 +86,8 @@ export default function Navbar() {
       }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '2px', textDecoration: 'none' }}>
-            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: logoTuColor }}>Tu</span>
-            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: '#C4992A' }}> Golf</span>
+            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: logoTuColor }}>Golfers</span>
+            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: '#C4992A' }}>+</span>
           </Link>
 
           {/* Desktop links */}
@@ -218,7 +218,7 @@ export default function Navbar() {
       }}>
         <div style={{ width: '36px', height: '4px', background: '#D1D5DB', borderRadius: '2px', margin: '12px auto 8px' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 20px 14px', borderBottom: '1px solid #E5E7EB' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', color: '#C4992A', fontWeight: 700, fontSize: '18px' }}>Tu Golf</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px' }}><span style={{ color: '#111827' }}>Golfers</span><span style={{ color: '#C4992A' }}>+</span></span>
           <button onClick={() => setMenuOpen(false)} style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: '26px', cursor: 'pointer', lineHeight: 1, padding: '4px 8px', minHeight: 0 }}>×</button>
         </div>
         <div style={{ padding: '4px 16px' }}>

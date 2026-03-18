@@ -68,8 +68,8 @@ export default async function DashboardPage() {
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       {/* Navbar */}
       <nav style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: '64px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 50 }}>
-        <Link href="/" style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700, textDecoration: 'none' }}>
-          ⛳ Tu Golf
+        <Link href="/" style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', fontWeight: 700, textDecoration: 'none' }}>
+          Golfers<span style={{ color: '#c4992a' }}>+</span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Link href="/perfil" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
@@ -89,7 +89,7 @@ export default async function DashboardPage() {
           Hola, {userName} 👋
         </h1>
         <p style={{ fontSize: '16px', color: 'var(--text-2)', marginBottom: '32px' }}>
-          ¿Listo para tu próximo torneo?
+          ¿Listo para mejorar tu juego hoy?
         </p>
 
         <div style={{ height: '1px', background: 'linear-gradient(90deg, #c4992a, transparent)', marginBottom: '40px' }} />

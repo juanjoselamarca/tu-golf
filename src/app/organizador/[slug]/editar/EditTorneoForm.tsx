@@ -123,7 +123,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
       <div style={{ position: 'relative', zIndex: 10, background: 'rgba(14,28,47,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '16px', padding: '40px', maxWidth: '600px', width: '100%' }}>
         <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>← Volver al dashboard</Link>
         <div style={{ marginBottom: '28px' }}>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>⛳ Tu Golf</div>
+          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>Golfers+</div>
           <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', margin: 0 }}>Editar torneo</h1>
         </div>
 

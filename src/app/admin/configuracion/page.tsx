@@ -67,7 +67,7 @@ export default function ConfiguracionPage() {
           General
         </h2>
         <div style={card}>
-          <InfoRow label="Nombre" value="Tu Golf" />
+          <InfoRow label="Nombre" value="Golfers+" />
           <InfoRow label="URL" value="https://tu-golf.vercel.app" />
           <InfoRow label="Email soporte" value="juanjoselamarca@gmail.com" />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>

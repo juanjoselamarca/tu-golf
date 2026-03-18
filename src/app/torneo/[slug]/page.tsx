@@ -283,8 +283,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         {/* Logo */}
         <div className="absolute top-4 left-4 sm:top-5 sm:left-6 z-10">
           <Link href="/" className="flex items-center gap-1 group">
-            <span className="font-display font-bold text-lg text-ivory group-hover:text-ivory/80 transition-colors">Tu</span>
-            <span className="font-display font-bold text-lg text-gold group-hover:text-gold-light transition-colors"> Golf</span>
+            <span className="font-display font-bold text-lg text-ivory group-hover:text-ivory/80 transition-colors">Golfers</span>
+            <span className="font-display font-bold text-lg text-gold group-hover:text-gold-light transition-colors">+</span>
           </Link>
         </div>
 
@@ -427,10 +427,10 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         <div className="gold-divider" />
         <div className="max-w-xl mx-auto px-4 sm:px-6 py-14 text-center">
           <div className="flex items-center justify-center gap-0.5 mb-5">
-            <span className="font-display font-bold text-2xl text-ivory">Tu</span>
-            <span className="font-display font-bold text-2xl text-gold"> Golf</span>
+            <span className="font-display font-bold text-2xl text-ivory">Golfers</span>
+            <span className="font-display font-bold text-2xl text-gold">+</span>
           </div>
-          <p className="font-sans text-ivory/70 text-base mb-7">Seguí este torneo con Tu Golf</p>
+          <p className="font-sans text-ivory/70 text-base mb-7">Seguí este torneo con Golfers+</p>
           {tournament && (tournament.status === 'active' || tournament.status === 'in_progress') && (
             <Link
               href={`/torneo/${tournament.slug}/score`}

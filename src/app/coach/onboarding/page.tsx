@@ -363,7 +363,7 @@ export default function CoachOnboarding() {
           fontFamily: '"Playfair Display", serif', fontWeight: 700,
           marginBottom: '8px',
         }}>
-          Tu Golf DNA
+          Golfers+ DNA
         </h1>
         <p style={{ color: colors.gray, fontSize: '14px', marginBottom: '28px' }}>
           As\u00ed te ve el tAIger despu\u00e9s de conocerte

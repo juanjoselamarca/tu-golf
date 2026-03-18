@@ -89,7 +89,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }} className="admin-sidebar">
         <div style={{ padding: '20px 16px', borderBottom: '1px solid #132540' }}>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', marginBottom: '4px' }}>
-            Tu Golf
+            Golfers+
           </div>
           <span style={{ background: '#c4992a', color: '#070d18', fontSize: '10px', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', letterSpacing: '0.1em' }}>
             ADMIN
@@ -113,7 +113,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           }}>
             <div style={{ padding: '20px 16px', borderBottom: '1px solid #132540', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4' }}>Tu Golf</div>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4' }}>Golfers+</div>
                 <span style={{ background: '#c4992a', color: '#070d18', fontSize: '10px', fontWeight: 800, padding: '2px 8px', borderRadius: '4px' }}>ADMIN</span>
               </div>
               <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', color: '#7a8fa8', fontSize: '24px', cursor: 'pointer' }}>&times;</button>
@@ -139,7 +139,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               &#9776;
             </button>
-            <span style={{ color: '#edeae4', fontSize: '14px', fontWeight: 600 }}>Tu Golf Admin</span>
+            <span style={{ color: '#edeae4', fontSize: '14px', fontWeight: 600 }}>Golfers+ Admin</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ color: '#7a8fa8', fontSize: '12px' }}>{now}</span>

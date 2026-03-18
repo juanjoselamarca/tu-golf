@@ -228,7 +228,7 @@ function ShareCard({
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 17, fontWeight: 700, color: '#c4992a' }}>Tu Golf</div>
+        <div style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 17, fontWeight: 700, color: '#c4992a' }}>Golfers+</div>
         <div style={{ fontSize: 17 }}>⛳</div>
       </div>
 

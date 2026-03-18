@@ -278,7 +278,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
         </Link>
 
         <div style={{ marginBottom: '28px' }}>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>⛳ Tu Golf</div>
+          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>Golfers+</div>
           <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', margin: 0 }}>
             Crear nuevo torneo
           </h1>

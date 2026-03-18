@@ -101,10 +101,10 @@ export default async function Home() {
         <div className="gold-divider" />
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
           <h2 className="font-display font-bold text-4xl lg:text-5xl text-ivory mb-6">
-            ¿Listo para tu próximo torneo?
+            ¿Listo para mejorar tu golf?
           </h2>
           <p className="font-sans text-gray-soft text-lg mb-10">
-            Crea tu cuenta gratis y organiza tu primer torneo en minutos.
+            Crea tu cuenta gratis y empieza a entender tu juego hoy.
           </p>
           <Link
             href="/register"

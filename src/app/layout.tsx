@@ -33,16 +33,15 @@ const cormorant = Cormorant_Garamond({
 })
 
 export const metadata: Metadata = {
-  title: 'Tu Golf — Live Scoring para Torneos Amateur',
-  description:
-    'Plataforma de live scoring para torneos amateur de golf. Organiza, juega y sigue tus torneos en tiempo real.',
-  keywords: ['golf', 'torneo', 'live scoring', 'amateur', 'puntaje'],
+  title: 'Golfers+ — Tu golf, potenciado por IA',
+  description: 'La única plataforma en español que convierte los datos de tu golf en trabajo mental específico. Scoring en vivo, análisis estadístico y coaching IA.',
+  keywords: ['golf', 'golfers plus', 'scoring golf', 'handicap', 'torneos amateur', 'coach golf IA', 'chile', 'tAIger'],
   // M13: PWA-ready
-  applicationName: 'Tu Golf',
+  applicationName: 'Golfers+',
   appleWebApp: {
     capable:         true,
     statusBarStyle:  'black-translucent',
-    title:           'Tu Golf',
+    title:           'Golfers+',
   },
   formatDetection: { telephone: false },
 }
@@ -68,11 +67,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div style={{ height: '1px', background: 'var(--border)' }} />
           <div className="py-10 text-center">
             <p className="font-display text-xl mb-2">
-              <span style={{ color: 'var(--text)' }}>Tu</span>
-              <span style={{ color: '#c4992a' }}> Golf</span>
+              <span style={{ color: 'var(--text)' }}>Golfers</span>
+              <span style={{ color: '#c4992a' }}>+</span>
             </p>
             <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>
-              © {new Date().getFullYear()} Tu Golf · Hecho para el golf amateur
+              © {new Date().getFullYear()} Golfers+ · Hecho para el golf amateur
             </p>
           </div>
         </footer>

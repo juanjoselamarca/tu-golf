@@ -82,7 +82,7 @@ export default function TaigerAdminPage() {
           🐯 tAIger — Admin
         </h1>
         <p style={{ color: gray, fontSize: 14, marginBottom: 32 }}>
-          Panel de control del coach virtual de Tu Golf
+          Panel de control del coach virtual de Golfers+
         </p>
 
         {/* ── KPIs ── */}
@@ -286,7 +286,7 @@ export default function TaigerAdminPage() {
 
             {/* Identidad */}
             <Section title="Identidad">
-              Sos <strong style={{ color: gold }}>tAIger</strong>, el coach virtual de golf de Tu Golf.
+              Sos <strong style={{ color: gold }}>tAIger</strong>, el coach virtual de golf de Golfers+.
               Un asistente experto en golf amateur que analiza el juego del usuario y ofrece
               recomendaciones personalizadas basadas en sus rondas y patrones.
             </Section>
