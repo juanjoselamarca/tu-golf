@@ -29,13 +29,15 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const protectedRoutes = ['/dashboard', '/organizador', '/admin']
+  const protectedRoutes = ['/dashboard', '/perfil', '/coach', '/organizador', '/admin', '/ronda-libre']
   const isProtected = protectedRoutes.some((r) =>
     request.nextUrl.pathname.startsWith(r)
   )
 
   if (isProtected && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('next', request.nextUrl.pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
   // Verificación extra para /admin: comprobar rol en servidor

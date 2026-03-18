@@ -69,7 +69,7 @@ export default function ConfiguracionPage() {
         <div style={card}>
           <InfoRow label="Nombre" value="Golfers+" />
           <InfoRow label="URL" value="https://tu-golf.vercel.app" />
-          <InfoRow label="Email soporte" value="juanjoselamarca@gmail.com" />
+          <InfoRow label="Email soporte" value="soporte@golfers.plus" />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
             <span style={{ color: '#7a8fa8', fontSize: '0.9rem' }}>Stack</span>
             <span style={{ color: '#edeae4', fontSize: '0.9rem' }}>
@@ -125,7 +125,7 @@ export default function ConfiguracionPage() {
             }}
           >
             <span style={{ color: '#edeae4', fontSize: '0.9rem' }}>
-              juanjoselamarca@gmail.com
+              Configurado via env ADMIN_EMAILS
             </span>
             <Badge text="Propietario" variant="gold" />
           </div>
