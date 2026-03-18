@@ -25,9 +25,26 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // Refresh session on every request — prevents logout when access token expires
+  // getUser() internally refreshes the token via the cookie handler above,
+  // which writes the new tokens back to the response cookies
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  // Helper: redirect while preserving refreshed session cookies
+  const redirectWithCookies = (url: URL) => {
+    const response = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach(cookie => {
+      response.cookies.set(cookie.name, cookie.value)
+    })
+    return response
+  }
+
+  // Redirect logged-in users away from marketing/auth pages
+  if (user && (request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
+    return redirectWithCookies(new URL('/dashboard', request.url))
+  }
 
   const protectedRoutes = ['/dashboard', '/perfil', '/coach', '/organizador', '/admin', '/ronda-libre']
   const isProtected = protectedRoutes.some((r) =>
@@ -37,7 +54,7 @@ export async function middleware(request: NextRequest) {
   if (isProtected && !user) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('next', request.nextUrl.pathname)
-    return NextResponse.redirect(loginUrl)
+    return redirectWithCookies(loginUrl)
   }
 
   // Verificación extra para /admin: comprobar rol en servidor
@@ -48,7 +65,7 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .single()
     if (profile?.role !== 'admin') {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return redirectWithCookies(new URL('/dashboard', request.url))
     }
   }
 
