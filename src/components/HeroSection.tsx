@@ -79,18 +79,18 @@ export default function HeroSection() {
                 color:      '#e8c06a',
               }}
             >
-              Golfers+ · Datos + Mente + Resultados
+              Golfers+ · El golf amateur en español · Chile y LatAm
             </div>
 
             {/* H1 */}
             <h1 className="font-display font-black leading-[1.05] mb-6 text-[42px] lg:text-[72px]">
-              <span className="text-ivory block">Tu golf,</span>
-              <span className="text-gold">potenciado por IA</span>
+              <span className="text-ivory block">Tu mejor golf,</span>
+              <span className="text-gold">empieza con los datos</span>
             </h1>
 
             {/* Subtitle */}
             <p className="font-sans text-lg text-ivory/75 mb-10 leading-relaxed max-w-lg">
-              La única plataforma en español que convierte tus datos de golf en trabajo mental específico para bajar tu score. Scoring en vivo, análisis estadístico y el tAIger, tu coach de rendimiento.
+              La plataforma que combina scoring en vivo con inteligencia artificial para darte el análisis y el coaching mental que antes solo tenían los golfistas de élite. En español, para el amateur que quiere bajar su índice de verdad.
             </p>
 
             {/* Buttons */}

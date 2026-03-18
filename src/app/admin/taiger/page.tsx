@@ -59,7 +59,7 @@ export default function TaigerAdminPage() {
   if (loading) {
     return (
       <div style={{ background: bg, minHeight: '100vh', padding: 32, color: ivory }}>
-        <p style={{ color: gray }}>Cargando datos del tAIger...</p>
+        <p style={{ color: gray }}>Cargando datos de tAIger+...</p>
       </div>
     )
   }
@@ -79,7 +79,7 @@ export default function TaigerAdminPage() {
             marginBottom: 8,
           }}
         >
-          🐯 tAIger — Admin
+          🐯 tAIger+ — Admin
         </h1>
         <p style={{ color: gray, fontSize: 14, marginBottom: 32 }}>
           Panel de control del coach virtual de Golfers+
@@ -144,7 +144,7 @@ export default function TaigerAdminPage() {
         >
           <p style={{ fontSize: 48, marginBottom: 12 }}>🐯</p>
           <p style={{ color: ivory, fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
-            Los patrones del tAIger se activarán en Sprint 10
+            Los patrones de tAIger+ se activarán en Sprint 10
           </p>
           <p style={{ color: gray, fontSize: 13 }}>
             El análisis de patrones de juego estará disponible cuando se integre la IA de coaching.

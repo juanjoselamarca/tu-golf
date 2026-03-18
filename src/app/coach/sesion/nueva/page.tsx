@@ -79,7 +79,7 @@ export default function NuevaSesionPage() {
       const data = await res.json()
 
       if (res.status === 429 && data.code === 'limit_reached') {
-        setError('Has alcanzado el límite de sesiones de tu plan gratuito. Mejora tu plan para seguir usando el tAIger.')
+        setError('Has alcanzado el límite de sesiones de tu plan gratuito.')
         setLoading(false)
         return
       }
@@ -136,7 +136,7 @@ export default function NuevaSesionPage() {
           fontWeight: 500,
           animation: 'pulse 1.5s ease-in-out infinite',
         }}>
-          el tAIger está analizando tu ronda...
+          tAIger+ está analizando tu ronda...
         </p>
         <style>{`
           @keyframes pulse {
@@ -160,7 +160,7 @@ export default function NuevaSesionPage() {
         Nueva sesión
       </h1>
       <p style={{ color: '#7a8fa8', fontSize: 14, marginBottom: 24 }}>
-        Elige el tipo de sesión con el tAIger
+        ¿Qué quieres trabajar hoy?
       </p>
 
       {error && (
@@ -206,7 +206,7 @@ export default function NuevaSesionPage() {
             Análisis post-ronda
           </h2>
           <p style={{ color: '#7a8fa8', fontSize: 13, margin: 0 }}>
-            Analiza tu última ronda con el tAIger
+            Revisamos hole a hole qué pasó, qué área te costó más y qué hacer esta semana para corregirlo.
           </p>
 
           {showRondaSelector && (
@@ -296,7 +296,7 @@ export default function NuevaSesionPage() {
             Consulta libre
           </h2>
           <p style={{ color: '#7a8fa8', fontSize: 13, margin: 0 }}>
-            Preguntale lo que quieras al tAIger sobre tu juego
+            Pregúntale lo que quieras a tAIger+ sobre tu juego
           </p>
         </div>
       </div>

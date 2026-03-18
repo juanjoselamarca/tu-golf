@@ -312,7 +312,7 @@ export default function CoachOnboarding() {
         <p style={{ color: colors.gray, fontSize: '15px', lineHeight: 1.6, marginBottom: '28px' }}>
           12 preguntas basadas en ciencia deportiva.<br />
           3 minutos. Sin respuestas correctas ni incorrectas.<br />
-          Tu perfil es \u00fanico y el tAIger se adaptar\u00e1 a ti.
+          Tu perfil es \u00fanico y tAIger+ se adaptar\u00e1 a ti.
         </p>
 
         {/* Scientific badges */}
@@ -366,7 +366,7 @@ export default function CoachOnboarding() {
           Golfers+ DNA
         </h1>
         <p style={{ color: colors.gray, fontSize: '14px', marginBottom: '28px' }}>
-          As\u00ed te ve el tAIger despu\u00e9s de conocerte
+          As\u00ed te ve tAIger+ despu\u00e9s de conocerte
         </p>
 
         {/* DNA Summary Card */}
@@ -411,7 +411,7 @@ export default function CoachOnboarding() {
           textAlign: 'left',
         }}>
           <p style={{ color: colors.gray, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-            {'\ud83d\udc2f'} C\u00f3mo trabajar\u00e1 el tAIger contigo
+            {'\ud83d\udc2f'} C\u00f3mo trabajar\u00e1 tAIger+ contigo
           </p>
           <p style={{ color: colors.ivory, fontSize: '14px', lineHeight: 1.5 }}>
             {dna.approach}
@@ -427,7 +427,7 @@ export default function CoachOnboarding() {
             cursor: saving ? 'not-allowed' : 'pointer',
           }}
         >
-          {saving ? 'Guardando...' : 'Comenzar con el tAIger \u2192'}
+          {saving ? 'Guardando...' : 'Comenzar con tAIger+ \u2192'}
         </button>
       </div>
     )

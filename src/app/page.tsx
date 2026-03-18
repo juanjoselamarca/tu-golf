@@ -7,20 +7,20 @@ const STEPS = [
   {
     num:   '01',
     icon:  '🏆',
-    title: 'Crea tu torneo',
-    desc:  'Configura nombre, cancha, categorías y jugadores en menos de 2 minutos.',
+    title: 'Crea tu torneo en 2 minutos',
+    desc:  'Nombre, cancha, categorías y jugadores. Sin papel, sin errores, sin complicaciones.',
   },
   {
     num:   '02',
     icon:  '📱',
-    title: 'Jugadores cargan su score',
-    desc:  'Hoyo a hoyo desde el celular. Sin descargas, sin complicaciones.',
+    title: 'Cada jugador marca en su celular',
+    desc:  'Score hoyo a hoyo desde cualquier iPhone o Android. Sin descargar nada. Solo el link.',
   },
   {
     num:   '03',
     icon:  '📊',
-    title: 'Todos siguen en vivo',
-    desc:  'Leaderboard actualizado en tiempo real. Comparte el link con quien quieras.',
+    title: 'Leaderboard en vivo para todos',
+    desc:  'Posiciones en tiempo real. Comparte el link por WhatsApp y que todos sigan el torneo desde donde estén.',
   },
 ]
 
@@ -45,10 +45,10 @@ export default async function Home() {
 
         <div className="text-center mb-20">
           <h2 className="font-display font-bold text-4xl lg:text-5xl text-ivory mb-4">
-            Cómo funciona
+            Tan simple como jugar golf
           </h2>
           <p className="font-sans text-gray-soft text-lg">
-            En 3 pasos tienes tu torneo en marcha
+            De la configuración al leaderboard en minutos
           </p>
         </div>
 
@@ -101,10 +101,10 @@ export default async function Home() {
         <div className="gold-divider" />
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
           <h2 className="font-display font-bold text-4xl lg:text-5xl text-ivory mb-6">
-            ¿Listo para mejorar tu golf?
+            Empieza a jugar diferente
           </h2>
           <p className="font-sans text-gray-soft text-lg mb-10">
-            Crea tu cuenta gratis y empieza a entender tu juego hoy.
+            Únete gratis. Sin tarjeta. Sin descargas. Tu primer torneo listo en menos de 2 minutos.
           </p>
           <Link
             href="/register"

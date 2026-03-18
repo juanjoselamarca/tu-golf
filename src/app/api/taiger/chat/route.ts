@@ -152,9 +152,9 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Error desconocido'
           if (msg.includes('rate_limit') || msg.includes('429')) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'El tAIger está descansando. Intenta en unos minutos.' })}\n\n`))
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'tAIger+ está descansando. Intenta en unos minutos.' })}\n\n`))
           } else {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Error de conexión con el tAIger. Intenta de nuevo.' })}\n\n`))
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Error de conexión con tAIger+. Intenta de nuevo.' })}\n\n`))
           }
           controller.close()
         }

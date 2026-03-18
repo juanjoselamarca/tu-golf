@@ -109,10 +109,10 @@ export default function CoachDashboard() {
       {/* HEADER */}
       <div style={{ marginBottom: '32px' }}>
         <h1 style={{ color: '#c4992a', fontSize: '24px', fontFamily: '"Playfair Display", serif', fontWeight: 700, margin: '0 0 4px' }}>
-          🐯 el tAIger
+          🐯 tAIger+
         </h1>
         <p style={{ color: '#7a8fa8', fontSize: '14px', margin: 0 }}>
-          Tu coach mental · Golfers+{context?.player?.name ? ` · ${context.player.name}` : ''}
+          Tu coach de rendimiento · Golfers+{context?.player?.name ? ` · ${context.player.name}` : ''}
         </p>
       </div>
 
@@ -121,7 +121,7 @@ export default function CoachDashboard() {
         const totalRounds = context.player?.total_rounds ?? context.rounds_count ?? 0
         const level = totalRounds === 0 ? 0 : totalRounds < 5 ? 1 : totalRounds < 10 ? 2 : totalRounds < 20 ? 3 : totalRounds < 40 ? 4 : 5
         const configs = [
-          { border: 'rgba(196,153,42,0.3)', text: 'el tAIger te conoce por tu perfil psicológico. Registra tus primeras rondas para análisis estadísticos.', label: 'Orientativo', link: true },
+          { border: 'rgba(196,153,42,0.3)', text: 'tAIger+ aprende tu juego con cada ronda que registres.', label: 'Orientativo', link: true },
           { border: 'rgba(196,153,42,0.4)', text: `Con ${totalRounds} rondas tengo señales tempranas. Registra más rondas para patrones confirmados.`, label: 'Básico', link: true },
           { border: 'rgba(196,153,42,0.5)', text: `Con ${totalRounds} rondas detecto tendencias reales. Con 10 rondas los análisis serán mucho más precisos.`, label: 'Básico' },
           { border: '#c4992a', text: `Con ${totalRounds} rondas los patrones que veo son estadísticamente sólidos.`, label: 'Avanzado' },
@@ -156,7 +156,7 @@ export default function CoachDashboard() {
       {/* PATRONES */}
       <section style={{ marginBottom: '32px' }}>
         <h2 style={{ color: '#edeae4', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
-          Patrones detectados
+          Patrones en tu juego
         </h2>
         {context?.patterns && context.patterns.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -216,7 +216,7 @@ export default function CoachDashboard() {
             borderRadius: '14px', padding: '20px 16px',
           }}>
             <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
-              Actualizado por el tAIger
+              Actualizado por tAIger+
             </div>
             {/* Show priorities from last session's next_focus or patterns */}
             {(() => {
@@ -259,7 +259,7 @@ export default function CoachDashboard() {
               border: '1px solid rgba(196,153,42,0.25)', borderRadius: '10px',
               color: '#c4992a', fontSize: '14px', fontWeight: 600, textDecoration: 'none',
             }}>
-              Nueva sesión con el tAIger →
+              Nueva sesión con tAIger+ →
             </Link>
           </div>
         ) : (
@@ -269,7 +269,7 @@ export default function CoachDashboard() {
           }}>
             <div style={{ fontSize: '32px', marginBottom: '12px' }}>🎯</div>
             <p style={{ color: '#edeae4', fontSize: '14px', margin: '0 0 8px' }}>
-              El tAIger aún no conoce tu juego.
+              tAIger+ aún no conoce tu juego.
             </p>
             <p style={{ color: '#7a8fa8', fontSize: '13px', margin: '0 0 16px' }}>
               Empieza con una sesión para que pueda darte un plan personalizado.
@@ -288,13 +288,13 @@ export default function CoachDashboard() {
       {/* NUEVA SESIÓN */}
       <section style={{ marginBottom: '32px' }}>
         <h2 style={{ color: '#edeae4', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
-          Nueva sesión
+          ¿En qué trabajamos hoy?
         </h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {[
             { label: '🏌️ Analizar mi última ronda', href: '/coach/sesion/nueva' },
-            { label: '📅 Plan semanal', href: '/coach/sesion/nueva?tipo=weekly_plan' },
-            { label: '💬 Consulta libre', href: '/coach/sesion/nueva?tipo=free' },
+            { label: '📅 Armar mi plan de práctica', href: '/coach/sesion/nueva?tipo=weekly_plan' },
+            { label: '💬 Preguntarle algo a tAIger+', href: '/coach/sesion/nueva?tipo=free' },
           ].map((btn) => (
             <Link key={btn.href} href={btn.href} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -311,7 +311,7 @@ export default function CoachDashboard() {
       {/* HISTORIAL */}
       <section style={{ marginBottom: '32px' }}>
         <h2 style={{ color: '#edeae4', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
-          Historial de sesiones
+          Mis sesiones con tAIger+
         </h2>
         {sessions.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -340,7 +340,7 @@ export default function CoachDashboard() {
             borderRadius: '10px', padding: '20px 16px', textAlign: 'center',
           }}>
             <p style={{ color: '#7a8fa8', fontSize: '14px', margin: 0 }}>
-              Aún no tienes sesiones con el tAIger
+              Aún no tienes sesiones con tAIger+
             </p>
           </div>
         )}
@@ -354,7 +354,7 @@ export default function CoachDashboard() {
         {monthCount < 3 ? (
           <>
             <p style={{ color: '#edeae4', fontSize: '14px', margin: '0 0 10px' }}>
-              {monthCount}/3 sesiones gratuitas este mes
+              {monthCount}/3 sesiones del plan gratuito este mes
             </p>
             <div style={{ background: 'rgba(122,143,168,0.15)', borderRadius: '4px', height: '8px', overflow: 'hidden', maxWidth: '200px', margin: '0 auto' }}>
               <div style={{

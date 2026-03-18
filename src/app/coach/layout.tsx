@@ -34,7 +34,7 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
         position: 'sticky', top: 0, zIndex: 40,
       }}>
         <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#c4992a', fontWeight: 700 }}>
-          🐯 el tAIger
+          🐯 tAIger+
         </span>
         <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none' }}>
           ← Volver a Golfers+

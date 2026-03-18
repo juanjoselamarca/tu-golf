@@ -75,10 +75,10 @@ function cellBg(score: number | null): React.CSSProperties {
 function formatOv(n: number) { return n > 0 ? `+${n}` : n === 0 ? 'E' : String(n) }
 
 function taigerMessage(count: number): string {
-  if (count === 0) return 'el tAIger está esperando tus datos'
-  if (count < 5)   return 'el tAIger está aprendiendo tu juego'
+  if (count === 0) return 'tAIger+ está listo para analizar tu juego'
+  if (count < 5)   return 'tAIger+ está aprendiendo tu juego'
   if (count < 10)  return 'análisis parcial disponible'
-  if (count < 20)  return 'el tAIger detecta tus patrones'
+  if (count < 20)  return 'tAIger+ detecta tus patrones'
   if (count < 50)  return 'perfil sólido — análisis profundo activo'
   return 'análisis completo ✓'
 }
@@ -468,7 +468,7 @@ function HistorialContent() {
                 {saving ? 'Guardando...' : 'Guardar y ver mi análisis →'}
               </button>
               <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
-                🐯 el tAIger analizará esta ronda automáticamente
+                🐯 tAIger+ analizará esta ronda automáticamente
               </div>
             </div>
           </form>
@@ -479,10 +479,10 @@ function HistorialContent() {
           <div style={{ textAlign: 'center', padding: '80px 20px' }}>
             <div style={{ fontSize: '56px', marginBottom: '16px' }}>🐯</div>
             <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '8px' }}>
-              el tAIger está esperando tus datos
+              tAIger+ está listo para analizar tu juego
             </div>
             <div style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '28px', maxWidth: '320px', margin: '0 auto 28px' }}>
-              Registra tu primera ronda y el tAIger comenzará a analizar tu juego
+              Registra tu primera tarjeta histórica y comenzarás a descubrir los patrones que más afectan tu score.
             </div>
             <div style={{ fontSize: '12px', color: 'rgba(196,153,42,0.6)', padding: '10px 16px', background: 'rgba(196,153,42,0.06)', borderRadius: '8px', display: 'inline-block' }}>
               🔗 Integración Garmin Golf — próximamente

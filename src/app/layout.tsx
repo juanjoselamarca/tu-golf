@@ -71,7 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span style={{ color: '#c4992a' }}>+</span>
             </p>
             <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>
-              © {new Date().getFullYear()} Golfers+ · Hecho para el golf amateur
+              © {new Date().getFullYear()} Golfers+ · Diseñado para el golf amateur en Latinoamérica
             </p>
           </div>
         </footer>

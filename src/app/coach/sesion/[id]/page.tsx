@@ -103,7 +103,7 @@ export default function SesionDetailPage() {
 
       if (!res.ok) {
         const data = await res.json()
-        setError(data.error || 'Error al conectar con el tAIger')
+        setError(data.error || 'Error al conectar con tAIger+')
         setStreaming(false)
         return
       }
@@ -301,7 +301,7 @@ export default function SesionDetailPage() {
             padding: '8px 0',
             animation: 'pulse 1.5s ease-in-out infinite',
           }}>
-            el tAIger está analizando...
+            tAIger+ está analizando...
           </div>
         )}
 

@@ -217,7 +217,7 @@ ${patternText}
 === ÚLTIMA SESIÓN ===
 ${last_session
   ? `Tipo: ${last_session.session_type} | Fecha: ${new Date(last_session.created_at).toLocaleDateString('es-CL')}\nFoco asignado: ${last_session.next_focus ?? 'No definido'}`
-  : 'Primera sesión con el tAIger'}
+  : 'Primera sesión con tAIger+'}
 
 === ÚLTIMAS 3 RONDAS ===
 ${(recent_rounds ?? []).slice(0, 3).map((r, i) =>
@@ -230,6 +230,6 @@ export const SESSION_STARTERS: Record<string, string> = {
   post_round: `El jugador quiere analizar su última ronda. Sigue el PROTOCOLO post_round del manual. Si no sabes el score, pregúntalo primero. Si tienes rondas recientes en el contexto, refiérelas.`,
   weekly_plan: `El jugador quiere un plan de práctica semanal. Sigue el PROTOCOLO weekly_plan del manual. Pregunta primero: días disponibles y qué instalaciones tiene. Construye el plan solo cuando tengas esa información.`,
   pre_tournament: `El jugador se prepara para un torneo. Sigue el PROTOCOLO pre_tournament del manual. Pregunta: campo, formato, fecha del torneo. Entrega estrategia de course management y protocolo mental.`,
-  onboarding: `Es la primera sesión del jugador. Da la bienvenida, explica brevemente qué es el tAIger, y guíalo hacia su primera consulta real. Sé cálido pero eficiente.`,
+  onboarding: `Es la primera sesión del jugador. Da la bienvenida, explica brevemente qué es tAIger+, y guíalo hacia su primera consulta real. Sé cálido pero eficiente.`,
   free: `El jugador tiene una consulta libre. Escucha primero, responde con base en su perfil. Si no sabes algo específico, pregunta 1 sola pregunta.`,
 }

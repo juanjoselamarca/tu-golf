@@ -241,7 +241,7 @@ export default function PerfilPage() {
                 Identidad competitiva
               </h2>
               <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '4px 0 0' }}>
-                Un resumen rapido de tu perfil amateur en TuGolf.
+                Un resumen rápido de tu perfil en Golfers+.
               </p>
             </div>
             {saved && <span style={{ fontSize: '13px', color: '#22c55e' }}>✓ Guardado</span>}
