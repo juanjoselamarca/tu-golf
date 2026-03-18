@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-18 | Commit: `3cc2da4`
+> Auto-generado: 2026-03-18 | Commit: `0d808d0`
 
 ## Último deploy
 
-- **Commit:** `3cc2da4` — fix: QA total — BD flows, RLS, APIs, mobile 14 rutas premium
+- **Commit:** `0d808d0` — rebrand: tAIger+ nombre propio + copy premium homepage y coach
 - **Fecha:** 2026-03-17
-- **Branch:** main (43 commits total)
+- **Branch:** main (46 commits total)
 - **URL:** https://tu-golf.vercel.app
 
 ## Páginas en producción (32 páginas)
