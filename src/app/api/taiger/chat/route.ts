@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { TAIGER_SYSTEM_PROMPT, buildContextString } from '@/lib/taiger-prompt'
+import { TAIGER_SYSTEM_PROMPT, buildContextString, SESSION_STARTERS } from '@/lib/taiger-prompt'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -97,17 +97,25 @@ export async function POST(req: NextRequest) {
     const ctx = await ctxRes.json()
     const contextString = buildContextString(ctx)
 
+    // Build system prompt with player context and session starter
+    const systemWithContext = TAIGER_SYSTEM_PROMPT.replace(
+      '{PLAYER_CONTEXT}',
+      contextString
+    )
+    const sessionStarter = SESSION_STARTERS[session_type] ?? SESSION_STARTERS.free
+
     // Stream response using Claude API
     const anthropic = new Anthropic({ apiKey })
 
     const stream = await anthropic.messages.stream({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
-      system: `${TAIGER_SYSTEM_PROMPT}\n\nDATOS DEL JUGADOR:\n${contextString}`,
+      system: `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}`,
       messages: [{ role: 'user', content: userMessage }],
     })
 
     let fullResponse = ''
+    const encoder = new TextEncoder()
 
     const readable = new ReadableStream({
       async start(controller) {
@@ -142,10 +150,12 @@ export async function POST(req: NextRequest) {
           ))
           controller.close()
         } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : 'Stream error'
-          controller.enqueue(
-            new TextEncoder().encode(`data: ${JSON.stringify({ error: errorMsg })}\n\n`)
-          )
+          const msg = err instanceof Error ? err.message : 'Error desconocido'
+          if (msg.includes('rate_limit') || msg.includes('429')) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'El tAIger está descansando. Intenta en unos minutos.' })}\n\n`))
+          } else {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Error de conexión con el tAIger. Intenta de nuevo.' })}\n\n`))
+          }
           controller.close()
         }
       },

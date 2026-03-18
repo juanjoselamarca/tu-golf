@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-18 | Commit: `20c55e2`
+> Auto-generado: 2026-03-18 | Commit: `3cc2da4`
 
 ## Último deploy
 
-- **Commit:** `20c55e2` — feat: garmin-ux — HoleColorBar, card activo, historial premium, FAB
+- **Commit:** `3cc2da4` — fix: QA total — BD flows, RLS, APIs, mobile 14 rutas premium
 - **Fecha:** 2026-03-17
-- **Branch:** main (42 commits total)
+- **Branch:** main (43 commits total)
 - **URL:** https://tu-golf.vercel.app
 
 ## Páginas en producción (32 páginas)

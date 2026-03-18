@@ -205,6 +205,86 @@ export default function CoachDashboard() {
         )}
       </section>
 
+      {/* FOCO DE TRABAJO */}
+      <section style={{ marginBottom: '32px' }}>
+        <h2 style={{ color: '#edeae4', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
+          Mi Foco de Trabajo
+        </h2>
+        {sessions.length > 0 ? (
+          <div style={{
+            background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)',
+            borderRadius: '14px', padding: '20px 16px',
+          }}>
+            <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
+              Actualizado por el tAIger
+            </div>
+            {/* Show priorities from last session's next_focus or patterns */}
+            {(() => {
+              const lastFocus = sessions[0]?.next_focus
+              const priorities: string[] = []
+
+              // Priority 1: from last session focus
+              if (lastFocus) priorities.push(lastFocus.substring(0, 80))
+
+              // Priority 2: from detected pattern
+              const activePattern = (context?.patterns ?? []).find((p: Pattern) => p.status === 'active')
+              if (activePattern) {
+                const patternLabels: Record<string, string> = {
+                  back_nine_collapse: 'Gestión del back 9',
+                  post_bogey_spiral: 'Reset mental post-error',
+                  first_hole_anxiety: 'Confianza en el hoyo 1',
+                  three_putt_frequency: 'Control de distancia en putting',
+                }
+                priorities.push(patternLabels[activePattern.pattern_name] ?? 'Patrón detectado')
+              }
+
+              // Priority 3: default based on rounds
+              if (priorities.length < 3) priorities.push('Rutina pre-shot consistente')
+
+              return priorities.slice(0, 3).map((p: string, i: number) => (
+                <div key={i} style={{
+                  padding: '10px 0',
+                  borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                }}>
+                  <div style={{ fontSize: '10px', color: '#c4992a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>
+                    Prioridad {i + 1}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#edeae4' }}>{p}</div>
+                </div>
+              ))
+            })()}
+            <Link href="/coach/sesion/nueva" style={{
+              display: 'block', textAlign: 'center', marginTop: '16px',
+              padding: '12px', background: 'rgba(196,153,42,0.1)',
+              border: '1px solid rgba(196,153,42,0.25)', borderRadius: '10px',
+              color: '#c4992a', fontSize: '14px', fontWeight: 600, textDecoration: 'none',
+            }}>
+              Nueva sesión con el tAIger →
+            </Link>
+          </div>
+        ) : (
+          <div style={{
+            background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)',
+            borderRadius: '14px', padding: '20px 16px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>🎯</div>
+            <p style={{ color: '#edeae4', fontSize: '14px', margin: '0 0 8px' }}>
+              El tAIger aún no conoce tu juego.
+            </p>
+            <p style={{ color: '#7a8fa8', fontSize: '13px', margin: '0 0 16px' }}>
+              Empieza con una sesión para que pueda darte un plan personalizado.
+            </p>
+            <Link href="/coach/sesion/nueva" style={{
+              display: 'inline-block', padding: '12px 24px',
+              background: '#c4992a', color: '#070d18', borderRadius: '10px',
+              fontSize: '14px', fontWeight: 600, textDecoration: 'none',
+            }}>
+              Analizar mi última ronda →
+            </Link>
+          </div>
+        )}
+      </section>
+
       {/* NUEVA SESIÓN */}
       <section style={{ marginBottom: '32px' }}>
         <h2 style={{ color: '#edeae4', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
