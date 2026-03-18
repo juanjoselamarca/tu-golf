@@ -46,7 +46,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [])
 
   if (!authorized) return (
-    <div style={{ background: '#050b14', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8fa8' }}>
+    <div style={{ background: '#050b14', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0' }}>
       Verificando acceso...
     </div>
   )
@@ -64,7 +64,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           style={{
             display: 'flex', alignItems: 'center', gap: '10px',
             padding: '10px 14px', borderRadius: '8px',
-            color: isActive(item.href) ? '#c4992a' : '#7a8fa8',
+            color: isActive(item.href) ? '#c4992a' : '#94a8c0',
             background: isActive(item.href) ? 'rgba(196,153,42,0.15)' : 'transparent',
             borderLeft: isActive(item.href) ? '3px solid #c4992a' : '3px solid transparent',
             textDecoration: 'none', fontSize: '14px', fontWeight: isActive(item.href) ? 600 : 400,
@@ -97,7 +97,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         {sidebar}
         <div style={{ padding: '16px', borderTop: '1px solid #132540', marginTop: 'auto' }}>
-          <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '12px', textDecoration: 'none' }}>
+          <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '12px', textDecoration: 'none' }}>
             &larr; Volver al Dashboard
           </Link>
         </div>
@@ -116,7 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4' }}>Golfers+</div>
                 <span style={{ background: '#c4992a', color: '#070d18', fontSize: '10px', fontWeight: 800, padding: '2px 8px', borderRadius: '4px' }}>ADMIN</span>
               </div>
-              <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', color: '#7a8fa8', fontSize: '24px', cursor: 'pointer' }}>&times;</button>
+              <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', color: '#94a8c0', fontSize: '24px', cursor: 'pointer' }}>&times;</button>
             </div>
             {sidebar}
           </aside>
@@ -134,7 +134,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
               onClick={() => setSidebarOpen(true)}
-              style={{ background: 'none', border: 'none', color: '#7a8fa8', fontSize: '20px', cursor: 'pointer', display: 'block' }}
+              style={{ background: 'none', border: 'none', color: '#94a8c0', fontSize: '20px', cursor: 'pointer', display: 'block' }}
               className="admin-hamburger"
             >
               &#9776;
@@ -142,7 +142,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span style={{ color: '#edeae4', fontSize: '14px', fontWeight: 600 }}>Golfers+ Admin</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ color: '#7a8fa8', fontSize: '12px' }}>{now}</span>
+            <span style={{ color: '#94a8c0', fontSize: '12px' }}>{now}</span>
             <div style={{
               width: '32px', height: '32px', borderRadius: '50%',
               background: 'rgba(196,153,42,0.2)', border: '1px solid #c4992a',
@@ -175,7 +175,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               fontSize: '13px',
               fontWeight: isActive(item.href) ? 600 : 400,
               background: isActive(item.href) ? '#c4992a' : 'rgba(255,255,255,0.05)',
-              color: isActive(item.href) ? '#070d18' : '#7a8fa8',
+              color: isActive(item.href) ? '#070d18' : '#94a8c0',
               textDecoration: 'none',
               whiteSpace: 'nowrap',
             }}>

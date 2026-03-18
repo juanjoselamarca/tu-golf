@@ -83,7 +83,7 @@ export default function CoachDashboard() {
   }, [router])
 
   if (loading) return (
-    <div style={{ padding: '40px 20px', color: '#7a8fa8', textAlign: 'center' }}>
+    <div style={{ padding: '40px 20px', color: '#94a8c0', textAlign: 'center' }}>
       Cargando tu perfil...
     </div>
   )
@@ -111,7 +111,7 @@ export default function CoachDashboard() {
         <h1 style={{ color: '#c4992a', fontSize: '24px', fontFamily: '"Playfair Display", serif', fontWeight: 700, margin: '0 0 4px' }}>
           🐯 tAIger+
         </h1>
-        <p style={{ color: '#7a8fa8', fontSize: '14px', margin: 0 }}>
+        <p style={{ color: '#94a8c0', fontSize: '14px', margin: 0 }}>
           Tu coach de rendimiento · Golfers+{context?.player?.name ? ` · ${context.player.name}` : ''}
         </p>
       </div>
@@ -170,7 +170,7 @@ export default function CoachDashboard() {
                   <span style={{
                     fontSize: '11px', padding: '2px 8px', borderRadius: '10px',
                     background: p.status === 'active' ? 'rgba(196,153,42,0.15)' : 'rgba(122,143,168,0.15)',
-                    color: p.status === 'active' ? '#c4992a' : '#7a8fa8',
+                    color: p.status === 'active' ? '#c4992a' : '#94a8c0',
                   }}>
                     {p.status === 'active' ? 'Activo' : 'Resuelto'}
                   </span>
@@ -181,7 +181,7 @@ export default function CoachDashboard() {
                     width: `${Math.round(p.confidence * 100)}%`, transition: 'width 0.5s ease',
                   }} />
                 </div>
-                <span style={{ color: '#7a8fa8', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                <span style={{ color: '#94a8c0', fontSize: '11px', marginTop: '4px', display: 'block' }}>
                   Confianza: {Math.round(p.confidence * 100)}%
                 </span>
               </div>
@@ -215,7 +215,7 @@ export default function CoachDashboard() {
             background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)',
             borderRadius: '14px', padding: '20px 16px',
           }}>
-            <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
+            <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
               Actualizado por tAIger+
             </div>
             {/* Show priorities from last session's next_focus or patterns */}
@@ -271,7 +271,7 @@ export default function CoachDashboard() {
             <p style={{ color: '#edeae4', fontSize: '14px', margin: '0 0 8px' }}>
               tAIger+ aún no conoce tu juego.
             </p>
-            <p style={{ color: '#7a8fa8', fontSize: '13px', margin: '0 0 16px' }}>
+            <p style={{ color: '#94a8c0', fontSize: '13px', margin: '0 0 16px' }}>
               Empieza con una sesión para que pueda darte un plan personalizado.
             </p>
             <Link href="/coach/sesion/nueva" style={{
@@ -330,7 +330,7 @@ export default function CoachDashboard() {
                     {sessionTypeLabel(s.session_type)}
                   </span>
                 </div>
-                <span style={{ color: '#7a8fa8', fontSize: '13px' }}>Ver análisis →</span>
+                <span style={{ color: '#94a8c0', fontSize: '13px' }}>Ver análisis →</span>
               </Link>
             ))}
           </div>
@@ -339,7 +339,7 @@ export default function CoachDashboard() {
             background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)',
             borderRadius: '10px', padding: '20px 16px', textAlign: 'center',
           }}>
-            <p style={{ color: '#7a8fa8', fontSize: '14px', margin: 0 }}>
+            <p style={{ color: '#94a8c0', fontSize: '14px', margin: 0 }}>
               Aún no tienes sesiones con tAIger+
             </p>
           </div>
@@ -364,7 +364,7 @@ export default function CoachDashboard() {
             </div>
           </>
         ) : (
-          <p style={{ color: '#7a8fa8', fontSize: '14px', margin: 0 }}>
+          <p style={{ color: '#94a8c0', fontSize: '14px', margin: 0 }}>
             Has usado tus 3 análisis gratuitos este mes. Plan Pro próximamente.
           </p>
         )}

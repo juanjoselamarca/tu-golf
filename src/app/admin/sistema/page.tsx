@@ -27,7 +27,7 @@ const envNotes: Record<string, string> = {
 }
 
 function getStatus(service: { ok: boolean; status?: string }) {
-  if (service.status === 'not_configured') return { color: '#7a8fa8', text: 'No configurado' }
+  if (service.status === 'not_configured') return { color: '#94a8c0', text: 'No configurado' }
   if (service.ok) return { color: '#16a34a', text: 'OK' }
   return { color: '#dc2626', text: 'Error' }
 }
@@ -78,12 +78,12 @@ export default function SistemaPage() {
       >
         Sistema
       </h1>
-      <p style={{ color: '#7a8fa8', marginBottom: '32px' }}>
+      <p style={{ color: '#94a8c0', marginBottom: '32px' }}>
         Estado de servicios, base de datos y configuración
       </p>
 
       {loading && (
-        <p style={{ color: '#7a8fa8', marginBottom: '24px' }}>Cargando estado del sistema...</p>
+        <p style={{ color: '#94a8c0', marginBottom: '24px' }}>Cargando estado del sistema...</p>
       )}
 
       {/* Service status grid */}
@@ -128,7 +128,7 @@ export default function SistemaPage() {
                       {st.text}
                     </span>
                   </div>
-                  <p style={{ color: '#7a8fa8', fontSize: '0.85rem' }}>
+                  <p style={{ color: '#94a8c0', fontSize: '0.85rem' }}>
                     {svc.ms > 0 ? `${svc.ms}ms` : '\u2014'}
                   </p>
                 </div>
@@ -152,7 +152,7 @@ export default function SistemaPage() {
             Último deploy
           </h2>
           <div style={card}>
-            <p style={{ color: '#7a8fa8', fontSize: '0.9rem', marginBottom: '8px' }}>Commit</p>
+            <p style={{ color: '#94a8c0', fontSize: '0.9rem', marginBottom: '8px' }}>Commit</p>
             <p
               style={{
                 color: '#edeae4',
@@ -192,7 +192,7 @@ export default function SistemaPage() {
           >
             {Object.entries(health.tables ?? {}).map(([table, count]) => (
               <div key={table} style={card}>
-                <p style={{ color: '#7a8fa8', fontSize: '0.8rem', marginBottom: '8px' }}>
+                <p style={{ color: '#94a8c0', fontSize: '0.8rem', marginBottom: '8px' }}>
                   {table}
                 </p>
                 <p
@@ -234,7 +234,7 @@ export default function SistemaPage() {
                     {key}
                   </span>
                   {envNotes[key] && (
-                    <span style={{ color: '#7a8fa8', fontSize: '0.8rem', marginLeft: '4px' }}>
+                    <span style={{ color: '#94a8c0', fontSize: '0.8rem', marginLeft: '4px' }}>
                       — {envNotes[key]}
                     </span>
                   )}

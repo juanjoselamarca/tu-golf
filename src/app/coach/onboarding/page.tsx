@@ -265,7 +265,7 @@ export default function CoachOnboarding() {
     bg: '#070d18',
     gold: '#C4992A',
     ivory: '#edeae4',
-    gray: '#7a8fa8',
+    gray: '#94a8c0',
     card: '#0e1c2f',
     border: 'rgba(196,153,42,0.2)',
   }

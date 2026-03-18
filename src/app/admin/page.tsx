@@ -17,7 +17,7 @@ const colors = {
   border: '#132540',
   gold: '#c4992a',
   ivory: '#edeae4',
-  gray: '#7a8fa8',
+  gray: '#94a8c0',
   green: '#16a34a',
   red: '#dc2626',
 }

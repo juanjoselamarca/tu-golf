@@ -23,14 +23,14 @@ interface DemoProfile {
   }>
 }
 
-const TABS = ['Resumen', 'Estadisticas', 'Historial', 'Analisis']
+const TABS = ['Resumen', 'Estadísticas', 'Historial', 'Análisis']
 const GOLD = '#c4992a'
 const BG = '#070d18'
 const CARD = 'rgba(255,255,255,0.03)'
 const CARD_BORDER = 'rgba(255,255,255,0.06)'
 const GREEN = '#00e676'
 const RED = '#ff1744'
-const MUTED = 'rgba(255,255,255,0.35)'
+const MUTED = 'rgba(255,255,255,0.55)'
 const MONO = 'var(--font-dm-mono), monospace'
 const SERIF = 'var(--font-cormorant), serif'
 
@@ -67,7 +67,7 @@ export default function DemoPage() {
 
   const bestGross = Math.min(...historial.map(r => r.gross))
 
-  const vsParColor = (v: number) => v < 0 ? GREEN : v > 0 ? RED : 'rgba(255,255,255,0.4)'
+  const vsParColor = (v: number) => v < 0 ? GREEN : v > 0 ? RED : 'rgba(255,255,255,0.6)'
   const vsParBg = (v: number) => v < 0 ? 'rgba(0,230,118,0.12)' : v > 0 ? 'rgba(255,23,68,0.12)' : 'rgba(255,255,255,0.06)'
   const vsParText = (v: number) => v < 0 ? String(v) : v > 0 ? `+${v}` : 'E'
   const borderColor = (v: number) => v < 0 ? GREEN : v > 0 ? RED : 'rgba(255,255,255,0.12)'
@@ -112,7 +112,7 @@ export default function DemoPage() {
 
         {/* Grid lines */}
         {[min, min + (max - min) / 2, max].map((v, i) => (
-          <text key={i} x={padX - 4} y={toY(v) + 3} fill="rgba(255,255,255,0.15)" fontSize="8" fontFamily={MONO} textAnchor="end">
+          <text key={i} x={padX - 4} y={toY(v) + 3} fill="rgba(255,255,255,0.3)" fontSize="8" fontFamily={MONO} textAnchor="end">
             {Math.round(v)}
           </text>
         ))}
@@ -189,7 +189,7 @@ export default function DemoPage() {
               {player.name}
             </div>
             <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO, marginTop: '2px' }}>
-              Indice {player.indice} · Cat {player.categoria} · {stats.total_rounds} rondas
+              Índice {player.indice} · Cat {player.categoria} · {stats.total_rounds} rondas
             </div>
 
             {/* GWI bar — single instance */}
@@ -220,7 +220,7 @@ export default function DemoPage() {
           {TABS.map((tab, i) => (
             <button key={tab} onClick={() => setActiveTab(i)} style={{
               padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
-              color: activeTab === i ? GOLD : 'rgba(255,255,255,0.4)',
+              color: activeTab === i ? GOLD : 'rgba(255,255,255,0.6)',
               fontSize: '13px', fontWeight: activeTab === i ? 700 : 400,
               borderBottom: activeTab === i ? `2px solid ${GOLD}` : '2px solid transparent',
               fontFamily: MONO, whiteSpace: 'nowrap',
@@ -256,7 +256,7 @@ export default function DemoPage() {
 
               {/* Right: Recent rounds */}
               <div>
-                <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>ULTIMAS 5 RONDAS</div>
+                <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>ÚLTIMAS 5 RONDAS</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {historial.slice(0, 5).map((r, i) => (
                     <div key={i} style={{
@@ -266,7 +266,7 @@ export default function DemoPage() {
                     }}>
                       <div>
                         <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>{shortCourse(r.course)}</div>
-                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontFamily: MONO }}>{fmtDate(r.date)}</div>
+                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO }}>{fmtDate(r.date)}</div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontFamily: MONO }}>{r.gross}</span>
@@ -369,7 +369,7 @@ export default function DemoPage() {
 
             {/* Score distribution — proportional colored bars + percentages */}
             <div>
-              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>DISTRIBUCION DE SCORES</div>
+              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>DISTRIBUCIÓN DE SCORES</div>
               <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px' }}>
                 {(() => {
                   const items = [
@@ -449,12 +449,12 @@ export default function DemoPage() {
                     borderLeftWidth: '3px', borderLeftStyle: 'solid', borderLeftColor: borderColor(r.score_vs_par),
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', fontFamily: MONO, minWidth: '20px' }}>#{r.index}</span>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontFamily: MONO, minWidth: '20px' }}>#{r.index}</span>
                       <div>
                         <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
                           {shortCourse(r.course)}{isBest ? ' \u2605' : ''}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontFamily: MONO }}>{fmtDate(r.date)}</div>
+                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO }}>{fmtDate(r.date)}</div>
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -474,7 +474,7 @@ export default function DemoPage() {
                 width: '100%', padding: '12px', marginTop: '12px', background: 'rgba(255,255,255,0.04)',
                 border: `1px solid ${CARD_BORDER}`, borderRadius: '10px', cursor: 'pointer',
                 color: GOLD, fontSize: '13px', fontFamily: MONO,
-              }}>Ver mas ({filteredHistorial.length - 10} rondas)</button>
+              }}>Ver más ({filteredHistorial.length - 10} rondas)</button>
             )}
           </div>
         )}
@@ -528,10 +528,10 @@ export default function DemoPage() {
               border: '1px solid rgba(196,153,42,0.2)', borderRadius: '14px', padding: '24px', textAlign: 'center', marginTop: '10px',
             }}>
               <div style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginBottom: '8px' }}>
-                Analisis personalizado con IA
+                Análisis personalizado con IA
               </div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '16px', lineHeight: 1.5 }}>
-                Registra tus rondas y obtiene patrones, predicciones y recomendaciones basadas en tu juego real.
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginBottom: '16px', lineHeight: 1.5 }}>
+                Registra tus rondas y descubre patrones, predicciones y recomendaciones basadas en tu juego real.
               </div>
               <Link href="/register" style={{
                 display: 'inline-block', border: `1px solid ${GOLD}`, background: 'rgba(196,153,42,0.1)',

@@ -19,7 +19,7 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
   }, [router])
 
   if (!authorized) return (
-    <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8fa8' }}>
+    <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0' }}>
       Cargando...
     </div>
   )
@@ -36,7 +36,7 @@ export default function CoachLayout({ children }: { children: React.ReactNode })
         <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#c4992a', fontWeight: 700 }}>
           🐯 tAIger+
         </span>
-        <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none' }}>
+        <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '13px', textDecoration: 'none' }}>
           ← Volver a Golfers+
         </Link>
       </header>

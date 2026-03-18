@@ -51,7 +51,7 @@ export default function QRModal({ slug }: { slug: string }) {
               </div>
               <button
                 onClick={() => setOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: '#7a8fa8', cursor: 'pointer', fontSize: '20px', lineHeight: 1 }}
+                style={{ background: 'transparent', border: 'none', color: '#94a8c0', cursor: 'pointer', fontSize: '20px', lineHeight: 1 }}
               >
                 ×
               </button>
@@ -61,7 +61,7 @@ export default function QRModal({ slug }: { slug: string }) {
               <QRCodeSVG value={url} size={200} />
             </div>
 
-            <p style={{ color: '#7a8fa8', fontSize: '13px', margin: '0 0 14px' }}>
+            <p style={{ color: '#94a8c0', fontSize: '13px', margin: '0 0 14px' }}>
               Usa este QR para abrir el leaderboard del torneo desde cualquier celular.
             </p>
             <p style={{ color: '#9fb4aa', fontSize: '11px', margin: '0 0 16px', wordBreak: 'break-all' }}>{url}</p>

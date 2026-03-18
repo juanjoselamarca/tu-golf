@@ -82,7 +82,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     color: '#edeae4', borderRadius: '8px', padding: '12px', width: '100%',
     fontSize: '15px', outline: 'none', transition: 'border-color 200ms', boxSizing: 'border-box' as const,
   })
-  const labelStyle: React.CSSProperties = { display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,7 +121,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', backgroundImage: 'url(https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1920&q=80)', backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', padding: '40px 16px' }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(7,13,24,0.85)' }} />
       <div style={{ position: 'relative', zIndex: 10, background: 'rgba(14,28,47,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '16px', padding: '40px', maxWidth: '600px', width: '100%' }}>
-        <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>← Volver al dashboard</Link>
+        <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>← Volver al dashboard</Link>
         <div style={{ marginBottom: '28px' }}>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>Golfers+</div>
           <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', margin: 0 }}>Editar torneo</h1>
@@ -155,7 +155,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                     style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#edeae4', fontSize: '14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
                     onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)')}
                     onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}>
-                    {c.nombre}{c.ciudad && <span style={{ color: '#7a8fa8', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
+                    {c.nombre}{c.ciudad && <span style={{ color: '#94a8c0', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
                   </button>
                 ))}
               </div>
@@ -170,7 +170,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                 <button key={f.value} type="button" onClick={() => setFormat(f.value)}
                   style={{ flex: 1, padding: '14px', border: format === f.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', background: format === f.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', cursor: 'pointer', textAlign: 'left', transition: 'all 200ms' }}>
                   <div style={{ color: '#edeae4', fontWeight: 600, fontSize: '14px' }}>{f.label}</div>
-                  <div style={{ color: '#7a8fa8', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
+                  <div style={{ color: '#94a8c0', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
                 </button>
               ))}
             </div>
@@ -183,7 +183,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               <div style={{ display: 'flex', gap: '10px' }}>
                 {[18, 9].map((n) => (
                   <button key={n} type="button" onClick={() => setHoleCount(n)}
-                    style={{ flex: 1, padding: '10px', border: holeCount === n ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', color: holeCount === n ? '#edeae4' : '#7a8fa8', cursor: 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400 }}>
+                    style={{ flex: 1, padding: '10px', border: holeCount === n ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', color: holeCount === n ? '#edeae4' : '#94a8c0', cursor: 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400 }}>
                     {n} hoyos
                   </button>
                 ))}
@@ -194,7 +194,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {TEES.map((t) => (
                   <button key={t.value} type="button" onClick={() => setTees(t.value)}
-                    style={{ padding: '8px 12px', border: tees === t.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', color: tees === t.value ? '#edeae4' : '#7a8fa8', cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
+                    style={{ padding: '8px 12px', border: tees === t.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', color: tees === t.value ? '#edeae4' : '#94a8c0', cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
                     {t.label}
                   </button>
                 ))}
@@ -206,7 +206,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'rgba(7,13,24,0.4)', borderRadius: '10px', border: '1px solid rgba(122,143,168,0.15)' }}>
             <div>
               <div style={{ color: '#edeae4', fontSize: '14px', fontWeight: 500 }}>Aplicar hándicap WHS</div>
-              <div style={{ color: '#7a8fa8', fontSize: '12px', marginTop: '2px' }}>Ajusta los scores según el índice de cada jugador</div>
+              <div style={{ color: '#94a8c0', fontSize: '12px', marginTop: '2px' }}>Ajusta los scores según el índice de cada jugador</div>
             </div>
             <button type="button" onClick={() => setUseHandicap(!useHandicap)}
               style={{ width: '48px', height: '26px', borderRadius: '13px', background: useHandicap ? '#c4992a' : 'rgba(122,143,168,0.3)', position: 'relative', transition: 'background 200ms', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
@@ -255,7 +255,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
           {/* Buttons */}
           <div style={{ display: 'flex', gap: '12px' }}>
             <Link href="/dashboard"
-              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '13px', borderRadius: '8px', border: '1px solid rgba(122,143,168,0.3)', color: '#7a8fa8', fontSize: '15px', textDecoration: 'none', fontWeight: 500, textAlign: 'center' }}>
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '13px', borderRadius: '8px', border: '1px solid rgba(122,143,168,0.3)', color: '#94a8c0', fontSize: '15px', textDecoration: 'none', fontWeight: 500, textAlign: 'center' }}>
               Cancelar
             </Link>
             <button type="submit" disabled={loading}

@@ -16,7 +16,7 @@ export function EmptyState({ icon, title, description, actionLabel, onAction, ac
       <h3 style={{ fontFamily: '"Playfair Display", serif', color: '#edeae4', marginBottom: '8px', fontSize: '18px' }}>
         {title}
       </h3>
-      <p style={{ color: '#7a8fa8', marginBottom: '20px', fontSize: '14px' }}>{description}</p>
+      <p style={{ color: '#94a8c0', marginBottom: '20px', fontSize: '14px' }}>{description}</p>
       {actionLabel && (onAction || actionHref) && (
         actionHref ? (
           <a

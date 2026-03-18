@@ -107,7 +107,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
   const labelStyle: React.CSSProperties = {
     display:    'block',
     fontSize:   '12px',
-    color:      '#7a8fa8',
+    color:      '#94a8c0',
     marginBottom: '6px',
   }
 
@@ -273,7 +273,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
           width:                '100%',
         }}
       >
-        <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>
+        <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>
           ← Volver al dashboard
         </Link>
 
@@ -333,7 +333,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                     onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}
                   >
                     {c.nombre}
-                    {c.ciudad && <span style={{ color: '#7a8fa8', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
+                    {c.ciudad && <span style={{ color: '#94a8c0', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
                   </button>
                 ))}
               </div>
@@ -358,7 +358,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                   }}
                 >
                   <div style={{ color: '#edeae4', fontWeight: 600, fontSize: '14px' }}>{f.label}</div>
-                  <div style={{ color: '#7a8fa8', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
+                  <div style={{ color: '#94a8c0', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
                 </button>
               ))}
             </div>
@@ -379,7 +379,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                       border: holeCount === n ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)',
                       borderRadius: '8px',
                       background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)',
-                      color: holeCount === n ? '#edeae4' : '#7a8fa8',
+                      color: holeCount === n ? '#edeae4' : '#94a8c0',
                       cursor: 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400,
                     }}
                   >
@@ -404,7 +404,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                         : `1px solid ${fieldError('tees') ? 'rgba(220,38,38,0.5)' : 'rgba(122,143,168,0.3)'}`,
                       borderRadius: '6px',
                       background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)',
-                      color: tees === t.value ? '#edeae4' : '#7a8fa8',
+                      color: tees === t.value ? '#edeae4' : '#94a8c0',
                       cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400,
                     }}
                   >
@@ -420,7 +420,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'rgba(7,13,24,0.4)', borderRadius: '10px', border: '1px solid rgba(122,143,168,0.15)' }}>
             <div>
               <div style={{ color: '#edeae4', fontSize: '14px', fontWeight: 500 }}>Aplicar hándicap WHS</div>
-              <div style={{ color: '#7a8fa8', fontSize: '12px', marginTop: '2px' }}>Ajusta los scores según el índice de cada jugador</div>
+              <div style={{ color: '#94a8c0', fontSize: '12px', marginTop: '2px' }}>Ajusta los scores según el índice de cada jugador</div>
             </div>
             <button
               type="button"
@@ -440,7 +440,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                   <span style={{ color: '#edeae4', fontSize: '13px', fontWeight: 600 }}>{cat}</span>
                   {categories.length > 1 && (
                     <button type="button" onClick={() => removeCategory(cat)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7a8fa8', fontSize: '14px', lineHeight: 1, padding: '0 2px' }}>
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a8c0', fontSize: '14px', lineHeight: 1, padding: '0 2px' }}>
                       ×
                     </button>
                   )}

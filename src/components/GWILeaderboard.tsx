@@ -27,7 +27,7 @@ const MEDALS = ['🥇', '🥈', '🥉']
 function TendenciaIcon({ t }: { t: GWIResult['tendencia'] }) {
   if (t === 'up')   return <span style={{ color: '#22c55e', fontSize: '13px' }}>↑</span>
   if (t === 'down') return <span style={{ color: '#dc2626', fontSize: '13px' }}>↓</span>
-  return <span style={{ color: '#7a8fa8', fontSize: '13px' }}>→</span>
+  return <span style={{ color: '#94a8c0', fontSize: '13px' }}>→</span>
 }
 
 function VolatilityBadge({ v }: { v: GWIResult['volatilidad'] }) {
@@ -62,7 +62,7 @@ export default function GWILeaderboard({
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: '#edeae4' }}>🏆 Probabilidades de Ganar</span>
           <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
-        <div style={{ textAlign: 'center', padding: '16px', color: '#7a8fa8', fontSize: '13px' }}>
+        <div style={{ textAlign: 'center', padding: '16px', color: '#94a8c0', fontSize: '13px' }}>
           📊 Las probabilidades estarán disponibles a partir del hoyo 3
         </div>
         <div style={{ height: '4px', background: 'rgba(196,153,42,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -87,7 +87,7 @@ export default function GWILeaderboard({
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>🏆 Probabilidades de Ganar</span>
           <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
-        <span style={{ fontSize: '11px', color: '#7a8fa8' }}>
+        <span style={{ fontSize: '11px', color: '#94a8c0' }}>
           Hoyo {hoyosJugados}/{totalHoyos}
           {secondsAgo > 0 && ` · hace ${secondsAgo}s`}
         </span>
@@ -97,7 +97,7 @@ export default function GWILeaderboard({
       {isFinale && (
         <div style={{ margin: '12px', padding: '12px 16px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '10px' }}>
           <div style={{ fontSize: '13px', color: '#c4992a', fontWeight: 700, marginBottom: '4px' }}>⚡ RECTA FINAL</div>
-          <div style={{ fontSize: '12px', color: '#7a8fa8' }}>
+          <div style={{ fontSize: '12px', color: '#94a8c0' }}>
             {sorted[0] && `${sorted[0].nombre} lidera con ${sorted[0].winProbability}% de probabilidad.`}
             {sorted[1] && sorted[1].winProbability > 20 && ` ${sorted[1].nombre} tiene ${sorted[1].winProbability}% — aún está en juego.`}
           </div>
@@ -108,9 +108,9 @@ export default function GWILeaderboard({
       <div style={{ padding: '4px 0 8px' }}>
         {/* Header row */}
         <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 70px 36px', padding: '6px 16px', borderBottom: '1px solid rgba(122,143,168,0.1)' }}>
-          <span style={{ fontSize: '10px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pos</span>
-          <span style={{ fontSize: '10px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Jugador</span>
-          <span style={{ fontSize: '10px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Win%</span>
+          <span style={{ fontSize: '10px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pos</span>
+          <span style={{ fontSize: '10px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Jugador</span>
+          <span style={{ fontSize: '10px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Win%</span>
           <span />
         </div>
 
@@ -186,7 +186,7 @@ export default function GWILeaderboard({
                     </div>
                   )}
                   {/* HCP info */}
-                  <div style={{ fontSize: '11px', color: '#7a8fa8' }}>
+                  <div style={{ fontSize: '11px', color: '#94a8c0' }}>
                     HCP {r.breakdown.handicapInfo.handicap}
                     {hoyosRestantes > 0 && ` · ±${r.breakdown.handicapInfo.sigma} strokes en ${hoyosRestantes} hoyos`}
                     {' · '}{r.breakdown.handicapInfo.label}
@@ -201,11 +201,11 @@ export default function GWILeaderboard({
       {/* Next hole probabilities */}
       {nextHole && holesInfo && hoyosRestantes > 0 && (
         <div style={{ borderTop: '1px solid rgba(122,143,168,0.1)', padding: '12px 16px' }}>
-          <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+          <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
             📍 PRÓXIMO HOYO: H{nextHole.numero} · Par {nextHole.par}
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ fontSize: '11px', color: '#7a8fa8', borderCollapse: 'collapse', width: '100%' }}>
+            <table style={{ fontSize: '11px', color: '#94a8c0', borderCollapse: 'collapse', width: '100%' }}>
               <thead>
                 <tr>
                   <td style={{ paddingRight: '12px', paddingBottom: '4px' }} />

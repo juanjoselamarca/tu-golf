@@ -37,7 +37,7 @@ function gwiColor(gwi: number): string {
 function gwiDeltaColor(delta: number): string {
   if (delta > 0) return '#00e676'
   if (delta < 0) return '#ff1744'
-  return 'rgba(255,255,255,0.3)'
+  return 'rgba(255,255,255,0.5)'
 }
 
 interface Props {
@@ -51,8 +51,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
 
   // Players are already filtered by the parent, but keep backward compat
   const filtered = category === 'General' ? players
-    : category === 'Categoria A' ? players.filter(p => p.categoria === 'A')
-    : category === 'Categoria B' ? players.filter(p => p.categoria === 'B')
+    : category === 'Categoría A' ? players.filter(p => p.categoria === 'A')
+    : category === 'Categoría B' ? players.filter(p => p.categoria === 'B')
     : players
 
   return (
@@ -114,7 +114,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                   <div style={{ fontSize: '14px', fontWeight: 600, color: '#edeae4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {player.pais} {player.name}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>
                     <span style={{
                       display: 'inline-block', padding: '1px 4px', borderRadius: 3,
                       background: player.categoria === 'A' ? 'rgba(0,230,118,0.12)' : 'rgba(196,153,42,0.12)',
@@ -136,24 +136,24 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                   }}>
                     {formatTot(vspar)}
                   </div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>TOT</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace' }}>TOT</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                     {player.status === 'playing' && (
                       <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#00e676', animation: 'livePulse 2s infinite' }} />
                     )}
-                    <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 600, color: player.status === 'finished' ? '#7a8fa8' : '#c9a84c' }}>
+                    <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 600, color: player.status === 'finished' ? '#94a8c0' : '#c9a84c' }}>
                       {thru}
                     </span>
                   </div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>THRU</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace' }}>THRU</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>
                     {player.grossTotal > 0 ? player.grossTotal : '\u2014'}
                   </div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>R1</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace' }}>R1</div>
                 </div>
               </div>
 
@@ -161,7 +161,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <GWISparkline series={player.gwiSeries} delta={player.gwiDelta} width={40} height={14} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>GWI\u2122</span>
+                  <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: 'rgba(255,255,255,0.5)' }}>GWI\u2122</span>
                   <span style={{
                     fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 600,
                     color: gwiColor(player.gwi), fontVariantNumeric: 'tabular-nums',
@@ -183,7 +183,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                 border: '1px solid rgba(255,255,255,0.06)', borderTop: 'none',
               }}>
                 {/* Front 9 */}
-                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginBottom: '6px', fontFamily: 'var(--font-dm-mono), monospace' }}>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', fontFamily: 'var(--font-dm-mono), monospace' }}>
                   FRONT 9 \u2014 PAR 35
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '10px' }}>
@@ -191,7 +191,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                     const style = holeCellStyle(s, DEMO_PARS[i])
                     return (
                       <div key={i} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: '4px', background: style.bg }}>
-                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>H{i + 1}</div>
+                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.45)' }}>H{i + 1}</div>
                         <div style={{ fontSize: '13px', fontWeight: 600, color: style.color }}>{s ?? '\u2014'}</div>
                       </div>
                     )
@@ -199,7 +199,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                 </div>
 
                 {/* Back 9 */}
-                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginBottom: '6px', fontFamily: 'var(--font-dm-mono), monospace' }}>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', fontFamily: 'var(--font-dm-mono), monospace' }}>
                   BACK 9 \u2014 PAR 37
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '10px' }}>
@@ -207,7 +207,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                     const style = holeCellStyle(s, DEMO_PARS[i + 9])
                     return (
                       <div key={i} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: '4px', background: style.bg }}>
-                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>H{i + 10}</div>
+                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.45)' }}>H{i + 10}</div>
                         <div style={{ fontSize: '13px', fontWeight: 600, color: style.color }}>{s ?? '\u2014'}</div>
                       </div>
                     )
@@ -228,7 +228,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
 
                 {/* GWI badge */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>GWI\u2122</span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace' }}>GWI\u2122</span>
                   <span style={{
                     fontFamily: 'var(--font-dm-mono), monospace', fontSize: '20px', fontWeight: 600,
                     color: gwiColor(player.gwi), fontVariantNumeric: 'tabular-nums',
@@ -240,7 +240,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                     background: 'rgba(201,168,76,0.12)', color: '#c9a84c',
                     fontFamily: 'var(--font-dm-mono), monospace',
                   }}>
-                    {player.gwi >= 85 ? 'ELITE' : player.gwi >= 70 ? 'AVANZADO' : player.gwi >= 50 ? 'INTERMEDIO' : 'BASICO'}
+                    {player.gwi >= 85 ? 'ELITE' : player.gwi >= 70 ? 'AVANZADO' : player.gwi >= 50 ? 'INTERMEDIO' : 'BÁSICO'}
                   </span>
                 </div>
               </div>

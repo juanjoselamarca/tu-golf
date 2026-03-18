@@ -134,8 +134,8 @@ function Scorecard({
               className="flex flex-col items-center justify-between flex-shrink-0 rounded"
               style={{ width: 50, height: 62, padding: '5px 3px', ...style }}
             >
-              <span style={{ fontSize: 9, color: '#7a8fa8', lineHeight: 1 }}>H.{hNum}</span>
-              <span style={{ fontSize: 9, color: '#7a8fa8', lineHeight: 1 }}>par {par}</span>
+              <span style={{ fontSize: 9, color: '#94a8c0', lineHeight: 1 }}>H.{hNum}</span>
+              <span style={{ fontSize: 9, color: '#94a8c0', lineHeight: 1 }}>par {par}</span>
               <span
                 className="font-sans font-bold"
                 style={{ fontSize: 18, lineHeight: 1, color: played ? scoreColor(score! - par) : '#3a4a5a' }}
@@ -155,14 +155,14 @@ function Scorecard({
         <div style={{ minWidth: 520 }}>
 
           <div className="mb-3">
-            <p className="font-sans mb-2" style={{ fontSize: 10, letterSpacing: '0.08em', color: '#7a8fa8', textTransform: 'uppercase' }}>
+            <p className="font-sans mb-2" style={{ fontSize: 10, letterSpacing: '0.08em', color: '#94a8c0', textTransform: 'uppercase' }}>
               Front 9 — par 35
             </p>
             {renderGroup(front, 0)}
           </div>
 
           <div className="mb-4">
-            <p className="font-sans mb-2" style={{ fontSize: 10, letterSpacing: '0.08em', color: '#7a8fa8', textTransform: 'uppercase' }}>
+            <p className="font-sans mb-2" style={{ fontSize: 10, letterSpacing: '0.08em', color: '#94a8c0', textTransform: 'uppercase' }}>
               Back 9 — par 37
             </p>
             {renderGroup(back, 9)}
@@ -180,7 +180,7 @@ function Scorecard({
                 { label: 'Total',   stats: { score: frontStats.score + backStats.score, vsPar: player.today, anyPlayed: true } },
               ].map(({ label, stats }) => stats.anyPlayed && (
                 <span key={label}>
-                  <span style={{ color: '#7a8fa8' }}>{label}: </span>
+                  <span style={{ color: '#94a8c0' }}>{label}: </span>
                   <span style={{ color: scoreColor(stats.vsPar), fontWeight: 700 }}>
                     {stats.score} ({formatScore(stats.vsPar)})
                   </span>
@@ -271,7 +271,7 @@ function ShareCard({
       <div style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 22, fontWeight: 700, color: '#edeae4', marginBottom: 3 }}>
         {player.name}
       </div>
-      <div style={{ fontSize: 12, color: '#7a8fa8', marginBottom: 14 }}>TPC Sawgrass Amateur 2025</div>
+      <div style={{ fontSize: 12, color: '#94a8c0', marginBottom: 14 }}>TPC Sawgrass Amateur 2025</div>
 
       {/* Score row */}
       <div style={{ display: 'flex', gap: 22, marginBottom: 16 }}>
@@ -282,7 +282,7 @@ function ShareCard({
           { label: 'Ronda',    value: '1',                            color: '#edeae4'               },
         ].map(({ label, value, color }) => (
           <div key={label}>
-            <div style={{ fontSize: 10, color: '#7a8fa8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</div>
+            <div style={{ fontSize: 10, color: '#94a8c0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</div>
             <div style={{ fontSize: 24, fontWeight: 700, color, lineHeight: 1.2 }}>{value}</div>
           </div>
         ))}
@@ -304,7 +304,7 @@ function ShareCard({
                 borderRadius: 3, ...hs,
               }}
             >
-              <span style={{ fontSize: 8, color: '#7a8fa8', lineHeight: 1 }}>H{i + 1}</span>
+              <span style={{ fontSize: 8, color: '#94a8c0', lineHeight: 1 }}>H{i + 1}</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: played ? scoreColor(score! - par) : '#3a4a5a', lineHeight: 1.3 }}>
                 {played ? score : '—'}
               </span>
@@ -314,7 +314,7 @@ function ShareCard({
       </div>
 
       {/* URL */}
-      <div style={{ position: 'absolute', bottom: 22, left: 30, fontSize: 11, color: '#7a8fa8' }}>
+      <div style={{ position: 'absolute', bottom: 22, left: 30, fontSize: 11, color: '#94a8c0' }}>
         tugolf.app/torneo/tpc-sawgrass-amateur-2025
       </div>
     </div>
@@ -580,7 +580,7 @@ export default function LeaderboardTable({ players, modoJuego }: { players: Play
               className="font-sans text-sm px-4 py-2 transition-all duration-200"
               style={{
                 background:   active ? '#c4992a' : 'transparent',
-                color:        active ? '#070d18' : '#7a8fa8',
+                color:        active ? '#070d18' : '#94a8c0',
                 border:       active ? 'none'    : '1px solid rgba(196,153,42,0.4)',
                 fontWeight:   active ? 600 : 400,
                 borderRadius: '4px',
@@ -614,7 +614,7 @@ export default function LeaderboardTable({ players, modoJuego }: { players: Play
                     style={{
                       fontSize:      11,
                       letterSpacing: '0.1em',
-                      color:         '#7a8fa8',
+                      color:         '#94a8c0',
                       textTransform: 'uppercase',
                       fontWeight:    600,
                       textAlign:     col.align as 'center' | 'left',
@@ -663,7 +663,7 @@ export default function LeaderboardTable({ players, modoJuego }: { players: Play
                           </div>
                           <div>
                             <div className="font-sans font-semibold text-ivory" style={{ fontSize: 15 }}>{player.name}</div>
-                            <div className="font-sans mt-0.5" style={{ fontSize: 12, color: '#7a8fa8' }}>
+                            <div className="font-sans mt-0.5" style={{ fontSize: 12, color: '#94a8c0' }}>
                               {FLAG[player.country]} {player.cat}
                             </div>
                           </div>

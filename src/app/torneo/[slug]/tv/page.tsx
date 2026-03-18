@@ -173,7 +173,7 @@ export default function TVPage() {
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(28px, 4vw, 52px)', color: '#edeae4', margin: '0 0 12px', lineHeight: 1.1 }}>
           {tournament?.name || 'Torneo'}
         </h1>
-        <p style={{ fontSize: '18px', color: '#7a8fa8', margin: 0 }}>
+        <p style={{ fontSize: '18px', color: '#94a8c0', margin: 0 }}>
           {tournament?.course_name}
           {dateDisplay && ` · ${dateDisplay}`}
           {tournament && ` · Par ${tournament.par_total}`}
@@ -192,21 +192,21 @@ export default function TVPage() {
           borderRadius: '10px 10px 0 0',
           marginBottom: '2px',
         }}>
-          <span style={{ fontSize: '13px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pos</span>
-          <span style={{ fontSize: '13px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nombre</span>
-          <span style={{ fontSize: '13px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Score (net)</span>
-          <span style={{ fontSize: '13px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Hcp</span>
-          <span style={{ fontSize: '13px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>Hoyos</span>
+          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pos</span>
+          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nombre</span>
+          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Score (net)</span>
+          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Hcp</span>
+          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>Hoyos</span>
         </div>
 
         <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
           {players.length === 0 ? (
-            <div style={{ padding: '60px', textAlign: 'center', color: '#7a8fa8', fontSize: '18px' }}>
+            <div style={{ padding: '60px', textAlign: 'center', color: '#94a8c0', fontSize: '18px' }}>
               Sin jugadores con scores aún
             </div>
           ) : (
             players.map((p, idx) => {
-              const color = p.holesPlayed > 0 ? scoreColor(p.netVsPar) : '#7a8fa8'
+              const color = p.holesPlayed > 0 ? scoreColor(p.netVsPar) : '#94a8c0'
               const highlight = idx === 0
               return (
                 <div
@@ -220,7 +220,7 @@ export default function TVPage() {
                     alignItems: 'center',
                   }}
                 >
-                  <div style={{ fontSize: highlight ? '28px' : '22px', color: highlight ? '#c4992a' : '#7a8fa8', fontWeight: 700, fontFamily: '"Playfair Display", serif' }}>
+                  <div style={{ fontSize: highlight ? '28px' : '22px', color: highlight ? '#c4992a' : '#94a8c0', fontWeight: 700, fontFamily: '"Playfair Display", serif' }}>
                     {idx === 0 ? '🏆' : idx + 1}
                   </div>
                   <div>
@@ -228,7 +228,7 @@ export default function TVPage() {
                       {p.name}
                     </div>
                     {p.category && (
-                      <div style={{ fontSize: '13px', color: '#7a8fa8', marginTop: '2px' }}>Cat. {p.category}</div>
+                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>Cat. {p.category}</div>
                     )}
                   </div>
                   <div style={{ textAlign: 'center' }}>
@@ -236,13 +236,13 @@ export default function TVPage() {
                       {p.holesPlayed > 0 ? fmtVsPar(p.netVsPar) : '—'}
                     </div>
                     {p.holesPlayed > 0 && (
-                      <div style={{ fontSize: '13px', color: '#7a8fa8', marginTop: '2px' }}>{p.total_net}</div>
+                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{p.total_net}</div>
                     )}
                   </div>
-                  <div style={{ textAlign: 'center', fontSize: '18px', color: '#7a8fa8' }}>
+                  <div style={{ textAlign: 'center', fontSize: '18px', color: '#94a8c0' }}>
                     {p.handicap}
                   </div>
-                  <div style={{ textAlign: 'right', fontSize: '16px', color: '#7a8fa8' }}>
+                  <div style={{ textAlign: 'right', fontSize: '16px', color: '#94a8c0' }}>
                     {p.holesPlayed}/18
                   </div>
                 </div>
@@ -252,7 +252,7 @@ export default function TVPage() {
         </div>
 
         {/* Footer */}
-        <div style={{ marginTop: '32px', textAlign: 'center', color: '#7a8fa8', fontSize: '14px' }}>
+        <div style={{ marginTop: '32px', textAlign: 'center', color: '#94a8c0', fontSize: '14px' }}>
           Actualizado: {lastUpdate.toLocaleTimeString('es-CL')} &nbsp;·&nbsp; Auto-refresca cada 30s
         </div>
       </div>

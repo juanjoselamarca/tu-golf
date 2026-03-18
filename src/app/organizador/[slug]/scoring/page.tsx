@@ -266,7 +266,7 @@ export default function ScoringPage() {
   if (loading) {
     return (
       <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#7a8fa8' }}>Cargando torneo...</div>
+        <div style={{ color: '#94a8c0' }}>Cargando torneo...</div>
       </div>
     )
   }
@@ -287,7 +287,7 @@ export default function ScoringPage() {
           <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', marginBottom: '10px' }}>
             Sin jugadores inscritos
           </h3>
-          <p style={{ color: '#7a8fa8', marginBottom: '24px', fontSize: '15px' }}>
+          <p style={{ color: '#94a8c0', marginBottom: '24px', fontSize: '15px' }}>
             Inscribe jugadores antes de ingresar scores
           </p>
           <button
@@ -331,9 +331,9 @@ export default function ScoringPage() {
             <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: 'rgba(22,163,74,0.15)', color: '#4ade80', border: '1px solid rgba(22,163,74,0.4)', padding: '3px 10px', borderRadius: '20px', animation: 'pulse 2s infinite' }}>
               ● EN VIVO
             </span>
-            {saving && <span style={{ fontSize: '12px', color: '#7a8fa8', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
+            {saving && <span style={{ fontSize: '12px', color: '#94a8c0', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
           </h1>
-          <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
+          <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
         </div>
         <Link
           href={`/torneo/${tournament.slug}`}
@@ -378,7 +378,7 @@ export default function ScoringPage() {
                   <div style={{ color: '#edeae4', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, marginBottom: '4px' }}>
                     {p.profiles?.name?.split(' ')[0] || '—'}
                   </div>
-                  <div style={{ fontSize: '11px', color: isDone ? '#4ade80' : '#7a8fa8' }}>
+                  <div style={{ fontSize: '11px', color: isDone ? '#4ade80' : '#94a8c0' }}>
                     {isDone ? '✓ Completo' : `${Object.keys(currentScores).length > 0 && isSelected ? filledCount : 0}/${holeCount}`}
                   </div>
                 </button>
@@ -393,22 +393,22 @@ export default function ScoringPage() {
             <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(196,153,42,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <div>
                 <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4' }}>{selectedPlayer.profiles?.name}</span>
-                <span style={{ color: '#7a8fa8', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
+                <span style={{ color: '#94a8c0', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
               </div>
               <div style={{ display: 'flex', gap: '20px' }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: '#7a8fa8', marginBottom: '2px' }}>GROSS</div>
+                  <div style={{ fontSize: '11px', color: '#94a8c0', marginBottom: '2px' }}>GROSS</div>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: '#edeae4' }}>{grossTotal || '—'}</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: '#7a8fa8', marginBottom: '2px' }}>NET</div>
+                  <div style={{ fontSize: '11px', color: '#94a8c0', marginBottom: '2px' }}>NET</div>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: netTotal < 0 ? '#4ade80' : netTotal > 0 ? '#f87171' : '#edeae4' }}>
                     {grossTotal ? (netTotal <= 0 ? netTotal : `+${netTotal}`) : '—'}
                   </div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: '#7a8fa8', marginBottom: '2px' }}>vs PAR</div>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: '#7a8fa8' }}>
+                  <div style={{ fontSize: '11px', color: '#94a8c0', marginBottom: '2px' }}>vs PAR</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: '#94a8c0' }}>
                     {grossTotal ? (netTotal - parTotal <= 0 ? netTotal - parTotal : `+${netTotal - parTotal}`) : '—'}
                   </div>
                 </div>
@@ -436,8 +436,8 @@ export default function ScoringPage() {
                       animation: hasErr ? 'pulse 1s ease-in-out 3' : 'none',
                     }}
                   >
-                    <div style={{ fontSize: '10px', color: '#7a8fa8', marginBottom: '2px' }}>H{holeNum}</div>
-                    <div style={{ fontSize: '10px', color: '#7a8fa8', marginBottom: '4px' }}>P{par}</div>
+                    <div style={{ fontSize: '10px', color: '#94a8c0', marginBottom: '2px' }}>H{holeNum}</div>
+                    <div style={{ fontSize: '10px', color: '#94a8c0', marginBottom: '4px' }}>P{par}</div>
                     <input
                       type="number"
                       min={1}
@@ -471,7 +471,7 @@ export default function ScoringPage() {
               <button
                 type="button"
                 onClick={() => setShowStats(!showStats)}
-                style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#7a8fa8', fontSize: '13px' }}
+                style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#94a8c0', fontSize: '13px' }}
               >
                 <span style={{ transition: 'transform 200ms', transform: showStats ? 'rotate(90deg)' : 'rotate(0)', display: 'inline-block' }}>▶</span>
                 Estadísticas adicionales — Putts · Fairway · GIR (opcional)
@@ -483,7 +483,7 @@ export default function ScoringPage() {
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(122,143,168,0.15)' }}>
                         {['Hoyo', 'Gross', 'Putts (0-6)', 'Fairway hit', 'GIR'].map((h) => (
-                          <th key={h} style={{ color: '#7a8fa8', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
+                          <th key={h} style={{ color: '#94a8c0', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -497,7 +497,7 @@ export default function ScoringPage() {
 
                         return (
                           <tr key={h} style={{ borderBottom: '1px solid rgba(122,143,168,0.06)', opacity: disabled ? 0.4 : 1 }}>
-                            <td style={{ textAlign: 'center', color: '#7a8fa8', padding: '6px 8px', fontSize: '12px' }}>H{h} P{par}</td>
+                            <td style={{ textAlign: 'center', color: '#94a8c0', padding: '6px 8px', fontSize: '12px' }}>H{h} P{par}</td>
                             <td style={{ textAlign: 'center', color: '#edeae4', padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}>{gross ?? '—'}</td>
 
                             {/* Putts */}
@@ -547,8 +547,8 @@ export default function ScoringPage() {
                                       }}
                                       style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                                         background:  holeFairway[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
-                                        borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#7a8fa8') : 'rgba(122,143,168,0.2)',
-                                        color:       holeFairway[h] === v ? '#edeae4' : '#7a8fa8',
+                                        borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#94a8c0') : 'rgba(122,143,168,0.2)',
+                                        color:       holeFairway[h] === v ? '#edeae4' : '#94a8c0',
                                       }}>
                                       {v === true ? 'Sí' : v === false ? 'No' : '—'}
                                     </button>
@@ -578,8 +578,8 @@ export default function ScoringPage() {
                                     }}
                                     style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                                       background:  holeGir[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
-                                      borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#7a8fa8') : 'rgba(122,143,168,0.2)',
-                                      color:       holeGir[h] === v ? '#edeae4' : '#7a8fa8',
+                                      borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#94a8c0') : 'rgba(122,143,168,0.2)',
+                                      color:       holeGir[h] === v ? '#edeae4' : '#94a8c0',
                                     }}>
                                     {v === true ? 'Sí' : v === false ? 'No' : '—'}
                                   </button>
@@ -625,7 +625,7 @@ export default function ScoringPage() {
             )}
           </div>
         ) : (
-          <div style={{ background: 'rgba(14,28,47,0.7)', border: '1px solid rgba(122,143,168,0.15)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: '#7a8fa8' }}>
+          <div style={{ background: 'rgba(14,28,47,0.7)', border: '1px solid rgba(122,143,168,0.15)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: '#94a8c0' }}>
             <div style={{ fontSize: '36px', marginBottom: '12px' }}>⛳</div>
             <div style={{ fontSize: '16px', color: '#edeae4', marginBottom: '6px' }}>Selecciona un jugador arriba</div>
             <div style={{ fontSize: '13px' }}>Luego ingresa los scores hoyo a hoyo.</div>

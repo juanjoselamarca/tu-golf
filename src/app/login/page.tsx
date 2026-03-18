@@ -122,7 +122,7 @@ function LoginContent() {
         </div>
 
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>
-          Bienvenido de vuelta a Golfers+
+          Bienvenido a Golfers+
         </h1>
         <p style={{ fontSize: '14px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '28px' }}>
           Inicia sesión para continuar mejorando tu golf

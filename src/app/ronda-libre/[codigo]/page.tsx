@@ -204,7 +204,7 @@ export default function RondaLibrePage() {
   /* ── Loading ── */
   if (loading) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8fa8', fontFamily: 'DM Sans, sans-serif' }}>
+      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0', fontFamily: 'DM Sans, sans-serif' }}>
         Cargando ronda...
       </div>
     )
@@ -218,7 +218,7 @@ export default function RondaLibrePage() {
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', textAlign: 'center' }}>
           Ronda no encontrada
         </h1>
-        <p style={{ color: '#7a8fa8', textAlign: 'center' }}>El código <strong style={{ color: '#c4992a' }}>{codigo}</strong> no existe o fue eliminado.</p>
+        <p style={{ color: '#94a8c0', textAlign: 'center' }}>El código <strong style={{ color: '#c4992a' }}>{codigo}</strong> no existe o fue eliminado.</p>
         <Link href="/dashboard" style={{ color: '#c4992a', textDecoration: 'none', fontSize: '14px' }}>← Volver al dashboard</Link>
       </div>
     )
@@ -258,7 +258,7 @@ export default function RondaLibrePage() {
           <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#edeae4', margin: '0 0 6px' }}>
             Ronda Libre
           </h1>
-          <p style={{ color: '#7a8fa8', fontSize: '14px', margin: 0 }}>
+          <p style={{ color: '#94a8c0', fontSize: '14px', margin: 0 }}>
             {ronda.course_name} · {fechaDisplay}
           </p>
           <div style={{ marginTop: '8px' }}>
@@ -269,7 +269,7 @@ export default function RondaLibrePage() {
         </div>
 
         {/* Role selection */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', gap: '16px' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', gap: '16px' }}>
           <div
             style={{
               width: '100%',
@@ -283,38 +283,38 @@ export default function RondaLibrePage() {
           >
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
               <div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estado</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estado</div>
                 <div style={{ fontSize: '14px', color: isEnCurso ? '#22c55e' : '#edeae4', fontWeight: 700 }}>
                   {isEnCurso ? 'En vivo ahora' : 'Ronda finalizada'}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
                 <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>
                   {ronda.ronda_libre_jugadores.length}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modalidad</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modalidad</div>
                 <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>
                   {ronda.holes} hoyos
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modo</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modo</div>
                 <div style={{ fontSize: '14px', color: '#c4992a', fontWeight: 700, textTransform: 'capitalize' }}>
-                  {ronda.modo_juego === 'stableford' ? '⭐ Stableford' : ronda.modo_juego === 'neto' ? '🏌️ Neto' : '🏌️ Gross'}
+                  {ronda.modo_juego === 'stableford' ? 'Stableford' : ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tees</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tees</div>
                 <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700, textTransform: 'capitalize' }}>
                   {ronda.tees}
                 </div>
               </div>
             </div>
           </div>
-          <p style={{ color: '#7a8fa8', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
+          <p style={{ color: '#94a8c0', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
             ¿Cómo quieres unirte a esta ronda?
           </p>
 
@@ -330,7 +330,7 @@ export default function RondaLibrePage() {
               textAlign: 'left',
             }}
           >
-            <span style={{ fontSize: '44px', flexShrink: 0 }}>🏌️</span>
+            <span style={{ fontSize: '32px', flexShrink: 0 }}>🏌️</span>
             <div>
               <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Soy jugador</div>
               <div style={{ fontSize: '14px', opacity: 0.8 }}>Ingresaré mi propio score</div>
@@ -348,16 +348,16 @@ export default function RondaLibrePage() {
               textAlign: 'left',
             }}
           >
-            <span style={{ fontSize: '44px', flexShrink: 0 }}>👁</span>
+            <span style={{ fontSize: '32px', flexShrink: 0 }}>👁</span>
             <div>
               <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Solo ver</div>
-              <div style={{ fontSize: '14px', color: '#7a8fa8' }}>Seguiré el marcador en vivo</div>
+              <div style={{ fontSize: '14px', color: '#94a8c0' }}>Seguiré el marcador en vivo</div>
             </div>
           </button>
 
           {/* Player count hint */}
           {ronda.ronda_libre_jugadores.length > 0 && (
-            <p style={{ color: '#7a8fa8', fontSize: '13px', marginTop: '8px', textAlign: 'center' }}>
+            <p style={{ color: '#94a8c0', fontSize: '13px', marginTop: '8px', textAlign: 'center' }}>
               {ronda.ronda_libre_jugadores.length} jugador{ronda.ronda_libre_jugadores.length !== 1 ? 'es' : ''} en esta ronda
             </p>
           )}
@@ -375,9 +375,9 @@ export default function RondaLibrePage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div>
             <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', margin: '0 0 4px' }}>
-              {role === 'espectador' ? '👁 Marcador en vivo' : '🏌️ Unirse a la ronda'}
+              {role === 'espectador' ? 'Marcador en vivo' : 'Unirse a la ronda'}
             </h1>
-            <div style={{ fontSize: '13px', color: '#7a8fa8' }}>
+            <div style={{ fontSize: '13px', color: '#94a8c0' }}>
               {ronda.course_name} · {fechaDisplay}
             </div>
           </div>
@@ -385,7 +385,7 @@ export default function RondaLibrePage() {
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: '4px',
               background: isEnCurso ? 'rgba(34,197,94,0.12)' : 'rgba(122,143,168,0.12)',
-              color: isEnCurso ? '#22c55e' : '#7a8fa8',
+              color: isEnCurso ? '#22c55e' : '#94a8c0',
               border: `1px solid ${isEnCurso ? 'rgba(34,197,94,0.3)' : 'rgba(122,143,168,0.3)'}`,
               padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
             }}>
@@ -393,7 +393,7 @@ export default function RondaLibrePage() {
             </span>
             <button
               onClick={() => { sessionStorage.removeItem(SS_KEY(codigo)); setRole(null) }}
-              style={{ background: 'none', border: 'none', color: '#7a8fa8', fontSize: '12px', cursor: 'pointer', padding: 0 }}
+              style={{ background: 'none', border: 'none', color: '#94a8c0', fontSize: '12px', cursor: 'pointer', padding: 0 }}
             >
               Cambiar rol
             </button>
@@ -423,19 +423,19 @@ export default function RondaLibrePage() {
           >
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
               <div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Club</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Club</div>
                 <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{ronda.course_name}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Fecha</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Fecha</div>
                 <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{fechaDisplay}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
                 <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{ronda.ronda_libre_jugadores.length}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Formato</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Formato</div>
                 <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{ronda.holes} hoyos</div>
               </div>
             </div>
@@ -444,7 +444,7 @@ export default function RondaLibrePage() {
           {timelineEvents.length > 0 && (
             <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', padding: '14px 16px', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
-                <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Momentos recientes</span>
+                <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Momentos recientes</span>
                 <span style={{ fontSize: '12px', color: '#c4992a' }}>Actualiza cada 15s</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -455,7 +455,7 @@ export default function RondaLibrePage() {
                     <div key={`${event.jugador}-${event.hole}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                       <div>
                         <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>{event.jugador}</div>
-                        <div style={{ fontSize: '12px', color: '#7a8fa8' }}>Hoyo {event.hole} · {event.score} golpes</div>
+                        <div style={{ fontSize: '12px', color: '#94a8c0' }}>Hoyo {event.hole} · {event.score} golpes</div>
                       </div>
                       <span style={{ color, fontSize: '13px', fontWeight: 700 }}>{label}</span>
                     </div>
@@ -480,16 +480,16 @@ export default function RondaLibrePage() {
 
             {/* Table header */}
             <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px', padding: '10px 16px', background: 'rgba(196,153,42,0.05)', borderBottom: '1px solid rgba(196,153,42,0.1)' }}>
-              <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase' }}>#</span>
-              <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase' }}>Jugador</span>
-              <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', textAlign: 'center' }}>
+              <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase' }}>#</span>
+              <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase' }}>Jugador</span>
+              <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', textAlign: 'center' }}>
                 {hasCourse ? '+/- Par' : 'Score'}
               </span>
-              <span style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
+              <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
             </div>
 
             {leaderboard.length === 0 && (
-              <div style={{ padding: '32px', textAlign: 'center', color: '#7a8fa8', fontSize: '14px' }}>
+              <div style={{ padding: '32px', textAlign: 'center', color: '#94a8c0', fontSize: '14px' }}>
                 Aún no hay jugadores en esta ronda
               </div>
             )}
@@ -499,11 +499,11 @@ export default function RondaLibrePage() {
               const par    = hasCourse ? parMap[1] ?? 4 : 4  // fallback
               const color  = j.holesPlayed > 0
                 ? getScoreColor(j.vsPar + par, par)  // use vsPar directly
-                : '#7a8fa8'
+                : '#94a8c0'
 
               // Correct color directly from vsPar
               const vsParColor = (() => {
-                if (j.holesPlayed === 0) return '#7a8fa8'
+                if (j.holesPlayed === 0) return '#94a8c0'
                 if (j.vsPar <= -2) return '#c8a55a'
                 if (j.vsPar === -1) return '#22c55e'
                 if (j.vsPar === 0)  return '#edeae4'
@@ -525,11 +525,11 @@ export default function RondaLibrePage() {
                       padding: '13px 16px', alignItems: 'center', textAlign: 'left',
                     }}
                   >
-                    <span style={{ fontSize: '14px', color: '#7a8fa8', fontWeight: 600 }}>{idx + 1}</span>
+                    <span style={{ fontSize: '14px', color: '#94a8c0', fontWeight: 600 }}>{idx + 1}</span>
                     <span style={{ fontSize: '15px', color: '#edeae4', fontWeight: 600 }}>
                       {j.nombre}
                       {j.holesPlayed > 0 && (
-                        <span style={{ fontSize: '11px', color: '#7a8fa8', fontWeight: 400, marginLeft: '6px' }}>
+                        <span style={{ fontSize: '11px', color: '#94a8c0', fontWeight: 400, marginLeft: '6px' }}>
                           {isExpanded ? '▲' : '▼'}
                         </span>
                       )}
@@ -539,7 +539,7 @@ export default function RondaLibrePage() {
                         {vsParStr}
                       </span>
                     </div>
-                    <span style={{ fontSize: '13px', color: '#7a8fa8', textAlign: 'right' }}>
+                    <span style={{ fontSize: '13px', color: '#94a8c0', textAlign: 'right' }}>
                       {j.holesPlayed}/{ronda.holes}
                     </span>
                   </button>
@@ -548,7 +548,7 @@ export default function RondaLibrePage() {
                   {isExpanded && j.holesPlayed > 0 && (
                     <div style={{ padding: '4px 12px 14px', background: 'rgba(7,13,24,0.4)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                       {/* Front 9 */}
-                      <div style={{ fontSize: '9px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '9px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
                         Front 9
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', marginBottom: '8px' }}>
@@ -560,7 +560,7 @@ export default function RondaLibrePage() {
                           const bdr  = diff != null ? `1px solid ${getScoreColor(s!, p)}44` : '1px solid transparent'
                           return (
                             <div key={h} style={{ textAlign: 'center', background: bg, borderRadius: '4px', padding: '3px 1px', border: bdr }}>
-                              <div style={{ fontSize: '8px', color: '#7a8fa8', lineHeight: 1 }}>{h}</div>
+                              <div style={{ fontSize: '8px', color: '#94a8c0', lineHeight: 1 }}>{h}</div>
                               <div style={{ fontSize: '12px', fontWeight: 700, color: diff != null ? getScoreColor(s!, p) : '#3a4a5a', lineHeight: 1.3 }}>
                                 {s ?? '·'}
                               </div>
@@ -571,7 +571,7 @@ export default function RondaLibrePage() {
                       {/* Back 9 */}
                       {ronda.holes > 9 && (
                         <>
-                          <div style={{ fontSize: '9px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                          <div style={{ fontSize: '9px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
                             Back 9
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
@@ -583,7 +583,7 @@ export default function RondaLibrePage() {
                               const bdr  = diff != null ? `1px solid ${getScoreColor(s!, p)}44` : '1px solid transparent'
                               return (
                                 <div key={h} style={{ textAlign: 'center', background: bg, borderRadius: '4px', padding: '3px 1px', border: bdr }}>
-                                  <div style={{ fontSize: '8px', color: '#7a8fa8', lineHeight: 1 }}>{h}</div>
+                                  <div style={{ fontSize: '8px', color: '#94a8c0', lineHeight: 1 }}>{h}</div>
                                   <div style={{ fontSize: '12px', fontWeight: 700, color: diff != null ? getScoreColor(s!, p) : '#3a4a5a', lineHeight: 1.3 }}>
                                     {s ?? '·'}
                                   </div>
@@ -602,7 +602,7 @@ export default function RondaLibrePage() {
 
           {/* Countdown + share */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <span style={{ color: '#7a8fa8', fontSize: '12px' }}>
+            <span style={{ color: '#94a8c0', fontSize: '12px' }}>
               ↻ Actualiza en {countdown}s
             </span>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -636,12 +636,12 @@ export default function RondaLibrePage() {
         <p style={{ color: '#edeae4', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
           ¿Cuál es tu nombre?
         </p>
-        <p style={{ color: '#7a8fa8', fontSize: '14px', marginBottom: '24px' }}>
+        <p style={{ color: '#94a8c0', fontSize: '14px', marginBottom: '24px' }}>
           Selecciona tu nombre de la lista para ingresar tu score
         </p>
 
         {ronda.ronda_libre_jugadores.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#7a8fa8', fontSize: '14px' }}>
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a8c0', fontSize: '14px' }}>
             No hay jugadores registrados en esta ronda aún.
           </div>
         ) : (
@@ -683,7 +683,7 @@ export default function RondaLibrePage() {
                   {/* Info */}
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: '#edeae4' }}>{j.nombre}</div>
-                    <div style={{ fontSize: '13px', color: '#7a8fa8', marginTop: '2px' }}>
+                    <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>
                       {hp === 0 ? 'Sin scores aún' : `${hp}/${ronda.holes} hoyos · ${formatOverUnder(vp)}`}
                     </div>
                   </div>
@@ -717,7 +717,7 @@ export default function RondaLibrePage() {
             style={{
               width: '100%', padding: '18px',
               background: selectedJ ? '#c4992a' : 'rgba(196,153,42,0.25)',
-              color: selectedJ ? '#070d18' : '#7a8fa8',
+              color: selectedJ ? '#070d18' : '#94a8c0',
               border: 'none', borderRadius: '12px',
               fontWeight: 700, fontSize: '16px',
               cursor: selectedJ ? 'pointer' : 'not-allowed',
@@ -738,7 +738,7 @@ export default function RondaLibrePage() {
           </button>
           <button
             onClick={handleCopy}
-            style={{ background: 'none', border: '1px solid rgba(196,153,42,0.2)', color: '#7a8fa8', fontSize: '13px', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer' }}
+            style={{ background: 'none', border: '1px solid rgba(196,153,42,0.2)', color: '#94a8c0', fontSize: '13px', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer' }}
           >
             {copied ? '✓ Copiado' : 'Copiar link'}
           </button>

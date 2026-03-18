@@ -40,7 +40,7 @@ export default function CrecimientoPage() {
 
   if (!data) {
     return (
-      <div className="text-center py-20 text-[#7a8fa8]">
+      <div className="text-center py-20 text-[#94a8c0]">
         Error al cargar datos de crecimiento
       </div>
     )
@@ -92,7 +92,7 @@ export default function CrecimientoPage() {
             <div key={step.label} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-[#edeae4]">{step.label}</span>
-                <span className="text-[#7a8fa8]">
+                <span className="text-[#94a8c0]">
                   {step.count} — {step.pct}%
                   {step.label === 'Pro' && (
                     <span className="ml-2 inline-block rounded-full bg-[#132540] px-2 py-0.5 text-[10px] text-[#c4992a]">
@@ -124,7 +124,7 @@ export default function CrecimientoPage() {
           className="flex items-center justify-center rounded-lg border-2 border-dashed border-[#132540]"
           style={{ height: 250 }}
         >
-          <p className="text-sm text-[#7a8fa8] text-center px-4">
+          <p className="text-sm text-[#94a8c0] text-center px-4">
             Disponible cuando haya suficientes datos
           </p>
         </div>
@@ -144,10 +144,10 @@ function KPICard({
 }) {
   return (
     <div className="rounded-xl border border-[#132540] bg-[#0a1628] p-5">
-      <p className="text-xs text-[#7a8fa8] uppercase tracking-wide">{label}</p>
+      <p className="text-xs text-[#94a8c0] uppercase tracking-wide">{label}</p>
       <p
         className="font-display mt-1"
-        style={{ fontSize: '2.5rem', lineHeight: 1.1, color: placeholder ? '#7a8fa8' : '#c4992a' }}
+        style={{ fontSize: '2.5rem', lineHeight: 1.1, color: placeholder ? '#94a8c0' : '#c4992a' }}
       >
         {value}
       </p>

@@ -174,7 +174,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
 
       {/* Header */}
       <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '24px 32px' }}>
-        <Link href="/dashboard" style={{ color: '#7a8fa8', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '12px' }}>
+        <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '12px' }}>
           ← Volver al dashboard
         </Link>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', margin: '0 0 8px' }}>
@@ -212,7 +212,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
 
             {/* Search */}
             <div ref={dropdownRef} style={{ flex: '1 1 220px', position: 'relative' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Jugador</label>
+              <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Jugador</label>
               <input
                 type="text"
                 placeholder="Buscar por nombre o email..."
@@ -245,7 +245,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
                       onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}
                     >
                       <div style={{ color: '#edeae4', fontSize: '13px', fontWeight: 500 }}>{p.name}</div>
-                      <div style={{ color: '#7a8fa8', fontSize: '11px' }}>
+                      <div style={{ color: '#94a8c0', fontSize: '11px' }}>
                         {p.email}
                         {p.indice != null && <span> · Índice {p.indice}</span>}
                       </div>
@@ -257,7 +257,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
 
             {/* Category */}
             <div style={{ flex: '0 1 160px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Categoría</label>
+              <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Categoría</label>
               <select
                 value={selectedCat}
                 onChange={(e) => setSelectedCat(e.target.value)}
@@ -271,7 +271,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
 
             {/* Flight */}
             <div style={{ flex: '0 1 160px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#7a8fa8', marginBottom: '6px' }}>Flight</label>
+              <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Flight</label>
               <select
                 value={selectedFlight}
                 onChange={(e) => setSelectedFlight(e.target.value)}
@@ -323,7 +323,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
           </div>
 
           {players.length === 0 ? (
-            <div style={{ padding: '48px', textAlign: 'center', color: '#7a8fa8' }}>
+            <div style={{ padding: '48px', textAlign: 'center', color: '#94a8c0' }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>👥</div>
               <div style={{ fontSize: '16px', marginBottom: '6px', color: '#edeae4' }}>Sin jugadores aún</div>
               <div style={{ fontSize: '13px' }}>Busca y añade jugadores usando el formulario de arriba.</div>
@@ -334,7 +334,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     {['#', 'Nombre', 'Índice', 'Course HCP', 'Categoría', 'Flight', ''].map((h) => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                         {h}
                       </th>
                     ))}
@@ -348,12 +348,12 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
                       onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'rgba(255,255,255,0.02)')}
                       onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'transparent')}
                     >
-                      <td style={{ padding: '12px 16px', color: '#7a8fa8', fontSize: '14px' }}>{i + 1}</td>
+                      <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '14px' }}>{i + 1}</td>
                       <td style={{ padding: '12px 16px', color: '#edeae4', fontSize: '14px', fontWeight: 500 }}>{p.profiles?.name || '—'}</td>
-                      <td style={{ padding: '12px 16px', color: '#7a8fa8', fontSize: '14px' }}>{p.profiles?.indice ?? '—'}</td>
+                      <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '14px' }}>{p.profiles?.indice ?? '—'}</td>
                       <td style={{ padding: '12px 16px', color: '#c4992a', fontSize: '14px', fontWeight: 600 }}>{p.handicap_at_registration ?? '—'}</td>
-                      <td style={{ padding: '12px 16px', color: '#7a8fa8', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
-                      <td style={{ padding: '12px 16px', color: '#7a8fa8', fontSize: '13px' }}>{p.flights?.name || '—'}</td>
+                      <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
+                      <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '13px' }}>{p.flights?.name || '—'}</td>
                       <td style={{ padding: '12px 16px' }}>
                         <button
                           onClick={() => handleDesinscribir(p.id)}
@@ -378,7 +378,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
           disabled={players.length < 1 || starting}
           style={{
             background: players.length >= 1 ? '#c4992a' : 'rgba(122,143,168,0.2)',
-            color: players.length >= 1 ? '#070d18' : '#7a8fa8',
+            color: players.length >= 1 ? '#070d18' : '#94a8c0',
             fontWeight: 700,
             fontSize: '16px',
             padding: '14px 40px',

@@ -164,7 +164,7 @@ function RegisterContent() {
         {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
           <div style={{ flex: 1, height: '1px', background: 'rgba(122,143,168,0.25)' }} />
-          <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>o regístrate express</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>o regístrate rápido</span>
           <div style={{ flex: 1, height: '1px', background: 'rgba(122,143,168,0.25)' }} />
         </div>
 
@@ -179,7 +179,7 @@ function RegisterContent() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '18px', color: '#c4992a' }}>⚡</span>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>Registro Express — solo 4 campos</div>
+              <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>Registro rápido — solo 4 campos</div>
               <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>Menos de 20 segundos</div>
             </div>
           </div>

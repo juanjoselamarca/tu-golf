@@ -85,32 +85,32 @@ export default async function DashboardPage() {
       <main style={{ padding: 'clamp(24px, 4vw, 48px) clamp(16px, 4vw, 32px)', maxWidth: '1100px', margin: '0 auto' }}>
 
         {/* 1 — Saludo */}
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '38px', color: 'var(--text)', marginBottom: '8px', lineHeight: 1.2 }}>
-          Hola, {userName} 👋
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(26px, 6vw, 38px)', color: 'var(--text)', marginBottom: '8px', lineHeight: 1.2 }}>
+          Hola, {userName}
         </h1>
         <p style={{ fontSize: '16px', color: 'var(--text-2)', marginBottom: '32px' }}>
           ¿Listo para mejorar tu juego hoy?
         </p>
 
-        <div style={{ height: '1px', background: 'linear-gradient(90deg, #c4992a, transparent)', marginBottom: '40px' }} />
+        <div style={{ height: '1px', background: 'linear-gradient(90deg, #c4992a, transparent)', marginBottom: '24px' }} />
 
         {/* 2 — Action cards */}
-        <div className="dashboard-actions" style={{ gap: '20px', marginBottom: '56px' }}>
+        <div className="dashboard-actions" style={{ gap: '20px', marginBottom: '32px' }}>
           {/* Ronda Libre — gold, prominent */}
-          <div style={{ background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(196,153,42,0.35)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
-            <div style={{ fontSize: '44px', marginBottom: '16px' }}>⛳</div>
+          <div style={{ background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(196,153,42,0.35)', borderRadius: '14px', padding: '20px', textAlign: 'center' }}>
+            <div style={{ fontSize: '32px', marginBottom: '16px' }}>⛳</div>
             <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#c4992a', marginBottom: '8px' }}>Ronda Libre</h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '24px' }}>Juega con amigos, score en vivo, sin torneo formal</p>
+            <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '16px' }}>Juega con amigos, score en vivo, sin torneo formal</p>
             <Link href="/ronda-libre/nueva" style={{ ...btnPrimary, display: 'inline-block' }}>
               Nueva ronda →
             </Link>
           </div>
 
           {/* Organizar torneo */}
-          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
-            <div style={{ fontSize: '44px', marginBottom: '16px' }}>🏆</div>
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', textAlign: 'center' }}>
+            <div style={{ fontSize: '32px', marginBottom: '16px' }}>🏆</div>
             <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', marginBottom: '8px' }}>Organizar un torneo</h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '24px' }}>Crea y gestiona tu propio torneo en minutos.</p>
+            <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '16px' }}>Crea y gestiona tu propio torneo en minutos.</p>
             <Link href="/organizador/nuevo" style={{ display: 'inline-block', background: '#c4992a', color: '#070d18', fontWeight: 600, borderRadius: '8px', padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
               Crear torneo →
             </Link>
@@ -128,7 +128,7 @@ export default async function DashboardPage() {
             <span style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600 }}>Mis estadísticas</span>
           </div>
           <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 12px' }}>
-            GWI, scoring trend, evolución del índice
+            GWI, tendencia de scoring, evolución del índice
           </p>
           <span style={{ color: '#c4992a', fontSize: '13px', fontWeight: 600 }}>
             Ver estadísticas →
@@ -136,7 +136,7 @@ export default async function DashboardPage() {
         </Link>
 
         {/* 3 — Mis torneos como organizador */}
-        <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', marginBottom: '40px' }} />
+        <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', marginBottom: '24px' }} />
         <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '24px' }}>
           Mis torneos como organizador
         </h2>
@@ -174,7 +174,7 @@ export default async function DashboardPage() {
         )}
 
         {/* 4 — Torneos en que he jugado */}
-        <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '56px 0 40px' }} />
+        <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '32px 0 24px' }} />
         <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '24px' }}>
           Torneos en que he jugado
         </h2>
@@ -206,7 +206,7 @@ export default async function DashboardPage() {
         )}
 
         {/* 5 — Mis rondas libres */}
-        <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '56px 0 40px' }} />
+        <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '32px 0 24px' }} />
         <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '24px' }}>
           Mis rondas libres recientes
         </h2>
@@ -278,7 +278,7 @@ export default async function DashboardPage() {
         {/* 6 — Métricas (solo si hay torneos organizados) */}
         {(totalTournaments ?? 0) > 0 && (
           <>
-            <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '56px 0 40px' }} />
+            <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '32px 0 24px' }} />
             <div className="dashboard-metrics-grid">
               {[
                 { label: 'Torneos organizados', value: totalTournaments ?? 0, icon: '🏆' },

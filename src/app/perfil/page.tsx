@@ -26,7 +26,7 @@ const inputStyle: React.CSSProperties = {
 }
 
 function getPlayerTier(indice: number | null) {
-  if (indice == null) return 'Perfil en construccion'
+  if (indice == null) return 'Perfil en construcción'
   if (indice <= 5) return 'Competidor avanzado'
   if (indice <= 12) return 'Competidor consistente'
   if (indice <= 20) return 'Amateur en progreso'
@@ -120,7 +120,7 @@ export default function PerfilPage() {
   const scoringFocus = profile.indice != null ? (profile.indice <= 12 ? 'Cierre de ronda' : 'Consistencia hoyo a hoyo') : 'Completar historial'
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '28px 16px 40px' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '16px 16px 40px' }}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
         <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '18px' }}>
           ← Dashboard
@@ -131,12 +131,12 @@ export default function PerfilPage() {
             background: 'linear-gradient(135deg, rgba(23,49,41,0.96) 0%, rgba(14,28,47,0.94) 100%)',
             border: '1px solid rgba(196,153,42,0.18)',
             borderRadius: '18px',
-            padding: '26px',
+            padding: '20px',
             marginBottom: '18px',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
-            <div style={{ width: '78px', height: '78px', borderRadius: '50%', background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {initials}
             </div>
 
@@ -253,7 +253,7 @@ export default function PerfilPage() {
               <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 700, marginTop: '4px' }}>{playerTier}</div>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Proximo paso</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Próximo paso</div>
               <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 700, marginTop: '4px' }}>{scoringFocus}</div>
             </div>
           </div>

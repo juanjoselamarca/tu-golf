@@ -46,7 +46,7 @@ export default async function Home() {
             background: 'rgba(196,153,42,0.06)',
             border: '1px solid rgba(196,153,42,0.2)',
             borderRadius: '16px',
-            padding: '24px',
+            padding: '16px',
             textDecoration: 'none',
             transition: 'all 0.2s',
           }}
@@ -74,7 +74,7 @@ export default async function Home() {
       {/* ── Cómo funciona ─────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-28">
 
-        <div className="text-center mb-12 md:mb-20">
+        <div className="text-center mb-8 md:mb-20">
           <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-ivory mb-4">
             Tan simple como jugar golf
           </h2>
@@ -101,7 +101,7 @@ export default async function Home() {
             <div key={s.num} className="relative flex flex-col">
 
               {/* Watermark number + icon */}
-              <div className="relative mb-5 h-20 flex items-start">
+              <div className="relative mb-5 h-14 md:h-20 flex items-start">
                 <span
                   className="font-display font-black text-[60px] md:text-[90px] leading-none select-none"
                   style={{ color: 'rgba(196,153,42,0.14)', lineHeight: 1 }}
@@ -130,7 +130,7 @@ export default async function Home() {
       {/* ── CTA ───────────────────────────────────────── */}
       <section className="bg-bg-card">
         <div className="gold-divider" />
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-24 text-center">
           <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-ivory mb-6">
             Empieza a jugar diferente
           </h2>

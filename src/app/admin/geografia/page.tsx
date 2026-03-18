@@ -20,7 +20,7 @@ export default function GeografiaPage() {
       >
         Geografía
       </h1>
-      <p style={{ color: '#7a8fa8', marginBottom: '32px' }}>
+      <p style={{ color: '#94a8c0', marginBottom: '32px' }}>
         Distribución geográfica de usuarios y canchas
       </p>
 
@@ -37,7 +37,7 @@ export default function GeografiaPage() {
           Distribución por país
         </h2>
         <div style={card}>
-          <p style={{ color: '#7a8fa8', marginBottom: '20px', fontSize: '0.95rem' }}>
+          <p style={{ color: '#94a8c0', marginBottom: '20px', fontSize: '0.95rem' }}>
             La mayoría de los usuarios son de Chile. Distribución detallada disponible
             cuando haya datos de más países.
           </p>
@@ -88,7 +88,7 @@ export default function GeografiaPage() {
           Top canchas más usadas
         </h2>
         <div style={card}>
-          <p style={{ color: '#7a8fa8', fontSize: '0.95rem' }}>
+          <p style={{ color: '#94a8c0', fontSize: '0.95rem' }}>
             Las canchas más populares aparecerán aquí basadas en torneos y rondas registradas.
           </p>
           <div
@@ -100,7 +100,7 @@ export default function GeografiaPage() {
               textAlign: 'center',
             }}
           >
-            <span style={{ color: '#7a8fa8', fontSize: '0.9rem' }}>
+            <span style={{ color: '#94a8c0', fontSize: '0.9rem' }}>
               Sin datos suficientes aún
             </span>
           </div>
@@ -120,10 +120,10 @@ export default function GeografiaPage() {
           Canchas sin datos completos
         </h2>
         <div style={card}>
-          <p style={{ color: '#7a8fa8', fontSize: '0.95rem', marginBottom: '4px' }}>
+          <p style={{ color: '#94a8c0', fontSize: '0.95rem', marginBottom: '4px' }}>
             Canchas sin stroke_index — GWI y neto no disponibles para estas canchas.
           </p>
-          <p style={{ color: '#7a8fa8', fontSize: '0.95rem' }}>
+          <p style={{ color: '#94a8c0', fontSize: '0.95rem' }}>
             Información disponible próximamente.
           </p>
           <div
@@ -135,7 +135,7 @@ export default function GeografiaPage() {
               textAlign: 'center',
             }}
           >
-            <span style={{ color: '#7a8fa8', fontSize: '0.9rem' }}>
+            <span style={{ color: '#94a8c0', fontSize: '0.9rem' }}>
               Sin datos suficientes aún
             </span>
           </div>

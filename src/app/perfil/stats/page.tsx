@@ -415,7 +415,7 @@ export default function StatsPage() {
         {/* ── Top 5 rounds ── */}
         <div style={{ ...cardStyle }}>
           <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 12px' }}>
-            Top 5 rondas
+            Mejores 5 rondas
           </p>
           {topRounds.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

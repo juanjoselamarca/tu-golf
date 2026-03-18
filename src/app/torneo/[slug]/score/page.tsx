@@ -88,7 +88,7 @@ export default function PlayerScoringPage() {
     setSavedHoles(prev => new Set(prev).add(holeNumber))
   }
 
-  if (loading) return <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8fa8' }}>Cargando...</div>
+  if (loading) return <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0' }}>Cargando...</div>
   if (!tournament) return <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fca5a5' }}>Torneo no encontrado.</div>
 
   const selectedPlayer = players.find(p => p.id === selectedId)
@@ -100,8 +100,8 @@ export default function PlayerScoringPage() {
       {/* Header */}
       <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '16px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <Link href={`/torneo/${tournament.slug}`} style={{ color: '#7a8fa8', fontSize: '12px', textDecoration: 'none' }}>← Leaderboard</Link>
-          {saving && <span style={{ fontSize: '12px', color: '#7a8fa8' }}>Guardando...</span>}
+          <Link href={`/torneo/${tournament.slug}`} style={{ color: '#94a8c0', fontSize: '12px', textDecoration: 'none' }}>← Leaderboard</Link>
+          {saving && <span style={{ fontSize: '12px', color: '#94a8c0' }}>Guardando...</span>}
         </div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', margin: '0 0 2px' }}>{tournament.name}</h1>
         {selectedPlayer && <p style={{ fontSize: '13px', color: '#c4992a', margin: 0 }}>{selectedPlayer.profiles?.name} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}
@@ -119,7 +119,7 @@ export default function PlayerScoringPage() {
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#c4992a'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(122,143,168,0.2)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(7,13,24,0.5)' }}>
                   {p.profiles?.name}
-                  {p.handicap_at_registration != null && <span style={{ color: '#7a8fa8', fontSize: '13px', marginLeft: '8px' }}>HCP {p.handicap_at_registration}</span>}
+                  {p.handicap_at_registration != null && <span style={{ color: '#94a8c0', fontSize: '13px', marginLeft: '8px' }}>HCP {p.handicap_at_registration}</span>}
                 </button>
               ))}
             </div>
@@ -130,7 +130,7 @@ export default function PlayerScoringPage() {
         {selectedPlayer && (
           <>
             <button type="button" onClick={() => { setSelectedId(''); setCurrentScores({}); setSavedHoles(new Set()) }}
-              style={{ background: 'none', border: 'none', color: '#7a8fa8', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
+              style={{ background: 'none', border: 'none', color: '#94a8c0', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
               ← Cambiar jugador
             </button>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -151,7 +151,7 @@ export default function PlayerScoringPage() {
                 return (
                   <div key={holeNum} style={{ background: bg, border, borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 200ms' }}>
                     <div>
-                      <div style={{ color: '#7a8fa8', fontSize: '12px', marginBottom: '2px' }}>Hoyo {holeNum}</div>
+                      <div style={{ color: '#94a8c0', fontSize: '12px', marginBottom: '2px' }}>Hoyo {holeNum}</div>
                       <div style={{ color: '#edeae4', fontSize: '14px' }}>Par {par}{hole?.stroke_index ? ` · SI ${hole.stroke_index}` : ''}</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

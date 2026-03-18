@@ -51,7 +51,7 @@ export default function GolfPage() {
 
   if (!data) {
     return (
-      <div className="text-center py-20 text-[#7a8fa8]">
+      <div className="text-center py-20 text-[#94a8c0]">
         Error al cargar datos de golf
       </div>
     )
@@ -98,7 +98,7 @@ export default function GolfPage() {
             className="flex items-center justify-center rounded-lg border-2 border-dashed border-[#132540]"
             style={{ height: 250 }}
           >
-            <p className="text-sm text-[#7a8fa8] text-center px-4">
+            <p className="text-sm text-[#94a8c0] text-center px-4">
               Distribución de handicaps — se mostrará cuando haya suficientes usuarios con índice registrado
             </p>
           </div>
@@ -108,8 +108,8 @@ export default function GolfPage() {
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={handicapRanges}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#132540" />
-                <XAxis dataKey="range" tick={{ fill: '#7a8fa8', fontSize: 12 }} />
-                <YAxis tick={{ fill: '#7a8fa8', fontSize: 12 }} />
+                <XAxis dataKey="range" tick={{ fill: '#94a8c0', fontSize: 12 }} />
+                <YAxis tick={{ fill: '#94a8c0', fontSize: 12 }} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#0a1628',
@@ -127,7 +127,7 @@ export default function GolfPage() {
             {handicapRanges.map((r) => (
               <span
                 key={r.key}
-                className="inline-block rounded-full border border-[#132540] bg-[#050b14] px-3 py-1 text-xs text-[#7a8fa8]"
+                className="inline-block rounded-full border border-[#132540] bg-[#050b14] px-3 py-1 text-xs text-[#94a8c0]"
               >
                 {r.range}
               </span>
@@ -161,12 +161,12 @@ function KPICard({
 }) {
   return (
     <div className="rounded-xl border border-[#132540] bg-[#0a1628] p-5">
-      <p className="text-xs text-[#7a8fa8] uppercase tracking-wide" style={{ fontSize: 12 }}>
+      <p className="text-xs text-[#94a8c0] uppercase tracking-wide" style={{ fontSize: 12 }}>
         {label}
       </p>
       <p
         className="font-display mt-1"
-        style={{ fontSize: '2.5rem', lineHeight: 1.1, color: placeholder ? '#7a8fa8' : '#c4992a' }}
+        style={{ fontSize: '2.5rem', lineHeight: 1.1, color: placeholder ? '#94a8c0' : '#c4992a' }}
       >
         {value}
       </p>

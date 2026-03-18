@@ -8,7 +8,7 @@ const cardBg  = '#0a1628'
 const border  = '#132540'
 const gold    = '#c4992a'
 const ivory   = '#edeae4'
-const gray    = '#7a8fa8'
+const gray    = '#94a8c0'
 
 const card: React.CSSProperties = {
   background: cardBg,

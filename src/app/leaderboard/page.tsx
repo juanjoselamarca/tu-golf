@@ -29,7 +29,7 @@ function gwiColor(gwi: number): string {
 function gwiDeltaColor(delta: number): string {
   if (delta > 0) return '#00e676'
   if (delta < 0) return '#ff1744'
-  return 'rgba(255,255,255,0.3)'
+  return 'rgba(255,255,255,0.5)'
 }
 
 /* ─── Position Badge ──────────────────────────────────── */
@@ -79,7 +79,7 @@ export default function LeaderboardPage() {
 
   const filtered = category === 'General'
     ? simPlayers
-    : category === 'Categoria A'
+    : category === 'Categoría A'
       ? simPlayers.filter(p => p.categoria === 'A')
       : simPlayers.filter(p => p.categoria === 'B')
 
@@ -99,7 +99,7 @@ export default function LeaderboardPage() {
               <span className="w-2 h-2 rounded-full bg-gold live-dot inline-block" />
               EN VIVO &middot; Ronda {roundNumber}
             </span>
-            <span className="font-sans text-xs text-gray-soft">Simulacion automatica &middot; Actualiza cada 20s</span>
+            <span className="font-sans text-xs text-gray-soft">Simulación automática &middot; Actualiza cada 20s</span>
           </div>
           <h1 className="font-display font-bold text-ivory" style={{ fontSize: 'clamp(24px, 4vw, 42px)', lineHeight: 1.05 }}>
             Copa Golfers+ Demo 2026
@@ -117,12 +117,12 @@ export default function LeaderboardPage() {
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e676', animation: 'livePulse 2s infinite' }} />
             <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: '#c9a84c', letterSpacing: '0.08em' }}>EN VIVO</span>
           </div>
-          <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>Ronda {roundNumber}</span>
+          <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Ronda {roundNumber}</span>
         </div>
         <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700, color: '#edeae4', marginBottom: '4px' }}>
           Copa Golfers+ Demo 2026
         </div>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '12px' }}>
+        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginBottom: '12px' }}>
           Club de Golf Los Leones
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
@@ -134,7 +134,7 @@ export default function LeaderboardPage() {
           ].map(p => (
             <div key={p.label} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
               <div style={{ fontFamily: 'var(--font-cormorant), serif', fontSize: '18px', fontWeight: 300, color: '#edeae4' }}>{p.value}</div>
-              <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>{p.label}</div>
+              <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: 'rgba(255,255,255,0.5)' }}>{p.label}</div>
             </div>
           ))}
         </div>
@@ -155,7 +155,7 @@ export default function LeaderboardPage() {
 
       {/* ── Category tabs ──────────────────────────────── */}
       <div style={{ padding: '12px 16px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
-        {['General', 'Categoria A', 'Categoria B'].map(tab => (
+        {['General', 'Categoría A', 'Categoría B'].map(tab => (
           <button key={tab} onClick={() => setCategory(tab)} style={{
             padding: '8px 16px', borderRadius: '6px', whiteSpace: 'nowrap',
             fontSize: '13px', fontWeight: category === tab ? 600 : 400,
@@ -175,7 +175,7 @@ export default function LeaderboardPage() {
               <tr style={{ background: 'rgba(196,153,42,0.08)', borderBottom: '1px solid rgba(196,153,42,0.28)' }}>
                 {[
                   { label: 'POS', align: 'center' as const, w: 70 },
-                  { label: 'PLAYER', align: 'left' as const, w: undefined },
+                  { label: 'JUGADOR', align: 'left' as const, w: undefined },
                   { label: 'TOT', align: 'center' as const, w: 90 },
                   { label: 'THRU', align: 'center' as const, w: 70 },
                   { label: 'R1', align: 'center' as const, w: 70 },
@@ -185,7 +185,7 @@ export default function LeaderboardPage() {
                     key={col.label}
                     style={{
                       padding: '12px 16px',
-                      fontSize: 11, letterSpacing: '0.12em', color: '#7a8fa8',
+                      fontSize: 11, letterSpacing: '0.12em', color: '#94a8c0',
                       textTransform: 'uppercase', fontWeight: 600,
                       textAlign: col.align,
                       width: col.w,
@@ -237,7 +237,7 @@ export default function LeaderboardPage() {
                             <div style={{ fontSize: 15, fontWeight: 600, color: '#edeae4' }}>
                               {player.pais} {player.name}
                             </div>
-                            <div style={{ fontSize: 11, color: '#7a8fa8', marginTop: 2 }}>
+                            <div style={{ fontSize: 11, color: '#94a8c0', marginTop: 2 }}>
                               <span style={{
                                 display: 'inline-block', padding: '1px 6px', borderRadius: 3,
                                 background: player.categoria === 'A' ? 'rgba(0,230,118,0.12)' : 'rgba(196,153,42,0.12)',
@@ -273,7 +273,7 @@ export default function LeaderboardPage() {
                           )}
                           <span style={{
                             fontSize: 14, fontWeight: 600,
-                            color: player.status === 'finished' ? '#7a8fa8' : '#c9a84c',
+                            color: player.status === 'finished' ? '#94a8c0' : '#c9a84c',
                             fontFamily: 'var(--font-dm-mono), monospace',
                           }}>
                             {thru}
@@ -322,8 +322,8 @@ export default function LeaderboardPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: '56px 16px', textAlign: 'center', color: '#7a8fa8', fontSize: 14 }}>
-                    No hay jugadores en esta categoria.
+                  <td colSpan={6} style={{ padding: '56px 16px', textAlign: 'center', color: '#94a8c0', fontSize: 14 }}>
+                    No hay jugadores en esta categoría.
                   </td>
                 </tr>
               )}
@@ -332,7 +332,7 @@ export default function LeaderboardPage() {
 
           {/* Footer hint */}
           <div style={{
-            padding: '8px 16px', fontSize: 11, color: '#7a8fa8', textAlign: 'right',
+            padding: '8px 16px', fontSize: 11, color: '#94a8c0', textAlign: 'right',
             background: 'rgba(196,153,42,0.04)', borderTop: '1px solid rgba(196,153,42,0.08)',
             fontFamily: 'var(--font-dm-mono), monospace',
           }}>

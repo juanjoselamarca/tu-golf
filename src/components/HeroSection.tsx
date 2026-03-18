@@ -23,7 +23,7 @@ export default function HeroSection() {
   }, [])
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden">
+    <section className="relative min-h-[85vh] md:min-h-screen flex items-center overflow-hidden">
 
       {/* ── Slideshow background ─────────────────────────── */}
       {IMAGES.map((src, i) => (
@@ -64,7 +64,7 @@ export default function HeroSection() {
       </div>
 
       {/* ── Content ──────────────────────────────────────── */}
-      <div className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
+      <div className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32">
         <div className="flex flex-col lg:grid lg:grid-cols-5 gap-12 lg:gap-16 items-center">
 
           {/* Left — text + CTAs ─────────────────────────── */}
@@ -83,7 +83,7 @@ export default function HeroSection() {
             </div>
 
             {/* H1 */}
-            <h1 className="font-display font-black leading-[1.05] mb-6 text-[42px] lg:text-[72px]">
+            <h1 className="font-display font-black leading-[1.05] mb-6 text-[36px] sm:text-[42px] lg:text-[72px]">
               <span className="text-ivory block">Tu mejor golf,</span>
               <span className="text-gold">empieza con los datos</span>
             </h1>

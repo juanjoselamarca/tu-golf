@@ -182,7 +182,7 @@ export default function SesionDetailPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#7a8fa8',
+        color: '#94a8c0',
       }}>
         Cargando sesión...
       </div>
@@ -246,7 +246,7 @@ export default function SesionDetailPage() {
           }}>
             {SESSION_TYPE_LABELS[session?.session_type || ''] || session?.session_type}
           </span>
-          <span style={{ color: '#7a8fa8', fontSize: 12 }}>
+          <span style={{ color: '#94a8c0', fontSize: 12 }}>
             {sessionDate}
           </span>
         </div>
@@ -343,7 +343,7 @@ export default function SesionDetailPage() {
             marginTop: 20,
             padding: 16,
           }}>
-            <p style={{ color: '#7a8fa8', fontSize: 14 }}>
+            <p style={{ color: '#94a8c0', fontSize: 14 }}>
               Sesión completada
             </p>
           </div>
@@ -394,7 +394,7 @@ export default function SesionDetailPage() {
             borderRadius: 10,
             background: inputDisabled || !input.trim() ? 'rgba(196,153,42,0.15)' : '#c4992a',
             border: 'none',
-            color: inputDisabled || !input.trim() ? '#7a8fa8' : '#070d18',
+            color: inputDisabled || !input.trim() ? '#94a8c0' : '#070d18',
             fontSize: 18,
             cursor: inputDisabled ? 'not-allowed' : 'pointer',
             display: 'flex',

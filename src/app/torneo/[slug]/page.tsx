@@ -334,7 +334,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '12px', padding: '3px 10px', borderRadius: '8px', fontWeight: 600 }}>
               {modoJuego === 'gross' ? 'Gross' : modoJuego === 'neto' ? 'Neto' : 'Stableford'}
             </span>
-            {isLive && <span style={{ fontSize: '12px', color: '#7a8fa8' }}>{totalHoyos} hoyos</span>}
+            {isLive && <span style={{ fontSize: '12px', color: '#94a8c0' }}>{totalHoyos} hoyos</span>}
           </div>
         )}
         {players.length > 0 ? (
@@ -353,7 +353,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             )}
           </>
         ) : (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#7a8fa8' }}>
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a8c0' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
             <div style={{ fontSize: '18px', color: '#edeae4', marginBottom: '8px' }}>
               {tournament ? 'Sin jugadores inscritos aún' : 'Torneo no encontrado'}
@@ -378,44 +378,44 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             {/* Mejor tarjeta */}
             <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
               <div style={{ fontSize: '28px', marginBottom: '8px' }}>🏆</div>
-              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Mejor tarjeta</div>
+              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Mejor tarjeta</div>
               <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', fontWeight: 700, marginBottom: '4px' }}>{stats.bestName}</div>
               <div style={{ fontSize: '14px', color: '#c4992a', fontWeight: 600 }}>{fmtNet(stats.bestNet - parTotal)}</div>
             </div>
             {/* Scoring average */}
             <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
               <div style={{ fontSize: '28px', marginBottom: '8px' }}>📊</div>
-              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Scoring average</div>
+              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Scoring average</div>
               <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{fmtNet(stats.avgNet)}</div>
             </div>
             {/* Eagles */}
             <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
               <div style={{ fontSize: '28px', marginBottom: '8px' }}>🦅</div>
-              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Eagles</div>
+              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Eagles</div>
               <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{stats.eagles}</div>
             </div>
             {/* Birdies */}
             <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
               <div style={{ fontSize: '28px', marginBottom: '8px' }}>🐦</div>
-              <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Birdies</div>
+              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Birdies</div>
               <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{stats.birdies}</div>
             </div>
             {/* Hardest hole */}
             {stats.hardestHole && (
               <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
                 <div style={{ fontSize: '28px', marginBottom: '8px' }}>⛳</div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Hoyo más difícil</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Hoyo más difícil</div>
                 <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>Hoyo {stats.hardestHole.hole}</div>
-                <div style={{ fontSize: '13px', color: '#7a8fa8' }}>Avg {fmtNet(stats.hardestHole.avg)} vs par</div>
+                <div style={{ fontSize: '13px', color: '#94a8c0' }}>Avg {fmtNet(stats.hardestHole.avg)} vs par</div>
               </div>
             )}
             {/* Easiest hole */}
             {stats.easiestHole && (
               <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
                 <div style={{ fontSize: '28px', marginBottom: '8px' }}>💪</div>
-                <div style={{ fontSize: '11px', color: '#7a8fa8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Hoyo más fácil</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Hoyo más fácil</div>
                 <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>Hoyo {stats.easiestHole.hole}</div>
-                <div style={{ fontSize: '13px', color: '#7a8fa8' }}>Avg {fmtNet(stats.easiestHole.avg)} vs par</div>
+                <div style={{ fontSize: '13px', color: '#94a8c0' }}>Avg {fmtNet(stats.easiestHole.avg)} vs par</div>
               </div>
             )}
           </div>

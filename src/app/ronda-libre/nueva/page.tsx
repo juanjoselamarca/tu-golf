@@ -110,7 +110,7 @@ export default function NuevaRondaLibrePage() {
 
     const jugadoresValidos = jugadores.filter(j => j.trim() !== '')
     if (jugadoresValidos.length === 0) {
-      alert('Agrega al menos un jugador para crear la ronda.')
+      console.error('Agrega al menos un jugador para crear la ronda.')
       return
     }
 
@@ -155,27 +155,27 @@ export default function NuevaRondaLibrePage() {
         if (e2 || !d2) {
           setLoading(false)
           if (e2?.message?.includes("'public.rondas_libres'") || e2?.message?.includes('relation') || e2?.code === '42P01') {
-            alert('La base de datos aún no está configurada. Ejecuta el archivo EJECUTAR_EN_SUPABASE.sql en el panel de Supabase.')
+            console.error('La base de datos aún no está configurada. Ejecuta el archivo EJECUTAR_EN_SUPABASE.sql en el panel de Supabase.')
           } else {
-            alert('Error al crear la ronda: ' + e2?.message)
+            console.error('Error al crear la ronda: ' + e2?.message)
           }
           return
         }
         ronda = d2
       } else if (e1.message?.includes("'public.rondas_libres'") || e1.message?.includes('relation') || e1.code === '42P01') {
         setLoading(false)
-        alert('La base de datos aún no está configurada. Ejecuta el archivo EJECUTAR_EN_SUPABASE.sql en el panel de Supabase.')
+        console.error('La base de datos aún no está configurada. Ejecuta el archivo EJECUTAR_EN_SUPABASE.sql en el panel de Supabase.')
         return
       } else {
         setLoading(false)
-        alert('Error al crear la ronda: ' + e1.message)
+        console.error('Error al crear la ronda: ' + e1.message)
         return
       }
     }
 
     if (!ronda) {
       setLoading(false)
-      alert('Error al crear la ronda.')
+      console.error('Error al crear la ronda.')
       return
     }
 
@@ -196,7 +196,7 @@ export default function NuevaRondaLibrePage() {
   const filledCount = jugadores.filter((j) => j.trim()).length
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '40px 16px' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '20px 16px' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
 
         {/* Back link */}
@@ -205,10 +205,10 @@ export default function NuevaRondaLibrePage() {
         </Link>
 
         {/* Card */}
-        <div style={{ background: 'var(--bg-card-light)', border: '1px solid var(--border)', borderRadius: '16px', padding: '32px' }}>
+        <div style={{ background: 'var(--bg-card-light)', border: '1px solid var(--border)', borderRadius: '16px', padding: '20px' }}>
 
           {/* Title */}
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', marginBottom: '28px', marginTop: 0 }}>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', marginBottom: '20px', marginTop: 0 }}>
             ⛳ Nueva Ronda Libre
           </h1>
 

@@ -8,7 +8,7 @@ export default function AuthCodeErrorPage() {
       <h1 style={{ color: '#c4992a', fontSize: '2rem', marginBottom: '1rem' }}>
         Error de autenticación
       </h1>
-      <p style={{ marginBottom: '2rem', color: '#7a8fa8' }}>
+      <p style={{ marginBottom: '2rem', color: '#94a8c0' }}>
         El enlace expiró o ya fue usado. Intenta iniciar sesión de nuevo.
       </p>
       <a href="/login" style={{

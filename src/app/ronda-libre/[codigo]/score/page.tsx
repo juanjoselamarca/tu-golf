@@ -288,7 +288,7 @@ function ScorePageContent() {
       }}>
         <button onClick={handleExit} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(255,255,255,0.45)', fontSize: '14px',
+          color: 'rgba(255,255,255,0.6)', fontSize: '14px',
           padding: '8px', minWidth: '44px', minHeight: '44px',
           display: 'flex', alignItems: 'center',
           WebkitTapHighlightColor: 'transparent',
@@ -300,11 +300,11 @@ function ScorePageContent() {
           WebkitTapHighlightColor: 'transparent',
         }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
-          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)' }}>
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.55)' }}>
             {ronda.course_name} {showMiniCard ? '▲' : '▼'}
           </div>
         </button>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)', minWidth: '44px', textAlign: 'right' }}>
+        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', minWidth: '44px', textAlign: 'right' }}>
           {currentHole}/{totalHoles}
         </div>
       </header>
@@ -341,7 +341,7 @@ function ScorePageContent() {
                   cursor: 'pointer', flexShrink: 0, padding: 0,
                   WebkitTapHighlightColor: 'transparent',
                 }}>
-                  <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', lineHeight: 1 }}>{h}</span>
+                  <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>{h}</span>
                   <span style={{ fontSize: '13px', fontWeight: 700, color, lineHeight: 1.2 }}>
                     {s ?? '·'}
                   </span>
@@ -516,7 +516,7 @@ function ScorePageContent() {
             onClick={goToPrevHole}
             style={{
               width: '100%', padding: '12px', background: 'transparent',
-              color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: '14px', fontSize: '14px', fontWeight: 400,
               cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             }}

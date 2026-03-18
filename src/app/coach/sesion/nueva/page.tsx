@@ -158,7 +158,7 @@ export default function NuevaSesionPage() {
       }}>
         Nueva sesión
       </h1>
-      <p style={{ color: '#7a8fa8', fontSize: 14, marginBottom: 24 }}>
+      <p style={{ color: '#94a8c0', fontSize: 14, marginBottom: 24 }}>
         ¿Qué quieres trabajar hoy?
       </p>
 
@@ -204,7 +204,7 @@ export default function NuevaSesionPage() {
           <h2 style={{ color: '#edeae4', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
             Análisis post-ronda
           </h2>
-          <p style={{ color: '#7a8fa8', fontSize: 13, margin: 0 }}>
+          <p style={{ color: '#94a8c0', fontSize: 13, margin: 0 }}>
             Revisamos hole a hole qué pasó, qué área te costó más y qué hacer esta semana para corregirlo.
           </p>
 
@@ -214,12 +214,12 @@ export default function NuevaSesionPage() {
               onClick={e => e.stopPropagation()}
             >
               {rondas.length === 0 ? (
-                <p style={{ color: '#7a8fa8', fontSize: 13 }}>
+                <p style={{ color: '#94a8c0', fontSize: 13 }}>
                   No tienes rondas registradas aún.
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ color: '#7a8fa8', fontSize: 12, marginBottom: 4 }}>
+                  <label style={{ color: '#94a8c0', fontSize: 12, marginBottom: 4 }}>
                     Selecciona una ronda:
                   </label>
                   <select
@@ -278,7 +278,7 @@ export default function NuevaSesionPage() {
           <h2 style={{ color: '#edeae4', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
             Plan semanal
           </h2>
-          <p style={{ color: '#7a8fa8', fontSize: 13, margin: 0 }}>
+          <p style={{ color: '#94a8c0', fontSize: 13, margin: 0 }}>
             Recibe un plan de práctica personalizado para la semana
           </p>
         </div>
@@ -294,7 +294,7 @@ export default function NuevaSesionPage() {
           <h2 style={{ color: '#edeae4', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
             Consulta libre
           </h2>
-          <p style={{ color: '#7a8fa8', fontSize: 13, margin: 0 }}>
+          <p style={{ color: '#94a8c0', fontSize: 13, margin: 0 }}>
             Pregúntale lo que quieras a tAIger+ sobre tu juego
           </p>
         </div>
