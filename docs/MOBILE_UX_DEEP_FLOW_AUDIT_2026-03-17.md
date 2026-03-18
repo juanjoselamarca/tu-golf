@@ -1087,3 +1087,393 @@ Problemas:
 - Reforzar contraste y legibilidad outdoor.
 - Diseñar más momentos de foco puro.
 - Convertir más flujos en secuencias pequeñas y no pantallas densas.
+
+## 7. Top 25 oportunidades de mejora
+
+1. Replantear scoring torneo como flujo por hoyo y no como grilla.
+- Flujo afectado: scoring torneo
+- Problema actual: consola densa, alto riesgo de error.
+- Mejora propuesta: captura centrada en hoyo actual y jugador actual.
+- Impacto esperado: enorme mejora en velocidad, confianza y ergonomía.
+- Prioridad: crítica
+
+2. Separar score principal de estadísticas adicionales en torneo.
+- Flujo afectado: scoring torneo
+- Problema actual: dos tareas mezcladas.
+- Mejora propuesta: modo principal limpio y stats opcionales posteriores.
+- Impacto esperado: menor carga cognitiva.
+- Prioridad: crítica
+
+3. Rediseñar leaderboard móvil con lógica card-first.
+- Flujo afectado: leaderboard
+- Problema actual: demasiado table-first.
+- Mejora propuesta: cards competitivas escaneables.
+- Impacto esperado: menos fatiga y más comprensión.
+- Prioridad: crítica
+
+4. Crear una arquitectura de navegación móvil persistente.
+- Flujo afectado: navegación transversal
+- Problema actual: sistema heterogéneo.
+- Mejora propuesta: patrón estable para secciones principales.
+- Impacto esperado: más orientación y menos esfuerzo mental.
+- Prioridad: crítica
+
+5. Reordenar dashboard alrededor de “la siguiente mejor acción”.
+- Flujo afectado: home/dashboard
+- Problema actual: demasiadas opciones con igual peso.
+- Mejora propuesta: priorización contextual.
+- Impacto esperado: más uso recurrente y claridad.
+- Prioridad: alta
+
+6. Reducir densidad del primer viewport en dashboard.
+- Flujo afectado: home/dashboard
+- Problema actual: demasiados bloques arriba.
+- Mejora propuesta: limpiar fold inicial.
+- Impacto esperado: rapidez percibida.
+- Prioridad: alta
+
+7. Hacer más visible el estado de guardado en scoring de ronda libre.
+- Flujo afectado: ronda libre score
+- Problema actual: guardado correcto, pero algo sutil.
+- Mejora propuesta: señales más claras y tranquilizadoras.
+- Impacto esperado: más confianza.
+- Prioridad: alta
+
+8. Crear modo ultra focus en scoring de ronda libre.
+- Flujo afectado: ronda libre score
+- Problema actual: aún hay elementos secundarios.
+- Mejora propuesta: reducir ruido durante captura.
+- Impacto esperado: experiencia premium diferencial.
+- Prioridad: alta
+
+9. Mejorar legibilidad al aire libre.
+- Flujo afectado: transversal
+- Problema actual: labels y secundarios pequeños.
+- Mejora propuesta: subir contraste y tamaño útil.
+- Impacto esperado: menos errores y más confort.
+- Prioridad: alta
+
+10. Replantear ingreso de jugadores a torneo como flujo más guiado.
+- Flujo afectado: gestión de torneo
+- Problema actual: buscador + selects + tabla se siente administrativo.
+- Mejora propuesta: cards y confirmaciones más humanas.
+- Impacto esperado: menos errores y más velocidad.
+- Prioridad: alta
+
+11. Simplificar la vista espectador de ronda libre.
+- Flujo afectado: ronda libre spectator
+- Problema actual: timeline + GWI + leaderboard compiten.
+- Mejora propuesta: capas más claras.
+- Impacto esperado: comprensión inmediata.
+- Prioridad: alta
+
+12. Mejorar entrada por rol en ronda libre con más certeza contextual.
+- Flujo afectado: ronda libre entry
+- Problema actual: buena, pero aún mejorable.
+- Mejora propuesta: reforzar consecuencias y CTA.
+- Impacto esperado: menos duda.
+- Prioridad: media-alta
+
+13. Reestructurar historial como flujo menos denso.
+- Flujo afectado: historial
+- Problema actual: 18 inputs y mucha carga.
+- Mejora propuesta: wizard, pasos o captura progresiva.
+- Impacto esperado: más finalización.
+- Prioridad: alta
+
+14. Separar mejor consulta y carga en historial.
+- Flujo afectado: historial
+- Problema actual: todo convive en la misma experiencia.
+- Mejora propuesta: summary first, form second.
+- Impacto esperado: menor cansancio.
+- Prioridad: alta
+
+15. Hacer perfil más accionable.
+- Flujo afectado: perfil
+- Problema actual: más ficha que centro de acción.
+- Mejora propuesta: próximo paso claro y bloques con propósito.
+- Impacto esperado: más utilidad percibida.
+- Prioridad: media
+
+16. Bajar densidad conceptual del coach dashboard.
+- Flujo afectado: coach
+- Problema actual: mucho framing y explicación.
+- Mejora propuesta: priorizar insight principal y CTA.
+- Impacto esperado: más claridad.
+- Prioridad: media-alta
+
+17. Dar más calidez y contención a límites y errores en tAIger.
+- Flujo afectado: coach chat y sesiones
+- Problema actual: cortes funcionales pero algo bruscos.
+- Mejora propuesta: mensajes y recovery más premium.
+- Impacto esperado: menor frustración.
+- Prioridad: media
+
+18. Unificar visualmente headers y acciones superiores.
+- Flujo afectado: transversal
+- Problema actual: demasiadas variantes.
+- Mejora propuesta: patrón visual común.
+- Impacto esperado: coherencia premium.
+- Prioridad: alta
+
+19. Unificar CTAs primarios y secundarios.
+- Flujo afectado: transversal
+- Problema actual: estilos y jerarquías irregulares.
+- Mejora propuesta: sistema consistente.
+- Impacto esperado: más claridad.
+- Prioridad: alta
+
+20. Reforzar pressed, selected y active states.
+- Flujo afectado: transversal
+- Problema actual: buenos en algunos sitios, flojos en otros.
+- Mejora propuesta: feedback táctil consistente.
+- Impacto esperado: sensación premium.
+- Prioridad: media
+
+21. Mejorar empty states con orientación más útil.
+- Flujo afectado: transversal
+- Problema actual: varios son correctos pero simples.
+- Mejora propuesta: CTAs y contexto más fuertes.
+- Impacto esperado: menos abandono.
+- Prioridad: media
+
+22. Mejorar loading states para que reduzcan ansiedad.
+- Flujo afectado: transversal
+- Problema actual: varios loaders muy básicos.
+- Mejora propuesta: skeletons más contextuales.
+- Impacto esperado: mejor velocidad percibida.
+- Prioridad: media
+
+23. Hacer más evidente la continuidad entre torneo, scoring y leaderboard.
+- Flujo afectado: torneos
+- Problema actual: transiciones buenas pero no fluidas al máximo.
+- Mejora propuesta: arquitectura conectada.
+- Impacto esperado: menor fricción.
+- Prioridad: alta
+
+24. Optimizar formularios largos para una mano.
+- Flujo afectado: creación torneo, edición torneo, ronda libre nueva, historial
+- Problema actual: pantallas largas con varias decisiones.
+- Mejora propuesta: bloques más cortos y secuenciados.
+- Impacto esperado: más finalización.
+- Prioridad: alta
+
+25. Crear lenguaje premium de guardado, éxito y cierre.
+- Flujo afectado: scoring, formularios, coach
+- Problema actual: feedback funcional, no memorable.
+- Mejora propuesta: sistema de confirmaciones sobrio y seguro.
+- Impacto esperado: confianza transversal.
+- Prioridad: media-alta
+
+## 8. Quick wins
+
+- Subir tamaño y contraste de textos secundarios en scoring, leaderboard e historial.
+- Hacer más obvio el guardado en los flujos de score.
+- Reforzar el estado activo del jugador actual y del hoyo actual.
+- Aligerar el primer viewport del dashboard.
+- Unificar visualmente headers y back links.
+- Reducir protagonismo de módulos secundarios en ronda libre score.
+- Mejorar separación entre información primaria y secundaria en leaderboard.
+- Dar más claridad a mensajes de límite o error en coach.
+- Hacer más legibles chips, badges y pills en condiciones de lectura rápida.
+- Homogeneizar CTAs primarios y secundarios.
+
+## 9. Mejoras estructurales
+
+- Rediseñar scoring torneo como flujo mobile nativo.
+- Rediseñar leaderboard mobile con sistema card-first y contexto sticky.
+- Crear una arquitectura de navegación móvil persistente.
+- Reorganizar dashboard con lógica contextual.
+- Replantear historial como flujo de captura más progresivo.
+- Simplificar coach para que el valor sea más inmediato y menos explicativo.
+- Establecer un sistema visual transversal consistente en spacing, jerarquía y estados.
+
+## 10. Detalles premium
+
+- Animaciones discretas de confirmación al guardar score.
+- Señales de “todo bien” más calmadas y elegantes.
+- Skeletons contextuales por tipo de pantalla.
+- Estados pressed con sensación táctil más rica.
+- Más uso de sticky context en ranking y scoring.
+- Mejor ritmo vertical entre secciones.
+- Badges más consistentes.
+- Jerarquías tipográficas más firmes para lectura en 1 segundo.
+- Transiciones de expand/collapse más suaves y legibles.
+- Feedback emocional más sobrio en éxitos y cierres.
+
+## 11. Riesgos UX si se lanza hoy
+
+- Usuarios nuevos podrían percibir un producto con gran potencial pero todavía irregular.
+- El flujo de scoring de torneo puede ser el principal punto de pérdida de confianza operativa.
+- El leaderboard puede resultar más cansador de lo ideal para seguimiento frecuente.
+- El dashboard puede no conducir con suficiente fuerza a la acción clave.
+- Historial e insights pueden sentirse más exigentes que gratificantes desde móvil.
+- La experiencia premium quedaría sostenida por algunos módulos, pero no por el sistema completo.
+
+## 12. Backlog para Claude
+
+### Crítico
+
+#### 1. Rediseñar scoring torneo para uso real en cancha
+- Flujo afectado: scoring torneo
+- Problema que resuelve: densidad, error, baja ergonomía.
+- Por qué importa: es el corazón operativo más frágil hoy.
+- Impacto esperado: enorme mejora en confianza y velocidad.
+- Tipo de mejora: flujo, ergonomía, confianza
+
+#### 2. Rediseñar leaderboard mobile
+- Flujo afectado: leaderboard
+- Problema que resuelve: fatiga visual y comparación pesada.
+- Por qué importa: es un flujo de consulta recurrente y emocionalmente central.
+- Impacto esperado: más engagement y más claridad.
+- Tipo de mejora: flujo, visual, jerarquía
+
+#### 3. Definir arquitectura de navegación móvil
+- Flujo afectado: navegación transversal
+- Problema que resuelve: inconsistencia y desorientación suave.
+- Por qué importa: afecta todo el producto.
+- Impacto esperado: sensación de app madura.
+- Tipo de mejora: navegación, consistencia
+
+### Alto impacto
+
+#### 4. Reestructurar dashboard como centro de acción
+- Flujo afectado: dashboard
+- Problema que resuelve: exceso de opciones sin prioridad clara.
+- Por qué importa: condiciona adopción y uso recurrente.
+- Impacto esperado: menos carga cognitiva.
+- Tipo de mejora: flujo, jerarquía
+
+#### 5. Elevar scoring de ronda libre a nivel premium final
+- Flujo afectado: ronda libre score
+- Problema que resuelve: aún hay ruido y feedback mejorable.
+- Por qué importa: ya es el mejor flujo y debe ser referencia.
+- Impacto esperado: experiencia memorable.
+- Tipo de mejora: flujo, microinteracción, confianza
+
+#### 6. Replantear historial para móvil
+- Flujo afectado: historial
+- Problema que resuelve: carga excesiva.
+- Por qué importa: hoy limita utilidad recurrente.
+- Impacto esperado: más registro y menos abandono.
+- Tipo de mejora: flujo, ergonomía
+
+#### 7. Simplificar y priorizar coach
+- Flujo afectado: coach / sesiones
+- Problema que resuelve: densidad conceptual y fricción emocional.
+- Por qué importa: es diferencial de producto.
+- Impacto esperado: más valor percibido.
+- Tipo de mejora: claridad, confianza, flujo
+
+### Premium / polish
+
+#### 8. Normalizar sistema visual transversal
+- Flujo afectado: transversal
+- Problema que resuelve: inconsistencia entre pantallas.
+- Por qué importa: construye percepción premium.
+- Impacto esperado: coherencia alta.
+- Tipo de mejora: visual, consistencia
+
+#### 9. Mejorar estados y feedback operativos
+- Flujo afectado: scoring, formularios, coach
+- Problema que resuelve: señal insuficiente de control.
+- Por qué importa: reduce ansiedad y error.
+- Impacto esperado: más tranquilidad.
+- Tipo de mejora: microinteracción, confianza
+
+#### 10. Optimizar legibilidad outdoor
+- Flujo afectado: transversal
+- Problema que resuelve: lectura difícil en contexto real.
+- Por qué importa: el producto vive en cancha.
+- Impacto esperado: menos esfuerzo visual y más precisión.
+- Tipo de mejora: accesibilidad útil, ergonomía
+
+## 13. Prompt final para Claude
+
+```md
+Quiero que revises el informe `docs/MOBILE_UX_DEEP_FLOW_AUDIT_2026-03-17.md` y luego propongas e implementes mejoras concretas de UX mobile sobre este proyecto.
+
+## Contexto
+
+Producto:
+App web mobile-first de golf con foco en torneos, scoring, leaderboard, historial e insights/coach.
+
+Stack:
+- Next.js 14
+- TypeScript
+- Tailwind
+- Supabase
+
+Objetivo:
+Llevar la UX móvil a un estándar claramente premium, especialmente en uso real de cancha: una mano, atención parcial, velocidad, confianza y baja tolerancia al error.
+
+## Prioridades absolutas
+
+1. Scoring torneo
+2. Leaderboard mobile
+3. Navegación móvil transversal
+4. Dashboard/home
+5. Refinamiento premium del scoring de ronda libre
+
+## Diagnóstico base
+
+- El producto ya tiene intención mobile-first real, pero la calidad UX es desigual entre flujos.
+- El scoring de ronda libre es el mejor benchmark interno y debe servir como referencia.
+- El scoring de torneo hoy se siente demasiado cercano a una consola o scorecard densa, no a una herramienta móvil premium.
+- El leaderboard sigue demasiado apoyado en tablas y exige más esfuerzo del ideal en celular.
+- El dashboard tiene demasiados bloques con prioridad similar.
+- La navegación global todavía no se siente como una arquitectura mobile unificada.
+- Historial e insights son valiosos pero demasiado densos para uso frecuente cómodo.
+
+## Qué hacer primero
+
+### Fase 1
+- Rediseñar scoring torneo con criterio mobile nativo
+- Priorizar jugador activo, hoyo activo, score actual, guardado visible y continuidad clara
+- Evitar que la grilla o tabla sea el patrón principal
+
+### Fase 2
+- Rediseñar leaderboard mobile para scanability
+- Priorizar comparación rápida, sticky context y detalle progresivo
+
+### Fase 3
+- Unificar arquitectura de navegación móvil
+- Normalizar headers, back behavior y accesos frecuentes
+
+### Fase 4
+- Reestructurar dashboard para que priorice la siguiente mejor acción
+
+### Fase 5
+- Refinar scoring de ronda libre con más foco, mejor feedback y polish premium
+
+## Criterios de calidad
+
+- Mobile first real
+- Uso cómodo con una mano
+- Lectura rápida al aire libre
+- Menor carga cognitiva posible
+- Lo importante debe entenderse en menos de un segundo
+- Acciones principales siempre obvias
+- Prevención de errores antes de ocurrir
+- Confirmaciones y estados de guardado premium
+- Consistencia visual transversal
+- No romper flujos existentes que hoy funcionan bien
+
+## Qué evitar
+
+- No hagas refactors masivos sin impacto
+- No conviertas la app en un diseño genérico
+- No agregues más información al primer viewport
+- No uses tablas densas como solución por defecto en móvil
+- No rompas el flujo fuerte de ronda libre
+- No hagas cambios cosméticos sin resolver primero problemas operativos reales
+
+## Entrega esperada
+
+Cuando termines:
+- resume qué mejoras aplicaste
+- explica cómo mejoró scoring torneo
+- explica cómo mejoró leaderboard mobile
+- explica cómo quedó la arquitectura de navegación
+- lista riesgos UX que aún queden pendientes
+```

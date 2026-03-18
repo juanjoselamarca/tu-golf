@@ -209,6 +209,21 @@ function ScorePageContent() {
     const supabase = createClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
     await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
+
+    // Save to historical_rounds
+    const playerScores = scores[activeJugadorId] ?? {}
+    const grossTotal = Object.values(playerScores).reduce((a: number, b: number) => a + b, 0)
+    try {
+      await supabase.from('historical_rounds').insert({
+        user_id: authUser?.id,
+        course_name: ronda.course_name,
+        played_at: new Date().toISOString().split('T')[0],
+        total_gross: grossTotal,
+        scores: Object.entries(playerScores).sort(([a],[b]) => parseInt(a) - parseInt(b)).map(([,v]) => v),
+        privacy: 'private',
+      })
+    } catch { /* don't block finalization */ }
+
     setHasUnsaved(false)
     setTaigerStatus('analyzing')
     fetch('/api/taiger/analyze-round', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ronda_libre_id: codigo }) })

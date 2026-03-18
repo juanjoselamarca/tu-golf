@@ -155,9 +155,20 @@ export default function PerfilPage() {
               </h1>
               <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 8px' }}>{profile.email}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                <span style={{ fontSize: '13px', color: '#c8a55a', fontWeight: 700 }}>
-                  Handicap: {profile.indice != null ? profile.indice : 'Sin indice'}
-                </span>
+                {profile.indice != null ? (
+                  <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 700 }}>
+                    Índice: {profile.indice}
+                  </span>
+                ) : (
+                  <button onClick={() => setEditing(true)} style={{
+                    fontSize: '13px', color: '#dc2626', fontWeight: 600,
+                    background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)',
+                    borderRadius: '20px', padding: '4px 12px', cursor: 'pointer',
+                    minHeight: 0, minWidth: 0,
+                  }}>
+                    Sin índice · Agregar →
+                  </button>
+                )}
                 <span style={{ fontSize: '13px', color: '#9fb4aa' }}>
                   Torneos: {tourneysPlayed}
                 </span>
@@ -281,6 +292,7 @@ export default function PerfilPage() {
                   step="0.1"
                   min="0"
                   max="54"
+                  inputMode="decimal"
                   placeholder="Ej: 12.5"
                   value={editIndice}
                   onChange={(e) => setEditIndice(e.target.value)}

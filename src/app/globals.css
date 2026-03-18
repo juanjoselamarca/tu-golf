@@ -387,3 +387,6 @@ body[data-page="scorecard"] {
 .has-bottom-nav {
   padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
 }
+
+/* ── QA: Prevent horizontal overflow ── */
+html, body { overflow-x: hidden; max-width: 100vw; }

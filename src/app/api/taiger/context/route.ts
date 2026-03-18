@@ -84,6 +84,6 @@ export async function GET() {
       last_session:  lastSession,
     })
   } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
