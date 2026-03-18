@@ -1,15 +1,15 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-18 | Commit: `0d808d0`
+> Auto-generado: 2026-03-18 | Commit: `050c516`
 
 ## Último deploy
 
-- **Commit:** `0d808d0` — rebrand: tAIger+ nombre propio + copy premium homepage y coach
+- **Commit:** `050c516` — feat: GWI™ column in leaderboard — sparkline + number + delta per player
 - **Fecha:** 2026-03-17
-- **Branch:** main (46 commits total)
+- **Branch:** main (48 commits total)
 - **URL:** https://tu-golf.vercel.app
 
-## Páginas en producción (32 páginas)
+## Páginas en producción (33 páginas)
 
 - `/admin/configuracion`
 - `/admin/crecimiento`
@@ -27,6 +27,7 @@
 - `/coach/sesion/nueva`
 - `/coach/sesion/[id]`
 - `/dashboard`
+- `/demo`
 - `/leaderboard`
 - `/login`
 - `/organizador/nuevo`

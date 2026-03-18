@@ -37,6 +37,37 @@ export default async function Home() {
       {/* ── Hero ──────────────────────────────────────── */}
       <HeroSection />
 
+      {/* Demo link */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <Link
+          href="/demo"
+          style={{
+            display: 'block',
+            background: 'rgba(196,153,42,0.06)',
+            border: '1px solid rgba(196,153,42,0.2)',
+            borderRadius: '16px',
+            padding: '24px',
+            textDecoration: 'none',
+            transition: 'all 0.2s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#c4992a', background: 'rgba(196,153,42,0.15)', padding: '3px 10px', borderRadius: '10px', fontWeight: 600, letterSpacing: '0.08em' }}>
+              ✦ VER DEMO EN VIVO
+            </span>
+          </div>
+          <h3 className="font-display font-bold text-xl text-ivory mb-2">
+            Explora un perfil completo de Golfers+
+          </h3>
+          <p className="font-sans text-sm text-gray-soft mb-4">
+            30 rondas reales, GWI™ calculado, análisis de patrones. Sin crear cuenta.
+          </p>
+          <span style={{ color: '#c4992a', fontSize: '14px', fontWeight: 600 }}>
+            Ver perfil demo →
+          </span>
+        </Link>
+      </section>
+
       {/* ── Stats ─────────────────────────────────────── */}
       <StatsSection torneos={torneos ?? 0} golfistas={golfistas ?? 0} />
 

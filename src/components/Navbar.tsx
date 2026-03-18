@@ -169,6 +169,10 @@ export default function Navbar() {
               </div>
             ) : (
               <>
+                <Link href="/demo" style={{
+                  fontSize: '14px', fontWeight: 500, color: '#C4992A',
+                  textDecoration: 'none', minHeight: 0,
+                }}>Ver Demo</Link>
                 <Link href="/login" style={{
                   fontSize: '14px', fontWeight: 500,
                   color: isDarkPage ? 'rgba(255,255,255,0.7)' : '#4B5563',
@@ -256,6 +260,15 @@ export default function Navbar() {
             </button>
           ) : (
             <div style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Link href="/demo" onClick={() => setMenuOpen(false)} style={{
+                display: 'flex', alignItems: 'center', gap: '16px',
+                padding: '14px 8px', minHeight: '56px',
+                borderBottom: '1px solid rgba(0,0,0,0.04)', textDecoration: 'none',
+                color: '#C4992A', fontSize: '16px', fontWeight: 600,
+              }}>
+                <span style={{ fontSize: '20px', width: '28px', textAlign: 'center', flexShrink: 0 }}>✦</span>
+                Ver Demo
+              </Link>
               <Link href="/login" onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '14px 16px', textAlign: 'center', color: '#111827', fontSize: '16px', textDecoration: 'none', border: '1px solid #E5E7EB', borderRadius: '10px', minHeight: 0 }}>
                 Iniciar sesión
               </Link>
