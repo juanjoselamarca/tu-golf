@@ -4,15 +4,7 @@ import { useState } from 'react'
 import { GWISparkline } from './GWISparkline'
 import type { SimPlayer } from '@/hooks/useDemoSimulation'
 
-const DEMO_PARS = [4,5,3,4,3,4,4,3,5,4,5,4,3,5,4,5,3,4]
-
-function scoreColor(vspar: number): string {
-  if (vspar <= -2) return '#c9a84c'
-  if (vspar === -1) return '#00e676'
-  if (vspar === 0) return 'rgba(255,255,255,0.5)'
-  if (vspar === 1) return 'rgba(255,255,255,0.35)'
-  return '#ff1744'
-}
+const DEMO_PARS = [4, 5, 3, 4, 3, 4, 4, 3, 5, 4, 5, 4, 3, 5, 4, 5, 3, 4]
 
 function holeCellStyle(score: number | null, par: number) {
   if (score === null) return { bg: 'transparent', color: 'rgba(255,255,255,0.2)' }
@@ -24,6 +16,30 @@ function holeCellStyle(score: number | null, par: number) {
   return { bg: 'rgba(255,23,68,0.15)', color: '#ff1744' }
 }
 
+function formatTot(vspar: number): string {
+  if (vspar === 0) return 'E'
+  if (vspar > 0) return `+${vspar}`
+  return `${vspar}`
+}
+
+function totColor(vspar: number): string {
+  if (vspar < 0) return '#c9a84c'
+  if (vspar === 0) return 'rgba(255,255,255,0.6)'
+  return '#ff1744'
+}
+
+function gwiColor(gwi: number): string {
+  if (gwi > 80) return '#00e676'
+  if (gwi >= 60) return '#c9a84c'
+  return '#ff5252'
+}
+
+function gwiDeltaColor(delta: number): string {
+  if (delta > 0) return '#00e676'
+  if (delta < 0) return '#ff1744'
+  return 'rgba(255,255,255,0.3)'
+}
+
 interface Props {
   players: SimPlayer[]
   getScoreVsPar: (scores: (number | null)[]) => number
@@ -33,9 +49,11 @@ interface Props {
 export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
+  // Players are already filtered by the parent, but keep backward compat
   const filtered = category === 'General' ? players
-    : category === 'Categoría A' ? players.filter(p => p.categoria === 'A')
-    : players.filter(p => p.categoria === 'B')
+    : category === 'Categoria A' ? players.filter(p => p.categoria === 'A')
+    : category === 'Categoria B' ? players.filter(p => p.categoria === 'B')
+    : players
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -43,8 +61,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
         const pos = idx + 1
         const vspar = getScoreVsPar(player.scores)
         const isExpanded = expandedId === player.id
-        const gwiColor = player.gwi >= 70 ? '#c9a84c' : player.gwi >= 50 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)'
-        const deltaColor = player.gwiDelta > 0 ? '#00e676' : player.gwiDelta < 0 ? '#ff1744' : 'rgba(255,255,255,0.3)'
+        const thru = player.status === 'finished' ? 'F' : String(player.holesCompleted)
 
         return (
           <div key={player.id}>
@@ -55,6 +72,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               style={{
                 background: 'rgba(255,255,255,0.03)',
                 border: '1px solid rgba(255,255,255,0.06)',
+                borderLeft: pos === 1 ? '3px solid #c9a84c' : '1px solid rgba(255,255,255,0.06)',
                 borderRadius: '12px',
                 padding: '12px 14px',
                 cursor: 'pointer',
@@ -64,68 +82,94 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               {/* Row 1: Position + Player */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                 <div style={{
-                  width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                  width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0,
                   background: pos === 1 ? '#c9a84c' : pos === 2 ? 'rgba(192,192,192,0.3)' : pos === 3 ? 'rgba(205,127,50,0.3)' : 'rgba(255,255,255,0.08)',
                   color: pos <= 2 ? '#070d18' : 'rgba(255,255,255,0.7)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '11px', fontWeight: 700,
-                }}>{pos}</div>
-                <div style={{
-                  width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
-                  background: 'linear-gradient(135deg, #1a4fd6, #c4992a)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'white', fontSize: '11px', fontWeight: 700,
-                }}>{player.initials}</div>
+                }}>
+                  {pos}
+                </div>
+                {player.positionDelta !== 0 && (
+                  <span style={{
+                    fontSize: 9,
+                    color: player.positionDelta > 0 ? '#00e676' : '#ff1744',
+                    fontFamily: 'var(--font-dm-mono), monospace',
+                    marginLeft: '-6px',
+                  }}>
+                    {player.positionDelta > 0 ? `\u25B2${player.positionDelta}` : `\u25BC${Math.abs(player.positionDelta)}`}
+                  </span>
+                )}
+                <div
+                  style={{
+                    width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+                    background: 'linear-gradient(135deg, #1a4fd6, #c4992a)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontSize: '11px', fontWeight: 700,
+                  }}
+                >
+                  {player.initials}
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '14px', fontWeight: 600, color: '#edeae4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {player.name}
+                    {player.pais} {player.name}
                   </div>
                   <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>
-                    {player.pais} Cat. {player.categoria}
+                    <span style={{
+                      display: 'inline-block', padding: '1px 4px', borderRadius: 3,
+                      background: player.categoria === 'A' ? 'rgba(0,230,118,0.12)' : 'rgba(196,153,42,0.12)',
+                      color: player.categoria === 'A' ? '#00e676' : '#c9a84c',
+                      fontSize: 9, fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace',
+                    }}>
+                      CAT {player.categoria}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Row 2: Score + Hole + HCP */}
+              {/* Row 2: TOT + THRU + R1 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
                 <div style={{ textAlign: 'center' }}>
                   <div className={player.justScored ? 'score-bounce' : ''} style={{
-                    fontFamily: 'var(--font-cormorant), serif', fontSize: '24px', fontWeight: 300,
-                    color: vspar < 0 ? '#c9a84c' : vspar === 0 ? 'rgba(255,255,255,0.6)' : '#ff1744',
+                    fontFamily: 'var(--font-dm-mono), monospace', fontSize: '26px', fontWeight: 700,
+                    color: totColor(vspar), fontVariantNumeric: 'tabular-nums',
                   }}>
-                    {vspar === 0 ? 'E' : vspar > 0 ? `+${vspar}` : vspar}
+                    {formatTot(vspar)}
                   </div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>SCORE</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>TOT</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                     {player.status === 'playing' && (
                       <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#00e676', animation: 'livePulse 2s infinite' }} />
                     )}
-                    <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>
-                      {player.status === 'finished' ? 'F' : `${player.holesCompleted}/18`}
+                    <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 600, color: player.status === 'finished' ? '#7a8fa8' : '#c9a84c' }}>
+                      {thru}
                     </span>
                   </div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>HOYO</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>THRU</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '14px', color: 'rgba(255,255,255,0.4)' }}>
-                    {player.indice}
+                  <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>
+                    {player.grossTotal > 0 ? player.grossTotal : '\u2014'}
                   </div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>HCP</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>R1</div>
                 </div>
               </div>
 
               {/* Row 3: GWI */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <GWISparkline series={player.gwiSeries} delta={player.gwiDelta} width={60} height={16} />
+                <GWISparkline series={player.gwiSeries} delta={player.gwiDelta} width={40} height={14} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>GWI™</span>
-                  <span style={{ fontFamily: 'var(--font-cormorant), serif', fontSize: '16px', fontWeight: 300, color: gwiColor }}>
+                  <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>GWI\u2122</span>
+                  <span style={{
+                    fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 600,
+                    color: gwiColor(player.gwi), fontVariantNumeric: 'tabular-nums',
+                  }}>
                     {player.gwi.toFixed(1)}
                   </span>
-                  <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: deltaColor }}>
-                    {player.gwiDelta > 0 ? '▲' : player.gwiDelta < 0 ? '▼' : '—'}
+                  <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: gwiDeltaColor(player.gwiDelta) }}>
+                    {player.gwiDelta > 0 ? '\u25B2' : player.gwiDelta < 0 ? '\u25BC' : '\u2014'}
                   </span>
                 </div>
               </div>
@@ -140,15 +184,15 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               }}>
                 {/* Front 9 */}
                 <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginBottom: '6px', fontFamily: 'var(--font-dm-mono), monospace' }}>
-                  FRONT 9 — PAR 35
+                  FRONT 9 \u2014 PAR 35
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '10px' }}>
                   {player.scores.slice(0, 9).map((s, i) => {
                     const style = holeCellStyle(s, DEMO_PARS[i])
                     return (
                       <div key={i} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: '4px', background: style.bg }}>
-                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>H{i+1}</div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: style.color }}>{s ?? '—'}</div>
+                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>H{i + 1}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: style.color }}>{s ?? '\u2014'}</div>
                       </div>
                     )
                   })}
@@ -156,15 +200,15 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
 
                 {/* Back 9 */}
                 <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginBottom: '6px', fontFamily: 'var(--font-dm-mono), monospace' }}>
-                  BACK 9 — PAR 37
+                  BACK 9 \u2014 PAR 37
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '10px' }}>
                   {player.scores.slice(9).map((s, i) => {
                     const style = holeCellStyle(s, DEMO_PARS[i + 9])
                     return (
                       <div key={i} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: '4px', background: style.bg }}>
-                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>H{i+10}</div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: style.color }}>{s ?? '—'}</div>
+                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>H{i + 10}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: style.color }}>{s ?? '\u2014'}</div>
                       </div>
                     )
                   })}
@@ -184,14 +228,19 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
 
                 {/* GWI badge */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>GWI™</span>
-                  <span style={{ fontFamily: 'var(--font-cormorant), serif', fontSize: '20px', fontWeight: 300, color: gwiColor }}>{player.gwi.toFixed(1)}</span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-dm-mono), monospace' }}>GWI\u2122</span>
+                  <span style={{
+                    fontFamily: 'var(--font-dm-mono), monospace', fontSize: '20px', fontWeight: 600,
+                    color: gwiColor(player.gwi), fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    {player.gwi.toFixed(1)}
+                  </span>
                   <span style={{
                     fontSize: '9px', padding: '2px 8px', borderRadius: '10px',
                     background: 'rgba(201,168,76,0.12)', color: '#c9a84c',
                     fontFamily: 'var(--font-dm-mono), monospace',
                   }}>
-                    {player.gwi >= 85 ? 'ÉLITE' : player.gwi >= 70 ? 'AVANZADO' : player.gwi >= 50 ? 'INTERMEDIO' : 'BÁSICO'}
+                    {player.gwi >= 85 ? 'ELITE' : player.gwi >= 70 ? 'AVANZADO' : player.gwi >= 50 ? 'INTERMEDIO' : 'BASICO'}
                   </span>
                 </div>
               </div>
