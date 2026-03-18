@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-18 | Commit: `050c516`
+> Auto-generado: 2026-03-18 | Commit: `f1a6a17`
 
 ## Último deploy
 
-- **Commit:** `050c516` — feat: GWI™ column in leaderboard — sparkline + number + delta per player
+- **Commit:** `f1a6a17` — feat: perfil demo público /demo — Carlos Méndez 30 rondas, GWI premium, 4 tabs
 - **Fecha:** 2026-03-17
-- **Branch:** main (48 commits total)
+- **Branch:** main (49 commits total)
 - **URL:** https://tu-golf.vercel.app
 
 ## Páginas en producción (33 páginas)
