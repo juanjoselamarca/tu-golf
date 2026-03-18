@@ -4,6 +4,19 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
 
+function validateScoreInputs(body: Record<string, unknown>): string | null {
+  const { hole_number, gross_score, par } = body
+  if (!Number.isInteger(hole_number) || (hole_number as number) < 1 || (hole_number as number) > 18)
+    return 'hole_number debe ser entero entre 1 y 18'
+  if (gross_score !== null && gross_score !== undefined) {
+    if (!Number.isInteger(gross_score) || (gross_score as number) < 1 || (gross_score as number) > 20)
+      return 'gross_score debe ser entero entre 1 y 20'
+  }
+  if (par !== undefined && (!Number.isInteger(par) || (par as number) < 3 || (par as number) > 6))
+    return 'par debe ser entero entre 3 y 6'
+  return null
+}
+
 async function getAuthUser() {
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -67,6 +80,8 @@ export async function POST(request: NextRequest) {
 
   // ── upsert_score ────────────────────────────────────────
   if (action === 'upsert_score') {
+    const validationError = validateScoreInputs(body)
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
     const { round_id, hole_number, par, gross_score, putts, fairway_hit, gir } = body
     let { net_score, points } = body as { net_score: number | null; points: number | null }
 
@@ -129,6 +144,18 @@ export async function POST(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    // Registro de auditoría — no bloquear si falla
+    if (gross_score != null) {
+      try {
+        await svc.from('score_audit_log').insert({
+          hole_score_id: round_id + '_' + hole_number,
+          changed_by: user.id,
+          new_value: gross_score,
+          reason: 'manual_organizer',
+        })
+      } catch { /* audit log failure should not block score save */ }
+    }
+
     // Recalculate round totals
     const { data: allScores } = await svc
       .from('hole_scores')
@@ -151,9 +178,17 @@ export async function POST(request: NextRequest) {
   // ── finalize_round ──────────────────────────────────────
   if (action === 'finalize_round') {
     const { round_id } = body
+    const { data: currentRound } = await svc
+      .from('rounds')
+      .select('status')
+      .eq('id', round_id)
+      .single()
+    if (currentRound?.status === 'closed' || currentRound?.status === 'official') {
+      return NextResponse.json({ error: 'La ronda ya está finalizada' }, { status: 409 })
+    }
     const { error } = await svc
       .from('rounds')
-      .update({ status: 'completed', closed_at: new Date().toISOString() })
+      .update({ status: 'closed', closed_at: new Date().toISOString() })
       .eq('id', round_id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

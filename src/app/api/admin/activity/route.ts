@@ -12,11 +12,11 @@ interface AnalyticsEvent {
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!isAdmin(user?.email)) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const admin = createAdminClient()
   const { searchParams } = new URL(request.url)
-  const days = parseInt(searchParams.get('days') || '30')
+  const days = Math.min(Math.max(1, parseInt(searchParams.get('days') || '30')), 365)
   const since = new Date(Date.now() - days * 86400000).toISOString()
 
   // Get analytics events grouped by date

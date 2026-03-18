@@ -36,7 +36,6 @@ export async function GET() {
     const competitors = competition?.competitors || []
     const status      = competition?.status
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const top10 = (competitors as any[])
       .sort((a, b) => {
         const scoreA = parseFloat(a.score) || 0

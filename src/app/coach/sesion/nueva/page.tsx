@@ -34,7 +34,6 @@ export default function NuevaSesionPage() {
         .limit(5)
 
       if (!joinErr && rondasJoin && rondasJoin.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setRondas(rondasJoin.map((r: any) => ({
           id: r.rondas_libres.id,
           codigo: r.rondas_libres.codigo,

@@ -29,13 +29,25 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const protectedRoutes = ['/dashboard', '/organizador']
+  const protectedRoutes = ['/dashboard', '/organizador', '/admin']
   const isProtected = protectedRoutes.some((r) =>
     request.nextUrl.pathname.startsWith(r)
   )
 
   if (isProtected && !user) {
     return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // Verificación extra para /admin: comprobar rol en servidor
+  if (user && request.nextUrl.pathname.startsWith('/admin')) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    if (profile?.role !== 'admin') {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
   }
 
   return supabaseResponse

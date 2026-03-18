@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { isAdmin } from '@/lib/admin'
+import { isAdminEmail } from '@/lib/admin'
 import type { User } from '@supabase/supabase-js'
 
 export default function Navbar() {
@@ -148,7 +148,7 @@ export default function Navbar() {
                         textDecoration: 'none', borderRadius: '6px', minHeight: 0,
                       }}>{item.label}</Link>
                     ))}
-                    {isAdmin(user?.email) && (
+                    {isAdminEmail(user?.email) && (
                       <>
                         <div style={{ height: '1px', background: isDarkPage ? 'rgba(196,153,42,0.15)' : '#E5E7EB', margin: '4px 0' }} />
                         <Link href="/admin" onClick={() => setDropdownOpen(false)} style={{
@@ -235,7 +235,7 @@ export default function Navbar() {
               { href: '/dashboard', icon: '📋', label: 'Mi Dashboard' },
               { href: '/perfil', icon: '👤', label: 'Mi Perfil' },
             ] : []),
-            ...(user && isAdmin(user?.email) ? [{ href: '/admin', icon: '⚙️', label: 'Admin' }] : []),
+            ...(user && isAdminEmail(user?.email) ? [{ href: '/admin', icon: '⚙️', label: 'Admin' }] : []),
           ].map(item => (
             <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)} style={{
               display: 'flex', alignItems: 'center', gap: '16px',

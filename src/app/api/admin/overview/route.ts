@@ -6,7 +6,7 @@ import { isAdmin } from '@/lib/admin'
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!isAdmin(user?.email)) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
   const admin = createAdminClient()
 

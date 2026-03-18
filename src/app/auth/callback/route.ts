@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { sanitizeNext } from '@/lib/auth-helpers'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code       = searchParams.get('code')
   const token_hash = searchParams.get('token_hash')
   const type       = searchParams.get('type')
-  const next       = searchParams.get('next') ?? '/dashboard'
+  const next       = sanitizeNext(searchParams.get('next'))
   const forwardedHost = request.headers.get('x-forwarded-host')
   const isLocalEnv    = process.env.NODE_ENV === 'development'
 

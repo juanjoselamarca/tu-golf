@@ -53,7 +53,7 @@ export async function GET(
     const { data: rawPlayers } = await supabase
       .from('players')
       .select(`
-        id, handicap_at_registration,
+        id, user_id, handicap_at_registration,
         profiles(name, indice),
         rounds(id, status, total_gross, total_net, total_points,
           hole_scores(hole_number, gross_score))
@@ -67,6 +67,7 @@ export async function GET(
     const inputs: JugadorGWIInput[] = await Promise.all(
       (rawPlayers as unknown as {
         id: string
+        user_id: string
         handicap_at_registration: number | null
         profiles: { name: string; indice: number | null } | null
         rounds: { id: string; total_gross: number; hole_scores: DBHScore[] }[]
@@ -98,6 +99,7 @@ export async function GET(
         const { data: histRounds } = await supabase
           .from('historical_rounds')
           .select('total_gross')
+          .eq('user_id', p.user_id)
           .not('total_gross', 'is', null)
           .limit(20)
 
@@ -112,7 +114,7 @@ export async function GET(
         const { data: pats } = await supabase
           .from('player_patterns')
           .select('pattern_type, confidence, metadata')
-          .eq('user_id', p.id)
+          .eq('user_id', p.user_id)
           .eq('status', 'active')
 
         if (pats && pats.length > 0) {

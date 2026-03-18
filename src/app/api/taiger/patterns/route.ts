@@ -10,6 +10,7 @@ export async function POST() {
     const { data: rounds } = await supabase
       .from('historical_rounds')
       .select('scores, total_gross')
+      .eq('user_id', user.id)
       .not('scores', 'is', null)
       .limit(50)
 
