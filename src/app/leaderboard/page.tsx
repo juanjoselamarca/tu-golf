@@ -110,39 +110,48 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      {/* ── Hero — mobile compact ──────────────────────── */}
-      <div className="md:hidden" style={{ background: 'rgba(7,13,24,0.95)', padding: '12px 16px', borderBottom: '1px solid rgba(196,153,42,0.15)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+      {/* ── Hero — mobile compact (light theme) ──────── */}
+      <div className="md:hidden" style={{ background: '#ffffff', padding: '16px', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e676', animation: 'livePulse 2s infinite' }} />
-            <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: '#c9a84c', letterSpacing: '0.08em' }}>EN VIVO</span>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a', animation: 'livePulse 2s infinite' }} />
+            <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: '#16a34a', fontWeight: 600, letterSpacing: '0.08em' }}>EN VIVO</span>
           </div>
-          <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Ronda {roundNumber}</span>
+          <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: '#9ca3af' }}>Ronda {roundNumber}</span>
         </div>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700, color: '#edeae4', marginBottom: '4px' }}>
+        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>
           Copa Golfers+ Demo 2026
         </div>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginBottom: '12px' }}>
-          Club de Golf Los Leones
+        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>
+          Club de Golf Los Leones · Par 72
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
           {[
-            { label: 'RDA', value: String(roundNumber) },
-            { label: 'PAR', value: '72' },
-            { label: 'JUG', value: '10' },
-            { label: 'VIVO', value: String(playingCount) },
+            { label: 'Ronda', value: String(roundNumber) },
+            { label: 'Jugadores', value: '10' },
+            { label: 'En cancha', value: String(playingCount) },
           ].map(p => (
-            <div key={p.label} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-cormorant), serif', fontSize: '18px', fontWeight: 300, color: '#edeae4' }}>{p.value}</div>
-              <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: 'rgba(255,255,255,0.5)' }}>{p.label}</div>
+            <div key={p.label} style={{ flex: 1, background: '#f9fafb', borderRadius: '10px', padding: '8px 6px', textAlign: 'center', border: '1px solid #f3f4f6' }}>
+              <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 700, color: '#111827' }}>{p.value}</div>
+              <div style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 500 }}>{p.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Ticker bar ─────────────────────────────────── */}
+      {/* ── Ticker bar (light) ────────────────────────── */}
       {lastEvent && (
-        <div key={lastEvent} className="ticker-event" style={{
+        <div key={lastEvent} className="ticker-event md:hidden" style={{
+          background: '#fefce8', borderBottom: '1px solid #fef08a',
+          padding: '8px 16px', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: '#92400e',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          \u25B6 {lastEvent}
+        </div>
+      )}
+      {/* Desktop ticker */}
+      {lastEvent && (
+        <div key={lastEvent + '-d'} className="hidden md:block ticker-event" style={{
           background: 'rgba(201,168,76,0.08)', borderBottom: '1px solid rgba(201,168,76,0.2)',
           padding: '8px 16px', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: '#edeae4',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -151,10 +160,22 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      <div className="gold-divider" />
+      <div className="gold-divider hidden md:block" />
 
-      {/* ── Category tabs ──────────────────────────────── */}
-      <div style={{ padding: '12px 16px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
+      {/* ── Category tabs — light on mobile, dark on desktop ── */}
+      <div className="md:hidden" style={{ padding: '10px 16px', display: 'flex', gap: '8px', background: '#ffffff', borderBottom: '1px solid #e5e7eb' }}>
+        {['General', 'Categoría A', 'Categoría B'].map(tab => (
+          <button key={tab} onClick={() => setCategory(tab)} style={{
+            padding: '8px 16px', borderRadius: '20px', whiteSpace: 'nowrap',
+            fontSize: '13px', fontWeight: category === tab ? 600 : 400,
+            background: category === tab ? '#111827' : 'transparent',
+            color: category === tab ? '#ffffff' : '#6b7280',
+            border: category === tab ? 'none' : '1px solid #e5e7eb',
+            cursor: 'pointer', minHeight: '36px',
+          }}>{tab}</button>
+        ))}
+      </div>
+      <div className="hidden md:flex" style={{ padding: '12px 16px', gap: '8px' }}>
         {['General', 'Categoría A', 'Categoría B'].map(tab => (
           <button key={tab} onClick={() => setCategory(tab)} style={{
             padding: '8px 16px', borderRadius: '6px', whiteSpace: 'nowrap',
@@ -342,7 +363,7 @@ export default function LeaderboardPage() {
       </div>
 
       {/* ── Mobile cards ───────────────────────────────── */}
-      <div className="md:hidden" style={{ padding: '8px 12px 80px' }}>
+      <div className="md:hidden" style={{ padding: '12px 16px 80px', background: '#f9fafb' }}>
         <MobileLeaderboard
           players={filtered}
           getScoreVsPar={(scores) => getScoreVsPar(scores)}

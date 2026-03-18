@@ -6,38 +6,32 @@ import type { SimPlayer } from '@/hooks/useDemoSimulation'
 
 const DEMO_PARS = [4, 5, 3, 4, 3, 4, 4, 3, 5, 4, 5, 4, 3, 5, 4, 5, 3, 4]
 
-function holeCellStyle(score: number | null, par: number) {
-  if (score === null) return { bg: 'transparent', color: 'rgba(255,255,255,0.2)' }
-  const d = score - par
-  if (d <= -2) return { bg: 'rgba(201,168,76,0.2)', color: '#c9a84c' }
-  if (d === -1) return { bg: 'rgba(0,230,118,0.15)', color: '#00e676' }
-  if (d === 0) return { bg: 'transparent', color: 'rgba(255,255,255,0.7)' }
-  if (d === 1) return { bg: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }
-  return { bg: 'rgba(255,23,68,0.15)', color: '#ff1744' }
-}
-
 function formatTot(vspar: number): string {
   if (vspar === 0) return 'E'
   if (vspar > 0) return `+${vspar}`
   return `${vspar}`
 }
 
-function totColor(vspar: number): string {
-  if (vspar < 0) return '#c9a84c'
-  if (vspar === 0) return 'rgba(255,255,255,0.6)'
-  return '#ff1744'
+function scoreColor(vspar: number): string {
+  if (vspar < 0) return '#16a34a'
+  if (vspar === 0) return '#374151'
+  return '#dc2626'
 }
 
 function gwiColor(gwi: number): string {
-  if (gwi > 80) return '#00e676'
-  if (gwi >= 60) return '#c9a84c'
-  return '#ff5252'
+  if (gwi >= 80) return '#16a34a'
+  if (gwi >= 60) return '#b45309'
+  return '#dc2626'
 }
 
-function gwiDeltaColor(delta: number): string {
-  if (delta > 0) return '#00e676'
-  if (delta < 0) return '#ff1744'
-  return 'rgba(255,255,255,0.5)'
+function holeCellColors(score: number | null, par: number) {
+  if (score === null) return { bg: '#f3f4f6', color: '#d1d5db' }
+  const d = score - par
+  if (d <= -2) return { bg: '#fef3c7', color: '#92400e' }       // eagle — amber
+  if (d === -1) return { bg: '#dcfce7', color: '#166534' }      // birdie — green
+  if (d === 0) return { bg: '#f9fafb', color: '#374151' }       // par — neutral
+  if (d === 1) return { bg: '#fef2f2', color: '#991b1b' }       // bogey — light red
+  return { bg: '#fee2e2', color: '#991b1b' }                     // double+ — red
 }
 
 interface Props {
@@ -49,199 +43,254 @@ interface Props {
 export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
-  // Players are already filtered by the parent, but keep backward compat
   const filtered = category === 'General' ? players
     : category === 'Categoría A' ? players.filter(p => p.categoria === 'A')
     : category === 'Categoría B' ? players.filter(p => p.categoria === 'B')
     : players
 
+  const leaderScore = filtered.length > 0 ? getScoreVsPar(filtered[0].scores) : 0
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div style={{
+      background: '#ffffff', borderRadius: '16px',
+      border: '1px solid #e5e7eb',
+      overflow: 'hidden',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+    }}>
+      {/* Table header */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: '36px 1fr 52px 56px',
+        padding: '10px 14px', alignItems: 'center',
+        background: '#f9fafb', borderBottom: '1px solid #e5e7eb',
+      }}>
+        <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>POS</span>
+        <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>JUGADOR</span>
+        <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>GWI</span>
+        <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>SCORE</span>
+      </div>
+
+      {filtered.length === 0 && (
+        <div style={{ padding: '40px 16px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>
+          No hay jugadores en esta categoría.
+        </div>
+      )}
+
       {filtered.map((player, idx) => {
         const pos = idx + 1
         const vspar = getScoreVsPar(player.scores)
         const isExpanded = expandedId === player.id
+        const isLeader = pos === 1
         const thru = player.status === 'finished' ? 'F' : String(player.holesCompleted)
+        const gapToLeader = vspar - leaderScore
 
         return (
           <div key={player.id}>
-            {/* Card */}
+            {/* Row */}
             <div
               onClick={() => setExpandedId(isExpanded ? null : player.id)}
-              className={player.justScored ? 'flash-card' : ''}
+              className={player.justScored ? 'flash-card' : player.positionDelta > 0 ? 'position-up' : player.positionDelta < 0 ? 'position-down' : ''}
               style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderLeft: pos === 1 ? '3px solid #c9a84c' : '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '12px',
-                padding: '12px 14px',
+                display: 'grid', gridTemplateColumns: '36px 1fr 52px 56px',
+                padding: '12px 14px', alignItems: 'center',
+                borderBottom: '1px solid #f3f4f6',
+                background: isLeader ? 'rgba(196,153,42,0.04)' : '#ffffff',
+                borderLeft: isLeader ? '3px solid #c4992a' : '3px solid transparent',
                 cursor: 'pointer',
-                transition: 'border-color 0.3s',
+                transition: 'background 0.3s, transform 0.3s',
               }}
             >
-              {/* Row 1: Position + Player */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                <div style={{
-                  width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0,
-                  background: pos === 1 ? '#c9a84c' : pos === 2 ? 'rgba(192,192,192,0.3)' : pos === 3 ? 'rgba(205,127,50,0.3)' : 'rgba(255,255,255,0.08)',
-                  color: pos <= 2 ? '#070d18' : 'rgba(255,255,255,0.7)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '11px', fontWeight: 700,
+              {/* Position */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                <span style={{
+                  fontSize: '14px', fontWeight: 700,
+                  fontFamily: 'var(--font-dm-mono), monospace',
+                  color: isLeader ? '#c4992a' : '#6b7280',
                 }}>
                   {pos}
-                </div>
+                </span>
                 {player.positionDelta !== 0 && (
                   <span style={{
-                    fontSize: 9,
-                    color: player.positionDelta > 0 ? '#00e676' : '#ff1744',
+                    fontSize: '8px', fontWeight: 600,
+                    color: player.positionDelta > 0 ? '#16a34a' : '#dc2626',
                     fontFamily: 'var(--font-dm-mono), monospace',
-                    marginLeft: '-6px',
                   }}>
                     {player.positionDelta > 0 ? `\u25B2${player.positionDelta}` : `\u25BC${Math.abs(player.positionDelta)}`}
                   </span>
                 )}
-                <div
-                  style={{
-                    width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
-                    background: 'linear-gradient(135deg, #1a4fd6, #c4992a)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'white', fontSize: '11px', fontWeight: 700,
-                  }}
-                >
-                  {player.initials}
+              </div>
+
+              {/* Player info */}
+              <div style={{ minWidth: 0 }}>
+                <div style={{
+                  fontSize: '14px', fontWeight: 600, color: '#111827',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  display: 'flex', alignItems: 'center', gap: '4px',
+                }}>
+                  <span style={{ flexShrink: 0 }}>{player.pais}</span>
+                  <span>{player.name.split(' ')[0][0]}. {player.name.split(' ').slice(1).join(' ')}</span>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#edeae4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {player.pais} {player.name}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>
+                <div style={{
+                  fontSize: '11px', color: '#9ca3af',
+                  fontFamily: 'var(--font-dm-mono), monospace',
+                  display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px',
+                }}>
+                  <span>Thru {thru}</span>
+                  {player.status === 'playing' && (
                     <span style={{
-                      display: 'inline-block', padding: '1px 4px', borderRadius: 3,
-                      background: player.categoria === 'A' ? 'rgba(0,230,118,0.12)' : 'rgba(196,153,42,0.12)',
-                      color: player.categoria === 'A' ? '#00e676' : '#c9a84c',
-                      fontSize: 9, fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace',
-                    }}>
-                      CAT {player.categoria}
-                    </span>
-                  </div>
+                      width: '5px', height: '5px', borderRadius: '50%',
+                      background: '#16a34a', display: 'inline-block',
+                      animation: 'livePulse 2s infinite',
+                    }} />
+                  )}
+                  {!isLeader && gapToLeader > 0 && (
+                    <span style={{ color: '#d1d5db' }}>+{gapToLeader}</span>
+                  )}
                 </div>
               </div>
 
-              {/* Row 2: TOT + THRU + R1 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div className={player.justScored ? 'score-bounce' : ''} style={{
-                    fontFamily: 'var(--font-dm-mono), monospace', fontSize: '26px', fontWeight: 700,
-                    color: totColor(vspar), fontVariantNumeric: 'tabular-nums',
-                  }}>
-                    {formatTot(vspar)}
-                  </div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace' }}>TOT</div>
+              {/* GWI */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  fontSize: '13px', fontWeight: 700,
+                  fontFamily: 'var(--font-dm-mono), monospace',
+                  color: gwiColor(player.gwi),
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {player.gwi.toFixed(0)}
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                    {player.status === 'playing' && (
-                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#00e676', animation: 'livePulse 2s infinite' }} />
-                    )}
-                    <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 600, color: player.status === 'finished' ? '#94a8c0' : '#c9a84c' }}>
-                      {thru}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace' }}>THRU</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>
-                    {player.grossTotal > 0 ? player.grossTotal : '\u2014'}
-                  </div>
-                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace' }}>R1</div>
-                </div>
+                <div style={{
+                  fontSize: '8px', color: '#d1d5db',
+                  fontFamily: 'var(--font-dm-mono), monospace',
+                  letterSpacing: '0.05em',
+                }}>GWI</div>
               </div>
 
-              {/* Row 3: GWI */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <GWISparkline series={player.gwiSeries} delta={player.gwiDelta} width={40} height={14} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: 'rgba(255,255,255,0.5)' }}>GWI\u2122</span>
-                  <span style={{
-                    fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 600,
-                    color: gwiColor(player.gwi), fontVariantNumeric: 'tabular-nums',
-                  }}>
-                    {player.gwi.toFixed(1)}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: gwiDeltaColor(player.gwiDelta) }}>
-                    {player.gwiDelta > 0 ? '\u25B2' : player.gwiDelta < 0 ? '\u25BC' : '\u2014'}
-                  </span>
+              {/* Score — protagonist */}
+              <div style={{ textAlign: 'right' }}>
+                <div className={player.justScored ? 'score-bounce' : ''} style={{
+                  fontSize: '22px', fontWeight: 700,
+                  fontFamily: 'var(--font-dm-mono), monospace',
+                  color: scoreColor(vspar),
+                  fontVariantNumeric: 'tabular-nums',
+                  lineHeight: 1,
+                }}>
+                  {formatTot(vspar)}
                 </div>
+                {player.grossTotal > 0 && (
+                  <div style={{
+                    fontSize: '10px', color: '#d1d5db',
+                    fontFamily: 'var(--font-dm-mono), monospace',
+                  }}>
+                    {player.grossTotal}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Expanded scorecard */}
+            {/* Expanded scorecard — light theme */}
             {isExpanded && (
               <div style={{
-                background: 'rgba(10,21,37,0.95)', borderRadius: '0 0 12px 12px',
-                padding: '12px', marginTop: '-6px',
-                border: '1px solid rgba(255,255,255,0.06)', borderTop: 'none',
+                background: '#f9fafb', padding: '14px',
+                borderBottom: '1px solid #e5e7eb',
               }}>
-                {/* Front 9 */}
-                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', fontFamily: 'var(--font-dm-mono), monospace' }}>
-                  FRONT 9 \u2014 PAR 35
+                {/* GWI sparkline row */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  marginBottom: '14px', padding: '10px 12px',
+                  background: '#ffffff', borderRadius: '10px',
+                  border: '1px solid #e5e7eb',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      fontSize: '9px', color: '#9ca3af', fontWeight: 600,
+                      fontFamily: 'var(--font-dm-mono), monospace',
+                      letterSpacing: '0.08em',
+                    }}>GWI\u2122</span>
+                    <span style={{
+                      fontSize: '20px', fontWeight: 700,
+                      fontFamily: 'var(--font-dm-mono), monospace',
+                      color: gwiColor(player.gwi),
+                    }}>
+                      {player.gwi.toFixed(1)}
+                    </span>
+                    <span style={{
+                      fontSize: '9px', padding: '2px 8px', borderRadius: '10px',
+                      background: player.gwi >= 85 ? '#dcfce7' : player.gwi >= 70 ? '#fef3c7' : player.gwi >= 50 ? '#f3f4f6' : '#fee2e2',
+                      color: player.gwi >= 85 ? '#166534' : player.gwi >= 70 ? '#92400e' : player.gwi >= 50 ? '#6b7280' : '#991b1b',
+                      fontFamily: 'var(--font-dm-mono), monospace',
+                      fontWeight: 600,
+                    }}>
+                      {player.gwi >= 85 ? 'ELITE' : player.gwi >= 70 ? 'AVANZADO' : player.gwi >= 50 ? 'INTERMEDIO' : 'BÁSICO'}
+                    </span>
+                  </div>
+                  <GWISparkline series={player.gwiSeries} delta={player.gwiDelta} width={48} height={20} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '10px' }}>
+
+                {/* Front 9 */}
+                <div style={{
+                  fontSize: '10px', color: '#9ca3af', fontWeight: 600,
+                  fontFamily: 'var(--font-dm-mono), monospace',
+                  marginBottom: '6px', letterSpacing: '0.05em',
+                }}>
+                  FRONT 9
+                </div>
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px',
+                  marginBottom: '10px',
+                }}>
                   {player.scores.slice(0, 9).map((s, i) => {
-                    const style = holeCellStyle(s, DEMO_PARS[i])
+                    const { bg, color } = holeCellColors(s, DEMO_PARS[i])
                     return (
-                      <div key={i} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: '4px', background: style.bg }}>
-                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.45)' }}>H{i + 1}</div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: style.color }}>{s ?? '\u2014'}</div>
+                      <div key={i} style={{
+                        textAlign: 'center', padding: '4px 1px', borderRadius: '6px',
+                        background: bg,
+                      }}>
+                        <div style={{ fontSize: '8px', color: '#9ca3af', lineHeight: 1 }}>{i + 1}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color, lineHeight: 1.3 }}>
+                          {s ?? '\u2014'}
+                        </div>
                       </div>
                     )
                   })}
                 </div>
 
                 {/* Back 9 */}
-                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', fontFamily: 'var(--font-dm-mono), monospace' }}>
-                  BACK 9 \u2014 PAR 37
+                <div style={{
+                  fontSize: '10px', color: '#9ca3af', fontWeight: 600,
+                  fontFamily: 'var(--font-dm-mono), monospace',
+                  marginBottom: '6px', letterSpacing: '0.05em',
+                }}>
+                  BACK 9
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '10px' }}>
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px',
+                }}>
                   {player.scores.slice(9).map((s, i) => {
-                    const style = holeCellStyle(s, DEMO_PARS[i + 9])
+                    const { bg, color } = holeCellColors(s, DEMO_PARS[i + 9])
                     return (
-                      <div key={i} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: '4px', background: style.bg }}>
-                        <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.45)' }}>H{i + 10}</div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: style.color }}>{s ?? '\u2014'}</div>
+                      <div key={i} style={{
+                        textAlign: 'center', padding: '4px 1px', borderRadius: '6px',
+                        background: bg,
+                      }}>
+                        <div style={{ fontSize: '8px', color: '#9ca3af', lineHeight: 1 }}>{i + 10}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color, lineHeight: 1.3 }}>
+                          {s ?? '\u2014'}
+                        </div>
                       </div>
                     )
                   })}
                 </div>
 
                 {/* Progress bar */}
-                <div style={{ display: 'flex', gap: '2px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', gap: '2px', marginTop: '10px' }}>
                   {Array.from({ length: 18 }, (_, i) => (
                     <div key={i} style={{
-                      flex: 1, height: '4px', borderRadius: '2px',
-                      background: i < player.holesCompleted ? '#c9a84c'
-                        : i === player.holesCompleted && player.status === 'playing' ? 'rgba(201,168,76,0.4)'
-                        : 'rgba(255,255,255,0.08)',
+                      flex: 1, height: '3px', borderRadius: '2px',
+                      background: i < player.holesCompleted ? '#c4992a'
+                        : i === player.holesCompleted && player.status === 'playing' ? 'rgba(196,153,42,0.3)'
+                        : '#e5e7eb',
                     }} />
                   ))}
-                </div>
-
-                {/* GWI badge */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace' }}>GWI\u2122</span>
-                  <span style={{
-                    fontFamily: 'var(--font-dm-mono), monospace', fontSize: '20px', fontWeight: 600,
-                    color: gwiColor(player.gwi), fontVariantNumeric: 'tabular-nums',
-                  }}>
-                    {player.gwi.toFixed(1)}
-                  </span>
-                  <span style={{
-                    fontSize: '9px', padding: '2px 8px', borderRadius: '10px',
-                    background: 'rgba(201,168,76,0.12)', color: '#c9a84c',
-                    fontFamily: 'var(--font-dm-mono), monospace',
-                  }}>
-                    {player.gwi >= 85 ? 'ELITE' : player.gwi >= 70 ? 'AVANZADO' : player.gwi >= 50 ? 'INTERMEDIO' : 'BÁSICO'}
-                  </span>
                 </div>
               </div>
             )}
