@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-18 | Commit: `69cdc09`
+> Auto-generado: 2026-03-18 | Commit: `2899496`
 
 ## Último deploy
 
-- **Commit:** `69cdc09` — feat: leaderboard dinámico — refresh 20s, columnas PGA Tour, GWI Bloomberg
+- **Commit:** `2899496` — design: polish /demo + /leaderboard — layout, datos correctos, visual coherence
 - **Fecha:** 2026-03-18
-- **Branch:** main (51 commits total)
+- **Branch:** main (52 commits total)
 - **URL:** https://tu-golf.vercel.app
 
 ## Páginas en producción (33 páginas)

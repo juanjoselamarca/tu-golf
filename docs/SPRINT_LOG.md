@@ -4,6 +4,66 @@
 
 ---
 
+## Sesión 17-18 Mar 2026 — Sprint masivo de producto
+**Fecha:** 17-18 Mar 2026
+**Commits:** ae07373 → 2899496
+**Estado:** ✅ COMPLETO
+
+### Entregado
+**Sprint 9C — Fixes urgentes:**
+- modo_juego graceful fallback, PGA widget mobile, historial siempre gross
+- SQL idempotente, CSS mobile responsive
+
+**Admin Dashboard (9 pestañas):**
+- Overview, Usuarios, Crecimiento, Golf, tAIger, Monetización, Geografía, Sistema, Config
+- APIs: overview, users, activity, health con service-role client
+- Analytics tracking en 4 puntos clave
+- Layout admin con sidebar responsive
+
+**Sprint 10 — tAIger+ v1 y v2:**
+- Claude API (claude-sonnet-4-6) con streaming SSE
+- Onboarding científico 12 preguntas (ACSI-28/SMTQ/Rotella/VISION54)
+- System prompt v2: 4 frameworks, protocolos por tipo sesión, drills, calibración por índice
+- Dashboard coach con "Foco de Trabajo", patrones, freemium counter
+- Chat streaming con follow-ups, session starters, error handling
+- Integración automática post-ronda en scorecard
+- Niveles de análisis según datos disponibles (0-5)
+
+**PR1-PR3 — Rediseño UX completo:**
+- PR1: Fondos por contexto (blanco nav pages, dark scorecard), navbar adaptiva, bottom nav mobile
+- PR2: Tournament card menu, date picker nativo, perfil progress bar
+- PR3: Scorecard reescrito — header 48px, score 96px, chip dinámico, botones 72px, dots, swipe, feedback guardado
+
+**Garmin UX + Stats:**
+- HoleColorBar componente reutilizable
+- Dashboard stats con Chart.js (GWI gauge, scoring trend, handicap evolution)
+- Fonts: Cormorant Garamond + DM Mono via next/font/google
+- FAB dorado en bottom nav mobile
+
+**QA Total:**
+- historical_rounds se puebla al finalizar ronda
+- /api/gwi/ronda-libre creada
+- SQL_RLS_AUDIT.sql con todas las políticas + índices
+- Error handling sanitizado en todas las APIs
+- overflow-x: hidden global, badge índice en perfil
+
+**Rebranding:**
+- Tu Golf → Golfers+ (17 archivos, 0 instancias restantes)
+- el tAIger → tAIger+ (37 instancias, nombre propio sin artículo)
+- Copy premium en homepage, coach, footer
+
+**Demo + GWI Bloomberg:**
+- /demo — perfil público Carlos Méndez, 30 rondas, 4 tabs, GWI gauge SVG
+- /api/demo/profile y /api/demo/players — datos hardcoded
+- GWI™ columna en leaderboard con sparkline SVG + delta ▲/▼
+- Simulación en vivo: 10 jugadores avanzan c/20s, auto-reset
+- Mobile F1/Bloomberg: cards verticales, scorecard expandible, ticker bar
+- Columnas PGA Tour: POS | PLAYER | TOT | THRU | R1 | GWI™
+- GWIDisplay, GWISparkline, GWICell componentes premium
+- Design polish: datos realistas índice 2, hero compacto, badges limpios
+
+---
+
 ## Sprint 10 — el tAIger v1 🐯
 **Fecha:** 17 Mar 2026
 **Estado:** ✅ COMPLETO
