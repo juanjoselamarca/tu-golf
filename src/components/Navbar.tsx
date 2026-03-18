@@ -58,7 +58,7 @@ export default function Navbar() {
     pathname.startsWith('/dashboard')
   ) return null
 
-  const isDarkPage = pathname === '/' || pathname === '/leaderboard' || pathname.startsWith('/ronda-libre') || pathname.startsWith('/perfil') || pathname.startsWith('/coach') || pathname.startsWith('/demo')
+  const isDarkPage = pathname === '/' || pathname === '/leaderboard' || pathname.startsWith('/ronda-libre') || pathname.startsWith('/perfil') || pathname.startsWith('/coach') || pathname.startsWith('/demo') || pathname.startsWith('/dashboard')
 
   const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'

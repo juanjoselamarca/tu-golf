@@ -63,6 +63,8 @@ export default function NuevaRondaLibrePage() {
 
   const [userId, setUserId] = useState<string | null>(null)
   const [cancha, setCancha] = useState('')
+  const [canchaSearch, setCanchaSearch] = useState('')
+  const [showCanchaDropdown, setShowCanchaDropdown] = useState(false)
   const [courseId, setCourseId] = useState<string | null>(null)
   const [coursesDB, setCoursesDB] = useState<CourseDB[]>([])
   const [tees, setTees] = useState('blanco')
@@ -212,41 +214,133 @@ export default function NuevaRondaLibrePage() {
 
           <form onSubmit={handleSubmit}>
 
-            {/* Cancha */}
-            <div style={{ marginBottom: '20px' }}>
+            {/* Cancha — autocomplete */}
+            <div style={{ marginBottom: '20px', position: 'relative' }}>
               <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Cancha *
               </label>
-              <select
-                required
-                value={cancha}
+              <input
+                type="text"
+                placeholder="Buscar cancha..."
+                value={showCanchaDropdown ? canchaSearch : cancha}
                 onChange={(e) => {
-                  const val = e.target.value
-                  setCancha(val)
-                  // Match to DB course by nombre
-                  const match = coursesDB.find(c => c.nombre === val)
-                  setCourseId(match?.id ?? null)
+                  setCanchaSearch(e.target.value)
+                  setShowCanchaDropdown(true)
+                  if (!e.target.value) { setCancha(''); setCourseId(null) }
                 }}
-                style={{ ...inputStyle, cursor: 'pointer' }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
-                onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
-              >
-                <option value="">— Seleccionar cancha —</option>
-                {coursesDB.length > 0 && (
-                  <optgroup label="Canchas con datos de hoyos">
-                    {coursesDB.map((c) => (
-                      <option key={c.id} value={c.nombre}>
-                        {c.nombre}{c.ciudad ? ` — ${c.ciudad}` : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                <optgroup label="Otras canchas">
-                  {CANCHAS_CHILE.filter(c => !coursesDB.some(db => db.nombre === c)).map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </optgroup>
-              </select>
+                onFocus={() => {
+                  setCanchaSearch(cancha)
+                  setShowCanchaDropdown(true)
+                }}
+                onBlur={() => setTimeout(() => setShowCanchaDropdown(false), 200)}
+                style={{ ...inputStyle, cursor: 'text' }}
+              />
+              {cancha && !showCanchaDropdown && (
+                <button
+                  type="button"
+                  onClick={() => { setCancha(''); setCourseId(null); setCanchaSearch('') }}
+                  style={{
+                    position: 'absolute', right: '12px', top: '32px',
+                    background: 'none', border: 'none', color: 'var(--text-3)',
+                    fontSize: '18px', cursor: 'pointer', padding: '4px',
+                  }}
+                >×</button>
+              )}
+              {showCanchaDropdown && (() => {
+                const q = canchaSearch.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                const dbResults = coursesDB
+                  .filter(c => c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q))
+                  .slice(0, 5)
+                const otherResults = CANCHAS_CHILE
+                  .filter(c => !coursesDB.some(db => db.nombre === c))
+                  .filter(c => c.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q))
+                  .slice(0, 8 - dbResults.length)
+                const hasResults = dbResults.length > 0 || otherResults.length > 0
+
+                if (!hasResults && canchaSearch.length < 1) return null
+
+                return (
+                  <div style={{
+                    position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20,
+                    background: 'var(--bg-card-light)', border: '1px solid var(--border-md)',
+                    borderRadius: '10px', marginTop: '4px', maxHeight: '260px', overflowY: 'auto',
+                    boxShadow: 'var(--shadow-lg)',
+                  }}>
+                    {dbResults.length > 0 && (
+                      <>
+                        <div style={{ padding: '8px 14px 4px', fontSize: '10px', color: '#c4992a', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+                          Con datos de hoyos
+                        </div>
+                        {dbResults.map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onMouseDown={() => {
+                              setCancha(c.nombre)
+                              setCourseId(c.id)
+                              setCanchaSearch(c.nombre)
+                              setShowCanchaDropdown(false)
+                            }}
+                            style={{
+                              display: 'block', width: '100%', textAlign: 'left',
+                              padding: '10px 14px', background: 'none', border: 'none',
+                              color: 'var(--text)', fontSize: '14px', cursor: 'pointer',
+                              borderBottom: '1px solid var(--border)',
+                            }}
+                          >
+                            {c.nombre}
+                            {c.ciudad && <span style={{ color: 'var(--text-3)', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    {otherResults.length > 0 && (
+                      <>
+                        <div style={{ padding: '8px 14px 4px', fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                          Otras canchas
+                        </div>
+                        {otherResults.map(c => (
+                          <button
+                            key={c}
+                            type="button"
+                            onMouseDown={() => {
+                              setCancha(c)
+                              setCourseId(null)
+                              setCanchaSearch(c)
+                              setShowCanchaDropdown(false)
+                            }}
+                            style={{
+                              display: 'block', width: '100%', textAlign: 'left',
+                              padding: '10px 14px', background: 'none', border: 'none',
+                              color: 'var(--text)', fontSize: '14px', cursor: 'pointer',
+                              borderBottom: '1px solid var(--border)',
+                            }}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    {!hasResults && canchaSearch.length >= 2 && (
+                      <button
+                        type="button"
+                        onMouseDown={() => {
+                          setCancha(canchaSearch)
+                          setCourseId(null)
+                          setShowCanchaDropdown(false)
+                        }}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left',
+                          padding: '12px 14px', background: 'none', border: 'none',
+                          color: '#c4992a', fontSize: '14px', cursor: 'pointer',
+                        }}
+                      >
+                        Usar &quot;{canchaSearch}&quot; como nombre de cancha
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Tees */}

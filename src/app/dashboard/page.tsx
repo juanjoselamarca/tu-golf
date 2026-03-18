@@ -67,8 +67,8 @@ export default async function DashboardPage() {
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       {/* Navbar */}
-      <nav style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: '64px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 50 }}>
-        <Link href="/" style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', fontWeight: 700, textDecoration: 'none' }}>
+      <nav style={{ background: 'rgba(7,13,24,0.95)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(196,153,42,0.12)', padding: '0 16px', height: '64px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 50 }}>
+        <Link href="/" style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', fontWeight: 700, textDecoration: 'none' }}>
           Golfers<span style={{ color: '#c4992a' }}>+</span>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
             <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {userInitials}
             </div>
-            <span style={{ color: 'var(--text)', fontSize: '14px' }}>{userName}</span>
+            <span style={{ color: '#edeae4', fontSize: '14px' }}>{userName}</span>
           </Link>
           <LogoutButton />
         </div>
