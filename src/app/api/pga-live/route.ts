@@ -81,9 +81,12 @@ export async function GET() {
         score = rawScore < 0 ? String(rawScore) : rawScore > 0 ? `+${rawScore}` : 'E'
       }
 
-      // Ronda actual — hoyos jugados desde linescores
+      // Ronda actual — buscar la ÚLTIMA ronda con datos (no la primera)
+      // En R2: rounds = [R1 (18 hoyos, completa), R2 (en curso)]
+      // Queremos R2, no R1
       const rounds: any[] = c.linescores || []
-      const currentRound = rounds.find((r: any) => r.linescores?.length > 0) || rounds[0]
+      const roundsWithData = rounds.filter((r: any) => r.linescores?.length > 0)
+      const currentRound = roundsWithData[roundsWithData.length - 1] || rounds[0]
       const holesPlayed = (currentRound?.linescores || []).length
 
       // Score de hoy

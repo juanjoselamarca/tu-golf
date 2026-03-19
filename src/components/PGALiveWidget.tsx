@@ -111,8 +111,16 @@ export default function PGALiveWidget() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
           <span style={{ background: '#0066cc', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.08em' }}>PGA TOUR</span>
           {data.live && (
-            <span style={{ background: '#cc0000', color: '#fff', fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#fff', animation: 'livePulse 2s infinite' }} />
+            <span style={{
+              background: '#cc0000', color: '#fff', fontSize: '9px', fontWeight: 700,
+              padding: '3px 10px', borderRadius: '4px',
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              animation: 'liveGlow 2s ease infinite',
+            }}>
+              <span style={{
+                width: '6px', height: '6px', borderRadius: '50%', background: '#fff',
+                animation: 'livePulse 1.5s ease-in-out infinite',
+              }} />
               EN VIVO
             </span>
           )}
