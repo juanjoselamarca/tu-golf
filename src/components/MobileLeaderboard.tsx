@@ -185,113 +185,68 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
             {/* Expanded */}
             {isExpanded && (
               <div style={{
-                background: '#f9fafb', padding: '12px 14px',
+                background: '#f9fafb', padding: '16px 16px 18px',
                 borderBottom: '1px solid #e5e7eb',
               }}>
-                {/* Stats strip — GWI + last hole + birdies/bogeys, all inline */}
+                {/* GWI + Stats — clean row with breathing room */}
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  marginBottom: '12px', flexWrap: 'wrap',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  marginBottom: '16px',
                 }}>
-                  {/* GWI Bloomberg style */}
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    background: '#fff', border: '1px solid #e5e7eb',
-                    borderRadius: '8px', padding: '6px 10px',
-                  }}>
-                    <span style={{ fontSize: '9px', fontFamily: M, color: '#9ca3af', letterSpacing: '0.05em' }}>GWI</span>
-                    <span style={{ fontFamily: M, fontSize: '16px', fontWeight: 700, color: gwiClr(player.gwi) }}>
+                  {/* GWI Bloomberg */}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                    <span style={{ fontSize: '10px', fontFamily: M, color: '#9ca3af', letterSpacing: '0.05em' }}>GWI</span>
+                    <span style={{ fontFamily: M, fontSize: '18px', fontWeight: 700, color: gwiClr(player.gwi) }}>
                       {player.gwi.toFixed(1)}
                     </span>
                     <span style={{
-                      fontFamily: M, fontSize: '10px', fontWeight: 700,
+                      fontFamily: M, fontSize: '11px', fontWeight: 700,
                       color: player.gwiDelta >= 0 ? '#16a34a' : '#dc2626',
-                      background: player.gwiDelta >= 0 ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)',
-                      padding: '1px 5px', borderRadius: '4px',
                     }}>
                       {player.gwiDelta >= 0 ? '+' : ''}{player.gwiDelta.toFixed(1)}
                     </span>
                   </div>
 
-                  {/* Last hole */}
-                  {lastHole > 0 && (
-                    <div style={{
-                      background: '#fff', border: '1px solid #e5e7eb',
-                      borderRadius: '8px', padding: '6px 10px',
-                      display: 'flex', alignItems: 'center', gap: '4px',
-                    }}>
-                      <span style={{ fontSize: '9px', fontFamily: M, color: '#9ca3af' }}>H{lastHole}</span>
+                  {/* Birdies · Bogeys · Last hole */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '13px', color: '#166534', fontFamily: M, fontWeight: 600 }}>{birdies} <span style={{ fontSize: '10px', fontWeight: 400 }}>bir</span></span>
+                    <span style={{ fontSize: '13px', color: '#991b1b', fontFamily: M, fontWeight: 600 }}>{bogeys} <span style={{ fontSize: '10px', fontWeight: 400 }}>bog</span></span>
+                    {lastHole > 0 && (
                       <span style={{ fontSize: '14px' }}>{lastLabel}</span>
-                    </div>
-                  )}
-
-                  {/* Birdies / Bogeys */}
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <div style={{ background: '#dcfce7', borderRadius: '6px', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#166534', fontFamily: M }}>{birdies}</span>
-                      <span style={{ fontSize: '8px', color: '#166534', fontFamily: M }}>bir</span>
-                    </div>
-                    <div style={{ background: '#fef2f2', borderRadius: '6px', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#991b1b', fontFamily: M }}>{bogeys}</span>
-                      <span style={{ fontSize: '8px', color: '#991b1b', fontFamily: M }}>bog</span>
-                    </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Scorecard compact */}
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '2px' }}>
-                  <span style={{ fontSize: '8px', fontFamily: M, color: '#9ca3af', fontWeight: 600, letterSpacing: '0.05em' }}>OUT</span>
-                  <span style={{ flex: 1 }} />
-                  <span style={{ fontSize: '8px', fontFamily: M, color: '#9ca3af', fontWeight: 600, letterSpacing: '0.05em' }}>IN</span>
-                  <span style={{ flex: 1 }} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 8px 1fr', gap: 0, marginBottom: '2px' }}>
-                  {/* Front 9 */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
-                    {player.scores.slice(0, 9).map((s, i) => {
-                      const { bg, clr } = holeCellStyle(s, PARS[i])
-                      return (
-                        <div key={i} style={{ textAlign: 'center', padding: '3px 0', borderRadius: '3px', background: bg }}>
-                          <div style={{ fontSize: '11px', fontWeight: 700, color: clr, lineHeight: 1 }}>{s ?? '·'}</div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  {/* Separator */}
-                  <div />
-                  {/* Back 9 */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
-                    {player.scores.slice(9).map((s, i) => {
-                      const { bg, clr } = holeCellStyle(s, PARS[i + 9])
-                      return (
-                        <div key={i} style={{ textAlign: 'center', padding: '3px 0', borderRadius: '3px', background: bg }}>
-                          <div style={{ fontSize: '11px', fontWeight: 700, color: clr, lineHeight: 1 }}>{s ?? '·'}</div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                {/* Scorecard — generous spacing, easy to read */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '4px' }}>
+                  {player.scores.slice(0, 9).map((s, i) => {
+                    const { bg, clr } = holeCellStyle(s, PARS[i])
+                    return (
+                      <div key={i} style={{ textAlign: 'center', padding: '5px 0', borderRadius: '6px', background: bg }}>
+                        <div style={{ fontSize: '7px', color: '#b0b0b0', lineHeight: 1, marginBottom: '2px' }}>{i + 1}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: clr, lineHeight: 1 }}>{s ?? '·'}</div>
+                      </div>
+                    )
+                  })}
                 </div>
 
-                {/* Hole numbers */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 8px 1fr', gap: 0 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
-                    {[1,2,3,4,5,6,7,8,9].map(h => (
-                      <div key={h} style={{ textAlign: 'center', fontSize: '7px', color: '#c0c0c0', lineHeight: 1, padding: '2px 0' }}>{h}</div>
-                    ))}
-                  </div>
-                  <div />
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
-                    {[10,11,12,13,14,15,16,17,18].map(h => (
-                      <div key={h} style={{ textAlign: 'center', fontSize: '7px', color: '#c0c0c0', lineHeight: 1, padding: '2px 0' }}>{h}</div>
-                    ))}
-                  </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px' }}>
+                  {player.scores.slice(9).map((s, i) => {
+                    const { bg, clr } = holeCellStyle(s, PARS[i + 9])
+                    return (
+                      <div key={i} style={{ textAlign: 'center', padding: '5px 0', borderRadius: '6px', background: bg }}>
+                        <div style={{ fontSize: '7px', color: '#b0b0b0', lineHeight: 1, marginBottom: '2px' }}>{i + 10}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: clr, lineHeight: 1 }}>{s ?? '·'}</div>
+                      </div>
+                    )
+                  })}
                 </div>
 
-                {/* Progress — thinner, more subtle */}
-                <div style={{ display: 'flex', gap: '1px', marginTop: '6px' }}>
+                {/* Progress */}
+                <div style={{ display: 'flex', gap: '2px', marginTop: '12px' }}>
                   {Array.from({ length: 18 }, (_, i) => (
                     <div key={i} style={{
-                      flex: 1, height: '2px', borderRadius: '1px',
+                      flex: 1, height: '3px', borderRadius: '2px',
                       background: i < player.holesCompleted ? '#c4992a'
                         : i === player.holesCompleted && isPlaying ? 'rgba(196,153,42,0.3)' : '#e5e7eb',
                     }} />
