@@ -32,33 +32,40 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Helper: redirect while preserving refreshed session cookies
+  // Helper: redirect while preserving refreshed session cookies (including options)
   const redirectWithCookies = (url: URL) => {
     const response = NextResponse.redirect(url)
     supabaseResponse.cookies.getAll().forEach(cookie => {
-      response.cookies.set(cookie.name, cookie.value)
+      response.cookies.set(cookie.name, cookie.value, {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax' as const,
+        secure: process.env.NODE_ENV === 'production',
+      })
     })
     return response
   }
 
   // Redirect logged-in users away from marketing/auth pages
-  if (user && (request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
+  // Only match exact paths — don't redirect /api/... or other sub-paths
+  const pathname = request.nextUrl.pathname
+  if (user && (pathname === '/' || pathname === '/login' || pathname === '/register')) {
     return redirectWithCookies(new URL('/dashboard', request.url))
   }
 
   const protectedRoutes = ['/dashboard', '/perfil', '/coach', '/organizador', '/admin', '/ronda-libre']
   const isProtected = protectedRoutes.some((r) =>
-    request.nextUrl.pathname.startsWith(r)
+    pathname.startsWith(r)
   )
 
   if (isProtected && !user) {
     const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', request.nextUrl.pathname)
+    loginUrl.searchParams.set('next', pathname)
     return redirectWithCookies(loginUrl)
   }
 
   // Verificación extra para /admin: comprobar rol en servidor
-  if (user && request.nextUrl.pathname.startsWith('/admin')) {
+  if (user && pathname.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')

@@ -8,6 +8,40 @@ import { trackEvent } from '@/lib/analytics'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
 import type { ModoJuego } from '@/lib/scoring'
 
+/* ── Share menu component ──────────────────────────────────────────── */
+function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void }) {
+  const scoreUrl = typeof window !== 'undefined' ? `${window.location.origin}/ronda-libre/${codigo}/score` : ''
+  const liveUrl = typeof window !== 'undefined' ? `${window.location.origin}/ronda-libre/${codigo}` : ''
+
+  const doShare = async (url: string, text: string) => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try { await navigator.share({ title: 'Golfers+', text, url }) } catch {}
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank')
+    }
+    onClose()
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '480px', background: '#0e1c2f', borderRadius: '16px 16px 0 0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
+        <div style={{ width: '36px', height: '4px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', margin: '0 auto 16px' }} />
+        <button onClick={() => doShare(scoreUrl, 'Unete a jugar en Golfers+')} style={{
+          width: '100%', padding: '16px', marginBottom: '8px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', color: '#EDE9E4', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
+        }}>
+          <span style={{ fontSize: '20px' }}>🏌️</span> Invitar a jugar
+        </button>
+        <button onClick={() => doShare(liveUrl, 'Sigue mi ronda en vivo en Golfers+')} style={{
+          width: '100%', padding: '16px', background: 'rgba(37,211,102,0.08)', border: '1px solid rgba(37,211,102,0.25)', borderRadius: '12px', color: '#EDE9E4', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
+        }}>
+          <span style={{ fontSize: '20px' }}>👁</span> Seguir en vivo
+        </button>
+        <button onClick={onClose} style={{ width: '100%', padding: '14px', marginTop: '8px', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '14px', cursor: 'pointer' }}>Cancelar</button>
+      </div>
+    </div>
+  )
+}
+
 /* ── Types ──────────────────────────────────────────────────────────── */
 interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }
 interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; ronda_libre_jugadores: Jugador[] }
@@ -60,10 +94,11 @@ function ScorePageContent() {
   const [isOnline, setIsOnline] = useState(true)
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [scoreAnimating, setScoreAnimating] = useState(false)
-  const [showMiniCard, setShowMiniCard] = useState(true) // FIX #3: visible by default
+  const [_showMiniCard, _setShowMiniCard] = useState(true) // kept for compat, mini scorecard always visible now
   const [taigerStatus, setTaigerStatus] = useState<'idle' | 'analyzing' | 'ready' | 'error'>('idle')
   const [taigerSessionId, setTaigerSessionId] = useState<string | null>(null)
   const [saveCheckVisible, setSaveCheckVisible] = useState(false) // FIX #8: save feedback toast
+  const [showShareMenu, setShowShareMenu] = useState(false)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retryCountRef = useRef(0)
@@ -294,11 +329,14 @@ function ScorePageContent() {
   const isAboveDoubleBogey = score != null && score > par + 2
 
   return (
-    <div style={{ background: '#070d18', minHeight: '100dvh', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
+    <div style={{ background: '#070d18', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
+
+      {/* ── Share menu modal ── */}
+      {showShareMenu && <ShareMenu codigo={codigo} onClose={() => setShowShareMenu(false)} />}
 
       {/* ── Offline banner ── */}
       {!isOnline && (
-        <div style={{ background: '#92400e', color: '#fef3c7', textAlign: 'center', padding: '6px', fontSize: '12px', fontWeight: 600 }}>
+        <div style={{ background: '#92400e', color: '#fef3c7', textAlign: 'center', padding: '4px', fontSize: '11px', fontWeight: 600, flexShrink: 0 }}>
           Sin conexion — guardado local
         </div>
       )}
@@ -320,105 +358,124 @@ function ScorePageContent() {
       {/* ── Header 48px ── */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', height: '48px',
+        padding: '0 16px', height: '48px', flexShrink: 0,
         borderBottom: '1px solid rgba(196,153,42,0.12)',
         background: 'rgba(7,13,24,0.95)',
-        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-        position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={handleExit} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(255,255,255,0.7)', fontSize: '14px', // FIX #10: increased contrast
+          color: 'rgba(255,255,255,0.7)', fontSize: '14px',
           padding: '8px', minWidth: '44px', minHeight: '44px',
           display: 'flex', alignItems: 'center',
           WebkitTapHighlightColor: 'transparent',
         }}>← Salir</button>
-        <button onClick={() => setShowMiniCard(!showMiniCard)} style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          textAlign: 'center', padding: '4px 8px', minHeight: '44px',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          WebkitTapHighlightColor: 'transparent',
-        }}>
+        <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
           <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>
-            {ronda.course_name} · {new Date(ronda.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} {showMiniCard ? '▲' : '▼'}
+            {ronda.course_name}
           </div>
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button onClick={async () => {
-            const shareUrl = `${window.location.origin}/ronda-libre/${codigo}`
-            const shareText = `Unete a mi ronda en ${ronda.course_name}`
-            if (navigator.share) {
-              try { await navigator.share({ title: 'Golfers+', text: shareText, url: shareUrl }) } catch {}
-            } else {
-              window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`, '_blank')
-            }
-          }} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'rgba(255,255,255,0.55)', fontSize: '16px',
-            padding: '8px', minWidth: '36px', minHeight: '36px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            WebkitTapHighlightColor: 'transparent',
-          }} aria-label="Compartir ronda">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-          </button>
-          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', minWidth: '28px', textAlign: 'right' }}>
-            {currentHole}/{totalHoles}
-          </span>
         </div>
+        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', minWidth: '28px', textAlign: 'right' }}>
+          {currentHole}/{totalHoles}
+        </span>
       </header>
 
-      {/* ── Mini scorecard (collapsible) ── */}
-      {showMiniCard && (
+      {/* ── Mini scorecard strip (36px) ── */}
+      <div style={{
+        background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)',
+        padding: '2px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px',
+      }}>
+        <div ref={progressRowRef} style={{ display: 'flex', gap: '2px', minWidth: 'max-content', justifyContent: 'center', height: '100%', alignItems: 'center' }}>
+          {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
+            const s = scores[activeJugadorId]?.[h]
+            const p = parMap[h] ?? 4
+            const isActive = h === currentHole
+            const diff = s != null ? s - p : null
+
+            let bg = 'rgba(255,255,255,0.04)'
+            let color = 'rgba(255,255,255,0.2)'
+            if (isActive) { bg = 'rgba(196,153,42,0.2)'; color = '#C4992A' }
+            else if (diff != null) {
+              if (diff <= -2) { bg = 'rgba(196,153,42,0.2)'; color = '#c9a84c' }
+              else if (diff === -1) { bg = 'rgba(22,163,74,0.15)'; color = '#4ade80' }
+              else if (diff === 0) { bg = 'rgba(255,255,255,0.08)'; color = 'rgba(255,255,255,0.6)' }
+              else if (diff === 1) { bg = 'rgba(245,158,11,0.15)'; color = '#fbbf24' }
+              else { bg = 'rgba(220,38,38,0.15)'; color = '#f87171' }
+            }
+
+            return (
+              <button key={h} onClick={() => setCurrentHole(h)} style={{
+                width: '26px', height: '30px', borderRadius: '5px',
+                background: bg, border: isActive ? '1px solid #C4992A' : '1px solid transparent',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', flexShrink: 0, padding: 0,
+                WebkitTapHighlightColor: 'transparent',
+              }}>
+                <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>{h}</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color, lineHeight: 1.2 }}>
+                  {s ?? '·'}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── Pacing bar (24px) ── */}
+      {totalHoles >= 18 && (f9Count > 0 || b9Count > 0) && (
         <div style={{
-          background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)',
-          padding: '10px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+          display: 'flex', justifyContent: 'center', gap: '16px',
+          padding: '3px 16px', height: '24px', flexShrink: 0,
+          background: 'rgba(255,255,255,0.02)',
+          borderBottom: '1px solid rgba(255,255,255,0.04)',
+          fontSize: '12px', color: 'rgba(255,255,255,0.45)', alignItems: 'center',
         }}>
-          <div style={{ display: 'flex', gap: '2px', minWidth: 'max-content', justifyContent: 'center' }}>
-            {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
-              const s = scores[activeJugadorId]?.[h]
-              const p = parMap[h] ?? 4
-              const isActive = h === currentHole
-              const diff = s != null ? s - p : null
-
-              let bg = 'rgba(255,255,255,0.04)'
-              let color = 'rgba(255,255,255,0.2)'
-              if (isActive) { bg = 'rgba(196,153,42,0.2)'; color = '#C4992A' }
-              else if (diff != null) {
-                if (diff <= -2) { bg = 'rgba(196,153,42,0.2)'; color = '#c9a84c' }
-                else if (diff === -1) { bg = 'rgba(22,163,74,0.15)'; color = '#4ade80' }
-                else if (diff === 0) { bg = 'rgba(255,255,255,0.08)'; color = 'rgba(255,255,255,0.6)' }
-                else if (diff === 1) { bg = 'rgba(245,158,11,0.15)'; color = '#fbbf24' }
-                else { bg = 'rgba(220,38,38,0.15)'; color = '#f87171' }
-              }
-
-              return (
-                <button key={h} onClick={() => { setCurrentHole(h); setShowMiniCard(false) }} style={{
-                  width: '28px', height: '36px', borderRadius: '6px',
-                  background: bg, border: isActive ? '1px solid #C4992A' : '1px solid transparent',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', flexShrink: 0, padding: 0,
-                  WebkitTapHighlightColor: 'transparent',
-                }}>
-                  <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>{h}</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color, lineHeight: 1.2 }}>
-                    {s ?? '·'}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+          {f9Count > 0 && <span>F9: <span style={{ color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{formatNine(f9Gross, f9Par)}</span></span>}
+          {f9Count > 0 && b9Count > 0 && <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>}
+          {b9Count > 0 && <span>B9: <span style={{ color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{formatNine(b9Gross, b9Par)}</span></span>}
         </div>
       )}
 
+      {/* ── Hole info bar (32px) with share ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+        padding: '4px 16px', height: '32px', flexShrink: 0,
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+      }}>
+        <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          Par {par}
+          {strokesOnHole > 0 && (
+            <span style={{ color: '#C4992A', fontSize: '9px' }}>
+              {strokesOnHole === 1 ? '●' : '●●'}
+            </span>
+          )}
+        </span>
+        <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'rgba(255,255,255,0.7)' }}>
+          HDCP {holeData.stroke_index}
+        </span>
+        {holesPlayed > 0 && (
+          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
+            {totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder}
+          </span>
+        )}
+        <button onClick={() => setShowShareMenu(true)} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'rgba(255,255,255,0.45)', padding: '2px 4px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          WebkitTapHighlightColor: 'transparent',
+        }} aria-label="Compartir">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        </button>
+      </div>
+
       {/* ── Player tabs (multi-player only) ── */}
       {jugadores.length > 1 && (
-        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: '1px solid rgba(255,255,255,0.06)', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: '1px solid rgba(255,255,255,0.06)', WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
           {jugadores.map(j => {
             const active = j.id === activeJugadorId
             return (
               <button key={j.id} onClick={() => setActiveJugadorId(j.id)} style={{
-                padding: '0 16px', height: '40px', border: 'none',
+                padding: '0 16px', height: '36px', border: 'none',
                 borderBottom: active ? '2px solid #C4992A' : '2px solid transparent',
                 background: 'transparent', color: active ? '#C4992A' : 'rgba(255,255,255,0.35)',
                 fontWeight: active ? 600 : 400, fontSize: '13px',
@@ -429,63 +486,12 @@ function ScorePageContent() {
         </div>
       )}
 
-      {/* ── Player band ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 16px', background: 'rgba(196,153,42,0.07)',
-        borderBottom: '1px solid rgba(196,153,42,0.1)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '28px', height: '28px', borderRadius: '50%',
-            background: '#C4992A', color: '#070D18',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '11px', fontWeight: 700, flexShrink: 0,
-          }}>{activePlayer?.nombre?.charAt(0).toUpperCase()}</div>
-          <span style={{ fontSize: '14px', fontWeight: 600, color: '#EDE9E4' }}>{activePlayer?.nombre}</span>
-        </div>
-        <span style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>{/* FIX #10: 14px bold */}
-          {holesPlayed > 0 ? <>Total: <span style={{ color: '#EDE9E4', fontWeight: 700 }}>{totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder}</span></> : `${holesPlayed}/${totalHoles}`}
-        </span>
-      </div>
-
-      {/* ── FIX #6: Front 9 / Back 9 pacing bar ── */}
-      {totalHoles >= 18 && (f9Count > 0 || b9Count > 0) && (
-        <div style={{
-          display: 'flex', justifyContent: 'center', gap: '16px',
-          padding: '6px 16px',
-          background: 'rgba(255,255,255,0.02)',
-          borderBottom: '1px solid rgba(255,255,255,0.04)',
-          fontSize: '12px', color: 'rgba(255,255,255,0.45)',
-        }}>
-          {f9Count > 0 && <span>F9: <span style={{ color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{formatNine(f9Gross, f9Par)}</span></span>}
-          {f9Count > 0 && b9Count > 0 && <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>}
-          {b9Count > 0 && <span>B9: <span style={{ color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{formatNine(b9Gross, b9Par)}</span></span>}
-        </div>
-      )}
-
-      {/* ── Central area (swipeable) ── */}
+      {/* ── Central area — SCORE (flex:1, centered) ── */}
       <div
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 20px 8px', position: 'relative' }}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', minHeight: 0 }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Par + SI badges */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', alignItems: 'center' }}>
-          <span style={{ padding: '4px 14px', borderRadius: '20px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '4px' }}>{/* FIX #10: 14px, 0.7 */}
-            Par {par}
-            {/* FIX #7: handicap strokes dot */}
-            {strokesOnHole > 0 && (
-              <span style={{ color: '#C4992A', fontSize: '10px' }}>
-                {strokesOnHole === 1 ? '●' : '●●'}
-              </span>
-            )}
-          </span>
-          <span style={{ padding: '4px 14px', borderRadius: '20px', fontSize: '14px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'rgba(255,255,255,0.7)' }}>{/* FIX #10: 14px, 0.7 */}
-            HDCP {holeData.stroke_index}
-          </span>
-        </div>
-
         {/* Score number */}
         <div style={{ position: 'relative' }}>
           <div
@@ -497,7 +503,7 @@ function ScorePageContent() {
             }}
           >{score ?? par}</div>
 
-          {/* FIX #8: Save check toast */}
+          {/* Save check toast */}
           {saveCheckVisible && (
             <div style={{
               position: 'absolute', top: '-8px', right: '-24px',
@@ -510,16 +516,16 @@ function ScorePageContent() {
         {/* Chip */}
         {score != null && (
           <div style={{
-            marginTop: '12px', padding: '5px 18px', borderRadius: '20px',
+            marginTop: '8px', padding: '4px 16px', borderRadius: '20px',
             fontSize: '13px', fontWeight: 500, letterSpacing: '0.01em',
             ...getChipStyle(score, par),
           }}>{getChipLabel(score, par)}</div>
         )}
 
-        {/* FIX #5: Double bogey warning */}
+        {/* Double bogey warning */}
         {isAboveDoubleBogey && (
           <div style={{
-            marginTop: '8px', fontSize: '11px', color: 'rgba(255,255,255,0.3)',
+            marginTop: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.3)',
             letterSpacing: '0.02em',
           }}>
             Por encima de doble bogey
@@ -527,8 +533,8 @@ function ScorePageContent() {
         )}
       </div>
 
-      {/* ── +/- Buttons ── FIX #1: plus bug, #2: gap/size, #5: max 15 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '8px 20px 16px' }}>
+      {/* ── +/- Buttons (80px + padding) ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '8px 20px 12px', flexShrink: 0 }}>
         <button
           className="ctrl-btn"
           onTouchStart={() => {}}
@@ -549,89 +555,50 @@ function ScorePageContent() {
         <button
           className="ctrl-btn"
           onTouchStart={() => {}}
-          onClick={() => handleScoreChange(currentHole, (score ?? par) + 1)} // FIX #1: was (score ?? par - 1) + 1
-          disabled={score != null && score >= 15} // FIX #5: max 15
+          onClick={() => handleScoreChange(currentHole, (score ?? par) + 1)}
+          disabled={score != null && score >= 15}
           style={{
-            width: '80px', height: '80px', borderRadius: '20px', // FIX #2: 80px
+            width: '80px', height: '80px', borderRadius: '20px',
             fontSize: '32px', fontWeight: 600,
             background: '#C4992A', color: '#070D18', border: 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
             userSelect: 'none', transition: 'transform 0.08s ease-out',
-            opacity: score != null && score >= 15 ? 0.3 : 1, // FIX #5: max 15
+            opacity: score != null && score >= 15 ? 0.3 : 1,
             minHeight: 0, minWidth: 0,
           }}
         >+</button>
       </div>
 
-      {/* ── FIX #9: Progress — numbered mini-cells ── */}
-      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: '6px 12px 12px', marginBottom: '140px' }}>
-        <div ref={progressRowRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '3px', minWidth: 'max-content' }}>
-          {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
-            const s = scores[activeJugadorId]?.[h]
-            const p = parMap[h] ?? 4
-            const isActive = h === currentHole
-            const isDone = s != null
-
-            let bg = 'rgba(255,255,255,0.08)'
-            let textColor = 'rgba(255,255,255,0.3)'
-
-            if (isActive) { bg = 'rgba(196,153,42,0.25)'; textColor = '#C4992A' }
-            else if (isDone) {
-              const d = s - p
-              if (d <= -2) { bg = 'rgba(196,153,42,0.25)'; textColor = '#c9a84c' }
-              else if (d === -1) { bg = 'rgba(22,163,74,0.2)'; textColor = '#4ade80' }
-              else if (d === 0) { bg = 'rgba(161,161,170,0.2)'; textColor = 'rgba(255,255,255,0.6)' }
-              else if (d === 1) { bg = 'rgba(245,158,11,0.2)'; textColor = '#fbbf24' }
-              else { bg = 'rgba(220,38,38,0.2)'; textColor = '#f87171' }
-            }
-
-            return (
-              <button key={h} onClick={() => setCurrentHole(h)} style={{
-                width: '18px', height: '22px', borderRadius: '4px',
-                background: bg,
-                border: isActive ? '1.5px solid #C4992A' : '1px solid transparent',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', flexShrink: 0, padding: 0,
-                WebkitTapHighlightColor: 'transparent',
-                boxShadow: isActive ? '0 0 6px rgba(196,153,42,0.4)' : 'none',
-                transition: 'all 0.15s ease',
-              }}>
-                <span style={{
-                  fontSize: '9px', fontWeight: isDone || isActive ? 700 : 500,
-                  color: textColor, lineHeight: 1,
-                }}>{h}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* ── Footer (fixed at bottom) ── */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 15, background: 'rgba(7,13,24,0.97)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', borderTop: '1px solid rgba(196,153,42,0.12)', padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <button
-          onTouchStart={() => {}}
-          onClick={isLastHole ? finalizeRound : goToNextHole}
-          style={{
-            width: '100%', padding: '16px', background: '#C4992A', color: '#070D18',
-            border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 600,
-            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-            touchAction: 'manipulation', letterSpacing: '0.01em',
-          }}
-        >{isLastHole ? 'Finalizar ronda ✓' : 'Hoyo siguiente →'}</button>
-
+      {/* ── Nav buttons (fixed bottom with safe area) ── */}
+      <div style={{
+        flexShrink: 0, background: 'rgba(7,13,24,0.97)',
+        borderTop: '1px solid rgba(196,153,42,0.12)',
+        padding: '8px 16px', paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
+        display: 'flex', gap: '8px',
+      }}>
         {currentHole > 1 && (
           <button
             onTouchStart={() => {}}
             onClick={goToPrevHole}
             style={{
-              width: '100%', padding: '12px', background: 'transparent',
+              flex: 1, padding: '14px', background: 'transparent',
               color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '14px', fontSize: '14px', fontWeight: 400,
+              borderRadius: '12px', fontSize: '14px', fontWeight: 400,
               cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             }}
-          >← Hoyo anterior</button>
+          >← Anterior</button>
         )}
+        <button
+          onTouchStart={() => {}}
+          onClick={isLastHole ? finalizeRound : goToNextHole}
+          style={{
+            flex: 2, padding: '14px', background: '#C4992A', color: '#070D18',
+            border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
+            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            touchAction: 'manipulation', letterSpacing: '0.01em',
+          }}
+        >{isLastHole ? 'Finalizar ronda ✓' : 'Siguiente →'}</button>
       </div>
 
       {/* ── tAIger banners ── */}
@@ -651,7 +618,7 @@ function ScorePageContent() {
         </div>
       )}
 
-      {/* ── FIX #8: CSS animation for save check ── */}
+      {/* ── CSS animation for save check ── */}
       <style>{`
         @keyframes fadeInOut {
           0% { opacity: 0; transform: scale(0.8); }

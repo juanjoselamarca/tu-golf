@@ -79,9 +79,11 @@ export default function LeaderboardPage() {
 
   const filtered = category === 'General'
     ? simPlayers
-    : category === 'Categoría A'
+    : category === 'Scratch'
       ? simPlayers.filter(p => p.categoria === 'A')
-      : simPlayers.filter(p => p.categoria === 'B')
+      : category === 'Senior Scratch'
+        ? simPlayers.filter(p => p.categoria === 'B')
+        : simPlayers.filter(p => p.categoria === 'B')
 
   return (
     <div className="min-h-screen bg-bg-deep">
@@ -164,7 +166,7 @@ export default function LeaderboardPage() {
 
       {/* ── Category tabs — light on mobile, dark on desktop ── */}
       <div className="md:hidden" style={{ padding: '10px 16px', display: 'flex', gap: '8px', background: '#ffffff', borderBottom: '1px solid #e5e7eb' }}>
-        {['General', 'Categoría A', 'Categoría B'].map(tab => (
+        {['General', 'Scratch', 'Senior Scratch', 'Categoría A'].map(tab => (
           <button key={tab} onClick={() => setCategory(tab)} style={{
             padding: '8px 16px', borderRadius: '20px', whiteSpace: 'nowrap',
             fontSize: '13px', fontWeight: category === tab ? 600 : 400,
@@ -176,7 +178,7 @@ export default function LeaderboardPage() {
         ))}
       </div>
       <div className="hidden md:flex" style={{ padding: '12px 16px', gap: '8px' }}>
-        {['General', 'Categoría A', 'Categoría B'].map(tab => (
+        {['General', 'Scratch', 'Senior Scratch', 'Categoría A'].map(tab => (
           <button key={tab} onClick={() => setCategory(tab)} style={{
             padding: '8px 16px', borderRadius: '6px', whiteSpace: 'nowrap',
             fontSize: '13px', fontWeight: category === tab ? 600 : 400,

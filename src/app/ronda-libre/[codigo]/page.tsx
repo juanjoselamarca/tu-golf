@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
@@ -9,6 +9,7 @@ import GWILeaderboard from '@/components/GWILeaderboard'
 import { calcularGWI } from '@/lib/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/lib/gwi'
 import type { ModoJuego } from '@/lib/scoring'
+import { Suspense } from 'react'
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 interface Jugador {
@@ -87,10 +88,12 @@ function buildTimelineEvents(
 }
 
 /* ── Main Component ─────────────────────────────────────────────────────── */
-export default function RondaLibrePage() {
+function RondaLibrePageContent() {
   const params  = useParams()
   const router  = useRouter()
+  const searchParams = useSearchParams()
   const codigo  = params.codigo as string
+  const finishedParam = searchParams.get('finished') === 'true'
 
   const [ronda,       setRonda]       = useState<RondaLibre | null>(null)
   const [parMap,      setParMap]      = useState<Record<number, number>>({})
@@ -149,11 +152,17 @@ export default function RondaLibrePage() {
 
   useEffect(() => { fetchRonda() }, [fetchRonda])
 
-  // Restore role from sessionStorage
+  // Restore role from sessionStorage — override to espectador for finished rounds
   useEffect(() => {
+    if (finishedParam || ronda?.estado === 'finalizada') {
+      // Clear stale jugador role and force espectador
+      sessionStorage.setItem(SS_KEY(codigo), 'espectador')
+      setRole('espectador')
+      return
+    }
     const saved = sessionStorage.getItem(SS_KEY(codigo))
     if (saved === 'espectador' || saved === 'jugador') setRole(saved)
-  }, [codigo])
+  }, [codigo, finishedParam, ronda?.estado])
 
   // Polling every 15s (spectator only)
   useEffect(() => {
@@ -247,131 +256,11 @@ export default function RondaLibrePage() {
     })
 
   /* ─────────────────────────────────────────────────────────────────────── */
-  /* ── FINISHED ROUND — skip role selection, go straight to leaderboard ─ */
+  /* ── FINISHED ROUND — auto-set role to espectador, skip welcome ────── */
   /* ─────────────────────────────────────────────────────────────────────── */
-  if (!role && ronda.estado === 'finalizada') {
-    // Auto-set role to spectator so the leaderboard view renders on next cycle
-    // but first show a brief finished-round screen
-    return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
-        {/* Header */}
-        <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '24px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '10px' }}>⛳</div>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#edeae4', margin: '0 0 6px' }}>
-            Ronda Finalizada
-          </h1>
-          <p style={{ color: '#94a8c0', fontSize: '14px', margin: 0 }}>
-            {ronda.course_name} · {fechaDisplay}
-          </p>
-          <div style={{
-            marginTop: '12px',
-            display: 'inline-flex', alignItems: 'center', gap: '10px',
-            background: 'rgba(196,153,42,0.08)',
-            border: '1px solid rgba(196,153,42,0.25)',
-            borderRadius: '10px',
-            padding: '8px 18px',
-          }}>
-            <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Codigo</span>
-            <span style={{ fontFamily: 'monospace', color: '#c4992a', fontWeight: 700, fontSize: '22px', letterSpacing: '3px' }}>
-              {ronda.codigo}
-            </span>
-          </div>
-        </div>
-
-        {/* Results summary */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', gap: '16px' }}>
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '360px',
-              background: 'rgba(14,28,47,0.9)',
-              border: '1px solid rgba(196,153,42,0.16)',
-              borderRadius: '16px',
-              padding: '18px 18px 16px',
-              marginBottom: '4px',
-            }}
-          >
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-              <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estado</div>
-                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>Ronda finalizada</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
-                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>{ronda.ronda_libre_jugadores.length}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Recorrido</div>
-                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>{ronda.holes} hoyos</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modo</div>
-                <div style={{ fontSize: '14px', color: '#c4992a', fontWeight: 700, textTransform: 'capitalize' }}>
-                  {ronda.modo_juego === 'stableford' ? 'Stableford' : ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* View leaderboard */}
-          <button
-            onClick={() => chooseRole('espectador')}
-            style={{
-              width: '100%', maxWidth: '360px', minHeight: '80px',
-              background: '#c4992a', color: '#070d18',
-              border: 'none', borderRadius: '16px',
-              padding: '20px 24px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
-              fontWeight: 700, fontSize: '18px',
-            }}
-          >
-            Ver marcador final
-          </button>
-
-          {/* Share result */}
-          <button
-            onClick={() => {
-              const standingsText = leaderboard
-                .filter(j => j.holesPlayed > 0)
-                .map((j, i) => `${i + 1}. ${j.nombre} ${hasCourse ? formatOverUnder(j.vsPar) : ''} (${j.holesPlayed}/${ronda.holes})`)
-                .join('\n')
-              const resultText = `${ronda.course_name} - ${fechaDisplay}\n\n${standingsText}\n\nVer resultado: ${shareUrl}`
-              if (typeof navigator !== 'undefined' && navigator.share) {
-                navigator.share({ title: 'Resultado Golfers+', text: resultText }).catch(() => {})
-              } else {
-                window.open(`https://wa.me/?text=${encodeURIComponent(resultText)}`, '_blank')
-              }
-            }}
-            style={{
-              width: '100%', maxWidth: '360px', minHeight: '56px',
-              background: 'rgba(37,211,102,0.12)',
-              border: '1px solid rgba(37,211,102,0.3)',
-              color: '#25D366',
-              borderRadius: '12px',
-              padding: '14px 20px',
-              cursor: 'pointer',
-              fontSize: '15px',
-              fontWeight: 600,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-            }}
-          >
-            Compartir resultado
-          </button>
-
-          {/* Stats link */}
-          <Link
-            href="/perfil/stats"
-            style={{
-              color: '#c4992a', textDecoration: 'none', fontSize: '14px',
-              marginTop: '8px', fontWeight: 600,
-            }}
-          >
-            Ver mis estadisticas →
-          </Link>
-        </div>
-      </div>
-    )
-  }
+  // Handled in the useEffect above — finishedParam or estado=finalizada
+  // automatically sets role='espectador', so no separate screen needed.
+  const isFinished = finishedParam || ronda.estado === 'finalizada'
 
   /* ─────────────────────────────────────────────────────────────────────── */
   /* ── WELCOME SCREEN ─────────────────────────────────────────────────── */
@@ -563,15 +452,58 @@ export default function RondaLibrePage() {
   /* ── SPECTATOR VIEW ─────────────────────────────────────────────────── */
   /* ─────────────────────────────────────────────────────────────────────── */
   if (role === 'espectador') {
+    // White theme score colors
+    const whiteThemeScoreColor = (vsPar: number, played: number) => {
+      if (played === 0) return '#9ca3af'
+      if (vsPar < 0) return '#16a34a'
+      if (vsPar === 0) return '#374151'
+      return '#dc2626'
+    }
+
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
-        {sharedHeader}
+      <div style={{ background: '#f3f4f6', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
+        {/* Header — dark bar at top */}
+        <div style={{ background: '#111827', borderBottom: '1px solid #e5e7eb', padding: '16px' }}>
+          <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div>
+                <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#ffffff', margin: '0 0 4px' }}>
+                  {isFinished ? 'Resultado final' : 'Marcador en vivo'}
+                </h1>
+                <div style={{ fontSize: '13px', color: '#9ca3af' }}>
+                  {ronda.course_name} · {fechaDisplay}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                  background: isEnCurso ? 'rgba(34,197,94,0.12)' : 'rgba(122,143,168,0.12)',
+                  color: isEnCurso ? '#22c55e' : '#9ca3af',
+                  border: `1px solid ${isEnCurso ? 'rgba(34,197,94,0.3)' : 'rgba(122,143,168,0.3)'}`,
+                  padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
+                }}>
+                  {isEnCurso ? '● EN CURSO' : '✓ FINALIZADA'}
+                </span>
+                {!isFinished && (
+                  <button
+                    onClick={() => { sessionStorage.removeItem(SS_KEY(codigo)); setRole(null) }}
+                    style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '12px', cursor: 'pointer', padding: 0 }}
+                  >
+                    Cambiar rol
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
+
+          {/* Course info card — white */}
           <div
             style={{
-              background: 'linear-gradient(135deg, rgba(23,49,41,0.95) 0%, rgba(14,28,47,0.92) 100%)',
-              border: '1px solid rgba(196,153,42,0.14)',
+              background: '#ffffff',
+              border: '1px solid #e5e7eb',
               borderRadius: '14px',
               padding: '16px',
               marginBottom: '12px',
@@ -579,39 +511,39 @@ export default function RondaLibrePage() {
           >
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
               <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Club</div>
-                <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{ronda.course_name}</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Club</div>
+                <div style={{ fontSize: '15px', color: '#111827', fontWeight: 700 }}>{ronda.course_name}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Fecha</div>
-                <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{fechaDisplay}</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Fecha</div>
+                <div style={{ fontSize: '15px', color: '#111827', fontWeight: 700 }}>{fechaDisplay}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
-                <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{ronda.ronda_libre_jugadores.length}</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
+                <div style={{ fontSize: '15px', color: '#111827', fontWeight: 700 }}>{ronda.ronda_libre_jugadores.length}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Formato</div>
-                <div style={{ fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{ronda.holes} hoyos</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Formato</div>
+                <div style={{ fontSize: '15px', color: '#111827', fontWeight: 700 }}>{ronda.holes} hoyos</div>
               </div>
             </div>
           </div>
 
           {timelineEvents.length > 0 && (
-            <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', padding: '14px 16px', marginBottom: '12px' }}>
+            <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px 16px', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
-                <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Momentos recientes</span>
-                <span style={{ fontSize: '12px', color: '#c4992a' }}>Actualiza cada 15s</span>
+                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Momentos recientes</span>
+                {!isFinished && <span style={{ fontSize: '12px', color: '#c4992a' }}>Actualiza cada 15s</span>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {timelineEvents.map((event) => {
                   const label = event.diff <= -2 ? 'Eagle' : event.diff === -1 ? 'Birdie' : event.diff === 0 ? 'Par' : event.diff === 1 ? 'Bogey' : `+${event.diff}`
-                  const color = event.diff <= -2 ? '#c8a55a' : event.diff === -1 ? '#22c55e' : event.diff === 0 ? '#edeae4' : '#dc2626'
+                  const color = event.diff <= -2 ? '#c8a55a' : event.diff === -1 ? '#16a34a' : event.diff === 0 ? '#374151' : '#dc2626'
                   return (
                     <div key={`${event.jugador}-${event.hole}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                       <div>
-                        <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>{event.jugador}</div>
-                        <div style={{ fontSize: '12px', color: '#94a8c0' }}>Hoyo {event.hole} · {event.score} golpes</div>
+                        <div style={{ fontSize: '14px', color: '#111827', fontWeight: 700 }}>{event.jugador}</div>
+                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Hoyo {event.hole} · {event.score} golpes</div>
                       </div>
                       <span style={{ color, fontSize: '13px', fontWeight: 700 }}>{label}</span>
                     </div>
@@ -621,7 +553,7 @@ export default function RondaLibrePage() {
             </div>
           )}
 
-          {/* GWI — solo si hay ≥ 2 jugadores y al menos 3 hoyos jugados */}
+          {/* GWI — solo si hay >= 2 jugadores y al menos 3 hoyos jugados */}
           {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
             <GWILeaderboard
               jugadores={gwiInputs}
@@ -631,61 +563,47 @@ export default function RondaLibrePage() {
             />
           )}
 
-          {/* Leaderboard */}
-          <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px' }}>
+          {/* Leaderboard — white theme */}
+          <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px' }}>
 
             {/* Table header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px', padding: '10px 16px', background: 'rgba(196,153,42,0.05)', borderBottom: '1px solid rgba(196,153,42,0.1)' }}>
-              <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase' }}>#</span>
-              <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase' }}>Jugador</span>
-              <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', textAlign: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px', padding: '10px 16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+              <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase' }}>#</span>
+              <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase' }}>Jugador</span>
+              <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'center' }}>
                 {hasCourse ? '+/- Par' : 'Score'}
               </span>
-              <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
+              <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
             </div>
 
             {leaderboard.length === 0 && (
-              <div style={{ padding: '32px', textAlign: 'center', color: '#94a8c0', fontSize: '14px' }}>
-                Aún no hay jugadores en esta ronda
+              <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>
+                Aun no hay jugadores en esta ronda
               </div>
             )}
 
             {leaderboard.map((j, idx) => {
               const isExpanded = expanded === j.id
-              const par    = hasCourse ? parMap[1] ?? 4 : 4  // fallback
-              const color  = j.holesPlayed > 0
-                ? getScoreColor(j.vsPar + par, par)  // use vsPar directly
-                : '#94a8c0'
-
-              // Correct color directly from vsPar
-              const vsParColor = (() => {
-                if (j.holesPlayed === 0) return '#94a8c0'
-                if (j.vsPar <= -2) return '#c8a55a'
-                if (j.vsPar === -1) return '#22c55e'
-                if (j.vsPar === 0)  return '#edeae4'
-                if (j.vsPar === 1)  return '#dc2626'
-                return '#dc2626'
-              })()
-
+              const vsParColor = whiteThemeScoreColor(j.vsPar, j.holesPlayed)
               const vsParStr = j.holesPlayed > 0 ? formatOverUnder(j.vsPar) : '—'
               const holeNums = Array.from({ length: ronda.holes }, (_, i) => i + 1)
 
               return (
-                <div key={j.id} style={{ borderBottom: '1px solid rgba(122,143,168,0.07)' }}>
+                <div key={j.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                   {/* Row */}
                   <button
                     onClick={() => setExpanded(isExpanded ? null : j.id)}
                     style={{
-                      width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                      width: '100%', background: '#ffffff', border: 'none', cursor: 'pointer',
                       display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px',
                       padding: '13px 16px', alignItems: 'center', textAlign: 'left',
                     }}
                   >
-                    <span style={{ fontSize: '14px', color: '#94a8c0', fontWeight: 600 }}>{idx + 1}</span>
-                    <span style={{ fontSize: '15px', color: '#edeae4', fontWeight: 600 }}>
+                    <span style={{ fontSize: '14px', color: '#9ca3af', fontWeight: 600 }}>{idx + 1}</span>
+                    <span style={{ fontSize: '15px', color: '#111827', fontWeight: 600 }}>
                       {j.nombre}
                       {j.holesPlayed > 0 && (
-                        <span style={{ fontSize: '11px', color: '#94a8c0', fontWeight: 400, marginLeft: '6px' }}>
+                        <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400, marginLeft: '6px' }}>
                           {isExpanded ? '▲' : '▼'}
                         </span>
                       )}
@@ -695,16 +613,16 @@ export default function RondaLibrePage() {
                         {vsParStr}
                       </span>
                     </div>
-                    <span style={{ fontSize: '13px', color: '#94a8c0', textAlign: 'right' }}>
+                    <span style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'right' }}>
                       {j.holesPlayed}/{ronda.holes}
                     </span>
                   </button>
 
                   {/* Expandable mini scorecard */}
                   {isExpanded && j.holesPlayed > 0 && (
-                    <div style={{ padding: '4px 12px 14px', background: 'rgba(7,13,24,0.4)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    <div style={{ padding: '4px 12px 14px', background: '#f9fafb', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                       {/* Front 9 */}
-                      <div style={{ fontSize: '9px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '9px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
                         Front 9
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', marginBottom: '8px' }}>
@@ -712,12 +630,12 @@ export default function RondaLibrePage() {
                           const s    = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
                           const p    = parMap[h] ?? 4
                           const diff = s != null ? s - p : null
-                          const bg   = diff != null ? `${getScoreColor(s!, p)}22` : 'rgba(7,13,24,0.4)'
-                          const bdr  = diff != null ? `1px solid ${getScoreColor(s!, p)}44` : '1px solid transparent'
+                          const cellColor = diff != null ? (diff < 0 ? '#16a34a' : diff === 0 ? '#374151' : '#dc2626') : '#d1d5db'
+                          const cellBg = diff != null ? (diff < 0 ? '#f0fdf4' : diff === 0 ? '#f9fafb' : '#fef2f2') : '#f9fafb'
                           return (
-                            <div key={h} style={{ textAlign: 'center', background: bg, borderRadius: '4px', padding: '3px 1px', border: bdr }}>
-                              <div style={{ fontSize: '8px', color: '#94a8c0', lineHeight: 1 }}>{h}</div>
-                              <div style={{ fontSize: '12px', fontWeight: 700, color: diff != null ? getScoreColor(s!, p) : '#3a4a5a', lineHeight: 1.3 }}>
+                            <div key={h} style={{ textAlign: 'center', background: cellBg, borderRadius: '4px', padding: '3px 1px', border: `1px solid ${diff != null ? (diff < 0 ? '#bbf7d0' : diff === 0 ? '#e5e7eb' : '#fecaca') : '#e5e7eb'}` }}>
+                              <div style={{ fontSize: '8px', color: '#9ca3af', lineHeight: 1 }}>{h}</div>
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: cellColor, lineHeight: 1.3 }}>
                                 {s ?? '·'}
                               </div>
                             </div>
@@ -727,7 +645,7 @@ export default function RondaLibrePage() {
                       {/* Back 9 */}
                       {ronda.holes > 9 && (
                         <>
-                          <div style={{ fontSize: '9px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                          <div style={{ fontSize: '9px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
                             Back 9
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
@@ -735,12 +653,12 @@ export default function RondaLibrePage() {
                               const s    = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
                               const p    = parMap[h] ?? 4
                               const diff = s != null ? s - p : null
-                              const bg   = diff != null ? `${getScoreColor(s!, p)}22` : 'rgba(7,13,24,0.4)'
-                              const bdr  = diff != null ? `1px solid ${getScoreColor(s!, p)}44` : '1px solid transparent'
+                              const cellColor = diff != null ? (diff < 0 ? '#16a34a' : diff === 0 ? '#374151' : '#dc2626') : '#d1d5db'
+                              const cellBg = diff != null ? (diff < 0 ? '#f0fdf4' : diff === 0 ? '#f9fafb' : '#fef2f2') : '#f9fafb'
                               return (
-                                <div key={h} style={{ textAlign: 'center', background: bg, borderRadius: '4px', padding: '3px 1px', border: bdr }}>
-                                  <div style={{ fontSize: '8px', color: '#94a8c0', lineHeight: 1 }}>{h}</div>
-                                  <div style={{ fontSize: '12px', fontWeight: 700, color: diff != null ? getScoreColor(s!, p) : '#3a4a5a', lineHeight: 1.3 }}>
+                                <div key={h} style={{ textAlign: 'center', background: cellBg, borderRadius: '4px', padding: '3px 1px', border: `1px solid ${diff != null ? (diff < 0 ? '#bbf7d0' : diff === 0 ? '#e5e7eb' : '#fecaca') : '#e5e7eb'}` }}>
+                                  <div style={{ fontSize: '8px', color: '#9ca3af', lineHeight: 1 }}>{h}</div>
+                                  <div style={{ fontSize: '12px', fontWeight: 700, color: cellColor, lineHeight: 1.3 }}>
                                     {s ?? '·'}
                                   </div>
                                 </div>
@@ -756,40 +674,42 @@ export default function RondaLibrePage() {
             })}
           </div>
 
-          {/* Countdown progress bar */}
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ color: '#94a8c0', fontSize: '13px', fontWeight: 600 }}>
-                Actualiza en {countdown}s
-              </span>
-              <span style={{ color: '#c4992a', fontSize: '11px' }}>Auto-refresh</span>
-            </div>
-            <div style={{
-              width: '100%', height: '4px',
-              background: 'rgba(122,143,168,0.15)',
-              borderRadius: '2px', overflow: 'hidden',
-            }}>
+          {/* Countdown progress bar — only if not finished */}
+          {!isFinished && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ color: '#6b7280', fontSize: '13px', fontWeight: 600 }}>
+                  Actualiza en {countdown}s
+                </span>
+                <span style={{ color: '#c4992a', fontSize: '11px' }}>Auto-refresh</span>
+              </div>
               <div style={{
-                width: `${(countdown / 15) * 100}%`,
-                height: '100%',
-                background: countdown <= 3 ? '#22c55e' : '#c4992a',
-                borderRadius: '2px',
-                transition: 'width 1s linear, background 0.3s',
-              }} />
+                width: '100%', height: '4px',
+                background: '#e5e7eb',
+                borderRadius: '2px', overflow: 'hidden',
+              }}>
+                <div style={{
+                  width: `${(countdown / 15) * 100}%`,
+                  height: '100%',
+                  background: countdown <= 3 ? '#16a34a' : '#c4992a',
+                  borderRadius: '2px',
+                  transition: 'width 1s linear, background 0.3s',
+                }} />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Share + Copy */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
             <button
               onClick={handleShare}
-              style={{ flex: 1, background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366', fontSize: '13px', padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, minHeight: '44px' }}
+              style={{ flex: 1, background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366', fontSize: '13px', padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, minHeight: '44px' }}
             >
               Compartir
             </button>
             <button
               onClick={handleCopy}
-              style={{ flex: 1, background: 'none', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '13px', padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, minHeight: '44px' }}
+              style={{ flex: 1, background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151', fontSize: '13px', padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, minHeight: '44px' }}
             >
               {copied ? '✓ Copiado' : 'Copiar link'}
             </button>
@@ -803,7 +723,7 @@ export default function RondaLibrePage() {
                   .filter(j => j.holesPlayed > 0)
                   .map((j, i) => `${i + 1}. ${j.nombre} ${hasCourse ? formatOverUnder(j.vsPar) : ''} (${j.holesPlayed}/${ronda.holes})`)
                   .join('\n')
-                const resultText = `${ronda.course_name} - ${fechaDisplay}\n\n${standingsText}\n\nSigue en vivo: ${shareUrl}`
+                const resultText = `${ronda.course_name} - ${fechaDisplay}\n\n${standingsText}\n\n${isFinished ? 'Ver resultado' : 'Sigue en vivo'}: ${shareUrl}`
                 if (typeof navigator !== 'undefined' && navigator.share) {
                   navigator.share({ title: 'Resultado Golfers+', text: resultText }).catch(() => {})
                 } else {
@@ -812,19 +732,35 @@ export default function RondaLibrePage() {
               }}
               style={{
                 width: '100%',
-                background: 'rgba(196,153,42,0.06)',
-                border: '1px solid rgba(196,153,42,0.15)',
-                color: '#94a8c0',
+                background: '#ffffff',
+                border: '1px solid #e5e7eb',
+                color: '#374151',
                 fontSize: '13px',
                 padding: '10px 16px',
                 borderRadius: '10px',
                 cursor: 'pointer',
                 minHeight: '44px',
+                marginBottom: '12px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               }}
             >
-              <span style={{ fontSize: '14px' }}>📊</span> Compartir resultado actual
+              Compartir resultado {isFinished ? 'final' : 'actual'}
             </button>
+          )}
+
+          {/* Post-ronda links — only for finished rounds */}
+          {isFinished && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginTop: '8px', paddingBottom: '24px' }}>
+              <Link
+                href="/perfil/stats"
+                style={{
+                  color: '#c4992a', textDecoration: 'none', fontSize: '15px',
+                  fontWeight: 600,
+                }}
+              >
+                Ver mis estadisticas →
+              </Link>
+            </div>
           )}
         </div>
       </div>
@@ -951,5 +887,13 @@ export default function RondaLibrePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function RondaLibrePage() {
+  return (
+    <Suspense fallback={<div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0', fontFamily: 'DM Sans, sans-serif' }}>Cargando ronda...</div>}>
+      <RondaLibrePageContent />
+    </Suspense>
   )
 }

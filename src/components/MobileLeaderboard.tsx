@@ -44,8 +44,9 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
   const filtered = category === 'General' ? players
-    : category === 'Categoría A' ? players.filter(p => p.categoria === 'A')
-    : category === 'Categoría B' ? players.filter(p => p.categoria === 'B')
+    : category === 'Scratch' ? players.filter(p => p.categoria === 'A')
+    : category === 'Senior Scratch' ? players.filter(p => p.categoria === 'B')
+    : category === 'Categoría A' ? players.filter(p => p.categoria === 'B')
     : players
 
   const leaderScore = filtered.length > 0 ? getScoreVsPar(filtered[0].scores) : 0
@@ -59,14 +60,14 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
     }}>
       {/* Table header */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '36px 1fr 56px 52px',
-        padding: '10px 14px', alignItems: 'center',
-        background: '#f9fafb', borderBottom: '1px solid #e5e7eb',
+        display: 'grid', gridTemplateColumns: '32px 1fr 60px 48px',
+        padding: '10px 12px', alignItems: 'center',
+        background: '#f3f4f6', borderBottom: '1px solid #e5e7eb',
       }}>
-        <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>POS</span>
-        <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>JUGADOR</span>
-        <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>SCORE</span>
-        <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>GWI</span>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>POS</span>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>JUGADOR</span>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>SCORE</span>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>GWI</span>
       </div>
 
       {filtered.length === 0 && (
@@ -90,10 +91,10 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               onClick={() => setExpandedId(isExpanded ? null : player.id)}
               className={player.justScored ? 'flash-card' : player.positionDelta > 0 ? 'position-up' : player.positionDelta < 0 ? 'position-down' : ''}
               style={{
-                display: 'grid', gridTemplateColumns: '36px 1fr 56px 52px',
-                padding: '12px 14px', alignItems: 'center',
+                display: 'grid', gridTemplateColumns: '32px 1fr 60px 48px',
+                padding: '10px 12px', alignItems: 'center',
                 borderBottom: '1px solid #f3f4f6',
-                background: isLeader ? 'rgba(196,153,42,0.04)' : '#ffffff',
+                background: isLeader ? 'rgba(196,153,42,0.04)' : idx % 2 === 1 ? '#fafafa' : '#ffffff',
                 borderLeft: isLeader ? '3px solid #c4992a' : '3px solid transparent',
                 cursor: 'pointer',
                 transition: 'background 0.3s, transform 0.3s',
@@ -170,7 +171,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               </div>
 
               {/* GWI */}
-              <div style={{ textAlign: 'center' }}>
+              <div style={{ textAlign: 'right' }}>
                 <div style={{
                   fontSize: '13px', fontWeight: 700,
                   fontFamily: 'var(--font-dm-mono), monospace',
