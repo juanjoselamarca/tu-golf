@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { ExperiencePanel } from '@/components/ExperienceSetup'
 
 interface Profile {
   id: string
@@ -356,6 +357,11 @@ export default function PerfilPage() {
           >
             ⛳ Crear nueva ronda libre →
           </Link>
+        </div>
+
+        {/* Notification settings */}
+        <div style={{ marginTop: '16px', background: '#ffffff', borderRadius: '16px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <ExperiencePanel />
         </div>
       </div>
     </div>

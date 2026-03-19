@@ -5,7 +5,32 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
-import { notifyScoreEvent, getNotifPrefs } from '@/lib/push-notifications'
+import { notifyScoreEvent, getNotifPrefs, setNotifPrefs, isPushSupported, requestPermission } from '@/lib/push-notifications'
+
+function NotifBanner({ onEnable }: { onEnable: () => void }) {
+  const [dismissed, setDismissed] = useState(false)
+  if (dismissed) return null
+  return (
+    <div style={{
+      background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px',
+      padding: '14px 16px', marginBottom: '12px',
+      display: 'flex', alignItems: 'center', gap: '12px',
+    }}>
+      <span style={{ fontSize: '20px', flexShrink: 0 }}>🔔</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>Sigue la ronda en vivo</div>
+        <div style={{ fontSize: '11px', color: '#6b7280' }}>Recibe alertas de birdies y cambios de posición</div>
+      </div>
+      <button onClick={onEnable} style={{
+        background: '#c4992a', color: '#070d18', border: 'none', borderRadius: '8px',
+        padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+      }}>Activar</button>
+      <button onClick={() => setDismissed(true)} style={{
+        background: 'none', border: 'none', color: '#d1d5db', fontSize: '18px', cursor: 'pointer', padding: '0 4px', flexShrink: 0,
+      }}>×</button>
+    </div>
+  )
+}
 import GWILeaderboard from '@/components/GWILeaderboard'
 import { calcularGWI } from '@/lib/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/lib/gwi'
@@ -538,6 +563,19 @@ function RondaLibrePageContent() {
         </div>
 
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
+
+          {/* Notification banner for spectators */}
+          {isEnCurso && !getNotifPrefs().spectator && isPushSupported() && (
+            <NotifBanner onEnable={() => {
+              requestPermission().then(granted => {
+                if (granted) {
+                  setNotifPrefs({ spectator: true })
+                  // Force re-render
+                  setCountdown(c => c)
+                }
+              })
+            }} />
+          )}
 
           {/* Course info card — white */}
           <div

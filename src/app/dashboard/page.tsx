@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import LogoutButton from '@/components/LogoutButton'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
+import { ExperiencePopupWrapper } from '@/components/ExperiencePopupWrapper'
 import { HoleColorBar } from '@/components/HoleColorBar'
 
 interface Tournament {
@@ -81,6 +82,8 @@ export default async function DashboardPage() {
           <LogoutButton />
         </div>
       </nav>
+
+      <ExperiencePopupWrapper />
 
       <main style={{ padding: 'clamp(24px, 4vw, 48px) clamp(16px, 4vw, 32px)', maxWidth: '1100px', margin: '0 auto' }}>
 
