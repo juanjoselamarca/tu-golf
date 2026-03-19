@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
     return redirectWithCookies(new URL('/dashboard', request.url))
   }
 
-  const protectedRoutes = ['/dashboard', '/perfil', '/coach', '/organizador', '/admin', '/ronda-libre']
+  const protectedRoutes = ['/dashboard', '/perfil', '/coach', '/organizador', '/admin', '/ronda-libre', '/importar']
   const isProtected = protectedRoutes.some((r) =>
     pathname.startsWith(r)
   )

@@ -52,12 +52,14 @@ export default async function DashboardPage() {
     { count: totalTournaments },
     { count: totalPlayers },
     { data: rondasRaw },
+    { count: initialRounds },
   ] = await Promise.all([
     supabase.from('tournaments').select('id, name, slug, status, date_start, courses(nombre)').eq('organizer_id', user.id).order('created_at', { ascending: false }),
     supabase.from('players').select('tournaments(id, name, slug, status, date_start, courses(nombre))').eq('user_id', user.id).order('created_at', { ascending: false }),
     supabase.from('tournaments').select('*', { count: 'exact', head: true }).eq('organizer_id', user.id),
     supabase.from('players').select('id, tournaments!inner(organizer_id)', { count: 'exact', head: true }).eq('tournaments.organizer_id', user.id),
     supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado').eq('creador_id', user.id).order('created_at', { ascending: false }).limit(5),
+    supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
   ])
 
   const today = new Date().toISOString().split('T')[0]
@@ -119,6 +121,31 @@ export default async function DashboardPage() {
               textDecoration: 'none',
             }}>
               Agregar mi índice →
+            </Link>
+          </div>
+        )}
+
+        {/* Import CTA — show when user has few rounds */}
+        {(initialRounds ?? 0) < 5 && (
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.15)',
+            borderRadius: '14px', padding: '20px', marginBottom: '20px',
+          }}>
+            <div style={{ fontSize: '11px', color: '#c4992a', fontFamily: 'var(--font-dm-mono), monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+              Activá tu CPI™ y tAIger+
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+              Importá tu historial de rondas
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
+              tAIger+ necesita conocer tu juego para darte análisis precisos
+            </div>
+            <Link href="/importar" style={{
+              display: 'inline-block', background: '#c4992a', color: '#070d18',
+              fontWeight: 700, fontSize: '13px', padding: '10px 20px', borderRadius: '10px',
+              textDecoration: 'none',
+            }}>
+              Importar historial →
             </Link>
           </div>
         )}

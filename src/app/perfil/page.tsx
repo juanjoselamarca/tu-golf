@@ -357,6 +357,12 @@ export default function PerfilPage() {
           >
             ⛳ Crear nueva ronda libre →
           </Link>
+          <Link
+            href="/importar"
+            style={{ background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.2)', color: '#c4992a', padding: '14px 16px', borderRadius: '12px', fontSize: '14px', textDecoration: 'none', fontWeight: 600 }}
+          >
+            + Importar historial de rondas →
+          </Link>
         </div>
 
         {/* Notification settings */}
