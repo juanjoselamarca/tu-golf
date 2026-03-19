@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react'
 interface Player {
   position: string
   name:     string
+  nameFull: string
   score:    string
   today:    string
-  thru:     string | number
-  country?: string
-  roundNum?: number
+  thru:     string
+  flag:     string
+  country:  string
+  roundNum: number
 }
 
 interface NextEvent {
@@ -29,44 +31,17 @@ interface PGAData {
   next_event?: NextEvent
 }
 
-const TOURNAMENT_COLORS: Record<string, { accent: string; bg: string }> = {
-  'THE PLAYERS':      { accent: '#ffd700', bg: '#004d2c' },
-  'MASTERS':          { accent: '#ffcc00', bg: '#005a30' },
-  'US OPEN':          { accent: '#ffffff', bg: '#002868' },
-  'THE OPEN':         { accent: '#ffffff', bg: '#00205b' },
-  'PGA CHAMPIONSHIP': { accent: '#d4af37', bg: '#1a1a2e' },
+function scoreColor(score: string): string {
+  if (!score || score === 'E') return 'rgba(255,255,255,0.6)'
+  if (score.startsWith('-')) return '#00e676'
+  if (score.startsWith('+')) return '#ff1744'
+  return 'rgba(255,255,255,0.6)'
 }
 
-function getMajorColors(name?: string) {
-  if (!name) return null
-  const upper = name.toUpperCase()
-  for (const [key, val] of Object.entries(TOURNAMENT_COLORS)) {
-    if (upper.includes(key)) return val
-  }
-  return null
-}
-
-function getCountryCode(country: string): string {
-  const codes: Record<string, string> = {
-    'United States': 'us', 'England': 'gb-eng', 'Scotland': 'gb-sct',
-    'Wales': 'gb-wls', 'Northern Ireland': 'gb-nir', 'Ireland': 'ie',
-    'Sweden': 'se', 'Spain': 'es', 'Germany': 'de', 'France': 'fr',
-    'Australia': 'au', 'Canada': 'ca', 'Japan': 'jp', 'South Korea': 'kr',
-    'South Africa': 'za', 'Argentina': 'ar', 'Chile': 'cl', 'Colombia': 'co',
-    'Mexico': 'mx', 'Austria': 'at', 'Belgium': 'be', 'Denmark': 'dk',
-    'Norway': 'no', 'Finland': 'fi', 'Netherlands': 'nl', 'Italy': 'it',
-    'New Zealand': 'nz', 'China': 'cn', 'Thailand': 'th', 'Philippines': 'ph',
-    'Singapore': 'sg', 'Zimbabwe': 'zw', 'Fiji': 'fj', 'Venezuela': 've',
-    'Czech Republic': 'cz', 'Portugal': 'pt', 'Brazil': 'br', 'Taiwan': 'tw',
-  }
-  return codes[country] || ''
-}
-
-function getScoreColor(score: string) {
-  if (!score || score === 'E') return '#edeae4'
-  if (score.startsWith('-')) return '#c4992a'
-  if (score.startsWith('+')) return '#dc2626'
-  return '#edeae4'
+function thruColor(thru: string): string {
+  if (thru === 'F') return '#00e676'
+  if (thru === '—') return 'rgba(255,255,255,0.2)'
+  return 'rgba(255,255,255,0.4)'
 }
 
 function formatDate(dateStr: string) {
@@ -75,59 +50,49 @@ function formatDate(dateStr: string) {
   return date.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
 }
 
-export default function PGALiveWidget() {
-  const [data,       setData]       = useState<PGAData | null>(null)
-  const [loading,    setLoading]    = useState(true)
-  const [lastUpdate, setLastUpdate] = useState<number>(0)
+const MONO = 'var(--font-dm-mono), monospace'
 
-  const fetchData = async () => {
-    try {
-      const res  = await fetch('/api/pga-live')
-      const json = await res.json()
-      setData(json)
-      setLastUpdate(Date.now())
-    } catch {
-      setData({ active: false })
-    } finally {
-      setLoading(false)
-    }
-  }
+export default function PGALiveWidget() {
+  const [data, setData] = useState<PGAData | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch('/api/pga-live')
+        setData(await res.json())
+      } catch {
+        setData({ active: false })
+      } finally {
+        setLoading(false)
+      }
+    }
     fetchData()
     const interval = setInterval(fetchData, 60000)
     return () => clearInterval(interval)
   }, [])
 
   if (loading) return (
-    <div style={{ background: '#0e1c2f', borderRadius: '12px', padding: '24px', maxWidth: '680px', margin: '0 auto', textAlign: 'center', color: '#94a8c0' }}>
-      <div className="skeleton" style={{ height: '16px', width: '60%', margin: '0 auto 8px' }} />
-      <div className="skeleton" style={{ height: '12px', width: '40%', margin: '0 auto' }} />
+    <div style={{ background: '#0e1c2f', borderRadius: '14px', padding: '24px', maxWidth: '680px', margin: '0 auto' }}>
+      <div style={{ height: '14px', width: '50%', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', marginBottom: '10px' }} />
+      <div style={{ height: '10px', width: '30%', background: 'rgba(255,255,255,0.04)', borderRadius: '4px' }} />
     </div>
   )
 
-  const majorColors = getMajorColors(data?.tournament)
-  const headerBg    = majorColors ? majorColors.bg : '#132540'
-  const accentColor = majorColors ? majorColors.accent : '#c4992a'
-
-  // No active tournament
+  // No active tournament — show next event
   if (!data?.active) {
     return (
-      <div style={{ background: '#0e1c2f', borderRadius: '12px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto' }}>
-        <div style={{ background: headerBg, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ background: '#003087', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 900, color: 'white', letterSpacing: '0.08em', flexShrink: 0 }}>
-            PGA TOUR
-          </div>
-          <span style={{ color: '#94a8c0', fontSize: '0.9rem' }}>Sin torneo activo esta semana</span>
+      <div style={{ background: '#0e1c2f', borderRadius: '14px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ background: '#0066cc', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.08em' }}>PGA TOUR</span>
+          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>Sin torneo activo</span>
         </div>
         {data?.next_event && (
-          <div style={{ padding: '16px 20px' }}>
-            <div style={{ fontSize: '0.72rem', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Próximo torneo</div>
-            <div style={{ color: accentColor, fontFamily: 'Playfair Display, serif', fontSize: '1rem', fontWeight: 700, marginBottom: '4px' }}>
-              🏆 {data.next_event.name}
-            </div>
-            <div style={{ color: '#94a8c0', fontSize: '0.82rem' }}>
-              {data.next_event.venue} · {formatDate(data.next_event.start)} – {formatDate(data.next_event.end)}
+          <div style={{ padding: '0 16px 16px' }}>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Próximo</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#c4992a', marginBottom: '4px' }}>{data.next_event.name}</div>
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', fontFamily: MONO }}>
+              {data.next_event.venue} · {formatDate(data.next_event.start)}–{formatDate(data.next_event.end)}
             </div>
           </div>
         )}
@@ -135,119 +100,104 @@ export default function PGALiveWidget() {
     )
   }
 
-  const badge = data.live
-    ? { bg: '#dc2626', color: 'white',   text: '● EN VIVO'    }
-    : data.complete
-    ? { bg: '#1a2a3a', color: '#94a8c0', text: '✓ FINALIZADO' }
-    : { bg: '#c4992a', color: '#070d18', text: 'PRÓXIMAMENTE' }
-
-  const hasCountry = data.players?.some(p => p.country)
+  const players = data.players || []
+  const roundNum = players[0]?.roundNum || 1
 
   return (
-    <div style={{ background: '#0e1c2f', borderRadius: '12px', overflow: 'hidden', width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+    <div style={{ background: '#0e1c2f', borderRadius: '14px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto', border: '1px solid rgba(255,255,255,0.06)' }}>
 
       {/* Header */}
-      <div style={{ background: headerBg, padding: '14px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
-          <div style={{ background: '#003087', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '3px', padding: '3px 7px', fontSize: '9px', fontWeight: 900, color: 'white', letterSpacing: '0.1em', flexShrink: 0 }}>
-            PGA TOUR
-          </div>
-          <div style={{ background: badge.bg, color: badge.color, fontSize: '0.68rem', fontWeight: 700, padding: '4px 8px', borderRadius: '4px', letterSpacing: '0.05em', flexShrink: 0 }}>
-            {badge.text}
-          </div>
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+          <span style={{ background: '#0066cc', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.08em' }}>PGA TOUR</span>
+          {data.live && (
+            <span style={{ background: '#cc0000', color: '#fff', fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#fff', animation: 'livePulse 2s infinite' }} />
+              EN VIVO
+            </span>
+          )}
+          {data.complete && (
+            <span style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)', fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px' }}>FINALIZADO</span>
+          )}
         </div>
-        <div style={{ color: accentColor, fontFamily: 'Playfair Display, serif', fontSize: '14px', fontWeight: 700, marginBottom: '4px' }}>
-          {data.tournament}
-        </div>
-        <div style={{ color: '#94a8c0', fontSize: '0.78rem' }}>
-          {data.course} · {data.round}
+        <div style={{ fontSize: '15px', fontWeight: 700, color: '#c4992a', marginBottom: '2px' }}>{data.tournament}</div>
+        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: MONO }}>
+          {data.course}{data.round ? ` · ${data.round}` : ''}
         </div>
       </div>
 
-      {/* Table */}
-      <div style={{ padding: '0 4px 8px' }}>
-        {/* Headers */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: hasCountry ? '36px 22px 1fr 48px 48px 42px' : '36px 1fr 48px 48px 42px',
-          padding: '8px 10px',
-          color: '#94a8c0', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em',
-        }}>
-          <span>Pos</span>
-          {hasCountry && <span className="pga-col-flag" />}
-          <span>Jugador</span>
-          <span style={{ textAlign: 'center' }}>Total</span>
-          <span className="pga-col-hoy" style={{ textAlign: 'center' }}>
-            {data.players?.[0]?.roundNum ? `R${data.players[0].roundNum}` : 'R1'}
-          </span>
-          <span style={{ textAlign: 'center' }}>Thru</span>
-        </div>
+      {/* Table header */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: '32px 1fr 44px 36px',
+        padding: '8px 16px', alignItems: 'center',
+        background: 'rgba(255,255,255,0.02)',
+      }}>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: MONO, textTransform: 'uppercase' }}>#</span>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: MONO, textTransform: 'uppercase' }}>Jugador</span>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: MONO, textTransform: 'uppercase', textAlign: 'right' }}>Tot</span>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: MONO, textTransform: 'uppercase', textAlign: 'right' }}>Thru</span>
+      </div>
 
-        {data.players?.map((p, i) => {
-          const isLeader    = i === 0
-          const isSeparator = i === 3
-          const code        = p.country ? getCountryCode(p.country) : ''
+      {/* Players */}
+      {players.map((p, i) => {
+        const isLeader = i === 0
+        return (
+          <div key={i} style={{
+            display: 'grid', gridTemplateColumns: '32px 1fr 44px 36px',
+            padding: '9px 16px', alignItems: 'center',
+            borderTop: '1px solid rgba(255,255,255,0.04)',
+            background: isLeader ? 'rgba(196,153,42,0.05)' : 'transparent',
+            borderLeft: isLeader ? '3px solid #c4992a' : '3px solid transparent',
+          }}>
+            {/* Position */}
+            <span style={{
+              fontSize: '12px', fontFamily: MONO, fontWeight: isLeader ? 700 : 400,
+              color: isLeader ? '#c4992a' : 'rgba(255,255,255,0.35)',
+            }}>
+              {p.position}
+            </span>
 
-          return (
-            <div key={i}>
-              {isSeparator && (
-                <div style={{ height: '1px', background: 'rgba(196,153,42,0.2)', margin: '2px 10px' }} />
-              )}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: hasCountry ? '36px 22px 1fr 48px 48px 42px' : '36px 1fr 48px 48px 42px',
-                padding: '10px 10px',
-                borderTop: '1px solid #132540',
-                alignItems: 'center',
-                background: isLeader ? 'rgba(196,153,42,0.07)' : 'transparent',
-                borderLeft: isLeader ? '3px solid #c4992a' : '3px solid transparent',
+            {/* Flag + Name */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+              <span style={{ fontSize: '14px', flexShrink: 0 }}>{p.flag}</span>
+              <span style={{
+                fontSize: '13px', fontWeight: isLeader ? 600 : 400, color: '#edeae4',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                <span style={{ color: isLeader ? '#c4992a' : '#94a8c0', fontWeight: isLeader ? 700 : 400, fontSize: '0.85rem' }}>
-                  {p.position}
-                </span>
-                {hasCountry && (
-                  <span className="pga-col-flag">
-                    {code && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`https://flagcdn.com/20x15/${code}.png`}
-                        width="18" height="13"
-                        alt={p.country}
-                        style={{ borderRadius: '2px', verticalAlign: 'middle' }}
-                      />
-                    )}
-                  </span>
-                )}
-                <span style={{ color: '#edeae4', fontSize: '0.85rem', fontWeight: isLeader ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {p.name}
-                </span>
-                <span style={{ color: getScoreColor(p.score), textAlign: 'center', fontWeight: 700, fontSize: '0.9rem' }}>
-                  {p.score}
-                </span>
-                <span className="pga-col-hoy" style={{ color: getScoreColor(p.today), textAlign: 'center', fontSize: '0.85rem' }}>
-                  {p.today}
-                </span>
-                <span style={{ color: '#94a8c0', textAlign: 'center', fontSize: '0.78rem' }}>
-                  {p.thru}
-                </span>
-              </div>
+                {p.name}
+              </span>
             </div>
-          )
-        })}
-      </div>
+
+            {/* Total score */}
+            <span style={{
+              fontSize: '14px', fontFamily: MONO, fontWeight: 700,
+              color: scoreColor(p.score), textAlign: 'right',
+            }}>
+              {p.score}
+            </span>
+
+            {/* Thru */}
+            <span style={{
+              fontSize: '11px', fontFamily: MONO,
+              color: thruColor(p.thru), textAlign: 'right',
+            }}>
+              {p.thru}
+            </span>
+          </div>
+        )
+      })}
 
       {/* Footer */}
-      <div style={{ padding: '8px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #132540', flexWrap: 'wrap', gap: '4px' }}>
-        <span style={{ color: '#94a8c0', fontSize: '0.72rem' }}>
-          Datos: ESPN · ↻ hace {lastUpdate ? Math.round((Date.now() - lastUpdate) / 1000) : '—'}s
+      <div style={{
+        padding: '8px 16px', borderTop: '1px solid rgba(255,255,255,0.04)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', fontFamily: MONO }}>
+          Datos: ESPN · R{roundNum}
         </span>
-        <a
-          href="https://www.pgatour.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: '#94a8c0', fontSize: '0.72rem', textDecoration: 'none' }}
-        >
-          Ver en pgatour.com →
+        <a href="https://www.pgatour.com" target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textDecoration: 'none', fontFamily: MONO }}>
+          pgatour.com →
         </a>
       </div>
     </div>

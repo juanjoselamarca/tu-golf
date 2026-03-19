@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 const PGA_2026 = [
   { name: 'THE PLAYERS Championship',       start: '2026-03-12', end: '2026-03-15', venue: 'TPC Sawgrass' },
-  { name: 'Valspar Championship',           start: '2026-03-20', end: '2026-03-23', venue: 'Innisbrook Resort, FL' },
+  { name: 'Valspar Championship',           start: '2026-03-20', end: '2026-03-23', venue: 'Innisbrook Resort (Copperhead)' },
   { name: "Texas Children's Houston Open",  start: '2026-03-27', end: '2026-03-30', venue: 'Memorial Park GC, TX' },
   { name: 'The Masters',                    start: '2026-04-09', end: '2026-04-12', venue: 'Augusta National, GA' },
   { name: 'RBC Heritage',                   start: '2026-04-16', end: '2026-04-19', venue: 'Harbour Town GL, SC' },
@@ -13,6 +13,36 @@ const PGA_2026 = [
   { name: 'U.S. Open',                      start: '2026-06-18', end: '2026-06-21', venue: 'Shinnecock Hills GC' },
 ]
 
+const COUNTRY_FLAG: Record<string, string> = {
+  'United States': '🇺🇸', 'South Korea': '🇰🇷', 'Canada': '🇨🇦',
+  'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Australia': '🇦🇺', 'Spain': '🇪🇸',
+  'Norway': '🇳🇴', 'Sweden': '🇸🇪', 'Japan': '🇯🇵',
+  'Ireland': '🇮🇪', 'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'Germany': '🇩🇪',
+  'France': '🇫🇷', 'Italy': '🇮🇹', 'Argentina': '🇦🇷',
+  'Chile': '🇨🇱', 'Colombia': '🇨🇴', 'Mexico': '🇲🇽',
+  'South Africa': '🇿🇦', 'Denmark': '🇩🇰', 'Belgium': '🇧🇪',
+  'Netherlands': '🇳🇱', 'New Zealand': '🇳🇿', 'China': '🇨🇳',
+  'Thailand': '🇹🇭', 'Brazil': '🇧🇷', 'Northern Ireland': '🇬🇧',
+  'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Fiji': '🇫🇯', 'Venezuela': '🇻🇪',
+  'Czech Republic': '🇨🇿', 'Austria': '🇦🇹', 'Portugal': '🇵🇹',
+  'Philippines': '🇵🇭', 'Singapore': '🇸🇬', 'Taiwan': '🇹🇼',
+}
+
+function traducirRonda(detail: string): string {
+  return detail
+    .replace(/Round (\d+)/g, 'Ronda $1')
+    .replace('In Progress', 'En curso')
+    .replace('Complete', 'Finalizada')
+    .replace('Suspended', 'Suspendida')
+    .replace(' - ', ' · ')
+}
+
+function nombreCorto(fullName: string): string {
+  const parts = fullName.trim().split(' ')
+  if (parts.length < 2) return fullName
+  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
+}
+
 function getNextEvent(today: string) {
   const sorted = [...PGA_2026].sort((a, b) => a.start.localeCompare(b.start))
   return sorted.find(e => e.end >= today) ?? sorted[sorted.length - 1]
@@ -22,7 +52,7 @@ export async function GET() {
   try {
     const res = await fetch(
       'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard',
-      { next: { revalidate: 60 } }
+      { next: { revalidate: 30 } }
     )
     const data = await res.json()
     const event = data?.events?.[0]
@@ -34,74 +64,85 @@ export async function GET() {
 
     const competition = event.competitions?.[0]
     const competitors = competition?.competitors || []
-    const status      = competition?.status
+    const status = competition?.status
 
-    const top10 = (competitors as any[])
-      .sort((a, b) => {
-        const scoreA = parseFloat(a.score) || 0
-        const scoreB = parseFloat(b.score) || 0
-        return scoreA - scoreB
-      })
-      .slice(0, 10)
-      .map((c, index: number) => {
-        const rawScore = parseFloat(c.score)
-        let totalScore = 'E'
-        if (!isNaN(rawScore)) {
-          if (rawScore < 0) totalScore = String(rawScore)
-          else if (rawScore > 0) totalScore = `+${rawScore}`
-          else totalScore = 'E'
+    // Sort by score
+    const sorted = [...(competitors as any[])].sort((a, b) => {
+      const sa = parseFloat(a.score) || 0
+      const sb = parseFloat(b.score) || 0
+      return sa - sb
+    })
+
+    const top10 = sorted.slice(0, 10).map((c: any, index: number) => {
+      // Score total
+      const rawScore = parseFloat(c.score)
+      let score = 'E'
+      if (!isNaN(rawScore)) {
+        score = rawScore < 0 ? String(rawScore) : rawScore > 0 ? `+${rawScore}` : 'E'
+      }
+
+      // Ronda actual — hoyos jugados desde linescores
+      const rounds: any[] = c.linescores || []
+      const currentRound = rounds.find((r: any) => r.linescores?.length > 0) || rounds[0]
+      const holesPlayed = (currentRound?.linescores || []).length
+
+      // Score de hoy
+      let todayScore = 'E'
+      if (currentRound?.displayValue) {
+        const raw = parseFloat(currentRound.displayValue)
+        if (!isNaN(raw)) {
+          todayScore = raw < 0 ? String(raw) : raw > 0 ? `+${raw}` : 'E'
         }
+      }
 
-        // Get current round data from linescores
-        const rounds: any[] = c.linescores || []
-        const currentRound = rounds.find((r: any) => r.linescores?.length > 0 && (!r.linescores || r.linescores.length < 18 || !rounds[rounds.indexOf(r) + 1]?.linescores?.length))
-          || rounds[rounds.length - 1]
-        const holeScores: any[] = currentRound?.linescores || []
-        const holesPlayed = holeScores.length
+      // Thru
+      const thru = holesPlayed >= 18 ? 'F' : holesPlayed > 0 ? String(holesPlayed) : '—'
 
-        // Today's round score
-        let todayScore = 'E'
-        if (currentRound?.displayValue) {
-          const raw = parseFloat(currentRound.displayValue)
-          if (!isNaN(raw)) {
-            todayScore = raw < 0 ? String(raw) : raw > 0 ? `+${raw}` : 'E'
-          }
-        }
+      // Posición con ties
+      const prevScore = index > 0 ? parseFloat(sorted[index - 1]?.score) : null
+      const myScore = parseFloat(c.score)
+      const pos = prevScore !== null && !isNaN(prevScore) && !isNaN(myScore) && prevScore === myScore
+        ? `T${index + 1}` : String(index + 1)
 
-        // Position: ESPN doesn't give position in this endpoint, calculate from sort order
-        const position = String(index + 1)
-        // Handle ties
-        const prevScore = index > 0 ? parseFloat((competitors as any[]).sort((a: any, b: any) => (parseFloat(a.score)||0) - (parseFloat(b.score)||0))[index - 1]?.score) : null
-        const myScore = parseFloat(c.score)
-        const posDisplay = prevScore !== null && prevScore === myScore ? `T${position}` : position
+      // País y bandera
+      const country = c.athlete?.flag?.alt ?? ''
+      const flag = COUNTRY_FLAG[country] || '🏳️'
 
-        // Thru: count holes with scores in current round
-        const thru = holesPlayed >= 18 ? 'F' : holesPlayed > 0 ? String(holesPlayed) : '—'
+      // Round number
+      const roundNum = rounds.filter((r: any) => r.linescores?.length > 0).length || 1
 
-        const country = c.athlete?.flag?.alt ?? ''
-        const roundNum = rounds.filter((r: any) => r.linescores?.length > 0).length || 1
+      return {
+        position: pos,
+        name: nombreCorto(c.athlete?.displayName || ''),
+        nameFull: c.athlete?.displayName || '',
+        score,
+        today: todayScore,
+        thru,
+        flag,
+        country,
+        roundNum,
+      }
+    })
 
-        return { position: posDisplay, name: c.athlete?.displayName || '', score: totalScore, today: todayScore, thru, country, roundNum }
-      })
-
-    const isLive     = status?.type?.state === 'in'
+    const isLive = status?.type?.state === 'in'
     const isComplete = status?.type?.state === 'post'
 
+    // Course — ESPN fallback to our schedule
+    const course = competition?.venue?.fullName
+      || PGA_2026.find(e => (event.name || '').toLowerCase().includes(e.name.toLowerCase().split(' ')[0]))?.venue
+      || ''
+
     return NextResponse.json({
-      active:     true,
-      live:       isLive,
-      complete:   isComplete,
-      tournament: event.shortName || event.name || '',
-      round:      status?.type?.shortDetail || '',
-      // Venue from ESPN API, fallback to our PGA_2026 schedule data
-      course:     competition?.venue?.fullName
-        || competition?.venue?.shortName
-        || PGA_2026.find(e => (event.name || '').toLowerCase().includes(e.name.toLowerCase().split(' ')[0]))?.venue
-        || '',
-      players:    top10,
+      active: true,
+      live: isLive,
+      complete: isComplete,
+      tournament: event.name || event.shortName || '',
+      round: traducirRonda(status?.type?.shortDetail || ''),
+      course,
+      players: top10,
       next_event,
     })
   } catch {
-    return NextResponse.json({ active: false })
+    return NextResponse.json({ active: false, players: [] })
   }
 }

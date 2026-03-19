@@ -343,11 +343,7 @@ html {
   animation: countUp 0.5s ease-out both;
 }
 
-/* ── Sprint 9C: PGA widget responsive columns ─────────────── */
-@media (max-width: 640px) {
-  .pga-col-hoy { display: none !important; }
-  .pga-col-flag { display: none !important; }
-}
+/* PGA widget — responsive columns (legacy classes removed, widget uses inline grid) */
 
 /* ── Sprint: Page entrance animation ──────────────────── */
 @keyframes pageIn {
