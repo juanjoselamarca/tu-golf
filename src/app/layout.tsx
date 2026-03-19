@@ -3,6 +3,7 @@ import { Playfair_Display, DM_Sans, DM_Mono, Cormorant_Garamond } from 'next/fon
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import { ToastContainer } from '@/hooks/useToast'
+import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 
 const playfair = Playfair_Display({
   subsets:  ['latin'],
@@ -55,11 +56,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="theme-color" content="#070d18" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icon-192.svg" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
       </head>
       <body>
         <Navbar />
         <ToastContainer />
+        <PWAInstallBanner />
         <main className="min-h-screen">{children}</main>
 
         {/* Footer */}

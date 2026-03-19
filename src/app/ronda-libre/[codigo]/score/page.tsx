@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
 import type { ModoJuego } from '@/lib/scoring'
+import { updatePlayerNotification, getNotifPrefs } from '@/lib/push-notifications'
 
 /* ── Share menu component ──────────────────────────────────────────── */
 function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void }) {
@@ -248,7 +249,13 @@ function ScorePageContent() {
     }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
-    setCurrentHole(h => h + 1)
+    const nextHole = currentHole + 1
+    setCurrentHole(nextHole)
+    // Player notification: update persistent notification
+    if (ronda && getNotifPrefs().player) {
+      const overUnder = totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : String(totalOverUnder)
+      updatePlayerNotification(ronda.course_name, nextHole, parMap[nextHole] ?? 4, overUnder, `/ronda-libre/${codigo}/score?hole=${nextHole}`)
+    }
   }
   const goToPrevHole = () => { if (currentHole > 1) setCurrentHole(h => h - 1) }
   const finalizeRound = async () => {

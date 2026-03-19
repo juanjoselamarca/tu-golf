@@ -439,6 +439,16 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   40%  { transform: scale(1.1); }
   100% { transform: scale(1); }
 }
+
+@keyframes slideUpBanner {
+  0%   { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
 .score-bounce { animation: scoreBounce 0.3s ease; }
 
 /* ── Perfil: stat card hover/active ── */

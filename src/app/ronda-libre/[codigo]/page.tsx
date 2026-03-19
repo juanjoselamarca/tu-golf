@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
+import { notifyScoreEvent, getNotifPrefs } from '@/lib/push-notifications'
 import GWILeaderboard from '@/components/GWILeaderboard'
 import { calcularGWI } from '@/lib/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/lib/gwi'
@@ -102,6 +103,8 @@ function RondaLibrePageContent() {
   const [role,        setRole]        = useState<Role>(null)
   const [selectedJ,   setSelectedJ]   = useState<string>('')
   const [expanded,    setExpanded]    = useState<string | null>(null)
+  const prevLeaderRef = useRef<string | null>(null)
+  const prevScoresRef = useRef<Record<string, number>>({})
   const [countdown,   setCountdown]   = useState(15)
   const [copied,      setCopied]      = useState(false)
   const [gwiInputs,   setGwiInputs]   = useState<JugadorGWIInput[]>([])
@@ -165,12 +168,49 @@ function RondaLibrePageContent() {
   }, [codigo, finishedParam, ronda?.estado])
 
   // Polling every 15s (spectator only)
+  // Spectator: detect score events and send notifications
+  const checkScoreEvents = useCallback(() => {
+    if (!ronda || !getNotifPrefs().spectator) return
+    const lb = [...ronda.ronda_libre_jugadores]
+      .map(j => ({ nombre: j.nombre, vsPar: getVsPar(j.scores, ronda.holes, parMap), hp: getHolesPlayed(j.scores, ronda.holes) }))
+      .filter(j => j.hp > 0)
+      .sort((a, b) => a.vsPar - b.vsPar)
+
+    if (lb.length === 0) return
+    const leader = lb[0]
+
+    // Detect leader change
+    if (prevLeaderRef.current && prevLeaderRef.current !== leader.nombre) {
+      notifyScoreEvent(leader.nombre, 'leader_change', `Toma el liderato con ${formatOverUnder(leader.vsPar)}`, `/ronda-libre/${codigo}`)
+    }
+    prevLeaderRef.current = leader.nombre
+
+    // Detect birdies/eagles (compare with previous scores)
+    for (const j of ronda.ronda_libre_jugadores) {
+      for (let h = 1; h <= ronda.holes; h++) {
+        const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
+        const prevKey = `${j.id}-${h}`
+        if (s != null && !prevScoresRef.current[prevKey]) {
+          const p = parMap[h] ?? 4
+          const diff = s - p
+          if (diff <= -2) notifyScoreEvent(j.nombre, 'eagle', `Eagle en hoyo ${h}`, `/ronda-libre/${codigo}`)
+          else if (diff === -1) notifyScoreEvent(j.nombre, 'birdie', `Birdie en hoyo ${h}`, `/ronda-libre/${codigo}`)
+          prevScoresRef.current[prevKey] = s
+        }
+      }
+    }
+  }, [ronda, parMap, codigo])
+
   useEffect(() => {
     if (role !== 'espectador') return
     fetchGWI()
-    const interval = setInterval(() => { fetchRonda(); fetchGWI(); setCountdown(15) }, 15000)
+    const interval = setInterval(() => {
+      fetchRonda().then(() => checkScoreEvents())
+      fetchGWI()
+      setCountdown(15)
+    }, 15000)
     return () => clearInterval(interval)
-  }, [fetchRonda, fetchGWI, role])
+  }, [fetchRonda, fetchGWI, role, checkScoreEvents])
 
   // Countdown tick
   useEffect(() => {
