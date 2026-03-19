@@ -53,14 +53,13 @@ async function upsertCourse(data: {
   loop_nombre?: string | null
   datos_verificados?: boolean
 }): Promise<string> {
-  // Find existing by name + loop_nombre
+  // Find existing by name + loop_nombre (use maybeSingle to handle 0 or 1 results)
   let query = sb.from('courses').select('id').eq('nombre', data.nombre)
   if (data.loop_nombre) {
     query = query.eq('loop_nombre', data.loop_nombre)
-  } else {
-    query = query.is('loop_nombre', null)
   }
-  const { data: existing } = await query.single()
+  const { data: rows } = await query.limit(1)
+  const existing = rows && rows.length > 0 ? rows[0] : null
 
   const baseData: Record<string, unknown> = {
     nombre: data.nombre,
