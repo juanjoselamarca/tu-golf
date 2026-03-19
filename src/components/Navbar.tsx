@@ -249,101 +249,115 @@ export default function Navbar() {
 
           <nav className="bottom-nav-bar" style={{
             position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: `calc(56px + env(safe-area-inset-bottom, 0px))`,
+            bottom: 0, left: 0, right: 0,
             paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-            background: 'rgba(7,13,24,0.95)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            borderTop: '1px solid rgba(196,153,42,0.12)',
+            background: 'linear-gradient(180deg, rgba(7,13,24,0.92) 0%, rgba(5,9,18,0.98) 100%)',
+            backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
             zIndex: 100,
-            alignItems: 'center',
-            justifyContent: 'space-around',
           }}>
-            {/* Inicio */}
-            {(() => {
-              const active = pathname === '/'
-              const clr = active ? '#c4992a' : 'rgba(255,255,255,0.4)'
-              return (
-                <Link href="/" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', minWidth: '44px', minHeight: '44px', textDecoration: 'none' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                  <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400 }}>Inicio</span>
-                </Link>
-              )
-            })()}
+            {/* Gold accent line at top */}
+            <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent 10%, rgba(196,153,42,0.25) 50%, transparent 90%)' }} />
 
-            {/* Dashboard */}
-            {(() => {
-              const active = pathname === '/dashboard' || pathname.startsWith('/dashboard/')
-              const clr = active ? '#c4992a' : 'rgba(255,255,255,0.4)'
-              return (
-                <Link href="/dashboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', minWidth: '44px', minHeight: '44px', textDecoration: 'none' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                    <rect x="14" y="14" width="7" height="7" rx="1" />
-                  </svg>
-                  <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400 }}>Mi Golf</span>
-                </Link>
-              )
-            })()}
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '56px', padding: '0 8px' }}>
 
-            {/* FAB — Jugar */}
-            <button
-              onClick={() => setPlaySheetOpen(true)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '48px', height: '48px', borderRadius: '50%',
-                background: '#c4992a', border: 'none',
-                marginBottom: '10px',
-                boxShadow: '0 4px 16px rgba(196,153,42,0.35)',
-                cursor: 'pointer',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-              aria-label="Jugar"
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#070d18" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            </button>
+              {/* Inicio */}
+              {(() => {
+                const active = pathname === '/'
+                const clr = active ? '#c4992a' : 'rgba(255,255,255,0.35)'
+                return (
+                  <Link href="/" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '52px', height: '48px', textDecoration: 'none', position: 'relative' }}>
+                    {active && <div style={{ position: 'absolute', top: '-1px', width: '20px', height: '2px', borderRadius: '1px', background: '#c4992a' }} />}
+                    <svg width="21" height="21" viewBox="0 0 24 24" fill={active ? 'rgba(196,153,42,0.15)' : 'none'} stroke={clr} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Inicio</span>
+                  </Link>
+                )
+              })()}
 
-            {/* tAIger+ */}
-            {(() => {
-              const active = pathname === '/coach' || pathname.startsWith('/coach/')
-              const clr = active ? '#c4992a' : 'rgba(255,255,255,0.4)'
-              return (
-                <Link href="/coach" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', minWidth: '44px', minHeight: '44px', textDecoration: 'none' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2a3 3 0 00-3 3v1a3 3 0 006 0V5a3 3 0 00-3-3z" />
-                    <path d="M19 10H5a2 2 0 00-2 2v1a7 7 0 0014 0v-1a2 2 0 00-2-2z" />
-                    <line x1="12" y1="18" x2="12" y2="22" />
-                  </svg>
-                  <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400 }}>Coach</span>
-                </Link>
-              )
-            })()}
+              {/* Live Scoring — dashboard with live indicator */}
+              {(() => {
+                const active = pathname === '/dashboard' || pathname.startsWith('/dashboard/')
+                const clr = active ? '#c4992a' : 'rgba(255,255,255,0.35)'
+                return (
+                  <Link href="/dashboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '52px', height: '48px', textDecoration: 'none', position: 'relative' }}>
+                    {active && <div style={{ position: 'absolute', top: '-1px', width: '20px', height: '2px', borderRadius: '1px', background: '#c4992a' }} />}
+                    <div style={{ position: 'relative' }}>
+                      <svg width="21" height="21" viewBox="0 0 24 24" fill={active ? 'rgba(196,153,42,0.15)' : 'none'} stroke={clr} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />
+                      </svg>
+                      {/* Live pulse dot — shows the app is alive */}
+                      <div style={{
+                        position: 'absolute', top: '-2px', right: '-3px',
+                        width: '6px', height: '6px', borderRadius: '50%',
+                        background: '#16a34a',
+                        boxShadow: '0 0 6px rgba(22,163,74,0.6)',
+                        animation: 'livePulse 2s ease-in-out infinite',
+                      }} />
+                    </div>
+                    <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Mi Golf</span>
+                  </Link>
+                )
+              })()}
 
-            {/* Perfil */}
-            {(() => {
-              const active = pathname === '/perfil' || pathname.startsWith('/perfil/')
-              const clr = active ? '#c4992a' : 'rgba(255,255,255,0.4)'
-              return (
-                <Link href="/perfil" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', minWidth: '44px', minHeight: '44px', textDecoration: 'none' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
+              {/* FAB — Live Score */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '-18px' }}>
+                <button
+                  onClick={() => setPlaySheetOpen(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: '52px', height: '52px', borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #c4992a 0%, #dbb44a 100%)',
+                    border: '2px solid rgba(255,255,255,0.1)',
+                    boxShadow: '0 4px 20px rgba(196,153,42,0.4), 0 0 40px rgba(196,153,42,0.15)',
+                    cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
+                    transition: 'transform 0.15s, box-shadow 0.15s',
+                  }}
+                  aria-label="Jugar"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#070d18" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400 }}>Perfil</span>
-                </Link>
-              )
-            })()}
+                </button>
+                <span style={{ fontSize: '8px', fontFamily: 'var(--font-dm-mono), monospace', color: '#c4992a', fontWeight: 600, marginTop: '3px', letterSpacing: '0.08em' }}>JUGAR</span>
+              </div>
+
+              {/* Coach AI */}
+              {(() => {
+                const active = pathname === '/coach' || pathname.startsWith('/coach/')
+                const clr = active ? '#c4992a' : 'rgba(255,255,255,0.35)'
+                return (
+                  <Link href="/coach" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '52px', height: '48px', textDecoration: 'none', position: 'relative' }}>
+                    {active && <div style={{ position: 'absolute', top: '-1px', width: '20px', height: '2px', borderRadius: '1px', background: '#c4992a' }} />}
+                    <svg width="21" height="21" viewBox="0 0 24 24" fill={active ? 'rgba(196,153,42,0.15)' : 'none'} stroke={clr} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                      <path d="M8 9h8M8 13h4" />
+                    </svg>
+                    <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Coach</span>
+                  </Link>
+                )
+              })()}
+
+              {/* Perfil */}
+              {(() => {
+                const active = pathname === '/perfil' || pathname.startsWith('/perfil/')
+                const clr = active ? '#c4992a' : 'rgba(255,255,255,0.35)'
+                return (
+                  <Link href="/perfil" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '52px', height: '48px', textDecoration: 'none', position: 'relative' }}>
+                    {active && <div style={{ position: 'absolute', top: '-1px', width: '20px', height: '2px', borderRadius: '1px', background: '#c4992a' }} />}
+                    <svg width="21" height="21" viewBox="0 0 24 24" fill={active ? 'rgba(196,153,42,0.15)' : 'none'} stroke={clr} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Perfil</span>
+                  </Link>
+                )
+              })()}
+
+            </div>
           </nav>
 
           {/* ── Play Bottom Sheet overlay ──────────────────── */}
