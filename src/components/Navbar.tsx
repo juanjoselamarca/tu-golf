@@ -258,7 +258,7 @@ export default function Navbar() {
             {/* Gold accent line at top */}
             <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent 10%, rgba(196,153,42,0.25) 50%, transparent 90%)' }} />
 
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '56px', padding: '0 8px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '56px', padding: '0 8px', width: '100%', boxSizing: 'border-box' }}>
 
               {/* Inicio */}
               {(() => {
