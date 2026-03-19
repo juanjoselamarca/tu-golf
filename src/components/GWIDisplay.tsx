@@ -36,8 +36,8 @@ export function GWIDisplay({ gwi, delta, series, level, totalRounds, bestRound, 
   }
 
   // Colors
-  const arcColor = gwi >= 80 ? '#00e676' : gwi >= 60 ? '#c9a84c' : gwi >= 40 ? '#ffab40' : '#ff1744'
-  const numberColor = gwi >= 70 ? '#c9a84c' : gwi >= 50 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)'
+  const arcColor = gwi >= 80 ? '#00e676' : gwi >= 60 ? '#c4992a' : gwi >= 40 ? '#ffab40' : '#ff1744'
+  const numberColor = gwi >= 70 ? '#c4992a' : gwi >= 50 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)'
   const deltaColor = delta > 0 ? '#00e676' : delta < 0 ? '#ff1744' : 'rgba(255,255,255,0.3)'
   const deltaIcon = delta > 0 ? '▲' : delta < 0 ? '▼' : '—'
 
@@ -92,7 +92,7 @@ export function GWIDisplay({ gwi, delta, series, level, totalRounds, bestRound, 
             marginTop: '6px', padding: '2px 10px', borderRadius: '10px',
             background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.2)',
             fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px',
-            color: '#c9a84c', letterSpacing: '0.1em', fontWeight: 500,
+            color: '#c4992a', letterSpacing: '0.1em', fontWeight: 500,
           }}>
             {level}
           </div>

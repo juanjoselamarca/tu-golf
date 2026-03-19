@@ -466,7 +466,7 @@ export default function NuevaRondaLibrePage() {
                   <div style={{
                     position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20,
                     background: colors.inputBg, border: `1px solid ${colors.cardBorder}`,
-                    borderRadius: '10px', marginTop: '4px', maxHeight: '260px', overflowY: 'auto',
+                    borderRadius: '10px', marginTop: '4px', maxHeight: '50vh', overflowY: 'auto',
                     boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
                   }}>
                     {results.map(c => (
@@ -742,7 +742,7 @@ export default function NuevaRondaLibrePage() {
                   }}
                   style={{
                     background: 'transparent',
-                    border: `1px dashed ${colors.inputBorder}`,
+                    border: '1px solid rgba(196,153,42,0.25)',
                     color: colors.gold,
                     borderRadius: '10px',
                     padding: '12px',

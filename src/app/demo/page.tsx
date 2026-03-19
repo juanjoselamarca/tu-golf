@@ -222,7 +222,7 @@ export default function DemoPage() {
               padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
               color: activeTab === i ? GOLD : 'rgba(255,255,255,0.6)',
               fontSize: '13px', fontWeight: activeTab === i ? 700 : 400,
-              borderBottom: activeTab === i ? `2px solid ${GOLD}` : '2px solid transparent',
+              borderBottom: activeTab === i ? `3px solid ${GOLD}` : '3px solid transparent',
               fontFamily: MONO, whiteSpace: 'nowrap',
             }}>{tab}</button>
           ))}

@@ -15,14 +15,14 @@ function formatTot(vspar: number): string {
 }
 
 function totColor(vspar: number): string {
-  if (vspar < 0) return '#c9a84c'
+  if (vspar < 0) return '#c4992a'
   if (vspar === 0) return 'rgba(255,255,255,0.6)'
   return '#ff1744'
 }
 
 function gwiColor(gwi: number): string {
   if (gwi > 80) return '#00e676'
-  if (gwi >= 60) return '#c9a84c'
+  if (gwi >= 60) return '#c4992a'
   return '#ff5252'
 }
 
@@ -121,7 +121,7 @@ export default function LeaderboardPage() {
           </div>
           <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: '#9ca3af' }}>Ronda {roundNumber}</span>
         </div>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>
+        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(18px, 5vw, 22px)', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>
           Copa Golfers+ Demo 2026
         </div>
         <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>
@@ -144,8 +144,8 @@ export default function LeaderboardPage() {
       {/* ── Ticker bar (light) ────────────────────────── */}
       {lastEvent && (
         <div key={lastEvent} className="ticker-event md:hidden" style={{
-          background: '#fefce8', borderBottom: '1px solid #fef08a',
-          padding: '8px 16px', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: '#92400e',
+          background: 'rgba(17,24,39,0.95)', borderBottom: '1px solid rgba(196,153,42,0.2)',
+          padding: '8px 16px', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: '#c4992a',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           \u25B6 {lastEvent}
@@ -192,7 +192,7 @@ export default function LeaderboardPage() {
 
       {/* ── Desktop Table — PGA Tour style ─────────────── */}
       <div className="hidden md:block max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(196,153,42,0.13)', background: '#070d18' }}>
+        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid rgba(196,153,42,0.13)', background: '#070d18' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(196,153,42,0.08)', borderBottom: '1px solid rgba(196,153,42,0.28)' }}>
@@ -264,7 +264,7 @@ export default function LeaderboardPage() {
                               <span style={{
                                 display: 'inline-block', padding: '1px 6px', borderRadius: 3,
                                 background: player.categoria === 'A' ? 'rgba(0,230,118,0.12)' : 'rgba(196,153,42,0.12)',
-                                color: player.categoria === 'A' ? '#00e676' : '#c9a84c',
+                                color: player.categoria === 'A' ? '#00e676' : '#c4992a',
                                 fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace',
                               }}>
                                 CAT {player.categoria}
@@ -296,7 +296,7 @@ export default function LeaderboardPage() {
                           )}
                           <span style={{
                             fontSize: 14, fontWeight: 600,
-                            color: player.status === 'finished' ? '#94a8c0' : '#c9a84c',
+                            color: player.status === 'finished' ? '#94a8c0' : '#c4992a',
                             fontFamily: 'var(--font-dm-mono), monospace',
                           }}>
                             {thru}

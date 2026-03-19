@@ -25,7 +25,7 @@ const C = {
   cardBorder: 'rgba(255,255,255,0.07)',
   green: '#1a9e6e',
   greenDim: 'rgba(26,158,110,0.15)',
-  gold: '#c9a84c',
+  gold: '#c4992a',
   red: '#e05a4e',
   ivory: 'rgba(240,235,224,0.85)',
   muted: 'rgba(240,235,224,0.35)',

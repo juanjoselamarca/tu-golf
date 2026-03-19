@@ -131,7 +131,7 @@ export default function PerfilPage() {
           style={{
             background: 'linear-gradient(135deg, rgba(23,49,41,0.96) 0%, rgba(14,28,47,0.94) 100%)',
             border: '1px solid rgba(196,153,42,0.18)',
-            borderRadius: '18px',
+            borderRadius: '14px',
             padding: '20px',
             marginBottom: '18px',
           }}

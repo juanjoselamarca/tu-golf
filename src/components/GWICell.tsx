@@ -11,7 +11,7 @@ interface GWICellProps {
 }
 
 export function GWICell({ gwi, delta, series, level, compact }: GWICellProps) {
-  const numberColor = gwi >= 70 ? '#c9a84c' : gwi >= 50 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)'
+  const numberColor = gwi >= 70 ? '#c4992a' : gwi >= 50 ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)'
   const deltaColor = delta > 0 ? '#00e676' : delta < 0 ? '#ff1744' : 'rgba(255,255,255,0.3)'
   const deltaIcon = delta > 0 ? '▲' : delta < 0 ? '▼' : '—'
   const deltaText = delta > 0 ? `+${delta.toFixed(1)}` : delta < 0 ? delta.toFixed(1) : '0.0'

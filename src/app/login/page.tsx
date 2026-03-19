@@ -109,7 +109,7 @@ function LoginContent() {
           border:               '1px solid var(--border)',
           boxShadow:            'var(--shadow-lg)',
           borderRadius:         '16px',
-          padding:              '40px',
+          padding:              'clamp(24px, 6vw, 40px)',
           maxWidth:             '420px',
           width:                '90%',
         }}
@@ -140,10 +140,10 @@ function LoginContent() {
         </button>
 
         {/* Divider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(122,143,168,0.25)' }} />
-          <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>o continúa con email</span>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(122,143,168,0.25)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '24px 0' }}>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(196,153,42,0.3))' }} />
+          <span style={{ fontSize: '11px', color: 'rgba(196,153,42,0.6)', whiteSpace: 'nowrap', letterSpacing: '0.05em', fontWeight: 500, textTransform: 'uppercase' }}>o continúa con email</span>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.3), transparent)' }} />
         </div>
 
         {/* Form */}
@@ -181,7 +181,7 @@ function LoginContent() {
           <button
             type="submit"
             disabled={loading}
-            style={{ background: '#c4992a', color: '#070d18', fontWeight: 600, width: '100%', borderRadius: '8px', padding: '13px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
+            style={{ background: '#c4992a', color: '#070d18', fontWeight: 600, width: '100%', borderRadius: '10px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
             onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)' }}
           >

@@ -139,7 +139,7 @@ function RegisterContent() {
           background:           'var(--bg-card-light)',
           border:               '1px solid rgba(196,153,42,0.25)',
           borderRadius:         '16px',
-          padding:              '40px',
+          padding:              'clamp(24px, 6vw, 40px)',
           maxWidth:             '420px',
           width:                '90%',
         }}
@@ -246,7 +246,7 @@ function RegisterContent() {
             <button
               type="submit"
               disabled={loading}
-              style={{ background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '15px', width: '100%', borderRadius: '8px', padding: '13px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms', marginTop: '4px' }}
+              style={{ background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '15px', width: '100%', borderRadius: '10px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms', marginTop: '4px' }}
               onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.05)' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)' }}
             >

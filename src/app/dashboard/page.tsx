@@ -34,8 +34,8 @@ const STATUS_LABEL: Record<string, { label: string; bg: string; color: string }>
 }
 
 // Button style helpers
-const btnPrimary:     React.CSSProperties = { background: '#c4992a', color: '#070d18', fontWeight: 700, padding: '8px 16px', borderRadius: '8px', fontSize: '13px', textDecoration: 'none', border: 'none' }
-const btnSecondary:   React.CSSProperties = { background: 'transparent', border: '1px solid rgba(196,153,42,0.4)', color: '#c4992a', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', textDecoration: 'none' }
+const btnPrimary:     React.CSSProperties = { background: '#c4992a', color: '#070d18', fontWeight: 700, padding: '12px 20px', borderRadius: '10px', fontSize: '13px', textDecoration: 'none', border: 'none' }
+const btnSecondary:   React.CSSProperties = { background: 'transparent', border: '1px solid rgba(196,153,42,0.4)', color: '#c4992a', padding: '12px 20px', borderRadius: '10px', fontSize: '13px', textDecoration: 'none' }
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -145,8 +145,8 @@ export default async function DashboardPage() {
         </h2>
 
         {tournaments.length === 0 ? (
-          <div style={{ background: 'var(--bg-surface)', border: '1px dashed rgba(196,153,42,0.3)', borderRadius: '14px', padding: '40px', textAlign: 'center' }}>
-            <div style={{ fontSize: '36px', marginBottom: '12px' }}>📋</div>
+          <div style={{ background: 'rgba(196,153,42,0.03)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '14px', padding: '40px', textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>📋</div>
             <p style={{ color: 'var(--text-2)', marginBottom: '20px', fontSize: '15px' }}>Aún no has creado ningún torneo.</p>
             <Link href="/organizador/nuevo" style={{ ...btnPrimary, display: 'inline-block', padding: '12px 28px', fontSize: '15px' }}>
               Crear mi primer torneo →
@@ -182,7 +182,8 @@ export default async function DashboardPage() {
           Torneos en que he jugado
         </h2>
         {playedTournaments.length === 0 ? (
-          <div style={{ background: 'var(--bg-surface)', border: '1px dashed rgba(122,143,168,0.2)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
+          <div style={{ background: 'rgba(196,153,42,0.03)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🏌️</div>
             <p style={{ color: 'var(--text-2)', fontSize: '15px', margin: 0 }}>Aún no has jugado en ningún torneo.</p>
           </div>
         ) : (
@@ -214,7 +215,8 @@ export default async function DashboardPage() {
           Mis rondas libres recientes
         </h2>
         {rondasLibres.length === 0 ? (
-          <div style={{ background: 'var(--bg-surface)', border: '1px dashed rgba(122,143,168,0.2)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
+          <div style={{ background: 'rgba(196,153,42,0.03)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>⛳</div>
             <p style={{ color: 'var(--text-2)', fontSize: '15px', margin: 0 }}>
               Aún no has creado ninguna ronda libre.{' '}
               <Link href="/ronda-libre/nueva" style={{ color: '#c4992a', textDecoration: 'none' }}>Nueva ronda →</Link>

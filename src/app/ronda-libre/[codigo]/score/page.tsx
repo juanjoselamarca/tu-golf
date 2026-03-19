@@ -56,7 +56,7 @@ function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && 
 
 function getChipStyle(gross: number, par: number): React.CSSProperties {
   const d = gross - par
-  if (d <= -2) return { background: 'rgba(196,153,42,0.2)', color: '#c9a84c', border: '1px solid rgba(196,153,42,0.3)' }
+  if (d <= -2) return { background: 'rgba(196,153,42,0.2)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.3)' }
   if (d === -1) return { background: 'rgba(22,163,74,0.15)', color: '#4ade80', border: '1px solid rgba(22,163,74,0.2)' }
   if (d === 0) return { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }
   if (d === 1) return { background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.2)' }
@@ -413,7 +413,7 @@ function ScorePageContent() {
             let color = 'rgba(255,255,255,0.2)'
             if (isActive) { bg = 'rgba(196,153,42,0.2)'; color = '#C4992A' }
             else if (diff != null) {
-              if (diff <= -2) { bg = 'rgba(196,153,42,0.2)'; color = '#c9a84c' }
+              if (diff <= -2) { bg = 'rgba(196,153,42,0.2)'; color = '#c4992a' }
               else if (diff === -1) { bg = 'rgba(22,163,74,0.15)'; color = '#4ade80' }
               else if (diff === 0) { bg = 'rgba(255,255,255,0.08)'; color = 'rgba(255,255,255,0.6)' }
               else if (diff === 1) { bg = 'rgba(245,158,11,0.15)'; color = '#fbbf24' }
@@ -514,7 +514,7 @@ function ScorePageContent() {
           <div
             className={scoreAnimating ? 'score-animating' : ''}
             style={{
-              fontSize: '96px', fontWeight: 700, fontFamily: 'Inter, sans-serif',
+              fontSize: 'clamp(72px, 20vw, 96px)', fontWeight: 700, fontFamily: 'Inter, sans-serif',
               lineHeight: 1, color: score != null ? '#FFFFFF' : 'rgba(255,255,255,0.25)', letterSpacing: '-3px',
               fontVariantNumeric: 'tabular-nums',
             }}
