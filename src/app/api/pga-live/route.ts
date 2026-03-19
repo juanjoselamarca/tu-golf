@@ -52,38 +52,36 @@ export async function GET() {
           else totalScore = 'E'
         }
 
-        const linescores: { displayValue?: string }[] = c.linescores || []
+        // Get current round data from linescores
+        const rounds: any[] = c.linescores || []
+        const currentRound = rounds.find((r: any) => r.linescores?.length > 0 && (!r.linescores || r.linescores.length < 18 || !rounds[rounds.indexOf(r) + 1]?.linescores?.length))
+          || rounds[rounds.length - 1]
+        const holeScores: any[] = currentRound?.linescores || []
+        const holesPlayed = holeScores.length
+
+        // Today's round score
         let todayScore = 'E'
-        if (linescores.length > 0) {
-          const last = linescores[linescores.length - 1]
-          const raw  = parseFloat(last?.displayValue ?? '')
+        if (currentRound?.displayValue) {
+          const raw = parseFloat(currentRound.displayValue)
           if (!isNaN(raw)) {
-            if (raw < 0) todayScore = String(raw)
-            else if (raw > 0) todayScore = `+${raw}`
-            else todayScore = 'E'
-          } else {
-            todayScore = last?.displayValue ?? 'E'
+            todayScore = raw < 0 ? String(raw) : raw > 0 ? `+${raw}` : 'E'
           }
         }
 
-        const position =
-          c.status?.position?.displayName ??
-          c.status?.position?.id ??
-          String(index + 1)
+        // Position: ESPN doesn't give position in this endpoint, calculate from sort order
+        const position = String(index + 1)
+        // Handle ties
+        const prevScore = index > 0 ? parseFloat((competitors as any[]).sort((a: any, b: any) => (parseFloat(a.score)||0) - (parseFloat(b.score)||0))[index - 1]?.score) : null
+        const myScore = parseFloat(c.score)
+        const posDisplay = prevScore !== null && prevScore === myScore ? `T${position}` : position
 
-        const playerState = c.status?.type?.state // 'in' = playing, 'post' = finished round
-        const thruVal = c.status?.thru
-        const thru = playerState === 'post' || (thruVal === 18 || thruVal === '18')
-          ? 'F'
-          : thruVal && thruVal !== 0
-            ? String(thruVal)
-            : playerState === 'in' ? '1' : '—'
+        // Thru: count holes with scores in current round
+        const thru = holesPlayed >= 18 ? 'F' : holesPlayed > 0 ? String(holesPlayed) : '—'
+
         const country = c.athlete?.flag?.alt ?? ''
+        const roundNum = rounds.filter((r: any) => r.linescores?.length > 0).length || 1
 
-        // Round number for R1/R2/R3/R4 column
-        const roundNum = c.linescores?.length || 1
-
-        return { position, name: c.athlete?.displayName || '', score: totalScore, today: todayScore, thru, country, roundNum }
+        return { position: posDisplay, name: c.athlete?.displayName || '', score: totalScore, today: todayScore, thru, country, roundNum }
       })
 
     const isLive     = status?.type?.state === 'in'
@@ -95,7 +93,11 @@ export async function GET() {
       complete:   isComplete,
       tournament: event.shortName || event.name || '',
       round:      status?.type?.shortDetail || '',
-      course:     competition?.venue?.fullName || competition?.venue?.shortName || '',
+      // Venue from ESPN API, fallback to our PGA_2026 schedule data
+      course:     competition?.venue?.fullName
+        || competition?.venue?.shortName
+        || PGA_2026.find(e => (event.name || '').toLowerCase().includes(e.name.toLowerCase().split(' ')[0]))?.venue
+        || '',
       players:    top10,
       next_event,
     })
