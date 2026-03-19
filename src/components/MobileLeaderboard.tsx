@@ -223,7 +223,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                       {player.gwi >= 85 ? 'ELITE' : player.gwi >= 70 ? 'AVANZADO' : player.gwi >= 50 ? 'INTERMEDIO' : 'BÁSICO'}
                     </span>
                   </div>
-                  <GWISparkline series={player.gwiSeries} delta={player.gwiDelta} width={48} height={20} />
+                  <GWISparkline series={player.gwiSeries} delta={player.gwiDelta} width={48} height={20} lightTheme={true} />
                 </div>
 
                 {/* Front 9 */}

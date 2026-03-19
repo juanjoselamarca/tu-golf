@@ -7,39 +7,77 @@ export default function CopyLinkButton({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea')
+      textarea.value = url
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    }
   }
 
   return (
-    <button
-      onClick={handleCopy}
-      style={{
-        background: copied ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.03)',
-        border: `1px solid ${copied ? 'rgba(34,197,94,0.32)' : 'rgba(122,143,168,0.25)'}`,
-        color: copied ? '#86efac' : '#94a8c0',
-        padding: '8px 16px',
-        borderRadius: '10px',
-        fontSize: '13px',
-        cursor: 'pointer',
-        fontWeight: 600,
-        transition: 'all 200ms',
-      }}
-      onMouseEnter={(e) => {
-        if (!copied) {
-          ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(196,153,42,0.5)'
-          ;(e.currentTarget as HTMLButtonElement).style.color = '#c4992a'
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!copied) {
-          ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(122,143,168,0.25)'
-          ;(e.currentTarget as HTMLButtonElement).style.color = '#94a8c0'
-        }
-      }}
-    >
-      {copied ? '✓ Link copiado' : 'Compartir link'}
-    </button>
+    <div style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        onClick={handleCopy}
+        style={{
+          background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(14,28,47,0.8)',
+          border: `1px solid ${copied ? 'rgba(34,197,94,0.4)' : 'rgba(196,153,42,0.25)'}`,
+          color: copied ? '#86efac' : '#94a8c0',
+          padding: '12px 20px',
+          minHeight: '44px',
+          minWidth: '44px',
+          borderRadius: '10px',
+          fontSize: '14px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          transition: 'all 200ms ease',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+        }}
+        onMouseEnter={(e) => {
+          if (!copied) {
+            ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(196,153,42,0.5)'
+            ;(e.currentTarget as HTMLButtonElement).style.color = '#c4992a'
+            ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!copied) {
+            ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(196,153,42,0.25)'
+            ;(e.currentTarget as HTMLButtonElement).style.color = '#94a8c0'
+            ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(14,28,47,0.8)'
+          }
+        }}
+      >
+        {copied ? (
+          <>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#86efac" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Link copiado
+          </>
+        ) : (
+          <>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+            </svg>
+            Compartir link
+          </>
+        )}
+      </button>
+    </div>
   )
 }

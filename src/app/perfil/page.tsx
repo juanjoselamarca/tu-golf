@@ -161,12 +161,12 @@ export default function PerfilPage() {
                   </span>
                 ) : (
                   <button onClick={() => setEditing(true)} style={{
-                    fontSize: '13px', color: '#dc2626', fontWeight: 600,
-                    background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)',
-                    borderRadius: '20px', padding: '4px 12px', cursor: 'pointer',
-                    minHeight: 0, minWidth: 0,
+                    fontSize: '13px', color: '#c4992a', fontWeight: 600,
+                    background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.3)',
+                    borderRadius: '20px', padding: '6px 14px', cursor: 'pointer',
+                    minHeight: 0, minWidth: 0, transition: 'background 0.2s ease',
                   }}>
-                    Sin índice · Agregar →
+                    Agrega tu handicap para desbloquear estadísticas →
                   </button>
                 )}
                 <span style={{ fontSize: '13px', color: '#9fb4aa' }}>
@@ -224,7 +224,7 @@ export default function PerfilPage() {
             { icon: '📉', label: 'Mejor vuelta ref.', value: bestRoundRef, accent: '#9ae6b4' },
             { icon: '🎯', label: 'Foco actual', value: scoringFocus, accent: '#9fb4aa', compact: true },
           ].map((stat) => (
-            <div key={stat.label} style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '14px', padding: '18px 16px' }}>
+            <div key={stat.label} className="stat-card-hover" style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '14px', padding: '18px 16px', transition: 'border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease', cursor: 'default' }}>
               <div style={{ fontSize: '24px', marginBottom: '8px' }}>{stat.icon}</div>
               <div style={{ fontSize: stat.compact ? '14px' : '26px', color: stat.accent, fontWeight: 700, lineHeight: 1.1, fontFamily: stat.compact ? 'inherit' : '"Playfair Display", serif' }}>
                 {stat.value}
@@ -238,10 +238,10 @@ export default function PerfilPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
             <div>
               <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: 0 }}>
-                Identidad competitiva
+                Tu juego en números
               </h2>
               <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '4px 0 0' }}>
-                Un resumen rápido de tu perfil en Golfers+.
+                Así se ve tu perfil de golfista hoy.
               </p>
             </div>
             {saved && <span style={{ fontSize: '13px', color: '#22c55e' }}>✓ Guardado</span>}

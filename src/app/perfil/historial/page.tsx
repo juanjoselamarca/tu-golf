@@ -77,7 +77,7 @@ function formatOv(n: number) { return n > 0 ? `+${n}` : n === 0 ? 'E' : String(n
 function taigerMessage(count: number): string {
   if (count === 0) return 'tAIger+ está listo para analizar tu juego'
   if (count < 5)   return 'tAIger+ está aprendiendo tu juego'
-  if (count < 10)  return 'análisis parcial disponible'
+  if (count < 10)  return 'Análisis parcial disponible'
   if (count < 20)  return 'tAIger+ detecta tus patrones'
   if (count < 50)  return 'perfil sólido — análisis profundo activo'
   return 'análisis completo ✓'
@@ -485,7 +485,7 @@ function HistorialContent() {
               Registra tu primera tarjeta histórica y comenzarás a descubrir los patrones que más afectan tu score.
             </div>
             <div style={{ fontSize: '12px', color: 'rgba(196,153,42,0.6)', padding: '10px 16px', background: 'rgba(196,153,42,0.06)', borderRadius: '8px', display: 'inline-block' }}>
-              🔗 Integración Garmin Golf — próximamente
+              🔗 Integración Garmin Golf — Próximamente
             </div>
           </div>
         )}

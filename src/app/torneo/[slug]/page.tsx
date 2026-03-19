@@ -193,7 +193,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           today:   netVsPar,
           total:   netVsPar,
           holes:   holesPlayed,
-          status:  round.status === 'completed' || round.status === 'official' ? 'F' : 'live',
+          status:  round.status === 'closed' || round.status === 'official' ? 'F' : 'live',
           scores,
         }
       })
@@ -385,7 +385,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             {/* Scoring average */}
             <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
               <div style={{ fontSize: '28px', marginBottom: '8px' }}>📊</div>
-              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Scoring average</div>
+              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Promedio del campo</div>
               <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{fmtNet(stats.avgNet)}</div>
             </div>
             {/* Eagles */}
@@ -430,7 +430,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             <span className="font-display font-bold text-2xl text-ivory">Golfers</span>
             <span className="font-display font-bold text-2xl text-gold">+</span>
           </div>
-          <p className="font-sans text-ivory/70 text-base mb-7">Seguí este torneo con Golfers+</p>
+          <p className="font-sans text-ivory/70 text-base mb-7">Seguí este torneo en vivo con Golfers+</p>
           {tournament && (tournament.status === 'active' || tournament.status === 'in_progress') && (
             <Link
               href={`/torneo/${tournament.slug}/score`}

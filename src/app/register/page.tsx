@@ -179,8 +179,8 @@ function RegisterContent() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '18px', color: '#c4992a' }}>⚡</span>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>Registro rápido — solo 4 campos</div>
-              <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>Menos de 20 segundos</div>
+              <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>Crea tu cuenta en 20 segundos</div>
+              <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>Solo 4 campos</div>
             </div>
           </div>
           <span style={{ color: 'var(--text-2)', fontSize: '14px', transition: 'transform 200ms', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
@@ -236,7 +236,7 @@ function RegisterContent() {
             {/* Índice */}
             <div>
               <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice de hándicap (opcional)</label>
-              <input type="number" min={0} max={54} step={0.1} placeholder="ej: 12.4 — déjalo vacío si no lo sabes" value={indice} onChange={(e) => setIndice(e.target.value)}
+              <input type="number" min={0} max={54} step={0.1} placeholder="ej: 12.4 — si no lo conoces, déjalo vacío" value={indice} onChange={(e) => setIndice(e.target.value)}
                 style={{ ...baseInput, border: '1px solid rgba(122,143,168,0.3)' }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
                 onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')} />

@@ -60,13 +60,15 @@ function ScorePageContent() {
   const [isOnline, setIsOnline] = useState(true)
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [scoreAnimating, setScoreAnimating] = useState(false)
-  const [showMiniCard, setShowMiniCard] = useState(false)
+  const [showMiniCard, setShowMiniCard] = useState(true) // FIX #3: visible by default
   const [taigerStatus, setTaigerStatus] = useState<'idle' | 'analyzing' | 'ready' | 'error'>('idle')
   const [taigerSessionId, setTaigerSessionId] = useState<string | null>(null)
+  const [saveCheckVisible, setSaveCheckVisible] = useState(false) // FIX #8: save feedback toast
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retryCountRef = useRef(0)
   const swipeRef = useRef({ startX: 0, startY: 0 })
+  const progressRowRef = useRef<HTMLDivElement>(null)
 
   /* ── Mark body as scorecard ── */
   useEffect(() => {
@@ -160,12 +162,19 @@ function ScorePageContent() {
     }
 
     if (!success) { setSaveStatus('error') }
-    else { setSaveStatus('saved'); setHasUnsaved(false); setTimeout(() => setSaveStatus('idle'), 1500) }
+    else {
+      setSaveStatus('saved'); setHasUnsaved(false)
+      // FIX #8: show save check and haptic on success
+      setSaveCheckVisible(true)
+      haptic(20)
+      setTimeout(() => setSaveCheckVisible(false), 1000)
+      setTimeout(() => setSaveStatus('idle'), 1500)
+    }
   }, [codigo, isOnline])
 
   const handleScoreChange = useCallback((hole: number, value: number) => {
     if (!activeJugadorId) return
-    const clamped = Math.max(1, Math.min(12, value))
+    const clamped = Math.max(1, Math.min(15, value)) // FIX #5: max 15 instead of 12
     haptic(10)
     setScoreAnimating(true)
     setTimeout(() => setScoreAnimating(false), 150)
@@ -186,7 +195,7 @@ function ScorePageContent() {
   const handleTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - swipeRef.current.startX
     const dy = e.changedTouches[0].clientY - swipeRef.current.startY
-    if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 60) {
+    if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 40) { // FIX #4: 40px threshold
       if (dx < 0 && ronda && currentHole < ronda.holes) setCurrentHole(h => h + 1)
       else if (dx > 0 && currentHole > 1) setCurrentHole(h => h - 1)
     }
@@ -232,6 +241,14 @@ function ScorePageContent() {
       .catch(() => router.push(`/ronda-libre/${codigo}`))
   }
 
+  /* ── Scroll progress row to current hole ── */
+  useEffect(() => {
+    if (progressRowRef.current) {
+      const cell = progressRowRef.current.children[currentHole - 1] as HTMLElement | undefined
+      if (cell) cell.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+    }
+  }, [currentHole])
+
   /* ── Render ── */
   if (loading) return <div style={{ background: '#070d18', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)' }}>Cargando ronda...</div>
   if (!ronda || !activeJugadorId) return null
@@ -253,13 +270,36 @@ function ScorePageContent() {
   const totalOverUnder = totalGross - totalParPlayed
   const holesPlayed = Object.keys(scores[activeJugadorId] ?? {}).length
 
+  // FIX #6: Front 9 / Back 9 totals
+  let f9Gross = 0, f9Par = 0, f9Count = 0
+  let b9Gross = 0, b9Par = 0, b9Count = 0
+  for (let h = 1; h <= Math.min(9, totalHoles); h++) {
+    const s = scores[activeJugadorId]?.[h]
+    if (s != null) { f9Gross += s; f9Par += parMap[h] ?? 4; f9Count++ }
+  }
+  for (let h = 10; h <= totalHoles; h++) {
+    const s = scores[activeJugadorId]?.[h]
+    if (s != null) { b9Gross += s; b9Par += parMap[h] ?? 4; b9Count++ }
+  }
+  const formatNine = (gross: number, parN: number) => {
+    const d = gross - parN
+    return d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`
+  }
+
+  // FIX #7: Handicap strokes on this hole
+  const hcpForPlayer = playerHcp[activeJugadorId] ?? 18
+  const strokesOnHole = strokesRecibidosEnHoyo(hcpForPlayer, holeData.stroke_index)
+
+  // FIX #5: double bogey warning
+  const isAboveDoubleBogey = score != null && score > par + 2
+
   return (
     <div style={{ background: '#070d18', minHeight: '100dvh', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
 
       {/* ── Offline banner ── */}
       {!isOnline && (
         <div style={{ background: '#92400e', color: '#fef3c7', textAlign: 'center', padding: '6px', fontSize: '12px', fontWeight: 600 }}>
-          Sin conexión — guardado local
+          Sin conexion — guardado local
         </div>
       )}
 
@@ -288,7 +328,7 @@ function ScorePageContent() {
       }}>
         <button onClick={handleExit} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(255,255,255,0.6)', fontSize: '14px',
+          color: 'rgba(255,255,255,0.7)', fontSize: '14px', // FIX #10: increased contrast
           padding: '8px', minWidth: '44px', minHeight: '44px',
           display: 'flex', alignItems: 'center',
           WebkitTapHighlightColor: 'transparent',
@@ -300,7 +340,7 @@ function ScorePageContent() {
           WebkitTapHighlightColor: 'transparent',
         }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
-          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.55)' }}>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>{/* FIX #10: 11px */}
             {ronda.course_name} {showMiniCard ? '▲' : '▼'}
           </div>
         </button>
@@ -385,36 +425,68 @@ function ScorePageContent() {
           }}>{activePlayer?.nombre?.charAt(0).toUpperCase()}</div>
           <span style={{ fontSize: '14px', fontWeight: 600, color: '#EDE9E4' }}>{activePlayer?.nombre}</span>
         </div>
-        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
-          {holesPlayed > 0 ? <>Total: <span style={{ color: '#EDE9E4', fontWeight: 600 }}>{totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder}</span></> : `${holesPlayed}/${totalHoles}`}
+        <span style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>{/* FIX #10: 14px bold */}
+          {holesPlayed > 0 ? <>Total: <span style={{ color: '#EDE9E4', fontWeight: 700 }}>{totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder}</span></> : `${holesPlayed}/${totalHoles}`}
         </span>
       </div>
 
+      {/* ── FIX #6: Front 9 / Back 9 pacing bar ── */}
+      {totalHoles >= 18 && (f9Count > 0 || b9Count > 0) && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: '16px',
+          padding: '6px 16px',
+          background: 'rgba(255,255,255,0.02)',
+          borderBottom: '1px solid rgba(255,255,255,0.04)',
+          fontSize: '12px', color: 'rgba(255,255,255,0.45)',
+        }}>
+          {f9Count > 0 && <span>F9: <span style={{ color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{formatNine(f9Gross, f9Par)}</span></span>}
+          {f9Count > 0 && b9Count > 0 && <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>}
+          {b9Count > 0 && <span>B9: <span style={{ color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{formatNine(b9Gross, b9Par)}</span></span>}
+        </div>
+      )}
+
       {/* ── Central area (swipeable) ── */}
       <div
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 20px 8px' }}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 20px 8px', position: 'relative' }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         {/* Par + SI badges */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-          <span style={{ padding: '4px 14px', borderRadius: '20px', fontSize: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', alignItems: 'center' }}>
+          <span style={{ padding: '4px 14px', borderRadius: '20px', fontSize: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '4px' }}>{/* FIX #10: 14px, 0.7 */}
             Par {par}
+            {/* FIX #7: handicap strokes dot */}
+            {strokesOnHole > 0 && (
+              <span style={{ color: '#C4992A', fontSize: '10px' }}>
+                {strokesOnHole === 1 ? '●' : '●●'}
+              </span>
+            )}
           </span>
-          <span style={{ padding: '4px 14px', borderRadius: '20px', fontSize: '12px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: '#C4992A' }}>
+          <span style={{ padding: '4px 14px', borderRadius: '20px', fontSize: '14px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'rgba(255,255,255,0.7)' }}>{/* FIX #10: 14px, 0.7 */}
             SI {holeData.stroke_index}
           </span>
         </div>
 
         {/* Score number */}
-        <div
-          className={scoreAnimating ? 'score-animating' : ''}
-          style={{
-            fontSize: '96px', fontWeight: 700, fontFamily: 'Inter, sans-serif',
-            lineHeight: 1, color: '#FFFFFF', letterSpacing: '-3px',
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >{score ?? '—'}</div>
+        <div style={{ position: 'relative' }}>
+          <div
+            className={scoreAnimating ? 'score-animating' : ''}
+            style={{
+              fontSize: '96px', fontWeight: 700, fontFamily: 'Inter, sans-serif',
+              lineHeight: 1, color: '#FFFFFF', letterSpacing: '-3px',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >{score ?? '—'}</div>
+
+          {/* FIX #8: Save check toast */}
+          {saveCheckVisible && (
+            <div style={{
+              position: 'absolute', top: '-8px', right: '-24px',
+              fontSize: '20px', color: '#00e676', fontWeight: 700,
+              animation: 'fadeInOut 1s ease forwards',
+            }}>✓</div>
+          )}
+        </div>
 
         {/* Chip */}
         {score != null && (
@@ -424,17 +496,27 @@ function ScorePageContent() {
             ...getChipStyle(score, par),
           }}>{getChipLabel(score, par)}</div>
         )}
+
+        {/* FIX #5: Double bogey warning */}
+        {isAboveDoubleBogey && (
+          <div style={{
+            marginTop: '8px', fontSize: '11px', color: 'rgba(255,255,255,0.3)',
+            letterSpacing: '0.02em',
+          }}>
+            Por encima de doble bogey
+          </div>
+        )}
       </div>
 
-      {/* ── +/- Buttons ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '40px', padding: '8px 20px 16px' }}>
+      {/* ── +/- Buttons ── FIX #1: plus bug, #2: gap/size, #5: max 15 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '8px 20px 16px' }}>
         <button
           className="ctrl-btn"
           onTouchStart={() => {}}
           onClick={() => handleScoreChange(currentHole, (score ?? par) - 1)}
           disabled={score != null && score <= 1}
           style={{
-            width: '72px', height: '72px', borderRadius: '20px',
+            width: '80px', height: '80px', borderRadius: '20px',
             fontSize: '32px', fontWeight: 300,
             background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)',
             border: '1px solid rgba(255,255,255,0.1)',
@@ -448,53 +530,62 @@ function ScorePageContent() {
         <button
           className="ctrl-btn"
           onTouchStart={() => {}}
-          onClick={() => handleScoreChange(currentHole, (score ?? par - 1) + 1)}
-          disabled={score != null && score >= 12}
+          onClick={() => handleScoreChange(currentHole, (score ?? par) + 1)} // FIX #1: was (score ?? par - 1) + 1
+          disabled={score != null && score >= 15} // FIX #5: max 15
           style={{
-            width: '72px', height: '72px', borderRadius: '20px',
+            width: '80px', height: '80px', borderRadius: '20px', // FIX #2: 80px
             fontSize: '32px', fontWeight: 600,
             background: '#C4992A', color: '#070D18', border: 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
             userSelect: 'none', transition: 'transform 0.08s ease-out',
-            opacity: score != null && score >= 12 ? 0.3 : 1,
+            opacity: score != null && score >= 15 ? 0.3 : 1, // FIX #5: max 15
             minHeight: 0, minWidth: 0,
           }}
         >+</button>
       </div>
 
-      {/* ── Progress dots (enlarged for outdoor visibility) ── */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', padding: '6px 12px 12px', flexWrap: 'wrap' }}>
-        {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
-          const s = scores[activeJugadorId]?.[h]
-          const p = parMap[h] ?? 4
-          const isActive = h === currentHole
-          const isDone = s != null
+      {/* ── FIX #9: Progress — numbered mini-cells ── */}
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: '6px 12px 12px' }}>
+        <div ref={progressRowRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '3px', minWidth: 'max-content' }}>
+          {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
+            const s = scores[activeJugadorId]?.[h]
+            const p = parMap[h] ?? 4
+            const isActive = h === currentHole
+            const isDone = s != null
 
-          let bg = 'rgba(255,255,255,0.12)'
-          let size = '14px'
-          let border = '1.5px solid rgba(255,255,255,0.2)'
-          let shadow = 'none'
+            let bg = 'rgba(255,255,255,0.08)'
+            let textColor = 'rgba(255,255,255,0.3)'
 
-          if (isActive) { bg = '#C4992A'; size = '18px'; border = 'none'; shadow = '0 0 8px rgba(196,153,42,0.4)' }
-          else if (isDone) {
-            const d = s - p
-            if (d <= -2) bg = '#60A5FA'
-            else if (d === -1) bg = '#4ADE80'
-            else if (d === 0) bg = '#A1A1AA'
-            else if (d === 1) bg = '#FBBF24'
-            else bg = '#F87171'
-            border = 'none'
-          }
+            if (isActive) { bg = 'rgba(196,153,42,0.25)'; textColor = '#C4992A' }
+            else if (isDone) {
+              const d = s - p
+              if (d <= -2) { bg = 'rgba(96,165,250,0.3)'; textColor = '#93C5FD' }
+              else if (d === -1) { bg = 'rgba(74,222,128,0.25)'; textColor = '#86EFAC' }
+              else if (d === 0) { bg = 'rgba(161,161,170,0.2)'; textColor = 'rgba(255,255,255,0.6)' }
+              else if (d === 1) { bg = 'rgba(251,191,36,0.25)'; textColor = '#FDE68A' }
+              else { bg = 'rgba(248,113,113,0.25)'; textColor = '#FCA5A5' }
+            }
 
-          return (
-            <div key={h} onClick={() => setCurrentHole(h)} style={{
-              width: size, height: size, borderRadius: '50%',
-              background: bg, border, cursor: 'pointer', boxShadow: shadow,
-              transition: 'all 0.18s ease', flexShrink: 0,
-            }} />
-          )
-        })}
+            return (
+              <button key={h} onClick={() => setCurrentHole(h)} style={{
+                width: '18px', height: '22px', borderRadius: '4px',
+                background: bg,
+                border: isActive ? '1.5px solid #C4992A' : '1px solid transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', flexShrink: 0, padding: 0,
+                WebkitTapHighlightColor: 'transparent',
+                boxShadow: isActive ? '0 0 6px rgba(196,153,42,0.4)' : 'none',
+                transition: 'all 0.15s ease',
+              }}>
+                <span style={{
+                  fontSize: '9px', fontWeight: isDone || isActive ? 700 : 500,
+                  color: textColor, lineHeight: 1,
+                }}>{h}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── Footer ── */}
@@ -527,19 +618,29 @@ function ScorePageContent() {
       {/* ── tAIger banners ── */}
       {taigerStatus === 'analyzing' && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90, background: 'rgba(14,28,47,0.97)', borderTop: '1px solid rgba(196,153,42,0.3)', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', textAlign: 'center' }}>
-          <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>tAIger+ está analizando tu ronda...</div>
+          <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>tAIger+ esta analizando tu ronda...</div>
           <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>Esto toma unos segundos</div>
         </div>
       )}
       {taigerStatus === 'ready' && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90, background: 'rgba(14,28,47,0.97)', borderTop: '1px solid rgba(196,153,42,0.3)', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', textAlign: 'center' }}>
-          <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Tu análisis está listo</div>
+          <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Tu analisis esta listo</div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{ background: '#c4992a', color: '#070d18', padding: '12px 24px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}>Ver análisis →</Link>
+            <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{ background: '#c4992a', color: '#070d18', padding: '12px 24px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}>Ver analisis →</Link>
             <Link href={`/ronda-libre/${codigo}`} style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '12px 24px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>Ver scorecard</Link>
           </div>
         </div>
       )}
+
+      {/* ── FIX #8: CSS animation for save check ── */}
+      <style>{`
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: scale(0.8); }
+          20% { opacity: 1; transform: scale(1.1); }
+          40% { opacity: 1; transform: scale(1); }
+          100% { opacity: 0; transform: scale(1) translateY(-4px); }
+        }
+      `}</style>
     </div>
   )
 }

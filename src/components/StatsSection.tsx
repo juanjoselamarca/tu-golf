@@ -73,7 +73,7 @@ export default function StatsSection({ torneos, golfistas }: Props) {
           <StatItem end={golfistas} label="Golfistas registrados" active={active} />
           <div className={`flex flex-col items-center text-center ${active ? 'count-enter' : 'opacity-0'}`}>
             <div className="text-5xl lg:text-6xl font-display font-black text-gold mb-3">
-              🆓
+              $0
             </div>
             <div className="text-sm font-sans text-gray-soft uppercase tracking-wider font-medium">
               Siempre gratis

@@ -90,7 +90,7 @@ export default function HeroSection() {
 
             {/* Subtitle */}
             <p className="font-sans text-lg text-ivory/75 mb-10 leading-relaxed max-w-lg">
-              La plataforma que combina scoring en vivo con inteligencia artificial para darte el análisis y el coaching mental que antes solo tenían los golfistas de élite. En español, para el amateur que quiere bajar su índice de verdad.
+              Scoring en vivo, análisis con IA y coaching mental — todo lo que necesitas para bajar tu índice, en español.
             </p>
 
             {/* Buttons */}
@@ -98,14 +98,14 @@ export default function HeroSection() {
               <Link
                 href="/register"
                 className="inline-flex items-center justify-center gap-2 font-sans font-semibold text-base px-8 py-4 transition-all duration-200 hover:brightness-110 active:scale-95"
-                style={{ background: '#c4992a', color: '#070d18', borderRadius: '4px' }}
+                style={{ background: '#c4992a', color: '#070d18', borderRadius: '10px' }}
               >
                 Comenzar gratis →
               </Link>
               <Link
                 href="/leaderboard"
                 className="inline-flex items-center justify-center gap-2 font-sans font-semibold text-base px-8 py-4 transition-all duration-200 hover:bg-gold/10 active:scale-95"
-                style={{ border: '1px solid #c4992a', color: '#c4992a', borderRadius: '4px' }}
+                style={{ border: '1px solid #c4992a', color: '#c4992a', borderRadius: '10px' }}
               >
                 Ver demo leaderboard
               </Link>

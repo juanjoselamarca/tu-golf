@@ -264,22 +264,25 @@ export default function CoachDashboard() {
           </div>
         ) : (
           <div style={{
-            background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)',
-            borderRadius: '14px', padding: '20px 16px', textAlign: 'center',
+            background: 'linear-gradient(135deg, rgba(14,28,47,0.95) 0%, rgba(23,49,41,0.90) 100%)', border: '1px solid rgba(196,153,42,0.25)',
+            borderRadius: '14px', padding: '28px 20px', textAlign: 'center',
           }}>
-            <div style={{ fontSize: '32px', marginBottom: '12px' }}>🎯</div>
-            <p style={{ color: '#edeae4', fontSize: '14px', margin: '0 0 8px' }}>
-              tAIger+ aún no conoce tu juego.
+            <div style={{ fontSize: '40px', marginBottom: '14px' }}>🐯</div>
+            <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', margin: '0 0 8px', fontWeight: 700 }}>
+              Tu coach te está esperando
+            </h3>
+            <p style={{ color: '#94a8c0', fontSize: '14px', margin: '0 0 8px', lineHeight: 1.5 }}>
+              tAIger+ analiza tu juego, detecta patrones y te da un plan de mejora personalizado.
             </p>
-            <p style={{ color: '#94a8c0', fontSize: '13px', margin: '0 0 16px' }}>
-              Empieza con una sesión para que pueda darte un plan personalizado.
+            <p style={{ color: '#94a8c0', fontSize: '13px', margin: '0 0 20px' }}>
+              Solo necesitas contarle sobre tu última ronda.
             </p>
             <Link href="/coach/sesion/nueva" style={{
-              display: 'inline-block', padding: '12px 24px',
+              display: 'inline-block', padding: '14px 28px',
               background: '#c4992a', color: '#070d18', borderRadius: '10px',
-              fontSize: '14px', fontWeight: 600, textDecoration: 'none',
+              fontSize: '15px', fontWeight: 700, textDecoration: 'none',
             }}>
-              Analizar mi última ronda →
+              Empezar mi primera sesión →
             </Link>
           </div>
         )}
@@ -336,12 +339,17 @@ export default function CoachDashboard() {
           </div>
         ) : (
           <div style={{
-            background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)',
-            borderRadius: '10px', padding: '20px 16px', textAlign: 'center',
+            background: '#0e1c2f', border: '1px dashed rgba(196,153,42,0.2)',
+            borderRadius: '10px', padding: '24px 16px', textAlign: 'center',
           }}>
-            <p style={{ color: '#94a8c0', fontSize: '14px', margin: 0 }}>
+            <p style={{ color: '#94a8c0', fontSize: '14px', margin: '0 0 12px' }}>
               Aún no tienes sesiones con tAIger+
             </p>
+            <Link href="/coach/sesion/nueva" style={{
+              color: '#c4992a', fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+            }}>
+              Iniciar primera sesión →
+            </Link>
           </div>
         )}
       </section>

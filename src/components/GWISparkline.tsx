@@ -3,12 +3,15 @@ interface GWISparklineProps {
   delta: number
   width?: number
   height?: number
+  lightTheme?: boolean
 }
 
-export function GWISparkline({ series, delta, width = 48, height = 18 }: GWISparklineProps) {
+export function GWISparkline({ series, delta, width = 48, height = 18, lightTheme = false }: GWISparklineProps) {
   if (!series || series.length < 2) return null
 
-  const color = delta > 0 ? '#00e676' : delta < 0 ? '#ff1744' : 'rgba(255,255,255,0.3)'
+  const color = lightTheme
+    ? (delta > 0 ? '#16a34a' : delta < 0 ? '#dc2626' : '#d1d5db')
+    : (delta > 0 ? '#00e676' : delta < 0 ? '#ff1744' : 'rgba(255,255,255,0.3)')
   const min = Math.min(...series)
   const max = Math.max(...series)
   const range = max - min || 1

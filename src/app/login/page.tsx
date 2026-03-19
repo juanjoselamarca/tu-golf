@@ -181,7 +181,7 @@ function LoginContent() {
           <button
             type="submit"
             disabled={loading}
-            style={{ background: '#1a4fd6', color: 'white', fontWeight: 600, width: '100%', borderRadius: '8px', padding: '13px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
+            style={{ background: '#c4992a', color: '#070d18', fontWeight: 600, width: '100%', borderRadius: '8px', padding: '13px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
             onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)' }}
           >

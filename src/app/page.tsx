@@ -8,19 +8,19 @@ const STEPS = [
     num:   '01',
     icon:  '🏆',
     title: 'Crea tu torneo en 2 minutos',
-    desc:  'Nombre, cancha, categorías y jugadores. Sin papel, sin errores, sin complicaciones.',
+    desc:  'Nombre, cancha, categorías y jugadores. Sin papel ni complicaciones.',
   },
   {
     num:   '02',
     icon:  '📱',
     title: 'Cada jugador marca en su celular',
-    desc:  'Score hoyo a hoyo desde cualquier iPhone o Android. Sin descargar nada. Solo el link.',
+    desc:  'Score hoyo a hoyo desde cualquier celular. Sin descargar nada.',
   },
   {
     num:   '03',
     icon:  '📊',
     title: 'Leaderboard en vivo para todos',
-    desc:  'Posiciones en tiempo real. Comparte el link por WhatsApp y que todos sigan el torneo desde donde estén.',
+    desc:  'Posiciones en tiempo real. Comparte el link y todos siguen el torneo.',
   },
 ]
 
@@ -140,7 +140,7 @@ export default async function Home() {
           <Link
             href="/register"
             className="inline-flex items-center gap-2 font-sans font-bold text-lg px-12 py-4 transition-all duration-200 hover:brightness-110 active:scale-95"
-            style={{ background: '#c4992a', color: '#070d18', borderRadius: '4px' }}
+            style={{ background: '#c4992a', color: '#070d18', borderRadius: '10px' }}
           >
             Crear cuenta gratis
           </Link>
