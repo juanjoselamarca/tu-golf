@@ -5,18 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import {
-  Chart as ChartJS,
-  CategoryScale, LinearScale, PointElement,
-  LineElement, ArcElement, BarElement,
-  Title, Tooltip, Legend, Filler
-} from 'chart.js'
-import { Doughnut, Line } from 'react-chartjs-2'
-
-ChartJS.register(
-  CategoryScale, LinearScale, PointElement,
-  LineElement, ArcElement, BarElement,
-  Title, Tooltip, Legend, Filler
-)
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  Tooltip, CartesianGrid, PieChart, Pie, Cell,
+  ReferenceLine,
+} from 'recharts'
 
 /* ── Design tokens ── */
 const C = {
@@ -148,83 +140,22 @@ export default function StatsPage() {
     { key: 'all', label: 'Todo' },
   ]
 
-  /* ── Chart configs ── */
-  const doughnutData = {
-    datasets: [{
-      data: hasRounds ? [gwiValue, 100 - gwiValue] : [0, 100],
-      backgroundColor: [C.green, C.greenDim],
-      borderWidth: 0,
-    }],
-  }
-  const doughnutOpts = {
-    cutout: '78%',
-    rotation: -130,
-    circumference: 260,
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { enabled: false } },
-  } as const
+  /* ── Chart data ── */
+  const gwiPieData = [
+    { name: 'GWI', value: hasRounds ? gwiValue : 0 },
+    { name: 'Rest', value: hasRounds ? 100 - gwiValue : 100 },
+  ]
 
-  const handicapData = {
-    labels: rounds.map(r => fmtDate(r.played_at)),
-    datasets: [{
-      label: 'Gross',
-      data: rounds.map(r => r.total_gross),
-      borderColor: C.gold,
-      backgroundColor: 'rgba(201,168,76,0.1)',
-      fill: true,
-      tension: 0.3,
-      pointRadius: 3,
-      pointBackgroundColor: C.gold,
-    }],
-  }
-  const lineOpts = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: '#1a1a1a',
-        titleColor: C.ivory,
-        bodyColor: C.ivory,
-      },
-    },
-    scales: {
-      x: {
-        ticks: { color: C.muted, maxTicksLimit: 8, font: { size: 10 } },
-        grid: { color: 'rgba(255,255,255,0.04)' },
-      },
-      y: {
-        ticks: { color: C.muted, font: { size: 10 } },
-        grid: { color: 'rgba(255,255,255,0.04)' },
-      },
-    },
-  } as const
+  const lineChartData = rounds.map(r => ({
+    date: fmtDate(r.played_at),
+    gross: r.total_gross,
+  }))
 
-  // Scoring trend with average line
-  const scoringTrendData = {
-    labels: rounds.map(r => fmtDate(r.played_at)),
-    datasets: [
-      {
-        label: 'Score',
-        data: rounds.map(r => r.total_gross),
-        borderColor: C.gold,
-        backgroundColor: 'transparent',
-        tension: 0.3,
-        pointRadius: 3,
-        pointBackgroundColor: C.gold,
-      },
-      ...(hasRounds ? [{
-        label: 'Promedio',
-        data: rounds.map(() => Math.round(avgScore)),
-        borderColor: C.muted,
-        borderDash: [6, 4],
-        backgroundColor: 'transparent',
-        pointRadius: 0,
-        tension: 0,
-      }] : []),
-    ],
-  }
+  const scoringTrendChartData = rounds.map(r => ({
+    date: fmtDate(r.played_at),
+    score: r.total_gross,
+    promedio: Math.round(avgScore),
+  }))
 
   /* ── Skeleton ── */
   const Skeleton = ({ w = '100%', h = 16 }: { w?: string | number; h?: number }) => (
@@ -298,7 +229,24 @@ export default function StatsPage() {
           <div style={{ position: 'relative', width: 160, height: 160, margin: '0 auto' }}>
             {hasRounds ? (
               <>
-                <Doughnut data={doughnutData} options={doughnutOpts} />
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={gwiPieData}
+                      cx="50%"
+                      cy="50%"
+                      startAngle={220}
+                      endAngle={-40}
+                      innerRadius="78%"
+                      outerRadius="100%"
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      <Cell fill={C.green} />
+                      <Cell fill={C.greenDim} />
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
                 <div style={{
                   position: 'absolute', top: '50%', left: '50%',
                   transform: 'translate(-50%, -50%)',
@@ -335,7 +283,43 @@ export default function StatsPage() {
           </p>
           {hasRounds ? (
             <div style={{ height: 200 }}>
-              <Line data={handicapData} options={lineOpts} />
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={lineChartData}>
+                  <CartesianGrid stroke="rgba(255,255,255,0.04)" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: C.muted, fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: C.muted, fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={['dataMin - 5', 'dataMax + 5']}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: 8 }}
+                    labelStyle={{ color: C.ivory }}
+                    itemStyle={{ color: C.ivory }}
+                  />
+                  <defs>
+                    <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={C.gold} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={C.gold} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Line
+                    type="monotone"
+                    dataKey="gross"
+                    stroke={C.gold}
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: C.gold }}
+                    fill="url(#goldFill)"
+                    name="Gross"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           ) : (
             <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -351,7 +335,42 @@ export default function StatsPage() {
           </p>
           {hasRounds ? (
             <div style={{ height: 200 }}>
-              <Line data={scoringTrendData} options={lineOpts} />
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={scoringTrendChartData}>
+                  <CartesianGrid stroke="rgba(255,255,255,0.04)" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: C.muted, fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: C.muted, fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={['dataMin - 5', 'dataMax + 5']}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: 8 }}
+                    labelStyle={{ color: C.ivory }}
+                    itemStyle={{ color: C.ivory }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="score"
+                    stroke={C.gold}
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: C.gold }}
+                    name="Score"
+                  />
+                  <ReferenceLine
+                    y={Math.round(avgScore)}
+                    stroke={C.muted}
+                    strokeDasharray="6 4"
+                    label={{ value: 'Promedio', fill: C.muted, fontSize: 10, position: 'insideTopRight' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           ) : (
             <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

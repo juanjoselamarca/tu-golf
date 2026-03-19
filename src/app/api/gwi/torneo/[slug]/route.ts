@@ -64,83 +64,104 @@ export async function GET(
       return NextResponse.json({ inputs: [], totalHoyos, modoJuego: modo })
     }
 
-    const inputs: JugadorGWIInput[] = await Promise.all(
-      (rawPlayers as unknown as {
-        id: string
-        user_id: string
-        handicap_at_registration: number | null
-        profiles: { name: string; indice: number | null } | null
-        rounds: { id: string; total_gross: number; hole_scores: DBHScore[] }[]
-      }[]).map(async (p) => {
-        const hcp       = p.handicap_at_registration ?? (p.profiles?.indice ?? 18)
-        const round     = p.rounds?.[0]
-        const holeScores = round?.hole_scores ?? []
+    const typedPlayers = rawPlayers as unknown as {
+      id: string
+      user_id: string
+      handicap_at_registration: number | null
+      profiles: { name: string; indice: number | null } | null
+      rounds: { id: string; total_gross: number; hole_scores: DBHScore[] }[]
+    }[]
 
-        let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0, hoyosCompletados = 0
+    // Batch: fetch all historical rounds and patterns in 2 queries instead of N+1
+    const userIds = typedPlayers.map(p => p.user_id).filter(Boolean)
 
-        for (const hs of holeScores) {
-          if (!hs.gross_score) continue
-          const hole = holes.find(h => h.numero === hs.hole_number)
-          if (!hole) continue
-          hoyosCompletados++
-          overUnderGross  += hs.gross_score - hole.par
-          overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(hcp, hole.stroke_index)) - hole.par
-          totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, hole.stroke_index)
-        }
+    const [{ data: allHist }, { data: allPatterns }] = await Promise.all([
+      supabase
+        .from('historical_rounds')
+        .select('user_id, total_gross')
+        .in('user_id', userIds)
+        .not('total_gross', 'is', null)
+        .order('played_at', { ascending: false }),
+      supabase
+        .from('player_patterns')
+        .select('user_id, pattern_type, confidence, metadata')
+        .in('user_id', userIds)
+        .eq('status', 'active'),
+    ])
 
-        const currentScore = modo === 'gross' ? overUnderGross
-          : modo === 'neto'  ? overUnderNeto
-          : totalStableford
+    const histByUser = new Map<string, { total_gross: number }[]>()
+    for (const r of (allHist ?? [])) {
+      const uid = r.user_id as string
+      if (!histByUser.has(uid)) histByUser.set(uid, [])
+      histByUser.get(uid)!.push(r as { total_gross: number })
+    }
 
-        // Historical
-        let historicalAvg: number | null = null
-        let historicalRoundsCount = 0
+    const patternsByUser = new Map<string, DBPattern[]>()
+    for (const p of (allPatterns ?? [])) {
+      const uid = p.user_id as string
+      if (!patternsByUser.has(uid)) patternsByUser.set(uid, [])
+      patternsByUser.get(uid)!.push(p as unknown as DBPattern)
+    }
 
-        const { data: histRounds } = await supabase
-          .from('historical_rounds')
-          .select('total_gross')
-          .eq('user_id', p.user_id)
-          .not('total_gross', 'is', null)
-          .limit(20)
+    const inputs: JugadorGWIInput[] = typedPlayers.map((p) => {
+      const hcp       = p.handicap_at_registration ?? (p.profiles?.indice ?? 18)
+      const round     = p.rounds?.[0]
+      const holeScores = round?.hole_scores ?? []
 
-        if (histRounds && histRounds.length > 0) {
-          historicalRoundsCount = histRounds.length
-          const avg = histRounds.reduce((s: number, r: { total_gross: number }) => s + r.total_gross, 0) / histRounds.length
-          historicalAvg = Math.round((avg - parTotal) * 10) / 10
-        }
+      let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0, hoyosCompletados = 0
 
-        // Patterns (by player user_id via profiles)
-        let patternData: JugadorGWIInput['patterns'] = null
-        const { data: pats } = await supabase
-          .from('player_patterns')
-          .select('pattern_type, confidence, metadata')
-          .eq('user_id', p.user_id)
-          .eq('status', 'active')
+      for (const hs of holeScores) {
+        if (!hs.gross_score) continue
+        const hole = holes.find(h => h.numero === hs.hole_number)
+        if (!hole) continue
+        hoyosCompletados++
+        overUnderGross  += hs.gross_score - hole.par
+        overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(hcp, hole.stroke_index)) - hole.par
+        totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, hole.stroke_index)
+      }
 
-        if (pats && pats.length > 0) {
-          patternData = {}
-          for (const pat of pats as DBPattern[]) {
-            if (pat.pattern_type === 'back_nine_collapse') {
-              patternData.back9Collapse = { confidence: pat.confidence, avgDiff: pat.metadata?.diff ?? 3 }
-            }
+      const currentScore = modo === 'gross' ? overUnderGross
+        : modo === 'neto'  ? overUnderNeto
+        : totalStableford
+
+      // Historical (from batch)
+      let historicalAvg: number | null = null
+      let historicalRoundsCount = 0
+
+      const histRounds = histByUser.get(p.user_id)?.slice(0, 20) ?? []
+      if (histRounds.length > 0) {
+        historicalRoundsCount = histRounds.length
+        const avg = histRounds.reduce((s, r) => s + r.total_gross, 0) / histRounds.length
+        historicalAvg = Math.round((avg - parTotal) * 10) / 10
+      }
+
+      // Patterns (from batch)
+      let patternData: JugadorGWIInput['patterns'] = null
+      const pats = patternsByUser.get(p.user_id) ?? []
+
+      if (pats.length > 0) {
+        patternData = {}
+        for (const pat of pats) {
+          if (pat.pattern_type === 'back_nine_collapse') {
+            patternData.back9Collapse = { confidence: pat.confidence, avgDiff: pat.metadata?.diff ?? 3 }
           }
         }
+      }
 
-        return {
-          id:                    p.id,
-          nombre:                p.profiles?.name ?? 'Jugador',
-          handicapIndex:         hcp,
-          currentScore,
-          hoyosCompletados,
-          modoJuego:             modo,
-          historicalAvg,
-          historicalRoundsCount,
-          courseAvg:             null,
-          courseRoundsCount:     0,
-          patterns:              patternData,
-        }
-      })
-    )
+      return {
+        id:                    p.id,
+        nombre:                p.profiles?.name ?? 'Jugador',
+        handicapIndex:         hcp,
+        currentScore,
+        hoyosCompletados,
+        modoJuego:             modo,
+        historicalAvg,
+        historicalRoundsCount,
+        courseAvg:             null,
+        courseRoundsCount:     0,
+        patterns:              patternData,
+      }
+    })
 
     return NextResponse.json({ inputs, totalHoyos, modoJuego: modo, parTotal })
   } catch {

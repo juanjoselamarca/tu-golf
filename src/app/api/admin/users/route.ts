@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
     .range(offset, offset + limit - 1)
 
   if (search) {
-    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`)
+    const sanitized = search.replace(/[%_(),]/g, '')
+    query = query.or(`name.ilike.%${sanitized}%,email.ilike.%${sanitized}%`)
   }
 
   const { data, count, error } = await query
