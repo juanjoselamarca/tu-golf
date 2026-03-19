@@ -263,30 +263,36 @@ export default function Navbar() {
             justifyContent: 'space-around',
           }}>
             {/* Inicio */}
-            <Link href="/" style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', gap: '2px',
-              minWidth: '44px', minHeight: '44px',
-              textDecoration: 'none',
-              color: pathname === '/' ? '#c4992a' : 'rgba(255,255,255,0.4)',
-              fontWeight: pathname === '/' ? 600 : 400,
-            }}>
-              <span style={{ fontSize: '20px', lineHeight: 1 }}>🏠</span>
-              <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), "DM Mono", monospace' }}>Inicio</span>
-            </Link>
+            {(() => {
+              const active = pathname === '/'
+              const clr = active ? '#c4992a' : 'rgba(255,255,255,0.4)'
+              return (
+                <Link href="/" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', minWidth: '44px', minHeight: '44px', textDecoration: 'none' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                  <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400 }}>Inicio</span>
+                </Link>
+              )
+            })()}
 
-            {/* Ranking */}
-            <Link href="/leaderboard" style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', gap: '2px',
-              minWidth: '44px', minHeight: '44px',
-              textDecoration: 'none',
-              color: pathname === '/leaderboard' || pathname.startsWith('/leaderboard/') ? '#c4992a' : 'rgba(255,255,255,0.4)',
-              fontWeight: pathname === '/leaderboard' || pathname.startsWith('/leaderboard/') ? 600 : 400,
-            }}>
-              <span style={{ fontSize: '20px', lineHeight: 1 }}>🏆</span>
-              <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), "DM Mono", monospace' }}>Ranking</span>
-            </Link>
+            {/* Dashboard */}
+            {(() => {
+              const active = pathname === '/dashboard' || pathname.startsWith('/dashboard/')
+              const clr = active ? '#c4992a' : 'rgba(255,255,255,0.4)'
+              return (
+                <Link href="/dashboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', minWidth: '44px', minHeight: '44px', textDecoration: 'none' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                  <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400 }}>Mi Golf</span>
+                </Link>
+              )
+            })()}
 
             {/* FAB — Jugar */}
             <button
@@ -296,40 +302,48 @@ export default function Navbar() {
                 width: '48px', height: '48px', borderRadius: '50%',
                 background: '#c4992a', border: 'none',
                 marginBottom: '10px',
-                boxShadow: '0 2px 12px rgba(196,153,42,0.3)',
+                boxShadow: '0 4px 16px rgba(196,153,42,0.35)',
                 cursor: 'pointer',
                 WebkitTapHighlightColor: 'transparent',
               }}
               aria-label="Jugar"
             >
-              <span style={{ fontSize: '20px', lineHeight: 1 }}>⛳</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#070d18" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
             </button>
 
             {/* tAIger+ */}
-            <Link href="/coach" style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', gap: '2px',
-              minWidth: '44px', minHeight: '44px',
-              textDecoration: 'none',
-              color: pathname === '/coach' || pathname.startsWith('/coach/') ? '#c4992a' : 'rgba(255,255,255,0.4)',
-              fontWeight: pathname === '/coach' || pathname.startsWith('/coach/') ? 600 : 400,
-            }}>
-              <span style={{ fontSize: '20px', lineHeight: 1 }}>🐯</span>
-              <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), "DM Mono", monospace' }}>tAIger+</span>
-            </Link>
+            {(() => {
+              const active = pathname === '/coach' || pathname.startsWith('/coach/')
+              const clr = active ? '#c4992a' : 'rgba(255,255,255,0.4)'
+              return (
+                <Link href="/coach" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', minWidth: '44px', minHeight: '44px', textDecoration: 'none' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a3 3 0 00-3 3v1a3 3 0 006 0V5a3 3 0 00-3-3z" />
+                    <path d="M19 10H5a2 2 0 00-2 2v1a7 7 0 0014 0v-1a2 2 0 00-2-2z" />
+                    <line x1="12" y1="18" x2="12" y2="22" />
+                  </svg>
+                  <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400 }}>Coach</span>
+                </Link>
+              )
+            })()}
 
             {/* Perfil */}
-            <Link href="/perfil" style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', gap: '2px',
-              minWidth: '44px', minHeight: '44px',
-              textDecoration: 'none',
-              color: pathname === '/perfil' || pathname.startsWith('/perfil/') ? '#c4992a' : 'rgba(255,255,255,0.4)',
-              fontWeight: pathname === '/perfil' || pathname.startsWith('/perfil/') ? 600 : 400,
-            }}>
-              <span style={{ fontSize: '20px', lineHeight: 1 }}>👤</span>
-              <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), "DM Mono", monospace' }}>Perfil</span>
-            </Link>
+            {(() => {
+              const active = pathname === '/perfil' || pathname.startsWith('/perfil/')
+              const clr = active ? '#c4992a' : 'rgba(255,255,255,0.4)'
+              return (
+                <Link href="/perfil" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', minWidth: '44px', minHeight: '44px', textDecoration: 'none' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={clr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400 }}>Perfil</span>
+                </Link>
+              )
+            })()}
           </nav>
 
           {/* ── Play Bottom Sheet overlay ──────────────────── */}
@@ -394,7 +408,12 @@ export default function Navbar() {
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)')}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
               >
-                <span style={{ fontSize: '28px', flexShrink: 0 }}>⛳</span>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(196,153,42,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4992a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M8 12h8M12 8v8" />
+                  </svg>
+                </div>
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>Ronda Libre</div>
                   <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '2px' }}>Juega con amigos, score en vivo</div>
@@ -416,7 +435,16 @@ export default function Navbar() {
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)')}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
               >
-                <span style={{ fontSize: '28px', flexShrink: 0 }}>🏆</span>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a8c0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 9H4.5a2.5 2.5 0 010-5C7 4 7 7 7 7" />
+                    <path d="M18 9h1.5a2.5 2.5 0 000-5C17 4 17 7 17 7" />
+                    <path d="M4 22h16" />
+                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                    <path d="M18 2H6v7a6 6 0 0012 0V2z" />
+                  </svg>
+                </div>
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>Organizar Torneo</div>
                   <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '2px' }}>Crea tu campeonato</div>
@@ -431,7 +459,13 @@ export default function Navbar() {
                 borderRadius: '14px', padding: '16px',
                 minHeight: '64px', opacity: 0.4, cursor: 'default',
               }}>
-                <span style={{ fontSize: '28px', flexShrink: 0 }}>🏅</span>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a8c0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 15l-2 5h4l-2-5z" />
+                    <circle cx="12" cy="8" r="6" />
+                    <path d="M9 8h6" />
+                  </svg>
+                </div>
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>Liga de Golf</div>
                   <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '2px' }}>Próximamente</div>
