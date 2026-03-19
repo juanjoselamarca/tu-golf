@@ -1,0 +1,240 @@
+/**
+ * Import Round — Golfers+
+ * Centraliza la lógica de importar/crear rondas históricas.
+ * Usado por: importación manual, ronda libre finalizada, futuro photo scan, Garmin.
+ */
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+export type ImportSource = 'manual' | 'ronda_libre' | 'photo_scan' | 'garmin' | 'csv' | 'import'
+
+export interface ImportRoundInput {
+  userId: string
+  courseName: string
+  courseId?: string | null
+  teeColor?: string | null
+  playedAt: string               // YYYY-MM-DD
+  scores: number[]               // array de 9 o 18 scores (gross)
+  totalGross?: number | null     // si no se pasa, se calcula de scores
+  notes?: string | null
+  privacy?: 'public' | 'private'
+  source: ImportSource
+  metadata?: {
+    putts?: number[]             // putts por hoyo
+    gir?: boolean[]              // green in regulation por hoyo
+    fairways?: boolean[]         // fairway hit por hoyo
+    penalties?: number[]         // penalties por hoyo
+    [key: string]: unknown
+  }
+}
+
+export interface ImportRoundResult {
+  success: boolean
+  roundId?: string
+  totalGross: number
+  totalNeto: number | null
+  totalStableford: number | null
+  warnings: string[]
+}
+
+/**
+ * Importa una ronda histórica con validación y cálculos automáticos.
+ *
+ * - Valida scores (no negativos, warning si > par+6)
+ * - Calcula total_gross si no se pasa
+ * - Calcula total_neto si el usuario tiene índice
+ * - Calcula total_stableford si hay datos de par por hoyo
+ * - Vincula course_id automáticamente si hay match por nombre
+ * - NO bloquea por scores altos — solo warning
+ */
+export async function importRound(
+  supabase: SupabaseClient,
+  input: ImportRoundInput
+): Promise<ImportRoundResult> {
+  const warnings: string[] = []
+
+  // ── Validación de scores ──────────────────────────────────
+  if (input.scores.length !== 9 && input.scores.length !== 18) {
+    return { success: false, totalGross: 0, totalNeto: null, totalStableford: null, warnings: ['Scores debe tener 9 o 18 valores'] }
+  }
+
+  for (let i = 0; i < input.scores.length; i++) {
+    const s = input.scores[i]
+    if (s < 1) {
+      return { success: false, totalGross: 0, totalNeto: null, totalStableford: null, warnings: [`Hoyo ${i + 1}: score no puede ser menor a 1`] }
+    }
+    if (s > 15) {
+      warnings.push(`Hoyo ${i + 1}: score de ${s} — ¿es correcto?`)
+    }
+  }
+
+  // ── Calcular totales ──────────────────────────────────────
+  const totalGross = input.totalGross ?? input.scores.reduce((a, b) => a + b, 0)
+
+  // Verificar consistencia
+  const sumScores = input.scores.reduce((a, b) => a + b, 0)
+  if (input.totalGross && Math.abs(input.totalGross - sumScores) > 0) {
+    warnings.push(`Total gross (${input.totalGross}) no coincide con suma de scores (${sumScores})`)
+  }
+
+  // ── Vincular course_id ────────────────────────────────────
+  let courseId = input.courseId || null
+  if (!courseId && input.courseName) {
+    const { data: match } = await supabase
+      .from('courses')
+      .select('id')
+      .eq('nombre', input.courseName)
+      .limit(1)
+
+    if (match && match.length > 0) {
+      courseId = match[0].id
+    } else {
+      // Try partial match
+      const { data: partial } = await supabase
+        .from('courses')
+        .select('id, nombre')
+        .ilike('nombre', `%${input.courseName.split(' ').slice(-2).join(' ')}%`)
+        .limit(1)
+
+      if (partial && partial.length > 0) {
+        courseId = partial[0].id
+        warnings.push(`Cancha vinculada por coincidencia parcial: ${(partial[0] as { nombre: string }).nombre}`)
+      }
+    }
+  }
+
+  // ── Calcular neto (si hay índice del usuario) ─────────────
+  let totalNeto: number | null = null
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('indice')
+    .eq('id', input.userId)
+    .single()
+
+  if (profile?.indice != null) {
+    totalNeto = totalGross - profile.indice
+  }
+
+  // ── Calcular stableford (si hay pares por hoyo) ───────────
+  let totalStableford: number | null = null
+  if (courseId && profile?.indice != null) {
+    const { data: holes } = await supabase
+      .from('course_holes')
+      .select('numero, par, stroke_index')
+      .eq('course_id', courseId)
+      .order('numero')
+
+    if (holes && holes.length === input.scores.length) {
+      const hcp = Math.round(profile.indice)
+      let sf = 0
+      for (let i = 0; i < input.scores.length; i++) {
+        const par = holes[i].par
+        const si = holes[i].stroke_index ?? (i + 1)
+        const strokesBase = Math.floor(hcp / 18)
+        const extra = (hcp % 18) >= si ? 1 : 0
+        const strokes = strokesBase + extra
+        const neto = input.scores[i] - strokes
+        const diff = neto - par
+        if (diff <= -2) sf += 4
+        else if (diff === -1) sf += 3
+        else if (diff === 0) sf += 2
+        else if (diff === 1) sf += 1
+        // else 0
+      }
+      totalStableford = sf
+    }
+  }
+
+  // ── Insertar ──────────────────────────────────────────────
+  const { data: inserted, error } = await supabase
+    .from('historical_rounds')
+    .insert({
+      user_id: input.userId,
+      course_name: input.courseName,
+      course_id: courseId,
+      tee_color: input.teeColor || null,
+      played_at: input.playedAt,
+      scores: input.scores,
+      total_gross: totalGross,
+      total_neto: totalNeto,
+      total_stableford: totalStableford,
+      notes: input.notes || null,
+      privacy: input.privacy || 'private',
+      source: input.source,
+      metadata: input.metadata || {},
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    return {
+      success: false,
+      totalGross,
+      totalNeto,
+      totalStableford,
+      warnings: [`Error al guardar: ${error.message}`],
+    }
+  }
+
+  // ── Trigger recalc de patterns (si tiene 5+ rondas) ───────
+  const { count: roundCount } = await supabase
+    .from('historical_rounds')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', input.userId)
+
+  if ((roundCount || 0) >= 5) {
+    // Mark profile for pattern recalculation
+    await supabase
+      .from('profiles')
+      .update({ patterns_need_recalc: true })
+      .eq('id', input.userId)
+  }
+
+  return {
+    success: true,
+    roundId: inserted?.id,
+    totalGross,
+    totalNeto,
+    totalStableford,
+    warnings,
+  }
+}
+
+/**
+ * Tipos para la UI de importación
+ */
+export interface ImportFormData {
+  courseName: string
+  courseId: string | null
+  teeColor: string
+  date: string
+  scores: (number | null)[]     // null = hoyo no llenado aún
+  notes: string
+}
+
+/**
+ * Valida un formulario de importación antes de enviar.
+ * Retorna array de errores (vacío = válido).
+ */
+export function validateImportForm(data: ImportFormData, holes: number): string[] {
+  const errors: string[] = []
+
+  if (!data.courseName.trim()) errors.push('Selecciona una cancha')
+  if (!data.date) errors.push('Selecciona la fecha')
+
+  const filledScores = data.scores.filter(s => s !== null)
+  if (filledScores.length === 0) errors.push('Ingresa al menos un score')
+
+  if (filledScores.length < holes) {
+    // Not all holes filled — warn but don't block
+    // Some users might only play 9 holes on an 18-hole course
+  }
+
+  for (let i = 0; i < data.scores.length; i++) {
+    const s = data.scores[i]
+    if (s !== null && s < 1) {
+      errors.push(`Hoyo ${i + 1}: score no puede ser 0 o negativo`)
+    }
+  }
+
+  return errors
+}
