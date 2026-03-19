@@ -76,11 +76,14 @@ export async function GET() {
         const thru = playerState === 'post' || (thruVal === 18 || thruVal === '18')
           ? 'F'
           : thruVal && thruVal !== 0
-            ? `H${thruVal}`
-            : playerState === 'in' ? 'H1' : '—'
+            ? String(thruVal)
+            : playerState === 'in' ? '1' : '—'
         const country = c.athlete?.flag?.alt ?? ''
 
-        return { position, name: c.athlete?.displayName || '', score: totalScore, today: todayScore, thru, country }
+        // Round number for R1/R2/R3/R4 column
+        const roundNum = c.linescores?.length || 1
+
+        return { position, name: c.athlete?.displayName || '', score: totalScore, today: todayScore, thru, country, roundNum }
       })
 
     const isLive     = status?.type?.state === 'in'
@@ -92,7 +95,7 @@ export async function GET() {
       complete:   isComplete,
       tournament: event.shortName || event.name || '',
       round:      status?.type?.shortDetail || '',
-      course:     competition?.venue?.fullName || 'TPC Sawgrass',
+      course:     competition?.venue?.fullName || competition?.venue?.shortName || '',
       players:    top10,
       next_event,
     })

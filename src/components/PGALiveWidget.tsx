@@ -8,6 +8,7 @@ interface Player {
   today:    string
   thru:     string | number
   country?: string
+  roundNum?: number
 }
 
 interface NextEvent {
@@ -176,8 +177,10 @@ export default function PGALiveWidget() {
           {hasCountry && <span className="pga-col-flag" />}
           <span>Jugador</span>
           <span style={{ textAlign: 'center' }}>Total</span>
-          <span className="pga-col-hoy" style={{ textAlign: 'center' }}>Hoy</span>
-          <span style={{ textAlign: 'center' }}>Hoyo</span>
+          <span className="pga-col-hoy" style={{ textAlign: 'center' }}>
+            {data.players?.[0]?.roundNum ? `R${data.players[0].roundNum}` : 'R1'}
+          </span>
+          <span style={{ textAlign: 'center' }}>Thru</span>
         </div>
 
         {data.players?.map((p, i) => {
