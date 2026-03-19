@@ -13,6 +13,7 @@ export default function Navbar() {
 
   const [user, setUser] = useState<User | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [playSheetOpen, setPlaySheetOpen] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -23,8 +24,8 @@ export default function Navbar() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  // Close sidebar on route change
-  useEffect(() => { setSidebarOpen(false) }, [pathname])
+  // Close sidebar & play sheet on route change
+  useEffect(() => { setSidebarOpen(false); setPlaySheetOpen(false) }, [pathname])
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -234,6 +235,212 @@ export default function Navbar() {
           )}
         </div>
       </div>
+
+      {/* ── Bottom Nav Bar (mobile only, logged in) ────── */}
+      {user && (
+        <>
+          {/* CSS for mobile-only visibility */}
+          <style>{`
+            .bottom-nav-bar { display: none !important; }
+            @media (max-width: 767px) {
+              .bottom-nav-bar { display: flex !important; }
+            }
+          `}</style>
+
+          <nav className="bottom-nav-bar" style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: `calc(56px + env(safe-area-inset-bottom, 0px))`,
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            background: 'rgba(7,13,24,0.95)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            borderTop: '1px solid rgba(196,153,42,0.12)',
+            zIndex: 100,
+            alignItems: 'center',
+            justifyContent: 'space-around',
+          }}>
+            {/* Inicio */}
+            <Link href="/" style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', gap: '2px',
+              minWidth: '44px', minHeight: '44px',
+              textDecoration: 'none',
+              color: pathname === '/' ? '#c4992a' : 'rgba(255,255,255,0.4)',
+              fontWeight: pathname === '/' ? 600 : 400,
+            }}>
+              <span style={{ fontSize: '20px', lineHeight: 1 }}>🏠</span>
+              <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), "DM Mono", monospace' }}>Inicio</span>
+            </Link>
+
+            {/* Ranking */}
+            <Link href="/leaderboard" style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', gap: '2px',
+              minWidth: '44px', minHeight: '44px',
+              textDecoration: 'none',
+              color: pathname === '/leaderboard' || pathname.startsWith('/leaderboard/') ? '#c4992a' : 'rgba(255,255,255,0.4)',
+              fontWeight: pathname === '/leaderboard' || pathname.startsWith('/leaderboard/') ? 600 : 400,
+            }}>
+              <span style={{ fontSize: '20px', lineHeight: 1 }}>🏆</span>
+              <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), "DM Mono", monospace' }}>Ranking</span>
+            </Link>
+
+            {/* FAB — Jugar */}
+            <button
+              onClick={() => setPlaySheetOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '48px', height: '48px', borderRadius: '50%',
+                background: '#c4992a', border: 'none',
+                marginBottom: '10px',
+                boxShadow: '0 2px 12px rgba(196,153,42,0.3)',
+                cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+              aria-label="Jugar"
+            >
+              <span style={{ fontSize: '20px', lineHeight: 1 }}>⛳</span>
+            </button>
+
+            {/* tAIger+ */}
+            <Link href="/coach" style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', gap: '2px',
+              minWidth: '44px', minHeight: '44px',
+              textDecoration: 'none',
+              color: pathname === '/coach' || pathname.startsWith('/coach/') ? '#c4992a' : 'rgba(255,255,255,0.4)',
+              fontWeight: pathname === '/coach' || pathname.startsWith('/coach/') ? 600 : 400,
+            }}>
+              <span style={{ fontSize: '20px', lineHeight: 1 }}>🐯</span>
+              <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), "DM Mono", monospace' }}>tAIger+</span>
+            </Link>
+
+            {/* Perfil */}
+            <Link href="/perfil" style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', gap: '2px',
+              minWidth: '44px', minHeight: '44px',
+              textDecoration: 'none',
+              color: pathname === '/perfil' || pathname.startsWith('/perfil/') ? '#c4992a' : 'rgba(255,255,255,0.4)',
+              fontWeight: pathname === '/perfil' || pathname.startsWith('/perfil/') ? 600 : 400,
+            }}>
+              <span style={{ fontSize: '20px', lineHeight: 1 }}>👤</span>
+              <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), "DM Mono", monospace' }}>Perfil</span>
+            </Link>
+          </nav>
+
+          {/* ── Play Bottom Sheet overlay ──────────────────── */}
+          <div
+            onClick={() => setPlaySheetOpen(false)}
+            style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(0,0,0,0.6)',
+              zIndex: 198,
+              opacity: playSheetOpen ? 1 : 0,
+              pointerEvents: playSheetOpen ? 'auto' : 'none',
+              transition: 'opacity 300ms ease',
+            }}
+          />
+
+          {/* ── Play Bottom Sheet ──────────────────────────── */}
+          <div style={{
+            position: 'fixed',
+            bottom: 0, left: 0, right: 0,
+            background: '#0a1628',
+            borderRadius: '20px 20px 0 0',
+            zIndex: 199,
+            transform: playSheetOpen ? 'translateY(0)' : 'translateY(100%)',
+            transition: 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
+            paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+          }}>
+            {/* Pill drag indicator */}
+            <div style={{
+              display: 'flex', justifyContent: 'center', padding: '12px 0 4px',
+            }}>
+              <div style={{
+                width: '36px', height: '4px', borderRadius: '2px',
+                background: 'rgba(255,255,255,0.2)',
+              }} />
+            </div>
+
+            {/* Title */}
+            <div style={{ padding: '8px 24px 20px' }}>
+              <h3 style={{
+                fontFamily: '"Playfair Display", serif',
+                fontSize: '20px', fontWeight: 700,
+                color: '#edeae4', margin: 0,
+              }}>
+                ¿Cómo quieres jugar?
+              </h3>
+            </div>
+
+            {/* Options */}
+            <div style={{ padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {/* Ronda Libre */}
+              <Link
+                href="/ronda-libre/nueva"
+                onClick={() => setPlaySheetOpen(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '14px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '14px', padding: '16px',
+                  minHeight: '64px', textDecoration: 'none',
+                  cursor: 'pointer', transition: 'border-color 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+              >
+                <span style={{ fontSize: '28px', flexShrink: 0 }}>⛳</span>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>Ronda Libre</div>
+                  <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '2px' }}>Juega con amigos, score en vivo</div>
+                </div>
+              </Link>
+
+              {/* Organizar Torneo */}
+              <Link
+                href="/organizador/nuevo"
+                onClick={() => setPlaySheetOpen(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '14px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '14px', padding: '16px',
+                  minHeight: '64px', textDecoration: 'none',
+                  cursor: 'pointer', transition: 'border-color 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+              >
+                <span style={{ fontSize: '28px', flexShrink: 0 }}>🏆</span>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>Organizar Torneo</div>
+                  <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '2px' }}>Crea tu campeonato</div>
+                </div>
+              </Link>
+
+              {/* Liga de Golf — disabled */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '14px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '14px', padding: '16px',
+                minHeight: '64px', opacity: 0.4, cursor: 'default',
+              }}>
+                <span style={{ fontSize: '28px', flexShrink: 0 }}>🏅</span>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>Liga de Golf</div>
+                  <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '2px' }}>Próximamente</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }

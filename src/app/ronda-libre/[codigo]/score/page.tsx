@@ -65,11 +65,12 @@ function lsLoad(c: string, j: string): Record<number, number> { try { return JSO
 function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(p) }
 
 // Chip colors from centralized score-colors system
-import { SCORE_STYLES, getScoreResult } from '@/lib/score-colors'
+import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult } from '@/lib/score-colors'
 
-function getChipStyle(gross: number, par: number): React.CSSProperties {
+function getChipStyle(gross: number, par: number, isDark: boolean): React.CSSProperties {
   const result = getScoreResult(gross, par)
-  const s = SCORE_STYLES[result]
+  const styles = isDark ? SCORE_STYLES : SCORE_STYLES_LIGHT
+  const s = styles[result]
   return { background: s.bg, color: s.textColor, border: `${s.borderWidth} solid ${s.border}` }
 }
 function getChipLabel(gross: number, par: number): string {
@@ -112,7 +113,51 @@ function ScorePageContent() {
   const [roundDone, setRoundDone] = useState(false)
   const [finalScore, setFinalScore] = useState({ gross: 0, totalPar: 0 })
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Theme: white by default, dark mode toggle with localStorage persistence
+  const [darkMode, setDarkMode] = useState(() => {
+    try { return localStorage.getItem('scorecard-theme') === 'dark' } catch { return false }
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem('scorecard-theme', darkMode ? 'dark' : 'light') } catch {}
+  }, [darkMode])
+
+  const theme = darkMode ? {
+    bg: '#070d18',
+    card: '#0e1c2f',
+    text: '#edeae4',
+    textMuted: 'rgba(255,255,255,0.55)',
+    textFaint: 'rgba(255,255,255,0.3)',
+    border: 'rgba(196,153,42,0.12)',
+    badgeBg: 'rgba(255,255,255,0.06)',
+    badgeBorder: 'rgba(255,255,255,0.1)',
+    badgeText: 'rgba(255,255,255,0.7)',
+    scoreText: '#FFFFFF',
+    scoreDimmed: 'rgba(255,255,255,0.25)',
+    buttonBg: 'rgba(255,255,255,0.06)',
+    buttonBorder: 'rgba(255,255,255,0.1)',
+    buttonText: 'rgba(255,255,255,0.7)',
+    navBg: 'rgba(7,13,24,0.95)',
+    headerBg: 'rgba(7,13,24,0.95)',
+  } : {
+    bg: '#ffffff',
+    card: '#f9fafb',
+    text: '#111827',
+    textMuted: '#6b7280',
+    textFaint: '#9ca3af',
+    border: '#e5e7eb',
+    badgeBg: '#f3f4f6',
+    badgeBorder: '#e5e7eb',
+    badgeText: '#374151',
+    scoreText: '#111827',
+    scoreDimmed: '#d1d5db',
+    buttonBg: '#f3f4f6',
+    buttonBorder: '#e5e7eb',
+    buttonText: '#374151',
+    navBg: 'rgba(255,255,255,0.95)',
+    headerBg: 'rgba(255,255,255,0.97)',
+  }
+
   const retryCountRef = useRef(0)
   const swipeRef = useRef({ startX: 0, startY: 0 })
   const progressRowRef = useRef<HTMLDivElement>(null)
@@ -240,13 +285,13 @@ function ScorePageContent() {
     setScores(prev => {
       const next = { ...prev, [activeJugadorId]: { ...(prev[activeJugadorId] ?? {}), [hole]: clamped } }
       setHasUnsaved(true)
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => saveScores(activeJugadorId, next[activeJugadorId]), 600)
+      // Save to localStorage immediately for backup
+      lsSave(codigo, activeJugadorId, next[activeJugadorId])
       const holePar = parMap[hole] ?? 4
       if (clamped - holePar <= -1) haptic([15, 30, 15])
       return next
     })
-  }, [activeJugadorId, saveScores, parMap])
+  }, [activeJugadorId, parMap, codigo])
 
   /* ── Swipe ── */
   const handleTouchStart = (e: React.TouchEvent) => { swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY } }
@@ -269,7 +314,6 @@ function ScorePageContent() {
       const holePar = parMap[currentHole] ?? 4
       handleScoreChange(currentHole, holePar)
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
     const nextHole = currentHole + 1
     setCurrentHole(nextHole)
@@ -288,7 +332,6 @@ function ScorePageContent() {
       const holePar = parMap[currentHole] ?? 4
       handleScoreChange(currentHole, holePar)
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
     const supabase = createClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -335,7 +378,7 @@ function ScorePageContent() {
   }, [currentHole])
 
   /* ── Render ── */
-  if (loading) return <div style={{ background: '#070d18', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)' }}>Cargando ronda...</div>
+  if (loading) return <div style={{ background: theme.bg, minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textFaint }}>Cargando ronda...</div>
   if (!ronda || !activeJugadorId) return null
 
   const jugadores = ronda.ronda_libre_jugadores
@@ -378,8 +421,11 @@ function ScorePageContent() {
   // FIX #5: double bogey warning
   const isAboveDoubleBogey = score != null && score > par + 2
 
+  // Score styles for mini scorecard (theme-aware)
+  const currentScoreStyles = darkMode ? SCORE_STYLES : SCORE_STYLES_LIGHT
+
   return (
-    <div style={{ background: '#070d18', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
+    <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
 
       {/* ── Share menu modal ── */}
       {showShareMenu && <ShareMenu codigo={codigo} onClose={() => setShowShareMenu(false)} />}
@@ -409,30 +455,42 @@ function ScorePageContent() {
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 16px', height: '48px', flexShrink: 0,
-        borderBottom: '1px solid rgba(196,153,42,0.12)',
-        background: 'rgba(7,13,24,0.95)',
+        borderBottom: `1px solid ${theme.border}`,
+        background: theme.headerBg,
       }}>
         <button onClick={handleExit} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(255,255,255,0.7)', fontSize: '14px',
+          color: theme.buttonText, fontSize: '14px',
           padding: '8px', minWidth: '44px', minHeight: '44px',
           display: 'flex', alignItems: 'center',
           WebkitTapHighlightColor: 'transparent',
         }}>← Salir</button>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>
-            {ronda.course_name}
+        <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
+            <div style={{ fontSize: '11px', color: theme.textMuted }}>
+              {ronda.course_name}
+            </div>
           </div>
         </div>
-        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', minWidth: '28px', textAlign: 'right' }}>
-          {currentHole}/{totalHoles}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
+          <button onClick={() => setDarkMode(!darkMode)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: theme.textMuted, fontSize: '18px', padding: '8px',
+            minWidth: '44px', minHeight: '44px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {darkMode ? '\u2600\uFE0F' : '\uD83C\uDF19'}
+          </button>
+          <span style={{ fontSize: '12px', color: theme.textMuted, minWidth: '28px', textAlign: 'right' }}>
+            {currentHole}/{totalHoles}
+          </span>
+        </div>
       </header>
 
       {/* ── Mini scorecard strip (36px) ── */}
       <div style={{
-        background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)',
+        background: darkMode ? 'rgba(14,28,47,0.97)' : 'rgba(249,250,251,0.97)', borderBottom: `1px solid ${theme.border}`,
         padding: '2px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px',
       }}>
         <div ref={progressRowRef} style={{ display: 'flex', gap: '2px', minWidth: 'max-content', justifyContent: 'center', height: '100%', alignItems: 'center' }}>
@@ -440,10 +498,9 @@ function ScorePageContent() {
             const s = scores[activeJugadorId]?.[h]
             const p = parMap[h] ?? 4
             const isActive = h === currentHole
-            const diff = s != null ? s - p : null
 
             const scoreResult = getScoreResult(s, p)
-            const scoreStyle = SCORE_STYLES[scoreResult]
+            const scoreStyle = currentScoreStyles[scoreResult]
             let bg = scoreStyle.bg
             let color = scoreStyle.textColor
             if (isActive) { bg = 'rgba(196,153,42,0.2)'; color = '#C4992A' }
@@ -456,9 +513,9 @@ function ScorePageContent() {
                 cursor: 'pointer', flexShrink: 0, padding: 0,
                 WebkitTapHighlightColor: 'transparent',
               }}>
-                <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>{h}</span>
+                <span style={{ fontSize: '7px', color: theme.textFaint, lineHeight: 1 }}>{h}</span>
                 <span style={{ fontSize: '12px', fontWeight: 700, color, lineHeight: 1.2 }}>
-                  {s ?? '·'}
+                  {s ?? '\u00B7'}
                 </span>
               </button>
             )
@@ -471,13 +528,13 @@ function ScorePageContent() {
         <div style={{
           display: 'flex', justifyContent: 'center', gap: '16px',
           padding: '3px 16px', height: '24px', flexShrink: 0,
-          background: 'rgba(255,255,255,0.02)',
-          borderBottom: '1px solid rgba(255,255,255,0.04)',
-          fontSize: '12px', color: 'rgba(255,255,255,0.45)', alignItems: 'center',
+          background: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+          borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
+          fontSize: '12px', color: theme.textFaint, alignItems: 'center',
         }}>
-          {f9Count > 0 && <span>F9: <span style={{ color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{formatNine(f9Gross, f9Par)}</span></span>}
-          {f9Count > 0 && b9Count > 0 && <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>}
-          {b9Count > 0 && <span>B9: <span style={{ color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{formatNine(b9Gross, b9Par)}</span></span>}
+          {f9Count > 0 && <span>F9: <span style={{ color: theme.textMuted, fontWeight: 600 }}>{formatNine(f9Gross, f9Par)}</span></span>}
+          {f9Count > 0 && b9Count > 0 && <span style={{ color: theme.textFaint }}>|</span>}
+          {b9Count > 0 && <span>B9: <span style={{ color: theme.textMuted, fontWeight: 600 }}>{formatNine(b9Gross, b9Par)}</span></span>}
         </div>
       )}
 
@@ -485,32 +542,32 @@ function ScorePageContent() {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
         padding: '4px 16px', height: '32px', flexShrink: 0,
-        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
       }}>
-        <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: theme.badgeBg, border: `1px solid ${theme.badgeBorder}`, color: theme.badgeText, display: 'flex', alignItems: 'center', gap: '4px' }}>
           Par {par}
           {strokesOnHole > 0 && (
             <span style={{ color: '#C4992A', fontSize: '9px' }}>
-              {strokesOnHole === 1 ? '●' : '●●'}
+              {strokesOnHole === 1 ? '\u25CF' : '\u25CF\u25CF'}
             </span>
           )}
         </span>
         {holeData.yardaje && (
-          <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }}>
+          <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: theme.badgeBg, border: `1px solid ${theme.badgeBorder}`, color: theme.badgeText }}>
             {holeData.yardaje} yds
           </span>
         )}
-        <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'rgba(255,255,255,0.7)' }}>
+        <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: theme.badgeText }}>
           HDCP {holeData.stroke_index}
         </span>
         {holesPlayed > 0 && (
-          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
+          <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>
             {totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder}
           </span>
         )}
         <button onClick={() => setShowShareMenu(true)} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(255,255,255,0.45)', padding: '2px 4px',
+          color: theme.textFaint, padding: '2px 4px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           WebkitTapHighlightColor: 'transparent',
         }} aria-label="Compartir">
@@ -520,14 +577,14 @@ function ScorePageContent() {
 
       {/* ── Player tabs (multi-player only) ── */}
       {jugadores.length > 1 && (
-        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: '1px solid rgba(255,255,255,0.06)', WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
+        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`, WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
           {jugadores.map(j => {
             const active = j.id === activeJugadorId
             return (
               <button key={j.id} onClick={() => setActiveJugadorId(j.id)} style={{
                 padding: '0 16px', height: '36px', border: 'none',
                 borderBottom: active ? '2px solid #C4992A' : '2px solid transparent',
-                background: 'transparent', color: active ? '#C4992A' : 'rgba(255,255,255,0.35)',
+                background: 'transparent', color: active ? '#C4992A' : theme.textFaint,
                 fontWeight: active ? 600 : 400, fontSize: '13px',
                 cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, minHeight: 0, minWidth: 0,
               }}>{j.nombre}</button>
@@ -548,7 +605,7 @@ function ScorePageContent() {
             className={scoreAnimating ? 'score-animating' : ''}
             style={{
               fontSize: 'clamp(72px, 20vw, 96px)', fontWeight: 700, fontFamily: 'Inter, sans-serif',
-              lineHeight: 1, color: score != null ? '#FFFFFF' : 'rgba(255,255,255,0.25)', letterSpacing: '-3px',
+              lineHeight: 1, color: score != null ? theme.scoreText : theme.scoreDimmed, letterSpacing: '-3px',
               fontVariantNumeric: 'tabular-nums',
             }}
           >{score ?? par}</div>
@@ -559,7 +616,7 @@ function ScorePageContent() {
               position: 'absolute', top: '-8px', right: '-24px',
               fontSize: '20px', color: '#00e676', fontWeight: 700,
               animation: 'fadeInOut 1s ease forwards',
-            }}>✓</div>
+            }}>{'\u2713'}</div>
           )}
         </div>
 
@@ -568,14 +625,14 @@ function ScorePageContent() {
           <div style={{
             marginTop: '8px', padding: '4px 16px', borderRadius: '20px',
             fontSize: '13px', fontWeight: 500, letterSpacing: '0.01em',
-            ...getChipStyle(score, par),
+            ...getChipStyle(score, par, darkMode),
           }}>{getChipLabel(score, par)}</div>
         )}
 
         {/* Double bogey warning */}
         {isAboveDoubleBogey && (
           <div style={{
-            marginTop: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.3)',
+            marginTop: '4px', fontSize: '11px', color: theme.textFaint,
             letterSpacing: '0.02em',
           }}>
             Por encima de doble bogey
@@ -593,15 +650,15 @@ function ScorePageContent() {
           style={{
             width: '80px', height: '80px', borderRadius: '20px',
             fontSize: '32px', fontWeight: 300,
-            background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: theme.buttonBg, color: theme.buttonText,
+            border: `1px solid ${theme.buttonBorder}`,
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
             userSelect: 'none', transition: 'transform 0.08s ease-out',
             opacity: score != null && score <= 1 ? 0.3 : 1,
             minHeight: 0, minWidth: 0,
           }}
-        >−</button>
+        >{'\u2212'}</button>
         <button
           className="ctrl-btn"
           onTouchStart={() => {}}
@@ -610,7 +667,7 @@ function ScorePageContent() {
           style={{
             width: '80px', height: '80px', borderRadius: '20px',
             fontSize: '32px', fontWeight: 600,
-            background: '#C4992A', color: '#070D18', border: 'none',
+            background: '#C4992A', color: darkMode ? '#070D18' : '#070D18', border: 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
             userSelect: 'none', transition: 'transform 0.08s ease-out',
@@ -622,8 +679,8 @@ function ScorePageContent() {
 
       {/* ── Nav buttons (fixed bottom with safe area) ── */}
       <div style={{
-        flexShrink: 0, background: 'rgba(7,13,24,0.97)',
-        borderTop: '1px solid rgba(196,153,42,0.12)',
+        flexShrink: 0, background: theme.navBg,
+        borderTop: `1px solid ${theme.border}`,
         padding: '8px 16px', paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
         display: 'flex', gap: '8px',
       }}>
@@ -633,11 +690,11 @@ function ScorePageContent() {
             onClick={goToPrevHole}
             style={{
               flex: 1, padding: '14px', background: 'transparent',
-              color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)',
+              color: theme.textMuted, border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
               borderRadius: '12px', fontSize: '14px', fontWeight: 400,
               cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             }}
-          >← Anterior</button>
+          >{'\u2190'} Anterior</button>
         )}
         <button
           onTouchStart={() => {}}
@@ -647,8 +704,9 @@ function ScorePageContent() {
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
             cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             touchAction: 'manipulation', letterSpacing: '0.01em',
+            animation: hasUnsaved && !isLastHole ? 'pendingPulse 2s ease-in-out infinite' : 'none',
           }}
-        >{isLastHole ? 'Finalizar ronda ✓' : 'Siguiente →'}</button>
+        >{isLastHole ? 'Finalizar ronda \u2713' : 'Siguiente \u2192'}</button>
       </div>
 
       {/* ── tAIger banners ── */}
@@ -662,7 +720,7 @@ function ScorePageContent() {
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90, background: 'rgba(14,28,47,0.97)', borderTop: '1px solid rgba(196,153,42,0.3)', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', textAlign: 'center' }}>
           <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Tu analisis esta listo</div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{ background: '#c4992a', color: '#070d18', padding: '12px 24px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}>Ver analisis →</Link>
+            <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{ background: '#c4992a', color: '#070d18', padding: '12px 24px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}>Ver analisis {'\u2192'}</Link>
             <Link href={`/ronda-libre/${codigo}?finished=true`} style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '12px 24px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>Ver scorecard</Link>
           </div>
         </div>
@@ -679,12 +737,12 @@ function ScorePageContent() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '360px', padding: '0 24px' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏆</div>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>{'\uD83C\uDFC6'}</div>
               <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#edeae4', margin: '0 0 6px', textAlign: 'center' }}>
                 Ronda completada
               </h2>
               <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', margin: '0 0 24px', textAlign: 'center' }}>
-                Tu score quedó guardado
+                Tu score quedo guardado
               </p>
 
               {/* Score card */}
@@ -710,7 +768,7 @@ function ScorePageContent() {
                   background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '15px',
                   height: '52px', borderRadius: '12px', textDecoration: 'none',
                 }}>
-                  🐯 Análisis de tu ronda →
+                  {'\uD83D\uDC2F'} Analisis de tu ronda {'\u2192'}
                 </Link>
                 <Link href="/perfil/stats" style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -718,7 +776,7 @@ function ScorePageContent() {
                   color: '#edeae4', fontWeight: 600, fontSize: '14px',
                   height: '52px', borderRadius: '12px', textDecoration: 'none',
                 }}>
-                  Ver mi GWI™ actualizado
+                  Ver mi GWI{'\u2122'} actualizado
                 </Link>
                 <Link href="/dashboard" style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -734,13 +792,17 @@ function ScorePageContent() {
         )
       })()}
 
-      {/* ── CSS animation for save check ── */}
+      {/* ── CSS animations ── */}
       <style>{`
         @keyframes fadeInOut {
           0% { opacity: 0; transform: scale(0.8); }
           20% { opacity: 1; transform: scale(1.1); }
           40% { opacity: 1; transform: scale(1); }
           100% { opacity: 0; transform: scale(1) translateY(-4px); }
+        }
+        @keyframes pendingPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.75; }
         }
       `}</style>
     </div>
@@ -749,7 +811,7 @@ function ScorePageContent() {
 
 export default function ScorePage() {
   return (
-    <Suspense fallback={<div style={{ background: '#070d18', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)' }}>Cargando...</div>}>
+    <Suspense fallback={<div style={{ background: '#ffffff', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>Cargando...</div>}>
       <ScorePageContent />
     </Suspense>
   )
