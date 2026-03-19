@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { SCORE_STYLES, getScoreResult } from '@/lib/score-colors'
 import { createClient } from '@/lib/supabase'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
@@ -140,14 +141,10 @@ export default function PlayerScoringPage() {
                 const gross   = currentScores[holeNum]
                 const isSaved = savedHoles.has(holeNum)
                 const diff    = gross != null ? gross - par : null
-                let bg = 'rgba(14,28,47,0.9)'; let border = '1px solid rgba(122,143,168,0.2)'
-                if (gross != null) {
-                  if (diff! <= -2)     { bg = 'rgba(37,99,235,0.20)';  border = '2px solid #2563eb' }
-                  else if (diff === -1) { bg = 'rgba(22,163,74,0.20)';  border = '2px solid #16a34a' }
-                  else if (diff === 0)  { bg = 'rgba(100,116,139,0.15)'; border = '1px solid rgba(255,255,255,0.1)' }
-                  else if (diff === 1)  { bg = 'rgba(220,38,38,0.20)'; border = '2px solid rgba(220,38,38,0.6)' }
-                  else                  { bg = 'rgba(220,38,38,0.35)'; border = '2px solid #dc2626' }
-                }
+                const sr = getScoreResult(gross, par)
+                const ss = SCORE_STYLES[sr]
+                const bg = gross != null ? ss.bg : 'rgba(14,28,47,0.9)'
+                const border = gross != null ? `${ss.borderWidth} solid ${ss.border}` : '1px solid rgba(122,143,168,0.2)'
                 return (
                   <div key={holeNum} style={{ background: bg, border, borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 200ms' }}>
                     <div>

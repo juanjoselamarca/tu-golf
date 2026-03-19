@@ -54,14 +54,13 @@ function lsSave(c: string, j: string, s: Record<number, number>) { try { localSt
 function lsLoad(c: string, j: string): Record<number, number> { try { return JSON.parse(localStorage.getItem(lsKey(c, j)) ?? '{}') } catch { return {} } }
 function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(p) }
 
+// Chip colors from centralized score-colors system
+import { SCORE_STYLES, getScoreResult } from '@/lib/score-colors'
+
 function getChipStyle(gross: number, par: number): React.CSSProperties {
-  const d = gross - par
-  if (d <= -2) return { background: 'rgba(196,153,42,0.2)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.3)' }
-  if (d === -1) return { background: 'rgba(22,163,74,0.15)', color: '#4ade80', border: '1px solid rgba(22,163,74,0.2)' }
-  if (d === 0) return { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }
-  if (d === 1) return { background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.2)' }
-  if (d === 2) return { background: 'rgba(220,38,38,0.12)', color: '#f87171', border: '1px solid rgba(220,38,38,0.18)' }
-  return { background: 'rgba(153,27,27,0.4)', color: '#FCA5A5', border: '1px solid rgba(153,27,27,0.5)' }
+  const result = getScoreResult(gross, par)
+  const s = SCORE_STYLES[result]
+  return { background: s.bg, color: s.textColor, border: `${s.borderWidth} solid ${s.border}` }
 }
 function getChipLabel(gross: number, par: number): string {
   const d = gross - par
@@ -422,16 +421,11 @@ function ScorePageContent() {
             const isActive = h === currentHole
             const diff = s != null ? s - p : null
 
-            let bg = 'rgba(255,255,255,0.04)'
-            let color = 'rgba(255,255,255,0.2)'
+            const scoreResult = getScoreResult(s, p)
+            const scoreStyle = SCORE_STYLES[scoreResult]
+            let bg = scoreStyle.bg
+            let color = scoreStyle.textColor
             if (isActive) { bg = 'rgba(196,153,42,0.2)'; color = '#C4992A' }
-            else if (diff != null) {
-              if (diff <= -2) { bg = 'rgba(196,153,42,0.2)'; color = '#c4992a' }
-              else if (diff === -1) { bg = 'rgba(22,163,74,0.15)'; color = '#4ade80' }
-              else if (diff === 0) { bg = 'rgba(255,255,255,0.08)'; color = 'rgba(255,255,255,0.6)' }
-              else if (diff === 1) { bg = 'rgba(245,158,11,0.15)'; color = '#fbbf24' }
-              else { bg = 'rgba(220,38,38,0.15)'; color = '#f87171' }
-            }
 
             return (
               <button key={h} onClick={() => setCurrentHole(h)} style={{

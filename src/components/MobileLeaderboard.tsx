@@ -23,14 +23,13 @@ function gwiClr(g: number): string {
   return '#dc2626'
 }
 
+// Score colors from centralized system
+import { SCORE_STYLES_LIGHT, getScoreResult } from '@/lib/score-colors'
+
 function holeCellStyle(s: number | null, par: number) {
-  if (s === null) return { bg: '#f3f4f6', clr: '#d1d5db' }
-  const d = s - par
-  if (d <= -2) return { bg: '#fef3c7', clr: '#92400e' }
-  if (d === -1) return { bg: '#dcfce7', clr: '#166534' }
-  if (d === 0) return { bg: '#f9fafb', clr: '#6b7280' }
-  if (d === 1) return { bg: '#fef2f2', clr: '#991b1b' }
-  return { bg: '#fee2e2', clr: '#991b1b' }
+  const result = getScoreResult(s, par)
+  const st = SCORE_STYLES_LIGHT[result]
+  return { bg: st.bg, clr: st.textColor }
 }
 
 function shortName(full: string): string {
