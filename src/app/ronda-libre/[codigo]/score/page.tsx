@@ -241,6 +241,11 @@ function ScorePageContent() {
   const goToNextHole = async () => {
     if (!ronda || !activeJugadorId) return
     haptic(30)
+    // If no score was entered, auto-fill with par (the ghost value shown)
+    if (scores[activeJugadorId]?.[currentHole] == null) {
+      const holePar = parMap[currentHole] ?? 4
+      handleScoreChange(currentHole, holePar)
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
     setCurrentHole(h => h + 1)
@@ -249,6 +254,11 @@ function ScorePageContent() {
   const finalizeRound = async () => {
     if (!ronda || !activeJugadorId) return
     haptic(30)
+    // Auto-fill last hole with par if not entered
+    if (scores[activeJugadorId]?.[currentHole] == null) {
+      const holePar = parMap[currentHole] ?? 4
+      handleScoreChange(currentHole, holePar)
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
     const supabase = createClient()
