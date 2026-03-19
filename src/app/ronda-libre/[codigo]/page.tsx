@@ -565,15 +565,25 @@ function RondaLibrePageContent() {
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
 
           {/* Notification banner for spectators */}
-          {isEnCurso && !getNotifPrefs().spectator && isPushSupported() && (
-            <NotifBanner onEnable={() => {
-              requestPermission().then(granted => {
+          {isEnCurso && !getNotifPrefs().spectator && (
+            <NotifBanner onEnable={async () => {
+              if (!isPushSupported()) {
+                // Fallback: still save preference, notifications just won't show
+                setNotifPrefs({ spectator: true })
+                setCountdown(c => c)
+                return
+              }
+              try {
+                const granted = await requestPermission()
                 if (granted) {
                   setNotifPrefs({ spectator: true })
-                  // Force re-render
                   setCountdown(c => c)
                 }
-              })
+              } catch {
+                // Permission request failed — save pref anyway for polling-based alerts
+                setNotifPrefs({ spectator: true })
+                setCountdown(c => c)
+              }
             }} />
           )}
 

@@ -46,10 +46,10 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Redirect logged-in users away from marketing/auth pages
-  // Only match exact paths — don't redirect /api/... or other sub-paths
+  // Redirect logged-in users away from auth pages only (NOT from /)
+  // Landing page (/) is accessible to everyone — logged in or not
   const pathname = request.nextUrl.pathname
-  if (user && (pathname === '/' || pathname === '/login' || pathname === '/register')) {
+  if (user && (pathname === '/login' || pathname === '/register')) {
     return redirectWithCookies(new URL('/dashboard', request.url))
   }
 
