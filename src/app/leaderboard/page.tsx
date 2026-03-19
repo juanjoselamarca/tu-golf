@@ -112,43 +112,66 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      {/* ── Hero — mobile compact (light theme) ──────── */}
-      <div className="md:hidden" style={{ background: '#ffffff', padding: '16px', borderBottom: '1px solid #e5e7eb' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a', animation: 'livePulse 2s infinite' }} />
-            <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: '#16a34a', fontWeight: 600, letterSpacing: '0.08em' }}>EN VIVO</span>
+      {/* ── Hero — mobile premium ──────────────────────── */}
+      <div className="md:hidden" style={{
+        background: 'linear-gradient(180deg, #ffffff 0%, #f9fafb 100%)',
+        padding: '20px 16px 16px',
+        borderBottom: '1px solid #e5e7eb',
+      }}>
+        {/* Live badge + round */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            background: 'rgba(22,163,74,0.08)', padding: '4px 10px', borderRadius: '20px',
+          }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a', animation: 'livePulse 1.5s ease-in-out infinite' }} />
+            <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: '#16a34a', fontWeight: 700, letterSpacing: '0.1em' }}>EN VIVO</span>
           </div>
-          <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: '#9ca3af' }}>Ronda {roundNumber}</span>
+          <span style={{
+            fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: '#9ca3af',
+            background: '#f3f4f6', padding: '4px 10px', borderRadius: '20px',
+          }}>R{roundNumber}</span>
         </div>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(18px, 5vw, 22px)', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>
-          Copa Golfers+ Demo 2026
+
+        {/* Tournament name */}
+        <div style={{
+          fontFamily: '"Playfair Display", serif', fontSize: '24px', fontWeight: 700,
+          color: '#111827', marginBottom: '4px', lineHeight: 1.15,
+        }}>
+          Copa Golfers+ Demo
         </div>
-        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>
-          Club de Golf Los Leones · Par 72
+        <div style={{
+          fontSize: '13px', color: '#6b7280', marginBottom: '14px',
+          fontFamily: 'var(--font-dm-mono), monospace',
+        }}>
+          Los Leones Golf Club · Par 72
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+
+        {/* Stats row — minimal, elegant */}
+        <div style={{ display: 'flex', gap: '12px' }}>
           {[
-            { label: 'Ronda', value: String(roundNumber) },
-            { label: 'Jugadores', value: '10' },
-            { label: 'En cancha', value: String(playingCount) },
-          ].map(p => (
-            <div key={p.label} style={{ flex: 1, background: '#f9fafb', borderRadius: '10px', padding: '8px 6px', textAlign: 'center', border: '1px solid #f3f4f6' }}>
-              <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 700, color: '#111827' }}>{p.value}</div>
-              <div style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 500 }}>{p.label}</div>
+            { value: '10', label: 'Jugadores' },
+            { value: String(playingCount), label: 'En cancha' },
+            { value: String(leaderScore === 0 ? 'E' : leaderScore > 0 ? '+' + leaderScore : leaderScore), label: 'Líder' },
+          ].map(s => (
+            <div key={s.label} style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+              <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 700, color: '#111827' }}>{s.value}</span>
+              <span style={{ fontSize: '10px', color: '#9ca3af' }}>{s.label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Ticker bar (light) ────────────────────────── */}
+      {/* ── Ticker — event feed ───────────────────────── */}
       {lastEvent && (
         <div key={lastEvent} className="ticker-event md:hidden" style={{
-          background: 'rgba(17,24,39,0.95)', borderBottom: '1px solid rgba(196,153,42,0.2)',
-          padding: '8px 16px', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: '#c4992a',
+          background: '#ffffff', borderBottom: '1px solid #f3f4f6',
+          padding: '10px 16px',
+          fontFamily: 'var(--font-dm-mono), monospace', fontSize: '12px', color: '#374151',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-          \u25B6 {lastEvent}
+          <span style={{ color: '#c4992a', marginRight: '6px' }}>●</span>
+          {lastEvent}
         </div>
       )}
       {/* Desktop ticker */}

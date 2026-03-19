@@ -156,8 +156,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                     {player.status === 'playing' && (
                       <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#16a34a', animation: 'livePulse 2s infinite' }} />
                     )}
-                    {!isLeader && gapToLeader > 0 && (
-                      <span style={{ fontSize: '10px', color: '#d1d5db', fontFamily: M }}>+{gapToLeader}</span>
+                    {player.status === 'finished' && (
+                      <span style={{ fontSize: '9px', color: '#16a34a', fontFamily: M, fontWeight: 600 }}>✓</span>
                     )}
                   </div>
                 </div>
