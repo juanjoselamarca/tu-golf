@@ -247,6 +247,133 @@ export default function RondaLibrePage() {
     })
 
   /* ─────────────────────────────────────────────────────────────────────── */
+  /* ── FINISHED ROUND — skip role selection, go straight to leaderboard ─ */
+  /* ─────────────────────────────────────────────────────────────────────── */
+  if (!role && ronda.estado === 'finalizada') {
+    // Auto-set role to spectator so the leaderboard view renders on next cycle
+    // but first show a brief finished-round screen
+    return (
+      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
+        {/* Header */}
+        <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '24px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '10px' }}>⛳</div>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#edeae4', margin: '0 0 6px' }}>
+            Ronda Finalizada
+          </h1>
+          <p style={{ color: '#94a8c0', fontSize: '14px', margin: 0 }}>
+            {ronda.course_name} · {fechaDisplay}
+          </p>
+          <div style={{
+            marginTop: '12px',
+            display: 'inline-flex', alignItems: 'center', gap: '10px',
+            background: 'rgba(196,153,42,0.08)',
+            border: '1px solid rgba(196,153,42,0.25)',
+            borderRadius: '10px',
+            padding: '8px 18px',
+          }}>
+            <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Codigo</span>
+            <span style={{ fontFamily: 'monospace', color: '#c4992a', fontWeight: 700, fontSize: '22px', letterSpacing: '3px' }}>
+              {ronda.codigo}
+            </span>
+          </div>
+        </div>
+
+        {/* Results summary */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', gap: '16px' }}>
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '360px',
+              background: 'rgba(14,28,47,0.9)',
+              border: '1px solid rgba(196,153,42,0.16)',
+              borderRadius: '16px',
+              padding: '18px 18px 16px',
+              marginBottom: '4px',
+            }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estado</div>
+                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>Ronda finalizada</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
+                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>{ronda.ronda_libre_jugadores.length}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Recorrido</div>
+                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>{ronda.holes} hoyos</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modo</div>
+                <div style={{ fontSize: '14px', color: '#c4992a', fontWeight: 700, textTransform: 'capitalize' }}>
+                  {ronda.modo_juego === 'stableford' ? 'Stableford' : ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* View leaderboard */}
+          <button
+            onClick={() => chooseRole('espectador')}
+            style={{
+              width: '100%', maxWidth: '360px', minHeight: '80px',
+              background: '#c4992a', color: '#070d18',
+              border: 'none', borderRadius: '16px',
+              padding: '20px 24px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+              fontWeight: 700, fontSize: '18px',
+            }}
+          >
+            Ver marcador final
+          </button>
+
+          {/* Share result */}
+          <button
+            onClick={() => {
+              const standingsText = leaderboard
+                .filter(j => j.holesPlayed > 0)
+                .map((j, i) => `${i + 1}. ${j.nombre} ${hasCourse ? formatOverUnder(j.vsPar) : ''} (${j.holesPlayed}/${ronda.holes})`)
+                .join('\n')
+              const resultText = `${ronda.course_name} - ${fechaDisplay}\n\n${standingsText}\n\nVer resultado: ${shareUrl}`
+              if (typeof navigator !== 'undefined' && navigator.share) {
+                navigator.share({ title: 'Resultado Golfers+', text: resultText }).catch(() => {})
+              } else {
+                window.open(`https://wa.me/?text=${encodeURIComponent(resultText)}`, '_blank')
+              }
+            }}
+            style={{
+              width: '100%', maxWidth: '360px', minHeight: '56px',
+              background: 'rgba(37,211,102,0.12)',
+              border: '1px solid rgba(37,211,102,0.3)',
+              color: '#25D366',
+              borderRadius: '12px',
+              padding: '14px 20px',
+              cursor: 'pointer',
+              fontSize: '15px',
+              fontWeight: 600,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            }}
+          >
+            Compartir resultado
+          </button>
+
+          {/* Stats link */}
+          <Link
+            href="/perfil/stats"
+            style={{
+              color: '#c4992a', textDecoration: 'none', fontSize: '14px',
+              marginTop: '8px', fontWeight: 600,
+            }}
+          >
+            Ver mis estadisticas →
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────── */
   /* ── WELCOME SCREEN ─────────────────────────────────────────────────── */
   /* ─────────────────────────────────────────────────────────────────────── */
   if (!role) {

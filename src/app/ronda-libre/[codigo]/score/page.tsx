@@ -21,11 +21,11 @@ function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && 
 
 function getChipStyle(gross: number, par: number): React.CSSProperties {
   const d = gross - par
-  if (d <= -2) return { background: 'rgba(59,130,246,0.15)', color: '#93C5FD', border: '1px solid rgba(59,130,246,0.2)' }
-  if (d === -1) return { background: 'rgba(239,68,68,0.12)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.18)' }
+  if (d <= -2) return { background: 'rgba(196,153,42,0.2)', color: '#c9a84c', border: '1px solid rgba(196,153,42,0.3)' }
+  if (d === -1) return { background: 'rgba(22,163,74,0.15)', color: '#4ade80', border: '1px solid rgba(22,163,74,0.2)' }
   if (d === 0) return { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }
-  if (d === 1) return { background: 'rgba(196,153,42,0.15)', color: '#FCD34D', border: '1px solid rgba(196,153,42,0.25)' }
-  if (d === 2) return { background: 'rgba(220,38,38,0.12)', color: '#FCA5A5', border: '1px solid rgba(220,38,38,0.18)' }
+  if (d === 1) return { background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.2)' }
+  if (d === 2) return { background: 'rgba(220,38,38,0.12)', color: '#f87171', border: '1px solid rgba(220,38,38,0.18)' }
   return { background: 'rgba(153,27,27,0.4)', color: '#FCA5A5', border: '1px solid rgba(153,27,27,0.5)' }
 }
 function getChipLabel(gross: number, par: number): string {
@@ -237,8 +237,8 @@ function ScorePageContent() {
     setHasUnsaved(false)
     setTaigerStatus('analyzing')
     fetch('/api/taiger/analyze-round', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ronda_libre_id: codigo }) })
-      .then(r => r.json()).then(data => { if (data.session_id) { setTaigerStatus('ready'); setTaigerSessionId(data.session_id) } else router.push(`/ronda-libre/${codigo}`) })
-      .catch(() => router.push(`/ronda-libre/${codigo}`))
+      .then(r => r.json()).then(data => { if (data.session_id) { setTaigerStatus('ready'); setTaigerSessionId(data.session_id) } else router.push(`/ronda-libre/${codigo}?finished=true`) })
+      .catch(() => router.push(`/ronda-libre/${codigo}?finished=true`))
   }
 
   /* ── Scroll progress row to current hole ── */
@@ -340,12 +340,31 @@ function ScorePageContent() {
           WebkitTapHighlightColor: 'transparent',
         }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>{/* FIX #10: 11px */}
-            {ronda.course_name} {showMiniCard ? '▲' : '▼'}
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>
+            {ronda.course_name} · {new Date(ronda.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} {showMiniCard ? '▲' : '▼'}
           </div>
         </button>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', minWidth: '44px', textAlign: 'right' }}>
-          {currentHole}/{totalHoles}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button onClick={async () => {
+            const shareUrl = `${window.location.origin}/ronda-libre/${codigo}`
+            const shareText = `Unete a mi ronda en ${ronda.course_name}`
+            if (navigator.share) {
+              try { await navigator.share({ title: 'Golfers+', text: shareText, url: shareUrl }) } catch {}
+            } else {
+              window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`, '_blank')
+            }
+          }} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'rgba(255,255,255,0.55)', fontSize: '16px',
+            padding: '8px', minWidth: '36px', minHeight: '36px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            WebkitTapHighlightColor: 'transparent',
+          }} aria-label="Compartir ronda">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          </button>
+          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', minWidth: '28px', textAlign: 'right' }}>
+            {currentHole}/{totalHoles}
+          </span>
         </div>
       </header>
 
@@ -366,11 +385,11 @@ function ScorePageContent() {
               let color = 'rgba(255,255,255,0.2)'
               if (isActive) { bg = 'rgba(196,153,42,0.2)'; color = '#C4992A' }
               else if (diff != null) {
-                if (diff <= -2) { bg = 'rgba(59,130,246,0.15)'; color = '#93C5FD' }
-                else if (diff === -1) { bg = 'rgba(34,197,94,0.15)'; color = '#6EE7B7' }
+                if (diff <= -2) { bg = 'rgba(196,153,42,0.2)'; color = '#c9a84c' }
+                else if (diff === -1) { bg = 'rgba(22,163,74,0.15)'; color = '#4ade80' }
                 else if (diff === 0) { bg = 'rgba(255,255,255,0.08)'; color = 'rgba(255,255,255,0.6)' }
-                else if (diff === 1) { bg = 'rgba(196,153,42,0.15)'; color = '#FCD34D' }
-                else { bg = 'rgba(220,38,38,0.15)'; color = '#FCA5A5' }
+                else if (diff === 1) { bg = 'rgba(245,158,11,0.15)'; color = '#fbbf24' }
+                else { bg = 'rgba(220,38,38,0.15)'; color = '#f87171' }
               }
 
               return (
@@ -463,7 +482,7 @@ function ScorePageContent() {
             )}
           </span>
           <span style={{ padding: '4px 14px', borderRadius: '20px', fontSize: '14px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'rgba(255,255,255,0.7)' }}>{/* FIX #10: 14px, 0.7 */}
-            SI {holeData.stroke_index}
+            HDCP {holeData.stroke_index}
           </span>
         </div>
 
@@ -473,10 +492,10 @@ function ScorePageContent() {
             className={scoreAnimating ? 'score-animating' : ''}
             style={{
               fontSize: '96px', fontWeight: 700, fontFamily: 'Inter, sans-serif',
-              lineHeight: 1, color: '#FFFFFF', letterSpacing: '-3px',
+              lineHeight: 1, color: score != null ? '#FFFFFF' : 'rgba(255,255,255,0.25)', letterSpacing: '-3px',
               fontVariantNumeric: 'tabular-nums',
             }}
-          >{score ?? '—'}</div>
+          >{score ?? par}</div>
 
           {/* FIX #8: Save check toast */}
           {saveCheckVisible && (
@@ -546,7 +565,7 @@ function ScorePageContent() {
       </div>
 
       {/* ── FIX #9: Progress — numbered mini-cells ── */}
-      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: '6px 12px 12px' }}>
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: '6px 12px 12px', marginBottom: '140px' }}>
         <div ref={progressRowRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '3px', minWidth: 'max-content' }}>
           {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
             const s = scores[activeJugadorId]?.[h]
@@ -560,11 +579,11 @@ function ScorePageContent() {
             if (isActive) { bg = 'rgba(196,153,42,0.25)'; textColor = '#C4992A' }
             else if (isDone) {
               const d = s - p
-              if (d <= -2) { bg = 'rgba(96,165,250,0.3)'; textColor = '#93C5FD' }
-              else if (d === -1) { bg = 'rgba(74,222,128,0.25)'; textColor = '#86EFAC' }
+              if (d <= -2) { bg = 'rgba(196,153,42,0.25)'; textColor = '#c9a84c' }
+              else if (d === -1) { bg = 'rgba(22,163,74,0.2)'; textColor = '#4ade80' }
               else if (d === 0) { bg = 'rgba(161,161,170,0.2)'; textColor = 'rgba(255,255,255,0.6)' }
-              else if (d === 1) { bg = 'rgba(251,191,36,0.25)'; textColor = '#FDE68A' }
-              else { bg = 'rgba(248,113,113,0.25)'; textColor = '#FCA5A5' }
+              else if (d === 1) { bg = 'rgba(245,158,11,0.2)'; textColor = '#fbbf24' }
+              else { bg = 'rgba(220,38,38,0.2)'; textColor = '#f87171' }
             }
 
             return (
@@ -588,8 +607,8 @@ function ScorePageContent() {
         </div>
       </div>
 
-      {/* ── Footer ── */}
-      <div style={{ padding: '0 16px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {/* ── Footer (fixed at bottom) ── */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 15, background: 'rgba(7,13,24,0.97)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', borderTop: '1px solid rgba(196,153,42,0.12)', padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <button
           onTouchStart={() => {}}
           onClick={isLastHole ? finalizeRound : goToNextHole}
@@ -627,7 +646,7 @@ function ScorePageContent() {
           <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Tu analisis esta listo</div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
             <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{ background: '#c4992a', color: '#070d18', padding: '12px 24px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}>Ver analisis →</Link>
-            <Link href={`/ronda-libre/${codigo}`} style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '12px 24px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>Ver scorecard</Link>
+            <Link href={`/ronda-libre/${codigo}?finished=true`} style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '12px 24px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>Ver scorecard</Link>
           </div>
         </div>
       )}

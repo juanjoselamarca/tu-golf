@@ -7,28 +7,51 @@ import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 
 const CANCHAS_CHILE = [
-  'Club de Golf Los Leones','Club de Golf La Dehesa','Club de Golf Los Arrayanes',
-  'Club de Golf Las Brisas de Chicureo','Club de Golf Cultivo','Club de Golf Marbella',
-  'Club de Golf Cajón del Maipo','Club de Golf Peñalolén','Santiago Golf Club',
-  'Club de Golf El Rancho','Club de Golf Millaray','Club de Golf Lomas Verdes',
-  'Club de Golf Mapocho','Club de Golf Curacaví','Hacienda Chicureo Golf Club',
-  'Club de Golf El Principal','Club de Golf Altos de Chicureo','Club de Golf Valle Grande',
-  'Club de Golf Viña del Mar','Club de Golf Granadilla','Club de Golf Reñaca',
-  'Club de Golf La Serena','Club de Golf Coquimbo','Club de Golf Atacama',
-  'Club de Golf Antofagasta','Club de Golf Iquique','Club de Golf Arica',
-  'Club de Golf Puerto Montt','Club de Golf Puerto Varas','Club de Golf Osorno',
-  'Club de Golf Temuco','Club de Golf Concepción','Club de Golf Chillán',
-  'Club de Golf Talca','Club de Golf Curicó','Club de Golf Rancagua',
-  'Club de Golf San Fernando','Club de Golf Linares','Club de Golf Constitución',
-  'Club de Golf Punta Arenas','Club de Golf Puerto Natales','Club de Golf Coyhaique',
-  'Club de Golf Copiapó','Club de Golf Vallenar','Club de Golf Ovalle',
-  'Club de Golf Illapel','Club de Golf Los Andes','Club de Golf San Felipe',
-  'Club de Golf Quillota','Club de Golf Olmué','Club de Golf Casablanca',
-  'Club de Golf Melipilla','Club de Golf Talagante','Club de Golf Buin',
-  'Club de Golf Paine','Club de Golf San Bernardo','Club de Golf Puente Alto',
-  'Club de Golf Pirque','Club de Golf Colina','Club de Golf Lampa',
-  'Club de Golf Til Til','Club de Golf Batuco','Club de Golf Quilicura',
-  'Club de Golf Pudahuel','Club de Golf Maipú','Otra cancha',
+  // Tier 1 — Elite Santiago
+  'Club de Golf Los Leones',
+  'Prince of Wales Country Club',
+  'Club de Golf La Dehesa',
+  'Las Brisas de Chicureo',
+  'Hacienda Chicureo Golf Club',
+  'Santiago Golf Club',
+  // Tier 2 — Major national
+  'Club de Golf Granadilla',
+  'Club de Golf Sport Francés',
+  'Club de Golf Mapocho',
+  'Club de Golf Las Araucarias',
+  // Tier 3 — Well-known Santiago
+  'Club de Golf Peñalolén',
+  'Club de Golf Los Arrayanes',
+  'Club de Golf El Principal',
+  'Club de Golf Altos de Chicureo',
+  'Club de Golf Lomas Verdes',
+  'Club de Golf Curacaví',
+  'Club de Golf Cultivo',
+  'Club de Golf Cajón del Maipo',
+  // Tier 4 — Coast & Resort
+  'Club de Golf Marbella',
+  'Club de Golf Viña del Mar',
+  'Club de Golf Reñaca',
+  'Club de Golf Rocas de Santo Domingo',
+  // Tier 5 — Regional
+  'Club de Golf La Serena',
+  'Club de Golf Concepción',
+  'Club de Golf Temuco',
+  'Club de Golf Antofagasta',
+  'Club de Golf Puerto Montt',
+  'Club de Golf Puerto Varas',
+  'Club de Golf Osorno',
+  'Club de Golf Rancagua',
+  'Club de Golf Chillán',
+  'Club de Golf Talca',
+  'Club de Golf Curicó',
+  'Club de Golf Iquique',
+  'Club de Golf Arica',
+  'Club de Golf Coquimbo',
+  'Club de Golf Copiapó',
+  'Club de Golf Punta Arenas',
+  // Otros
+  'Otra cancha',
 ]
 
 const TEES_OPTIONS = ['Campeonato', 'Azul', 'Blanco', 'Rojo']
@@ -248,14 +271,26 @@ export default function NuevaRondaLibrePage() {
               )}
               {showCanchaDropdown && (() => {
                 const q = canchaSearch.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                const dbResults = coursesDB
-                  .filter(c => c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q))
-                  .slice(0, 5)
-                const otherResults = CANCHAS_CHILE
-                  .filter(c => !coursesDB.some(db => db.nombre === c))
-                  .filter(c => c.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q))
-                  .slice(0, 8 - dbResults.length)
-                const hasResults = dbResults.length > 0 || otherResults.length > 0
+                // Build a unified list following CANCHAS_CHILE order
+                // DB matches get their courseId, non-DB entries get null
+                const dbByName = new Map(coursesDB.map(c => [c.nombre, c]))
+                const unified: { name: string; courseId: string | null; ciudad: string | null }[] = []
+                const seen = new Set<string>()
+                // First: CANCHAS_CHILE entries (preserves popularity order)
+                for (const name of CANCHAS_CHILE) {
+                  if (!name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) continue
+                  const db = dbByName.get(name)
+                  unified.push({ name, courseId: db?.id ?? null, ciudad: db?.ciudad ?? null })
+                  seen.add(name)
+                }
+                // Then: DB entries not in CANCHAS_CHILE
+                for (const c of coursesDB) {
+                  if (seen.has(c.nombre)) continue
+                  if (!c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) continue
+                  unified.push({ name: c.nombre, courseId: c.id, ciudad: c.ciudad })
+                }
+                const results = unified.slice(0, 10)
+                const hasResults = results.length > 0
 
                 if (!hasResults && canchaSearch.length < 1) return null
 
@@ -266,61 +301,27 @@ export default function NuevaRondaLibrePage() {
                     borderRadius: '10px', marginTop: '4px', maxHeight: '260px', overflowY: 'auto',
                     boxShadow: 'var(--shadow-lg)',
                   }}>
-                    {dbResults.length > 0 && (
-                      <>
-                        <div style={{ padding: '8px 14px 4px', fontSize: '10px', color: '#c4992a', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
-                          Con datos de hoyos
-                        </div>
-                        {dbResults.map(c => (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onMouseDown={() => {
-                              setCancha(c.nombre)
-                              setCourseId(c.id)
-                              setCanchaSearch(c.nombre)
-                              setShowCanchaDropdown(false)
-                            }}
-                            style={{
-                              display: 'block', width: '100%', textAlign: 'left',
-                              padding: '10px 14px', background: 'none', border: 'none',
-                              color: 'var(--text)', fontSize: '14px', cursor: 'pointer',
-                              borderBottom: '1px solid var(--border)',
-                            }}
-                          >
-                            {c.nombre}
-                            {c.ciudad && <span style={{ color: 'var(--text-3)', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
-                          </button>
-                        ))}
-                      </>
-                    )}
-                    {otherResults.length > 0 && (
-                      <>
-                        <div style={{ padding: '8px 14px 4px', fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                          Otras canchas
-                        </div>
-                        {otherResults.map(c => (
-                          <button
-                            key={c}
-                            type="button"
-                            onMouseDown={() => {
-                              setCancha(c)
-                              setCourseId(null)
-                              setCanchaSearch(c)
-                              setShowCanchaDropdown(false)
-                            }}
-                            style={{
-                              display: 'block', width: '100%', textAlign: 'left',
-                              padding: '10px 14px', background: 'none', border: 'none',
-                              color: 'var(--text)', fontSize: '14px', cursor: 'pointer',
-                              borderBottom: '1px solid var(--border)',
-                            }}
-                          >
-                            {c}
-                          </button>
-                        ))}
-                      </>
-                    )}
+                    {results.map(c => (
+                      <button
+                        key={c.name}
+                        type="button"
+                        onMouseDown={() => {
+                          setCancha(c.name)
+                          setCourseId(c.courseId)
+                          setCanchaSearch(c.name)
+                          setShowCanchaDropdown(false)
+                        }}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left',
+                          padding: '10px 14px', background: 'none', border: 'none',
+                          color: 'var(--text)', fontSize: '14px', cursor: 'pointer',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                      >
+                        {c.name}
+                        {c.ciudad && <span style={{ color: 'var(--text-3)', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
+                      </button>
+                    ))}
                     {!hasResults && canchaSearch.length >= 2 && (
                       <button
                         type="button"
