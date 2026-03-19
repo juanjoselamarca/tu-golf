@@ -64,6 +64,20 @@ interface CourseDB {
   ciudad: string | null
 }
 
+interface CourseDetails {
+  par_total: number | null
+  course_rating: number | null
+  slope_rating: number | null
+  has_holes: boolean
+}
+
+interface CourseTee {
+  nombre: string
+  yardaje_total: number | null
+  rating: number | null
+  slope: number | null
+}
+
 // White theme colors
 const colors = {
   bg: '#ffffff',
@@ -98,6 +112,8 @@ export default function NuevaRondaLibrePage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
   const [jugadores, setJugadores] = useState<string[]>(['', '', '', ''])
+  const [courseDetails, setCourseDetails] = useState<CourseDetails | null>(null)
+  const [courseTees, setCourseTees] = useState<CourseTee[]>([])
   const [loading, setLoading] = useState(false)
   const [showShareScreen, setShowShareScreen] = useState(false)
   const [roundCode, setRoundCode] = useState('')
@@ -126,6 +142,48 @@ export default function NuevaRondaLibrePage() {
     }
     check()
   }, [router])
+
+  // Fetch course details and tees when courseId changes
+  useEffect(() => {
+    if (!courseId) {
+      setCourseDetails(null)
+      setCourseTees([])
+      return
+    }
+    const fetchCourseData = async () => {
+      const supabase = createClient()
+      const { data: course } = await supabase
+        .from('courses')
+        .select('par_total, course_rating, slope_rating')
+        .eq('id', courseId)
+        .single()
+      const { count: holeCount } = await supabase
+        .from('course_holes')
+        .select('*', { count: 'exact', head: true })
+        .eq('course_id', courseId)
+      if (course) {
+        setCourseDetails({
+          par_total: course.par_total,
+          course_rating: course.course_rating,
+          slope_rating: course.slope_rating,
+          has_holes: (holeCount || 0) > 0,
+        })
+      } else {
+        setCourseDetails(null)
+      }
+      const { data: tees } = await supabase
+        .from('course_tees')
+        .select('nombre, yardaje_total, rating, slope')
+        .eq('course_id', courseId)
+        .order('yardaje_total', { ascending: false })
+      setCourseTees((tees as CourseTee[]) || [])
+      // If tees exist, auto-select the first one
+      if (tees && tees.length > 0) {
+        setTees(tees[0].nombre.toLowerCase())
+      }
+    }
+    fetchCourseData()
+  }, [courseId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -511,6 +569,27 @@ export default function NuevaRondaLibrePage() {
                 )
               })()}
             </div>
+
+            {/* Course info badge */}
+            {courseDetails && (
+              <div style={{
+                marginTop: '12px',
+                padding: '10px 14px',
+                background: 'rgba(196,153,42,0.08)',
+                borderRadius: '10px',
+                fontSize: '13px',
+                color: '#374151',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+                <span style={{ color: '#16a34a', fontWeight: 700 }}>&#10003;</span>
+                {courseDetails.par_total && <span>Par {courseDetails.par_total}</span>}
+                {courseDetails.course_rating && <span>&middot; CR {courseDetails.course_rating}</span>}
+                {courseDetails.slope_rating && <span>&middot; Slope {courseDetails.slope_rating}</span>}
+                <span>&middot; Datos verificados</span>
+              </div>
+            )}
           </div>
 
           {/* Tees + Holes row */}
@@ -527,34 +606,70 @@ export default function NuevaRondaLibrePage() {
               <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
                 Tees
               </label>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {TEES_OPTIONS.map((t) => {
-                  const val = t.toLowerCase()
-                  const active = tees === val
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTees(val)}
-                      style={{
-                        padding: '10px 18px',
-                        borderRadius: '24px',
-                        border: '1px solid',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        minHeight: '40px',
-                        fontWeight: active ? 600 : 400,
-                        background: active ? colors.activeBtn : colors.inactiveBtn,
-                        borderColor: active ? colors.activeBtn : colors.inputBorder,
-                        color: active ? colors.activeBtnText : colors.inactiveBtnText,
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      {t}
-                    </button>
-                  )
-                })}
-              </div>
+              {courseTees.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {courseTees.map((t) => {
+                    const val = t.nombre.toLowerCase()
+                    const active = tees === val
+                    return (
+                      <button
+                        key={t.nombre}
+                        type="button"
+                        onClick={() => setTees(val)}
+                        style={{
+                          width: '100%',
+                          padding: '14px 16px',
+                          borderRadius: '12px',
+                          border: '1px solid',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          fontWeight: active ? 600 : 400,
+                          background: active ? colors.activeBtn : '#f9fafb',
+                          borderColor: active ? colors.activeBtn : '#e5e7eb',
+                          color: active ? colors.activeBtnText : '#374151',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        <div style={{ fontSize: '14px', fontWeight: 600 }}>{t.nombre}</div>
+                        <div style={{ fontSize: '11px', color: active ? 'rgba(7,13,24,0.7)' : '#6b7280', marginTop: '2px' }}>
+                          {t.yardaje_total?.toLocaleString()} yds
+                          {t.rating ? ` \u00b7 CR ${t.rating}` : ''}
+                          {t.slope ? ` \u00b7 Slope ${t.slope}` : ''}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {TEES_OPTIONS.map((t) => {
+                    const val = t.toLowerCase()
+                    const active = tees === val
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setTees(val)}
+                        style={{
+                          padding: '10px 18px',
+                          borderRadius: '24px',
+                          border: '1px solid',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          minHeight: '40px',
+                          fontWeight: active ? 600 : 400,
+                          background: active ? colors.activeBtn : colors.inactiveBtn,
+                          borderColor: active ? colors.activeBtn : colors.inputBorder,
+                          color: active ? colors.activeBtnText : colors.inactiveBtnText,
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {t}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Hoyos */}

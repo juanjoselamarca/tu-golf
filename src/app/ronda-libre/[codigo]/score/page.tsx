@@ -46,7 +46,17 @@ function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void })
 /* ── Types ──────────────────────────────────────────────────────────── */
 interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }
 interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; ronda_libre_jugadores: Jugador[] }
-interface HoleData { numero: number; par: number; stroke_index: number }
+interface HoleData { numero: number; par: number; stroke_index: number; yardaje: number | null }
+
+/* ── Tee → yardage column mapping ──────────────────────────────────── */
+function getTeeYardageColumn(tee: string): string {
+  const t = tee.toLowerCase()
+  if (t === 'black' || t === 'campeonato' || t === 'negro') return 'yardaje_campeonato'
+  if (t === 'blue' || t === 'azul') return 'yardaje_azul'
+  if (t === 'white' || t === 'blanco') return 'yardaje_blanco'
+  if (t === 'red' || t === 'rojo') return 'yardaje_rojo'
+  return 'yardaje_azul' // default
+}
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 function lsKey(c: string, j: string) { return `ronda_${c}_${j}` }
@@ -154,14 +164,25 @@ function ScorePageContent() {
 
       const pm: Record<number, number> = {}
       const hdm: Record<number, HoleData> = {}
-      for (let i = 1; i <= r.holes; i++) { pm[i] = 4; hdm[i] = { numero: i, par: 4, stroke_index: i } }
+      for (let i = 1; i <= r.holes; i++) { pm[i] = 4; hdm[i] = { numero: i, par: 4, stroke_index: i, yardaje: null } }
       setParMap(pm)
 
       if (r.course_id) {
-        const { data: holes } = await supabase.from('course_holes').select('numero, par, stroke_index').eq('course_id', r.course_id).order('numero')
+        const { data: holes } = await supabase.from('course_holes')
+          .select('numero, par, stroke_index, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo')
+          .eq('course_id', r.course_id).order('numero')
         if (holes && holes.length > 0) {
           const pm2: Record<number, number> = {}; const hdm2: Record<number, HoleData> = {}
-          for (const h of holes as HoleData[]) { pm2[h.numero] = h.par; hdm2[h.numero] = h }
+          const teeCol = getTeeYardageColumn(r.tees || 'azul')
+          for (const h of holes) {
+            pm2[h.numero] = h.par
+            hdm2[h.numero] = {
+              numero: h.numero,
+              par: h.par,
+              stroke_index: h.stroke_index,
+              yardaje: (h as Record<string, unknown>)[teeCol] as number | null || h.yardaje_azul || h.yardaje_blanco || null
+            }
+          }
           setParMap(pm2); setHoleDataMap(hdm2)
         } else { setHoleDataMap(hdm) }
       } else { setHoleDataMap(hdm) }
@@ -321,7 +342,7 @@ function ScorePageContent() {
   const totalHoles = ronda.holes
   const par = parMap[currentHole] ?? 4
   const score = scores[activeJugadorId]?.[currentHole]
-  const holeData = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole }
+  const holeData = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole, yardaje: null }
   const activePlayer = jugadores.find(p => p.id === activeJugadorId)
   const isLastHole = currentHole >= totalHoles
 
@@ -474,6 +495,11 @@ function ScorePageContent() {
             </span>
           )}
         </span>
+        {holeData.yardaje && (
+          <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }}>
+            {holeData.yardaje} yds
+          </span>
+        )}
         <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'rgba(255,255,255,0.7)' }}>
           HDCP {holeData.stroke_index}
         </span>
