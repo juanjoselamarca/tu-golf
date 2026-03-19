@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import LeaderboardTable from '@/components/LeaderboardTable'
 import GWILeaderboard from '@/components/GWILeaderboard'
+import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
 import { PLAYERS, PAR } from '@/lib/golf-data'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
@@ -422,36 +423,69 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         </div>
       )}
 
-      {/* Viral footer */}
+      {/* Premium footer */}
       <footer className="bg-bg-deep">
         <div className="gold-divider" />
-        <div className="max-w-xl mx-auto px-4 sm:px-6 py-14 text-center">
-          <div className="flex items-center justify-center gap-0.5 mb-5">
-            <span className="font-display font-bold text-2xl text-ivory">Golfers</span>
-            <span className="font-display font-bold text-2xl text-gold">+</span>
-          </div>
-          <p className="font-sans text-ivory/70 text-base mb-7">Seguí este torneo en vivo con Golfers+</p>
-          {tournament && (tournament.status === 'active' || tournament.status === 'in_progress') && (
-            <Link
-              href={`/torneo/${tournament.slug}/score`}
-              className="inline-flex items-center gap-2 font-sans font-bold text-base px-10 py-4 mb-4 transition-all duration-200 hover:brightness-110"
-              style={{ background: 'rgba(196,153,42,0.15)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.4)', borderRadius: '4px', textDecoration: 'none' }}
-            >
-              Ingresar mi score →
-            </Link>
-          )}
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 font-sans font-bold text-base px-10 py-4 transition-all duration-200 hover:brightness-110"
-            style={{ background: '#c4992a', color: '#070d18', borderRadius: '4px' }}
+        <div className="max-w-xl mx-auto px-4 sm:px-6 py-14">
+          <div
+            style={{
+              background: '#0e1c2f',
+              border: '1px solid rgba(196,153,42,0.2)',
+              borderRadius: '16px',
+              padding: '28px 24px',
+            }}
           >
-            Crear mi torneo gratis →
-          </Link>
-          <p className="font-sans text-gray-soft text-sm mt-5">
-            100% gratis &nbsp;·&nbsp; Sin descargas &nbsp;·&nbsp; En vivo
-          </p>
+            {/* Brand */}
+            <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>
+              GOLFERS+
+            </div>
+            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', fontWeight: 700, marginBottom: '20px' }}>
+              El golf amateur en español
+            </div>
+
+            {/* CTA 1 — Gold */}
+            <Link
+              href="/register"
+              style={{
+                display: 'block',
+                background: '#c4992a',
+                borderRadius: '12px',
+                padding: '16px 20px',
+                textDecoration: 'none',
+                marginBottom: '10px',
+              }}
+            >
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#070d18' }}>
+                Registra tu ronda gratis →
+              </div>
+              <div style={{ fontSize: '13px', color: 'rgba(7,13,24,0.65)', marginTop: '2px' }}>
+                Calcula tu GWI™ · Sin descarga
+              </div>
+            </Link>
+
+            {/* CTA 2 — Subtle */}
+            <Link
+              href="/register"
+              style={{
+                display: 'block',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: '12px',
+                padding: '16px 20px',
+                textDecoration: 'none',
+              }}
+            >
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#edeae4' }}>
+                Crea tu propio torneo →
+              </div>
+              <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>
+                100% gratis · En 2 minutos
+              </div>
+            </Link>
+          </div>
         </div>
       </footer>
+
+      {tournament && <TournamentBottomSheet slug={tournament.slug} isLive={isLive} />}
     </div>
   )
 }

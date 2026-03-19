@@ -100,6 +100,8 @@ function ScorePageContent() {
   const [taigerSessionId, setTaigerSessionId] = useState<string | null>(null)
   const [saveCheckVisible, setSaveCheckVisible] = useState(false) // FIX #8: save feedback toast
   const [showShareMenu, setShowShareMenu] = useState(false)
+  const [roundDone, setRoundDone] = useState(false)
+  const [finalScore, setFinalScore] = useState({ gross: 0, totalPar: 0 })
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retryCountRef = useRef(0)
@@ -286,11 +288,22 @@ function ScorePageContent() {
       })
     } catch { /* don't block finalization */ }
 
+    // Calculate final score for modal
+    const finalPlayerScores = scores[activeJugadorId] ?? {}
+    const finalGross = Object.values(finalPlayerScores).reduce((a: number, b: number) => a + b, 0)
+    let finalTotalPar = 0
+    for (const [hStr] of Object.entries(finalPlayerScores)) {
+      finalTotalPar += parMap[parseInt(hStr)] ?? 4
+    }
+    setFinalScore({ gross: finalGross, totalPar: finalTotalPar })
+    setRoundDone(true)
     setHasUnsaved(false)
+
+    // Fire tAIger analysis in background (don't redirect)
     setTaigerStatus('analyzing')
     fetch('/api/taiger/analyze-round', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ronda_libre_id: codigo }) })
-      .then(r => r.json()).then(data => { if (data.session_id) { setTaigerStatus('ready'); setTaigerSessionId(data.session_id) } else router.push(`/ronda-libre/${codigo}?finished=true`) })
-      .catch(() => router.push(`/ronda-libre/${codigo}?finished=true`))
+      .then(r => r.json()).then(data => { if (data.session_id) { setTaigerStatus('ready'); setTaigerSessionId(data.session_id) } })
+      .catch(() => { /* silently fail, modal handles navigation */ })
   }
 
   /* ── Scroll progress row to current hole ── */
@@ -634,6 +647,72 @@ function ScorePageContent() {
           </div>
         </div>
       )}
+
+      {/* ── Post-round modal ── */}
+      {roundDone && (() => {
+        const diff = finalScore.gross - finalScore.totalPar
+        const diffLabel = diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`
+        const diffColor = diff < 0 ? '#4ade80' : diff > 0 ? '#f87171' : 'rgba(255,255,255,0.5)'
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(7,13,24,0.97)', zIndex: 200,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '360px', padding: '0 24px' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏆</div>
+              <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#edeae4', margin: '0 0 6px', textAlign: 'center' }}>
+                Ronda completada
+              </h2>
+              <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', margin: '0 0 24px', textAlign: 'center' }}>
+                Tu score quedó guardado
+              </p>
+
+              {/* Score card */}
+              <div style={{
+                background: '#0e1c2f', borderRadius: '16px', padding: '20px', width: '100%',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '28px',
+              }}>
+                <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                  SCORE FINAL
+                </div>
+                <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '48px', fontWeight: 700, color: diffColor, lineHeight: 1 }}>
+                  {diffLabel}
+                </div>
+                <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>
+                  {finalScore.gross} golpes
+                </div>
+              </div>
+
+              {/* CTAs */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '15px',
+                  height: '52px', borderRadius: '12px', textDecoration: 'none',
+                }}>
+                  🐯 Análisis de tu ronda →
+                </Link>
+                <Link href="/perfil/stats" style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'transparent', border: '1px solid rgba(255,255,255,0.12)',
+                  color: '#edeae4', fontWeight: 600, fontSize: '14px',
+                  height: '52px', borderRadius: '12px', textDecoration: 'none',
+                }}>
+                  Ver mi GWI™ actualizado
+                </Link>
+                <Link href="/dashboard" style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'transparent', border: 'none',
+                  color: 'rgba(255,255,255,0.4)', fontSize: '14px',
+                  height: '44px', borderRadius: '12px', textDecoration: 'none',
+                }}>
+                  Volver al inicio
+                </Link>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── CSS animation for save check ── */}
       <style>{`

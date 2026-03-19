@@ -60,6 +60,21 @@ export default async function DashboardPage() {
     supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado').eq('creador_id', user.id).order('created_at', { ascending: false }).limit(5),
   ])
 
+  const today = new Date().toISOString().split('T')[0]
+  const { data: todayRound } = await supabase
+    .from('historical_rounds')
+    .select('total_gross, course_name')
+    .eq('user_id', user.id)
+    .gte('played_at', today)
+    .limit(1)
+    .single()
+
+  const { data: userProfile } = await supabase
+    .from('profiles')
+    .select('indice')
+    .eq('id', user.id)
+    .single()
+
   const tournaments       = (myTournaments as unknown as Tournament[]) || []
   const playedTournaments = ((playedRaw || []).map((p: unknown) => (p as { tournaments: Tournament | null }).tournaments).filter(Boolean)) as Tournament[]
   const rondasLibres      = (rondasRaw as RondaLibre[]) || []
@@ -92,10 +107,37 @@ export default async function DashboardPage() {
           Hola, {userName}
         </h1>
         <p style={{ fontSize: '16px', color: 'var(--text-2)', marginBottom: '32px' }}>
-          ¿Listo para mejorar tu juego hoy?
+          {todayRound
+            ? `Jugaste ${todayRound.total_gross} golpes en ${todayRound.course_name}`
+            : '¿Listo para mejorar tu juego hoy?'}
         </p>
 
         <div style={{ height: '1px', background: 'linear-gradient(90deg, #c4992a, transparent)', marginBottom: '24px' }} />
+
+        {/* Onboarding card */}
+        {!userProfile?.indice && (
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.2)',
+            borderRadius: '14px', padding: '20px', marginBottom: '20px',
+          }}>
+            <div style={{ fontSize: '11px', color: '#c4992a', fontFamily: 'var(--font-dm-mono), monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+              Paso 1 de 2
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
+              Agrega tu índice de golf
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
+              Lo necesito para calcular tu GWI™ y darte análisis precisos
+            </div>
+            <Link href="/perfil" style={{
+              display: 'inline-block', background: '#c4992a', color: '#070d18',
+              fontWeight: 700, fontSize: '13px', padding: '10px 20px', borderRadius: '10px',
+              textDecoration: 'none',
+            }}>
+              Agregar mi índice →
+            </Link>
+          </div>
+        )}
 
         {/* 2 — Action cards */}
         <div className="dashboard-actions" style={{ gap: '20px', marginBottom: '32px' }}>
