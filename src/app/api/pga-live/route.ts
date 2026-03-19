@@ -71,7 +71,13 @@ export async function GET() {
           c.status?.position?.id ??
           String(index + 1)
 
-        const thru    = c.status?.thru ? `H${c.status.thru}` : 'F'
+        const playerState = c.status?.type?.state // 'in' = playing, 'post' = finished round
+        const thruVal = c.status?.thru
+        const thru = playerState === 'post' || (thruVal === 18 || thruVal === '18')
+          ? 'F'
+          : thruVal && thruVal !== 0
+            ? `H${thruVal}`
+            : playerState === 'in' ? 'H1' : '—'
         const country = c.athlete?.flag?.alt ?? ''
 
         return { position, name: c.athlete?.displayName || '', score: totalScore, today: todayScore, thru, country }

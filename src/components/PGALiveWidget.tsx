@@ -168,7 +168,7 @@ export default function PGALiveWidget() {
         {/* Headers */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: hasCountry ? '40px 22px 1fr 58px 58px 46px' : '40px 1fr 58px 58px 46px',
+          gridTemplateColumns: hasCountry ? '36px 22px 1fr 48px 48px 42px' : '36px 1fr 48px 48px 42px',
           padding: '8px 10px',
           color: '#94a8c0', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em',
         }}>
@@ -192,7 +192,7 @@ export default function PGALiveWidget() {
               )}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: hasCountry ? '40px 22px 1fr 58px 58px 46px' : '40px 1fr 58px 58px 46px',
+                gridTemplateColumns: hasCountry ? '36px 22px 1fr 48px 48px 42px' : '36px 1fr 48px 48px 42px',
                 padding: '10px 10px',
                 borderTop: '1px solid #132540',
                 alignItems: 'center',
@@ -215,7 +215,7 @@ export default function PGALiveWidget() {
                     )}
                   </span>
                 )}
-                <span style={{ color: '#edeae4', fontSize: '0.9rem', fontWeight: isLeader ? 600 : 400 }}>
+                <span style={{ color: '#edeae4', fontSize: '0.85rem', fontWeight: isLeader ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {p.name}
                 </span>
                 <span style={{ color: getScoreColor(p.score), textAlign: 'center', fontWeight: 700, fontSize: '0.9rem' }}>
