@@ -136,8 +136,6 @@ export default function PerfilPage() {
     .slice(0, 2)
 
   const playerTier = getPlayerTier(profile.indice)
-  const bestRoundRef = profile.indice != null ? Math.max(72, 72 + Math.round(profile.indice * 0.8)) : 84
-  const scoringFocus = profile.indice != null ? (profile.indice <= 12 ? 'Cierre de ronda' : 'Consistencia hoyo a hoyo') : 'Completar historial'
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '16px 16px 40px' }}>
@@ -198,8 +196,8 @@ export default function PerfilPage() {
           </div>
         </div>
 
-        {/* Progress bar */}
-        {(!profile.indice || tourneysPlayed === 0) && (
+        {/* Completa tu perfil — only show if no índice */}
+        {!profile.indice && (
           <div style={{
             background: 'var(--brand-light)', border: '1px solid rgba(196,153,42,0.2)',
             borderRadius: '14px', padding: '16px', marginBottom: '18px',
@@ -209,30 +207,17 @@ export default function PerfilPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: 'var(--brand)', fontWeight: 600 }}>✅</span>
+                <span style={{ color: 'var(--brand)', fontWeight: 600 }}>✓</span>
                 <span style={{ color: 'var(--brand)', fontWeight: 600, fontSize: '14px' }}>Cuenta creada</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: profile.indice != null ? 'var(--brand)' : 'var(--text-3)' }}>{profile.indice != null ? '✅' : '○'}</span>
-                <span style={{ color: profile.indice != null ? 'var(--brand)' : 'var(--text-3)', fontSize: '14px' }}>
+                <span style={{ color: 'var(--text-3)' }}>○</span>
+                <span style={{ color: 'var(--text-3)', fontSize: '14px' }}>
                   Agregar índice / handicap
                 </span>
-                {profile.indice == null && (
-                  <button onClick={() => setEditing(true)} style={{ color: 'var(--brand)', fontSize: '13px', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, marginLeft: 'auto' }}>
-                    Completar →
-                  </button>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: tourneysPlayed > 0 ? 'var(--brand)' : 'var(--text-3)' }}>{tourneysPlayed > 0 ? '✅' : '○'}</span>
-                <span style={{ color: tourneysPlayed > 0 ? 'var(--brand)' : 'var(--text-3)', fontSize: '14px' }}>
-                  Primera ronda
-                </span>
-                {tourneysPlayed === 0 && (
-                  <Link href="/ronda-libre/nueva" style={{ color: 'var(--brand)', fontSize: '13px', textDecoration: 'none', fontWeight: 600, marginLeft: 'auto' }}>
-                    Jugar ahora →
-                  </Link>
-                )}
+                <button onClick={() => setEditing(true)} style={{ color: 'var(--brand)', fontSize: '13px', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, marginLeft: 'auto' }}>
+                  Completar →
+                </button>
               </div>
             </div>
           </div>
@@ -339,59 +324,34 @@ export default function PerfilPage() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '18px' }}>
-          {[
-            { icon: '🏌️', label: 'Handicap', value: profile.indice != null ? profile.indice : '—', accent: '#c8a55a' },
-            { icon: '🏆', label: 'Torneos', value: tourneysPlayed, accent: '#edeae4' },
-            { icon: '📉', label: 'Mejor vuelta ref.', value: bestRoundRef, accent: '#9ae6b4' },
-            { icon: '🎯', label: 'Foco actual', value: scoringFocus, accent: '#9fb4aa', compact: true },
-          ].map((stat) => (
-            <div key={stat.label} className="stat-card-hover" style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '14px', padding: '18px 16px', transition: 'border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease', cursor: 'default' }}>
-              <div style={{ fontSize: '24px', marginBottom: '8px' }}>{stat.icon}</div>
-              <div style={{ fontSize: stat.compact ? '14px' : '26px', color: stat.accent, fontWeight: 700, lineHeight: 1.1, fontFamily: stat.compact ? 'inherit' : '"Playfair Display", serif' }}>
-                {stat.value}
+        {profile.indice != null && (
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '14px', padding: '18px 16px', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ fontSize: '24px' }}>🏌️</div>
+            <div>
+              <div style={{ fontSize: '26px', color: '#c8a55a', fontWeight: 700, lineHeight: 1.1, fontFamily: '"Playfair Display", serif' }}>
+                {profile.indice}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>{stat.label}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>Handicap</div>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
         <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
-            <div>
-              <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: 0 }}>
-                Tu juego en números
-              </h2>
-              <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '4px 0 0' }}>
-                Así se ve tu perfil de golfista hoy.
-              </p>
-            </div>
-            {saved && <span style={{ fontSize: '13px', color: '#22c55e' }}>✓ Guardado</span>}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', marginBottom: '16px' }}>
-            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nivel actual</div>
-              <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 700, marginTop: '4px' }}>{playerTier}</div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Próximo paso</div>
-              <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 700, marginTop: '4px' }}>{scoringFocus}</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: 0 }}>
+            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: 0 }}>
               Mis datos
-            </h3>
-            {!editing && (
-              <button
-                onClick={() => setEditing(true)}
-                style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '8px 16px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
-              >
-                Editar perfil
-              </button>
-            )}
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {saved && <span style={{ fontSize: '13px', color: '#22c55e' }}>✓ Guardado</span>}
+              {!editing && (
+                <button
+                  onClick={() => setEditing(true)}
+                  style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '8px 16px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Editar perfil
+                </button>
+              )}
+            </div>
           </div>
 
           {editing ? (
@@ -455,36 +415,12 @@ export default function PerfilPage() {
           )}
         </div>
 
-        <Link href="/perfil/stats" style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: '100%', minHeight: '48px',
-          background: 'transparent', border: '1px solid rgba(196,153,42,0.4)',
-          color: '#c4992a', borderRadius: '10px', fontSize: '15px',
-          fontWeight: 600, textDecoration: 'none', marginBottom: '18px',
-        }}>
-          Ver mis estadísticas completas →
+        <Link
+          href="/importar"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '48px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', borderRadius: '12px', fontSize: '14px', textDecoration: 'none', fontWeight: 600 }}
+        >
+          + Importar historial de rondas →
         </Link>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-          <Link
-            href="/perfil/historial"
-            style={{ background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', padding: '14px 16px', borderRadius: '12px', fontSize: '14px', textDecoration: 'none', fontWeight: 600 }}
-          >
-            📋 Ver historial de tarjetas →
-          </Link>
-          <Link
-            href="/ronda-libre/nueva"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text)', padding: '14px 16px', borderRadius: '12px', fontSize: '14px', textDecoration: 'none', fontWeight: 600 }}
-          >
-            ⛳ Crear nueva ronda libre →
-          </Link>
-          <Link
-            href="/importar"
-            style={{ background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.2)', color: '#c4992a', padding: '14px 16px', borderRadius: '12px', fontSize: '14px', textDecoration: 'none', fontWeight: 600 }}
-          >
-            + Importar historial de rondas →
-          </Link>
-        </div>
 
         {/* Notification settings */}
         <div style={{ marginTop: '16px', background: '#ffffff', borderRadius: '16px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>

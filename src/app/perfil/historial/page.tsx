@@ -261,7 +261,7 @@ function HistorialContent() {
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
             <div>
-              <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none', display: 'block', marginBottom: '6px' }}>← Dashboard</Link>
+              <Link href="/perfil" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', minHeight: '44px' }}>← Mi Perfil</Link>
               <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: 'var(--text)', margin: 0 }}>
                 Mi Historial
               </h1>

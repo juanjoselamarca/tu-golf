@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 
 interface ChatMessage {
@@ -233,6 +234,15 @@ export default function SesionDetailPage() {
         padding: '20px 16px',
         paddingBottom: 100,
       }}>
+        {/* Back link */}
+        <Link href="/coach" style={{
+          color: '#94a8c0', fontSize: '13px', textDecoration: 'none',
+          display: 'inline-flex', alignItems: 'center', gap: '4px',
+          marginBottom: '16px', minHeight: '44px',
+        }}>
+          ← Coach
+        </Link>
+
         {/* Session header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
           <span style={{

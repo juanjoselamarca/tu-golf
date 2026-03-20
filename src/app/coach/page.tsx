@@ -106,6 +106,15 @@ export default function CoachDashboard() {
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px' }}>
 
+      {/* BACK */}
+      <Link href="/" style={{
+        color: 'var(--text-2, #94a8c0)', fontSize: '13px', textDecoration: 'none',
+        display: 'inline-flex', alignItems: 'center', gap: '4px',
+        marginBottom: '16px', minHeight: '44px',
+      }}>
+        ← Inicio
+      </Link>
+
       {/* HEADER */}
       <div style={{ marginBottom: '32px' }}>
         <h1 style={{ color: '#c4992a', fontSize: '24px', fontFamily: '"Playfair Display", serif', fontWeight: 700, margin: '0 0 4px' }}>

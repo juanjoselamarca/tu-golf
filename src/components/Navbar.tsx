@@ -44,15 +44,10 @@ export default function Navbar() {
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'
 
   const navItems = user ? [
-    { href: '/', icon: '🏠', label: 'Inicio' },
-    { href: '/dashboard', icon: '📊', label: 'Dashboard' },
-    { href: '/ronda-libre/nueva', icon: '⛳', label: 'Nueva Ronda' },
     { href: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
-    { href: '/perfil', icon: '👤', label: 'Mi Perfil' },
     { href: '/perfil/stats', icon: '📈', label: 'Estadísticas' },
     { href: '/perfil/historial', icon: '📋', label: 'Historial' },
     { href: '/importar', icon: '📥', label: 'Importar' },
-    { href: '/coach', icon: '🐯', label: 'tAIger+' },
     ...(isAdminEmail(user?.email) ? [{ href: '/admin', icon: '⚙️', label: 'Admin' }] : []),
   ] : [
     { href: '/', icon: '🏠', label: 'Inicio' },
@@ -259,7 +254,7 @@ export default function Navbar() {
             {/* Gold accent line at top */}
             <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent 10%, rgba(196,153,42,0.25) 50%, transparent 90%)' }} />
 
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '56px', padding: '0 8px', width: '100%', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '52px', padding: '0 8px', width: '100%', boxSizing: 'border-box' }}>
 
               {/* Inicio */}
               {(() => {

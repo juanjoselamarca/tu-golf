@@ -98,6 +98,35 @@ export default async function DashboardPage() {
             : '¿Listo para mejorar tu juego hoy?'}
         </p>
 
+        {/* Active ronda — FIRST, most prominent */}
+        {(() => {
+          const activa = rondasLibres.find(r => r.estado === 'en_curso')
+          if (!activa) return null
+          const fechaA = activa.fecha ? new Date(activa.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+          return (
+            <div style={{
+              background: 'rgba(196,153,42,0.05)', border: '1px solid rgba(196,153,42,0.2)',
+              borderLeft: '3px solid #C4992A', borderRadius: '14px', padding: '16px', marginBottom: '20px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e', animation: 'livePulse 2s ease-in-out infinite' }} />
+                <span style={{ fontSize: '10px', fontWeight: 600, color: '#22c55e', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ronda en curso</span>
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif' }}>{activa.course_name}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '2px' }}>{fechaA}</div>
+              <HoleColorBar scores={[]} totalHoles={18} />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+                <Link href={`/ronda-libre/${activa.codigo}/score`} style={{ flex: 1, padding: '14px', background: '#C4992A', color: '#070D18', borderRadius: '10px', fontSize: '15px', fontWeight: 700, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
+                  Continuar →
+                </Link>
+                <Link href={`/ronda-libre/${activa.codigo}`} style={{ padding: '12px 16px', background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--text-3)', borderRadius: '10px', fontSize: '14px', textDecoration: 'none', display: 'block' }}>
+                  Ver
+                </Link>
+              </div>
+            </div>
+          )
+        })()}
+
         <div style={{ height: '1px', background: 'linear-gradient(90deg, #c4992a, transparent)', marginBottom: '24px' }} />
 
         {/* Onboarding card */}
@@ -277,38 +306,9 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Active ronda card — highlighted */}
-            {(() => {
-              const activa = rondasLibres.find(r => r.estado === 'en_curso')
-              if (!activa) return null
-              const fechaA = activa.fecha ? new Date(activa.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
-              return (
-                <div style={{
-                  background: 'rgba(196,153,42,0.05)', border: '1px solid rgba(196,153,42,0.2)',
-                  borderLeft: '3px solid #C4992A', borderRadius: '14px', padding: '16px', marginBottom: '8px',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e', animation: 'pulse-dot 1.5s ease-in-out infinite' }} />
-                    <span style={{ fontSize: '10px', fontWeight: 600, color: '#22c55e', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Ronda en curso</span>
-                  </div>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif' }}>{activa.course_name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '2px' }}>{fechaA}</div>
-                  <HoleColorBar scores={[]} totalHoles={18} />
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-                    <Link href={`/ronda-libre/${activa.codigo}/score`} style={{ flex: 1, padding: '14px', background: '#C4992A', color: '#070D18', borderRadius: '10px', fontSize: '15px', fontWeight: 700, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
-                      Continuar →
-                    </Link>
-                    <Link href={`/ronda-libre/${activa.codigo}`} style={{ padding: '12px 16px', background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--text-3)', borderRadius: '10px', fontSize: '14px', textDecoration: 'none', display: 'block' }}>
-                      Ver
-                    </Link>
-                  </div>
-                </div>
-              )
-            })()}
-
             {rondasLibres.map((r) => {
               const isEnCurso = r.estado === 'en_curso'
-              if (isEnCurso && rondasLibres.find(x => x.estado === 'en_curso')?.id === r.id) return null
+              if (isEnCurso) return null
               const fechaDisplay = r.fecha ? new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
               return (
                 <div key={r.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '14px 16px' }}>

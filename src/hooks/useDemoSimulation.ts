@@ -108,6 +108,24 @@ function initPlayers(seed: number): SimPlayer[] {
   })
 }
 
+/** GWI must sum to exactly 100 — redistribute as win probability */
+function redistributeGWI(players: SimPlayer[]): void {
+  const rawWeights = players.map(p => Math.exp(calcGWI(p.scores) / 20))
+  const total = rawWeights.reduce((a, b) => a + b, 0) || 1
+  const floored = rawWeights.map(r => Math.floor((r / total) * 100))
+  let remainder = 100 - floored.reduce((a, b) => a + b, 0)
+  const rems = rawWeights.map((r, i) => ({ i, rem: (r / total) * 100 - floored[i] })).sort((a, b) => b.rem - a.rem)
+  for (let k = 0; k < remainder; k++) floored[rems[k].i]++
+  const probs = floored.map(v => Math.max(1, v))
+  const sum = probs.reduce((a, b) => a + b, 0)
+  if (sum > 100) {
+    let excess = sum - 100
+    const sorted = probs.map((v, i) => ({ i, v })).sort((a, b) => b.v - a.v)
+    for (const s of sorted) { if (excess <= 0) break; const rm = Math.min(excess, s.v - 1); probs[s.i] -= rm; excess -= rm }
+  }
+  players.forEach((p, i) => { p.gwi = probs[i] })
+}
+
 function sortPlayers(players: SimPlayer[]): SimPlayer[] {
   return [...players].sort((a, b) => {
     const aS = getScoreVsPar(a.scores)
@@ -121,7 +139,9 @@ export function useDemoSimulation() {
   const [seed, setSeed] = useState(() => Date.now())
   const [players, setPlayers] = useState<SimPlayer[]>(() => {
     const init = initPlayers(Date.now())
-    return sortPlayers(init)
+    const sorted = sortPlayers(init)
+    redistributeGWI(sorted)
+    return sorted
   })
   const [lastEvent, setLastEvent] = useState('')
   const [roundNumber, setRoundNumber] = useState(1)
@@ -209,29 +229,11 @@ export function useDemoSimulation() {
       // Sort by score vs par
       const sorted = sortPlayers(next)
 
-      // GWI™ must sum to 100 — recalculate as win probability
-      const rawGwis = sorted.map(p => {
-        const individual = calcGWI(p.scores)
-        // Convert 0-100 score to raw probability weight (exponential favors higher scores)
-        return Math.exp(individual / 20)
-      })
-      const totalRaw = rawGwis.reduce((a, b) => a + b, 0) || 1
-      const floored = rawGwis.map(r => Math.floor((r / totalRaw) * 100))
-      let remainder = 100 - floored.reduce((a, b) => a + b, 0)
-      const remainders = rawGwis.map((r, i) => ({ i, rem: (r / totalRaw) * 100 - floored[i] }))
-      remainders.sort((a, b) => b.rem - a.rem)
-      for (let k = 0; k < remainder; k++) floored[remainders[k].i]++
-      // Ensure min 1% each
-      const gwiProbs = floored.map(v => Math.max(1, v))
-      const gwiSum = gwiProbs.reduce((a, b) => a + b, 0)
-      if (gwiSum > 100) {
-        let excess = gwiSum - 100
-        const bySize = gwiProbs.map((v, i) => ({ i, v })).sort((a, b) => b.v - a.v)
-        for (const s of bySize) { if (excess <= 0) break; const rm = Math.min(excess, s.v - 1); gwiProbs[s.i] -= rm; excess -= rm }
-      }
-      sorted.forEach((p, i) => {
-        const oldGwi = p.gwi
-        p.gwi = gwiProbs[i]
+      // GWI™ must sum to exactly 100
+      const oldGwis = new Map(sorted.map(p => [p.id, p.gwi]))
+      redistributeGWI(sorted)
+      sorted.forEach(p => {
+        const oldGwi = oldGwis.get(p.id) ?? p.gwi
         p.gwiDelta = Math.round((p.gwi - oldGwi) * 10) / 10
         p.gwiSeries = [...p.gwiSeries.slice(-9), p.gwi]
       })
@@ -249,7 +251,9 @@ export function useDemoSimulation() {
           const newSeed = Date.now()
           setSeed(newSeed)
           const fresh = initPlayers(newSeed)
-          setPlayers(sortPlayers(fresh))
+          const sorted = sortPlayers(fresh)
+          redistributeGWI(sorted)
+          setPlayers(sorted)
           setRoundNumber(r => r + 1)
           setLastEvent('Nueva ronda iniciada')
         }, 8000)

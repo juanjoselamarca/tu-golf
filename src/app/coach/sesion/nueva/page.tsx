@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 
 interface RondaOption {
@@ -149,6 +150,13 @@ export default function NuevaSesionPage() {
 
   return (
     <div style={{ padding: '24px 20px', maxWidth: 600, margin: '0 auto' }}>
+      <Link href="/coach" style={{
+        color: '#94a8c0', fontSize: '13px', textDecoration: 'none',
+        display: 'inline-flex', alignItems: 'center', gap: '4px',
+        marginBottom: '16px', minHeight: '44px',
+      }}>
+        ← Coach
+      </Link>
       <h1 style={{
         color: '#edeae4',
         fontSize: 22,
