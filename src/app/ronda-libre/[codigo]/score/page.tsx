@@ -778,6 +778,14 @@ function ScorePageContent() {
                 }}>
                   Ver mi GWI{'\u2122'} actualizado
                 </Link>
+                <button onClick={() => router.push('/importar')} style={{
+                  width: '100%', padding: '12px',
+                  background: 'none', border: '1px solid rgba(196,153,42,0.2)',
+                  color: '#c4992a', borderRadius: '10px',
+                  fontSize: '13px', cursor: 'pointer',
+                }}>
+                  + Importar rondas anteriores
+                </button>
                 <Link href="/dashboard" style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: 'transparent', border: 'none',

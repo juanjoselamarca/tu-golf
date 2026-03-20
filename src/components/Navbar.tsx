@@ -51,6 +51,7 @@ export default function Navbar() {
     { href: '/perfil', icon: '👤', label: 'Mi Perfil' },
     { href: '/perfil/stats', icon: '📈', label: 'Estadísticas' },
     { href: '/perfil/historial', icon: '📋', label: 'Historial' },
+    { href: '/importar', icon: '📥', label: 'Importar' },
     { href: '/coach', icon: '🐯', label: 'tAIger+' },
     ...(isAdminEmail(user?.email) ? [{ href: '/admin', icon: '⚙️', label: 'Admin' }] : []),
   ] : [

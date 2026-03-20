@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { ExperiencePanel } from '@/components/ExperienceSetup'
+import { nivelCPI } from '@/lib/cpi'
 
 interface Profile {
   id: string
@@ -26,6 +27,22 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 }
 
+function getCpiColor(score: number): string {
+  if (score >= 75) return '#16a34a'
+  if (score >= 60) return '#c4992a'
+  if (score >= 40) return '#94a8c0'
+  if (score >= 25) return '#d97706'
+  return '#dc2626'
+}
+
+function getCpiLabel(score: number): string {
+  if (score >= 75) return 'Forma excepcional'
+  if (score >= 60) return 'En forma'
+  if (score >= 40) return 'Estable'
+  if (score >= 25) return 'Bajo su nivel'
+  return 'Fuera de forma'
+}
+
 function getPlayerTier(indice: number | null) {
   if (indice == null) return 'Perfil en construcción'
   if (indice <= 5) return 'Competidor avanzado'
@@ -45,6 +62,7 @@ export default function PerfilPage() {
   const [editName, setEditName] = useState('')
   const [editIndice, setEditIndice] = useState('')
   const [tourneysPlayed, setTourneysPlayed] = useState(0)
+  const [cpiData, setCpiData] = useState<{score: number; status: string; trend: number; roundsInWindow: number; roundsTotal: number; deltaForma: number} | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -71,6 +89,11 @@ export default function PerfilPage() {
         .eq('user_id', user.id)
 
       setTourneysPlayed(count ?? 0)
+
+      fetch('/api/cpi').then(r => r.json()).then(data => {
+        if (data.score !== undefined) setCpiData(data)
+      }).catch(() => {})
+
       setLoading(false)
     }
 
@@ -216,6 +239,107 @@ export default function PerfilPage() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* CPI Section */}
+        {cpiData && cpiData.status === 'ok' && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(14,28,47,0.96) 0%, rgba(23,49,41,0.94) 100%)',
+            border: '1px solid rgba(196,153,42,0.22)',
+            borderRadius: '14px',
+            padding: '20px',
+            marginBottom: '18px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>CPI&trade;</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+                {nivelCPI(cpiData.score)}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginBottom: '10px' }}>
+              <span style={{ fontFamily: '"Cormorant Garamond", "Playfair Display", serif', fontSize: '36px', fontWeight: 700, color: getCpiColor(cpiData.score), lineHeight: 1 }}>
+                {cpiData.score.toFixed(1)}
+              </span>
+              <span style={{
+                background: `${getCpiColor(cpiData.score)}20`,
+                color: getCpiColor(cpiData.score),
+                padding: '3px 10px',
+                borderRadius: '999px',
+                fontSize: '12px',
+                fontWeight: 600,
+              }}>
+                {getCpiLabel(cpiData.score)}
+              </span>
+              {cpiData.trend !== 0 && (
+                <span style={{ fontSize: '14px', fontWeight: 600, color: cpiData.trend > 0 ? '#16a34a' : '#dc2626' }}>
+                  {cpiData.trend > 0 ? '▲' : '▼'} {cpiData.trend > 0 ? '+' : ''}{cpiData.trend.toFixed(1)}
+                </span>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, Math.max(0, cpiData.score))}%`, height: '100%', background: `linear-gradient(90deg, ${getCpiColor(cpiData.score)}cc, ${getCpiColor(cpiData.score)})`, borderRadius: '3px', transition: 'width 0.6s ease' }} />
+              </div>
+              <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+                {cpiData.roundsInWindow} rondas
+              </span>
+            </div>
+
+            <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
+              Índice: {profile.indice ?? '—'} · Rondas: {cpiData.roundsTotal}
+            </div>
+
+            <Link href="/importar" style={{ fontSize: '13px', color: '#c4992a', textDecoration: 'none', fontWeight: 600, display: 'inline-block', marginTop: '8px' }}>
+              + Importar más rondas
+            </Link>
+          </div>
+        )}
+
+        {cpiData && cpiData.status === 'insufficient_data' && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(196,153,42,0.08) 0%, rgba(196,153,42,0.04) 100%)',
+            border: '1px solid rgba(196,153,42,0.3)',
+            borderRadius: '14px',
+            padding: '20px',
+            marginBottom: '18px',
+          }}>
+            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#c4992a', fontWeight: 700, marginBottom: '8px' }}>
+              Activ&aacute; tu CPI&trade;
+            </div>
+            <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 14px', lineHeight: 1.5 }}>
+              Necesit&aacute;s 5+ rondas para activar tu CPI&trade;. Import&aacute; tus rondas hist&oacute;ricas para calcular tu &iacute;ndice de rendimiento.
+            </p>
+            <Link href="/importar" style={{
+              display: 'inline-flex', alignItems: 'center',
+              background: '#c4992a', color: '#070d18',
+              padding: '10px 20px', borderRadius: '10px',
+              fontSize: '14px', fontWeight: 700,
+              textDecoration: 'none',
+            }}>
+              Importar historial &rarr;
+            </Link>
+          </div>
+        )}
+
+        {cpiData && cpiData.status === 'momentum_paused' && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(14,28,47,0.96) 0%, rgba(23,49,41,0.94) 100%)',
+            border: '1px solid rgba(217,119,6,0.3)',
+            borderRadius: '14px',
+            padding: '20px',
+            marginBottom: '18px',
+          }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>CPI&trade;</div>
+            <p style={{ fontSize: '14px', color: '#d97706', margin: '0 0 10px', fontWeight: 600 }}>
+              Jug&aacute; una ronda reciente para reactivar tu CPI&trade;
+            </p>
+            <Link href="/ronda-libre/nueva" style={{ fontSize: '13px', color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>
+              Crear ronda &rarr;
+            </Link>
           </div>
         )}
 
