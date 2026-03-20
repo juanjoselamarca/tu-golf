@@ -161,13 +161,14 @@ export default function PerfilPage() {
                     Índice: {profile.indice}
                   </span>
                 ) : (
-                  <button onClick={() => setEditing(true)} style={{
-                    fontSize: '13px', color: '#c4992a', fontWeight: 600,
-                    background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.3)',
-                    borderRadius: '20px', padding: '6px 14px', cursor: 'pointer',
-                    minHeight: 0, minWidth: 0, transition: 'background 0.2s ease',
+                  <button onClick={() => { setEditing(true); setTimeout(() => document.getElementById('edit-form')?.scrollIntoView({ behavior: 'smooth' }), 100) }} style={{
+                    fontSize: '14px', color: '#c4992a', fontWeight: 700,
+                    background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.3)',
+                    borderRadius: '10px', padding: '12px 20px', cursor: 'pointer',
+                    minHeight: '44px', minWidth: '44px',
+                    WebkitTapHighlightColor: 'transparent',
                   }}>
-                    Agregar índice de handicap →
+                    + Agregar índice →
                   </button>
                 )}
                 <span style={{ fontSize: '13px', color: '#9fb4aa' }}>
@@ -274,7 +275,7 @@ export default function PerfilPage() {
           </div>
 
           {editing ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div id="edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre</label>
                 <input

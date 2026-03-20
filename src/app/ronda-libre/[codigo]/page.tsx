@@ -9,25 +9,47 @@ import { notifyScoreEvent, getNotifPrefs, setNotifPrefs, isPushSupported, reques
 
 function NotifBanner({ onEnable }: { onEnable: () => void }) {
   const [dismissed, setDismissed] = useState(false)
+  const [activated, setActivated] = useState(false)
+
+  const handleActivate = async () => {
+    await onEnable()
+    setActivated(true)
+    setTimeout(() => setDismissed(true), 2000)
+  }
+
   if (dismissed) return null
+
   return (
     <div style={{
-      background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px',
-      padding: '14px 16px', marginBottom: '12px',
+      background: activated ? 'rgba(22,163,74,0.08)' : '#ffffff',
+      border: activated ? '1px solid rgba(22,163,74,0.2)' : '1px solid #e5e7eb',
+      borderRadius: '12px', padding: '14px 16px', marginBottom: '12px',
       display: 'flex', alignItems: 'center', gap: '12px',
+      transition: 'all 0.3s',
     }}>
-      <span style={{ fontSize: '20px', flexShrink: 0 }}>🔔</span>
+      <span style={{ fontSize: '20px', flexShrink: 0 }}>{activated ? '✅' : '🔔'}</span>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>Sigue la ronda en vivo</div>
-        <div style={{ fontSize: '11px', color: '#6b7280' }}>Recibe alertas de birdies y cambios de posición</div>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: activated ? '#16a34a' : '#111827' }}>
+          {activated ? 'Alertas activadas' : 'Sigue la ronda en vivo'}
+        </div>
+        <div style={{ fontSize: '11px', color: '#6b7280' }}>
+          {activated ? 'Te avisaremos de birdies y cambios' : 'Recibe alertas de birdies y cambios de posición'}
+        </div>
       </div>
-      <button onClick={onEnable} style={{
-        background: '#c4992a', color: '#070d18', border: 'none', borderRadius: '8px',
-        padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', flexShrink: 0,
-      }}>Activar</button>
-      <button onClick={() => setDismissed(true)} style={{
-        background: 'none', border: 'none', color: '#d1d5db', fontSize: '18px', cursor: 'pointer', padding: '0 4px', flexShrink: 0,
-      }}>×</button>
+      {!activated && (
+        <>
+          <button onClick={handleActivate} style={{
+            background: '#c4992a', color: '#070d18', border: 'none', borderRadius: '8px',
+            padding: '10px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+            minHeight: '44px',
+          }}>Activar</button>
+          <button onClick={() => setDismissed(true)} style={{
+            background: 'none', border: 'none', color: '#d1d5db', fontSize: '18px', cursor: 'pointer',
+            padding: '4px 8px', flexShrink: 0, minHeight: '44px', minWidth: '44px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>×</button>
+        </>
+      )}
     </div>
   )
 }
