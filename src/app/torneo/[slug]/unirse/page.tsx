@@ -31,7 +31,7 @@ export default function UnirsePage() {
     // Check auth
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      router.replace(`/login?next=/torneo/${slug}/unirse`)
+      router.replace(`/login?redirect=/torneo/${slug}/unirse`)
       return
     }
     setUserId(user.id)

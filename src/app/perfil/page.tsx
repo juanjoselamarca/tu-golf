@@ -167,7 +167,7 @@ export default function PerfilPage() {
                     borderRadius: '20px', padding: '6px 14px', cursor: 'pointer',
                     minHeight: 0, minWidth: 0, transition: 'background 0.2s ease',
                   }}>
-                    Agrega tu handicap para desbloquear estadísticas →
+                    Agregar índice de handicap →
                   </button>
                 )}
                 <span style={{ fontSize: '13px', color: '#9fb4aa' }}>
@@ -287,7 +287,7 @@ export default function PerfilPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap</label>
+                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice de handicap</label>
                 <input
                   type="number"
                   step="0.1"
