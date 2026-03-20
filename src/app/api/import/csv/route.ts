@@ -189,10 +189,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const formData = await request.formData()
+    let formData: FormData
+    try {
+      formData = await request.formData()
+    } catch {
+      return NextResponse.json({ error: 'No se recibió contenido válido (se espera multipart/form-data con un archivo CSV)' }, { status: 400 })
+    }
+
     const file = formData.get('file')
     if (!file || !(file instanceof File)) {
-      return NextResponse.json({ error: 'No se recibió archivo CSV' }, { status: 400 })
+      return NextResponse.json({ error: 'No se recibió archivo CSV. Envía el archivo con el campo "file".' }, { status: 400 })
     }
 
     const text = await file.text()

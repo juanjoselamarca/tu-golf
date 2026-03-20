@@ -55,9 +55,9 @@ export const SCORE_STYLES: Record<ScoreResult, ScoreStyle> = {
     label: 'Par',
   },
   bogey: {
-    bg: 'rgba(245,158,11,0.10)',
-    textColor: '#f59e0b',
-    border: 'rgba(245,158,11,0.3)',
+    bg: 'rgba(217,119,6,0.10)',
+    textColor: '#d97706',
+    border: 'rgba(217,119,6,0.35)',
     borderWidth: '1px',
     label: 'Bogey',
   },
@@ -101,8 +101,8 @@ export const SCORE_STYLES_LIGHT: Record<ScoreResult, ScoreStyle> = {
     label: 'Par',
   },
   bogey: {
-    bg: '#fef2f2',
-    textColor: '#991b1b',
+    bg: '#fef3c7',
+    textColor: '#92400e',
     border: '#fecaca',
     borderWidth: '1px',
     label: 'Bogey',

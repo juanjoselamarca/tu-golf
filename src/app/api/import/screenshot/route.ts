@@ -39,7 +39,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const formData = await request.formData()
+    let formData: FormData
+    try {
+      formData = await request.formData()
+    } catch {
+      return NextResponse.json({ error: 'No se recibió contenido válido (se espera multipart/form-data)' }, { status: 400 })
+    }
+
     const files: File[] = []
     const entries = formData.getAll('images')
     for (const value of entries) {
