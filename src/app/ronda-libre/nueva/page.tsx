@@ -345,6 +345,7 @@ export default function NuevaRondaLibrePage() {
                     borderRadius: '12px',
                     border: 'none',
                     cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   WhatsApp
@@ -360,6 +361,7 @@ export default function NuevaRondaLibrePage() {
                     fontSize: '14px',
                     borderRadius: '12px',
                     cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   Copiar link
@@ -385,6 +387,7 @@ export default function NuevaRondaLibrePage() {
                     borderRadius: '12px',
                     border: 'none',
                     cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   WhatsApp
@@ -400,6 +403,7 @@ export default function NuevaRondaLibrePage() {
                     fontSize: '14px',
                     borderRadius: '12px',
                     cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   Copiar link
@@ -419,6 +423,7 @@ export default function NuevaRondaLibrePage() {
                 borderRadius: '14px',
                 border: 'none',
                 cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
               Empezar a jugar →
@@ -496,6 +501,7 @@ export default function NuevaRondaLibrePage() {
                     position: 'absolute', right: '12px', top: '32px',
                     background: 'none', border: 'none', color: colors.textLabel,
                     fontSize: '18px', cursor: 'pointer', padding: '4px',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >×</button>
               )}
@@ -628,6 +634,7 @@ export default function NuevaRondaLibrePage() {
                           borderColor: active ? colors.activeBtn : '#e5e7eb',
                           color: active ? colors.activeBtnText : '#374151',
                           transition: 'all 0.15s',
+                          WebkitTapHighlightColor: 'transparent',
                         }}
                       >
                         <div style={{ fontSize: '14px', fontWeight: 600 }}>{t.nombre}</div>
@@ -662,6 +669,7 @@ export default function NuevaRondaLibrePage() {
                           borderColor: active ? colors.activeBtn : colors.inputBorder,
                           color: active ? colors.activeBtnText : colors.inactiveBtnText,
                           transition: 'all 0.15s',
+                          WebkitTapHighlightColor: 'transparent',
                         }}
                       >
                         {t}
@@ -697,6 +705,7 @@ export default function NuevaRondaLibrePage() {
                         borderColor: active ? colors.activeBtn : colors.inputBorder,
                         color: active ? colors.activeBtnText : colors.inactiveBtnText,
                         transition: 'all 0.15s',
+                        WebkitTapHighlightColor: 'transparent',
                       }}
                     >
                       {h} hoyos
@@ -829,6 +838,7 @@ export default function NuevaRondaLibrePage() {
                         flexShrink: 0,
                         fontSize: '14px',
                         minHeight: '48px',
+                        WebkitTapHighlightColor: 'transparent',
                       }}
                     >
                       ×
@@ -865,6 +875,7 @@ export default function NuevaRondaLibrePage() {
                     fontSize: '14px',
                     fontWeight: 500,
                     textAlign: 'center',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   + Agregar jugador
@@ -890,6 +901,7 @@ export default function NuevaRondaLibrePage() {
               opacity: loading || !cancha ? 0.35 : 1,
               transition: 'all 0.15s',
               boxShadow: '0 2px 8px rgba(196,153,42,0.3)',
+              WebkitTapHighlightColor: 'transparent',
             }}
           >
             {loading ? 'Creando ronda...' : 'Crear ronda →'}

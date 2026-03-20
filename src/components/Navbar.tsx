@@ -272,7 +272,7 @@ export default function Navbar() {
                       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
                       <polyline points="9 22 9 12 15 12 15 22" />
                     </svg>
-                    <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Inicio</span>
+                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Inicio</span>
                   </Link>
                 )
               })()}
@@ -297,7 +297,7 @@ export default function Navbar() {
                         animation: 'livePulse 2s ease-in-out infinite',
                       }} />
                     </div>
-                    <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Mi Golf</span>
+                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Mi Golf</span>
                   </Link>
                 )
               })()}
@@ -323,7 +323,7 @@ export default function Navbar() {
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
                 </button>
-                <span style={{ fontSize: '8px', fontFamily: 'var(--font-dm-mono), monospace', color: '#c4992a', fontWeight: 600, marginTop: '3px', letterSpacing: '0.08em' }}>JUGAR</span>
+                <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: '#c4992a', fontWeight: 600, marginTop: '3px', letterSpacing: '0.08em' }}>JUGAR</span>
               </div>
 
               {/* Coach AI */}
@@ -337,7 +337,7 @@ export default function Navbar() {
                       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                       <path d="M8 9h8M8 13h4" />
                     </svg>
-                    <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Coach</span>
+                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Coach</span>
                   </Link>
                 )
               })()}
@@ -353,7 +353,7 @@ export default function Navbar() {
                       <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
                       <circle cx="12" cy="7" r="4" />
                     </svg>
-                    <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Perfil</span>
+                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Perfil</span>
                   </Link>
                 )
               })()}

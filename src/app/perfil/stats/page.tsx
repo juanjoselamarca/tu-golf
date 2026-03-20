@@ -57,6 +57,9 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true)
   const [allRounds, setAllRounds] = useState<Round[]>([])
   const [range, setRange] = useState<RangeKey>('all')
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   /* ── Load data ── */
   const loadData = useCallback(async () => {
@@ -229,7 +232,7 @@ export default function StatsPage() {
           <div style={{ position: 'relative', width: 160, height: 160, margin: '0 auto' }}>
             {hasRounds ? (
               <>
-                <ResponsiveContainer width="100%" height="100%">
+                {mounted && <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={gwiPieData}
@@ -246,7 +249,7 @@ export default function StatsPage() {
                       <Cell fill={C.greenDim} />
                     </Pie>
                   </PieChart>
-                </ResponsiveContainer>
+                </ResponsiveContainer>}
                 <div style={{
                   position: 'absolute', top: '50%', left: '50%',
                   transform: 'translate(-50%, -50%)',
@@ -283,7 +286,7 @@ export default function StatsPage() {
           </p>
           {hasRounds ? (
             <div style={{ height: 200 }}>
-              <ResponsiveContainer width="100%" height="100%">
+              {mounted && <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={lineChartData}>
                   <CartesianGrid stroke="rgba(255,255,255,0.04)" />
                   <XAxis
@@ -319,7 +322,7 @@ export default function StatsPage() {
                     name="Gross"
                   />
                 </LineChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer>}
             </div>
           ) : (
             <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -335,7 +338,7 @@ export default function StatsPage() {
           </p>
           {hasRounds ? (
             <div style={{ height: 200 }}>
-              <ResponsiveContainer width="100%" height="100%">
+              {mounted && <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={scoringTrendChartData}>
                   <CartesianGrid stroke="rgba(255,255,255,0.04)" />
                   <XAxis
@@ -370,7 +373,7 @@ export default function StatsPage() {
                     label={{ value: 'Promedio', fill: C.muted, fontSize: 10, position: 'insideTopRight' }}
                   />
                 </LineChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer>}
             </div>
           ) : (
             <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

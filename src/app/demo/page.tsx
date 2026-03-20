@@ -195,7 +195,7 @@ export default function DemoPage() {
             {/* GWI bar — single instance */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '12px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '9px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em' }}>GWI</span>
+                <span style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em' }}>GWI</span>
                 <span style={{ fontSize: '28px', fontWeight: 300, color: GOLD, fontFamily: SERIF, lineHeight: 1 }}>{data.gwi.toFixed(1)}</span>
               </div>
               <span style={{
@@ -205,7 +205,7 @@ export default function DemoPage() {
                 {data.gwi_delta > 0 ? '+' : ''}{data.gwi_delta.toFixed(1)}
               </span>
               <span style={{
-                padding: '2px 8px', borderRadius: '8px', fontSize: '9px', fontWeight: 600,
+                padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
                 background: 'rgba(201,168,76,0.12)', color: GOLD, fontFamily: MONO, letterSpacing: '0.08em',
               }}>{data.gwi_level}</span>
             </div>
@@ -293,7 +293,7 @@ export default function DemoPage() {
                   background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '10px', padding: '12px 8px', textAlign: 'center',
                 }}>
                   <div style={{ fontSize: '18px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
-                  <div style={{ fontSize: '9px', color: MUTED, fontFamily: MONO, marginTop: '4px', letterSpacing: '0.05em' }}>{s.label}</div>
+                  <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, marginTop: '4px', letterSpacing: '0.05em' }}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -361,7 +361,7 @@ export default function DemoPage() {
                 <div key={i} style={{
                   background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px', textAlign: 'center',
                 }}>
-                  <div style={{ fontSize: '9px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em', marginBottom: '6px' }}>{s.label}</div>
+                  <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em', marginBottom: '6px' }}>{s.label}</div>
                   <div style={{ fontSize: '28px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
                 </div>
               ))}
@@ -419,7 +419,7 @@ export default function DemoPage() {
               ].map((s, i) => (
                 <div key={i} style={{ textAlign: 'center', flex: 1, minWidth: '50px' }}>
                   <div style={{ fontSize: '16px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
-                  <div style={{ fontSize: '9px', color: MUTED, fontFamily: MONO, letterSpacing: '0.05em' }}>{s.label}</div>
+                  <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.05em' }}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -492,7 +492,7 @@ export default function DemoPage() {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                     <span style={{
-                      padding: '2px 8px', borderRadius: '6px', fontSize: '9px', fontWeight: 700,
+                      padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 700,
                       background: `${bc}18`, color: bc, fontFamily: MONO, letterSpacing: '0.08em',
                     }}>{label}</span>
                     <span style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{p.title}</span>

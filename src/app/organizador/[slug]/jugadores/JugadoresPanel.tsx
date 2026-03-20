@@ -372,7 +372,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
       </div>
 
       {/* Sticky start button */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(7,13,24,0.96)', borderTop: '1px solid rgba(196,153,42,0.2)', padding: '16px 24px', display: 'flex', justifyContent: 'center', zIndex: 50 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(7,13,24,0.96)', borderTop: '1px solid rgba(196,153,42,0.2)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', justifyContent: 'center', zIndex: 50 }}>
         <button
           onClick={handleStartTournament}
           disabled={players.length < 1 || starting}

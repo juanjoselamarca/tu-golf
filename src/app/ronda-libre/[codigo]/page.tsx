@@ -732,7 +732,7 @@ function RondaLibrePageContent() {
                   {isExpanded && j.holesPlayed > 0 && (
                     <div style={{ padding: '4px 12px 14px', background: '#f9fafb', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                       {/* Front 9 */}
-                      <div style={{ fontSize: '9px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
                         Front 9
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', marginBottom: '8px' }}>
@@ -755,7 +755,7 @@ function RondaLibrePageContent() {
                       {/* Back 9 */}
                       {ronda.holes > 9 && (
                         <>
-                          <div style={{ fontSize: '9px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                          <div style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
                             Back 9
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>

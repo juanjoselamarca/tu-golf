@@ -361,6 +361,7 @@ export default function SesionDetailPage() {
         background: '#0e1c2f',
         borderTop: '1px solid rgba(196,153,42,0.2)',
         padding: '12px 16px',
+        paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
         display: 'flex',
         gap: 10,
         alignItems: 'center',
