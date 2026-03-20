@@ -86,7 +86,7 @@ export default async function DashboardPage() {
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       <ExperiencePopupWrapper />
 
-      <main style={{ padding: 'clamp(24px, 4vw, 48px) clamp(16px, 4vw, 32px)', maxWidth: '1100px', margin: '0 auto' }}>
+      <main style={{ padding: 'clamp(24px, 4vw, 48px) clamp(16px, 4vw, 32px)', paddingBottom: '80px', maxWidth: '1100px', margin: '0 auto' }}>
 
         {/* 1 — Saludo */}
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(26px, 6vw, 38px)', color: 'var(--text)', marginBottom: '8px', lineHeight: 1.2 }}>

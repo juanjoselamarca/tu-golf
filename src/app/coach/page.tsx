@@ -104,7 +104,7 @@ export default function CoachDashboard() {
   }
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px' }}>
+    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 80px' }}>
 
       {/* BACK */}
       <Link href="/" style={{

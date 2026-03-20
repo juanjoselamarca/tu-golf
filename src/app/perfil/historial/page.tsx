@@ -317,7 +317,7 @@ function HistorialContent() {
         </div>
       </div>
 
-      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '28px 20px' }}>
+      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '28px 20px 80px' }}>
 
         {/* ── Form ── */}
         {showForm && (
@@ -429,6 +429,7 @@ function HistorialContent() {
                               width: '100%', ...cellBg(val),
                               border: '1px solid rgba(122,143,168,0.15)',
                               borderRadius: '6px', padding: '7px 2px',
+                              fontSize: '16px',
                               fontWeight: 600, textAlign: 'center',
                               outline: 'none', appearance: 'textfield' as const,
                               boxSizing: 'border-box' as const, minHeight: '44px',

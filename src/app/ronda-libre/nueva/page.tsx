@@ -435,7 +435,7 @@ export default function NuevaRondaLibrePage() {
   }
 
   return (
-    <div style={{ background: colors.bg, minHeight: '100vh', padding: '20px 16px' }}>
+    <div style={{ background: colors.bg, minHeight: '100vh', padding: '20px 16px 80px' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
 
         {/* Back link */}

@@ -21,7 +21,7 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text)',
   borderRadius: '8px',
   padding: '10px 12px',
-  fontSize: '14px',
+  fontSize: '16px',
   outline: 'none',
   width: '100%',
   boxSizing: 'border-box',
@@ -138,7 +138,7 @@ export default function PerfilPage() {
   const playerTier = getPlayerTier(profile.indice)
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '16px 16px 40px' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '16px 16px 80px' }}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
         <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '18px' }}>
           ← Dashboard
@@ -158,7 +158,7 @@ export default function PerfilPage() {
               {initials}
             </div>
 
-            <div style={{ flex: 1, minWidth: '220px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
                 <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.24)', color: '#c8a55a', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                   Perfil de jugador
