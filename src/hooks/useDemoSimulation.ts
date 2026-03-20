@@ -209,6 +209,33 @@ export function useDemoSimulation() {
       // Sort by score vs par
       const sorted = sortPlayers(next)
 
+      // GWI™ must sum to 100 — recalculate as win probability
+      const rawGwis = sorted.map(p => {
+        const individual = calcGWI(p.scores)
+        // Convert 0-100 score to raw probability weight (exponential favors higher scores)
+        return Math.exp(individual / 20)
+      })
+      const totalRaw = rawGwis.reduce((a, b) => a + b, 0) || 1
+      const floored = rawGwis.map(r => Math.floor((r / totalRaw) * 100))
+      let remainder = 100 - floored.reduce((a, b) => a + b, 0)
+      const remainders = rawGwis.map((r, i) => ({ i, rem: (r / totalRaw) * 100 - floored[i] }))
+      remainders.sort((a, b) => b.rem - a.rem)
+      for (let k = 0; k < remainder; k++) floored[remainders[k].i]++
+      // Ensure min 1% each
+      const gwiProbs = floored.map(v => Math.max(1, v))
+      const gwiSum = gwiProbs.reduce((a, b) => a + b, 0)
+      if (gwiSum > 100) {
+        let excess = gwiSum - 100
+        const bySize = gwiProbs.map((v, i) => ({ i, v })).sort((a, b) => b.v - a.v)
+        for (const s of bySize) { if (excess <= 0) break; const rm = Math.min(excess, s.v - 1); gwiProbs[s.i] -= rm; excess -= rm }
+      }
+      sorted.forEach((p, i) => {
+        const oldGwi = p.gwi
+        p.gwi = gwiProbs[i]
+        p.gwiDelta = Math.round((p.gwi - oldGwi) * 10) / 10
+        p.gwiSeries = [...p.gwiSeries.slice(-9), p.gwi]
+      })
+
       // Track position changes
       sorted.forEach((p, newIdx) => {
         const oldPos = oldPosMap.get(p.id) ?? (newIdx + 1)

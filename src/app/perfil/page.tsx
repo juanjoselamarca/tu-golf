@@ -70,26 +70,22 @@ export default function PerfilPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login?redirect=/perfil'); return }
 
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('id, name, email, indice, avatar_url')
-        .eq('id', user.id)
-        .single()
+      // Parallel queries — all at once, not sequential
+      const [profRes, countRes] = await Promise.all([
+        supabase.from('profiles').select('id, name, email, indice, avatar_url').eq('id', user.id).single(),
+        supabase.from('players').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      ])
 
-      if (prof) {
-        const p = prof as Profile
+      if (profRes.data) {
+        const p = profRes.data as Profile
         setProfile(p)
         setEditName(p.name || '')
         setEditIndice(p.indice != null ? String(p.indice) : '')
       }
 
-      const { count } = await supabase
-        .from('players')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+      setTourneysPlayed(countRes.count ?? 0)
 
-      setTourneysPlayed(count ?? 0)
-
+      // CPI fetch in parallel (non-blocking)
       fetch('/api/cpi').then(r => r.json()).then(data => {
         if (data.score !== undefined) setCpiData(data)
       }).catch(() => {})
