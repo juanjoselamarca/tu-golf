@@ -39,7 +39,7 @@ export default function StepPhotoInstructions({
 
     try {
       const formData = new FormData()
-      Array.from(files).forEach(file => formData.append('files', file))
+      Array.from(files).forEach(file => formData.append('images', file))
 
       const res = await fetch('/api/import/screenshot', {
         method: 'POST',
@@ -52,7 +52,7 @@ export default function StepPhotoInstructions({
 
       const data = await res.json()
       onStateUpdate({
-        jobId: data.jobId,
+        jobId: data.job_id,
         rounds: data.rounds || [],
       })
       onFilesReady?.()

@@ -202,11 +202,8 @@ export async function POST(request: NextRequest) {
       total_errors: insertErrors.length,
       inserted_ids: insertedIds,
       errors: insertErrors.length > 0 ? insertErrors : undefined,
-      cpi: cpiResult ? {
-        score: cpiResult.score,
-        trend: cpiResult.trend,
-        status: cpiResult.status,
-      } : null,
+      cpi: cpiResult ?? null,
+      cpiResult: cpiResult ?? null,
     })
   } catch (err) {
     console.error('Confirm import error:', err)

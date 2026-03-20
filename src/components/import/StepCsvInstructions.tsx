@@ -61,7 +61,7 @@ export default function StepCsvInstructions({
       }
 
       onStateUpdate({
-        jobId: data.jobId,
+        jobId: data.job_id,
         rounds: data.rounds || [],
       })
       onFileReady?.()

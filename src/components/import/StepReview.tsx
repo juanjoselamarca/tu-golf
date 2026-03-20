@@ -88,7 +88,7 @@ export default function StepReview({
       const res = await fetch('/api/import/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId, rounds: validRounds }),
+        body: JSON.stringify({ job_id: jobId, rounds: validRounds }),
       })
 
       if (!res.ok) {
