@@ -178,8 +178,32 @@ export function calcularGWI(
 
   const totalRaw = rawProbs.reduce((s, p) => s + p, 0) || 1
 
+  // GWI must sum to exactly 100 — use largest remainder method
+  const rawPercents = rawProbs.map(p => (p / totalRaw) * 100)
+  const floored = rawPercents.map(p => Math.floor(p))
+  let remainder = 100 - floored.reduce((a, b) => a + b, 0)
+  const remainders = rawPercents.map((p, i) => ({ i, r: p - floored[i] }))
+  remainders.sort((a, b) => b.r - a.r)
+  for (let k = 0; k < remainder; k++) {
+    floored[remainders[k].i]++
+  }
+  // Ensure minimum 1% for everyone (redistribute from largest)
+  const gwiValues = floored.map(v => Math.max(1, v))
+  const gwiSum = gwiValues.reduce((a, b) => a + b, 0)
+  if (gwiSum > 100) {
+    // Remove excess from the largest values
+    let excess = gwiSum - 100
+    const sorted = gwiValues.map((v, i) => ({ i, v })).sort((a, b) => b.v - a.v)
+    for (const s of sorted) {
+      if (excess <= 0) break
+      const canRemove = Math.min(excess, s.v - 1)
+      gwiValues[s.i] -= canRemove
+      excess -= canRemove
+    }
+  }
+
   return ajustados.map((j, i) => {
-    const winProb   = Math.max(1, Math.round((rawProbs[i] / totalRaw) * 100))
+    const winProb = gwiValues[i]
     const tendencia = j.scoreAjustado < (j.historicalAvg ?? 0) - 1 ? 'up'
       : j.scoreAjustado > (j.historicalAvg ?? 0) + 1 ? 'down'
       : 'stable'
