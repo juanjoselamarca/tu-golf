@@ -131,7 +131,7 @@ export function PWAInstallBanner() {
         </div>
 
         {/* Close */}
-        <button onClick={handleDismiss} style={{
+        <button onClick={handleDismiss} aria-label="Cerrar banner de instalación" style={{
           background: 'none', border: 'none', color: '#d1d5db', fontSize: '20px',
           cursor: 'pointer', padding: '0', lineHeight: 1, flexShrink: 0,
         }}>×</button>

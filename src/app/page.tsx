@@ -56,9 +56,9 @@ export default async function Home() {
               ✦ VER DEMO EN VIVO
             </span>
           </div>
-          <h3 className="font-display font-bold text-xl text-ivory mb-2">
+          <h2 className="font-display font-bold text-xl text-ivory mb-2">
             Explora un perfil completo de Golfers+
-          </h3>
+          </h2>
           <p className="font-sans text-sm text-gray-soft mb-4">
             30 rondas reales, GWI™ calculado, análisis de patrones. Sin crear cuenta.
           </p>

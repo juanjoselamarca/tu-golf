@@ -154,7 +154,7 @@ export default function Navbar() {
               <span style={{ color: '#edeae4' }}>Golfers</span>
               <span style={{ color: '#C4992A' }}>+</span>
             </span>
-            <button onClick={() => setSidebarOpen(false)} style={{
+            <button onClick={() => setSidebarOpen(false)} aria-label="Cerrar menú" style={{
               background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)',
               fontSize: '24px', cursor: 'pointer', padding: '4px 8px', lineHeight: 1,
             }}>×</button>

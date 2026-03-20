@@ -6,10 +6,10 @@ import Link from 'next/link'
 import PGALiveWidget from '@/components/PGALiveWidget'
 
 const IMAGES = [
-  'https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1920&q=80',
-  'https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1920&q=80',
-  'https://images.unsplash.com/photo-1592919505780-303950717480?w=1920&q=80',
-  'https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=1920&q=80',
+  'https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=75',
+  'https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1200&q=75',
+  'https://images.unsplash.com/photo-1592919505780-303950717480?w=1200&q=75',
+  'https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=1200&q=75',
 ]
 
 export default function HeroSection() {
@@ -32,7 +32,14 @@ export default function HeroSection() {
           className="absolute inset-0 transition-opacity duration-2000 ease-in-out"
           style={{ opacity: i === current ? 1 : 0 }}
         >
-          <img src={src} alt="" className="w-full h-full object-cover" />
+          <img
+            src={src}
+            alt=""
+            className="w-full h-full object-cover"
+            loading={i === 0 ? 'eager' : 'lazy'}
+            fetchPriority={i === 0 ? 'high' : 'auto'}
+            decoding="async"
+          />
         </div>
       ))}
 
