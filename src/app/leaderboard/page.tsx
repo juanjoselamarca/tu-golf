@@ -72,6 +72,7 @@ function PosBadge({ pos, positionDelta }: { pos: number; positionDelta: number }
 export default function LeaderboardPage() {
   const { players: simPlayers, lastEvent, roundNumber } = useDemoSimulation()
   const [category, setCategory] = useState('General')
+  const [showGwiInfo, setShowGwiInfo] = useState(false)
 
   const leader = simPlayers[0]
   const leaderScore = leader ? getScoreVsPar(leader.scores) : 0
@@ -385,6 +386,39 @@ export default function LeaderboardPage() {
             Actualiza cada 20s &middot; {playingCount > 0 ? `${playingCount} en cancha` : 'Ronda cerrada — nueva ronda en 8s'}
           </div>
         </div>
+      </div>
+
+      {/* ── GWI info banner (mobile) ─────────────────── */}
+      <div className="md:hidden" style={{ padding: '0 16px', background: '#f9fafb' }}>
+        <button onClick={() => setShowGwiInfo(!showGwiInfo)} style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+          width: '100%', padding: '8px', background: 'transparent',
+          border: 'none', cursor: 'pointer',
+        }}>
+          <span style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'var(--font-dm-mono), monospace' }}>
+            GWI™ = probabilidad de ganar vs el field
+          </span>
+          <span style={{ fontSize: '10px', color: '#9ca3af' }}>{showGwiInfo ? '▲' : '▼'}</span>
+        </button>
+        {showGwiInfo && (
+          <div style={{
+            background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '10px',
+            padding: '14px', marginBottom: '10px', fontSize: '12px', color: '#6b7280', lineHeight: 1.6,
+          }}>
+            <div style={{ fontWeight: 700, color: '#111827', marginBottom: '6px', fontSize: '13px' }}>
+              GWI™ — Golf Win Index
+            </div>
+            <p style={{ margin: '0 0 8px' }}>
+              Probabilidad estimada de que un jugador gane la vuelta, calculada en tiempo real. La suma de todos los GWI siempre es 100%.
+            </p>
+            <p style={{ margin: '0 0 8px' }}>
+              Se basa en: score actual vs par, hándicap del jugador, consistencia histórica y dificultad de los hoyos restantes.
+            </p>
+            <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af' }}>
+              ▲ verde = subiendo · ▼ rojo = bajando · Actualiza hoyo a hoyo
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── Mobile cards ───────────────────────────────── */}

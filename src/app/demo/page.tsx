@@ -24,7 +24,7 @@ interface DemoProfile {
   }>
 }
 
-const TABS = ['Resumen', 'Estadísticas', 'Historial', 'Análisis']
+const TABS = ['Resumen', 'Estadísticas', 'Análisis', 'Historial']
 const GOLD = '#c4992a'
 const BG = '#070d18'
 const CARD = 'rgba(255,255,255,0.03)'
@@ -189,7 +189,7 @@ export default function DemoPage() {
         </Link>
       </div>
 
-      {/* === HEADER — premium card with CPI + GWI === */}
+      {/* === HEADER — premium card with CPI™ === */}
       <div style={{
         margin: '16px', padding: '20px',
         background: `linear-gradient(135deg, rgba(196,153,42,0.06) 0%, rgba(196,153,42,0.02) 50%, ${CARD} 100%)`,
@@ -219,74 +219,50 @@ export default function DemoPage() {
         {/* Divider */}
         <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 -4px 20px' }} />
 
-        {/* CPI + GWI side by side */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', gap: '0' }}>
-          {/* CPI column */}
-          <div style={{ paddingRight: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-              <span style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em' }}>CPI&trade;</span>
-              <button
-                onClick={() => setShowCpiInfo(true)}
-                style={{
-                  width: '18px', height: '18px', borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                  color: MUTED, fontSize: '11px', fontFamily: MONO, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: 0, lineHeight: 1,
-                }}
-                aria-label="Información sobre CPI"
-              >i</button>
-            </div>
-            <div style={{ fontSize: '32px', fontWeight: 300, color: cpiLevelColor(data.cpi.score), fontFamily: SERIF, lineHeight: 1 }}>
-              {data.cpi.score.toFixed(1)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-              <span style={{
-                padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
-                background: `${cpiLevelColor(data.cpi.score)}18`, color: cpiLevelColor(data.cpi.score),
-                fontFamily: MONO, letterSpacing: '0.04em',
-              }}>{cpiLevelLabel(data.cpi.score)}</span>
-              <span style={{
-                fontSize: '12px', fontFamily: MONO, fontWeight: 500,
-                color: data.cpi.trend > 0 ? GREEN : data.cpi.trend < 0 ? RED : MUTED,
-              }}>
-                {data.cpi.trend > 0 ? '\u25B2' : data.cpi.trend < 0 ? '\u25BC' : ''}{data.cpi.trend > 0 ? '+' : ''}{data.cpi.trend.toFixed(1)}
-              </span>
-            </div>
-            {/* Progress bar */}
-            <div style={{
-              marginTop: '10px', height: '6px', background: 'rgba(255,255,255,0.06)',
-              borderRadius: '3px', overflow: 'hidden',
-            }}>
-              <div style={{
-                height: '100%', width: `${cpiPct}%`,
-                background: `linear-gradient(90deg, ${cpiLevelColor(data.cpi.score)}cc, ${cpiLevelColor(data.cpi.score)})`,
-                borderRadius: '3px', transition: 'width 0.6s ease',
-              }} />
-            </div>
+        {/* CPI™ — full width */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em' }}>CPI&trade; — Current Performance Index</span>
+            <button
+              onClick={() => setShowCpiInfo(true)}
+              style={{
+                width: '18px', height: '18px', borderRadius: '50%',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                color: MUTED, fontSize: '11px', fontFamily: MONO, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 0, lineHeight: 1,
+              }}
+              aria-label="Información sobre CPI"
+            >i</button>
           </div>
-
-          {/* Vertical divider */}
-          <div style={{ background: 'rgba(255,255,255,0.08)', width: '1px' }} />
-
-          {/* GWI column */}
-          <div style={{ paddingLeft: '16px' }}>
-            <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em', marginBottom: '6px' }}>GWI&trade;</div>
-            <div style={{ fontSize: '32px', fontWeight: 300, color: GOLD, fontFamily: SERIF, lineHeight: 1 }}>
-              {data.gwi.toFixed(1)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
-              <span style={{
-                padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
-                background: 'rgba(201,168,76,0.12)', color: GOLD, fontFamily: MONO, letterSpacing: '0.08em',
-              }}>{data.gwi_level}</span>
-              <span style={{
-                fontSize: '12px', fontFamily: MONO, fontWeight: 500,
-                color: data.gwi_delta > 0 ? GREEN : data.gwi_delta < 0 ? RED : MUTED,
-              }}>
-                {data.gwi_delta > 0 ? '+' : ''}{data.gwi_delta.toFixed(1)}
-              </span>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+            <span style={{ fontSize: '36px', fontWeight: 300, color: cpiLevelColor(data.cpi.score), fontFamily: SERIF, lineHeight: 1 }}>
+              {data.cpi.score.toFixed(1)}
+            </span>
+            <span style={{
+              padding: '3px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
+              background: `${cpiLevelColor(data.cpi.score)}18`, color: cpiLevelColor(data.cpi.score),
+              fontFamily: MONO,
+            }}>{cpiLevelLabel(data.cpi.score)}</span>
+            <span style={{
+              fontSize: '13px', fontFamily: MONO, fontWeight: 600,
+              color: data.cpi.trend > 0 ? GREEN : data.cpi.trend < 0 ? RED : MUTED,
+            }}>
+              {data.cpi.trend > 0 ? '\u25B2' : data.cpi.trend < 0 ? '\u25BC' : ''}{data.cpi.trend > 0 ? '+' : ''}{data.cpi.trend.toFixed(1)}
+            </span>
+          </div>
+          <div style={{
+            marginTop: '12px', height: '6px', background: 'rgba(255,255,255,0.06)',
+            borderRadius: '3px', overflow: 'hidden',
+          }}>
+            <div style={{
+              height: '100%', width: `${cpiPct}%`,
+              background: `linear-gradient(90deg, ${cpiLevelColor(data.cpi.score)}cc, ${cpiLevelColor(data.cpi.score)})`,
+              borderRadius: '3px',
+            }} />
+          </div>
+          <div style={{ fontSize: '11px', color: MUTED, marginTop: '6px' }}>
+            Basado en 30 rondas · Ventana 90 días
           </div>
         </div>
       </div>
@@ -320,19 +296,8 @@ export default function DemoPage() {
         {/* --- TAB RESUMEN --- */}
         {activeTab === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-            {/* 2-col on desktop: gauge left, recent rounds right */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-              {/* Left: GWI gauge */}
-              <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', padding: '20px' }}>
-                <GWIDisplay
-                  gwi={data.gwi} delta={data.gwi_delta} series={data.gwi_series}
-                  level={data.gwi_level} totalRounds={stats.total_rounds}
-                  bestRound={stats.best_score} trend={data.gwi_delta > 0 ? 'up' : data.gwi_delta < 0 ? 'down' : 'stable'}
-                  vsIndex={null}
-                />
-              </div>
-
-              {/* Right: Recent rounds */}
+            {/* Recent rounds */}
+            <div>
               <div>
                 <div style={{ fontSize: '12px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em', fontWeight: 700 }}>ULTIMAS 5 RONDAS</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
