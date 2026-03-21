@@ -586,6 +586,21 @@ function RondaLibrePageContent() {
 
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
 
+          {/* Explorar Golfers+ — prominent CTA for new users */}
+          <Link href="/" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 16px', borderRadius: '10px', marginBottom: '12px',
+            background: 'linear-gradient(135deg, rgba(196,153,42,0.08), rgba(196,153,42,0.03))',
+            border: '1px solid rgba(196,153,42,0.15)',
+            textDecoration: 'none',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono), monospace', color: '#c4992a', fontWeight: 700, letterSpacing: '0.05em' }}>GOLFERS+</span>
+              <span style={{ fontSize: '13px', color: '#6b7280' }}>Scoring en vivo · CPI™ · Coach IA</span>
+            </div>
+            <span style={{ color: '#c4992a', fontSize: '14px' }}>→</span>
+          </Link>
+
           {/* Notification banner for spectators */}
           {isEnCurso && !getNotifPrefs().spectator && (
             <NotifBanner onEnable={async () => {
@@ -873,16 +888,7 @@ function RondaLibrePageContent() {
             </div>
           )}
 
-          {/* Explorar Golfers+ */}
-          <Link href="/" style={{
-            display: 'block', textAlign: 'center', marginTop: '16px',
-            padding: '14px', borderRadius: '12px',
-            background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.15)',
-            color: '#c4992a', fontSize: '14px', fontWeight: 600,
-            textDecoration: 'none',
-          }}>
-            Explorar funciones Golfers+ →
-          </Link>
+          {/* Explorar link is at the top of spectator view */}
         </div>
       </div>
     )
