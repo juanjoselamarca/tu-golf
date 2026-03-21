@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
 import { notifyScoreEvent, getNotifPrefs, setNotifPrefs, isPushSupported, requestPermission } from '@/lib/push-notifications'
+import { setActiveRondaSession, clearActiveRondaSession } from '@/components/LiveRoundIndicator'
 
 function NotifBanner({ onEnable }: { onEnable: () => void }) {
   const [dismissed, setDismissed] = useState(false)
@@ -173,14 +174,18 @@ function RondaLibrePageContent() {
   /* ── Fetch ronda ── */
   const fetchRonda = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('rondas_libres')
       .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, ronda_libre_jugadores(id, nombre, user_id, scores)')
       .eq('codigo', codigo)
       .single()
 
     if (!data) {
-      setNotFound(true)
+      // Only set notFound on actual 404, not on network/auth errors
+      if (error?.code === 'PGRST116' || (!error && !data)) {
+        setNotFound(true)
+      }
+      // On transient errors (network, auth), silently retry on next poll
     } else {
       setRonda(data as unknown as RondaLibre)
       // Fetch hole pars if course linked
@@ -201,6 +206,17 @@ function RondaLibrePageContent() {
   }, [codigo])
 
   useEffect(() => { fetchRonda() }, [fetchRonda])
+
+  // Re-fetch when screen turns back on (fixes "ronda no encontrada" after screen off)
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        fetchRonda()
+      }
+    }
+    document.addEventListener('visibilitychange', handler)
+    return () => document.removeEventListener('visibilitychange', handler)
+  }, [fetchRonda])
 
   // Restore role from sessionStorage — override to espectador for finished rounds
   useEffect(() => {
@@ -272,6 +288,10 @@ function RondaLibrePageContent() {
     sessionStorage.setItem(SS_KEY(codigo), r)
     setRole(r)
     if (r === 'espectador') setCountdown(15)
+    // Track active ronda for live indicator on other pages
+    if (ronda && isEnCurso) {
+      setActiveRondaSession(codigo, ronda.course_name)
+    }
   }
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/ronda-libre/${codigo}` : ''
@@ -586,19 +606,15 @@ function RondaLibrePageContent() {
 
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
 
-          {/* Explorar Golfers+ — prominent CTA for new users */}
+          {/* Descubrir Golfers+ */}
           <Link href="/" style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 16px', borderRadius: '10px', marginBottom: '12px',
-            background: 'linear-gradient(135deg, rgba(196,153,42,0.08), rgba(196,153,42,0.03))',
-            border: '1px solid rgba(196,153,42,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            padding: '10px 16px', borderRadius: '10px', marginBottom: '12px',
+            background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.12)',
             textDecoration: 'none',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono), monospace', color: '#c4992a', fontWeight: 700, letterSpacing: '0.05em' }}>GOLFERS+</span>
-              <span style={{ fontSize: '13px', color: '#6b7280' }}>Scoring en vivo · CPI™ · Coach IA</span>
-            </div>
-            <span style={{ color: '#c4992a', fontSize: '14px' }}>→</span>
+            <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 600 }}>Descubrir Golfers+</span>
+            <span style={{ color: '#c4992a', fontSize: '12px' }}>→</span>
           </Link>
 
           {/* Notification banner for spectators */}

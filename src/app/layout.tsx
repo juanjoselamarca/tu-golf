@@ -4,6 +4,7 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import { ToastContainer } from '@/hooks/useToast'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
+import { LiveRoundIndicator } from '@/components/LiveRoundIndicator'
 
 const playfair = Playfair_Display({
   subsets:  ['latin'],
@@ -65,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Navbar />
         <ToastContainer />
         <PWAInstallBanner />
+        <LiveRoundIndicator />
         <main className="min-h-screen">{children}</main>
 
         {/* Footer */}
