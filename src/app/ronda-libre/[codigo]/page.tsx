@@ -868,10 +868,21 @@ function RondaLibrePageContent() {
                   fontWeight: 600,
                 }}
               >
-                Ver mis estadisticas →
+                Ver mis estadísticas →
               </Link>
             </div>
           )}
+
+          {/* Explorar Golfers+ */}
+          <Link href="/" style={{
+            display: 'block', textAlign: 'center', marginTop: '16px',
+            padding: '14px', borderRadius: '12px',
+            background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.15)',
+            color: '#c4992a', fontSize: '14px', fontWeight: 600,
+            textDecoration: 'none',
+          }}>
+            Explorar funciones Golfers+ →
+          </Link>
         </div>
       </div>
     )
