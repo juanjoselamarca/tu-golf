@@ -129,6 +129,11 @@ export async function GET() {
   const gwi_delta = Math.round((gwi_series[gwi_series.length - 1] - gwi_series[Math.max(0, gwi_series.length - 4)]) * 10) / 10
   const gwi_level = gwi >= 85 ? 'ÉLITE' : gwi >= 70 ? 'AVANZADO' : gwi >= 50 ? 'INTERMEDIO' : 'BÁSICO'
 
+  // CPI — hardcoded for demo
+  const cpi_score = 62.4  // "En forma"
+  const cpi_trend = 0.8   // Positive trend
+  const cpi_status = 'active'
+
   // Patterns
   const patterns = [
     {
@@ -159,6 +164,7 @@ export async function GET() {
   return NextResponse.json({
     player: { name: 'Carlos Méndez', pais: 'CL', indice: 2, categoria: 'A', member_since: '2025-07-01' },
     gwi, gwi_delta, gwi_level, gwi_series,
+    cpi: { score: cpi_score, trend: cpi_trend, status: cpi_status },
     stats: {
       avg_score: Math.round(avg_score * 10) / 10,
       best_score, worst_score,

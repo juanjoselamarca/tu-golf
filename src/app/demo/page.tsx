@@ -7,6 +7,7 @@ import { GWIDisplay } from '@/components/GWIDisplay'
 interface DemoProfile {
   player: { name: string; pais: string; indice: number; categoria: string; member_since: string }
   gwi: number; gwi_delta: number; gwi_level: string; gwi_series: number[]
+  cpi: { score: number; trend: number; status: string }
   stats: {
     avg_score: number; best_score: number; worst_score: number; total_rounds: number
     avg_putts: number; gir_pct: number; fairways_pct: number
@@ -34,12 +35,29 @@ const MUTED = 'rgba(255,255,255,0.55)'
 const MONO = 'var(--font-dm-mono), monospace'
 const SERIF = 'var(--font-cormorant), serif'
 
+const cpiLevelLabel = (score: number) => {
+  if (score >= 75) return 'Forma excepcional'
+  if (score >= 60) return 'En forma'
+  if (score >= 40) return 'Estable'
+  if (score >= 25) return 'Bajo su nivel'
+  return 'Fuera de forma'
+}
+
+const cpiLevelColor = (score: number) => {
+  if (score >= 75) return GREEN
+  if (score >= 60) return GOLD
+  if (score >= 40) return 'rgba(255,255,255,0.6)'
+  if (score >= 25) return '#ffab40'
+  return RED
+}
+
 export default function DemoPage() {
   const [data, setData] = useState<DemoProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState(0)
   const [courseFilter, setCourseFilter] = useState('Todo')
   const [showAll, setShowAll] = useState(false)
+  const [showCpiInfo, setShowCpiInfo] = useState(false)
 
   useEffect(() => {
     fetch('/api/demo/profile')
@@ -145,6 +163,8 @@ export default function DemoPage() {
     )
   }
 
+  const cpiPct = Math.min(100, Math.max(0, data.cpi.score))
+
   return (
     <div style={{ background: BG, minHeight: '100vh', color: '#fff', paddingBottom: '80px' }}>
 
@@ -160,54 +180,112 @@ export default function DemoPage() {
           PERFIL DEMO
         </span>
         <Link href="/register" style={{
-          border: '1px solid rgba(196,153,42,0.5)', background: 'rgba(196,153,42,0.1)',
-          color: GOLD, padding: '6px 16px', borderRadius: '8px',
-          fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+          border: `1px solid ${GOLD}`, background: `linear-gradient(135deg, ${GOLD}, #a8821e)`,
+          color: '#fff', padding: '8px 20px', borderRadius: '10px',
+          fontSize: '14px', fontWeight: 700, textDecoration: 'none',
+          boxShadow: '0 2px 12px rgba(196,153,42,0.25)',
         }}>
           Crear mi cuenta gratis
         </Link>
       </div>
 
-      {/* === HEADER — single consolidated card === */}
+      {/* === HEADER — premium card with CPI + GWI === */}
       <div style={{
         margin: '16px', padding: '20px',
-        background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '16px',
+        background: `linear-gradient(135deg, rgba(196,153,42,0.06) 0%, rgba(196,153,42,0.02) 50%, ${CARD} 100%)`,
+        border: `1px solid ${CARD_BORDER}`, borderRadius: '16px',
       }}>
-        {/* Desktop: avatar left + info right. Mobile: centered stack */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
+        {/* Top: avatar + name + info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
           {/* Avatar */}
           <div style={{
-            width: '64px', height: '64px', borderRadius: '50%', flexShrink: 0,
+            width: '52px', height: '52px', borderRadius: '50%', flexShrink: 0,
             background: `linear-gradient(135deg, ${GOLD}, #8a6d1b)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '22px', fontWeight: 700, color: '#fff', fontFamily: SERIF,
+            fontSize: '18px', fontWeight: 700, color: '#fff', fontFamily: SERIF,
           }}>CM</div>
 
           {/* Info */}
-          <div style={{ flex: 1, minWidth: '180px' }}>
+          <div>
             <div style={{ fontSize: '20px', fontWeight: 600, fontFamily: SERIF }}>
               {player.name}
             </div>
             <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO, marginTop: '2px' }}>
-              Índice {player.indice} · Cat {player.categoria} · {stats.total_rounds} rondas
+              Indice {player.indice} · Cat {player.categoria} · {stats.total_rounds} rondas
             </div>
+          </div>
+        </div>
 
-            {/* GWI bar — single instance */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '12px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em' }}>GWI</span>
-                <span style={{ fontSize: '28px', fontWeight: 300, color: GOLD, fontFamily: SERIF, lineHeight: 1 }}>{data.gwi.toFixed(1)}</span>
-              </div>
+        {/* Divider */}
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 -4px 20px' }} />
+
+        {/* CPI + GWI side by side */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', gap: '0' }}>
+          {/* CPI column */}
+          <div style={{ paddingRight: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em' }}>CPI&trade;</span>
+              <button
+                onClick={() => setShowCpiInfo(true)}
+                style={{
+                  width: '18px', height: '18px', borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                  color: MUTED, fontSize: '11px', fontFamily: MONO, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: 0, lineHeight: 1,
+                }}
+                aria-label="Información sobre CPI"
+              >i</button>
+            </div>
+            <div style={{ fontSize: '32px', fontWeight: 300, color: cpiLevelColor(data.cpi.score), fontFamily: SERIF, lineHeight: 1 }}>
+              {data.cpi.score.toFixed(1)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+              <span style={{
+                padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
+                background: `${cpiLevelColor(data.cpi.score)}18`, color: cpiLevelColor(data.cpi.score),
+                fontFamily: MONO, letterSpacing: '0.04em',
+              }}>{cpiLevelLabel(data.cpi.score)}</span>
+              <span style={{
+                fontSize: '12px', fontFamily: MONO, fontWeight: 500,
+                color: data.cpi.trend > 0 ? GREEN : data.cpi.trend < 0 ? RED : MUTED,
+              }}>
+                {data.cpi.trend > 0 ? '\u25B2' : data.cpi.trend < 0 ? '\u25BC' : ''}{data.cpi.trend > 0 ? '+' : ''}{data.cpi.trend.toFixed(1)}
+              </span>
+            </div>
+            {/* Progress bar */}
+            <div style={{
+              marginTop: '10px', height: '6px', background: 'rgba(255,255,255,0.06)',
+              borderRadius: '3px', overflow: 'hidden',
+            }}>
+              <div style={{
+                height: '100%', width: `${cpiPct}%`,
+                background: `linear-gradient(90deg, ${cpiLevelColor(data.cpi.score)}cc, ${cpiLevelColor(data.cpi.score)})`,
+                borderRadius: '3px', transition: 'width 0.6s ease',
+              }} />
+            </div>
+          </div>
+
+          {/* Vertical divider */}
+          <div style={{ background: 'rgba(255,255,255,0.08)', width: '1px' }} />
+
+          {/* GWI column */}
+          <div style={{ paddingLeft: '16px' }}>
+            <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em', marginBottom: '6px' }}>GWI&trade;</div>
+            <div style={{ fontSize: '32px', fontWeight: 300, color: GOLD, fontFamily: SERIF, lineHeight: 1 }}>
+              {data.gwi.toFixed(1)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+              <span style={{
+                padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
+                background: 'rgba(201,168,76,0.12)', color: GOLD, fontFamily: MONO, letterSpacing: '0.08em',
+              }}>{data.gwi_level}</span>
               <span style={{
                 fontSize: '12px', fontFamily: MONO, fontWeight: 500,
                 color: data.gwi_delta > 0 ? GREEN : data.gwi_delta < 0 ? RED : MUTED,
               }}>
                 {data.gwi_delta > 0 ? '+' : ''}{data.gwi_delta.toFixed(1)}
               </span>
-              <span style={{
-                padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
-                background: 'rgba(201,168,76,0.12)', color: GOLD, fontFamily: MONO, letterSpacing: '0.08em',
-              }}>{data.gwi_level}</span>
             </div>
           </div>
         </div>
@@ -221,7 +299,7 @@ export default function DemoPage() {
             <button key={tab} onClick={() => setActiveTab(i)} style={{
               padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
               color: activeTab === i ? GOLD : 'rgba(255,255,255,0.6)',
-              fontSize: '13px', fontWeight: activeTab === i ? 700 : 400,
+              fontSize: '14px', fontWeight: activeTab === i ? 700 : 400,
               borderBottom: activeTab === i ? `3px solid ${GOLD}` : '3px solid transparent',
               fontFamily: MONO, whiteSpace: 'nowrap',
             }}>{tab}</button>
@@ -239,9 +317,9 @@ export default function DemoPage() {
       {/* === TAB CONTENT === */}
       <div style={{ padding: '20px 16px' }}>
 
-        {/* ——— TAB RESUMEN ——— */}
+        {/* --- TAB RESUMEN --- */}
         {activeTab === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
             {/* 2-col on desktop: gauge left, recent rounds right */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
               {/* Left: GWI gauge */}
@@ -256,7 +334,7 @@ export default function DemoPage() {
 
               {/* Right: Recent rounds */}
               <div>
-                <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>ÚLTIMAS 5 RONDAS</div>
+                <div style={{ fontSize: '12px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em', fontWeight: 700 }}>ULTIMAS 5 RONDAS</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {historial.slice(0, 5).map((r, i) => (
                     <div key={i} style={{
@@ -292,20 +370,20 @@ export default function DemoPage() {
                 <div key={i} style={{
                   background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '10px', padding: '12px 8px', textAlign: 'center',
                 }}>
-                  <div style={{ fontSize: '18px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
-                  <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, marginTop: '4px', letterSpacing: '0.05em' }}>{s.label}</div>
+                  <div style={{ fontSize: '32px', fontWeight: 600, color: GOLD, fontFamily: SERIF, lineHeight: 1.1 }}>{s.value}</div>
+                  <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, marginTop: '6px', letterSpacing: '0.05em' }}>{s.label}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* ——— TAB ESTADISTICAS ——— */}
+        {/* --- TAB ESTADISTICAS --- */}
         {activeTab === 1 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
             {/* Scoring trend SVG */}
             <div>
-              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>TENDENCIA DE SCORING</div>
+              <div style={{ fontSize: '12px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em', fontWeight: 700 }}>TENDENCIA DE SCORING</div>
               <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px' }}>
                 {renderTrendSVG()}
               </div>
@@ -313,7 +391,7 @@ export default function DemoPage() {
 
             {/* Par performance — dual bars */}
             <div>
-              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>RENDIMIENTO POR PAR</div>
+              <div style={{ fontSize: '12px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em', fontWeight: 700 }}>RENDIMIENTO POR PAR</div>
               <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {[
                   { label: 'Par 3', avg: stats.par3_avg, par: 3 },
@@ -362,14 +440,14 @@ export default function DemoPage() {
                   background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px', textAlign: 'center',
                 }}>
                   <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em', marginBottom: '6px' }}>{s.label}</div>
-                  <div style={{ fontSize: '28px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
+                  <div style={{ fontSize: '32px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
                 </div>
               ))}
             </div>
 
             {/* Score distribution — proportional colored bars + percentages */}
             <div>
-              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em' }}>DISTRIBUCIÓN DE SCORES</div>
+              <div style={{ fontSize: '12px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em', fontWeight: 700 }}>DISTRIBUCION DE SCORES</div>
               <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px' }}>
                 {(() => {
                   const items = [
@@ -403,7 +481,7 @@ export default function DemoPage() {
           </div>
         )}
 
-        {/* ——— TAB HISTORIAL ——— */}
+        {/* --- TAB HISTORIAL --- */}
         {activeTab === 2 && (
           <div>
             {/* Summary header */}
@@ -418,7 +496,7 @@ export default function DemoPage() {
                 { label: 'Peor', value: filteredHistorial.length > 0 ? String(Math.max(...filteredHistorial.map(r => r.gross))) : '--' },
               ].map((s, i) => (
                 <div key={i} style={{ textAlign: 'center', flex: 1, minWidth: '50px' }}>
-                  <div style={{ fontSize: '16px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
+                  <div style={{ fontSize: '20px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
                   <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.05em' }}>{s.label}</div>
                 </div>
               ))}
@@ -474,12 +552,12 @@ export default function DemoPage() {
                 width: '100%', padding: '12px', marginTop: '12px', background: 'rgba(255,255,255,0.04)',
                 border: `1px solid ${CARD_BORDER}`, borderRadius: '10px', cursor: 'pointer',
                 color: GOLD, fontSize: '13px', fontFamily: MONO,
-              }}>Ver más ({filteredHistorial.length - 10} rondas)</button>
+              }}>Ver mas ({filteredHistorial.length - 10} rondas)</button>
             )}
           </div>
         )}
 
-        {/* ——— TAB ANALISIS ——— */}
+        {/* --- TAB ANALISIS --- */}
         {activeTab === 3 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {patterns.map((p, i) => {
@@ -495,7 +573,7 @@ export default function DemoPage() {
                       padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 700,
                       background: `${bc}18`, color: bc, fontFamily: MONO, letterSpacing: '0.08em',
                     }}>{label}</span>
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{p.title}</span>
+                    <span style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{p.title}</span>
                   </div>
                   <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: '12px' }}>{p.description}</div>
 
@@ -528,7 +606,7 @@ export default function DemoPage() {
               border: '1px solid rgba(196,153,42,0.2)', borderRadius: '14px', padding: '24px', textAlign: 'center', marginTop: '10px',
             }}>
               <div style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginBottom: '8px' }}>
-                Análisis personalizado con IA
+                Analisis personalizado con IA
               </div>
               <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginBottom: '16px', lineHeight: 1.5 }}>
                 Registra tus rondas y descubre patrones, predicciones y recomendaciones basadas en tu juego real.
@@ -543,6 +621,147 @@ export default function DemoPage() {
           </div>
         )}
       </div>
+
+      {/* CPI Info Bottom Sheet */}
+      {showCpiInfo && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setShowCpiInfo(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 60,
+              background: 'rgba(0,0,0,0.6)',
+              animation: 'fadeIn 0.2s ease',
+            }}
+          />
+          {/* Bottom Sheet */}
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 70,
+            background: '#0e1c2f',
+            borderRadius: '20px 20px 0 0',
+            padding: '24px 20px 40px',
+            maxHeight: '85vh', overflowY: 'auto',
+            animation: 'slideUp 0.3s ease',
+            boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <span style={{ fontSize: '16px', fontWeight: 700, color: GOLD, fontFamily: MONO }}>
+                CPI&trade; &mdash; Current Performance Index
+              </span>
+              <button
+                onClick={() => setShowCpiInfo(false)}
+                style={{
+                  width: '28px', height: '28px', borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.08)', border: 'none',
+                  color: 'rgba(255,255,255,0.6)', fontSize: '16px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >&times;</button>
+            </div>
+
+            {/* Intro */}
+            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, marginBottom: '20px' }}>
+              Tu indice de rendimiento actual basado en tus ultimas rondas.
+            </p>
+
+            {/* How it's calculated */}
+            <div style={{ fontSize: '13px', fontWeight: 700, color: GOLD, fontFamily: MONO, marginBottom: '16px', letterSpacing: '0.05em' }}>
+              Como se calcula?
+            </div>
+
+            {[
+              {
+                num: '1',
+                title: 'Score Differential',
+                formula: '(Gross - CR) x (113 / Slope)',
+                desc: 'Normaliza tu score segun la dificultad de la cancha.',
+              },
+              {
+                num: '2',
+                title: 'Ponderacion temporal',
+                formula: null,
+                desc: 'Las rondas recientes pesan mas. Una ronda de hace 45 dias pesa 50%.',
+              },
+              {
+                num: '3',
+                title: 'Tendencia',
+                formula: null,
+                desc: 'Detecta si estas mejorando o empeorando con regresion lineal.',
+              },
+              {
+                num: '4',
+                title: 'Consistencia',
+                formula: null,
+                desc: 'Menos variacion = mejor CPI.',
+              },
+            ].map((item) => (
+              <div key={item.num} style={{ marginBottom: '16px', paddingLeft: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{
+                    width: '22px', height: '22px', borderRadius: '50%',
+                    background: 'rgba(196,153,42,0.15)', color: GOLD,
+                    fontSize: '12px', fontWeight: 700, fontFamily: MONO,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{item.num}</span>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>{item.title}</span>
+                </div>
+                {item.formula && (
+                  <div style={{
+                    fontFamily: MONO, fontSize: '12px', color: GOLD,
+                    background: 'rgba(196,153,42,0.08)', padding: '6px 10px',
+                    borderRadius: '6px', marginBottom: '4px', marginLeft: '30px',
+                  }}>{item.formula}</div>
+                )}
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, marginLeft: '30px' }}>
+                  {item.desc}
+                </div>
+              </div>
+            ))}
+
+            {/* Scale info */}
+            <div style={{
+              marginTop: '20px', padding: '16px',
+              background: 'rgba(255,255,255,0.03)', borderRadius: '12px',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '8px', letterSpacing: '0.08em' }}>
+                ESCALA: 0-100 (mayor = mejor)
+              </div>
+              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '12px' }}>
+                Ventana: ultimos 90 dias · Minimo: 3 rondas
+              </div>
+              {[
+                { range: '75+', label: 'Forma excepcional', color: GREEN },
+                { range: '60+', label: 'En forma', color: GOLD },
+                { range: '40+', label: 'Estable', color: 'rgba(255,255,255,0.6)' },
+                { range: '25+', label: 'Bajo su nivel', color: '#ffab40' },
+                { range: '<25', label: 'Fuera de forma', color: RED },
+              ].map((level) => (
+                <div key={level.range} style={{
+                  display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px',
+                }}>
+                  <span style={{ width: '36px', fontSize: '12px', fontFamily: MONO, fontWeight: 600, color: level.color, textAlign: 'right' }}>{level.range}</span>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: level.color }} />
+                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{level.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CSS animations */}
+          <style>{`
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes slideUp {
+              from { transform: translateY(100%); }
+              to { transform: translateY(0); }
+            }
+          `}</style>
+        </>
+      )}
 
       {/* Mobile CTA fixed bottom */}
       <div style={{

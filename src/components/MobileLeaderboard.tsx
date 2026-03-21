@@ -17,10 +17,20 @@ function scoreClr(v: number): string {
   return '#dc2626'
 }
 
-function gwiClr(g: number): string {
-  if (g >= 80) return '#16a34a'
-  if (g >= 60) return '#c4992a'
-  return '#dc2626'
+// GWI color based on value relative to field position (not absolute)
+// Since GWI sums to 100, the leader might have 25% and last place 3%
+function gwiClr(g: number, playerCount: number): string {
+  const avg = playerCount > 0 ? 100 / playerCount : 10
+  if (g >= avg * 2) return '#16a34a'   // well above average
+  if (g >= avg * 0.8) return '#374151' // around average — neutral
+  return '#94a8c0'                      // below average — muted, not red
+}
+
+// GWI delta color — this shows movement (up = green, down = red)
+function gwiDeltaClr(delta: number): string {
+  if (delta > 0) return '#16a34a'
+  if (delta < 0) return '#dc2626'
+  return '#94a8c0'
 }
 
 // Score colors from centralized system
@@ -195,12 +205,12 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                   {/* GWI Bloomberg */}
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                     <span style={{ fontSize: '10px', fontFamily: M, color: '#9ca3af', letterSpacing: '0.05em' }}>GWI</span>
-                    <span style={{ fontFamily: M, fontSize: '18px', fontWeight: 700, color: gwiClr(player.gwi) }}>
+                    <span style={{ fontFamily: M, fontSize: '18px', fontWeight: 700, color: gwiClr(player.gwi, filtered.length) }}>
                       {player.gwi.toFixed(1)}
                     </span>
                     <span style={{
                       fontFamily: M, fontSize: '11px', fontWeight: 700,
-                      color: player.gwiDelta >= 0 ? '#16a34a' : '#dc2626',
+                      color: gwiDeltaClr(player.gwiDelta),
                     }}>
                       {player.gwiDelta >= 0 ? '+' : ''}{player.gwiDelta.toFixed(1)}
                     </span>
