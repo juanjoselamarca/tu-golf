@@ -2,11 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 
-interface Props {
-  torneos:   number
-  golfistas: number
-}
-
 function useCountUp(end: number, durationMs: number, active: boolean) {
   const [count, setCount] = useState(0)
 
@@ -31,22 +26,37 @@ function useCountUp(end: number, durationMs: number, active: boolean) {
   return count
 }
 
-function StatItem({ end, label, active }: { end: number; label: string; active: boolean }) {
-  const count = useCountUp(end, 2000, active)
+interface StatCardProps {
+  value: string | number
+  label: string
+  sublabel?: string
+  active: boolean
+  animate?: boolean
+}
+
+function StatCard({ value, label, sublabel, active, animate }: StatCardProps) {
+  const numValue = typeof value === 'number' ? value : 0
+  const count = useCountUp(numValue, 2000, active && animate === true)
+  const displayValue = typeof value === 'number' ? `${count.toLocaleString('es-CL')}+` : value
 
   return (
     <div className={`flex flex-col items-center text-center ${active ? 'count-enter' : 'opacity-0'}`}>
       <div className="text-5xl lg:text-6xl font-display font-black text-gold mb-3 tabular-nums">
-        {count.toLocaleString('es-CL')}+
+        {animate ? displayValue : value}
       </div>
       <div className="text-sm font-sans text-gray-soft uppercase tracking-wider font-medium">
         {label}
       </div>
+      {sublabel && (
+        <div className="text-xs font-sans text-gray-soft/60 mt-1">
+          {sublabel}
+        </div>
+      )}
     </div>
   )
 }
 
-export default function StatsSection({ torneos, golfistas }: Props) {
+export default function StatsSection() {
   const [active, setActive] = useState(false)
   const ref = useRef<HTMLElement>(null)
 
@@ -69,16 +79,16 @@ export default function StatsSection({ torneos, golfistas }: Props) {
       <div className="gold-divider" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-12">
-          <StatItem end={torneos}   label="Torneos organizados"  active={active} />
-          <StatItem end={golfistas} label="Golfistas registrados" active={active} />
+          <StatCard value={244} label="Rondas analizadas" active={active} animate />
           <div className={`flex flex-col items-center text-center ${active ? 'count-enter' : 'opacity-0'}`}>
-            <div className="text-5xl lg:text-6xl font-display font-black text-gold mb-3">
-              $0
+            <div className="text-4xl lg:text-5xl font-display font-black text-gold mb-3">
+              tAIger+
             </div>
             <div className="text-sm font-sans text-gray-soft uppercase tracking-wider font-medium">
-              Siempre gratis
+              Coach IA · Psicología · Predicción
             </div>
           </div>
+          <StatCard value="40+" label="Canchas disponibles" active={active} />
         </div>
       </div>
       <div className="gold-divider" />

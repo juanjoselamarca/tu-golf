@@ -236,10 +236,10 @@ function RegisterContent() {
             {/* Índice */}
             <div>
               <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice de hándicap (opcional)</label>
-              <input type="number" min={0} max={54} step={0.1} placeholder="ej: 12.4 — si no lo conoces, déjalo vacío" value={indice} onChange={(e) => setIndice(e.target.value)}
+              <input type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ej: 12.4 — si no lo conoces, déjalo vacío" value={indice} onChange={(e) => setIndice(e.target.value)}
                 style={{ ...baseInput, border: '1px solid rgba(122,143,168,0.3)' }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
-                onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')} />
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)'; const v = e.target.value.replace(',', '.'); const n = parseFloat(v); if (!isNaN(n) && n >= 0 && n <= 54) setIndice(String(n)) }} />
             </div>
 
             {/* Submit */}

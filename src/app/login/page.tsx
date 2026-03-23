@@ -54,7 +54,7 @@ function LoginContent() {
   const router  = useRouter()
   const { showError, showWarning } = useToast()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect') || '/dashboard'
+  const redirectTo = searchParams.get('redirect') || searchParams.get('next') || '/dashboard'
   const isTournamentJoin = redirectTo.includes('/torneo/') && redirectTo.includes('/unirse')
 
   const [email,   setEmail]   = useState('')
@@ -63,6 +63,11 @@ function LoginContent() {
   const [loading, setLoading] = useState(false)
 
   const handleGoogle = async () => {
+    // Guardar destino en localStorage como fallback para WhatsApp WebView
+    // donde las cookies/params pueden perderse durante el flujo OAuth
+    if (typeof window !== 'undefined' && redirectTo !== '/dashboard') {
+      localStorage.setItem('golfers_post_login_redirect', redirectTo)
+    }
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'google',

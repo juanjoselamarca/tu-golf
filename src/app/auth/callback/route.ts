@@ -7,7 +7,9 @@ export async function GET(request: Request) {
   const code       = searchParams.get('code')
   const token_hash = searchParams.get('token_hash')
   const type       = searchParams.get('type')
-  const next       = sanitizeNext(searchParams.get('next'))
+  // Read 'next' from URL param; localStorage fallback is handled client-side
+  // after redirect lands on the destination page
+  const next       = sanitizeNext(searchParams.get('next') || searchParams.get('redirect'))
   const forwardedHost = request.headers.get('x-forwarded-host')
   const isLocalEnv    = process.env.NODE_ENV === 'development'
 

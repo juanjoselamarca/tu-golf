@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import HeroSection  from '@/components/HeroSection'
 import StatsSection from '@/components/StatsSection'
 import { createClient } from '@/utils/supabase/server'
@@ -27,10 +28,11 @@ const STEPS = [
 export default async function Home() {
   const supabase = await createClient()
 
-  const [{ count: torneos }, { count: golfistas }] = await Promise.all([
-    supabase.from('tournaments').select('*', { count: 'exact', head: true }),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-  ])
+  // Redirect logged-in users to dashboard
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) redirect('/dashboard')
+
+  // Stats are now hardcoded in StatsSection (no DB query needed)
 
   return (
     <div>
@@ -69,7 +71,7 @@ export default async function Home() {
       </section>
 
       {/* ── Stats ─────────────────────────────────────── */}
-      <StatsSection torneos={torneos ?? 0} golfistas={golfistas ?? 0} />
+      <StatsSection />
 
       {/* ── Cómo funciona ─────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-28">

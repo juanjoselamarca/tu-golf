@@ -5,6 +5,7 @@ import LogoutButton from '@/components/LogoutButton'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
 import { ExperiencePopupWrapper } from '@/components/ExperiencePopupWrapper'
 import { HoleColorBar } from '@/components/HoleColorBar'
+import { PostLoginRedirect } from '@/components/PostLoginRedirect'
 
 interface Tournament {
   id: string
@@ -84,6 +85,7 @@ export default async function DashboardPage() {
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+      <PostLoginRedirect />
       <ExperiencePopupWrapper />
 
       <main style={{ padding: 'clamp(24px, 4vw, 48px) clamp(16px, 4vw, 32px)', paddingBottom: '80px', maxWidth: '1100px', margin: '0 auto' }}>

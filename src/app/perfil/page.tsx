@@ -370,17 +370,20 @@ export default function PerfilPage() {
               <div>
                 <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice de handicap</label>
                 <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="54"
+                  type="text"
                   inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
                   placeholder="Ej: 12.5"
                   value={editIndice}
                   onChange={(e) => setEditIndice(e.target.value)}
                   style={inputStyle}
                   onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)'
+                    const v = e.target.value.replace(',', '.')
+                    const n = parseFloat(v)
+                    if (!isNaN(n) && n >= 0 && n <= 54) setEditIndice(String(n))
+                  }}
                 />
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '2px', flexWrap: 'wrap' }}>
