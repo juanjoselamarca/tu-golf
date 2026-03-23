@@ -86,6 +86,7 @@ interface RondaLibre {
   fecha:                 string
   estado:                string
   modo_juego:            ModoJuego
+  hoyo_inicio?:          number | null
   ronda_libre_jugadores: Jugador[]
 }
 

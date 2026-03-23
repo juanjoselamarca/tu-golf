@@ -107,6 +107,8 @@ export default function NuevaRondaLibrePage() {
   const [coursesDB, setCoursesDB] = useState<CourseDB[]>([])
   const [tees, setTees] = useState('azul')
   const [holes, setHoles] = useState<18 | 9>(18)
+  const [partidaSimultanea, setPartidaSimultanea] = useState(false)
+  const [hoyoInicio, setHoyoInicio] = useState(1)
   const [fechaStr, setFechaStr] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -209,6 +211,7 @@ export default function NuevaRondaLibrePage() {
       holes,
       fecha: fechaStr,
       estado: 'en_curso',
+      hoyo_inicio: partidaSimultanea ? hoyoInicio : 1,
     }
 
     // Intento 1: con modo_juego = 'gross'
@@ -714,6 +717,64 @@ export default function NuevaRondaLibrePage() {
                 })}
               </div>
             </div>
+          </div>
+
+          {/* Partida simultánea */}
+          <div style={{ marginTop: '16px' }}>
+            <div
+              onClick={() => {
+                setPartidaSimultanea(prev => { if (prev) setHoyoInicio(1); return !prev })
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
+                padding: '12px 16px', borderRadius: '12px',
+                background: partidaSimultanea ? 'rgba(196,153,42,0.08)' : 'transparent',
+                border: `1px solid ${partidaSimultanea ? 'rgba(196,153,42,0.2)' : 'transparent'}`,
+                transition: 'all 0.15s',
+              }}
+            >
+              <div style={{
+                width: '40px', height: '24px', borderRadius: '12px',
+                background: partidaSimultanea ? '#c4992a' : 'rgba(255,255,255,0.15)',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}>
+                <div style={{
+                  width: '18px', height: '18px', borderRadius: '50%', background: '#ffffff',
+                  position: 'absolute', top: '3px',
+                  left: partidaSimultanea ? '19px' : '3px',
+                  transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 500, color: '#edeae4' }}>Partida simultánea</div>
+                <div style={{ fontSize: '11px', color: '#94a8c0' }}>Empieza en un hoyo distinto al 1</div>
+              </div>
+            </div>
+
+            {partidaSimultanea && (
+              <div style={{ marginTop: '12px', padding: '0 4px' }}>
+                <div style={{ fontSize: '12px', color: '#94a8c0', marginBottom: '8px' }}>Hoyo de inicio:</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {Array.from({ length: holes - 1 }, (_, i) => i + 2).map(h => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => setHoyoInicio(h)}
+                      style={{
+                        width: '38px', height: '38px', borderRadius: '10px',
+                        fontSize: '14px', fontWeight: hoyoInicio === h ? 700 : 400,
+                        background: hoyoInicio === h ? '#c4992a' : 'rgba(255,255,255,0.06)',
+                        color: hoyoInicio === h ? '#070d18' : '#94a8c0',
+                        border: `1px solid ${hoyoInicio === h ? '#c4992a' : 'rgba(255,255,255,0.1)'}`,
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      {h}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Fecha */}

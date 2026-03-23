@@ -45,7 +45,7 @@ function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void })
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }
-interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; ronda_libre_jugadores: Jugador[] }
+interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; hoyo_inicio?: number | null; ronda_libre_jugadores: Jugador[] }
 interface HoleData { numero: number; par: number; stroke_index: number; yardaje: number | null }
 
 /* ── Tee → yardage column mapping ──────────────────────────────────── */
@@ -59,6 +59,15 @@ function getTeeYardageColumn(tee: string): string {
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
+/** Genera orden circular de hoyos. hoyoInicio=4, holes=18 → [4,5,...,18,1,2,3] */
+function generarOrdenHoyos(hoyoInicio: number, totalHoles: number): number[] {
+  const orden: number[] = []
+  for (let i = 0; i < totalHoles; i++) {
+    orden.push(((hoyoInicio - 1 + i) % totalHoles) + 1)
+  }
+  return orden
+}
+
 function lsKey(c: string, j: string) { return `ronda_${c}_${j}` }
 function lsSave(c: string, j: string, s: Record<number, number>) { try { localStorage.setItem(lsKey(c, j), JSON.stringify(s)) } catch {} }
 function lsLoad(c: string, j: string): Record<number, number> { try { return JSON.parse(localStorage.getItem(lsKey(c, j)) ?? '{}') } catch { return {} } }
@@ -194,7 +203,7 @@ function ScorePageContent() {
       const supabase = createClient()
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, ronda_libre_jugadores(id, nombre, user_id, scores)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, hoyo_inicio, ronda_libre_jugadores(id, nombre, user_id, scores)')
         .eq('codigo', codigo)
         .single()
       if (!data) { router.push('/dashboard'); return }
@@ -243,7 +252,13 @@ function ScorePageContent() {
 
       const preselect = jugadorParam ? r.ronda_libre_jugadores.find(j => j.id === jugadorParam)?.id ?? r.ronda_libre_jugadores[0]?.id : r.ronda_libre_jugadores[0]?.id
       setActiveJugadorId(preselect ?? null)
-      if (preselect) { const ex = initialScores[preselect] ?? {}; for (let h = 1; h <= r.holes; h++) { if (ex[h] == null) { setCurrentHole(h); break } } }
+      if (preselect) {
+        const ex = initialScores[preselect] ?? {}
+        const orden = generarOrdenHoyos(r.hoyo_inicio ?? 1, r.holes)
+        const firstEmpty = orden.find(h => ex[h] == null)
+        if (firstEmpty != null) setCurrentHole(firstEmpty)
+        else setCurrentHole(orden[0])
+      }
       setLoading(false)
     }
     load()
@@ -317,15 +332,22 @@ function ScorePageContent() {
       handleScoreChange(currentHole, holePar)
     }
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
-    const nextHole = currentHole + 1
-    setCurrentHole(nextHole)
-    // Player notification: update persistent notification
-    if (ronda && getNotifPrefs().player) {
-      const overUnder = totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : String(totalOverUnder)
-      updatePlayerNotification(ronda.course_name, nextHole, parMap[nextHole] ?? 4, overUnder, `/ronda-libre/${codigo}/score?hole=${nextHole}`)
+    // Use circular order for next hole
+    const nextIdx = currentHoleIdx + 1
+    if (nextIdx < ordenHoyos.length) {
+      const nextHole = ordenHoyos[nextIdx]
+      setCurrentHole(nextHole)
+      // Player notification: update persistent notification
+      if (ronda && getNotifPrefs().player) {
+        const overUnder = totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : String(totalOverUnder)
+        updatePlayerNotification(ronda.course_name, nextHole, parMap[nextHole] ?? 4, overUnder, `/ronda-libre/${codigo}/score?hole=${nextHole}`)
+      }
     }
   }
-  const goToPrevHole = () => { if (currentHole > 1) setCurrentHole(h => h - 1) }
+  const goToPrevHole = () => {
+    const prevIdx = currentHoleIdx - 1
+    if (prevIdx >= 0) setCurrentHole(ordenHoyos[prevIdx])
+  }
   const finalizeRound = async () => {
     if (!ronda || !activeJugadorId) return
     haptic(30)
@@ -400,11 +422,14 @@ function ScorePageContent() {
 
   const jugadores = ronda.ronda_libre_jugadores
   const totalHoles = ronda.holes
+  const hoyoInicio = ronda.hoyo_inicio ?? 1
+  const ordenHoyos = generarOrdenHoyos(hoyoInicio, totalHoles)
+  const currentHoleIdx = ordenHoyos.indexOf(currentHole)
+  const isLastHole = currentHoleIdx >= totalHoles - 1
   const par = parMap[currentHole] ?? 4
   const score = scores[activeJugadorId]?.[currentHole]
   const holeData = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole, yardaje: null }
   const activePlayer = jugadores.find(p => p.id === activeJugadorId)
-  const isLastHole = currentHole >= totalHoles
 
   // Total score
   let totalGross = 0, totalParPlayed = 0
@@ -499,9 +524,14 @@ function ScorePageContent() {
           }}>
             {darkMode ? '\u2600\uFE0F' : '\uD83C\uDF19'}
           </button>
-          <span style={{ fontSize: '12px', color: theme.textMuted, minWidth: '28px', textAlign: 'right' }}>
-            {currentHole}/{totalHoles}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1px', minWidth: '36px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#c4992a' }}>
+              H.{currentHole}
+            </span>
+            <span style={{ fontSize: '10px', color: theme.textMuted }}>
+              Thru {holesPlayed}/{totalHoles}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -701,7 +731,7 @@ function ScorePageContent() {
         padding: '8px 16px', paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
         display: 'flex', gap: '8px',
       }}>
-        {currentHole > 1 && (
+        {currentHoleIdx > 0 && (
           <button
             onTouchStart={() => {}}
             onClick={goToPrevHole}
