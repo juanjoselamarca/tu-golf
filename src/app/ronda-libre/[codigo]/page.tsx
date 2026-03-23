@@ -807,48 +807,78 @@ function RondaLibrePageContent() {
 
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
 
-          {/* ── Winner celebration banner (only when round is finished) ── */}
-          {isFinished && leaderboard.length > 0 && leaderboard[0].holesPlayed > 0 && (
-            <div style={{
-              background: 'linear-gradient(135deg, #111827 0%, #0a1628 100%)',
-              border: '1px solid rgba(196,153,42,0.2)',
-              borderRadius: '16px', padding: '20px', marginBottom: '16px',
-              textAlign: 'center',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-            }}>
-              <div style={{ fontSize: '40px', marginBottom: '8px' }}>
-                {leaderboard.length > 1 && leaderboard[0].vsPar === leaderboard[1].vsPar ? '🤝' : '🏆'}
-              </div>
-              <div style={{ fontSize: '11px', color: '#c4992a', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>
-                {leaderboard.length > 1 && leaderboard[0].vsPar === leaderboard[1].vsPar ? 'Empate' : 'Ganador'}
-              </div>
-              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', fontWeight: 700, color: '#edeae4', marginBottom: '4px' }}>
-                {leaderboard.length > 1 && leaderboard[0].vsPar === leaderboard[1].vsPar
-                  ? leaderboard.filter(j => j.vsPar === leaderboard[0].vsPar).map(j => j.nombre.split(' ')[0]).join(' y ')
-                  : leaderboard[0].nombre}
-              </div>
-              <div style={{
-                fontSize: '32px', fontWeight: 900, lineHeight: 1,
-                color: leaderboard[0].vsPar < 0 ? '#4ade80' : leaderboard[0].vsPar === 0 ? '#c4992a' : '#f87171',
-              }}>
-                {formatOverUnder(leaderboard[0].vsPar)}
-              </div>
-              <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '4px' }}>
-                {ronda.course_name}
-              </div>
-            </div>
-          )}
+          {/* ── Winner celebration + share CTA (finished rounds) ── */}
+          {isFinished && leaderboard.length > 0 && leaderboard[0].holesPlayed > 0 && (() => {
+            const isTie = leaderboard.length > 1 && leaderboard[0].vsPar === leaderboard[1].vsPar
+            const winnerScore = leaderboard[0].vsPar
+            const scoreColor = winnerScore < 0 ? '#16a34a' : winnerScore === 0 ? '#374151' : '#dc2626'
+            return (
+              <div style={{ marginBottom: '16px' }}>
+                {/* Winner card — white, clean */}
+                <div style={{
+                  background: '#ffffff', borderRadius: '16px',
+                  border: '1px solid #e5e7eb',
+                  overflow: 'hidden',
+                }}>
+                  {/* Gold accent bar */}
+                  <div style={{ height: '3px', background: 'linear-gradient(90deg, #c4992a, #d4a843, #c4992a)' }} />
+                  <div style={{ padding: '24px 20px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '4px' }}>{isTie ? '🤝' : '🏆'}</div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '6px' }}>
+                      {isTie ? 'Empate' : 'Ganador'}
+                    </div>
+                    <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>
+                      {isTie
+                        ? leaderboard.filter(j => j.vsPar === winnerScore).map(j => j.nombre.split(' ')[0]).join(' y ')
+                        : leaderboard[0].nombre}
+                    </div>
+                    <div style={{ fontSize: '36px', fontWeight: 900, color: scoreColor, lineHeight: 1 }}>
+                      {formatOverUnder(winnerScore)}
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#9ca3af', marginTop: '6px' }}>{ronda.course_name} · {fechaDisplay}</div>
+                  </div>
 
-          {/* Descubrir Golfers+ */}
-          <Link href="/" style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-            padding: '10px 16px', borderRadius: '10px', marginBottom: '12px',
-            background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.12)',
-            textDecoration: 'none',
-          }}>
-            <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 600 }}>Descubrir Golfers+</span>
-            <span style={{ color: '#c4992a', fontSize: '12px' }}>→</span>
-          </Link>
+                  {/* Share button — PROMINENT inside the card */}
+                  <div style={{ padding: '0 20px 20px' }}>
+                    <button
+                      onClick={async () => {
+                        const shareData: LeaderboardShareData = {
+                          players: leaderboard.filter(j => j.holesPlayed > 0).map(j => ({
+                            nombre: j.nombre, vsPar: j.vsPar, holesPlayed: j.holesPlayed, totalHoles: ronda.holes,
+                          })),
+                          courseName: ronda.course_name, fecha: fechaDisplay, rondaCodigo: codigo, isFinished: true,
+                        }
+                        await compartirLeaderboard(shareData)
+                      }}
+                      style={{
+                        width: '100%', padding: '16px',
+                        background: 'linear-gradient(135deg, #c4992a 0%, #d4a843 50%, #b8972f 100%)',
+                        color: '#0a1419', fontWeight: 700, fontSize: '16px',
+                        border: 'none', borderRadius: '12px', cursor: 'pointer',
+                        boxShadow: '0 4px 16px rgba(196,153,42,0.35)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      }}
+                    >
+                      Compartir leaderboard
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Descubrir Golfers+ — only for non-finished */}
+          {!isFinished && (
+            <Link href="/" style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              padding: '10px 16px', borderRadius: '10px', marginBottom: '12px',
+              background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.12)',
+              textDecoration: 'none',
+            }}>
+              <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 600 }}>Descubrir Golfers+</span>
+              <span style={{ color: '#c4992a', fontSize: '12px' }}>→</span>
+            </Link>
+          )}
 
           {/* Notification banner for spectators */}
           {isEnCurso && !getNotifPrefs().spectator && (
@@ -1090,8 +1120,8 @@ function RondaLibrePageContent() {
             </button>
           </div>
 
-          {/* Share leaderboard card (image) */}
-          {leaderboard.length > 0 && leaderboard.some(j => j.holesPlayed > 0) && (
+          {/* Share leaderboard (only when in progress — finished has prominent button above) */}
+          {!isFinished && leaderboard.length > 0 && leaderboard.some(j => j.holesPlayed > 0) && (
             <button
               onClick={async () => {
                 const shareData: LeaderboardShareData = {

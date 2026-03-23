@@ -510,134 +510,97 @@ function HistorialContent() {
                     onClick={() => toggleExpand(r.id)}
                     style={{
                       background: '#ffffff',
-                      borderRadius: '16px',
+                      borderBottom: '1px solid #f0f0f0',
                       padding: 0,
                       cursor: 'pointer',
-                      overflow: 'hidden',
-                      boxShadow: isOpen
-                        ? '0 8px 30px rgba(0,0,0,0.12), 0 0 0 1px rgba(196,153,42,0.15)'
-                        : '0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
-                      transition: 'box-shadow 0.3s ease, transform 0.2s ease',
                     }}
                   >
-                    {/* Card header */}
-                    <div style={{ padding: '16px 18px 12px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                      {/* Score badge */}
-                      <div style={{
-                        width: '56px', height: '56px', borderRadius: '14px', flexShrink: 0,
-                        background: isGood ? 'linear-gradient(135deg, #ecfdf5, #d1fae5)' : ov === 0 ? 'linear-gradient(135deg, #fffbeb, #fef3c7)' : 'linear-gradient(135deg, #f9fafb, #f3f4f6)',
-                        border: `1.5px solid ${isGood ? '#86efac' : ov === 0 ? '#fde68a' : '#e5e7eb'}`,
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <div style={{ fontSize: '22px', fontWeight: 800, color: isGood ? '#166534' : ov === 0 ? '#92400e' : '#374151', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                    {/* Row — Garmin-style: score left, info right, minimal */}
+                    <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      {/* Score — large, clean */}
+                      <div style={{ flexShrink: 0, textAlign: 'center', width: '48px' }}>
+                        <div style={{
+                          fontSize: '26px', fontWeight: 700, lineHeight: 1,
+                          color: isGood ? '#16a34a' : ov === 0 ? '#374151' : '#374151',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}>
                           {r.total_gross ?? '—'}
                         </div>
                         {ov != null && (
-                          <div style={{ fontSize: '10px', fontWeight: 600, color: isGood ? '#16a34a' : ov === 0 ? '#d97706' : '#9ca3af', marginTop: '1px' }}>
+                          <div style={{
+                            fontSize: '11px', fontWeight: 600, marginTop: '2px',
+                            color: isGood ? '#16a34a' : ov === 0 ? '#9ca3af' : '#dc2626',
+                          }}>
                             {formatOv(ov)}
                           </div>
                         )}
                       </div>
+                      {/* Divider line */}
+                      <div style={{ width: '1px', height: '36px', background: '#f0f0f0', flexShrink: 0 }} />
                       {/* Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {r.course_name}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '3px', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          <span>{dateStr}</span>
-                          {r.tee_color && <span style={{ color: '#d1d5db' }}>·</span>}
-                          {r.tee_color && <span>Tee {r.tee_color}</span>}
+                        <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
+                          {dateStr}{r.tee_color ? ` · ${r.tee_color}` : ''}
                         </div>
-                        {/* Inline stat pills */}
-                        {stats && (
-                          <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                            {stats.eagles > 0 && <span style={{ fontSize: '10px', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 7px', borderRadius: '6px' }}>{stats.eagles} Eagle</span>}
-                            {stats.birdies > 0 && <span style={{ fontSize: '10px', fontWeight: 700, color: '#166534', background: '#dcfce7', padding: '2px 7px', borderRadius: '6px' }}>{stats.birdies} Birdie</span>}
-                            {stats.bogeys + stats.doubles > 0 && <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', background: '#f3f4f6', padding: '2px 7px', borderRadius: '6px' }}>{stats.bogeys + stats.doubles} Bogey+</span>}
-                          </div>
-                        )}
                       </div>
-                      {/* Expand chevron + delete */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                        <span style={{ fontSize: '14px', color: '#d1d5db', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+                      {/* Right side: chevron */}
+                      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(r.id) }}
                           disabled={deleting === r.id}
-                          style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: '12px', padding: '2px 4px', opacity: 0.5 }}
+                          style={{ background: 'transparent', border: 'none', color: '#d1d5db', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
                         >
                           {deleting === r.id ? '…' : '×'}
                         </button>
+                        <span style={{ fontSize: '12px', color: '#d1d5db', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
                       </div>
                     </div>
 
-                    {/* Color bar */}
-                    <div style={{ padding: '0 18px 8px' }}>
-                      <HoleColorBar
-                        scores={(r.scores ?? []).map((s: number | null) => s != null ? { gross: s, par: 4 } : null)}
-                        totalHoles={18}
-                      />
-                    </div>
-
-                    {/* ── Expanded scorecard ── */}
+                    {/* ── Expanded scorecard — clean white ── */}
                     {isOpen && stats && (
-                      <div style={{ background: '#f9fafb', borderTop: '1px solid #f3f4f6', padding: '16px 18px' }}>
-                        {/* Front 9 */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Front 9</span>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>{stats.front9}</span>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '12px' }}>
-                          {Array.from({ length: 9 }, (_, i) => {
-                            const score = (r.scores ?? [])[i] ?? null
-                            const par = 4
-                            const diff = score != null ? score - par : null
-                            const bgColor = diff == null ? '#f3f4f6' : diff <= -2 ? '#fef3c7' : diff === -1 ? '#dcfce7' : diff === 0 ? '#ffffff' : diff === 1 ? '#fff7ed' : '#fee2e2'
-                            const textColor = diff == null ? '#d1d5db' : diff <= -2 ? '#92400e' : diff === -1 ? '#166534' : diff === 0 ? '#374151' : diff === 1 ? '#9a3412' : '#991b1b'
-                            const borderColor = diff == null ? '#e5e7eb' : diff <= -2 ? '#fde68a' : diff === -1 ? '#86efac' : diff === 0 ? '#e5e7eb' : diff === 1 ? '#fed7aa' : '#fca5a5'
-                            return (
-                              <div key={i} style={{
-                                background: bgColor, border: `1px solid ${borderColor}`, borderRadius: '8px',
-                                padding: '4px 2px', textAlign: 'center', display: 'flex', flexDirection: 'column',
-                                alignItems: 'center', justifyContent: 'center', minHeight: '46px',
-                              }}>
-                                <span style={{ fontSize: '9px', color: '#9ca3af', lineHeight: 1 }}>{i + 1}</span>
-                                <span style={{ fontSize: '15px', fontWeight: 700, color: textColor, lineHeight: 1.3 }}>{score ?? '–'}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        {/* Back 9 */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Back 9</span>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#374151' }}>{stats.back9}</span>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '14px' }}>
-                          {Array.from({ length: 9 }, (_, i) => {
-                            const score = (r.scores ?? [])[i + 9] ?? null
-                            const par = 4
-                            const diff = score != null ? score - par : null
-                            const bgColor = diff == null ? '#f3f4f6' : diff <= -2 ? '#fef3c7' : diff === -1 ? '#dcfce7' : diff === 0 ? '#ffffff' : diff === 1 ? '#fff7ed' : '#fee2e2'
-                            const textColor = diff == null ? '#d1d5db' : diff <= -2 ? '#92400e' : diff === -1 ? '#166534' : diff === 0 ? '#374151' : diff === 1 ? '#9a3412' : '#991b1b'
-                            const borderColor = diff == null ? '#e5e7eb' : diff <= -2 ? '#fde68a' : diff === -1 ? '#86efac' : diff === 0 ? '#e5e7eb' : diff === 1 ? '#fed7aa' : '#fca5a5'
-                            return (
-                              <div key={i + 9} style={{
-                                background: bgColor, border: `1px solid ${borderColor}`, borderRadius: '8px',
-                                padding: '4px 2px', textAlign: 'center', display: 'flex', flexDirection: 'column',
-                                alignItems: 'center', justifyContent: 'center', minHeight: '46px',
-                              }}>
-                                <span style={{ fontSize: '9px', color: '#9ca3af', lineHeight: 1 }}>{i + 10}</span>
-                                <span style={{ fontSize: '15px', fontWeight: 700, color: textColor, lineHeight: 1.3 }}>{score ?? '–'}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        {/* Stats row */}
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                          {stats.eagles > 0 && <span style={{ fontSize: '11px', fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '3px 10px', borderRadius: '8px' }}>{stats.eagles} Eagle{stats.eagles > 1 ? 's' : ''}</span>}
-                          {stats.birdies > 0 && <span style={{ fontSize: '11px', fontWeight: 700, color: '#166534', background: '#dcfce7', padding: '3px 10px', borderRadius: '8px' }}>{stats.birdies} Birdie{stats.birdies > 1 ? 's' : ''}</span>}
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', background: '#f3f4f6', padding: '3px 10px', borderRadius: '8px' }}>{stats.pars} Par{stats.pars !== 1 ? 'es' : ''}</span>
-                          {stats.bogeys > 0 && <span style={{ fontSize: '11px', fontWeight: 600, color: '#9a3412', background: '#fff7ed', padding: '3px 10px', borderRadius: '8px' }}>{stats.bogeys} Bogey{stats.bogeys > 1 ? 's' : ''}</span>}
-                          {stats.doubles > 0 && <span style={{ fontSize: '11px', fontWeight: 600, color: '#991b1b', background: '#fee2e2', padding: '3px 10px', borderRadius: '8px' }}>{stats.doubles} Doble{stats.doubles > 1 ? 's' : ''}+</span>}
+                      <div style={{ padding: '0 16px 16px' }}>
+                        {/* Separator */}
+                        <div style={{ height: '1px', background: '#f0f0f0', marginBottom: '14px' }} />
+
+                        {/* Score grid helper */}
+                        {[{ label: 'Front 9', start: 0, total: stats.front9 }, { label: 'Back 9', start: 9, total: stats.back9 }].map(half => (
+                          <div key={half.label} style={{ marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{half.label}</span>
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: '#374151' }}>{half.total}</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                              {Array.from({ length: 9 }, (_, i) => {
+                                const score = (r.scores ?? [])[half.start + i] ?? null
+                                const par = 4
+                                const diff = score != null ? score - par : null
+                                // Minimal color coding — only text color changes
+                                const textColor = diff == null ? '#d1d5db' : diff <= -2 ? '#c4992a' : diff === -1 ? '#16a34a' : diff === 0 ? '#374151' : diff === 1 ? '#d97706' : '#dc2626'
+                                return (
+                                  <div key={half.start + i} style={{
+                                    textAlign: 'center', padding: '6px 0',
+                                    background: diff != null && diff < 0 ? 'rgba(22,163,74,0.04)' : 'transparent',
+                                    borderRadius: '4px',
+                                  }}>
+                                    <div style={{ fontSize: '9px', color: '#c4c4c4', lineHeight: 1 }}>{half.start + i + 1}</div>
+                                    <div style={{ fontSize: '15px', fontWeight: 600, color: textColor, lineHeight: 1.5 }}>{score ?? '·'}</div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Stats — clean inline text */}
+                        <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#9ca3af', borderTop: '1px solid #f5f5f5', paddingTop: '10px' }}>
+                          {stats.eagles > 0 && <span style={{ color: '#c4992a', fontWeight: 600 }}>{stats.eagles} Eagle</span>}
+                          {stats.birdies > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>{stats.birdies} Birdie</span>}
+                          <span>{stats.pars} Par</span>
+                          {stats.bogeys > 0 && <span style={{ color: '#d97706' }}>{stats.bogeys} Bogey</span>}
+                          {stats.doubles > 0 && <span style={{ color: '#dc2626' }}>{stats.doubles} Doble+</span>}
                         </div>
                       </div>
                     )}
