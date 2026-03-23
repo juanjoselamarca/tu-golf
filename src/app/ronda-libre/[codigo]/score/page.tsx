@@ -522,7 +522,7 @@ function ScorePageContent() {
         borderBottom: `1px solid ${theme.border}`,
         background: theme.headerBg,
       }}>
-        <button onClick={handleExit} style={{
+        <button onClick={handleExit} aria-label="Salir de la ronda" style={{
           background: 'none', border: 'none', cursor: 'pointer',
           color: theme.buttonText, fontSize: '14px',
           padding: '8px', minWidth: '44px', minHeight: '44px',
@@ -538,7 +538,7 @@ function ScorePageContent() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
-          <button onClick={() => setDarkMode(!darkMode)} style={{
+          <button onClick={() => setDarkMode(!darkMode)} aria-label="Cambiar tema" style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: theme.textMuted, fontSize: '18px', padding: '8px',
             minWidth: '44px', minHeight: '44px',
@@ -716,6 +716,7 @@ function ScorePageContent() {
           onTouchStart={() => {}}
           onClick={() => handleScoreChange(currentHole, (score ?? par) - 1)}
           disabled={score != null && score <= 1}
+          aria-label="Disminuir score"
           style={{
             width: '80px', height: '80px', borderRadius: '20px',
             fontSize: '32px', fontWeight: 300,
@@ -733,6 +734,7 @@ function ScorePageContent() {
           onTouchStart={() => {}}
           onClick={() => handleScoreChange(currentHole, (score ?? par) + 1)}
           disabled={score != null && score >= 15}
+          aria-label="Aumentar score"
           style={{
             width: '80px', height: '80px', borderRadius: '20px',
             fontSize: '32px', fontWeight: 600,
@@ -777,6 +779,7 @@ function ScorePageContent() {
           <button
             onTouchStart={() => {}}
             onClick={goToPrevHole}
+            aria-label="Hoyo anterior"
             style={{
               flex: 1, padding: '14px', background: 'transparent',
               color: theme.textMuted, border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
@@ -788,6 +791,7 @@ function ScorePageContent() {
         <button
           onTouchStart={() => {}}
           onClick={isLastHole ? finalizeRound : goToNextHole}
+          aria-label={isLastHole ? 'Finalizar ronda' : 'Siguiente hoyo'}
           style={{
             flex: 2, padding: '14px', background: '#C4992A', color: '#070D18',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,

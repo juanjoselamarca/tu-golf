@@ -3,13 +3,30 @@
   "short_name": "Golfers+",
   "description": "Scoring en vivo, análisis con IA y coaching mental para el golfista amateur",
   "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#070d18",
   "theme_color": "#070d18",
   "orientation": "portrait",
   "categories": ["sports", "lifestyle"],
+  "lang": "es",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "icons": [
     { "src": "/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
     { "src": "/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nueva ronda",
+      "short_name": "Jugar",
+      "url": "/ronda-libre/nueva",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Mi historial",
+      "short_name": "Historial",
+      "url": "/perfil/historial"
+    }
   ]
 }

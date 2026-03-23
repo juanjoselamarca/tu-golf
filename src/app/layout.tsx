@@ -38,6 +38,19 @@ export const metadata: Metadata = {
   title: 'Golfers+ — Tu golf, potenciado por IA',
   description: 'La única plataforma en español que convierte los datos de tu golf en trabajo mental específico. Scoring en vivo, análisis estadístico y coaching IA.',
   keywords: ['golf', 'golfers plus', 'scoring golf', 'handicap', 'torneos amateur', 'coach golf IA', 'chile', 'tAIger'],
+  openGraph: {
+    title: 'Golfers+ — Tu golf, potenciado por IA',
+    description: 'Scoring en vivo, coach IA con psicologia deportiva y leaderboard interactivo. Gratis.',
+    url: 'https://tu-golf.vercel.app',
+    siteName: 'Golfers+',
+    locale: 'es_CL',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Golfers+ — Tu golf, potenciado por IA',
+    description: 'Scoring en vivo, coach IA y leaderboard interactivo.',
+  },
   // M13: PWA-ready
   applicationName: 'Golfers+',
   appleWebApp: {

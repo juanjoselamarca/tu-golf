@@ -619,6 +619,7 @@ function RondaLibrePageContent() {
               if (requireAuth('Ingresa tu score en la ronda')) return
               chooseRole('jugador')
             }}
+            aria-label="Soy jugador"
             style={{
               width: '100%', maxWidth: '360px', minHeight: '80px',
               background: '#c4992a', color: '#070d18',
@@ -637,6 +638,7 @@ function RondaLibrePageContent() {
 
           <button
             onClick={() => chooseRole('espectador')}
+            aria-label="Solo ver"
             style={{
               width: '100%', maxWidth: '360px', minHeight: '80px',
               background: 'rgba(14,28,47,0.8)', color: '#edeae4',
@@ -999,6 +1001,7 @@ function RondaLibrePageContent() {
                   {/* Row */}
                   <button
                     onClick={() => setExpanded(isExpanded ? null : j.id)}
+                    aria-label={isExpanded ? `Colapsar scorecard de ${j.nombre}` : `Expandir scorecard de ${j.nombre}`}
                     style={{
                       width: '100%', background: '#ffffff', border: 'none', cursor: 'pointer',
                       display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px',
@@ -1138,12 +1141,14 @@ function RondaLibrePageContent() {
           <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
             <button
               onClick={handleShare}
+              aria-label="Compartir ronda"
               style={{ flex: 1, background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366', fontSize: '13px', padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, minHeight: '44px' }}
             >
               Compartir
             </button>
             <button
               onClick={handleCopy}
+              aria-label="Copiar enlace de la ronda"
               style={{ flex: 1, background: '#ffffff', border: '1px solid #e5e7eb', color: '#374151', fontSize: '13px', padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, minHeight: '44px' }}
             >
               {copied ? '✓ Copiado' : 'Copiar link'}

@@ -33,7 +33,7 @@ export async function GET() {
       cpi_trend: resultado.trend,
       cpi_status: resultado.status,
     }).eq('id', user.id)
-  } catch { /* columns may not exist yet */ }
+  } catch (error) { console.error('[CPI]', error) }
 
   return NextResponse.json({ ...resultado, updatedAt: new Date().toISOString() })
 }

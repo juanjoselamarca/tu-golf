@@ -53,6 +53,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const { action, tournament_id } = body
 
+  if (!action || typeof action !== 'string') {
+    return NextResponse.json({ error: 'Missing or invalid action' }, { status: 400 })
+  }
+
   // Verify the caller is the tournament organizer
   const { data: tournament } = await supabase
     .from('tournaments')

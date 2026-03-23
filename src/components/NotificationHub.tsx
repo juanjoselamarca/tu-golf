@@ -115,7 +115,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
             <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#111827', margin: 0, fontFamily: '"Playfair Display", serif' }}>
               Notificaciones
             </h2>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', color: '#9ca3af', cursor: 'pointer', padding: '8px' }}>
+            <button onClick={onClose} aria-label="Cerrar notificaciones" style={{ background: 'none', border: 'none', fontSize: '20px', color: '#9ca3af', cursor: 'pointer', padding: '8px' }}>
               ×
             </button>
           </div>
@@ -158,6 +158,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
               <button
                 onClick={subscribed ? handleDisable : handleEnable}
                 disabled={loading}
+                aria-label={subscribed ? 'Desactivar notificaciones' : 'Activar notificaciones'}
                 style={{
                   padding: '10px 20px', borderRadius: '10px', border: 'none', cursor: 'pointer',
                   fontSize: '14px', fontWeight: 600,
@@ -181,6 +182,9 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
             {PREF_ITEMS.map(item => (
               <div
                 key={item.key}
+                role="switch"
+                aria-checked={prefs[item.key]}
+                aria-label={item.label}
                 onClick={() => togglePref(item.key)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',

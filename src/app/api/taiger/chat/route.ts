@@ -86,9 +86,15 @@ export async function POST(req: NextRequest) {
     // Fetch context from /api/taiger/context forwarding cookies
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3003'
     const cookieHeader = req.headers.get('cookie') || ''
-    const ctxRes = await fetch(`${baseUrl}/api/taiger/context`, {
-      headers: { cookie: cookieHeader },
-    })
+    let ctxRes: Response
+    try {
+      ctxRes = await fetch(`${baseUrl}/api/taiger/context`, {
+        headers: { cookie: cookieHeader },
+      })
+    } catch (fetchErr) {
+      console.error('[tAIger/chat] Error fetching context:', fetchErr)
+      return NextResponse.json({ error: 'No se pudo conectar con el servicio de contexto' }, { status: 502 })
+    }
 
     if (!ctxRes.ok) {
       return NextResponse.json({ error: 'No se pudo obtener contexto del jugador' }, { status: 502 })
@@ -168,7 +174,8 @@ export async function POST(req: NextRequest) {
         Connection: 'keep-alive',
       },
     })
-  } catch {
+  } catch (err) {
+    console.error('[tAIger/chat] Error interno:', err)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }

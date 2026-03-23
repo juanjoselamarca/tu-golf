@@ -96,7 +96,7 @@ export default async function DashboardPage() {
         </h1>
         <p style={{ fontSize: '16px', color: 'var(--text-2)', marginBottom: '32px' }}>
           {todayRound
-            ? `Jugaste ${todayRound.total_gross} golpes en ${todayRound.course_name}`
+            ? `Jugaste ${todayRound.total_gross ?? '—'} golpes en ${todayRound.course_name ?? 'Cancha'}`
             : '¿Listo para mejorar tu juego hoy?'}
         </p>
 

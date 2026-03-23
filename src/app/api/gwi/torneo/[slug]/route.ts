@@ -164,7 +164,8 @@ export async function GET(
     })
 
     return NextResponse.json({ inputs, totalHoyos, modoJuego: modo, parTotal })
-  } catch {
+  } catch (err) {
+    console.error('[GWI/torneo] Error interno:', err)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
