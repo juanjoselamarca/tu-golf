@@ -255,15 +255,15 @@ function HistorialContent() {
   const progress = Math.min(rounds.length / 50, 1)
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+    <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
 
       {/* ── Header ── */}
-      <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '20px 24px' }}>
+      <div style={{ background: '#ffffff', borderBottom: '1px solid #e5e7eb', padding: '20px 24px' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
             <div>
-              <Link href="/perfil" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', minHeight: '44px' }}>← Mi Perfil</Link>
-              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: 'var(--text)', margin: 0 }}>
+              <Link href="/perfil" style={{ color: '#9ca3af', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', minHeight: '44px' }}>← Mi Perfil</Link>
+              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#111827', margin: 0 }}>
                 Mi Historial
               </h1>
             </div>
@@ -290,12 +290,12 @@ function HistorialContent() {
               { label: 'Eagles',  value: String(aggEagles) },
             ].map(pill => (
               <div key={pill.label} style={{
-                background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.25)',
+                background: '#f9fafb', border: '1px solid #e5e7eb',
                 borderRadius: '20px', padding: '5px 14px',
                 display: 'flex', gap: '6px', alignItems: 'center',
               }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{pill.label}</span>
-                <span style={{ fontSize: '14px', color: '#c4992a', fontWeight: 700 }}>{pill.value}</span>
+                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{pill.label}</span>
+                <span style={{ fontSize: '14px', color: '#111827', fontWeight: 700 }}>{pill.value}</span>
               </div>
             ))}
           </div>
@@ -559,51 +559,105 @@ function HistorialContent() {
                       </div>
                     </div>
 
-                    {/* ── Expanded scorecard — clean white ── */}
-                    {isOpen && stats && (
-                      <div style={{ padding: '0 16px 16px' }}>
-                        {/* Separator */}
-                        <div style={{ height: '1px', background: '#f0f0f0', marginBottom: '14px' }} />
+                    {/* ── Expanded scorecard — PGA table style ── */}
+                    {isOpen && stats && (() => {
+                      const allScores = r.scores ?? []
+                      const scoreColor = (s: number | null) => {
+                        if (s == null) return '#d1d5db'
+                        const d = s - 4
+                        if (d <= -2) return '#c4992a'
+                        if (d === -1) return '#16a34a'
+                        if (d === 0) return '#374151'
+                        if (d === 1) return '#d97706'
+                        return '#dc2626'
+                      }
+                      const scoreBg = (s: number | null) => {
+                        if (s == null) return 'transparent'
+                        const d = s - 4
+                        if (d <= -2) return '#fffbeb'
+                        if (d === -1) return '#f0fdf4'
+                        return 'transparent'
+                      }
+                      return (
+                        <div style={{ padding: '0 16px 14px' }}>
+                          <div style={{ height: '1px', background: '#f0f0f0', marginBottom: '12px' }} />
 
-                        {/* Score grid helper */}
-                        {[{ label: 'Front 9', start: 0, total: stats.front9 }, { label: 'Back 9', start: 9, total: stats.back9 }].map(half => (
-                          <div key={half.label} style={{ marginBottom: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                              <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{half.label}</span>
-                              <span style={{ fontSize: '11px', fontWeight: 700, color: '#374151' }}>{half.total}</span>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
-                              {Array.from({ length: 9 }, (_, i) => {
-                                const score = (r.scores ?? [])[half.start + i] ?? null
-                                const par = 4
-                                const diff = score != null ? score - par : null
-                                // Minimal color coding — only text color changes
-                                const textColor = diff == null ? '#d1d5db' : diff <= -2 ? '#c4992a' : diff === -1 ? '#16a34a' : diff === 0 ? '#374151' : diff === 1 ? '#d97706' : '#dc2626'
-                                return (
-                                  <div key={half.start + i} style={{
-                                    textAlign: 'center', padding: '6px 0',
-                                    background: diff != null && diff < 0 ? 'rgba(22,163,74,0.04)' : 'transparent',
-                                    borderRadius: '4px',
-                                  }}>
-                                    <div style={{ fontSize: '9px', color: '#c4c4c4', lineHeight: 1 }}>{half.start + i + 1}</div>
-                                    <div style={{ fontSize: '15px', fontWeight: 600, color: textColor, lineHeight: 1.5 }}>{score ?? '·'}</div>
-                                  </div>
-                                )
-                              })}
-                            </div>
+                          {/* Scorecard table — horizontal scroll on small screens */}
+                          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '10px' }}>
+                            <table style={{ width: '100%', minWidth: '320px', borderCollapse: 'collapse', fontSize: '12px' }}>
+                              {/* FRONT 9 */}
+                              <thead>
+                                <tr>
+                                  <td style={{ padding: '4px 6px', fontSize: '9px', color: '#9ca3af', fontWeight: 600, letterSpacing: '0.05em' }}>HOYO</td>
+                                  {Array.from({ length: 9 }, (_, i) => (
+                                    <td key={i} style={{ padding: '4px 2px', textAlign: 'center', fontSize: '9px', color: '#9ca3af', fontWeight: 500 }}>{i + 1}</td>
+                                  ))}
+                                  <td style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', color: '#374151', fontWeight: 700, borderLeft: '1px solid #e5e7eb' }}>OUT</td>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td style={{ padding: '4px 6px', fontSize: '9px', color: '#9ca3af', fontWeight: 600 }}>SCORE</td>
+                                  {Array.from({ length: 9 }, (_, i) => {
+                                    const s = allScores[i] ?? null
+                                    return (
+                                      <td key={i} style={{ padding: '3px 2px', textAlign: 'center', background: scoreBg(s), borderRadius: '3px' }}>
+                                        <span style={{ fontSize: '14px', fontWeight: 600, color: scoreColor(s) }}>{s ?? '·'}</span>
+                                      </td>
+                                    )
+                                  })}
+                                  <td style={{ padding: '3px 4px', textAlign: 'center', fontSize: '14px', fontWeight: 700, color: '#374151', borderLeft: '1px solid #e5e7eb' }}>
+                                    {stats.front9}
+                                  </td>
+                                </tr>
+                              </tbody>
+                              {/* BACK 9 */}
+                              <thead>
+                                <tr>
+                                  <td style={{ padding: '8px 6px 4px', fontSize: '9px', color: '#9ca3af', fontWeight: 600, letterSpacing: '0.05em' }}>HOYO</td>
+                                  {Array.from({ length: 9 }, (_, i) => (
+                                    <td key={i} style={{ padding: '8px 2px 4px', textAlign: 'center', fontSize: '9px', color: '#9ca3af', fontWeight: 500 }}>{i + 10}</td>
+                                  ))}
+                                  <td style={{ padding: '8px 4px 4px', textAlign: 'center', fontSize: '9px', color: '#374151', fontWeight: 700, borderLeft: '1px solid #e5e7eb' }}>IN</td>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td style={{ padding: '4px 6px', fontSize: '9px', color: '#9ca3af', fontWeight: 600 }}>SCORE</td>
+                                  {Array.from({ length: 9 }, (_, i) => {
+                                    const s = allScores[i + 9] ?? null
+                                    return (
+                                      <td key={i} style={{ padding: '3px 2px', textAlign: 'center', background: scoreBg(s), borderRadius: '3px' }}>
+                                        <span style={{ fontSize: '14px', fontWeight: 600, color: scoreColor(s) }}>{s ?? '·'}</span>
+                                      </td>
+                                    )
+                                  })}
+                                  <td style={{ padding: '3px 4px', textAlign: 'center', fontSize: '14px', fontWeight: 700, color: '#374151', borderLeft: '1px solid #e5e7eb' }}>
+                                    {stats.back9}
+                                  </td>
+                                </tr>
+                                {/* TOTAL row */}
+                                <tr>
+                                  <td colSpan={10} style={{ borderTop: '1px solid #e5e7eb', padding: '6px 6px 2px' }} />
+                                  <td style={{ borderTop: '1px solid #e5e7eb', padding: '6px 4px 2px', textAlign: 'center', fontSize: '15px', fontWeight: 800, color: '#111827' }}>
+                                    {stats.total}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
-                        ))}
 
-                        {/* Stats — clean inline text */}
-                        <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#9ca3af', borderTop: '1px solid #f5f5f5', paddingTop: '10px' }}>
-                          {stats.eagles > 0 && <span style={{ color: '#c4992a', fontWeight: 600 }}>{stats.eagles} Eagle</span>}
-                          {stats.birdies > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>{stats.birdies} Birdie</span>}
-                          <span>{stats.pars} Par</span>
-                          {stats.bogeys > 0 && <span style={{ color: '#d97706' }}>{stats.bogeys} Bogey</span>}
-                          {stats.doubles > 0 && <span style={{ color: '#dc2626' }}>{stats.doubles} Doble+</span>}
+                          {/* Stats */}
+                          <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#9ca3af' }}>
+                            {stats.eagles > 0 && <span style={{ color: '#c4992a', fontWeight: 600 }}>{stats.eagles} Eagle</span>}
+                            {stats.birdies > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>{stats.birdies} Birdie</span>}
+                            <span>{stats.pars} Par</span>
+                            {stats.bogeys > 0 && <span style={{ color: '#d97706' }}>{stats.bogeys} Bogey</span>}
+                            {stats.doubles > 0 && <span style={{ color: '#dc2626' }}>{stats.doubles} Doble+</span>}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )
+                    })()}
                   </div>
                 )
               })}

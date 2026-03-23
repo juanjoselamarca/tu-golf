@@ -1023,57 +1023,86 @@ function RondaLibrePageContent() {
                     </span>
                   </button>
 
-                  {/* Expandable mini scorecard */}
-                  {isExpanded && j.holesPlayed > 0 && (
-                    <div style={{ padding: '4px 12px 14px', background: '#f9fafb', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                      {/* Front 9 */}
-                      <div style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
-                        Front 9
+                  {/* Expandable scorecard table with OUT/IN/TOTAL */}
+                  {isExpanded && j.holesPlayed > 0 && (() => {
+                    const front9Total = holeNums.slice(0, 9).reduce((sum, h) => {
+                      const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
+                      return sum + (s ?? 0)
+                    }, 0)
+                    const back9Total = holeNums.slice(9, 18).reduce((sum, h) => {
+                      const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
+                      return sum + (s ?? 0)
+                    }, 0)
+                    const sColor = (h: number) => {
+                      const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
+                      if (s == null) return '#d1d5db'
+                      const d = s - (parMap[h] ?? 4)
+                      if (d <= -2) return '#92400e'
+                      if (d === -1) return '#16a34a'
+                      if (d === 0) return '#374151'
+                      if (d === 1) return '#d97706'
+                      return '#dc2626'
+                    }
+                    const sBg = (h: number) => {
+                      const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
+                      if (s == null) return 'transparent'
+                      const d = s - (parMap[h] ?? 4)
+                      if (d <= -2) return '#fffbeb'
+                      if (d === -1) return '#f0fdf4'
+                      return 'transparent'
+                    }
+                    return (
+                      <div style={{ padding: '4px 12px 12px', background: '#f9fafb', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <table style={{ width: '100%', minWidth: '300px', borderCollapse: 'collapse' }}>
+                          <tbody>
+                            <tr>
+                              {holeNums.slice(0, 9).map(h => (
+                                <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: '#9ca3af' }}>{h}</td>
+                              ))}
+                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: '#374151', fontWeight: 700, borderLeft: '1px solid #e5e7eb' }}>OUT</td>
+                            </tr>
+                            <tr>
+                              {holeNums.slice(0, 9).map(h => {
+                                const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
+                                return (
+                                  <td key={h} style={{ padding: '2px 1px', textAlign: 'center', background: sBg(h), borderRadius: '3px' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 700, color: sColor(h) }}>{s ?? '·'}</span>
+                                  </td>
+                                )
+                              })}
+                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '12px', fontWeight: 800, color: '#374151', borderLeft: '1px solid #e5e7eb' }}>{front9Total}</td>
+                            </tr>
+                            {ronda.holes > 9 && (
+                              <>
+                                <tr><td colSpan={10} style={{ padding: '3px' }} /></tr>
+                                <tr>
+                                  {holeNums.slice(9, 18).map(h => (
+                                    <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: '#9ca3af' }}>{h}</td>
+                                  ))}
+                                  <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: '#374151', fontWeight: 700, borderLeft: '1px solid #e5e7eb' }}>IN</td>
+                                </tr>
+                                <tr>
+                                  {holeNums.slice(9, 18).map(h => {
+                                    const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
+                                    return (
+                                      <td key={h} style={{ padding: '2px 1px', textAlign: 'center', background: sBg(h), borderRadius: '3px' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: sColor(h) }}>{s ?? '·'}</span>
+                                      </td>
+                                    )
+                                  })}
+                                  <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '12px', fontWeight: 800, color: '#374151', borderLeft: '1px solid #e5e7eb' }}>{back9Total}</td>
+                                </tr>
+                                <tr>
+                                  <td colSpan={9} style={{ borderTop: '1px solid #e5e7eb', padding: '4px 0 0' }} />
+                                  <td style={{ borderTop: '1px solid #e5e7eb', padding: '4px 3px 0', textAlign: 'center', fontSize: '13px', fontWeight: 900, color: '#111827' }}>{front9Total + back9Total}</td>
+                                </tr>
+                              </>
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', marginBottom: '8px' }}>
-                        {holeNums.slice(0, 9).map(h => {
-                          const s    = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
-                          const p    = parMap[h] ?? 4
-                          const diff = s != null ? s - p : null
-                          const cellColor = diff != null ? (diff < 0 ? '#16a34a' : diff === 0 ? '#374151' : '#dc2626') : '#d1d5db'
-                          const cellBg = diff != null ? (diff < 0 ? '#f0fdf4' : diff === 0 ? '#f9fafb' : '#fef2f2') : '#f9fafb'
-                          return (
-                            <div key={h} style={{ textAlign: 'center', background: cellBg, borderRadius: '4px', padding: '3px 1px', border: `1px solid ${diff != null ? (diff < 0 ? '#bbf7d0' : diff === 0 ? '#e5e7eb' : '#fecaca') : '#e5e7eb'}` }}>
-                              <div style={{ fontSize: '8px', color: '#9ca3af', lineHeight: 1 }}>{h}</div>
-                              <div style={{ fontSize: '12px', fontWeight: 700, color: cellColor, lineHeight: 1.3 }}>
-                                {s ?? '·'}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {/* Back 9 */}
-                      {ronda.holes > 9 && (
-                        <>
-                          <div style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
-                            Back 9
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
-                            {holeNums.slice(9, 18).map(h => {
-                              const s    = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
-                              const p    = parMap[h] ?? 4
-                              const diff = s != null ? s - p : null
-                              const cellColor = diff != null ? (diff < 0 ? '#16a34a' : diff === 0 ? '#374151' : '#dc2626') : '#d1d5db'
-                              const cellBg = diff != null ? (diff < 0 ? '#f0fdf4' : diff === 0 ? '#f9fafb' : '#fef2f2') : '#f9fafb'
-                              return (
-                                <div key={h} style={{ textAlign: 'center', background: cellBg, borderRadius: '4px', padding: '3px 1px', border: `1px solid ${diff != null ? (diff < 0 ? '#bbf7d0' : diff === 0 ? '#e5e7eb' : '#fecaca') : '#e5e7eb'}` }}>
-                                  <div style={{ fontSize: '8px', color: '#9ca3af', lineHeight: 1 }}>{h}</div>
-                                  <div style={{ fontSize: '12px', fontWeight: 700, color: cellColor, lineHeight: 1.3 }}>
-                                    {s ?? '·'}
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
+                    )
+                  })()}
                 </div>
               )
             })}

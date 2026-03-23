@@ -808,39 +808,69 @@ function ScorePageContent() {
                 </div>
               )}
 
-              {/* Mini scorecard */}
-              <div style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '12px', marginBottom: '20px' }}>
-                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', textAlign: 'center' }}>Tarjeta</div>
-                {/* Front 9 */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', marginBottom: '4px' }}>
-                  {holeNums.slice(0, 9).map(h => {
-                    const s = playerScores[h]; const p = parMap[h] ?? 4
-                    const boxStyle = getHoleBoxStyle(s ?? null, p)
-                    const numStyle = getScoreNumberStyle(s ?? null, p)
-                    return (
-                      <div key={h} style={{ ...boxStyle, borderRadius: '4px', padding: '2px', textAlign: 'center', minHeight: '36px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.3)', lineHeight: 1 }}>{h}</span>
-                        <span style={{ ...numStyle, fontSize: '12px', fontWeight: 700, lineHeight: 1.3 }}>{s ?? '–'}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-                {totalHoles > 9 && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
-                    {holeNums.slice(9, 18).map(h => {
-                      const s = playerScores[h]; const p = parMap[h] ?? 4
-                      const boxStyle = getHoleBoxStyle(s ?? null, p)
-                      const numStyle = getScoreNumberStyle(s ?? null, p)
-                      return (
-                        <div key={h} style={{ ...boxStyle, borderRadius: '4px', padding: '2px', textAlign: 'center', minHeight: '36px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.3)', lineHeight: 1 }}>{h}</span>
-                          <span style={{ ...numStyle, fontSize: '12px', fontWeight: 700, lineHeight: 1.3 }}>{s ?? '–'}</span>
-                        </div>
-                      )
-                    })}
+              {/* Scorecard table with OUT/IN/TOTAL */}
+              {(() => {
+                const front9 = holeNums.slice(0, 9).reduce((sum, h) => sum + (playerScores[h] ?? 0), 0)
+                const back9 = holeNums.slice(9, 18).reduce((sum, h) => sum + (playerScores[h] ?? 0), 0)
+                const cColor = (h: number) => {
+                  const s = playerScores[h]; const p = parMap[h] ?? 4
+                  if (s == null) return 'rgba(255,255,255,0.2)'
+                  const d = s - p
+                  if (d <= -2) return '#c4992a'
+                  if (d === -1) return '#4ade80'
+                  if (d === 0) return 'rgba(255,255,255,0.7)'
+                  if (d === 1) return '#fbbf24'
+                  return '#f87171'
+                }
+                return (
+                  <div style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '10px', marginBottom: '20px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    <table style={{ width: '100%', minWidth: '300px', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        {/* Front 9 */}
+                        <tr>
+                          {holeNums.slice(0, 9).map(h => (
+                            <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>{h}</td>
+                          ))}
+                          <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, borderLeft: '1px solid rgba(255,255,255,0.08)' }}>OUT</td>
+                        </tr>
+                        <tr>
+                          {holeNums.slice(0, 9).map(h => (
+                            <td key={h} style={{ padding: '2px 1px', textAlign: 'center' }}>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: cColor(h) }}>{playerScores[h] ?? '·'}</span>
+                            </td>
+                          ))}
+                          <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: '#edeae4', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>{front9}</td>
+                        </tr>
+                        {/* Back 9 */}
+                        {totalHoles > 9 && (
+                          <>
+                            <tr><td colSpan={10} style={{ padding: '3px' }} /></tr>
+                            <tr>
+                              {holeNums.slice(9, 18).map(h => (
+                                <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>{h}</td>
+                              ))}
+                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, borderLeft: '1px solid rgba(255,255,255,0.08)' }}>IN</td>
+                            </tr>
+                            <tr>
+                              {holeNums.slice(9, 18).map(h => (
+                                <td key={h} style={{ padding: '2px 1px', textAlign: 'center' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 700, color: cColor(h) }}>{playerScores[h] ?? '·'}</span>
+                                </td>
+                              ))}
+                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: '#edeae4', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>{back9}</td>
+                            </tr>
+                            {/* Total */}
+                            <tr>
+                              <td colSpan={9} style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '4px 0 0' }} />
+                              <td style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '4px 3px 0', textAlign: 'center', fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>{finalScore.gross}</td>
+                            </tr>
+                          </>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-              </div>
+                )
+              })()}
 
               {/* CTAs — different for solo vs multi-player */}
               {(() => {
