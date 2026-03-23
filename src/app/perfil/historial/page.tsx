@@ -134,6 +134,13 @@ function HistorialContent() {
   }
   const avgOv = ovCount > 0 ? Math.round(ovSum / ovCount * 10) / 10 : null
 
+  /* ── Personal Record ── */
+  const bestRound = rounds.reduce<{ score: number; course: string } | null>((best, r) => {
+    if (r.total_gross == null) return best
+    if (!best || r.total_gross < best.score) return { score: r.total_gross, course: r.course_name }
+    return best
+  }, null)
+
   const [loadError, setLoadError] = useState(false)
 
   /* Auth */
@@ -492,6 +499,25 @@ function HistorialContent() {
           </div>
         )}
 
+        {/* ── Personal Record ── */}
+        {bestRound && (
+          <div style={{
+            background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb',
+            padding: '16px 20px', marginBottom: '16px',
+            display: 'flex', alignItems: 'center', gap: '16px',
+          }}>
+            <div style={{ fontSize: '32px', flexShrink: 0 }}>🏅</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '2px' }}>Personal Record</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                <span style={{ fontSize: '28px', fontWeight: 800, color: '#111827', fontVariantNumeric: 'tabular-nums' }}>{bestRound.score}</span>
+                <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>{formatOv(bestRound.score - 72)}</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>{bestRound.course}</div>
+            </div>
+          </div>
+        )}
+
         {/* ── Cards grid ── */}
         {rounds.length > 0 && (
           <>
@@ -584,7 +610,7 @@ function HistorialContent() {
 
                           {/* Scorecard table — horizontal scroll on small screens */}
                           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '10px' }}>
-                            <table style={{ width: '100%', minWidth: '320px', borderCollapse: 'collapse', fontSize: '12px' }}>
+                            <table style={{ width: '100%', minWidth: '380px', borderCollapse: 'collapse', fontSize: '12px' }}>
                               {/* FRONT 9 */}
                               <thead>
                                 <tr>

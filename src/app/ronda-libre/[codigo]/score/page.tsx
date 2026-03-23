@@ -353,6 +353,21 @@ function ScorePageContent() {
       })
     } catch { /* don't block finalization */ }
 
+    // Check if ALL players have completed all holes → finalize round
+    const holesCount = ronda.holes ?? 18
+    const { data: freshRonda } = await supabase
+      .from('rondas_libres')
+      .select('ronda_libre_jugadores(id, scores)')
+      .eq('codigo', codigo)
+      .single()
+    const allDone = (freshRonda?.ronda_libre_jugadores ?? []).every((j: { scores: Record<string, number> }) => {
+      const count = Object.keys(j.scores ?? {}).filter(k => { const n = parseInt(k); return n >= 1 && n <= holesCount }).length
+      return count >= holesCount
+    })
+    if (allDone) {
+      await supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
+    }
+
     // Calculate final score for modal
     const finalPlayerScores = scores[activeJugadorId] ?? {}
     const finalGross = Object.values(finalPlayerScores).reduce((a: number, b: number) => a + b, 0)
