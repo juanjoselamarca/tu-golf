@@ -107,6 +107,9 @@ function HistorialContent() {
   const [saving,   setSaving]   = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editScores, setEditScores] = useState<(number | null)[]>([])
+  const [savingEdit, setSavingEdit] = useState(false)
 
   // Form fields
   const [courseName, setCourseName] = useState('')
@@ -226,6 +229,36 @@ function HistorialContent() {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  const startEdit = (r: HistoricalRound) => {
+    setEditingId(r.id)
+    setEditScores([...(r.scores ?? [])].concat(Array(18).fill(null)).slice(0, 18))
+    // Auto-expand
+    setExpanded(prev => { const next = new Set(prev); next.add(r.id); return next })
+  }
+
+  const handleEditScore = (idx: number, value: string) => {
+    const num = value === '' ? null : parseInt(value)
+    setEditScores(prev => {
+      const next = [...prev]
+      next[idx] = (num != null && !isNaN(num) && num >= 1 && num <= 15) ? num : null
+      return next
+    })
+  }
+
+  const saveEdit = async (id: string) => {
+    setSavingEdit(true)
+    const filled = editScores.filter((s): s is number => s != null)
+    const totalGross = filled.reduce((a, b) => a + b, 0)
+    const supabase = createClient()
+    await supabase.from('historical_rounds').update({
+      scores: editScores,
+      total_gross: totalGross > 0 ? totalGross : null,
+    }).eq('id', id)
+    setRounds(prev => prev.map(r => r.id === id ? { ...r, scores: editScores, total_gross: totalGross > 0 ? totalGross : null } : r))
+    setEditingId(null)
+    setSavingEdit(false)
   }
 
   if (loading) return (
@@ -673,14 +706,76 @@ function HistorialContent() {
                             </table>
                           </div>
 
-                          {/* Stats */}
-                          <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#9ca3af' }}>
-                            {stats.eagles > 0 && <span style={{ color: '#c4992a', fontWeight: 600 }}>{stats.eagles} Eagle</span>}
-                            {stats.birdies > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>{stats.birdies} Birdie</span>}
-                            <span>{stats.pars} Par</span>
-                            {stats.bogeys > 0 && <span style={{ color: '#d97706' }}>{stats.bogeys} Bogey</span>}
-                            {stats.doubles > 0 && <span style={{ color: '#dc2626' }}>{stats.doubles} Doble+</span>}
+                          {/* Stats + Edit button */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#9ca3af' }}>
+                              {stats.eagles > 0 && <span style={{ color: '#c4992a', fontWeight: 600 }}>{stats.eagles} Eagle</span>}
+                              {stats.birdies > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>{stats.birdies} Birdie</span>}
+                              <span>{stats.pars} Par</span>
+                              {stats.bogeys > 0 && <span style={{ color: '#d97706' }}>{stats.bogeys} Bogey</span>}
+                              {stats.doubles > 0 && <span style={{ color: '#dc2626' }}>{stats.doubles} Doble+</span>}
+                            </div>
+                            {editingId !== r.id && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); startEdit(r) }}
+                                style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 12px', fontSize: '12px', color: '#6b7280', cursor: 'pointer', fontWeight: 500 }}
+                              >
+                                Editar
+                              </button>
+                            )}
                           </div>
+
+                          {/* Edit mode */}
+                          {editingId === r.id && (
+                            <div style={{ marginTop: '12px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }} onClick={(e) => e.stopPropagation()}>
+                              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: '8px' }}>Editar scores (1-15)</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '6px' }}>
+                                {Array.from({ length: 9 }, (_, i) => (
+                                  <div key={i} style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '8px', color: '#9ca3af', marginBottom: '2px' }}>{i + 1}</div>
+                                    <input
+                                      type="text" inputMode="numeric" pattern="[0-9]*"
+                                      value={editScores[i] ?? ''}
+                                      onChange={(e) => handleEditScore(i, e.target.value)}
+                                      style={{ width: '100%', textAlign: 'center', fontSize: '14px', fontWeight: 600, padding: '6px 0', border: '1px solid #e5e7eb', borderRadius: '6px', outline: 'none', background: '#ffffff', color: '#374151', boxSizing: 'border-box' }}
+                                      onFocus={(e) => { e.target.style.borderColor = '#c4992a'; e.target.select() }}
+                                      onBlur={(e) => { e.target.style.borderColor = '#e5e7eb' }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '10px' }}>
+                                {Array.from({ length: 9 }, (_, i) => (
+                                  <div key={i + 9} style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '8px', color: '#9ca3af', marginBottom: '2px' }}>{i + 10}</div>
+                                    <input
+                                      type="text" inputMode="numeric" pattern="[0-9]*"
+                                      value={editScores[i + 9] ?? ''}
+                                      onChange={(e) => handleEditScore(i + 9, e.target.value)}
+                                      style={{ width: '100%', textAlign: 'center', fontSize: '14px', fontWeight: 600, padding: '6px 0', border: '1px solid #e5e7eb', borderRadius: '6px', outline: 'none', background: '#ffffff', color: '#374151', boxSizing: 'border-box' }}
+                                      onFocus={(e) => { e.target.style.borderColor = '#c4992a'; e.target.select() }}
+                                      onBlur={(e) => { e.target.style.borderColor = '#e5e7eb' }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); saveEdit(r.id) }}
+                                  disabled={savingEdit}
+                                  style={{ flex: 1, padding: '10px', background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                                >
+                                  {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingId(null) }}
+                                  style={{ padding: '10px 16px', background: 'none', border: '1px solid #e5e7eb', color: '#6b7280', fontSize: '14px', borderRadius: '8px', cursor: 'pointer' }}
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })()}

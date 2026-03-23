@@ -927,6 +927,17 @@ function ScorePageContent() {
                     }}>
                       Analizar con tAIger+
                     </Link>
+                    <button
+                      onClick={() => { setRoundDone(false); setCurrentHole(1) }}
+                      style={{
+                        width: '100%', padding: '12px',
+                        background: 'none', border: 'none',
+                        color: 'rgba(255,255,255,0.35)', fontSize: '14px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Editar scores
+                    </button>
                   </div>
                 )
               })()}
