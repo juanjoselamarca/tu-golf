@@ -75,6 +75,7 @@ function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && 
 
 // Chip colors from centralized score-colors system
 import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult, getHoleBoxStyle, getScoreNumberStyle } from '@/lib/score-colors'
+import MiniLeaderboard from '@/components/MiniLeaderboard'
 import { compartirResultado } from '@/lib/share-card'
 import type { ShareCardData } from '@/lib/share-card'
 
@@ -663,7 +664,7 @@ function ScorePageContent() {
 
       {/* ── Central area — SCORE (flex:1, centered) ── */}
       <div
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', minHeight: 0 }}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', overflowY: 'auto', position: 'relative', minHeight: 0, paddingTop: '16px' }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -745,6 +746,26 @@ function ScorePageContent() {
         >+</button>
       </div>
 
+      {/* Spacer */}
+      <div style={{ flexGrow: 1, minHeight: '12px' }} />
+
+      {/* Mini leaderboard — visible scrolling down */}
+      {(ronda.ronda_libre_jugadores ?? []).length > 1 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 16px 4px' }}>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>En cancha</span>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+          </div>
+          <MiniLeaderboard
+            codigoRonda={codigo}
+            parMap={parMap}
+            currentUserId={ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.user_id ?? null}
+            totalHoles={ronda.holes}
+          />
+        </>
+      )}
+
       {/* ── Nav buttons (fixed bottom with safe area) ── */}
       <div style={{
         flexShrink: 0, background: theme.navBg,
@@ -817,7 +838,9 @@ function ScorePageContent() {
           if (!ronda || !activeJugadorId) return
           const jugador = (ronda.ronda_libre_jugadores ?? []).find(j => j.id === activeJugadorId)
           const shareData: ShareCardData = {
+            tipo: 'ronda_libre',
             ganador: jugador?.nombre ?? 'Jugador',
+            esEmpate: false,
             scoreGross: finalScore.gross,
             scoreDiff: diff,
             courseName: ronda.course_name,

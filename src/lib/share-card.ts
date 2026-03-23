@@ -1,7 +1,12 @@
-/* client-only — solo importar desde componentes con 'use client' */
+/* client-only — importar solo desde componentes con 'use client' */
 
-export interface ShareCardData {
+// ── Tipos ─────────────────────────────────────────────────────────
+
+export interface ShareCardRondaLibre {
+  tipo: 'ronda_libre'
   ganador: string
+  esEmpate: boolean
+  jugadores?: string[]
   scoreGross: number
   scoreDiff: number
   courseName: string
@@ -11,485 +16,300 @@ export interface ShareCardData {
   scoresByHole: Record<string | number, number>
   parsByHole: Record<number, number>
   holesPlayed: number
+  ranking?: Array<{ nombre: string; score: number; diff: number }>
 }
+
+export interface ShareCardTorneo {
+  tipo: 'torneo'
+  torneoNombre: string
+  jugadorNombre: string
+  posicion: number
+  totalJugadores: number
+  scoreGross: number
+  scoreDiff: number
+  courseName: string
+  fecha: string
+  birdies: number
+  eagles: number
+  scoresByHole: Record<string | number, number>
+  parsByHole: Record<number, number>
+}
+
+export type ShareCardData = ShareCardRondaLibre | ShareCardTorneo
+
+// Keep backwards compat
+export interface LeaderboardPlayer { nombre: string; vsPar: number; holesPlayed: number; totalHoles: number }
+export interface LeaderboardShareData { players: LeaderboardPlayer[]; courseName: string; fecha: string; rondaCodigo: string; isFinished: boolean }
+
+// ── Helpers internos ──────────────────────────────────────────────
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.lineTo(x + w - r, y)
-  ctx.arcTo(x + w, y, x + w, y + r, r)
-  ctx.lineTo(x + w, y + h - r)
-  ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
-  ctx.lineTo(x + r, y + h)
-  ctx.arcTo(x, y + h, x, y + h - r, r)
-  ctx.lineTo(x, y + r)
-  ctx.arcTo(x, y, x + r, y, r)
-  ctx.closePath()
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y)
+  ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r)
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h)
+  ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r)
+  ctx.arcTo(x, y, x + r, y, r); ctx.closePath()
 }
 
-export async function generarShareCard(data: ShareCardData): Promise<Blob> {
-  const W = 1080, H = 1920
-  const canvas = document.createElement('canvas')
-  canvas.width = W
-  canvas.height = H
-  const ctx = canvas.getContext('2d')!
+function drawDivider(ctx: CanvasRenderingContext2D, y: number, W: number) {
+  const grad = ctx.createLinearGradient(80, 0, W - 80, 0)
+  grad.addColorStop(0, 'transparent'); grad.addColorStop(0.5, 'rgba(201,168,76,0.6)'); grad.addColorStop(1, 'transparent')
+  ctx.save(); ctx.strokeStyle = grad; ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(80, y); ctx.lineTo(W - 80, y); ctx.stroke(); ctx.restore()
+}
 
-  // Background
+function scoreColor(diff: number): string {
+  return diff < 0 ? '#4ade80' : diff === 0 ? '#c9a84c' : '#f87171'
+}
+
+// ── Base: fondo + bordes + logo ───────────────────────────────────
+
+function drawBase(ctx: CanvasRenderingContext2D, W: number, H: number) {
   const bg = ctx.createLinearGradient(0, 0, W * 0.3, H)
-  bg.addColorStop(0, '#071510')
-  bg.addColorStop(0.3, '#0d1f16')
-  bg.addColorStop(0.7, '#111827')
-  bg.addColorStop(1, '#080c10')
-  ctx.fillStyle = bg
-  ctx.fillRect(0, 0, W, H)
+  bg.addColorStop(0, '#071510'); bg.addColorStop(0.3, '#0d1f16'); bg.addColorStop(0.7, '#111827'); bg.addColorStop(1, '#080c10')
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H)
 
-  // Subtle texture lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.012)'
-  ctx.lineWidth = 1
-  for (let i = -H; i < W + H; i += 50) {
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke()
-  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.012)'; ctx.lineWidth = 1
+  for (let i = -H; i < W + H; i += 50) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke() }
 
-  // Center glow
   const glow = ctx.createRadialGradient(W / 2, H * 0.35, 0, W / 2, H * 0.35, W * 0.8)
-  glow.addColorStop(0, 'rgba(201,168,76,0.08)')
-  glow.addColorStop(1, 'transparent')
-  ctx.fillStyle = glow
-  ctx.fillRect(0, 0, W, H)
+  glow.addColorStop(0, 'rgba(201,168,76,0.07)'); glow.addColorStop(1, 'transparent')
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H)
 
-  // Gold border
-  ctx.strokeStyle = 'rgba(201,168,76,0.5)'
-  ctx.lineWidth = 3
-  ctx.strokeRect(20, 20, W - 40, H - 40)
+  ctx.strokeStyle = 'rgba(201,168,76,0.45)'; ctx.lineWidth = 2.5; ctx.strokeRect(20, 20, W - 40, H - 40)
 
-  // Corner decorations
-  const cL = 60, cP = 20
-  ctx.strokeStyle = 'rgba(201,168,76,0.8)'
-  ctx.lineWidth = 2.5
-  const corners = [
-    [[cP, cP + cL], [cP, cP], [cP + cL, cP]],
-    [[W - cP - cL, cP], [W - cP, cP], [W - cP, cP + cL]],
-    [[cP, H - cP - cL], [cP, H - cP], [cP + cL, H - cP]],
-    [[W - cP - cL, H - cP], [W - cP, H - cP], [W - cP, H - cP - cL]],
-  ]
-  corners.forEach(pts => {
-    ctx.beginPath()
-    ctx.moveTo(pts[0][0], pts[0][1])
-    ctx.lineTo(pts[1][0], pts[1][1])
-    ctx.lineTo(pts[2][0], pts[2][1])
-    ctx.stroke()
-  })
+  const cL = 55, cP = 20
+  ctx.strokeStyle = 'rgba(201,168,76,0.75)'; ctx.lineWidth = 2
+  ;[[cP, cP + cL, cP, cP, cP + cL, cP], [W - cP - cL, cP, W - cP, cP, W - cP, cP + cL],
+    [cP, H - cP - cL, cP, H - cP, cP + cL, H - cP], [W - cP - cL, H - cP, W - cP, H - cP, W - cP, H - cP - cL]]
+    .forEach(([x1, y1, x2, y2, x3, y3]) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.stroke() })
 
-  // Logo
   ctx.textAlign = 'center'
-  ctx.font = 'bold 58px Georgia, serif'
-  ctx.fillStyle = '#c9a84c'
-  ctx.fillText('Golfers+', W / 2, 120)
-  ctx.font = '26px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.4)'
-  ctx.fillText('EL GOLF AMATEUR EN ESPAÑOL', W / 2, 158)
+  ctx.font = 'bold 54px Georgia, serif'; ctx.fillStyle = '#c9a84c'; ctx.fillText('Golfers', W / 2 - 26, 116)
+  ctx.fillStyle = '#ffffff'; ctx.fillText('+', W / 2 + 76, 116)
+  ctx.font = '22px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.4)'
+  ;(ctx as any).letterSpacing = '3px'; ctx.fillText('EL GOLF AMATEUR EN ESPAÑOL', W / 2, 150); (ctx as any).letterSpacing = '0px'
+  drawDivider(ctx, 175, W)
+}
 
-  // Divider
-  const div1 = ctx.createLinearGradient(80, 0, W - 80, 0)
-  div1.addColorStop(0, 'transparent')
-  div1.addColorStop(0.5, 'rgba(201,168,76,0.7)')
-  div1.addColorStop(1, 'transparent')
-  ctx.strokeStyle = div1
-  ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(80, 185); ctx.lineTo(W - 80, 185); ctx.stroke()
+// ── Scorecard 18 hoyos ───────────────────────────────────────────
 
-  // Trophy
-  ctx.font = '200px serif'
-  ctx.textAlign = 'center'
-  ctx.fillText('🏆', W / 2, 450)
-
-  // Title
-  ctx.font = 'bold 28px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.5)'
-  ctx.fillText('RONDA COMPLETADA', W / 2, 510)
-
-  // Player name
-  ctx.font = 'bold 76px Georgia, serif'
-  ctx.fillStyle = '#ffffff'
-  ctx.fillText(data.ganador, W / 2, 600)
-
-  // Score
-  const scoreColor = data.scoreDiff < 0 ? '#4ade80' : data.scoreDiff === 0 ? '#c9a84c' : '#f87171'
-  ctx.font = 'bold 220px Arial, sans-serif'
-  ctx.fillStyle = scoreColor
-  ctx.shadowColor = scoreColor
-  ctx.shadowBlur = 40
-  ctx.fillText(String(data.scoreGross), W / 2, 840)
-  ctx.shadowBlur = 0
-
-  // Diff
-  const diffText = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
-  ctx.font = 'bold 46px Arial, sans-serif'
-  ctx.fillStyle = scoreColor
-  ctx.fillText(diffText, W / 2, 900)
-
-  // Course + date
-  ctx.font = '34px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.55)'
-  ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 955)
-
-  // Divider 2
-  ctx.strokeStyle = div1
-  ctx.beginPath(); ctx.moveTo(80, 985); ctx.lineTo(W - 80, 985); ctx.stroke()
-
-  // Scorecard
-  const boxW = 96, boxH = 84, gapX = 6, gapY = 8
-  const totalW = 9 * boxW + 8 * gapX
-  const startX = (W - totalW) / 2
+function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<string | number, number>, pars: Record<number, number>, holes: number, startY: number, W: number) {
+  const boxW = 90, boxH = 80, gapX = 5, gapY = 6
+  const totalW = 9 * boxW + 8 * gapX; const startX = (W - totalW) / 2
 
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 9; col++) {
-      if (row * 9 + col + 1 > data.holesPlayed) break
-      const hole = row * 9 + col + 1
-      const score = data.scoresByHole[hole] ?? data.scoresByHole[String(hole)]
-      const par = data.parsByHole[hole] ?? 4
-      const diff = score != null ? score - par : null
+      const h = row * 9 + col + 1; if (h > holes) break
+      const s = scores[h] ?? scores[String(h)]; const p = pars[h] ?? 4
+      const d = s != null ? s - p : null
+      const x = startX + col * (boxW + gapX); const y = startY + row * (boxH + gapY)
 
-      const x = startX + col * (boxW + gapX)
-      const y = 1010 + row * (boxH + gapY)
-
-      let bgColor = 'rgba(255,255,255,0.06)', textClr = 'rgba(255,255,255,0.25)', borderClr = 'rgba(255,255,255,0.08)', bw = 1
-      if (diff !== null) {
-        if (diff <= -2) { bgColor = 'rgba(201,168,76,0.25)'; textClr = '#c9a84c'; borderClr = 'rgba(201,168,76,0.7)'; bw = 2 }
-        else if (diff === -1) { bgColor = 'rgba(74,222,128,0.2)'; textClr = '#4ade80'; borderClr = 'rgba(74,222,128,0.6)'; bw = 2 }
-        else if (diff === 0) { bgColor = 'rgba(255,255,255,0.06)'; textClr = 'rgba(255,255,255,0.75)'; borderClr = 'rgba(255,255,255,0.18)' }
-        else if (diff === 1) { bgColor = 'rgba(217,119,6,0.18)'; textClr = '#f59e0b'; borderClr = 'rgba(217,119,6,0.45)' }
-        else { bgColor = 'rgba(248,113,113,0.2)'; textClr = '#f87171'; borderClr = 'rgba(248,113,113,0.5)'; bw = 2 }
+      let bg = 'rgba(255,255,255,0.05)', tc = 'rgba(255,255,255,0.22)', bc = 'rgba(255,255,255,0.07)', bw = 1
+      if (d !== null) {
+        if (d <= -2) { bg = 'rgba(201,168,76,0.22)'; tc = '#c9a84c'; bc = 'rgba(201,168,76,0.65)'; bw = 2 }
+        else if (d === -1) { bg = 'rgba(74,222,128,0.18)'; tc = '#4ade80'; bc = 'rgba(74,222,128,0.55)'; bw = 2 }
+        else if (d === 0) { bg = 'rgba(255,255,255,0.05)'; tc = 'rgba(255,255,255,0.72)'; bc = 'rgba(255,255,255,0.16)' }
+        else if (d === 1) { bg = 'rgba(217,119,6,0.16)'; tc = '#f59e0b'; bc = 'rgba(217,119,6,0.42)' }
+        else { bg = 'rgba(248,113,113,0.18)'; tc = '#f87171'; bc = 'rgba(248,113,113,0.48)'; bw = 2 }
       }
 
-      roundRect(ctx, x, y, boxW, boxH, 10)
-      ctx.fillStyle = bgColor; ctx.fill()
-      ctx.strokeStyle = borderClr; ctx.lineWidth = bw; ctx.stroke()
-
-      ctx.font = '18px Arial, sans-serif'
-      ctx.fillStyle = 'rgba(255,255,255,0.35)'
+      roundRect(ctx, x, y, boxW, boxH, 9); ctx.fillStyle = bg; ctx.fill()
+      ctx.strokeStyle = bc; ctx.lineWidth = bw; ctx.stroke()
       ctx.textAlign = 'center'
-      ctx.fillText(String(hole), x + boxW / 2, y + 24)
-
-      ctx.font = 'bold 38px Arial, sans-serif'
-      ctx.fillStyle = textClr
-      ctx.fillText(score != null ? String(score) : '–', x + boxW / 2, y + 66)
+      ctx.font = '16px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.32)'; ctx.fillText(String(h), x + boxW / 2, y + 21)
+      ctx.font = 'bold 36px Arial, sans-serif'; ctx.fillStyle = tc; ctx.fillText(s != null ? String(s) : '–', x + boxW / 2, y + 63)
     }
   }
+}
 
-  // Stats
-  const statsY = 1210
-  const statsItems: string[] = []
-  if (data.eagles > 0) statsItems.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
-  if (data.birdies > 0) statsItems.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
-  if (statsItems.length > 0) {
-    ctx.fillStyle = '#c9a84c'
-    ctx.font = 'bold 32px Arial, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText(statsItems.join('    '), W / 2, statsY)
-  }
+// ── CTA inferior ─────────────────────────────────────────────────
 
-  // CTA box
+function drawCTA(ctx: CanvasRenderingContext2D, W: number, H: number) {
   const ctaY = H - 380
-  roundRect(ctx, 80, ctaY, W - 160, 200, 20)
-  const ctaBg = ctx.createLinearGradient(80, ctaY, W - 80, ctaY + 200)
-  ctaBg.addColorStop(0, 'rgba(201,168,76,0.15)')
-  ctaBg.addColorStop(1, 'rgba(201,168,76,0.05)')
-  ctx.fillStyle = ctaBg; ctx.fill()
-  ctx.strokeStyle = 'rgba(201,168,76,0.4)'; ctx.lineWidth = 1; ctx.stroke()
+  roundRect(ctx, 80, ctaY, W - 160, 200, 18)
+  const bg = ctx.createLinearGradient(80, ctaY, W - 80, ctaY + 200)
+  bg.addColorStop(0, 'rgba(201,168,76,0.14)'); bg.addColorStop(1, 'rgba(201,168,76,0.05)')
+  ctx.fillStyle = bg; ctx.fill(); ctx.strokeStyle = 'rgba(201,168,76,0.38)'; ctx.lineWidth = 1; ctx.stroke()
 
   ctx.textAlign = 'center'
-  ctx.font = 'bold 40px Georgia, serif'
-  ctx.fillStyle = '#c9a84c'
-  ctx.fillText('Scoring · IA Coach · Live Leaderboard', W / 2, ctaY + 65)
-  ctx.font = '38px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.85)'
-  ctx.fillText('tu-golf.vercel.app', W / 2, ctaY + 118)
-  ctx.font = '28px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.4)'
-  ctx.fillText('Primera plataforma de golf en español', W / 2, ctaY + 158)
+  ctx.font = 'bold 38px Georgia, serif'; ctx.fillStyle = '#c9a84c'; ctx.fillText('Scoring · IA Coach · Live Leaderboard', W / 2, ctaY + 60)
+  ctx.font = '34px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.82)'; ctx.fillText('tu-golf.vercel.app', W / 2, ctaY + 108)
+  ctx.font = '24px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.fillText('Primera plataforma de golf en español', W / 2, ctaY + 148)
 
-  // Footer
-  ctx.font = 'bold 30px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(201,168,76,0.6)'
-  ctx.fillText('#GolfersMas  ⛳  #GolfLatAm', W / 2, H - 130)
-  ctx.font = '24px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.2)'
-  ctx.fillText('Golfers+ — El golf amateur en español', W / 2, H - 80)
+  ctx.font = 'bold 26px Arial, sans-serif'; ctx.fillStyle = 'rgba(201,168,76,0.55)'; ctx.fillText('#GolfersMas  ⛳  #GolfLatAm', W / 2, H - 130)
+  ctx.font = '22px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillText('Golfers+ — El golf amateur en español', W / 2, H - 80)
+}
+
+// ── Template: Ronda Libre ────────────────────────────────────────
+
+function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLibre, W: number, H: number) {
+  ctx.textAlign = 'center'
+  ctx.font = '180px serif'; ctx.fillText(data.esEmpate ? '🤝' : '🏆', W / 2, 420)
+
+  ctx.font = 'bold 24px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.45)'
+  ;(ctx as any).letterSpacing = '3px'
+  ctx.fillText(data.esEmpate ? 'EMPATE ÉPICO' : 'GANADOR DE LA RONDA', W / 2, 470)
+  ;(ctx as any).letterSpacing = '0px'
+
+  const name = data.esEmpate && data.jugadores ? data.jugadores.map(n => n.split(' ')[0]).join(' · ') : data.ganador
+  ctx.font = 'bold 68px Georgia, serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(name, W / 2, 560)
+
+  const clr = scoreColor(data.scoreDiff)
+  ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 35
+  ctx.font = 'bold 210px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(String(data.scoreGross), W / 2, 790)
+  ctx.restore()
+
+  const diffTxt = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
+  ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
+  ctx.font = '32px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 900)
+
+  drawDivider(ctx, 930, W)
+  drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.holesPlayed, 955, W)
+
+  const statsY = 1170
+  const items: string[] = []
+  if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
+  if (data.birdies > 0) items.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
+  if (items.length > 0) { ctx.font = 'bold 30px Arial, sans-serif'; ctx.fillStyle = '#c9a84c'; ctx.textAlign = 'center'; ctx.fillText(items.join('    '), W / 2, statsY) }
+
+  if (data.ranking && data.ranking.length > 1) {
+    const rkY = items.length > 0 ? statsY + 48 : statsY
+    roundRect(ctx, 80, rkY, W - 160, data.ranking.length * 56 + 16, 14)
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1; ctx.stroke()
+    data.ranking.forEach((j, i) => {
+      const ly = rkY + 16 + i * 56
+      ctx.textAlign = 'left'; ctx.font = `${i === 0 ? 'bold ' : ''}28px Arial, sans-serif`
+      ctx.fillStyle = i === 0 ? '#ffffff' : 'rgba(255,255,255,0.45)'; ctx.fillText(`${i + 1}. ${j.nombre}`, 110, ly + 36)
+      ctx.textAlign = 'right'; ctx.font = 'bold 28px Arial, sans-serif'; ctx.fillStyle = scoreColor(j.diff)
+      ctx.fillText(`${j.score} (${j.diff >= 0 ? '+' : ''}${j.diff})`, W - 110, ly + 36)
+    })
+  }
+}
+
+// ── Template: Torneo ─────────────────────────────────────────────
+
+function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: number, H: number) {
+  const posEmoji = data.posicion === 1 ? '🥇' : data.posicion === 2 ? '🥈' : data.posicion === 3 ? '🥉' : `#${data.posicion}`
+  ctx.textAlign = 'center'; ctx.font = '140px serif'; ctx.fillText(posEmoji, W / 2, 370)
+
+  ctx.font = 'bold 36px Georgia, serif'; ctx.fillStyle = '#c9a84c'
+  ctx.fillText(data.torneoNombre.length > 30 ? data.torneoNombre.slice(0, 28) + '…' : data.torneoNombre, W / 2, 420)
+
+  const posTxt = data.posicion === 1 ? 'CAMPEÓN' : data.posicion <= 3 ? `${data.posicion}DO LUGAR` : `POSICIÓN #${data.posicion}`
+  ctx.font = 'bold 28px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'
+  ;(ctx as any).letterSpacing = '3px'; ctx.fillText(posTxt, W / 2, 462); (ctx as any).letterSpacing = '0px'
+
+  ctx.font = 'bold 64px Georgia, serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(data.jugadorNombre, W / 2, 548)
+
+  const clr = scoreColor(data.scoreDiff)
+  ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 30
+  ctx.font = 'bold 200px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(String(data.scoreGross), W / 2, 760); ctx.restore()
+
+  const diffTxt = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
+  ctx.font = 'bold 40px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 815)
+  ctx.font = '30px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 862)
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillText(`${data.totalJugadores} jugadores`, W / 2, 898)
+
+  drawDivider(ctx, 928, W)
+  drawScorecard(ctx, data.scoresByHole, data.parsByHole, 18, 953, W)
+
+  const items: string[] = []
+  if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
+  if (data.birdies > 0) items.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
+  if (items.length > 0) { ctx.font = 'bold 30px Arial, sans-serif'; ctx.fillStyle = '#c9a84c'; ctx.textAlign = 'center'; ctx.fillText(items.join('    '), W / 2, 1168) }
+}
+
+// ── Generador principal ──────────────────────────────────────────
+
+export async function generarShareCard(data: ShareCardData): Promise<Blob> {
+  const W = 1080, H = 1920
+  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')!; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'
+
+  drawBase(ctx, W, H)
+  if (data.tipo === 'ronda_libre') dibujarRondaLibre(ctx, data, W, H)
+  else dibujarTorneo(ctx, data, W, H)
+  drawCTA(ctx, W, H)
 
   return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')),
-      'image/png',
-      0.95
-    )
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')), 'image/png', 0.95)
   })
 }
+
+// ── Compartir con fallbacks ──────────────────────────────────────
 
 export async function compartirResultado(data: ShareCardData): Promise<{ success: boolean; method: 'share' | 'download' }> {
   const blob = await generarShareCard(data)
-  const fileName = `golfers-${data.ganador.split(' ')[0].toLowerCase()}-${Date.now()}.png`
+  const nombre = data.tipo === 'ronda_libre' ? (data.esEmpate ? 'empate' : data.ganador.split(' ')[0].toLowerCase()) : (data as ShareCardTorneo).jugadorNombre.split(' ')[0].toLowerCase()
+  const fileName = `golfers-${nombre}-${Date.now()}.png`
   const file = new File([blob], fileName, { type: 'image/png' })
 
-  const texto = `${data.ganador} completó la ronda en ${data.courseName}! Score: ${data.scoreGross} (${data.scoreDiff >= 0 ? '+' : ''}${data.scoreDiff}). Jugado en Golfers+ 🏆 tu-golf.vercel.app`
+  const texto = data.tipo === 'ronda_libre'
+    ? `${data.esEmpate ? 'Empate épico' : data.ganador + ' gano'} en ${data.courseName}! Score: ${data.scoreGross} (${data.scoreDiff >= 0 ? '+' : ''}${data.scoreDiff}). Golfers+ tu-golf.vercel.app`
+    : `${(data as ShareCardTorneo).jugadorNombre} quedo #${(data as ShareCardTorneo).posicion} en ${(data as ShareCardTorneo).torneoNombre}. Score: ${data.scoreGross}. Golfers+ tu-golf.vercel.app`
 
   if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Resultado — Golfers+', text: texto })
-      return { success: true, method: 'share' }
-    } catch { /* user cancelled or error */ }
+    try { await navigator.share({ files: [file], title: 'Resultado — Golfers+', text: texto }); return { success: true, method: 'share' } } catch (e) { if ((e as Error).name === 'AbortError') return { success: false, method: 'share' } }
   }
-
   if (typeof navigator.share === 'function') {
-    try {
-      await navigator.share({ title: 'Resultado — Golfers+', text: texto, url: 'https://tu-golf.vercel.app' })
-      return { success: true, method: 'share' }
-    } catch { /* fallback */ }
+    try { await navigator.share({ title: 'Resultado — Golfers+', text: texto, url: 'https://tu-golf.vercel.app' }); return { success: true, method: 'share' } } catch {}
   }
-
-  // Fallback: download
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = fileName
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fileName
   document.body.appendChild(a); a.click(); document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 5000)
   return { success: true, method: 'download' }
 }
 
-/* ── Leaderboard Share Card ─────────────────────────────────────────── */
-
-export interface LeaderboardPlayer {
-  nombre: string
-  vsPar: number
-  holesPlayed: number
-  totalHoles: number
-}
-
-export interface LeaderboardShareData {
-  players: LeaderboardPlayer[]
-  courseName: string
-  fecha: string
-  rondaCodigo: string
-  isFinished: boolean
-}
-
-export async function generarLeaderboardCard(data: LeaderboardShareData): Promise<Blob> {
-  const W = 1080, H = 1920
-  const canvas = document.createElement('canvas')
-  canvas.width = W; canvas.height = H
-  const ctx = canvas.getContext('2d')!
-
-  // Background — dark premium
-  const bg = ctx.createLinearGradient(0, 0, W * 0.3, H)
-  bg.addColorStop(0, '#070d18')
-  bg.addColorStop(0.5, '#0e1c2f')
-  bg.addColorStop(1, '#070d18')
-  ctx.fillStyle = bg
-  ctx.fillRect(0, 0, W, H)
-
-  // Texture
-  ctx.strokeStyle = 'rgba(255,255,255,0.008)'
-  ctx.lineWidth = 1
-  for (let i = -H; i < W + H; i += 60) {
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke()
-  }
-
-  // Gold border
-  ctx.strokeStyle = 'rgba(196,153,42,0.5)'
-  ctx.lineWidth = 3
-  ctx.strokeRect(20, 20, W - 40, H - 40)
-
-  // Corner decorations
-  const cL = 50, cP = 20
-  ctx.strokeStyle = 'rgba(196,153,42,0.8)'
-  ctx.lineWidth = 2.5
-  ;[[cP, cP + cL, cP, cP, cP + cL, cP], [W - cP - cL, cP, W - cP, cP, W - cP, cP + cL],
-    [cP, H - cP - cL, cP, H - cP, cP + cL, H - cP], [W - cP - cL, H - cP, W - cP, H - cP, W - cP, H - cP - cL]]
-    .forEach(([x1, y1, x2, y2, x3, y3]) => {
-      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.stroke()
-    })
-
-  // Logo — Golfers+
-  ctx.textAlign = 'center'
-  ctx.font = 'bold 64px Georgia, serif'
-  ctx.fillStyle = '#c9a84c'
-  ctx.fillText('Golfers+', W / 2, 130)
-
-  // Subtitle
-  ctx.font = '24px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.35)'
-  ctx.fillText('LEADERBOARD', W / 2, 170)
-
-  // Divider
-  const div1 = ctx.createLinearGradient(80, 0, W - 80, 0)
-  div1.addColorStop(0, 'transparent')
-  div1.addColorStop(0.5, 'rgba(196,153,42,0.7)')
-  div1.addColorStop(1, 'transparent')
-  ctx.strokeStyle = div1; ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(80, 200); ctx.lineTo(W - 80, 200); ctx.stroke()
-
-  // Course + date
-  ctx.font = 'bold 36px Georgia, serif'
-  ctx.fillStyle = '#edeae4'
-  ctx.fillText(data.courseName, W / 2, 260)
-  ctx.font = '26px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.4)'
-  ctx.fillText(data.fecha + (data.isFinished ? '  ·  Resultado final' : '  ·  En vivo'), W / 2, 300)
-
-  // Trophy for winner
-  if (data.isFinished && data.players.length > 0) {
-    ctx.font = '120px serif'
-    ctx.fillText('🏆', W / 2, 440)
-
-    const winner = data.players[0]
-    const isTie = data.players.length > 1 && data.players[1].vsPar === winner.vsPar
-    ctx.font = 'bold 24px Arial, sans-serif'
-    ctx.fillStyle = '#c9a84c'
-    ctx.fillText(isTie ? 'EMPATE' : 'GANADOR', W / 2, 480)
-
-    ctx.font = 'bold 56px Georgia, serif'
-    ctx.fillStyle = '#ffffff'
-    if (isTie) {
-      const tied = data.players.filter(p => p.vsPar === winner.vsPar)
-      ctx.fillText(tied.map(p => p.nombre.split(' ')[0]).join(' y '), W / 2, 540)
-    } else {
-      ctx.fillText(winner.nombre, W / 2, 540)
-    }
-  }
-
-  // Leaderboard table
-  const tableY = data.isFinished ? 600 : 360
-  const rowH = 90
-  const tableW = W - 160
-  const tableX = 80
-
-  // Table header
-  roundRect(ctx, tableX, tableY, tableW, 50, 12)
-  ctx.fillStyle = 'rgba(196,153,42,0.12)'
-  ctx.fill()
-
-  ctx.font = 'bold 20px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(196,153,42,0.7)'
-  ctx.textAlign = 'left'
-  ctx.fillText('POS', tableX + 24, tableY + 33)
-  ctx.fillText('JUGADOR', tableX + 100, tableY + 33)
-  ctx.textAlign = 'right'
-  ctx.fillText('SCORE', tableX + tableW - 140, tableY + 33)
-  ctx.fillText('HOYOS', tableX + tableW - 24, tableY + 33)
-
-  // Player rows
-  const sortedPlayers = [...data.players].sort((a, b) => a.vsPar - b.vsPar)
-  sortedPlayers.slice(0, 8).forEach((player, idx) => {
-    const rowY = tableY + 55 + idx * rowH
-    const isLeader = idx === 0
-
-    // Row background
-    roundRect(ctx, tableX, rowY, tableW, rowH - 4, idx === sortedPlayers.length - 1 ? 12 : 0)
-    ctx.fillStyle = isLeader
-      ? 'rgba(196,153,42,0.08)'
-      : idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)'
-    ctx.fill()
-
-    if (isLeader) {
-      ctx.fillStyle = '#c9a84c'
-      ctx.fillRect(tableX, rowY, 4, rowH - 4)
-    }
-
-    // Divider line
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)'
-    ctx.lineWidth = 1
-    ctx.beginPath(); ctx.moveTo(tableX, rowY + rowH - 4); ctx.lineTo(tableX + tableW, rowY + rowH - 4); ctx.stroke()
-
-    // Position
-    ctx.textAlign = 'left'
-    ctx.font = `bold 28px Arial, sans-serif`
-    ctx.fillStyle = isLeader ? '#c9a84c' : 'rgba(255,255,255,0.35)'
-    ctx.fillText(String(idx + 1), tableX + 28, rowY + 52)
-
-    // Name
-    ctx.font = `${isLeader ? 'bold ' : ''}30px Arial, sans-serif`
-    ctx.fillStyle = isLeader ? '#ffffff' : 'rgba(255,255,255,0.7)'
-    ctx.fillText(player.nombre, tableX + 100, rowY + 52)
-
-    // Score
-    ctx.textAlign = 'right'
-    ctx.font = 'bold 34px Arial, sans-serif'
-    const scoreColor = player.vsPar < 0 ? '#4ade80' : player.vsPar === 0 ? '#c9a84c' : '#f87171'
-    ctx.fillStyle = scoreColor
-    const scoreStr = player.vsPar === 0 ? 'E' : player.vsPar > 0 ? `+${player.vsPar}` : String(player.vsPar)
-    ctx.fillText(scoreStr, tableX + tableW - 140, rowY + 52)
-
-    // Holes
-    ctx.font = '24px Arial, sans-serif'
-    ctx.fillStyle = player.holesPlayed >= player.totalHoles ? '#4ade80' : 'rgba(255,255,255,0.3)'
-    ctx.fillText(`${player.holesPlayed}/${player.totalHoles}`, tableX + tableW - 24, rowY + 52)
-  })
-
-  // CTA box
-  const ctaY = H - 350
-  roundRect(ctx, 80, ctaY, W - 160, 180, 20)
-  const ctaBg = ctx.createLinearGradient(80, ctaY, W - 80, ctaY + 180)
-  ctaBg.addColorStop(0, 'rgba(196,153,42,0.12)')
-  ctaBg.addColorStop(1, 'rgba(196,153,42,0.04)')
-  ctx.fillStyle = ctaBg; ctx.fill()
-  ctx.strokeStyle = 'rgba(196,153,42,0.3)'; ctx.lineWidth = 1; ctx.stroke()
-
-  ctx.textAlign = 'center'
-  ctx.font = 'bold 36px Georgia, serif'
-  ctx.fillStyle = '#c9a84c'
-  ctx.fillText('Scoring · IA Coach · Live Leaderboard', W / 2, ctaY + 60)
-  ctx.font = '34px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.85)'
-  ctx.fillText('tu-golf.vercel.app', W / 2, ctaY + 108)
-  ctx.font = '24px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.35)'
-  ctx.fillText('Primera plataforma de golf en español', W / 2, ctaY + 145)
-
-  // Footer
-  ctx.font = 'bold 28px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(196,153,42,0.5)'
-  ctx.fillText('#GolfersMas  ⛳  #GolfLatAm', W / 2, H - 110)
-  ctx.font = '22px Arial, sans-serif'
-  ctx.fillStyle = 'rgba(255,255,255,0.15)'
-  ctx.fillText('Golfers+ — El golf amateur en español', W / 2, H - 70)
-
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')),
-      'image/png', 0.95
-    )
-  })
-}
+// ── Leaderboard share (backwards compat) ─────────────────────────
 
 export async function compartirLeaderboard(data: LeaderboardShareData): Promise<{ success: boolean; method: 'share' | 'download' }> {
-  const blob = await generarLeaderboardCard(data)
-  const fileName = `golfers-leaderboard-${Date.now()}.png`
-  const file = new File([blob], fileName, { type: 'image/png' })
-
+  // Convert to ronda_libre format
   const winner = data.players[0]
-  const scoreStr = winner.vsPar === 0 ? 'E' : winner.vsPar > 0 ? `+${winner.vsPar}` : String(winner.vsPar)
-  const texto = data.isFinished
-    ? `${winner.nombre} gano en ${data.courseName} (${scoreStr})! Leaderboard completo en Golfers+ 🏆 tu-golf.vercel.app/ronda-libre/${data.rondaCodigo}?finished=true`
-    : `Sigue la ronda en vivo en ${data.courseName}! Golfers+ ⛳ tu-golf.vercel.app/ronda-libre/${data.rondaCodigo}`
+  const isTie = data.players.length > 1 && data.players[1].vsPar === winner.vsPar
+  const cardData: ShareCardRondaLibre = {
+    tipo: 'ronda_libre', ganador: winner.nombre, esEmpate: isTie,
+    jugadores: isTie ? data.players.filter(p => p.vsPar === winner.vsPar).map(p => p.nombre) : undefined,
+    scoreGross: 72 + winner.vsPar, scoreDiff: winner.vsPar,
+    courseName: data.courseName, fecha: data.fecha, birdies: 0, eagles: 0,
+    scoresByHole: {}, parsByHole: {}, holesPlayed: winner.totalHoles,
+    ranking: data.players.map(p => ({ nombre: p.nombre, score: 72 + p.vsPar, diff: p.vsPar })),
+  }
+  return compartirResultado(cardData)
+}
 
-  if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Leaderboard — Golfers+', text: texto })
-      return { success: true, method: 'share' }
-    } catch { /* cancelled */ }
+// ── Builder helper ───────────────────────────────────────────────
+
+export function buildShareCardRondaLibre(params: {
+  jugadores: Array<{ nombre: string; scores: Record<string, number>; indice?: number }>
+  holesData: Array<{ numero: number; par: number }>
+  courseName: string
+}): ShareCardRondaLibre {
+  const { jugadores, holesData, courseName } = params
+  const parTotal = holesData.length > 0 ? holesData.reduce((a, h) => a + h.par, 0) : 72
+  const parsByHole: Record<number, number> = {}; holesData.forEach(h => { parsByHole[h.numero] = h.par })
+
+  const conScore = jugadores.map(j => ({
+    ...j, grossTotal: Object.values(j.scores ?? {}).reduce((a, b) => a + Number(b), 0),
+  })).filter(j => j.grossTotal > 0).sort((a, b) => a.grossTotal - b.grossTotal)
+
+  if (conScore.length === 0) {
+    return { tipo: 'ronda_libre', ganador: jugadores[0]?.nombre ?? 'Jugador', esEmpate: false, scoreGross: 0, scoreDiff: 0, courseName, fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }), birdies: 0, eagles: 0, scoresByHole: {}, parsByHole, holesPlayed: holesData.length }
   }
 
-  if (typeof navigator.share === 'function') {
-    try {
-      await navigator.share({ title: 'Leaderboard — Golfers+', text: texto, url: `https://tu-golf.vercel.app/ronda-libre/${data.rondaCodigo}` })
-      return { success: true, method: 'share' }
-    } catch { /* fallback */ }
-  }
+  const min = conScore[0].grossTotal; const ganadores = conScore.filter(j => j.grossTotal === min)
+  const g = ganadores[0]; const esEmpate = ganadores.length > 1
+  const entries = Object.entries(g.scores ?? {})
+  const birdies = entries.filter(([h, s]) => Number(s) === (parsByHole[parseInt(h)] ?? 4) - 1).length
+  const eagles = entries.filter(([h, s]) => Number(s) <= (parsByHole[parseInt(h)] ?? 4) - 2).length
 
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = fileName
-  document.body.appendChild(a); a.click(); document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 5000)
-  return { success: true, method: 'download' }
+  return {
+    tipo: 'ronda_libre', ganador: g.nombre, esEmpate,
+    jugadores: esEmpate ? ganadores.map(x => x.nombre) : undefined,
+    scoreGross: g.grossTotal, scoreDiff: g.grossTotal - parTotal, courseName,
+    fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }),
+    birdies, eagles, scoresByHole: g.scores ?? {}, parsByHole, holesPlayed: holesData.length,
+    ranking: conScore.map(j => ({ nombre: j.nombre, score: j.grossTotal, diff: j.grossTotal - parTotal })),
+  }
 }
