@@ -29,6 +29,8 @@ function scoreColor(s: string): string {
 function thruColor(t: string): string {
   if (t === 'F') return '#00e676'
   if (t === '—') return 'rgba(255,255,255,0.15)'
+  // Tee times contain 'a' or 'p' (e.g. "7:30a", "1p")
+  if (/[ap]$/.test(t)) return 'rgba(255,255,255,0.25)'
   return 'rgba(255,255,255,0.4)'
 }
 
@@ -197,7 +199,17 @@ export default function PGALiveWidget() {
             }}>{p.position}</span>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-              <span style={{ fontSize: '14px', flexShrink: 0 }}>{p.flag}</span>
+              {p.flag ? (
+                <img
+                  src={p.flag}
+                  alt={p.country}
+                  width={18}
+                  height={13}
+                  style={{ borderRadius: '2px', flexShrink: 0, objectFit: 'cover' }}
+                />
+              ) : (
+                <span style={{ width: '18px', height: '13px', borderRadius: '2px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
+              )}
               <span style={{
                 fontSize: '13px', fontWeight: isLeader ? 600 : 400, color: '#edeae4',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

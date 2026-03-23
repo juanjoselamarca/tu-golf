@@ -13,19 +13,23 @@ const PGA_2026 = [
   { name: 'U.S. Open',                      start: '2026-06-18', end: '2026-06-21', venue: 'Shinnecock Hills GC' },
 ]
 
-const COUNTRY_FLAG: Record<string, string> = {
-  'United States': '🇺🇸', 'South Korea': '🇰🇷', 'Canada': '🇨🇦',
-  'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Australia': '🇦🇺', 'Spain': '🇪🇸',
-  'Norway': '🇳🇴', 'Sweden': '🇸🇪', 'Japan': '🇯🇵',
-  'Ireland': '🇮🇪', 'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'Germany': '🇩🇪',
-  'France': '🇫🇷', 'Italy': '🇮🇹', 'Argentina': '🇦🇷',
-  'Chile': '🇨🇱', 'Colombia': '🇨🇴', 'Mexico': '🇲🇽',
-  'South Africa': '🇿🇦', 'Denmark': '🇩🇰', 'Belgium': '🇧🇪',
-  'Netherlands': '🇳🇱', 'New Zealand': '🇳🇿', 'China': '🇨🇳',
-  'Thailand': '🇹🇭', 'Brazil': '🇧🇷', 'Northern Ireland': '🇬🇧',
-  'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Fiji': '🇫🇯', 'Venezuela': '🇻🇪',
-  'Czech Republic': '🇨🇿', 'Austria': '🇦🇹', 'Portugal': '🇵🇹',
-  'Philippines': '🇵🇭', 'Singapore': '🇸🇬', 'Taiwan': '🇹🇼',
+/* ── Country → ISO 3166-1 alpha-2 (for flagcdn.com images) ── */
+const COUNTRY_ISO: Record<string, string> = {
+  'United States': 'us', 'South Korea': 'kr', 'Canada': 'ca',
+  'England': 'gb-eng', 'Australia': 'au', 'Spain': 'es',
+  'Norway': 'no', 'Sweden': 'se', 'Japan': 'jp',
+  'Ireland': 'ie', 'Scotland': 'gb-sct', 'Germany': 'de',
+  'France': 'fr', 'Italy': 'it', 'Argentina': 'ar',
+  'Chile': 'cl', 'Colombia': 'co', 'Mexico': 'mx',
+  'South Africa': 'za', 'Denmark': 'dk', 'Belgium': 'be',
+  'Netherlands': 'nl', 'New Zealand': 'nz', 'China': 'cn',
+  'Thailand': 'th', 'Brazil': 'br', 'Northern Ireland': 'gb-nir',
+  'Wales': 'gb-wls', 'Fiji': 'fj', 'Venezuela': 've',
+  'Czech Republic': 'cz', 'Austria': 'at', 'Portugal': 'pt',
+  'Philippines': 'ph', 'Singapore': 'sg', 'Taiwan': 'tw',
+  'India': 'in', 'Poland': 'pl', 'Switzerland': 'ch',
+  'Finland': 'fi', 'Zimbabwe': 'zw', 'Paraguay': 'py',
+  'Puerto Rico': 'pr', 'Bermuda': 'bm',
 }
 
 function traducirRonda(detail: string): string {
@@ -48,6 +52,22 @@ function getNextEvent(today: string) {
   return sorted.find(e => e.end >= today) ?? sorted[sorted.length - 1]
 }
 
+/**
+ * Format a tee time from ISO string to local display (e.g. "7:30a")
+ */
+function formatTeeTime(isoString: string): string {
+  try {
+    const d = new Date(isoString)
+    const h = d.getHours()
+    const m = d.getMinutes()
+    const ampm = h >= 12 ? 'p' : 'a'
+    const h12 = h % 12 || 12
+    return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2, '0')}${ampm}`
+  } catch {
+    return '—'
+  }
+}
+
 export async function GET() {
   try {
     const res = await fetch(
@@ -66,6 +86,12 @@ export async function GET() {
     const competitors = competition?.competitors || []
     const status = competition?.status
 
+    // Determine tournament's current round number from status detail
+    // e.g. "Round 2 - In Progress" → 2
+    const statusDetail = status?.type?.shortDetail || status?.type?.detail || ''
+    const roundMatch = statusDetail.match(/Round\s*(\d+)/i)
+    const tournamentRoundNum = roundMatch ? parseInt(roundMatch[1], 10) : 1
+
     // Sort by score
     const sorted = [...(competitors as any[])].sort((a, b) => {
       const sa = parseFloat(a.score) || 0
@@ -81,38 +107,56 @@ export async function GET() {
         score = rawScore < 0 ? String(rawScore) : rawScore > 0 ? `+${rawScore}` : 'E'
       }
 
-      // Ronda actual — buscar la ÚLTIMA ronda con datos (no la primera)
-      // En R2: rounds = [R1 (18 hoyos, completa), R2 (en curso)]
-      // Queremos R2, no R1
+      // All rounds data
       const rounds: any[] = c.linescores || []
-      const roundsWithData = rounds.filter((r: any) => r.linescores?.length > 0)
-      const currentRound = roundsWithData[roundsWithData.length - 1] || rounds[0]
-      const holesPlayed = (currentRound?.linescores || []).length
 
-      // Score de hoy
+      // Current round = the one matching tournamentRoundNum (0-indexed)
+      // If tournament is in R2, we want rounds[1], not the last one with data
+      const currentRoundIdx = tournamentRoundNum - 1
+      const currentRound = rounds[currentRoundIdx]
+      const holesInCurrentRound = (currentRound?.linescores || []).length
+
+      // Determine player status for current round:
+      // - Has holes in current round? → playing or finished today
+      // - No holes in current round? → hasn't started yet
+      const hasStartedCurrentRound = holesInCurrentRound > 0
+
+      // Score de hoy (current round only)
       let todayScore = 'E'
-      if (currentRound?.displayValue) {
+      if (hasStartedCurrentRound && currentRound?.displayValue) {
         const raw = parseFloat(currentRound.displayValue)
         if (!isNaN(raw)) {
           todayScore = raw < 0 ? String(raw) : raw > 0 ? `+${raw}` : 'E'
         }
       }
 
-      // Thru
-      const thru = holesPlayed >= 18 ? 'F' : holesPlayed > 0 ? String(holesPlayed) : '—'
+      // Thru — the critical logic:
+      // 1. Player finished current round (18 holes) → "F"
+      // 2. Player is playing (1-17 holes) → show hole number
+      // 3. Player hasn't started → show tee time or "—"
+      let thru = '—'
+      if (hasStartedCurrentRound) {
+        thru = holesInCurrentRound >= 18 ? 'F' : String(holesInCurrentRound)
+      } else {
+        // Try to get tee time from ESPN's status or competitor data
+        const teeTime = c.status?.teeTime || c.status?.startDate
+        if (teeTime) {
+          thru = formatTeeTime(teeTime)
+        }
+      }
 
-      // Posición con ties
+      // Posicion con ties
       const prevScore = index > 0 ? parseFloat(sorted[index - 1]?.score) : null
       const myScore = parseFloat(c.score)
       const pos = prevScore !== null && !isNaN(prevScore) && !isNaN(myScore) && prevScore === myScore
         ? `T${index + 1}` : String(index + 1)
 
-      // País y bandera
+      // Country → flag image URL (flagcdn.com)
       const country = c.athlete?.flag?.alt ?? ''
-      const flag = COUNTRY_FLAG[country] || '🏳️'
-
-      // Round number
-      const roundNum = rounds.filter((r: any) => r.linescores?.length > 0).length || 1
+      const countryCode = COUNTRY_ISO[country] || ''
+      const flagUrl = countryCode
+        ? `https://flagcdn.com/w40/${countryCode}.png`
+        : ''
 
       return {
         position: pos,
@@ -121,9 +165,9 @@ export async function GET() {
         score,
         today: todayScore,
         thru,
-        flag,
+        flag: flagUrl,
         country,
-        roundNum,
+        roundNum: tournamentRoundNum,
       }
     })
 
