@@ -59,7 +59,7 @@ function RegisterContent() {
   const { showError } = useToast()
   const { fieldError, setFieldError, clearAll } = useFormErrors()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect') || '/dashboard'
+  const redirectTo = searchParams.get('redirect') || searchParams.get('next') || '/dashboard'
 
   const [isOpen,   setIsOpen]   = useState(false)
   const [name,     setName]     = useState('')
@@ -70,6 +70,9 @@ function RegisterContent() {
   const [loading,  setLoading]  = useState(false)
 
   const handleGoogle = async () => {
+    if (typeof window !== 'undefined' && redirectTo !== '/dashboard') {
+      localStorage.setItem('golfers_post_login_redirect', redirectTo)
+    }
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -261,7 +264,7 @@ function RegisterContent() {
 
         <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
           ¿Ya tienes cuenta?{' '}
-          <Link href="/login" style={{ color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>Inicia sesión →</Link>
+          <Link href={`/login${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>Inicia sesión →</Link>
         </p>
       </div>
     </div>

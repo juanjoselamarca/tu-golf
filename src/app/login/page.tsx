@@ -205,7 +205,7 @@ function LoginContent() {
 
         <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
           ¿No tienes cuenta?{' '}
-          <Link href="/register" style={{ color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>
+          <Link href={`/register${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>
             Regístrate gratis →
           </Link>
         </p>

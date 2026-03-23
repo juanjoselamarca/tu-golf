@@ -313,9 +313,9 @@ function RondaLibrePageContent() {
     })
   }, [])
 
-  // Show registration banner after 30s for anonymous spectators
+  // Show registration banner after 30s for anonymous users (welcome screen or spectator view)
   useEffect(() => {
-    if (!isAnonymous || bannerDismissed || role !== 'espectador') return
+    if (!isAnonymous || bannerDismissed || role === 'jugador') return
     const dismissed = sessionStorage.getItem(`banner-dismissed-${codigo}`)
     if (dismissed) { setBannerDismissed(true); return }
     const timer = setTimeout(() => setShowBanner(true), 30000)
@@ -678,6 +678,36 @@ function RondaLibrePageContent() {
             Compartir por WhatsApp
           </button>
         </div>
+
+        {/* ── Registration Banner on Welcome Screen ── */}
+        {showBanner && isAnonymous && !bannerDismissed && (
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
+            background: 'rgba(17,24,39,0.92)',
+            backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            borderTop: '1px solid rgba(196,153,42,0.2)',
+            padding: '14px 16px',
+            animation: 'slideUpBanner 0.4s ease-out',
+          }}>
+            <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#edeae4' }}>Golfers+</div>
+                <div style={{ fontSize: '12px', color: '#94a8c0' }}>Sigue la ronda en tiempo real</div>
+              </div>
+              <Link href={`/login?next=/ronda-libre/${codigo}`} style={{
+                background: '#c4992a', color: '#070d18', fontWeight: 700,
+                fontSize: '13px', padding: '10px 18px', borderRadius: '8px',
+                textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+              }}>Crear cuenta</Link>
+              <button onClick={dismissBanner} style={{
+                background: 'none', border: 'none', color: '#94a8c0',
+                fontSize: '20px', cursor: 'pointer', padding: '4px 8px', flexShrink: 0,
+                minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>×</button>
+            </div>
+          </div>
+        )}
+        <style>{`@keyframes slideUpBanner { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
 
         {/* ── Auth Modal on Welcome Screen ── */}
         {showAuthModal && (
