@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { HoleColorBar } from '@/components/HoleColorBar'
+import { getHoleBoxStyle, getScoreNumberStyle } from '@/lib/score-colors'
 
 /* ─── Datos ────────────────────────────────────────────── */
 const CANCHAS_CHILE = [
@@ -506,6 +507,7 @@ function HistorialContent() {
                   <div
                     key={r.id}
                     className="card-animate"
+                    onClick={() => toggleExpand(r.id)}
                     style={{
                       background: 'var(--bg-card-light)',
                       border: '1px solid var(--border)',
@@ -547,6 +549,66 @@ function HistorialContent() {
                       scores={(r.scores ?? []).map((s: number | null) => s != null ? { gross: s, par: 4 } : null)}
                       totalHoles={18}
                     />
+
+                    {/* ── Expanded detail ── */}
+                    {isOpen && stats && (
+                      <div style={{ marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                        {/* Scorecard grid — Front 9 */}
+                        <div style={{ fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>Front 9</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '8px' }}>
+                          {Array.from({ length: 9 }, (_, i) => {
+                            const score = (r.scores ?? [])[i] ?? null
+                            const par = 4
+                            const boxStyle = getHoleBoxStyle(score, par)
+                            const numStyle = getScoreNumberStyle(score, par)
+                            return (
+                              <div key={i} style={{ ...boxStyle, borderRadius: '6px', padding: '3px 2px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '44px' }}>
+                                <span style={{ fontSize: '8px', color: 'var(--text-3)', lineHeight: 1 }}>{i + 1}</span>
+                                <span style={{ ...numStyle, fontSize: '14px', fontWeight: 700, lineHeight: 1.3 }}>{score ?? '–'}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {/* Back 9 */}
+                        <div style={{ fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>Back 9</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '10px' }}>
+                          {Array.from({ length: 9 }, (_, i) => {
+                            const score = (r.scores ?? [])[i + 9] ?? null
+                            const par = 4
+                            const boxStyle = getHoleBoxStyle(score, par)
+                            const numStyle = getScoreNumberStyle(score, par)
+                            return (
+                              <div key={i + 9} style={{ ...boxStyle, borderRadius: '6px', padding: '3px 2px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '44px' }}>
+                                <span style={{ fontSize: '8px', color: 'var(--text-3)', lineHeight: 1 }}>{i + 10}</span>
+                                <span style={{ ...numStyle, fontSize: '14px', fontWeight: 700, lineHeight: 1.3 }}>{score ?? '–'}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {/* Stats pills */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
+                          {stats.eagles > 0 && <span style={{ color: '#c4992a', fontWeight: 600 }}>{stats.eagles} eagle{stats.eagles > 1 ? 's' : ''}</span>}
+                          {stats.birdies > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>{stats.birdies} birdie{stats.birdies > 1 ? 's' : ''}</span>}
+                          <span style={{ color: 'var(--text-2)' }}>{stats.pars} par{stats.pars !== 1 ? 'es' : ''}</span>
+                          {stats.bogeys > 0 && <span style={{ color: '#d97706' }}>{stats.bogeys} bogey{stats.bogeys > 1 ? 's' : ''}</span>}
+                          {stats.doubles > 0 && <span style={{ color: '#dc2626' }}>{stats.doubles} doble{stats.doubles > 1 ? 's' : ''}+</span>}
+                        </div>
+                        {/* Front/Back split */}
+                        <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '12px', color: 'var(--text-2)' }}>
+                          <span>Front 9: <strong style={{ color: 'var(--text)' }}>{stats.front9}</strong></span>
+                          <span>Back 9: <strong style={{ color: 'var(--text)' }}>{stats.back9}</strong></span>
+                        </div>
+                        {/* Expand indicator */}
+                        <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '11px', color: 'var(--text-3)' }}>
+                          Toca para cerrar ▲
+                        </div>
+                      </div>
+                    )}
+                    {!isOpen && (
+                      <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '11px', color: 'var(--text-3)' }}>
+                        Toca para ver detalle ▼
+                      </div>
+                    )}
                   </div>
                 )
               })}

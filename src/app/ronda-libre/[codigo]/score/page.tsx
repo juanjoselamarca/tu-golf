@@ -65,7 +65,9 @@ function lsLoad(c: string, j: string): Record<number, number> { try { return JSO
 function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(p) }
 
 // Chip colors from centralized score-colors system
-import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult } from '@/lib/score-colors'
+import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult, getHoleBoxStyle, getScoreNumberStyle } from '@/lib/score-colors'
+import { compartirResultado } from '@/lib/share-card'
+import type { ShareCardData } from '@/lib/share-card'
 
 function getChipStyle(gross: number, par: number, isDark: boolean): React.CSSProperties {
   const result = getScoreResult(gross, par)
@@ -726,76 +728,163 @@ function ScorePageContent() {
         </div>
       )}
 
-      {/* ── Post-round modal ── */}
+      {/* ── Post-round celebration modal ── */}
       {roundDone && (() => {
         const diff = finalScore.gross - finalScore.totalPar
-        const diffLabel = diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`
-        const diffColor = diff < 0 ? '#4ade80' : diff > 0 ? '#f87171' : 'rgba(255,255,255,0.5)'
+        const diffLabel = diff === 0 ? 'Par' : diff > 0 ? `+${diff} sobre par` : `${diff} bajo par`
+        const diffColor = diff < 0 ? '#4ade80' : diff === 0 ? '#c9a84c' : '#f87171'
+
+        // Count birdies/eagles
+        const playerScores = activeJugadorId ? (scores[activeJugadorId] ?? {}) : {}
+        let birdieCount = 0, eagleCount = 0
+        Object.entries(playerScores).forEach(([h, s]) => {
+          const p = parMap[parseInt(h)] ?? 4
+          if (s === p - 1) birdieCount++
+          if (s <= p - 2) eagleCount++
+        })
+
+        // Mini scorecard data
+        const totalHoles = ronda?.holes ?? 18
+        const holeNums = Array.from({ length: totalHoles }, (_, i) => i + 1)
+
+        const handleShareCard = async () => {
+          if (!ronda || !activeJugadorId) return
+          const jugador = (ronda.ronda_libre_jugadores ?? []).find(j => j.id === activeJugadorId)
+          const shareData: ShareCardData = {
+            ganador: jugador?.nombre ?? 'Jugador',
+            scoreGross: finalScore.gross,
+            scoreDiff: diff,
+            courseName: ronda.course_name,
+            fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }),
+            birdies: birdieCount,
+            eagles: eagleCount,
+            scoresByHole: playerScores,
+            parsByHole: parMap,
+            holesPlayed: totalHoles,
+          }
+          await compartirResultado(shareData)
+        }
+
         return (
           <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(7,13,24,0.97)', zIndex: 200,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'fixed', inset: 0, zIndex: 200, overflow: 'auto',
+            background: 'radial-gradient(ellipse at 50% 20%, rgba(10,31,18,0.97) 0%, rgba(8,12,16,0.99) 100%)',
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '360px', padding: '0 24px' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>{'\uD83C\uDFC6'}</div>
-              <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#edeae4', margin: '0 0 6px', textAlign: 'center' }}>
-                Ronda completada
-              </h2>
-              <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', margin: '0 0 24px', textAlign: 'center' }}>
-                Tu score quedo guardado
-              </p>
+            {/* Confetti particles */}
+            <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+              {Array.from({ length: 30 }, (_, i) => (
+                <div key={i} style={{
+                  position: 'absolute',
+                  left: `${Math.random() * 100}%`,
+                  top: '-20px',
+                  width: Math.random() > 0.5 ? `${6 + Math.random() * 6}px` : `${4 + Math.random() * 4}px`,
+                  height: `${6 + Math.random() * 8}px`,
+                  borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+                  backgroundColor: ['#c9a84c', '#16a34a', '#ffffff', '#d97706', '#86efac'][Math.floor(Math.random() * 5)],
+                  animation: `confettiFall ${2 + Math.random() * 2}s ${Math.random() * 2.5}s ease-in forwards`,
+                }} />
+              ))}
+            </div>
 
-              {/* Score card */}
-              <div style={{
-                background: '#0e1c2f', borderRadius: '16px', padding: '20px', width: '100%',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '28px',
-              }}>
-                <div style={{ fontFamily: 'var(--font-dm-mono, monospace)', fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>
-                  SCORE FINAL
+            <div style={{ position: 'relative', maxWidth: '400px', margin: '0 auto', padding: '32px 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Trophy */}
+              <div style={{ fontSize: '72px', marginBottom: '8px', animation: 'trophyBounce 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>{'\uD83C\uDFC6'}</div>
+
+              {/* Title */}
+              <div style={{ fontSize: '12px', color: '#c9a84c', textTransform: 'uppercase', letterSpacing: '3px', marginBottom: '4px' }}>Ronda completada</div>
+
+              {/* Score big */}
+              <div style={{ fontSize: '72px', fontWeight: 900, color: diffColor, lineHeight: 1, marginBottom: '4px', textShadow: `0 0 40px ${diffColor}40` }}>
+                {finalScore.gross}
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: 600, color: diffColor, marginBottom: '4px' }}>{diffLabel}</div>
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '20px' }}>{ronda?.course_name}</div>
+
+              {/* Stats pills */}
+              {(eagleCount > 0 || birdieCount > 0) && (
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', fontSize: '14px' }}>
+                  {eagleCount > 0 && <span style={{ color: '#c9a84c' }}>{eagleCount} eagle{eagleCount > 1 ? 's' : ''}</span>}
+                  {birdieCount > 0 && <span style={{ color: '#4ade80' }}>{birdieCount} birdie{birdieCount > 1 ? 's' : ''}</span>}
                 </div>
-                <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '48px', fontWeight: 700, color: diffColor, lineHeight: 1 }}>
-                  {diffLabel}
+              )}
+
+              {/* Mini scorecard */}
+              <div style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '12px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', textAlign: 'center' }}>Tarjeta</div>
+                {/* Front 9 */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', marginBottom: '4px' }}>
+                  {holeNums.slice(0, 9).map(h => {
+                    const s = playerScores[h]; const p = parMap[h] ?? 4
+                    const boxStyle = getHoleBoxStyle(s ?? null, p)
+                    const numStyle = getScoreNumberStyle(s ?? null, p)
+                    return (
+                      <div key={h} style={{ ...boxStyle, borderRadius: '4px', padding: '2px', textAlign: 'center', minHeight: '36px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.3)', lineHeight: 1 }}>{h}</span>
+                        <span style={{ ...numStyle, fontSize: '12px', fontWeight: 700, lineHeight: 1.3 }}>{s ?? '–'}</span>
+                      </div>
+                    )
+                  })}
                 </div>
-                <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>
-                  {finalScore.gross} golpes
-                </div>
+                {totalHoles > 9 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                    {holeNums.slice(9, 18).map(h => {
+                      const s = playerScores[h]; const p = parMap[h] ?? 4
+                      const boxStyle = getHoleBoxStyle(s ?? null, p)
+                      const numStyle = getScoreNumberStyle(s ?? null, p)
+                      return (
+                        <div key={h} style={{ ...boxStyle, borderRadius: '4px', padding: '2px', textAlign: 'center', minHeight: '36px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.3)', lineHeight: 1 }}>{h}</span>
+                          <span style={{ ...numStyle, fontSize: '12px', fontWeight: 700, lineHeight: 1.3 }}>{s ?? '–'}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* CTAs */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                <button onClick={handleShareCard} style={{
+                  width: '100%', padding: '16px', background: 'linear-gradient(135deg, #c9a84c 0%, #d4a843 50%, #b8972f 100%)',
+                  color: '#0a1419', fontWeight: 700, fontSize: '16px', border: 'none', borderRadius: '14px', cursor: 'pointer',
+                  boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
+                }}>
+                  Compartir resultado
+                </button>
                 <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '15px',
+                  background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.3)',
+                  color: '#c9a84c', fontWeight: 600, fontSize: '14px',
                   height: '52px', borderRadius: '12px', textDecoration: 'none',
                 }}>
-                  {'\uD83D\uDC2F'} Analisis de tu ronda {'\u2192'}
+                  Analizar con tAIger+
                 </Link>
-                <Link href="/perfil/stats" style={{
+                <Link href={`/ronda-libre/${codigo}?finished=true`} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'transparent', border: '1px solid rgba(255,255,255,0.12)',
-                  color: '#edeae4', fontWeight: 600, fontSize: '14px',
-                  height: '52px', borderRadius: '12px', textDecoration: 'none',
-                }}>
-                  Ver mi GWI{'\u2122'} actualizado
-                </Link>
-                <button onClick={() => router.push('/importar')} style={{
-                  width: '100%', padding: '12px',
-                  background: 'none', border: '1px solid rgba(196,153,42,0.2)',
-                  color: '#c4992a', borderRadius: '10px',
-                  fontSize: '13px', cursor: 'pointer',
-                }}>
-                  + Importar rondas anteriores
-                </button>
-                <Link href="/dashboard" style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'transparent', border: 'none',
                   color: 'rgba(255,255,255,0.4)', fontSize: '14px',
-                  height: '44px', borderRadius: '12px', textDecoration: 'none',
+                  height: '44px', textDecoration: 'none',
                 }}>
-                  Volver al inicio
+                  Ver leaderboard final
                 </Link>
               </div>
+
+              <p style={{ color: 'rgba(255,255,255,0.15)', fontSize: '11px', marginTop: '16px' }}>Golfers+ · El golf amateur en español</p>
             </div>
+
+            {/* Confetti + trophy animations */}
+            <style>{`
+              @keyframes confettiFall {
+                0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+                80% { opacity: 1; }
+                100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+              }
+              @keyframes trophyBounce {
+                0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+                60% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+                80% { transform: scale(0.95) rotate(-2deg); }
+                100% { transform: scale(1) rotate(0deg); opacity: 1; }
+              }
+            `}</style>
           </div>
         )
       })()}
