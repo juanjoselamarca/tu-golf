@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
 import type { ModoJuego } from '@/lib/scoring'
-import { updatePlayerNotification, getNotifPrefs } from '@/lib/push-notifications'
+import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 
 /* ── Share menu component ──────────────────────────────────────────── */
 function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void }) {
@@ -332,6 +332,20 @@ function ScorePageContent() {
       handleScoreChange(currentHole, holePar)
     }
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
+
+    // Send server-side push for notable events (birdie, eagle)
+    const savedScore = scores[activeJugadorId]?.[currentHole]
+    const holePar = parMap[currentHole] ?? 4
+    if (savedScore != null && ronda) {
+      const diff = savedScore - holePar
+      const playerName = ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.nombre ?? 'Jugador'
+      if (diff <= -2) {
+        sendPushViaServer({ title: `Eagle — ${playerName}`, body: `Eagle en hoyo ${currentHole} en ${ronda.course_name}`, tag: `eagle-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
+      } else if (diff === -1) {
+        sendPushViaServer({ title: `Birdie — ${playerName}`, body: `Birdie en hoyo ${currentHole} en ${ronda.course_name}`, tag: `birdie-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
+      }
+    }
+
     // Use circular order for next hole
     const nextIdx = currentHoleIdx + 1
     if (nextIdx < ordenHoyos.length) {
@@ -388,6 +402,13 @@ function ScorePageContent() {
     })
     if (allDone) {
       await supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
+      // Push to all subscribers: round finished
+      sendPushViaServer({
+        title: 'Ronda finalizada',
+        body: `Resultado final listo en ${ronda.course_name}`,
+        tag: `round-finished-${codigo}`,
+        url: `/ronda-libre/${codigo}?finished=true`,
+      })
     }
 
     // Calculate final score for modal

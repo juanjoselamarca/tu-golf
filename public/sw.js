@@ -28,8 +28,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body || '',
-    icon: data.icon || '/icons/icon-192x192.png',
-    badge: data.badge || '/icons/badge-72x72.png',
+    icon: data.icon || '/icon-192.svg',
+    badge: data.badge || '/icon-192.svg',
     tag: data.tag || 'golfers-default',
     renotify: true,
     vibrate: [100, 50, 100],
