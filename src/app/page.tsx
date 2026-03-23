@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import HeroSection  from '@/components/HeroSection'
 import StatsSection from '@/components/StatsSection'
 import { createClient } from '@/utils/supabase/server'
@@ -27,10 +26,6 @@ const STEPS = [
 
 export default async function Home() {
   const supabase = await createClient()
-
-  // Redirect logged-in users to dashboard
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) redirect('/dashboard')
 
   // Stats are now hardcoded in StatsSection (no DB query needed)
 

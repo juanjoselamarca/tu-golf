@@ -805,14 +805,14 @@ function RondaLibrePageContent() {
 
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
 
-          {/* Descubrir Golfers+ — anonymous → homepage, logged in → dashboard */}
-          <Link href={isAnonymous ? '/' : '/dashboard'} style={{
+          {/* Descubrir Golfers+ */}
+          <Link href="/" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
             padding: '10px 16px', borderRadius: '10px', marginBottom: '12px',
             background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.12)',
             textDecoration: 'none',
           }}>
-            <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 600 }}>{isAnonymous ? 'Descubrir Golfers+' : 'Ir al dashboard'}</span>
+            <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 600 }}>Descubrir Golfers+</span>
             <span style={{ color: '#c4992a', fontSize: '12px' }}>→</span>
           </Link>
 
