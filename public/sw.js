@@ -1,58 +1,65 @@
-// Golfers+ Service Worker — Push notifications + offline caching
+// Golfers+ Service Worker v2 — Real Push Notifications
+// Receives push events from server via Web Push Protocol
 
-const CACHE_NAME = 'golfers-v1'
+const CACHE_NAME = 'golfers-v2'
 
-// Install — cache essential assets
+// Install
 self.addEventListener('install', (event) => {
   self.skipWaiting()
 })
 
-// Activate — clean old caches
+// Activate — clean old caches, take control
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim())
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  )
 })
 
-// Push notification received
+// Push — receive real push notifications from Golfers+ server
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {}
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {
+    data = { title: 'Golfers+', body: event.data?.text() || '' }
+  }
 
   const options = {
     body: data.body || '',
-    icon: '/icon-192.svg',
-    badge: '/icon-192.svg',
-    tag: data.tag || 'golfers-notification',
+    icon: data.icon || '/icons/icon-192x192.png',
+    badge: data.badge || '/icons/badge-72x72.png',
+    tag: data.tag || 'golfers-default',
     renotify: true,
-    data: {
-      url: data.url || '/dashboard',
-      rondaId: data.rondaId || null,
-    },
-    actions: data.actions || [],
     vibrate: [100, 50, 100],
+    data: {
+      url: data.data?.url || data.url || '/',
+      timestamp: Date.now(),
+    },
   }
+
+  if (data.image) options.image = data.image
 
   event.waitUntil(
     self.registration.showNotification(data.title || 'Golfers+', options)
   )
 })
 
-// Notification click — open the right page
+// Click — navigate to the relevant page
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-
-  const url = event.notification.data?.url || '/dashboard'
+  const url = event.notification.data?.url || '/'
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If app is already open, focus it and navigate
-      for (const client of clientList) {
-        if (client.url.includes('tu-golf') && 'focus' in client) {
-          client.focus()
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
           client.navigate(url)
-          return
+          return client.focus()
         }
       }
-      // Otherwise open new window
-      return clients.openWindow(url)
+      return self.clients.openWindow(url)
     })
   )
 })

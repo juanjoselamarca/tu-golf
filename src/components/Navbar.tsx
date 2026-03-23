@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { isAdminEmail } from '@/lib/admin'
 import type { User } from '@supabase/supabase-js'
+import NotificationHub from '@/components/NotificationHub'
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -14,6 +15,7 @@ export default function Navbar() {
   const [user, setUser] = useState<User | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [playSheetOpen, setPlaySheetOpen] = useState(false)
+  const [notifHubOpen, setNotifHubOpen] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -92,17 +94,32 @@ export default function Navbar() {
             <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: '#C4992A' }}>+</span>
           </Link>
 
-          {/* Right: avatar or login */}
+          {/* Right: notification bell + avatar or login */}
           {user ? (
-            <Link href="/perfil" style={{
-              width: '36px', height: '36px', borderRadius: '50%',
-              background: '#C4992A', color: '#070d18',
-              fontWeight: 700, fontSize: '13px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              textDecoration: 'none', flexShrink: 0,
-            }}>
-              {userInitials}
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                onClick={() => setNotifHubOpen(true)}
+                style={{
+                  width: '36px', height: '36px', background: 'none', border: 'none',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'rgba(255,255,255,0.5)', fontSize: '18px', padding: 0,
+                }}
+                aria-label="Notificaciones"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              </button>
+              <Link href="/perfil" style={{
+                width: '36px', height: '36px', borderRadius: '50%',
+                background: '#C4992A', color: '#070d18',
+                fontWeight: 700, fontSize: '13px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                textDecoration: 'none', flexShrink: 0,
+              }}>
+                {userInitials}
+              </Link>
+            </div>
           ) : (
             <Link href="/login" style={{
               fontSize: '14px', fontWeight: 600, color: '#C4992A',
@@ -201,16 +218,28 @@ export default function Navbar() {
           borderTop: '1px solid rgba(196,153,42,0.1)',
         }}>
           {user ? (
-            <button onClick={handleLogout} style={{
-              display: 'flex', alignItems: 'center', gap: '14px',
-              padding: '12px', width: '100%', minHeight: '48px',
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#94a8c0', fontSize: '14px', textAlign: 'left',
-              borderRadius: '10px',
-            }}>
-              <span style={{ fontSize: '18px', width: '24px', textAlign: 'center' }}>🚪</span>
-              Cerrar sesión
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <button onClick={() => { setSidebarOpen(false); setNotifHubOpen(true) }} style={{
+                display: 'flex', alignItems: 'center', gap: '14px',
+                padding: '12px', width: '100%', minHeight: '48px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: '#edeae4', fontSize: '14px', textAlign: 'left',
+                borderRadius: '10px',
+              }}>
+                <span style={{ fontSize: '18px', width: '24px', textAlign: 'center' }}>🔔</span>
+                Notificaciones
+              </button>
+              <button onClick={handleLogout} style={{
+                display: 'flex', alignItems: 'center', gap: '14px',
+                padding: '12px', width: '100%', minHeight: '48px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: '#94a8c0', fontSize: '14px', textAlign: 'left',
+                borderRadius: '10px',
+              }}>
+                <span style={{ fontSize: '18px', width: '24px', textAlign: 'center' }}>🚪</span>
+                Cerrar sesión
+              </button>
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <Link href="/login" onClick={() => setSidebarOpen(false)} style={{
@@ -484,6 +513,10 @@ export default function Navbar() {
             </div>
           </div>
         </>
+      )}
+      {/* ── Notification Hub ─────────────────────────── */}
+      {notifHubOpen && (
+        <NotificationHub onClose={() => setNotifHubOpen(false)} />
       )}
     </>
   )
