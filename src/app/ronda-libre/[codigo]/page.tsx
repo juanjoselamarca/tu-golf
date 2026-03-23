@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
 import { notifyScoreEvent, getNotifPrefs, setNotifPrefs, isPushSupported, requestPermission } from '@/lib/push-notifications'
 import { setActiveRondaSession, clearActiveRondaSession } from '@/components/LiveRoundIndicator'
+import { compartirLeaderboard } from '@/lib/share-card'
+import type { LeaderboardShareData } from '@/lib/share-card'
 
 function NotifBanner({ onEnable }: { onEnable: () => void }) {
   const [dismissed, setDismissed] = useState(false)
@@ -805,6 +807,38 @@ function RondaLibrePageContent() {
 
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
 
+          {/* ── Winner celebration banner (only when round is finished) ── */}
+          {isFinished && leaderboard.length > 0 && leaderboard[0].holesPlayed > 0 && (
+            <div style={{
+              background: 'linear-gradient(135deg, #111827 0%, #0a1628 100%)',
+              border: '1px solid rgba(196,153,42,0.2)',
+              borderRadius: '16px', padding: '20px', marginBottom: '16px',
+              textAlign: 'center',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            }}>
+              <div style={{ fontSize: '40px', marginBottom: '8px' }}>
+                {leaderboard.length > 1 && leaderboard[0].vsPar === leaderboard[1].vsPar ? '🤝' : '🏆'}
+              </div>
+              <div style={{ fontSize: '11px', color: '#c4992a', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>
+                {leaderboard.length > 1 && leaderboard[0].vsPar === leaderboard[1].vsPar ? 'Empate' : 'Ganador'}
+              </div>
+              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', fontWeight: 700, color: '#edeae4', marginBottom: '4px' }}>
+                {leaderboard.length > 1 && leaderboard[0].vsPar === leaderboard[1].vsPar
+                  ? leaderboard.filter(j => j.vsPar === leaderboard[0].vsPar).map(j => j.nombre.split(' ')[0]).join(' y ')
+                  : leaderboard[0].nombre}
+              </div>
+              <div style={{
+                fontSize: '32px', fontWeight: 900, lineHeight: 1,
+                color: leaderboard[0].vsPar < 0 ? '#4ade80' : leaderboard[0].vsPar === 0 ? '#c4992a' : '#f87171',
+              }}>
+                {formatOverUnder(leaderboard[0].vsPar)}
+              </div>
+              <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '4px' }}>
+                {ronda.course_name}
+              </div>
+            </div>
+          )}
+
           {/* Descubrir Golfers+ */}
           <Link href="/" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
@@ -1056,36 +1090,41 @@ function RondaLibrePageContent() {
             </button>
           </div>
 
-          {/* Share results button */}
+          {/* Share leaderboard card (image) */}
           {leaderboard.length > 0 && leaderboard.some(j => j.holesPlayed > 0) && (
             <button
-              onClick={() => {
-                const standingsText = leaderboard
-                  .filter(j => j.holesPlayed > 0)
-                  .map((j, i) => `${i + 1}. ${j.nombre} ${hasCourse ? formatOverUnder(j.vsPar) : ''} (${j.holesPlayed}/${ronda.holes})`)
-                  .join('\n')
-                const resultText = `${ronda.course_name} - ${fechaDisplay}\n\n${standingsText}\n\n${isFinished ? 'Ver resultado' : 'Sigue en vivo'}: ${shareUrl}`
-                if (typeof navigator !== 'undefined' && navigator.share) {
-                  navigator.share({ title: 'Resultado Golfers+', text: resultText }).catch(() => {})
-                } else {
-                  window.open(`https://wa.me/?text=${encodeURIComponent(resultText)}`, '_blank')
+              onClick={async () => {
+                const shareData: LeaderboardShareData = {
+                  players: leaderboard.filter(j => j.holesPlayed > 0).map(j => ({
+                    nombre: j.nombre,
+                    vsPar: j.vsPar,
+                    holesPlayed: j.holesPlayed,
+                    totalHoles: ronda.holes,
+                  })),
+                  courseName: ronda.course_name,
+                  fecha: fechaDisplay,
+                  rondaCodigo: codigo,
+                  isFinished,
                 }
+                await compartirLeaderboard(shareData)
               }}
               style={{
                 width: '100%',
-                background: '#ffffff',
-                border: '1px solid #e5e7eb',
-                color: '#374151',
-                fontSize: '13px',
-                padding: '10px 16px',
-                borderRadius: '10px',
+                background: isFinished ? 'linear-gradient(135deg, #c9a84c 0%, #b8972f 100%)' : '#ffffff',
+                border: isFinished ? 'none' : '1px solid #e5e7eb',
+                color: isFinished ? '#0a1419' : '#374151',
+                fontSize: isFinished ? '15px' : '13px',
+                fontWeight: isFinished ? 700 : 600,
+                padding: isFinished ? '14px 16px' : '10px 16px',
+                borderRadius: isFinished ? '14px' : '10px',
                 cursor: 'pointer',
                 minHeight: '44px',
                 marginBottom: '12px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                boxShadow: isFinished ? '0 4px 20px rgba(201,168,76,0.4)' : 'none',
               }}
             >
-              Compartir resultado {isFinished ? 'final' : 'actual'}
+              {isFinished ? 'Compartir leaderboard' : 'Compartir resultado actual'}
             </button>
           )}
 

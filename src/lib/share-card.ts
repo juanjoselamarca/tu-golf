@@ -255,3 +255,241 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
   setTimeout(() => URL.revokeObjectURL(url), 5000)
   return { success: true, method: 'download' }
 }
+
+/* ── Leaderboard Share Card ─────────────────────────────────────────── */
+
+export interface LeaderboardPlayer {
+  nombre: string
+  vsPar: number
+  holesPlayed: number
+  totalHoles: number
+}
+
+export interface LeaderboardShareData {
+  players: LeaderboardPlayer[]
+  courseName: string
+  fecha: string
+  rondaCodigo: string
+  isFinished: boolean
+}
+
+export async function generarLeaderboardCard(data: LeaderboardShareData): Promise<Blob> {
+  const W = 1080, H = 1920
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')!
+
+  // Background — dark premium
+  const bg = ctx.createLinearGradient(0, 0, W * 0.3, H)
+  bg.addColorStop(0, '#070d18')
+  bg.addColorStop(0.5, '#0e1c2f')
+  bg.addColorStop(1, '#070d18')
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, W, H)
+
+  // Texture
+  ctx.strokeStyle = 'rgba(255,255,255,0.008)'
+  ctx.lineWidth = 1
+  for (let i = -H; i < W + H; i += 60) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke()
+  }
+
+  // Gold border
+  ctx.strokeStyle = 'rgba(196,153,42,0.5)'
+  ctx.lineWidth = 3
+  ctx.strokeRect(20, 20, W - 40, H - 40)
+
+  // Corner decorations
+  const cL = 50, cP = 20
+  ctx.strokeStyle = 'rgba(196,153,42,0.8)'
+  ctx.lineWidth = 2.5
+  ;[[cP, cP + cL, cP, cP, cP + cL, cP], [W - cP - cL, cP, W - cP, cP, W - cP, cP + cL],
+    [cP, H - cP - cL, cP, H - cP, cP + cL, H - cP], [W - cP - cL, H - cP, W - cP, H - cP, W - cP, H - cP - cL]]
+    .forEach(([x1, y1, x2, y2, x3, y3]) => {
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.stroke()
+    })
+
+  // Logo — Golfers+
+  ctx.textAlign = 'center'
+  ctx.font = 'bold 64px Georgia, serif'
+  ctx.fillStyle = '#c9a84c'
+  ctx.fillText('Golfers+', W / 2, 130)
+
+  // Subtitle
+  ctx.font = '24px Arial, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'
+  ctx.fillText('LEADERBOARD', W / 2, 170)
+
+  // Divider
+  const div1 = ctx.createLinearGradient(80, 0, W - 80, 0)
+  div1.addColorStop(0, 'transparent')
+  div1.addColorStop(0.5, 'rgba(196,153,42,0.7)')
+  div1.addColorStop(1, 'transparent')
+  ctx.strokeStyle = div1; ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(80, 200); ctx.lineTo(W - 80, 200); ctx.stroke()
+
+  // Course + date
+  ctx.font = 'bold 36px Georgia, serif'
+  ctx.fillStyle = '#edeae4'
+  ctx.fillText(data.courseName, W / 2, 260)
+  ctx.font = '26px Arial, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.4)'
+  ctx.fillText(data.fecha + (data.isFinished ? '  ·  Resultado final' : '  ·  En vivo'), W / 2, 300)
+
+  // Trophy for winner
+  if (data.isFinished && data.players.length > 0) {
+    ctx.font = '120px serif'
+    ctx.fillText('🏆', W / 2, 440)
+
+    const winner = data.players[0]
+    const isTie = data.players.length > 1 && data.players[1].vsPar === winner.vsPar
+    ctx.font = 'bold 24px Arial, sans-serif'
+    ctx.fillStyle = '#c9a84c'
+    ctx.fillText(isTie ? 'EMPATE' : 'GANADOR', W / 2, 480)
+
+    ctx.font = 'bold 56px Georgia, serif'
+    ctx.fillStyle = '#ffffff'
+    if (isTie) {
+      const tied = data.players.filter(p => p.vsPar === winner.vsPar)
+      ctx.fillText(tied.map(p => p.nombre.split(' ')[0]).join(' y '), W / 2, 540)
+    } else {
+      ctx.fillText(winner.nombre, W / 2, 540)
+    }
+  }
+
+  // Leaderboard table
+  const tableY = data.isFinished ? 600 : 360
+  const rowH = 90
+  const tableW = W - 160
+  const tableX = 80
+
+  // Table header
+  roundRect(ctx, tableX, tableY, tableW, 50, 12)
+  ctx.fillStyle = 'rgba(196,153,42,0.12)'
+  ctx.fill()
+
+  ctx.font = 'bold 20px Arial, sans-serif'
+  ctx.fillStyle = 'rgba(196,153,42,0.7)'
+  ctx.textAlign = 'left'
+  ctx.fillText('POS', tableX + 24, tableY + 33)
+  ctx.fillText('JUGADOR', tableX + 100, tableY + 33)
+  ctx.textAlign = 'right'
+  ctx.fillText('SCORE', tableX + tableW - 140, tableY + 33)
+  ctx.fillText('HOYOS', tableX + tableW - 24, tableY + 33)
+
+  // Player rows
+  const sortedPlayers = [...data.players].sort((a, b) => a.vsPar - b.vsPar)
+  sortedPlayers.slice(0, 8).forEach((player, idx) => {
+    const rowY = tableY + 55 + idx * rowH
+    const isLeader = idx === 0
+
+    // Row background
+    roundRect(ctx, tableX, rowY, tableW, rowH - 4, idx === sortedPlayers.length - 1 ? 12 : 0)
+    ctx.fillStyle = isLeader
+      ? 'rgba(196,153,42,0.08)'
+      : idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)'
+    ctx.fill()
+
+    if (isLeader) {
+      ctx.fillStyle = '#c9a84c'
+      ctx.fillRect(tableX, rowY, 4, rowH - 4)
+    }
+
+    // Divider line
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)'
+    ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(tableX, rowY + rowH - 4); ctx.lineTo(tableX + tableW, rowY + rowH - 4); ctx.stroke()
+
+    // Position
+    ctx.textAlign = 'left'
+    ctx.font = `bold 28px Arial, sans-serif`
+    ctx.fillStyle = isLeader ? '#c9a84c' : 'rgba(255,255,255,0.35)'
+    ctx.fillText(String(idx + 1), tableX + 28, rowY + 52)
+
+    // Name
+    ctx.font = `${isLeader ? 'bold ' : ''}30px Arial, sans-serif`
+    ctx.fillStyle = isLeader ? '#ffffff' : 'rgba(255,255,255,0.7)'
+    ctx.fillText(player.nombre, tableX + 100, rowY + 52)
+
+    // Score
+    ctx.textAlign = 'right'
+    ctx.font = 'bold 34px Arial, sans-serif'
+    const scoreColor = player.vsPar < 0 ? '#4ade80' : player.vsPar === 0 ? '#c9a84c' : '#f87171'
+    ctx.fillStyle = scoreColor
+    const scoreStr = player.vsPar === 0 ? 'E' : player.vsPar > 0 ? `+${player.vsPar}` : String(player.vsPar)
+    ctx.fillText(scoreStr, tableX + tableW - 140, rowY + 52)
+
+    // Holes
+    ctx.font = '24px Arial, sans-serif'
+    ctx.fillStyle = player.holesPlayed >= player.totalHoles ? '#4ade80' : 'rgba(255,255,255,0.3)'
+    ctx.fillText(`${player.holesPlayed}/${player.totalHoles}`, tableX + tableW - 24, rowY + 52)
+  })
+
+  // CTA box
+  const ctaY = H - 350
+  roundRect(ctx, 80, ctaY, W - 160, 180, 20)
+  const ctaBg = ctx.createLinearGradient(80, ctaY, W - 80, ctaY + 180)
+  ctaBg.addColorStop(0, 'rgba(196,153,42,0.12)')
+  ctaBg.addColorStop(1, 'rgba(196,153,42,0.04)')
+  ctx.fillStyle = ctaBg; ctx.fill()
+  ctx.strokeStyle = 'rgba(196,153,42,0.3)'; ctx.lineWidth = 1; ctx.stroke()
+
+  ctx.textAlign = 'center'
+  ctx.font = 'bold 36px Georgia, serif'
+  ctx.fillStyle = '#c9a84c'
+  ctx.fillText('Scoring · IA Coach · Live Leaderboard', W / 2, ctaY + 60)
+  ctx.font = '34px Arial, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'
+  ctx.fillText('tu-golf.vercel.app', W / 2, ctaY + 108)
+  ctx.font = '24px Arial, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'
+  ctx.fillText('Primera plataforma de golf en español', W / 2, ctaY + 145)
+
+  // Footer
+  ctx.font = 'bold 28px Arial, sans-serif'
+  ctx.fillStyle = 'rgba(196,153,42,0.5)'
+  ctx.fillText('#GolfersMas  ⛳  #GolfLatAm', W / 2, H - 110)
+  ctx.font = '22px Arial, sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.15)'
+  ctx.fillText('Golfers+ — El golf amateur en español', W / 2, H - 70)
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')),
+      'image/png', 0.95
+    )
+  })
+}
+
+export async function compartirLeaderboard(data: LeaderboardShareData): Promise<{ success: boolean; method: 'share' | 'download' }> {
+  const blob = await generarLeaderboardCard(data)
+  const fileName = `golfers-leaderboard-${Date.now()}.png`
+  const file = new File([blob], fileName, { type: 'image/png' })
+
+  const winner = data.players[0]
+  const scoreStr = winner.vsPar === 0 ? 'E' : winner.vsPar > 0 ? `+${winner.vsPar}` : String(winner.vsPar)
+  const texto = data.isFinished
+    ? `${winner.nombre} gano en ${data.courseName} (${scoreStr})! Leaderboard completo en Golfers+ 🏆 tu-golf.vercel.app/ronda-libre/${data.rondaCodigo}?finished=true`
+    : `Sigue la ronda en vivo en ${data.courseName}! Golfers+ ⛳ tu-golf.vercel.app/ronda-libre/${data.rondaCodigo}`
+
+  if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Leaderboard — Golfers+', text: texto })
+      return { success: true, method: 'share' }
+    } catch { /* cancelled */ }
+  }
+
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: 'Leaderboard — Golfers+', text: texto, url: `https://tu-golf.vercel.app/ronda-libre/${data.rondaCodigo}` })
+      return { success: true, method: 'share' }
+    } catch { /* fallback */ }
+  }
+
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = fileName
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 5000)
+  return { success: true, method: 'download' }
+}

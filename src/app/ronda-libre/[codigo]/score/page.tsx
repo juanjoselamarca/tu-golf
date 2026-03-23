@@ -842,31 +842,49 @@ function ScorePageContent() {
                 )}
               </div>
 
-              {/* CTAs */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
-                <button onClick={handleShareCard} style={{
-                  width: '100%', padding: '16px', background: 'linear-gradient(135deg, #c9a84c 0%, #d4a843 50%, #b8972f 100%)',
-                  color: '#0a1419', fontWeight: 700, fontSize: '16px', border: 'none', borderRadius: '14px', cursor: 'pointer',
-                  boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
-                }}>
-                  Compartir resultado
-                </button>
-                <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.3)',
-                  color: '#c9a84c', fontWeight: 600, fontSize: '14px',
-                  height: '52px', borderRadius: '12px', textDecoration: 'none',
-                }}>
-                  Analizar con tAIger+
-                </Link>
-                <Link href={`/ronda-libre/${codigo}?finished=true`} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'rgba(255,255,255,0.4)', fontSize: '14px',
-                  height: '44px', textDecoration: 'none',
-                }}>
-                  Ver leaderboard final
-                </Link>
-              </div>
+              {/* CTAs — different for solo vs multi-player */}
+              {(() => {
+                const isMultiPlayer = (ronda?.ronda_libre_jugadores ?? []).length > 1
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                    {isMultiPlayer ? (
+                      <>
+                        <Link href={`/ronda-libre/${codigo}?finished=true`} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          width: '100%', padding: '16px', background: 'linear-gradient(135deg, #c9a84c 0%, #d4a843 50%, #b8972f 100%)',
+                          color: '#0a1419', fontWeight: 700, fontSize: '16px', borderRadius: '14px', textDecoration: 'none',
+                          boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
+                        }}>
+                          Ver leaderboard en vivo
+                        </Link>
+                        <button onClick={handleShareCard} style={{
+                          width: '100%', padding: '14px', background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.12)', color: '#edeae4',
+                          fontWeight: 600, fontSize: '14px', borderRadius: '12px', cursor: 'pointer',
+                        }}>
+                          Compartir mi score
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={handleShareCard} style={{
+                        width: '100%', padding: '16px', background: 'linear-gradient(135deg, #c9a84c 0%, #d4a843 50%, #b8972f 100%)',
+                        color: '#0a1419', fontWeight: 700, fontSize: '16px', border: 'none', borderRadius: '14px', cursor: 'pointer',
+                        boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
+                      }}>
+                        Compartir resultado
+                      </button>
+                    )}
+                    <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.3)',
+                      color: '#c9a84c', fontWeight: 600, fontSize: '14px',
+                      height: '52px', borderRadius: '12px', textDecoration: 'none',
+                    }}>
+                      Analizar con tAIger+
+                    </Link>
+                  </div>
+                )
+              })()}
 
               <p style={{ color: 'rgba(255,255,255,0.15)', fontSize: '11px', marginTop: '16px' }}>Golfers+ · El golf amateur en español</p>
             </div>
