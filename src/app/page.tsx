@@ -78,10 +78,10 @@ export default async function Home() {
 
         <div className="text-center mb-8 md:mb-20">
           <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-ivory mb-4">
-            Tan simple como jugar golf
+            Mucho más fácil que jugar golf
           </h2>
           <p className="font-sans text-gray-soft text-base md:text-lg">
-            De la configuración al leaderboard en minutos
+            Configura tu ronda y empieza a jugar en segundos
           </p>
         </div>
 
