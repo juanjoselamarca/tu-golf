@@ -77,6 +77,9 @@ function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && 
 // Chip colors from centralized score-colors system
 import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult, getHoleBoxStyle, getScoreNumberStyle } from '@/lib/score-colors'
 import MiniLeaderboard from '@/components/MiniLeaderboard'
+import GWILeaderboard from '@/components/GWILeaderboard'
+import { calcularGWI } from '@/lib/gwi'
+import type { JugadorGWIInput, GWIResult } from '@/lib/gwi'
 import { compartirResultado } from '@/lib/share-card'
 import type { ShareCardData } from '@/lib/share-card'
 
@@ -127,14 +130,26 @@ function ScorePageContent() {
   const [finalScore, setFinalScore] = useState({ gross: 0, totalPar: 0 })
   const [holeInOneData, setHoleInOneData] = useState<{ playerName: string; hole: number } | null>(null)
   const [view, setView] = useState<'scorecard' | 'leaderboard'>('scorecard')
+  const [gwiInputs, setGwiInputs] = useState<JugadorGWIInput[]>([])
+  const [, setGwiResults] = useState<GWIResult[]>([])
 
-  // Auto-return to scorecard after 10s
+  // Auto-return to scorecard after 10s + fetch GWI
   useEffect(() => {
     if (view === 'leaderboard') {
       const t = setTimeout(() => setView('scorecard'), 10000)
+      // Fetch GWI data
+      fetch(`/api/gwi/ronda-libre/${codigo}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(json => {
+          if (json?.inputs) {
+            setGwiInputs(json.inputs)
+            setGwiResults(calcularGWI(json.inputs, json.totalHoyos))
+          }
+        })
+        .catch(() => {})
       return () => clearTimeout(t)
     }
-  }, [view])
+  }, [view, codigo])
 
   // Theme: white by default, dark mode toggle with localStorage persistence
   const [darkMode, setDarkMode] = useState(() => {
@@ -580,7 +595,7 @@ function ScorePageContent() {
 
       {/* ── Mini scorecard with PGA indicators + OUT/IN/TOT ── */}
       <div style={{
-        borderBottom: '1px solid rgba(255,255,255,0.08)', borderRadius: '0',
+        borderBottom: `1px solid ${theme.border}`,
         flexShrink: 0, overflow: 'hidden',
       }}>
         <div ref={progressRowRef} style={{
@@ -596,12 +611,12 @@ function ScorePageContent() {
             const indicatorColor = s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff < 0 ? '#c4992a' : diff != null && diff > 0 ? '#EF4444' : 'transparent'
             return (
               <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer' }}>
-                <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : 'rgba(255,255,255,0.3)', fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
+                <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
                 {s != null ? (
                   <div style={{
                     width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '11px', fontWeight: 600, lineHeight: 1,
-                    color: s === 1 ? '#c4992a' : diff != null && diff >= 3 ? '#fff' : 'rgba(255,255,255,0.7)',
+                    color: s === 1 ? '#c4992a' : diff != null && diff >= 3 ? '#fff' : theme.textMuted,
                     background: s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff >= 3 ? '#DC2626' : 'transparent',
                     border: indicatorColor !== 'transparent' && !((s === 1) || (diff != null && diff <= -3) || (diff != null && diff >= 3)) ? `1.5px solid ${indicatorColor}` : 'none',
                     borderRadius: diff != null && diff < 0 ? '50%' : '2px',
@@ -610,7 +625,7 @@ function ScorePageContent() {
                     {s === 1 ? <span style={{ color: '#070d18', fontWeight: 800 }}>1</span> : s}
                   </div>
                 ) : (
-                  <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : 'rgba(255,255,255,0.05)', border: isActive ? '1.5px solid #C4992A' : '1px solid rgba(255,255,255,0.1)' }} />
+                  <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : theme.badgeBg, border: isActive ? '1.5px solid #C4992A' : `1px solid ${theme.badgeBorder}` }} />
                 )}
               </div>
             )
@@ -618,12 +633,12 @@ function ScorePageContent() {
 
           {/* OUT */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '28px', padding: '0 3px', flexShrink: 0 }}>
-            <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em', marginBottom: '2px' }}>OUT</div>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#EDE9E4' }}>{f9Count > 0 ? f9Gross : '—'}</div>
+            <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginBottom: '2px' }}>OUT</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: theme.text }}>{f9Count > 0 ? f9Gross : '—'}</div>
           </div>
 
           {/* Separator */}
-          {totalHoles > 9 && <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '2px 1px', flexShrink: 0 }} />}
+          {totalHoles > 9 && <div style={{ width: '1px', background: theme.border, margin: '2px 1px', flexShrink: 0 }} />}
 
           {/* Back 9 */}
           {totalHoles > 9 && Array.from({ length: Math.min(9, totalHoles - 9) }, (_, i) => i + 10).map(h => {
@@ -634,12 +649,12 @@ function ScorePageContent() {
             const indicatorColor = s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff < 0 ? '#c4992a' : diff != null && diff > 0 ? '#EF4444' : 'transparent'
             return (
               <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer' }}>
-                <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : 'rgba(255,255,255,0.3)', fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
+                <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
                 {s != null ? (
                   <div style={{
                     width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '11px', fontWeight: 600, lineHeight: 1,
-                    color: s === 1 ? '#c4992a' : diff != null && diff >= 3 ? '#fff' : 'rgba(255,255,255,0.7)',
+                    color: s === 1 ? '#c4992a' : diff != null && diff >= 3 ? '#fff' : theme.textMuted,
                     background: s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff >= 3 ? '#DC2626' : 'transparent',
                     border: indicatorColor !== 'transparent' && !((s === 1) || (diff != null && diff <= -3) || (diff != null && diff >= 3)) ? `1.5px solid ${indicatorColor}` : 'none',
                     borderRadius: diff != null && diff < 0 ? '50%' : '2px',
@@ -648,7 +663,7 @@ function ScorePageContent() {
                     {s === 1 ? <span style={{ color: '#070d18', fontWeight: 800 }}>1</span> : s}
                   </div>
                 ) : (
-                  <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : 'rgba(255,255,255,0.05)', border: isActive ? '1.5px solid #C4992A' : '1px solid rgba(255,255,255,0.1)' }} />
+                  <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : theme.badgeBg, border: isActive ? '1.5px solid #C4992A' : `1px solid ${theme.badgeBorder}` }} />
                 )}
               </div>
             )
@@ -657,42 +672,40 @@ function ScorePageContent() {
           {/* IN */}
           {totalHoles > 9 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '28px', padding: '0 3px', flexShrink: 0 }}>
-              <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em', marginBottom: '2px' }}>IN</div>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#EDE9E4' }}>{b9Count > 0 ? b9Gross : '—'}</div>
+              <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginBottom: '2px' }}>IN</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: theme.text }}>{b9Count > 0 ? b9Gross : '—'}</div>
             </div>
           )}
 
           {/* Separator + TOT */}
-          <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '2px 1px', flexShrink: 0 }} />
+          <div style={{ width: '1px', background: theme.border, margin: '2px 1px', flexShrink: 0 }} />
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', padding: '0 4px', flexShrink: 0 }}>
-            <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em', marginBottom: '2px' }}>TOT</div>
+            <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginBottom: '2px' }}>TOT</div>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#C4992A' }}>{totalGross > 0 ? totalGross : '—'}</div>
           </div>
         </div>
       </div>
 
-      {/* ── Hole info: 4 columns premium ── */}
-      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
+      {/* ── Hole info: 3 columns + share ── */}
+      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', flexShrink: 0 }}>
         {[
-          { label: 'PAR', value: String(par), gold: false },
-          { label: 'HDCP', value: String(holeData.stroke_index), gold: false },
-          { label: 'YDS', value: holeData.yardaje ? String(holeData.yardaje) : '—', gold: false },
-          { label: 'F9', value: f9Count > 0 ? formatNine(f9Gross, f9Par) : '—', gold: true },
+          { label: 'PAR', value: String(par) },
+          { label: 'HDCP', value: String(holeData.stroke_index) },
+          { label: 'YDS', value: holeData.yardaje ? String(holeData.yardaje) : '—' },
         ].map((col, i) => (
           <div key={col.label} style={{
-            flex: 1, textAlign: 'center', padding: '6px 2px',
-            borderRight: '1px solid rgba(255,255,255,0.06)',
+            flex: 1, textAlign: 'center', padding: '8px 2px',
+            borderRight: `1px solid ${theme.border}`,
           }}>
-            <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: col.gold ? '#C4992A' : '#EDE9E4' }}>{col.value}</div>
+            <div style={{ fontSize: '9px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
+            <div style={{ fontSize: '16px', fontWeight: 600, color: theme.text }}>{col.value}</div>
           </div>
         ))}
-        {/* Share button */}
         <button onClick={() => setShowShareMenu(true)} aria-label="Compartir" style={{
-          padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer',
+          padding: '8px 14px', background: 'none', border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={theme.textFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
         </button>
       </div>
 
@@ -833,6 +846,17 @@ function ScorePageContent() {
             currentUserId={ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.user_id ?? null}
             totalHoles={ronda.holes}
           />
+          {/* GWI — same as spectator view */}
+          {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+            <div style={{ marginTop: '12px' }}>
+              <GWILeaderboard
+                jugadores={gwiInputs}
+                hoyosRestantes={ronda.holes - Math.max(...gwiInputs.map(j => j.hoyosCompletados), 0)}
+                totalHoyos={ronda.holes}
+                modoJuego={ronda.modo_juego || 'gross'}
+              />
+            </div>
+          )}
           <div style={{ fontSize: '9px', color: theme.textFaint, textAlign: 'center', marginTop: '8px' }}>
             Vuelve a Scorecard en 10s
           </div>
@@ -865,7 +889,7 @@ function ScorePageContent() {
           aria-label={isLastHole ? 'Finalizar ronda' : 'Siguiente hoyo'}
           style={{
             flex: 2, padding: '14px',
-            background: score != null ? '#C4992A' : 'rgba(196,153,42,0.4)',
+            background: '#C4992A',
             color: '#070D18',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
             cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
