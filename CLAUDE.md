@@ -34,6 +34,11 @@ El repositorio GitHub ES la identidad permanente del proyecto.
 2. NUNCA push sin: npm run build exitoso
 3. Commits en español descriptivo
 4. Variables de entorno: siempre desde .env.local
+5. HEALTH CHECK OBLIGATORIO antes de cada push de sprint:
+   - Ejecutar GET /api/admin/health-check (via fetch o desde /admin/sistema)
+   - Si hay checks en FAIL → arreglar antes de push
+   - Si hay WARN → evaluar si es aceptable, documentar en commit
+   - Reportar resultado: "Health Check: X passed, Y warnings, Z failed"
 
 ## SOBRE ONEDRIVE Y .next
 

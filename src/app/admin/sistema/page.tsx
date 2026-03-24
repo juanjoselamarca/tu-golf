@@ -29,11 +29,29 @@ const envNotes: Record<string, string> = {
   GARMIN_CLIENT_ID: 'Garmin Connect',
 }
 
+interface HealthCheckResult {
+  timestamp: string
+  duration_ms: number
+  summary: { total: number; passed: number; warnings: number; failed: number }
+  categories: {
+    name: string
+    checks: {
+      name: string
+      status: 'pass' | 'warn' | 'fail'
+      message: string
+      details?: unknown
+      duration_ms?: number
+    }[]
+  }[]
+}
+
 export default function SistemaPage() {
   const [health, setHealth] = useState<HealthData | null>(null)
   const [loading, setLoading] = useState(true)
   const [pingLoading, setPingLoading] = useState(false)
   const [debugLoading, setDebugLoading] = useState(false)
+  const [hcResult, setHcResult] = useState<HealthCheckResult | null>(null)
+  const [hcLoading, setHcLoading] = useState(false)
   const [debugResult, setDebugResult] = useState<string | null>(null)
   const [lastPing, setLastPing] = useState<string | null>(null)
   const [sqlQuery, setSqlQuery] = useState('')
@@ -146,8 +164,97 @@ export default function SistemaPage() {
     }
   }
 
+  const runHealthCheck = async () => {
+    setHcLoading(true)
+    setHcResult(null)
+    try {
+      const res = await fetch('/api/admin/health-check')
+      if (res.ok) setHcResult(await res.json())
+    } catch { /* keep null */ }
+    finally { setHcLoading(false) }
+  }
+
+  const statusIcon = (s: string) => s === 'pass' ? '\u2705' : s === 'warn' ? '\u26A0\uFE0F' : '\u274C'
+  const statusColor = (s: string) => s === 'pass' ? adminColors.green : s === 'warn' ? '#f59e0b' : adminColors.red
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      {/* Section: Health Check Suite */}
+      <section>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h2 style={sectionTitle}>Health Check Suite</h2>
+          <button onClick={runHealthCheck} disabled={hcLoading} style={{
+            background: adminColors.gold, color: adminColors.bgDeep, border: 'none',
+            borderRadius: '8px', padding: '10px 20px', fontSize: '13px', fontWeight: 700,
+            cursor: hcLoading ? 'wait' : 'pointer', opacity: hcLoading ? 0.6 : 1,
+          }}>
+            {hcLoading ? 'Ejecutando...' : 'Ejecutar Tests'}
+          </button>
+        </div>
+
+        {hcResult && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Summary bar */}
+            <div style={{
+              ...adminCard, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexWrap: 'wrap', gap: '12px',
+            }}>
+              <div style={{ display: 'flex', gap: '20px' }}>
+                <span style={{ ...adminFonts.body, color: adminColors.green, fontWeight: 700 }}>
+                  {'\u2705'} {hcResult.summary.passed} passed
+                </span>
+                {hcResult.summary.warnings > 0 && (
+                  <span style={{ ...adminFonts.body, color: '#f59e0b', fontWeight: 700 }}>
+                    {'\u26A0\uFE0F'} {hcResult.summary.warnings} warnings
+                  </span>
+                )}
+                {hcResult.summary.failed > 0 && (
+                  <span style={{ ...adminFonts.body, color: adminColors.red, fontWeight: 700 }}>
+                    {'\u274C'} {hcResult.summary.failed} failed
+                  </span>
+                )}
+              </div>
+              <span style={{ ...adminFonts.mono, fontSize: '11px' }}>
+                {hcResult.summary.total} checks en {hcResult.duration_ms}ms
+              </span>
+            </div>
+
+            {/* Categories */}
+            {hcResult.categories.map((cat, ci) => (
+              <div key={ci} style={adminCard}>
+                <h3 style={{ ...adminFonts.label, marginBottom: '12px' }}>{cat.name}</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {cat.checks.map((check, ki) => (
+                    <div key={ki} style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      padding: '6px 8px', borderRadius: '6px',
+                      background: check.status === 'fail' ? 'rgba(239,68,68,0.08)' : check.status === 'warn' ? 'rgba(245,158,11,0.08)' : 'transparent',
+                    }}>
+                      <span style={{ fontSize: '14px', flexShrink: 0 }}>{statusIcon(check.status)}</span>
+                      <span style={{ ...adminFonts.body, fontSize: '13px', flex: 1 }}>{check.name}</span>
+                      <span style={{ ...adminFonts.mono, fontSize: '11px', color: statusColor(check.status) }}>
+                        {check.message}
+                      </span>
+                      {check.duration_ms !== undefined && (
+                        <span style={{ ...adminFonts.mono, fontSize: '10px', color: adminColors.grayDim }}>
+                          {check.duration_ms}ms
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!hcResult && !hcLoading && (
+          <div style={{ ...adminCard, textAlign: 'center', color: adminColors.gray, fontSize: '13px', padding: '32px' }}>
+            Ejecuta los tests para verificar el estado completo de la app
+          </div>
+        )}
+      </section>
+
       {/* Section: Service Health */}
       <section>
         <h2 style={sectionTitle}>Estado de Servicios</h2>
