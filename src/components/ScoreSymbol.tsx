@@ -18,9 +18,9 @@ interface ScoreSymbolProps {
 }
 
 const SIZES = {
-  sm: { box: 28, font: 12, border: 1.5, gap: 2 },
-  md: { box: 36, font: 15, border: 2, gap: 2.5 },
-  lg: { box: 44, font: 18, border: 2.5, gap: 3 },
+  sm: { box: 28, font: 12, border: 1, gap: 2 },
+  md: { box: 36, font: 15, border: 1.5, gap: 2.5 },
+  lg: { box: 44, font: 18, border: 1.5, gap: 3 },
 }
 
 export default function ScoreSymbol({ score, par, size = 'md', theme = 'dark' }: ScoreSymbolProps) {

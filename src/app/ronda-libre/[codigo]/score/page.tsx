@@ -309,16 +309,9 @@ function ScorePageContent() {
       lsSave(codigo, activeJugadorId, next[activeJugadorId])
       const holePar = parMap[hole] ?? 4
       if (clamped - holePar <= -1) haptic([15, 30, 15])
-      // Hole-in-one detection!
-      if (clamped === 1 && ronda) {
-        const playerName = ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.nombre ?? 'Jugador'
-        setHoleInOneData({ playerName, hole })
-        haptic([50, 100, 50, 100, 50])
-        sendPushViaServer({ title: 'HOLE IN ONE!', body: `${playerName} hizo hoyo en uno en el hoyo ${hole}!`, tag: `ace-${codigo}-${hole}`, url: `/ronda-libre/${codigo}` })
-      }
       return next
     })
-  }, [activeJugadorId, parMap, codigo, ronda])
+  }, [activeJugadorId, parMap, codigo])
 
   /* ── Swipe ── */
   const handleTouchStart = (e: React.TouchEvent) => { swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY } }
@@ -343,16 +336,24 @@ function ScorePageContent() {
     }
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
 
-    // Send server-side push for notable events (birdie, eagle)
+    // Send server-side push for notable events (birdie, eagle, hole-in-one)
     const savedScore = scores[activeJugadorId]?.[currentHole]
     const holePar = parMap[currentHole] ?? 4
     if (savedScore != null && ronda) {
-      const diff = savedScore - holePar
       const playerName = ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.nombre ?? 'Jugador'
-      if (diff <= -2) {
-        sendPushViaServer({ title: `Eagle — ${playerName}`, body: `Eagle en hoyo ${currentHole} en ${ronda.course_name}`, tag: `eagle-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
-      } else if (diff === -1) {
-        sendPushViaServer({ title: `Birdie — ${playerName}`, body: `Birdie en hoyo ${currentHole} en ${ronda.course_name}`, tag: `birdie-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
+
+      // Hole-in-one — celebrate AFTER confirming with Siguiente
+      if (savedScore === 1) {
+        setHoleInOneData({ playerName, hole: currentHole })
+        haptic([50, 100, 50, 100, 50])
+        sendPushViaServer({ title: 'HOLE IN ONE!', body: `${playerName} hizo hoyo en uno en el hoyo ${currentHole}!`, tag: `ace-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
+      } else {
+        const diff = savedScore - holePar
+        if (diff <= -2) {
+          sendPushViaServer({ title: `Eagle — ${playerName}`, body: `Eagle en hoyo ${currentHole} en ${ronda.course_name}`, tag: `eagle-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
+        } else if (diff === -1) {
+          sendPushViaServer({ title: `Birdie — ${playerName}`, body: `Birdie en hoyo ${currentHole} en ${ronda.course_name}`, tag: `birdie-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
+        }
       }
     }
 
@@ -385,16 +386,21 @@ function ScorePageContent() {
     const { data: { user: authUser } } = await supabase.auth.getUser()
     await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
 
-    // Save to historical_rounds
+    // Save to historical_rounds — array of 18 scores in hole order (1-18)
     const playerScores = scores[activeJugadorId] ?? {}
-    const grossTotal = Object.values(playerScores).reduce((a: number, b: number) => a + b, 0)
+    const totalHolesForSave = ronda.holes ?? 18
+    const scoresArray: (number | null)[] = Array.from({ length: totalHolesForSave }, (_, i) => {
+      const h = i + 1
+      return playerScores[h] ?? null
+    })
+    const grossTotal = scoresArray.filter((s): s is number => s != null).reduce((a, b) => a + b, 0)
     try {
       await supabase.from('historical_rounds').insert({
         user_id: authUser?.id,
         course_name: ronda.course_name,
         played_at: new Date().toISOString().split('T')[0],
         total_gross: grossTotal,
-        scores: Object.entries(playerScores).sort(([a],[b]) => parseInt(a) - parseInt(b)).map(([,v]) => v),
+        scores: scoresArray,
         privacy: 'private',
       })
     } catch { /* don't block finalization */ }
