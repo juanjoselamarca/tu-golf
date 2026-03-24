@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { isAdminEmail } from '@/lib/admin'
 import type { User } from '@supabase/supabase-js'
 import NotificationHub from '@/components/NotificationHub'
 
@@ -13,13 +12,20 @@ export default function Navbar() {
   const router = useRouter()
 
   const [user, setUser] = useState<User | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [playSheetOpen, setPlaySheetOpen] = useState(false)
   const [notifHubOpen, setNotifHubOpen] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user)
+      if (data.user) {
+        supabase.from('profiles').select('role').eq('id', data.user.id).single()
+          .then(({ data: profile }) => setIsAdmin(profile?.role === 'admin'))
+      }
+    })
     const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null)
     })
@@ -50,7 +56,7 @@ export default function Navbar() {
     { href: '/perfil/stats', icon: '📈', label: 'Estadísticas' },
     { href: '/perfil/historial', icon: '📋', label: 'Historial' },
     { href: '/importar', icon: '📥', label: 'Importar' },
-    ...(isAdminEmail(user?.email) ? [{ href: '/admin', icon: '⚙️', label: 'Admin' }] : []),
+    ...(isAdmin ? [{ href: '/admin', icon: '⚙️', label: 'Admin' }] : []),
   ] : [
     { href: '/', icon: '🏠', label: 'Inicio' },
     { href: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
