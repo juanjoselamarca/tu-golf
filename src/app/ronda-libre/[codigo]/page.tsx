@@ -1027,83 +1027,70 @@ function RondaLibrePageContent() {
                     </span>
                   </button>
 
-                  {/* Expandable scorecard table with OUT/IN/TOTAL */}
+                  {/* Expandable scorecard — PGA format with circles/squares */}
                   {isExpanded && j.holesPlayed > 0 && (() => {
-                    const front9Total = holeNums.slice(0, 9).reduce((sum, h) => {
-                      const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
-                      return sum + (s ?? 0)
-                    }, 0)
-                    const back9Total = holeNums.slice(9, 18).reduce((sum, h) => {
-                      const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
-                      return sum + (s ?? 0)
-                    }, 0)
-                    const sColor = (h: number) => {
-                      const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
-                      if (s == null) return '#d1d5db'
+                    const getS = (h: number) => j.scores[String(h)] ?? (j.scores as Record<number, number>)[h] ?? null
+                    const front9T = holeNums.slice(0, 9).reduce((sum, h) => sum + (getS(h) ?? 0), 0)
+                    const back9T = holeNums.slice(9, 18).reduce((sum, h) => sum + (getS(h) ?? 0), 0)
+
+                    const scoreCell = (h: number) => {
+                      const s = getS(h)
+                      if (s == null) return <span style={{ color: '#d1d5db', fontSize: '11px' }}>·</span>
                       const d = s - (parMap[h] ?? 4)
-                      if (d <= -2) return '#92400e'
-                      if (d === -1) return '#16a34a'
-                      if (d === 0) return '#374151'
-                      if (d === 1) return '#d97706'
-                      return '#dc2626'
+                      const isAce = s === 1
+                      const color = isAce ? '#c4992a' : '#374151'
+                      if (d <= -2) return (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', border: '1.5px solid #c4992a', position: 'relative' }}>
+                          <span style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', border: '1px solid #c4992a' }} />
+                          <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                        </span>
+                      )
+                      if (d === -1) return (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', border: '1.5px solid #c4992a' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                        </span>
+                      )
+                      if (d === 0) return <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                      if (d === 1) return (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 3px', borderRadius: '2px', border: '1.5px solid #EF4444' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                        </span>
+                      )
+                      return (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 3px', borderRadius: '2px', border: '1.5px solid #EF4444', position: 'relative' }}>
+                          <span style={{ position: 'absolute', inset: '-4px', borderRadius: '3px', border: '1px solid #EF4444' }} />
+                          <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                        </span>
+                      )
                     }
-                    const sBg = (h: number) => {
-                      const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
-                      if (s == null) return 'transparent'
-                      const d = s - (parMap[h] ?? 4)
-                      if (d <= -2) return '#fffbeb'
-                      if (d === -1) return '#f0fdf4'
-                      return 'transparent'
-                    }
+
+                    const renderHalf = (holes: number[], label: string, total: number) => (
+                      <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '8px' }}>
+                        <div style={{ flex: 1, display: 'flex' }}>
+                          {holes.map(h => (
+                            <div key={h} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+                              <div style={{ fontSize: '8px', color: '#9ca3af', marginBottom: '2px' }}>{h}</div>
+                              <div style={{ minHeight: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{scoreCell(h)}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', flexShrink: 0, borderLeft: '1px solid #e5e7eb', paddingLeft: '4px', marginLeft: '4px' }}>
+                          <div style={{ fontSize: '8px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' as const }}>{label}</div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>{total}</div>
+                        </div>
+                      </div>
+                    )
+
                     return (
-                      <div style={{ padding: '4px 12px 12px', background: '#f9fafb', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                        <table style={{ width: '100%', minWidth: '300px', borderCollapse: 'collapse' }}>
-                          <tbody>
-                            <tr>
-                              {holeNums.slice(0, 9).map(h => (
-                                <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: '#9ca3af' }}>{h}</td>
-                              ))}
-                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: '#374151', fontWeight: 700, borderLeft: '1px solid #e5e7eb' }}>OUT</td>
-                            </tr>
-                            <tr>
-                              {holeNums.slice(0, 9).map(h => {
-                                const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
-                                return (
-                                  <td key={h} style={{ padding: '2px 1px', textAlign: 'center', background: sBg(h), borderRadius: '3px' }}>
-                                    <span style={{ fontSize: '12px', fontWeight: 700, color: sColor(h) }}>{s ?? '·'}</span>
-                                  </td>
-                                )
-                              })}
-                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '12px', fontWeight: 800, color: '#374151', borderLeft: '1px solid #e5e7eb' }}>{front9Total}</td>
-                            </tr>
-                            {ronda.holes > 9 && (
-                              <>
-                                <tr><td colSpan={10} style={{ padding: '3px' }} /></tr>
-                                <tr>
-                                  {holeNums.slice(9, 18).map(h => (
-                                    <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: '#9ca3af' }}>{h}</td>
-                                  ))}
-                                  <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: '#374151', fontWeight: 700, borderLeft: '1px solid #e5e7eb' }}>IN</td>
-                                </tr>
-                                <tr>
-                                  {holeNums.slice(9, 18).map(h => {
-                                    const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
-                                    return (
-                                      <td key={h} style={{ padding: '2px 1px', textAlign: 'center', background: sBg(h), borderRadius: '3px' }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: sColor(h) }}>{s ?? '·'}</span>
-                                      </td>
-                                    )
-                                  })}
-                                  <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '12px', fontWeight: 800, color: '#374151', borderLeft: '1px solid #e5e7eb' }}>{back9Total}</td>
-                                </tr>
-                                <tr>
-                                  <td colSpan={9} style={{ borderTop: '1px solid #e5e7eb', padding: '4px 0 0' }} />
-                                  <td style={{ borderTop: '1px solid #e5e7eb', padding: '4px 3px 0', textAlign: 'center', fontSize: '13px', fontWeight: 900, color: '#111827' }}>{front9Total + back9Total}</td>
-                                </tr>
-                              </>
-                            )}
-                          </tbody>
-                        </table>
+                      <div style={{ padding: '4px 8px 10px', background: '#f9fafb' }}>
+                        {renderHalf(holeNums.slice(0, 9), 'OUT', front9T)}
+                        {ronda.holes > 9 && renderHalf(holeNums.slice(9, 18), 'IN', back9T)}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #e5e7eb', paddingTop: '4px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px' }}>
+                            <div style={{ fontSize: '8px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' as const }}>TOT</div>
+                            <div style={{ fontSize: '14px', fontWeight: 800, color: '#111827' }}>{front9T + back9T}</div>
+                          </div>
+                        </div>
                       </div>
                     )
                   })()}
