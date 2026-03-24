@@ -36,6 +36,12 @@ export default function SistemaPage() {
   const [debugLoading, setDebugLoading] = useState(false)
   const [debugResult, setDebugResult] = useState<string | null>(null)
   const [lastPing, setLastPing] = useState<string | null>(null)
+  const [sqlQuery, setSqlQuery] = useState('')
+  const [sqlResult, setSqlResult] = useState<Record<string, unknown>[] | null>(null)
+  const [sqlLoading, setSqlLoading] = useState(false)
+  const [sqlError, setSqlError] = useState<string | null>(null)
+  const [forceCloseLoading, setForceCloseLoading] = useState(false)
+  const [forceCloseResult, setForceCloseResult] = useState<{ count: number } | null>(null)
 
   const fetchHealth = useCallback(async () => {
     try {
@@ -99,6 +105,44 @@ export default function SistemaPage() {
       setDebugResult(`Error: ${err instanceof Error ? err.message : 'desconocido'}`)
     } finally {
       setDebugLoading(false)
+    }
+  }
+
+  const handleForceClose = async () => {
+    setForceCloseLoading(true)
+    setForceCloseResult(null)
+    try {
+      const res = await fetch('/api/admin/actions/force-close', { method: 'POST' })
+      const data = await res.json()
+      setForceCloseResult({ count: data.closed ?? 0 })
+    } catch {
+      setForceCloseResult({ count: -1 })
+    } finally {
+      setForceCloseLoading(false)
+    }
+  }
+
+  const handleSqlExecute = async () => {
+    if (!sqlQuery.trim()) return
+    setSqlLoading(true)
+    setSqlResult(null)
+    setSqlError(null)
+    try {
+      const res = await fetch('/api/admin/actions/sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: sqlQuery }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setSqlError(data.error || `HTTP ${res.status}`)
+      } else {
+        setSqlResult(Array.isArray(data.rows) ? data.rows : [])
+      }
+    } catch (err) {
+      setSqlError(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setSqlLoading(false)
     }
   }
 
@@ -286,6 +330,183 @@ export default function SistemaPage() {
             )}
           </div>
         )}
+      </section>
+
+      {/* Section: Acciones de Emergencia */}
+      <section>
+        <h2 style={sectionTitle}>Acciones de Emergencia</h2>
+        <div style={{ ...adminCard }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleForceClose}
+                disabled={forceCloseLoading}
+                style={{
+                  ...adminFonts.body,
+                  background: forceCloseLoading ? adminColors.border : adminColors.yellow,
+                  color: forceCloseLoading ? adminColors.gray : adminColors.bgDeep,
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: forceCloseLoading ? 'wait' : 'pointer',
+                  transition: 'opacity 0.2s',
+                  opacity: forceCloseLoading ? 0.7 : 1,
+                }}
+              >
+                {forceCloseLoading ? 'Procesando...' : 'Forzar cierre de rondas abandonadas (>24h)'}
+              </button>
+              {forceCloseResult && (
+                forceCloseResult.count > 0 ? (
+                  <AdminBadge text={`${forceCloseResult.count} rondas cerradas`} variant="success" />
+                ) : forceCloseResult.count === 0 ? (
+                  <AdminBadge text="Sin rondas abandonadas" variant="neutral" />
+                ) : (
+                  <AdminBadge text="Error al ejecutar" variant="error" />
+                )
+              )}
+            </div>
+
+            {/* Recent Admin Actions */}
+            <div style={{ borderTop: `1px solid ${adminColors.border}`, paddingTop: '16px' }}>
+              <span style={{ ...adminFonts.label, display: 'block', marginBottom: '8px' }}>Acciones recientes</span>
+              <p style={{ ...adminFonts.mono, fontSize: '12px', margin: 0 }}>
+                Las acciones se registran en analytics_events. Usa la SQL Console para consultarlas.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Section: SQL Console */}
+      <section>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <h2 style={{ ...sectionTitle, marginBottom: 0 }}>SQL Console</h2>
+          <AdminBadge text="SOLO LECTURA RECOMENDADO" variant="warning" />
+        </div>
+        <div style={{ ...adminCard }}>
+          <textarea
+            value={sqlQuery}
+            onChange={(e) => setSqlQuery(e.target.value)}
+            rows={6}
+            placeholder="SELECT * FROM profiles LIMIT 10"
+            style={{
+              width: '100%',
+              fontFamily: "'DM Mono', monospace",
+              fontSize: '13px',
+              background: adminColors.bg,
+              border: `1px solid ${adminColors.border}`,
+              borderRadius: '8px',
+              color: adminColors.ivory,
+              padding: '12px',
+              resize: 'vertical',
+              outline: 'none',
+              boxSizing: 'border-box',
+              marginBottom: '12px',
+            }}
+          />
+          <button
+            onClick={handleSqlExecute}
+            disabled={sqlLoading || !sqlQuery.trim()}
+            style={{
+              ...adminFonts.body,
+              background: (sqlLoading || !sqlQuery.trim()) ? adminColors.border : adminColors.gold,
+              color: (sqlLoading || !sqlQuery.trim()) ? adminColors.gray : adminColors.bgDeep,
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontWeight: 600,
+              fontSize: '13px',
+              cursor: (sqlLoading || !sqlQuery.trim()) ? 'wait' : 'pointer',
+              transition: 'opacity 0.2s',
+              opacity: (sqlLoading || !sqlQuery.trim()) ? 0.7 : 1,
+              marginBottom: '16px',
+            }}
+          >
+            {sqlLoading ? 'Ejecutando...' : 'Ejecutar'}
+          </button>
+
+          {/* SQL Error */}
+          {sqlError && (
+            <div style={{
+              ...adminFonts.mono,
+              color: adminColors.red,
+              background: adminColors.redDim,
+              padding: '12px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }}>
+              {sqlError}
+            </div>
+          )}
+
+          {/* SQL Results */}
+          {sqlResult !== null && !sqlError && (
+            sqlResult.length === 0 ? (
+              <p style={{ ...adminFonts.mono, margin: 0 }}>Sin resultados</p>
+            ) : (
+              <div style={{
+                overflowX: 'auto',
+                overflowY: 'auto',
+                maxHeight: '400px',
+                background: adminColors.bg,
+                border: `1px solid ${adminColors.border}`,
+                borderRadius: '8px',
+              }}>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: '11px',
+                  color: adminColors.ivory,
+                }}>
+                  <thead>
+                    <tr>
+                      {Object.keys(sqlResult[0]).map((col) => (
+                        <th key={col} style={{
+                          textAlign: 'left',
+                          padding: '8px 10px',
+                          borderBottom: `1px solid ${adminColors.border}`,
+                          color: adminColors.gold,
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                          position: 'sticky',
+                          top: 0,
+                          background: adminColors.bgDeep,
+                        }}>
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sqlResult.map((row, i) => (
+                      <tr key={i} style={{
+                        background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
+                      }}>
+                        {Object.values(row).map((val, j) => (
+                          <td key={j} style={{
+                            padding: '6px 10px',
+                            borderBottom: `1px solid ${adminColors.border}`,
+                            whiteSpace: 'nowrap',
+                            maxWidth: '300px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}>
+                            {val === null ? <span style={{ color: adminColors.grayDim }}>NULL</span> : String(val)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
+        </div>
       </section>
     </div>
   )
