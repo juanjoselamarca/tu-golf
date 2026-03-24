@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     metadata: { action: 'execute_sql', entity: 'database', details: { query } },
   })
 
-  const { data, error } = await admin.rpc('exec_sql', { sql: query })
+  const { data, error } = await admin.rpc('exec_sql', { query })
 
   if (error) {
     return NextResponse.json({
