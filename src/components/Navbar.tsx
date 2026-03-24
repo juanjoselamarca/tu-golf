@@ -18,18 +18,33 @@ export default function Navbar() {
   const [notifHubOpen, setNotifHubOpen] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
+
+    async function loadUserAndAdmin() {
+      const { data } = await supabase.auth.getUser()
+      if (cancelled) return
       setUser(data.user)
       if (data.user) {
-        supabase.from('profiles').select('role').eq('id', data.user.id).single()
-          .then(({ data: profile }) => setIsAdmin(profile?.role === 'admin'))
+        const { data: profile } = await supabase
+          .from('profiles').select('role').eq('id', data.user.id).single()
+        if (cancelled) return
+        setIsAdmin(profile?.role === 'admin')
       }
-    })
+    }
+
+    loadUserAndAdmin()
+
     const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (cancelled) return
       setUser(session?.user ?? null)
+      if (!session?.user) setIsAdmin(false)
     })
-    return () => listener.subscription.unsubscribe()
+
+    return () => {
+      cancelled = true
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
   // Close sidebar & play sheet on route change

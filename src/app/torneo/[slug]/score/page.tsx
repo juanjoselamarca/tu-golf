@@ -25,6 +25,7 @@ export default function PlayerScoringPage() {
   const [selectedId,    setSelectedId]    = useState<string>('')
   const [currentScores, setCurrentScores] = useState<Record<number, number>>({})
   const [saving,        setSaving]        = useState(false)
+  const [saveError,     setSaveError]     = useState<string | null>(null)
   const [loading,       setLoading]       = useState(true)
   const [savedHoles,    setSavedHoles]    = useState<Set<number>>(new Set())
 
@@ -81,12 +82,22 @@ export default function PlayerScoringPage() {
     if (tournament.format === 'stableford') points = Math.max(0, 2 - (netScore - par))
     setCurrentScores(prev => ({ ...prev, [holeNumber]: gross }))
     setSaving(true)
-    await fetch('/api/game', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'upsert_score', tournament_id: tournament.id, round_id: round.id, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }),
-    })
+    setSaveError(null)
+    try {
+      const res = await fetch('/api/game', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upsert_score', tournament_id: tournament.id, round_id: round.id, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }),
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || `Error ${res.status}`)
+      }
+      setSavedHoles(prev => new Set(prev).add(holeNumber))
+    } catch (err) {
+      console.error('[Score] Error guardando hoyo:', err)
+      setSaveError(`Error guardando hoyo ${holeNumber}. Toca para reintentar.`)
+    }
     setSaving(false)
-    setSavedHoles(prev => new Set(prev).add(holeNumber))
   }
 
   if (loading) return <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0' }}>Cargando...</div>
@@ -103,6 +114,11 @@ export default function PlayerScoringPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
           <Link href={`/torneo/${tournament.slug}`} style={{ color: '#94a8c0', fontSize: '12px', textDecoration: 'none' }}>← Leaderboard</Link>
           {saving && <span style={{ fontSize: '12px', color: '#94a8c0' }}>Guardando...</span>}
+          {saveError && (
+            <button onClick={() => setSaveError(null)} style={{ fontSize: '12px', color: '#fca5a5', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer' }}>
+              {saveError}
+            </button>
+          )}
         </div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', margin: '0 0 2px' }}>{tournament.name}</h1>
         {selectedPlayer && <p style={{ fontSize: '13px', color: '#c4992a', margin: 0 }}>{selectedPlayer.profiles?.name} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}

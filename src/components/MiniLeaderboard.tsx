@@ -23,9 +23,11 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
   const [jugadores, setJugadores] = useState<JugadorLB[]>([])
   const [loading, setLoading] = useState(true)
 
-  const parTotal = Object.keys(parMap).length > 0
+  const parFromMap = Object.keys(parMap).length > 0
     ? Object.values(parMap).reduce((a, b) => a + b, 0)
-    : totalHoles * 4
+    : 0
+  // Fallback: if parMap is empty, estimate par as totalHoles * 4; if both are 0, use 72 (standard 18-hole par)
+  const parTotal = parFromMap > 0 ? parFromMap : (totalHoles > 0 ? totalHoles * 4 : 72)
 
   const fetchLB = useCallback(async () => {
     const supabase = createClient()

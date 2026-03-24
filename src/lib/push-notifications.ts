@@ -32,6 +32,12 @@ export async function setupPushNotifications(): Promise<boolean> {
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') return false
 
+  // Validate VAPID key before attempting subscription
+  if (!VAPID_PUBLIC_KEY) {
+    console.warn('[Push] VAPID_PUBLIC_KEY is not configured. Push notifications will not work.')
+    return false
+  }
+
   try {
     // Register/get service worker
     const registration = await navigator.serviceWorker.ready

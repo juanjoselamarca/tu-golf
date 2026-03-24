@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { isAdmin } from '@/lib/admin'
 
 export async function GET() {
   try {
@@ -8,6 +9,11 @@ export async function GET() {
 
     if (!user) {
       return NextResponse.json({ step: 'auth', error: authError?.message || 'No user', user: null })
+    }
+
+    // Admin check — this endpoint exposes sensitive auth debug info
+    if (!(await isAdmin(user.id, supabase))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     const { data: profile, error: profileError } = await supabase

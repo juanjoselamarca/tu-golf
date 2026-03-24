@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/server'
+import { isAdmin } from '@/lib/admin'
 import webpush from 'web-push'
 
 // Configure web-push with VAPID keys
@@ -29,6 +31,13 @@ interface PushPayload {
  */
 export async function POST(request: Request) {
   try {
+    // Admin authentication check
+    const supabaseAuth = await createClient()
+    const { data: { user } } = await supabaseAuth.auth.getUser()
+    if (!(await isAdmin(user?.id, supabaseAuth))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { userIds, rondaCodigo, payload } = body as {
       userIds?: string[]

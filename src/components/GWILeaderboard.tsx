@@ -73,6 +73,15 @@ export default function GWILeaderboard({
   }
 
   const results = calcularGWI(jugadores, totalHoyos)
+  if (!results || results.length === 0) {
+    return (
+      <div style={{ background: '#0e1c2f', borderRadius: '12px', padding: '20px', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.12)' }}>
+        <div style={{ textAlign: 'center', padding: '16px', color: '#94a8c0', fontSize: '13px' }}>
+          Sin datos de jugadores para calcular probabilidades
+        </div>
+      </div>
+    )
+  }
   const sorted  = [...results].sort((a, b) => b.winProbability - a.winProbability)
 
   const nextHole = holesInfo?.find(h => h.numero === nextHoleNumber)

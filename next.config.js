@@ -4,8 +4,11 @@ const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy',        value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy',     value: 'camera=(), microphone=(), geolocation=()' },
+  { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
   {
     key: 'Content-Security-Policy',
+    // NOTE: 'unsafe-inline' and 'unsafe-eval' are required by Next.js for inline scripts and
+    // hot-reload in dev. A future improvement would be to use nonce-based CSP via middleware.
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
