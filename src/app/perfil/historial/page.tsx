@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { HoleColorBar } from '@/components/HoleColorBar'
 import { getHoleBoxStyle, getScoreNumberStyle } from '@/lib/score-colors'
+import ScoreSymbol from '@/components/ScoreSymbol'
 
 /* ─── Datos ────────────────────────────────────────────── */
 const CANCHAS_CHILE = [
@@ -641,19 +642,19 @@ function HistorialContent() {
                         <div style={{ padding: '0 16px 14px' }}>
                           <div style={{ height: '1px', background: '#f0f0f0', marginBottom: '12px' }} />
 
-                          {/* Front 9 */}
+                          {/* Front 9 — PGA standard symbols */}
                           <div style={{ marginBottom: '4px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
                               {Array.from({ length: 9 }, (_, i) => (
-                                <div key={i} style={{ textAlign: 'center', fontSize: '9px', color: '#9ca3af', padding: '2px 0' }}>{i + 1}</div>
+                                <div key={i} style={{ textAlign: 'center', fontSize: '9px', color: '#9ca3af', padding: '1px 0' }}>{i + 1}</div>
                               ))}
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
                               {Array.from({ length: 9 }, (_, i) => {
                                 const s = allScores[i] ?? null
                                 return (
-                                  <div key={i} style={{ textAlign: 'center', padding: '4px 0', background: scoreBg(s), borderRadius: '4px' }}>
-                                    <span style={{ fontSize: '14px', fontWeight: 600, color: scoreColor(s) }}>{s ?? '·'}</span>
+                                  <div key={i} style={{ display: 'flex', justifyContent: 'center', padding: '2px 0' }}>
+                                    <ScoreSymbol score={s} par={4} size="sm" theme="light" />
                                   </div>
                                 )
                               })}
@@ -663,19 +664,19 @@ function HistorialContent() {
                             </div>
                           </div>
 
-                          {/* Back 9 */}
+                          {/* Back 9 — PGA standard symbols */}
                           <div style={{ marginBottom: '4px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
                               {Array.from({ length: 9 }, (_, i) => (
-                                <div key={i} style={{ textAlign: 'center', fontSize: '9px', color: '#9ca3af', padding: '2px 0' }}>{i + 10}</div>
+                                <div key={i} style={{ textAlign: 'center', fontSize: '9px', color: '#9ca3af', padding: '1px 0' }}>{i + 10}</div>
                               ))}
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
                               {Array.from({ length: 9 }, (_, i) => {
                                 const s = allScores[i + 9] ?? null
                                 return (
-                                  <div key={i} style={{ textAlign: 'center', padding: '4px 0', background: scoreBg(s), borderRadius: '4px' }}>
-                                    <span style={{ fontSize: '14px', fontWeight: 600, color: scoreColor(s) }}>{s ?? '·'}</span>
+                                  <div key={i} style={{ display: 'flex', justifyContent: 'center', padding: '2px 0' }}>
+                                    <ScoreSymbol score={s} par={4} size="sm" theme="light" />
                                   </div>
                                 )
                               })}

@@ -8,6 +8,7 @@ import { trackEvent } from '@/lib/analytics'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
 import type { ModoJuego } from '@/lib/scoring'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
+import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 
 /* ── Share menu component ──────────────────────────────────────────── */
 function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void }) {
@@ -124,6 +125,7 @@ function ScorePageContent() {
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [roundDone, setRoundDone] = useState(false)
   const [finalScore, setFinalScore] = useState({ gross: 0, totalPar: 0 })
+  const [holeInOneData, setHoleInOneData] = useState<{ playerName: string; hole: number } | null>(null)
 
   // Theme: white by default, dark mode toggle with localStorage persistence
   const [darkMode, setDarkMode] = useState(() => {
@@ -307,9 +309,16 @@ function ScorePageContent() {
       lsSave(codigo, activeJugadorId, next[activeJugadorId])
       const holePar = parMap[hole] ?? 4
       if (clamped - holePar <= -1) haptic([15, 30, 15])
+      // Hole-in-one detection!
+      if (clamped === 1 && ronda) {
+        const playerName = ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.nombre ?? 'Jugador'
+        setHoleInOneData({ playerName, hole })
+        haptic([50, 100, 50, 100, 50])
+        sendPushViaServer({ title: 'HOLE IN ONE!', body: `${playerName} hizo hoyo en uno en el hoyo ${hole}!`, tag: `ace-${codigo}-${hole}`, url: `/ronda-libre/${codigo}` })
+      }
       return next
     })
-  }, [activeJugadorId, parMap, codigo])
+  }, [activeJugadorId, parMap, codigo, ronda])
 
   /* ── Swipe ── */
   const handleTouchStart = (e: React.TouchEvent) => { swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY } }
@@ -1054,6 +1063,15 @@ function ScorePageContent() {
           50% { opacity: 0.75; }
         }
       `}</style>
+
+      {/* Hole-in-one celebration */}
+      {holeInOneData && (
+        <HoleInOneCelebration
+          playerName={holeInOneData.playerName}
+          holeNumber={holeInOneData.hole}
+          onClose={() => setHoleInOneData(null)}
+        />
+      )}
     </div>
   )
 }
