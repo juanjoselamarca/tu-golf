@@ -639,62 +639,18 @@ function HistorialContent() {
                       const cp = r.course_id ? (courseParCache[r.course_id] ?? {}) : {}
                       const gp = (h: number) => cp[h] ?? 4
 
-                      const scoreCell = (holeNum: number) => {
-                        const s = sc[holeNum - 1] ?? null
-                        if (s == null) return <span style={{ color: '#d1d5db', fontSize: '12px' }}>·</span>
-                        const d = s - gp(holeNum)
-                        const isAce = s === 1
-                        const color = isAce ? '#c4992a' : '#111'
-
-                        if (d <= -2) {
-                          // Eagle+ = double circle
-                          return (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '50%', border: '1.5px solid #c4992a', position: 'relative' }}>
-                              <span style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', border: '1.5px solid #c4992a' }} />
-                              <span style={{ fontSize: '12px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                            </span>
-                          )
-                        }
-                        if (d === -1) {
-                          // Birdie = single circle
-                          return (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '50%', border: '1.5px solid #c4992a' }}>
-                              <span style={{ fontSize: '12px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                            </span>
-                          )
-                        }
-                        if (d === 0) {
-                          // Par = no shape
-                          return <span style={{ fontSize: '12px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                        }
-                        if (d === 1) {
-                          // Bogey = single square
-                          return (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 4px', borderRadius: '3px', border: '1.5px solid #EF4444', lineHeight: 1 }}>
-                              <span style={{ fontSize: '12px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                            </span>
-                          )
-                        }
-                        // Double bogey+ = double square
-                        return (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 4px', borderRadius: '3px', border: '1.5px solid #EF4444', position: 'relative' }}>
-                            <span style={{ position: 'absolute', inset: '-4px', borderRadius: '4px', border: '1.5px solid #EF4444' }} />
-                            <span style={{ fontSize: '12px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                          </span>
-                        )
-                      }
-
                       const renderRow = (start: number, label: string, total: number) => (
                         <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '10px' }}>
-                          {/* 9 holes */}
+                          {/* 9 holes — uses ScoreSymbol component */}
                           <div style={{ flex: 1, display: 'flex' }}>
                             {Array.from({ length: 9 }, (_, i) => {
                               const h = start + i
+                              const s = sc[h - 1] ?? null
                               return (
                                 <div key={i} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
                                   <div style={{ fontSize: '8px', color: '#aaa', marginBottom: '2px' }}>{h}</div>
                                   <div style={{ minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {scoreCell(h)}
+                                    <ScoreSymbol score={s} par={gp(h)} size="sm" theme="light" />
                                   </div>
                                 </div>
                               )

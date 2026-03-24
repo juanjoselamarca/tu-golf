@@ -573,7 +573,7 @@ function ScorePageContent() {
         </div>
       </header>
 
-      {/* ── Mini scorecard strip (36px) ── */}
+      {/* ── Mini scorecard strip (36px) — PGA indicators ── */}
       <div style={{
         background: darkMode ? 'rgba(14,28,47,0.97)' : 'rgba(249,250,251,0.97)', borderBottom: `1px solid ${theme.border}`,
         padding: '2px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px',
@@ -583,23 +583,39 @@ function ScorePageContent() {
             const s = scores[activeJugadorId]?.[h]
             const p = parMap[h] ?? 4
             const isActive = h === currentHole
+            const diff = s != null ? s - p : null
+            const isAce = s === 1
 
-            const scoreResult = getScoreResult(s, p)
-            const scoreStyle = currentScoreStyles[scoreResult]
-            let bg = scoreStyle.bg
-            let color = scoreStyle.textColor
-            if (isActive) { bg = 'rgba(196,153,42,0.2)'; color = '#C4992A' }
+            // PGA indicator colors for the cell
+            const indicatorColor = isAce ? '#c4992a'
+              : diff != null && diff <= -3 ? '#60A5FA'
+              : diff != null && diff < 0 ? '#c4992a'
+              : diff != null && diff > 0 ? '#EF4444'
+              : 'transparent'
+            const isFilled = isAce || (diff != null && diff <= -3) || (diff != null && diff >= 3)
+            const cellBg = isActive ? 'rgba(196,153,42,0.2)'
+              : isFilled && s != null ? (isAce || (diff != null && diff <= -3) ? `${indicatorColor}20` : 'rgba(220,38,38,0.1)')
+              : 'transparent'
+            const textColor = isActive ? '#C4992A'
+              : isFilled && isAce ? '#c4992a'
+              : isFilled && diff != null && diff >= 3 ? '#EF4444'
+              : isFilled && diff != null && diff <= -3 ? '#60A5FA'
+              : s != null ? (darkMode ? 'rgba(255,255,255,0.8)' : '#374151')
+              : theme.textFaint
 
             return (
               <button key={h} onClick={() => setCurrentHole(h)} style={{
                 width: '26px', height: '30px', borderRadius: '5px',
-                background: bg, border: isActive ? '1px solid #C4992A' : '1px solid transparent',
+                background: cellBg,
+                border: isActive ? '1px solid #C4992A' : '1px solid transparent',
+                borderBottom: s != null && indicatorColor !== 'transparent' && !isActive
+                  ? `2px solid ${indicatorColor}` : isActive ? '1px solid #C4992A' : '1px solid transparent',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', flexShrink: 0, padding: 0,
                 WebkitTapHighlightColor: 'transparent',
               }}>
                 <span style={{ fontSize: '7px', color: theme.textFaint, lineHeight: 1 }}>{h}</span>
-                <span style={{ fontSize: '12px', fontWeight: 700, color, lineHeight: 1.2 }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: textColor, lineHeight: 1.2 }}>
                   {s ?? '\u00B7'}
                 </span>
               </button>
