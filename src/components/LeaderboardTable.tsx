@@ -123,25 +123,46 @@ function Scorecard({
           const hNum   = startIdx + i + 1
           const par    = PAR[startIdx + i]
           const played = score !== null
-          const result = played ? holeResult(score!, par) : 'par'
-          const style  = played
-            ? HOLE_STYLE[result]
-            : { border: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.02)' }
+          const diff   = played ? score! - par : 0
+          const isAce  = score === 1
+
+          // PGA format: circle for under par, square for over par
+          const isCircle = played && diff < 0
+          const isSquare = played && diff > 0
+          const isDouble = played && Math.abs(diff) >= 2
+          const shapeColor = isCircle ? '#c4992a' : '#EF4444'
 
           return (
             <div
               key={hNum}
-              className="flex flex-col items-center justify-between flex-shrink-0 rounded"
-              style={{ width: 50, height: 62, padding: '5px 3px', ...style }}
+              className="flex flex-col items-center justify-between flex-shrink-0"
+              style={{ width: 50, height: 62, padding: '5px 3px' }}
             >
               <span style={{ fontSize: 9, color: '#94a8c0', lineHeight: 1 }}>H.{hNum}</span>
               <span style={{ fontSize: 9, color: '#94a8c0', lineHeight: 1 }}>par {par}</span>
-              <span
-                className="font-sans font-bold"
-                style={{ fontSize: 18, lineHeight: 1, color: played ? scoreColor(score! - par) : '#3a4a5a' }}
-              >
-                {played ? score : '—'}
-              </span>
+              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                {isDouble && (isCircle || isSquare) && (
+                  <div style={{
+                    position: 'absolute', inset: '-4px',
+                    border: `1px solid ${shapeColor}`,
+                    borderRadius: isCircle ? '50%' : '3px',
+                  }} />
+                )}
+                <span
+                  className="font-sans font-bold"
+                  style={{
+                    fontSize: 18, lineHeight: 1,
+                    color: isAce ? '#c4992a' : played ? 'rgba(255,255,255,0.85)' : '#3a4a5a',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: isCircle ? '28px' : 'auto', height: isCircle ? '28px' : 'auto',
+                    padding: isSquare ? '1px 4px' : '0',
+                    border: (isCircle || isSquare) ? `1.5px solid ${shapeColor}` : 'none',
+                    borderRadius: isCircle ? '50%' : isSquare ? '3px' : '0',
+                  }}
+                >
+                  {played ? score : '—'}
+                </span>
+              </div>
             </div>
           )
         })}
