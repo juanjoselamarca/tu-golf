@@ -535,145 +535,141 @@ function ScorePageContent() {
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 16px', height: '48px', flexShrink: 0,
-        borderBottom: `1px solid ${theme.border}`,
-        background: theme.headerBg,
+        borderBottom: '1px solid rgba(196,153,42,0.12)',
+        background: 'rgba(7,13,24,0.95)',
       }}>
         <button onClick={handleExit} aria-label="Salir de la ronda" style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: theme.buttonText, fontSize: '14px',
+          color: 'rgba(255,255,255,0.4)', fontSize: '14px',
           padding: '8px', minWidth: '44px', minHeight: '44px',
           display: 'flex', alignItems: 'center',
           WebkitTapHighlightColor: 'transparent',
         }}>← Salir</button>
-        <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
-            <div style={{ fontSize: '11px', color: theme.textMuted }}>
-              {ronda.course_name}
-            </div>
-          </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{ronda.course_name}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
-          <button onClick={() => setDarkMode(!darkMode)} aria-label="Cambiar tema" style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: theme.textMuted, fontSize: '18px', padding: '8px',
-            minWidth: '44px', minHeight: '44px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {darkMode ? '\u2600\uFE0F' : '\uD83C\uDF19'}
-          </button>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1px', minWidth: '36px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: '#c4992a' }}>
-              H.{currentHole}
-            </span>
-            <span style={{ fontSize: '10px', color: theme.textMuted }}>
-              Thru {holesPlayed}/{totalHoles}
-            </span>
+        <div style={{ textAlign: 'right', minWidth: '44px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: totalOverUnder < 0 ? '#93C5FD' : totalOverUnder === 0 ? 'rgba(255,255,255,0.6)' : '#FCD34D' }}>
+            {totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder}
           </div>
+          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', letterSpacing: '0.04em' }}>TOTAL</div>
         </div>
       </header>
+      {/* Progress bar */}
+      <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }}>
+        <div style={{ height: '3px', background: '#C4992A', width: `${(holesPlayed / totalHoles) * 100}%`, transition: 'width 0.3s ease' }} />
+      </div>
 
-      {/* ── Mini scorecard strip (36px) — PGA indicators ── */}
+      {/* ── Mini scorecard with PGA indicators + OUT/IN/TOT ── */}
       <div style={{
-        background: darkMode ? 'rgba(14,28,47,0.97)' : 'rgba(249,250,251,0.97)', borderBottom: `1px solid ${theme.border}`,
-        padding: '2px 8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px',
+        borderBottom: '1px solid rgba(255,255,255,0.08)', borderRadius: '0',
+        flexShrink: 0, overflow: 'hidden',
       }}>
-        <div ref={progressRowRef} style={{ display: 'flex', gap: '2px', minWidth: 'max-content', justifyContent: 'center', height: '100%', alignItems: 'center' }}>
-          {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
+        <div ref={progressRowRef} style={{
+          display: 'flex', overflowX: 'auto', padding: '5px 6px', gap: '2px',
+          WebkitOverflowScrolling: 'touch',
+        }}>
+          {/* Front 9 */}
+          {Array.from({ length: Math.min(9, totalHoles) }, (_, i) => i + 1).map(h => {
             const s = scores[activeJugadorId]?.[h]
             const p = parMap[h] ?? 4
             const isActive = h === currentHole
             const diff = s != null ? s - p : null
-            const isAce = s === 1
-
-            // PGA indicator colors for the cell
-            const indicatorColor = isAce ? '#c4992a'
-              : diff != null && diff <= -3 ? '#60A5FA'
-              : diff != null && diff < 0 ? '#c4992a'
-              : diff != null && diff > 0 ? '#EF4444'
-              : 'transparent'
-            const isFilled = isAce || (diff != null && diff <= -3) || (diff != null && diff >= 3)
-            const cellBg = isActive ? 'rgba(196,153,42,0.2)'
-              : isFilled && s != null ? (isAce || (diff != null && diff <= -3) ? `${indicatorColor}20` : 'rgba(220,38,38,0.1)')
-              : 'transparent'
-            const textColor = isActive ? '#C4992A'
-              : isFilled && isAce ? '#c4992a'
-              : isFilled && diff != null && diff >= 3 ? '#EF4444'
-              : isFilled && diff != null && diff <= -3 ? '#60A5FA'
-              : s != null ? (darkMode ? 'rgba(255,255,255,0.8)' : '#374151')
-              : theme.textFaint
-
+            const indicatorColor = s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff < 0 ? '#c4992a' : diff != null && diff > 0 ? '#EF4444' : 'transparent'
             return (
-              <button key={h} onClick={() => setCurrentHole(h)} style={{
-                width: '26px', height: '30px', borderRadius: '5px',
-                background: cellBg,
-                border: isActive ? '1px solid #C4992A' : '1px solid transparent',
-                borderBottom: s != null && indicatorColor !== 'transparent' && !isActive
-                  ? `2px solid ${indicatorColor}` : isActive ? '1px solid #C4992A' : '1px solid transparent',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', flexShrink: 0, padding: 0,
-                WebkitTapHighlightColor: 'transparent',
-              }}>
-                <span style={{ fontSize: '7px', color: theme.textFaint, lineHeight: 1 }}>{h}</span>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: textColor, lineHeight: 1.2 }}>
-                  {s ?? '\u00B7'}
-                </span>
-              </button>
+              <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer' }}>
+                <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : 'rgba(255,255,255,0.3)', fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
+                {s != null ? (
+                  <div style={{
+                    width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '11px', fontWeight: 600, lineHeight: 1,
+                    color: s === 1 ? '#c4992a' : diff != null && diff >= 3 ? '#fff' : 'rgba(255,255,255,0.7)',
+                    background: s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff >= 3 ? '#DC2626' : 'transparent',
+                    border: indicatorColor !== 'transparent' && !((s === 1) || (diff != null && diff <= -3) || (diff != null && diff >= 3)) ? `1.5px solid ${indicatorColor}` : 'none',
+                    borderRadius: diff != null && diff < 0 ? '50%' : '2px',
+                    boxShadow: isActive ? '0 0 0 1.5px #C4992A' : 'none',
+                  }}>
+                    {s === 1 ? <span style={{ color: '#070d18', fontWeight: 800 }}>1</span> : s}
+                  </div>
+                ) : (
+                  <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : 'rgba(255,255,255,0.05)', border: isActive ? '1.5px solid #C4992A' : '1px solid rgba(255,255,255,0.1)' }} />
+                )}
+              </div>
             )
           })}
+
+          {/* OUT */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '28px', padding: '0 3px', flexShrink: 0 }}>
+            <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em', marginBottom: '2px' }}>OUT</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#EDE9E4' }}>{f9Count > 0 ? f9Gross : '—'}</div>
+          </div>
+
+          {/* Separator */}
+          {totalHoles > 9 && <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '2px 1px', flexShrink: 0 }} />}
+
+          {/* Back 9 */}
+          {totalHoles > 9 && Array.from({ length: Math.min(9, totalHoles - 9) }, (_, i) => i + 10).map(h => {
+            const s = scores[activeJugadorId]?.[h]
+            const p = parMap[h] ?? 4
+            const isActive = h === currentHole
+            const diff = s != null ? s - p : null
+            const indicatorColor = s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff < 0 ? '#c4992a' : diff != null && diff > 0 ? '#EF4444' : 'transparent'
+            return (
+              <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer' }}>
+                <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : 'rgba(255,255,255,0.3)', fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
+                {s != null ? (
+                  <div style={{
+                    width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '11px', fontWeight: 600, lineHeight: 1,
+                    color: s === 1 ? '#c4992a' : diff != null && diff >= 3 ? '#fff' : 'rgba(255,255,255,0.7)',
+                    background: s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff >= 3 ? '#DC2626' : 'transparent',
+                    border: indicatorColor !== 'transparent' && !((s === 1) || (diff != null && diff <= -3) || (diff != null && diff >= 3)) ? `1.5px solid ${indicatorColor}` : 'none',
+                    borderRadius: diff != null && diff < 0 ? '50%' : '2px',
+                    boxShadow: isActive ? '0 0 0 1.5px #C4992A' : 'none',
+                  }}>
+                    {s === 1 ? <span style={{ color: '#070d18', fontWeight: 800 }}>1</span> : s}
+                  </div>
+                ) : (
+                  <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : 'rgba(255,255,255,0.05)', border: isActive ? '1.5px solid #C4992A' : '1px solid rgba(255,255,255,0.1)' }} />
+                )}
+              </div>
+            )
+          })}
+
+          {/* IN */}
+          {totalHoles > 9 && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '28px', padding: '0 3px', flexShrink: 0 }}>
+              <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em', marginBottom: '2px' }}>IN</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#EDE9E4' }}>{b9Count > 0 ? b9Gross : '—'}</div>
+            </div>
+          )}
+
+          {/* Separator + TOT */}
+          <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '2px 1px', flexShrink: 0 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', padding: '0 4px', flexShrink: 0 }}>
+            <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em', marginBottom: '2px' }}>TOT</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#C4992A' }}>{totalGross > 0 ? totalGross : '—'}</div>
+          </div>
         </div>
       </div>
 
-      {/* ── Pacing bar (24px) ── */}
-      {totalHoles >= 18 && (f9Count > 0 || b9Count > 0) && (
-        <div style={{
-          display: 'flex', justifyContent: 'center', gap: '16px',
-          padding: '3px 16px', height: '24px', flexShrink: 0,
-          background: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
-          borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
-          fontSize: '12px', color: theme.textFaint, alignItems: 'center',
-        }}>
-          {f9Count > 0 && <span>F9: <span style={{ color: theme.textMuted, fontWeight: 600 }}>{formatNine(f9Gross, f9Par)}</span></span>}
-          {f9Count > 0 && b9Count > 0 && <span style={{ color: theme.textFaint }}>|</span>}
-          {b9Count > 0 && <span>B9: <span style={{ color: theme.textMuted, fontWeight: 600 }}>{formatNine(b9Gross, b9Par)}</span></span>}
-        </div>
-      )}
-
-      {/* ── Hole info bar (32px) with share ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-        padding: '4px 16px', height: '32px', flexShrink: 0,
-        borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
-      }}>
-        <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: theme.badgeBg, border: `1px solid ${theme.badgeBorder}`, color: theme.badgeText, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          Par {par}
-          {strokesOnHole > 0 && (
-            <span style={{ color: '#C4992A', fontSize: '9px' }}>
-              {strokesOnHole === 1 ? '\u25CF' : '\u25CF\u25CF'}
-            </span>
-          )}
-        </span>
-        {holeData.yardaje && (
-          <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: theme.badgeBg, border: `1px solid ${theme.badgeBorder}`, color: theme.badgeText }}>
-            {holeData.yardaje} yds
-          </span>
-        )}
-        <span style={{ padding: '2px 10px', borderRadius: '12px', fontSize: '12px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: theme.badgeText }}>
-          HDCP {holeData.stroke_index}
-        </span>
-        {holesPlayed > 0 && (
-          <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>
-            {totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder}
-          </span>
-        )}
-        <button onClick={() => setShowShareMenu(true)} style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: theme.textFaint, padding: '2px 4px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          WebkitTapHighlightColor: 'transparent',
-        }} aria-label="Compartir">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-        </button>
+      {/* ── Hole info: 4 columns premium ── */}
+      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
+        {[
+          { label: 'PAR', value: String(par), gold: false },
+          { label: 'HDCP', value: String(holeData.stroke_index), gold: false },
+          { label: 'YDS', value: holeData.yardaje ? String(holeData.yardaje) : '—', gold: false },
+          { label: 'F9', value: f9Count > 0 ? formatNine(f9Gross, f9Par) : '—', gold: true },
+        ].map((col, i) => (
+          <div key={col.label} style={{
+            flex: 1, textAlign: 'center', padding: '6px 2px',
+            borderRight: i < 3 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+          }}>
+            <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: col.gold ? '#C4992A' : '#EDE9E4' }}>{col.value}</div>
+          </div>
+        ))}
       </div>
 
       {/* ── Player tabs (multi-player only) ── */}
