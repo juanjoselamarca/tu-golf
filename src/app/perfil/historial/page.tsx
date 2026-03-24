@@ -654,50 +654,69 @@ function HistorialContent() {
                         if (d === -1) return '#f0fdf4'
                         return 'transparent'
                       }
+                      const renderHalf = (start: number, label: string, total: number) => {
+                        const getSymbolStyle = (s: number | null, holeNum: number): { border: string; borderRadius: string; bg: string; color: string } => {
+                          if (s == null) return { border: 'none', borderRadius: '0', bg: 'transparent', color: '#d1d5db' }
+                          const p = getPar(holeNum)
+                          const d = s - p
+                          const isAce = s === 1
+                          if (d <= -2) return { border: '1px solid #c4992a', borderRadius: '50%', bg: 'transparent', color: isAce ? '#c4992a' : '#374151' }
+                          if (d === -1) return { border: '1px solid #c4992a', borderRadius: '50%', bg: 'transparent', color: '#374151' }
+                          if (d === 0) return { border: 'none', borderRadius: '0', bg: 'transparent', color: '#374151' }
+                          if (d === 1) return { border: '1px solid #dc2626', borderRadius: '2px', bg: 'transparent', color: '#374151' }
+                          return { border: '1px solid #dc2626', borderRadius: '2px', bg: 'transparent', color: '#374151' }
+                        }
+                        return (
+                          <div style={{ marginBottom: '8px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <tbody>
+                                <tr>
+                                  {Array.from({ length: 9 }, (_, i) => (
+                                    <td key={i} style={{ textAlign: 'center', fontSize: '8px', color: '#9ca3af', padding: '1px 0', width: '11.1%' }}>{start + i}</td>
+                                  ))}
+                                </tr>
+                                <tr>
+                                  {Array.from({ length: 9 }, (_, i) => {
+                                    const holeNum = start + i
+                                    const s = allScores[holeNum - 1] ?? null
+                                    const sym = getSymbolStyle(s, holeNum)
+                                    const d = s != null ? s - getPar(holeNum) : null
+                                    const isDouble = d != null && Math.abs(d) >= 2
+                                    return (
+                                      <td key={i} style={{ textAlign: 'center', padding: '2px 0' }}>
+                                        <div style={{
+                                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                          width: '24px', height: '24px',
+                                          border: sym.border, borderRadius: sym.borderRadius, color: sym.color,
+                                          fontSize: '13px', fontWeight: 600, position: 'relative',
+                                          boxShadow: isDouble && d != null && d < 0 ? 'inset 0 0 0 3px transparent, 0 0 0 3px #c4992a' : isDouble && d != null && d > 0 ? '0 0 0 3px #dc2626' : 'none',
+                                        }}>
+                                          {s ?? '·'}
+                                        </div>
+                                      </td>
+                                    )
+                                  })}
+                                </tr>
+                              </tbody>
+                            </table>
+                            <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: '#374151', marginTop: '2px' }}>
+                              {label}: {total}
+                            </div>
+                          </div>
+                        )
+                      }
+
                       return (
-                        <div style={{ padding: '0 8px 14px', overflow: 'hidden' }}>
-                          <div style={{ height: '1px', background: '#f0f0f0', marginBottom: '10px' }} />
+                        <div style={{ padding: '0 6px 12px' }}>
+                          <div style={{ height: '1px', background: '#f0f0f0', marginBottom: '8px' }} />
 
-                          {/* Front 9 — PGA standard symbols */}
-                          <div style={{ marginBottom: '6px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-                              {Array.from({ length: 9 }, (_, i) => (
-                                <div key={i} style={{ textAlign: 'center', fontSize: '8px', color: '#9ca3af', width: '28px' }}>{i + 1}</div>
-                              ))}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-                              {Array.from({ length: 9 }, (_, i) => {
-                                const s = allScores[i] ?? null
-                                return <ScoreSymbol key={i} score={s} par={getPar(i + 1)} size="sm" theme="light" />
-                              })}
-                            </div>
-                            <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: '#374151', marginTop: '3px', paddingRight: '4px' }}>
-                              OUT: {stats.front9}
-                            </div>
-                          </div>
-
-                          {/* Back 9 */}
-                          <div style={{ marginBottom: '6px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-                              {Array.from({ length: 9 }, (_, i) => (
-                                <div key={i} style={{ textAlign: 'center', fontSize: '8px', color: '#9ca3af', width: '28px' }}>{i + 10}</div>
-                              ))}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-                              {Array.from({ length: 9 }, (_, i) => {
-                                const s = allScores[i + 9] ?? null
-                                return <ScoreSymbol key={i} score={s} par={getPar(i + 10)} size="sm" theme="light" />
-                              })}
-                            </div>
-                            <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: '#374151', marginTop: '3px', paddingRight: '4px' }}>
-                              IN: {stats.back9}
-                            </div>
-                          </div>
+                          {renderHalf(1, 'OUT', stats.front9)}
+                          {renderHalf(10, 'IN', stats.back9)}
 
                           {/* TOTAL */}
                           <div style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '2px', marginBottom: '10px', padding: '8px 4px 0',
+                            borderTop: '1px solid #e5e7eb', padding: '8px 0 8px',
                           }}>
                             <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 600 }}>TOTAL</span>
                             <span style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>{stats.total}</span>
