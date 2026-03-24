@@ -64,14 +64,14 @@ export async function middleware(request: NextRequest) {
     return redirectWithCookies(loginUrl)
   }
 
-  // Admin authorization — profiles SELECT policy is USING(true) so the
-  // existing middleware supabase client (with user cookies) can read the role
+  // Admin authorization
   if (user && pathname.startsWith('/admin')) {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
+    console.log('[ADMIN CHECK]', { userId: user.id, profile, error: profileError?.message })
     if (profileError || profile?.role !== 'admin') {
       return redirectWithCookies(new URL('/dashboard', request.url))
     }
