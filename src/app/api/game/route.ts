@@ -57,15 +57,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing or invalid action' }, { status: 400 })
   }
 
-  // Verify the caller is the tournament organizer
+  // Verify tournament exists and is in a valid state for scoring
   const { data: tournament } = await supabase
     .from('tournaments')
-    .select('organizer_id')
+    .select('organizer_id, status')
     .eq('id', tournament_id)
     .single()
 
+  if (!tournament) {
+    return NextResponse.json({ error: 'Torneo no encontrado' }, { status: 404 })
+  }
+
+  // Block scoring on tournaments that aren't active
+  const scorableStatuses = ['active', 'in_progress']
+  if (!scorableStatuses.includes(tournament.status) && action === 'upsert_score') {
+    return NextResponse.json({ error: 'El torneo no está activo. No se pueden registrar scores.' }, { status: 409 })
+  }
+
   // Si no es organizador, verifica si es el jugador de la ronda
-  let isAllowed = tournament && tournament.organizer_id === user.id
+  let isAllowed = tournament.organizer_id === user.id
   if (!isAllowed && action === 'upsert_score') {
     const { round_id } = body
     const { data: round } = await supabase
@@ -87,6 +97,12 @@ export async function POST(request: NextRequest) {
     const validationError = validateScoreInputs(body)
     if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
     const { round_id, hole_number, par, gross_score, putts, fairway_hit, gir } = body
+
+    // Validate round is not closed/finalized before accepting scores
+    const { data: roundCheck } = await svc.from('rounds').select('status').eq('id', round_id).single()
+    if (roundCheck?.status === 'closed' || roundCheck?.status === 'official') {
+      return NextResponse.json({ error: 'La ronda ya está finalizada. No se pueden registrar scores.' }, { status: 409 })
+    }
     let { net_score, points } = body as { net_score: number | null; points: number | null }
 
     // Auto-calculate net_score and points if not provided
