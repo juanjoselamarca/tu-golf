@@ -635,91 +635,72 @@ function HistorialContent() {
 
                     {/* ── Expanded scorecard ── */}
                     {isOpen && stats && (() => {
-                      const allScores = r.scores ?? []
-                      const coursePars = r.course_id ? (courseParCache[r.course_id] ?? {}) : {}
-                      const getPar = (holeNum: number) => coursePars[holeNum] ?? 4
-                      const scoreColor = (s: number | null) => {
-                        if (s == null) return '#d1d5db'
-                        const d = s - 4
-                        if (d <= -2) return '#c4992a'
-                        if (d === -1) return '#16a34a'
-                        if (d === 0) return '#374151'
-                        if (d === 1) return '#d97706'
-                        return '#dc2626'
+                      const sc = r.scores ?? []
+                      const cp = r.course_id ? (courseParCache[r.course_id] ?? {}) : {}
+                      const gp = (h: number) => cp[h] ?? 4
+
+                      const cell = (holeNum: number) => {
+                        const s = sc[holeNum - 1] ?? null
+                        if (s == null) return { text: '·', color: '#ccc', bg: 'transparent', shape: 'none' as const }
+                        const d = s - gp(holeNum)
+                        const isAce = s === 1
+                        if (d <= -2) return { text: String(s), color: isAce ? '#c4992a' : '#111', bg: 'transparent', shape: 'double-circle' as const }
+                        if (d === -1) return { text: String(s), color: '#111', bg: 'transparent', shape: 'circle' as const }
+                        if (d === 0) return { text: String(s), color: '#111', bg: 'transparent', shape: 'none' as const }
+                        if (d === 1) return { text: String(s), color: '#111', bg: 'transparent', shape: 'square' as const }
+                        return { text: String(s), color: '#111', bg: 'transparent', shape: 'double-square' as const }
                       }
-                      const scoreBg = (s: number | null) => {
-                        if (s == null) return 'transparent'
-                        const d = s - 4
-                        if (d <= -2) return '#fffbeb'
-                        if (d === -1) return '#f0fdf4'
-                        return 'transparent'
-                      }
-                      const renderHalf = (start: number, label: string, total: number) => {
-                        const getSymbolStyle = (s: number | null, holeNum: number): { border: string; borderRadius: string; bg: string; color: string } => {
-                          if (s == null) return { border: 'none', borderRadius: '0', bg: 'transparent', color: '#d1d5db' }
-                          const p = getPar(holeNum)
-                          const d = s - p
-                          const isAce = s === 1
-                          if (d <= -2) return { border: '1px solid #c4992a', borderRadius: '50%', bg: 'transparent', color: isAce ? '#c4992a' : '#374151' }
-                          if (d === -1) return { border: '1px solid #c4992a', borderRadius: '50%', bg: 'transparent', color: '#374151' }
-                          if (d === 0) return { border: 'none', borderRadius: '0', bg: 'transparent', color: '#374151' }
-                          if (d === 1) return { border: '1px solid #dc2626', borderRadius: '2px', bg: 'transparent', color: '#374151' }
-                          return { border: '1px solid #dc2626', borderRadius: '2px', bg: 'transparent', color: '#374151' }
-                        }
-                        return (
-                          <div style={{ marginBottom: '8px' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                              <tbody>
-                                <tr>
-                                  {Array.from({ length: 9 }, (_, i) => (
-                                    <td key={i} style={{ textAlign: 'center', fontSize: '8px', color: '#9ca3af', padding: '1px 0', width: '11.1%' }}>{start + i}</td>
-                                  ))}
-                                </tr>
-                                <tr>
-                                  {Array.from({ length: 9 }, (_, i) => {
-                                    const holeNum = start + i
-                                    const s = allScores[holeNum - 1] ?? null
-                                    const sym = getSymbolStyle(s, holeNum)
-                                    const d = s != null ? s - getPar(holeNum) : null
-                                    const isDouble = d != null && Math.abs(d) >= 2
-                                    return (
-                                      <td key={i} style={{ textAlign: 'center', padding: '2px 0' }}>
-                                        <div style={{
-                                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                          width: '24px', height: '24px',
-                                          border: sym.border, borderRadius: sym.borderRadius, color: sym.color,
-                                          fontSize: '13px', fontWeight: 600, position: 'relative',
-                                          boxShadow: isDouble && d != null && d < 0 ? 'inset 0 0 0 3px transparent, 0 0 0 3px #c4992a' : isDouble && d != null && d > 0 ? '0 0 0 3px #dc2626' : 'none',
-                                        }}>
-                                          {s ?? '·'}
-                                        </div>
-                                      </td>
-                                    )
-                                  })}
-                                </tr>
-                              </tbody>
-                            </table>
-                            <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: '#374151', marginTop: '2px' }}>
-                              {label}: {total}
-                            </div>
+
+                      const renderRow = (start: number, count: number, label: string, total: number) => (
+                        <div style={{ marginBottom: '6px' }}>
+                          <div style={{ display: 'flex' }}>
+                            {Array.from({ length: count }, (_, i) => {
+                              const h = start + i
+                              const c = cell(h)
+                              const isCircle = c.shape === 'circle' || c.shape === 'double-circle'
+                              const isSquare = c.shape === 'square' || c.shape === 'double-square'
+                              const isDouble = c.shape === 'double-circle' || c.shape === 'double-square'
+                              const borderColor = isCircle ? '#c4992a' : isSquare ? '#dc2626' : 'transparent'
+                              const radius = isCircle ? '50%' : '2px'
+                              return (
+                                <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+                                  <div style={{ fontSize: '8px', color: '#aaa' }}>{h}</div>
+                                  <div style={{ display: 'inline-block', position: 'relative', marginTop: '1px' }}>
+                                    {isDouble && (
+                                      <div style={{
+                                        position: 'absolute', inset: '-4px',
+                                        border: `1px solid ${borderColor}`,
+                                        borderRadius: isCircle ? '50%' : '3px',
+                                      }} />
+                                    )}
+                                    <div style={{
+                                      width: '22px', height: '22px', lineHeight: '22px',
+                                      fontSize: '12px', fontWeight: 600, color: c.color,
+                                      border: (isCircle || isSquare) ? `1px solid ${borderColor}` : 'none',
+                                      borderRadius: radius,
+                                      display: 'inline-block', textAlign: 'center',
+                                    }}>
+                                      {c.text}
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
-                        )
-                      }
+                          <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: '#374151', marginTop: '3px' }}>
+                            {label}: {total}
+                          </div>
+                        </div>
+                      )
 
                       return (
-                        <div style={{ padding: '0 6px 12px' }}>
-                          <div style={{ height: '1px', background: '#f0f0f0', marginBottom: '8px' }} />
-
-                          {renderHalf(1, 'OUT', stats.front9)}
-                          {renderHalf(10, 'IN', stats.back9)}
-
-                          {/* TOTAL */}
-                          <div style={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            borderTop: '1px solid #e5e7eb', padding: '8px 0 8px',
-                          }}>
-                            <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 600 }}>TOTAL</span>
-                            <span style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>{stats.total}</span>
+                        <div style={{ padding: '0 4px 10px' }}>
+                          <div style={{ height: '1px', background: '#eee', marginBottom: '8px' }} />
+                          {renderRow(1, 9, 'OUT', stats.front9)}
+                          {renderRow(10, 9, 'IN', stats.back9)}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee', paddingTop: '6px' }}>
+                            <span style={{ fontSize: '11px', color: '#999', fontWeight: 600 }}>TOTAL</span>
+                            <span style={{ fontSize: '17px', fontWeight: 800, color: '#111' }}>{stats.total}</span>
                           </div>
 
                           {/* Stats + Edit button */}
