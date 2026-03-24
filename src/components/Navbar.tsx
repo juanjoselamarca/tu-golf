@@ -39,7 +39,10 @@ export default function Navbar() {
     const supabase = createClient()
     await supabase.auth.signOut()
     setSidebarOpen(false)
-    router.push('/')
+    setUser(null)
+    setIsAdmin(false)
+    // Hard redirect to clear all cached state
+    window.location.href = '/'
   }
 
   // Only hide on login/register (navbar needed everywhere else)
