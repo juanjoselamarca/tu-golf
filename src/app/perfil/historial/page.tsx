@@ -38,11 +38,11 @@ const YEARS = Array.from({ length: 6 }, (_, i) => THIS_YEAR - i)
 interface HistoricalRound {
   id:          string
   course_name: string
+  course_id?:  string | null
   tee_color:   string | null
   played_at:   string
   scores:      (number | null)[]
   total_gross: number | null
-
   notes:       string | null
   privacy:     string
   created_at:  string
@@ -111,6 +111,7 @@ function HistorialContent() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editScores, setEditScores] = useState<(number | null)[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
+  const [courseParCache, setCourseParCache] = useState<Record<string, Record<number, number>>>({})
 
   // Form fields
   const [courseName, setCourseName] = useState('')
@@ -180,7 +181,7 @@ function HistorialContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('historical_rounds')
-        .select('id, course_name, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
+        .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
         .order('played_at', { ascending: false })
         .limit(50)
       if (error) { setLoadError(true); return }
@@ -230,6 +231,19 @@ function HistorialContent() {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+    // Load course pars if we have course_id and not cached
+    const round = rounds.find(r => r.id === id)
+    if (round?.course_id && !courseParCache[round.course_id]) {
+      const supabase = createClient()
+      supabase.from('course_holes').select('numero, par').eq('course_id', round.course_id).order('numero')
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            const pars: Record<number, number> = {}
+            data.forEach((h: { numero: number; par: number }) => { pars[h.numero] = h.par })
+            setCourseParCache(prev => ({ ...prev, [round.course_id!]: pars }))
+          }
+        })
+    }
   }
 
   const startEdit = (r: HistoricalRound) => {
@@ -622,6 +636,8 @@ function HistorialContent() {
                     {/* ── Expanded scorecard ── */}
                     {isOpen && stats && (() => {
                       const allScores = r.scores ?? []
+                      const coursePars = r.course_id ? (courseParCache[r.course_id] ?? {}) : {}
+                      const getPar = (holeNum: number) => coursePars[holeNum] ?? 4
                       const scoreColor = (s: number | null) => {
                         if (s == null) return '#d1d5db'
                         const d = s - 4
@@ -639,57 +655,49 @@ function HistorialContent() {
                         return 'transparent'
                       }
                       return (
-                        <div style={{ padding: '0 16px 14px' }}>
-                          <div style={{ height: '1px', background: '#f0f0f0', marginBottom: '12px' }} />
+                        <div style={{ padding: '0 8px 14px', overflow: 'hidden' }}>
+                          <div style={{ height: '1px', background: '#f0f0f0', marginBottom: '10px' }} />
 
                           {/* Front 9 — PGA standard symbols */}
-                          <div style={{ marginBottom: '4px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
+                          <div style={{ marginBottom: '6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
                               {Array.from({ length: 9 }, (_, i) => (
-                                <div key={i} style={{ textAlign: 'center', fontSize: '9px', color: '#9ca3af', padding: '1px 0' }}>{i + 1}</div>
+                                <div key={i} style={{ textAlign: 'center', fontSize: '8px', color: '#9ca3af', width: '28px' }}>{i + 1}</div>
                               ))}
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
                               {Array.from({ length: 9 }, (_, i) => {
                                 const s = allScores[i] ?? null
-                                return (
-                                  <div key={i} style={{ display: 'flex', justifyContent: 'center', padding: '2px 0' }}>
-                                    <ScoreSymbol score={s} par={4} size="sm" theme="light" />
-                                  </div>
-                                )
+                                return <ScoreSymbol key={i} score={s} par={getPar(i + 1)} size="sm" theme="light" />
                               })}
                             </div>
-                            <div style={{ textAlign: 'right', fontSize: '12px', fontWeight: 700, color: '#374151', marginTop: '2px' }}>
+                            <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: '#374151', marginTop: '3px', paddingRight: '4px' }}>
                               OUT: {stats.front9}
                             </div>
                           </div>
 
-                          {/* Back 9 — PGA standard symbols */}
-                          <div style={{ marginBottom: '4px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
+                          {/* Back 9 */}
+                          <div style={{ marginBottom: '6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
                               {Array.from({ length: 9 }, (_, i) => (
-                                <div key={i} style={{ textAlign: 'center', fontSize: '9px', color: '#9ca3af', padding: '1px 0' }}>{i + 10}</div>
+                                <div key={i} style={{ textAlign: 'center', fontSize: '8px', color: '#9ca3af', width: '28px' }}>{i + 10}</div>
                               ))}
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '1px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
                               {Array.from({ length: 9 }, (_, i) => {
                                 const s = allScores[i + 9] ?? null
-                                return (
-                                  <div key={i} style={{ display: 'flex', justifyContent: 'center', padding: '2px 0' }}>
-                                    <ScoreSymbol score={s} par={4} size="sm" theme="light" />
-                                  </div>
-                                )
+                                return <ScoreSymbol key={i} score={s} par={getPar(i + 10)} size="sm" theme="light" />
                               })}
                             </div>
-                            <div style={{ textAlign: 'right', fontSize: '12px', fontWeight: 700, color: '#374151', marginTop: '2px' }}>
+                            <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: '#374151', marginTop: '3px', paddingRight: '4px' }}>
                               IN: {stats.back9}
                             </div>
                           </div>
 
-                          {/* TOTAL — always visible, full width */}
+                          {/* TOTAL */}
                           <div style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '4px', marginBottom: '10px',
+                            borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '2px', marginBottom: '10px', padding: '8px 4px 0',
                           }}>
                             <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 600 }}>TOTAL</span>
                             <span style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>{stats.total}</span>

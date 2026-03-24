@@ -398,6 +398,7 @@ function ScorePageContent() {
       await supabase.from('historical_rounds').insert({
         user_id: authUser?.id,
         course_name: ronda.course_name,
+        course_id: ronda.course_id ?? null,
         played_at: new Date().toISOString().split('T')[0],
         total_gross: grossTotal,
         scores: scoresArray,
