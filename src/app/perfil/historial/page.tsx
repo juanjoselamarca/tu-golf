@@ -713,29 +713,32 @@ function HistorialContent() {
                           <div style={{ height: '1px', background: '#eee', marginBottom: '10px' }} />
                           {renderRow(1, 'OUT', stats.front9)}
                           {renderRow(10, 'IN', stats.back9)}
-                          {/* TOTAL */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', marginTop: '8px', borderTop: '1px solid #e5e7eb' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#999', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>TOTAL</span>
-                            <span style={{ fontSize: '18px', fontWeight: 700, color: '#111', fontVariantNumeric: 'tabular-nums' as const }}>{stats.total}</span>
-                          </div>
 
-                          {/* Stats + Edit button */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#9ca3af' }}>
-                              {stats.eagles > 0 && <span style={{ color: '#c4992a', fontWeight: 600 }}>{stats.eagles} Eagle</span>}
-                              {stats.birdies > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>{stats.birdies} Birdie</span>}
-                              <span>{stats.pars} Par</span>
-                              {stats.bogeys > 0 && <span style={{ color: '#d97706' }}>{stats.bogeys} Bogey</span>}
-                              {stats.doubles > 0 && <span style={{ color: '#dc2626' }}>{stats.doubles} Doble+</span>}
+                          {/* TOTAL — aligned with OUT/IN column */}
+                          <div style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '4px' }}>
+                            <div style={{ flex: 1 }}>
+                              {/* Stats inline */}
+                              <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: '#9ca3af', flexWrap: 'wrap', alignItems: 'center' }}>
+                                {stats.eagles > 0 && <span style={{ color: '#c4992a', fontWeight: 600 }}>{stats.eagles} Eagle</span>}
+                                {stats.birdies > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>{stats.birdies} Birdie</span>}
+                                <span>{stats.pars} Par</span>
+                                {stats.bogeys > 0 && <span style={{ color: '#d97706' }}>{stats.bogeys} Bogey</span>}
+                                {stats.doubles > 0 && <span style={{ color: '#dc2626' }}>{stats.doubles} Doble+</span>}
+                                {editingId !== r.id && (
+                                  <span
+                                    onClick={(e) => { e.stopPropagation(); startEdit(r) }}
+                                    style={{ color: '#c4992a', cursor: 'pointer', fontWeight: 500, marginLeft: '4px' }}
+                                  >
+                                    Editar
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            {editingId !== r.id && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); startEdit(r) }}
-                                style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '4px 12px', fontSize: '12px', color: '#6b7280', cursor: 'pointer', fontWeight: 500 }}
-                              >
-                                Editar
-                              </button>
-                            )}
+                            {/* TOTAL aligned with OUT/IN */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '36px', flexShrink: 0, borderLeft: '1px solid #eee', paddingLeft: '6px', marginLeft: '4px' }}>
+                              <div style={{ fontSize: '9px', fontWeight: 600, color: '#999', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>TOT</div>
+                              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111', fontVariantNumeric: 'tabular-nums' as const }}>{stats.total}</div>
+                            </div>
                           </div>
 
                           {/* Edit mode */}
