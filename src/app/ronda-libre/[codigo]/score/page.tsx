@@ -126,6 +126,15 @@ function ScorePageContent() {
   const [roundDone, setRoundDone] = useState(false)
   const [finalScore, setFinalScore] = useState({ gross: 0, totalPar: 0 })
   const [holeInOneData, setHoleInOneData] = useState<{ playerName: string; hole: number } | null>(null)
+  const [view, setView] = useState<'scorecard' | 'leaderboard'>('scorecard')
+
+  // Auto-return to scorecard after 10s
+  useEffect(() => {
+    if (view === 'leaderboard') {
+      const t = setTimeout(() => setView('scorecard'), 10000)
+      return () => clearTimeout(t)
+    }
+  }, [view])
 
   // Theme: white by default, dark mode toggle with localStorage persistence
   const [darkMode, setDarkMode] = useState(() => {
@@ -531,33 +540,41 @@ function ScorePageContent() {
         }} />
       )}
 
-      {/* ── Header 48px ── */}
+      {/* ── Header 48px — theme aware ── */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', height: '48px', flexShrink: 0,
-        borderBottom: '1px solid rgba(196,153,42,0.12)',
-        background: 'rgba(7,13,24,0.95)',
+        padding: '0 12px', height: '48px', flexShrink: 0,
+        borderBottom: `1px solid ${theme.border}`,
+        background: theme.headerBg,
       }}>
         <button onClick={handleExit} aria-label="Salir de la ronda" style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(255,255,255,0.4)', fontSize: '14px',
+          color: theme.textMuted, fontSize: '14px',
           padding: '8px', minWidth: '44px', minHeight: '44px',
           display: 'flex', alignItems: 'center',
           WebkitTapHighlightColor: 'transparent',
-        }}>← Salir</button>
-        <div style={{ textAlign: 'center' }}>
+        }}>←</button>
+        <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
-          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{ronda.course_name}</div>
+          <div style={{ fontSize: '10px', color: theme.textFaint }}>{ronda.course_name}</div>
         </div>
-        <div style={{ textAlign: 'right', minWidth: '44px' }}>
-          <div style={{ fontSize: '16px', fontWeight: 700, color: totalOverUnder < 0 ? '#93C5FD' : totalOverUnder === 0 ? 'rgba(255,255,255,0.6)' : '#FCD34D' }}>
-            {totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <button onClick={() => setDarkMode(!darkMode)} aria-label="Cambiar tema" style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: theme.textMuted, fontSize: '16px', padding: '6px',
+            minWidth: '36px', minHeight: '36px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>{darkMode ? '\u2600\uFE0F' : '\uD83C\uDF19'}</button>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: totalOverUnder < 0 ? '#93C5FD' : totalOverUnder === 0 ? theme.textMuted : '#FCD34D' }}>
+              {holesPlayed > 0 ? (totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder) : '—'}
+            </div>
+            <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em' }}>TOTAL</div>
           </div>
-          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', letterSpacing: '0.04em' }}>TOTAL</div>
         </div>
       </header>
       {/* Progress bar */}
-      <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }}>
+      <div style={{ height: '3px', background: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', flexShrink: 0 }}>
         <div style={{ height: '3px', background: '#C4992A', width: `${(holesPlayed / totalHoles) * 100}%`, transition: 'width 0.3s ease' }} />
       </div>
 
@@ -664,16 +681,40 @@ function ScorePageContent() {
         ].map((col, i) => (
           <div key={col.label} style={{
             flex: 1, textAlign: 'center', padding: '6px 2px',
-            borderRight: i < 3 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+            borderRight: '1px solid rgba(255,255,255,0.06)',
           }}>
             <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
             <div style={{ fontSize: '14px', fontWeight: 600, color: col.gold ? '#C4992A' : '#EDE9E4' }}>{col.value}</div>
           </div>
         ))}
+        {/* Share button */}
+        <button onClick={() => setShowShareMenu(true)} aria-label="Compartir" style={{
+          padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        </button>
       </div>
 
-      {/* ── Player tabs (multi-player only) ── */}
+      {/* ── Toggle Scorecard / Leaderboard (multi-player only) ── */}
       {jugadores.length > 1 && (
+        <div style={{ display: 'flex', background: darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', borderRadius: '20px', padding: '2px', margin: '5px 16px', flexShrink: 0 }}>
+          {(['scorecard', 'leaderboard'] as const).map(v => (
+            <button key={v} onClick={() => setView(v)} style={{
+              flex: 1, padding: '6px', borderRadius: '16px', fontSize: '12px', fontWeight: 500,
+              border: 'none', cursor: 'pointer',
+              background: view === v ? '#C4992A' : 'transparent',
+              color: view === v ? '#070D18' : theme.textFaint,
+              transition: 'all 0.15s ease', WebkitTapHighlightColor: 'transparent',
+            }}>
+              {v === 'scorecard' ? 'Scorecard' : 'Leaderboard'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Player tabs (multi-player only, scorecard view) ── */}
+      {jugadores.length > 1 && view === 'scorecard' && (
         <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`, WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
           {jugadores.map(j => {
             const active = j.id === activeJugadorId
@@ -690,6 +731,8 @@ function ScorePageContent() {
         </div>
       )}
 
+      {/* ── SCORECARD VIEW ── */}
+      {view === 'scorecard' && <>
       {/* ── Central area — SCORE (flex:1, centered) ── */}
       <div
         style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', overflowY: 'auto', position: 'relative', minHeight: 0, paddingTop: '16px' }}
@@ -776,16 +819,13 @@ function ScorePageContent() {
         >+</button>
       </div>
 
-      {/* Spacer */}
-      <div style={{ flexGrow: 1, minHeight: '12px' }} />
+      </>}
 
-      {/* Mini leaderboard — visible scrolling down */}
-      {(ronda.ronda_libre_jugadores ?? []).length > 1 && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 16px 4px' }}>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
-            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>En cancha</span>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+      {/* ── LEADERBOARD VIEW ── */}
+      {view === 'leaderboard' && jugadores.length > 1 && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '8px' }}>
+            En cancha · actualiza cada 15s
           </div>
           <MiniLeaderboard
             codigoRonda={codigo}
@@ -793,7 +833,10 @@ function ScorePageContent() {
             currentUserId={ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.user_id ?? null}
             totalHoles={ronda.holes}
           />
-        </>
+          <div style={{ fontSize: '9px', color: theme.textFaint, textAlign: 'center', marginTop: '8px' }}>
+            Vuelve a Scorecard en 10s
+          </div>
+        </div>
       )}
 
       {/* ── Nav buttons (fixed bottom with safe area) ── */}
@@ -821,11 +864,13 @@ function ScorePageContent() {
           onClick={isLastHole ? finalizeRound : goToNextHole}
           aria-label={isLastHole ? 'Finalizar ronda' : 'Siguiente hoyo'}
           style={{
-            flex: 2, padding: '14px', background: '#C4992A', color: '#070D18',
+            flex: 2, padding: '14px',
+            background: score != null ? '#C4992A' : 'rgba(196,153,42,0.4)',
+            color: '#070D18',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
             cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             touchAction: 'manipulation', letterSpacing: '0.01em',
-            animation: hasUnsaved && !isLastHole ? 'pendingPulse 2s ease-in-out infinite' : 'none',
+            transition: 'background 0.3s ease',
           }}
         >{isLastHole ? 'Finalizar ronda \u2713' : 'Siguiente \u2192'}</button>
       </div>
