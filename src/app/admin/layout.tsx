@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { isAdminEmail } from '@/lib/admin'
 
 const NAV_ITEMS = [
   { href: '/admin',              icon: '\u{1F4CA}', label: 'Overview' },
@@ -29,7 +28,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const check = async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!isAdminEmail(user?.email)) {
+      if (!user) {
+        // Fallback to session
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) { router.replace('/dashboard'); return }
+        const { data: p } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
+        if (p?.role !== 'admin') { router.replace('/dashboard'); return }
+        setAuthorized(true)
+        return
+      }
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (profile?.role !== 'admin') {
         router.replace('/dashboard')
         return
       }
