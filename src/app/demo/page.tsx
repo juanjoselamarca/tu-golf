@@ -58,6 +58,7 @@ export default function DemoPage() {
   const [courseFilter, setCourseFilter] = useState('Todo')
   const [showAll, setShowAll] = useState(false)
   const [showCpiInfo, setShowCpiInfo] = useState(false)
+  const [expandedRonda, setExpandedRonda] = useState<number | null>(null)
 
   useEffect(() => {
     fetch('/api/demo/profile')
@@ -483,30 +484,102 @@ export default function DemoPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {visibleHistorial.map((r, i) => {
                 const isBest = r.gross === bestGross
+                const isOpen = expandedRonda === i
                 return (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    background: CARD, borderRadius: '10px', padding: '10px 14px',
+                  <div key={i} onClick={() => setExpandedRonda(isOpen ? null : i)} style={{
+                    background: CARD, borderRadius: '10px', cursor: 'pointer',
                     borderLeft: `3px solid ${borderColor(r.score_vs_par)}`,
                     border: isBest ? `1px solid rgba(196,153,42,0.3)` : `1px solid ${CARD_BORDER}`,
                     borderLeftWidth: '3px', borderLeftStyle: 'solid', borderLeftColor: borderColor(r.score_vs_par),
+                    overflow: 'hidden',
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontFamily: MONO, minWidth: '20px' }}>#{r.index}</span>
-                      <div>
-                        <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
-                          {shortCourse(r.course)}{isBest ? ' \u2605' : ''}
+                    {/* Header row */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontFamily: MONO, minWidth: '20px' }}>#{r.index}</span>
+                        <div>
+                          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
+                            {shortCourse(r.course)}{isBest ? ' \u2605' : ''}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO }}>{fmtDate(r.date)}</div>
                         </div>
-                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO }}>{fmtDate(r.date)}</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontFamily: MONO }}>{r.gross}</span>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: '8px', fontSize: '11px', fontFamily: MONO, fontWeight: 500,
+                          background: vsParBg(r.score_vs_par), color: vsParColor(r.score_vs_par),
+                        }}>{vsParText(r.score_vs_par)}</span>
+                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontFamily: MONO }}>{r.gross}</span>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: '8px', fontSize: '11px', fontFamily: MONO, fontWeight: 500,
-                        background: vsParBg(r.score_vs_par), color: vsParColor(r.score_vs_par),
-                      }}>{vsParText(r.score_vs_par)}</span>
-                    </div>
+                    {/* Expanded scorecard */}
+                    {isOpen && r.scores && r.scores.length > 0 && (() => {
+                      const sc = r.scores
+                      const front9 = sc.slice(0, 9).reduce((a, b) => a + b, 0)
+                      const back9 = sc.slice(9).reduce((a, b) => a + b, 0)
+                      const scoreSymbol = (s: number, par: number) => {
+                        const d = s - par
+                        const color = 'rgba(255,255,255,0.85)'
+                        if (d <= -2) return (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', border: '1.5px solid #c4992a', position: 'relative' }}>
+                            <span style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', border: '1px solid #c4992a' }} />
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: s === 1 ? '#c4992a' : color, lineHeight: 1 }}>{s}</span>
+                          </span>
+                        )
+                        if (d === -1) return (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', border: '1.5px solid #c4992a' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                          </span>
+                        )
+                        if (d === 0) return <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                        if (d === 1) return (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 3px', borderRadius: '2px', border: '1.5px solid #EF4444' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                          </span>
+                        )
+                        return (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 3px', borderRadius: '2px', border: '1.5px solid #EF4444', position: 'relative' }}>
+                            <span style={{ position: 'absolute', inset: '-4px', borderRadius: '3px', border: '1px solid #EF4444' }} />
+                            <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                          </span>
+                        )
+                      }
+                      const renderHalf = (start: number, label: string, total: number) => (
+                        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '8px' }}>
+                          <div style={{ flex: 1, display: 'flex' }}>
+                            {Array.from({ length: 9 }, (_, idx) => {
+                              const holeNum = start + idx
+                              const s = sc[holeNum - 1]
+                              return (
+                                <div key={idx} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+                                  <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>{holeNum}</div>
+                                  <div style={{ minHeight: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {s != null ? scoreSymbol(s, 4) : <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '11px' }}>·</span>}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '4px', marginLeft: '4px' }}>
+                            <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' as const }}>{label}</div>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{total}</div>
+                          </div>
+                        </div>
+                      )
+                      return (
+                        <div style={{ padding: '0 10px 10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                          {renderHalf(1, 'OUT', front9)}
+                          {sc.length > 9 && renderHalf(10, 'IN', back9)}
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px' }}>
+                              <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' as const }}>TOT</div>
+                              <div style={{ fontSize: '14px', fontWeight: 800, color: 'rgba(255,255,255,0.85)' }}>{r.gross}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })}
