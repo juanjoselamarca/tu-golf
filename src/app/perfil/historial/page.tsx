@@ -618,7 +618,7 @@ function HistorialContent() {
                       </div>
                     </div>
 
-                    {/* ── Expanded scorecard — PGA table style ── */}
+                    {/* ── Expanded scorecard ── */}
                     {isOpen && stats && (() => {
                       const allScores = r.scores ?? []
                       const scoreColor = (s: number | null) => {
@@ -641,69 +641,57 @@ function HistorialContent() {
                         <div style={{ padding: '0 16px 14px' }}>
                           <div style={{ height: '1px', background: '#f0f0f0', marginBottom: '12px' }} />
 
-                          {/* Scorecard table — horizontal scroll on small screens */}
-                          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '10px' }}>
-                            <table style={{ width: '100%', minWidth: '380px', borderCollapse: 'collapse', fontSize: '12px' }}>
-                              {/* FRONT 9 */}
-                              <thead>
-                                <tr>
-                                  <td style={{ padding: '4px 6px', fontSize: '9px', color: '#9ca3af', fontWeight: 600, letterSpacing: '0.05em' }}>HOYO</td>
-                                  {Array.from({ length: 9 }, (_, i) => (
-                                    <td key={i} style={{ padding: '4px 2px', textAlign: 'center', fontSize: '9px', color: '#9ca3af', fontWeight: 500 }}>{i + 1}</td>
-                                  ))}
-                                  <td style={{ padding: '4px 4px', textAlign: 'center', fontSize: '9px', color: '#374151', fontWeight: 700, borderLeft: '1px solid #e5e7eb' }}>OUT</td>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr>
-                                  <td style={{ padding: '4px 6px', fontSize: '9px', color: '#9ca3af', fontWeight: 600 }}>SCORE</td>
-                                  {Array.from({ length: 9 }, (_, i) => {
-                                    const s = allScores[i] ?? null
-                                    return (
-                                      <td key={i} style={{ padding: '3px 2px', textAlign: 'center', background: scoreBg(s), borderRadius: '3px' }}>
-                                        <span style={{ fontSize: '14px', fontWeight: 600, color: scoreColor(s) }}>{s ?? '·'}</span>
-                                      </td>
-                                    )
-                                  })}
-                                  <td style={{ padding: '3px 4px', textAlign: 'center', fontSize: '14px', fontWeight: 700, color: '#374151', borderLeft: '1px solid #e5e7eb' }}>
-                                    {stats.front9}
-                                  </td>
-                                </tr>
-                              </tbody>
-                              {/* BACK 9 */}
-                              <thead>
-                                <tr>
-                                  <td style={{ padding: '8px 6px 4px', fontSize: '9px', color: '#9ca3af', fontWeight: 600, letterSpacing: '0.05em' }}>HOYO</td>
-                                  {Array.from({ length: 9 }, (_, i) => (
-                                    <td key={i} style={{ padding: '8px 2px 4px', textAlign: 'center', fontSize: '9px', color: '#9ca3af', fontWeight: 500 }}>{i + 10}</td>
-                                  ))}
-                                  <td style={{ padding: '8px 4px 4px', textAlign: 'center', fontSize: '9px', color: '#374151', fontWeight: 700, borderLeft: '1px solid #e5e7eb' }}>IN</td>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr>
-                                  <td style={{ padding: '4px 6px', fontSize: '9px', color: '#9ca3af', fontWeight: 600 }}>SCORE</td>
-                                  {Array.from({ length: 9 }, (_, i) => {
-                                    const s = allScores[i + 9] ?? null
-                                    return (
-                                      <td key={i} style={{ padding: '3px 2px', textAlign: 'center', background: scoreBg(s), borderRadius: '3px' }}>
-                                        <span style={{ fontSize: '14px', fontWeight: 600, color: scoreColor(s) }}>{s ?? '·'}</span>
-                                      </td>
-                                    )
-                                  })}
-                                  <td style={{ padding: '3px 4px', textAlign: 'center', fontSize: '14px', fontWeight: 700, color: '#374151', borderLeft: '1px solid #e5e7eb' }}>
-                                    {stats.back9}
-                                  </td>
-                                </tr>
-                                {/* TOTAL row */}
-                                <tr>
-                                  <td colSpan={10} style={{ borderTop: '1px solid #e5e7eb', padding: '6px 6px 2px' }} />
-                                  <td style={{ borderTop: '1px solid #e5e7eb', padding: '6px 4px 2px', textAlign: 'center', fontSize: '15px', fontWeight: 800, color: '#111827' }}>
-                                    {stats.total}
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
+                          {/* Front 9 */}
+                          <div style={{ marginBottom: '4px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                              {Array.from({ length: 9 }, (_, i) => (
+                                <div key={i} style={{ textAlign: 'center', fontSize: '9px', color: '#9ca3af', padding: '2px 0' }}>{i + 1}</div>
+                              ))}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                              {Array.from({ length: 9 }, (_, i) => {
+                                const s = allScores[i] ?? null
+                                return (
+                                  <div key={i} style={{ textAlign: 'center', padding: '4px 0', background: scoreBg(s), borderRadius: '4px' }}>
+                                    <span style={{ fontSize: '14px', fontWeight: 600, color: scoreColor(s) }}>{s ?? '·'}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            <div style={{ textAlign: 'right', fontSize: '12px', fontWeight: 700, color: '#374151', marginTop: '2px' }}>
+                              OUT: {stats.front9}
+                            </div>
+                          </div>
+
+                          {/* Back 9 */}
+                          <div style={{ marginBottom: '4px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                              {Array.from({ length: 9 }, (_, i) => (
+                                <div key={i} style={{ textAlign: 'center', fontSize: '9px', color: '#9ca3af', padding: '2px 0' }}>{i + 10}</div>
+                              ))}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px' }}>
+                              {Array.from({ length: 9 }, (_, i) => {
+                                const s = allScores[i + 9] ?? null
+                                return (
+                                  <div key={i} style={{ textAlign: 'center', padding: '4px 0', background: scoreBg(s), borderRadius: '4px' }}>
+                                    <span style={{ fontSize: '14px', fontWeight: 600, color: scoreColor(s) }}>{s ?? '·'}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            <div style={{ textAlign: 'right', fontSize: '12px', fontWeight: 700, color: '#374151', marginTop: '2px' }}>
+                              IN: {stats.back9}
+                            </div>
+                          </div>
+
+                          {/* TOTAL — always visible, full width */}
+                          <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '4px', marginBottom: '10px',
+                          }}>
+                            <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 600 }}>TOTAL</span>
+                            <span style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>{stats.total}</span>
                           </div>
 
                           {/* Stats + Edit button */}
