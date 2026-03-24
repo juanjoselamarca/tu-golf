@@ -45,11 +45,10 @@ export default function Navbar() {
     window.location.href = '/'
   }
 
-  // Only hide on login/register (navbar needed everywhere else)
+  // Hide on these routes (they have their own navigation)
   if (pathname === '/login' || pathname === '/register') return null
-
-  // Score page gets minimal header (handled by score page itself)
   if (pathname.includes('/score')) return null
+  if (pathname.startsWith('/admin')) return null
 
   const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'
