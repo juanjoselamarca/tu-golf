@@ -639,68 +639,84 @@ function HistorialContent() {
                       const cp = r.course_id ? (courseParCache[r.course_id] ?? {}) : {}
                       const gp = (h: number) => cp[h] ?? 4
 
-                      const cell = (holeNum: number) => {
+                      const scoreCell = (holeNum: number) => {
                         const s = sc[holeNum - 1] ?? null
-                        if (s == null) return { text: '·', color: '#ccc', bg: 'transparent', shape: 'none' as const }
+                        if (s == null) return <span style={{ color: '#d1d5db', fontSize: '12px' }}>·</span>
                         const d = s - gp(holeNum)
                         const isAce = s === 1
-                        if (d <= -2) return { text: String(s), color: isAce ? '#c4992a' : '#111', bg: 'transparent', shape: 'double-circle' as const }
-                        if (d === -1) return { text: String(s), color: '#111', bg: 'transparent', shape: 'circle' as const }
-                        if (d === 0) return { text: String(s), color: '#111', bg: 'transparent', shape: 'none' as const }
-                        if (d === 1) return { text: String(s), color: '#111', bg: 'transparent', shape: 'square' as const }
-                        return { text: String(s), color: '#111', bg: 'transparent', shape: 'double-square' as const }
+                        const color = isAce ? '#c4992a' : '#111'
+
+                        if (d <= -2) {
+                          // Eagle+ = double circle
+                          return (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '50%', border: '1.5px solid #c4992a', position: 'relative' }}>
+                              <span style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', border: '1.5px solid #c4992a' }} />
+                              <span style={{ fontSize: '12px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                            </span>
+                          )
+                        }
+                        if (d === -1) {
+                          // Birdie = single circle
+                          return (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '50%', border: '1.5px solid #c4992a' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                            </span>
+                          )
+                        }
+                        if (d === 0) {
+                          // Par = no shape
+                          return <span style={{ fontSize: '12px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                        }
+                        if (d === 1) {
+                          // Bogey = single square
+                          return (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 4px', borderRadius: '3px', border: '1.5px solid #EF4444', lineHeight: 1 }}>
+                              <span style={{ fontSize: '12px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                            </span>
+                          )
+                        }
+                        // Double bogey+ = double square
+                        return (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 4px', borderRadius: '3px', border: '1.5px solid #EF4444', position: 'relative' }}>
+                            <span style={{ position: 'absolute', inset: '-4px', borderRadius: '4px', border: '1.5px solid #EF4444' }} />
+                            <span style={{ fontSize: '12px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
+                          </span>
+                        )
                       }
 
-                      const renderRow = (start: number, count: number, label: string, total: number) => (
-                        <div style={{ marginBottom: '6px' }}>
-                          <div style={{ display: 'flex' }}>
-                            {Array.from({ length: count }, (_, i) => {
+                      const renderRow = (start: number, label: string, total: number) => (
+                        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '10px' }}>
+                          {/* 9 holes */}
+                          <div style={{ flex: 1, display: 'flex' }}>
+                            {Array.from({ length: 9 }, (_, i) => {
                               const h = start + i
-                              const c = cell(h)
-                              const isCircle = c.shape === 'circle' || c.shape === 'double-circle'
-                              const isSquare = c.shape === 'square' || c.shape === 'double-square'
-                              const isDouble = c.shape === 'double-circle' || c.shape === 'double-square'
-                              const borderColor = isCircle ? '#c4992a' : isSquare ? '#dc2626' : 'transparent'
-                              const radius = isCircle ? '50%' : '2px'
                               return (
-                                <div key={i} style={{ flex: 1, textAlign: 'center' }}>
-                                  <div style={{ fontSize: '8px', color: '#aaa' }}>{h}</div>
-                                  <div style={{ display: 'inline-block', position: 'relative', marginTop: '1px' }}>
-                                    {isDouble && (
-                                      <div style={{
-                                        position: 'absolute', inset: '-4px',
-                                        border: `1px solid ${borderColor}`,
-                                        borderRadius: isCircle ? '50%' : '3px',
-                                      }} />
-                                    )}
-                                    <div style={{
-                                      width: '22px', height: '22px', lineHeight: '22px',
-                                      fontSize: '12px', fontWeight: 600, color: c.color,
-                                      border: (isCircle || isSquare) ? `1px solid ${borderColor}` : 'none',
-                                      borderRadius: radius,
-                                      display: 'inline-block', textAlign: 'center',
-                                    }}>
-                                      {c.text}
-                                    </div>
+                                <div key={i} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+                                  <div style={{ fontSize: '8px', color: '#aaa', marginBottom: '2px' }}>{h}</div>
+                                  <div style={{ minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {scoreCell(h)}
                                   </div>
                                 </div>
                               )
                             })}
                           </div>
-                          <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: '#374151', marginTop: '3px' }}>
-                            {label}: {total}
+                          {/* OUT/IN cell */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '36px', flexShrink: 0, borderLeft: '1px solid #eee', paddingLeft: '6px', marginLeft: '4px' }}>
+                            <div style={{ fontSize: '9px', fontWeight: 600, color: '#999', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{label}</div>
+                            <div style={{ fontSize: '15px', fontWeight: 700, color: '#111' }}>{total}</div>
                           </div>
                         </div>
                       )
 
                       return (
-                        <div style={{ padding: '0 4px 10px' }}>
-                          <div style={{ height: '1px', background: '#eee', marginBottom: '8px' }} />
-                          {renderRow(1, 9, 'OUT', stats.front9)}
-                          {renderRow(10, 9, 'IN', stats.back9)}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee', paddingTop: '6px' }}>
-                            <span style={{ fontSize: '11px', color: '#999', fontWeight: 600 }}>TOTAL</span>
-                            <span style={{ fontSize: '17px', fontWeight: 800, color: '#111' }}>{stats.total}</span>
+                        <div style={{ padding: '0 6px 10px' }}>
+                          <div style={{ height: '1px', background: '#eee', marginBottom: '10px' }} />
+                          {renderRow(1, 'OUT', stats.front9)}
+                          {renderRow(10, 'IN', stats.back9)}
+                          {/* TOTAL */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', marginTop: '8px', borderTop: '1px solid #e5e7eb' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#999', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>TOTAL</span>
+                            <span style={{ fontSize: '18px', fontWeight: 700, color: '#111', fontVariantNumeric: 'tabular-nums' as const }}>{stats.total}</span>
                           </div>
 
                           {/* Stats + Edit button */}
