@@ -609,51 +609,79 @@ function RondaLibrePageContent() {
               </div>
             </div>
           </div>
-          <p style={{ color: '#94a8c0', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
-            ¿Cómo quieres unirte a esta ronda?
-          </p>
+          {ronda.estado === 'finalizada' ? (
+            <>
+              <p style={{ color: '#94a8c0', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
+                Esta ronda ya finalizó
+              </p>
+              <button
+                onClick={() => chooseRole('espectador')}
+                aria-label="Ver resultados"
+                style={{
+                  width: '100%', maxWidth: '360px', minHeight: '80px',
+                  background: '#c4992a', color: '#070d18',
+                  border: 'none', borderRadius: '16px',
+                  padding: '20px 24px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '20px',
+                  textAlign: 'left',
+                }}
+              >
+                <span style={{ fontSize: '32px', flexShrink: 0 }}>📊</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Ver resultados</div>
+                  <div style={{ fontSize: '14px', opacity: 0.8 }}>Revisa el marcador final</div>
+                </div>
+              </button>
+            </>
+          ) : (
+            <>
+              <p style={{ color: '#94a8c0', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
+                ¿Cómo quieres unirte a esta ronda?
+              </p>
 
-          {/* M4: welcome buttons 80px, 20px font */}
-          <button
-            onClick={() => {
-              if (requireAuth('Ingresa tu score en la ronda')) return
-              chooseRole('jugador')
-            }}
-            aria-label="Soy jugador"
-            style={{
-              width: '100%', maxWidth: '360px', minHeight: '80px',
-              background: '#c4992a', color: '#070d18',
-              border: 'none', borderRadius: '16px',
-              padding: '20px 24px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '20px',
-              textAlign: 'left',
-            }}
-          >
-            <span style={{ fontSize: '32px', flexShrink: 0 }}>🏌️</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Soy jugador</div>
-              <div style={{ fontSize: '14px', opacity: 0.8 }}>Ingresaré mi propio score</div>
-            </div>
-          </button>
+              {/* M4: welcome buttons 80px, 20px font */}
+              <button
+                onClick={() => {
+                  if (requireAuth('Ingresa tu score en la ronda')) return
+                  chooseRole('jugador')
+                }}
+                aria-label="Soy jugador"
+                style={{
+                  width: '100%', maxWidth: '360px', minHeight: '80px',
+                  background: '#c4992a', color: '#070d18',
+                  border: 'none', borderRadius: '16px',
+                  padding: '20px 24px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '20px',
+                  textAlign: 'left',
+                }}
+              >
+                <span style={{ fontSize: '32px', flexShrink: 0 }}>🏌️</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Soy jugador</div>
+                  <div style={{ fontSize: '14px', opacity: 0.8 }}>Ingresaré mi propio score</div>
+                </div>
+              </button>
 
-          <button
-            onClick={() => chooseRole('espectador')}
-            aria-label="Solo ver"
-            style={{
-              width: '100%', maxWidth: '360px', minHeight: '80px',
-              background: 'rgba(14,28,47,0.8)', color: '#edeae4',
-              border: '1px solid rgba(196,153,42,0.3)', borderRadius: '16px',
-              padding: '20px 24px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '20px',
-              textAlign: 'left',
-            }}
-          >
-            <span style={{ fontSize: '32px', flexShrink: 0 }}>👁</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Solo ver</div>
-              <div style={{ fontSize: '14px', color: '#94a8c0' }}>Seguiré el marcador en vivo</div>
-            </div>
-          </button>
+              <button
+                onClick={() => chooseRole('espectador')}
+                aria-label="Solo ver"
+                style={{
+                  width: '100%', maxWidth: '360px', minHeight: '80px',
+                  background: 'rgba(14,28,47,0.8)', color: '#edeae4',
+                  border: '1px solid rgba(196,153,42,0.3)', borderRadius: '16px',
+                  padding: '20px 24px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '20px',
+                  textAlign: 'left',
+                }}
+              >
+                <span style={{ fontSize: '32px', flexShrink: 0 }}>👁</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Solo ver</div>
+                  <div style={{ fontSize: '14px', color: '#94a8c0' }}>Seguiré el marcador en vivo</div>
+                </div>
+              </button>
+            </>
+          )}
 
           {/* Player count hint */}
           {ronda.ronda_libre_jugadores.length > 0 && (

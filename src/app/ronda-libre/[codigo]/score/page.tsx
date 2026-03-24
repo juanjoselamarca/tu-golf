@@ -235,6 +235,8 @@ function ScorePageContent() {
         .single()
       if (!data) { router.push('/dashboard'); return }
       const r = data as unknown as RondaLibre
+      // If ronda was closed (by admin or player), redirect to detail view (read-only)
+      if (r.estado === 'finalizada') { router.replace(`/ronda-libre/${codigo}`); return }
       setRonda(r)
 
       const initialScores: Record<string, Record<number, number>> = {}
@@ -296,6 +298,15 @@ function ScorePageContent() {
     setSaveStatus('saving')
     lsSave(codigo, jugadorId, holeScores)
     if (!isOnline) { setSaveStatus('offline'); return }
+
+    // Validate ronda is still en_curso before saving (admin may have closed/deleted it)
+    const supabaseCheck = createClient()
+    const { data: rondaCheck } = await supabaseCheck.from('rondas_libres').select('estado').eq('codigo', codigo).single()
+    if (!rondaCheck || rondaCheck.estado === 'finalizada') {
+      setSaveStatus('error')
+      router.replace(`/ronda-libre/${codigo}`)
+      return
+    }
 
     const scoresObj: Record<string, number> = {}
     for (const [k, v] of Object.entries(holeScores)) scoresObj[k] = v
