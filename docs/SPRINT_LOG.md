@@ -4,6 +4,46 @@
 
 ---
 
+## Sesión 23-24 Mar 2026 — Sprint post-prueba 1 + formato PGA
+**Fecha:** 23-24 Mar 2026
+**Commits:** e9a86db → 73bff3c (~25 commits)
+**Estado:** ✅ COMPLETO
+
+### Resumen
+Sprint masivo post-prueba real del 21 Mar. Fix de pantalla blanca espectadores,
+formato PGA en scorecards (círculos/cuadrados), sistema de push notifications,
+celebración de ronda, share card viral, partida simultánea, y auditoría completa.
+
+### Cambios principales
+- **Fix pantalla blanca:** /ronda-libre sacada de rutas protegidas, espectadores anónimos ven ronda
+- **Formato PGA:** Círculos dorados (birdie/eagle), cuadrados rojos (bogey/doble+) en TODAS las vistas
+- **Hole-in-one:** Celebración dorada fullscreen + push notification
+- **Push notifications:** VAPID + Service Worker + APIs + NotificationHub con preferencias
+- **Celebración 2 tiempos:** Personal al terminar + ganador cuando todos terminan
+- **Share card Canvas:** Templates ronda_libre y torneo, leaderboard con ranking
+- **MiniLeaderboard:** En vivo dentro del score page, polling 15s
+- **Partida simultánea:** hoyo_inicio en BD, orden circular en score page
+- **Historial premium:** Fondo blanco, scorecard PGA, OUT/IN/TOT, Personal Record, editar inline
+- **Deep link WhatsApp:** localStorage fallback + param next preservado
+- **PGA widget:** Banderas flagcdn.com + lógica tee time corregida
+- **Admin:** Middleware con service_role para bypass RLS
+- **exec_sql:** Función RPC para acceso SQL directo sin Dashboard
+
+### Infraestructura
+- Migraciones: 005 (partida simultánea), 006 (push subscriptions)
+- exec_sql RPC function instalada
+- 6 canchas verificadas con pares correctos
+- VAPID keys configurados en Vercel
+
+### Auditoría
+- Error handling en 5 API routes
+- Aria-labels en 15+ botones
+- Open Graph + Twitter meta tags
+- robots.txt + manifest.json mejorado
+- Null safety fixes
+
+---
+
 ## Sesión 17-18 Mar 2026 — Sprint masivo de producto
 **Fecha:** 17-18 Mar 2026
 **Commits:** ae07373 → 2899496
