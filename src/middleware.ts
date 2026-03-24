@@ -64,14 +64,15 @@ export async function middleware(request: NextRequest) {
     return redirectWithCookies(loginUrl)
   }
 
-  // Verificación extra para /admin: comprobar rol con service role (bypass RLS)
+  // Admin authorization — uses service_role to bypass RLS (standard pattern
+  // for server-side auth checks, service_role key never reaches the client)
   if (user && pathname.startsWith('/admin')) {
-    const { createClient: createServiceClient } = await import('@supabase/supabase-js')
-    const svc = createServiceClient(
+    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+    const adminDb = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-    const { data: profile } = await svc
+    const { data: profile } = await adminDb
       .from('profiles')
       .select('role')
       .eq('id', user.id)
