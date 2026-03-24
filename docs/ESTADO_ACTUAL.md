@@ -11,15 +11,11 @@
 
 ## Páginas en producción (33 páginas)
 
-- `/admin/configuracion`
-- `/admin/crecimiento`
-- `/admin/geografia`
-- `/admin/golf`
-- `/admin/monetizacion`
-- `/admin`
-- `/admin/sistema`
-- `/admin/taiger`
-- `/admin/usuarios`
+- `/admin` (Command Center — live dashboard)
+- `/admin/analytics` (crecimiento, funnel, engagement)
+- `/admin/golf-ops` (torneos, rondas, usuarios, tAIger)
+- `/admin/finanzas` (costos, proyecciones, DB stats)
+- `/admin/sistema` (health, config, debug tools)
 - `/auth/auth-code-error`
 - `/coach/onboarding`
 - `/coach`

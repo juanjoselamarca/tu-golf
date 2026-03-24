@@ -4,25 +4,26 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { AdminSidebar } from '@/components/admin/AdminSidebar'
+import { AdminTopBar } from '@/components/admin/AdminTopBar'
+import { adminColors } from '@/components/admin/admin-tokens'
 
-const NAV_ITEMS = [
-  { href: '/admin',              icon: '📊', label: 'Overview' },
-  { href: '/admin/usuarios',     icon: '👥', label: 'Usuarios' },
-  { href: '/admin/crecimiento',  icon: '📈', label: 'Crecimiento' },
-  { href: '/admin/golf',         icon: '⛳', label: 'Golf' },
-  { href: '/admin/taiger',       icon: '🐯', label: 'tAIger' },
-  { href: '/admin/monetizacion', icon: '💰', label: 'Monetización' },
-  { href: '/admin/geografia',    icon: '🌍', label: 'Geografía' },
-  { href: '/admin/sistema',      icon: '🔧', label: 'Sistema' },
-  { href: '/admin/configuracion', icon: '⚙️', label: 'Config' },
+const MOBILE_NAV_ITEMS = [
+  { href: '/admin',            icon: '\u26A1', label: 'Command' },
+  { href: '/admin/analytics',  icon: '\uD83D\uDCCA', label: 'Analytics' },
+  { href: '/admin/golf-ops',   icon: '\u26F3',  label: 'Golf Ops' },
+  { href: '/admin/finanzas',   icon: '\uD83D\uDCB0', label: 'Finanzas' },
+  { href: '/admin/sistema',    icon: '\uD83D\uDD27', label: 'Sistema' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [authorized, setAuthorized] = useState(false)
-  const [now, setNow] = useState('')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
+  // Auth check — keep existing logic
   useEffect(() => {
     const check = async () => {
       const supabase = createClient()
@@ -42,65 +43,111 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     check()
   }, [router])
 
+  // Responsive sidebar state
   useEffect(() => {
-    const update = () => setNow(new Date().toLocaleString('es-CL'))
-    update()
-    const interval = setInterval(update, 60000)
-    return () => clearInterval(interval)
+    const handleResize = () => {
+      const w = window.innerWidth
+      setIsMobile(w < 768)
+      setSidebarCollapsed(w < 1024)
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  if (!authorized) return (
-    <div style={{ background: '#050b14', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0' }}>
-      Verificando acceso...
-    </div>
-  )
 
   const isActive = (href: string) =>
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
 
-  return (
-    <div style={{ minHeight: '100vh', background: '#050b14' }}>
-      {/* ── Header ── */}
-      <header style={{
-        background: '#070d18', borderBottom: '1px solid #132540',
-        padding: '12px 16px', position: 'sticky', top: 0, zIndex: 40,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Link href="/dashboard" style={{ color: '#94a8c0', textDecoration: 'none', fontSize: '14px' }}>←</Link>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: '#edeae4', fontWeight: 700 }}>Golfers+</span>
-          <span style={{ background: '#c4992a', color: '#070d18', fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.1em' }}>ADMIN</span>
-        </div>
-        <span style={{ color: '#94a8c0', fontSize: '11px' }}>{now}</span>
-      </header>
-
-      {/* ── Tab bar — scrollable horizontal ── */}
-      <div style={{
-        overflowX: 'auto', WebkitOverflowScrolling: 'touch',
-        display: 'flex', gap: '4px', padding: '8px 12px',
-        borderBottom: '1px solid #132540', background: '#070d18',
-        position: 'sticky', top: '49px', zIndex: 39,
-      }}>
-        {NAV_ITEMS.map(item => (
-          <Link key={item.href} href={item.href} style={{
-            flexShrink: 0, height: '34px', padding: '0 12px',
-            borderRadius: '17px', display: 'flex', alignItems: 'center', gap: '5px',
-            fontSize: '12px', fontWeight: isActive(item.href) ? 600 : 400,
-            background: isActive(item.href) ? '#c4992a' : 'rgba(255,255,255,0.04)',
-            color: isActive(item.href) ? '#070d18' : '#94a8c0',
-            textDecoration: 'none', whiteSpace: 'nowrap',
-            border: isActive(item.href) ? 'none' : '1px solid rgba(255,255,255,0.06)',
-          }}>
-            <span style={{ fontSize: '13px' }}>{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
-      </div>
-
-      {/* ── Content ── */}
-      <main style={{ padding: '20px 16px', maxWidth: '1400px', margin: '0 auto' }}>
-        {children}
-      </main>
+  if (!authorized) return (
+    <div style={{
+      background: adminColors.bg, minHeight: '100vh',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: adminColors.gray, fontFamily: "'DM Sans', sans-serif",
+    }}>
+      Verificando acceso...
     </div>
+  )
+
+  const sidebarWidth = sidebarCollapsed ? 64 : 220
+  const contentMarginLeft = isMobile ? 0 : sidebarWidth
+
+  return (
+    <>
+      {/* Global styles and fonts */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        @keyframes slideIn {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+      `}</style>
+
+      <div style={{ minHeight: '100vh', background: adminColors.bg }}>
+        {/* Sidebar — hidden on mobile */}
+        {!isMobile && (
+          <AdminSidebar
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(c => !c)}
+          />
+        )}
+
+        {/* Content area */}
+        <div style={{
+          marginLeft: contentMarginLeft,
+          transition: 'margin-left 0.2s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '100vh',
+        }}>
+          <AdminTopBar />
+
+          <main style={{
+            flex: 1,
+            padding: isMobile ? '16px 12px 80px 12px' : '24px 24px 24px 24px',
+            maxWidth: '1400px',
+            width: '100%',
+            margin: '0 auto',
+            boxSizing: 'border-box',
+          }}>
+            {children}
+          </main>
+        </div>
+
+        {/* Mobile bottom nav */}
+        {isMobile && (
+          <nav style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0,
+            height: '64px', background: adminColors.bgDeep,
+            borderTop: `1px solid ${adminColors.border}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-around',
+            zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)',
+          }}>
+            {MOBILE_NAV_ITEMS.map(item => {
+              const active = isActive(item.href)
+              return (
+                <Link key={item.href} href={item.href} style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                  textDecoration: 'none', padding: '6px 8px',
+                  color: active ? adminColors.gold : adminColors.grayDim,
+                  fontSize: '10px', fontWeight: active ? 600 : 400,
+                  fontFamily: "'DM Sans', sans-serif",
+                }}>
+                  <span style={{ fontSize: '20px' }}>{item.icon}</span>
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
+          </nav>
+        )}
+      </div>
+    </>
   )
 }

@@ -17,6 +17,7 @@ export async function GET() {
     totalHistorical,
     taigerSessions, usersWithPatterns,
     totalRondasLibres,
+    recentProfiles,
   ] = await Promise.all([
     admin.from('profiles').select('*', { count: 'exact', head: true }),
     admin.from('profiles').select('*', { count: 'exact', head: true })
@@ -33,7 +34,23 @@ export async function GET() {
     admin.from('taiger_sessions').select('*', { count: 'exact', head: true }),
     admin.from('player_patterns').select('user_id', { count: 'exact', head: true }),
     admin.from('rondas_libres').select('*', { count: 'exact', head: true }),
+    admin.from('profiles').select('created_at')
+      .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
+      .order('created_at', { ascending: true }),
   ])
+
+  // Build sparkline: new users per day for last 30 days
+  const dailyCounts: Record<string, number> = {}
+  for (const p of (recentProfiles.data ?? [])) {
+    const day = p.created_at.split('T')[0]
+    dailyCounts[day] = (dailyCounts[day] || 0) + 1
+  }
+  // Fill in all 30 days (including zeros)
+  const newUsersDaily: number[] = []
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0]
+    newUsersDaily.push(dailyCounts[d] || 0)
+  }
 
   return NextResponse.json({
     users: {
@@ -58,5 +75,8 @@ export async function GET() {
       usersWithPatterns: usersWithPatterns.count ?? 0,
     },
     proUsers: 0,
+    sparklines: {
+      newUsersDaily,
+    },
   })
 }

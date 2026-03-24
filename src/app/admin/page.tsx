@@ -1,31 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import dynamic from 'next/dynamic'
-
-const LineChart = dynamic(() => import('recharts').then(m => m.LineChart), { ssr: false })
-const Line = dynamic(() => import('recharts').then(m => m.Line), { ssr: false })
-const XAxis = dynamic(() => import('recharts').then(m => m.XAxis), { ssr: false })
-const YAxis = dynamic(() => import('recharts').then(m => m.YAxis), { ssr: false })
-const Tooltip = dynamic(() => import('recharts').then(m => m.Tooltip), { ssr: false })
-const ResponsiveContainer = dynamic(() => import('recharts').then(m => m.ResponsiveContainer), { ssr: false })
-
-// ── Design tokens ──
-const colors = {
-  bg: '#050b14',
-  card: '#0a1628',
-  border: '#132540',
-  gold: '#c4992a',
-  ivory: '#edeae4',
-  gray: '#94a8c0',
-  green: '#16a34a',
-  red: '#dc2626',
-}
-
-const font = {
-  kpi: { fontFamily: "'Playfair Display', serif", fontSize: '2.5rem', color: colors.gold, fontWeight: 700 },
-  label: { fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: colors.gray },
-}
+import { AdminCard } from '@/components/admin/AdminCard'
+import { AdminChart } from '@/components/admin/AdminChart'
+import { LiveFeed } from '@/components/admin/LiveFeed'
+import { HealthGrid } from '@/components/admin/HealthGrid'
+import { AdminBadge } from '@/components/admin/AdminBadge'
+import { adminColors, adminFonts } from '@/components/admin/admin-tokens'
 
 // ── Types ──
 interface OverviewData {
@@ -35,11 +16,14 @@ interface OverviewData {
   historical: { total: number }
   taiger: { sessions: number; usersWithPatterns: number }
   proUsers: number
+  sparklines?: { newUsersDaily?: number[] }
 }
 
-interface HealthService {
+interface ServiceHealth {
   name: string
-  status: 'ok' | 'error' | 'not_configured'
+  ok: boolean
+  ms: number
+  status?: string
 }
 
 interface HealthRaw {
@@ -52,197 +36,47 @@ interface HealthRaw {
   }
 }
 
-function parseHealthServices(raw: HealthRaw | null): HealthService[] {
+interface ActivityPoint {
+  fecha: string
+  dau: number
+  rondas: number
+  torneos: number
+  tarjetas: number
+}
+
+function parseHealthServices(raw: HealthRaw | null): ServiceHealth[] {
   if (!raw?.services) return []
   const s = raw.services
   return [
-    { name: 'Supabase', status: s.supabase?.ok ? 'ok' : 'not_configured' },
-    { name: 'Vercel', status: s.vercel?.ok ? 'ok' : s.vercel ? 'error' : 'not_configured' },
-    { name: 'ESPN API', status: s.espn?.ok ? 'ok' : s.espn ? 'error' : 'not_configured' },
-    { name: 'tAIger', status: s.claude?.status === 'not_configured' ? 'not_configured' : s.claude?.ok ? 'ok' : 'error' },
+    { name: 'Supabase', ok: s.supabase?.ok ?? false, ms: s.supabase?.ms ?? 0 },
+    { name: 'Vercel', ok: s.vercel?.ok ?? false, ms: s.vercel?.ms ?? 0 },
+    { name: 'ESPN API', ok: s.espn?.ok ?? false, ms: s.espn?.ms ?? 0 },
+    { name: 'tAIger (Claude)', ok: s.claude?.ok ?? false, ms: s.claude?.ms ?? 0, status: s.claude?.status },
+    { name: 'Garmin', ok: s.garmin?.ok ?? false, ms: s.garmin?.ms ?? 0, status: s.garmin?.status },
   ]
 }
 
-interface ActivityPoint {
-  date: string
-  events: number
-}
-
-// ── KPI Card ──
-function KpiCard({
-  icon,
-  value,
-  label,
-  delta,
-  loading,
-}: {
-  icon: string
-  value: number
-  label: string
-  delta?: { value: number; label: string }
-  loading: boolean
-}) {
-  return (
-    <div
-      style={{
-        background: colors.card,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '12px',
-        padding: '24px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        minWidth: 0,
-        flex: '1 1 180px',
-      }}
-    >
-      <span style={{ fontSize: '24px' }}>{icon}</span>
-      {loading ? (
-        <div
-          style={{
-            height: '40px',
-            width: '80px',
-            borderRadius: '8px',
-            background: `linear-gradient(90deg, ${colors.border} 25%, ${colors.card} 50%, ${colors.border} 75%)`,
-            backgroundSize: '200% 100%',
-            animation: 'shimmer 1.5s infinite',
-          }}
-        />
-      ) : (
-        <span style={font.kpi}>{value.toLocaleString()}</span>
-      )}
-      <span style={font.label}>{label}</span>
-      {delta && !loading && (
-        <span
-          style={{
-            ...font.label,
-            fontSize: '11px',
-            color: delta.value >= 0 ? colors.green : colors.red,
-            fontWeight: 600,
-          }}
-        >
-          {delta.value >= 0 ? '+' : ''}
-          {delta.value} {delta.label}
-        </span>
-      )}
-    </div>
-  )
-}
-
-// ── Health dot ──
-function HealthDot({ status }: { status: 'ok' | 'error' | 'not_configured' }) {
-  const c = status === 'ok' ? colors.green : status === 'error' ? colors.red : colors.gray
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        width: '10px',
-        height: '10px',
-        borderRadius: '50%',
-        backgroundColor: c,
-        marginRight: '8px',
-        boxShadow: status === 'ok' ? `0 0 6px ${c}` : 'none',
-      }}
-    />
-  )
-}
-
-// ── Activity Chart ──
-function ActivityChart({ data }: { data: ActivityPoint[] }) {
-  if (!data || data.length === 0) {
-    return (
-      <div
-        style={{
-          height: '300px',
-          background: colors.card,
-          border: `1px solid ${colors.border}`,
-          borderRadius: '12px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '32px',
-          textAlign: 'center',
-        }}
-      >
-        <span style={{ fontSize: '40px', marginBottom: '16px', opacity: 0.5 }}>&#128202;</span>
-        <p style={{ ...font.label, fontSize: '14px', color: colors.ivory, marginBottom: '8px' }}>
-          Sin actividad registrada a&uacute;n
-        </p>
-        <p style={font.label}>
-          Los eventos aparecer&aacute;n aqu&iacute; una vez que los usuarios interact&uacute;en con la app.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      style={{
-        height: '300px',
-        background: colors.card,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '12px',
-        padding: '16px',
-      }}
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <XAxis dataKey="date" stroke={colors.gray} tick={{ fontSize: 11 }} />
-          <YAxis stroke={colors.gray} tick={{ fontSize: 11 }} />
-          <Tooltip
-            contentStyle={{
-              background: colors.card,
-              border: `1px solid ${colors.border}`,
-              borderRadius: '8px',
-              color: colors.ivory,
-              fontSize: '12px',
-            }}
-          />
-          <Line
-            type="monotone"
-            dataKey="events"
-            stroke={colors.gold}
-            strokeWidth={2}
-            dot={{ r: 3, fill: colors.gold }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-// ── Main ──
-export default function AdminOverviewPage() {
+export default function CommandCenterPage() {
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [health, setHealth] = useState<HealthRaw | null>(null)
   const [activity, setActivity] = useState<ActivityPoint[]>([])
   const [loading, setLoading] = useState(true)
+  const [healthLoading, setHealthLoading] = useState(true)
 
   const fetchOverview = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/overview')
-      if (res.ok) {
-        const data = await res.json()
-        setOverview(data)
-      }
-    } catch {
-      /* silently fail */
-    } finally {
-      setLoading(false)
-    }
+      if (res.ok) setOverview(await res.json())
+    } catch { /* silent */ }
+    finally { setLoading(false) }
   }, [])
 
   const fetchHealth = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/health')
-      if (res.ok) {
-        const data = await res.json()
-        setHealth(data)
-      }
-    } catch {
-      setHealth(null)
-    }
+      if (res.ok) setHealth(await res.json())
+    } catch { /* silent */ }
+    finally { setHealthLoading(false) }
   }, [])
 
   const fetchActivity = useCallback(async () => {
@@ -252,9 +86,7 @@ export default function AdminOverviewPage() {
         const data = await res.json()
         setActivity(data.activity ?? [])
       }
-    } catch {
-      setActivity([])
-    }
+    } catch { /* silent */ }
   }, [])
 
   useEffect(() => {
@@ -262,235 +94,180 @@ export default function AdminOverviewPage() {
     fetchHealth()
     fetchActivity()
 
-    const healthInterval = setInterval(fetchHealth, 60_000)
-    return () => clearInterval(healthInterval)
+    const overviewInterval = setInterval(fetchOverview, 30_000)
+    const healthInterval = setInterval(fetchHealth, 30_000)
+    const activityInterval = setInterval(fetchActivity, 60_000)
+    return () => {
+      clearInterval(overviewInterval)
+      clearInterval(healthInterval)
+      clearInterval(activityInterval)
+    }
   }, [fetchOverview, fetchHealth, fetchActivity])
 
-  const kpis = [
-    {
-      icon: '\u{1F465}',
-      value: overview?.users.total ?? 0,
-      label: 'Total Usuarios',
-      delta: overview ? { value: overview.users.new7d, label: 'nuevos 7d' } : undefined,
-    },
-    {
-      icon: '\u{1F195}',
-      value: overview?.users.new7d ?? 0,
-      label: 'Nuevos 7d',
-      delta: overview ? { value: overview.users.new30d, label: 'nuevos 30d' } : undefined,
-    },
-    {
-      icon: '\u26F3',
-      value: overview?.rounds.freeRoundsTotal ?? 0,
-      label: 'Rondas Libres',
-      delta: overview ? { value: overview.rounds.freeRounds7d, label: '\u00FAlt. 7d' } : undefined,
-    },
-    {
-      icon: '\u{1F916}',
-      value: overview?.taiger.sessions ?? 0,
-      label: 'tAIger Sessions',
-    },
-    {
-      icon: '\u{1F451}',
-      value: overview?.proUsers ?? 0,
-      label: 'Pro Users',
-    },
-  ]
+  // Parse health services
+  const healthServices = parseHealthServices(health)
+  const okCount = healthServices.filter(s => s.ok && s.status !== 'not_configured').length
+  const totalServices = healthServices.length
+  const healthScore = totalServices > 0 ? Math.round((okCount / totalServices) * 100) : 0
 
-  const healthServices: HealthService[] = health
-    ? parseHealthServices(health)
-    : [
-        { name: 'Supabase', status: 'not_configured' },
-        { name: 'Vercel', status: 'not_configured' },
-        { name: 'ESPN API', status: 'not_configured' },
-        { name: 'tAIger', status: 'not_configured' },
-      ]
+  // Chart data transformation
+  const chartData = activity.map(a => ({
+    date: a.fecha.slice(5), // MM-DD
+    rondas: a.rondas,
+    dau: a.dau,
+    tarjetas: a.tarjetas,
+  }))
+
+  // Alerts
+  const alerts: { text: string; variant: 'warning' | 'error' }[] = []
+  if (health) {
+    healthServices.forEach(s => {
+      if (!s.ok && s.status !== 'not_configured') {
+        alerts.push({ text: `${s.name} con errores`, variant: 'error' })
+      }
+    })
+  }
+  if (overview && overview.users.new7d === 0) {
+    alerts.push({ text: '0 usuarios nuevos en 7 dias', variant: 'warning' })
+  }
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&display=swap');
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-      `}</style>
+    <div style={{ color: adminColors.ivory, fontFamily: "'DM Sans', sans-serif" }}>
+      {/* Page header */}
+      <h1 style={{
+        ...adminFonts.sectionTitle, fontSize: '1.5rem',
+        marginBottom: '24px', color: adminColors.gold,
+        fontFamily: "'Playfair Display', serif",
+      }}>
+        Command Center
+      </h1>
 
-      <div
-        style={{
-          minHeight: '100vh',
-          background: colors.bg,
-          color: colors.ivory,
-          fontFamily: "'DM Sans', sans-serif",
-          padding: '32px',
-        }}
-      >
-        <h1
-          style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: '1.75rem',
-            color: colors.gold,
-            marginBottom: '32px',
-          }}
-        >
-          Panel de Administraci&oacute;n
-        </h1>
+      {/* ── ROW 1: KPI Cards ── */}
+      <div style={{ marginBottom: '24px' }}>
+        <span style={{ ...adminFonts.label, display: 'block', marginBottom: '12px' }}>
+          INDICADORES CLAVE
+        </span>
+        <div style={{
+          display: 'flex', gap: '12px', flexWrap: 'wrap',
+        }}>
+          <AdminCard
+            icon={'\uD83D\uDC65'}
+            label="Total Usuarios"
+            value={overview?.users.total ?? 0}
+            delta={overview ? { value: overview.users.new7d, label: 'nuevos 7d' } : undefined}
+            sparkline={overview?.sparklines?.newUsersDaily}
+            loading={loading}
+            style={{ flex: '1 1 180px', minWidth: '160px' }}
+          />
+          <AdminCard
+            icon={'\uD83C\uDD95'}
+            label="Nuevos 7d"
+            value={overview?.users.new7d ?? 0}
+            delta={overview ? { value: overview.users.new30d, label: 'nuevos 30d' } : undefined}
+            loading={loading}
+            style={{ flex: '1 1 180px', minWidth: '160px' }}
+          />
+          <AdminCard
+            icon={'\u26F3'}
+            label="Rondas Libres"
+            value={overview?.rounds.freeRoundsTotal ?? 0}
+            delta={overview ? { value: overview.rounds.freeRounds7d, label: 'ult. 7d' } : undefined}
+            loading={loading}
+            style={{ flex: '1 1 180px', minWidth: '160px' }}
+          />
+          <AdminCard
+            icon={'\uD83E\uDD16'}
+            label="tAIger Sessions"
+            value={overview?.taiger.sessions ?? 0}
+            loading={loading}
+            style={{ flex: '1 1 180px', minWidth: '160px' }}
+          />
+          <AdminCard
+            icon={'\uD83C\uDFC6'}
+            label="Torneos"
+            value={overview?.tournaments.total ?? 0}
+            delta={overview ? { value: overview.tournaments.last30d, label: 'ult. 30d' } : undefined}
+            loading={loading}
+            style={{ flex: '1 1 180px', minWidth: '160px' }}
+          />
+          <AdminCard
+            icon={'\uD83D\uDC9A'}
+            label="Health Score"
+            value={loading ? 0 : `${healthScore}%`}
+            loading={loading}
+            style={{ flex: '1 1 180px', minWidth: '160px' }}
+          />
+        </div>
+      </div>
 
-        {/* ROW 1 — KPIs */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '16px',
-            flexWrap: 'wrap',
-            marginBottom: '24px',
-          }}
-        >
-          {kpis.map((kpi, i) => (
-            <KpiCard key={i} {...kpi} loading={loading} />
-          ))}
+      {/* ── ROW 2: Activity Chart ── */}
+      <div style={{ marginBottom: '24px' }}>
+        <span style={{ ...adminFonts.label, display: 'block', marginBottom: '12px' }}>
+          ACTIVIDAD
+        </span>
+        <AdminChart
+          data={chartData}
+          dataKeys={[
+            { key: 'rondas', color: adminColors.gold, name: 'Rondas' },
+            { key: 'dau', color: adminColors.blue, name: 'DAU' },
+            { key: 'tarjetas', color: adminColors.green, name: 'Tarjetas' },
+          ]}
+          xAxisKey="date"
+          type="area"
+          height={280}
+          emptyMessage="Sin actividad registrada aun"
+        />
+      </div>
+
+      {/* ── ROW 3: Two columns ── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gap: '16px',
+      }}>
+        {/* Left: LiveFeed */}
+        <div>
+          <span style={{ ...adminFonts.label, display: 'block', marginBottom: '12px' }}>
+            FEED EN VIVO
+          </span>
+          <LiveFeed />
         </div>
 
-        {/* ROW 2 — Activity chart */}
-        <div style={{ marginBottom: '24px' }}>
-          <h2
-            style={{
-              ...font.label,
-              fontSize: '14px',
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-              marginBottom: '12px',
-            }}
-          >
-            Actividad
-          </h2>
-          <ActivityChart data={activity} />
-        </div>
+        {/* Right: Health + Alerts */}
+        <div>
+          <span style={{ ...adminFonts.label, display: 'block', marginBottom: '12px' }}>
+            ESTADO DE SERVICIOS
+          </span>
+          <HealthGrid services={healthServices} loading={healthLoading} />
 
-        {/* ROW 3 — Two columns */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: '16px',
-            marginBottom: '24px',
-          }}
-        >
-          {/* LEFT: Top 5 */}
-          <div
-            style={{
-              background: colors.card,
-              border: `1px solid ${colors.border}`,
+          {/* Alerts panel */}
+          <div style={{ marginTop: '16px' }}>
+            <span style={{ ...adminFonts.label, display: 'block', marginBottom: '10px' }}>
+              ALERTAS
+            </span>
+            <div style={{
+              background: adminColors.card,
+              border: `1px solid ${adminColors.border}`,
               borderRadius: '12px',
-              padding: '24px',
-            }}
-          >
-            <h3
-              style={{
-                ...font.label,
-                fontSize: '13px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                marginBottom: '16px',
-              }}
-            >
-              Top 5 Usuarios
-            </h3>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '140px',
-                color: colors.gray,
-                fontSize: '13px',
-              }}
-            >
-              Datos disponibles pr&oacute;ximamente
+              padding: '16px',
+              display: 'flex', flexDirection: 'column', gap: '8px',
+            }}>
+              {alerts.length === 0 ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  color: adminColors.grayDim, fontSize: '13px',
+                }}>
+                  <AdminBadge text="Sin alertas" variant="success" dot />
+                </div>
+              ) : (
+                alerts.map((alert, i) => (
+                  <AdminBadge key={i} text={alert.text} variant={alert.variant} dot />
+                ))
+              )}
             </div>
-          </div>
-
-          {/* RIGHT: Feed */}
-          <div
-            style={{
-              background: colors.card,
-              border: `1px solid ${colors.border}`,
-              borderRadius: '12px',
-              padding: '24px',
-            }}
-          >
-            <h3
-              style={{
-                ...font.label,
-                fontSize: '13px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                marginBottom: '16px',
-              }}
-            >
-              Actividad Reciente
-            </h3>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '140px',
-                color: colors.gray,
-                fontSize: '13px',
-              }}
-            >
-              Sin actividad registrada
-            </div>
-          </div>
-        </div>
-
-        {/* ROW 4 — Health */}
-        <div
-          style={{
-            background: colors.card,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '12px',
-            padding: '24px',
-          }}
-        >
-          <h3
-            style={{
-              ...font.label,
-              fontSize: '13px',
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-              marginBottom: '16px',
-            }}
-          >
-            Estado de Servicios
-          </h3>
-          <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-            {healthServices.map((svc) => (
-              <div
-                key={svc.name}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  fontSize: '14px',
-                  color: colors.ivory,
-                }}
-              >
-                <HealthDot status={svc.status} />
-                <span>{svc.name}</span>
-                <span
-                  style={{
-                    ...font.label,
-                    marginLeft: '8px',
-                    fontSize: '11px',
-                  }}
-                >
-                  {svc.status === 'ok' ? 'Operativo' : svc.status === 'error' ? 'Error' : 'No configurado'}
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
