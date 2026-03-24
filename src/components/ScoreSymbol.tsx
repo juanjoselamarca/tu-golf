@@ -1,13 +1,15 @@
 'use client'
 
 /**
- * ScoreSymbol — Renderiza un score de golf con el formato estándar PGA:
- * - Eagle o mejor: número dentro de doble círculo (dorado)
- * - Birdie: número dentro de un círculo (dorado)
- * - Par: número solo, sin forma
- * - Bogey: número dentro de un cuadrado (rojo)
- * - Double bogey o peor: número dentro de doble cuadrado (rojo)
- * - Hole-in-one: dorado permanente con brillo
+ * ScoreSymbol — Formato estándar PGA completo:
+ * - Hole-in-one (1): dorado relleno con doble outline
+ * - Albatross (-3+): azul relleno con doble círculo
+ * - Eagle (-2): doble círculo dorado vacío
+ * - Birdie (-1): círculo dorado simple vacío
+ * - Par (0): número solo
+ * - Bogey (+1): cuadrado rojo simple vacío
+ * - Double bogey (+2): doble cuadrado rojo vacío
+ * - Triple bogey+ (+3+): cuadrado rojo relleno, número blanco
  */
 
 interface ScoreSymbolProps {
@@ -18,90 +20,39 @@ interface ScoreSymbolProps {
 }
 
 const SIZES = {
-  sm: { box: 28, font: 12, border: 1, gap: 2 },
-  md: { box: 36, font: 15, border: 1.5, gap: 2.5 },
-  lg: { box: 44, font: 18, border: 1.5, gap: 3 },
+  sm: { box: 22, font: 11, border: 1, gap: 4 },
+  md: { box: 28, font: 13, border: 1.5, gap: 4 },
+  lg: { box: 36, font: 16, border: 1.5, gap: 5 },
 }
 
 export default function ScoreSymbol({ score, par, size = 'md', theme = 'dark' }: ScoreSymbolProps) {
   const s = SIZES[size]
-  const isHoleInOne = score === 1
   const isDark = theme === 'dark'
+  const baseColor = isDark ? 'rgba(255,255,255,0.85)' : '#374151'
+  const mutedColor = isDark ? 'rgba(255,255,255,0.15)' : '#d1d5db'
 
+  // No score
   if (score == null || par == null) {
     return (
-      <div style={{
-        width: s.box, height: s.box,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: s.font, fontWeight: 600,
-        color: isDark ? 'rgba(255,255,255,0.15)' : '#d1d5db',
-      }}>
+      <div style={{ width: s.box, height: s.box, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: s.font, color: mutedColor }}>
         ·
       </div>
     )
   }
 
   const diff = score - par
+  const isAce = score === 1
 
-  // Colors
-  const circleColor = isDark ? '#c4992a' : '#b8860b'
-  const squareColor = isDark ? '#dc2626' : '#dc2626'
-  const textColor = isHoleInOne
-    ? '#c4992a'
-    : isDark ? 'rgba(255,255,255,0.85)' : '#374151'
-
-  // Determine shape: circle (under par), square (over par), none (par)
-  const isCircle = diff < 0
-  const isSquare = diff > 0
-  const isDouble = Math.abs(diff) >= 2
-
-  // Hole-in-one gets golden glow
-  const aceGlow = isHoleInOne ? {
-    boxShadow: '0 0 8px rgba(196,153,42,0.6), 0 0 16px rgba(196,153,42,0.3)',
-  } : {}
-
-  if (diff === 0) {
-    // Par — just the number
+  // ── HOLE-IN-ONE — dorado relleno, doble outline ──
+  if (isAce) {
     return (
-      <div style={{
-        width: s.box, height: s.box,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: s.font, fontWeight: 600,
-        color: textColor,
-      }}>
-        {score}
-      </div>
-    )
-  }
-
-  if (isCircle) {
-    // Birdie (1 circle) or Eagle+ (2 circles)
-    const borderColor = circleColor
-    return (
-      <div style={{
-        width: s.box, height: s.box,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        position: 'relative',
-      }}>
-        {/* Outer circle (only for eagle/albatross — double circle) */}
-        {isDouble && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            borderRadius: '50%',
-            border: `${s.border}px solid ${borderColor}`,
-            ...aceGlow,
-          }} />
-        )}
-        {/* Inner circle (always for under par) */}
+      <div style={{ width: s.box, height: s.box, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: -s.gap, borderRadius: '50%', border: `${s.border}px solid #c4992a` }} />
         <div style={{
-          width: isDouble ? s.box - (s.gap * 2 + s.border * 2) : s.box,
-          height: isDouble ? s.box - (s.gap * 2 + s.border * 2) : s.box,
-          borderRadius: '50%',
-          border: `${s.border}px solid ${borderColor}`,
+          width: s.box, height: s.box, borderRadius: '50%',
+          background: '#c4992a', border: `${s.border}px solid #c4992a`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: s.font, fontWeight: 700,
-          color: textColor,
-          ...(!isDouble ? aceGlow : {}),
+          fontSize: s.font, fontWeight: 800, color: '#070d18', lineHeight: 1,
         }}>
           {score}
         </div>
@@ -109,40 +60,133 @@ export default function ScoreSymbol({ score, par, size = 'md', theme = 'dark' }:
     )
   }
 
-  // Square — Bogey (1 square) or Double+ (2 squares)
-  return (
-    <div style={{
-      width: s.box, height: s.box,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      position: 'relative',
-    }}>
-      {/* Outer square (only for double bogey or worse) */}
-      {isDouble && (
+  // ── ALBATROSS (-3 o mejor) — azul relleno, doble círculo ──
+  if (diff <= -3) {
+    return (
+      <div style={{ width: s.box, height: s.box, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: -s.gap, borderRadius: '50%', border: `${s.border}px solid #60A5FA` }} />
         <div style={{
-          position: 'absolute', inset: 0,
-          borderRadius: '3px',
-          border: `${s.border}px solid ${squareColor}`,
-        }} />
-      )}
-      {/* Inner square (always for over par) */}
+          width: s.box, height: s.box, borderRadius: '50%',
+          background: '#60A5FA', border: `${s.border}px solid #60A5FA`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: s.font, fontWeight: 700, color: '#ffffff', lineHeight: 1,
+        }}>
+          {score}
+        </div>
+      </div>
+    )
+  }
+
+  // ── EAGLE (-2) — doble círculo dorado vacío ──
+  if (diff === -2) {
+    return (
+      <div style={{ width: s.box, height: s.box, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: -s.gap, borderRadius: '50%', border: `${s.border}px solid #c4992a` }} />
+        <div style={{
+          width: s.box, height: s.box, borderRadius: '50%',
+          border: `${s.border}px solid #c4992a`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: s.font, fontWeight: 700, color: baseColor, lineHeight: 1,
+        }}>
+          {score}
+        </div>
+      </div>
+    )
+  }
+
+  // ── BIRDIE (-1) — círculo dorado simple vacío ──
+  if (diff === -1) {
+    return (
       <div style={{
-        width: isDouble ? s.box - (s.gap * 2 + s.border * 2) : s.box,
-        height: isDouble ? s.box - (s.gap * 2 + s.border * 2) : s.box,
-        borderRadius: '3px',
-        border: `${s.border}px solid ${squareColor}`,
+        width: s.box, height: s.box, borderRadius: '50%',
+        border: `${s.border}px solid #c4992a`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: s.font, fontWeight: 700,
-        color: textColor,
+        fontSize: s.font, fontWeight: 600, color: baseColor, lineHeight: 1,
       }}>
         {score}
       </div>
+    )
+  }
+
+  // ── PAR — número solo ──
+  if (diff === 0) {
+    return (
+      <div style={{
+        width: s.box, height: s.box,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: s.font, fontWeight: 600, color: baseColor, lineHeight: 1,
+      }}>
+        {score}
+      </div>
+    )
+  }
+
+  // ── BOGEY (+1) — cuadrado rojo simple vacío ──
+  if (diff === 1) {
+    return (
+      <div style={{
+        minWidth: s.box, height: s.box, borderRadius: '2px',
+        border: `${s.border}px solid #EF4444`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: s.font, fontWeight: 600, color: baseColor, lineHeight: 1,
+        padding: '0 2px',
+      }}>
+        {score}
+      </div>
+    )
+  }
+
+  // ── DOUBLE BOGEY (+2) — doble cuadrado rojo vacío ──
+  if (diff === 2) {
+    return (
+      <div style={{ minWidth: s.box, height: s.box, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: -s.gap, borderRadius: '3px', border: `${s.border}px solid #EF4444` }} />
+        <div style={{
+          minWidth: s.box, height: s.box, borderRadius: '2px',
+          border: `${s.border}px solid #EF4444`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: s.font, fontWeight: 600, color: baseColor, lineHeight: 1,
+          padding: '0 2px',
+        }}>
+          {score}
+        </div>
+      </div>
+    )
+  }
+
+  // ── TRIPLE BOGEY+ (+3 o peor) — cuadrado rojo RELLENO, número blanco ──
+  return (
+    <div style={{
+      minWidth: s.box, height: s.box, borderRadius: '2px',
+      background: '#DC2626',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: s.font, fontWeight: 700, color: '#ffffff', lineHeight: 1,
+      padding: '0 2px',
+    }}>
+      {score}
     </div>
   )
 }
 
-/**
- * Detect if a score is a hole-in-one
- */
 export function isHoleInOne(score: number | null | undefined): boolean {
   return score === 1
+}
+
+/** Returns inline style info for rendering score indicators without the component */
+export function getScoreIndicator(gross: number, par: number): {
+  shape: 'none' | 'circle' | 'double-circle' | 'filled-circle' | 'square' | 'double-square' | 'filled-square'
+  borderColor: string
+  background: string
+  textColor: string
+  fontWeight: number
+} {
+  const diff = gross - par
+  if (gross === 1) return { shape: 'filled-circle', borderColor: '#c4992a', background: '#c4992a', textColor: '#070d18', fontWeight: 800 }
+  if (diff <= -3) return { shape: 'filled-circle', borderColor: '#60A5FA', background: '#60A5FA', textColor: '#ffffff', fontWeight: 700 }
+  if (diff === -2) return { shape: 'double-circle', borderColor: '#c4992a', background: 'transparent', textColor: '', fontWeight: 700 }
+  if (diff === -1) return { shape: 'circle', borderColor: '#c4992a', background: 'transparent', textColor: '', fontWeight: 600 }
+  if (diff === 0) return { shape: 'none', borderColor: '', background: 'transparent', textColor: '', fontWeight: 600 }
+  if (diff === 1) return { shape: 'square', borderColor: '#EF4444', background: 'transparent', textColor: '', fontWeight: 600 }
+  if (diff === 2) return { shape: 'double-square', borderColor: '#EF4444', background: 'transparent', textColor: '', fontWeight: 600 }
+  return { shape: 'filled-square', borderColor: '#DC2626', background: '#DC2626', textColor: '#ffffff', fontWeight: 700 }
 }
