@@ -25,12 +25,19 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session on every request — prevents logout when access token expires
-  // getUser() internally refreshes the token via the cookie handler above,
-  // which writes the new tokens back to the response cookies
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Try getUser() first (validates token server-side + refreshes)
+  // If it fails, fallback to getSession() (reads cookies only — faster, more reliable)
+  let user = null
+  const { data: { user: validatedUser } } = await supabase.auth.getUser()
+  if (validatedUser) {
+    user = validatedUser
+  } else {
+    // Fallback: session may exist but token refresh failed on edge
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) {
+      user = session.user
+    }
+  }
 
   // Helper: redirect while preserving refreshed session cookies (including options)
   const redirectWithCookies = (url: URL) => {
