@@ -32,6 +32,7 @@ interface GarminScorecard {
   teeBoxRating?: number
   teeBoxSlope?: number
   strokes: number
+  score?: number // vs par (e.g., 19 means +19 over par)
   holes: GarminHole[]
   distanceWalked?: number
 }
@@ -283,6 +284,73 @@ export async function POST(request: NextRequest) {
       // Use strokes field if available, otherwise sum from holes
       const totalGross = sc.strokes || totalFromHoles
 
+      // Calculate par per hole
+      // Strategy: 1) Try our DB, 2) Calculate from Garmin's score field, 3) Default
+      const parPerHole: Record<string, number> = {}
+      let parSource = 'default'
+
+      // Try looking up course in our DB
+      const searchTerms = courseName.split(' ').slice(-2).join(' ')
+      const { data: dbCourse } = await supabase
+        .from('courses')
+        .select('id')
+        .ilike('nombre', `%${searchTerms}%`)
+        .limit(1)
+        .single()
+
+      if (dbCourse) {
+        const { data: dbHoles } = await supabase
+          .from('course_holes')
+          .select('numero, par')
+          .eq('course_id', dbCourse.id)
+          .order('numero')
+
+        if (dbHoles && dbHoles.length >= sc.holesCompleted) {
+          for (const h of dbHoles) {
+            parPerHole[String(h.numero)] = h.par
+          }
+          parSource = 'database'
+        }
+      }
+
+      // If DB didn't have pars, calculate from Garmin's score field
+      if (parSource === 'default' && sc.score !== undefined && sc.score !== null) {
+        const parTotal = totalGross - sc.score
+        // Distribute parTotal across holes
+        const holePars = new Array(sc.holesCompleted).fill(4)
+        let currentSum = sc.holesCompleted * 4
+        const par3Positions = sc.holesCompleted === 18
+          ? [2, 5, 8, 11, 14, 17] : [2, 5, 8]
+        const par5Positions = sc.holesCompleted === 18
+          ? [1, 6, 9, 12, 15, 17] : [1, 4, 7]
+
+        if (currentSum > parTotal) {
+          const deficit = currentSum - parTotal
+          for (let d = 0; d < deficit && d < par3Positions.length; d++) {
+            const pos = par3Positions[d]
+            if (pos < sc.holesCompleted) { holePars[pos] = 3; currentSum-- }
+          }
+        } else if (currentSum < parTotal) {
+          const surplus = parTotal - currentSum
+          for (let s = 0; s < surplus && s < par5Positions.length; s++) {
+            const pos = par5Positions[s]
+            if (pos < sc.holesCompleted) { holePars[pos] = 5; currentSum++ }
+          }
+        }
+
+        for (let i = 0; i < sc.holesCompleted; i++) {
+          parPerHole[String(i + 1)] = holePars[i]
+        }
+        parSource = 'calculated'
+      }
+
+      // Fallback: all par 4
+      if (Object.keys(parPerHole).length === 0) {
+        for (let i = 1; i <= sc.holesCompleted; i++) {
+          parPerHole[String(i)] = 4
+        }
+      }
+
       const garminId = String(sc.id)
       garminIds.push(garminId)
 
@@ -293,6 +361,7 @@ export async function POST(request: NextRequest) {
         total_gross: totalGross,
         holes_played: sc.holesCompleted as 9 | 18,
         scores,
+        par_per_hole: parPerHole,
         course_rating: sc.teeBoxRating ?? null,
         slope_rating: sc.teeBoxSlope ?? null,
         metadata: {

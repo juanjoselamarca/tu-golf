@@ -85,9 +85,7 @@ export default function StepReview({
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({})
   const [confirming, setConfirming] = useState(false)
 
-  const parPerHoleMap = (round: ImportRoundData) =>
-    (round as unknown as { par_per_hole?: Record<string, number> })?.par_per_hole
-  const getPar = (round: ImportRoundData, h: number) => parPerHoleMap(round)?.[String(h)] ?? 4
+  const getPar = (round: ImportRoundData, h: number) => round.par_per_hole?.[String(h)] ?? 4
 
   // Count stats
   const acceptedCount = Object.values(decisions).filter(d => d === 'accepted').length

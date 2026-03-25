@@ -24,6 +24,7 @@ export interface ImportRoundData {
   total_gross: number
   holes_played: 9 | 18
   scores: Record<string, number>
+  par_per_hole?: Record<string, number>
   course_rating?: number | null
   slope_rating?: number | null
   metadata?: {
