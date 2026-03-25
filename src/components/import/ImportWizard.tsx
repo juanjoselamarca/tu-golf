@@ -10,7 +10,7 @@ import StepProcessing from './StepProcessing'
 import StepReview from './StepReview'
 import StepCelebration from './StepCelebration'
 
-export type ImportSource = 'photos' | 'csv' | null
+export type ImportSource = 'photos' | 'csv' | 'assisted' | null
 export type WizardStep =
   | 'selector'
   | 'guide'
@@ -56,7 +56,7 @@ export default function ImportWizard() {
 
   const rawSource = searchParams.get('source')
   const initialSource: ImportSource =
-    rawSource === 'photos' || rawSource === 'csv' ? rawSource : null
+    rawSource === 'photos' || rawSource === 'csv' || rawSource === 'assisted' ? rawSource : null
   const [state, setState] = useState<ImportState>({
     ...INITIAL_STATE,
     source: initialSource,
@@ -97,7 +97,7 @@ export default function ImportWizard() {
     router.push('/dashboard')
   }, [router])
 
-  // Unified file upload handler for both photo and CSV
+  // Unified file upload handler for photo, CSV, and assisted
   const handleFilesSelected = useCallback(
     async (files: FileList) => {
       if (!state.source) return
@@ -108,7 +108,7 @@ export default function ImportWizard() {
       try {
         const formData = new FormData()
 
-        if (state.source === 'photos') {
+        if (state.source === 'photos' || state.source === 'assisted') {
           if (files.length > 20) {
             setUploadError('Maximo 20 fotos por vez')
             setUploading(false)
@@ -125,24 +125,30 @@ export default function ImportWizard() {
           if (!res.ok) throw new Error(data.error || `Error ${res.status} al subir fotos`)
 
           if (data.rounds && data.rounds.length > 0) {
-            // Rounds processed — go to review
+            // For assisted mode, clear scores so user fills them in manually
+            const processedRounds = state.source === 'assisted'
+              ? data.rounds.map((r: ImportRoundData) => ({
+                  ...r,
+                  scores: {} as Record<string, number>,
+                  import_confidence: 0.5, // medium — needs user input
+                }))
+              : data.rounds
+
             updateState({
               jobId: data.job_id,
-              rounds: data.rounds,
+              rounds: processedRounds,
               step: 'review',
               fileCount: files.length,
             })
           } else if (data.errors && data.errors.length > 0) {
-            // Vision API failed — show the actual error to user
             const firstError = data.errors[0]?.error || 'Error desconocido'
             const errorMsg = firstError === 'not_a_scorecard'
-              ? 'No se detectó una tarjeta de golf en la imagen. Asegurate de que sea un pantallazo de Garmin Golf.'
+              ? 'No se detecto una tarjeta de golf en la imagen. Asegurate de que sea un pantallazo de Garmin Golf.'
               : firstError.includes('API')
                 ? 'Error conectando con el servicio de lectura de fotos. Intenta de nuevo en unos segundos.'
                 : `No se pudo leer la foto: ${firstError}`
             throw new Error(errorMsg)
           } else {
-            // No rounds, no errors — unexpected, show helpful message
             throw new Error('No se detectaron rondas en la imagen. Asegurate de subir un pantallazo de Garmin Golf (Activity o Scorecard).')
           }
         } else {
@@ -164,7 +170,6 @@ export default function ImportWizard() {
             return
           }
 
-          // CSV always returns rounds immediately — go to review directly
           updateState({
             jobId: data.job_id,
             rounds: data.rounds || [],
@@ -175,7 +180,7 @@ export default function ImportWizard() {
       } catch (err) {
         console.error('Upload error:', err)
         setUploadError(
-          state.source === 'photos'
+          state.source === 'photos' || state.source === 'assisted'
             ? 'Error al subir las fotos. Intenta de nuevo.'
             : 'Error al procesar el archivo. Verifica el formato.',
         )
@@ -186,6 +191,9 @@ export default function ImportWizard() {
   )
 
   const progress = ((STEP_INDEX[state.step] + 1) / 5) * 100
+
+  // For the guide, assisted uses the same flow as photos
+  const guideSource = state.source === 'assisted' ? 'photos' : state.source
 
   return (
     <div
@@ -250,9 +258,9 @@ export default function ImportWizard() {
           <StepSelector onSelect={handleSourceSelect} />
         )}
 
-        {state.step === 'guide' && state.source && (
+        {state.step === 'guide' && guideSource && (
           <ImportGuide
-            source={state.source}
+            source={guideSource}
             onFilesSelected={handleFilesSelected}
             onBack={handleBack}
             uploading={uploading}
@@ -279,6 +287,7 @@ export default function ImportWizard() {
               updateState({ step: 'celebration', cpiResult, insights })
             }
             onStateUpdate={updateState}
+            isAssisted={state.source === 'assisted'}
           />
         )}
 

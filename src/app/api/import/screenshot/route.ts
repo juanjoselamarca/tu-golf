@@ -103,12 +103,55 @@ function reconstructScores(
   holesPlayed: number,
   coursePars?: Record<number, number>
 ): ReconstructionResult {
-  const defaultPar = 4
   const holes = colorSequence.length || holesPlayed
-  const parForHole = (h: number) => coursePars?.[h] ?? defaultPar
 
+  // --- Par distribution via checksum ---
+  // parTotal = totalGross - vsPar (e.g. 52 - 16 = 36)
+  const parTotal = totalGross - vsPar
+  // Build per-hole pars: start all at 4, adjust to match parTotal
+  const holePars: number[] = new Array(holes).fill(4)
+  if (coursePars) {
+    for (let i = 0; i < holes; i++) {
+      holePars[i] = coursePars[i + 1] ?? 4
+    }
+  } else {
+    // Distribute to match parTotal
+    let currentTotal = holes * 4
+    if (currentTotal > parTotal) {
+      // Need some par-3s — place at holes 3, 9, 18 (or equivalent)
+      const deficit = currentTotal - parTotal
+      const par3Positions = holes === 18
+        ? [2, 5, 8, 11, 14, 17] // 0-indexed: holes 3,6,9,12,15,18
+        : [2, 5, 8]              // 0-indexed: holes 3,6,9
+      for (let d = 0; d < deficit && d < par3Positions.length; d++) {
+        const pos = par3Positions[d]
+        if (pos < holes) {
+          holePars[pos] = 3
+          currentTotal--
+        }
+      }
+    } else if (currentTotal < parTotal) {
+      // Need some par-5s — place at holes 2, 7, 13, 16 (or equivalent)
+      const surplus = parTotal - currentTotal
+      const par5Positions = holes === 18
+        ? [1, 6, 9, 12, 15, 17]
+        : [1, 4, 7]
+      for (let s = 0; s < surplus && s < par5Positions.length; s++) {
+        const pos = par5Positions[s]
+        if (pos < holes) {
+          holePars[pos] = 5
+          currentTotal++
+        }
+      }
+    }
+  }
+
+  const parForHole = (h: number) => holePars[h - 1] ?? 4
+
+  // --- Build base scores from colors ---
   const baseScores: Record<string, number> = {}
-  const ambiguousCandidates: number[] = [] // holes where color is ambiguous (red = +2 minimum)
+  const redHoles: number[] = []
+  const goldHoles: number[] = []
   let baseTotal = 0
 
   for (let i = 0; i < holes; i++) {
@@ -118,41 +161,133 @@ function reconstructScores(
     const normalized = normalizeGarminColor(rawColor)
     const diff = colorToDiff(rawColor)
 
-    const score = Math.max(1, par + diff) // score can't be less than 1
+    const score = Math.max(1, par + diff)
     baseScores[String(holeNum)] = score
     baseTotal += score
 
-    if (isAmbiguousColor(rawColor)) {
-      ambiguousCandidates.push(holeNum)
+    if (normalized === 'red') {
+      redHoles.push(holeNum)
+    } else if (normalized === 'gold') {
+      goldHoles.push(holeNum)
     }
   }
 
-  // Reconcile: if baseTotal doesn't match totalGross, distribute residual
-  const residual = totalGross - baseTotal
+  // --- Pre-fix: if baseTotal > totalGross, Gemini over-counted reds ---
+  // Downgrade reds to golds until baseTotal <= totalGross
+  let residual = totalGross - baseTotal
+  if (residual < 0 && redHoles.length > 0) {
+    // Sort red holes by score descending — downgrade the highest first
+    const sortedReds = [...redHoles].sort((a, b) => baseScores[String(b)] - baseScores[String(a)])
+    for (const h of sortedReds) {
+      if (residual >= 0) break
+      // Downgrade from double bogey to bogey (-1 stroke)
+      baseScores[String(h)] -= 1
+      baseTotal -= 1
+      residual += 1
+      // Move from red to gold tracking
+      const idx = redHoles.indexOf(h)
+      if (idx !== -1) redHoles.splice(idx, 1)
+      goldHoles.push(h)
+    }
+  }
+
   const ambiguousHoles: number[] = []
+  const extraAdded: Record<number, number> = {} // track extra per hole
+  const MAX_EXTRA_PER_HOLE = 2
 
-  if (residual > 0 && ambiguousCandidates.length > 0) {
-    // Extra strokes go to red holes (double bogey or worse)
-    const extraPerHole = Math.floor(residual / ambiguousCandidates.length)
-    const remainder = residual % ambiguousCandidates.length
+  if (residual > 0) {
+    // Sort gold holes by base score descending (highest par first)
+    goldHoles.sort((a, b) => baseScores[String(b)] - baseScores[String(a)])
 
-    for (let i = 0; i < ambiguousCandidates.length; i++) {
-      const h = ambiguousCandidates[i]
-      const extra = extraPerHole + (i >= ambiguousCandidates.length - remainder ? 1 : 0)
-      baseScores[String(h)] += extra
-      if (extra > 0) ambiguousHoles.push(h)
+    // Pass 1: add +1 to all red holes
+    for (const h of redHoles) {
+      if (residual <= 0) break
+      baseScores[String(h)] += 1
+      extraAdded[h] = (extraAdded[h] || 0) + 1
+      residual--
     }
-  } else if (residual !== 0 && ambiguousCandidates.length > 0) {
-    // Negative residual shouldn't happen, flag all red holes
-    ambiguousHoles.push(...ambiguousCandidates)
-  } else if (residual !== 0 && ambiguousCandidates.length === 0) {
-    // Total doesn't match and no red holes to adjust — low confidence
-    // This means the color reading was inaccurate
+
+    // Pass 2: add +1 to gold holes (highest base score first)
+    if (residual > 0) {
+      for (const h of goldHoles) {
+        if (residual <= 0) break
+        if ((extraAdded[h] || 0) >= MAX_EXTRA_PER_HOLE) continue
+        baseScores[String(h)] += 1
+        extraAdded[h] = (extraAdded[h] || 0) + 1
+        residual--
+      }
+    }
+
+    // Pass 3: another +1 to red holes
+    if (residual > 0) {
+      for (const h of redHoles) {
+        if (residual <= 0) break
+        if ((extraAdded[h] || 0) >= MAX_EXTRA_PER_HOLE) continue
+        baseScores[String(h)] += 1
+        extraAdded[h] = (extraAdded[h] || 0) + 1
+        residual--
+      }
+    }
+
+    // Pass 4: another +1 to gold holes
+    if (residual > 0) {
+      for (const h of goldHoles) {
+        if (residual <= 0) break
+        if ((extraAdded[h] || 0) >= MAX_EXTRA_PER_HOLE) continue
+        baseScores[String(h)] += 1
+        extraAdded[h] = (extraAdded[h] || 0) + 1
+        residual--
+      }
+    }
+
+    // Pass 5 (safety): if still residual, spread +1 across ALL holes that haven't maxed out
+    if (residual > 0) {
+      for (let i = 0; i < holes && residual > 0; i++) {
+        const h = i + 1
+        if ((extraAdded[h] || 0) >= MAX_EXTRA_PER_HOLE) continue
+        baseScores[String(h)] += 1
+        extraAdded[h] = (extraAdded[h] || 0) + 1
+        residual--
+      }
+    }
+
+    // Cap: no score exceeds par + 5 (i.e. max 9 for par 4)
+    for (let i = 0; i < holes; i++) {
+      const h = i + 1
+      const maxScore = parForHole(h) + 5
+      if (baseScores[String(h)] > maxScore) {
+        baseScores[String(h)] = maxScore
+      }
+    }
+
+    // Mark all holes that received extra strokes as ambiguous
+    for (const h of Object.keys(extraAdded)) {
+      if (extraAdded[Number(h)] > 0) {
+        ambiguousHoles.push(Number(h))
+      }
+    }
+  } else if (residual < 0) {
+    // Negative residual (defensive): subtract from highest scores first
+    const allHolesSorted = Array.from({ length: holes }, (_, i) => i + 1)
+      .sort((a, b) => baseScores[String(b)] - baseScores[String(a)])
+
+    for (const h of allHolesSorted) {
+      if (residual >= 0) break
+      const minScore = Math.max(1, parForHole(h) - 2) // don't go below eagle
+      const canSubtract = baseScores[String(h)] - minScore
+      if (canSubtract > 0) {
+        const sub = Math.min(canSubtract, -residual)
+        baseScores[String(h)] -= sub
+        residual += sub
+        ambiguousHoles.push(h)
+      }
+    }
   }
 
-  const conf = residual === 0 ? 0.95
+  const originalResidual = totalGross - baseTotal - residual // how much we actually distributed
+  const conf = originalResidual === 0 && residual === 0 ? 0.95
     : ambiguousHoles.length === 0 ? 0.90
-    : ambiguousHoles.length <= 2 ? 0.85
+    : ambiguousHoles.length <= 3 ? 0.85
     : 0.70
 
   return { scores: baseScores, confidence: conf, ambiguousHoles }
@@ -206,30 +341,30 @@ function fixActivityRound(r: VisionActivityRound): VisionActivityRound {
     r.holes_played = 9
   }
 
-  // Fix 2: If color_sequence length doesn't match holes_played, trust the score
+  // Fix 2: Recalculate vs_par from standard par
+  const standardPar = r.holes_played === 9 ? 36 : 72
+  r.vs_par = r.total_gross - standardPar
+
+  // Fix 3: If color_sequence length doesn't match holes_played, fix it
   if (r.color_sequence && r.color_sequence.length !== r.holes_played) {
-    // If sequence is double what expected (Gemini counted wrong), take first/second half
+    // If sequence is double what expected (Gemini counted wrong), take first half
     if (r.color_sequence.length === r.holes_played * 2) {
       r.color_sequence = r.color_sequence.slice(0, r.holes_played)
     }
     // If sequence is half what expected, it's probably correct and holes_played is wrong
     else if (r.color_sequence.length * 2 === r.holes_played) {
       r.holes_played = r.color_sequence.length
+      r.vs_par = r.total_gross - (r.holes_played === 9 ? 36 : 72)
     }
-    // Otherwise truncate or pad to match
+    // Otherwise truncate or pad with 'gold' (most common color) to match
     else if (r.color_sequence.length > r.holes_played) {
       r.color_sequence = r.color_sequence.slice(0, r.holes_played)
+    } else {
+      // Pad with 'gold' — most common color for amateurs
+      while (r.color_sequence.length < r.holes_played) {
+        r.color_sequence.push('gold')
+      }
     }
-  }
-
-  // Fix 3: Validate vs_par makes sense
-  // vs_par should be total_gross minus expected par
-  // For 9 holes, typical par is 36; for 18, typical par is 72
-  const expectedPar = r.holes_played === 9 ? 36 : 72
-  const calculatedVsPar = r.total_gross - expectedPar
-  // If Gemini's vs_par is way off, recalculate
-  if (Math.abs(r.vs_par - calculatedVsPar) > 5) {
-    r.vs_par = calculatedVsPar
   }
 
   return r

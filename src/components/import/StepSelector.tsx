@@ -365,7 +365,109 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
           </span>
         </button>
 
-        {/* Option 4: Escribir manual */}
+        {/* Option 4: Asistido por IA — NEW */}
+        <button
+          onClick={() => onSelect('assisted')}
+          style={{
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            padding: '20px',
+            background: 'rgba(96,165,250,0.04)',
+            border: '1px solid rgba(96,165,250,0.2)',
+            borderRadius: '16px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            color: 'var(--text)',
+            minHeight: '100px',
+            transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease',
+            animation: 'selectorFadeIn 0.5s ease-out 0.4s both',
+            overflow: 'visible',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'scale(1.02)'
+            e.currentTarget.style.background = 'rgba(96,165,250,0.08)'
+            e.currentTarget.style.borderColor = 'rgba(96,165,250,0.4)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'scale(1)'
+            e.currentTarget.style.background = 'rgba(96,165,250,0.04)'
+            e.currentTarget.style.borderColor = 'rgba(96,165,250,0.2)'
+          }}
+        >
+          {/* Badge */}
+          <span
+            style={{
+              position: 'absolute',
+              top: '-10px',
+              right: '16px',
+              padding: '4px 12px',
+              background: 'rgba(96,165,250,0.15)',
+              border: '1px solid rgba(96,165,250,0.3)',
+              color: '#60a5fa',
+              fontSize: '11px',
+              fontWeight: 700,
+              borderRadius: '8px',
+              letterSpacing: '0.3px',
+              textTransform: 'uppercase',
+            }}
+          >
+            100% precision
+          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span
+              style={{
+                fontSize: '36px',
+                width: '64px',
+                height: '64px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(96,165,250,0.1)',
+                borderRadius: '16px',
+                flexShrink: 0,
+              }}
+            >
+              {'\uD83E\uDD16\u2705'}
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '4px', color: 'var(--text)' }}>
+                Asistido por IA
+              </div>
+              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
+                La IA detecta tus rondas, tu confirmas los scores exactos
+              </div>
+            </div>
+            <span
+              style={{
+                color: '#60a5fa',
+                fontSize: '20px',
+                flexShrink: 0,
+                fontWeight: 700,
+              }}
+            >
+              &rsaquo;
+            </span>
+          </div>
+
+          {/* Tag */}
+          <span
+            style={{
+              fontSize: '12px',
+              color: 'var(--text-2)',
+              background: 'rgba(96,165,250,0.08)',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              alignSelf: 'flex-start',
+            }}
+          >
+            IA lee club y fecha, tu escribes los scores
+          </span>
+        </button>
+
+        {/* Option 5: Escribir manual */}
         <button
           onClick={() => router.push('/perfil/historial')}
           style={{
@@ -381,7 +483,7 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
             color: 'var(--text)',
             minHeight: '56px',
             transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease',
-            animation: 'selectorFadeIn 0.5s ease-out 0.45s both',
+            animation: 'selectorFadeIn 0.5s ease-out 0.5s both',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.transform = 'scale(1.02)'
