@@ -102,44 +102,58 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Este job ya fue completado' }, { status: 400 })
     }
 
-    // Insert valid rounds
+    // Insert valid rounds — BATCH insert for scalability
     const validRounds = selectedRounds.filter(r => r.validation?.valid !== false)
     const insertedIds: string[] = []
     const insertErrors: Array<{ tempId: string; error: string }> = []
     const duplicates: Array<{ tempId: string; course: string; date: string }> = []
 
-    for (const round of validRounds) {
-      // Check for duplicate round (same user, course, score, date)
-      try {
-        const playedDate = round.played_at.split('T')[0]
-        const { count } = await supabase
-          .from('historical_rounds')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('course_name', round.course_name)
-          .eq('total_gross', round.total_gross)
-          .gte('played_at', playedDate)
-          .lte('played_at', playedDate)
+    // Step 1: Check duplicates in a single query
+    const dupeChecks = validRounds.map(r => ({
+      tempId: r.tempId,
+      course: r.course_name,
+      date: r.played_at.split('T')[0],
+      gross: r.total_gross,
+    }))
 
-        if (count && count > 0) {
-          duplicates.push({
-            tempId: round.tempId,
-            course: round.course_name,
-            date: round.played_at,
-          })
-          continue // skip inserting duplicate
-        }
-      } catch {
-        // If duplicate check fails, proceed with insert
+    const { data: existingRounds } = await supabase
+      .from('historical_rounds')
+      .select('course_name, played_at, total_gross')
+      .eq('user_id', user.id)
+
+    const existingSet = new Set(
+      (existingRounds || []).map(r =>
+        `${r.course_name}|${r.played_at}|${r.total_gross}`
+      )
+    )
+
+    // Step 2: Prepare batch — filter out duplicates and build insert rows
+    const rowsToInsert: Array<{
+      user_id: string
+      course_name: string
+      played_at: string
+      scores: number[]
+      total_gross: number
+      holes_played: number
+      import_confidence: number
+      import_source: string
+      privacy: string
+    }> = []
+
+    const tempIdMap: string[] = [] // parallel array to track tempIds
+
+    for (const round of validRounds) {
+      const dupeKey = `${round.course_name}|${round.played_at.split('T')[0]}|${round.total_gross}`
+      if (existingSet.has(dupeKey)) {
+        duplicates.push({ tempId: round.tempId, course: round.course_name, date: round.played_at })
+        continue
       }
-      // Convert scores Record to array
+
       const scoresArray: number[] = []
       const holeCount = round.holes_played || 18
       for (let h = 1; h <= holeCount; h++) {
         const score = round.scores[String(h)]
-        if (typeof score === 'number') {
-          scoresArray.push(score)
-        }
+        if (typeof score === 'number') scoresArray.push(score)
       }
 
       if (scoresArray.length === 0) {
@@ -147,26 +161,32 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const { data: inserted, error: insertError } = await supabase
-        .from('historical_rounds')
-        .insert({
-          user_id: user.id,
-          course_name: round.course_name,
-          played_at: round.played_at,
-          scores: scoresArray,
-          total_gross: round.total_gross,
-          holes_played: round.holes_played || scoresArray.length,
-          import_confidence: round.import_confidence,
-          import_source: 'photo_scan',
-          privacy: 'private',
-        })
-        .select('id')
-        .single()
+      rowsToInsert.push({
+        user_id: user.id,
+        course_name: round.course_name,
+        played_at: round.played_at,
+        scores: scoresArray,
+        total_gross: round.total_gross,
+        holes_played: round.holes_played || scoresArray.length,
+        import_confidence: round.import_confidence ?? 0.5,
+        import_source: 'photo_scan',
+        privacy: 'private',
+      })
+      tempIdMap.push(round.tempId)
+    }
 
-      if (insertError) {
-        insertErrors.push({ tempId: round.tempId, error: insertError.message })
+    // Step 3: Single batch insert
+    if (rowsToInsert.length > 0) {
+      const { data: inserted, error: batchError } = await supabase
+        .from('historical_rounds')
+        .insert(rowsToInsert)
+        .select('id')
+
+      if (batchError) {
+        // If batch fails, report all as errors
+        tempIdMap.forEach(tid => insertErrors.push({ tempId: tid, error: batchError.message }))
       } else if (inserted) {
-        insertedIds.push(inserted.id)
+        inserted.forEach(row => insertedIds.push(row.id))
       }
     }
 
