@@ -17,10 +17,6 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
           from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes cameraPulse {
-          0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.12); }
-        }
       `}</style>
 
       <h1
@@ -50,10 +46,100 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr',
-          gap: '12px',
+          gap: '16px',
         }}
       >
-        {/* Option 1: Pantallazos de actividades — MOST PROMINENT */}
+        {/* Option 1: Archivo de Garmin — MOST PROMINENT, GOLD BORDER */}
+        <button
+          onClick={() => onSelect('garmin_zip')}
+          style={{
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            padding: '20px',
+            background: 'rgba(196,153,42,0.08)',
+            border: '2px solid rgba(196,153,42,0.5)',
+            borderRadius: '16px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            color: 'var(--text)',
+            minHeight: '44px',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
+            animation: 'selectorFadeIn 0.5s ease-out 0.15s both',
+            overflow: 'visible',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'scale(1.02)'
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(196,153,42,0.2)'
+            e.currentTarget.style.borderColor = 'rgba(196,153,42,0.7)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'scale(1)'
+            e.currentTarget.style.boxShadow = 'none'
+            e.currentTarget.style.borderColor = 'rgba(196,153,42,0.5)'
+          }}
+        >
+          {/* Gold badge */}
+          <span
+            style={{
+              position: 'absolute',
+              top: '-10px',
+              right: '16px',
+              padding: '4px 12px',
+              background: 'linear-gradient(135deg, #c4992a, #e8c06a)',
+              color: '#070d18',
+              fontSize: '11px',
+              fontWeight: 700,
+              borderRadius: '8px',
+              letterSpacing: '0.3px',
+              textTransform: 'uppercase',
+            }}
+          >
+            100% precision
+          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span
+              style={{
+                fontSize: '32px',
+                width: '56px',
+                height: '56px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(196,153,42,0.12)',
+                borderRadius: '16px',
+                flexShrink: 0,
+              }}
+            >
+              {'\uD83D\uDCE6'}
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '4px', color: 'var(--text)' }}>
+                Archivo de Garmin
+              </div>
+              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.5 }}>
+                Importa TODAS tus rondas de una sola vez con datos completos
+              </div>
+              <div style={{ color: 'var(--text-2)', fontSize: '12px', lineHeight: 1.4, marginTop: '2px', opacity: 0.7 }}>
+                Scores, putts, fairways, penalidades — todo directo del reloj
+              </div>
+            </div>
+            <span
+              style={{
+                color: '#c4992a',
+                fontSize: '20px',
+                flexShrink: 0,
+                fontWeight: 700,
+              }}
+            >
+              &rsaquo;
+            </span>
+          </div>
+        </button>
+
+        {/* Option 2: Foto de scorecard */}
         <button
           onClick={() => onSelect('photos')}
           style={{
@@ -68,9 +154,9 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
             cursor: 'pointer',
             textAlign: 'left',
             color: 'var(--text)',
-            minHeight: '100px',
+            minHeight: '44px',
             transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
-            animation: 'selectorFadeIn 0.5s ease-out 0.15s both',
+            animation: 'selectorFadeIn 0.5s ease-out 0.25s both',
             overflow: 'visible',
           }}
           onMouseEnter={e => {
@@ -100,32 +186,34 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
               textTransform: 'uppercase',
             }}
           >
-            Mas rapido
+            Mas rapida
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <span
               style={{
-                fontSize: '36px',
-                width: '64px',
-                height: '64px',
+                fontSize: '32px',
+                width: '56px',
+                height: '56px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 background: 'rgba(196,153,42,0.12)',
                 borderRadius: '16px',
                 flexShrink: 0,
-                animation: 'cameraPulse 2.5s ease-in-out infinite',
               }}
             >
-              {'\uD83D\uDCF1\uD83D\uDCCB'}
+              {'\uD83D\uDCF8'}
             </span>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '4px', color: 'var(--text)' }}>
-                Pantallazos de actividades
+                Foto de scorecard
               </div>
-              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
-                Sube fotos de tu lista de actividades en Garmin Golf. Leemos hasta 5 rondas por foto.
+              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.5 }}>
+                Toma un pantallazo de cada tarjeta en Garmin Golf
+              </div>
+              <div style={{ color: 'var(--text-2)', fontSize: '12px', lineHeight: 1.4, marginTop: '2px', opacity: 0.7 }}>
+                La IA lee los scores exactos hoyo por hoyo
               </div>
             </div>
             <span
@@ -139,233 +227,9 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
               &rsaquo;
             </span>
           </div>
-
-          {/* Preview image */}
-          <img
-            src="/import-guide/garmin-activity.jpeg"
-            alt="Ejemplo Garmin actividades"
-            style={{
-              width: '100%',
-              maxHeight: '100px',
-              borderRadius: '12px',
-              objectFit: 'cover',
-              opacity: 0.8,
-            }}
-          />
-
-          {/* Tag */}
-          <span
-            style={{
-              fontSize: '12px',
-              color: 'var(--text-2)',
-              background: 'rgba(196,153,42,0.1)',
-              padding: '4px 10px',
-              borderRadius: '8px',
-              alignSelf: 'flex-start',
-            }}
-          >
-            IA reconstruye tus scores automaticamente
-          </span>
         </button>
 
-        {/* Option 2: Pantallazos de scorecards */}
-        <button
-          onClick={() => onSelect('photos')}
-          style={{
-            position: 'relative',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            padding: '20px',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '16px',
-            cursor: 'pointer',
-            textAlign: 'left',
-            color: 'var(--text)',
-            minHeight: '100px',
-            transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease',
-            animation: 'selectorFadeIn 0.5s ease-out 0.25s both',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.transform = 'scale(1.02)'
-            e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.transform = 'scale(1)'
-            e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span
-              style={{
-                fontSize: '36px',
-                width: '64px',
-                height: '64px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(255,255,255,0.05)',
-                borderRadius: '16px',
-                flexShrink: 0,
-              }}
-            >
-              {'\uD83D\uDCDD'}
-            </span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px', color: 'var(--text)' }}>
-                Pantallazos de scorecards
-              </div>
-              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
-                Sube la tarjeta detallada de cada ronda. Scores exactos hoyo por hoyo.
-              </div>
-            </div>
-            <span
-              style={{
-                color: 'var(--text-2)',
-                fontSize: '20px',
-                flexShrink: 0,
-              }}
-            >
-              &rsaquo;
-            </span>
-          </div>
-
-          {/* Preview image */}
-          <img
-            src="/import-guide/garmin-scorecard.jpeg"
-            alt="Ejemplo Garmin scorecard"
-            style={{
-              width: '100%',
-              maxHeight: '100px',
-              borderRadius: '12px',
-              objectFit: 'cover',
-              opacity: 0.8,
-            }}
-          />
-
-          {/* Tag */}
-          <span
-            style={{
-              fontSize: '12px',
-              color: 'var(--text-2)',
-              background: 'rgba(255,255,255,0.05)',
-              padding: '4px 10px',
-              borderRadius: '8px',
-              alignSelf: 'flex-start',
-            }}
-          >
-            Maxima precision
-          </span>
-        </button>
-
-        {/* Option 3: Archivo de Garmin Connect */}
-        <button
-          onClick={() => onSelect('csv')}
-          style={{
-            position: 'relative',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            padding: '20px',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '16px',
-            cursor: 'pointer',
-            textAlign: 'left',
-            color: 'var(--text)',
-            minHeight: '100px',
-            transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease',
-            animation: 'selectorFadeIn 0.5s ease-out 0.35s both',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.transform = 'scale(1.02)'
-            e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.transform = 'scale(1)'
-            e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-          }}
-        >
-          {/* Tag badge */}
-          <span
-            style={{
-              position: 'absolute',
-              top: '-10px',
-              right: '16px',
-              padding: '4px 10px',
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              color: 'var(--text-2)',
-              fontSize: '11px',
-              fontWeight: 600,
-              borderRadius: '8px',
-              letterSpacing: '0.3px',
-            }}
-          >
-            Desde tu PC
-          </span>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span
-              style={{
-                fontSize: '36px',
-                width: '64px',
-                height: '64px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(255,255,255,0.05)',
-                borderRadius: '16px',
-                flexShrink: 0,
-              }}
-            >
-              {'\uD83D\uDCBB'}
-            </span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px', color: 'var(--text)' }}>
-                Archivo de Garmin Connect
-              </div>
-              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
-                Exporta tu historial completo desde el computador.
-              </div>
-            </div>
-            <span
-              style={{
-                color: 'var(--text-2)',
-                fontSize: '20px',
-                flexShrink: 0,
-              }}
-            >
-              &rsaquo;
-            </span>
-          </div>
-
-          {/* Link to Garmin Connect */}
-          <a
-            href="https://connect.garmin.com/modern/activities"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            style={{
-              color: '#c4992a',
-              fontSize: '13px',
-              textDecoration: 'underline',
-              textUnderlineOffset: '3px',
-            }}
-          >
-            Ir a connect.garmin.com/modern/activities
-          </a>
-          <span style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '-8px' }}>
-            Descarga el CSV y subelo aqui
-          </span>
-        </button>
-
-        {/* Option 4: Asistido por IA — NEW */}
+        {/* Option 3: Asistido por IA */}
         <button
           onClick={() => onSelect('assisted')}
           style={{
@@ -375,14 +239,14 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
             gap: '12px',
             padding: '20px',
             background: 'rgba(96,165,250,0.04)',
-            border: '1px solid rgba(96,165,250,0.2)',
+            border: '1px solid rgba(96,165,250,0.25)',
             borderRadius: '16px',
             cursor: 'pointer',
             textAlign: 'left',
             color: 'var(--text)',
-            minHeight: '100px',
+            minHeight: '44px',
             transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease',
-            animation: 'selectorFadeIn 0.5s ease-out 0.4s both',
+            animation: 'selectorFadeIn 0.5s ease-out 0.35s both',
             overflow: 'visible',
           }}
           onMouseEnter={e => {
@@ -393,10 +257,10 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
           onMouseLeave={e => {
             e.currentTarget.style.transform = 'scale(1)'
             e.currentTarget.style.background = 'rgba(96,165,250,0.04)'
-            e.currentTarget.style.borderColor = 'rgba(96,165,250,0.2)'
+            e.currentTarget.style.borderColor = 'rgba(96,165,250,0.25)'
           }}
         >
-          {/* Badge */}
+          {/* Blue badge */}
           <span
             style={{
               position: 'absolute',
@@ -413,15 +277,15 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
               textTransform: 'uppercase',
             }}
           >
-            100% precision
+            Tu verificas
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <span
               style={{
-                fontSize: '36px',
-                width: '64px',
-                height: '64px',
+                fontSize: '32px',
+                width: '56px',
+                height: '56px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -430,14 +294,17 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
                 flexShrink: 0,
               }}
             >
-              {'\uD83E\uDD16\u2705'}
+              {'\uD83E\uDD16'}
             </span>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '4px', color: 'var(--text)' }}>
                 Asistido por IA
               </div>
-              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
-                La IA detecta tus rondas, tu confirmas los scores exactos
+              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.5 }}>
+                La IA detecta tu ronda, tu confirmas los scores
+              </div>
+              <div style={{ color: 'var(--text-2)', fontSize: '12px', lineHeight: 1.4, marginTop: '2px', opacity: 0.7 }}>
+                Perfecto si quieres verificar cada numero
               </div>
             </div>
             <span
@@ -451,26 +318,13 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
               &rsaquo;
             </span>
           </div>
-
-          {/* Tag */}
-          <span
-            style={{
-              fontSize: '12px',
-              color: 'var(--text-2)',
-              background: 'rgba(96,165,250,0.08)',
-              padding: '4px 10px',
-              borderRadius: '8px',
-              alignSelf: 'flex-start',
-            }}
-          >
-            IA lee club y fecha, tu escribes los scores
-          </span>
         </button>
 
-        {/* Option 5: Escribir manual */}
+        {/* Option 4: Escribir manual — smaller, gray */}
         <button
           onClick={() => router.push('/perfil/historial')}
           style={{
+            position: 'relative',
             display: 'flex',
             alignItems: 'center',
             gap: '16px',
@@ -481,9 +335,10 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
             cursor: 'pointer',
             textAlign: 'left',
             color: 'var(--text)',
-            minHeight: '56px',
+            minHeight: '44px',
             transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease',
-            animation: 'selectorFadeIn 0.5s ease-out 0.5s both',
+            animation: 'selectorFadeIn 0.5s ease-out 0.45s both',
+            overflow: 'visible',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.transform = 'scale(1.02)'
@@ -496,6 +351,25 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
             e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
           }}
         >
+          {/* Gray badge */}
+          <span
+            style={{
+              position: 'absolute',
+              top: '-10px',
+              right: '16px',
+              padding: '4px 10px',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'var(--text-2)',
+              fontSize: '11px',
+              fontWeight: 600,
+              borderRadius: '8px',
+              letterSpacing: '0.3px',
+            }}
+          >
+            Una por una
+          </span>
+
           <span
             style={{
               fontSize: '24px',
@@ -516,7 +390,7 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
               Escribir manual
             </div>
             <div style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.4, opacity: 0.7 }}>
-              Agrega rondas una por una
+              Agrega rondas manualmente a tu historial
             </div>
           </div>
           <span

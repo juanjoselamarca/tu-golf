@@ -19,6 +19,7 @@
     "@supabase/supabase-js": "^2.44.4",
     "dotenv": "^17.3.1",
     "html2canvas": "^1.4.1",
+    "jszip": "^3.10.1",
     "next": "14.2.5",
     "qrcode.react": "^4.2.0",
     "react": "^18",

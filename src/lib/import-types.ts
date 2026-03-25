@@ -34,6 +34,16 @@ export interface ImportRoundData {
     gir_per_hole?: Record<string, number>
     reconstruction_method?: 'color_bar'
     ambiguous_holes?: number[]
+    // Garmin-specific fields
+    garmin_scorecard_id?: string
+    penalties?: number
+    tee_box?: string
+    course_rating?: number
+    slope_rating?: number
+    distance_walked?: number
+    import_source?: 'garmin_zip' | 'csv' | 'photo_scan' | 'fit'
+    is_duplicate?: boolean
+    existing_id?: boolean
   }
   import_confidence: number
   validation: {

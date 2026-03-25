@@ -10,7 +10,7 @@ import StepProcessing from './StepProcessing'
 import StepReview from './StepReview'
 import StepCelebration from './StepCelebration'
 
-export type ImportSource = 'photos' | 'csv' | 'assisted' | null
+export type ImportSource = 'photos' | 'csv' | 'assisted' | 'garmin_zip' | null
 export type WizardStep =
   | 'selector'
   | 'guide'
@@ -56,7 +56,7 @@ export default function ImportWizard() {
 
   const rawSource = searchParams.get('source')
   const initialSource: ImportSource =
-    rawSource === 'photos' || rawSource === 'csv' || rawSource === 'assisted' ? rawSource : null
+    rawSource === 'photos' || rawSource === 'csv' || rawSource === 'assisted' || rawSource === 'garmin_zip' ? rawSource : null
   const [state, setState] = useState<ImportState>({
     ...INITIAL_STATE,
     source: initialSource,
@@ -108,7 +108,34 @@ export default function ImportWizard() {
       try {
         const formData = new FormData()
 
-        if (state.source === 'photos' || state.source === 'assisted') {
+        if (state.source === 'garmin_zip') {
+          const file = files[0]
+          if (!file.name.endsWith('.zip')) {
+            setUploadError('Por favor selecciona un archivo ZIP de Garmin')
+            setUploading(false)
+            return
+          }
+          formData.append('file', file)
+
+          const res = await fetch('/api/import/garmin-zip', {
+            method: 'POST',
+            body: formData,
+          })
+
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Error procesando archivo')
+
+          if (data.rounds && data.rounds.length > 0) {
+            updateState({
+              jobId: data.job_id,
+              rounds: data.rounds,
+              step: 'review',
+              fileCount: 1,
+            })
+          } else {
+            throw new Error('No se encontraron rondas de golf en el archivo')
+          }
+        } else if (state.source === 'photos' || state.source === 'assisted') {
           if (files.length > 20) {
             setUploadError('Maximo 20 fotos por vez')
             setUploading(false)
@@ -180,9 +207,11 @@ export default function ImportWizard() {
       } catch (err) {
         console.error('Upload error:', err)
         setUploadError(
-          state.source === 'photos' || state.source === 'assisted'
-            ? 'Error al subir las fotos. Intenta de nuevo.'
-            : 'Error al procesar el archivo. Verifica el formato.',
+          state.source === 'garmin_zip'
+            ? 'Error al procesar el archivo ZIP. Verifica que sea el archivo de Garmin.'
+            : state.source === 'photos' || state.source === 'assisted'
+              ? 'Error al subir las fotos. Intenta de nuevo.'
+              : 'Error al procesar el archivo. Verifica el formato.',
         )
         setUploading(false)
       }
@@ -192,8 +221,8 @@ export default function ImportWizard() {
 
   const progress = ((STEP_INDEX[state.step] + 1) / 5) * 100
 
-  // For the guide, assisted uses the same flow as photos
-  const guideSource = state.source === 'assisted' ? 'photos' : state.source
+  // Guide source — each mode gets its own guide
+  const guideSource = state.source
 
   return (
     <div
