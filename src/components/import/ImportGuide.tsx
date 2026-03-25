@@ -763,23 +763,23 @@ function GarminGuide({
   }[] = [
     {
       title: 'Abre garmin.com e inicia sesion',
-      description: 'Usa el mismo email y contraseña de tu cuenta Garmin (la misma del reloj o de la app Garmin Connect).',
+      description: 'Usa el mismo email y contraseña de tu cuenta Garmin — la misma del reloj o de la app Garmin Connect.',
       link: { url: 'https://www.garmin.com/account', label: 'Ir a garmin.com/account' },
       illustration: <BrowserBar />,
     },
     {
-      title: 'Ve a "Administrar datos" o "Data Management"',
-      description: 'Una vez dentro de tu cuenta, busca en el menu lateral izquierdo la opcion "Administrar datos". Si la pagina esta en ingles, busca "Data Management".',
+      title: 'En el menu izquierdo, haz click en "Gestion de datos"',
+      description: 'Es la ultima opcion del menu lateral izquierdo, debajo de "Centro de seguridad". En ingles aparece como "Data Management".',
       illustration: <SettingsMenu />,
     },
     {
-      title: 'Haz click en "Exportar datos" o "Export Your Data"',
-      description: 'Dentro de Administrar datos, veras un boton para exportar. Haz click y confirma la solicitud. Garmin comenzara a preparar un archivo ZIP con toda tu informacion.',
+      title: 'Haz click en "Exportar tus Datos"',
+      description: 'Veras tres opciones: Ver, Exportar y Borrar. Haz click en "Exportar tus Datos" — Garmin solicita una copia de todos tus datos personales incluyendo tu historial de golf.',
       illustration: <ExportButton />,
     },
     {
       title: 'Descarga el ZIP del email que te enviara Garmin',
-      description: 'Recibiras un correo de Garmin en 24 a 48 horas con un link para descargar el archivo. Descargalo y subelo aqui sin descomprimir.',
+      description: 'En 24 a 48 horas recibiras un correo de Garmin con un link de descarga. Baja el archivo ZIP y subelo aqui tal cual, sin descomprimir.',
       illustration: <EnvelopeIllustration />,
     },
   ]
