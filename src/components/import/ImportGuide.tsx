@@ -17,15 +17,15 @@ interface GuideStep {
 }
 
 const PHOTO_STEPS: GuideStep[] = [
-  { number: 1, icon: '\uD83D\uDCF1', text: 'Abre la app de tu club de golf' },
-  { number: 2, icon: '\uD83D\uDCCB', text: 'Busca tu tarjeta de score' },
-  { number: 3, icon: '\uD83D\uDCF8', text: 'Toma una captura de pantalla' },
+  { number: 1, icon: '\uD83D\uDCF1', text: 'Abre Garmin Golf en tu celular' },
+  { number: 2, icon: '\uD83D\uDCCB', text: "Ve a 'Activity' o entra a una ronda" },
+  { number: 3, icon: '\uD83D\uDCF7', text: 'Toma un pantallazo (captura de pantalla)' },
 ]
 
 const CSV_STEPS: GuideStep[] = [
-  { number: 1, icon: '\uD83D\uDCF1', text: 'Abre tu app de golf (18Birdies, GolfGameBook)' },
-  { number: 2, icon: '\u2B07\uFE0F', text: 'Busca "Exportar" o "Historial"' },
-  { number: 3, icon: '\uD83D\uDCC1', text: 'Descarga el archivo CSV' },
+  { number: 1, icon: '\uD83D\uDCBB', text: 'Abre connect.garmin.com en tu PC' },
+  { number: 2, icon: '\uD83D\uDD0D', text: "Ve a 'Actividades' y filtra por Golf" },
+  { number: 3, icon: '\u2B07\uFE0F', text: 'Descarga como CSV' },
 ]
 
 export default function ImportGuide({
@@ -131,16 +131,16 @@ export default function ImportGuide({
         </button>
         <div>
           <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: 'var(--font-playfair)' }}>
-            {source === 'photos' ? '\uD83D\uDCF8 Foto de tarjeta' : '\uD83D\uDCC4 Archivo CSV'}
+            {source === 'photos' ? '\uD83D\uDCF8 Pantallazos de Garmin' : '\uD83D\uDCBB Archivo de Garmin Connect'}
           </h2>
           <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: 0 }}>
-            {source === 'photos' ? 'Sube una foto y la leemos con IA' : 'Importa desde tu app de golf'}
+            {source === 'photos' ? 'Sube capturas y la IA las procesa' : 'Importa tu historial completo desde el CSV'}
           </p>
         </div>
       </div>
 
       {/* Animated guide steps */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
         {steps.map((step, i) => (
           <div
             key={step.number}
@@ -187,6 +187,52 @@ export default function ImportGuide({
             </span>
           </div>
         ))}
+      </div>
+
+      {/* Tip box */}
+      <div
+        style={{
+          padding: '12px 16px',
+          background: 'rgba(196,153,42,0.06)',
+          border: '1px solid rgba(196,153,42,0.15)',
+          borderRadius: '12px',
+          marginBottom: '28px',
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'flex-start',
+        }}
+      >
+        <span style={{ fontSize: '16px', flexShrink: 0, marginTop: '1px' }}>
+          {'\uD83D\uDCA1'}
+        </span>
+        <div>
+          {source === 'photos' ? (
+            <span style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.5 }}>
+              Puedes mezclar pantallazos de actividades y scorecards. La IA detecta el formato automaticamente.
+            </span>
+          ) : (
+            <>
+              <span style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.5, display: 'block' }}>
+                Recomendamos hacer esto desde el computador para mayor comodidad.
+              </span>
+              <a
+                href="https://connect.garmin.com/modern/activities"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#c4992a',
+                  fontSize: '13px',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '3px',
+                  marginTop: '6px',
+                  display: 'inline-block',
+                }}
+              >
+                connect.garmin.com/modern/activities
+              </a>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Drop zone */}

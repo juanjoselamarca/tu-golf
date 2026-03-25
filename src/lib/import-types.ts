@@ -32,6 +32,8 @@ export interface ImportRoundData {
     fairways?: number
     gir?: number
     gir_per_hole?: Record<string, number>
+    reconstruction_method?: 'color_bar'
+    ambiguous_holes?: number[]
   }
   import_confidence: number
   validation: {

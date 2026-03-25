@@ -21,10 +21,6 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
           0%, 100% { transform: scale(1); }
           50%      { transform: scale(1.12); }
         }
-        @keyframes slideInLeft {
-          from { opacity: 0; transform: translateX(-12px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
       `}</style>
 
       <h1
@@ -37,7 +33,7 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
           animation: 'selectorFadeIn 0.4s ease-out both',
         }}
       >
-        Elige como subir
+        Importa tu historial
       </h1>
       <p
         style={{
@@ -47,7 +43,7 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
           animation: 'selectorFadeIn 0.4s ease-out 0.1s both',
         }}
       >
-        Importa tu historial de golf en segundos
+        Sube tus tarjetas de Garmin Golf y activa tu CPI y tAIger
       </p>
 
       <div
@@ -56,16 +52,15 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
           gridTemplateColumns: '1fr',
           gap: '12px',
         }}
-        className="selector-grid"
       >
-        {/* Option A: Foto de tarjeta — MOST PROMINENT */}
+        {/* Option 1: Pantallazos de actividades — MOST PROMINENT */}
         <button
           onClick={() => onSelect('photos')}
           style={{
             position: 'relative',
             display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
+            flexDirection: 'column',
+            gap: '12px',
             padding: '20px',
             background: 'rgba(196,153,42,0.06)',
             border: '2px solid rgba(196,153,42,0.4)',
@@ -73,7 +68,7 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
             cursor: 'pointer',
             textAlign: 'left',
             color: 'var(--text)',
-            minHeight: '120px',
+            minHeight: '100px',
             transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
             animation: 'selectorFadeIn 0.5s ease-out 0.15s both',
             overflow: 'visible',
@@ -105,52 +100,82 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
               textTransform: 'uppercase',
             }}
           >
-            La mas facil
+            Mas rapido
           </span>
 
-          <span
-            style={{
-              fontSize: '36px',
-              width: '64px',
-              height: '64px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(196,153,42,0.12)',
-              borderRadius: '16px',
-              flexShrink: 0,
-              animation: 'cameraPulse 2.5s ease-in-out infinite',
-            }}
-          >
-            {'\uD83D\uDCF8'}
-          </span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '4px', color: 'var(--text)' }}>
-              Foto de tarjeta
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span
+              style={{
+                fontSize: '36px',
+                width: '64px',
+                height: '64px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(196,153,42,0.12)',
+                borderRadius: '16px',
+                flexShrink: 0,
+                animation: 'cameraPulse 2.5s ease-in-out infinite',
+              }}
+            >
+              {'\uD83D\uDCF1\uD83D\uDCCB'}
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '17px', marginBottom: '4px', color: 'var(--text)' }}>
+                Pantallazos de actividades
+              </div>
+              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
+                Sube fotos de tu lista de actividades en Garmin Golf. Leemos hasta 5 rondas por foto.
+              </div>
             </div>
-            <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
-              Toma una foto de tu tarjeta y listo
-            </div>
+            <span
+              style={{
+                color: '#c4992a',
+                fontSize: '20px',
+                flexShrink: 0,
+                fontWeight: 700,
+              }}
+            >
+              &rsaquo;
+            </span>
           </div>
+
+          {/* Preview image */}
+          <img
+            src="/import-guide/garmin-activity.jpeg"
+            alt="Ejemplo Garmin actividades"
+            style={{
+              width: '100%',
+              maxHeight: '100px',
+              borderRadius: '12px',
+              objectFit: 'cover',
+              opacity: 0.8,
+            }}
+          />
+
+          {/* Tag */}
           <span
             style={{
-              color: '#c4992a',
-              fontSize: '20px',
-              flexShrink: 0,
-              fontWeight: 700,
+              fontSize: '12px',
+              color: 'var(--text-2)',
+              background: 'rgba(196,153,42,0.1)',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              alignSelf: 'flex-start',
             }}
           >
-            &rsaquo;
+            IA reconstruye tus scores automaticamente
           </span>
         </button>
 
-        {/* Option B: Archivo CSV */}
+        {/* Option 2: Pantallazos de scorecards */}
         <button
-          onClick={() => onSelect('csv')}
+          onClick={() => onSelect('photos')}
           style={{
+            position: 'relative',
             display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
+            flexDirection: 'column',
+            gap: '12px',
             padding: '20px',
             background: 'rgba(255,255,255,0.03)',
             border: '1px solid rgba(255,255,255,0.1)',
@@ -158,9 +183,9 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
             cursor: 'pointer',
             textAlign: 'left',
             color: 'var(--text)',
-            minHeight: '120px',
+            minHeight: '100px',
             transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease',
-            animation: 'slideInLeft 0.5s ease-out 0.3s both',
+            animation: 'selectorFadeIn 0.5s ease-out 0.25s both',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.transform = 'scale(1.02)'
@@ -173,91 +198,223 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
             e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
           }}
         >
-          <span
-            style={{
-              fontSize: '36px',
-              width: '64px',
-              height: '64px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(255,255,255,0.05)',
-              borderRadius: '16px',
-              flexShrink: 0,
-              animation: 'slideInLeft 0.6s ease-out 0.4s both',
-            }}
-          >
-            {'\uD83D\uDCC4'}
-          </span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px', color: 'var(--text)' }}>
-              Archivo CSV
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span
+              style={{
+                fontSize: '36px',
+                width: '64px',
+                height: '64px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '16px',
+                flexShrink: 0,
+              }}
+            >
+              {'\uD83D\uDCDD'}
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px', color: 'var(--text)' }}>
+                Pantallazos de scorecards
+              </div>
+              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
+                Sube la tarjeta detallada de cada ronda. Scores exactos hoyo por hoyo.
+              </div>
             </div>
-            <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
-              Desde 18Birdies, GolfGameBook u otra app
-            </div>
+            <span
+              style={{
+                color: 'var(--text-2)',
+                fontSize: '20px',
+                flexShrink: 0,
+              }}
+            >
+              &rsaquo;
+            </span>
           </div>
+
+          {/* Preview image */}
+          <img
+            src="/import-guide/garmin-scorecard.jpeg"
+            alt="Ejemplo Garmin scorecard"
+            style={{
+              width: '100%',
+              maxHeight: '100px',
+              borderRadius: '12px',
+              objectFit: 'cover',
+              opacity: 0.8,
+            }}
+          />
+
+          {/* Tag */}
           <span
             style={{
+              fontSize: '12px',
               color: 'var(--text-2)',
-              fontSize: '20px',
-              flexShrink: 0,
+              background: 'rgba(255,255,255,0.05)',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              alignSelf: 'flex-start',
             }}
           >
-            &rsaquo;
+            Maxima precision
           </span>
         </button>
 
-        {/* Option C: Escribir manual */}
+        {/* Option 3: Archivo de Garmin Connect */}
+        <button
+          onClick={() => onSelect('csv')}
+          style={{
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            padding: '20px',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '16px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            color: 'var(--text)',
+            minHeight: '100px',
+            transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease',
+            animation: 'selectorFadeIn 0.5s ease-out 0.35s both',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'scale(1.02)'
+            e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'scale(1)'
+            e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
+          }}
+        >
+          {/* Tag badge */}
+          <span
+            style={{
+              position: 'absolute',
+              top: '-10px',
+              right: '16px',
+              padding: '4px 10px',
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              color: 'var(--text-2)',
+              fontSize: '11px',
+              fontWeight: 600,
+              borderRadius: '8px',
+              letterSpacing: '0.3px',
+            }}
+          >
+            Desde tu PC
+          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span
+              style={{
+                fontSize: '36px',
+                width: '64px',
+                height: '64px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '16px',
+                flexShrink: 0,
+              }}
+            >
+              {'\uD83D\uDCBB'}
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px', color: 'var(--text)' }}>
+                Archivo de Garmin Connect
+              </div>
+              <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
+                Exporta tu historial completo desde el computador.
+              </div>
+            </div>
+            <span
+              style={{
+                color: 'var(--text-2)',
+                fontSize: '20px',
+                flexShrink: 0,
+              }}
+            >
+              &rsaquo;
+            </span>
+          </div>
+
+          {/* Link to Garmin Connect */}
+          <a
+            href="https://connect.garmin.com/modern/activities"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{
+              color: '#c4992a',
+              fontSize: '13px',
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px',
+            }}
+          >
+            Ir a connect.garmin.com/modern/activities
+          </a>
+          <span style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '-8px' }}>
+            Descarga el CSV y subelo aqui
+          </span>
+        </button>
+
+        {/* Option 4: Escribir manual */}
         <button
           onClick={() => router.push('/perfil/historial')}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '16px',
-            padding: '20px',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            padding: '16px 20px',
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.07)',
             borderRadius: '16px',
             cursor: 'pointer',
             textAlign: 'left',
             color: 'var(--text)',
-            minHeight: '120px',
+            minHeight: '56px',
             transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease',
-            animation: 'slideInLeft 0.5s ease-out 0.45s both',
+            animation: 'selectorFadeIn 0.5s ease-out 0.45s both',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.transform = 'scale(1.02)'
             e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
           }}
           onMouseLeave={e => {
             e.currentTarget.style.transform = 'scale(1)'
-            e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
+            e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
           }}
         >
           <span
             style={{
-              fontSize: '36px',
-              width: '64px',
-              height: '64px',
+              fontSize: '24px',
+              width: '44px',
+              height: '44px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'rgba(255,255,255,0.05)',
-              borderRadius: '16px',
+              background: 'rgba(255,255,255,0.04)',
+              borderRadius: '12px',
               flexShrink: 0,
             }}
           >
             {'\u270F\uFE0F'}
           </span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '4px', color: 'var(--text)' }}>
+            <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-2)' }}>
               Escribir manual
             </div>
-            <div style={{ color: 'var(--text-2)', fontSize: '14px', lineHeight: 1.4 }}>
-              Agrega una ronda a la vez
+            <div style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.4, opacity: 0.7 }}>
+              Agrega rondas una por una
             </div>
           </div>
           <span
@@ -265,6 +422,7 @@ export default function StepSelector({ onSelect }: StepSelectorProps) {
               color: 'var(--text-2)',
               fontSize: '20px',
               flexShrink: 0,
+              opacity: 0.5,
             }}
           >
             &rsaquo;

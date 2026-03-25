@@ -7,32 +7,187 @@ import type { ImportRoundData } from '@/lib/import-types'
 // Vercel Hobby: max 60s. Needed because Claude Vision can take 10-30s per image.
 export const maxDuration = 60
 
-const VISION_PROMPT = `Eres un experto en leer scorecards de golf. Analiza esta imagen de una scorecard y extrae los datos.
+const VISION_PROMPT = `You are an expert at reading Garmin Golf app screenshots. There are TWO formats you may encounter:
 
-Responde EXCLUSIVAMENTE con un JSON válido (sin markdown, sin backticks, sin texto adicional):
+**FORMAT 1 — SCORECARD (detailed view of ONE round)**
+Shows: club name, tees, date, player name, total score (+/- par), and a grid with:
+- Row of hole numbers (1-9 + "Out", then 10-18 + "In")
+- Row of par values per hole
+- Row of player scores per hole
+- Scores have colored borders indicating performance:
+  - No border = par
+  - Orange/amber square border = bogey (+1)
+  - Red square border = double bogey or worse (+2 or more)
+  - Blue circle border = birdie (-1)
+  - Green circle border = eagle (-2 or better)
 
+For this format, extract EXACT scores from the numbers shown.
+
+**FORMAT 2 — ACTIVITY LIST (multiple rounds summary)**
+Shows a scrollable list of rounds, each with:
+- Club name, date, total score (+/- par)
+- A small color bar below each round where each segment = 1 hole:
+  - Green segment = birdie or better
+  - Yellow/amber segment = par
+  - Orange segment = bogey
+  - Red segment = double bogey or worse
+  - Blue segment = eagle or better (rare)
+
+For this format, extract each round visible. For each round, read:
+- club name, date, total score, +/- par value
+- Count the number of segments in the color bar to determine holes_played (9 or 18)
+- Read each segment's color LEFT TO RIGHT and record as a color category array
+
+Respond EXCLUSIVELY with valid JSON (no markdown, no backticks):
+
+For FORMAT 1:
 {
-  "course_name": "nombre del campo",
-  "played_at": "YYYY-MM-DD o null si no se ve",
-  "holes_played": 9 o 18,
-  "scores": { "1": score_hoyo_1, "2": score_hoyo_2, ... },
-  "total_gross": número_total,
-  "course_rating": número o null,
-  "slope_rating": número o null,
-  "putts": número_total o null,
-  "putts_per_hole": { "1": putts_hoyo_1, ... } o null,
-  "fairways": número_de_fairways_hit o null,
-  "gir": número_de_greens_in_regulation o null,
-  "gir_per_hole": { "1": true/false, ... } o null,
-  "confidence": 0.0 a 1.0
+  "format": "scorecard",
+  "course_name": "string",
+  "tees": "string or null",
+  "played_at": "YYYY-MM-DD or null",
+  "holes_played": 9 or 18,
+  "scores": { "1": exact_score, "2": exact_score, ... },
+  "total_gross": number,
+  "vs_par": number,
+  "par_per_hole": { "1": par, "2": par, ... } or null,
+  "confidence": 0.0 to 1.0
 }
 
-Reglas:
-- Si no puedes leer un hoyo, usa null para ese score
-- Si no ves la fecha, usa null
-- El confidence refleja qué tan seguro estás de la lectura
-- Si la imagen NO es una scorecard, responde: {"error": "not_a_scorecard"}
-- Responde SOLO el JSON, nada más`
+For FORMAT 2:
+{
+  "format": "activity_list",
+  "rounds": [
+    {
+      "course_name": "string",
+      "played_at": "YYYY-MM-DD or null",
+      "total_gross": number,
+      "vs_par": number,
+      "holes_played": 9 or 18,
+      "color_sequence": ["orange","yellow","green","red",...],
+      "confidence": 0.0 to 1.0
+    }
+  ]
+}
+
+Rules:
+- If you can't read a score, use null
+- If you can't read a date, use null
+- confidence reflects how certain you are
+- For FORMAT 2, read ALL rounds visible in the image
+- For color_sequence, use ONLY these values: "green", "yellow", "orange", "red", "blue"
+- If image is NOT a golf scorecard, respond: {"error": "not_a_scorecard"}
+- Respond ONLY with JSON`
+
+// ---------------------------------------------------------------------------
+// Score reconstruction from color-bar segments
+// ---------------------------------------------------------------------------
+interface ReconstructionResult {
+  scores: Record<string, number>
+  confidence: number
+  ambiguousHoles: number[]
+}
+
+function reconstructScores(
+  colorSequence: string[],
+  totalGross: number,
+  vsPar: number,
+  holesPlayed: number,
+  coursePars?: Record<number, number>
+): ReconstructionResult {
+  const defaultPar = 4
+  const holes = colorSequence.length || holesPlayed
+  const parForHole = (h: number) => coursePars?.[h] ?? defaultPar
+
+  const baseScores: Record<string, number> = {}
+  const redHoles: number[] = []
+  let baseTotal = 0
+
+  for (let i = 0; i < holes; i++) {
+    const holeNum = i + 1
+    const par = parForHole(holeNum)
+    const color = colorSequence[i] || 'yellow'
+
+    let score: number
+    switch (color) {
+      case 'blue':   score = par - 2; break
+      case 'green':  score = par - 1; break
+      case 'yellow': score = par;     break
+      case 'orange': score = par + 1; break
+      case 'red':    score = par + 2; break
+      default:       score = par;     break
+    }
+
+    baseScores[String(holeNum)] = score
+    baseTotal += score
+    if (color === 'red') redHoles.push(holeNum)
+  }
+
+  // Reconcile with actual total
+  const residual = totalGross - baseTotal
+  const ambiguousHoles: number[] = []
+
+  if (residual > 0 && redHoles.length > 0) {
+    const extraPerHole = Math.floor(residual / redHoles.length)
+    const remainder = residual % redHoles.length
+
+    for (let i = 0; i < redHoles.length; i++) {
+      const h = redHoles[i]
+      const extra = extraPerHole + (i >= redHoles.length - remainder ? 1 : 0)
+      baseScores[String(h)] += extra
+      if (extra > 0) ambiguousHoles.push(h)
+    }
+  } else if (residual !== 0) {
+    ambiguousHoles.push(...redHoles)
+  }
+
+  const conf = ambiguousHoles.length === 0 ? 0.95
+    : ambiguousHoles.length <= 2 ? 0.85
+    : 0.70
+
+  return { scores: baseScores, confidence: conf, ambiguousHoles }
+}
+
+// ---------------------------------------------------------------------------
+// Types for Claude vision responses
+// ---------------------------------------------------------------------------
+interface VisionScorecard {
+  format: 'scorecard'
+  course_name: string
+  tees?: string | null
+  played_at: string | null
+  holes_played: number
+  scores: Record<string, number>
+  total_gross: number
+  vs_par: number
+  par_per_hole?: Record<string, number> | null
+  confidence: number
+}
+
+interface VisionActivityRound {
+  course_name: string
+  played_at: string | null
+  total_gross: number
+  vs_par: number
+  holes_played: number
+  color_sequence: string[]
+  confidence: number
+}
+
+interface VisionActivityList {
+  format: 'activity_list'
+  rounds: VisionActivityRound[]
+}
+
+interface VisionError {
+  error: string
+}
+
+type VisionResponse = VisionScorecard | VisionActivityList | VisionError
+
+// ---------------------------------------------------------------------------
+// Main handler
+// ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,8 +219,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Máximo 20 imágenes por importación' }, { status: 400 })
     }
 
-    // Check per-image size limit
-    const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024
     for (const file of files) {
       if (file.size > MAX_IMAGE_SIZE) {
         return NextResponse.json(
@@ -95,14 +249,116 @@ export async function POST(request: NextRequest) {
     const rounds: ImportRoundData[] = []
     const errors: Array<{ index: number; error: string }> = []
 
-    // Helper: process a single image
-    type ProcessResult = { type: 'round'; round: ImportRoundData } | { type: 'error'; index: number; error: string }
+    // -------------------------------------------------------------------
+    // Helper: look up course pars from DB
+    // -------------------------------------------------------------------
+    const lookupCoursePars = async (courseName: string): Promise<{ courseId?: string; pars?: Record<number, number> }> => {
+      try {
+        const searchTerms = courseName.split(' ').slice(-2).join(' ')
+        const { data: course } = await supabase
+          .from('courses')
+          .select('id, par_total')
+          .ilike('nombre', `%${searchTerms}%`)
+          .limit(1)
+          .single()
+
+        if (!course) return {}
+
+        const { data: holes } = await supabase
+          .from('course_holes')
+          .select('numero, par')
+          .eq('course_id', course.id)
+          .order('numero')
+
+        if (!holes || holes.length === 0) return { courseId: course.id }
+
+        const pars: Record<number, number> = {}
+        for (const h of holes) {
+          pars[h.numero] = h.par
+        }
+        return { courseId: course.id, pars }
+      } catch {
+        return {}
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // Helper: build ImportRoundData from a scorecard response
+    // -------------------------------------------------------------------
+    const buildScorecardRound = (parsed: VisionScorecard): ImportRoundData => {
+      const round: ImportRoundData = {
+        tempId: crypto.randomUUID(),
+        played_at: parsed.played_at || new Date().toISOString().split('T')[0],
+        course_name: parsed.course_name || 'Cancha desconocida',
+        total_gross: parsed.total_gross || 0,
+        holes_played: parsed.holes_played === 9 ? 9 : 18,
+        scores: parsed.scores || {},
+        metadata: {},
+        import_confidence: parsed.confidence ?? 0.5,
+        validation: { valid: false, holesPlayed: 0, issues: [] },
+      }
+
+      if (!round.total_gross) {
+        const scoreValues = Object.values(round.scores).filter((v): v is number => typeof v === 'number')
+        round.total_gross = scoreValues.reduce((a, b) => a + b, 0)
+      }
+
+      round.validation = validarRonda(round)
+      return round
+    }
+
+    // -------------------------------------------------------------------
+    // Helper: build ImportRoundData from an activity-list round
+    // -------------------------------------------------------------------
+    const buildActivityRound = async (actRound: VisionActivityRound): Promise<ImportRoundData> => {
+      const { pars } = await lookupCoursePars(actRound.course_name)
+
+      const { scores, confidence, ambiguousHoles } = reconstructScores(
+        actRound.color_sequence,
+        actRound.total_gross,
+        actRound.vs_par,
+        actRound.holes_played,
+        pars
+      )
+
+      const finalConfidence = Math.min(actRound.confidence ?? 0.5, confidence)
+
+      const round: ImportRoundData = {
+        tempId: crypto.randomUUID(),
+        played_at: actRound.played_at || new Date().toISOString().split('T')[0],
+        course_name: actRound.course_name || 'Cancha desconocida',
+        total_gross: actRound.total_gross || 0,
+        holes_played: actRound.holes_played === 9 ? 9 : 18,
+        scores,
+        metadata: {
+          reconstruction_method: 'color_bar',
+          ambiguous_holes: ambiguousHoles.length > 0 ? ambiguousHoles : undefined,
+        },
+        import_confidence: finalConfidence,
+        validation: { valid: false, holesPlayed: 0, issues: [] },
+      }
+
+      if (!round.total_gross) {
+        const scoreValues = Object.values(round.scores).filter((v): v is number => typeof v === 'number')
+        round.total_gross = scoreValues.reduce((a, b) => a + b, 0)
+      }
+
+      round.validation = validarRonda(round)
+      return round
+    }
+
+    // -------------------------------------------------------------------
+    // Helper: process a single image → one or more rounds
+    // -------------------------------------------------------------------
+    type ProcessResult =
+      | { type: 'rounds'; rounds: ImportRoundData[] }
+      | { type: 'error'; index: number; error: string }
+
     const processImage = async (file: File, index: number): Promise<ProcessResult> => {
       try {
         const arrayBuffer = await file.arrayBuffer()
         const base64 = Buffer.from(arrayBuffer).toString('base64')
 
-        // Determine media type
         let mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' = 'image/jpeg'
         if (file.type === 'image/png') mediaType = 'image/png'
         else if (file.type === 'image/gif') mediaType = 'image/gif'
@@ -110,7 +366,7 @@ export async function POST(request: NextRequest) {
 
         const response = await anthropic.messages.create({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 1024,
+          max_tokens: 2048,
           messages: [{
             role: 'user',
             content: [
@@ -128,43 +384,32 @@ export async function POST(request: NextRequest) {
           return { type: 'error', index, error: 'No se recibió respuesta de texto' }
         }
 
-        const parsed = JSON.parse(textBlock.text)
+        const parsed: VisionResponse = JSON.parse(textBlock.text)
 
-        if (parsed.error) {
+        if ('error' in parsed) {
           return { type: 'error', index, error: parsed.error }
         }
 
-        const round: ImportRoundData = {
-          tempId: crypto.randomUUID(),
-          played_at: parsed.played_at || new Date().toISOString().split('T')[0],
-          course_name: parsed.course_name || 'Cancha desconocida',
-          total_gross: parsed.total_gross || 0,
-          holes_played: parsed.holes_played === 9 ? 9 : 18,
-          scores: parsed.scores || {},
-          course_rating: parsed.course_rating ?? null,
-          slope_rating: parsed.slope_rating ?? null,
-          metadata: {
-            putts: parsed.putts ?? undefined,
-            putts_per_hole: parsed.putts_per_hole ?? undefined,
-            fairways: parsed.fairways ?? undefined,
-            gir: parsed.gir ?? undefined,
-            gir_per_hole: parsed.gir_per_hole ?? undefined,
-          },
-          import_confidence: parsed.confidence ?? 0.5,
-          validation: { valid: false, holesPlayed: 0, issues: [] },
+        if (parsed.format === 'scorecard') {
+          const round = buildScorecardRound(parsed)
+          return { type: 'rounds', rounds: [round] }
         }
 
-        // Calculate total_gross from scores if not provided
-        if (!round.total_gross) {
-          const scoreValues = Object.values(round.scores).filter((v): v is number => typeof v === 'number')
-          round.total_gross = scoreValues.reduce((a, b) => a + b, 0)
+        if (parsed.format === 'activity_list') {
+          const actRounds = await Promise.all(
+            parsed.rounds.map(r => buildActivityRound(r))
+          )
+          return { type: 'rounds', rounds: actRounds }
         }
 
-        // Validate
-        const validation = validarRonda(round)
-        round.validation = validation
+        // Fallback: try treating as legacy scorecard (no format field)
+        const legacy = parsed as unknown as VisionScorecard
+        if (legacy.scores && legacy.total_gross) {
+          const round = buildScorecardRound({ ...legacy, format: 'scorecard' })
+          return { type: 'rounds', rounds: [round] }
+        }
 
-        return { type: 'round', round }
+        return { type: 'error', index, error: 'Formato de respuesta no reconocido' }
       } catch (err) {
         return { type: 'error', index, error: err instanceof Error ? err.message : 'Error desconocido' }
       }
@@ -178,8 +423,8 @@ export async function POST(request: NextRequest) {
         chunk.map((file, chunkIdx) => processImage(file, i + chunkIdx))
       )
       for (const result of results) {
-        if (result.type === 'round') {
-          rounds.push(result.round)
+        if (result.type === 'rounds') {
+          rounds.push(...result.rounds)
         } else {
           errors.push({ index: result.index, error: result.error })
         }
@@ -193,9 +438,9 @@ export async function POST(request: NextRequest) {
       .from('import_jobs')
       .update({
         status: 'review_required',
-        total_detected: files.length,
+        total_detected: rounds.length,
         total_valid: totalValid,
-        total_excluded: files.length - rounds.length,
+        total_excluded: files.length - (files.length - errors.length),
         mapped_data: rounds,
         errors: errors.length > 0 ? errors : null,
         updated_at: new Date().toISOString(),
@@ -204,7 +449,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       job_id: job.id,
-      total_detected: files.length,
+      total_detected: rounds.length,
       total_valid: totalValid,
       total_errors: errors.length,
       rounds,
