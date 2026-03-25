@@ -164,9 +164,26 @@ export default function SistemaPage() {
     }
   }
 
+  // Auto-fix mapping: check name → fixId
+  const AUTO_FIXES: Record<string, string> = {
+    'Jugadores huerfanos': 'orphaned-jugadores',
+    'Rounds huerfanos': 'orphaned-rounds',
+    'Scores huerfanos': 'orphaned-scores',
+    'Rondas abandonadas': 'abandoned-rondas',
+    'Push duplicados': 'duplicate-push',
+    'Estados rondas validos': 'invalid-ronda-estados',
+  }
+
+  const [fixingId, setFixingId] = useState<string | null>(null)
+  const [fixResult, setFixResult] = useState<Record<string, string>>({})
+  const [escalating, setEscalating] = useState(false)
+  const [escalateResult, setEscalateResult] = useState<string | null>(null)
+
   const runHealthCheck = async () => {
     setHcLoading(true)
     setHcResult(null)
+    setFixResult({})
+    setEscalateResult(null)
     try {
       const res = await fetch('/api/admin/health-check')
       if (res.ok) setHcResult(await res.json())
@@ -174,15 +191,70 @@ export default function SistemaPage() {
     finally { setHcLoading(false) }
   }
 
+  const runFix = async (fixId: string, checkName: string) => {
+    setFixingId(fixId)
+    try {
+      const res = await fetch('/api/admin/health-check/fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fixId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setFixResult(prev => ({ ...prev, [checkName]: data.result.detail }))
+      } else {
+        setFixResult(prev => ({ ...prev, [checkName]: 'Error: ' + (data.error || 'desconocido') }))
+      }
+    } catch {
+      setFixResult(prev => ({ ...prev, [checkName]: 'Error de conexion' }))
+    } finally { setFixingId(null) }
+  }
+
+  const escalateToClaudeCode = async () => {
+    if (!hcResult) return
+    setEscalating(true)
+    const failingChecks = hcResult.categories.flatMap(cat =>
+      cat.checks.filter(c => c.status !== 'pass').map(c => ({
+        name: c.name, status: c.status, message: c.message, category: cat.name,
+      }))
+    )
+    try {
+      const res = await fetch('/api/admin/health-check/escalate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checks: failingChecks }),
+      })
+      const data = await res.json()
+      if (data.success && data.report) {
+        // Download as .md file
+        const blob = new Blob([data.report], { type: 'text/markdown' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `health-issue-${new Date().toISOString().split('T')[0]}.md`
+        a.click()
+        URL.revokeObjectURL(url)
+        setEscalateResult('Reporte descargado. Enviaselo a Claude en tu proxima sesion.')
+      }
+    } catch {
+      setEscalateResult('Error al generar reporte')
+    } finally { setEscalating(false) }
+  }
+
   const statusIcon = (s: string) => s === 'pass' ? '\u2705' : s === 'warn' ? '\u26A0\uFE0F' : '\u274C'
   const statusColor = (s: string) => s === 'pass' ? adminColors.green : s === 'warn' ? '#f59e0b' : adminColors.red
+
+  const hasProblems = hcResult && (hcResult.summary.warnings > 0 || hcResult.summary.failed > 0)
+  const hasUnfixableProblems = hcResult && hcResult.categories.some(cat =>
+    cat.checks.some(c => c.status !== 'pass' && !AUTO_FIXES[c.name])
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       {/* Section: Health Check Suite */}
       <section>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h2 style={sectionTitle}>Health Check Suite</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+          <h2 style={{ ...sectionTitle, marginBottom: 0 }}>Health Check Suite</h2>
           <button onClick={runHealthCheck} disabled={hcLoading} style={{
             background: adminColors.gold, color: adminColors.bgDeep, border: 'none',
             borderRadius: '8px', padding: '10px 20px', fontSize: '13px', fontWeight: 700,
@@ -196,21 +268,28 @@ export default function SistemaPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Summary bar */}
             <div style={{
-              ...adminCard, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              ...adminCard,
+              background: hcResult.summary.failed > 0
+                ? 'rgba(239,68,68,0.06)'
+                : hcResult.summary.warnings > 0
+                  ? 'rgba(245,158,11,0.06)'
+                  : 'rgba(34,197,94,0.06)',
+              border: `1px solid ${hcResult.summary.failed > 0 ? 'rgba(239,68,68,0.2)' : hcResult.summary.warnings > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(34,197,94,0.2)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               flexWrap: 'wrap', gap: '12px',
             }}>
-              <div style={{ display: 'flex', gap: '20px' }}>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                 <span style={{ ...adminFonts.body, color: adminColors.green, fontWeight: 700 }}>
-                  {'\u2705'} {hcResult.summary.passed} passed
+                  {'\u2705'} {hcResult.summary.passed} OK
                 </span>
                 {hcResult.summary.warnings > 0 && (
                   <span style={{ ...adminFonts.body, color: '#f59e0b', fontWeight: 700 }}>
-                    {'\u26A0\uFE0F'} {hcResult.summary.warnings} warnings
+                    {'\u26A0\uFE0F'} {hcResult.summary.warnings} atención
                   </span>
                 )}
                 {hcResult.summary.failed > 0 && (
                   <span style={{ ...adminFonts.body, color: adminColors.red, fontWeight: 700 }}>
-                    {'\u274C'} {hcResult.summary.failed} failed
+                    {'\u274C'} {hcResult.summary.failed} problemas
                   </span>
                 )}
               </div>
@@ -220,31 +299,131 @@ export default function SistemaPage() {
             </div>
 
             {/* Categories */}
-            {hcResult.categories.map((cat, ci) => (
-              <div key={ci} style={adminCard}>
-                <h3 style={{ ...adminFonts.label, marginBottom: '12px' }}>{cat.name}</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {cat.checks.map((check, ki) => (
-                    <div key={ki} style={{
-                      display: 'flex', alignItems: 'center', gap: '10px',
-                      padding: '6px 8px', borderRadius: '6px',
-                      background: check.status === 'fail' ? 'rgba(239,68,68,0.08)' : check.status === 'warn' ? 'rgba(245,158,11,0.08)' : 'transparent',
-                    }}>
-                      <span style={{ fontSize: '14px', flexShrink: 0 }}>{statusIcon(check.status)}</span>
-                      <span style={{ ...adminFonts.body, fontSize: '13px', flex: 1 }}>{check.name}</span>
-                      <span style={{ ...adminFonts.mono, fontSize: '11px', color: statusColor(check.status) }}>
-                        {check.message}
-                      </span>
-                      {check.duration_ms !== undefined && (
-                        <span style={{ ...adminFonts.mono, fontSize: '10px', color: adminColors.grayDim }}>
-                          {check.duration_ms}ms
-                        </span>
-                      )}
+            {hcResult.categories.map((cat, ci) => {
+              const catHasIssues = cat.checks.some(c => c.status !== 'pass')
+              return (
+                <div key={ci} style={adminCard}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                    <h3 style={{ ...adminFonts.label, marginBottom: 0 }}>{cat.name}</h3>
+                    {!catHasIssues && (
+                      <span style={{ fontSize: '10px', color: adminColors.green, fontWeight: 600 }}>Todo OK</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {cat.checks.map((check, ki) => {
+                      const fixId = AUTO_FIXES[check.name]
+                      const isFixing = fixingId === fixId
+                      const wasFixed = fixResult[check.name]
+                      return (
+                        <div key={ki} style={{
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          padding: '8px 10px', borderRadius: '8px',
+                          background: check.status === 'fail' ? 'rgba(239,68,68,0.08)' : check.status === 'warn' ? 'rgba(245,158,11,0.06)' : 'transparent',
+                          flexWrap: 'wrap',
+                        }}>
+                          <span style={{ fontSize: '16px', flexShrink: 0 }}>{statusIcon(check.status)}</span>
+                          <span style={{ ...adminFonts.body, fontSize: '13px', flex: 1, minWidth: '120px' }}>{check.name}</span>
+                          <span style={{ ...adminFonts.mono, fontSize: '11px', color: statusColor(check.status) }}>
+                            {check.message}
+                          </span>
+                          {check.duration_ms !== undefined && (
+                            <span style={{ ...adminFonts.mono, fontSize: '10px', color: adminColors.grayDim }}>
+                              {check.duration_ms}ms
+                            </span>
+                          )}
+                          {/* Auto-fix button */}
+                          {check.status !== 'pass' && fixId && !wasFixed && (
+                            <button
+                              onClick={() => runFix(fixId, check.name)}
+                              disabled={!!fixingId}
+                              style={{
+                                background: adminColors.gold, color: adminColors.bgDeep,
+                                border: 'none', borderRadius: '6px', padding: '4px 12px',
+                                fontSize: '11px', fontWeight: 700, cursor: isFixing ? 'wait' : 'pointer',
+                                opacity: isFixing ? 0.6 : 1, whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {isFixing ? 'Reparando...' : 'Reparar'}
+                            </button>
+                          )}
+                          {/* Fix result */}
+                          {wasFixed && (
+                            <span style={{ ...adminFonts.mono, fontSize: '10px', color: adminColors.green }}>
+                              {'\u2705'} {wasFixed}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Action buttons row */}
+            {hasProblems && (
+              <div style={{
+                ...adminCard, display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                {/* Re-run after fixes */}
+                <button onClick={runHealthCheck} style={{
+                  background: 'transparent', border: `1px solid ${adminColors.border}`,
+                  color: adminColors.ivory, borderRadius: '8px', padding: '10px 18px',
+                  fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                }}>
+                  Re-verificar
+                </button>
+
+                {/* Escalate to Claude */}
+                {hasUnfixableProblems && (
+                  <button onClick={escalateToClaudeCode} disabled={escalating} style={{
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                    color: '#ef4444', borderRadius: '8px', padding: '10px 18px',
+                    fontSize: '13px', fontWeight: 700, cursor: escalating ? 'wait' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                  }}>
+                    <span style={{ fontSize: '16px' }}>{'\uD83E\uDD16'}</span>
+                    {escalating ? 'Generando reporte...' : 'Enviar a Claude'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Escalation result */}
+            {escalateResult && (
+              <div style={{
+                ...adminCard,
+                background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '20px' }}>{'\uD83E\uDD16'}</span>
+                  <div>
+                    <div style={{ ...adminFonts.body, fontWeight: 600, marginBottom: '4px' }}>Reporte generado</div>
+                    <div style={{ ...adminFonts.body, fontSize: '13px', color: adminColors.gray }}>
+                      {escalateResult}
                     </div>
-                  ))}
+                    <div style={{ ...adminFonts.mono, fontSize: '11px', color: adminColors.grayDim, marginTop: '6px' }}>
+                      Abre una nueva sesion de Claude Code y pega el contenido del archivo descargado.
+                      Claude va a diagnosticar y arreglar los problemas automaticamente.
+                    </div>
+                  </div>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* All clear message */}
+            {hcResult.summary.failed === 0 && hcResult.summary.warnings === 0 && (
+              <div style={{
+                ...adminCard, textAlign: 'center', padding: '24px',
+                background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)',
+              }}>
+                <span style={{ fontSize: '32px', display: 'block', marginBottom: '8px' }}>{'\u2705'}</span>
+                <span style={{ ...adminFonts.body, fontWeight: 700, color: adminColors.green }}>
+                  Todo funciona perfectamente
+                </span>
+              </div>
+            )}
           </div>
         )}
 

@@ -15,6 +15,11 @@ Antes de cualquier acción ejecutar en orden:
 
 Confirmar con: "✅ Repositorio verificado: github.com/juanjoselamarca/tu-golf"
 
+4. Si el usuario pega contenido de un archivo health-issue-*.md:
+   → Es un reporte de Health Check con problemas que no se pudieron resolver automaticamente
+   → Diagnosticar y arreglar CADA problema listado antes de hacer cualquier otra cosa
+   → Esto tiene prioridad maxima
+
 ## POR QUÉ VERIFICAR EL REPOSITORIO Y NO LA CARPETA
 
 El proyecto puede estar en cualquier carpeta o computador.
