@@ -10,7 +10,7 @@ import StepProcessing from './StepProcessing'
 import StepReview from './StepReview'
 import StepCelebration from './StepCelebration'
 
-export type ImportSource = 'photos' | 'csv' | 'assisted' | 'garmin_zip' | null
+export type ImportSource = 'photos' | 'csv' | 'garmin_zip' | null
 export type WizardStep =
   | 'selector'
   | 'guide'
@@ -56,7 +56,7 @@ export default function ImportWizard() {
 
   const rawSource = searchParams.get('source')
   const initialSource: ImportSource =
-    rawSource === 'photos' || rawSource === 'csv' || rawSource === 'assisted' || rawSource === 'garmin_zip' ? rawSource : null
+    rawSource === 'photos' || rawSource === 'csv' || rawSource === 'garmin_zip' ? rawSource : null
   const [state, setState] = useState<ImportState>({
     ...INITIAL_STATE,
     source: initialSource,
@@ -97,7 +97,7 @@ export default function ImportWizard() {
     router.push('/dashboard')
   }, [router])
 
-  // Unified file upload handler for photo, CSV, and assisted
+  // Unified file upload handler for photo, CSV, and garmin_zip
   const handleFilesSelected = useCallback(
     async (files: FileList) => {
       if (!state.source) return
@@ -135,7 +135,7 @@ export default function ImportWizard() {
           } else {
             throw new Error('No se encontraron rondas de golf en el archivo')
           }
-        } else if (state.source === 'photos' || state.source === 'assisted') {
+        } else if (state.source === 'photos') {
           if (files.length > 20) {
             setUploadError('Maximo 20 fotos por vez')
             setUploading(false)
@@ -152,18 +152,9 @@ export default function ImportWizard() {
           if (!res.ok) throw new Error(data.error || `Error ${res.status} al subir fotos`)
 
           if (data.rounds && data.rounds.length > 0) {
-            // For assisted mode, clear scores so user fills them in manually
-            const processedRounds = state.source === 'assisted'
-              ? data.rounds.map((r: ImportRoundData) => ({
-                  ...r,
-                  scores: {} as Record<string, number>,
-                  import_confidence: 0.5, // medium — needs user input
-                }))
-              : data.rounds
-
             updateState({
               jobId: data.job_id,
-              rounds: processedRounds,
+              rounds: data.rounds,
               step: 'review',
               fileCount: files.length,
             })
@@ -179,6 +170,7 @@ export default function ImportWizard() {
             throw new Error('No se detectaron rondas en la imagen. Asegurate de subir un pantallazo de Garmin Golf (Activity o Scorecard).')
           }
         } else {
+          // CSV
           formData.append('file', files[0])
 
           const res = await fetch('/api/import/csv', {
@@ -209,7 +201,7 @@ export default function ImportWizard() {
         setUploadError(
           state.source === 'garmin_zip'
             ? 'Error al procesar el archivo ZIP. Verifica que sea el archivo de Garmin.'
-            : state.source === 'photos' || state.source === 'assisted'
+            : state.source === 'photos'
               ? 'Error al subir las fotos. Intenta de nuevo.'
               : 'Error al procesar el archivo. Verifica el formato.',
         )
@@ -316,7 +308,6 @@ export default function ImportWizard() {
               updateState({ step: 'celebration', cpiResult, insights })
             }
             onStateUpdate={updateState}
-            isAssisted={state.source === 'assisted'}
           />
         )}
 
