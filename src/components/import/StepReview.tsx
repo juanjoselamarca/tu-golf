@@ -86,6 +86,7 @@ export default function StepReview({
   const [confirming, setConfirming] = useState(false)
 
   const getPar = (round: ImportRoundData, h: number) => round.par_per_hole?.[String(h)] ?? 4
+  const hasPars = (round: ImportRoundData) => round.par_per_hole != null && Object.keys(round.par_per_hole).length > 0
 
   // Count stats
   const acceptedCount = Object.values(decisions).filter(d => d === 'accepted').length
@@ -177,8 +178,10 @@ export default function StepReview({
                 <div key={h} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
                   {/* Hole number */}
                   <div style={{ fontSize: '10px', color: '#5a7494', marginBottom: '1px', fontWeight: 500 }}>{h}</div>
-                  {/* Par label */}
-                  <div style={{ fontSize: '8px', color: '#3d5570', marginBottom: '3px', letterSpacing: '0.02em' }}>P{par}</div>
+                  {/* Par label — only show if we have real pars */}
+                  {hasPars(round) && (
+                    <div style={{ fontSize: '8px', color: '#3d5570', marginBottom: '3px', letterSpacing: '0.02em' }}>P{par}</div>
+                  )}
                   {/* Score */}
                   <div
                     style={{
@@ -188,7 +191,15 @@ export default function StepReview({
                     onClick={() => handleScoreEdit(round.tempId, h, typeof score === 'number' ? score : undefined)}
                   >
                     {score != null ? (
-                      <ScoreSymbol score={score} par={par} size="sm" theme="dark" />
+                      hasPars(round) ? (
+                        <ScoreSymbol score={score} par={par} size="sm" theme="dark" />
+                      ) : (
+                        <div style={{
+                          width: '22px', height: '22px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '13px', fontWeight: 700, color: '#edeae4',
+                        }}>{score}</div>
+                      )
                     ) : (
                       <div style={{
                         width: '22px', height: '22px', borderRadius: '4px',
