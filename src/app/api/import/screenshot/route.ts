@@ -193,6 +193,48 @@ interface VisionError {
   error: string
 }
 
+// ---------------------------------------------------------------------------
+// Post-processing: fix common Gemini mistakes
+// ---------------------------------------------------------------------------
+function fixActivityRound(r: VisionActivityRound): VisionActivityRound {
+  // Fix 1: Correct holes_played based on score total
+  // A 9-hole round rarely exceeds 60 strokes for an amateur
+  // An 18-hole round is almost always > 60
+  if (r.total_gross > 60 && r.holes_played === 9) {
+    r.holes_played = 18
+  } else if (r.total_gross <= 60 && r.holes_played === 18) {
+    r.holes_played = 9
+  }
+
+  // Fix 2: If color_sequence length doesn't match holes_played, trust the score
+  if (r.color_sequence && r.color_sequence.length !== r.holes_played) {
+    // If sequence is double what expected (Gemini counted wrong), take first/second half
+    if (r.color_sequence.length === r.holes_played * 2) {
+      r.color_sequence = r.color_sequence.slice(0, r.holes_played)
+    }
+    // If sequence is half what expected, it's probably correct and holes_played is wrong
+    else if (r.color_sequence.length * 2 === r.holes_played) {
+      r.holes_played = r.color_sequence.length
+    }
+    // Otherwise truncate or pad to match
+    else if (r.color_sequence.length > r.holes_played) {
+      r.color_sequence = r.color_sequence.slice(0, r.holes_played)
+    }
+  }
+
+  // Fix 3: Validate vs_par makes sense
+  // vs_par should be total_gross minus expected par
+  // For 9 holes, typical par is 36; for 18, typical par is 72
+  const expectedPar = r.holes_played === 9 ? 36 : 72
+  const calculatedVsPar = r.total_gross - expectedPar
+  // If Gemini's vs_par is way off, recalculate
+  if (Math.abs(r.vs_par - calculatedVsPar) > 5) {
+    r.vs_par = calculatedVsPar
+  }
+
+  return r
+}
+
 type VisionResponse = VisionScorecard | VisionActivityList | VisionError
 
 // ---------------------------------------------------------------------------
@@ -404,8 +446,12 @@ export async function POST(request: NextRequest) {
         }
 
         if (parsed.format === 'activity_list') {
+          // Post-process: fix Gemini mistakes in holes/colors
+          const fixedRounds = parsed.rounds
+            .filter(r => r && r.total_gross > 0)
+            .map(r => fixActivityRound(r))
           const actRounds = await Promise.all(
-            parsed.rounds.map(r => buildActivityRound(r))
+            fixedRounds.map(r => buildActivityRound(r))
           )
           return { type: 'rounds', rounds: actRounds }
         }

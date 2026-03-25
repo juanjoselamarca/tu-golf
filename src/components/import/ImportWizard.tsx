@@ -81,8 +81,15 @@ export default function ImportWizard() {
     if (state.step === 'guide') {
       updateState({ step: 'selector', source: null })
       setUploadError(null)
+      setUploading(false)
     } else if (state.step === 'review') {
       updateState({ step: 'guide' })
+      setUploadError(null)
+      setUploading(false)
+    } else if (state.step === 'processing') {
+      updateState({ step: 'guide' })
+      setUploadError(null)
+      setUploading(false)
     }
   }, [state.step, updateState])
 

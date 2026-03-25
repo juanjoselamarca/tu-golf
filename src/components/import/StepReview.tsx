@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/lib/cpi'
 import type { ImportState } from './ImportWizard'
+import ScoreSymbol from '@/components/ScoreSymbol'
 
 interface StepReviewProps {
   rounds: ImportRoundData[]
@@ -305,107 +306,122 @@ export default function StepReview({
                 </button>
               </div>
 
-              {/* Expandable scorecard view — shows ALL holes */}
-              {isExpanded && !isExcluded && (
-                <div
-                  style={{
-                    marginTop: '12px',
-                    padding: '14px',
-                    background: 'rgba(196,153,42,0.03)',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(196,153,42,0.12)',
-                  }}
-                >
-                  {/* Mini scorecard grid — 9 holes per row */}
-                  {[0, 9].map(startIdx => {
-                    const endIdx = Math.min(startIdx + 9, round.holes_played)
-                    if (startIdx >= round.holes_played) return null
-                    const isBack = startIdx === 9
-                    let rowTotal = 0
-                    return (
-                      <div key={startIdx} style={{ marginBottom: isBack ? 0 : '8px' }}>
-                        <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600 }}>
-                          {isBack ? 'IN' : 'OUT'}
-                        </div>
-                        <div style={{
-                          display: 'grid',
-                          gridTemplateColumns: `repeat(${endIdx - startIdx}, 1fr) auto`,
-                          gap: '3px',
-                          fontSize: '11px',
-                        }}>
-                          {/* Hole numbers */}
-                          {Array.from({ length: endIdx - startIdx }, (_, j) => {
-                            const h = startIdx + j + 1
-                            return (
-                              <div key={'h' + h} style={{ textAlign: 'center', color: 'var(--text-2)', fontSize: '9px' }}>{h}</div>
-                            )
-                          })}
-                          <div style={{ textAlign: 'center', color: 'var(--text-2)', fontSize: '9px', fontWeight: 700 }}>T</div>
+              {/* Expandable scorecard — same format as historial */}
+              {isExpanded && !isExcluded && (() => {
+                const holeCount = round.holes_played || 18
+                const parPerHole = (round as unknown as { par_per_hole?: Record<string, number> }).par_per_hole
+                const getPar = (h: number) => parPerHole ? (parPerHole[String(h)] ?? 4) : 4
 
-                          {/* Scores — editable */}
-                          {Array.from({ length: endIdx - startIdx }, (_, j) => {
-                            const h = startIdx + j + 1
-                            const holeKey = String(h)
-                            const score = round.scores[holeKey]
-                            const hasIssue = round.validation.issues.some(iss => iss.holeNumber === h)
-                            const isAmbiguous = round.metadata?.ambiguous_holes?.includes(h)
-                            if (typeof score === 'number') rowTotal += score
-                            return (
-                              <input
-                                key={'s' + h}
-                                type="number"
-                                min={1}
-                                max={15}
-                                value={score ?? ''}
-                                onChange={e => handleScoreChange(round.tempId, holeKey, parseInt(e.target.value) || 0)}
-                                style={{
-                                  width: '100%',
-                                  textAlign: 'center',
-                                  padding: '4px 0',
-                                  fontSize: '13px',
-                                  fontWeight: 700,
-                                  borderRadius: '6px',
-                                  border: hasIssue ? '2px solid #f0ad4e' : isAmbiguous ? '2px solid #60a5fa' : '1px solid rgba(255,255,255,0.1)',
-                                  background: hasIssue ? 'rgba(255,180,50,0.1)' : isAmbiguous ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.04)',
-                                  color: 'var(--text)',
-                                  outline: 'none',
-                                  minHeight: '32px',
-                                }}
-                              />
-                            )
-                          })}
-                          <div style={{
-                            textAlign: 'center', padding: '4px 2px', fontSize: '13px', fontWeight: 700,
-                            color: '#c4992a', background: 'rgba(196,153,42,0.08)', borderRadius: '6px',
-                          }}>
-                            {rowTotal}
-                          </div>
-                        </div>
+                const renderScorecardRow = (start: number, end: number, label: string) => {
+                  let rowTotal = 0
+                  const holes = Array.from({ length: end - start }, (_, j) => start + j + 1)
+                  holes.forEach(h => { if (typeof round.scores[String(h)] === 'number') rowTotal += round.scores[String(h)] })
+
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '8px' }}>
+                      <div style={{ flex: 1, display: 'flex' }}>
+                        {holes.map(h => {
+                          const score = round.scores[String(h)] ?? null
+                          const par = getPar(h)
+                          const isAmbiguous = round.metadata?.ambiguous_holes?.includes(h)
+                          const hasIssue = round.validation.issues.some(iss => iss.holeNumber === h)
+                          return (
+                            <div key={h} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+                              <div style={{ fontSize: '8px', color: 'var(--text-2)', marginBottom: '2px' }}>{h}</div>
+                              <div style={{
+                                minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                position: 'relative',
+                              }}>
+                                {score !== null ? (
+                                  <div
+                                    onClick={() => {
+                                      const newScore = prompt(`Hoyo ${h} (par ${par}):`, String(score))
+                                      if (newScore !== null) {
+                                        const val = parseInt(newScore)
+                                        if (val >= 1 && val <= 15) handleScoreChange(round.tempId, String(h), val)
+                                      }
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    <ScoreSymbol score={score} par={par} size="sm" theme="dark" />
+                                  </div>
+                                ) : (
+                                  <div
+                                    onClick={() => {
+                                      const newScore = prompt(`Hoyo ${h} (par ${par}):`)
+                                      if (newScore !== null) {
+                                        const val = parseInt(newScore)
+                                        if (val >= 1 && val <= 15) handleScoreChange(round.tempId, String(h), val)
+                                      }
+                                    }}
+                                    style={{
+                                      width: '24px', height: '24px', borderRadius: '4px',
+                                      border: '1px dashed rgba(255,255,255,0.2)', cursor: 'pointer',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      fontSize: '10px', color: 'var(--text-2)',
+                                    }}
+                                  >?</div>
+                                )}
+                                {(isAmbiguous || hasIssue) && (
+                                  <div style={{
+                                    position: 'absolute', top: -2, right: 0,
+                                    width: '6px', height: '6px', borderRadius: '50%',
+                                    background: hasIssue ? '#f0ad4e' : '#60a5fa',
+                                  }} />
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
-                    )
-                  })}
-
-                  {/* Ambiguous holes hint */}
-                  {round.metadata?.ambiguous_holes && round.metadata.ambiguous_holes.length > 0 && (
-                    <p style={{ fontSize: '11px', color: '#60a5fa', marginTop: '8px' }}>
-                      Hoyos en azul fueron estimados por IA — verifica que esten correctos
-                    </p>
-                  )}
-
-                  {/* Confidence bar */}
-                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ flex: 1, height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                       <div style={{
-                        width: `${(round.import_confidence || 0) * 100}%`, height: '100%', borderRadius: '2px',
-                        background: (round.import_confidence || 0) > 0.8 ? '#50c878' : (round.import_confidence || 0) > 0.5 ? '#f0ad4e' : '#ff6666',
-                      }} />
+                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        minWidth: '36px', flexShrink: 0,
+                        borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '6px', marginLeft: '4px',
+                      }}>
+                        <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--text-2)', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{label}</div>
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: '#c4992a' }}>{rowTotal}</div>
+                      </div>
                     </div>
-                    <span style={{ fontSize: '10px', color: 'var(--text-2)' }}>
-                      {Math.round((round.import_confidence || 0) * 100)}% confianza
-                    </span>
+                  )
+                }
+
+                return (
+                  <div style={{
+                    marginTop: '12px', padding: '12px',
+                    background: 'rgba(196,153,42,0.03)', borderRadius: '12px',
+                    border: '1px solid rgba(196,153,42,0.12)',
+                  }}>
+                    {renderScorecardRow(0, Math.min(9, holeCount), 'OUT')}
+                    {holeCount > 9 && renderScorecardRow(9, holeCount, 'IN')}
+
+                    {/* Total + stats */}
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '8px', marginTop: '4px',
+                    }}>
+                      <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-2)', flexWrap: 'wrap' }}>
+                        {round.metadata?.ambiguous_holes && round.metadata.ambiguous_holes.length > 0 && (
+                          <span style={{ color: '#60a5fa' }}>
+                            {round.metadata.ambiguous_holes.length} hoyos estimados — toca para corregir
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '40px', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${(round.import_confidence || 0) * 100}%`, height: '100%', borderRadius: '2px',
+                            background: (round.import_confidence || 0) > 0.8 ? '#50c878' : (round.import_confidence || 0) > 0.5 ? '#f0ad4e' : '#ff6666',
+                          }} />
+                        </div>
+                        <span style={{ fontSize: '10px', color: 'var(--text-2)' }}>
+                          {Math.round((round.import_confidence || 0) * 100)}%
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {/* LEGACY: keep old expand for compat — hidden since new view handles everything */}
               {false && isExpanded && hasFixableIssues && !isExcluded && (
