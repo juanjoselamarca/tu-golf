@@ -318,14 +318,69 @@ export async function POST(request: NextRequest) {
       }
 
       if (dbCourse) {
-        const { data: dbHoles } = await supabase
+        // Check if course has multiple recorridos (e.g., 27-hole courses like Brisas, Rocas)
+        const { data: allHoles } = await supabase
           .from('course_holes')
-          .select('numero, par')
+          .select('recorrido, numero, par')
           .eq('course_id', dbCourse.id)
+          .order('recorrido')
           .order('numero')
 
-        if (dbHoles && dbHoles.length >= sc.holesCompleted) {
-          for (const h of dbHoles) {
+        const recorridos = new Map<string, Array<{ numero: number; par: number }>>()
+        if (allHoles) {
+          for (const h of allHoles) {
+            const rec = h.recorrido || 'default'
+            if (!recorridos.has(rec)) recorridos.set(rec, [])
+            recorridos.get(rec)!.push({ numero: h.numero, par: h.par })
+          }
+        }
+
+        const hasMultipleRecorridos = recorridos.size > 1 && !recorridos.has('default')
+
+        if (hasMultipleRecorridos && sc.holesCompleted === 18) {
+          // Extract recorrido combo from Garmin course name (e.g., "~ Norte-Sur", "~ Roja/Azul")
+          const comboMatch = courseName.match(/[~]\s*(.+)$/)
+          if (comboMatch) {
+            const combo = comboMatch[1].trim()
+            // Parse combo: "Norte + Sur", "Norte-Sur", "Norte + Este", "Roja/Azul", etc.
+            const parts = combo.split(/[\s+\-\/]+/).map(s => s.trim()).filter(Boolean)
+
+            if (parts.length >= 2) {
+              // Find matching recorridos
+              const findRec = (name: string) => {
+                const lower = name.toLowerCase()
+                const keys = Array.from(recorridos.keys())
+                for (const key of keys) {
+                  if (key.toLowerCase().includes(lower) || lower.includes(key.toLowerCase())) return recorridos.get(key)!
+                }
+                return null
+              }
+
+              const front9 = findRec(parts[0])
+              const back9 = findRec(parts[1])
+
+              if (front9 && back9) {
+                // Combine: front 9 as holes 1-9, back 9 as holes 10-18
+                for (const h of front9) parPerHole[String(h.numero)] = h.par
+                for (const h of back9) parPerHole[String(h.numero + 9)] = h.par
+                parSource = 'database_combo'
+              }
+            }
+          }
+
+          // Fallback: if combo parsing failed, use first 18 holes sequentially
+          if (parSource === 'default') {
+            const allPars = Array.from(recorridos.values()).flat()
+            if (allPars.length >= 18) {
+              for (let i = 0; i < 18; i++) {
+                parPerHole[String(i + 1)] = allPars[i].par
+              }
+              parSource = 'database_fallback'
+            }
+          }
+        } else if (!hasMultipleRecorridos && allHoles && allHoles.length >= sc.holesCompleted) {
+          // Standard 18-hole course
+          for (const h of allHoles) {
             parPerHole[String(h.numero)] = h.par
           }
           parSource = 'database'
