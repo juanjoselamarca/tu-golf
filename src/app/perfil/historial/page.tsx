@@ -188,7 +188,7 @@ function HistorialContent() {
         .from('historical_rounds')
         .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
         .order('played_at', { ascending: false })
-        .limit(50)
+        .limit(500)
       if (error) { setLoadError(true); return }
       setRounds((data as HistoricalRound[]) || [])
       setLoadError(false)
@@ -312,7 +312,7 @@ function HistorialContent() {
     </div>
   )
 
-  const progress = Math.min(rounds.length / 50, 1)
+  const progress = Math.min(rounds.length / Math.max(rounds.length, 1), 1)
 
   return (
     <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
@@ -329,12 +329,12 @@ function HistorialContent() {
             </div>
             <button
               onClick={() => { setShowForm(!showForm); if (!showForm) resetForm() }}
-              disabled={rounds.length >= 50}
+              disabled={false}
               style={{
-                background: rounds.length >= 50 ? 'rgba(196,153,42,0.3)' : '#c4992a',
+                background: false ? 'rgba(196,153,42,0.3)' : '#c4992a',
                 color: '#070d18', fontWeight: 700, fontSize: '14px',
                 padding: '10px 20px', borderRadius: '8px', border: 'none',
-                cursor: rounds.length >= 50 ? 'not-allowed' : 'pointer',
+                cursor: false ? 'not-allowed' : 'pointer',
               }}
             >
               {showForm ? '✕ Cancelar' : '+ Agregar ronda'}
@@ -364,7 +364,7 @@ function HistorialContent() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
               <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>🐯 {taigerMessage(rounds.length)}</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{rounds.length}/50</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{rounds.length}</span>
             </div>
             <div style={{ height: '4px', background: 'rgba(196,153,42,0.15)', borderRadius: '2px', overflow: 'hidden' }}>
               <div style={{
@@ -761,7 +761,7 @@ function HistorialContent() {
               })}
             </div>
             <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-2)', marginTop: '20px' }}>
-              {rounds.length}/50 tarjetas guardadas
+              {rounds.length} tarjetas guardadas
             </p>
           </>
         )}
