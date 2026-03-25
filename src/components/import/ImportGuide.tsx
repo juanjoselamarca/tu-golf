@@ -2,6 +2,10 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 
+/* ───────────────────────────────────────────────────────────
+   Types
+   ─────────────────────────────────────────────────────────── */
+
 interface ImportGuideProps {
   source: 'photos' | 'csv' | 'garmin_zip'
   onFilesSelected: (files: FileList) => void
@@ -10,873 +14,230 @@ interface ImportGuideProps {
   error: string | null
 }
 
-interface GuideStep {
-  number: number
-  icon: string
-  text: string
-  subtitle?: string
-}
+/* ───────────────────────────────────────────────────────────
+   Shared CSS keyframes (injected once)
+   ─────────────────────────────────────────────────────────── */
 
-const PHOTO_STEPS: GuideStep[] = [
-  { number: 1, icon: '\uD83D\uDCF1', text: 'Abre Garmin Golf en tu celular', subtitle: undefined },
-  { number: 2, icon: '\u26F3', text: 'Entra a una ronda y busca la Scorecard', subtitle: undefined },
-  { number: 3, icon: '\uD83D\uDCF8', text: 'Toma un pantallazo (captura de pantalla)', subtitle: undefined },
-]
-
-const CSV_STEPS: GuideStep[] = [
-  { number: 1, icon: '\uD83D\uDCBB', text: 'Abre connect.garmin.com en tu PC' },
-  { number: 2, icon: '\uD83D\uDD0D', text: "Ve a 'Actividades' y filtra por Golf" },
-  { number: 3, icon: '\u2B07\uFE0F', text: 'Descarga como CSV' },
-]
-
-interface GarminZipStep {
-  number: number
-  title: string
-  description: string
-  link?: { url: string; label: string }
-}
-
-const GARMIN_ZIP_STEPS: GarminZipStep[] = [
-  {
-    number: 1,
-    title: 'Inicia sesion en tu cuenta Garmin',
-    description: '',
-    link: { url: 'https://www.garmin.com/account', label: 'garmin.com/account' },
-  },
-  {
-    number: 2,
-    title: "Busca 'Gestionar datos' o 'Data Management'",
-    description: 'Esta en la seccion de privacidad de tu cuenta',
-  },
-  {
-    number: 3,
-    title: "Solicita 'Exportar datos' o 'Request Data Export'",
-    description: 'Garmin preparara un archivo con tu informacion',
-  },
-  {
-    number: 4,
-    title: 'Descarga el archivo ZIP cuando te llegue el email',
-    description: 'Te llegara un correo en 24 a 48 horas',
-  },
-]
-
-const TITLES: Record<string, { title: string; subtitle: string }> = {
-  photos: { title: '\uD83D\uDCF8 Pantallazo de scorecard', subtitle: 'La IA lee los numeros exactos de cada hoyo' },
-  csv: { title: '\uD83D\uDCBB Archivo de Garmin Connect', subtitle: 'Importa tu historial completo desde el CSV' },
-  garmin_zip: { title: '\uD83D\uDCE6 Archivo de Garmin', subtitle: 'Todas tus rondas de una sola vez, con datos completos' },
-}
-
-export default function ImportGuide({
-  source,
-  onFilesSelected,
-  onBack,
-  uploading,
-  error,
-}: ImportGuideProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [dragOver, setDragOver] = useState(false)
-  const isGarminZip = source === 'garmin_zip'
-  const isPhotos = source === 'photos'
-  const stepCount = isGarminZip ? GARMIN_ZIP_STEPS.length : 3
-  const [stepsVisible, setStepsVisible] = useState<boolean[]>(Array(stepCount).fill(false))
-
-  const steps = source === 'photos' ? PHOTO_STEPS : CSV_STEPS
-  const acceptTypes = source === 'garmin_zip' ? '.zip' : source === 'csv' ? '.csv,.xlsx' : '.jpg,.jpeg,.png,.heic'
-  const isMultiple = source === 'photos'
-
-  // Staggered step reveal
-  useEffect(() => {
-    const count = isGarminZip ? GARMIN_ZIP_STEPS.length : 3
-    const timers = Array.from({ length: count }, (_, i) =>
-      setTimeout(() => setStepsVisible(prev => {
-        const n = [...prev]
-        n[i] = true
-        return n
-      }), 100 + i * 200)
-    )
-    return () => timers.forEach(clearTimeout)
-  }, [isGarminZip])
-
-  const handleFileChange = useCallback(
-    (files: FileList | null) => {
-      if (!files || files.length === 0) return
-      onFilesSelected(files)
-    },
-    [onFilesSelected],
-  )
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragOver(true)
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragOver(false)
-  }, [])
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      setDragOver(false)
-      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        handleFileChange(e.dataTransfer.files)
-      }
-    },
-    [handleFileChange],
-  )
-
-  const titleInfo = TITLES[source] || TITLES.photos
-
-  // Garmin ZIP guide — premium step-by-step
-  if (isGarminZip) {
-    return (
-      <div style={{ paddingTop: '16px' }}>
-        <style>{`
-          @keyframes guideFadeSlideUp {
-            from { opacity: 0; transform: translateY(18px); }
-            to   { opacity: 1; transform: translateY(0); }
-          }
-          @keyframes guideDropZonePulse {
-            0%, 100% { border-color: rgba(196,153,42,0.3); }
-            50%      { border-color: rgba(196,153,42,0.6); }
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-
-        {/* Header with back */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            marginBottom: '28px',
-          }}
-        >
-          <button
-            onClick={onBack}
-            style={{
-              width: '44px',
-              height: '44px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              color: 'var(--text-2)',
-              fontSize: '18px',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            &larr;
-          </button>
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: 'var(--font-playfair)' }}>
-              {titleInfo.title}
-            </h2>
-            <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: 0 }}>
-              {titleInfo.subtitle}
-            </p>
-          </div>
-        </div>
-
-        {/* Phase 1: Solicitar tus datos */}
-        <div
-          style={{
-            padding: '16px',
-            background: 'rgba(196,153,42,0.04)',
-            border: '1px solid rgba(196,153,42,0.15)',
-            borderRadius: '14px',
-            marginBottom: '12px',
-          }}
-        >
-          <h3 style={{
-            fontSize: '15px',
-            fontWeight: 700,
-            color: '#c4992a',
-            margin: '0 0 4px 0',
-          }}>
-            Paso unico: solicitar tus datos
-          </h3>
-          <p style={{ color: 'var(--text-2)', fontSize: '12px', margin: 0, opacity: 0.8 }}>
-            Solo necesitas hacer esto una vez. Toma 24 a 48 horas.
-          </p>
-        </div>
-
-        {/* Animated Garmin ZIP steps */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-          {GARMIN_ZIP_STEPS.map((step, i) => (
-            <div
-              key={step.number}
-              style={{
-                display: 'flex',
-                gap: '14px',
-                padding: '16px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '14px',
-                opacity: stepsVisible[i] ? 1 : 0,
-                transform: stepsVisible[i] ? 'translateY(0)' : 'translateY(18px)',
-                transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
-              }}
-            >
-              {/* Number circle — gold */}
-              <span
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'linear-gradient(135deg, #c4992a, #e8c06a)',
-                  color: '#070d18',
-                  borderRadius: '50%',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  flexShrink: 0,
-                  marginTop: '2px',
-                }}
-              >
-                {step.number}
-              </span>
-
-              <div style={{ flex: 1 }}>
-                <div style={{ color: 'var(--text)', fontSize: '15px', fontWeight: 600, lineHeight: 1.4, marginBottom: step.description ? '4px' : 0 }}>
-                  {step.title}
-                </div>
-                {step.description && (
-                  <div style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.5 }}>
-                    {step.description}
-                  </div>
-                )}
-                {step.link && (
-                  <a
-                    href={step.link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-block',
-                      marginTop: '8px',
-                      color: '#c4992a',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      textDecoration: 'underline',
-                      textUnderlineOffset: '3px',
-                    }}
-                  >
-                    {step.link.label} &rarr;
-                  </a>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Divider */}
-        <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '0 0 24px 0' }} />
-
-        {/* Phase 2: Subir el archivo */}
-        <div
-          style={{
-            padding: '16px',
-            background: 'rgba(196,153,42,0.04)',
-            border: '1px solid rgba(196,153,42,0.15)',
-            borderRadius: '14px',
-            marginBottom: '16px',
-          }}
-        >
-          <h3 style={{
-            fontSize: '15px',
-            fontWeight: 700,
-            color: '#c4992a',
-            margin: 0,
-          }}>
-            Subir el archivo
-          </h3>
-        </div>
-
-        {/* Drop zone for ZIP */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".zip"
-          multiple={false}
-          onChange={e => handleFileChange(e.target.files)}
-          style={{ display: 'none' }}
-        />
-
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => !uploading && fileInputRef.current?.click()}
-          role="button"
-          tabIndex={0}
-          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
-          style={{
-            width: '100%',
-            padding: '36px 20px',
-            borderRadius: '16px',
-            border: dragOver
-              ? '2px solid #c4992a'
-              : '2px dashed rgba(196,153,42,0.3)',
-            background: dragOver
-              ? 'rgba(196,153,42,0.08)'
-              : uploading
-                ? 'rgba(196,153,42,0.04)'
-                : 'rgba(255,255,255,0.02)',
-            cursor: uploading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px',
-            transition: 'all 0.25s ease',
-            animation: uploading ? 'none' : 'guideDropZonePulse 3s ease-in-out infinite',
-            marginBottom: '16px',
-            minHeight: '44px',
-          }}
-        >
-          {uploading ? (
-            <>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  border: '3px solid rgba(196,153,42,0.2)',
-                  borderTopColor: '#c4992a',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                }}
-              />
-              <span style={{ color: 'var(--text-2)', fontSize: '14px' }}>
-                Procesando archivo ZIP...
-              </span>
-            </>
-          ) : (
-            <>
-              <span style={{ fontSize: '36px' }}>
-                {'\uD83D\uDCE6'}
-              </span>
-              <span style={{ color: 'var(--text-2)', fontSize: '14px', textAlign: 'center' }}>
-                Arrastra tu archivo ZIP de Garmin aqui
-              </span>
-              <span style={{ color: 'var(--text-3, #5a6a7d)', fontSize: '12px' }}>
-                Archivo .zip sin descomprimir
-              </span>
-            </>
-          )}
-        </div>
-
-        {/* Gold button */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          style={{
-            width: '100%',
-            padding: '16px',
-            borderRadius: '14px',
-            fontSize: '16px',
-            fontWeight: 700,
-            background: uploading ? 'rgba(196,153,42,0.3)' : 'linear-gradient(135deg, #c4992a, #e8c06a)',
-            color: uploading ? 'rgba(255,255,255,0.5)' : '#070d18',
-            border: 'none',
-            cursor: uploading ? 'not-allowed' : 'pointer',
-            minHeight: '52px',
-            transition: 'all 0.2s ease',
-          }}
-        >
-          {uploading ? 'Procesando...' : 'Seleccionar archivo ZIP'}
-        </button>
-
-        {error && (
-          <p
-            style={{
-              color: '#ff6666',
-              fontSize: '13px',
-              marginTop: '12px',
-              textAlign: 'center',
-            }}
-          >
-            {error}
-          </p>
-        )}
-
-        {/* Trust note */}
-        <div
-          style={{
-            padding: '12px 16px',
-            background: 'rgba(255,255,255,0.02)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: '12px',
-            marginTop: '20px',
-            display: 'flex',
-            gap: '10px',
-            alignItems: 'flex-start',
-          }}
-        >
-          <span style={{ fontSize: '14px', flexShrink: 0, marginTop: '1px' }}>
-            {'\uD83D\uDD12'}
-          </span>
-          <span style={{ color: 'var(--text-2)', fontSize: '12px', lineHeight: 1.5, opacity: 0.8 }}>
-            Garmin te envia un archivo con toda tu data. Nosotros solo leemos tus scores de golf, putts y fairways. Nada mas se almacena.
-          </span>
-        </div>
-      </div>
-    )
+const SHARED_STYLES = `
+  @keyframes igFadeSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-
-  // Photos guide — premium step-by-step
-  if (isPhotos) {
-    return (
-      <div style={{ paddingTop: '16px' }}>
-        <style>{`
-          @keyframes guideFadeSlideUp {
-            from { opacity: 0; transform: translateY(18px); }
-            to   { opacity: 1; transform: translateY(0); }
-          }
-          @keyframes guideDropZonePulse {
-            0%, 100% { border-color: rgba(196,153,42,0.3); }
-            50%      { border-color: rgba(196,153,42,0.6); }
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-
-        {/* Header with back */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            marginBottom: '28px',
-          }}
-        >
-          <button
-            onClick={onBack}
-            style={{
-              width: '44px',
-              height: '44px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              color: 'var(--text-2)',
-              fontSize: '18px',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            &larr;
-          </button>
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: 'var(--font-playfair)' }}>
-              {titleInfo.title}
-            </h2>
-            <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: 0 }}>
-              {titleInfo.subtitle}
-            </p>
-          </div>
-        </div>
-
-        {/* Animated guide steps */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-          {PHOTO_STEPS.map((step, i) => (
-            <div
-              key={step.number}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-                padding: '16px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '14px',
-                opacity: stepsVisible[i] ? 1 : 0,
-                transform: stepsVisible[i] ? 'translateY(0)' : 'translateY(18px)',
-                transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
-              }}
-            >
-              {/* Number circle — gold */}
-              <span
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'linear-gradient(135deg, #c4992a, #e8c06a)',
-                  color: '#070d18',
-                  borderRadius: '50%',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  flexShrink: 0,
-                }}
-              >
-                {step.number}
-              </span>
-
-              {/* Icon */}
-              <span style={{ fontSize: '28px', flexShrink: 0, width: '36px', textAlign: 'center' }}>
-                {step.icon}
-              </span>
-
-              {/* Text */}
-              <span style={{ color: 'var(--text)', fontSize: '15px', fontWeight: 600, lineHeight: 1.4 }}>
-                {step.text}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Tip box */}
-        <div
-          style={{
-            padding: '12px 16px',
-            background: 'rgba(196,153,42,0.06)',
-            border: '1px solid rgba(196,153,42,0.15)',
-            borderRadius: '12px',
-            marginBottom: '28px',
-            display: 'flex',
-            gap: '10px',
-            alignItems: 'flex-start',
-          }}
-        >
-          <span style={{ fontSize: '16px', flexShrink: 0, marginTop: '1px' }}>
-            {'\uD83D\uDCA1'}
-          </span>
-          <div style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.6 }}>
-            Asegurate de que se vean todos los scores y el nombre del club.
-            <br />
-            <span style={{ opacity: 0.7 }}>
-              Para mas de 10 tarjetas, te recomendamos usar el archivo de Garmin — es mas rapido.
-            </span>
-          </div>
-        </div>
-
-        {/* Drop zone */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".jpg,.jpeg,.png,.heic"
-          multiple
-          onChange={e => handleFileChange(e.target.files)}
-          style={{ display: 'none' }}
-        />
-
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => !uploading && fileInputRef.current?.click()}
-          role="button"
-          tabIndex={0}
-          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
-          style={{
-            width: '100%',
-            padding: '36px 20px',
-            borderRadius: '16px',
-            border: dragOver
-              ? '2px solid #c4992a'
-              : '2px dashed rgba(196,153,42,0.3)',
-            background: dragOver
-              ? 'rgba(196,153,42,0.08)'
-              : uploading
-                ? 'rgba(196,153,42,0.04)'
-                : 'rgba(255,255,255,0.02)',
-            cursor: uploading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px',
-            transition: 'all 0.25s ease',
-            animation: uploading ? 'none' : 'guideDropZonePulse 3s ease-in-out infinite',
-            marginBottom: '16px',
-            minHeight: '44px',
-          }}
-        >
-          {uploading ? (
-            <>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  border: '3px solid rgba(196,153,42,0.2)',
-                  borderTopColor: '#c4992a',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                }}
-              />
-              <span style={{ color: 'var(--text-2)', fontSize: '14px' }}>
-                Subiendo fotos...
-              </span>
-            </>
-          ) : (
-            <>
-              <span style={{ fontSize: '36px' }}>
-                {'\uD83D\uDCF8'}
-              </span>
-              <span style={{ color: 'var(--text-2)', fontSize: '14px', textAlign: 'center' }}>
-                Arrastra tus pantallazos aqui o toca para seleccionar
-              </span>
-              <span style={{ color: 'var(--text-3, #5a6a7d)', fontSize: '12px' }}>
-                JPG, PNG o HEIC — hasta 20 fotos
-              </span>
-            </>
-          )}
-        </div>
-
-        {/* Select file button */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          style={{
-            width: '100%',
-            padding: '16px',
-            borderRadius: '14px',
-            fontSize: '16px',
-            fontWeight: 700,
-            background: uploading ? 'rgba(196,153,42,0.3)' : 'linear-gradient(135deg, #c4992a, #e8c06a)',
-            color: uploading ? 'rgba(255,255,255,0.5)' : '#070d18',
-            border: 'none',
-            cursor: uploading ? 'not-allowed' : 'pointer',
-            minHeight: '52px',
-            transition: 'all 0.2s ease',
-          }}
-        >
-          {uploading ? 'Procesando...' : 'Seleccionar pantallazos'}
-        </button>
-
-        {error && (
-          <p
-            style={{
-              color: '#ff6666',
-              fontSize: '13px',
-              marginTop: '12px',
-              textAlign: 'center',
-            }}
-          >
-            {error}
-          </p>
-        )}
-      </div>
-    )
+  @keyframes igDropPulse {
+    0%, 100% { border-color: rgba(196,153,42,0.25); }
+    50%      { border-color: rgba(196,153,42,0.55); }
   }
+  @keyframes igSpin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes igFingerTap {
+    0%, 100% { transform: translate(-50%, 0) scale(1); opacity: 0.9; }
+    50%      { transform: translate(-50%, 2px) scale(0.92); opacity: 1; }
+  }
+  @keyframes igEnvelopeBounce {
+    0%, 100% { transform: translateY(0); }
+    30%      { transform: translateY(-6px); }
+    50%      { transform: translateY(0); }
+    70%      { transform: translateY(-3px); }
+  }
+  @keyframes igFlash {
+    0%   { opacity: 0; }
+    15%  { opacity: 0.7; }
+    100% { opacity: 0; }
+  }
+  @keyframes igCameraSlide {
+    0%   { opacity: 0; transform: translate(12px, -12px) scale(0.7); }
+    100% { opacity: 1; transform: translate(0, 0) scale(1); }
+  }
+  @keyframes igTimelineDraw {
+    from { height: 0; }
+    to   { height: 100%; }
+  }
+`
 
-  // CSV guide — minimal (hidden power-user feature)
+/* ───────────────────────────────────────────────────────────
+   Inline SVG icons
+   ─────────────────────────────────────────────────────────── */
+
+function LightbulbIcon() {
   return (
-    <div style={{ paddingTop: '16px' }}>
-      <style>{`
-        @keyframes guideFadeSlideUp {
-          from { opacity: 0; transform: translateY(18px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes guideDropZonePulse {
-          0%, 100% { border-color: rgba(196,153,42,0.3); }
-          50%      { border-color: rgba(196,153,42,0.6); }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c4992a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
+      <path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
+    </svg>
+  )
+}
 
-      {/* Header with back */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          marginBottom: '28px',
-        }}
-      >
-        <button
-          onClick={onBack}
-          style={{
-            width: '44px',
-            height: '44px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '12px',
-            color: 'var(--text-2)',
-            fontSize: '18px',
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
-        >
-          &larr;
-        </button>
-        <div>
-          <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: 'var(--font-playfair)' }}>
-            {titleInfo.title}
-          </h2>
-          <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: 0 }}>
-            {titleInfo.subtitle}
-          </p>
-        </div>
+function LockIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c4992a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  )
+}
+
+function DownloadArrowIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
+function UploadIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(196,153,42,0.6)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  )
+}
+
+function CameraIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c4992a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  )
+}
+
+/* ───────────────────────────────────────────────────────────
+   Shared sub-components
+   ─────────────────────────────────────────────────────────── */
+
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: 44, height: 44,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 12,
+        color: 'var(--text-2)',
+        fontSize: 18,
+        cursor: 'pointer',
+        flexShrink: 0,
+      }}
+    >
+      &larr;
+    </button>
+  )
+}
+
+function Header({ title, subtitle, onBack }: { title: string; subtitle: string; onBack: () => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+      <BackButton onClick={onBack} />
+      <div>
+        <h2 style={{
+          fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0,
+          fontFamily: 'var(--font-playfair)',
+        }}>
+          {title}
+        </h2>
+        <p style={{ color: 'var(--text-2)', fontSize: 13, margin: 0, marginTop: 2 }}>
+          {subtitle}
+        </p>
       </div>
+    </div>
+  )
+}
 
-      {/* Animated guide steps */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-        {steps.map((step, i) => (
-          <div
-            key={step.number}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '14px',
-              padding: '14px 16px',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '14px',
-              opacity: stepsVisible[i] ? 1 : 0,
-              transform: stepsVisible[i] ? 'translateY(0)' : 'translateY(18px)',
-              transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
-            }}
-          >
-            <span
-              style={{
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'linear-gradient(135deg, #c4992a, #e8c06a)',
-                color: '#070d18',
-                borderRadius: '50%',
-                fontSize: '14px',
-                fontWeight: 700,
-                flexShrink: 0,
-              }}
-            >
-              {step.number}
-            </span>
-            <span style={{ fontSize: '28px', flexShrink: 0, width: '48px', textAlign: 'center' }}>
-              {step.icon}
-            </span>
-            <span style={{ color: 'var(--text)', fontSize: '15px', fontWeight: 500, lineHeight: 1.4 }}>
-              {step.text}
-            </span>
-          </div>
-        ))}
-      </div>
+function StepNumber({ n }: { n: number }) {
+  return (
+    <span style={{
+      width: 40, height: 40, minWidth: 40,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'linear-gradient(135deg, #c4992a, #e8c06a)',
+      color: '#070d18',
+      borderRadius: '50%',
+      fontSize: 16, fontWeight: 700, flexShrink: 0,
+      boxShadow: '0 2px 8px rgba(196,153,42,0.25)',
+    }}>
+      {n}
+    </span>
+  )
+}
 
-      {/* Tip box */}
-      <div
-        style={{
-          padding: '12px 16px',
-          background: 'rgba(196,153,42,0.06)',
-          border: '1px solid rgba(196,153,42,0.15)',
-          borderRadius: '12px',
-          marginBottom: '28px',
-          display: 'flex',
-          gap: '10px',
-          alignItems: 'flex-start',
-        }}
-      >
-        <span style={{ fontSize: '16px', flexShrink: 0, marginTop: '1px' }}>
-          {'\uD83D\uDCA1'}
-        </span>
-        <div>
-          <span style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.5 }}>
-            Recomendamos hacer esto desde el computador para mayor comodidad
-          </span>
-          <a
-            href="https://connect.garmin.com/modern/activities"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: '#c4992a',
-              fontSize: '13px',
-              textDecoration: 'underline',
-              textUnderlineOffset: '3px',
-              marginTop: '6px',
-              display: 'inline-block',
-            }}
-          >
-            connect.garmin.com/modern/activities
-          </a>
-        </div>
-      </div>
-
-      {/* Drop zone */}
+function DropZone({
+  fileInputRef, onDragOver, onDragLeave, onDrop, dragOver, uploading,
+  accept, multiple, onFileChange, buttonLabel, uploadingLabel, idleLabel, hintLabel,
+}: {
+  fileInputRef: React.RefObject<HTMLInputElement>
+  onDragOver: (e: React.DragEvent) => void
+  onDragLeave: (e: React.DragEvent) => void
+  onDrop: (e: React.DragEvent) => void
+  dragOver: boolean
+  uploading: boolean
+  accept: string
+  multiple: boolean
+  onFileChange: (files: FileList | null) => void
+  buttonLabel: string
+  uploadingLabel: string
+  idleLabel: string
+  hintLabel: string
+}) {
+  return (
+    <>
       <input
         ref={fileInputRef}
         type="file"
-        accept={acceptTypes}
-        multiple={isMultiple}
-        onChange={e => handleFileChange(e.target.files)}
+        accept={accept}
+        multiple={multiple}
+        onChange={e => onFileChange(e.target.files)}
         style={{ display: 'none' }}
       />
 
       <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
         onClick={() => !uploading && fileInputRef.current?.click()}
         role="button"
         tabIndex={0}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
         style={{
           width: '100%',
-          padding: '36px 20px',
-          borderRadius: '16px',
-          border: dragOver
-            ? '2px solid #c4992a'
-            : '2px dashed rgba(196,153,42,0.3)',
+          padding: '32px 20px',
+          borderRadius: 16,
+          border: dragOver ? '2px solid #c4992a' : '2px dashed rgba(196,153,42,0.25)',
           background: dragOver
             ? 'rgba(196,153,42,0.08)'
-            : uploading
-              ? 'rgba(196,153,42,0.04)'
-              : 'rgba(255,255,255,0.02)',
+            : uploading ? 'rgba(196,153,42,0.03)' : 'rgba(255,255,255,0.02)',
           cursor: uploading ? 'not-allowed' : 'pointer',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '12px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
           transition: 'all 0.25s ease',
-          animation: uploading ? 'none' : 'guideDropZonePulse 3s ease-in-out infinite',
-          marginBottom: '16px',
-          minHeight: '44px',
+          animation: uploading ? 'none' : 'igDropPulse 3s ease-in-out infinite',
+          marginBottom: 14,
         }}
       >
         {uploading ? (
           <>
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                border: '3px solid rgba(196,153,42,0.2)',
-                borderTopColor: '#c4992a',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-              }}
-            />
-            <span style={{ color: 'var(--text-2)', fontSize: '14px' }}>
-              Procesando archivo...
-            </span>
+            <div style={{
+              width: 32, height: 32,
+              border: '3px solid rgba(196,153,42,0.15)',
+              borderTopColor: '#c4992a',
+              borderRadius: '50%',
+              animation: 'igSpin 1s linear infinite',
+            }} />
+            <span style={{ color: 'var(--text-2)', fontSize: 14 }}>{uploadingLabel}</span>
           </>
         ) : (
           <>
-            <span style={{ fontSize: '36px' }}>
-              {'\uD83D\uDCC4'}
+            <UploadIcon />
+            <span style={{ color: 'var(--text-2)', fontSize: 14, textAlign: 'center' }}>
+              {idleLabel}
             </span>
-            <span style={{ color: 'var(--text-2)', fontSize: '14px', textAlign: 'center' }}>
-              Arrastra tu archivo aqui o toca para seleccionar
-            </span>
-            <span style={{ color: 'var(--text-3, #5a6a7d)', fontSize: '12px' }}>
-              CSV o XLSX
+            <span style={{ color: 'var(--text-3, #5a6a7d)', fontSize: 12 }}>
+              {hintLabel}
             </span>
           </>
         )}
@@ -886,34 +247,813 @@ export default function ImportGuide({
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
         style={{
-          width: '100%',
-          padding: '16px',
-          borderRadius: '14px',
-          fontSize: '16px',
-          fontWeight: 700,
+          width: '100%', padding: 16, borderRadius: 14,
+          fontSize: 16, fontWeight: 700,
           background: uploading ? 'rgba(196,153,42,0.3)' : 'linear-gradient(135deg, #c4992a, #e8c06a)',
           color: uploading ? 'rgba(255,255,255,0.5)' : '#070d18',
           border: 'none',
           cursor: uploading ? 'not-allowed' : 'pointer',
-          minHeight: '52px',
-          transition: 'all 0.2s ease',
+          minHeight: 52, transition: 'all 0.2s ease',
+          letterSpacing: '0.01em',
         }}
       >
-        {uploading ? 'Procesando...' : 'Seleccionar archivo'}
+        {uploading ? 'Procesando...' : buttonLabel}
       </button>
+    </>
+  )
+}
 
-      {error && (
-        <p
-          style={{
-            color: '#ff6666',
-            fontSize: '13px',
-            marginTop: '12px',
-            textAlign: 'center',
-          }}
-        >
-          {error}
-        </p>
-      )}
+function ErrorMsg({ error }: { error: string | null }) {
+  if (!error) return null
+  return (
+    <p style={{ color: '#ff6666', fontSize: 13, marginTop: 12, textAlign: 'center' }}>
+      {error}
+    </p>
+  )
+}
+
+/* ───────────────────────────────────────────────────────────
+   CSS Illustrations — Phone frame components
+   ─────────────────────────────────────────────────────────── */
+
+function PhoneFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      width: 140, height: 260,
+      border: '3px solid rgba(255,255,255,0.15)',
+      borderRadius: 24,
+      background: '#1a1a2e',
+      overflow: 'hidden',
+      position: 'relative',
+      margin: '16px auto 0',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+    }}>
+      {/* Notch */}
+      <div style={{
+        width: 60, height: 6,
+        background: 'rgba(255,255,255,0.1)',
+        borderRadius: 3,
+        margin: '8px auto 6px',
+      }} />
+      {children}
     </div>
   )
+}
+
+/** Step 1: Garmin Golf activity list with animated tap */
+function PhoneActivityList() {
+  return (
+    <PhoneFrame>
+      <div style={{ padding: '0 10px' }}>
+        {/* App title */}
+        <div style={{
+          fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.7)',
+          textAlign: 'center', marginBottom: 8, letterSpacing: '0.05em',
+        }}>
+          GARMIN GOLF
+        </div>
+        {/* Activity list */}
+        {[0.6, 0.5, 0.45, 0.55, 0.5, 0.4].map((w, i) => (
+          <div key={i} style={{
+            position: 'relative',
+            height: 22,
+            marginBottom: 6,
+            borderRadius: 4,
+            background: i === 2 ? 'rgba(196,153,42,0.2)' : 'rgba(255,255,255,0.06)',
+            border: i === 2 ? '1px solid rgba(196,153,42,0.35)' : '1px solid transparent',
+            display: 'flex', alignItems: 'center', padding: '0 6px', gap: 4,
+          }}>
+            {/* Fake flag icon */}
+            <div style={{
+              width: 6, height: 6, borderRadius: 1,
+              background: i === 2 ? '#c4992a' : 'rgba(255,255,255,0.15)',
+            }} />
+            {/* Fake text bar */}
+            <div style={{
+              height: 4, borderRadius: 2,
+              width: `${w * 100}%`,
+              background: i === 2 ? 'rgba(196,153,42,0.5)' : 'rgba(255,255,255,0.1)',
+            }} />
+          </div>
+        ))}
+        {/* Animated finger tap indicator on the highlighted row */}
+        <div style={{
+          position: 'absolute',
+          left: '50%', top: 98,
+          width: 18, height: 18,
+          borderRadius: '50%',
+          background: 'rgba(196,153,42,0.35)',
+          border: '2px solid rgba(196,153,42,0.6)',
+          animation: 'igFingerTap 2s ease-in-out infinite',
+          pointerEvents: 'none',
+        }} />
+      </div>
+    </PhoneFrame>
+  )
+}
+
+/** Step 2: Scorecard grid view */
+function PhoneScorecardView() {
+  const holeScores = [4, 5, 3, 4, 5, 4, 3, 5, 4]
+  return (
+    <PhoneFrame>
+      <div style={{ padding: '0 8px' }}>
+        {/* Tab bar */}
+        <div style={{ display: 'flex', gap: 2, marginBottom: 8 }}>
+          {['Resumen', 'Scorecard', 'Stats'].map((t, i) => (
+            <div key={t} style={{
+              flex: 1, textAlign: 'center',
+              fontSize: 7, padding: '4px 0',
+              color: i === 1 ? '#c4992a' : 'rgba(255,255,255,0.35)',
+              fontWeight: i === 1 ? 700 : 400,
+              borderBottom: i === 1 ? '2px solid #c4992a' : '2px solid transparent',
+            }}>
+              {t}
+            </div>
+          ))}
+        </div>
+        {/* Hole numbers row */}
+        <div style={{ display: 'flex', gap: 1, marginBottom: 3 }}>
+          {[1,2,3,4,5,6,7,8,9].map(h => (
+            <div key={h} style={{
+              flex: 1, textAlign: 'center',
+              fontSize: 6, color: 'rgba(255,255,255,0.3)',
+              fontWeight: 600,
+            }}>
+              {h}
+            </div>
+          ))}
+        </div>
+        {/* Par row */}
+        <div style={{ display: 'flex', gap: 1, marginBottom: 3 }}>
+          {[4,5,3,4,5,4,3,5,4].map((p, i) => (
+            <div key={i} style={{
+              flex: 1, textAlign: 'center',
+              fontSize: 6, color: 'rgba(255,255,255,0.2)',
+            }}>
+              {p}
+            </div>
+          ))}
+        </div>
+        {/* Score row */}
+        <div style={{ display: 'flex', gap: 1, marginBottom: 6 }}>
+          {holeScores.map((s, i) => (
+            <div key={i} style={{
+              flex: 1, textAlign: 'center',
+              fontSize: 8, fontWeight: 700,
+              color: s <= 3 ? '#4ade80' : s >= 6 ? '#f87171' : 'rgba(255,255,255,0.7)',
+              background: 'rgba(255,255,255,0.04)',
+              borderRadius: 2, padding: '3px 0',
+            }}>
+              {s}
+            </div>
+          ))}
+        </div>
+        {/* Back 9 label */}
+        <div style={{ display: 'flex', gap: 1, marginBottom: 3 }}>
+          {[10,11,12,13,14,15,16,17,18].map(h => (
+            <div key={h} style={{
+              flex: 1, textAlign: 'center',
+              fontSize: 6, color: 'rgba(255,255,255,0.3)',
+              fontWeight: 600,
+            }}>
+              {h}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 1, marginBottom: 3 }}>
+          {[4,4,3,5,4,4,3,5,4].map((p, i) => (
+            <div key={i} style={{
+              flex: 1, textAlign: 'center',
+              fontSize: 6, color: 'rgba(255,255,255,0.2)',
+            }}>
+              {p}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 1 }}>
+          {[5,4,3,6,4,5,3,4,5].map((s, i) => (
+            <div key={i} style={{
+              flex: 1, textAlign: 'center',
+              fontSize: 8, fontWeight: 700,
+              color: s <= 3 ? '#4ade80' : s >= 6 ? '#f87171' : 'rgba(255,255,255,0.7)',
+              background: 'rgba(255,255,255,0.04)',
+              borderRadius: 2, padding: '3px 0',
+            }}>
+              {s}
+            </div>
+          ))}
+        </div>
+        {/* Total */}
+        <div style={{
+          textAlign: 'center', marginTop: 10,
+          fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)',
+        }}>
+          Total: 78
+        </div>
+      </div>
+    </PhoneFrame>
+  )
+}
+
+/** Step 3: Screenshot action */
+function PhoneScreenshot() {
+  return (
+    <PhoneFrame>
+      <div style={{ padding: '0 8px' }}>
+        {/* Simplified scorecard preview */}
+        <div style={{
+          fontSize: 7, color: 'rgba(255,255,255,0.4)',
+          textAlign: 'center', marginBottom: 6, fontWeight: 600,
+        }}>
+          Scorecard
+        </div>
+        {/* Mini grid */}
+        {[0,1,2].map(row => (
+          <div key={row} style={{ display: 'flex', gap: 2, marginBottom: 4 }}>
+            {Array.from({ length: 9 }).map((_, i) => (
+              <div key={i} style={{
+                flex: 1, height: 10, borderRadius: 2,
+                background: 'rgba(255,255,255,0.06)',
+              }} />
+            ))}
+          </div>
+        ))}
+      </div>
+      {/* Flash overlay */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(255,255,255,0.6)',
+        borderRadius: 21,
+        animation: 'igFlash 3s ease-out infinite',
+        pointerEvents: 'none',
+      }} />
+      {/* Camera icon sliding in */}
+      <div style={{
+        position: 'absolute', top: 10, right: 10,
+        animation: 'igCameraSlide 0.6s ease-out 0.3s both',
+      }}>
+        <CameraIcon />
+      </div>
+    </PhoneFrame>
+  )
+}
+
+/* ───────────────────────────────────────────────────────────
+   CSS Illustrations — Garmin ZIP mini illustrations
+   ─────────────────────────────────────────────────────────── */
+
+function BrowserBar() {
+  return (
+    <div style={{
+      width: 140, margin: '12px auto 0',
+      borderRadius: 8,
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      overflow: 'hidden',
+    }}>
+      {/* Browser chrome */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        padding: '5px 8px',
+        background: 'rgba(255,255,255,0.03)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+      }}>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {['#ff5f57', '#febc2e', '#28c840'].map(c => (
+            <div key={c} style={{ width: 5, height: 5, borderRadius: '50%', background: c, opacity: 0.7 }} />
+          ))}
+        </div>
+        <div style={{
+          flex: 1, height: 14, borderRadius: 4,
+          background: 'rgba(255,255,255,0.06)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 6, color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace',
+        }}>
+          garmin.com/account
+        </div>
+      </div>
+      {/* Body */}
+      <div style={{ padding: '8px 10px' }}>
+        <div style={{ height: 4, width: '60%', borderRadius: 2, background: 'rgba(255,255,255,0.08)', marginBottom: 6 }} />
+        <div style={{ height: 3, width: '80%', borderRadius: 2, background: 'rgba(255,255,255,0.05)', marginBottom: 4 }} />
+        <div style={{ height: 3, width: '45%', borderRadius: 2, background: 'rgba(255,255,255,0.05)' }} />
+      </div>
+    </div>
+  )
+}
+
+function SettingsMenu() {
+  return (
+    <div style={{
+      width: 140, margin: '12px auto 0',
+      borderRadius: 8,
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      overflow: 'hidden', padding: 8,
+    }}>
+      {['Perfil', 'Gestionar datos', 'Notificaciones'].map((item, i) => (
+        <div key={item} style={{
+          padding: '6px 8px',
+          borderRadius: 5,
+          marginBottom: i < 2 ? 3 : 0,
+          background: i === 1 ? 'rgba(196,153,42,0.15)' : 'transparent',
+          border: i === 1 ? '1px solid rgba(196,153,42,0.3)' : '1px solid transparent',
+          fontSize: 8,
+          color: i === 1 ? '#c4992a' : 'rgba(255,255,255,0.35)',
+          fontWeight: i === 1 ? 700 : 400,
+        }}>
+          {item}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ExportButton() {
+  return (
+    <div style={{
+      width: 140, margin: '12px auto 0',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+    }}>
+      <div style={{
+        padding: '8px 16px',
+        borderRadius: 8,
+        background: 'linear-gradient(135deg, rgba(196,153,42,0.2), rgba(196,153,42,0.1))',
+        border: '1px solid rgba(196,153,42,0.3)',
+        display: 'flex', alignItems: 'center', gap: 6,
+        fontSize: 9, fontWeight: 600, color: '#c4992a',
+      }}>
+        <DownloadArrowIcon size={12} />
+        Export Data
+      </div>
+    </div>
+  )
+}
+
+function EnvelopeIllustration() {
+  return (
+    <div style={{
+      width: 140, margin: '12px auto 0',
+      display: 'flex', justifyContent: 'center',
+    }}>
+      <div style={{ animation: 'igEnvelopeBounce 2.5s ease-in-out infinite' }}>
+        <svg width="44" height="36" viewBox="0 0 44 36" fill="none">
+          <rect x="2" y="6" width="40" height="28" rx="4" stroke="rgba(196,153,42,0.6)" strokeWidth="2" fill="rgba(196,153,42,0.08)" />
+          <path d="M2 10l20 12 20-12" stroke="rgba(196,153,42,0.5)" strokeWidth="2" fill="none" />
+          {/* Notification dot */}
+          <circle cx="36" cy="8" r="5" fill="#c4992a" opacity="0.8" />
+          <text x="36" y="11" textAnchor="middle" fill="#070d18" fontSize="7" fontWeight="700">1</text>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+/* ───────────────────────────────────────────────────────────
+   PhotoGuide
+   ─────────────────────────────────────────────────────────── */
+
+function PhotoGuide({
+  onFilesSelected, onBack, uploading, error,
+}: Omit<ImportGuideProps, 'source'>) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [stepsVisible, setStepsVisible] = useState([false, false, false])
+
+  useEffect(() => {
+    const timers = [0, 1, 2].map(i =>
+      setTimeout(() => setStepsVisible(prev => {
+        const n = [...prev]; n[i] = true; return n
+      }), 150 + i * 200)
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  const handleFileChange = useCallback((files: FileList | null) => {
+    if (!files || files.length === 0) return
+    onFilesSelected(files)
+  }, [onFilesSelected])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }, [])
+  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragOver(false) }, [])
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); setDragOver(false)
+    if (e.dataTransfer.files?.length) handleFileChange(e.dataTransfer.files)
+  }, [handleFileChange])
+
+  const steps: { text: string; illustration: React.ReactNode }[] = [
+    { text: 'Abre Garmin Golf en tu celular', illustration: <PhoneActivityList /> },
+    { text: 'Entra a una ronda y busca la Scorecard', illustration: <PhoneScorecardView /> },
+    { text: 'Toma un pantallazo de la scorecard', illustration: <PhoneScreenshot /> },
+  ]
+
+  return (
+    <div style={{ paddingTop: 16 }}>
+      <style>{SHARED_STYLES}</style>
+
+      <Header
+        title="Pantallazo de scorecard"
+        subtitle="La IA lee los numeros exactos de cada hoyo"
+        onBack={onBack}
+      />
+
+      {/* Steps */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+        {steps.map((step, i) => (
+          <div
+            key={i}
+            style={{
+              padding: '20px 18px',
+              background: '#0e1c2f',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 16,
+              opacity: stepsVisible[i] ? 1 : 0,
+              transform: stepsVisible[i] ? 'translateY(0)' : 'translateY(20px)',
+              transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
+            }}
+          >
+            {/* Step header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <StepNumber n={i + 1} />
+              <span style={{
+                color: 'var(--text)', fontSize: 15, fontWeight: 600, lineHeight: 1.4,
+              }}>
+                {step.text}
+              </span>
+            </div>
+            {/* Illustration */}
+            {step.illustration}
+          </div>
+        ))}
+      </div>
+
+      {/* Tip */}
+      <div style={{
+        padding: '14px 16px',
+        background: 'rgba(196,153,42,0.04)',
+        border: '1px solid rgba(196,153,42,0.12)',
+        borderRadius: 12, marginBottom: 24,
+        display: 'flex', gap: 10, alignItems: 'flex-start',
+      }}>
+        <LightbulbIcon />
+        <span style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.6 }}>
+          Para mas de 10 tarjetas, te recomendamos usar el archivo de Garmin — es mas rapido y preciso.
+        </span>
+      </div>
+
+      {/* Drop zone */}
+      <DropZone
+        fileInputRef={fileInputRef}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        dragOver={dragOver}
+        uploading={uploading}
+        accept=".jpg,.jpeg,.png,.heic"
+        multiple
+        onFileChange={handleFileChange}
+        buttonLabel="Seleccionar pantallazos"
+        uploadingLabel="Subiendo fotos..."
+        idleLabel="Arrastra tus pantallazos aqui o toca para seleccionar"
+        hintLabel="JPG, PNG o HEIC — hasta 20 fotos"
+      />
+
+      <ErrorMsg error={error} />
+    </div>
+  )
+}
+
+/* ───────────────────────────────────────────────────────────
+   GarminGuide
+   ─────────────────────────────────────────────────────────── */
+
+function GarminGuide({
+  onFilesSelected, onBack, uploading, error,
+}: Omit<ImportGuideProps, 'source'>) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [stepsVisible, setStepsVisible] = useState([false, false, false, false])
+
+  useEffect(() => {
+    const timers = [0, 1, 2, 3].map(i =>
+      setTimeout(() => setStepsVisible(prev => {
+        const n = [...prev]; n[i] = true; return n
+      }), 150 + i * 200)
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  const handleFileChange = useCallback((files: FileList | null) => {
+    if (!files || files.length === 0) return
+    onFilesSelected(files)
+  }, [onFilesSelected])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }, [])
+  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragOver(false) }, [])
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); setDragOver(false)
+    if (e.dataTransfer.files?.length) handleFileChange(e.dataTransfer.files)
+  }, [handleFileChange])
+
+  const garminSteps: {
+    title: string; description: string;
+    link?: { url: string; label: string };
+    illustration: React.ReactNode;
+  }[] = [
+    {
+      title: 'Inicia sesion en garmin.com',
+      description: '',
+      link: { url: 'https://www.garmin.com/account', label: 'Abrir Garmin' },
+      illustration: <BrowserBar />,
+    },
+    {
+      title: 'Busca la seccion de privacidad',
+      description: 'Gestionar datos / Data Management',
+      illustration: <SettingsMenu />,
+    },
+    {
+      title: 'Solicita exportar tus datos',
+      description: 'Garmin preparara un archivo con tu informacion',
+      illustration: <ExportButton />,
+    },
+    {
+      title: 'Espera el email (24-48 horas)',
+      description: 'Te llegara un correo con un link de descarga',
+      illustration: <EnvelopeIllustration />,
+    },
+  ]
+
+  return (
+    <div style={{ paddingTop: 16 }}>
+      <style>{SHARED_STYLES}</style>
+
+      <Header
+        title="Archivo de Garmin"
+        subtitle="Todas tus rondas de una sola vez, con datos completos"
+        onBack={onBack}
+      />
+
+      {/* Phase 1 */}
+      <div style={{
+        padding: '14px 16px', marginBottom: 20,
+        background: 'rgba(196,153,42,0.04)',
+        border: '1px solid rgba(196,153,42,0.12)',
+        borderRadius: 14,
+      }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: '#c4992a', margin: '0 0 4px' }}>
+          Solicitar tus datos
+        </h3>
+        <p style={{ color: 'var(--text-2)', fontSize: 12, margin: 0, opacity: 0.8 }}>
+          Solo necesitas hacer esto una vez
+        </p>
+      </div>
+
+      {/* Timeline steps */}
+      <div style={{ position: 'relative', marginBottom: 32, paddingLeft: 20 }}>
+        {/* Vertical gold timeline line */}
+        <div style={{
+          position: 'absolute', left: 19, top: 20, bottom: 20, width: 2,
+          background: 'rgba(196,153,42,0.15)',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            width: '100%',
+            background: 'linear-gradient(180deg, #c4992a, rgba(196,153,42,0.3))',
+            animation: 'igTimelineDraw 1.5s ease-out forwards',
+          }} />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {garminSteps.map((step, i) => (
+            <div
+              key={i}
+              style={{
+                padding: '18px 16px',
+                background: '#0e1c2f',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 16,
+                opacity: stepsVisible[i] ? 1 : 0,
+                transform: stepsVisible[i] ? 'translateY(0)' : 'translateY(20px)',
+                transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
+              }}
+            >
+              {/* Step header */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                <StepNumber n={i + 1} />
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    color: 'var(--text)', fontSize: 15, fontWeight: 600,
+                    lineHeight: 1.4, marginBottom: step.description ? 4 : 0,
+                  }}>
+                    {step.title}
+                  </div>
+                  {step.description && (
+                    <div style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.5 }}>
+                      {step.description}
+                    </div>
+                  )}
+                  {step.link && (
+                    <a
+                      href={step.link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        marginTop: 8, color: '#c4992a',
+                        fontSize: 13, fontWeight: 600,
+                        textDecoration: 'none',
+                        borderBottom: '1px solid rgba(196,153,42,0.4)',
+                        paddingBottom: 1,
+                      }}
+                    >
+                      {step.link.label} &rarr;
+                    </a>
+                  )}
+                </div>
+              </div>
+              {/* Illustration */}
+              {step.illustration}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20,
+      }}>
+        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+        <span style={{ color: 'var(--text-2)', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+          Ya tienes el archivo?
+        </span>
+        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+      </div>
+
+      {/* Drop zone */}
+      <DropZone
+        fileInputRef={fileInputRef}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        dragOver={dragOver}
+        uploading={uploading}
+        accept=".zip"
+        multiple={false}
+        onFileChange={handleFileChange}
+        buttonLabel="Seleccionar archivo ZIP"
+        uploadingLabel="Procesando archivo ZIP..."
+        idleLabel="Arrastra tu archivo ZIP de Garmin aqui"
+        hintLabel="Archivo .zip sin descomprimir"
+      />
+
+      <ErrorMsg error={error} />
+
+      {/* Trust note */}
+      <div style={{
+        padding: '14px 16px',
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: 12, marginTop: 20,
+        display: 'flex', gap: 10, alignItems: 'flex-start',
+      }}>
+        <LockIcon />
+        <span style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.6, opacity: 0.8 }}>
+          Garmin te envia toda tu data. Nosotros solo leemos tus scores de golf, putts y fairways. Nada mas se almacena.
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/* ───────────────────────────────────────────────────────────
+   CsvGuide
+   ─────────────────────────────────────────────────────────── */
+
+function CsvGuide({
+  onFilesSelected, onBack, uploading, error,
+}: Omit<ImportGuideProps, 'source'>) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [stepsVisible, setStepsVisible] = useState([false, false, false])
+
+  useEffect(() => {
+    const timers = [0, 1, 2].map(i =>
+      setTimeout(() => setStepsVisible(prev => {
+        const n = [...prev]; n[i] = true; return n
+      }), 150 + i * 200)
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  const handleFileChange = useCallback((files: FileList | null) => {
+    if (!files || files.length === 0) return
+    onFilesSelected(files)
+  }, [onFilesSelected])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }, [])
+  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragOver(false) }, [])
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); setDragOver(false)
+    if (e.dataTransfer.files?.length) handleFileChange(e.dataTransfer.files)
+  }, [handleFileChange])
+
+  const csvSteps = [
+    { text: 'Abre connect.garmin.com en tu PC' },
+    { text: "Ve a 'Actividades' y filtra por Golf" },
+    { text: 'Descarga como CSV' },
+  ]
+
+  return (
+    <div style={{ paddingTop: 16 }}>
+      <style>{SHARED_STYLES}</style>
+
+      <Header
+        title="Archivo de Garmin Connect"
+        subtitle="Importa tu historial completo desde el CSV"
+        onBack={onBack}
+      />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+        {csvSteps.map((step, i) => (
+          <div
+            key={i}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 14,
+              padding: '16px 18px',
+              background: '#0e1c2f',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 14,
+              opacity: stepsVisible[i] ? 1 : 0,
+              transform: stepsVisible[i] ? 'translateY(0)' : 'translateY(20px)',
+              transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
+            }}
+          >
+            <StepNumber n={i + 1} />
+            <span style={{ color: 'var(--text)', fontSize: 15, fontWeight: 600, lineHeight: 1.4 }}>
+              {step.text}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Tip */}
+      <div style={{
+        padding: '14px 16px',
+        background: 'rgba(196,153,42,0.04)',
+        border: '1px solid rgba(196,153,42,0.12)',
+        borderRadius: 12, marginBottom: 24,
+        display: 'flex', gap: 10, alignItems: 'flex-start',
+      }}>
+        <LightbulbIcon />
+        <div>
+          <span style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.5 }}>
+            Recomendamos hacer esto desde el computador para mayor comodidad
+          </span>
+          <a
+            href="https://connect.garmin.com/modern/activities"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: '#c4992a', fontSize: 13,
+              textDecoration: 'none', borderBottom: '1px solid rgba(196,153,42,0.4)',
+              paddingBottom: 1, marginTop: 6, display: 'inline-block',
+            }}
+          >
+            connect.garmin.com/modern/activities
+          </a>
+        </div>
+      </div>
+
+      <DropZone
+        fileInputRef={fileInputRef}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        dragOver={dragOver}
+        uploading={uploading}
+        accept=".csv,.xlsx"
+        multiple={false}
+        onFileChange={handleFileChange}
+        buttonLabel="Seleccionar archivo"
+        uploadingLabel="Procesando archivo..."
+        idleLabel="Arrastra tu archivo aqui o toca para seleccionar"
+        hintLabel="CSV o XLSX"
+      />
+
+      <ErrorMsg error={error} />
+    </div>
+  )
+}
+
+/* ───────────────────────────────────────────────────────────
+   Main export
+   ─────────────────────────────────────────────────────────── */
+
+export default function ImportGuide({
+  source, onFilesSelected, onBack, uploading, error,
+}: ImportGuideProps) {
+  if (source === 'photos') return <PhotoGuide onFilesSelected={onFilesSelected} onBack={onBack} uploading={uploading} error={error} />
+  if (source === 'garmin_zip') return <GarminGuide onFilesSelected={onFilesSelected} onBack={onBack} uploading={uploading} error={error} />
+  return <CsvGuide onFilesSelected={onFilesSelected} onBack={onBack} uploading={uploading} error={error} />
 }
