@@ -106,8 +106,32 @@ export async function POST(request: NextRequest) {
     const validRounds = selectedRounds.filter(r => r.validation?.valid !== false)
     const insertedIds: string[] = []
     const insertErrors: Array<{ tempId: string; error: string }> = []
+    const duplicates: Array<{ tempId: string; course: string; date: string }> = []
 
     for (const round of validRounds) {
+      // Check for duplicate round (same user, course, score, date)
+      try {
+        const playedDate = round.played_at.split('T')[0]
+        const { count } = await supabase
+          .from('historical_rounds')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('course_name', round.course_name)
+          .eq('total_gross', round.total_gross)
+          .gte('played_at', playedDate)
+          .lte('played_at', playedDate)
+
+        if (count && count > 0) {
+          duplicates.push({
+            tempId: round.tempId,
+            course: round.course_name,
+            date: round.played_at,
+          })
+          continue // skip inserting duplicate
+        }
+      } catch {
+        // If duplicate check fails, proceed with insert
+      }
       // Convert scores Record to array
       const scoresArray: number[] = []
       const holeCount = round.holes_played || 18
@@ -200,8 +224,10 @@ export async function POST(request: NextRequest) {
       job_id,
       total_imported: insertedIds.length,
       total_errors: insertErrors.length,
+      total_duplicates: duplicates.length,
       inserted_ids: insertedIds,
       errors: insertErrors.length > 0 ? insertErrors : undefined,
+      duplicates: duplicates.length > 0 ? duplicates : undefined,
       cpi: cpiResult ?? null,
       cpiResult: cpiResult ?? null,
     })

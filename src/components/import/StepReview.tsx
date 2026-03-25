@@ -5,8 +5,6 @@ import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/lib/cpi'
 import type { ImportState } from './ImportWizard'
 
-type TabKey = 'all' | 'ready' | 'review' | 'excluded'
-
 interface StepReviewProps {
   rounds: ImportRoundData[]
   jobId: string | null
@@ -23,31 +21,12 @@ export default function StepReview({
   onStateUpdate,
 }: StepReviewProps) {
   const [rounds, setRounds] = useState<ImportRoundData[]>(initialRounds)
-  const [activeTab, setActiveTab] = useState<TabKey>('all')
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [confirming, setConfirming] = useState(false)
 
   const readyRounds = rounds.filter(r => r.validation.valid && !excluded.has(r.tempId))
-  const reviewRounds = rounds.filter(
-    r => !r.validation.valid && !excluded.has(r.tempId),
-  )
-  const excludedRounds = rounds.filter(r => excluded.has(r.tempId))
-
-  const filteredRounds =
-    activeTab === 'ready'
-      ? readyRounds
-      : activeTab === 'review'
-        ? reviewRounds
-        : activeTab === 'excluded'
-          ? excludedRounds
-          : rounds
-
-  const tabs: { key: TabKey; label: string; count: number }[] = [
-    { key: 'all', label: 'Todas', count: rounds.length },
-    { key: 'ready', label: 'Listas', count: readyRounds.length },
-    { key: 'review', label: 'Revisar', count: reviewRounds.length },
-    { key: 'excluded', label: 'Excluidas', count: excludedRounds.length },
-  ]
+  const totalNonExcluded = rounds.filter(r => !excluded.has(r.tempId))
 
   const handleScoreChange = useCallback(
     (tempId: string, hole: string, value: number) => {
@@ -79,12 +58,19 @@ export default function StepReview({
     })
   }, [])
 
+  const toggleExpanded = useCallback((tempId: string) => {
+    setExpandedCards(prev => {
+      const next = new Set(prev)
+      if (next.has(tempId)) next.delete(tempId)
+      else next.add(tempId)
+      return next
+    })
+  }, [])
+
   const handleConfirm = async () => {
     setConfirming(true)
     try {
-      const validRounds = rounds.filter(
-        r => !excluded.has(r.tempId),
-      )
+      const validRounds = rounds.filter(r => !excluded.has(r.tempId))
       const res = await fetch('/api/import/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -104,8 +90,47 @@ export default function StepReview({
     }
   }
 
+  const getCardStatus = (round: ImportRoundData) => {
+    const isExcluded = excluded.has(round.tempId)
+    if (isExcluded) return 'excluded'
+    const hasDuplicate = round.validation.issues.some(i => i.type === 'incomplete_round' && i.message.toLowerCase().includes('duplicad'))
+    if (hasDuplicate) return 'duplicate'
+    if (!round.validation.valid) return 'warning'
+    return 'ready'
+  }
+
+  const statusConfig = {
+    ready: {
+      icon: '\u2705',
+      borderColor: 'rgba(80,200,120,0.25)',
+      bgColor: 'rgba(80,200,120,0.03)',
+    },
+    warning: {
+      icon: '\u26A0\uFE0F',
+      borderColor: 'rgba(255,180,50,0.25)',
+      bgColor: 'rgba(255,180,50,0.03)',
+    },
+    duplicate: {
+      icon: '\uD83D\uDD04',
+      borderColor: 'rgba(59,130,246,0.25)',
+      bgColor: 'rgba(59,130,246,0.03)',
+    },
+    excluded: {
+      icon: '\u274C',
+      borderColor: 'rgba(255,60,60,0.15)',
+      bgColor: 'rgba(255,60,60,0.02)',
+    },
+  }
+
   return (
-    <div style={{ paddingTop: '16px' }}>
+    <div style={{ paddingTop: '16px', paddingBottom: '100px' }}>
+      <style>{`
+        @keyframes reviewCardIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
       {/* Header */}
       <div
         style={{
@@ -126,7 +151,7 @@ export default function StepReview({
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '12px',
-            color: '#94a8c0',
+            color: 'var(--text-2)',
             fontSize: '18px',
             cursor: 'pointer',
             flexShrink: 0,
@@ -135,98 +160,142 @@ export default function StepReview({
           &larr;
         </button>
         <div>
-          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#edeae4', margin: 0 }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: 'var(--font-playfair)' }}>
             Revisar rondas
           </h2>
-          <p style={{ color: '#94a8c0', fontSize: '13px', margin: 0 }}>
-            {readyRounds.length} listas, {reviewRounds.length} para revisar
+          <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: 0 }}>
+            {readyRounds.length} de {totalNonExcluded.length} rondas listas
           </p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '8px',
-          marginBottom: '20px',
-          overflowX: 'auto',
-          paddingBottom: '4px',
-        }}
-      >
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '20px',
-              fontSize: '13px',
-              fontWeight: activeTab === tab.key ? 600 : 400,
-              background:
-                activeTab === tab.key ? '#c4992a' : 'rgba(255,255,255,0.05)',
-              color: activeTab === tab.key ? '#070d18' : '#94a8c0',
-              border: 'none',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              minHeight: '44px',
-            }}
-          >
-            {tab.label} ({tab.count})
-          </button>
-        ))}
-      </div>
-
       {/* Round cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-        {filteredRounds.map(round => {
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {rounds.map((round, i) => {
+          const status = getCardStatus(round)
+          const config = statusConfig[status]
           const isExcluded = excluded.has(round.tempId)
+          const isExpanded = expandedCards.has(round.tempId)
+          const hasFixableIssues = round.validation.issues.some(iss => iss.canFix && iss.holeNumber)
+
           return (
             <div
               key={round.tempId}
               style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: `1px solid ${
-                  isExcluded
-                    ? 'rgba(255,60,60,0.2)'
-                    : round.validation.valid
-                      ? 'rgba(80,200,120,0.2)'
-                      : 'rgba(255,180,50,0.2)'
-                }`,
+                background: config.bgColor,
+                border: `1px solid ${config.borderColor}`,
                 borderRadius: '16px',
                 padding: '16px',
                 opacity: isExcluded ? 0.5 : 1,
+                transition: 'all 0.25s ease',
+                animation: `reviewCardIn 0.4s ease-out ${i * 60}ms both`,
               }}
             >
-              {/* Round header */}
+              {/* Card top: status icon + info */}
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                {/* Status icon */}
+                <span style={{ fontSize: '24px', flexShrink: 0, lineHeight: 1, marginTop: '2px' }}>
+                  {config.icon}
+                </span>
+
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--text)', marginBottom: '2px' }}>
+                    {round.course_name || 'Campo desconocido'}
+                  </div>
+                  <div style={{ color: 'var(--text-2)', fontSize: '13px' }}>
+                    {round.played_at} &middot; {round.holes_played} hoyos &middot; {round.total_gross} golpes
+                  </div>
+
+                  {/* Issues inline */}
+                  {!isExcluded && round.validation.issues.length > 0 && (
+                    <div style={{ marginTop: '6px' }}>
+                      {round.validation.issues.map((issue, j) => (
+                        <div
+                          key={j}
+                          style={{
+                            fontSize: '12px',
+                            color: issue.canFix ? '#f0ad4e' : '#ff6666',
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {issue.message}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Duplicate text */}
+                  {status === 'duplicate' && !isExcluded && (
+                    <div style={{ fontSize: '12px', color: '#60a5fa', marginTop: '4px' }}>
+                      Ya existe en tu historial
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions row */}
               <div
                 style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: '8px',
+                  gap: '8px',
+                  marginTop: '12px',
+                  flexWrap: 'wrap',
                 }}
               >
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '15px', color: '#edeae4' }}>
-                    {round.course_name || 'Campo desconocido'}
-                  </div>
-                  <div style={{ color: '#94a8c0', fontSize: '12px' }}>
-                    {round.played_at} &middot; {round.holes_played} hoyos &middot;{' '}
-                    {round.total_gross} golpes
-                  </div>
-                </div>
+                {/* Corregir button — only if fixable issues */}
+                {!isExcluded && hasFixableIssues && (
+                  <button
+                    onClick={() => toggleExpanded(round.tempId)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      background: 'rgba(255,180,50,0.1)',
+                      color: '#f0ad4e',
+                      border: '1px solid rgba(255,180,50,0.2)',
+                      cursor: 'pointer',
+                      minHeight: '44px',
+                      minWidth: '44px',
+                    }}
+                  >
+                    {isExpanded ? 'Cerrar' : 'Corregir'}
+                  </button>
+                )}
+
+                {/* Duplicate: Importar de todos modos */}
+                {status === 'duplicate' && !isExcluded && (
+                  <button
+                    onClick={() => {/* already included by default */}}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      background: 'rgba(59,130,246,0.1)',
+                      color: '#60a5fa',
+                      border: '1px solid rgba(59,130,246,0.2)',
+                      cursor: 'pointer',
+                      minHeight: '44px',
+                      minWidth: '44px',
+                    }}
+                  >
+                    Importar de todos modos
+                  </button>
+                )}
+
+                {/* Excluir / Incluir */}
                 <button
                   onClick={() => toggleExclude(round.tempId)}
                   style={{
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    background: isExcluded
-                      ? 'rgba(80,200,120,0.1)'
-                      : 'rgba(255,60,60,0.1)',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    background: isExcluded ? 'rgba(80,200,120,0.1)' : 'rgba(255,60,60,0.08)',
                     color: isExcluded ? '#50c878' : '#ff6666',
-                    border: 'none',
+                    border: `1px solid ${isExcluded ? 'rgba(80,200,120,0.2)' : 'rgba(255,60,60,0.15)'}`,
                     cursor: 'pointer',
                     minHeight: '44px',
                     minWidth: '44px',
@@ -236,46 +305,29 @@ export default function StepReview({
                 </button>
               </div>
 
-              {/* Issues */}
-              {round.validation.issues.length > 0 && !isExcluded && (
-                <div style={{ marginBottom: '12px' }}>
-                  {round.validation.issues.map((issue, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '6px 0',
-                        fontSize: '12px',
-                        color: issue.canFix ? '#f0ad4e' : '#ff6666',
-                      }}
-                    >
-                      <span>{issue.canFix ? '\u26A0\uFE0F' : '\u274C'}</span>
-                      <span>{issue.message}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Inline score fixing for fixable issues */}
-              {!isExcluded &&
-                round.validation.issues.some(i => i.canFix && i.holeNumber) && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '8px',
-                      padding: '12px',
-                      background: 'rgba(255,180,50,0.05)',
-                      borderRadius: '10px',
-                    }}
-                  >
-                    {round.validation.issues
-                      .filter(i => i.canFix && i.holeNumber)
-                      .map(issue => (
+              {/* Expandable score correction section */}
+              {isExpanded && hasFixableIssues && !isExcluded && (
+                <div
+                  style={{
+                    marginTop: '12px',
+                    padding: '14px',
+                    background: 'rgba(255,180,50,0.05)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255,180,50,0.15)',
+                  }}
+                >
+                  <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '10px' }}>
+                    Corrige los scores faltantes:
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    {Array.from({ length: round.holes_played }, (_, idx) => idx + 1).map(holeNum => {
+                      const holeKey = String(holeNum)
+                      const hasIssue = round.validation.issues.some(
+                        iss => iss.canFix && iss.holeNumber === holeNum,
+                      )
+                      return (
                         <div
-                          key={issue.holeNumber}
+                          key={holeNum}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -283,123 +335,123 @@ export default function StepReview({
                           }}
                         >
                           <label
-                            style={{ fontSize: '12px', color: '#94a8c0' }}
+                            style={{
+                              fontSize: '12px',
+                              color: hasIssue ? '#f0ad4e' : 'var(--text-3, #5a6a7d)',
+                              fontWeight: hasIssue ? 600 : 400,
+                              minWidth: '28px',
+                            }}
                           >
-                            H{issue.holeNumber}:
+                            H{holeNum}
                           </label>
                           <input
                             type="number"
                             min={1}
                             max={15}
-                            value={
-                              round.scores[String(issue.holeNumber)] || ''
-                            }
+                            value={round.scores[holeKey] || ''}
                             onChange={e =>
                               handleScoreChange(
                                 round.tempId,
-                                String(issue.holeNumber),
+                                holeKey,
                                 parseInt(e.target.value) || 0,
                               )
                             }
                             style={{
                               width: '48px',
-                              height: '36px',
-                              background: 'rgba(255,255,255,0.08)',
-                              border: '1px solid rgba(255,180,50,0.3)',
+                              height: '40px',
+                              background: hasIssue
+                                ? 'rgba(255,180,50,0.1)'
+                                : 'rgba(255,255,255,0.06)',
+                              border: `1px solid ${
+                                hasIssue
+                                  ? 'rgba(255,180,50,0.35)'
+                                  : 'rgba(255,255,255,0.1)'
+                              }`,
                               borderRadius: '8px',
-                              color: '#edeae4',
+                              color: 'var(--text)',
                               textAlign: 'center',
                               fontSize: '14px',
                             }}
                           />
                         </div>
-                      ))}
+                      )
+                    })}
                   </div>
-                )}
-
-              {/* Confidence */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginTop: '8px',
-                }}
-              >
-                <div
-                  style={{
-                    flex: 1,
-                    height: '3px',
-                    background: 'rgba(255,255,255,0.05)',
-                    borderRadius: '2px',
-                  }}
-                >
-                  <div
-                    style={{
-                      height: '100%',
-                      width: `${round.import_confidence * 100}%`,
-                      background:
-                        round.import_confidence > 0.8
-                          ? '#50c878'
-                          : round.import_confidence > 0.5
-                            ? '#f0ad4e'
-                            : '#ff6666',
-                      borderRadius: '2px',
-                    }}
-                  />
                 </div>
-                <span style={{ fontSize: '11px', color: '#5a6a7d' }}>
-                  {Math.round(round.import_confidence * 100)}% confianza
-                </span>
-              </div>
+              )}
             </div>
           )
         })}
 
-        {filteredRounds.length === 0 && (
+        {rounds.length === 0 && (
           <div
             style={{
               textAlign: 'center',
               padding: '40px 20px',
-              color: '#5a6a7d',
+              color: 'var(--text-3, #5a6a7d)',
               fontSize: '14px',
             }}
           >
-            No hay rondas en esta categoria
+            No se detectaron rondas para revisar
           </div>
         )}
       </div>
 
-      {/* Confirm button */}
-      <button
-        onClick={handleConfirm}
-        disabled={confirming || readyRounds.length === 0}
+      {/* Sticky bottom bar */}
+      <div
         style={{
-          width: '100%',
-          padding: '16px',
-          borderRadius: '14px',
-          fontSize: '16px',
-          fontWeight: 700,
-          background:
-            confirming || readyRounds.length === 0
-              ? 'rgba(196,153,42,0.3)'
-              : '#c4992a',
-          color:
-            confirming || readyRounds.length === 0
-              ? 'rgba(255,255,255,0.5)'
-              : '#070d18',
-          border: 'none',
-          cursor:
-            confirming || readyRounds.length === 0
-              ? 'not-allowed'
-              : 'pointer',
-          minHeight: '52px',
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: '12px 16px',
+          paddingBottom: 'max(env(safe-area-inset-bottom, 12px), 12px)',
+          background: 'linear-gradient(to top, var(--bg, #070d18) 80%, transparent)',
+          zIndex: 30,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '8px',
         }}
       >
-        {confirming
-          ? 'Confirmando...'
-          : `Importar ${readyRounds.length} ronda${readyRounds.length !== 1 ? 's' : ''}`}
-      </button>
+        {/* Counter */}
+        <span style={{ fontSize: '13px', color: 'var(--text-2)', fontWeight: 500 }}>
+          {readyRounds.length} de {totalNonExcluded.length} rondas listas
+        </span>
+
+        {/* Confirm button */}
+        <button
+          onClick={handleConfirm}
+          disabled={confirming || readyRounds.length === 0}
+          style={{
+            width: '100%',
+            maxWidth: '600px',
+            padding: '16px',
+            borderRadius: '14px',
+            fontSize: '16px',
+            fontWeight: 700,
+            background:
+              confirming || readyRounds.length === 0
+                ? 'rgba(196,153,42,0.3)'
+                : 'linear-gradient(135deg, #c4992a, #e8c06a)',
+            color:
+              confirming || readyRounds.length === 0
+                ? 'rgba(255,255,255,0.5)'
+                : '#070d18',
+            border: 'none',
+            cursor:
+              confirming || readyRounds.length === 0
+                ? 'not-allowed'
+                : 'pointer',
+            minHeight: '52px',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {confirming
+            ? 'Confirmando...'
+            : `Importar ${readyRounds.length} ronda${readyRounds.length !== 1 ? 's' : ''}`}
+        </button>
+      </div>
     </div>
   )
 }

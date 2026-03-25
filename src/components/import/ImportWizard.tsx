@@ -5,17 +5,15 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/lib/cpi'
 import StepSelector from './StepSelector'
-import StepGarminInstructions from './StepGarminInstructions'
-import StepPhotoInstructions from './StepPhotoInstructions'
-import StepCsvInstructions from './StepCsvInstructions'
+import ImportGuide from './ImportGuide'
 import StepProcessing from './StepProcessing'
 import StepReview from './StepReview'
 import StepCelebration from './StepCelebration'
 
-export type ImportSource = 'garmin' | 'photos' | 'csv' | null
+export type ImportSource = 'photos' | 'csv' | null
 export type WizardStep =
   | 'selector'
-  | 'instructions'
+  | 'guide'
   | 'processing'
   | 'review'
   | 'celebration'
@@ -29,6 +27,7 @@ export interface ImportState {
   insights: string[]
   processingProgress: number
   processingMessage: string
+  fileCount: number
 }
 
 const INITIAL_STATE: ImportState = {
@@ -40,11 +39,12 @@ const INITIAL_STATE: ImportState = {
   insights: [],
   processingProgress: 0,
   processingMessage: '',
+  fileCount: 0,
 }
 
 const STEP_INDEX: Record<WizardStep, number> = {
   selector: 0,
-  instructions: 1,
+  guide: 1,
   processing: 2,
   review: 3,
   celebration: 4,
@@ -54,12 +54,17 @@ export default function ImportWizard() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const initialSource = (searchParams.get('source') as ImportSource) || null
+  const rawSource = searchParams.get('source')
+  const initialSource: ImportSource =
+    rawSource === 'photos' || rawSource === 'csv' ? rawSource : null
   const [state, setState] = useState<ImportState>({
     ...INITIAL_STATE,
     source: initialSource,
-    step: initialSource ? 'instructions' : 'selector',
+    step: initialSource ? 'guide' : 'selector',
   })
+
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const updateState = useCallback((partial: Partial<ImportState>) => {
     setState(prev => ({ ...prev, ...partial }))
@@ -67,22 +72,96 @@ export default function ImportWizard() {
 
   const handleSourceSelect = useCallback(
     (source: ImportSource) => {
-      updateState({ source, step: 'instructions' })
+      updateState({ source, step: 'guide' })
     },
     [updateState],
   )
 
   const handleBack = useCallback(() => {
-    if (state.step === 'instructions') {
+    if (state.step === 'guide') {
       updateState({ step: 'selector', source: null })
+      setUploadError(null)
     } else if (state.step === 'review') {
-      updateState({ step: 'instructions' })
+      updateState({ step: 'guide' })
     }
   }, [state.step, updateState])
 
   const handleClose = useCallback(() => {
     router.push('/dashboard')
   }, [router])
+
+  // Unified file upload handler for both photo and CSV
+  const handleFilesSelected = useCallback(
+    async (files: FileList) => {
+      if (!state.source) return
+
+      setUploadError(null)
+      setUploading(true)
+
+      try {
+        const formData = new FormData()
+
+        if (state.source === 'photos') {
+          if (files.length > 20) {
+            setUploadError('Maximo 20 fotos por vez')
+            setUploading(false)
+            return
+          }
+          Array.from(files).forEach(file => formData.append('images', file))
+
+          const res = await fetch('/api/import/screenshot', {
+            method: 'POST',
+            body: formData,
+          })
+
+          if (!res.ok) throw new Error('Error subiendo fotos')
+
+          const data = await res.json()
+          updateState({
+            jobId: data.job_id,
+            rounds: data.rounds || [],
+            step: 'processing',
+            fileCount: files.length,
+          })
+        } else {
+          formData.append('file', files[0])
+
+          const res = await fetch('/api/import/csv', {
+            method: 'POST',
+            body: formData,
+          })
+
+          if (!res.ok) throw new Error('Error procesando archivo')
+
+          const data = await res.json()
+
+          if (data.needsMapping) {
+            setUploadError(
+              'No pudimos detectar las columnas automaticamente. Renombra las columnas a: fecha, campo, score_total.',
+            )
+            setUploading(false)
+            return
+          }
+
+          updateState({
+            jobId: data.job_id,
+            rounds: data.rounds || [],
+            step: 'processing',
+            fileCount: 1,
+          })
+        }
+      } catch (err) {
+        console.error('Upload error:', err)
+        setUploadError(
+          state.source === 'photos'
+            ? 'Error al subir las fotos. Intenta de nuevo.'
+            : 'Error al procesar el archivo. Verifica el formato.',
+        )
+        setUploading(false)
+      }
+    },
+    [state.source, updateState],
+  )
 
   const progress = ((STEP_INDEX[state.step] + 1) / 5) * 100
 
@@ -149,29 +228,13 @@ export default function ImportWizard() {
           <StepSelector onSelect={handleSourceSelect} />
         )}
 
-        {state.step === 'instructions' && state.source === 'garmin' && (
-          <StepGarminInstructions
+        {state.step === 'guide' && state.source && (
+          <ImportGuide
+            source={state.source}
+            onFilesSelected={handleFilesSelected}
             onBack={handleBack}
-            onStateUpdate={updateState}
-            state={state}
-          />
-        )}
-
-        {state.step === 'instructions' && state.source === 'photos' && (
-          <StepPhotoInstructions
-            onBack={handleBack}
-            onFilesReady={() => updateState({ step: 'processing' })}
-            onStateUpdate={updateState}
-            state={state}
-          />
-        )}
-
-        {state.step === 'instructions' && state.source === 'csv' && (
-          <StepCsvInstructions
-            onBack={handleBack}
-            onFileReady={() => updateState({ step: 'processing' })}
-            onStateUpdate={updateState}
-            state={state}
+            uploading={uploading}
+            error={uploadError}
           />
         )}
 

@@ -61,6 +61,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Máximo 20 imágenes por importación' }, { status: 400 })
     }
 
+    // Check per-image size limit
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+    for (const file of files) {
+      if (file.size > MAX_IMAGE_SIZE) {
+        return NextResponse.json(
+          { error: `La imagen ${file.name} supera 5MB. Reduce la resolución.` },
+          { status: 413 }
+        )
+      }
+    }
+
     // Create import job
     const { data: job, error: jobError } = await supabase
       .from('import_jobs')
@@ -81,9 +92,10 @@ export async function POST(request: NextRequest) {
     const rounds: ImportRoundData[] = []
     const errors: Array<{ index: number; error: string }> = []
 
-    for (let i = 0; i < files.length; i++) {
+    // Helper: process a single image
+    type ProcessResult = { type: 'round'; round: ImportRoundData } | { type: 'error'; index: number; error: string }
+    const processImage = async (file: File, index: number): Promise<ProcessResult> => {
       try {
-        const file = files[i]
         const arrayBuffer = await file.arrayBuffer()
         const base64 = Buffer.from(arrayBuffer).toString('base64')
 
@@ -110,15 +122,13 @@ export async function POST(request: NextRequest) {
 
         const textBlock = response.content.find(b => b.type === 'text')
         if (!textBlock || textBlock.type !== 'text') {
-          errors.push({ index: i, error: 'No se recibió respuesta de texto' })
-          continue
+          return { type: 'error', index, error: 'No se recibió respuesta de texto' }
         }
 
         const parsed = JSON.parse(textBlock.text)
 
         if (parsed.error) {
-          errors.push({ index: i, error: parsed.error })
-          continue
+          return { type: 'error', index, error: parsed.error }
         }
 
         const round: ImportRoundData = {
@@ -151,9 +161,25 @@ export async function POST(request: NextRequest) {
         const validation = validarRonda(round)
         round.validation = validation
 
-        rounds.push(round)
+        return { type: 'round', round }
       } catch (err) {
-        errors.push({ index: i, error: err instanceof Error ? err.message : 'Error desconocido' })
+        return { type: 'error', index, error: err instanceof Error ? err.message : 'Error desconocido' }
+      }
+    }
+
+    // Process images in parallel chunks of 5
+    const CHUNK_SIZE = 5
+    for (let i = 0; i < files.length; i += CHUNK_SIZE) {
+      const chunk = files.slice(i, i + CHUNK_SIZE)
+      const results = await Promise.all(
+        chunk.map((file, chunkIdx) => processImage(file, i + chunkIdx))
+      )
+      for (const result of results) {
+        if (result.type === 'round') {
+          rounds.push(result.round)
+        } else {
+          errors.push({ index: result.index, error: result.error })
+        }
       }
     }
 

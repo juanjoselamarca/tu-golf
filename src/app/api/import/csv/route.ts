@@ -183,6 +183,11 @@ function buildRound(row: string[], headerMap: Record<string, number>): ImportRou
 
 export async function POST(request: NextRequest) {
   try {
+    const contentLength = parseInt(request.headers.get('content-length') || '0')
+    if (contentLength > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: 'El archivo CSV no puede superar 10MB' }, { status: 413 })
+    }
+
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {

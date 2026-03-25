@@ -10,10 +10,18 @@ interface StepProcessingProps {
   onComplete: (rounds: ImportRoundData[]) => void
 }
 
-const MESSAGES = [
-  'Analizando archivos...',
+const MESSAGES_PHOTO = [
+  'Analizando imagenes...',
   'Detectando campos y cursos...',
-  'Extrayendo scores hoyo por hoyo...',
+  'Leyendo scores hoyo por hoyo...',
+  'Validando datos...',
+  'Calculando tu CPI...',
+]
+
+const MESSAGES_CSV = [
+  'Analizando archivos...',
+  'Detectando columnas y formato...',
+  'Extrayendo scores...',
   'Validando datos...',
   'Calculando tu CPI...',
 ]
@@ -21,14 +29,34 @@ const MESSAGES = [
 export default function StepProcessing({ state, onStateUpdate, onComplete }: StepProcessingProps) {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const messageIndexRef = useRef(0)
+  const imageProgressRef = useRef(0)
+
+  const isPhoto = state.source === 'photos'
+  const fileCount = state.fileCount || 1
+  const messages = isPhoto ? MESSAGES_PHOTO : MESSAGES_CSV
 
   useEffect(() => {
-    // Animate messages
+    // Animate messages — smarter for photos
     const msgInterval = setInterval(() => {
-      messageIndexRef.current = (messageIndexRef.current + 1) % MESSAGES.length
-      onStateUpdate({
-        processingMessage: MESSAGES[messageIndexRef.current],
-      })
+      if (isPhoto && fileCount > 1) {
+        // Show "Procesando imagen X de N" for first messages
+        imageProgressRef.current = Math.min(imageProgressRef.current + 1, fileCount)
+        if (imageProgressRef.current <= fileCount) {
+          onStateUpdate({
+            processingMessage: `Procesando imagen ${imageProgressRef.current} de ${fileCount}...`,
+          })
+        } else {
+          messageIndexRef.current = Math.min(messageIndexRef.current + 1, messages.length - 1)
+          onStateUpdate({
+            processingMessage: messages[messageIndexRef.current],
+          })
+        }
+      } else {
+        messageIndexRef.current = (messageIndexRef.current + 1) % messages.length
+        onStateUpdate({
+          processingMessage: messages[messageIndexRef.current],
+        })
+      }
     }, 2500)
 
     // Animate progress
@@ -38,7 +66,7 @@ export default function StepProcessing({ state, onStateUpdate, onComplete }: Ste
       onStateUpdate({ processingProgress: progress })
     }, 800)
 
-    // Poll job status if we have a jobId
+    // Poll job status
     if (state.jobId) {
       pollingRef.current = setInterval(async () => {
         try {
@@ -49,20 +77,36 @@ export default function StepProcessing({ state, onStateUpdate, onComplete }: Ste
           if (data.status === 'review_required' && data.rounds) {
             onStateUpdate({ processingProgress: 100 })
             setTimeout(() => onComplete(data.rounds), 400)
+          } else if (data.status === 'completed' && data.rounds) {
+            onStateUpdate({ processingProgress: 100 })
+            setTimeout(() => onComplete(data.rounds), 400)
           } else if (data.status === 'failed') {
             onStateUpdate({
               processingMessage: 'Error procesando. Intenta de nuevo.',
               processingProgress: 0,
             })
+          } else if (data.progress) {
+            // Use server-side progress if available
+            onStateUpdate({ processingProgress: Math.max(progress, data.progress) })
           }
         } catch {
           // silently retry
         }
       }, 3000)
+    } else {
+      // No jobId — if rounds are already populated (direct CSV parse), go to review
+      if (state.rounds.length > 0) {
+        onStateUpdate({ processingProgress: 100 })
+        setTimeout(() => onComplete(state.rounds), 800)
+      }
     }
 
     // Set initial message
-    onStateUpdate({ processingMessage: MESSAGES[0] })
+    onStateUpdate({
+      processingMessage: isPhoto && fileCount > 1
+        ? `Procesando imagen 1 de ${fileCount}...`
+        : messages[0],
+    })
 
     return () => {
       clearInterval(msgInterval)
@@ -99,7 +143,7 @@ export default function StepProcessing({ state, onStateUpdate, onComplete }: Ste
         style={{
           fontSize: '20px',
           fontWeight: 700,
-          color: '#edeae4',
+          color: 'var(--text)',
           marginBottom: '8px',
         }}
       >
@@ -108,14 +152,14 @@ export default function StepProcessing({ state, onStateUpdate, onComplete }: Ste
 
       <p
         style={{
-          color: '#94a8c0',
+          color: 'var(--text-2)',
           fontSize: '14px',
           marginBottom: '32px',
           minHeight: '20px',
           transition: 'opacity 0.3s',
         }}
       >
-        {state.processingMessage || MESSAGES[0]}
+        {state.processingMessage || messages[0]}
       </p>
 
       {/* Progress bar */}
@@ -141,7 +185,7 @@ export default function StepProcessing({ state, onStateUpdate, onComplete }: Ste
         />
       </div>
 
-      <p style={{ color: '#5a6a7d', fontSize: '12px' }}>
+      <p style={{ color: 'var(--text-3, #5a6a7d)', fontSize: '12px' }}>
         {state.rounds.length > 0
           ? `${state.rounds.length} rondas detectadas`
           : 'Esto puede tomar unos segundos'}
