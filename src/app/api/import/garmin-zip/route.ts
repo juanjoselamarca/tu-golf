@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import JSZip from 'jszip'
 import { validarRonda } from '@/lib/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
+import { findBestCourseMatch } from '@/lib/course-matching'
 
 export const maxDuration = 60
 
@@ -289,33 +290,15 @@ export async function POST(request: NextRequest) {
       const parPerHole: Record<string, number> = {}
       let parSource = 'default'
 
-      // Try looking up course in our DB — multiple strategies
-      // Clean course name: remove "~ Norte-Este", "~ Sur-Este", etc. from Garmin combos
-      const cleanName = courseName.split('~')[0].trim()
+      // Look up course in our DB using scoring-based matching
+      // Handles ambiguity when multiple courses share similar names
+      // (e.g., Brisas de Santo Domingo vs Rocas de Santo Domingo)
+      const { data: allCourses } = await supabase
+        .from('courses')
+        .select('id, nombre')
 
-      // Strategy A: search by significant keywords (skip common words)
-      const skipWords = new Set(['club', 'de', 'golf', 'las', 'los', 'la', 'el', 'del', 'y', 'country', 'campo'])
-      const keywords = cleanName.split(/\s+/).filter(w => !skipWords.has(w.toLowerCase()) && w.length > 2)
-      const mainKeyword = keywords.slice(-2).join(' ') // last 2 significant words
-
-      // Try multiple search patterns
-      let dbCourse: { id: string } | null = null
-      const searchPatterns = [
-        cleanName, // full clean name
-        mainKeyword, // significant keywords
-        keywords[0], // first significant keyword alone
-      ]
-
-      for (const pattern of searchPatterns) {
-        if (!pattern || pattern.length < 3) continue
-        const { data } = await supabase
-          .from('courses')
-          .select('id')
-          .ilike('nombre', `%${pattern}%`)
-          .limit(1)
-          .single()
-        if (data) { dbCourse = data; break }
-      }
+      const courseMatch = allCourses ? findBestCourseMatch(courseName, allCourses) : null
+      const dbCourse = courseMatch ? { id: courseMatch.id } : null
 
       if (dbCourse) {
         // Check if course has multiple recorridos (e.g., 27-hole courses like Brisas, Rocas)
