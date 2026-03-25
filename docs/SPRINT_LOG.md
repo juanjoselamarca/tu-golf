@@ -4,6 +4,53 @@
 
 ---
 
+## Sesion 24-25 Mar 2026 — Sprint masivo: Admin + Hardening + Import + Garmin
+
+**Fecha:** 24-25 Mar 2026
+**Estado:** EN PROGRESO (historial pendiente de rediseno)
+
+### Admin Redesign
+- Command Center con 5 secciones, sidebar, datos en vivo
+- 11 componentes reutilizables, 6 API routes
+- Control total: editar/eliminar usuarios, rondas, torneos, scores, tAIger
+- SQL Console, force-close, auto-fix, escalacion a Claude
+
+### Hardening
+- Audit completo: 39 APIs, 33 paginas, middleware, RLS
+- 13 fixes criticos: push/send auth, debug-auth, HSTS, GWI crash, etc
+- Health Check Suite: 19 tests automaticos con auto-fix desde admin
+- RLS fixes: ronda_libre_jugadores, hole_scores, players
+
+### Import v3
+- 3 opciones: Pantallazo scorecard, Archivo Garmin ZIP, Manual
+- Encuesta inicial de 2 preguntas con recomendacion personalizada
+- Vision AI (Gemini 2.5 Flash gratis): lee scorecards con 100% precision (261/261 hoyos verificados)
+- Garmin ZIP parser: extrae Golf-SCORECARD.json client-side, 58 rondas en <1 segundo
+- Reconstruccion por colores con algoritmo de reconciliacion (10/10 tests)
+- Deteccion duplicados por garmin_scorecard_id
+- Batch insert escalable (1 query para 100+ rondas)
+
+### Canchas
+- GolfAPI.io integrada (42,000 canchas worldwide)
+- 3 canchas piloto cargadas: Brisas, Rocas, Cachagua
+- Sistema de recorridos multiples para canchas 27 hoyos (Norte/Sur/Este)
+- Matching por puntaje para resolver ambiguedades (Brisas vs Rocas)
+- course-matching.ts: algoritmo reutilizable
+
+### Garmin data completa
+- Scores, putts por hoyo, fairways, penalties, course rating, slope
+- metadata JSONB en historical_rounds
+- tAIger+ instruido para usar datos Garmin como complemento
+- Colores Garmin Golf verificados y blindados (garmin-colors.ts)
+
+### Pendiente
+- Rediseno historial: stats con pares reales, ScoreSymbol, datos Garmin
+- Cargar 25 canchas chilenas restantes + 8 internacionales
+- Admin de Ronda (feature guardada en memoria)
+- tAIger+ Learning System (feature guardada en memoria)
+
+---
+
 ## Sesión 24 Mar 2026 — Admin Redesign: Command Center
 
 **Fecha:** 24 Mar 2026
