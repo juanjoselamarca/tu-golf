@@ -132,40 +132,29 @@ export default function ImportWizard() {
 
           try {
             const JSZip = (await import('jszip')).default
-            const zip = await JSZip.loadAsync(await file.arrayBuffer())
+            const zipBuffer = await file.arrayBuffer()
+            const zip = await JSZip.loadAsync(zipBuffer)
 
-            // Search for Golf-SCORECARD.json in any path
-            zip.forEach((path, entry) => {
-              if (!entry.dir) {
-                const lower = path.toLowerCase()
-                if (lower.includes('golf-scorecard.json') && !lower.includes('rawdata')) {
-                  entry.async('text').then(text => { scorecardJson = text })
-                }
-                if (lower.includes('golf-course.json')) {
-                  entry.async('text').then(text => { courseJson = text })
-                }
-              }
+            // Find the files we need — iterate with proper await
+            const filePaths = Object.keys(zip.files)
+
+            // Find scorecard
+            const scorecardPath = filePaths.find(p => {
+              const lower = p.toLowerCase()
+              return lower.includes('golf-scorecard.json') && !lower.includes('rawdata') && !zip.files[p].dir
             })
 
-            // Wait for async reads
-            await new Promise(resolve => setTimeout(resolve, 500))
+            // Find course
+            const coursePath = filePaths.find(p => {
+              const lower = p.toLowerCase()
+              return lower.includes('golf-course.json') && !zip.files[p].dir
+            })
 
-            // Retry with await if not found yet
-            if (!scorecardJson) {
-              for (const [path, entry] of Object.entries(zip.files)) {
-                if (!entry.dir && path.toLowerCase().includes('golf-scorecard.json') && !path.toLowerCase().includes('rawdata')) {
-                  scorecardJson = await entry.async('text')
-                  break
-                }
-              }
+            if (scorecardPath) {
+              scorecardJson = await zip.files[scorecardPath].async('text')
             }
-            if (!courseJson) {
-              for (const [path, entry] of Object.entries(zip.files)) {
-                if (!entry.dir && path.toLowerCase().includes('golf-course.json')) {
-                  courseJson = await entry.async('text')
-                  break
-                }
-              }
+            if (coursePath) {
+              courseJson = await zip.files[coursePath].async('text')
             }
           } catch {
             throw new Error('No se pudo leer el archivo ZIP. Verifica que sea el archivo correcto de Garmin.')
