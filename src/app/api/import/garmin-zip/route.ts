@@ -289,14 +289,33 @@ export async function POST(request: NextRequest) {
       const parPerHole: Record<string, number> = {}
       let parSource = 'default'
 
-      // Try looking up course in our DB
-      const searchTerms = courseName.split(' ').slice(-2).join(' ')
-      const { data: dbCourse } = await supabase
-        .from('courses')
-        .select('id')
-        .ilike('nombre', `%${searchTerms}%`)
-        .limit(1)
-        .single()
+      // Try looking up course in our DB — multiple strategies
+      // Clean course name: remove "~ Norte-Este", "~ Sur-Este", etc. from Garmin combos
+      const cleanName = courseName.split('~')[0].trim()
+
+      // Strategy A: search by significant keywords (skip common words)
+      const skipWords = new Set(['club', 'de', 'golf', 'las', 'los', 'la', 'el', 'del', 'y', 'country', 'campo'])
+      const keywords = cleanName.split(/\s+/).filter(w => !skipWords.has(w.toLowerCase()) && w.length > 2)
+      const mainKeyword = keywords.slice(-2).join(' ') // last 2 significant words
+
+      // Try multiple search patterns
+      let dbCourse: { id: string } | null = null
+      const searchPatterns = [
+        cleanName, // full clean name
+        mainKeyword, // significant keywords
+        keywords[0], // first significant keyword alone
+      ]
+
+      for (const pattern of searchPatterns) {
+        if (!pattern || pattern.length < 3) continue
+        const { data } = await supabase
+          .from('courses')
+          .select('id')
+          .ilike('nombre', `%${pattern}%`)
+          .limit(1)
+          .single()
+        if (data) { dbCourse = data; break }
+      }
 
       if (dbCourse) {
         const { data: dbHoles } = await supabase
