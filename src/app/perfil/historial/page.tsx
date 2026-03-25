@@ -104,7 +104,12 @@ function HistorialContent() {
   const [userId,   setUserId]   = useState<string | null>(null)
   const [loading,  setLoading]  = useState(true)
   const [rounds,   setRounds]   = useState<HistoricalRound[]>([])
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('add') === 'true'
+    }
+    return false
+  })
   const [saving,   setSaving]   = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
