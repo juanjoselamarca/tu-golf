@@ -53,6 +53,22 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
     localStorage.setItem('golfers_import_survey_done', 'true')
     localStorage.setItem('golfers_analysis_level', answer)
 
+    // Save survey answers to profiles (non-blocking)
+    const saveToProfile = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase')
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await supabase.from('profiles').update({
+            analysis_level: answer,       // "registrar" | "patrones" | "coaching"
+            golf_goals: q1Answer,         // "menos_10" | "entre_10_50" | "mas_50" | "no_garmin"
+          }).eq('id', user.id)
+        }
+      } catch { /* non-blocking */ }
+    }
+    saveToProfile()
+
     setFinishing(true)
     const rec = getRecommendation(q1Answer, answer)
 

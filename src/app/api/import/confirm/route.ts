@@ -209,11 +209,18 @@ export async function POST(request: NextRequest) {
         privacy: 'private',
       }
 
+      // Always include metadata if present (photo rounds: reconstruction_method, ambiguous_holes, etc.)
+      if (round.metadata) {
+        row.metadata = round.metadata as Record<string, unknown>
+      }
+
+      // Course rating/slope for all rounds that have them
+      if (round.course_rating != null) row.course_rating = round.course_rating
+      if (round.slope_rating != null) row.slope_rating = round.slope_rating
+
+      // Garmin-specific fields
       if (garminId) {
         row.garmin_scorecard_id = garminId
-        row.metadata = round.metadata as Record<string, unknown>
-        row.course_rating = round.course_rating ?? null
-        row.slope_rating = round.slope_rating ?? null
       }
 
       rowsToInsert.push(row)
