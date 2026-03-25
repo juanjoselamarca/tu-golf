@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { validarRonda } from '@/lib/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { normalizeGarminColor, colorToDiff, isAmbiguousColor } from '@/lib/garmin-colors'
@@ -255,11 +255,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error creando job de importación' }, { status: 500 })
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json({ error: 'El servicio de lectura de fotos no está configurado (ANTHROPIC_API_KEY faltante). Contacta al administrador.' }, { status: 503 })
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
+    if (!geminiKey) {
+      return NextResponse.json({ error: 'El servicio de lectura de fotos no está configurado (GEMINI_API_KEY faltante). Contacta al administrador.' }, { status: 503 })
     }
 
-    const anthropic = new Anthropic()
+    const genAI = new GoogleGenerativeAI(geminiKey)
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
     const rounds: ImportRoundData[] = []
     const errors: Array<{ index: number; error: string }> = []
 
@@ -373,32 +375,24 @@ export async function POST(request: NextRequest) {
         const arrayBuffer = await file.arrayBuffer()
         const base64 = Buffer.from(arrayBuffer).toString('base64')
 
-        let mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' = 'image/jpeg'
-        if (file.type === 'image/png') mediaType = 'image/png'
-        else if (file.type === 'image/gif') mediaType = 'image/gif'
-        else if (file.type === 'image/webp') mediaType = 'image/webp'
+        let mimeType = 'image/jpeg'
+        if (file.type === 'image/png') mimeType = 'image/png'
+        else if (file.type === 'image/gif') mimeType = 'image/gif'
+        else if (file.type === 'image/webp') mimeType = 'image/webp'
 
-        const response = await anthropic.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 2048,
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: mediaType, data: base64 },
-              },
-              { type: 'text', text: VISION_PROMPT },
-            ],
-          }],
-        })
+        const result = await model.generateContent([
+          { inlineData: { mimeType, data: base64 } },
+          { text: VISION_PROMPT },
+        ])
 
-        const textBlock = response.content.find(b => b.type === 'text')
-        if (!textBlock || textBlock.type !== 'text') {
+        const responseText = result.response.text()
+        if (!responseText) {
           return { type: 'error', index, error: 'No se recibió respuesta de texto' }
         }
 
-        const parsed: VisionResponse = JSON.parse(textBlock.text)
+        // Clean response: Gemini sometimes wraps in markdown code blocks
+        const cleanJson = responseText.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim()
+        const parsed: VisionResponse = JSON.parse(cleanJson)
 
         if ('error' in parsed) {
           return { type: 'error', index, error: parsed.error }
