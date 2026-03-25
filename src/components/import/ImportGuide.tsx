@@ -762,24 +762,24 @@ function GarminGuide({
     illustration: React.ReactNode;
   }[] = [
     {
-      title: 'Inicia sesion en garmin.com',
-      description: '',
-      link: { url: 'https://www.garmin.com/account', label: 'Abrir Garmin' },
+      title: 'Abre garmin.com e inicia sesion',
+      description: 'Usa el mismo email y contraseña de tu cuenta Garmin (la misma del reloj o de la app Garmin Connect).',
+      link: { url: 'https://www.garmin.com/account', label: 'Ir a garmin.com/account' },
       illustration: <BrowserBar />,
     },
     {
-      title: 'Busca la seccion de privacidad',
-      description: 'Gestionar datos / Data Management',
+      title: 'Ve a "Administrar datos" o "Data Management"',
+      description: 'Una vez dentro de tu cuenta, busca en el menu lateral izquierdo la opcion "Administrar datos". Si la pagina esta en ingles, busca "Data Management".',
       illustration: <SettingsMenu />,
     },
     {
-      title: 'Solicita exportar tus datos',
-      description: 'Garmin preparara un archivo con tu informacion',
+      title: 'Haz click en "Exportar datos" o "Export Your Data"',
+      description: 'Dentro de Administrar datos, veras un boton para exportar. Haz click y confirma la solicitud. Garmin comenzara a preparar un archivo ZIP con toda tu informacion.',
       illustration: <ExportButton />,
     },
     {
-      title: 'Espera el email (24-48 horas)',
-      description: 'Te llegara un correo con un link de descarga',
+      title: 'Descarga el ZIP del email que te enviara Garmin',
+      description: 'Recibiras un correo de Garmin en 24 a 48 horas con un link para descargar el archivo. Descargalo y subelo aqui sin descomprimir.',
       illustration: <EnvelopeIllustration />,
     },
   ]
@@ -794,6 +794,24 @@ function GarminGuide({
         onBack={onBack}
       />
 
+      {/* PC recommendation alert */}
+      <div style={{
+        padding: '12px 16px', marginBottom: 16,
+        background: 'rgba(59,130,246,0.06)',
+        border: '1px solid rgba(59,130,246,0.15)',
+        borderRadius: 12,
+        display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <line x1="8" y1="21" x2="16" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
+        </svg>
+        <span style={{ color: '#93b4e4', fontSize: 12, lineHeight: 1.5 }}>
+          <strong style={{ color: '#60a5fa' }}>Recomendado desde un computador</strong> — el proceso es mas comodo y rapido desde el navegador del PC.
+        </span>
+      </div>
+
       {/* Phase 1 */}
       <div style={{
         padding: '14px 16px', marginBottom: 20,
@@ -802,10 +820,10 @@ function GarminGuide({
         borderRadius: 14,
       }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, color: '#c4992a', margin: '0 0 4px' }}>
-          Solicitar tus datos
+          Solicitar tus datos a Garmin
         </h3>
         <p style={{ color: 'var(--text-2)', fontSize: 12, margin: 0, opacity: 0.8 }}>
-          Solo necesitas hacer esto una vez
+          Solo necesitas hacer esto una vez — despues importar es instantaneo
         </p>
       </div>
 
