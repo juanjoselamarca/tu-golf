@@ -33,6 +33,21 @@ El repositorio GitHub ES la identidad permanente del proyecto.
 - Producción: https://tu-golf.vercel.app
 - GitHub: https://github.com/juanjoselamarca/tu-golf
 
+## COLORES GARMIN GOLF — NO MODIFICAR SIN VERIFICACION
+
+La fuente de verdad esta en `src/lib/garmin-colors.ts`.
+Verificado contra capturas reales el 24 Mar 2026.
+
+| Color | Scorecard (Formato 1) | Activity Bar (Formato 2) | Score vs Par |
+|-------|----------------------|--------------------------|-------------|
+| Azul oscuro | Circulo | Segmento | Eagle o mejor (-2+) |
+| Celeste | Circulo | Segmento | Birdie (-1) |
+| Sin borde | Sin borde | Verde segmento | Par (0) |
+| Dorado/naranja | Cuadrado | Segmento | Bogey (+1) |
+| Rojo | Cuadrado | Segmento | Doble bogey+ (+2+) |
+
+NUNCA cambiar estos colores sin verificar contra la app real de Garmin Golf.
+
 ## REGLAS OBLIGATORIAS
 
 1. NUNCA push sin: npx tsc --noEmit (0 errores)

@@ -3,11 +3,20 @@ import { createClient } from '@/utils/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { validarRonda } from '@/lib/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
+import { normalizeGarminColor, colorToDiff, isAmbiguousColor } from '@/lib/garmin-colors'
 
 // Vercel Hobby: max 60s. Needed because Claude Vision can take 10-30s per image.
 export const maxDuration = 60
 
-const VISION_PROMPT = `You are an expert at reading Garmin Golf app screenshots. There are TWO formats you may encounter:
+// ============================================================
+// VISION PROMPT — Garmin Golf specific
+// Color system verified against real Garmin Golf screenshots:
+//   Scorecard: azul oscuro=eagle, celeste=birdie, sin borde=par,
+//              dorado/naranja=bogey, rojo=doble bogey+
+//   Activity:  azul oscuro=eagle, celeste=birdie, verde=par,
+//              dorado/naranja=bogey, rojo=doble bogey+
+// ============================================================
+const VISION_PROMPT = `You are an expert at reading Garmin Golf app screenshots. There are TWO formats:
 
 **FORMAT 1 — SCORECARD (detailed view of ONE round)**
 Shows: club name, tees, date, player name, total score (+/- par), and a grid with:
@@ -15,28 +24,25 @@ Shows: club name, tees, date, player name, total score (+/- par), and a grid wit
 - Row of par values per hole
 - Row of player scores per hole
 - Scores have colored borders indicating performance:
-  - No border = par
-  - Orange/amber square border = bogey (+1)
-  - Red square border = double bogey or worse (+2 or more)
-  - Blue circle border = birdie (-1)
-  - Green circle border = eagle (-2 or better)
+  - Dark blue circle = Eagle or better (-2 or less vs par)
+  - Light blue / celeste circle = Birdie (-1 vs par)
+  - No border = Par (even with par)
+  - Gold / orange / amber square = Bogey (+1 vs par)
+  - Red square = Double bogey or worse (+2 or more vs par)
 
-For this format, extract EXACT scores from the numbers shown.
+For this format, extract EXACT scores from the numbers shown. Also read the par row.
 
 **FORMAT 2 — ACTIVITY LIST (multiple rounds summary)**
-Shows a scrollable list of rounds, each with:
-- Club name, date, total score (+/- par)
-- A small color bar below each round where each segment = 1 hole:
-  - Green segment = birdie or better
-  - Yellow/amber segment = par
-  - Orange segment = bogey
-  - Red segment = double bogey or worse
-  - Blue segment = eagle or better (rare)
+Shows a scrollable list of round cards, each with:
+- Club name, date, total score, +/- par number
+- A small color bar below each round where each colored segment = 1 hole:
+  - Dark blue segment = Eagle or better (-2+)
+  - Light blue / celeste segment = Birdie (-1)
+  - Green segment = Par (0)
+  - Gold / orange / amber segment = Bogey (+1)
+  - Red segment = Double bogey or worse (+2+)
 
-For this format, extract each round visible. For each round, read:
-- club name, date, total score, +/- par value
-- Count the number of segments in the color bar to determine holes_played (9 or 18)
-- Read each segment's color LEFT TO RIGHT and record as a color category array
+For this format, extract each round visible. Read the color bar LEFT TO RIGHT.
 
 Respond EXCLUSIVELY with valid JSON (no markdown, no backticks):
 
@@ -50,7 +56,7 @@ For FORMAT 1:
   "scores": { "1": exact_score, "2": exact_score, ... },
   "total_gross": number,
   "vs_par": number,
-  "par_per_hole": { "1": par, "2": par, ... } or null,
+  "par_per_hole": { "1": par, "2": par, ... },
   "confidence": 0.0 to 1.0
 }
 
@@ -64,24 +70,26 @@ For FORMAT 2:
       "total_gross": number,
       "vs_par": number,
       "holes_played": 9 or 18,
-      "color_sequence": ["orange","yellow","green","red",...],
+      "color_sequence": ["gold","green","light_blue","red",...],
       "confidence": 0.0 to 1.0
     }
   ]
 }
 
 Rules:
-- If you can't read a score, use null
+- If you can't read a score number, use null
 - If you can't read a date, use null
-- confidence reflects how certain you are
+- confidence reflects how certain you are of the reading
 - For FORMAT 2, read ALL rounds visible in the image
-- For color_sequence, use ONLY these values: "green", "yellow", "orange", "red", "blue"
-- If image is NOT a golf scorecard, respond: {"error": "not_a_scorecard"}
-- Respond ONLY with JSON`
+- For color_sequence use ONLY: "dark_blue", "light_blue", "green", "gold", "red"
+- IMPORTANT: In the activity bar, green = PAR, light_blue = BIRDIE, gold/orange = BOGEY
+- If image is NOT a Garmin Golf screenshot, respond: {"error": "not_a_scorecard"}
+- Respond ONLY with JSON, nothing else`
 
-// ---------------------------------------------------------------------------
+// ============================================================
 // Score reconstruction from color-bar segments
-// ---------------------------------------------------------------------------
+// Uses garmin-colors.ts as single source of truth
+// ============================================================
 interface ReconstructionResult {
   scores: Record<string, number>
   confidence: number
@@ -100,48 +108,50 @@ function reconstructScores(
   const parForHole = (h: number) => coursePars?.[h] ?? defaultPar
 
   const baseScores: Record<string, number> = {}
-  const redHoles: number[] = []
+  const ambiguousCandidates: number[] = [] // holes where color is ambiguous (red = +2 minimum)
   let baseTotal = 0
 
   for (let i = 0; i < holes; i++) {
     const holeNum = i + 1
     const par = parForHole(holeNum)
-    const color = colorSequence[i] || 'yellow'
+    const rawColor = colorSequence[i] || 'green'
+    const normalized = normalizeGarminColor(rawColor)
+    const diff = colorToDiff(rawColor)
 
-    let score: number
-    switch (color) {
-      case 'blue':   score = par - 2; break
-      case 'green':  score = par - 1; break
-      case 'yellow': score = par;     break
-      case 'orange': score = par + 1; break
-      case 'red':    score = par + 2; break
-      default:       score = par;     break
-    }
-
+    const score = Math.max(1, par + diff) // score can't be less than 1
     baseScores[String(holeNum)] = score
     baseTotal += score
-    if (color === 'red') redHoles.push(holeNum)
+
+    if (isAmbiguousColor(rawColor)) {
+      ambiguousCandidates.push(holeNum)
+    }
   }
 
-  // Reconcile with actual total
+  // Reconcile: if baseTotal doesn't match totalGross, distribute residual
   const residual = totalGross - baseTotal
   const ambiguousHoles: number[] = []
 
-  if (residual > 0 && redHoles.length > 0) {
-    const extraPerHole = Math.floor(residual / redHoles.length)
-    const remainder = residual % redHoles.length
+  if (residual > 0 && ambiguousCandidates.length > 0) {
+    // Extra strokes go to red holes (double bogey or worse)
+    const extraPerHole = Math.floor(residual / ambiguousCandidates.length)
+    const remainder = residual % ambiguousCandidates.length
 
-    for (let i = 0; i < redHoles.length; i++) {
-      const h = redHoles[i]
-      const extra = extraPerHole + (i >= redHoles.length - remainder ? 1 : 0)
+    for (let i = 0; i < ambiguousCandidates.length; i++) {
+      const h = ambiguousCandidates[i]
+      const extra = extraPerHole + (i >= ambiguousCandidates.length - remainder ? 1 : 0)
       baseScores[String(h)] += extra
       if (extra > 0) ambiguousHoles.push(h)
     }
-  } else if (residual !== 0) {
-    ambiguousHoles.push(...redHoles)
+  } else if (residual !== 0 && ambiguousCandidates.length > 0) {
+    // Negative residual shouldn't happen, flag all red holes
+    ambiguousHoles.push(...ambiguousCandidates)
+  } else if (residual !== 0 && ambiguousCandidates.length === 0) {
+    // Total doesn't match and no red holes to adjust — low confidence
+    // This means the color reading was inaccurate
   }
 
-  const conf = ambiguousHoles.length === 0 ? 0.95
+  const conf = residual === 0 ? 0.95
+    : ambiguousHoles.length === 0 ? 0.90
     : ambiguousHoles.length <= 2 ? 0.85
     : 0.70
 
