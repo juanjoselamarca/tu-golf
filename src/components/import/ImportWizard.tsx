@@ -118,21 +118,25 @@ export default function ImportWizard() {
           if (!res.ok) throw new Error(data.error || `Error ${res.status} al subir fotos`)
 
           if (data.rounds && data.rounds.length > 0) {
-            // Rounds already processed — skip polling, go to review
+            // Rounds processed — go to review
             updateState({
               jobId: data.job_id,
               rounds: data.rounds,
               step: 'review',
               fileCount: files.length,
             })
+          } else if (data.errors && data.errors.length > 0) {
+            // Vision API failed — show the actual error to user
+            const firstError = data.errors[0]?.error || 'Error desconocido'
+            const errorMsg = firstError === 'not_a_scorecard'
+              ? 'No se detectó una tarjeta de golf en la imagen. Asegurate de que sea un pantallazo de Garmin Golf.'
+              : firstError.includes('API')
+                ? 'Error conectando con el servicio de lectura de fotos. Intenta de nuevo en unos segundos.'
+                : `No se pudo leer la foto: ${firstError}`
+            throw new Error(errorMsg)
           } else {
-            // No rounds yet — go to processing to poll
-            updateState({
-              jobId: data.job_id,
-              rounds: [],
-              step: 'processing',
-              fileCount: files.length,
-            })
+            // No rounds, no errors — unexpected, show helpful message
+            throw new Error('No se detectaron rondas en la imagen. Asegurate de subir un pantallazo de Garmin Golf (Activity o Scorecard).')
           }
         } else {
           formData.append('file', files[0])

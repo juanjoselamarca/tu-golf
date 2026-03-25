@@ -255,6 +255,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error creando job de importación' }, { status: 500 })
     }
 
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ error: 'El servicio de lectura de fotos no está configurado (ANTHROPIC_API_KEY faltante). Contacta al administrador.' }, { status: 503 })
+    }
+
     const anthropic = new Anthropic()
     const rounds: ImportRoundData[] = []
     const errors: Array<{ index: number; error: string }> = []
