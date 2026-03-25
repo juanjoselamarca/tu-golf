@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/lib/cpi'
+import StepSurvey from './StepSurvey'
 import StepSelector from './StepSelector'
 import ImportGuide from './ImportGuide'
 import StepProcessing from './StepProcessing'
@@ -12,6 +13,7 @@ import StepCelebration from './StepCelebration'
 
 export type ImportSource = 'photos' | 'csv' | 'garmin_zip' | null
 export type WizardStep =
+  | 'survey'
   | 'selector'
   | 'guide'
   | 'processing'
@@ -43,11 +45,12 @@ const INITIAL_STATE: ImportState = {
 }
 
 const STEP_INDEX: Record<WizardStep, number> = {
-  selector: 0,
-  guide: 1,
-  processing: 2,
-  review: 3,
-  celebration: 4,
+  survey: 0,
+  selector: 1,
+  guide: 2,
+  processing: 3,
+  review: 4,
+  celebration: 5,
 }
 
 export default function ImportWizard() {
@@ -57,12 +60,17 @@ export default function ImportWizard() {
   const rawSource = searchParams.get('source')
   const initialSource: ImportSource =
     rawSource === 'photos' || rawSource === 'csv' || rawSource === 'garmin_zip' ? rawSource : null
+
+  const surveyDone = typeof window !== 'undefined' && localStorage.getItem('golfers_import_survey_done') === 'true'
+  const initialStep: WizardStep = initialSource ? 'guide' : surveyDone ? 'selector' : 'survey'
+
   const [state, setState] = useState<ImportState>({
     ...INITIAL_STATE,
     source: initialSource,
-    step: initialSource ? 'guide' : 'selector',
+    step: initialStep,
   })
 
+  const [recommendation, setRecommendation] = useState<'photos' | 'garmin_zip' | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
 
@@ -211,7 +219,7 @@ export default function ImportWizard() {
     [state.source, updateState],
   )
 
-  const progress = ((STEP_INDEX[state.step] + 1) / 5) * 100
+  const progress = ((STEP_INDEX[state.step] + 1) / 6) * 100
 
   // Guide source — each mode gets its own guide
   const guideSource = state.source
@@ -275,8 +283,17 @@ export default function ImportWizard() {
 
       {/* Steps */}
       <div style={{ flex: 1, padding: '24px 16px', maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+        {state.step === 'survey' && (
+          <StepSurvey
+            onComplete={(rec) => {
+              setRecommendation(rec)
+              updateState({ step: 'selector' })
+            }}
+          />
+        )}
+
         {state.step === 'selector' && (
-          <StepSelector onSelect={handleSourceSelect} />
+          <StepSelector onSelect={handleSourceSelect} recommendation={recommendation} />
         )}
 
         {state.step === 'guide' && guideSource && (
