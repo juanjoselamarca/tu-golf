@@ -123,7 +123,63 @@ export default function ImportWizard() {
             setUploading(false)
             return
           }
-          formData.append('file', file)
+
+          // Extract Golf-SCORECARD.json and Golf-COURSE.json CLIENT-SIDE
+          // The full ZIP can be 80+ MB (fitness data, GPS, etc.) which exceeds
+          // Vercel's 4.5MB request body limit. The golf JSONs are only ~350KB.
+          let scorecardJson: string | null = null
+          let courseJson: string | null = null
+
+          try {
+            const JSZip = (await import('jszip')).default
+            const zip = await JSZip.loadAsync(await file.arrayBuffer())
+
+            // Search for Golf-SCORECARD.json in any path
+            zip.forEach((path, entry) => {
+              if (!entry.dir) {
+                const lower = path.toLowerCase()
+                if (lower.includes('golf-scorecard.json') && !lower.includes('rawdata')) {
+                  entry.async('text').then(text => { scorecardJson = text })
+                }
+                if (lower.includes('golf-course.json')) {
+                  entry.async('text').then(text => { courseJson = text })
+                }
+              }
+            })
+
+            // Wait for async reads
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            // Retry with await if not found yet
+            if (!scorecardJson) {
+              for (const [path, entry] of Object.entries(zip.files)) {
+                if (!entry.dir && path.toLowerCase().includes('golf-scorecard.json') && !path.toLowerCase().includes('rawdata')) {
+                  scorecardJson = await entry.async('text')
+                  break
+                }
+              }
+            }
+            if (!courseJson) {
+              for (const [path, entry] of Object.entries(zip.files)) {
+                if (!entry.dir && path.toLowerCase().includes('golf-course.json')) {
+                  courseJson = await entry.async('text')
+                  break
+                }
+              }
+            }
+          } catch {
+            throw new Error('No se pudo leer el archivo ZIP. Verifica que sea el archivo correcto de Garmin.')
+          }
+
+          if (!scorecardJson) {
+            throw new Error('No se encontraron datos de golf en el archivo. Busca el archivo ZIP que te envio Garmin por email.')
+          }
+
+          // Send only the extracted JSONs (tiny: ~350KB vs 80MB ZIP)
+          formData.append('scorecard_json', new Blob([scorecardJson], { type: 'application/json' }), 'Golf-SCORECARD.json')
+          if (courseJson) {
+            formData.append('course_json', new Blob([courseJson], { type: 'application/json' }), 'Golf-COURSE.json')
+          }
 
           const res = await fetch('/api/import/garmin-zip', {
             method: 'POST',

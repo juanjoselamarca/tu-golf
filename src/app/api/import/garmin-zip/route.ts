@@ -115,55 +115,85 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    // 3. Read ZIP from formData
+    // 3. Read formData — accepts EITHER a ZIP file OR pre-extracted JSONs
+    // The client extracts Golf-SCORECARD.json from the ZIP in the browser
+    // because the full ZIP can be 80+ MB (exceeds Vercel's 4.5MB body limit)
     let formData: FormData
     try {
       formData = await request.formData()
     } catch {
       return NextResponse.json(
-        { error: 'No se recibió contenido válido (se espera multipart/form-data con un archivo ZIP)' },
-        { status: 400 }
-      )
-    }
-
-    const file = formData.get('file')
-    if (!file || !(file instanceof File)) {
-      return NextResponse.json(
-        { error: 'No se recibió archivo ZIP. Envía el archivo con el campo "file".' },
-        { status: 400 }
-      )
-    }
-
-    // 4. Open ZIP
-    const arrayBuffer = await file.arrayBuffer()
-    let zip: JSZip
-    try {
-      zip = await JSZip.loadAsync(arrayBuffer)
-    } catch {
-      return NextResponse.json(
-        { error: 'El archivo no es un ZIP válido' },
-        { status: 400 }
-      )
-    }
-
-    // 5. Find Golf-SCORECARD.json
-    const scorecardFile = findFileInZip(zip, 'Golf-SCORECARD.json')
-    if (!scorecardFile) {
-      return NextResponse.json(
-        { error: 'No se encontraron datos de golf en este archivo. Se esperaba Golf-SCORECARD.json dentro de DI_CONNECT/DI-GOLF/' },
+        { error: 'No se recibió contenido válido' },
         { status: 400 }
       )
     }
 
     let scorecardData: GarminScorecardFile
-    try {
-      const scorecardText = await scorecardFile.async('text')
-      scorecardData = JSON.parse(scorecardText) as GarminScorecardFile
-    } catch {
-      return NextResponse.json(
-        { error: 'Error al leer Golf-SCORECARD.json — archivo corrupto o formato inválido' },
-        { status: 400 }
-      )
+    let courseFileData: GarminCourseFile | null = null
+
+    // Mode A: Pre-extracted JSONs from client (preferred — small payload)
+    const scorecardBlob = formData.get('scorecard_json')
+    if (scorecardBlob && scorecardBlob instanceof File) {
+      try {
+        const text = await scorecardBlob.text()
+        scorecardData = JSON.parse(text) as GarminScorecardFile
+      } catch {
+        return NextResponse.json(
+          { error: 'Error al leer Golf-SCORECARD.json — formato inválido' },
+          { status: 400 }
+        )
+      }
+
+      const courseBlob = formData.get('course_json')
+      if (courseBlob && courseBlob instanceof File) {
+        try {
+          courseFileData = JSON.parse(await courseBlob.text()) as GarminCourseFile
+        } catch { /* course map is optional */ }
+      }
+    } else {
+      // Mode B: Full ZIP file (fallback — may fail on Vercel due to size limits)
+      const file = formData.get('file')
+      if (!file || !(file instanceof File)) {
+        return NextResponse.json(
+          { error: 'No se recibió archivo. Intenta de nuevo.' },
+          { status: 400 }
+        )
+      }
+
+      const arrayBuffer = await file.arrayBuffer()
+      let zip: JSZip
+      try {
+        zip = await JSZip.loadAsync(arrayBuffer)
+      } catch {
+        return NextResponse.json(
+          { error: 'El archivo no es un ZIP válido' },
+          { status: 400 }
+        )
+      }
+
+      const scorecardFile = findFileInZip(zip, 'Golf-SCORECARD.json')
+      if (!scorecardFile) {
+        return NextResponse.json(
+          { error: 'No se encontraron datos de golf en este archivo.' },
+          { status: 400 }
+        )
+      }
+
+      try {
+        scorecardData = JSON.parse(await scorecardFile.async('text')) as GarminScorecardFile
+      } catch {
+        return NextResponse.json(
+          { error: 'Error al leer Golf-SCORECARD.json' },
+          { status: 400 }
+        )
+      }
+
+      const courseFile = findFileInZip(zip, 'Golf-COURSE.json')
+      if (courseFile) {
+        try {
+          courseFileData = JSON.parse(await courseFile.async('text')) as GarminCourseFile
+        } catch { /* optional */ }
+      }
     }
 
     if (!scorecardData.data || !Array.isArray(scorecardData.data)) {
@@ -173,14 +203,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 6. Parse Golf-COURSE.json for course name mapping
+    // 6. Build course name mapping
     let courseMap = new Map<string, string>()
-    const courseFile = findFileInZip(zip, 'Golf-COURSE.json')
-    if (courseFile) {
+    if (courseFileData) {
       try {
-        const courseText = await courseFile.async('text')
-        const courseData = JSON.parse(courseText) as GarminCourseFile
-        courseMap = buildCourseMap(courseData)
+        courseMap = buildCourseMap(courseFileData)
       } catch {
         // Non-fatal — we'll use "Cancha desconocida" as fallback
         console.warn('Could not parse Golf-COURSE.json, using fallback course names')
