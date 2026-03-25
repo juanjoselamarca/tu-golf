@@ -155,10 +155,9 @@ export async function POST(request: NextRequest) {
           played_at: round.played_at,
           scores: scoresArray,
           total_gross: round.total_gross,
-          holes_played: round.holes_played,
+          holes_played: round.holes_played || scoresArray.length,
           import_confidence: round.import_confidence,
-          source: round.tempId.startsWith('csv') ? 'csv' : 'photo_scan',
-          metadata: round.metadata || {},
+          import_source: 'photo_scan',
           privacy: 'private',
         })
         .select('id')

@@ -243,8 +243,8 @@ export default function StepReview({
                   flexWrap: 'wrap',
                 }}
               >
-                {/* Corregir button — only if fixable issues */}
-                {!isExcluded && hasFixableIssues && (
+                {/* Ver scorecard / Corregir button — always available when not excluded */}
+                {!isExcluded && (
                   <button
                     onClick={() => toggleExpanded(round.tempId)}
                     style={{
@@ -252,15 +252,15 @@ export default function StepReview({
                       borderRadius: '10px',
                       fontSize: '13px',
                       fontWeight: 600,
-                      background: 'rgba(255,180,50,0.1)',
-                      color: '#f0ad4e',
-                      border: '1px solid rgba(255,180,50,0.2)',
+                      background: hasFixableIssues ? 'rgba(255,180,50,0.1)' : 'rgba(196,153,42,0.1)',
+                      color: hasFixableIssues ? '#f0ad4e' : '#c4992a',
+                      border: `1px solid ${hasFixableIssues ? 'rgba(255,180,50,0.2)' : 'rgba(196,153,42,0.2)'}`,
                       cursor: 'pointer',
                       minHeight: '44px',
                       minWidth: '44px',
                     }}
                   >
-                    {isExpanded ? 'Cerrar' : 'Corregir'}
+                    {isExpanded ? 'Cerrar' : hasFixableIssues ? 'Corregir' : 'Ver scorecard'}
                   </button>
                 )}
 
@@ -305,20 +305,111 @@ export default function StepReview({
                 </button>
               </div>
 
-              {/* Expandable score correction section */}
-              {isExpanded && hasFixableIssues && !isExcluded && (
+              {/* Expandable scorecard view — shows ALL holes */}
+              {isExpanded && !isExcluded && (
                 <div
                   style={{
                     marginTop: '12px',
                     padding: '14px',
-                    background: 'rgba(255,180,50,0.05)',
+                    background: 'rgba(196,153,42,0.03)',
                     borderRadius: '12px',
-                    border: '1px solid rgba(255,180,50,0.15)',
+                    border: '1px solid rgba(196,153,42,0.12)',
                   }}
                 >
-                  <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '10px' }}>
-                    Corrige los scores faltantes:
-                  </p>
+                  {/* Mini scorecard grid — 9 holes per row */}
+                  {[0, 9].map(startIdx => {
+                    const endIdx = Math.min(startIdx + 9, round.holes_played)
+                    if (startIdx >= round.holes_played) return null
+                    const isBack = startIdx === 9
+                    let rowTotal = 0
+                    return (
+                      <div key={startIdx} style={{ marginBottom: isBack ? 0 : '8px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600 }}>
+                          {isBack ? 'IN' : 'OUT'}
+                        </div>
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: `repeat(${endIdx - startIdx}, 1fr) auto`,
+                          gap: '3px',
+                          fontSize: '11px',
+                        }}>
+                          {/* Hole numbers */}
+                          {Array.from({ length: endIdx - startIdx }, (_, j) => {
+                            const h = startIdx + j + 1
+                            return (
+                              <div key={'h' + h} style={{ textAlign: 'center', color: 'var(--text-2)', fontSize: '9px' }}>{h}</div>
+                            )
+                          })}
+                          <div style={{ textAlign: 'center', color: 'var(--text-2)', fontSize: '9px', fontWeight: 700 }}>T</div>
+
+                          {/* Scores — editable */}
+                          {Array.from({ length: endIdx - startIdx }, (_, j) => {
+                            const h = startIdx + j + 1
+                            const holeKey = String(h)
+                            const score = round.scores[holeKey]
+                            const hasIssue = round.validation.issues.some(iss => iss.holeNumber === h)
+                            const isAmbiguous = round.metadata?.ambiguous_holes?.includes(h)
+                            if (typeof score === 'number') rowTotal += score
+                            return (
+                              <input
+                                key={'s' + h}
+                                type="number"
+                                min={1}
+                                max={15}
+                                value={score ?? ''}
+                                onChange={e => handleScoreChange(round.tempId, holeKey, parseInt(e.target.value) || 0)}
+                                style={{
+                                  width: '100%',
+                                  textAlign: 'center',
+                                  padding: '4px 0',
+                                  fontSize: '13px',
+                                  fontWeight: 700,
+                                  borderRadius: '6px',
+                                  border: hasIssue ? '2px solid #f0ad4e' : isAmbiguous ? '2px solid #60a5fa' : '1px solid rgba(255,255,255,0.1)',
+                                  background: hasIssue ? 'rgba(255,180,50,0.1)' : isAmbiguous ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.04)',
+                                  color: 'var(--text)',
+                                  outline: 'none',
+                                  minHeight: '32px',
+                                }}
+                              />
+                            )
+                          })}
+                          <div style={{
+                            textAlign: 'center', padding: '4px 2px', fontSize: '13px', fontWeight: 700,
+                            color: '#c4992a', background: 'rgba(196,153,42,0.08)', borderRadius: '6px',
+                          }}>
+                            {rowTotal}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Ambiguous holes hint */}
+                  {round.metadata?.ambiguous_holes && round.metadata.ambiguous_holes.length > 0 && (
+                    <p style={{ fontSize: '11px', color: '#60a5fa', marginTop: '8px' }}>
+                      Hoyos en azul fueron estimados por IA — verifica que esten correctos
+                    </p>
+                  )}
+
+                  {/* Confidence bar */}
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ flex: 1, height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${(round.import_confidence || 0) * 100}%`, height: '100%', borderRadius: '2px',
+                        background: (round.import_confidence || 0) > 0.8 ? '#50c878' : (round.import_confidence || 0) > 0.5 ? '#f0ad4e' : '#ff6666',
+                      }} />
+                    </div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-2)' }}>
+                      {Math.round((round.import_confidence || 0) * 100)}% confianza
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* LEGACY: keep old expand for compat — hidden since new view handles everything */}
+              {false && isExpanded && hasFixableIssues && !isExcluded && (
+                <div style={{ display: 'none' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                     {Array.from({ length: round.holes_played }, (_, idx) => idx + 1).map(holeNum => {
                       const holeKey = String(holeNum)
