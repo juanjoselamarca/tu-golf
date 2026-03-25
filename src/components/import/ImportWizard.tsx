@@ -114,15 +114,26 @@ export default function ImportWizard() {
             body: formData,
           })
 
-          if (!res.ok) throw new Error('Error subiendo fotos')
-
           const data = await res.json()
-          updateState({
-            jobId: data.job_id,
-            rounds: data.rounds || [],
-            step: 'processing',
-            fileCount: files.length,
-          })
+          if (!res.ok) throw new Error(data.error || `Error ${res.status} al subir fotos`)
+
+          if (data.rounds && data.rounds.length > 0) {
+            // Rounds already processed — skip polling, go to review
+            updateState({
+              jobId: data.job_id,
+              rounds: data.rounds,
+              step: 'review',
+              fileCount: files.length,
+            })
+          } else {
+            // No rounds yet — go to processing to poll
+            updateState({
+              jobId: data.job_id,
+              rounds: [],
+              step: 'processing',
+              fileCount: files.length,
+            })
+          }
         } else {
           formData.append('file', files[0])
 
@@ -131,9 +142,8 @@ export default function ImportWizard() {
             body: formData,
           })
 
-          if (!res.ok) throw new Error('Error procesando archivo')
-
           const data = await res.json()
+          if (!res.ok) throw new Error(data.error || `Error ${res.status} al procesar archivo`)
 
           if (data.needsMapping) {
             setUploadError(
@@ -143,10 +153,11 @@ export default function ImportWizard() {
             return
           }
 
+          // CSV always returns rounds immediately — go to review directly
           updateState({
             jobId: data.job_id,
             rounds: data.rounds || [],
-            step: 'processing',
+            step: data.rounds?.length > 0 ? 'review' : 'processing',
             fileCount: 1,
           })
         }

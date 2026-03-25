@@ -4,6 +4,9 @@ import Anthropic from '@anthropic-ai/sdk'
 import { validarRonda } from '@/lib/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 
+// Vercel Hobby: max 60s. Needed because Claude Vision can take 10-30s per image.
+export const maxDuration = 60
+
 const VISION_PROMPT = `Eres un experto en leer scorecards de golf. Analiza esta imagen de una scorecard y extrae los datos.
 
 Responde EXCLUSIVAMENTE con un JSON válido (sin markdown, sin backticks, sin texto adicional):
