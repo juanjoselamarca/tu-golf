@@ -87,6 +87,8 @@ interface RondaLibre {
   estado:                string
   modo_juego:            ModoJuego
   hoyo_inicio?:          number | null
+  admin_mode?:           boolean
+  admin_user_id?:        string
   ronda_libre_jugadores: Jugador[]
 }
 
@@ -246,6 +248,7 @@ function RondaLibrePageContent() {
   const [gwiInputs,   setGwiInputs]   = useState<JugadorGWIInput[]>([])
   const [_gwiResults, setGwiResults]  = useState<GWIResult[]>([])
   const [isAnonymous, setIsAnonymous] = useState(true)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [showBanner,  setShowBanner]  = useState(false)
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -272,7 +275,7 @@ function RondaLibrePageContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, ronda_libre_jugadores(id, nombre, user_id, scores)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, ronda_libre_jugadores(id, nombre, user_id, scores)')
         .eq('codigo', codigo)
         .single()
 
@@ -313,6 +316,7 @@ function RondaLibrePageContent() {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       setIsAnonymous(!user)
+      setCurrentUserId(user?.id ?? null)
     })
   }, [])
 
@@ -1302,6 +1306,80 @@ function RondaLibrePageContent() {
   /* ─────────────────────────────────────────────────────────────────────── */
   /* ── PLAYER VIEW ────────────────────────────────────────────────────── */
   /* ─────────────────────────────────────────────────────────────────────── */
+  const isAdmin = ronda.admin_mode && ronda.admin_user_id === currentUserId
+  const isAdminRound = !!ronda.admin_mode
+
+  // Admin mode: admin goes to score-grupo, others see "tu grupo lleva tu score"
+  if (isAdminRound && !isAdmin && currentUserId) {
+    return (
+      <div style={{ background: '#070d18', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
+        {sharedHeader}
+        <div style={{ maxWidth: '640px', margin: '0 auto', padding: '40px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', marginBottom: '8px' }}>
+            Tu grupo lleva tu score
+          </h2>
+          <p style={{ color: '#94a8c0', fontSize: '14px', marginBottom: '24px', lineHeight: 1.6 }}>
+            Un miembro de tu grupo esta anotando el score de todos. Puedes seguir el marcador en vivo.
+          </p>
+          <button
+            onClick={() => chooseRole('espectador')}
+            style={{
+              width: '100%', maxWidth: '320px', padding: '16px',
+              background: '#c4992a', color: '#070d18',
+              border: 'none', borderRadius: '12px',
+              fontWeight: 700, fontSize: '16px',
+              cursor: 'pointer',
+            }}
+          >
+            Ver marcador en vivo
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (isAdmin) {
+    return (
+      <div style={{ background: '#070d18', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
+        {sharedHeader}
+        <div style={{ maxWidth: '640px', margin: '0 auto', padding: '40px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', marginBottom: '8px' }}>
+            Score en grupo
+          </h2>
+          <p style={{ color: '#94a8c0', fontSize: '14px', marginBottom: '24px', lineHeight: 1.6 }}>
+            Llevas el score de {ronda.ronda_libre_jugadores.length} jugador{ronda.ronda_libre_jugadores.length !== 1 ? 'es' : ''} en esta ronda.
+          </p>
+          <button
+            onClick={() => router.push(`/ronda-libre/${codigo}/score-grupo`)}
+            style={{
+              width: '100%', maxWidth: '320px', padding: '16px',
+              background: '#c4992a', color: '#070d18',
+              border: 'none', borderRadius: '12px',
+              fontWeight: 700, fontSize: '16px',
+              cursor: 'pointer', marginBottom: '12px',
+            }}
+          >
+            Anotar score de grupo {'\u2192'}
+          </button>
+          <button
+            onClick={() => chooseRole('espectador')}
+            style={{
+              width: '100%', maxWidth: '320px', padding: '14px',
+              background: 'transparent', color: '#94a8c0',
+              border: '1px solid rgba(196,153,42,0.2)', borderRadius: '12px',
+              fontWeight: 500, fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          >
+            Ver marcador
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ background: '#070d18', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
       {sharedHeader}

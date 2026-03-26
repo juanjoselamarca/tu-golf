@@ -109,6 +109,30 @@ export default function NuevaRondaLibrePage() {
   const [holes, setHoles] = useState<18 | 9>(18)
   const [partidaSimultanea, setPartidaSimultanea] = useState(false)
   const [hoyoInicio, setHoyoInicio] = useState(1)
+  const [adminMode, setAdminMode] = useState(false)
+
+  // Admin mode: player slots
+  interface AdminPlayer {
+    tipo: 'cuenta' | 'invitado'
+    nombre: string
+    telefono: string
+  }
+  const [adminPlayers, setAdminPlayers] = useState<AdminPlayer[]>([])
+  const updateAdminPlayer = (idx: number, field: keyof AdminPlayer, value: string) => {
+    setAdminPlayers(prev => {
+      const next = [...prev]
+      next[idx] = { ...next[idx], [field]: value }
+      return next
+    })
+  }
+  const removeAdminPlayer = (idx: number) => {
+    setAdminPlayers(prev => prev.filter((_, i) => i !== idx))
+  }
+  const addAdminPlayer = () => {
+    if (adminPlayers.length < 3) {
+      setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: '', telefono: '' }])
+    }
+  }
   const [fechaStr, setFechaStr] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -191,7 +215,10 @@ export default function NuevaRondaLibrePage() {
     e.preventDefault()
     if (!userId || !cancha) return
 
-    const jugadoresValidos = jugadores.filter(j => j.trim() !== '')
+    // In admin mode, use adminPlayers list instead of jugadores
+    const jugadoresValidos = adminMode
+      ? [jugadores[0], ...adminPlayers.filter(p => p.nombre.trim()).map(p => p.nombre.trim())]
+      : jugadores.filter(j => j.trim() !== '')
     if (jugadoresValidos.length === 0) {
       console.error('Agrega al menos un jugador para crear la ronda.')
       return
@@ -202,7 +229,7 @@ export default function NuevaRondaLibrePage() {
     const supabase = createClient()
     const codigo = Math.random().toString(36).substring(2, 8).toUpperCase()
 
-    const baseData = {
+    const baseData: Record<string, unknown> = {
       codigo,
       creador_id: userId,
       course_id: courseId || null,
@@ -212,6 +239,12 @@ export default function NuevaRondaLibrePage() {
       fecha: fechaStr,
       estado: 'en_curso',
       hoyo_inicio: partidaSimultanea ? hoyoInicio : 1,
+    }
+
+    // Admin mode columns
+    if (adminMode) {
+      baseData.admin_mode = true
+      baseData.admin_user_id = userId
     }
 
     // Intento 1: con modo_juego = 'gross'
@@ -262,12 +295,26 @@ export default function NuevaRondaLibrePage() {
     }
 
     for (let i = 0; i < jugadoresValidos.length; i++) {
-      await supabase.from('ronda_libre_jugadores').insert({
+      const playerData: Record<string, unknown> = {
         ronda_id: ronda.id,
         nombre: jugadoresValidos[i],
         user_id: i === 0 ? userId : null,
         scores: {},
-      })
+      }
+      // In admin mode, mark non-creator players as guests with phone
+      if (adminMode && i > 0) {
+        const ap = adminPlayers[i - 1]
+        if (ap) {
+          playerData.is_guest = ap.tipo === 'invitado'
+          if (ap.tipo === 'invitado' && ap.telefono) {
+            playerData.telefono_invitado = ap.telefono
+          }
+          if (ap.tipo === 'invitado') {
+            playerData.nombre_invitado = ap.nombre
+          }
+        }
+      }
+      await supabase.from('ronda_libre_jugadores').insert(playerData)
     }
 
     await trackEvent(supabase, userId, 'ronda_creada', { codigo, cancha, holes })
@@ -415,7 +462,7 @@ export default function NuevaRondaLibrePage() {
             </div>
 
             <button
-              onClick={() => router.push(`/ronda-libre/${roundCode}/score`)}
+              onClick={() => router.push(adminMode ? `/ronda-libre/${roundCode}/score-grupo` : `/ronda-libre/${roundCode}/score`)}
               style={{
                 width: '100%',
                 background: colors.gold,
@@ -429,7 +476,7 @@ export default function NuevaRondaLibrePage() {
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              Empezar a jugar →
+              {adminMode ? 'Empezar score de grupo →' : 'Empezar a jugar →'}
             </button>
           </div>
         </div>
@@ -777,6 +824,209 @@ export default function NuevaRondaLibrePage() {
             )}
           </div>
 
+          {/* Admin Mode Toggle */}
+          <div style={{
+            background: colors.card,
+            border: `1px solid ${adminMode ? colors.gold : colors.cardBorder}`,
+            borderRadius: '16px',
+            padding: '20px',
+            marginBottom: '16px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            transition: 'border-color 0.2s',
+          }}>
+            <div
+              onClick={() => {
+                setAdminMode(prev => {
+                  if (!prev) {
+                    // Initialize with empty player slots
+                    setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '' }])
+                  } else {
+                    setAdminPlayers([])
+                  }
+                  return !prev
+                })
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                width: '40px', height: '24px', borderRadius: '12px',
+                background: adminMode ? colors.gold : '#d1d5db',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}>
+                <div style={{
+                  width: '18px', height: '18px', borderRadius: '50%', background: '#ffffff',
+                  position: 'absolute', top: '3px',
+                  left: adminMode ? '19px' : '3px',
+                  transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary }}>Llevar el score de tu grupo</div>
+                <div style={{ fontSize: '11px', color: colors.textSecondary }}>Tu llevas la tarjeta de todos los jugadores</div>
+              </div>
+            </div>
+
+            {/* Admin mode player slots */}
+            {adminMode && (
+              <div style={{ marginTop: '16px', borderTop: `1px solid ${colors.cardBorder}`, paddingTop: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                  Jugadores de tu grupo ({1 + adminPlayers.filter(p => p.nombre.trim()).length}/4)
+                </label>
+
+                {/* Player 1 (creator) — read only */}
+                <div style={{ position: 'relative', marginBottom: '10px' }}>
+                  <input
+                    readOnly
+                    value={jugadores[0]}
+                    style={{
+                      background: colors.inputBg,
+                      border: `1px solid ${colors.inputBorder}`,
+                      color: colors.gold,
+                      borderRadius: '10px',
+                      padding: '12px 14px',
+                      fontSize: '16px',
+                      outline: 'none',
+                      width: '100%',
+                      boxSizing: 'border-box' as const,
+                      minHeight: '48px',
+                      cursor: 'default',
+                      paddingRight: '60px',
+                    }}
+                  />
+                  <span style={{
+                    position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                    fontSize: '11px', color: colors.textSecondary,
+                    background: 'rgba(196,153,42,0.1)', padding: '2px 7px', borderRadius: '10px',
+                  }}>
+                    Tu
+                  </span>
+                </div>
+
+                {/* Additional player slots */}
+                {adminPlayers.map((player, idx) => (
+                  <div key={idx} style={{
+                    marginBottom: '10px',
+                    background: colors.inputBg,
+                    border: `1px solid ${colors.cardBorder}`,
+                    borderRadius: '12px',
+                    padding: '12px',
+                  }}>
+                    {/* Type selector */}
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                      {(['cuenta', 'invitado'] as const).map(tipo => (
+                        <button
+                          key={tipo}
+                          type="button"
+                          onClick={() => updateAdminPlayer(idx, 'tipo', tipo)}
+                          style={{
+                            flex: 1, padding: '6px 10px', borderRadius: '8px',
+                            fontSize: '12px', fontWeight: player.tipo === tipo ? 600 : 400,
+                            background: player.tipo === tipo ? 'rgba(196,153,42,0.15)' : 'transparent',
+                            color: player.tipo === tipo ? colors.gold : colors.textSecondary,
+                            border: `1px solid ${player.tipo === tipo ? colors.gold : colors.cardBorder}`,
+                            cursor: 'pointer',
+                            minHeight: '32px',
+                          }}
+                        >
+                          {tipo === 'cuenta' ? 'Con cuenta' : 'Invitado'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Name input */}
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        placeholder={player.tipo === 'cuenta' ? 'Nombre del jugador' : 'Nombre del invitado'}
+                        value={player.nombre}
+                        onChange={(e) => updateAdminPlayer(idx, 'nombre', e.target.value)}
+                        style={{
+                          background: colors.inputBg,
+                          border: `1px solid ${colors.inputBorder}`,
+                          color: colors.textPrimary,
+                          borderRadius: '10px',
+                          padding: '10px 12px',
+                          fontSize: '15px',
+                          outline: 'none',
+                          flex: 1,
+                          minHeight: '44px',
+                          boxSizing: 'border-box' as const,
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeAdminPlayer(idx)}
+                        style={{
+                          background: 'transparent',
+                          border: `1px solid ${colors.cardBorder}`,
+                          color: '#ef4444',
+                          borderRadius: '10px',
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                          fontSize: '14px',
+                          minHeight: '44px',
+                          minWidth: '44px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        x
+                      </button>
+                    </div>
+
+                    {/* Phone input for guests */}
+                    {player.tipo === 'invitado' && (
+                      <input
+                        type="tel"
+                        placeholder="Telefono (WhatsApp, opcional)"
+                        value={player.telefono}
+                        onChange={(e) => updateAdminPlayer(idx, 'telefono', e.target.value)}
+                        style={{
+                          background: colors.inputBg,
+                          border: `1px solid ${colors.inputBorder}`,
+                          color: colors.textPrimary,
+                          borderRadius: '10px',
+                          padding: '10px 12px',
+                          fontSize: '15px',
+                          outline: 'none',
+                          width: '100%',
+                          minHeight: '44px',
+                          marginTop: '6px',
+                          boxSizing: 'border-box' as const,
+                        }}
+                      />
+                    )}
+                  </div>
+                ))}
+
+                {/* Add player button */}
+                {adminPlayers.length < 3 && (
+                  <button
+                    type="button"
+                    onClick={addAdminPlayer}
+                    style={{
+                      width: '100%',
+                      background: 'transparent',
+                      border: `1px dashed ${colors.gold}`,
+                      color: colors.gold,
+                      borderRadius: '10px',
+                      padding: '12px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      textAlign: 'center',
+                      minHeight: '44px',
+                    }}
+                  >
+                    + Agregar jugador al grupo
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Fecha */}
           <div style={{
             background: colors.card,
@@ -811,8 +1061,8 @@ export default function NuevaRondaLibrePage() {
             />
           </div>
 
-          {/* Jugadores */}
-          <div style={{
+          {/* Jugadores — hidden when admin mode is active */}
+          {!adminMode && <div style={{
             background: colors.card,
             border: `1px solid ${colors.cardBorder}`,
             borderRadius: '16px',
@@ -943,7 +1193,7 @@ export default function NuevaRondaLibrePage() {
                 </button>
               )}
             </div>
-          </div>
+          </div>}
 
           {/* Submit */}
           <button
