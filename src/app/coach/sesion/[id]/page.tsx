@@ -17,6 +17,7 @@ interface TaigerSession {
   messages: ChatMessage[]
   created_at: string
   updated_at?: string
+  rating?: number | null
 }
 
 const SESSION_TYPE_LABELS: Record<string, string> = {
@@ -38,6 +39,11 @@ export default function SesionDetailPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [error, setError] = useState<string | null>(null)
   const [limitReached, setLimitReached] = useState(false)
+  const [rating, setRating] = useState<number>(0)
+  const [ratingHover, setRatingHover] = useState<number>(0)
+  const [ratingComment, setRatingComment] = useState('')
+  const [ratingSubmitted, setRatingSubmitted] = useState(false)
+  const [ratingSubmitting, setRatingSubmitting] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const MAX_TOTAL_MESSAGES = 5
@@ -69,8 +75,13 @@ export default function SesionDetailPage() {
         return
       }
 
-      setSession(sessionData as TaigerSession)
+      const typedSession = sessionData as TaigerSession
+      setSession(typedSession)
       setMessages(sessionData.messages || [])
+      if (typedSession.rating) {
+        setRating(typedSession.rating)
+        setRatingSubmitted(true)
+      }
       setLoadingSession(false)
     }
 
@@ -175,6 +186,32 @@ export default function SesionDetailPage() {
     setInput('')
     sendFollowUp(newMessages)
   }
+
+  const handleRatingSubmit = async () => {
+    if (!session || rating === 0 || ratingSubmitting) return
+    setRatingSubmitting(true)
+    try {
+      const res = await fetch('/api/taiger/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: session.id,
+          rating,
+          comment: ratingComment.trim() || undefined,
+        }),
+      })
+      if (res.ok) {
+        setRatingSubmitted(true)
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setRatingSubmitting(false)
+    }
+  }
+
+  const hasAssistantResponse = messages.some(m => m.role === 'assistant' && m.content.length > 0)
+  const showRating = hasAssistantResponse && !streaming
 
   if (loadingSession) {
     return (
@@ -356,6 +393,93 @@ export default function SesionDetailPage() {
             <p style={{ color: '#94a8c0', fontSize: 14 }}>
               Sesión completada
             </p>
+          </div>
+        )}
+
+        {/* Session Rating */}
+        {showRating && (
+          <div style={{
+            marginTop: 24,
+            padding: 20,
+            background: 'rgba(196,153,42,0.06)',
+            border: '1px solid rgba(196,153,42,0.15)',
+            borderRadius: 12,
+          }}>
+            {ratingSubmitted ? (
+              <p style={{ color: '#c4992a', fontSize: 14, textAlign: 'center', margin: 0 }}>
+                Gracias por tu feedback
+              </p>
+            ) : (
+              <>
+                <p style={{ color: '#94a8c0', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
+                  Califica esta sesion con tAIger+
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      onClick={() => setRating(star)}
+                      onMouseEnter={() => setRatingHover(star)}
+                      onMouseLeave={() => setRatingHover(0)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: 28,
+                        padding: 4,
+                        color: star <= (ratingHover || rating) ? '#c4992a' : '#3a4a5c',
+                        transition: 'color 0.15s',
+                        minWidth: 44,
+                        minHeight: 44,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      aria-label={`${star} estrellas`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={ratingComment}
+                  onChange={e => setRatingComment(e.target.value)}
+                  placeholder="Algun comentario? (opcional)"
+                  style={{
+                    width: '100%',
+                    height: 40,
+                    background: '#070d18',
+                    border: '1px solid rgba(196,153,42,0.2)',
+                    borderRadius: 8,
+                    padding: '0 12px',
+                    color: '#edeae4',
+                    fontSize: 13,
+                    outline: 'none',
+                    marginBottom: 12,
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <button
+                  onClick={handleRatingSubmit}
+                  disabled={rating === 0 || ratingSubmitting}
+                  style={{
+                    width: '100%',
+                    height: 40,
+                    borderRadius: 8,
+                    background: rating > 0 ? '#c4992a' : 'rgba(196,153,42,0.15)',
+                    border: 'none',
+                    color: rating > 0 ? '#070d18' : '#94a8c0',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: rating > 0 ? 'pointer' : 'not-allowed',
+                    opacity: ratingSubmitting ? 0.6 : 1,
+                  }}
+                >
+                  {ratingSubmitting ? 'Enviando...' : 'Enviar'}
+                </button>
+              </>
+            )}
           </div>
         )}
 

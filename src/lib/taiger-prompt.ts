@@ -157,10 +157,32 @@ export interface TaigerContext {
     next_focus: string | null
     techniques_assigned: unknown[]
   } | null
+  recent_sessions?: Array<{
+    id: string
+    session_type: string
+    created_at: string
+    next_focus: string | null
+    messages?: Array<{ role: string; content: string }>
+  }>
+  active_recommendations?: Array<{
+    recommendation: string
+    category: string
+    focus_area: string
+    status: string
+    score_before: number | null
+    score_after: number | null
+    created_at: string
+  }>
+  collective_insights?: Array<{
+    pattern_type: string
+    insight: string
+    sample_size: number
+    confidence: number
+  }>
 }
 
 export function buildContextString(context: TaigerContext): string {
-  const { player, stats, patterns, recent_rounds, last_session } = context
+  const { player, stats, patterns, recent_rounds, last_session, recent_sessions, active_recommendations, collective_insights } = context
   const indice = player.indice ?? player.handicap ?? null
 
   const indexLevel = !indice ? 'sin índice registrado' :
@@ -202,6 +224,38 @@ export function buildContextString(context: TaigerContext): string {
     ? `Score promedio: ${stats.avg_score.toFixed(1)} (${(stats.avg_score - 72) >= 0 ? '+' : ''}${(stats.avg_score - 72).toFixed(1)} sobre par)\nDiferencia vs índice esperado: ${(stats.avg_score - (72 + indice * 0.9)).toFixed(1)} strokes`
     : 'Sin suficientes datos estadísticos'
 
+  // Build session history section
+  const sessionsText = (recent_sessions ?? []).length > 0
+    ? (recent_sessions ?? []).map((s, i) => {
+        const date = new Date(s.created_at).toLocaleDateString('es-CL')
+        const msgs = s.messages ?? []
+        const assistantMsgs = msgs.filter(m => m.role === 'assistant')
+        const summary = assistantMsgs.length > 0
+          ? assistantMsgs[0].content.substring(0, 150) + '...'
+          : s.next_focus ?? 'Sin resumen'
+        return `Sesión ${i + 1} (${date}, ${s.session_type}): ${summary}`
+      }).join('\n')
+    : 'Sin sesiones previas'
+
+  // Build recommendations section
+  const recsText = (active_recommendations ?? []).length > 0
+    ? (active_recommendations ?? []).map(r => {
+        const scoreChange = r.score_before != null && r.score_after != null
+          ? ` | Score: ${r.score_before} -> ${r.score_after}`
+          : r.score_before != null
+            ? ` | Score al momento: ${r.score_before}`
+            : ''
+        return `- [${r.category}/${r.focus_area}] ${r.recommendation}${scoreChange}`
+      }).join('\n')
+    : 'Sin recomendaciones activas'
+
+  // Build collective insights section
+  const insightsText = (collective_insights ?? []).length > 0
+    ? (collective_insights ?? []).map(ci =>
+        `- ${ci.insight} (n=${ci.sample_size}, confianza: ${Math.round(ci.confidence * 100)}%)`
+      ).join('\n')
+    : 'Sin datos colectivos disponibles'
+
   return `
 === PERFIL DEL JUGADOR ===
 Nombre: ${player.name}
@@ -225,6 +279,15 @@ ${patternText}
 ${last_session
   ? `Tipo: ${last_session.session_type} | Fecha: ${new Date(last_session.created_at).toLocaleDateString('es-CL')}\nFoco asignado: ${last_session.next_focus ?? 'No definido'}`
   : 'Primera sesión con tAIger+'}
+
+=== HISTORIAL DE SESIONES ===
+${sessionsText}
+
+=== RECOMENDACIONES ACTIVAS ===
+${recsText}
+
+=== DATOS COLECTIVOS (jugadores de nivel similar) ===
+${insightsText}
 
 === ÚLTIMAS 3 RONDAS ===
 ${(recent_rounds ?? []).slice(0, 3).map((r, i) =>

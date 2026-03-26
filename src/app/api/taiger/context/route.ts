@@ -2,14 +2,27 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 export const dynamic = 'force-dynamic'
 
+function getHandicapRange(handicap: number | null): string {
+  if (handicap == null) return '20-30'
+  if (handicap <= 5) return '0-5'
+  if (handicap <= 10) return '5-10'
+  if (handicap <= 15) return '10-15'
+  if (handicap <= 20) return '15-20'
+  if (handicap <= 30) return '20-30'
+  return '30+'
+}
+
 export async function GET() {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const [profileRes, roundsRes, patternsRes, sessionRes] = await Promise.all([
-      supabase.from('profiles').select('name, indice').eq('id', user.id).single(),
+    const profileRes = await supabase.from('profiles').select('name, indice').eq('id', user.id).single()
+    const profile = profileRes.data
+    const handicapRange = getHandicapRange(profile?.indice ?? null)
+
+    const [roundsRes, patternsRes, sessionsRes, recommendationsRes, insightsRes] = await Promise.all([
       supabase.from('historical_rounds')
         .select('id, course_name, played_at, scores, total_gross')
         .order('played_at', { ascending: false })
@@ -19,17 +32,28 @@ export async function GET() {
         .eq('user_id', user.id)
         .eq('status', 'active'),
       supabase.from('taiger_sessions')
-        .select('*')
+        .select('id, session_type, created_at, next_focus, techniques_assigned, messages')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .limit(5),
+      supabase.from('taiger_recommendations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(10),
+      supabase.from('collective_insights')
+        .select('*')
+        .eq('handicap_range', handicapRange)
+        .order('computed_at', { ascending: false })
+        .limit(5),
     ])
 
-    const profile = profileRes.data
     const rounds  = roundsRes.data   || []
     const patterns = patternsRes.data || []
-    const lastSession = sessionRes.data || null
+    const sessions = sessionsRes.data || []
+    const recommendations = recommendationsRes.data || []
+    const collectiveInsights = insightsRes.data || []
 
     // Compute stats
     const validRounds = rounds.filter(r => r.total_gross != null)
@@ -66,6 +90,8 @@ export async function GET() {
       over_under:  r.total_gross - 72,
     }))
 
+    const lastSession = sessions.length > 0 ? sessions[0] : null
+
     return NextResponse.json({
       player: {
         name:         profile?.name  || '',
@@ -83,6 +109,9 @@ export async function GET() {
       patterns,
       recent_rounds: recentRounds,
       last_session:  lastSession,
+      recent_sessions: sessions,
+      active_recommendations: recommendations,
+      collective_insights: collectiveInsights,
     })
   } catch {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })

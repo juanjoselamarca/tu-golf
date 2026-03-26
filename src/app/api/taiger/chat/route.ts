@@ -152,6 +152,17 @@ export async function POST(req: NextRequest) {
             next_focus: fullResponse.substring(0, 200),
           }).select('id').single()
 
+          // Extract and save recommendations from the response
+          if (savedSession?.id) {
+            try {
+              await extractAndSaveRecommendations(
+                supabase, user.id, savedSession.id, fullResponse, ctx?.stats?.avg_score ?? null
+              )
+            } catch (recErr) {
+              console.error('[tAIger/chat] Error extracting recommendations:', recErr)
+            }
+          }
+
           controller.enqueue(new TextEncoder().encode(
             `data: ${JSON.stringify({ done: true, session_id: savedSession?.id ?? null })}\n\n`
           ))
@@ -179,4 +190,105 @@ export async function POST(req: NextRequest) {
     console.error('[tAIger/chat] Error interno:', err)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
+}
+
+// --- Recommendation Extraction ---
+
+// Supabase client type for recommendation extraction
+// eslint-disable-next-line
+type SupabaseClientLike = any
+
+const RECOMMENDATION_TRIGGERS = [
+  'te recomiendo',
+  'trabaja en',
+  'enfócate en',
+  'enfocate en',
+  'practica',
+  'intenta',
+  'tu tarea',
+  'esta semana',
+  'drill',
+  'ejercicio',
+]
+
+const FOCUS_AREA_KEYWORDS: Record<string, string[]> = {
+  putting: ['putt', 'green', '3-putt', 'tres putts', 'gate drill', 'clock drill'],
+  driving: ['driver', 'tee shot', 'salida', 'drive', 'tee'],
+  short_game: ['chip', 'pitch', 'bunker', 'up and down', 'juego corto', 'wedge', 'lob'],
+  approach: ['approach', 'hierro', 'iron', 'gir', 'green en regulación', 'dispersion'],
+  mental: ['mental', 'rutina', 'pre-shot', 'confianza', 'presión', 'concentra', 'respira', 'visuali', 'foco', 'mantra'],
+  course_management: ['course management', 'estrategia', 'gestión', 'riesgo', 'conservador', 'miss buena'],
+}
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  technique: ['técnica', 'grip', 'stance', 'swing', 'postura', 'alineación'],
+  mental: ['mental', 'confianza', 'presión', 'rutina', 'concentra', 'respira', 'visuali', 'mantra', 'foco'],
+  practice: ['practica', 'drill', 'ejercicio', 'repet', 'sesión de', 'entren'],
+  strategy: ['estrategia', 'gestión', 'plan', 'course management', 'riesgo', 'conservador'],
+}
+
+function inferFocusArea(text: string): string {
+  const lower = text.toLowerCase()
+  let bestArea = 'mental'
+  let bestCount = 0
+  for (const [area, keywords] of Object.entries(FOCUS_AREA_KEYWORDS)) {
+    const count = keywords.filter(kw => lower.includes(kw)).length
+    if (count > bestCount) { bestCount = count; bestArea = area }
+  }
+  return bestArea
+}
+
+function inferCategory(text: string): string {
+  const lower = text.toLowerCase()
+  let bestCat = 'practice'
+  let bestCount = 0
+  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    const count = keywords.filter(kw => lower.includes(kw)).length
+    if (count > bestCount) { bestCount = count; bestCat = cat }
+  }
+  return bestCat
+}
+
+async function extractAndSaveRecommendations(
+  supabase: SupabaseClientLike,
+  userId: string,
+  sessionId: string,
+  responseText: string,
+  avgScore: number | null,
+) {
+  const lines = responseText.split('\n').map(l => l.trim()).filter(Boolean)
+  const recommendations: string[] = []
+
+  for (const line of lines) {
+    if (recommendations.length >= 3) break
+
+    const lower = line.toLowerCase()
+
+    // Check numbered items (1., 2., 3.) or bullet points
+    const isNumbered = /^\d+[\.\)]\s/.test(line)
+    const isBullet = /^[-*•]\s/.test(line)
+    const hasTrigger = RECOMMENDATION_TRIGGERS.some(t => lower.includes(t))
+
+    if ((isNumbered || isBullet || hasTrigger) && line.length > 20 && line.length < 500) {
+      // Clean the line
+      const cleaned = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[-*•]\s*/, '').trim()
+      if (cleaned.length > 15) {
+        recommendations.push(cleaned)
+      }
+    }
+  }
+
+  if (recommendations.length === 0) return
+
+  const inserts = recommendations.map(rec => ({
+    user_id: userId,
+    session_id: sessionId,
+    recommendation: rec,
+    category: inferCategory(rec),
+    focus_area: inferFocusArea(rec),
+    status: 'active',
+    score_before: avgScore,
+  }))
+
+  await supabase.from('taiger_recommendations').insert(inserts).select('id').then(() => {})
 }
