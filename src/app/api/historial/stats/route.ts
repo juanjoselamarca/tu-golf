@@ -1,0 +1,366 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@/utils/supabase/server'
+import { findBestCourseMatch } from '@/lib/course-matching'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface HistorialRound {
+  id: string
+  course_name: string
+  played_at: string
+  scores: number[]
+  total_gross: number
+  holes_played: number
+  import_source: string | null
+  parPerHole: number[] | null
+  vsPar: number | null
+}
+
+interface BestRound {
+  score: number
+  course: string
+  date: string
+  vsPar: number
+}
+
+interface BestNine {
+  score: number
+  course: string
+  date: string
+}
+
+interface RecentScore {
+  date: string
+  score: number
+  vsPar: number
+}
+
+interface CourseBreakdownItem {
+  courseName: string
+  roundCount: number
+  avgScore: number
+  bestScore: number
+}
+
+interface RoundsByMonth {
+  month: string
+  label: string
+  rounds: HistorialRound[]
+}
+
+interface HistorialStats {
+  totalRounds: number
+  totalRounds18: number
+  totalRounds9: number
+  avgOverPar18: number | null
+  avgOverPar9: number | null
+  totalBirdies: number
+  totalEagles: number
+  totalPars: number
+  totalBogeys: number
+  totalDoubles: number
+  bestRound18: BestRound | null
+  bestRound9: BestRound | null
+  bestFront9: BestNine | null
+  bestBack9: BestNine | null
+  recentScores18: RecentScore[]
+  courseBreakdown: CourseBreakdownItem[]
+  roundsByMonth: RoundsByMonth[]
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
+
+function getMonthLabel(dateStr: string): string {
+  const [year, monthStr] = dateStr.split('-')
+  const monthIdx = parseInt(monthStr, 10) - 1
+  return `${MONTH_NAMES[monthIdx]} ${year}`
+}
+
+function getMonthKey(dateStr: string): string {
+  return dateStr.slice(0, 7) // "2026-03"
+}
+
+// ─── Route ────────────────────────────────────────────────────────────────────
+
+export async function GET() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Fetch rounds + courses + course_holes in parallel
+  const [roundsRes, coursesRes, holesRes] = await Promise.all([
+    supabase
+      .from('historical_rounds')
+      .select('id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, garmin_scorecard_id, metadata')
+      .eq('user_id', user.id)
+      .order('played_at', { ascending: false }),
+    supabase
+      .from('courses')
+      .select('id, nombre'),
+    supabase
+      .from('course_holes')
+      .select('course_id, numero, par')
+      .order('numero'),
+  ])
+
+  if (roundsRes.error) {
+    return NextResponse.json({ error: roundsRes.error.message }, { status: 500 })
+  }
+
+  const rawRounds = (roundsRes.data ?? []) as Array<{
+    id: string
+    course_name: string
+    course_id: string | null
+    played_at: string
+    scores: (number | null)[] | null
+    total_gross: number | null
+    holes_played: number | null
+    import_source: string | null
+    garmin_scorecard_id: string | null
+    metadata: Record<string, unknown> | null
+  }>
+
+  const allCourses = (coursesRes.data ?? []) as Array<{ id: string; nombre: string }>
+  const allHoles = (holesRes.data ?? []) as Array<{ course_id: string; numero: number; par: number }>
+
+  // Build course_id -> pars map (sorted by numero)
+  const courseParMap = new Map<string, number[]>()
+  for (const h of allHoles) {
+    if (!courseParMap.has(h.course_id)) {
+      courseParMap.set(h.course_id, [])
+    }
+    courseParMap.get(h.course_id)!.push(h.par)
+  }
+
+  // Build course name matching cache
+  const courseMatchCache = new Map<string, string | null>()
+
+  function findCourseId(courseName: string, existingCourseId: string | null): string | null {
+    if (existingCourseId && courseParMap.has(existingCourseId)) {
+      return existingCourseId
+    }
+    if (courseMatchCache.has(courseName)) {
+      return courseMatchCache.get(courseName)!
+    }
+    const match = findBestCourseMatch(courseName, allCourses)
+    const matchedId = match ? match.id : null
+    courseMatchCache.set(courseName, matchedId)
+    return matchedId
+  }
+
+  // ─── Process each round ──────────────────────────────────────────────────
+
+  let totalBirdies = 0
+  let totalEagles = 0
+  let totalPars = 0
+  let totalBogeys = 0
+  let totalDoubles = 0
+
+  const rounds18: Array<{ round: HistorialRound; totalPar: number | null }> = []
+  const rounds9: Array<{ round: HistorialRound; totalPar: number | null }> = []
+
+  const processedRounds: HistorialRound[] = []
+
+  // Course stats accumulator
+  const courseStats = new Map<string, { count: number; totalScore: number; bestScore: number }>()
+
+  for (const raw of rawRounds) {
+    const scores = (raw.scores ?? []).filter((s): s is number => s != null && typeof s === 'number')
+    if (scores.length === 0) continue
+
+    const totalGross = raw.total_gross ?? scores.reduce((a, b) => a + b, 0)
+    const holesPlayed = raw.holes_played ?? scores.length
+
+    // Find matching course and get pars
+    const courseId = findCourseId(raw.course_name, raw.course_id)
+    let parPerHole: number[] | null = null
+    let vsPar: number | null = null
+    let totalPar: number | null = null
+
+    if (courseId && courseParMap.has(courseId)) {
+      const coursePars = courseParMap.get(courseId)!
+      // Match pars to the number of holes played
+      if (coursePars.length >= scores.length) {
+        parPerHole = coursePars.slice(0, scores.length)
+        totalPar = parPerHole.reduce((a, b) => a + b, 0)
+        vsPar = totalGross - totalPar
+
+        // Count hole-by-hole stats with REAL pars
+        for (let i = 0; i < scores.length; i++) {
+          const score = scores[i]
+          const par = parPerHole[i]
+          const diff = score - par
+          if (diff <= -2) totalEagles++
+          else if (diff === -1) totalBirdies++
+          else if (diff === 0) totalPars++
+          else if (diff === 1) totalBogeys++
+          else if (diff >= 2) totalDoubles++
+        }
+      }
+    }
+
+    // Fallback vsPar with standard par if no real pars
+    if (vsPar === null) {
+      const standardPar = holesPlayed <= 9 ? 36 : 72
+      vsPar = totalGross - standardPar
+      totalPar = standardPar
+    }
+
+    const histRound: HistorialRound = {
+      id: raw.id,
+      course_name: raw.course_name,
+      played_at: raw.played_at,
+      scores,
+      total_gross: totalGross,
+      holes_played: holesPlayed,
+      import_source: raw.import_source,
+      parPerHole,
+      vsPar,
+    }
+
+    processedRounds.push(histRound)
+
+    if (holesPlayed >= 18 || scores.length >= 18) {
+      rounds18.push({ round: histRound, totalPar })
+    } else {
+      rounds9.push({ round: histRound, totalPar })
+    }
+
+    // Course stats
+    const cName = raw.course_name
+    const existing = courseStats.get(cName)
+    if (existing) {
+      existing.count++
+      existing.totalScore += totalGross
+      existing.bestScore = Math.min(existing.bestScore, totalGross)
+    } else {
+      courseStats.set(cName, { count: 1, totalScore: totalGross, bestScore: totalGross })
+    }
+  }
+
+  // ─── Aggregate stats ──────────────────────────────────────────────────
+
+  const totalRounds = processedRounds.length
+  const totalRounds18 = rounds18.length
+  const totalRounds9 = rounds9.length
+
+  // Average over par
+  const avgOverPar18 = rounds18.length > 0
+    ? Math.round((rounds18.reduce((sum, r) => sum + (r.round.vsPar ?? 0), 0) / rounds18.length) * 10) / 10
+    : null
+
+  const avgOverPar9 = rounds9.length > 0
+    ? Math.round((rounds9.reduce((sum, r) => sum + (r.round.vsPar ?? 0), 0) / rounds9.length) * 10) / 10
+    : null
+
+  // Best rounds (lowest vsPar)
+  let bestRound18: BestRound | null = null
+  for (const { round } of rounds18) {
+    if (!bestRound18 || (round.vsPar !== null && round.vsPar < bestRound18.vsPar)) {
+      bestRound18 = {
+        score: round.total_gross,
+        course: round.course_name,
+        date: round.played_at,
+        vsPar: round.vsPar ?? 0,
+      }
+    }
+  }
+
+  let bestRound9: BestRound | null = null
+  for (const { round } of rounds9) {
+    if (!bestRound9 || (round.vsPar !== null && round.vsPar < bestRound9.vsPar)) {
+      bestRound9 = {
+        score: round.total_gross,
+        course: round.course_name,
+        date: round.played_at,
+        vsPar: round.vsPar ?? 0,
+      }
+    }
+  }
+
+  // Best front 9 / back 9 (from 18-hole rounds only)
+  let bestFront9: BestNine | null = null
+  let bestBack9: BestNine | null = null
+  for (const { round } of rounds18) {
+    if (round.scores.length >= 18) {
+      const front = round.scores.slice(0, 9).reduce((a, b) => a + b, 0)
+      const back = round.scores.slice(9, 18).reduce((a, b) => a + b, 0)
+      if (!bestFront9 || front < bestFront9.score) {
+        bestFront9 = { score: front, course: round.course_name, date: round.played_at }
+      }
+      if (!bestBack9 || back < bestBack9.score) {
+        bestBack9 = { score: back, course: round.course_name, date: round.played_at }
+      }
+    }
+  }
+
+  // Recent 18-hole scores (last 20, oldest first for sparkline)
+  const recentScores18: RecentScore[] = rounds18
+    .slice(0, 20)
+    .reverse()
+    .map(({ round }) => ({
+      date: round.played_at,
+      score: round.total_gross,
+      vsPar: round.vsPar ?? 0,
+    }))
+
+  // Course breakdown (top 5 most played)
+  const courseBreakdown: CourseBreakdownItem[] = Array.from(courseStats.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 5)
+    .map(([name, stats]) => ({
+      courseName: name,
+      roundCount: stats.count,
+      avgScore: Math.round((stats.totalScore / stats.count) * 10) / 10,
+      bestScore: stats.bestScore,
+    }))
+
+  // Rounds grouped by month
+  const monthMap = new Map<string, HistorialRound[]>()
+  for (const round of processedRounds) {
+    const key = getMonthKey(round.played_at)
+    if (!monthMap.has(key)) {
+      monthMap.set(key, [])
+    }
+    monthMap.get(key)!.push(round)
+  }
+
+  const roundsByMonth: RoundsByMonth[] = Array.from(monthMap.entries())
+    .sort((a, b) => b[0].localeCompare(a[0])) // newest first
+    .map(([key, rounds]) => ({
+      month: key,
+      label: getMonthLabel(rounds[0].played_at),
+      rounds,
+    }))
+
+  // ─── Response ──────────────────────────────────────────────────────────
+
+  const stats: HistorialStats = {
+    totalRounds,
+    totalRounds18,
+    totalRounds9,
+    avgOverPar18,
+    avgOverPar9,
+    totalBirdies,
+    totalEagles,
+    totalPars,
+    totalBogeys,
+    totalDoubles,
+    bestRound18,
+    bestRound9,
+    bestFront9,
+    bestBack9,
+    recentScores18,
+    courseBreakdown,
+    roundsByMonth,
+  }
+
+  return NextResponse.json(stats)
+}
