@@ -318,17 +318,24 @@ function HistorialContent() {
   }, [loading])
 
   /* ── Load stats ── */
+  const [errorDetail, setErrorDetail] = useState('')
   const loadStats = useCallback(async () => {
     try {
       const res = await fetch('/api/historial/stats')
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) {
+        const body = await res.text()
+        setErrorDetail(`API ${res.status}: ${body.substring(0, 200)}`)
+        throw new Error('API failed')
+      }
       const data: HistorialStats = await res.json()
       setStats(data)
       setLoadError(false)
-    } catch {
+      setErrorDetail('')
+    } catch (err) {
       setLoadError(true)
+      if (!errorDetail) setErrorDetail(err instanceof Error ? err.message : 'Error desconocido')
     }
-  }, [])
+  }, [errorDetail])
 
   useEffect(() => {
     if (!loading && userId) loadStats()
@@ -543,6 +550,7 @@ function HistorialContent() {
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
       <p style={{ color: '#111827', fontSize: '16px', textAlign: 'center', margin: 0 }}>No se pudieron cargar las tarjetas</p>
       <p style={{ color: '#6b7280', fontSize: '13px', textAlign: 'center', margin: 0 }}>Revisa tu conexion e intenta de nuevo</p>
+      {errorDetail && <p style={{ color: '#ef4444', fontSize: '11px', textAlign: 'center', margin: 0, fontFamily: 'monospace', maxWidth: '300px', wordBreak: 'break-all' }}>{errorDetail}</p>}
       <button
         onClick={() => { setLoadError(false); setLoading(true) }}
         style={{ background: GOLD, color: '#070d18', fontWeight: 700, fontSize: '14px', padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: 'pointer', marginTop: '8px' }}
