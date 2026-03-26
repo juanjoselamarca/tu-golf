@@ -48,6 +48,26 @@ Verificado contra capturas reales el 24 Mar 2026.
 
 NUNCA cambiar estos colores sin verificar contra la app real de Garmin Golf.
 
+## API ROUTES — REGLA CRITICA
+
+TODA API route (src/app/api/**/route.ts) que importe `createClient` de
+`@/utils/supabase/server` DEBE tener:
+
+```typescript
+export const dynamic = 'force-dynamic'
+```
+
+Sin esto, Next.js intenta renderizar la ruta como estatica en Vercel
+y FALLA silenciosamente en produccion (DYNAMIC_SERVER_USAGE error).
+El usuario ve "no carga" sin explicacion.
+
+ANTES de cada push, verificar con:
+```bash
+grep -rL "force-dynamic" src/app/api/**/route.ts | while read f; do
+  grep -q "supabase/server" "$f" && echo "FALTA dynamic: $f"
+done
+```
+
 ## REGLAS OBLIGATORIAS
 
 1. NUNCA push sin: npx tsc --noEmit (0 errores)

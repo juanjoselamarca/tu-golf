@@ -3,6 +3,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
 import { isAdmin } from '@/lib/admin'
 import webpush from 'web-push'
+export const dynamic = 'force-dynamic'
 
 // Configure web-push with VAPID keys
 webpush.setVapidDetails(

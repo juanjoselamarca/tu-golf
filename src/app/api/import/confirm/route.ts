@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularCPI } from '@/lib/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
+export const dynamic = 'force-dynamic'
 
 // ── Generate tAIger+ insights (async, non-blocking) ──────────
 

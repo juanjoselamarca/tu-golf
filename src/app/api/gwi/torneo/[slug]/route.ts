@@ -6,6 +6,8 @@ import {
 } from '@/lib/scoring'
 import type { JugadorGWIInput } from '@/lib/gwi'
 
+export const dynamic = 'force-dynamic'
+
 interface DBHole   { numero: number; par: number; stroke_index: number }
 interface DBHScore { hole_number: number; gross_score: number | null }
 interface DBPattern { pattern_type: string; confidence: number; metadata: Record<string, number> }

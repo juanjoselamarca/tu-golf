@@ -4,7 +4,10 @@ import {
   strokesRecibidosEnHoyo,
   puntosStablefordHoyo,
 } from '@/lib/scoring'
+
 import type { JugadorGWIInput } from '@/lib/gwi'
+
+export const dynamic = 'force-dynamic'
 
 interface DBHole { numero: number; par: number; stroke_index: number }
 interface DBJugador {

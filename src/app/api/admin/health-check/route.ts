@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
+export const dynamic = 'force-dynamic'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

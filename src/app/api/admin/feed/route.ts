@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
+export const dynamic = 'force-dynamic'
 
 const EVENT_CONFIG: Record<string, { icon: string; type: string; template: string }> = {
   ronda_creada: { icon: '⛳', type: 'round', template: '{name} creó una ronda libre' },

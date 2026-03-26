@@ -4,6 +4,7 @@ import JSZip from 'jszip'
 import { validarRonda } from '@/lib/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { findBestCourseMatch } from '@/lib/course-matching'
+export const dynamic = 'force-dynamic'
 
 export const maxDuration = 60
 

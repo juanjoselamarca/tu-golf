@@ -5,6 +5,7 @@ import { validarRonda } from '@/lib/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { normalizeGarminColor, colorToDiff, isAmbiguousColor } from '@/lib/garmin-colors'
 import { matchCourseInDB } from '@/lib/course-matching'
+export const dynamic = 'force-dynamic'
 
 // Vercel Hobby: max 60s. Needed because Claude Vision can take 10-30s per image.
 export const maxDuration = 60
