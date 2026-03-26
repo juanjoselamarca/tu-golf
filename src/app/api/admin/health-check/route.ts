@@ -214,7 +214,97 @@ async function checkDataIntegrity(admin: SupabaseClient): Promise<Category> {
   return { name: 'Integridad de datos', checks }
 }
 
-// ─── 3. RLS Policies ───────────────────────────────────────────────────────
+// ─── 3. Route & Role Integrity ────────────────────────────────────────────
+
+async function checkRouteAndRoleIntegrity(admin: SupabaseClient): Promise<Category> {
+  const checks = await Promise.all([
+    // Admin exists
+    safeCheck('Admin existe', async () => {
+      const { data } = await admin.rpc('exec_sql', {
+        query: `SELECT COUNT(*) as cnt FROM profiles WHERE role = 'admin'`,
+      })
+      const count = Number(data?.[0]?.cnt ?? 0)
+      return {
+        name: 'Admin existe',
+        status: count > 0 ? 'pass' : 'fail',
+        message: count > 0 ? `${count} admin(s) registrados` : 'No hay ningun usuario admin',
+        details: { count },
+      }
+    }),
+
+    // Recent role changes
+    safeCheck('Cambios de role recientes', async () => {
+      const { data } = await admin.rpc('exec_sql', {
+        query: `SELECT user_id, metadata, created_at
+                FROM analytics_events
+                WHERE event_type = 'role_changed'
+                AND created_at > NOW() - INTERVAL '24 hours'
+                ORDER BY created_at DESC
+                LIMIT 20`,
+      })
+      const rows = (data ?? []) as Array<{ user_id: string; metadata: unknown; created_at: string }>
+      return {
+        name: 'Cambios de role recientes',
+        status: rows.length > 0 ? 'warn' : 'pass',
+        message: rows.length > 0
+          ? `${rows.length} cambio(s) de rol en las ultimas 24h`
+          : 'Sin cambios de rol en 24h',
+        details: rows.length > 0 ? { changes: rows } : undefined,
+      }
+    }),
+
+    // Critical tables accessible (proxy for critical routes)
+    safeCheck('Rutas criticas accesibles', async () => {
+      const tableRouteMap: Record<string, string[]> = {
+        profiles: ['/perfil', '/dashboard'],
+        historical_rounds: ['/perfil/historial'],
+        courses: ['/importar'],
+        tournaments: ['/leaderboard'],
+        taiger_sessions: ['/coach'],
+      }
+      const failures: string[] = []
+      const successes: string[] = []
+
+      for (const [table, routes] of Object.entries(tableRouteMap)) {
+        const { error } = await admin.from(table).select('*', { count: 'exact', head: true })
+        if (error) {
+          failures.push(`${table} (${routes.join(', ')}): ${error.message}`)
+        } else {
+          successes.push(table)
+        }
+      }
+
+      return {
+        name: 'Rutas criticas accesibles',
+        status: failures.length === 0 ? 'pass' : 'fail',
+        message: failures.length === 0
+          ? `${successes.length} tablas criticas accesibles`
+          : `${failures.length} tabla(s) inaccesible(s)`,
+        details: { accessible: successes, failures },
+      }
+    }),
+
+    // Navbar admin link visibility
+    safeCheck('Navbar admin link visible', async () => {
+      const { data } = await admin.rpc('exec_sql', {
+        query: `SELECT COUNT(*) as cnt FROM profiles WHERE role = 'admin'`,
+      })
+      const count = Number(data?.[0]?.cnt ?? 0)
+      return {
+        name: 'Navbar admin link visible',
+        status: count > 0 ? 'pass' : 'fail',
+        message: count > 0
+          ? `${count} usuario(s) pueden ver el link de admin`
+          : 'Nadie puede acceder al panel admin',
+        details: { admin_count: count },
+      }
+    }),
+  ])
+
+  return { name: 'Integridad de rutas y roles', checks }
+}
+
+// ─── 4. RLS Policies ──────────────────────────────────────────────────────
 
 async function checkRLSPolicies(admin: SupabaseClient): Promise<Category> {
   const criticalTables = [
@@ -414,6 +504,7 @@ export async function GET() {
   const categories = await Promise.all([
     checkServices(admin),
     checkDataIntegrity(admin),
+    checkRouteAndRoleIntegrity(admin),
     checkRLSPolicies(admin),
     checkFlows(admin),
     checkPerformance(admin),

@@ -52,6 +52,38 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid role. Must be player, organizer, or admin.' }, { status: 400 })
   }
 
+  // Cannot remove your own admin role
+  if (role && role !== 'admin' && id === user!.id) {
+    return NextResponse.json(
+      { error: 'No puedes cambiar tu propio rol de admin' },
+      { status: 403 }
+    )
+  }
+
+  // Cannot remove the last admin
+  if (role && role !== 'admin') {
+    const { data: currentProfile } = await admin.from('profiles').select('role').eq('id', id).single()
+    if (currentProfile?.role === 'admin') {
+      const { count } = await admin
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'admin')
+      if ((count ?? 0) <= 1) {
+        return NextResponse.json(
+          { error: 'No se puede quitar el ultimo admin del sistema' },
+          { status: 409 }
+        )
+      }
+    }
+  }
+
+  // Capture old role before update for logging
+  let oldRole: string | null = null
+  if (role !== undefined) {
+    const { data: beforeProfile } = await admin.from('profiles').select('role').eq('id', id).single()
+    oldRole = beforeProfile?.role ?? null
+  }
+
   const updates: Record<string, unknown> = {}
   if (name !== undefined) updates.name = name
   if (email !== undefined) updates.email = email
@@ -70,6 +102,20 @@ export async function PATCH(
     user_id: user!.id,
     metadata: { action: 'update_user', entity: 'profiles', entityId: id, details: updates },
   })
+
+  // Log role change as a separate event for health-check monitoring
+  if (role !== undefined && oldRole !== null && oldRole !== role) {
+    await admin.from('analytics_events').insert({
+      event_type: 'role_changed',
+      user_id: user!.id,
+      metadata: {
+        target_user_id: id,
+        old_role: oldRole,
+        new_role: role,
+        changed_by: user!.id,
+      },
+    })
+  }
 
   return NextResponse.json({ profile: data })
 }
