@@ -83,6 +83,7 @@ export default function GWILeaderboard({
     )
   }
   const sorted  = [...results].sort((a, b) => b.winProbability - a.winProbability)
+  if (sorted.length === 0) return null
 
   const nextHole = holesInfo?.find(h => h.numero === nextHoleNumber)
   const isFinale = hoyosRestantes > 0 && hoyosRestantes <= 3

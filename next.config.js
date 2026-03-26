@@ -7,8 +7,11 @@ const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
   {
     key: 'Content-Security-Policy',
-    // NOTE: 'unsafe-inline' and 'unsafe-eval' are required by Next.js for inline scripts and
-    // hot-reload in dev. A future improvement would be to use nonce-based CSP via middleware.
+    // NOTE: 'unsafe-inline' is required by Next.js (inline styles, script injection).
+    // 'unsafe-eval' is required for dev mode hot-reload. In production, Next.js still needs
+    // 'unsafe-inline' for its own runtime. A nonce-based CSP via middleware would be the
+    // proper fix, but requires significant refactoring of Next.js internals.
+    // 'strict-dynamic' is NOT added because it conflicts with Next.js script loading.
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",

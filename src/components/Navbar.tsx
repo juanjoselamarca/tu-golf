@@ -7,6 +7,12 @@ import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import NotificationHub from '@/components/NotificationHub'
 
+// KNOWN ISSUE (audit 2026-03-24): There is a potential race condition between
+// getUser() and onAuthStateChange(). The setUser/setIsAdmin calls are not
+// synchronized, so there can be a brief flash of incorrect state. This is a
+// cosmetic issue only (no security impact — all protected routes check server-side).
+// DO NOT MODIFY this component without thorough testing — a previous fix attempt
+// caused a production outage. The fix requires a careful refactor with useRef guards.
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()

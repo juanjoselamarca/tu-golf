@@ -5,6 +5,11 @@
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
 
+// Validate VAPID key at module load (server-side only)
+if (typeof window === 'undefined' && !VAPID_PUBLIC_KEY) {
+  throw new Error('[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set. Push notifications require a valid VAPID key.')
+}
+
 // ── Support checks ──────────────────────────────────────────────
 
 export function isPushSupported(): boolean {

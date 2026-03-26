@@ -232,7 +232,7 @@ export function calcularGWI(
     return {
       id:             j.id,
       nombre:         j.nombre,
-      winProbability: winProb,
+      winProbability: Math.max(0, Math.min(100, winProb)),
       tendencia:      tendencia as 'up' | 'down' | 'stable',
       volatilidad:    j.volatilidad as 'baja' | 'media' | 'alta',
       narrativa,

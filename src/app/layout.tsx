@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import { ToastContainer } from '@/hooks/useToast'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { LiveRoundIndicator } from '@/components/LiveRoundIndicator'
+import { SystemStatusBanner } from '@/components/SystemStatusBanner'
 
 const playfair = Playfair_Display({
   subsets:  ['latin'],
@@ -76,6 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preload" as="image" href="https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=75" />
       </head>
       <body>
+        <SystemStatusBanner />
         <Navbar />
         <ToastContainer />
         <PWAInstallBanner />

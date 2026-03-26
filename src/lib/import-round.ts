@@ -111,7 +111,12 @@ export async function importRound(
     .single()
 
   if (profile?.indice != null) {
-    totalNeto = totalGross - profile.indice
+    // Validate handicap index — negative values are invalid per USGA/R&A rules
+    if (profile.indice < 0) {
+      warnings.push(`Indice de handicap negativo (${profile.indice}) — usando 0 para cálculo neto`)
+    }
+    const safeIndice = Math.max(0, profile.indice)
+    totalNeto = totalGross - safeIndice
   }
 
   // ── Calcular stableford (si hay pares por hoyo) ───────────
@@ -124,7 +129,7 @@ export async function importRound(
       .order('numero')
 
     if (holes && holes.length === input.scores.length) {
-      const hcp = Math.round(profile.indice)
+      const hcp = Math.max(0, Math.round(profile.indice))
       let sf = 0
       for (let i = 0; i < input.scores.length; i++) {
         const par = holes[i].par
