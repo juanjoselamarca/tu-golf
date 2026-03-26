@@ -35,10 +35,16 @@ export default function Navbar() {
 
     loadUserAndAdmin()
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_e, session) => {
       if (cancelled) return
       setUser(session?.user ?? null)
-      if (!session?.user) setIsAdmin(false)
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles').select('role').eq('id', session.user.id).single()
+        if (!cancelled) setIsAdmin(profile?.role === 'admin')
+      } else {
+        setIsAdmin(false)
+      }
     })
 
     return () => {
