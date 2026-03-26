@@ -104,12 +104,7 @@ function HistorialContent() {
   const [userId,   setUserId]   = useState<string | null>(null)
   const [loading,  setLoading]  = useState(true)
   const [rounds,   setRounds]   = useState<HistoricalRound[]>([])
-  const [showForm, setShowForm] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return new URLSearchParams(window.location.search).get('add') === 'true'
-    }
-    return false
-  })
+  const [showForm, setShowForm] = useState(false)
   const [saving,   setSaving]   = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -188,7 +183,7 @@ function HistorialContent() {
         .from('historical_rounds')
         .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
         .order('played_at', { ascending: false })
-        .limit(500)
+        .limit(50)
       if (error) { setLoadError(true); return }
       setRounds((data as HistoricalRound[]) || [])
       setLoadError(false)
@@ -312,7 +307,7 @@ function HistorialContent() {
     </div>
   )
 
-  const progress = Math.min(rounds.length / Math.max(rounds.length, 1), 1)
+  const progress = Math.min(rounds.length / 50, 1)
 
   return (
     <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
@@ -329,12 +324,12 @@ function HistorialContent() {
             </div>
             <button
               onClick={() => { setShowForm(!showForm); if (!showForm) resetForm() }}
-              disabled={false}
+              disabled={rounds.length >= 50}
               style={{
-                background: false ? 'rgba(196,153,42,0.3)' : '#c4992a',
+                background: rounds.length >= 50 ? 'rgba(196,153,42,0.3)' : '#c4992a',
                 color: '#070d18', fontWeight: 700, fontSize: '14px',
                 padding: '10px 20px', borderRadius: '8px', border: 'none',
-                cursor: false ? 'not-allowed' : 'pointer',
+                cursor: rounds.length >= 50 ? 'not-allowed' : 'pointer',
               }}
             >
               {showForm ? '✕ Cancelar' : '+ Agregar ronda'}
@@ -364,7 +359,7 @@ function HistorialContent() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
               <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>🐯 {taigerMessage(rounds.length)}</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{rounds.length}</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{rounds.length}/50</span>
             </div>
             <div style={{ height: '4px', background: 'rgba(196,153,42,0.15)', borderRadius: '2px', overflow: 'hidden' }}>
               <div style={{
@@ -761,7 +756,7 @@ function HistorialContent() {
               })}
             </div>
             <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-2)', marginTop: '20px' }}>
-              {rounds.length} tarjetas guardadas
+              {rounds.length}/50 tarjetas guardadas
             </p>
           </>
         )}
