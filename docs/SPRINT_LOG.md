@@ -4,6 +4,63 @@
 
 ---
 
+## Sesion 25-26 Mar 2026 — Restauracion + Seguridad + Features
+
+**Fecha:** 25-26 Mar 2026
+**Estado:** COMPLETO
+
+### Incidente y restauracion
+- App caida por refactor del Navbar (async en onAuthStateChange)
+- Causa raiz identificada, Navbar restaurado con fix minimo
+- Funcionalidades perdidas re-aplicadas (admin al login, limite 500, ?add=true)
+- Post-mortem documentado en docs/POSTMORTEM_2026-03-25.md
+
+### Barreras anti-caida
+- Pre-push hook: bloquea push si tsc/tests/build fallan
+- 15 tests canario: detectan patrones peligrosos en archivos criticos
+- Protocolo de archivos protegidos en CLAUDE.md
+- Ya salvo un push con error de ESLint en esta misma sesion
+
+### Monitoreo Fase 1
+- /api/health: endpoint publico para monitoreo externo
+- /api/cron/health-check: cron cada 5 min con historial en BD
+- SystemStatusBanner: banner automatico cuando app degradada
+- error-logger.ts: utilidad de logging a BD
+- vercel.json con crons configurados
+
+### Sprint seguridad (13 fixes del audit)
+- 5 P0 criticos: push/send y debug-auth ya tenian auth, RLS fixes ejecutados, CSP documentado
+- 8 P1 altos: GWI clamp, VAPID validation, GWILeaderboard guard, HSTS ya aplicado
+- src/sql/rls-fixes.sql ejecutado en BD
+
+### Historial v2
+- Diseno premium con stats reales via /api/historial/stats
+- Sparkline SVG con ultimos 20 scores
+- Records grid 2x2 (mejor 18h, 9h, front/back 9)
+- Rondas agrupadas por mes, scores coloreados por vsPar
+
+### Canchas chilenas
+- 10 canchas cargadas con 180 hoyos (par + stroke index)
+- Granadilla, Los Leones, La Dehesa, Prince of Wales, Sport Français
+- Las Brisas, Rocas, Cachagua, Marbella, Campo del Pacifico
+- SQL idempotente en src/sql/seed-canchas-chilenas.sql
+
+### Admin de Ronda
+- Toggle "Llevar el score de tu grupo" al crear ronda
+- Hasta 4 jugadores (con cuenta o invitados)
+- Nueva pagina /score-grupo con scoring simultaneo
+- BD: admin_mode, admin_user_id, campos de invitados
+
+### tAIger+ Learning System
+- Capa 1: memoria de ultimas 5 sesiones + recomendaciones activas
+- Capa 2: 5 nuevos detectores de patrones + insights colectivos por handicap
+- Capa 3: rating 1-5 estrellas post-sesion + feedback API
+- Extraccion automatica de recomendaciones del texto
+- Cron diario de insights colectivos
+- BD: 3 tablas nuevas + columna rating
+
+---
+
 ## Sesion 24-25 Mar 2026 — Sprint masivo: Admin + Hardening + Import + Garmin
 
 **Fecha:** 24-25 Mar 2026
