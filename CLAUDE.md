@@ -72,13 +72,51 @@ done
 
 1. NUNCA push sin: npx tsc --noEmit (0 errores)
 2. NUNCA push sin: npm run build exitoso
-3. Commits en español descriptivo
-4. Variables de entorno: siempre desde .env.local
-5. HEALTH CHECK OBLIGATORIO antes de cada push de sprint:
+3. NUNCA push sin: npm run test exitoso (27+ tests canario)
+4. Commits en español descriptivo
+5. Variables de entorno: siempre desde .env.local
+6. HEALTH CHECK OBLIGATORIO antes de cada push de sprint:
    - Ejecutar GET /api/admin/health-check (via fetch o desde /admin/sistema)
    - Si hay checks en FAIL → arreglar antes de push
    - Si hay WARN → evaluar si es aceptable, documentar en commit
    - Reportar resultado: "Health Check: X passed, Y warnings, Z failed"
+
+## PROTECCION ANTI-CAIDA — PROTOCOLO OBLIGATORIO
+
+Después del incidente del 25-mar-2026 donde un refactor del Navbar
+causó caída total de la app en producción, estas reglas son ABSOLUTAS:
+
+### Archivos protegidos (NUNCA modificar sin protocolo completo):
+- `src/components/Navbar.tsx` — componente global en TODAS las páginas
+- `src/app/layout.tsx` — layout raíz
+- `src/middleware.ts` — middleware de auth
+- `src/lib/supabase.ts` — cliente Supabase
+
+### Protocolo para modificar archivos protegidos:
+1. EXPLICAR al usuario qué se va a cambiar y por qué
+2. Hacer el cambio MÍNIMO necesario (no refactorear)
+3. npm run test ANTES de commit (los tests canario detectan patrones peligrosos)
+4. npm run build ANTES de commit
+5. Si el cambio es en Navbar: verificar que onAuthStateChange NO sea async
+6. Commit individual solo con ese archivo (no mezclado con otros cambios)
+7. Push y esperar confirmación del usuario que producción funciona
+
+### Patrones PROHIBIDOS en Navbar:
+- `onAuthStateChange(async` — causó la caída del 25-mar
+- `async function` dentro de useEffect de auth — causó la caída del 25-mar
+- Cualquier await que pueda bloquear el render inicial
+
+### Regla de oro:
+Si un cambio toca un archivo protegido Y otra cosa al mismo tiempo,
+SEPARAR en dos commits. Así si algo falla, se puede revertir sin
+perder el otro trabajo.
+
+### Pre-push hook automático:
+Hay un git hook en .git/hooks/pre-push que bloquea push si:
+- TypeScript tiene errores
+- Tests fallan (incluyendo canarios)
+- Build falla
+Este hook NO se puede desactivar sin aprobación explícita del usuario.
 
 ## SOBRE ONEDRIVE Y .next
 
