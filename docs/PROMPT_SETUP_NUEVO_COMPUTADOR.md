@@ -1,24 +1,42 @@
-# PROMPT PARA CLAUDE CODE — Setup en nuevo computador
+# SETUP GOLFERS+ EN COMPUTADOR NUEVO
 
-Copia y pega esto completo en Claude Code después de instalar Node.js, Git y Claude Code.
+## Antes de empezar (lo hace Juanjo, 5 minutos)
+
+Instalar estos 3 programas como cualquier app de Windows:
+
+1. **Node.js** → Ir a https://nodejs.org → clic en el botón verde grande → instalar (siguiente, siguiente, finalizar)
+2. **Git** → Ir a https://git-scm.com → "Download for Windows" → instalar con todo por defecto
+3. Abrir el programa **"Terminal"** (buscarlo en el menú Inicio de Windows) y pegar esto:
+   ```
+   npm install -g @anthropic-ai/claude-code
+   ```
+   Esperar a que termine.
+
+Listo. Ahora escribir `claude` en la misma terminal y pegar TODO el texto de abajo.
 
 ---
 
-## INSTRUCCIONES PARA CLAUDE
+## PROMPT (copiar desde aquí hasta el final)
 
-Soy Juanjo, PM de Golfers+. Acabo de cambiar de computador. Necesito que configures todo para seguir trabajando desde donde quedamos.
+Soy Juanjo, PM de Golfers+. Acabo de cambiar de computador. Este es un equipo limpio sin nada instalado más allá de Node.js, Git y Claude Code.
 
-### PASO 1 — Clonar y configurar
+Necesito que hagas TODO lo siguiente sin preguntarme nada:
 
+### 1. Clonar el repositorio e instalar dependencias
+
+Ejecutar:
 ```bash
+cd ~/Desktop
 git clone https://github.com/juanjoselamarca/tu-golf.git
 cd tu-golf
 npm install
 ```
 
-### PASO 2 — Crear .env.local
+Si `~/Desktop` no existe, usar el directorio actual.
 
-Crear el archivo `.env.local` en la raíz del proyecto con estas variables exactas:
+### 2. Crear archivo de variables de entorno
+
+Crear el archivo `.env.local` en la raíz del proyecto (tu-golf/) con este contenido EXACTO:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://hoswfwhvcgqlqdmzpnce.supabase.co
@@ -30,33 +48,40 @@ VAPID_PRIVATE_KEY=mCfwe9Y6DHeIC0_kna3mWiWF7jK0MJDg4rgrWCKq168
 NEXT_PUBLIC_SITE_URL=https://tu-golf.vercel.app
 ```
 
-### PASO 3 — Reinstalar pre-push hook de seguridad
+### 3. Instalar el pre-push hook de seguridad
 
-Crear `.git/hooks/pre-push` con el hook que bloquea push si TypeScript, tests o build fallan. Este hook es CRÍTICO — fue instalado después de un incidente donde la app se cayó en producción. Ver docs/POSTMORTEM_2026-03-25.md para contexto.
+Crear el archivo `.git/hooks/pre-push` (dentro de la carpeta tu-golf) con el hook que:
+- Ejecuta `npx tsc --noEmit` y bloquea si hay errores
+- Ejecuta `npm run test -- --run` y bloquea si fallan tests
+- Limpia `.next` y ejecuta `npm run build` y bloquea si falla
+- Muestra mensajes claros de qué pasó
+- Hacerlo ejecutable con `chmod +x`
 
-### PASO 4 — Verificar que todo funciona
+Este hook es CRÍTICO — fue creado después de un incidente grave de caída de la app. Ver docs/POSTMORTEM_2026-03-25.md.
 
-Ejecutar en orden:
-1. `npx tsc --noEmit` → debe dar 0 errores
-2. `npm run test` → debe dar 27+ tests pasando (incluye tests canario)
-3. `npm run build` → debe compilar exitosamente
+### 4. Verificar que todo funciona
 
-### PASO 5 — Confirmar
+Ejecutar en orden y reportar resultados:
+1. `npx tsc --noEmit` → esperar 0 errores
+2. `npm run test` → esperar 27+ tests pasando
+3. `npm run build` → esperar build exitoso
+
+### 5. Confirmar
 
 Reportar:
-- "✅ Repositorio verificado: github.com/juanjoselamarca/tu-golf"
-- Resultado de TypeScript, tests y build
-- Confirmar que el pre-push hook está instalado
+- "Repositorio verificado: github.com/juanjoselamarca/tu-golf"
+- Resultados de TypeScript, tests y build
+- Confirmar que el pre-push hook está instalado y funcional
 
-### CONTEXTO
+### CONTEXTO DEL PROYECTO
 
-- App: Golfers+ (golf scoring + coaching IA para Chile/LatAm)
+- App: Golfers+ — scoring de golf + coaching IA para Chile y LatAm
 - Stack: Next.js 14 + Supabase + Vercel + TypeScript
 - Producción: https://tu-golf.vercel.app
 - GitHub: https://github.com/juanjoselamarca/tu-golf
-- Supabase: https://hoswfwhvcgqlqdmzpnce.supabase.co
 - Rol de Claude: CTO del proyecto
-- Rol de Juanjo: PM/estrategia (no técnico)
-- Lee CLAUDE.md para todas las reglas del proyecto
-- Lee docs/POSTMORTEM_2026-03-25.md para entender por qué hay barreras de seguridad
-- Lee docs/SPRINT_LOG.md para el historial completo de desarrollo
+- Rol de Juanjo: PM y estrategia (no técnico, no pedirle decisiones técnicas)
+- CLAUDE.md tiene todas las reglas del proyecto
+- docs/POSTMORTEM_2026-03-25.md explica el incidente de caída y las barreras de seguridad
+- docs/SPRINT_LOG.md tiene el historial completo de desarrollo
+- docs/AUDIT_HARDENING_2026-03-24.md tiene el audit de seguridad
