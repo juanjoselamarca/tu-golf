@@ -301,9 +301,10 @@ function HistorialContent() {
         if (!user) { router.replace('/login?redirect=/perfil/historial'); return }
         setUserId(user.id)
         setLoading(false)
-      } catch {
+      } catch (err) {
         setLoading(false)
         setLoadError(true)
+        setErrorDetail('Auth error: ' + (err instanceof Error ? err.message : 'desconocido'))
       }
     }
     check()
@@ -312,8 +313,8 @@ function HistorialContent() {
   /* ── Timeout ── */
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (loading) { setLoading(false); setLoadError(true) }
-    }, 8000)
+      if (loading) { setLoading(false); setLoadError(true); setErrorDetail('Timeout: la carga tardo mas de 15 segundos') }
+    }, 15000)
     return () => clearTimeout(timeout)
   }, [loading])
 
