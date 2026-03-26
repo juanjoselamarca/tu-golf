@@ -28,6 +28,12 @@ export default function Navbar() {
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null)
+      if (session?.user) {
+        supabase.from('profiles').select('role').eq('id', session.user.id).single()
+          .then(({ data: profile }) => setIsAdmin(profile?.role === 'admin'))
+      } else {
+        setIsAdmin(false)
+      }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
