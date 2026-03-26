@@ -172,7 +172,7 @@ export default function StepCelebration({
         style={{
           maxWidth: '480px',
           margin: '0 auto',
-          padding: '48px 24px 40px',
+          padding: 'calc(48px + env(safe-area-inset-top)) 24px calc(40px + env(safe-area-inset-bottom))',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -188,7 +188,7 @@ export default function StepCelebration({
         >
           <div
             style={{
-              fontSize: '72px',
+              fontSize: 'clamp(48px, 15vw, 72px)',
               fontWeight: 700,
               color: '#c4992a',
               lineHeight: 1,
