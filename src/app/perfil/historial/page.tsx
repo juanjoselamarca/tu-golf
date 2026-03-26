@@ -334,9 +334,9 @@ function HistorialContent() {
       setErrorDetail('')
     } catch (err) {
       setLoadError(true)
-      if (!errorDetail) setErrorDetail(err instanceof Error ? err.message : 'Error desconocido')
+      setErrorDetail(err instanceof Error ? err.message : 'Error desconocido')
     }
-  }, [errorDetail])
+  }, [])
 
   useEffect(() => {
     if (!loading && userId) loadStats()
