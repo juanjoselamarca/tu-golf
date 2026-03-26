@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { validarRonda } from '@/lib/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { normalizeGarminColor, colorToDiff, isAmbiguousColor } from '@/lib/garmin-colors'
+import { matchCourseInDB } from '@/lib/course-matching'
 
 // Vercel Hobby: max 60s. Needed because Claude Vision can take 10-30s per image.
 export const maxDuration = 60
@@ -478,7 +479,7 @@ export async function POST(request: NextRequest) {
     // -------------------------------------------------------------------
     // Helper: build ImportRoundData from a scorecard response
     // -------------------------------------------------------------------
-    const buildScorecardRound = (parsed: VisionScorecard): ImportRoundData => {
+    const buildScorecardRound = async (parsed: VisionScorecard): Promise<ImportRoundData> => {
       const round: ImportRoundData = {
         tempId: crypto.randomUUID(),
         played_at: parsed.played_at || new Date().toISOString().split('T')[0],
@@ -489,6 +490,31 @@ export async function POST(request: NextRequest) {
         metadata: {},
         import_confidence: parsed.confidence ?? 0.5,
         validation: { valid: false, holesPlayed: 0, issues: [] },
+      }
+
+      // Save par_per_hole from Gemini if available
+      if (parsed.par_per_hole) {
+        round.par_per_hole = parsed.par_per_hole
+      }
+
+      // If Gemini didn't return pars, look up from DB
+      if (!round.par_per_hole && round.course_name !== 'Cancha desconocida') {
+        const match = await matchCourseInDB(round.course_name, supabase)
+        if (match) {
+          const { data: holes } = await supabase
+            .from('course_holes')
+            .select('numero, par')
+            .eq('course_id', match.id)
+            .order('numero')
+
+          if (holes && holes.length > 0) {
+            const pars: Record<string, number> = {}
+            for (const h of holes) {
+              pars[String(h.numero)] = h.par
+            }
+            round.par_per_hole = pars
+          }
+        }
       }
 
       if (!round.total_gross) {
@@ -504,14 +530,44 @@ export async function POST(request: NextRequest) {
     // Helper: build ImportRoundData from an activity-list round
     // -------------------------------------------------------------------
     const buildActivityRound = async (actRound: VisionActivityRound): Promise<ImportRoundData> => {
-      const { pars } = await lookupCoursePars(actRound.course_name)
+      // Use matchCourseInDB for better course matching
+      let dbPars: Record<number, number> | undefined
+      let dbParPerHole: Record<string, number> | undefined
+
+      if (actRound.course_name) {
+        const match = await matchCourseInDB(actRound.course_name, supabase)
+        if (match) {
+          const { data: holes } = await supabase
+            .from('course_holes')
+            .select('numero, par')
+            .eq('course_id', match.id)
+            .order('numero')
+
+          if (holes && holes.length > 0) {
+            // If course has multiple recorridos (e.g. 27 holes), try to match combo
+            // by checking if the course name hints at a specific 9-hole loop
+            let filteredHoles = holes
+            if (holes.length > actRound.holes_played) {
+              // Try to take first N holes matching holes_played
+              filteredHoles = holes.slice(0, actRound.holes_played)
+            }
+
+            dbPars = {}
+            dbParPerHole = {}
+            for (const h of filteredHoles) {
+              dbPars[h.numero] = h.par
+              dbParPerHole[String(h.numero)] = h.par
+            }
+          }
+        }
+      }
 
       const { scores, confidence, ambiguousHoles } = reconstructScores(
         actRound.color_sequence,
         actRound.total_gross,
         actRound.vs_par,
         actRound.holes_played,
-        pars
+        dbPars
       )
 
       const finalConfidence = Math.min(actRound.confidence ?? 0.5, confidence)
@@ -523,6 +579,7 @@ export async function POST(request: NextRequest) {
         total_gross: actRound.total_gross || 0,
         holes_played: actRound.holes_played === 9 ? 9 : 18,
         scores,
+        par_per_hole: dbParPerHole,
         metadata: {
           reconstruction_method: 'color_bar',
           ambiguous_holes: ambiguousHoles.length > 0 ? ambiguousHoles : undefined,
@@ -576,7 +633,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (parsed.format === 'scorecard') {
-          const round = buildScorecardRound(parsed)
+          const round = await buildScorecardRound(parsed)
           return { type: 'rounds', rounds: [round] }
         }
 
@@ -594,7 +651,7 @@ export async function POST(request: NextRequest) {
         // Fallback: try treating as legacy scorecard (no format field)
         const legacy = parsed as unknown as VisionScorecard
         if (legacy.scores && legacy.total_gross) {
-          const round = buildScorecardRound({ ...legacy, format: 'scorecard' })
+          const round = await buildScorecardRound({ ...legacy, format: 'scorecard' })
           return { type: 'rounds', rounds: [round] }
         }
 
@@ -620,6 +677,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // -------------------------------------------------------------------
+    // Duplicate detection: check against existing historical_rounds
+    // -------------------------------------------------------------------
+    let totalDuplicates = 0
+    if (rounds.length > 0) {
+      const { data: existingRounds } = await supabase
+        .from('historical_rounds')
+        .select('course_name, played_at, total_gross')
+        .eq('user_id', user.id)
+
+      if (existingRounds && existingRounds.length > 0) {
+        const existingSet = new Set(
+          existingRounds.map(r => `${r.course_name}|${r.played_at}|${r.total_gross}`)
+        )
+
+        for (const round of rounds) {
+          const key = `${round.course_name}|${round.played_at}|${round.total_gross}`
+          if (existingSet.has(key)) {
+            round.metadata = {
+              ...round.metadata,
+              is_duplicate: true,
+            }
+            totalDuplicates++
+          }
+        }
+      }
+    }
+
     const totalValid = rounds.filter(r => r.validation.valid).length
 
     // Update job
@@ -640,6 +725,7 @@ export async function POST(request: NextRequest) {
       job_id: job.id,
       total_detected: rounds.length,
       total_valid: totalValid,
+      total_duplicates: totalDuplicates,
       total_errors: errors.length,
       rounds,
       errors: errors.length > 0 ? errors : undefined,

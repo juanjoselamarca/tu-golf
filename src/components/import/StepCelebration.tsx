@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ResultadoCPI } from '@/lib/cpi'
 import { nivelCPI } from '@/lib/cpi'
@@ -11,6 +11,77 @@ interface StepCelebrationProps {
   roundCount: number
 }
 
+const LEVEL_COLORS: Record<string, string> = {
+  'Elite': '#c4992a',
+  'Avanzado': '#22c55e',
+  'Intermedio': '#60a5fa',
+  'En desarrollo': '#94a8c0',
+  'Principiante': '#94a8c0',
+  'Sin clasificar': '#94a8c0',
+}
+
+function easeOutExpo(t: number): number {
+  return t === 1 ? 1 : 1 - Math.pow(2, -10 * t)
+}
+
+function getTrendText(trend: number): string {
+  if (trend > 0) return 'en ascenso'
+  if (trend < 0) return 'con espacio para mejorar'
+  return 'estable'
+}
+
+function getTrendLabel(trend: number): string {
+  if (trend > 0) return 'Mejorando'
+  if (trend < 0) return 'Bajando'
+  return 'Estable'
+}
+
+function getConsistenciaLabel(score: number): string {
+  if (score > 70) return 'Alta'
+  if (score >= 50) return 'Media'
+  return 'En desarrollo'
+}
+
+function getPersonalizedMessage(score: number, trend: number, roundCount: number): string {
+  const trendText = getTrendText(trend)
+
+  if (score >= 80) {
+    return `Tu momentum es excepcional. ${roundCount} rondas confirman un nivel de consistencia que pocos logran. La tendencia ${trendText} refuerza que tu juego esta en su mejor version.`
+  }
+  if (score >= 60) {
+    const trendDetailed = trend > 0
+      ? 'La tendencia en ascenso es una senal clara de progreso'
+      : trend < 0
+        ? 'Hay margen para optimizar, y eso es una oportunidad'
+        : 'La estabilidad muestra una base solida'
+    return `Estas construyendo un momentum solido. Con ${roundCount} rondas analizadas, tu consistencia muestra una base fuerte. ${trendDetailed} — cada ronda suma a tu evolucion.`
+  }
+  if (score >= 40) {
+    const trendDetailed = trend > 0
+      ? 'La tendencia positiva indica que vas en la direccion correcta.'
+      : trend < 0
+        ? 'Algunos ajustes pueden cambiar la trayectoria.'
+        : 'La estabilidad es un buen punto de partida.'
+    return `Tu momentum esta en desarrollo. Las ${roundCount} rondas revelan oportunidades claras para crecer. ${trendDetailed} tAIger+ tiene la informacion que necesita para guiarte.`
+  }
+  if (score >= 20) {
+    return `El momentum empieza aqui. Con ${roundCount} rondas ya tenemos suficiente para que tAIger+ identifique los patrones clave de tu juego.`
+  }
+  return 'Cada ronda que agregas construye tu momentum. Sigue importando para que tAIger+ pueda analizar tu juego a fondo.'
+}
+
+// CSS keyframes injected once
+const KEYFRAMES = `
+@keyframes celebFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes celebSlideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+`
+
 export default function StepCelebration({
   cpiResult,
   insights,
@@ -18,225 +89,340 @@ export default function StepCelebration({
 }: StepCelebrationProps) {
   const router = useRouter()
   const [animatedScore, setAnimatedScore] = useState(0)
+  const [counterDone, setCounterDone] = useState(false)
+  const startTimeRef = useRef<number | null>(null)
 
+  // Inject keyframes
+  useEffect(() => {
+    const id = 'celeb-keyframes'
+    if (typeof document !== 'undefined' && !document.getElementById(id)) {
+      const style = document.createElement('style')
+      style.id = id
+      style.textContent = KEYFRAMES
+      document.head.appendChild(style)
+    }
+  }, [])
+
+  // Animated counter with easing
   useEffect(() => {
     const target = cpiResult.score
     const duration = 1500
-    const steps = 60
-    const increment = target / steps
-    let current = 0
-    const interval = setInterval(() => {
-      current += increment
-      if (current >= target) {
-        setAnimatedScore(target)
-        clearInterval(interval)
+
+    function tick(timestamp: number) {
+      if (startTimeRef.current === null) startTimeRef.current = timestamp
+      const elapsed = timestamp - startTimeRef.current
+      const progress = Math.min(elapsed / duration, 1)
+      const eased = easeOutExpo(progress)
+      const current = eased * target
+
+      setAnimatedScore(Math.round(current * 10) / 10)
+
+      if (progress < 1) {
+        requestAnimationFrame(tick)
       } else {
-        setAnimatedScore(Math.round(current * 10) / 10)
+        setAnimatedScore(target)
+        setCounterDone(true)
       }
-    }, duration / steps)
-    return () => clearInterval(interval)
+    }
+
+    requestAnimationFrame(tick)
   }, [cpiResult.score])
 
   const level = nivelCPI(cpiResult.score)
+  const levelColor = LEVEL_COLORS[level] || '#94a8c0'
+  const consistenciaLabel = getConsistenciaLabel(cpiResult.score)
+  const trendLabel = getTrendLabel(cpiResult.trend)
+  const message = getPersonalizedMessage(cpiResult.score, cpiResult.trend, roundCount)
 
-  // Gauge angle: 0-100 maps to -135deg to 135deg
-  const gaugeAngle = -135 + (animatedScore / 100) * 270
+  // Trend arrow SVG
+  const TrendArrow = () => {
+    if (cpiResult.trend > 0) {
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 4L16 12H4L10 4Z" fill="#22c55e" />
+        </svg>
+      )
+    }
+    if (cpiResult.trend < 0) {
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 16L4 8H16L10 16Z" fill="#ef4444" />
+        </svg>
+      )
+    }
+    return (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="3" y="9" width="14" height="2" rx="1" fill="#94a8c0" />
+      </svg>
+    )
+  }
 
   return (
     <div
       style={{
-        paddingTop: '40px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        textAlign: 'center',
+        position: 'fixed',
+        inset: 0,
+        background: '#070d18',
+        zIndex: 100,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
       }}
     >
-      <h2
-        style={{
-          fontSize: '24px',
-          fontWeight: 700,
-          color: '#edeae4',
-          marginBottom: '8px',
-          fontFamily: '"Playfair Display", serif',
-        }}
-      >
-        {roundCount} ronda{roundCount !== 1 ? 's' : ''} importada{roundCount !== 1 ? 's' : ''}
-      </h2>
-      <p style={{ color: '#94a8c0', fontSize: '14px', marginBottom: '40px' }}>
-        Tu perfil competitivo esta listo
-      </p>
-
-      {/* CPI Gauge */}
       <div
         style={{
-          position: 'relative',
-          width: '200px',
-          height: '120px',
-          marginBottom: '24px',
+          maxWidth: '480px',
+          margin: '0 auto',
+          padding: '48px 24px 40px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          minHeight: '100vh',
         }}
       >
-        <svg
-          viewBox="0 0 200 120"
-          style={{ width: '100%', height: '100%' }}
-        >
-          {/* Background arc */}
-          <path
-            d="M 20 110 A 80 80 0 0 1 180 110"
-            fill="none"
-            stroke="rgba(255,255,255,0.05)"
-            strokeWidth="8"
-            strokeLinecap="round"
-          />
-          {/* Colored arc */}
-          <path
-            d="M 20 110 A 80 80 0 0 1 180 110"
-            fill="none"
-            stroke="#c4992a"
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={`${(animatedScore / 100) * 251.2} 251.2`}
-            style={{ transition: 'stroke-dasharray 0.3s ease' }}
-          />
-        </svg>
-        {/* Score number */}
+        {/* Section 1: Score Animation */}
         <div
           style={{
-            position: 'absolute',
-            bottom: '0',
-            left: '50%',
-            transform: 'translateX(-50%)',
             textAlign: 'center',
+            marginBottom: '40px',
           }}
         >
           <div
             style={{
-              fontSize: '42px',
-              fontWeight: 800,
+              fontSize: '72px',
+              fontWeight: 700,
               color: '#c4992a',
               lineHeight: 1,
+              fontFamily: '"Playfair Display", serif',
+              letterSpacing: '-2px',
             }}
           >
             {Math.round(animatedScore)}
           </div>
-          <div style={{ fontSize: '11px', color: '#94a8c0', marginTop: '2px' }}>
+          <div
+            style={{
+              fontSize: '13px',
+              color: '#94a8c0',
+              marginTop: '4px',
+              letterSpacing: '2px',
+              textTransform: 'uppercase',
+              fontFamily: '"DM Sans", sans-serif',
+            }}
+          >
             CPI
           </div>
+          <div
+            style={{
+              marginTop: '16px',
+              fontSize: '18px',
+              fontWeight: 600,
+              color: levelColor,
+              fontFamily: '"Playfair Display", serif',
+              opacity: counterDone ? 1 : 0,
+              transition: 'opacity 0.5s ease',
+            }}
+          >
+            {level}
+          </div>
         </div>
-      </div>
 
-      {/* Level badge */}
-      <div
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '8px 20px',
-          background: 'rgba(196,153,42,0.1)',
-          border: '1px solid rgba(196,153,42,0.25)',
-          borderRadius: '20px',
-          marginBottom: '32px',
-        }}
-      >
-        <span style={{ color: '#c4992a', fontWeight: 700, fontSize: '14px' }}>
-          {level}
-        </span>
-        <span style={{ color: '#5a6a7d', fontSize: '12px' }}>
-          &middot; {cpiResult.status === 'provisional' ? 'Provisional' : 'Establecido'}
-        </span>
-      </div>
-
-      {/* Insights */}
-      {insights.length > 0 && (
+        {/* Section 2: Tu Momentum Card */}
         <div
           style={{
             width: '100%',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: '#0e1c2f',
+            border: '1px solid rgba(196,153,42,0.15)',
             borderRadius: '16px',
-            padding: '20px',
-            marginBottom: '32px',
-            textAlign: 'left',
+            padding: '24px 20px',
+            marginBottom: '28px',
+            opacity: 0,
+            animation: counterDone ? 'celebSlideUp 0.5s ease forwards' : 'none',
+            animationDelay: '0.3s',
           }}
         >
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '12px',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: '#c4992a',
+              letterSpacing: '1.5px',
+              textTransform: 'uppercase',
+              marginBottom: '20px',
+              fontFamily: '"DM Sans", sans-serif',
             }}
           >
-            <span style={{ fontSize: '18px' }}>{'\uD83D\uDC2F'}</span>
-            <span
-              style={{ fontWeight: 600, fontSize: '14px', color: '#edeae4' }}
-            >
-              tAIger+ dice:
-            </span>
+            Tu Momentum
           </div>
           <div
-            style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '16px',
+            }}
           >
-            {insights.map((insight, i) => (
-              <p
-                key={i}
+            {/* Consistencia */}
+            <div style={{ textAlign: 'center' }}>
+              <div
                 style={{
+                  fontSize: '11px',
                   color: '#94a8c0',
-                  fontSize: '13px',
-                  lineHeight: 1.5,
-                  margin: 0,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: '8px',
+                  fontFamily: '"DM Sans", sans-serif',
                 }}
               >
-                {insight}
-              </p>
-            ))}
+                Consistencia
+              </div>
+              <div
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: '#edeae4',
+                  fontFamily: '"DM Sans", sans-serif',
+                }}
+              >
+                {consistenciaLabel}
+              </div>
+            </div>
+
+            {/* Tendencia */}
+            <div style={{ textAlign: 'center' }}>
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: '#94a8c0',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: '8px',
+                  fontFamily: '"DM Sans", sans-serif',
+                }}
+              >
+                Tendencia
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                }}
+              >
+                <TrendArrow />
+                <span
+                  style={{
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    color: '#edeae4',
+                    fontFamily: '"DM Sans", sans-serif',
+                  }}
+                >
+                  {trendLabel}
+                </span>
+              </div>
+            </div>
+
+            {/* Volumen */}
+            <div style={{ textAlign: 'center' }}>
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: '#94a8c0',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: '8px',
+                  fontFamily: '"DM Sans", sans-serif',
+                }}
+              >
+                Volumen
+              </div>
+              <div
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: '#edeae4',
+                  fontFamily: '"DM Sans", sans-serif',
+                }}
+              >
+                {roundCount} ronda{roundCount !== 1 ? 's' : ''}
+              </div>
+            </div>
           </div>
         </div>
-      )}
 
-      {/* CTAs */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          width: '100%',
-        }}
-      >
-        <button
-          onClick={() => router.push('/coach')}
+        {/* Section 3: Personalized Analysis */}
+        <div
           style={{
             width: '100%',
-            padding: '16px',
-            borderRadius: '14px',
-            fontSize: '16px',
-            fontWeight: 700,
-            background: '#c4992a',
-            color: '#070d18',
-            border: 'none',
-            cursor: 'pointer',
-            minHeight: '52px',
+            marginBottom: '36px',
+            opacity: 0,
+            animation: counterDone ? 'celebFadeIn 0.6s ease forwards' : 'none',
+            animationDelay: '0.8s',
           }}
         >
-          {'\uD83D\uDC2F'} Hablar con tAIger+
-        </button>
-        <button
-          onClick={() => router.push('/dashboard')}
+          <p
+            style={{
+              fontSize: '15px',
+              lineHeight: 1.7,
+              color: '#94a8c0',
+              margin: 0,
+              fontFamily: '"DM Sans", sans-serif',
+            }}
+          >
+            {message}
+          </p>
+        </div>
+
+        {/* Section 4: Buttons */}
+        <div
           style={{
             width: '100%',
-            padding: '16px',
-            borderRadius: '14px',
-            fontSize: '16px',
-            fontWeight: 600,
-            background: 'rgba(255,255,255,0.05)',
-            color: '#edeae4',
-            border: '1px solid rgba(255,255,255,0.1)',
-            cursor: 'pointer',
-            minHeight: '52px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            marginTop: 'auto',
+            opacity: 0,
+            animation: counterDone ? 'celebFadeIn 0.5s ease forwards' : 'none',
+            animationDelay: '1.0s',
           }}
         >
-          Ver mi perfil
-        </button>
+          <button
+            onClick={() => router.push('/perfil/historial')}
+            style={{
+              width: '100%',
+              padding: '16px 24px',
+              borderRadius: '14px',
+              fontSize: '16px',
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #c4992a 0%, #d4a94a 100%)',
+              color: '#070d18',
+              border: 'none',
+              cursor: 'pointer',
+              minHeight: '52px',
+              fontFamily: '"DM Sans", sans-serif',
+              letterSpacing: '0.3px',
+            }}
+          >
+            Ver historial &rarr;
+          </button>
+          <button
+            onClick={() => router.push('/coach')}
+            style={{
+              width: '100%',
+              padding: '16px 24px',
+              borderRadius: '14px',
+              fontSize: '16px',
+              fontWeight: 600,
+              background: 'transparent',
+              color: '#c4992a',
+              border: '1px solid rgba(196,153,42,0.3)',
+              cursor: 'pointer',
+              minHeight: '52px',
+              fontFamily: '"DM Sans", sans-serif',
+            }}
+          >
+            Hablar con tAIger+
+          </button>
+        </div>
       </div>
     </div>
   )
