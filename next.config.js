@@ -43,13 +43,16 @@ const nextConfig = {
   },
 }
 
-const { withSentryConfig } = require('@sentry/nextjs')
-
-module.exports = withSentryConfig(nextConfig, {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  silent: true,
-  widenClientFileUpload: true,
-  disableLogger: true,
-  hideSourceMaps: true,
-})
+// Sentry wrapping — solo si hay DSN configurado, si no exporta config directo
+if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  const { withSentryConfig } = require('@sentry/nextjs')
+  module.exports = withSentryConfig(nextConfig, {
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    silent: true,
+    widenClientFileUpload: true,
+    hideSourceMaps: true,
+  })
+} else {
+  module.exports = nextConfig
+}
