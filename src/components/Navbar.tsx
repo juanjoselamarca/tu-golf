@@ -65,13 +65,32 @@ export default function Navbar() {
   const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'
 
-  const navItems = user ? [
-    { href: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
-    { href: '/perfil/stats', icon: '📈', label: 'Estadísticas' },
-    { href: '/perfil/historial', icon: '📋', label: 'Historial' },
-    { href: '/importar', icon: '📥', label: 'Importar' },
-    ...(isAdmin ? [{ href: '/admin', icon: '⚙️', label: 'Admin' }] : []),
-  ] : [
+  // Menú organizado en 3 bloques para usuarios autenticados
+  const menuBlocks = user ? [
+    {
+      label: 'COMUNIDAD',
+      items: [
+        { href: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
+      ],
+    },
+    {
+      label: 'MI JUEGO',
+      items: [
+        { href: '/perfil/stats', icon: '📊', label: 'Mi CPI' },
+        { href: '/perfil/historial', icon: '📋', label: 'Mis rondas' },
+        { href: '/coach', icon: '🐯', label: 'tAIger+ Coach', badge: 'IA' },
+        { href: '/importar', icon: '📥', label: 'Importar historial' },
+      ],
+    },
+    {
+      label: 'CUENTA',
+      items: [
+        ...(isAdmin ? [{ href: '/admin', icon: '⚙️', label: 'Administración' }] : []),
+      ],
+    },
+  ] : []
+
+  const navItemsGuest = [
     { href: '/', icon: '🏠', label: 'Inicio' },
     { href: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
     { href: '/demo', icon: '✦', label: 'Ver Demo' },
@@ -210,26 +229,71 @@ export default function Navbar() {
 
         {/* Nav items */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
-          {navItems.map(item => {
-            const isActive = item.href === '/'
-              ? pathname === '/'
-              : pathname === item.href || pathname.startsWith(item.href + '/')
-            return (
-              <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)} style={{
-                display: 'flex', alignItems: 'center', gap: '14px',
-                padding: '12px 12px', minHeight: '48px',
-                borderRadius: '10px', marginBottom: '2px',
-                textDecoration: 'none',
-                background: isActive ? 'rgba(196,153,42,0.1)' : 'transparent',
-                color: isActive ? '#C4992A' : '#edeae4',
-                fontSize: '15px', fontWeight: isActive ? 600 : 400,
-                transition: 'background 0.15s',
-              }}>
-                <span style={{ fontSize: '18px', width: '24px', textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-                {item.label}
-              </Link>
-            )
-          })}
+          {user ? (
+            /* Menú en 3 bloques para usuarios autenticados */
+            menuBlocks.map((block, blockIdx) => {
+              if (block.items.length === 0) return null
+              return (
+                <div key={block.label}>
+                  {blockIdx > 0 && <hr style={{ borderColor: 'rgba(255,255,255,0.06)', margin: '12px 0', border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)' }} />}
+                  <p style={{
+                    fontFamily: 'DM Mono, monospace', fontSize: '10px',
+                    color: 'rgba(255,255,255,0.3)', letterSpacing: '0.12em',
+                    textTransform: 'uppercase' as const, margin: '0 4px 6px',
+                  }}>{block.label}</p>
+                  {block.items.map(item => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                    return (
+                      <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)} style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '10px 8px', minHeight: '44px',
+                        borderRadius: '8px', marginBottom: '2px',
+                        textDecoration: 'none',
+                        background: isActive ? 'rgba(196,153,42,0.1)' : 'transparent',
+                        color: isActive ? '#C4992A' : '#edeae4',
+                        fontSize: '14px', fontWeight: isActive ? 600 : 500,
+                        transition: 'background 0.15s',
+                      }}>
+                        <span style={{ fontSize: '18px', width: '24px', textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                        <span style={{ flex: 1 }}>{item.label}</span>
+                        {'badge' in item && (item as { badge?: string }).badge && (
+                          <span style={{
+                            fontSize: '9px', fontWeight: 700,
+                            fontFamily: 'DM Mono, monospace',
+                            letterSpacing: '0.08em',
+                            padding: '2px 6px', borderRadius: '4px',
+                            background: 'rgba(196,153,42,0.15)',
+                            color: '#c4992a',
+                            border: '1px solid rgba(196,153,42,0.3)',
+                          }}>{(item as { badge?: string }).badge}</span>
+                        )}
+                      </Link>
+                    )
+                  })}
+                </div>
+              )
+            })
+          ) : (
+            /* Lista simple para visitantes */
+            navItemsGuest.map(item => {
+              const isActive = item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(item.href + '/')
+              return (
+                <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)} style={{
+                  display: 'flex', alignItems: 'center', gap: '14px',
+                  padding: '12px 12px', minHeight: '48px',
+                  borderRadius: '10px', marginBottom: '2px',
+                  textDecoration: 'none',
+                  background: isActive ? 'rgba(196,153,42,0.1)' : 'transparent',
+                  color: isActive ? '#C4992A' : '#edeae4',
+                  fontSize: '15px', fontWeight: isActive ? 600 : 400,
+                  transition: 'background 0.15s',
+                }}>
+                  <span style={{ fontSize: '18px', width: '24px', textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                  {item.label}
+                </Link>
+              )
+            })
+          )}
         </div>
 
         {/* Sidebar footer */}
@@ -381,7 +445,7 @@ export default function Navbar() {
                       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                       <path d="M8 9h8M8 13h4" />
                     </svg>
-                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Coach</span>
+                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>tAIger+</span>
                   </Link>
                 )
               })()}
