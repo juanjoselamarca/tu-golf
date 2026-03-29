@@ -245,6 +245,27 @@ function RegisterContent() {
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)'; const v = e.target.value.replace(',', '.'); const n = parseFloat(v); if (!isNaN(n) && n >= 0 && n <= 54) setIndice(String(n)) }} />
             </div>
 
+            {/* Aceptación de términos */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', margin: '4px 0' }}>
+              <input
+                type="checkbox"
+                id="acepta-terminos"
+                required
+                style={{ marginTop: '3px', flexShrink: 0, width: '18px', height: '18px', accentColor: '#c4992a', cursor: 'pointer' }}
+              />
+              <label htmlFor="acepta-terminos" style={{
+                fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5, cursor: 'pointer',
+              }}>
+                He leido y acepto los{' '}
+                <a href="/terminos" target="_blank" rel="noopener" style={{ color: '#c4992a', textDecoration: 'underline' }}>
+                  Terminos y Condiciones
+                </a>{' '}y la{' '}
+                <a href="/privacidad" target="_blank" rel="noopener" style={{ color: '#c4992a', textDecoration: 'underline' }}>
+                  Politica de Privacidad
+                </a>
+              </label>
+            </div>
+
             {/* Submit */}
             <button
               type="submit"
