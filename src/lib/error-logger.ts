@@ -1,34 +1,19 @@
 /**
  * Error Logger — Golfers+
- * Logs errors to Supabase `error_log` table for production monitoring.
- *
- * SQL para crear la tabla:
- * ---------------------------------------------------------
- * CREATE TABLE IF NOT EXISTS error_log (
- *   id         uuid DEFAULT gen_random_uuid() PRIMARY KEY,
- *   created_at timestamptz DEFAULT now(),
- *   context    text NOT NULL,
- *   message    text,
- *   stack      text,
- *   user_id    text,
- *   route      text
- * );
- *
- * -- Índice para búsquedas por fecha
- * CREATE INDEX idx_error_log_created_at ON error_log (created_at DESC);
- * ---------------------------------------------------------
+ * Logs errors to Supabase `error_logs` table + Sentry for production monitoring.
+ * Never throws — safe to call anywhere without affecting app flow.
  */
 
 import { createBrowserClient } from '@supabase/ssr'
+import * as Sentry from '@sentry/nextjs'
 
-/**
- * Logs an error to Supabase and console.
- * Never throws — safe to call anywhere without affecting app flow.
- */
+type ErrorLevel = 'info' | 'warn' | 'error' | 'fatal'
+
 export async function logError(
   context: string,
   error: unknown,
-  userId?: string
+  userId?: string,
+  level: ErrorLevel = 'error'
 ): Promise<void> {
   try {
     const message =
@@ -39,28 +24,35 @@ export async function logError(
           : JSON.stringify(error)
 
     const stack = error instanceof Error ? error.stack ?? null : null
+    const page = typeof window !== 'undefined' ? window.location.pathname : null
 
-    // Detect current route (browser only)
-    const route =
-      typeof window !== 'undefined' ? window.location.pathname : null
-
-    // Always log to console for dev debugging
+    // Console para dev debugging
     console.error(`[${context}]`, error)
 
+    // Sentry para monitoreo externo
+    const sentryLevel = level === 'warn' ? 'warning' : level
+    if (error instanceof Error) {
+      Sentry.captureException(error, { tags: { context }, level: sentryLevel })
+    } else {
+      Sentry.captureMessage(message, { tags: { context }, level: sentryLevel })
+    }
+
+    // Supabase para monitoreo interno (accesible por Claude)
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
-    await supabase.from('error_log').insert({
-      context,
+    await supabase.from('error_logs').insert({
+      level,
       message,
-      stack,
+      source: context,
+      page,
       user_id: userId ?? null,
-      route,
+      metadata: stack ? { stack } : {},
     })
   } catch {
-    // Silently swallow — logging should never break the app
+    // Logging nunca debe romper la app
     console.error('[logError] Failed to log error:', error)
   }
 }

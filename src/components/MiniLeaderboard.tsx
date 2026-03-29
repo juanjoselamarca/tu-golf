@@ -63,9 +63,25 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
 
   useEffect(() => {
     fetchLB()
-    const interval = setInterval(fetchLB, 15000)
-    return () => clearInterval(interval)
-  }, [fetchLB])
+
+    // Realtime como mecanismo primario
+    const supabase = createClient()
+    const channel = supabase.channel(`lb-${codigoRonda}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'ronda_libre_jugadores',
+      }, () => fetchLB())
+      .subscribe()
+
+    // Polling como fallback (60s en vez de 15s, Realtime cubre el caso normal)
+    const interval = setInterval(fetchLB, 60000)
+
+    return () => {
+      clearInterval(interval)
+      supabase.removeChannel(channel)
+    }
+  }, [fetchLB, codigoRonda])
 
   if (loading || jugadores.length < 2) return null
 
@@ -124,7 +140,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
           )
         })}
       </div>
-      <div style={{ textAlign: 'center', fontSize: '9px', color: 'rgba(255,255,255,0.15)', marginTop: '6px' }}>Actualiza cada 15s</div>
+      <div style={{ textAlign: 'center', fontSize: '9px', color: 'rgba(255,255,255,0.15)', marginTop: '6px' }}>Actualiza en tiempo real</div>
     </div>
   )
 }

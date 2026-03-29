@@ -9,6 +9,7 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
 import type { ModoJuego } from '@/lib/scoring'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
+import { useScoreSync } from '@/hooks/useScoreSync'
 
 /* ── Share menu component ──────────────────────────────────────────── */
 function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void }) {
@@ -129,6 +130,9 @@ function ScorePageContent() {
   const [roundDone, setRoundDone] = useState(false)
   const [finalScore, setFinalScore] = useState({ gross: 0, totalPar: 0 })
   const [holeInOneData, setHoleInOneData] = useState<{ playerName: string; hole: number } | null>(null)
+
+  // Offline score sync — guarda localmente ANTES de enviar al servidor
+  const scoreSync = useScoreSync(codigo, activeJugadorId)
   const [view, setView] = useState<'scorecard' | 'leaderboard'>('scorecard')
   const [gwiInputs, setGwiInputs] = useState<JugadorGWIInput[]>([])
   const [, setGwiResults] = useState<GWIResult[]>([])
@@ -206,14 +210,40 @@ function ScorePageContent() {
     return () => document.body.removeAttribute('data-page')
   }, [])
 
-  /* ── Online/offline ── */
+  /* ── Online/offline + auto-sync al reconectar ── */
   useEffect(() => {
-    const up = () => setIsOnline(true)
+    const up = () => {
+      setIsOnline(true)
+      // Sincronizar scores pendientes al reconectar
+      if (activeJugadorId && scoreSync.tienePendientes() && !scoreSync.syncInProgressRef.current) {
+        scoreSync.syncInProgressRef.current = true
+        const pendingScores = scoreSync.obtenerLocal()
+        if (pendingScores) {
+          const supabase = createClient()
+          const scoresObj: Record<string, number> = {}
+          for (const [k, v] of Object.entries(pendingScores)) scoresObj[k] = v
+          supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', activeJugadorId)
+            .then(({ error }) => {
+              if (!error) {
+                scoreSync.marcarSincronizado()
+                setSaveStatus('saved')
+                setSaveCheckVisible(true)
+                haptic(20)
+                setTimeout(() => setSaveCheckVisible(false), 1000)
+                setTimeout(() => setSaveStatus('idle'), 1500)
+              }
+              scoreSync.syncInProgressRef.current = false
+            })
+        } else {
+          scoreSync.syncInProgressRef.current = false
+        }
+      }
+    }
     const down = () => setIsOnline(false)
     window.addEventListener('online', up)
     window.addEventListener('offline', down)
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
-  }, [])
+  }, [activeJugadorId, scoreSync])
 
   /* ── Prevent accidental nav ── */
   useEffect(() => {
@@ -296,7 +326,10 @@ function ScorePageContent() {
   /* ── Save ── */
   const saveScores = useCallback(async (jugadorId: string, holeScores: Record<number, number>) => {
     setSaveStatus('saving')
+    // Guardar localmente SIEMPRE primero (funciona sin internet)
+    scoreSync.guardarLocal(holeScores)
     lsSave(codigo, jugadorId, holeScores)
+
     if (!isOnline) { setSaveStatus('offline'); return }
 
     // Validate ronda is still en_curso before saving (admin may have closed/deleted it)
@@ -322,13 +355,14 @@ function ScorePageContent() {
     if (!success) { setSaveStatus('error') }
     else {
       setSaveStatus('saved'); setHasUnsaved(false)
+      scoreSync.marcarSincronizado()
       // FIX #8: show save check and haptic on success
       setSaveCheckVisible(true)
       haptic(20)
       setTimeout(() => setSaveCheckVisible(false), 1000)
       setTimeout(() => setSaveStatus('idle'), 1500)
     }
-  }, [codigo, isOnline])
+  }, [codigo, isOnline, scoreSync])
 
   const handleScoreChange = useCallback((hole: number, value: number) => {
     if (!activeJugadorId) return
@@ -595,7 +629,7 @@ function ScorePageContent() {
             <div style={{ fontSize: '16px', fontWeight: 700, color: totalOverUnder < 0 ? '#93C5FD' : totalOverUnder === 0 ? theme.textMuted : '#FCD34D' }}>
               {holesPlayed > 0 ? (totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder) : '—'}
             </div>
-            <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em' }}>TOTAL</div>
+            <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>THRU {holesPlayed}/{totalHoles}</div>
           </div>
         </div>
       </header>
@@ -768,7 +802,7 @@ function ScorePageContent() {
           <div
             className={scoreAnimating ? 'score-animating' : ''}
             style={{
-              fontSize: 'clamp(72px, 20vw, 96px)', fontWeight: 700, fontFamily: 'Inter, sans-serif',
+              fontSize: 'clamp(72px, 20vw, 96px)', fontWeight: 700, fontFamily: 'var(--font-dm-sans)',
               lineHeight: 1, color: score != null ? theme.scoreText : theme.scoreDimmed, letterSpacing: '-3px',
               fontVariantNumeric: 'tabular-nums',
             }}
