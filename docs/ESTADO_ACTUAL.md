@@ -1,21 +1,21 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-18 | Commit: `2899496`
+> Auto-generado: 2026-03-29 | Commit: `f8f99c5`
 
 ## Último deploy
 
-- **Commit:** `2899496` — design: polish /demo + /leaderboard — layout, datos correctos, visual coherence
-- **Fecha:** 2026-03-18
-- **Branch:** main (52 commits total)
+- **Commit:** `f8f99c5` — legal: terminos, privacidad, reembolsos (Ley 19.628 y 19.496 Chile) + checkbox registro
+- **Fecha:** 2026-03-29
+- **Branch:** main (220 commits total)
 - **URL:** https://tu-golf.vercel.app
 
-## Páginas en producción (33 páginas)
+## Páginas en producción (36 páginas)
 
-- `/admin` (Command Center — live dashboard)
-- `/admin/analytics` (crecimiento, funnel, engagement)
-- `/admin/golf-ops` (torneos, rondas, usuarios, tAIger)
-- `/admin/finanzas` (costos, proyecciones, DB stats)
-- `/admin/sistema` (health, config, debug tools)
+- `/admin/analytics`
+- `/admin/finanzas`
+- `/admin/golf-ops`
+- `/admin`
+- `/admin/sistema`
 - `/auth/auth-code-error`
 - `/coach/onboarding`
 - `/coach`
@@ -24,6 +24,8 @@
 - `/coach/sesion/[id]`
 - `/dashboard`
 - `/demo`
+- `/en-vivo`
+- `/importar`
 - `/leaderboard`
 - `/login`
 - `/organizador/nuevo`
@@ -33,13 +35,18 @@
 - `/perfil/historial`
 - `/perfil`
 - `/perfil/stats`
+- `/privacidad`
+- `/reembolsos`
 - `/register`
 - `/ronda-libre/nueva`
 - `/ronda-libre/[codigo]`
 - `/ronda-libre/[codigo]/score`
+- `/ronda-libre/[codigo]/score-grupo`
+- `/terminos`
 - `/torneo/[slug]`
 - `/torneo/[slug]/score`
 - `/torneo/[slug]/tv`
+- `/torneo/[slug]/unirse`
 
 ## Documentación del proyecto
 
@@ -60,25 +67,25 @@
 
 ---
 
-## Sprint 10 — el tAIger v1 🐯
-**Fecha:** 17 Mar 2026
-**Estado:** ✅ COMPLETO
+## Sesion 25-26 Mar 2026 — Restauracion + Seguridad + Features
 
-### Entregado
-- @anthropic-ai/sdk integrado con modelo claude-sonnet-4-6
-- src/lib/taiger-prompt.ts — system prompt v1.0 + context builder
-- /api/taiger/chat — streaming SSE con Claude API
-- /api/taiger/analyze-round — análisis post-ronda automático
-- /coach/onboarding — 12 preguntas psicológicas, 1 a la vez
-- /coach — dashboard con patrones, sesiones, freemium counter
-- /coach/sesion/nueva — selector de tipo de sesión
-- /coach/sesion/nueva/chat — chat streaming con follow-ups
-- /coach/sesion/[id] — vista de sesión con seguimiento
-- Integración automática post-ronda en scorecard
-- "🐯 Mi Coach" en navbar desktop + mobile
-- Health check Claude API corregido
-- Freemium: 3 sesiones/mes, prevención duplicados
-- Analytics: onboarding_completado, taiger_sesion_iniciada
+**Fecha:** 25-26 Mar 2026
+**Estado:** COMPLETO
+
+### Incidente y restauracion
+- App caida por refactor del Navbar (async en onAuthStateChange)
+- Causa raiz identificada, Navbar restaurado con fix minimo
+- Funcionalidades perdidas re-aplicadas (admin al login, limite 500, ?add=true)
+- Post-mortem documentado en docs/POSTMORTEM_2026-03-25.md
+
+### Barreras anti-caida
+- Pre-push hook: bloquea push si tsc/tests/build fallan
+- 15 tests canario: detectan patrones peligrosos en archivos criticos
+- Protocolo de archivos protegidos en CLAUDE.md
+- Ya salvo un push con error de ESLint en esta misma sesion
+
+### Monitoreo Fase 1
+- /api/health: endpoint publico para monitoreo externo
 
 ---
 
