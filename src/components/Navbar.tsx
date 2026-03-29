@@ -70,6 +70,7 @@ export default function Navbar() {
     {
       label: 'COMUNIDAD',
       items: [
+        { href: '/en-vivo', icon: '🟢', label: 'En Vivo', badge: 'LIVE' },
         { href: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
       ],
     },
@@ -256,17 +257,21 @@ export default function Navbar() {
                       }}>
                         <span style={{ fontSize: '18px', width: '24px', textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
                         <span style={{ flex: 1 }}>{item.label}</span>
-                        {'badge' in item && (item as { badge?: string }).badge && (
-                          <span style={{
-                            fontSize: '9px', fontWeight: 700,
-                            fontFamily: 'DM Mono, monospace',
-                            letterSpacing: '0.08em',
-                            padding: '2px 6px', borderRadius: '4px',
-                            background: 'rgba(196,153,42,0.15)',
-                            color: '#c4992a',
-                            border: '1px solid rgba(196,153,42,0.3)',
-                          }}>{(item as { badge?: string }).badge}</span>
-                        )}
+                        {'badge' in item && (item as { badge?: string }).badge && (() => {
+                          const b = (item as { badge?: string }).badge
+                          const isLive = b === 'LIVE'
+                          return (
+                            <span style={{
+                              fontSize: '9px', fontWeight: 700,
+                              fontFamily: 'DM Mono, monospace',
+                              letterSpacing: '0.08em',
+                              padding: '2px 6px', borderRadius: '4px',
+                              background: isLive ? 'rgba(74,222,128,0.15)' : 'rgba(196,153,42,0.15)',
+                              color: isLive ? '#4ade80' : '#c4992a',
+                              border: isLive ? '1px solid rgba(74,222,128,0.3)' : '1px solid rgba(196,153,42,0.3)',
+                            }}>{b}</span>
+                          )
+                        })()}
                       </Link>
                     )
                   })}

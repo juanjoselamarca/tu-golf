@@ -6,6 +6,7 @@ import TournamentCardMenu from '@/components/TournamentCardMenu'
 import { ExperiencePopupWrapper } from '@/components/ExperiencePopupWrapper'
 import { HoleColorBar } from '@/components/HoleColorBar'
 import { PostLoginRedirect } from '@/components/PostLoginRedirect'
+import EnVivoWidget from '@/components/EnVivoWidget'
 
 interface Tournament {
   id: string
@@ -292,6 +293,9 @@ export default async function DashboardPage() {
             })}
           </div>
         )}
+
+        {/* En Vivo widget — invisible si no hay rondas activas */}
+        <EnVivoWidget />
 
         {/* 5 — Mis rondas libres */}
         <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '32px 0 24px' }} />
