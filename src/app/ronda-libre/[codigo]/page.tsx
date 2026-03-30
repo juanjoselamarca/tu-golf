@@ -497,13 +497,25 @@ function RondaLibrePageContent() {
   /* ── Not found ── */
   if (notFound || !ronda) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', fontFamily: 'DM Sans, sans-serif' }}>
+      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', fontFamily: 'DM Sans, sans-serif', padding: '24px' }}>
         <div style={{ fontSize: '64px' }}>🏌️</div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', textAlign: 'center' }}>
           Ronda no encontrada
         </h1>
-        <p style={{ color: '#94a8c0', textAlign: 'center' }}>El código <strong style={{ color: '#c4992a' }}>{codigo}</strong> no existe o fue eliminado.</p>
-        <Link href="/" style={{ color: '#c4992a', textDecoration: 'none', fontSize: '14px' }}>← Ir al inicio</Link>
+        <p style={{ color: '#94a8c0', textAlign: 'center', maxWidth: '320px', lineHeight: 1.5 }}>
+          El código <strong style={{ color: '#c4992a' }}>{codigo}</strong> no existe o fue eliminado.
+          Verifica que el código sea exacto (mayúsculas y minúsculas importan).
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
+          <Link href="/ronda-libre/nueva" style={{
+            background: '#c4992a', color: '#070d18', textDecoration: 'none',
+            fontWeight: 600, fontSize: '15px', padding: '12px 24px', borderRadius: '10px',
+            display: 'inline-block',
+          }}>
+            Crear nueva ronda
+          </Link>
+          <Link href="/" style={{ color: 'var(--text-2)', textDecoration: 'none', fontSize: '14px' }}>← Ir al inicio</Link>
+        </div>
       </div>
     )
   }
