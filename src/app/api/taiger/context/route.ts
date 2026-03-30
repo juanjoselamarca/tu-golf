@@ -25,6 +25,7 @@ export async function GET() {
     const [roundsRes, patternsRes, sessionsRes, recommendationsRes, insightsRes] = await Promise.all([
       supabase.from('historical_rounds')
         .select('id, course_name, played_at, scores, total_gross')
+        .eq('user_id', user.id)
         .order('played_at', { ascending: false })
         .limit(50),
       supabase.from('player_patterns')
