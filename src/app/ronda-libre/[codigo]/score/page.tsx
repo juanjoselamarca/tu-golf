@@ -5,8 +5,8 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
-import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
-import type { ModoJuego } from '@/lib/scoring'
+import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import type { ModoJuego } from '@/golf/core/rules'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 import { useScoreSync } from '@/hooks/useScoreSync'
@@ -77,11 +77,11 @@ function lsLoad(c: string, j: string): Record<number, number> { try { return JSO
 function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(p) }
 
 // Chip colors from centralized score-colors system
-import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult, getHoleBoxStyle, getScoreNumberStyle } from '@/lib/score-colors'
+import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult, getHoleBoxStyle, getScoreNumberStyle } from '@/golf/core/colors'
 import MiniLeaderboard from '@/components/MiniLeaderboard'
 import GWILeaderboard from '@/components/GWILeaderboard'
-import { calcularGWI } from '@/lib/gwi'
-import type { JugadorGWIInput, GWIResult } from '@/lib/gwi'
+import { calcularGWI } from '@/golf/stats/gwi'
+import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
 import { compartirResultado } from '@/lib/share-card'
 import type { ShareCardData } from '@/lib/share-card'
 

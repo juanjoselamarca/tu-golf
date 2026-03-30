@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { validarRonda } from '@/lib/cpi'
+import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
-import { normalizeGarminColor, colorToDiff, isAmbiguousColor } from '@/lib/garmin-colors'
-import { matchCourseInDB } from '@/lib/course-matching'
+import { normalizeGarminColor, colorToDiff, isAmbiguousColor } from '@/golf/core/colors'
+import { matchCourseInDB } from '@/golf/courses/matching'
 export const dynamic = 'force-dynamic'
 
 // Vercel Hobby: max 60s. Needed because Claude Vision can take 10-30s per image.

@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
+import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 
 function validateScoreInputs(body: Record<string, unknown>): string | null {
   const { hole_number, gross_score, par } = body

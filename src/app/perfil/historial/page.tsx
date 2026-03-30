@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { HoleColorBar } from '@/components/HoleColorBar'
-import { getHoleBoxStyle, getScoreNumberStyle } from '@/lib/score-colors'
+import { getHoleBoxStyle, getScoreNumberStyle } from '@/golf/core/colors'
 import ScoreSymbol from '@/components/ScoreSymbol'
 
 /* ─── Datos ────────────────────────────────────────────── */

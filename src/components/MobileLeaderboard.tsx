@@ -34,7 +34,7 @@ function gwiDeltaClr(delta: number): string {
 }
 
 // Score colors from centralized system
-import { SCORE_STYLES_LIGHT, getScoreResult } from '@/lib/score-colors'
+import { SCORE_STYLES_LIGHT, getScoreResult } from '@/golf/core/colors'
 
 function holeCellStyle(s: number | null, par: number) {
   const result = getScoreResult(s, par)

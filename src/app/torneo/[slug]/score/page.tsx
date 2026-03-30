@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { SCORE_STYLES, getScoreResult } from '@/lib/score-colors'
+import { SCORE_STYLES, getScoreResult } from '@/golf/core/colors'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 

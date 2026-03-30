@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { calcularCPI } from '@/lib/cpi'
+import { calcularCPI } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 export const dynamic = 'force-dynamic'
 

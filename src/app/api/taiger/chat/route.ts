@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { TAIGER_SYSTEM_PROMPT, buildContextString, SESSION_STARTERS } from '@/lib/taiger-prompt'
+import { TAIGER_SYSTEM_PROMPT, buildContextString, SESSION_STARTERS } from '@/golf/coach/prompts'
 export const dynamic = 'force-dynamic'
 
 export const runtime = 'nodejs'

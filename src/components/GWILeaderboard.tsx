@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { calcularGWI, probResultadoHoyo } from '@/lib/gwi'
-import type { JugadorGWIInput, GWIResult } from '@/lib/gwi'
-import type { ModoJuego } from '@/lib/scoring'
+import { calcularGWI, probResultadoHoyo } from '@/golf/stats/gwi'
+import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
+import type { ModoJuego } from '@/golf/core/rules'
 
 interface HoleInfo { numero: number; par: number }
 

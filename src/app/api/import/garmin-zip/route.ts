@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import JSZip from 'jszip'
-import { validarRonda } from '@/lib/cpi'
+import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
-import { findBestCourseMatch } from '@/lib/course-matching'
+import { findBestCourseMatch } from '@/golf/courses/matching'
 export const dynamic = 'force-dynamic'
 
 export const maxDuration = 60

@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-30 | Commit: `f6d4d3a`
+> Auto-generado: 2026-03-30 | Commit: `300175c`
 
 ## Último deploy
 
-- **Commit:** `f6d4d3a` — fix: stats comparan por vsPar en vez de gross — resuelve bug 9 vs 18 hoyos
+- **Commit:** `300175c` — docs: estado actualizado post-refactor golf module
 - **Fecha:** 2026-03-30
-- **Branch:** main (247 commits total)
+- **Branch:** main (248 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (37 páginas)
@@ -68,25 +68,25 @@
 
 ---
 
-## Sesion 30 Mar 2026 — Seguridad, Sentry, Auditoria de Calidad, UX para 60+
+## Sesion 30 Mar 2026 — Sesion masiva: seguridad, Sentry, PostHog, UX, rebrand, golf module
 
 **Fecha:** 30 Mar 2026
-**Estado:** COMPLETO
+**Estado:** COMPLETO — 20+ commits
 
-### Sprint 5 — Seguridad (items faltantes)
-- X-XSS-Protection header agregado en next.config.js
-- CORS restrictivo en /api/en-vivo (solo golfersplus.vercel.app en prod)
+### Sprint 5 — Seguridad completado
+- X-XSS-Protection header, CORS restrictivo en /api/en-vivo
 
-### Sentry activado en produccion
-- DSN configurado en .env.local y Vercel production
-- sentry.client.config.ts migrado a instrumentation-client.ts (Next.js moderno)
-- global-error.tsx captura errores de React rendering
-- onRouterTransitionStart para tracking de navegacion
+### Sentry + PostHog activados en produccion
+- Sentry: DSN configurado, instrumentation-client.ts, global-error.tsx
+- PostHog: autocapture pageviews/clicks, respect DNT, sin IP tracking
 
-### Auditoria de calidad MAESTRO
-- Bug critico: /api/en-vivo filtraba por 'in_progress' (valor que no existe en BD)
-- Corregido a 'en_curso' (valor real)
-- Font Inter eliminada (no se usa), ESLint warnings resueltos
+### Bug critico corregido
+- /api/en-vivo filtraba por 'in_progress' (no existe en BD) → corregido a 'en_curso'
+
+### 10 mejoras UX para usuarios 60+
+- Toast en errores (crear ronda, score, torneo) — antes: console.error invisible
+- Pagina /recuperar contraseña nueva
+- Tipografia Navbar mas legible (10→11px)
 
 ---
 

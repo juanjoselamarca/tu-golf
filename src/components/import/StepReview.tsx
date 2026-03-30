@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import type { ImportRoundData } from '@/lib/import-types'
-import type { ResultadoCPI } from '@/lib/cpi'
+import type { ResultadoCPI } from '@/golf/stats/cpi'
 import type { ImportState } from './ImportWizard'
 import ScoreSymbol from '@/components/ScoreSymbol'
 

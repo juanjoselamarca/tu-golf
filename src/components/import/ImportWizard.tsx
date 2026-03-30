@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import type { ImportRoundData } from '@/lib/import-types'
-import type { ResultadoCPI } from '@/lib/cpi'
+import type { ResultadoCPI } from '@/golf/stats/cpi'
 import StepSurvey from './StepSurvey'
 import StepSelector from './StepSelector'
 import ImportGuide from './ImportGuide'

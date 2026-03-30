@@ -4,38 +4,43 @@
 
 ---
 
-## Sesion 30 Mar 2026 — Seguridad, Sentry, Auditoria de Calidad, UX para 60+
+## Sesion 30 Mar 2026 — Sesion masiva: seguridad, Sentry, PostHog, UX, rebrand, golf module
 
 **Fecha:** 30 Mar 2026
-**Estado:** COMPLETO
+**Estado:** COMPLETO — 20+ commits
 
-### Sprint 5 — Seguridad (items faltantes)
-- X-XSS-Protection header agregado en next.config.js
-- CORS restrictivo en /api/en-vivo (solo golfersplus.vercel.app en prod)
+### Sprint 5 — Seguridad completado
+- X-XSS-Protection header, CORS restrictivo en /api/en-vivo
 
-### Sentry activado en produccion
-- DSN configurado en .env.local y Vercel production
-- sentry.client.config.ts migrado a instrumentation-client.ts (Next.js moderno)
-- global-error.tsx captura errores de React rendering
-- onRouterTransitionStart para tracking de navegacion
+### Sentry + PostHog activados en produccion
+- Sentry: DSN configurado, instrumentation-client.ts, global-error.tsx
+- PostHog: autocapture pageviews/clicks, respect DNT, sin IP tracking
 
-### Auditoria de calidad MAESTRO
-- Bug critico: /api/en-vivo filtraba por 'in_progress' (valor que no existe en BD)
-- Corregido a 'en_curso' (valor real)
-- Font Inter eliminada (no se usa), ESLint warnings resueltos
-- Build limpio: 0 errores, 0 warnings
+### Bug critico corregido
+- /api/en-vivo filtraba por 'in_progress' (no existe en BD) → corregido a 'en_curso'
 
-### Mejoras UX para usuarios 60+ (10 commits)
-- Errores visibles: toast en crear ronda, score page, torneo score (antes: console.error)
-- Pagina /recuperar: flujo completo de recuperacion de contraseña
-- Tipografia Navbar: labels de 10px → 11px, email 11px → 12px
-- Ronda no encontrada: opciones claras + guia al usuario
-- Registro: formulario expandido por defecto, copy sin marketing
-- Dashboard: onboarding explica GWI en lenguaje simple, sin siglas CPI/tAIger
-- En Vivo: error de red con pantalla 'Sin conexion' + Reintentar, indicador +N jugadores
-- Historial: timeout diferenciado de empty state, confirm mejorado
-- Landing: copy sin siglas tecnicas
-- Coach: rate limit con contexto temporal
+### 10 mejoras UX para usuarios 60+
+- Toast en errores (crear ronda, score, torneo) — antes: console.error invisible
+- Pagina /recuperar contraseña nueva
+- Tipografia Navbar mas legible (10→11px)
+- Empty states mejorados (ronda no encontrada, en-vivo sin conexion, historial timeout)
+- Registro expandido por defecto, copy sin marketing ni siglas
+- Dashboard: onboarding explica GWI en lenguaje simple
+- Toast responsive: bottom center, se adapta a mobile/desktop, con/sin cuenta
+
+### Rebrand golfersplus.vercel.app
+- 0 referencias a tu-golf.vercel.app en todo el proyecto
+- Dominio golfersplus.vercel.app activo (tu-golf.vercel.app como backup)
+- NEXT_PUBLIC_SITE_URL actualizado en Vercel, Supabase redirect URLs configurados
+
+### Arquitectura src/golf/ — motor de reglas centralizado
+- core/: rules, scoring, compare (NUEVO), colors
+- formats/: stroke-play, stableford, GolfFormat interface extensible
+- stats/: gwi, cpi, personal (NUEVO — stats con vsPar)
+- courses/: types, data, matching
+- coach/: prompts, patterns (stub), analysis (stub)
+- 20 archivos migrados de src/lib/ shims a @/golf/ directo
+- Bug fix: stats comparan por vsPar (no gross) — resuelve 9 vs 18 hoyos
 
 ### Sprint log sesion 29 Mar (retroactivo)
 - 9 sprints del MAESTRO implementados (1,9,2,6,3,4,7,8)

@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import type { ResultadoCPI } from '@/lib/cpi'
-import { nivelCPI } from '@/lib/cpi'
+import type { ResultadoCPI } from '@/golf/stats/cpi'
+import { nivelCPI } from '@/golf/stats/cpi'
 
 interface StepCelebrationProps {
   cpiResult: ResultadoCPI

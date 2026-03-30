@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/lib/scoring'
+import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 
 describe('strokesRecibidosEnHoyo', () => {
   it('hcp 18 recibe 1 stroke en cada hoyo', () => {

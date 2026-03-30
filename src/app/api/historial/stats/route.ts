@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { findBestCourseMatch } from '@/lib/course-matching'
+import { findBestCourseMatch } from '@/golf/courses/matching'
 
 export const dynamic = 'force-dynamic'
 

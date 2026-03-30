@@ -3,8 +3,8 @@ import { createClient } from '@/utils/supabase/server'
 import {
   strokesRecibidosEnHoyo,
   puntosStablefordHoyo,
-} from '@/lib/scoring'
-import type { JugadorGWIInput } from '@/lib/gwi'
+} from '@/golf/core/scoring'
+import type { JugadorGWIInput } from '@/golf/stats/gwi'
 
 export const dynamic = 'force-dynamic'
 

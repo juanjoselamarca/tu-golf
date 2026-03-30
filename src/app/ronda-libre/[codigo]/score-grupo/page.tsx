@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { getScoreResult, SCORE_STYLES } from '@/lib/score-colors'
+import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 
 /* ── Types ── */
 interface Jugador {

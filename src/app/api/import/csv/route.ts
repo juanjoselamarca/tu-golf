@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { validarRonda } from '@/lib/cpi'
+import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 export const dynamic = 'force-dynamic'
 

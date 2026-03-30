@@ -6,9 +6,9 @@ import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
 import { PLAYERS, PAR } from '@/lib/golf-data'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
-import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/lib/scoring'
-import type { ModoJuego } from '@/lib/scoring'
-import type { JugadorGWIInput } from '@/lib/gwi'
+import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import type { ModoJuego } from '@/golf/core/rules'
+import type { JugadorGWIInput } from '@/golf/stats/gwi'
 
 interface DBPlayer {
   id: string
