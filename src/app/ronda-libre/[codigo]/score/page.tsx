@@ -10,6 +10,7 @@ import type { ModoJuego } from '@/lib/scoring'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 import { useScoreSync } from '@/hooks/useScoreSync'
+import { addToast } from '@/hooks/useToast'
 
 /* ── Share menu component ──────────────────────────────────────────── */
 function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void }) {
@@ -337,6 +338,7 @@ function ScorePageContent() {
     const { data: rondaCheck } = await supabaseCheck.from('rondas_libres').select('estado').eq('codigo', codigo).single()
     if (!rondaCheck || rondaCheck.estado === 'finalizada') {
       setSaveStatus('error')
+      addToast({ type: 'warning', title: 'Ronda finalizada', message: 'El administrador cerró esta ronda. Tus scores están guardados en tu dispositivo.', duration: 8000 })
       router.replace(`/ronda-libre/${codigo}`)
       return
     }
@@ -352,7 +354,10 @@ function ScorePageContent() {
       if (!error) { success = true; retryCountRef.current = 0 } else retryCountRef.current++
     }
 
-    if (!success) { setSaveStatus('error') }
+    if (!success) {
+      setSaveStatus('error')
+      addToast({ type: 'error', title: 'Error al guardar', message: 'No se pudo conectar después de 3 intentos. Tus scores están guardados en tu dispositivo.', duration: 8000 })
+    }
     else {
       setSaveStatus('saved'); setHasUnsaved(false)
       scoreSync.marcarSincronizado()
