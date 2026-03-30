@@ -69,9 +69,12 @@ export function ToastContainer() {
     {
       style: {
         position:      'fixed',
-        bottom:        'calc(70px + env(safe-area-inset-bottom, 0px))',
-        left:          '16px',
-        right:         '16px',
+        bottom:        '24px',
+        left:          '50%',
+        transform:     'translateX(-50%)',
+        width:         '100%',
+        maxWidth:      '420px',
+        padding:       '0 16px',
         zIndex:        9999,
         display:       'flex',
         flexDirection: 'column',
@@ -79,6 +82,7 @@ export function ToastContainer() {
         gap:           '8px',
         pointerEvents: 'none',
       },
+      className: 'toast-container',
     },
     ...toasts.map((t) =>
       createElement(

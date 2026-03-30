@@ -402,6 +402,13 @@ body[data-page="scorecard"] {
   padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
 }
 
+/* ── Toast: sube sobre bottom nav en móvil autenticado ── */
+@media (max-width: 767px) {
+  body:has(.bottom-nav-bar) .toast-container {
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
 /* ── QA: Prevent horizontal overflow ── */
 html, body { overflow-x: hidden; max-width: 100vw; }
 
