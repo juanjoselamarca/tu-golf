@@ -9,8 +9,11 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import type { ModoJuego } from '@/golf/core/rules'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
+import BirdieCelebration from '@/components/BirdieCelebration'
+import EagleCelebration from '@/components/EagleCelebration'
 import { useScoreSync } from '@/hooks/useScoreSync'
 import { addToast } from '@/hooks/useToast'
+import { shouldNotify } from '@/golf/notifications'
 
 /* ── Share menu component ──────────────────────────────────────────── */
 function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void }) {
@@ -131,6 +134,8 @@ function ScorePageContent() {
   const [roundDone, setRoundDone] = useState(false)
   const [finalScore, setFinalScore] = useState({ gross: 0, totalPar: 0 })
   const [holeInOneData, setHoleInOneData] = useState<{ playerName: string; hole: number } | null>(null)
+  const [birdieData, setBirdieData] = useState<{ playerName: string; hole: number } | null>(null)
+  const [eagleData, setEagleData] = useState<{ playerName: string; hole: number } | null>(null)
 
   // Offline score sync — guarda localmente ANTES de enviar al servidor
   const scoreSync = useScoreSync(codigo, activeJugadorId)
@@ -416,16 +421,29 @@ function ScorePageContent() {
     if (savedScore != null && ronda) {
       const playerName = ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.nombre ?? 'Jugador'
 
-      // Hole-in-one — celebrate AFTER confirming with Siguiente
+      // Celebrate & push AFTER confirming with Siguiente
       if (savedScore === 1) {
-        setHoleInOneData({ playerName, hole: currentHole })
-        haptic([50, 100, 50, 100, 50])
+        const decision = shouldNotify({ type: 'hole_in_one', playerName, hole: currentHole, courseName: ronda.course_name })
+        if (decision.notify) {
+          setHoleInOneData({ playerName, hole: currentHole })
+          haptic(decision.hapticPattern ?? [50, 100, 50, 100, 50])
+        }
         sendPushViaServer({ title: 'HOLE IN ONE!', body: `${playerName} hizo hoyo en uno en el hoyo ${currentHole}!`, tag: `ace-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
       } else {
         const diff = savedScore - holePar
         if (diff <= -2) {
+          const decision = shouldNotify({ type: 'eagle', playerName, hole: currentHole, courseName: ronda.course_name })
+          if (decision.notify) {
+            setEagleData({ playerName, hole: currentHole })
+            haptic(decision.hapticPattern ?? [30, 60, 30, 60])
+          }
           sendPushViaServer({ title: `Eagle — ${playerName}`, body: `Eagle en hoyo ${currentHole} en ${ronda.course_name}`, tag: `eagle-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
         } else if (diff === -1) {
+          const decision = shouldNotify({ type: 'birdie', playerName, hole: currentHole, courseName: ronda.course_name })
+          if (decision.notify) {
+            setBirdieData({ playerName, hole: currentHole })
+            haptic(decision.hapticPattern ?? [15, 30, 15])
+          }
           sendPushViaServer({ title: `Birdie — ${playerName}`, body: `Birdie en hoyo ${currentHole} en ${ronda.course_name}`, tag: `birdie-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
         }
       }
@@ -1202,7 +1220,21 @@ function ScorePageContent() {
         }
       `}</style>
 
-      {/* Hole-in-one celebration */}
+      {/* Celebrations — escalated by importance */}
+      {birdieData && (
+        <BirdieCelebration
+          playerName={birdieData.playerName}
+          holeNumber={birdieData.hole}
+          onClose={() => setBirdieData(null)}
+        />
+      )}
+      {eagleData && (
+        <EagleCelebration
+          playerName={eagleData.playerName}
+          holeNumber={eagleData.hole}
+          onClose={() => setEagleData(null)}
+        />
+      )}
       {holeInOneData && (
         <HoleInOneCelebration
           playerName={holeInOneData.playerName}
