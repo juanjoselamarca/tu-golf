@@ -26,7 +26,7 @@ export async function GET(
       .eq('slug', params.slug)
       .single()
 
-    if (!rawT) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!rawT) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
     const t = rawT as unknown as {
       id: string; name: string; hole_count: number; modo_juego: string | null
@@ -168,6 +168,6 @@ export async function GET(
     return NextResponse.json({ inputs, totalHoyos, modoJuego: modo, parTotal })
   } catch (err) {
     console.error('[GWI/torneo] Error interno:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
 }

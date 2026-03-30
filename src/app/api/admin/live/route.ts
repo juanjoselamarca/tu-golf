@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const fifteenMinAgo = new Date(Date.now() - 15 * 60_000).toISOString()

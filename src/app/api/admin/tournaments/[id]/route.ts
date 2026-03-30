@@ -10,7 +10,7 @@ export async function GET(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const { id } = await params
@@ -25,7 +25,7 @@ export async function GET(
       ).data?.map(p => p.id) ?? []),
   ])
 
-  if (tournament.error) return NextResponse.json({ error: tournament.error.message }, { status: 404 })
+  if (tournament.error) return NextResponse.json({ error: 'Torneo no encontrado' }, { status: 404 })
 
   return NextResponse.json({
     tournament: tournament.data,
@@ -40,7 +40,7 @@ export async function PATCH(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const { id } = await params
@@ -54,11 +54,11 @@ export async function PATCH(
   if (hole_count !== undefined) updates.hole_count = hole_count
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    return NextResponse.json({ error: 'No hay campos para actualizar' }, { status: 400 })
   }
 
   const { data, error } = await admin.from('tournaments').update(updates).eq('id', id).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
 
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',
@@ -75,7 +75,7 @@ export async function DELETE(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const { id } = await params
@@ -98,7 +98,7 @@ export async function DELETE(
   }
 
   const { error } = await admin.from('tournaments').delete().eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
 
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',

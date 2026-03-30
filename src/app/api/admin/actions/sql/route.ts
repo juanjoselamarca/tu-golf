@@ -7,14 +7,14 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const body = await request.json()
   const { query } = body
 
   if (!query || typeof query !== 'string') {
-    return NextResponse.json({ error: 'query string is required' }, { status: 400 })
+    return NextResponse.json({ error: 'Se requiere una consulta SQL' }, { status: 400 })
   }
 
   // Log the query (but NOT the results) for security

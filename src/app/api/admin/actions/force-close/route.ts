@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export async function POST() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
@@ -19,7 +19,7 @@ export async function POST() {
     .lt('created_at', cutoff)
     .select('id')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
 
   const count = data?.length ?? 0
 

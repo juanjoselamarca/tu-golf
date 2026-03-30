@@ -10,7 +10,7 @@ export async function GET(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const { id } = await params
@@ -42,7 +42,7 @@ export async function PATCH(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const { id } = await params
@@ -50,7 +50,7 @@ export async function PATCH(
   const { name, email, indice, role } = body
 
   if (role && !['player', 'organizer', 'admin'].includes(role)) {
-    return NextResponse.json({ error: 'Invalid role. Must be player, organizer, or admin.' }, { status: 400 })
+    return NextResponse.json({ error: 'Rol inválido. Debe ser player, organizer o admin.' }, { status: 400 })
   }
 
   // Cannot remove your own admin role
@@ -92,11 +92,11 @@ export async function PATCH(
   if (role !== undefined) updates.role = role
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    return NextResponse.json({ error: 'No hay campos para actualizar' }, { status: 400 })
   }
 
   const { data, error } = await admin.from('profiles').update(updates).eq('id', id).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
 
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',

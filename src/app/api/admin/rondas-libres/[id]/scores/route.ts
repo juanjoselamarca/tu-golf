@@ -10,7 +10,7 @@ export async function PATCH(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const { id: rondaId } = await params
@@ -18,7 +18,7 @@ export async function PATCH(
   const { jugadorId, scores } = body
 
   if (!jugadorId || !scores) {
-    return NextResponse.json({ error: 'jugadorId and scores are required' }, { status: 400 })
+    return NextResponse.json({ error: 'Se requiere jugadorId y scores' }, { status: 400 })
   }
 
   const { data, error } = await admin
@@ -29,7 +29,7 @@ export async function PATCH(
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
 
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',

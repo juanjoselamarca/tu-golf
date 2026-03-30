@@ -32,7 +32,7 @@ export async function GET(
       .eq('codigo', params.codigo)
       .single()
 
-    if (!ronda) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!ronda) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
     const modo      = (ronda.modo_juego as 'gross' | 'neto' | 'stableford') || 'gross'
     const totalHoyos = ronda.holes ?? 18
@@ -184,6 +184,6 @@ export async function GET(
 
     return NextResponse.json({ inputs, totalHoyos, modoJuego: modo })
   } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
 }

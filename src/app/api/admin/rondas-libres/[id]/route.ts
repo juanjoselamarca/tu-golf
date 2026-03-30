@@ -10,7 +10,7 @@ export async function GET(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const { id } = await params
@@ -20,7 +20,7 @@ export async function GET(
     admin.from('ronda_libre_jugadores').select('*, profiles:user_id(id, name, email)').eq('ronda_id', id),
   ])
 
-  if (ronda.error) return NextResponse.json({ error: ronda.error.message }, { status: 404 })
+  if (ronda.error) return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
 
   return NextResponse.json({
     ronda: ronda.data,
@@ -34,7 +34,7 @@ export async function PATCH(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const { id } = await params
@@ -42,18 +42,18 @@ export async function PATCH(
   const { estado } = body
 
   if (estado && !['en_curso', 'finalizada'].includes(estado)) {
-    return NextResponse.json({ error: 'Invalid estado. Must be en_curso or finalizada.' }, { status: 400 })
+    return NextResponse.json({ error: 'Estado inválido. Debe ser en_curso o finalizada.' }, { status: 400 })
   }
 
   const updates: Record<string, unknown> = {}
   if (estado !== undefined) updates.estado = estado
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    return NextResponse.json({ error: 'No hay campos para actualizar' }, { status: 400 })
   }
 
   const { data, error } = await admin.from('rondas_libres').update(updates).eq('id', id).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
 
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',
@@ -70,7 +70,7 @@ export async function DELETE(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const { id } = await params
@@ -78,7 +78,7 @@ export async function DELETE(
   // Delete jugadores first, then the ronda
   await admin.from('ronda_libre_jugadores').delete().eq('ronda_id', id)
   const { error } = await admin.from('rondas_libres').delete().eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
 
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',

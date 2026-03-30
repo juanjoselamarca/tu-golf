@@ -9,7 +9,7 @@ export async function POST() {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
 
     const { data: rounds } = await supabase
       .from('historical_rounds')
@@ -265,6 +265,6 @@ export async function POST() {
       message: `${detected.length} patrón(es) detectado(s) de ${rounds.length} rondas`,
     })
   } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
 }

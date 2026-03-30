@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   if (!(await isAdmin(user?.id, supabase))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
   }
 
   const body = await request.json()

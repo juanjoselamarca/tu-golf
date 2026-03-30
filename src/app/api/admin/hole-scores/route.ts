@@ -7,14 +7,14 @@ export const dynamic = 'force-dynamic'
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
   const body = await request.json()
   const { scores } = body as { scores: Array<{ id: string; gross_score: number }> }
 
   if (!scores || !Array.isArray(scores) || scores.length === 0) {
-    return NextResponse.json({ error: 'scores array is required' }, { status: 400 })
+    return NextResponse.json({ error: 'Se requiere un array de scores' }, { status: 400 })
   }
 
   const updated: unknown[] = []
@@ -31,7 +31,7 @@ export async function PATCH(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: `Failed to update score ${score.id}: ${error.message}` }, { status: 500 })
+      return NextResponse.json({ error: `No se pudo actualizar el score ${score.id}. Intenta de nuevo.` }, { status: 500 })
     }
 
     updated.push(data)

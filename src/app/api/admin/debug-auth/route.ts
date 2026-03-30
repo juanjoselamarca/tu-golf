@@ -14,7 +14,7 @@ export async function GET() {
 
     // Admin check — this endpoint exposes sensitive auth debug info
     if (!(await isAdmin(user.id, supabase))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
     }
 
     const { data: profile, error: profileError } = await supabase

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const supabaseAuth = await createClient()
     const { data: { user } } = await supabaseAuth.auth.getUser()
     if (!(await isAdmin(user?.id, supabaseAuth))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return NextResponse.json({ error: 'No tienes permisos para esta acción' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -131,6 +131,6 @@ export async function POST(request: Request) {
     })
   } catch (err) {
     console.error('Push send error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
 }

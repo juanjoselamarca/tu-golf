@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   if (cronSecret) {
     const authHeader = request.headers.get('Authorization')
     if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Acceso no autorizado' }, { status: 401 })
     }
   }
 
@@ -161,6 +161,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (err) {
     console.error('[cron/taiger-insights] Error:', err)
-    return NextResponse.json({ error: 'Error computing insights' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al calcular insights. Intenta de nuevo.' }, { status: 500 })
   }
 }

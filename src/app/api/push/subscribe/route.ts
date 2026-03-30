@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const { subscription } = body
 
     if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
-      return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
+      return NextResponse.json({ error: 'Datos de suscripción inválidos' }, { status: 400 })
     }
 
     const supabase = await createClient()
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('Push subscribe error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
 }
 
@@ -51,6 +51,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true })
   } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
 }

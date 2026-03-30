@@ -48,13 +48,13 @@ function serviceClient() {
 
 export async function POST(request: NextRequest) {
   const { user, supabase } = await getAuthUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
 
   const body = await request.json()
   const { action, tournament_id } = body
 
   if (!action || typeof action !== 'string') {
-    return NextResponse.json({ error: 'Missing or invalid action' }, { status: 400 })
+    return NextResponse.json({ error: 'Acción requerida o no válida' }, { status: 400 })
   }
 
   // Verify tournament exists and is in a valid state for scoring
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
       { onConflict: 'round_id,hole_number' }
     )
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'No se pudo guardar el score. Intenta de nuevo.' }, { status: 500 })
 
     // Registro de auditoría — no bloquear si falla
     if (gross_score != null) {
@@ -211,9 +211,9 @@ export async function POST(request: NextRequest) {
       .update({ status: 'closed', closed_at: new Date().toISOString() })
       .eq('id', round_id)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'No se pudo finalizar la ronda. Intenta de nuevo.' }, { status: 500 })
     return NextResponse.json({ success: true })
   }
 
-  return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 })
 }

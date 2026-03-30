@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
 
   const { data: rondas, error } = await supabase
     .from('historical_rounds')
@@ -15,7 +15,7 @@ export async function GET() {
     .eq('user_id', user.id)
     .order('played_at', { ascending: false })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'No pudimos calcular tu índice. Intenta de nuevo.' }, { status: 500 })
 
   // Map to CPI input format - holes_played may not exist yet
   const rondasCPI = (rondas ?? []).map(r => ({

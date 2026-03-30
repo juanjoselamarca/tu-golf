@@ -93,7 +93,7 @@ export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
   }
 
   // Fetch rounds + courses + course_holes in parallel
@@ -113,7 +113,7 @@ export async function GET() {
   ])
 
   if (roundsRes.error) {
-    return NextResponse.json({ error: roundsRes.error.message }, { status: 500 })
+    return NextResponse.json({ error: 'No pudimos cargar tu historial. Intenta de nuevo.' }, { status: 500 })
   }
 
   const rawRounds = (roundsRes.data ?? []) as Array<{
