@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
+import { useToast } from '@/hooks/useToast'
 
 const CANCHAS_CHILE = [
   // Tier 1 — Elite Santiago
@@ -98,6 +99,7 @@ const colors = {
 
 export default function NuevaRondaLibrePage() {
   const router = useRouter()
+  const { showError } = useToast()
 
   const [userId, setUserId] = useState<string | null>(null)
   const [cancha, setCancha] = useState('')
@@ -213,14 +215,18 @@ export default function NuevaRondaLibrePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!userId || !cancha) return
+    if (!userId) return
+    if (!cancha) {
+      showError('Selecciona una cancha', 'Elige la cancha donde vas a jugar.')
+      return
+    }
 
     // In admin mode, use adminPlayers list instead of jugadores
     const jugadoresValidos = adminMode
       ? [jugadores[0], ...adminPlayers.filter(p => p.nombre.trim()).map(p => p.nombre.trim())]
       : jugadores.filter(j => j.trim() !== '')
     if (jugadoresValidos.length === 0) {
-      console.error('Agrega al menos un jugador para crear la ronda.')
+      showError('Faltan jugadores', 'Agrega al menos un jugador para crear la ronda.')
       return
     }
 
@@ -270,27 +276,27 @@ export default function NuevaRondaLibrePage() {
         if (e2 || !d2) {
           setLoading(false)
           if (e2?.message?.includes("'public.rondas_libres'") || e2?.message?.includes('relation') || e2?.code === '42P01') {
-            console.error('La base de datos aún no está configurada. Ejecuta el archivo EJECUTAR_EN_SUPABASE.sql en el panel de Supabase.')
+            showError('Error de configuración', 'La base de datos no está configurada. Contacta al administrador.')
           } else {
-            console.error('Error al crear la ronda: ' + e2?.message)
+            showError('Error al crear la ronda', e2?.message || 'Algo salió mal. Intenta nuevamente.')
           }
           return
         }
         ronda = d2
       } else if (e1.message?.includes("'public.rondas_libres'") || e1.message?.includes('relation') || e1.code === '42P01') {
         setLoading(false)
-        console.error('La base de datos aún no está configurada. Ejecuta el archivo EJECUTAR_EN_SUPABASE.sql en el panel de Supabase.')
+        showError('Error de configuración', 'La base de datos no está configurada. Contacta al administrador.')
         return
       } else {
         setLoading(false)
-        console.error('Error al crear la ronda: ' + e1.message)
+        showError('Error al crear la ronda', e1.message || 'Algo salió mal. Intenta nuevamente.')
         return
       }
     }
 
     if (!ronda) {
       setLoading(false)
-      console.error('Error al crear la ronda.')
+      showError('Error al crear la ronda', 'Algo salió mal. Intenta nuevamente.')
       return
     }
 
