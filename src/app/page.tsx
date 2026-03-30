@@ -57,7 +57,7 @@ export default async function Home() {
             Explora un perfil completo de Golfers+
           </h2>
           <p className="font-sans text-sm text-gray-soft mb-4">
-            30 rondas reales, GWI™ calculado, análisis de patrones. Sin crear cuenta.
+            30 rondas reales, tu índice Golfers+ calculado, patrones de juego analizados. Sin crear cuenta.
           </p>
           <span style={{ color: '#c4992a', fontSize: '14px', fontWeight: 600 }}>
             Ver perfil demo →

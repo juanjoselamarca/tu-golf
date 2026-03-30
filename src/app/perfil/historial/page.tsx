@@ -358,7 +358,7 @@ function HistorialContent() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar esta tarjeta?')) return
+    if (!confirm('¿Eliminar esta ronda de tu historial? Esta acción no se puede deshacer.')) return
     setDeleting(id)
     const supabase = createClient()
     await supabase.from('historical_rounds').delete().eq('id', id)

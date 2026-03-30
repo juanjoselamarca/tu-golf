@@ -85,7 +85,7 @@ export default function StatsSection() {
               tAIger+
             </div>
             <div className="text-sm font-sans text-gray-soft uppercase tracking-wider font-medium">
-              Coach IA · Psicología · Predicción
+              Tu coach personal con inteligencia artificial
             </div>
           </div>
           <StatCard value="40+" label="Canchas disponibles" active={active} />
