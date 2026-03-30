@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { ExperiencePanel } from '@/components/ExperienceSetup'
 import { nivelCPI } from '@/golf/stats/cpi'
 import { addToast } from '@/hooks/useToast'
+import { NIVEL_LABELS, NIVEL_DESCRIPCION, rondasParaActivar } from '@/lib/indice-golfers'
 
 interface Profile {
   id: string
@@ -14,6 +15,11 @@ interface Profile {
   email: string
   indice: number | null
   avatar_url: string | null
+  indice_golfers: number | null
+  indice_golfers_updated_at: string | null
+  nivel: number | null
+  nivel_updated_at: string | null
+  nivel_expires_at: string | null
 }
 
 const inputStyle: React.CSSProperties = {
@@ -74,7 +80,7 @@ export default function PerfilPage() {
 
       // Parallel queries — all at once, not sequential
       const [profRes, countRes] = await Promise.all([
-        supabase.from('profiles').select('id, name, email, indice, avatar_url').eq('id', user.id).single(),
+        supabase.from('profiles').select('id, name, email, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at').eq('id', user.id).single(),
         supabase.from('players').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
 
@@ -225,6 +231,70 @@ export default function PerfilPage() {
           </div>
         )}
 
+        {/* Dual Index Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+          {/* Índice Federación */}
+          <div style={{ background: '#0e1c2f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
+            <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', fontFamily: '"DM Mono", monospace', marginBottom: '8px', margin: '0 0 8px' }}>
+              Federación
+            </p>
+            <p style={{ fontSize: '38px', fontWeight: 700, color: '#edeae4', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
+              {profile.indice != null ? profile.indice.toFixed(1) : '—'}
+            </p>
+            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', margin: 0 }}>
+              Oficial · Manual
+            </p>
+          </div>
+
+          {/* Índice Golfers+ */}
+          <div style={{ background: '#0e1c2f', border: `1px solid ${profile.indice_golfers != null ? 'rgba(196,153,42,0.35)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
+            <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c4992a', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
+              Golfers+
+            </p>
+            {profile.indice_golfers != null ? (
+              <>
+                <p style={{ fontSize: '38px', fontWeight: 700, color: '#c4992a', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
+                  {profile.indice_golfers.toFixed(1)}
+                </p>
+                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', margin: 0 }}>
+                  Historial real
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: '28px', color: 'rgba(255,255,255,0.2)', lineHeight: 1, margin: '0 0 4px' }}>—</p>
+                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', margin: 0, lineHeight: 1.4 }}>
+                  3+ rondas para activar
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Gap note — when difference >= 1.5 between indices */}
+        {profile.indice != null && profile.indice_golfers != null && Math.abs(profile.indice - profile.indice_golfers) >= 1.5 && (
+          <div style={{ padding: '10px 14px', background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '12px' }}>
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>
+              <strong style={{ color: '#c4992a' }}>{Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos</strong> de diferencia entre tu índice oficial y tu rendimiento reciente. tAIger+ puede analizar esto.
+            </p>
+          </div>
+        )}
+
+        {/* Nivel badge */}
+        {profile.nivel != null && profile.nivel > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#0e1c2f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', marginBottom: '16px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#c4992a', flexShrink: 0 }} />
+            <div>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4', margin: 0 }}>
+                {NIVEL_LABELS[profile.nivel] ?? 'Rookie'}
+              </p>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+                {NIVEL_DESCRIPCION[profile.nivel] ?? ''}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* CPI Section */}
         {cpiData && cpiData.status === 'ok' && (
           <div style={{
@@ -273,7 +343,7 @@ export default function PerfilPage() {
             </div>
 
             <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
-              Índice: {profile.indice ?? '—'} · Rondas: {cpiData.roundsTotal}
+              Fed: {profile.indice ?? '—'} · G+: {profile.indice_golfers?.toFixed(1) ?? '—'} · Rondas: {cpiData.roundsTotal}
             </div>
 
             <Link href="/importar" style={{ fontSize: '13px', color: '#c4992a', textDecoration: 'none', fontWeight: 600, display: 'inline-block', marginTop: '8px' }}>
@@ -370,12 +440,12 @@ export default function PerfilPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice de handicap</label>
+                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice Federación</label>
                 <input
                   type="text"
                   inputMode="decimal"
                   pattern="[0-9]*[.,]?[0-9]*"
-                  placeholder="Ej: 12.5"
+                  placeholder="Ej: 15.4 — tu índice oficial de la Federación"
                   value={editIndice}
                   onChange={(e) => setEditIndice(e.target.value)}
                   style={inputStyle}
@@ -387,6 +457,9 @@ export default function PerfilPage() {
                     if (!isNaN(n) && n >= 0 && n <= 54) setEditIndice(String(n))
                   }}
                 />
+                <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '4px', margin: '4px 0 0' }}>
+                  Golfers+ calcula su propio índice automáticamente basado en tus rondas.
+                </p>
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '2px', flexWrap: 'wrap' }}>
                 <button
