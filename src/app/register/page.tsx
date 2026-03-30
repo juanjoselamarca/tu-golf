@@ -61,7 +61,7 @@ function RegisterContent() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || searchParams.get('next') || '/dashboard'
 
-  const [isOpen,   setIsOpen]   = useState(false)
+  const [isOpen,   setIsOpen]   = useState(true)
   const [name,     setName]     = useState('')
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
@@ -182,8 +182,8 @@ function RegisterContent() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '18px', color: '#c4992a' }}>⚡</span>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>Crea tu cuenta en 20 segundos</div>
-              <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>Solo 4 campos</div>
+              <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>Registro con email y contraseña</div>
+              <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>Email, contraseña, nombre e índice (opcional)</div>
             </div>
           </div>
           <span style={{ color: 'var(--text-2)', fontSize: '14px', transition: 'transform 200ms', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▾</span>
