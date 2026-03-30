@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 interface Props {
   playerName: string
@@ -16,17 +16,25 @@ interface Props {
 export default function BirdieCelebration({ playerName, holeNumber, onClose }: Props) {
   const [visible, setVisible] = useState(false)
 
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') onClose()
+  }, [onClose])
+
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true))
+    document.addEventListener('keydown', handleKeyDown)
     const timer = setTimeout(() => {
       setVisible(false)
       setTimeout(onClose, 300)
     }, 1500)
-    return () => clearTimeout(timer)
-  }, [onClose])
+    return () => { clearTimeout(timer); document.removeEventListener('keydown', handleKeyDown) }
+  }, [onClose, handleKeyDown])
 
   return (
     <div
+      role="alert"
+      aria-live="assertive"
+      aria-label={`Birdie de ${playerName} en hoyo ${holeNumber}`}
       onClick={onClose}
       style={{
         position: 'fixed',

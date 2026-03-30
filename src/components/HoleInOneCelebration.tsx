@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface Props {
   playerName: string
@@ -11,15 +11,22 @@ interface Props {
 export default function HoleInOneCelebration({ playerName, holeNumber, onClose }: Props) {
   const [visible, setVisible] = useState(false)
 
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') onClose()
+  }, [onClose])
+
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 50)
-    // Auto-close after 6 seconds
+    document.addEventListener('keydown', handleKeyDown)
     const autoClose = setTimeout(onClose, 6000)
-    return () => { clearTimeout(t); clearTimeout(autoClose) }
-  }, [onClose])
+    return () => { clearTimeout(t); clearTimeout(autoClose); document.removeEventListener('keydown', handleKeyDown) }
+  }, [onClose, handleKeyDown])
 
   return (
     <div
+      role="alert"
+      aria-live="assertive"
+      aria-label={`Hole in one de ${playerName} en hoyo ${holeNumber}`}
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 300,
