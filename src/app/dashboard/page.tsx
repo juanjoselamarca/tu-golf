@@ -145,7 +145,7 @@ export default async function DashboardPage() {
               Agrega tu índice de golf
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
-              Lo necesito para calcular tu GWI™ y darte análisis precisos
+              Tu GWI™ (Índice Golfers+) mide cómo juegas realmente vs tu potencial. Necesito tu índice para calcularlo.
             </div>
             <Link href="/perfil" style={{
               display: 'inline-block', background: '#c4992a', color: '#070d18',
@@ -164,13 +164,13 @@ export default async function DashboardPage() {
             borderRadius: '14px', padding: '20px', marginBottom: '20px',
           }}>
             <div style={{ fontSize: '11px', color: '#c4992a', fontFamily: 'var(--font-dm-mono), monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-              Activá tu CPI™ y tAIger+
+              Activa tu coach de golf con IA
             </div>
             <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
               Importá tu historial de rondas
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
-              tAIger+ necesita conocer tu juego para darte análisis precisos
+              Con 5+ rondas, tAIger+ analiza patrones en tu juego y te da un plan para mejorar
             </div>
             <Link href="/importar" style={{
               display: 'inline-block', background: '#c4992a', color: '#070d18',

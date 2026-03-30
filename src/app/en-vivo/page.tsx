@@ -29,6 +29,7 @@ export default function EnVivoPage() {
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
 
   const cargarFeed = useCallback(async () => {
     try {
@@ -38,7 +39,7 @@ export default function EnVivoPage() {
         const json = await res.json()
         setRondas(json.rondas ?? [])
       }
-    } catch { /* silencioso */ }
+    } catch { setFetchError(true) }
     setLoading(false)
   }, [busqueda])
 
@@ -134,6 +135,25 @@ export default function EnVivoPage() {
       <div style={{ padding: '16px' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-3)' }}>Cargando...</div>
+        ) : fetchError ? (
+          /* Error de conexión */
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <div style={{ fontSize: '56px', marginBottom: '16px' }}>📡</div>
+            <h2 style={{
+              fontFamily: 'var(--font-playfair)', fontSize: '22px', fontWeight: 700,
+              color: 'var(--ivory)', marginBottom: '8px',
+            }}>Sin conexión</h2>
+            <p style={{
+              fontFamily: 'var(--font-dm-sans)', fontSize: '14px',
+              color: 'var(--text-2)', marginBottom: '24px', lineHeight: 1.6,
+            }}>
+              No pudimos cargar las rondas en vivo. Verifica tu conexión a internet.
+            </p>
+            <button onClick={() => { setFetchError(false); setLoading(true); cargarFeed() }} style={{
+              padding: '14px 28px', background: 'var(--brand)', color: 'var(--brand-dark)',
+              borderRadius: '10px', fontSize: '15px', fontWeight: 700, border: 'none', cursor: 'pointer',
+            }}>Reintentar</button>
+          </div>
         ) : rondas.length === 0 ? (
           /* Estado vacío */
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -146,7 +166,7 @@ export default function EnVivoPage() {
               fontFamily: 'var(--font-dm-sans)', fontSize: '14px',
               color: 'var(--text-2)', marginBottom: '24px', lineHeight: 1.6,
             }}>
-              Cuando alguien empiece una ronda, aparece aqui en tiempo real.
+              Cuando alguien empiece una ronda, aparece aquí en tiempo real.
             </p>
             {isLoggedIn ? (
               <Link href="/ronda-libre/nueva" style={{
@@ -206,7 +226,7 @@ export default function EnVivoPage() {
                     {ronda.jugadores
                       .sort((a, b) => a.totalGross - b.totalGross)
                       .slice(0, 4)
-                      .map((j, idx) => (
+                      .map((j: JugadorEnVivo, idx: number) => (
                         <div key={j.id} style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           padding: '4px 8px', borderRadius: '6px',
@@ -232,6 +252,11 @@ export default function EnVivoPage() {
                           )}
                         </div>
                       ))}
+                    {ronda.totalJugadores > 4 && (
+                      <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '2px 8px' }}>
+                        +{ronda.totalJugadores - 4} más
+                      </div>
+                    )}
                   </div>
                 </div>
               </Link>
