@@ -4,7 +4,7 @@
 
 ---
 
-## Sesion 30 Mar 2026 — Sprint 5 completado + Sentry instrumentation
+## Sesion 30 Mar 2026 — Seguridad, Sentry, Auditoria de Calidad, UX para 60+
 
 **Fecha:** 30 Mar 2026
 **Estado:** COMPLETO
@@ -12,17 +12,34 @@
 ### Sprint 5 — Seguridad (items faltantes)
 - X-XSS-Protection header agregado en next.config.js
 - CORS restrictivo en /api/en-vivo (solo tu-golf.vercel.app en prod)
-- Items previamente completados: admin/health auth (403), push/preferences auth
 
-### Sentry instrumentation.ts
-- Migrado de sentry.*.config.ts standalone a instrumentation.ts (Next.js moderno)
-- onRequestError hook configurado para captura automatica de errores server-side
-- Elimina deprecation warnings de @sentry/nextjs
+### Sentry activado en produccion
+- DSN configurado en .env.local y Vercel production
+- sentry.client.config.ts migrado a instrumentation-client.ts (Next.js moderno)
+- global-error.tsx captura errores de React rendering
+- onRouterTransitionStart para tracking de navegacion
+
+### Auditoria de calidad MAESTRO
+- Bug critico: /api/en-vivo filtraba por 'in_progress' (valor que no existe en BD)
+- Corregido a 'en_curso' (valor real)
+- Font Inter eliminada (no se usa), ESLint warnings resueltos
+- Build limpio: 0 errores, 0 warnings
+
+### Mejoras UX para usuarios 60+ (10 commits)
+- Errores visibles: toast en crear ronda, score page, torneo score (antes: console.error)
+- Pagina /recuperar: flujo completo de recuperacion de contraseña
+- Tipografia Navbar: labels de 10px → 11px, email 11px → 12px
+- Ronda no encontrada: opciones claras + guia al usuario
+- Registro: formulario expandido por defecto, copy sin marketing
+- Dashboard: onboarding explica GWI en lenguaje simple, sin siglas CPI/tAIger
+- En Vivo: error de red con pantalla 'Sin conexion' + Reintentar, indicador +N jugadores
+- Historial: timeout diferenciado de empty state, confirm mejorado
+- Landing: copy sin siglas tecnicas
+- Coach: rate limit con contexto temporal
 
 ### Sprint log sesion 29 Mar (retroactivo)
 - 9 sprints del MAESTRO implementados (1,9,2,6,3,4,7,8)
 - Sentry condicional (solo con DSN), cron Vercel ajustado a diario
-- Commits: e886eba, e633524, 1949b03, f8f99c5, c56e5ba, 6bc3583, ca97faa, 44836cf
 
 ---
 

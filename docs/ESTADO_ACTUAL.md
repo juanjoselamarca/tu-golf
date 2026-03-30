@@ -1,15 +1,15 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-30 | Commit: `bcad214`
+> Auto-generado: 2026-03-30 | Commit: `fa8c07c`
 
 ## Último deploy
 
-- **Commit:** `bcad214` — fix: bug critico en-vivo (estado 'in_progress' → 'en_curso') + limpieza build warnings
+- **Commit:** `fa8c07c` — ux: registro expandido, copy mas claro en landing/stats, confirm mejorado en historial
 - **Fecha:** 2026-03-30
-- **Branch:** main (226 commits total)
+- **Branch:** main (237 commits total)
 - **URL:** https://tu-golf.vercel.app
 
-## Páginas en producción (36 páginas)
+## Páginas en producción (37 páginas)
 
 - `/admin/analytics`
 - `/admin/finanzas`
@@ -36,6 +36,7 @@
 - `/perfil`
 - `/perfil/stats`
 - `/privacidad`
+- `/recuperar`
 - `/reembolsos`
 - `/register`
 - `/ronda-libre/nueva`
@@ -67,7 +68,7 @@
 
 ---
 
-## Sesion 30 Mar 2026 — Sprint 5 completado + Sentry instrumentation
+## Sesion 30 Mar 2026 — Seguridad, Sentry, Auditoria de Calidad, UX para 60+
 
 **Fecha:** 30 Mar 2026
 **Estado:** COMPLETO
@@ -75,17 +76,17 @@
 ### Sprint 5 — Seguridad (items faltantes)
 - X-XSS-Protection header agregado en next.config.js
 - CORS restrictivo en /api/en-vivo (solo tu-golf.vercel.app en prod)
-- Items previamente completados: admin/health auth (403), push/preferences auth
 
-### Sentry instrumentation.ts
-- Migrado de sentry.*.config.ts standalone a instrumentation.ts (Next.js moderno)
-- onRequestError hook configurado para captura automatica de errores server-side
-- Elimina deprecation warnings de @sentry/nextjs
+### Sentry activado en produccion
+- DSN configurado en .env.local y Vercel production
+- sentry.client.config.ts migrado a instrumentation-client.ts (Next.js moderno)
+- global-error.tsx captura errores de React rendering
+- onRouterTransitionStart para tracking de navegacion
 
-### Sprint log sesion 29 Mar (retroactivo)
-- 9 sprints del MAESTRO implementados (1,9,2,6,3,4,7,8)
-- Sentry condicional (solo con DSN), cron Vercel ajustado a diario
-- Commits: e886eba, e633524, 1949b03, f8f99c5, c56e5ba, 6bc3583, ca97faa, 44836cf
+### Auditoria de calidad MAESTRO
+- Bug critico: /api/en-vivo filtraba por 'in_progress' (valor que no existe en BD)
+- Corregido a 'en_curso' (valor real)
+- Font Inter eliminada (no se usa), ESLint warnings resueltos
 
 ---
 
