@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-30 | Commit: `300175c`
+> Auto-generado: 2026-03-30 | Commit: `1fd3bde`
 
 ## Último deploy
 
-- **Commit:** `300175c` — docs: estado actualizado post-refactor golf module
+- **Commit:** `1fd3bde` — feat: UI índice dual + niveles en perfil
 - **Fecha:** 2026-03-30
-- **Branch:** main (248 commits total)
+- **Branch:** main (261 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (37 páginas)

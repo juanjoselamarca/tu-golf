@@ -4,6 +4,43 @@
 
 ---
 
+## Sesion 30 Mar 2026 (cont.) — Índice Dual + Sistema de Niveles + Estabilización
+
+**Fecha:** 30 Mar 2026
+**Estado:** COMPLETO — 11 commits
+
+### Recuperación de sesión interrumpida
+- Motor de notificaciones inteligente (shouldNotify)
+- Celebraciones birdie/eagle integradas en score page
+- Componentes con accesibilidad (ARIA, Escape key)
+
+### Fixes de estabilización (del backlog 17 Mar)
+- taiger/context filtra historical_rounds por user_id (P1)
+- Middleware ya no logea datos sensibles en producción
+- golf/coach/ completo: 7 pattern detectors + analyzeRound() real
+- 45+ mensajes de error reescritos en español amigable (37 archivos)
+- Eliminación de cuenta: de alert()/confirm() a UI branded con toasts
+
+### Sprint Índice Dual + Niveles
+- Migración SQL 010: indice_golfers, nivel, diferencial (con backfill)
+- RPC calcular_indice_golfers() con fórmula USGA oficial
+- src/lib/indice-golfers.ts: utilidades de cálculo
+- 3 puntos de insert actualizados con slope/rating/diferencial:
+  - Ronda libre (query a courses para obtener slope/rating)
+  - Historial manual (lookup cancha por nombre)
+  - Import Garmin (ya tenía slope/rating, se agrega diferencial)
+- Post-save: recálculo automático de índice y nivel
+- tAIger context: recibe indice_golfers + nivel + nota de gap
+- UI /perfil: dos cards (Federación + Golfers+), badge nivel, gap note
+- Label "Índice Federación" + hint de cálculo automático
+- Profile types actualizados
+
+### Testeo de producción
+- 100% páginas OK, 100% APIs respondiendo correctamente
+- Auth redirects 307, admin 403, scoring 401 — todos amigables
+
+---
+
 ## Sesion 30 Mar 2026 — Sesion masiva: seguridad, Sentry, PostHog, UX, rebrand, golf module
 
 **Fecha:** 30 Mar 2026
