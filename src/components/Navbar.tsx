@@ -222,7 +222,7 @@ export default function Navbar() {
               }}>{userInitials}</div>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: '#edeae4' }}>{userName}</div>
-                <div style={{ fontSize: '11px', color: '#94a8c0' }}>{user.email}</div>
+                <div style={{ fontSize: '12px', color: '#94a8c0' }}>{user.email}</div>
               </div>
             </div>
           )}
@@ -238,7 +238,7 @@ export default function Navbar() {
                 <div key={block.label}>
                   {blockIdx > 0 && <hr style={{ borderColor: 'rgba(255,255,255,0.06)', margin: '12px 0', border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)' }} />}
                   <p style={{
-                    fontFamily: 'DM Mono, monospace', fontSize: '10px',
+                    fontFamily: 'DM Mono, monospace', fontSize: '11px',
                     color: 'rgba(255,255,255,0.3)', letterSpacing: '0.12em',
                     textTransform: 'uppercase' as const, margin: '0 4px 6px',
                   }}>{block.label}</p>
@@ -385,7 +385,7 @@ export default function Navbar() {
                       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
                       <polyline points="9 22 9 12 15 12 15 22" />
                     </svg>
-                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Inicio</span>
+                    <span style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Inicio</span>
                   </Link>
                 )
               })()}
@@ -410,7 +410,7 @@ export default function Navbar() {
                         animation: 'livePulse 2s ease-in-out infinite',
                       }} />
                     </div>
-                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Mi Golf</span>
+                    <span style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Mi Golf</span>
                   </Link>
                 )
               })()}
@@ -450,7 +450,7 @@ export default function Navbar() {
                       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                       <path d="M8 9h8M8 13h4" />
                     </svg>
-                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>tAIger+</span>
+                    <span style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>tAIger+</span>
                   </Link>
                 )
               })()}
@@ -466,7 +466,7 @@ export default function Navbar() {
                       <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
                       <circle cx="12" cy="7" r="4" />
                     </svg>
-                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Perfil</span>
+                    <span style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Perfil</span>
                   </Link>
                 )
               })()}
