@@ -191,6 +191,12 @@ function LoginContent() {
             </button>
           </div>
 
+          <div style={{ textAlign: 'right', marginTop: '-6px' }}>
+            <Link href="/recuperar" style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'none' }}>
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
