@@ -99,12 +99,17 @@ export interface RondaLibreJugador {
 }
 
 export interface Profile {
-  id:                    string
-  name:                  string
-  email:                 string
-  indice:                number | null
-  avatar_url:            string | null
-  patterns_need_recalc?: boolean
+  id:                          string
+  name:                        string
+  email:                       string
+  indice:                      number | null
+  avatar_url:                  string | null
+  patterns_need_recalc?:       boolean
+  indice_golfers?:             number | null
+  indice_golfers_updated_at?:  string | null
+  nivel?:                      number | null
+  nivel_updated_at?:           string | null
+  nivel_expires_at?:           string | null
 }
 
 export interface PlayerPattern {
