@@ -64,7 +64,7 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
           position:             'relative',
           overflow:             'hidden',
           boxShadow:            '0 8px 32px rgba(0,0,0,0.45)',
-          transform:            visible ? 'translateY(0)' : 'translateY(-20px)',
+          transform:            visible ? 'translateY(0)' : 'translateY(20px)',
           opacity:              visible ? 1 : 0,
           transition:           'transform 300ms ease, opacity 300ms ease',
           marginBottom:         '8px',

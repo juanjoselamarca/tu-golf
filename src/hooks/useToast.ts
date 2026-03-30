@@ -69,12 +69,14 @@ export function ToastContainer() {
     {
       style: {
         position:      'fixed',
-        top:           '24px',
-        right:         '24px',
+        bottom:        'calc(70px + env(safe-area-inset-bottom, 0px))',
+        left:          '16px',
+        right:         '16px',
         zIndex:        9999,
         display:       'flex',
         flexDirection: 'column',
-        alignItems:    'flex-end',
+        alignItems:    'center',
+        gap:           '8px',
         pointerEvents: 'none',
       },
     },
