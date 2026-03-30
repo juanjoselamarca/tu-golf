@@ -124,7 +124,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
         category_id:             selectedCat,
         flight_id:               selectedFlight,
         handicap_at_registration: courseHandicap,
-        status:                  'registered',
+        status:                  'approved',
       })
       .select()
       .single()
@@ -140,11 +140,14 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
       return
     }
 
-    await supabase.from('rounds').insert({
+    const { error: rErr } = await supabase.from('rounds').insert({
       tournament_id: tournament.id,
       player_id:     player.id,
-      status:        'not_started',
+      status:        'in_progress',
     })
+    if (rErr) {
+      console.warn('[rounds] Error al crear ronda:', rErr.message)
+    }
 
     const playerName = selectedProfile.name
     setSelectedProfile(null)
