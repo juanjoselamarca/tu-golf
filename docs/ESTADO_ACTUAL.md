@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-30 | Commit: `21b5f06`
+> Auto-generado: 2026-03-30 | Commit: `f6d4d3a`
 
 ## Último deploy
 
-- **Commit:** `21b5f06` — infra: PostHog analytics instalado — autocapture de pageviews, clicks y navegacion
+- **Commit:** `f6d4d3a` — fix: stats comparan por vsPar en vez de gross — resuelve bug 9 vs 18 hoyos
 - **Fecha:** 2026-03-30
-- **Branch:** main (240 commits total)
+- **Branch:** main (247 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (37 páginas)
