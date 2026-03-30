@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { vsPar, sortRoundsByPerformance, countByResult, splitByHoles, bestRoundByVsPar } from '@/golf/core/compare'
+import { formatOverUnder } from '@/golf/core/rules'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   Tooltip, CartesianGrid, PieChart, Pie, Cell,
@@ -90,21 +92,19 @@ export default function StatsPage() {
   const avgScore = hasRounds
     ? rounds.reduce((s, r) => s + r.total_gross, 0) / rounds.length
     : 0
-  const bestRound = hasRounds
-    ? Math.min(...rounds.map(r => r.total_gross))
-    : 0
+  const bestRoundData = hasRounds ? bestRoundByVsPar(rounds) : null
+  const bestRound = bestRoundData ? bestRoundData.total_gross : 0
+  const bestRoundVsPar = bestRoundData ? vsPar(bestRoundData) : 0
 
-  // Count birdies/eagles from scores arrays (assuming par 72 = 4 avg per hole)
+  // Count birdies/eagles usando par real por hoyo (fallback par 4 si no hay datos)
   const { birdies, eagles } = useMemo(() => {
     let b = 0, e = 0
     for (const r of rounds) {
       if (!r.scores || !Array.isArray(r.scores)) continue
-      for (const s of r.scores) {
-        if (s === null || s === undefined) continue
-        // Assume par 4 per hole as average
-        if (s <= 2) e++
-        else if (s === 3) b++
-      }
+      const pars = Array(r.scores.length).fill(4) // fallback: par 4 por hoyo
+      const counts = countByResult(r.scores, pars)
+      b += counts.birdies
+      e += counts.eagles
     }
     return { birdies: b, eagles: e }
   }, [rounds])
@@ -130,9 +130,9 @@ export default function StatsPage() {
     }
   }, [rounds])
 
-  // Top 5 rounds
+  // Top 5 rounds — por vsPar (mejor rendimiento relativo, no gross absoluto)
   const topRounds = useMemo(() => {
-    return [...rounds].sort((a, b) => a.total_gross - b.total_gross).slice(0, 5)
+    return sortRoundsByPerformance(rounds).slice(0, 5)
   }, [rounds])
 
   /* ── Range toggle ── */
@@ -391,7 +391,7 @@ export default function StatsPage() {
         }}>
           {[
             { label: 'Promedio', value: hasRounds ? avgScore.toFixed(1) : '--', color: C.ivory },
-            { label: 'Mejor ronda', value: hasRounds ? bestRound : '--', color: C.gold },
+            { label: 'Mejor ronda', value: hasRounds ? `${bestRound} (${formatOverUnder(bestRoundVsPar)})` : '--', color: C.gold },
             { label: 'Birdies', value: hasRounds ? birdies : '--', color: C.green },
             { label: 'Eagles', value: hasRounds ? eagles : '--', color: C.gold },
           ].map((s, i) => (

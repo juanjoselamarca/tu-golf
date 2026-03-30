@@ -88,17 +88,23 @@ interface HistorialStats {
 }
 
 /* ─── Helpers ──────────────────────────────────────────── */
-function computeStats(scores: (number | null)[]) {
+function computeStats(scores: (number | null)[], holePars?: number[]) {
   const filled = scores.filter((s): s is number => s != null)
   if (filled.length === 0) return null
   const total     = filled.reduce((a, b) => a + b, 0)
-  const par       = 4 * filled.length
+  const pars_arr  = holePars ?? Array(filled.length).fill(4)
+  const par       = pars_arr.reduce((a, b) => a + b, 0)
   const overUnder = total - par
-  const eagles    = filled.filter(s => s <= 2).length
-  const birdies   = filled.filter(s => s === 3).length
-  const pars      = filled.filter(s => s === 4).length
-  const bogeys    = filled.filter(s => s === 5).length
-  const doubles   = filled.filter(s => s >= 6).length
+  // Contar resultados usando par real por hoyo (no asumir par 4)
+  let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0
+  for (let i = 0; i < filled.length; i++) {
+    const diff = filled[i] - (pars_arr[i] ?? 4)
+    if (diff <= -2) eagles++
+    else if (diff === -1) birdies++
+    else if (diff === 0) pars++
+    else if (diff === 1) bogeys++
+    else doubles++
+  }
   const front9    = filled.slice(0, 9).reduce((a, b) => a + b, 0)
   const back9     = filled.slice(9).reduce((a, b) => a + b, 0)
   return { total, overUnder, eagles, birdies, pars, bogeys, doubles, front9, back9, filledHoles: filled.length }
@@ -267,14 +273,23 @@ function HistorialContent() {
     if (!s) continue
     aggBirdies += s.birdies
     aggEagles  += s.eagles
-    if (r.total_gross != null) { ovSum += r.total_gross - 72; ovCount++ }
+    if (r.total_gross != null) {
+      // Usar par según hoyos jugados en vez de hardcodear 72
+      const holesPlayed = r.scores?.filter((s: number | null) => s != null).length ?? 18
+      const parEstimado = holesPlayed <= 9 ? 36 : 72
+      ovSum += r.total_gross - parEstimado
+      ovCount++
+    }
   }
   const avgOv = ovCount > 0 ? Math.round(ovSum / ovCount * 10) / 10 : null
 
-  /* ── Personal Record ── */
-  const bestRound = rounds.reduce<{ score: number; course: string } | null>((best, r) => {
+  /* ── Personal Record — por vsPar, no por gross absoluto ── */
+  const bestRound = rounds.reduce<{ score: number; course: string; vsPar: number } | null>((best, r) => {
     if (r.total_gross == null) return best
-    if (!best || r.total_gross < best.score) return { score: r.total_gross, course: r.course_name }
+    const holesPlayed = r.scores?.filter((s: number | null) => s != null).length ?? 18
+    const parEstimado = holesPlayed <= 9 ? 36 : 72
+    const rVsPar = r.total_gross - parEstimado
+    if (!best || rVsPar < best.vsPar) return { score: r.total_gross, course: r.course_name, vsPar: rVsPar }
     return best
   }, null)
 
