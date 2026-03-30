@@ -17,7 +17,7 @@ export async function GET(request: Request) {
         fecha, estado, hoyo_inicio,
         ronda_libre_jugadores ( id, nombre, user_id, scores )
       `)
-      .eq('estado', 'in_progress')
+      .eq('estado', 'en_curso')
       .order('fecha', { ascending: false })
       .limit(50)
 

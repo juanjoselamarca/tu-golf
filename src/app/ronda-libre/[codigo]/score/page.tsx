@@ -362,7 +362,7 @@ function ScorePageContent() {
       setTimeout(() => setSaveCheckVisible(false), 1000)
       setTimeout(() => setSaveStatus('idle'), 1500)
     }
-  }, [codigo, isOnline, scoreSync])
+  }, [codigo, isOnline, scoreSync, router])
 
   const handleScoreChange = useCallback((hole: number, value: number) => {
     if (!activeJugadorId) return

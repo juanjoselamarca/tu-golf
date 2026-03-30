@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-30 | Commit: `44836cf`
+> Auto-generado: 2026-03-30 | Commit: `1a5e37b`
 
 ## Último deploy
 
-- **Commit:** `44836cf` — fix: cron health-check diario 8am (Vercel Hobby limita a crons diarios)
-- **Fecha:** 2026-03-29
-- **Branch:** main (224 commits total)
+- **Commit:** `1a5e37b` — security: Sprint 5 completado — X-XSS-Protection, CORS restrictivo en /api/en-vivo + Sentry instrumentation.ts
+- **Fecha:** 2026-03-30
+- **Branch:** main (225 commits total)
 - **URL:** https://tu-golf.vercel.app
 
 ## Páginas en producción (36 páginas)

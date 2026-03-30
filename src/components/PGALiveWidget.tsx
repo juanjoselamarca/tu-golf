@@ -200,6 +200,7 @@ export default function PGALiveWidget() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
               {p.flag ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={p.flag}
                   alt={p.country}

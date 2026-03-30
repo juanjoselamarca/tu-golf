@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Playfair_Display, DM_Sans, DM_Mono, Cormorant_Garamond } from 'next/font/google'
+import Link from 'next/link'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import { ToastContainer } from '@/hooks/useToast'
@@ -73,7 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icon-192.svg" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
         <link rel="preload" as="image" href="https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=75" />
       </head>
       <body>
@@ -95,6 +96,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>
               © {new Date().getFullYear()} Golfers+ · Diseñado para el golf amateur en Latinoamérica
             </p>
+            <nav style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <Link href="/terminos" style={{ color: 'var(--text-3)', fontSize: 12, textDecoration: 'none' }}>
+                Términos y Condiciones
+              </Link>
+              <Link href="/privacidad" style={{ color: 'var(--text-3)', fontSize: 12, textDecoration: 'none' }}>
+                Privacidad
+              </Link>
+              <Link href="/reembolsos" style={{ color: 'var(--text-3)', fontSize: 12, textDecoration: 'none' }}>
+                Reembolsos
+              </Link>
+            </nav>
           </div>
         </footer>
       </body>
