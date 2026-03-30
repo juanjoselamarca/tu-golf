@@ -18,7 +18,7 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
 
-    const profileRes = await supabase.from('profiles').select('name, indice').eq('id', user.id).single()
+    const profileRes = await supabase.from('profiles').select('name, indice, indice_golfers, nivel').eq('id', user.id).single()
     const profile = profileRes.data
     const handicapRange = getHandicapRange(profile?.indice ?? null)
 
@@ -95,9 +95,16 @@ export async function GET() {
 
     return NextResponse.json({
       player: {
-        name:         profile?.name  || '',
-        handicap:     profile?.indice ?? null,
-        total_rounds: totalRounds,
+        name:              profile?.name  || '',
+        handicap:          profile?.indice ?? null,
+        indice_golfers:    profile?.indice_golfers ?? null,
+        nivel:             profile?.nivel ?? 1,
+        total_rounds:      totalRounds,
+        indice_nota: profile?.indice_golfers
+          ? (profile?.indice && Math.abs(profile.indice - profile.indice_golfers) >= 1.5
+              ? `Diferencia de ${Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos entre índice oficial (${profile.indice}) y rendimiento real (${profile.indice_golfers}).`
+              : null)
+          : null,
       },
       stats: {
         avg_score:     avgScore,

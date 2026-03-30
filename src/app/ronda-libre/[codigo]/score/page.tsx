@@ -14,6 +14,7 @@ import EagleCelebration from '@/components/EagleCelebration'
 import { useScoreSync } from '@/hooks/useScoreSync'
 import { addToast } from '@/hooks/useToast'
 import { shouldNotify } from '@/golf/notifications'
+import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 
 /* ── Share menu component ──────────────────────────────────────────── */
 function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void }) {
@@ -487,6 +488,22 @@ function ScorePageContent() {
     })
     const grossTotal = scoresArray.filter((s): s is number => s != null).reduce((a, b) => a + b, 0)
     try {
+      // Fetch slope/rating from courses for diferencial calculation
+      let slopeRating: number | null = null
+      let courseRating: number | null = null
+      if (ronda.course_id) {
+        const { data: courseData } = await supabase
+          .from('courses')
+          .select('slope_rating, course_rating')
+          .eq('id', ronda.course_id)
+          .single()
+        slopeRating = courseData?.slope_rating ?? null
+        courseRating = courseData?.course_rating ?? null
+      }
+      const diferencial = (slopeRating && courseRating)
+        ? calcularDiferencial(grossTotal, courseRating, slopeRating)
+        : null
+
       await supabase.from('historical_rounds').insert({
         user_id: authUser?.id,
         course_name: ronda.course_name,
@@ -495,7 +512,33 @@ function ScorePageContent() {
         total_gross: grossTotal,
         scores: scoresArray,
         privacy: 'private',
+        slope_rating: slopeRating,
+        course_rating: courseRating,
+        diferencial,
       })
+
+      // Recalculate Índice Golfers+ and nivel
+      if (authUser?.id) {
+        supabase.rpc('calcular_indice_golfers', { p_user_id: authUser.id }).then(() => {})
+
+        const hace90Dias = new Date()
+        hace90Dias.setDate(hace90Dias.getDate() - 90)
+        supabase
+          .from('historical_rounds')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', authUser.id)
+          .gte('played_at', hace90Dias.toISOString())
+          .then(({ count }) => {
+            const nuevoNivel = calcularNivel(count ?? 0)
+            const expira = new Date()
+            expira.setDate(expira.getDate() + 60)
+            supabase.from('profiles').update({
+              nivel: nuevoNivel,
+              nivel_updated_at: new Date().toISOString(),
+              nivel_expires_at: expira.toISOString(),
+            }).eq('id', authUser.id).then(() => {})
+          })
+      }
     } catch { /* don't block finalization */ }
 
     // Check if ALL players have completed all holes → finalize round

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularCPI } from '@/golf/stats/cpi'
+import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import type { ImportRoundData } from '@/lib/import-types'
 export const dynamic = 'force-dynamic'
 
@@ -143,6 +144,7 @@ export async function POST(request: NextRequest) {
       metadata?: Record<string, unknown>
       course_rating?: number | null
       slope_rating?: number | null
+      diferencial?: number | null
     }
 
     const rowsToInsert: InsertRow[] = []
@@ -184,6 +186,9 @@ export async function POST(request: NextRequest) {
           metadata: round.metadata as Record<string, unknown>,
           course_rating: round.course_rating ?? null,
           slope_rating: round.slope_rating ?? null,
+          diferencial: (round.course_rating != null && round.slope_rating != null)
+            ? calcularDiferencial(round.total_gross, round.course_rating, round.slope_rating)
+            : null,
         })
         garminUpsertTempIds.push(round.tempId)
         continue
@@ -215,9 +220,12 @@ export async function POST(request: NextRequest) {
         row.metadata = round.metadata as Record<string, unknown>
       }
 
-      // Course rating/slope for all rounds that have them
+      // Course rating/slope + diferencial for all rounds that have them
       if (round.course_rating != null) row.course_rating = round.course_rating
       if (round.slope_rating != null) row.slope_rating = round.slope_rating
+      if (round.course_rating != null && round.slope_rating != null) {
+        row.diferencial = calcularDiferencial(round.total_gross, round.course_rating, round.slope_rating)
+      }
 
       // Garmin-specific fields
       if (garminId) {
@@ -317,6 +325,27 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       console.error('Error recalculating CPI:', err)
     }
+
+    // Recalculate Índice Golfers+ and nivel (async, don't block)
+    supabase.rpc('calcular_indice_golfers', { p_user_id: user.id }).then(() => {})
+
+    const hace90Dias = new Date()
+    hace90Dias.setDate(hace90Dias.getDate() - 90)
+    supabase
+      .from('historical_rounds')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('played_at', hace90Dias.toISOString())
+      .then(({ count }: { count: number | null }) => {
+        const nuevoNivel = calcularNivel(count ?? 0)
+        const expira = new Date()
+        expira.setDate(expira.getDate() + 60)
+        supabase.from('profiles').update({
+          nivel: nuevoNivel,
+          nivel_updated_at: new Date().toISOString(),
+          nivel_expires_at: expira.toISOString(),
+        }).eq('id', user.id).then(() => {})
+      })
 
     // Generate tAIger+ insights (async, don't block)
     generarInsights(user.id, insertedIds.length, supabase).catch(() => {})
