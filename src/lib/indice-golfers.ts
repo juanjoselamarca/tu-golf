@@ -13,6 +13,8 @@ export function calcularDiferencial(
   slopeRating: number
 ): number | null {
   if (!totalGross || !courseRating || !slopeRating || slopeRating === 0) return null
+  // Skip 9-hole rounds — course_rating is for 18 holes
+  if (totalGross < 60) return null
   return parseFloat(((totalGross - courseRating) * 113 / slopeRating).toFixed(2))
 }
 

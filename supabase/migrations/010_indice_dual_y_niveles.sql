@@ -94,6 +94,7 @@ BEGIN
       AND  diferencial  IS NOT NULL
       AND  slope_rating IS NOT NULL
       AND  course_rating IS NOT NULL
+      AND  total_gross  >= 60
     ORDER  BY played_at DESC
     LIMIT  20
   ) sub;
@@ -146,7 +147,8 @@ WHERE slope_rating IS NOT NULL
   AND course_rating IS NOT NULL
   AND diferencial IS NULL
   AND total_gross IS NOT NULL
-  AND slope_rating > 0;
+  AND slope_rating > 0
+  AND total_gross >= 60;
 
 -- Recalcular índice Golfers+ para todos los usuarios con 3+ diferenciales
 DO $$
