@@ -78,7 +78,8 @@ export async function middleware(request: NextRequest) {
       .select('role')
       .eq('id', user.id)
       .single()
-    console.log('[ADMIN CHECK]', { userId: user.id, profile, error: profileError?.message })
+    // Log minimal info — avoid exposing profile/userId in production logs
+    if (profileError) console.warn('[ADMIN CHECK] denied:', profileError.message)
     if (profileError || profile?.role !== 'admin') {
       return redirectWithCookies(new URL('/dashboard', request.url))
     }
