@@ -134,7 +134,7 @@ function drawCTA(ctx: CanvasRenderingContext2D, W: number, H: number) {
 
   ctx.textAlign = 'center'
   ctx.font = 'bold 38px Georgia, serif'; ctx.fillStyle = '#c9a84c'; ctx.fillText('Scoring · IA Coach · Live Leaderboard', W / 2, ctaY + 60)
-  ctx.font = '34px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.82)'; ctx.fillText('tu-golf.vercel.app', W / 2, ctaY + 108)
+  ctx.font = '34px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.82)'; ctx.fillText('golfersplus.vercel.app', W / 2, ctaY + 108)
   ctx.font = '24px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.fillText('Primera plataforma de golf en español', W / 2, ctaY + 148)
 
   ctx.font = 'bold 26px Arial, sans-serif'; ctx.fillStyle = 'rgba(201,168,76,0.55)'; ctx.fillText('#GolfersMas  ⛳  #GolfLatAm', W / 2, H - 130)
@@ -247,14 +247,14 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
   const file = new File([blob], fileName, { type: 'image/png' })
 
   const texto = data.tipo === 'ronda_libre'
-    ? `${data.esEmpate ? 'Empate épico' : data.ganador + ' gano'} en ${data.courseName}! Score: ${data.scoreGross} (${data.scoreDiff >= 0 ? '+' : ''}${data.scoreDiff}). Golfers+ tu-golf.vercel.app`
-    : `${(data as ShareCardTorneo).jugadorNombre} quedo #${(data as ShareCardTorneo).posicion} en ${(data as ShareCardTorneo).torneoNombre}. Score: ${data.scoreGross}. Golfers+ tu-golf.vercel.app`
+    ? `${data.esEmpate ? 'Empate épico' : data.ganador + ' gano'} en ${data.courseName}! Score: ${data.scoreGross} (${data.scoreDiff >= 0 ? '+' : ''}${data.scoreDiff}). Golfers+ golfersplus.vercel.app`
+    : `${(data as ShareCardTorneo).jugadorNombre} quedo #${(data as ShareCardTorneo).posicion} en ${(data as ShareCardTorneo).torneoNombre}. Score: ${data.scoreGross}. Golfers+ golfersplus.vercel.app`
 
   if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file], title: 'Resultado — Golfers+', text: texto }); return { success: true, method: 'share' } } catch (e) { if ((e as Error).name === 'AbortError') return { success: false, method: 'share' } }
   }
   if (typeof navigator.share === 'function') {
-    try { await navigator.share({ title: 'Resultado — Golfers+', text: texto, url: 'https://tu-golf.vercel.app' }); return { success: true, method: 'share' } } catch {}
+    try { await navigator.share({ title: 'Resultado — Golfers+', text: texto, url: 'https://golfersplus.vercel.app' }); return { success: true, method: 'share' } } catch {}
   }
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fileName
   document.body.appendChild(a); a.click(); document.body.removeChild(a)

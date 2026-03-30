@@ -45,7 +45,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 ANTHROPIC_API_KEY=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
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=BFRDClR1N59HIKCI1xwNKI3w_keD1pthHeEcjxa9wL5JTq3CrQUSe56K-ToIuLC7gQWmIfi-qTNQJHLwkBDEqqk
 VAPID_PRIVATE_KEY=mCfwe9Y6DHeIC0_kna3mWiWF7jK0MJDg4rgrWCKq168
-NEXT_PUBLIC_SITE_URL=https://tu-golf.vercel.app
+NEXT_PUBLIC_SITE_URL=https://golfersplus.vercel.app
 ```
 
 ### 3. Instalar el pre-push hook de seguridad
@@ -77,7 +77,7 @@ Reportar:
 
 - App: Golfers+ — scoring de golf + coaching IA para Chile y LatAm
 - Stack: Next.js 14 + Supabase + Vercel + TypeScript
-- Producción: https://tu-golf.vercel.app
+- Producción: https://golfersplus.vercel.app
 - GitHub: https://github.com/juanjoselamarca/tu-golf
 - Rol de Claude: CTO del proyecto
 - Rol de Juanjo: PM y estrategia (no técnico, no pedirle decisiones técnicas)

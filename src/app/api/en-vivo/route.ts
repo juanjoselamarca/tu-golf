@@ -54,9 +54,11 @@ export async function GET(request: Request) {
       }
     })
 
-    const corsOrigin = process.env.NODE_ENV === 'production'
-      ? 'https://tu-golf.vercel.app'
-      : 'http://localhost:3000'
+    const corsOrigin = process.env.NEXT_PUBLIC_SITE_URL || (
+      process.env.NODE_ENV === 'production'
+        ? 'https://golfersplus.vercel.app'
+        : 'http://localhost:3000'
+    )
 
     return NextResponse.json({
       rondas,

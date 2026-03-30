@@ -1,13 +1,13 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-30 | Commit: `fa8c07c`
+> Auto-generado: 2026-03-30 | Commit: `21b5f06`
 
 ## Último deploy
 
-- **Commit:** `fa8c07c` — ux: registro expandido, copy mas claro en landing/stats, confirm mejorado en historial
+- **Commit:** `21b5f06` — infra: PostHog analytics instalado — autocapture de pageviews, clicks y navegacion
 - **Fecha:** 2026-03-30
-- **Branch:** main (237 commits total)
-- **URL:** https://tu-golf.vercel.app
+- **Branch:** main (240 commits total)
+- **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (37 páginas)
 
@@ -75,7 +75,7 @@
 
 ### Sprint 5 — Seguridad (items faltantes)
 - X-XSS-Protection header agregado en next.config.js
-- CORS restrictivo en /api/en-vivo (solo tu-golf.vercel.app en prod)
+- CORS restrictivo en /api/en-vivo (solo golfersplus.vercel.app en prod)
 
 ### Sentry activado en produccion
 - DSN configurado en .env.local y Vercel production

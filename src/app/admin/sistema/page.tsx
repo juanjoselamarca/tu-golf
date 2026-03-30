@@ -531,7 +531,7 @@ export default function SistemaPage() {
         <div style={{ ...adminCard }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <ConfigRow label="Nombre" value="Golfers+" badge={<AdminBadge text="Producción" variant="gold" />} />
-            <ConfigRow label="URL" value="tu-golf.vercel.app" />
+            <ConfigRow label="URL" value="golfersplus.vercel.app" />
             <ConfigRow label="Stack" value="Next.js 14 · Supabase · Tailwind · TypeScript · Vercel" />
             <ConfigRow label="Email soporte" value="soporte@golfers.plus" />
             <div style={{ borderTop: `1px solid ${adminColors.border}`, paddingTop: '12px', marginTop: '4px' }}>

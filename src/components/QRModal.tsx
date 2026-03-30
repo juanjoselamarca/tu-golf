@@ -7,7 +7,7 @@ export default function QRModal({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)
   const url = typeof window !== 'undefined'
     ? `${window.location.origin}/torneo/${slug}`
-    : `https://tu-golf.vercel.app/torneo/${slug}`
+    : `https://golfersplus.vercel.app/torneo/${slug}`
 
   return (
     <>

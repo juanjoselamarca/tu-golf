@@ -387,7 +387,7 @@ function ShareModal({
         <div className="flex gap-3">
           <a
             href={imageUrl}
-            download="scorecard-tu-golf.png"
+            download="scorecard-golfersplus.png"
             className="flex-1 flex items-center justify-center gap-2 font-sans font-semibold text-sm py-3 transition-all hover:brightness-110"
             style={{ background: '#c4992a', color: '#070d18', borderRadius: 4 }}
           >

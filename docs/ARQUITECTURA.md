@@ -4,7 +4,7 @@
 Next.js 14 · Supabase · Tailwind CSS · TypeScript · Vercel
 
 ## URLs
-Producción: https://tu-golf.vercel.app
+Producción: https://golfersplus.vercel.app
 GitHub: github.com/juanjoselamarca/tu-golf (branch: main)
 Supabase: https://supabase.com/dashboard/project/hoswfwhvcgqlqdmzpnce
 

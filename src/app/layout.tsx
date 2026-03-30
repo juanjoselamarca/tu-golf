@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Golfers+ — Tu golf, potenciado por IA',
     description: 'Scoring en vivo, coach IA con psicologia deportiva y leaderboard interactivo. Gratis.',
-    url: 'https://tu-golf.vercel.app',
+    url: 'https://golfersplus.vercel.app',
     siteName: 'Golfers+',
     locale: 'es_CL',
     type: 'website',

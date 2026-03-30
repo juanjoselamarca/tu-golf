@@ -6,10 +6,10 @@ Ejecutar diagnostico completo de Golfers+:
 4. npx tsc --noEmit 2>&1 | tail -5
 5. npm run test 2>&1 | tail -10
 6. Verificar que las rutas criticas responden:
-   - curl -s -o /dev/null -w "%{http_code}" https://tu-golf.vercel.app
-   - curl -s -o /dev/null -w "%{http_code}" https://tu-golf.vercel.app/dashboard
-   - curl -s -o /dev/null -w "%{http_code}" https://tu-golf.vercel.app/en-vivo
-   - curl -s -o /dev/null -w "%{http_code}" https://tu-golf.vercel.app/api/en-vivo
+   - curl -s -o /dev/null -w "%{http_code}" https://golfersplus.vercel.app
+   - curl -s -o /dev/null -w "%{http_code}" https://golfersplus.vercel.app/dashboard
+   - curl -s -o /dev/null -w "%{http_code}" https://golfersplus.vercel.app/en-vivo
+   - curl -s -o /dev/null -w "%{http_code}" https://golfersplus.vercel.app/api/en-vivo
 7. Revisar errores recientes en Supabase:
    - Consultar tabla error_logs: ultimos 10 errores no resueltos
 8. git log --oneline -5

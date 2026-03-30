@@ -47,7 +47,7 @@ try {
 - **Commit:** \`${hash.substring(0,7)}\` — ${message}
 - **Fecha:** ${date}
 - **Branch:** ${branch} (${commitCount} commits total)
-- **URL:** https://tu-golf.vercel.app
+- **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (${pages.length} páginas)
 

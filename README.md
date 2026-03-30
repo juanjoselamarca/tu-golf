@@ -1,6 +1,6 @@
-# Tu Golf
+# Golfers+
 
-Live scoring para torneos amateur · https://tu-golf.vercel.app
+Live scoring para torneos amateur · https://golfersplus.vercel.app
 
 ## Documentación — EMPEZAR AQUÍ
 

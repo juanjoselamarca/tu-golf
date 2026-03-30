@@ -3,7 +3,8 @@
 import React, { useState } from 'react'
 
 export default function CopyLinkButton({ slug }: { slug: string }) {
-  const url = `https://tu-golf.vercel.app/login?redirect=/organizador/${slug}/jugadores`
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
+  const url = `${siteUrl}/login?redirect=/organizador/${slug}/jugadores`
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {

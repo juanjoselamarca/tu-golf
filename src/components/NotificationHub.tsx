@@ -137,7 +137,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
             <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
               <div style={{ fontSize: '14px', fontWeight: 600, color: '#991b1b', marginBottom: '4px' }}>Notificaciones bloqueadas</div>
               <div style={{ fontSize: '12px', color: '#b91c1c' }}>
-                Ve a la configuración de tu navegador y permite notificaciones para tu-golf.vercel.app
+                Ve a la configuración de tu navegador y permite notificaciones para golfersplus.vercel.app
               </div>
             </div>
           ) : (

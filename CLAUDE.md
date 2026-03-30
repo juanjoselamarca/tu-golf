@@ -1,4 +1,4 @@
-# CLAUDE.md — Tu Golf
+# CLAUDE.md — Golfers+
 
 ## VERIFICACIÓN OBLIGATORIA AL INICIAR CADA SESIÓN
 
@@ -30,7 +30,7 @@ El repositorio GitHub ES la identidad permanente del proyecto.
 
 - Next.js 14 + TypeScript + Tailwind CSS
 - Supabase: https://hoswfwhvcgqlqdmzpnce.supabase.co
-- Producción: https://tu-golf.vercel.app
+- Producción: https://golfersplus.vercel.app
 - GitHub: https://github.com/juanjoselamarca/tu-golf
 
 ## COLORES GARMIN GOLF — NO MODIFICAR SIN VERIFICACION
@@ -130,7 +130,7 @@ Esto es normal y esperado en este entorno.
 
 - PM: Juan José Lamarca (juanjoselamarca@gmail.com)
 - CTO: Claude
-- Producción: https://tu-golf.vercel.app
+- Producción: https://golfersplus.vercel.app
 
 ---
 

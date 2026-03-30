@@ -11,7 +11,7 @@
 
 ### Sprint 5 — Seguridad (items faltantes)
 - X-XSS-Protection header agregado en next.config.js
-- CORS restrictivo en /api/en-vivo (solo tu-golf.vercel.app en prod)
+- CORS restrictivo en /api/en-vivo (solo golfersplus.vercel.app en prod)
 
 ### Sentry activado en produccion
 - DSN configurado en .env.local y Vercel production

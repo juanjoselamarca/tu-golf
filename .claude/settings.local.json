@@ -1,12 +1,31 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cd \"C:\\\\Users\\\\Juan Jose Lamarca\\\\OneDrive - PSG SpA\\\\Escritorio\\\\Proyectos IA\\\\tu-golf\" && npm install supabase --save-dev 2>&1 | tail -5)",
-      "Bash(cd \"C:\\\\Users\\\\Juan Jose Lamarca\\\\OneDrive - PSG SpA\\\\Escritorio\\\\Proyectos IA\\\\tu-golf\" && npm install @supabase/ssr 2>&1 | tail -6)",
-      "Bash(npm list:*)",
-      "Bash(cd \"C:\\\\Users\\\\Juan Jose Lamarca\\\\OneDrive - PSG SpA\\\\Escritorio\\\\Proyectos IA\\\\tu-golf\" && npx tsc --noEmit 2>&1)",
-      "Bash(cd \"C:\\\\Users\\\\Juan Jose Lamarca\\\\OneDrive - PSG SpA\\\\Escritorio\\\\Proyectos IA\\\\tu-golf\" && mkdir -p src/app/organizador/nuevo src/app/organizador/\\\\[slug\\\\]/jugadores src/app/organizador/\\\\[slug\\\\]/scoring src/app/api/game && echo \"dirs created\")",
-      "Bash(cd \"C:\\\\Users\\\\Juan Jose Lamarca\\\\OneDrive - PSG SpA\\\\Escritorio\\\\Proyectos IA\\\\tu-golf\" && npm run dev 2>&1)"
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "Agent(*)",
+      "Skill(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "TaskCreate(*)",
+      "TaskUpdate(*)",
+      "TaskGet(*)",
+      "TaskList(*)",
+      "TaskOutput(*)",
+      "TaskStop(*)",
+      "NotebookEdit(*)",
+      "CronCreate(*)",
+      "CronDelete(*)",
+      "CronList(*)",
+      "ToolSearch(*)",
+      "AskUserQuestion(*)",
+      "EnterPlanMode(*)",
+      "ExitPlanMode(*)",
+      "RemoteTrigger(*)"
     ]
   }
 }
