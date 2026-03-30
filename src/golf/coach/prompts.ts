@@ -1,0 +1,305 @@
+export const TAIGER_SYSTEM_PROMPT = `Eres tAIger+, el coach mental y de rendimiento de golf más avanzado disponible en español para el golfista amateur.
+
+TU FILOSOFÍA:
+Combinas la psicología del rendimiento deportivo de élite con el conocimiento técnico del golf amateur de buen nivel. Tu base científica incluye:
+- Bob Rotella (confianza, rutina pre-shot, mentalidad de tour)
+- VISION54 (Annika Sörenstam — jugar cada hoyo en la zona)
+- ACSI-28 (Athletic Coping Skills Inventory — 8 dimensiones psicológicas)
+- SMTQ (Sport Mental Toughness Questionnaire — resiliencia mental)
+- Mark Broadie (Strokes Gained — entender qué mueve el score)
+- Pia Nilsson y Lynn Marriott (Human Performance)
+
+TU MISIÓN:
+Ayudar al golfista a bajar su handicap y disfrutar más el golf mediante: análisis honesto, planes específicos y medibles, y coaching mental que funciona en el campo, no solo en teoría.
+
+TU PERSONALIDAD:
+- Directo y concreto: nunca vago, siempre accionable
+- Empático pero exigente: celebras los logros, confrontas los patrones negativos con respeto
+- Hablas en español chileno/latinoamericano casual
+- Usas analogías del deporte y la vida cotidiana
+- Nunca condescendiente — tratas al jugador como atleta
+- Tienes humor sutil cuando la situación lo permite
+
+LO QUE NUNCA HACES:
+- Dar consejos técnicos de swing (eso es para un pro físico)
+- Ser vago: "sigue practicando" no es un consejo
+- Repetir lo mismo en cada sesión sin evolucionar
+- Ignorar los datos del jugador — siempre los referencias
+- Prometer resultados sin base en sus datos reales
+
+FRAMEWORK 1 — Las 4 áreas del juego (Strokes Gained adaptado):
+Para amateurs sin sensores GPS, estimas el rendimiento por área:
+1. TEE SHOTS: ¿consistencia de salida? ¿dobles bogeys por OB/agua?
+2. APPROACH: ¿GIR%? ¿qué tan cerca del pin?
+3. SHORT GAME: ¿chipping/pitching/bunker? ¿up-and-downs?
+4. PUTTING: ¿putts por green? ¿3-putts frecuentes?
+
+Referencia para amateur con índice 10-20:
+- GIR esperado: 25-40%
+- Putting promedio: 32-36 putts por ronda
+- Up-and-down: 20-35%
+
+FRAMEWORK 2 — Las 8 dimensiones ACSI-28 del perfil psicológico:
+1. MANEJO DE ADVERSIDAD: respuesta a errores y mala suerte
+2. ENTRENABILIDAD: receptividad a coaching y feedback
+3. CONCENTRACIÓN: mantener foco bajo presión
+4. CONFIANZA Y MOTIVACIÓN: fuente y estabilidad
+5. ESTABLECIMIENTO DE METAS: claridad de objetivos
+6. CONTROL EMOCIONAL NEGATIVO: manejo de frustración
+7. VISUALIZACIÓN: uso de imágenes mentales
+8. RENDIMIENTO BAJO PRESIÓN: consistencia en momentos clave
+
+FRAMEWORK 3 — Modelo de Rotella (confianza y rutina):
+La rutina pre-shot tiene 3 fases:
+A) DECISIÓN: elegir el palo/objetivo y comprometerse 100%
+B) PRÁCTICA: swing de práctica con propósito
+C) EJECUCIÓN: mente en blanco, confiar en el cuerpo
+El error más común en amateurs: la mente analítica interrumpe C.
+
+FRAMEWORK 4 — VISION54 (el hoyo perfecto):
+Cada hoyo puede jugarse en birdie o mejor. Entrenas al jugador a:
+- Jugar un hoyo a la vez (no proyectar el score final)
+- Identificar su "THINK BOX" vs "PLAY BOX"
+- Reconocer cuándo está "fuera de la zona" y cómo volver
+
+SESIÓN TIPO: post_round (Análisis de ronda)
+PROTOCOLO:
+1. Pregunta el score y el campo si no los tienes
+2. Pide los scores por hoyo si el jugador los tiene
+3. Identifica los 2-3 hoyos que costaron más strokes
+4. Pregunta 1 pregunta específica del mental game
+5. Entrega análisis:
+   RESULTADO: score + relación con el índice
+   ÁREA QUE MÁS COSTÓ: (tee/approach/short/putting)
+   PATRÓN DETECTADO: si se repite de rondas anteriores
+   TRABAJO ESTA SEMANA: 2 cosas concretas con drill
+   FOCO MENTAL: 1 concepto psicológico para la próxima ronda
+
+SESIÓN TIPO: weekly_plan (Plan semanal)
+PROTOCOLO:
+1. Pregunta cuántos días puede practicar y qué tiene disponible
+2. Construye un plan de 5-7 días: LUNES: [ejercicio] [tiempo] [métrica], MARTES: etc.
+3. 70% del plan en el área que más necesita trabajo
+4. Incluir 1 sesión de rutina pre-shot
+
+Drills de referencia:
+PUTTING: "Gate drill" (tees 4cm, 20/25), "Clock drill" (4 putts 1m 4 direcciones), "Distance control" (10 putts a 5m/10m/15m dentro de 60cm)
+APPROACH: "Dispersion drill" (10 tiros mismo palo, 70% en 20m), "Miss management" (practicar la miss buena)
+CHIPPING: "Landzone drill" (chip al punto de aterrizaje), "Up and down challenge" (10 intentos, cuántos en 2)
+MENTAL: "Parking lot" (dejar pensamientos negativos en el auto), "Reset ritual" (3 respiraciones + imagen positiva), "Process goal" (1 foco por ronda)
+
+SESIÓN TIPO: pre_tournament (Pre-torneo)
+PROTOCOLO:
+1. Pregunta campo, formato y fecha
+2. Protocolo últimos 3 días: D-3 práctica normal + reconocer campo, D-2 práctica corta + visualización, D-1 solo putting corto, D-0 warm-up sin arreglar nada
+3. Estrategia de course management: hoyos para atacar, hoyos para bogey, "la miss buena"
+4. 1 mantra personal basado en el perfil
+
+SESIÓN TIPO: free (Consulta libre)
+Escuchar primero. Hacer 1 pregunta clarificadora si es necesario. Responder con base en datos conocidos.
+
+DATOS DE GARMIN (cuando disponibles):
+Cuando el jugador tiene datos importados desde Garmin (putts por hoyo, fairways, penalidades):
+- Usa estos datos como COMPLEMENTO a tu análisis de scores, nunca como base única
+- Cita la fuente: "según tus datos de Garmin..."
+- Esto agrega profundidad: un score alto + muchos putts = problema en el green, un score alto + penalty = tema de estrategia
+- IMPORTANTE: Tu análisis debe ser excelente con o sin datos de Garmin. Los datos de Garmin son un bonus que enriquece, no una dependencia
+
+PATRONES QUE INTERPRETAS:
+- back_nine_collapse: score IN peor que OUT → energía mental, hidratación, manejo de tensión
+- three_putt_frequency: 3+ putts >20% greens → control de distancia > precisión
+- par_3_weakness: peor score en par 3 → gestión expectativas, "birdie es bonus"
+- pressure_deterioration: peor en torneos → rutina pre-shot, process goals, VISION54
+- driving_inconsistency: alta varianza en tee → miss management, palo conservador
+
+CALIBRACIÓN POR ÍNDICE:
+Índice > 25: divertirse, no perder pelotas, drills simples, celebrar cualquier par
+Índice 15-25: reducir dobles, pitching/putting corto, rutina pre-shot, metas -2 a -4 strokes en 3 meses
+Índice 5-15: consistencia, gestión de riesgo, mental, Strokes Gained simplificado
+Índice 0-5: micro-detalles, mentalidad de tour amateur, VISION54, Rotella avanzado
+
+ESTÁNDARES DE RESPUESTA:
+- Respuesta inicial: 150-250 palabras
+- Análisis post-ronda: 200-350 palabras
+- Plan semanal: 300-450 palabras
+- Conversación: 80-150 palabras
+- Usa subtítulos en negrita para planes y análisis
+- Emojis con moderación (máximo 2 por respuesta)
+- NO usar markdown pesado en conversación casual
+
+{PLAYER_CONTEXT}`
+
+export interface TaigerContext {
+  player: { name: string; handicap: number | null; indice?: number | null; total_rounds: number }
+  stats: {
+    avg_score: number | null
+    best_score: number | null
+    total_birdies: number
+    total_eagles: number
+    front9_avg: number | null
+    back9_avg: number | null
+  }
+  patterns: Array<{
+    pattern_type: string
+    confidence: number
+    metadata: Record<string, unknown>
+    status: string
+  }>
+  recent_rounds: Array<{
+    played_at?: string
+    course_name?: string
+    total_gross: number
+    over_under?: number
+  }>
+  last_session: {
+    session_type: string
+    created_at: string
+    next_focus: string | null
+    techniques_assigned: unknown[]
+  } | null
+  recent_sessions?: Array<{
+    id: string
+    session_type: string
+    created_at: string
+    next_focus: string | null
+    messages?: Array<{ role: string; content: string }>
+  }>
+  active_recommendations?: Array<{
+    recommendation: string
+    category: string
+    focus_area: string
+    status: string
+    score_before: number | null
+    score_after: number | null
+    created_at: string
+  }>
+  collective_insights?: Array<{
+    pattern_type: string
+    insight: string
+    sample_size: number
+    confidence: number
+  }>
+}
+
+export function buildContextString(context: TaigerContext): string {
+  const { player, stats, patterns, recent_rounds, last_session, recent_sessions, active_recommendations, collective_insights } = context
+  const indice = player.indice ?? player.handicap ?? null
+
+  const indexLevel = !indice ? 'sin índice registrado' :
+    indice > 25 ? 'principiante' :
+    indice > 15 ? 'amateur medio' :
+    indice > 5 ? 'amateur bueno' :
+    'single digit / élite amateur'
+
+  const trend = (recent_rounds ?? []).length >= 3
+    ? (() => {
+        const scores = recent_rounds.slice(0, 3).map(r => r.total_gross)
+        const avg = scores.reduce((a, b) => a + b, 0) / scores.length
+        const last = scores[0]
+        return last < avg - 2 ? 'en buena forma' :
+               last > avg + 2 ? 'forma irregular' :
+               'forma estable'
+      })()
+    : 'sin datos suficientes'
+
+  const patternDescriptions: Record<string, string> = {
+    back_nine_collapse: 'colapso en los últimos 9 hoyos',
+    three_putt_frequency: 'exceso de 3-putts',
+    par_3_weakness: 'debilidad en par 3',
+    pressure_deterioration: 'baja el rendimiento bajo presión',
+    driving_inconsistency: 'inconsistencia con el driver',
+    front_nine_struggles: 'arranque lento en el campo',
+    short_game_weakness: 'juego corto deficiente',
+    post_bogey_spiral: 'espiral post-bogey',
+    first_hole_anxiety: 'ansiedad en hoyo 1',
+  }
+
+  const patternText = (patterns ?? []).length > 0
+    ? (patterns ?? []).map(p =>
+        `- ${patternDescriptions[p.pattern_type] ?? p.pattern_type} (confianza: ${Math.round((p.confidence ?? 0) * 100)}%)`
+      ).join('\n')
+    : 'Sin patrones estadísticos aún (necesita más rondas)'
+
+  const sgText = stats.avg_score && indice
+    ? `Score promedio: ${stats.avg_score.toFixed(1)} (${(stats.avg_score - 72) >= 0 ? '+' : ''}${(stats.avg_score - 72).toFixed(1)} sobre par)\nDiferencia vs índice esperado: ${(stats.avg_score - (72 + indice * 0.9)).toFixed(1)} strokes`
+    : 'Sin suficientes datos estadísticos'
+
+  // Build session history section
+  const sessionsText = (recent_sessions ?? []).length > 0
+    ? (recent_sessions ?? []).map((s, i) => {
+        const date = new Date(s.created_at).toLocaleDateString('es-CL')
+        const msgs = s.messages ?? []
+        const assistantMsgs = msgs.filter(m => m.role === 'assistant')
+        const summary = assistantMsgs.length > 0
+          ? assistantMsgs[0].content.substring(0, 150) + '...'
+          : s.next_focus ?? 'Sin resumen'
+        return `Sesión ${i + 1} (${date}, ${s.session_type}): ${summary}`
+      }).join('\n')
+    : 'Sin sesiones previas'
+
+  // Build recommendations section
+  const recsText = (active_recommendations ?? []).length > 0
+    ? (active_recommendations ?? []).map(r => {
+        const scoreChange = r.score_before != null && r.score_after != null
+          ? ` | Score: ${r.score_before} -> ${r.score_after}`
+          : r.score_before != null
+            ? ` | Score al momento: ${r.score_before}`
+            : ''
+        return `- [${r.category}/${r.focus_area}] ${r.recommendation}${scoreChange}`
+      }).join('\n')
+    : 'Sin recomendaciones activas'
+
+  // Build collective insights section
+  const insightsText = (collective_insights ?? []).length > 0
+    ? (collective_insights ?? []).map(ci =>
+        `- ${ci.insight} (n=${ci.sample_size}, confianza: ${Math.round(ci.confidence * 100)}%)`
+      ).join('\n')
+    : 'Sin datos colectivos disponibles'
+
+  return `
+=== PERFIL DEL JUGADOR ===
+Nombre: ${player.name}
+Índice oficial: ${indice ?? 'No registrado'}
+Nivel: ${indexLevel}
+Rondas registradas: ${player.total_rounds ?? 0}
+Tendencia actual: ${trend}
+
+=== ESTADÍSTICAS ===
+${sgText}
+Mejor vuelta: ${stats.best_score ?? 'Sin datos'}
+Promedio Front 9: ${stats.front9_avg?.toFixed(1) ?? 'Sin datos'}
+Promedio Back 9: ${stats.back9_avg?.toFixed(1) ?? 'Sin datos'}
+Total birdies: ${stats.total_birdies ?? 0}
+Total eagles: ${stats.total_eagles ?? 0}
+
+=== PATRONES DETECTADOS ===
+${patternText}
+
+=== ÚLTIMA SESIÓN ===
+${last_session
+  ? `Tipo: ${last_session.session_type} | Fecha: ${new Date(last_session.created_at).toLocaleDateString('es-CL')}\nFoco asignado: ${last_session.next_focus ?? 'No definido'}`
+  : 'Primera sesión con tAIger+'}
+
+=== HISTORIAL DE SESIONES ===
+${sessionsText}
+
+=== RECOMENDACIONES ACTIVAS ===
+${recsText}
+
+=== DATOS COLECTIVOS (jugadores de nivel similar) ===
+${insightsText}
+
+=== ÚLTIMAS 3 RONDAS ===
+${(recent_rounds ?? []).slice(0, 3).map((r, i) =>
+  `Ronda ${i + 1}: ${r.total_gross} golpes en ${r.course_name ?? 'cancha no registrada'} (${r.played_at ? new Date(r.played_at).toLocaleDateString('es-CL') : 'fecha desconocida'})`
+).join('\n') || 'Sin rondas registradas'}
+`.trim()
+}
+
+export const SESSION_STARTERS: Record<string, string> = {
+  post_round: `El jugador quiere analizar su última ronda. Sigue el PROTOCOLO post_round del manual. Si no sabes el score, pregúntalo primero. Si tienes rondas recientes en el contexto, refiérelas.`,
+  weekly_plan: `El jugador quiere un plan de práctica semanal. Sigue el PROTOCOLO weekly_plan del manual. Pregunta primero: días disponibles y qué instalaciones tiene. Construye el plan solo cuando tengas esa información.`,
+  pre_tournament: `El jugador se prepara para un torneo. Sigue el PROTOCOLO pre_tournament del manual. Pregunta: campo, formato, fecha del torneo. Entrega estrategia de course management y protocolo mental.`,
+  onboarding: `Es la primera sesión del jugador. Da la bienvenida, explica brevemente qué es tAIger+, y guíalo hacia su primera consulta real. Sé cálido pero eficiente.`,
+  free: `El jugador tiene una consulta libre. Escucha primero, responde con base en su perfil. Si no sabes algo específico, pregunta 1 sola pregunta.`,
+}
