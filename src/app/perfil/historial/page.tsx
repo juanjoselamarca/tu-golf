@@ -743,16 +743,39 @@ function HistorialContent() {
         {/* ── Empty state ── */}
         {rounds.length === 0 && !showForm && (
           <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-            <div style={{ fontSize: '56px', marginBottom: '16px' }}>&#128047;</div>
-            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#111827', marginBottom: '8px' }}>
-              tAIger+ está listo para analizar tu juego
-            </div>
-            <div style={{ fontSize: '14px', color: '#9ca3af', marginBottom: '28px', maxWidth: '320px', margin: '0 auto 28px' }}>
-              Registra tu primera tarjeta histórica y comenzarás a descubrir los patrones que más afectan tu score.
-            </div>
-            <div style={{ fontSize: '12px', color: 'rgba(196,153,42,0.6)', padding: '10px 16px', background: 'rgba(196,153,42,0.06)', borderRadius: '8px', display: 'inline-block' }}>
-              &#128279; Integración Garmin Golf — Próximamente
-            </div>
+            {loadError ? (
+              <>
+                <div style={{ fontSize: '56px', marginBottom: '16px' }}>📡</div>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#111827', marginBottom: '8px' }}>
+                  La carga tardó más de lo esperado
+                </div>
+                <div style={{ fontSize: '14px', color: '#9ca3af', marginBottom: '28px', maxWidth: '320px', margin: '0 auto 28px' }}>
+                  Puede ser tu conexión a internet. Intenta recargar la página.
+                </div>
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{
+                    background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px',
+                    padding: '12px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  Recargar
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '56px', marginBottom: '16px' }}>&#128047;</div>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#111827', marginBottom: '8px' }}>
+                  tAIger+ está listo para analizar tu juego
+                </div>
+                <div style={{ fontSize: '14px', color: '#9ca3af', marginBottom: '28px', maxWidth: '320px', margin: '0 auto 28px' }}>
+                  Registra tu primera tarjeta histórica y comenzarás a descubrir los patrones que más afectan tu score.
+                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(196,153,42,0.6)', padding: '10px 16px', background: 'rgba(196,153,42,0.06)', borderRadius: '8px', display: 'inline-block' }}>
+                  &#128279; Integración Garmin Golf — Próximamente
+                </div>
+              </>
+            )}
           </div>
         )}
 

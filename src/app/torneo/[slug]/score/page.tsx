@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { SCORE_STYLES, getScoreResult } from '@/lib/score-colors'
 import { createClient } from '@/lib/supabase'
+import { addToast } from '@/hooks/useToast'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
 interface Round { id: string; status: string }
@@ -94,7 +95,7 @@ export default function PlayerScoringPage() {
       }
       setSavedHoles(prev => new Set(prev).add(holeNumber))
     } catch (err) {
-      console.error('[Score] Error guardando hoyo:', err)
+      addToast({ type: 'error', title: `Error hoyo ${holeNumber}`, message: 'No se pudo guardar. Toca para reintentar.', duration: 6000 })
       setSaveError(`Error guardando hoyo ${holeNumber}. Toca para reintentar.`)
     }
     setSaving(false)
