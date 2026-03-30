@@ -429,6 +429,38 @@ export default function PerfilPage() {
         <div style={{ marginTop: '16px', background: '#ffffff', borderRadius: '16px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
           <ExperiencePanel />
         </div>
+
+        {/* Eliminar cuenta */}
+        <div style={{ marginTop: '32px', padding: '20px', background: '#fff5f5', borderRadius: '16px', border: '1px solid #fecaca' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#991b1b', marginBottom: '8px' }}>Eliminar mi cuenta</h3>
+          <p style={{ fontSize: '13px', color: '#b91c1c', marginBottom: '16px', lineHeight: 1.5 }}>
+            Se eliminar&aacute;n todos tus datos: perfil, rondas, historial, estad&iacute;sticas y sesiones de coaching. Esta acci&oacute;n no se puede deshacer.
+          </p>
+          <button
+            onClick={async () => {
+              if (!confirm('¿Estás seguro de que quieres eliminar tu cuenta? Se borrarán TODOS tus datos y no podrás recuperarlos.')) return
+              if (!confirm('Esta es tu última oportunidad. ¿Confirmas la eliminación permanente?')) return
+              try {
+                const res = await fetch('/api/profile/delete-account', { method: 'DELETE' })
+                if (res.ok) {
+                  window.location.href = '/'
+                } else {
+                  const data = await res.json()
+                  alert(data.error || 'Error al eliminar la cuenta')
+                }
+              } catch {
+                alert('Error de conexión. Intenta de nuevo.')
+              }
+            }}
+            style={{
+              background: '#dc2626', color: 'white', border: 'none', borderRadius: '10px',
+              padding: '12px 24px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+              minHeight: '44px',
+            }}
+          >
+            Eliminar mi cuenta permanentemente
+          </button>
+        </div>
       </div>
     </div>
   )
