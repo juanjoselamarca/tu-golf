@@ -4,6 +4,28 @@
 
 ---
 
+## Sesion 30 Mar 2026 — Sprint 5 completado + Sentry instrumentation
+
+**Fecha:** 30 Mar 2026
+**Estado:** COMPLETO
+
+### Sprint 5 — Seguridad (items faltantes)
+- X-XSS-Protection header agregado en next.config.js
+- CORS restrictivo en /api/en-vivo (solo tu-golf.vercel.app en prod)
+- Items previamente completados: admin/health auth (403), push/preferences auth
+
+### Sentry instrumentation.ts
+- Migrado de sentry.*.config.ts standalone a instrumentation.ts (Next.js moderno)
+- onRequestError hook configurado para captura automatica de errores server-side
+- Elimina deprecation warnings de @sentry/nextjs
+
+### Sprint log sesion 29 Mar (retroactivo)
+- 9 sprints del MAESTRO implementados (1,9,2,6,3,4,7,8)
+- Sentry condicional (solo con DSN), cron Vercel ajustado a diario
+- Commits: e886eba, e633524, 1949b03, f8f99c5, c56e5ba, 6bc3583, ca97faa, 44836cf
+
+---
+
 ## Sesion 25-26 Mar 2026 — Restauracion + Seguridad + Features
 
 **Fecha:** 25-26 Mar 2026

@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-29 | Commit: `f8f99c5`
+> Auto-generado: 2026-03-30 | Commit: `44836cf`
 
 ## Último deploy
 
-- **Commit:** `f8f99c5` — legal: terminos, privacidad, reembolsos (Ley 19.628 y 19.496 Chile) + checkbox registro
+- **Commit:** `44836cf` — fix: cron health-check diario 8am (Vercel Hobby limita a crons diarios)
 - **Fecha:** 2026-03-29
-- **Branch:** main (220 commits total)
+- **Branch:** main (224 commits total)
 - **URL:** https://tu-golf.vercel.app
 
 ## Páginas en producción (36 páginas)
@@ -67,25 +67,25 @@
 
 ---
 
-## Sesion 25-26 Mar 2026 — Restauracion + Seguridad + Features
+## Sesion 30 Mar 2026 — Sprint 5 completado + Sentry instrumentation
 
-**Fecha:** 25-26 Mar 2026
+**Fecha:** 30 Mar 2026
 **Estado:** COMPLETO
 
-### Incidente y restauracion
-- App caida por refactor del Navbar (async en onAuthStateChange)
-- Causa raiz identificada, Navbar restaurado con fix minimo
-- Funcionalidades perdidas re-aplicadas (admin al login, limite 500, ?add=true)
-- Post-mortem documentado en docs/POSTMORTEM_2026-03-25.md
+### Sprint 5 — Seguridad (items faltantes)
+- X-XSS-Protection header agregado en next.config.js
+- CORS restrictivo en /api/en-vivo (solo tu-golf.vercel.app en prod)
+- Items previamente completados: admin/health auth (403), push/preferences auth
 
-### Barreras anti-caida
-- Pre-push hook: bloquea push si tsc/tests/build fallan
-- 15 tests canario: detectan patrones peligrosos en archivos criticos
-- Protocolo de archivos protegidos en CLAUDE.md
-- Ya salvo un push con error de ESLint en esta misma sesion
+### Sentry instrumentation.ts
+- Migrado de sentry.*.config.ts standalone a instrumentation.ts (Next.js moderno)
+- onRequestError hook configurado para captura automatica de errores server-side
+- Elimina deprecation warnings de @sentry/nextjs
 
-### Monitoreo Fase 1
-- /api/health: endpoint publico para monitoreo externo
+### Sprint log sesion 29 Mar (retroactivo)
+- 9 sprints del MAESTRO implementados (1,9,2,6,3,4,7,8)
+- Sentry condicional (solo con DSN), cron Vercel ajustado a diario
+- Commits: e886eba, e633524, 1949b03, f8f99c5, c56e5ba, 6bc3583, ca97faa, 44836cf
 
 ---
 

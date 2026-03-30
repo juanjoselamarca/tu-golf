@@ -54,10 +54,16 @@ export async function GET(request: Request) {
       }
     })
 
+    const corsOrigin = process.env.NODE_ENV === 'production'
+      ? 'https://tu-golf.vercel.app'
+      : 'http://localhost:3000'
+
     return NextResponse.json({
       rondas,
       total: rondas.length,
       timestamp: new Date().toISOString(),
+    }, {
+      headers: { 'Access-Control-Allow-Origin': corsOrigin },
     })
   } catch (err) {
     console.error('[/api/en-vivo]', err)
