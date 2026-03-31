@@ -9,6 +9,7 @@ import { notifyScoreEvent, getNotifPrefs, setNotifPrefs, isPushSupported, reques
 import { setActiveRondaSession, clearActiveRondaSession } from '@/components/LiveRoundIndicator'
 import { compartirLeaderboard } from '@/lib/share-card'
 import type { LeaderboardShareData } from '@/lib/share-card'
+import { addToast } from '@/hooks/useToast'
 
 function NotifBanner({ onEnable }: { onEnable: () => void }) {
   const [dismissed, setDismissed] = useState(false)
@@ -89,6 +90,7 @@ interface RondaLibre {
   hoyo_inicio?:          number | null
   admin_mode?:           boolean
   admin_user_id?:        string
+  creador_id:            string
   ronda_libre_jugadores: Jugador[]
 }
 
@@ -253,6 +255,9 @@ function RondaLibrePageContent() {
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authModalAction, setAuthModalAction] = useState('')
+  // Admin score editing
+  const [editingScore, setEditingScore] = useState<{ jugadorId: string; hole: number; currentScore: number } | null>(null)
+  const [editScoreValue, setEditScoreValue] = useState<number>(0)
 
   /* ── Fetch GWI ── */
   const fetchGWI = useCallback(async () => {
@@ -275,7 +280,7 @@ function RondaLibrePageContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, ronda_libre_jugadores(id, nombre, user_id, scores)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, creador_id, ronda_libre_jugadores(id, nombre, user_id, scores)')
         .eq('codigo', codigo)
         .single()
 
@@ -476,6 +481,35 @@ function RondaLibrePageContent() {
     if (!selectedJ) return
     router.push(`/ronda-libre/${codigo}/score?j=${selectedJ}`)
   }
+
+  // Admin score editing — save updated score to supabase
+  const handleAdminScoreSave = useCallback(async () => {
+    if (!editingScore || !ronda) return
+    const { jugadorId, hole } = editingScore
+    const newScore = Math.max(1, Math.min(19, editScoreValue))
+    const jugador = ronda.ronda_libre_jugadores.find(j => j.id === jugadorId)
+    if (!jugador) return
+
+    const updatedScores = { ...jugador.scores, [String(hole)]: newScore }
+    const supabase = createClient()
+    const { error } = await supabase.from('ronda_libre_jugadores').update({ scores: updatedScores }).eq('id', jugadorId)
+    if (error) {
+      addToast({ type: 'error', title: 'Error', message: 'No se pudo actualizar el score', duration: 4000 })
+    } else {
+      addToast({ type: 'success', title: 'Score actualizado', message: `Hoyo ${hole}: ${newScore} golpes`, duration: 3000 })
+      // Update local state
+      setRonda(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          ronda_libre_jugadores: prev.ronda_libre_jugadores.map(j =>
+            j.id === jugadorId ? { ...j, scores: updatedScores } : j
+          ),
+        }
+      })
+    }
+    setEditingScore(null)
+  }, [editingScore, editScoreValue, ronda])
 
   /* ── Loading ── */
   if (loading) {
@@ -826,6 +860,8 @@ function RondaLibrePageContent() {
   /* ─────────────────────────────────────────────────────────────────────── */
   /* ── SPECTATOR VIEW ─────────────────────────────────────────────────── */
   /* ─────────────────────────────────────────────────────────────────────── */
+  const isCreator = !!(currentUserId && ronda.creador_id === currentUserId)
+
   if (role === 'espectador') {
     // White theme score colors
     const whiteThemeScoreColor = (vsPar: number, played: number) => {
@@ -1138,12 +1174,21 @@ function RondaLibrePageContent() {
                     const renderHalf = (holes: number[], label: string, total: number) => (
                       <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '8px' }}>
                         <div style={{ flex: 1, display: 'flex' }}>
-                          {holes.map(h => (
-                            <div key={h} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+                          {holes.map(h => {
+                            const hScore = getS(h)
+                            return (
+                            <div key={h} style={{ flex: 1, textAlign: 'center', minWidth: 0, cursor: isCreator ? 'pointer' : 'default' }}
+                              onClick={isCreator ? (e) => {
+                                e.stopPropagation()
+                                setEditingScore({ jugadorId: j.id, hole: h, currentScore: hScore ?? (parMap[h] ?? 4) })
+                                setEditScoreValue(hScore ?? (parMap[h] ?? 4))
+                              } : undefined}
+                            >
                               <div style={{ fontSize: '8px', color: '#9ca3af', marginBottom: '2px' }}>{h}</div>
                               <div style={{ minHeight: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{scoreCell(h)}</div>
                             </div>
-                          ))}
+                            )
+                          })}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', flexShrink: 0, borderLeft: '1px solid #e5e7eb', paddingLeft: '4px', marginLeft: '4px' }}>
                           <div style={{ fontSize: '8px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' as const }}>{label}</div>
@@ -1156,8 +1201,13 @@ function RondaLibrePageContent() {
                       <div style={{ padding: '4px 8px 10px', background: '#f9fafb' }}>
                         {renderHalf(holeNums.slice(0, 9), 'OUT', front9T)}
                         {ronda.holes > 9 && renderHalf(holeNums.slice(9, 18), 'IN', back9T)}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #e5e7eb', paddingTop: '4px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e5e7eb', paddingTop: '4px' }}>
+                          {isCreator && (
+                            <div style={{ fontSize: '9px', color: '#c4992a', fontWeight: 500 }}>
+                              Toca un score para editarlo
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', marginLeft: 'auto' }}>
                             <div style={{ fontSize: '8px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' as const }}>TOT</div>
                             <div style={{ fontSize: '14px', fontWeight: 800, color: '#111827' }}>{front9T + back9T}</div>
                           </div>
@@ -1329,6 +1379,76 @@ function RondaLibrePageContent() {
         {/* ── Auth Modal (contextual registration prompt) ── */}
         {showAuthModal && (
           <AuthModal action={authModalAction} codigo={codigo} onClose={() => setShowAuthModal(false)} />
+        )}
+
+        {/* ── Admin score edit modal ── */}
+        {editingScore && isCreator && (
+          <div
+            onClick={() => setEditingScore(null)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 100,
+              background: 'rgba(0,0,0,0.5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '24px',
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: '#ffffff', borderRadius: '16px',
+                padding: '24px', maxWidth: '320px', width: '100%',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              }}
+            >
+              <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                Editar score — Hoyo {editingScore.hole}
+              </div>
+              <div style={{ fontSize: '14px', color: '#374151', fontWeight: 600, marginBottom: '16px' }}>
+                {ronda.ronda_libre_jugadores.find(j => j.id === editingScore.jugadorId)?.nombre ?? 'Jugador'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '20px' }}>
+                <button
+                  onClick={() => setEditScoreValue(v => Math.max(1, v - 1))}
+                  style={{
+                    width: '48px', height: '48px', borderRadius: '12px',
+                    background: '#f3f4f6', border: '1px solid #e5e7eb',
+                    fontSize: '24px', fontWeight: 300, color: '#374151',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >{'\u2212'}</button>
+                <div style={{ fontSize: '40px', fontWeight: 700, color: '#111827', minWidth: '60px', textAlign: 'center' }}>
+                  {editScoreValue}
+                </div>
+                <button
+                  onClick={() => setEditScoreValue(v => Math.min(19, v + 1))}
+                  style={{
+                    width: '48px', height: '48px', borderRadius: '12px',
+                    background: '#c4992a', border: 'none',
+                    fontSize: '24px', fontWeight: 600, color: '#070d18',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >+</button>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setEditingScore(null)}
+                  style={{
+                    flex: 1, padding: '12px', background: '#f3f4f6',
+                    border: '1px solid #e5e7eb', borderRadius: '10px',
+                    fontSize: '14px', fontWeight: 600, color: '#374151', cursor: 'pointer',
+                  }}
+                >Cancelar</button>
+                <button
+                  onClick={handleAdminScoreSave}
+                  style={{
+                    flex: 1, padding: '12px', background: '#c4992a',
+                    border: 'none', borderRadius: '10px',
+                    fontSize: '14px', fontWeight: 700, color: '#070d18', cursor: 'pointer',
+                  }}
+                >Guardar</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Banner animation */}

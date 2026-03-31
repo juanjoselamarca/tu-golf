@@ -705,7 +705,10 @@ function ScorePageContent() {
             <div style={{ fontSize: '16px', fontWeight: 700, color: showStableford ? '#C4992A' : displayOverUnder < 0 ? '#93C5FD' : displayOverUnder === 0 ? theme.textMuted : '#FCD34D' }}>
               {holesPlayed > 0 ? (showStableford ? `${totalStableford} pts` : displayOverUnder > 0 ? `+${displayOverUnder}` : displayOverUnder === 0 ? 'E' : displayOverUnder) : '—'}
             </div>
-            <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>THRU {holesPlayed}/{totalHoles}</div>
+            <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>
+              {showNet && <span style={{ color: '#C4992A', marginRight: '4px' }}>HCP {hcpForPlayer}</span>}
+              THRU {holesPlayed}/{totalHoles}
+            </div>
           </div>
         </div>
       </header>
@@ -807,19 +810,20 @@ function ScorePageContent() {
         </div>
       </div>
 
-      {/* ── Hole info: 3 columns + share ── */}
+      {/* ── Hole info: 3-4 columns + share ── */}
       <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
         {[
           { label: 'PAR', value: String(par) },
           { label: 'SI', value: String(holeData.stroke_index) },
           { label: 'YDS', value: holeData.yardaje ? String(holeData.yardaje) : '—' },
+          ...((showNet || showStableford) ? [{ label: 'GOLPES', value: strokesOnHole > 0 ? `+${strokesOnHole}` : '0' }] : []),
         ].map((col, i) => (
           <div key={col.label} style={{
             flex: 1, textAlign: 'center', padding: '8px 2px',
             borderRight: `1px solid ${theme.border}`,
           }}>
-            <div style={{ fontSize: '9px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
-            <div style={{ fontSize: '16px', fontWeight: 600, color: theme.text }}>{col.value}</div>
+            <div style={{ fontSize: '9px', fontWeight: 600, color: col.label === 'GOLPES' ? '#C4992A' : theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
+            <div style={{ fontSize: '16px', fontWeight: 600, color: col.label === 'GOLPES' && strokesOnHole > 0 ? '#C4992A' : theme.text }}>{col.value}</div>
           </div>
         ))}
         <button onClick={() => setShowShareMenu(true)} aria-label="Compartir" style={{
