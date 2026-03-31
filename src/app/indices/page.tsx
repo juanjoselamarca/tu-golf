@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 
 /* ── Design tokens ──────────────────────────────────── */
@@ -10,13 +11,34 @@ const card = '#0e1c2f'
 const textMuted = 'rgba(255,255,255,0.55)'
 const textFaint = 'rgba(255,255,255,0.35)'
 const border = 'rgba(196,153,42,0.12)'
+const green = '#16a34a'
+const red = '#dc2626'
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/* ── Reusable components ──────────────────────────────── */
+
+function LabBadge() {
   return (
-    <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '24px 20px', marginBottom: '16px' }}>
-      <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700, color: gold, margin: '0 0 16px', lineHeight: 1.2 }}>
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '6px',
+      background: 'rgba(196,153,42,0.1)', border: `1px solid rgba(196,153,42,0.25)`,
+      borderRadius: '20px', padding: '4px 12px',
+      fontFamily: '"DM Mono", monospace', fontSize: '10px', fontWeight: 700,
+      color: gold, letterSpacing: '0.15em', textTransform: 'uppercase' as const,
+    }}>
+      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: gold, animation: 'labPulse 2s ease infinite' }} />
+      LABS
+    </span>
+  )
+}
+
+function Section({ id, title, subtitle, children }: { id?: string; title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <div id={id} style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '24px 20px', marginBottom: '16px' }}>
+      <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700, color: gold, margin: '0 0 4px', lineHeight: 1.2 }}>
         {title}
       </h2>
+      {subtitle && <p style={{ fontSize: '12px', color: textFaint, margin: '0 0 16px', fontFamily: '"DM Mono", monospace', letterSpacing: '0.05em' }}>{subtitle}</p>}
+      {!subtitle && <div style={{ marginBottom: '16px' }} />}
       {children}
     </div>
   )
@@ -25,220 +47,316 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function FormulaBlock({ formula, explanation }: { formula: string; explanation: string }) {
   return (
     <div style={{ background: 'rgba(196,153,42,0.06)', border: `1px solid ${border}`, borderRadius: '10px', padding: '14px 16px', margin: '12px 0' }}>
-      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '14px', fontWeight: 600, color: gold, marginBottom: '6px', letterSpacing: '0.02em' }}>
-        {formula}
+      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '13px', fontWeight: 600, color: gold, marginBottom: '6px' }}>{formula}</div>
+      <div style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5 }}>{explanation}</div>
+    </div>
+  )
+}
+
+function PgaCard({ player, moment, cpiEstimate, description, color }: { player: string; moment: string; cpiEstimate: number; description: string; color: string }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}`, borderRadius: '12px', padding: '16px', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+        <div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: ivory }}>{player}</div>
+          <div style={{ fontSize: '11px', color: textFaint, fontFamily: '"DM Mono", monospace' }}>{moment}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '28px', fontWeight: 700, color, fontFamily: '"Cormorant Garamond", serif', lineHeight: 1 }}>{cpiEstimate}</div>
+          <div style={{ fontSize: '9px', color: textFaint, fontFamily: '"DM Mono", monospace' }}>CPI EST.</div>
+        </div>
       </div>
-      <div style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5 }}>
-        {explanation}
+      <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5, margin: 0 }}>{description}</p>
+    </div>
+  )
+}
+
+function GwiScenarioStep({ hole, event, gwi, delta }: { hole: number; event: string; gwi: number; delta: number }) {
+  const deltaColor = delta > 0 ? green : delta < 0 ? red : textFaint
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(196,153,42,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '12px', fontWeight: 700, color: gold }}>H{hole}</span>
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: '13px', color: ivory }}>{event}</div>
+      </div>
+      <div style={{ textAlign: 'right', minWidth: '60px' }}>
+        <div style={{ fontSize: '18px', fontWeight: 700, color: gold, fontFamily: '"Cormorant Garamond", serif' }}>{gwi}%</div>
+        <div style={{ fontSize: '11px', color: deltaColor, fontWeight: 600 }}>{delta > 0 ? `+${delta}` : delta}%</div>
       </div>
     </div>
   )
 }
 
-function ScaleBar({ value, label, color }: { value: number; label: string; color: string }) {
-  return (
-    <div style={{ marginBottom: '8px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-        <span style={{ fontSize: '12px', color: ivory }}>{label}</span>
-        <span style={{ fontSize: '12px', color, fontWeight: 600 }}>{value}</span>
-      </div>
-      <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: '3px', transition: 'width 0.6s ease' }} />
-      </div>
-    </div>
-  )
-}
+/* ── Main page ──────────────────────────────────── */
 
 export default function IndicesPage() {
+  const [activeTab, setActiveTab] = useState<'cpi' | 'gwi' | 'indice'>('cpi')
+
   return (
     <div style={{ background: bg, minHeight: '100dvh', paddingBottom: '100px' }}>
-      {/* Hero */}
-      <div style={{ padding: '48px 20px 32px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
-        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '11px', fontWeight: 700, color: gold, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '12px' }}>
-          LA CIENCIA DETR&Aacute;S DE TU JUEGO
-        </div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '32px', fontWeight: 700, color: ivory, margin: '0 0 12px', lineHeight: 1.1 }}>
-          Dos &iacute;ndices que cuentan tu historia completa
+      <style>{`
+        @keyframes labPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+      `}</style>
+
+      {/* ═══ HERO ═══ */}
+      <div style={{ padding: '40px 20px 24px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
+        <LabBadge />
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', fontWeight: 700, color: ivory, margin: '16px 0 10px', lineHeight: 1.1 }}>
+          Golf Intelligence
         </h1>
-        <p style={{ fontSize: '15px', color: textMuted, lineHeight: 1.6, maxWidth: '440px', margin: '0 auto' }}>
-          Golfers+ mide tu juego con dos sistemas propietarios: el <strong style={{ color: gold }}>CPI&trade;</strong> para tu rendimiento individual y el <strong style={{ color: gold }}>GWI&trade;</strong> para tu probabilidad de ganar en tiempo real.
+        <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, maxWidth: '400px', margin: '0 auto' }}>
+          La ciencia que usan los profesionales, aplicada a tu juego amateur. Tres sistemas propietarios que transforman datos en ventaja competitiva.
         </p>
+      </div>
+
+      {/* ═══ TAB NAVIGATION ═══ */}
+      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '0 16px 16px' }}>
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '12px', padding: '3px', gap: '3px' }}>
+          {([
+            { key: 'cpi' as const, label: 'CPI\u2122' },
+            { key: 'gwi' as const, label: 'GWI\u2122' },
+            { key: 'indice' as const, label: '\u00cdndice G+' },
+          ]).map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+              flex: 1, padding: '10px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
+              border: 'none', cursor: 'pointer', fontFamily: '"DM Mono", monospace',
+              background: activeTab === tab.key ? gold : 'transparent',
+              color: activeTab === tab.key ? bg : textFaint,
+              transition: 'all 0.15s ease',
+            }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '0 16px' }}>
 
-        {/* ═══ CPI SECTION ═══ */}
-        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', fontWeight: 700, color: textFaint, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '8px', paddingLeft: '4px' }}>
-          &Iacute;NDICE 1
-        </div>
+        {/* ═══════════════════════════════════════════ */}
+        {/* ═══ CPI TAB ═══ */}
+        {/* ═══════════════════════════════════════════ */}
+        {activeTab === 'cpi' && (
+          <>
+            <Section title="Current Performance Index" subtitle="TU MOMENTUM EN UN N\u00daMERO">
+              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
+                El CPI no mide tu potencial — mide <strong style={{ color: ivory }}>c\u00f3mo est\u00e1s jugando ahora mismo</strong>. Es la diferencia entre &quot;soy handicap 12&quot; y &quot;esta semana estoy jugando como un 8&quot;.
+              </p>
+              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0' }}>
+                Un n\u00famero entre 0 y 100 que sube cuando mejor\u00e1s y baja cuando no. Calculado en tiempo real con tus \u00faltimas 20 rondas.
+              </p>
+            </Section>
 
-        <Section title="CPI&trade; &mdash; Current Performance Index">
-          <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
-            Tu CPI mide <strong style={{ color: ivory }}>c&oacute;mo est&aacute;s jugando ahora mismo</strong> comparado con tu propio historial. No es tu handicap &mdash; es tu momentum. Un n&uacute;mero entre 0 y 100 que sube cuando mej&oacute;ras y baja cuando no.
-          </p>
+            <Section title="Si el PGA Tour tuviera CPI\u2122" subtitle="ESTIMACIONES BASADAS EN DATOS P\u00daBLICOS">
+              <PgaCard
+                player="Tiger Woods"
+                moment="Masters 2019 \u2014 La remontada"
+                cpiEstimate={96}
+                color={green}
+                description="4 rondas consistentes (70-68-67-70), tendencia ascendente todo el torneo, varianza m\u00ednima. Su CPI habr\u00eda estado en el top 1% del field."
+              />
+              <PgaCard
+                player="Jordan Spieth"
+                moment="Open Championship 2017 \u2014 Hoyo 13, \u00faltima ronda"
+                cpiEstimate={91}
+                color={green}
+                description="Ven\u00eda de 5 birdies en 6 hoyos. Su tendencia intraronda habr\u00eda disparado el CPI. Un momento donde el momentum era medible."
+              />
+              <PgaCard
+                player="Rory McIlroy"
+                moment="Masters 2011 \u2014 Domingo en Augusta"
+                cpiEstimate={34}
+                color={red}
+                description="L\u00edder por 4 al arrancar el domingo, termin\u00f3 con 80. Diferencial alto, inconsistencia extrema, tendencia negativa. El CPI habr\u00eda ca\u00eddo en cada hoyo del back nine."
+              />
+              <PgaCard
+                player="Amateur promedio Chile"
+                moment="Temporada regular \u2014 HCP 15"
+                cpiEstimate={42}
+                color={gold}
+                description="Juega 1-2 veces por semana, tira entre 85 y 95. Buena consistencia pero diferencial alto. Con m\u00e1s rondas y mejor tendencia, puede subir a 55+."
+              />
+              <p style={{ fontSize: '11px', color: textFaint, fontStyle: 'italic', marginTop: '8px' }}>
+                * Estimaciones ilustrativas basadas en datos p\u00fablicos de torneos. El CPI\u2122 es propietario de Golfers+.
+              </p>
+            </Section>
 
-          <div style={{ fontSize: '13px', color: ivory, fontWeight: 600, marginBottom: '8px' }}>Escala</div>
-          <ScaleBar value={90} label="75+ Elite" color="#16a34a" />
-          <ScaleBar value={70} label="60-74 Fuerte" color={gold} />
-          <ScaleBar value={50} label="40-59 Promedio" color="#94a8c0" />
-          <ScaleBar value={30} label="25-39 En desarrollo" color="#d97706" />
-          <ScaleBar value={15} label="0-24 Inicio" color="#dc2626" />
-        </Section>
-
-        <Section title="C&oacute;mo se calcula el CPI&trade;">
-          <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 12px' }}>
-            El CPI combina 4 factores de tus &uacute;ltimas 20 rondas. Cada factor aporta puntos al total:
-          </p>
-
-          <FormulaBlock
-            formula="Diferencial = (Gross - Course Rating) &times; 113 / Slope"
-            explanation="Tu score ajustado por la dificultad de la cancha. Es la base de todo. Un diferencial de 10 significa que jugaste 10 strokes sobre el rating de la cancha."
-          />
-
-          <div style={{ margin: '16px 0 8px', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>
-            <div style={{ fontSize: '13px', color: ivory, lineHeight: 1.8 }}>
-              <strong style={{ color: gold }}>Base (0-55 pts):</strong> Tu diferencial promedio ponderado. Scratch = 55, bogey golfer = 0.<br/>
-              <strong style={{ color: gold }}>Consistencia (0-25 pts):</strong> Menos variaci&oacute;n entre rondas = m&aacute;s puntos. Si siempre tiras parecido, sos consistente.<br/>
-              <strong style={{ color: gold }}>Tendencia (0-20 pts):</strong> Compara tus rondas recientes con las antiguas. Mejorando = m&aacute;s puntos.<br/>
-              <strong style={{ color: gold }}>Volumen:</strong> Multiplicador de 0 a 1 seg&uacute;n cu&aacute;ntas rondas ten&eacute;s. Con 10+ rondas se desbloquea el 100%.
-            </div>
-          </div>
-
-          <FormulaBlock
-            formula="CPI = (Base + Consistencia + Tendencia) &times; Volumen"
-            explanation="M&aacute;ximo te&oacute;rico: 55 + 25 + 20 = 100. Para llegar a 100 necesit&aacute;s: diferencial scratch, cero variaci&oacute;n, mejora constante, y 10+ rondas."
-          />
-
-          <p style={{ fontSize: '13px', color: textFaint, lineHeight: 1.5, marginTop: '12px' }}>
-            El CPI se recalcula cada vez que registr&aacute;s una ronda. Necesit&aacute;s m&iacute;nimo 3 rondas con datos de cancha (slope y rating) para activarlo.
-          </p>
-        </Section>
-
-        <Section title="CPI vs Handicap &mdash; &iquest;Cu&aacute;l es la diferencia?">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '14px' }}>
-              <div style={{ fontSize: '11px', color: textFaint, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '6px' }}>HANDICAP</div>
-              <div style={{ fontSize: '13px', color: ivory, lineHeight: 1.5 }}>
-                Mide tu <strong>potencial</strong>. Usa tus mejores rondas. Te dice de cu&aacute;nto sos capaz en un buen d&iacute;a.
+            <Section title="Los 4 factores del CPI\u2122" subtitle="QU\u00c9 MUEVE TU N\u00daMERO">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+                {[
+                  { pts: '55', label: 'Base', desc: 'Tu diferencial promedio ponderado por recencia. Scratch = 55 pts.', icon: '\u26f3' },
+                  { pts: '25', label: 'Consistencia', desc: 'Menos variaci\u00f3n entre rondas = m\u00e1s puntos. La desviaci\u00f3n te penaliza.', icon: '\ud83c\udfaf' },
+                  { pts: '20', label: 'Tendencia', desc: 'Rondas recientes vs antiguas. Mejorando = m\u00e1s puntos.', icon: '\ud83d\udcc8' },
+                  { pts: '\u00d71', label: 'Volumen', desc: 'Multiplicador de 0 a 1. Con 10+ rondas se desbloquea el 100%.', icon: '\ud83d\udcca' },
+                ].map(f => (
+                  <div key={f.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
+                    <div style={{ fontSize: '20px', marginBottom: '6px' }}>{f.icon}</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' }}>
+                      <span style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '22px', fontWeight: 700, color: gold }}>{f.pts}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: ivory }}>{f.label}</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: textMuted, lineHeight: 1.4 }}>{f.desc}</div>
+                  </div>
+                ))}
               </div>
-            </div>
-            <div style={{ background: 'rgba(196,153,42,0.06)', borderRadius: '10px', padding: '14px', border: `1px solid ${border}` }}>
-              <div style={{ fontSize: '11px', color: gold, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '6px' }}>CPI&trade;</div>
-              <div style={{ fontSize: '13px', color: ivory, lineHeight: 1.5 }}>
-                Mide tu <strong>realidad actual</strong>. Usa todas tus rondas recientes. Te dice c&oacute;mo est&aacute;s jugando <em>hoy</em>.
+
+              <FormulaBlock
+                formula="CPI = (Base + Consistencia + Tendencia) \u00d7 Volumen"
+                explanation="M\u00e1ximo te\u00f3rico: 100. Para llegar necesit\u00e1s: diferencial scratch, cero variaci\u00f3n, mejora constante, y 10+ rondas. Tiger en su prime: ~96."
+              />
+            </Section>
+
+            <Section title="CPI vs Handicap" subtitle="\u00bfCU\u00c1L ES LA DIFERENCIA?">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', color: textFaint, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>HANDICAP</div>
+                  <div style={{ fontSize: '36px', fontWeight: 700, color: textMuted, fontFamily: '"Cormorant Garamond", serif', lineHeight: 1 }}>12</div>
+                  <div style={{ fontSize: '12px', color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>potencial</strong>. Usa tus mejores rondas. Lo que pod\u00e9s hacer en un buen d\u00eda.</div>
+                </div>
+                <div style={{ background: 'rgba(196,153,42,0.06)', borderRadius: '10px', padding: '14px', border: `1px solid ${border}`, textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', color: gold, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>CPI\u2122</div>
+                  <div style={{ fontSize: '36px', fontWeight: 700, color: gold, fontFamily: '"Cormorant Garamond", serif', lineHeight: 1 }}>67</div>
+                  <div style={{ fontSize: '12px', color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>realidad hoy</strong>. Usa todas tus rondas recientes. C\u00f3mo est\u00e1s jugando <em>ahora</em>.</div>
+                </div>
               </div>
-            </div>
-          </div>
-          <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5 }}>
-            Pod&eacute;s tener handicap 12 y CPI 35 (est&aacute;s jugando peor de lo que tu handicap dice). O handicap 15 y CPI 72 (tu juego real es mejor que tu n&uacute;mero oficial). tAIger+ usa ambos para darte coaching espec&iacute;fico.
-          </p>
-        </Section>
+              <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5, margin: 0 }}>
+                Pod\u00e9s tener handicap 12 y CPI 35 (mal momento). O handicap 15 y CPI 72 (est\u00e1s en racha). El tAIger+ usa ambos para entender d\u00f3nde est\u00e1s parado.
+              </p>
+            </Section>
+          </>
+        )}
 
-        {/* ═══ GWI SECTION ═══ */}
-        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', fontWeight: 700, color: textFaint, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '8px', marginTop: '32px', paddingLeft: '4px' }}>
-          &Iacute;NDICE 2
-        </div>
+        {/* ═══════════════════════════════════════════ */}
+        {/* ═══ GWI TAB ═══ */}
+        {/* ═══════════════════════════════════════════ */}
+        {activeTab === 'gwi' && (
+          <>
+            <Section title="Golf Win Index" subtitle="PROBABILIDAD DE GANAR EN TIEMPO REAL">
+              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
+                El GWI responde una sola pregunta: <strong style={{ color: ivory }}>&quot;\u00bfcu\u00e1nta chance tengo de ganar esta ronda?&quot;</strong> Cambia hoyo a hoyo. Cuando la ronda termina, desaparece. Es pura tensi\u00f3n en tiempo real.
+              </p>
+              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0' }}>
+                Funciona con 2 jugadores o con 100. El modelo matem\u00e1tico es el mismo que usan las casas de apuestas para el PGA Tour, adaptado al golf amateur.
+              </p>
+            </Section>
 
-        <Section title="GWI&trade; &mdash; Golf Win Index">
-          <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
-            Tu GWI es la <strong style={{ color: ivory }}>probabilidad de que ganes la ronda en la que est&aacute;s jugando</strong>. Cambia hoyo a hoyo, en tiempo real. Solo existe mientras la ronda est&aacute; activa &mdash; cuando termina, desaparece.
-          </p>
+            <Section title="Una ronda entre amigos \u2014 hoyo a hoyo" subtitle="ESCENARIO: 4 JUGADORES, LOS LEONES, PAR 72">
+              <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5, margin: '0 0 12px' }}>
+                Segu\u00ed el GWI de <strong style={{ color: gold }}>Mart\u00edn (HCP 14)</strong> durante una ronda real:
+              </p>
+              <GwiScenarioStep hole={1} event="Par. Todos pares. Arranca parejo." gwi={25} delta={0} />
+              <GwiScenarioStep hole={3} event="Birdie en par 5. Toma la punta." gwi={34} delta={9} />
+              <GwiScenarioStep hole={6} event="Tres pares seguidos. Consistente." gwi={38} delta={4} />
+              <GwiScenarioStep hole={9} event="OUT: 38 (-1). L\u00edder por 2." gwi={52} delta={14} />
+              <GwiScenarioStep hole={12} event="Triple bogey en par 3. Desastre." gwi={28} delta={-24} />
+              <GwiScenarioStep hole={14} event="Birdie. Se recupera." gwi={41} delta={13} />
+              <GwiScenarioStep hole={17} event="Par. Segundo lugar a 1 golpe." gwi={35} delta={-6} />
+              <GwiScenarioStep hole={18} event="Birdie en el 18. GANA por 1." gwi={100} delta={65} />
+              <p style={{ fontSize: '12px', color: gold, fontWeight: 600, textAlign: 'center', marginTop: '12px' }}>
+                De 25% a 100% en 18 hoyos. Esa es la historia que el GWI cuenta.
+              </p>
+            </Section>
 
-          <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 12px' }}>
-            Si est&aacute;s jugando con 3 amigos y vas -2 despu&eacute;s de 9 hoyos, tu GWI puede ser 62% &mdash; significa que la matem&aacute;tica dice que ten&eacute;s 62% de probabilidad de ganar. Pero si hac&eacute;s triple bogey en el 10, baja a 38%.
-          </p>
-        </Section>
-
-        <Section title="C&oacute;mo se calcula el GWI&trade;">
-          <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 12px' }}>
-            El modelo usa un sistema estad&iacute;stico llamado <strong style={{ color: ivory }}>Bradley-Terry</strong>, adaptado al golf amateur:
-          </p>
-
-          <FormulaBlock
-            formula="&sigma;(hoyo) = 1.50 + 0.085 &times; HCP + 0.0012 &times; HCP&sup2;"
-            explanation="Varianza esperada por hoyo. Un scratch (HCP 0) var&iacute;a ~1.5 strokes por hoyo. Un HCP 20 var&iacute;a ~3.7. Esto modela cu&aacute;nto puede cambiar el resultado en los hoyos que faltan."
-          />
-
-          <FormulaBlock
-            formula="&sigma;(total) = &radic;(hoyos restantes) &times; &sigma;(hoyo)"
-            explanation="La incertidumbre total crece con la ra&iacute;z cuadrada de los hoyos que faltan. Con 9 hoyos por jugar hay m&aacute;s incertidumbre que con 2."
-          />
-
-          <div style={{ margin: '16px 0', padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>
-            <div style={{ fontSize: '13px', color: ivory, lineHeight: 1.8 }}>
-              <strong style={{ color: gold }}>En cada hoyo:</strong> El modelo toma tu score actual vs el field, la varianza restante de cada jugador (basada en su handicap), y calcula la probabilidad de que termines con el score m&aacute;s bajo.<br/><br/>
-              <strong style={{ color: gold }}>Resultado:</strong> Un porcentaje entre 0% y 100% que se actualiza cada vez que alguien registra un score.
-            </div>
-          </div>
-
-          <p style={{ fontSize: '13px', color: textFaint, lineHeight: 1.5, marginTop: '12px' }}>
-            El GWI funciona con 2 o m&aacute;s jugadores. Con 2 es como un cara a cara. Con 20 es como un torneo. La matem&aacute;tica es la misma &mdash; el modelo Bradley-Terry escala naturalmente.
-          </p>
-        </Section>
-
-        <Section title="GWI en la pr&aacute;ctica">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '16px' }}>
-            {[
-              { pct: '80%+', label: 'Dominando', color: '#16a34a' },
-              { pct: '40-60%', label: 'Parejo', color: gold },
-              { pct: '<20%', label: 'Complicado', color: '#dc2626' },
-            ].map(item => (
-              <div key={item.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: item.color, fontFamily: '"Cormorant Garamond", serif' }}>{item.pct}</div>
-                <div style={{ fontSize: '11px', color: textFaint, marginTop: '4px' }}>{item.label}</div>
+            <Section title="La matem\u00e1tica detr\u00e1s" subtitle="MODELO BRADLEY-TERRY ADAPTADO">
+              <FormulaBlock
+                formula="\u03c3(hoyo) = 1.50 + 0.085 \u00d7 HCP + 0.0012 \u00d7 HCP\u00b2"
+                explanation="Varianza esperada por hoyo. Un scratch var\u00eda ~1.5 strokes. Un HCP 20 var\u00eda ~3.7. A mayor handicap, m\u00e1s impredecible el resultado."
+              />
+              <FormulaBlock
+                formula="\u03c3(total) = \u221a(hoyos restantes) \u00d7 \u03c3(hoyo)"
+                explanation="La incertidumbre crece con la ra\u00edz cuadrada de los hoyos que faltan. Con 9 por jugar: mucho puede pasar. Con 2: el l\u00edder casi siempre gana."
+              />
+              <div style={{ margin: '16px 0', padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>
+                <div style={{ fontSize: '13px', color: ivory, lineHeight: 1.8 }}>
+                  <strong style={{ color: gold }}>En la pr\u00e1ctica:</strong> Si vas -2 despu\u00e9s de 9 hoyos contra 3 amigos HCP 15, tu GWI es ~55%. Parece poco, pero quedan 9 hoyos de incertidumbre. Un triple bogey cambia todo.<br/><br/>
+                  <strong style={{ color: gold }}>Dato PGA:</strong> En el Masters 2023, los l\u00edderes despu\u00e9s del hoyo 9 del domingo ganaron solo el 61% de las veces. El back nine de Augusta es otro torneo.
+                </div>
               </div>
-            ))}
-          </div>
-          <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5 }}>
-            Compart&iacute; el leaderboard con tu grupo de WhatsApp y cada uno puede ver su GWI en vivo. Es la tensi&oacute;n del torneo profesional, en tu ronda del s&aacute;bado.
-          </p>
-        </Section>
+            </Section>
 
-        {/* ═══ ÍNDICE GOLFERS+ ═══ */}
-        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', fontWeight: 700, color: textFaint, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '8px', marginTop: '32px', paddingLeft: '4px' }}>
-          BONUS
-        </div>
+            <Section title="\u00bfPor qu\u00e9 desaparece?" subtitle="DISE\u00d1O INTENCIONAL">
+              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0' }}>
+                El GWI solo existe mientras la ronda est\u00e1 activa. No se guarda, no se acumula, no aparece en tu perfil. Es <strong style={{ color: ivory }}>tensi\u00f3n pura del momento</strong> \u2014 como el latido del coraz\u00f3n durante una competencia. Cuando termina, lo \u00fanico que queda es el resultado. Y la historia que vas a contar.
+              </p>
+            </Section>
+          </>
+        )}
 
-        <Section title="&Iacute;ndice Golfers+ &mdash; Tu handicap real">
-          <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 12px' }}>
-            Calculado con la <strong style={{ color: ivory }}>f&oacute;rmula oficial USGA</strong> usando tu historial real en Golfers+. Coexiste con tu &iacute;ndice de Federaci&oacute;n (que vos actualizas a mano).
-          </p>
+        {/* ═══════════════════════════════════════════ */}
+        {/* ═══ ÍNDICE G+ TAB ═══ */}
+        {/* ═══════════════════════════════════════════ */}
+        {activeTab === 'indice' && (
+          <>
+            <Section title="\u00cdndice Golfers+" subtitle="TU HANDICAP CALCULADO CON F\u00d3RMULA USGA">
+              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
+                La misma f\u00f3rmula que usa la USGA para calcular el World Handicap System, aplicada a tus rondas reales en Golfers+. Coexiste con tu \u00edndice de Federaci\u00f3n \u2014 la app nunca toca tu n\u00famero oficial.
+              </p>
+              <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0' }}>
+                Si tu Federaci\u00f3n dice 15.4 (calculado hace 6 meses) pero tu \u00cdndice Golfers+ dice 12.1, significa que <strong style={{ color: ivory }}>est\u00e1s jugando mejor de lo que tu n\u00famero oficial refleja</strong>. El tAIger+ usa esa diferencia para calibrar tu coaching.
+              </p>
+            </Section>
 
-          <FormulaBlock
-            formula="&Iacute;ndice = Promedio(mejores N diferenciales de &uacute;ltimas 20) &times; 0.96"
-            explanation="N depende de cu&aacute;ntas rondas ten&eacute;s: con 3-6 usa la mejor, con 20 usa las 8 mejores. El 0.96 es el ajuste est&aacute;ndar USGA."
-          />
+            <Section title="La f\u00f3rmula paso a paso" subtitle="WORLD HANDICAP SYSTEM">
+              <FormulaBlock
+                formula="Diferencial = (Gross - Course Rating) \u00d7 113 / Slope"
+                explanation="Cada ronda se convierte en un diferencial que normaliza la dificultad de la cancha. 113 es el slope est\u00e1ndar. As\u00ed un 82 en Los Leones (slope 113) y un 85 en Santo Domingo (slope 128) son comparables."
+              />
 
-          <div style={{ margin: '12px 0', padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>
-            <div style={{ fontSize: '13px', color: ivory, lineHeight: 1.8 }}>
-              <strong style={{ color: gold }}>3-6 rondas:</strong> usa 1 mejor diferencial<br/>
-              <strong style={{ color: gold }}>7-8 rondas:</strong> usa 2 mejores<br/>
-              <strong style={{ color: gold }}>9-11 rondas:</strong> usa 3 mejores<br/>
-              <strong style={{ color: gold }}>12-14 rondas:</strong> usa 4 mejores<br/>
-              <strong style={{ color: gold }}>15-16 rondas:</strong> usa 5 mejores<br/>
-              <strong style={{ color: gold }}>17 rondas:</strong> usa 6 mejores<br/>
-              <strong style={{ color: gold }}>18-19 rondas:</strong> usa 7 mejores<br/>
-              <strong style={{ color: gold }}>20 rondas:</strong> usa 8 mejores
-            </div>
-          </div>
+              <div style={{ margin: '16px 0 8px', fontSize: '13px', fontWeight: 600, color: ivory }}>Tabla USGA: cu\u00e1ntos diferenciales usar</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '16px' }}>
+                {[
+                  { rondas: '3-6', usar: '1 mejor' },
+                  { rondas: '7-8', usar: '2 mejores' },
+                  { rondas: '9-11', usar: '3 mejores' },
+                  { rondas: '12-14', usar: '4 mejores' },
+                  { rondas: '15-16', usar: '5 mejores' },
+                  { rondas: '17', usar: '6 mejores' },
+                  { rondas: '18-19', usar: '7 mejores' },
+                  { rondas: '20', usar: '8 mejores' },
+                ].map(row => (
+                  <div key={row.rondas} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '12px', color: textMuted }}>{row.rondas} rondas</span>
+                    <span style={{ fontSize: '12px', color: gold, fontWeight: 600 }}>{row.usar}</span>
+                  </div>
+                ))}
+              </div>
 
-          <p style={{ fontSize: '13px', color: textFaint, lineHeight: 1.5 }}>
-            Si tu Federaci&oacute;n dice 15.4 pero tu &Iacute;ndice Golfers+ dice 12.1, significa que est&aacute;s jugando mejor de lo que tu n&uacute;mero oficial refleja. tAIger+ usa ambos para entender la diferencia.
-          </p>
-        </Section>
+              <FormulaBlock
+                formula="\u00cdndice = Promedio(mejores N) \u00d7 0.96"
+                explanation="El 0.96 es el ajuste est\u00e1ndar USGA. Significa que tu \u00edndice es ligeramente mejor que tu promedio de mejores rondas \u2014 refleja tu potencial demostrado."
+              />
+            </Section>
 
-        {/* CTA */}
-        <div style={{ textAlign: 'center', marginTop: '32px' }}>
+            <Section title="Ejemplo real" subtitle="JUGADOR HCP 14 \u2014 12 RONDAS">
+              <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', marginBottom: '12px' }}>
+                <div style={{ fontSize: '13px', color: ivory, lineHeight: 1.8 }}>
+                  <strong style={{ color: gold }}>12 rondas \u2192 usar 4 mejores diferenciales</strong><br/>
+                  Diferenciales ordenados: <span style={{ fontFamily: '"DM Mono", monospace', color: green }}>11.2, 12.8, 13.1, 14.0</span><span style={{ color: textFaint }}>, 15.3, 16.1, 17.4, 18.2, 19.0, 20.1, 21.5, 23.8</span><br/><br/>
+                  Promedio mejores 4: (11.2 + 12.8 + 13.1 + 14.0) / 4 = <strong style={{ color: gold }}>12.78</strong><br/>
+                  \u00cdndice: 12.78 \u00d7 0.96 = <strong style={{ color: gold, fontSize: '16px' }}>12.3</strong>
+                </div>
+              </div>
+              <p style={{ fontSize: '13px', color: textFaint, lineHeight: 1.5, margin: 0 }}>
+                Necesit\u00e1s m\u00ednimo 3 rondas de 18 hoyos con datos de cancha (slope y rating) para activar tu \u00cdndice Golfers+. Se recalcula autom\u00e1ticamente cada vez que registr\u00e1s una ronda.
+              </p>
+            </Section>
+          </>
+        )}
+
+        {/* ═══ CTA ═══ */}
+        <div style={{ textAlign: 'center', marginTop: '24px' }}>
           <Link href="/perfil" style={{
             display: 'inline-block', background: gold, color: bg,
             padding: '14px 32px', borderRadius: '12px', fontSize: '15px', fontWeight: 700,
             textDecoration: 'none',
           }}>
-            Ver mis &iacute;ndices
+            Ver mis \u00edndices
           </Link>
-          <p style={{ fontSize: '12px', color: textFaint, marginTop: '12px' }}>
-            Necesit&aacute;s 3+ rondas con datos de cancha para activar el CPI&trade; y el &Iacute;ndice Golfers+.
-          </p>
+          <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '16px' }}>
+            <Link href="/demo" style={{ fontSize: '13px', color: textFaint, textDecoration: 'none' }}>Ver perfil demo</Link>
+            <Link href="/register" style={{ fontSize: '13px', color: gold, textDecoration: 'none', fontWeight: 600 }}>Crear cuenta gratis</Link>
+          </div>
         </div>
       </div>
     </div>
