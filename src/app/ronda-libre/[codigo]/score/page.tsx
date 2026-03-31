@@ -634,18 +634,25 @@ function ScorePageContent() {
         </div>
       )}
 
-      {/* ── Save indicator bar ── */}
+      {/* ── Save indicator ── */}
       {saveStatus !== 'idle' && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20,
-          height: '3px', transition: 'opacity 0.3s',
-          background: saveStatus === 'saving' ? '#C4992A'
-            : saveStatus === 'saved' ? '#00e676'
-            : saveStatus === 'offline' ? '#FCD34D'
-            : '#ff4444',
-          opacity: saveStatus === 'saved' ? 0.6 : 1,
+          position: 'fixed', top: '4px', right: '12px', zIndex: 200,
+          padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
+          transition: 'opacity 0.3s',
+          background: saveStatus === 'saving' ? 'rgba(196,153,42,0.9)'
+            : saveStatus === 'saved' ? 'rgba(0,230,118,0.85)'
+            : saveStatus === 'offline' ? 'rgba(252,211,77,0.9)'
+            : 'rgba(255,68,68,0.9)',
+          color: saveStatus === 'saved' ? '#070d18' : saveStatus === 'offline' ? '#070d18' : '#ffffff',
           animation: saveStatus === 'saving' ? 'savePulse 1s ease infinite' : 'none',
-        }} />
+          pointerEvents: 'none',
+        }}>
+          {saveStatus === 'saving' ? 'Guardando...'
+            : saveStatus === 'saved' ? '✓ Guardado'
+            : saveStatus === 'offline' ? 'Offline — local'
+            : 'Error al guardar'}
+        </div>
       )}
 
       {/* ── Header 48px — theme aware ── */}
@@ -777,7 +784,7 @@ function ScorePageContent() {
       <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
         {[
           { label: 'PAR', value: String(par) },
-          { label: 'HDCP', value: String(holeData.stroke_index) },
+          { label: 'SI', value: String(holeData.stroke_index) },
           { label: 'YDS', value: holeData.yardaje ? String(holeData.yardaje) : '—' },
         ].map((col, i) => (
           <div key={col.label} style={{

@@ -310,6 +310,8 @@ export default function ScoringPage() {
   const parTotal       = tournament.courses?.par_total ?? 72
 
   const grossTotal = holes.reduce((s, h) => s + (currentScores[h] ?? 0), 0)
+  const outGross   = holes.filter(h => h <= 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
+  const inGross    = holes.filter(h => h > 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
   const netTotal   = holes.reduce((s, h) => {
     if (!currentScores[h]) return s
     const hole        = courseHoles.find((ch) => ch.numero === h)
@@ -395,7 +397,12 @@ export default function ScoringPage() {
                 <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4' }}>{selectedPlayer.profiles?.name}</span>
                 <span style={{ color: '#94a8c0', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
               </div>
-              <div style={{ display: 'flex', gap: '20px' }}>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
+                {holeCount === 18 && grossTotal > 0 && (
+                  <div style={{ fontSize: '11px', color: '#94a8c0', fontFamily: '"DM Mono", monospace', alignSelf: 'center' }}>
+                    {outGross}+{inGross}
+                  </div>
+                )}
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '11px', color: '#94a8c0', marginBottom: '2px' }}>GROSS</div>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: '#edeae4' }}>{grossTotal || '—'}</div>
