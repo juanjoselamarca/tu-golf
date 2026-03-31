@@ -9,6 +9,8 @@ import { createClient } from '@/utils/supabase/server'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import type { ModoJuego } from '@/golf/core/rules'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { resolveLeaderboardTies } from '@/golf/core/countback'
+import type { CountbackPlayer, CountbackMode, CountbackResult } from '@/golf/core/countback'
 
 interface DBPlayer {
   id: string
@@ -35,7 +37,8 @@ interface DBTournament {
   date_start: string | null
   status: string
   codigo: string | null
-  courses: { id: string; nombre: string; ciudad: string; par_total: number } | null
+  afecta_estadisticas: boolean | null
+  courses: { id: string; nombre: string; ciudad: string; par_total: number; slope_rating: number; course_rating: number } | null
 }
 
 // Types for ronda-libre-based scoring
@@ -63,6 +66,7 @@ interface LeaderboardEntry {
   holesPlayed: number
   scores: (number | null)[]
   status: 'live' | 'F'
+  tieAnnotation?: string
 }
 
 interface DBCourseHole { numero: number; par: number; stroke_index: number }
@@ -137,7 +141,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   // Try to fetch real tournament
   const { data: rawTournament } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, hole_count, modo_juego, date_start, status, codigo, courses(id, nombre, ciudad, par_total)')
+    .select('id, name, slug, format, hole_count, modo_juego, date_start, status, codigo, afecta_estadisticas, courses(id, nombre, ciudad, par_total, slope_rating, course_rating)')
     .eq('slug', params.slug)
     .single()
 
@@ -152,7 +156,17 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   let totalHoyos                       = 18
   let dateDisplay                      = '12 Mar 2025'
   let isLive                           = false
+  let isClosed                         = false
   let stats: TourneyStats | null       = null
+  let resultados: {
+    grossWinner: { name: string; score: number } | null
+    netoWinner: { name: string; score: number } | null
+    grossSecond: { name: string; score: number } | null
+    netoSecond: { name: string; score: number } | null
+    avgField: number
+    totalEagles: number
+    totalBirdies: number
+  } | null = null
 
   if (tournament) {
     tournamentName = tournament.name
@@ -160,6 +174,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     modoJuego      = tournament.modo_juego ?? 'gross'
     totalHoyos     = tournament.hole_count ?? 18
     isLive         = tournament.status === 'active' || tournament.status === 'in_progress'
+    isClosed       = tournament.status === 'closed' || tournament.status === 'published'
 
     if (tournament.date_start) {
       dateDisplay = new Date(tournament.date_start).toLocaleDateString('es-CL', {
@@ -240,9 +255,29 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         return (a.grossTotal || 999) - (b.grossTotal || 999)
       })
 
-      players = entries.map((e, idx): Player => ({
+      // Apply countback to resolve ties
+      const cbMode: CountbackMode = modoJuego === 'stableford' ? 'higher_wins' : 'lower_wins'
+      const cbPlayers: CountbackPlayer[] = entries.map((e, idx) => ({
+        id: String(idx),
+        name: e.name,
+        scores: e.scores.map((s) => s ?? 0),
+        primaryScore: modoJuego === 'neto' ? e.netTotal : e.grossTotal,
+      }))
+      const cbResults = resolveLeaderboardTies(cbPlayers, cbMode)
+
+      // Map countback annotations back to entries
+      const annotationMap = new Map<string, string>()
+      cbResults.forEach((r) => annotationMap.set(r.id, r.annotation))
+
+      // Reorder entries by countback result
+      const reorderedEntries = cbResults.map((r) => {
+        const e = entries[parseInt(r.id)]
+        return { ...e, tieAnnotation: annotationMap.get(r.id) || '' }
+      })
+
+      players = reorderedEntries.map((e, idx): Player => ({
         pos:     idx + 1,
-        name:    e.name,
+        name:    e.tieAnnotation ? `${e.name} ${e.tieAnnotation}` : e.name,
         country: 'CL',
         cat:     'General',
         hcp:     e.handicap,
@@ -313,7 +348,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             return an - bn
           })
 
-        players = sorted.map((p, idx): Player => {
+        // Build intermediate entries for countback
+        const legacyEntries = sorted.map((p) => {
           const round  = p.rounds[0]
           const hcp    = p.handicap_at_registration ?? 0
           const scores = new Array(18).fill(null) as (number | null)[]
@@ -326,16 +362,42 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           const netVsPar    = holesPlayed > 0 ? round.total_net - parTotal : 0
 
           return {
-            pos:     idx + 1,
-            name:    p.profiles?.name || 'Jugador',
-            country: 'CL',
-            cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
+            dbPlayer: p,
             hcp,
-            today:   netVsPar,
-            total:   netVsPar,
-            holes:   holesPlayed,
-            status:  round.status === 'closed' || round.status === 'official' ? 'F' : 'live',
             scores,
+            holesPlayed,
+            netVsPar,
+            grossTotal: round.total_gross ?? 0,
+            netTotal:   round.total_net ?? 0,
+            status: (round.status === 'closed' || round.status === 'official' ? 'F' : 'live') as 'F' | 'live',
+          }
+        })
+
+        // Apply countback
+        const cbModeLegacy: CountbackMode = modoJuego === 'stableford' ? 'higher_wins' : 'lower_wins'
+        const cbPlayersLegacy: CountbackPlayer[] = legacyEntries.map((e, idx) => ({
+          id: String(idx),
+          name: e.dbPlayer.profiles?.name || 'Jugador',
+          scores: e.scores.map((s) => s ?? 0),
+          primaryScore: modoJuego === 'neto' ? e.netTotal : e.grossTotal,
+        }))
+        const cbResultsLegacy = resolveLeaderboardTies(cbPlayersLegacy, cbModeLegacy)
+
+        players = cbResultsLegacy.map((r, idx): Player => {
+          const e = legacyEntries[parseInt(r.id)]
+          const nameWithAnnotation = r.annotation ? `${r.name} ${r.annotation}` : r.name
+
+          return {
+            pos:     idx + 1,
+            name:    nameWithAnnotation,
+            country: 'CL',
+            cat:     e.dbPlayer.categories?.name ? `Cat. ${e.dbPlayer.categories.name}` : 'General',
+            hcp:     e.hcp,
+            today:   e.netVsPar,
+            total:   e.netVsPar,
+            holes:   e.holesPlayed,
+            status:  e.status,
+            scores:  e.scores,
           }
         })
 
@@ -402,6 +464,42 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     players  = PLAYERS
     parTotal = PAR.reduce((s: number, p: number) => s + p, 0)
     isLive   = true
+  }
+
+  // Compute tournament results when closed/published
+  if (isClosed && players.length > 0) {
+    // Players with finished rounds sorted by gross
+    const finishedPlayers = players.filter((p) => p.status === 'F' && p.holes > 0)
+    if (finishedPlayers.length > 0) {
+      const byGross = [...finishedPlayers].sort((a, b) => {
+        const aGross = (a.scores || []).reduce((sum: number, s: number | null) => sum + (s ?? 0), 0)
+        const bGross = (b.scores || []).reduce((sum: number, s: number | null) => sum + (s ?? 0), 0)
+        return aGross - bGross
+      })
+      const byNeto = [...finishedPlayers].sort((a, b) => a.total - b.total)
+
+      const grossScore1 = byGross[0] ? (byGross[0].scores || []).reduce((sum: number, s: number | null) => sum + (s ?? 0), 0) : 0
+      const grossScore2 = byGross[1] ? (byGross[1].scores || []).reduce((sum: number, s: number | null) => sum + (s ?? 0), 0) : 0
+      const netoScore1 = byNeto[0] ? byNeto[0].total + parTotal : 0
+      const netoScore2 = byNeto[1] ? byNeto[1].total + parTotal : 0
+
+      const avgGross = finishedPlayers.reduce((sum: number, p) =>
+        sum + (p.scores || []).reduce((s: number, sc: number | null) => s + (sc ?? 0), 0), 0) / finishedPlayers.length
+
+      // Count eagles and birdies from stats or recompute
+      const totalEagles = stats?.eagles ?? 0
+      const totalBirdies = stats?.birdies ?? 0
+
+      resultados = {
+        grossWinner: byGross[0] ? { name: byGross[0].name, score: grossScore1 } : null,
+        netoWinner:  byNeto[0]  ? { name: byNeto[0].name,  score: netoScore1 }  : null,
+        grossSecond: byGross[1] ? { name: byGross[1].name, score: grossScore2 } : null,
+        netoSecond:  byNeto[1]  ? { name: byNeto[1].name,  score: netoScore2 }  : null,
+        avgField: avgGross,
+        totalEagles,
+        totalBirdies,
+      }
+    }
   }
 
   // Use real cover or default golf photo
@@ -567,6 +665,68 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
                 <div style={{ fontSize: '13px', color: '#94a8c0' }}>Avg {fmtNet(stats.easiestHole.avg)} vs par</div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Tournament results — only when closed/published */}
+      {resultados && (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="gold-divider mb-8" />
+          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', marginBottom: '20px', fontWeight: 600 }}>
+            Resultados
+          </h2>
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {resultados.grossWinner && (
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '24px' }}>🏆</span>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1° Gross</div>
+                  <div style={{ fontSize: '16px', color: '#edeae4', fontWeight: 700 }}>{resultados.grossWinner.name} <span style={{ color: '#c4992a' }}>({resultados.grossWinner.score})</span></div>
+                </div>
+              </div>
+            )}
+            {resultados.netoWinner && (
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '24px' }}>🏆</span>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1° Neto</div>
+                  <div style={{ fontSize: '16px', color: '#edeae4', fontWeight: 700 }}>{resultados.netoWinner.name} <span style={{ color: '#c4992a' }}>({resultados.netoWinner.score})</span></div>
+                </div>
+              </div>
+            )}
+            {resultados.grossSecond && (
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '24px' }}>🥈</span>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2° Gross</div>
+                  <div style={{ fontSize: '16px', color: '#edeae4', fontWeight: 700 }}>{resultados.grossSecond.name} <span style={{ color: '#c4992a' }}>({resultados.grossSecond.score})</span></div>
+                </div>
+              </div>
+            )}
+            {resultados.netoSecond && (
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '24px' }}>🥈</span>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2° Neto</div>
+                  <div style={{ fontSize: '16px', color: '#edeae4', fontWeight: 700 }}>{resultados.netoSecond.name} <span style={{ color: '#c4992a' }}>({resultados.netoSecond.score})</span></div>
+                </div>
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Promedio field</div>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700 }}>{resultados.avgField.toFixed(1)}</div>
+              </div>
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Eagles</div>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700 }}>{resultados.totalEagles}</div>
+              </div>
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Birdies</div>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700 }}>{resultados.totalBirdies}</div>
+              </div>
+            </div>
           </div>
         </div>
       )}

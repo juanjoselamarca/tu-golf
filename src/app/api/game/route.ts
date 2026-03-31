@@ -3,6 +3,9 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+
+export const dynamic = 'force-dynamic'
 
 function validateScoreInputs(body: Record<string, unknown>): string | null {
   const { hole_number, gross_score, par } = body
@@ -212,6 +215,89 @@ export async function POST(request: NextRequest) {
       .eq('id', round_id)
 
     if (error) return NextResponse.json({ error: 'No se pudo finalizar la ronda. Intenta de nuevo.' }, { status: 500 })
+
+    // Save to historical_rounds if tournament.afecta_estadisticas = true
+    try {
+      const { data: round } = await svc
+        .from('rounds')
+        .select('player_id, total_gross, tournament_id')
+        .eq('id', round_id)
+        .single()
+
+      if (round) {
+        const { data: tourneyData } = await svc
+          .from('tournaments')
+          .select('afecta_estadisticas, course_id, courses(nombre, slope_rating, course_rating)')
+          .eq('id', round.tournament_id)
+          .single()
+
+        const tourney = tourneyData as unknown as {
+          afecta_estadisticas: boolean | null
+          course_id: string | null
+          courses: { nombre: string; slope_rating: number; course_rating: number } | null
+        } | null
+
+        const { data: player } = await svc
+          .from('players')
+          .select('user_id')
+          .eq('id', round.player_id)
+          .single()
+
+        if (tourney?.afecta_estadisticas && player?.user_id && round.total_gross > 0) {
+          const { data: holeScores } = await svc
+            .from('hole_scores')
+            .select('hole_number, gross_score')
+            .eq('round_id', round_id)
+            .order('hole_number')
+
+          const scoresArray = Array.from({ length: 18 }, (_, i) => {
+            const hs = holeScores?.find((h: { hole_number: number }) => h.hole_number === i + 1)
+            return hs?.gross_score ?? null
+          })
+
+          const slopeRating = tourney.courses?.slope_rating ?? null
+          const courseRating = tourney.courses?.course_rating ?? null
+          const diferencial = (slopeRating && courseRating)
+            ? calcularDiferencial(round.total_gross, courseRating, slopeRating)
+            : null
+
+          await svc.from('historical_rounds').insert({
+            user_id: player.user_id,
+            course_name: tourney.courses?.nombre ?? 'Torneo',
+            course_id: tourney.course_id ?? null,
+            played_at: new Date().toISOString().split('T')[0],
+            total_gross: round.total_gross,
+            scores: scoresArray,
+            privacy: 'private',
+            slope_rating: slopeRating,
+            course_rating: courseRating,
+            diferencial,
+            import_source: 'tournament',
+          })
+
+          // Recalculate index and nivel (non-blocking)
+          svc.rpc('calcular_indice_golfers', { p_user_id: player.user_id }).then(() => {})
+
+          const hace90Dias = new Date()
+          hace90Dias.setDate(hace90Dias.getDate() - 90)
+          svc.from('historical_rounds')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', player.user_id)
+            .gte('played_at', hace90Dias.toISOString())
+            .then(({ count }: { count: number | null }) => {
+              const nuevoNivel = calcularNivel(count ?? 0)
+              const expira = new Date()
+              expira.setDate(expira.getDate() + 60)
+              svc.from('profiles').update({
+                nivel: nuevoNivel,
+                nivel_updated_at: new Date().toISOString(),
+                nivel_expires_at: expira.toISOString(),
+              }).eq('id', player.user_id).then(() => {})
+            })
+        }
+      }
+    } catch { /* historical_rounds save is non-blocking */ }
+
     return NextResponse.json({ success: true })
   }
 
