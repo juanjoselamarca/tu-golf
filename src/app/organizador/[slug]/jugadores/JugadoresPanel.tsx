@@ -21,7 +21,7 @@ export interface Player {
 }
 
 interface Props {
-  tournament:     Tournament
+  tournament:     Tournament & { codigo?: string | null }
   initialPlayers: Player[]
   categories:     Category[]
   flights:        Flight[]
@@ -49,6 +49,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
   const { showError, showWarning, showSuccess } = useToast()
 
   const [players,         setPlayers]         = useState<Player[]>(initialPlayers)
+  const [codeCopied,      setCodeCopied]      = useState(false)
   const [search,          setSearch]          = useState('')
   const [results,         setResults]         = useState<Profile[]>([])
   const [showResults,     setShowResults]     = useState(false)
@@ -196,6 +197,59 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
       </div>
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 24px' }}>
+
+        {/* Tournament code card */}
+        {tournament.codigo && (
+          <div
+            style={{
+              background: 'rgba(14,28,47,0.92)',
+              border: '1px solid rgba(196,153,42,0.3)',
+              borderRadius: '14px',
+              padding: '24px 28px',
+              marginBottom: '24px',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '12px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+              Comparte este codigo para que los jugadores se inscriban
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+              <span
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: '36px',
+                  fontWeight: 700,
+                  color: '#c4992a',
+                  letterSpacing: '0.15em',
+                }}
+              >
+                {tournament.codigo}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(tournament.codigo!).then(() => {
+                    setCodeCopied(true)
+                    setTimeout(() => setCodeCopied(false), 2000)
+                  })
+                }}
+                style={{
+                  background: codeCopied ? 'rgba(34,197,94,0.15)' : 'rgba(196,153,42,0.12)',
+                  border: codeCopied ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(196,153,42,0.3)',
+                  color: codeCopied ? '#22c55e' : '#c4992a',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 200ms',
+                }}
+              >
+                {codeCopied ? 'Copiado!' : 'Copiar'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Inscribir jugador */}
         <div

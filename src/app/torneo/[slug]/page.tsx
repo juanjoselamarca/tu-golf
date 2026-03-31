@@ -34,6 +34,7 @@ interface DBTournament {
   modo_juego: ModoJuego | null
   date_start: string | null
   status: string
+  codigo: string | null
   courses: { id: string; nombre: string; ciudad: string; par_total: number } | null
 }
 
@@ -136,7 +137,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   // Try to fetch real tournament
   const { data: rawTournament } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, hole_count, modo_juego, date_start, status, courses(id, nombre, ciudad, par_total)')
+    .select('id, name, slug, format, hole_count, modo_juego, date_start, status, codigo, courses(id, nombre, ciudad, par_total)')
     .eq('slug', params.slug)
     .single()
 
@@ -462,6 +463,13 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             {tournament?.courses?.ciudad && <>, {tournament.courses.ciudad}</>}
             {dateDisplay && <> &nbsp;·&nbsp; {dateDisplay}</>}
           </p>
+
+          {tournament?.codigo && (
+            <div style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(14,28,47,0.7)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '8px', padding: '5px 12px' }}>
+              <span style={{ fontSize: '11px', color: '#94a8c0' }}>Codigo:</span>
+              <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#c4992a', letterSpacing: '0.1em' }}>{tournament.codigo}</span>
+            </div>
+          )}
         </div>
       </div>
 
