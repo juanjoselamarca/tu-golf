@@ -22,6 +22,7 @@ export default function Navbar() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [playSheetOpen, setPlaySheetOpen] = useState(false)
   const [notifHubOpen, setNotifHubOpen] = useState(false)
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -45,7 +46,7 @@ export default function Navbar() {
   }, [])
 
   // Close sidebar & play sheet on route change
-  useEffect(() => { setSidebarOpen(false); setPlaySheetOpen(false) }, [pathname])
+  useEffect(() => { setSidebarOpen(false); setPlaySheetOpen(false); setAvatarMenuOpen(false) }, [pathname])
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -71,7 +72,6 @@ export default function Navbar() {
       label: 'COMUNIDAD',
       items: [
         { href: '/en-vivo', icon: '🟢', label: 'En Vivo', badge: 'LIVE' },
-        { href: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
       ],
     },
     {
@@ -79,20 +79,14 @@ export default function Navbar() {
       items: [
         { href: '/perfil/stats', icon: '📊', label: 'Mi CPI' },
         { href: '/perfil/historial', icon: '📋', label: 'Mis rondas' },
-        { href: '/coach', icon: '🐯', label: 'tAIger+ Coach', badge: 'IA' },
-        { href: '/importar', icon: '📥', label: 'Importar historial' },
+        { href: '/coach', icon: '🐯', label: 'tAIger+', badge: 'IA' },
+        { href: '/importar', icon: '📥', label: 'Importar' },
       ],
     },
     {
       label: 'LABORATORIO',
       items: [
         { href: '/indices', icon: '⚡', label: 'Golf Intelligence' },
-      ],
-    },
-    {
-      label: 'CUENTA',
-      items: [
-        ...(isAdmin ? [{ href: '/admin', icon: '⚙️', label: 'Administración' }] : []),
       ],
     },
   ] : []
@@ -143,29 +137,69 @@ export default function Navbar() {
 
           {/* Right: notification bell + avatar or login */}
           {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
               <button
-                onClick={() => setNotifHubOpen(true)}
+                onClick={() => setAvatarMenuOpen(!avatarMenuOpen)}
                 style={{
-                  width: '36px', height: '36px', background: 'none', border: 'none',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'rgba(255,255,255,0.5)', fontSize: '18px', padding: 0,
+                  width: '36px', height: '36px', borderRadius: '50%',
+                  background: avatarMenuOpen ? '#edeae4' : '#C4992A',
+                  color: '#070d18',
+                  fontWeight: 700, fontSize: '13px', border: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', flexShrink: 0,
+                  transition: 'background 0.15s ease',
                 }}
-                aria-label="Notificaciones"
+                aria-label="Mi cuenta"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-              </button>
-              <Link href="/perfil" style={{
-                width: '36px', height: '36px', borderRadius: '50%',
-                background: '#C4992A', color: '#070d18',
-                fontWeight: 700, fontSize: '13px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                textDecoration: 'none', flexShrink: 0,
-              }}>
                 {userInitials}
-              </Link>
+              </button>
+
+              {/* Avatar dropdown */}
+              {avatarMenuOpen && (
+                <>
+                  <div onClick={() => setAvatarMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
+                  <div style={{
+                    position: 'absolute', top: '44px', right: 0, zIndex: 200,
+                    background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)',
+                    borderRadius: '12px', padding: '8px', minWidth: '200px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                  }}>
+                    <Link href="/perfil" onClick={() => setAvatarMenuOpen(false)} style={{
+                      display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
+                      color: '#edeae4', fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
+                      minHeight: '44px',
+                    }}>
+                      <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>👤</span>Mi Perfil
+                    </Link>
+                    <button onClick={() => { setAvatarMenuOpen(false); setNotifHubOpen(true) }} style={{
+                      display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
+                      color: '#edeae4', fontSize: '14px', background: 'none', border: 'none',
+                      cursor: 'pointer', borderRadius: '8px', width: '100%', textAlign: 'left',
+                      minHeight: '44px',
+                    }}>
+                      <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>🔔</span>Notificaciones
+                    </button>
+                    {isAdmin && (
+                      <Link href="/admin" onClick={() => setAvatarMenuOpen(false)} style={{
+                        display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
+                        color: '#edeae4', fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
+                        minHeight: '44px',
+                      }}>
+                        <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>⚙️</span>Administración
+                      </Link>
+                    )}
+                    <div style={{ height: '1px', background: 'rgba(196,153,42,0.1)', margin: '4px 0' }} />
+                    <button onClick={() => { setAvatarMenuOpen(false); handleLogout() }} style={{
+                      display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
+                      color: '#94a8c0', fontSize: '14px', background: 'none', border: 'none',
+                      cursor: 'pointer', borderRadius: '8px', width: '100%', textAlign: 'left',
+                      minHeight: '44px',
+                    }}>
+                      <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>🚪</span>Cerrar sesión
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <Link href="/login" style={{
@@ -314,27 +348,8 @@ export default function Navbar() {
           borderTop: '1px solid rgba(196,153,42,0.1)',
         }}>
           {user ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <button onClick={() => { setSidebarOpen(false); setNotifHubOpen(true) }} style={{
-                display: 'flex', alignItems: 'center', gap: '14px',
-                padding: '12px', width: '100%', minHeight: '48px',
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: '#edeae4', fontSize: '14px', textAlign: 'left',
-                borderRadius: '10px',
-              }}>
-                <span style={{ fontSize: '18px', width: '24px', textAlign: 'center' }}>🔔</span>
-                Notificaciones
-              </button>
-              <button onClick={handleLogout} style={{
-                display: 'flex', alignItems: 'center', gap: '14px',
-                padding: '12px', width: '100%', minHeight: '48px',
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: '#94a8c0', fontSize: '14px', textAlign: 'left',
-                borderRadius: '10px',
-              }}>
-                <span style={{ fontSize: '18px', width: '24px', textAlign: 'center' }}>🚪</span>
-                Cerrar sesión
-              </button>
+            <div style={{ padding: '4px 12px', fontSize: '12px', color: 'rgba(255,255,255,0.25)' }}>
+              {user.email}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
