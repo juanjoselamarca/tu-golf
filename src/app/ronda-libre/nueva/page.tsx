@@ -102,6 +102,7 @@ export default function NuevaRondaLibrePage() {
   const { showError } = useToast()
 
   const [userId, setUserId] = useState<string | null>(null)
+  const [creatorHandicap, setCreatorHandicap] = useState<number | null>(null)
   const [cancha, setCancha] = useState('')
   const [canchaSearch, setCanchaSearch] = useState('')
   const [showCanchaDropdown, setShowCanchaDropdown] = useState(false)
@@ -155,10 +156,11 @@ export default function NuevaRondaLibrePage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name')
+        .select('name, indice')
         .eq('id', user.id)
         .single()
 
+      setCreatorHandicap(profile?.indice ?? null)
       const name = profile?.name || user.user_metadata?.name || user.email?.split('@')[0] || 'Jugador'
       setJugadores([name, '', '', ''])
 
@@ -306,6 +308,7 @@ export default function NuevaRondaLibrePage() {
         nombre: jugadoresValidos[i],
         user_id: i === 0 ? userId : null,
         scores: {},
+        handicap: i === 0 ? creatorHandicap : null,
       }
       // In admin mode, mark non-creator players as guests with phone
       if (adminMode && i > 0) {

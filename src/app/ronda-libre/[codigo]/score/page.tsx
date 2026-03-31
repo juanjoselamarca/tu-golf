@@ -51,7 +51,7 @@ function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void })
 }
 
 /* ── Types ──────────────────────────────────────────────────────────── */
-interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }
+interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number>; handicap?: number | null }
 interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; hoyo_inicio?: number | null; ronda_libre_jugadores: Jugador[] }
 interface HoleData { numero: number; par: number; stroke_index: number; yardaje: number | null }
 
@@ -242,7 +242,7 @@ function ScorePageContent() {
       const supabase = createClient()
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, hoyo_inicio, ronda_libre_jugadores(id, nombre, user_id, scores)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, hoyo_inicio, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
         .eq('codigo', codigo)
         .single()
       if (!data) { router.push('/dashboard'); return }
@@ -286,7 +286,8 @@ function ScorePageContent() {
 
       const hcpMap: Record<string, number> = {}
       for (const j of r.ronda_libre_jugadores) {
-        if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); hcpMap[j.id] = p?.indice ?? 18 }
+        if (j.handicap != null) { hcpMap[j.id] = j.handicap }
+        else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); hcpMap[j.id] = p?.indice ?? 18 }
         else hcpMap[j.id] = 18
       }
       setPlayerHcp(hcpMap)
@@ -611,11 +612,37 @@ function ScorePageContent() {
     return d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`
   }
 
-  // FIX #7: Handicap strokes on this hole
+  // Handicap strokes on this hole
   const hcpForPlayer = playerHcp[activeJugadorId] ?? 18
   const strokesOnHole = strokesRecibidosEnHoyo(hcpForPlayer, holeData.stroke_index)
 
-  // FIX #5: double bogey warning
+  // Net score & Stableford for current hole
+  const currentNetScore = score != null ? score - strokesOnHole : null
+  const currentNetDiff = currentNetScore != null ? currentNetScore - par : null
+  const currentStablefordPts = score != null ? puntosStablefordHoyo(score, par, hcpForPlayer, holeData.stroke_index) : null
+
+  // Total net & stableford across all holes played
+  let totalNet = 0, totalNetPar = 0, totalStableford = 0
+  for (let h = 1; h <= totalHoles; h++) {
+    const s = scores[activeJugadorId]?.[h]
+    if (s != null) {
+      const hd = holeDataMap[h]
+      const strk = strokesRecibidosEnHoyo(hcpForPlayer, hd?.stroke_index ?? h)
+      totalNet += s - strk
+      totalNetPar += parMap[h] ?? 4
+      totalStableford += puntosStablefordHoyo(s, parMap[h] ?? 4, hcpForPlayer, hd?.stroke_index ?? h)
+    }
+  }
+  const totalNetOverUnder = totalNet - totalNetPar
+
+  // What to display based on modo_juego
+  const modoJuego = ronda.modo_juego ?? 'gross'
+  const showNet = modoJuego === 'neto'
+  const showStableford = modoJuego === 'stableford'
+  const displayOverUnder = showNet ? totalNetOverUnder : totalOverUnder
+  const displayTotal = showStableford ? totalStableford : totalGross
+
+  // Double bogey warning
   const isAboveDoubleBogey = score != null && score > par + 2
 
   // Score styles for mini scorecard (theme-aware)
@@ -675,8 +702,8 @@ function ScorePageContent() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: totalOverUnder < 0 ? '#93C5FD' : totalOverUnder === 0 ? theme.textMuted : '#FCD34D' }}>
-              {holesPlayed > 0 ? (totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder) : '—'}
+            <div style={{ fontSize: '16px', fontWeight: 700, color: showStableford ? '#C4992A' : displayOverUnder < 0 ? '#93C5FD' : displayOverUnder === 0 ? theme.textMuted : '#FCD34D' }}>
+              {holesPlayed > 0 ? (showStableford ? `${totalStableford} pts` : displayOverUnder > 0 ? `+${displayOverUnder}` : displayOverUnder === 0 ? 'E' : displayOverUnder) : '—'}
             </div>
             <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>THRU {holesPlayed}/{totalHoles}</div>
           </div>
@@ -874,6 +901,19 @@ function ScorePageContent() {
             fontSize: '13px', fontWeight: 500, letterSpacing: '0.01em',
             ...getChipStyle(score, par, true),
           }}>{getChipLabel(score, par)}</div>
+        )}
+
+        {/* Net / Stableford indicator */}
+        {score != null && (showNet || showStableford) && (
+          <div style={{ marginTop: '6px', fontSize: '12px', color: theme.textMuted, fontFamily: '"DM Mono", monospace' }}>
+            {showNet && currentNetDiff != null && (
+              <span>Neto: {currentNetDiff > 0 ? `+${currentNetDiff}` : currentNetDiff === 0 ? 'E' : currentNetDiff}</span>
+            )}
+            {showStableford && currentStablefordPts != null && (
+              <span>{currentStablefordPts} {currentStablefordPts === 1 ? 'punto' : 'puntos'}</span>
+            )}
+            {strokesOnHole > 0 && <span style={{ color: theme.textFaint }}> ({strokesOnHole} golpe{strokesOnHole > 1 ? 's' : ''})</span>}
+          </div>
         )}
 
         {/* Double bogey warning */}
