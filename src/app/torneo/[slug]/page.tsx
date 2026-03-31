@@ -37,6 +37,33 @@ interface DBTournament {
   courses: { id: string; nombre: string; ciudad: string; par_total: number } | null
 }
 
+// Types for ronda-libre-based scoring
+interface DBTournamentGroup {
+  id: string
+  ronda_libre_id: string | null
+  name: string
+}
+
+interface DBRondaLibreJugador {
+  id: string
+  nombre: string
+  user_id: string | null
+  scores: Record<string, number> | null
+  handicap: number | null
+  ronda_id: string
+}
+
+interface LeaderboardEntry {
+  name: string
+  handicap: number
+  grossTotal: number
+  netTotal: number
+  vsPar: number
+  holesPlayed: number
+  scores: (number | null)[]
+  status: 'live' | 'F'
+}
+
 interface DBCourseHole { numero: number; par: number; stroke_index: number }
 
 interface TourneyStats {
@@ -139,19 +166,6 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       })
     }
 
-    const { data: rawPlayers } = await supabase
-      .from('players')
-      .select(
-        `id, handicap_at_registration,
-         profiles(name, indice),
-         categories(name),
-         rounds(id, status, total_gross, total_net, total_points,
-           hole_scores(hole_number, gross_score))`
-      )
-      .eq('tournament_id', tournament.id)
-
-    const dbPlayers = (rawPlayers as unknown as DBPlayer[]) || []
-
     // Course holes for stats + GWI
     let courseHoles: DBCourseHole[] = []
     if (tournament.courses?.id) {
@@ -163,98 +177,224 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       for (let i = 1; i <= totalHoyos; i++) courseHoles.push({ numero: i, par: 4, stroke_index: i })
     }
 
-    if (dbPlayers.length > 0) {
-      // Map to Player type expected by LeaderboardTable
-      const sorted = dbPlayers
-        .filter((p) => p.rounds?.length > 0)
-        .sort((a, b) => {
-          const an = a.rounds[0].total_net ?? 999
-          const bn = b.rounds[0].total_net ?? 999
-          return an - bn
-        })
+    // ── Check if tournament uses ronda-libre-based groups ──
+    const { data: rawGroups } = await supabase
+      .from('tournament_groups')
+      .select('id, ronda_libre_id, name')
+      .eq('tournament_id', tournament.id)
 
-      players = sorted.map((p, idx): Player => {
-        const round  = p.rounds[0]
-        const hcp    = p.handicap_at_registration ?? 0
-        const scores = new Array(18).fill(null) as (number | null)[]
+    const groups = (rawGroups as unknown as DBTournamentGroup[]) || []
+    const hasRondaLibreGroups = groups.some((g) => g.ronda_libre_id != null)
 
-        ;(round.hole_scores || []).forEach((hs) => {
-          if (hs.gross_score != null) scores[hs.hole_number - 1] = hs.gross_score
-        })
+    if (hasRondaLibreGroups) {
+      // ═══ NEW PATH: Aggregate scores from rondas libres ═══
+      const rondaIds = groups.map((g) => g.ronda_libre_id).filter(Boolean) as string[]
 
-        const holesPlayed = scores.filter((s) => s !== null).length
-        const netVsPar    = holesPlayed > 0 ? round.total_net - parTotal : 0
+      const { data: rawJugadores } = await supabase
+        .from('ronda_libre_jugadores')
+        .select('id, nombre, user_id, scores, handicap, ronda_id')
+        .in('ronda_id', rondaIds)
+
+      const jugadores = (rawJugadores as unknown as DBRondaLibreJugador[]) || []
+      const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
+
+      // Build leaderboard entries from ronda libre data
+      const entries: LeaderboardEntry[] = jugadores.map((j) => {
+        const hcp = j.handicap ?? 0
+        const scoresMap = j.scores || {}
+        const scoreArr = new Array(totalHoyos).fill(null) as (number | null)[]
+        let grossTotal = 0, netTotal = 0, holesPlayed = 0
+
+        for (let h = 1; h <= totalHoyos; h++) {
+          const gross = scoresMap[String(h)]
+          if (gross != null) {
+            scoreArr[h - 1] = gross
+            grossTotal += gross
+            const hole = holeMap.get(h)
+            const strokes = hole ? strokesRecibidosEnHoyo(hcp, hole.stroke_index) : 0
+            netTotal += gross - strokes
+            holesPlayed++
+          }
+        }
+
+        const parPlayed = courseHoles
+          .filter((ch) => scoresMap[String(ch.numero)] != null)
+          .reduce((sum, ch) => sum + ch.par, 0)
 
         return {
-          pos:     idx + 1,
-          name:    p.profiles?.name || 'Jugador',
-          country: 'CL',
-          cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
-          hcp,
-          today:   netVsPar,
-          total:   netVsPar,
-          holes:   holesPlayed,
-          status:  round.status === 'closed' || round.status === 'official' ? 'F' : 'live',
-          scores,
+          name: j.nombre,
+          handicap: hcp,
+          grossTotal,
+          netTotal,
+          vsPar: holesPlayed > 0 ? grossTotal - parPlayed : 0,
+          holesPlayed,
+          scores: scoreArr,
+          status: (holesPlayed >= totalHoyos ? 'F' : 'live') as 'F' | 'live',
         }
       })
 
-      // Players with no round yet (registered but not started)
-      const noRound = dbPlayers.filter((p) => !p.rounds?.length)
-      noRound.forEach((p, i) => {
-        players.push({
-          pos:     sorted.length + i + 1,
-          name:    p.profiles?.name || 'Jugador',
-          country: 'CL',
-          cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
-          hcp:     p.handicap_at_registration ?? 0,
-          today:   0,
-          total:   0,
-          holes:   0,
-          status:  'live',
-          scores:  new Array(18).fill(null),
-        })
+      // Sort by modo_juego
+      entries.sort((a, b) => {
+        if (modoJuego === 'neto') return (a.netTotal || 999) - (b.netTotal || 999)
+        return (a.grossTotal || 999) - (b.grossTotal || 999)
       })
-      stats = computeStats(dbPlayers, courseHoles, parTotal)
 
-      // GWI inputs
-      const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
-      gwiInputs = dbPlayers
-        .filter((p) => p.rounds?.length > 0)
-        .map((p) => {
-          const hcp        = p.handicap_at_registration ?? 18
-          const holeScores = p.rounds[0].hole_scores ?? []
-          let overUnderGross = 0, overUnderNeto = 0, totalSF = 0, hoyosComp = 0
+      players = entries.map((e, idx): Player => ({
+        pos:     idx + 1,
+        name:    e.name,
+        country: 'CL',
+        cat:     'General',
+        hcp:     e.handicap,
+        today:   e.vsPar,
+        total:   e.vsPar,
+        holes:   e.holesPlayed,
+        status:  e.status,
+        scores:  e.scores,
+      }))
 
-          for (const hs of holeScores) {
-            if (!hs.gross_score) continue
-            const hole = holeMap.get(hs.hole_number)
-            if (!hole) continue
-            hoyosComp++
-            overUnderGross += hs.gross_score - hole.par
-            overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(hcp, hole.stroke_index)) - hole.par
-            totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, hole.stroke_index)
-          }
+      // GWI inputs from ronda libre data
+      gwiInputs = jugadores.map((j) => {
+        const hcp = j.handicap ?? 18
+        const scoresMap = j.scores || {}
+        let overUnderGross = 0, overUnderNeto = 0, totalSF = 0, hoyosComp = 0
 
-          const currentScore = modoJuego === 'stableford' ? totalSF
-            : modoJuego === 'neto' ? overUnderNeto : overUnderGross
+        for (let h = 1; h <= totalHoyos; h++) {
+          const gross = scoresMap[String(h)]
+          if (gross == null) continue
+          const hole = holeMap.get(h)
+          if (!hole) continue
+          hoyosComp++
+          overUnderGross += gross - hole.par
+          overUnderNeto += (gross - strokesRecibidosEnHoyo(hcp, hole.stroke_index)) - hole.par
+          totalSF += puntosStablefordHoyo(gross, hole.par, hcp, hole.stroke_index)
+        }
+
+        const currentScore = modoJuego === 'stableford' ? totalSF
+          : modoJuego === 'neto' ? overUnderNeto : overUnderGross
+
+        return {
+          id:                   j.id,
+          nombre:               j.nombre,
+          handicapIndex:        hcp,
+          currentScore,
+          hoyosCompletados:     hoyosComp,
+          modoJuego,
+          historicalAvg:        null,
+          historicalRoundsCount: 0,
+          courseAvg:            null,
+          courseRoundsCount:    0,
+          patterns:             null,
+        } satisfies JugadorGWIInput
+      })
+
+    } else {
+      // ═══ LEGACY PATH: Use hole_scores from rounds table ═══
+      const { data: rawPlayers } = await supabase
+        .from('players')
+        .select(
+          `id, handicap_at_registration,
+           profiles(name, indice),
+           categories(name),
+           rounds(id, status, total_gross, total_net, total_points,
+             hole_scores(hole_number, gross_score))`
+        )
+        .eq('tournament_id', tournament.id)
+
+      const dbPlayers = (rawPlayers as unknown as DBPlayer[]) || []
+
+      if (dbPlayers.length > 0) {
+        // Map to Player type expected by LeaderboardTable
+        const sorted = dbPlayers
+          .filter((p) => p.rounds?.length > 0)
+          .sort((a, b) => {
+            const an = a.rounds[0].total_net ?? 999
+            const bn = b.rounds[0].total_net ?? 999
+            return an - bn
+          })
+
+        players = sorted.map((p, idx): Player => {
+          const round  = p.rounds[0]
+          const hcp    = p.handicap_at_registration ?? 0
+          const scores = new Array(18).fill(null) as (number | null)[]
+
+          ;(round.hole_scores || []).forEach((hs) => {
+            if (hs.gross_score != null) scores[hs.hole_number - 1] = hs.gross_score
+          })
+
+          const holesPlayed = scores.filter((s) => s !== null).length
+          const netVsPar    = holesPlayed > 0 ? round.total_net - parTotal : 0
 
           return {
-            id:                   p.id,
-            nombre:               p.profiles?.name ?? 'Jugador',
-            handicapIndex:        hcp,
-            currentScore,
-            hoyosCompletados:     hoyosComp,
-            modoJuego,
-            historicalAvg:        null,
-            historicalRoundsCount: 0,
-            courseAvg:            null,
-            courseRoundsCount:    0,
-            patterns:             null,
-          } satisfies JugadorGWIInput
+            pos:     idx + 1,
+            name:    p.profiles?.name || 'Jugador',
+            country: 'CL',
+            cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
+            hcp,
+            today:   netVsPar,
+            total:   netVsPar,
+            holes:   holesPlayed,
+            status:  round.status === 'closed' || round.status === 'official' ? 'F' : 'live',
+            scores,
+          }
         })
-    } else {
-      players = []
+
+        // Players with no round yet (registered but not started)
+        const noRound = dbPlayers.filter((p) => !p.rounds?.length)
+        noRound.forEach((p, i) => {
+          players.push({
+            pos:     sorted.length + i + 1,
+            name:    p.profiles?.name || 'Jugador',
+            country: 'CL',
+            cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
+            hcp:     p.handicap_at_registration ?? 0,
+            today:   0,
+            total:   0,
+            holes:   0,
+            status:  'live',
+            scores:  new Array(18).fill(null),
+          })
+        })
+        stats = computeStats(dbPlayers, courseHoles, parTotal)
+
+        // GWI inputs
+        const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
+        gwiInputs = dbPlayers
+          .filter((p) => p.rounds?.length > 0)
+          .map((p) => {
+            const hcp        = p.handicap_at_registration ?? 18
+            const holeScores = p.rounds[0].hole_scores ?? []
+            let overUnderGross = 0, overUnderNeto = 0, totalSF = 0, hoyosComp = 0
+
+            for (const hs of holeScores) {
+              if (!hs.gross_score) continue
+              const hole = holeMap.get(hs.hole_number)
+              if (!hole) continue
+              hoyosComp++
+              overUnderGross += hs.gross_score - hole.par
+              overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(hcp, hole.stroke_index)) - hole.par
+              totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, hole.stroke_index)
+            }
+
+            const currentScore = modoJuego === 'stableford' ? totalSF
+              : modoJuego === 'neto' ? overUnderNeto : overUnderGross
+
+            return {
+              id:                   p.id,
+              nombre:               p.profiles?.name ?? 'Jugador',
+              handicapIndex:        hcp,
+              currentScore,
+              hoyosCompletados:     hoyosComp,
+              modoJuego,
+              historicalAvg:        null,
+              historicalRoundsCount: 0,
+              courseAvg:            null,
+              courseRoundsCount:    0,
+              patterns:             null,
+            } satisfies JugadorGWIInput
+          })
+      } else {
+        players = []
+      }
     }
   } else {
     // Demo fallback
