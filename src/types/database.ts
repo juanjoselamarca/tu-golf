@@ -41,6 +41,7 @@ export interface Tournament {
   course_name:           string
   afecta_estadisticas?:  boolean
   codigo?:               string | null
+  total_rounds?:         number
   created_at:            string
 }
 
@@ -71,13 +72,14 @@ export interface Player {
 }
 
 export interface Round {
-  id:           string
-  player_id:    string
-  status:       string
-  total_gross:  number
-  total_net:    number
-  total_points: number
-  closed_at:    string | null
+  id:            string
+  player_id:     string
+  round_number:  number
+  status:        string
+  total_gross:   number
+  total_net:     number
+  total_points:  number
+  closed_at:     string | null
 }
 
 export interface HoleScore {
