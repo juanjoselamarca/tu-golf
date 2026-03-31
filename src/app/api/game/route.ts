@@ -9,8 +9,8 @@ function validateScoreInputs(body: Record<string, unknown>): string | null {
   if (!Number.isInteger(hole_number) || (hole_number as number) < 1 || (hole_number as number) > 18)
     return 'hole_number debe ser entero entre 1 y 18'
   if (gross_score !== null && gross_score !== undefined) {
-    if (!Number.isInteger(gross_score) || (gross_score as number) < 1 || (gross_score as number) > 20)
-      return 'gross_score debe ser entero entre 1 y 20'
+    if (!Number.isInteger(gross_score) || (gross_score as number) < 1 || (gross_score as number) > 19)
+      return 'El score debe ser entre 1 y 19'
   }
   if (par !== undefined && (!Number.isInteger(par) || (par as number) < 3 || (par as number) > 6))
     return 'par debe ser entero entre 3 y 6'

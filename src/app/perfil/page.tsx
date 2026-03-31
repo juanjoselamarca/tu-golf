@@ -403,7 +403,7 @@ export default function PerfilPage() {
               <div style={{ fontSize: '26px', color: '#c8a55a', fontWeight: 700, lineHeight: 1.1, fontFamily: '"Playfair Display", serif' }}>
                 {profile.indice}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>Handicap</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>Índice</div>
             </div>
           </div>
         )}
@@ -482,9 +482,9 @@ export default function PerfilPage() {
               {[
                 ['Nombre', profile.name || '—'],
                 ['Email', profile.email],
-                ['Handicap', profile.indice != null ? profile.indice : '—'],
+                ['Índice Federación', profile.indice != null ? profile.indice : '—'],
               ].map(([label, value]) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: label !== 'Handicap' ? '1px solid rgba(122,143,168,0.1)' : 'none', gap: '12px' }}>
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: label !== 'Índice Federación' ? '1px solid rgba(122,143,168,0.1)' : 'none', gap: '12px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{label}</span>
                   <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
                 </div>

@@ -171,7 +171,7 @@ export default function PlayerScoringPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {isSaved && gross != null && <span style={{ fontSize: '12px', color: '#4ade80' }}>✓</span>}
                       <input
-                        type="number" min={1} max={20} inputMode="numeric"
+                        type="number" min={1} max={19} inputMode="numeric"
                         defaultValue={gross ?? ''}
                         key={`${selectedId}-${holeNum}-${gross}`}
                         onBlur={(e) => handleScoreChange(holeNum, e.target.value)}

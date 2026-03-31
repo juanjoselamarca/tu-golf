@@ -158,8 +158,8 @@ export default function ScoringPage() {
     const gross = parseInt(value)
     if (isNaN(gross) || !tournament || !selectedId) return
 
-    if (gross < 1 || gross > 20) {
-      showWarning('Score inválido', 'El score debe ser entre 1 y 20 golpes.')
+    if (gross < 1 || gross > 19) {
+      showWarning('Score inválido', 'El score debe ser entre 1 y 19 golpes.')
       return
     }
 
@@ -441,7 +441,7 @@ export default function ScoringPage() {
                     <input
                       type="number"
                       min={1}
-                      max={15}
+                      max={19}
                       inputMode="numeric"
                       defaultValue={gross ?? ''}
                       key={`${selectedId}-${holeNum}-${gross}`}
@@ -518,7 +518,6 @@ export default function ScoringPage() {
                                   await fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
                                     action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
                                     hole_number: h, par, gross_score: gross,
-                                    net_score: gross, points: 0,
                                     putts: holePutts[h] ?? null,
                                   })})
                                 }}
@@ -542,7 +541,7 @@ export default function ScoringPage() {
                                         await fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
                                           action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
                                           hole_number: h, par, gross_score: gross,
-                                          net_score: gross, points: 0, fairway_hit: v,
+                                          fairway_hit: v,
                                         })})
                                       }}
                                       style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
@@ -573,7 +572,7 @@ export default function ScoringPage() {
                                       await fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
                                         action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
                                         hole_number: h, par, gross_score: gross,
-                                        net_score: gross, points: 0, gir: v,
+                                        gir: v,
                                       })})
                                     }}
                                     style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',

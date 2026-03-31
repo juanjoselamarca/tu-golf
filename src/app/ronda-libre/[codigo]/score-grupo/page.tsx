@@ -230,7 +230,7 @@ export default function ScoreGrupoPage() {
       const currentScore = prev[jugadorId]?.[hole]
       const par = parMap[hole] ?? 4
       const base = currentScore ?? par
-      const newScore = Math.max(1, Math.min(15, base + delta))
+      const newScore = Math.max(1, Math.min(19, base + delta))
       const next = { ...prev, [jugadorId]: { ...(prev[jugadorId] ?? {}), [hole]: newScore } }
       setHasUnsaved(true)
       lsSave(codigo, next)

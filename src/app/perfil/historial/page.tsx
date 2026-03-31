@@ -745,7 +745,7 @@ function HistorialContent() {
                         <div key={idx} style={{ textAlign: 'center' }}>
                           <div style={{ fontSize: '9px', color: 'var(--text-2)', marginBottom: '3px' }}>H{idx + 1}</div>
                           <input
-                            type="number" min={1} max={20} inputMode="numeric"
+                            type="number" min={1} max={19} inputMode="numeric"
                             placeholder="—"
                             value={val ?? ''}
                             onChange={e => {

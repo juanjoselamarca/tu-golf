@@ -377,7 +377,7 @@ function ScorePageContent() {
 
   const handleScoreChange = useCallback((hole: number, value: number) => {
     if (!activeJugadorId) return
-    const clamped = Math.max(1, Math.min(15, value)) // FIX #5: max 15 instead of 12
+    const clamped = Math.max(1, Math.min(19, value))
     haptic(10)
     setScoreAnimating(true)
     setTimeout(() => setScoreAnimating(false), 150)
