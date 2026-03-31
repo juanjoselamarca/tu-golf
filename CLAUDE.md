@@ -1,5 +1,23 @@
 # CLAUDE.md — Golfers+
 
+## ACCESO AL REPO — FUENTES DE VERDAD
+
+Claude tiene acceso directo al repositorio via GitHub MCP (scope: user).
+
+FUENTES DE VERDAD del proyecto (leer al inicio de sesión si hay dudas):
+- `CLAUDE.md` — reglas, stack, protocolos (este archivo)
+- `docs/ARQUITECTURA.md` — schema BD, design system, motor golf/
+- `docs/SPRINT_LOG.md` — historial de desarrollo
+- `docs/ROADMAP_COMPLETO.md` — roadmap oficial
+
+REGLA: Si hay contradicción entre lo que Claude "recuerda" y lo que
+dice el repo → el repo siempre gana.
+
+Repo: github.com/juanjoselamarca/tu-golf
+Producción: https://golfersplus.vercel.app
+
+---
+
 ## VERIFICACIÓN OBLIGATORIA AL INICIAR CADA SESIÓN
 
 Antes de cualquier acción ejecutar en orden:
