@@ -84,6 +84,12 @@ export default function Navbar() {
       ],
     },
     {
+      label: 'ANÁLISIS TEÓRICO',
+      items: [
+        { href: '/indices', icon: '📐', label: 'CPI™, GWI™ e Índices' },
+      ],
+    },
+    {
       label: 'CUENTA',
       items: [
         ...(isAdmin ? [{ href: '/admin', icon: '⚙️', label: 'Administración' }] : []),
@@ -95,6 +101,7 @@ export default function Navbar() {
     { href: '/', icon: '🏠', label: 'Inicio' },
     { href: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
     { href: '/demo', icon: '✦', label: 'Ver Demo' },
+    { href: '/indices', icon: '📐', label: 'Análisis Teórico' },
   ]
 
   return (
