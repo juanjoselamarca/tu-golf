@@ -84,9 +84,9 @@ export default function Navbar() {
       ],
     },
     {
-      label: 'ANÁLISIS TEÓRICO',
+      label: 'LABORATORIO',
       items: [
-        { href: '/indices', icon: '📐', label: 'CPI™, GWI™ e Índices' },
+        { href: '/indices', icon: '⚡', label: 'Golf Intelligence' },
       ],
     },
     {
@@ -101,7 +101,7 @@ export default function Navbar() {
     { href: '/', icon: '🏠', label: 'Inicio' },
     { href: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
     { href: '/demo', icon: '✦', label: 'Ver Demo' },
-    { href: '/indices', icon: '📐', label: 'Análisis Teórico' },
+    { href: '/indices', icon: '⚡', label: 'Golf Intelligence' },
   ]
 
   return (
