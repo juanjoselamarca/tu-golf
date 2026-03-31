@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
-interface Round { id: string; status: string; total_gross: number; total_net: number; total_points: number }
+interface Round { id: string; status: string; total_gross: number; total_net: number; total_points: number; round_number: number }
 interface Player {
   id: string
   handicap_at_registration: number | null
@@ -20,6 +20,7 @@ interface Tournament {
   slug: string
   format: string
   hole_count: number
+  total_rounds: number
   courses: { id: string; nombre: string; par_total: number; slope_rating: number; course_rating: number } | null
 }
 
@@ -66,6 +67,8 @@ export default function ScoringPage() {
   const [activeTab,         setActiveTab]         = useState<'scoring' | 'resumen'>('scoring')
   const [editingHcp,        setEditingHcp]        = useState<string | null>(null)
   const [editHcpValue,      setEditHcpValue]      = useState('')
+  const [activeRoundNum,    setActiveRoundNum]    = useState(1)
+  const [startingNextRound, setStartingNextRound] = useState(false)
 
   // Estadísticas adicionales por hoyo
   const [showStats,    setShowStats]    = useState(false)
@@ -80,7 +83,7 @@ export default function ScoringPage() {
 
       const { data: t } = await supabase
         .from('tournaments')
-        .select('id, name, slug, format, hole_count, courses(id, nombre, par_total, slope_rating, course_rating)')
+        .select('id, name, slug, format, hole_count, total_rounds, courses(id, nombre, par_total, slope_rating, course_rating)')
         .eq('slug', slug)
         .single()
 
@@ -89,11 +92,19 @@ export default function ScoringPage() {
 
       const { data: p } = await supabase
         .from('players')
-        .select('id, handicap_at_registration, profiles(name), rounds(id, status, total_gross, total_net, total_points)')
+        .select('id, handicap_at_registration, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
         .eq('tournament_id', t.id)
         .order('created_at')
 
-      setPlayers((p as unknown as Player[]) || [])
+      const allPlayers = (p as unknown as Player[]) || []
+      setPlayers(allPlayers)
+
+      // Determine active round number: max round_number across all rounds
+      const maxRound = allPlayers.reduce((max, pl) => {
+        const pMax = pl.rounds?.reduce((m, r) => Math.max(m, r.round_number ?? 1), 0) ?? 0
+        return Math.max(max, pMax)
+      }, 1)
+      setActiveRoundNum(maxRound)
 
       const courseId = (t.courses as unknown as { id: string } | null)?.id
       if (courseId) {
@@ -111,9 +122,15 @@ export default function ScoringPage() {
   }, [slug])
 
   // Load scores when player selected
+  // Get the round for a player matching the active round number
+  const getActiveRound = useCallback((player: Player | undefined) => {
+    if (!player?.rounds) return undefined
+    return player.rounds.find(r => (r.round_number ?? 1) === activeRoundNum) || player.rounds[0]
+  }, [activeRoundNum])
+
   const loadScores = useCallback(async (playerId: string) => {
     const player = players.find((p) => p.id === playerId)
-    const roundId = player?.rounds?.[0]?.id
+    const roundId = getActiveRound(player)?.id
     if (!roundId) {
       setCurrentScores({})
       setHolePutts({})
@@ -151,11 +168,11 @@ export default function ScoringPage() {
     setHolePutts(putts)
     setHoleFairway(fairway)
     setHoleGir(gir)
-  }, [players])
+  }, [players, getActiveRound])
 
   useEffect(() => {
     if (selectedId) loadScores(selectedId)
-  }, [selectedId, loadScores])
+  }, [selectedId, loadScores, activeRoundNum])
 
   const handleScoreBlur = async (holeNumber: number, value: string) => {
     const gross = parseInt(value)
@@ -167,7 +184,8 @@ export default function ScoringPage() {
     }
 
     const player = players.find((p) => p.id === selectedId)
-    const round  = player?.rounds?.[0]
+    if (!player) return
+    const round  = getActiveRound(player)
     if (!round) return
 
     const hole         = courseHoles.find((h) => h.numero === holeNumber)
@@ -224,11 +242,13 @@ export default function ScoringPage() {
 
     if (updatedRound) {
       setPlayers((prev) =>
-        prev.map((p) =>
-          p.id === selectedId
-            ? { ...p, rounds: [{ ...round, ...updatedRound }] }
-            : p
-        )
+        prev.map((p) => {
+          if (p.id !== selectedId) return p
+          const updatedRounds = (p.rounds || []).map(r =>
+            r.id === round.id ? { ...r, ...updatedRound } : r
+          )
+          return { ...p, rounds: updatedRounds }
+        })
       )
     }
   }
@@ -236,7 +256,7 @@ export default function ScoringPage() {
   const handleFinalize = async () => {
     if (!tournament || !selectedId) return
     const player = players.find((p) => p.id === selectedId)
-    const round  = player?.rounds?.[0]
+    const round  = getActiveRound(player)
     if (!round) return
 
     setSaving(true)
@@ -255,7 +275,7 @@ export default function ScoringPage() {
     const supabase = createClient()
     const { data: p } = await supabase
       .from('players')
-      .select('id, handicap_at_registration, profiles(name), rounds(id, status, total_gross, total_net, total_points)')
+      .select('id, handicap_at_registration, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
       .eq('tournament_id', tournament.id)
       .order('created_at')
     setPlayers((p as unknown as Player[]) || [])
@@ -327,10 +347,51 @@ export default function ScoringPage() {
     )
   }
 
+  const totalRounds    = tournament.total_rounds || 1
+  const isMultiRound   = totalRounds > 1
   const holeCount      = tournament.hole_count || 18
   const holes          = Array.from({ length: holeCount }, (_, i) => i + 1)
   const selectedPlayer = players.find((p) => p.id === selectedId)
-  const selectedRound  = selectedPlayer?.rounds?.[0]
+  const selectedRound  = getActiveRound(selectedPlayer)
+
+  // Multi-round: check if all current rounds are closed
+  const allCurrentRoundsClosed = players.every(p => {
+    const r = p.rounds?.find(r => (r.round_number ?? 1) === activeRoundNum)
+    return r ? (r.status === 'closed' || r.status === 'official') : true
+  })
+  const canStartNextRound = isMultiRound && allCurrentRoundsClosed && activeRoundNum < totalRounds && players.length > 0
+
+  const handleStartNextRound = async () => {
+    if (!tournament || !canStartNextRound) return
+    setStartingNextRound(true)
+    const res = await fetch('/api/game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'start_next_round',
+        tournament_id: tournament.id,
+      }),
+    })
+    const data = await res.json()
+    setStartingNextRound(false)
+
+    if (res.ok && data.roundNumber) {
+      setActiveRoundNum(data.roundNumber)
+      showSuccess('Ronda iniciada', `Se creo la ronda ${data.roundNumber} para ${data.playersCount} jugadores`)
+      // Refresh players
+      const supabase = createClient()
+      const { data: p } = await supabase
+        .from('players')
+        .select('id, handicap_at_registration, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
+        .eq('tournament_id', tournament.id)
+        .order('created_at')
+      setPlayers((p as unknown as Player[]) || [])
+      setSelectedId(null)
+      setCurrentScores({})
+    } else {
+      showError('Error', data.error || 'No se pudo iniciar la siguiente ronda')
+    }
+  }
   const filledCount    = holes.filter((h) => currentScores[h] != null).length
   const allFilled      = filledCount === holeCount
   const parTotal       = tournament.courses?.par_total ?? 72
@@ -359,6 +420,11 @@ export default function ScoringPage() {
             <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: 'rgba(22,163,74,0.15)', color: '#4ade80', border: '1px solid rgba(22,163,74,0.4)', padding: '3px 10px', borderRadius: '20px', animation: 'pulse 2s infinite' }}>
               ● EN VIVO
             </span>
+            {isMultiRound && (
+              <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: 'rgba(196,153,42,0.12)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.3)', padding: '3px 10px', borderRadius: '20px' }}>
+                R{activeRoundNum}/{totalRounds}
+              </span>
+            )}
             {saving && <span style={{ fontSize: '12px', color: '#94a8c0', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
           </h1>
           <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
@@ -397,6 +463,54 @@ export default function ScoringPage() {
             </button>
           ))}
         </div>
+
+        {/* Multi-round controls */}
+        {isMultiRound && (
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {Array.from({ length: totalRounds }, (_, i) => i + 1).map(rn => {
+              const hasRound = players.some(p => p.rounds?.some(r => (r.round_number ?? 1) === rn))
+              return (
+                <button
+                  key={rn}
+                  onClick={() => { if (hasRound) { setActiveRoundNum(rn); setSelectedId(null); setCurrentScores({}) } }}
+                  disabled={!hasRound}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: activeRoundNum === rn ? 700 : 400,
+                    border: activeRoundNum === rn ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.25)',
+                    background: activeRoundNum === rn ? 'rgba(196,153,42,0.12)' : 'transparent',
+                    color: !hasRound ? '#3a4a5a' : activeRoundNum === rn ? '#c4992a' : '#94a8c0',
+                    cursor: hasRound ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Ronda {rn}
+                </button>
+              )
+            })}
+            {canStartNextRound && (
+              <button
+                onClick={handleStartNextRound}
+                disabled={startingNextRound}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  border: '2px solid #c4992a',
+                  background: '#c4992a',
+                  color: '#070d18',
+                  cursor: startingNextRound ? 'not-allowed' : 'pointer',
+                  opacity: startingNextRound ? 0.7 : 1,
+                  marginLeft: 'auto',
+                }}
+              >
+                {startingNextRound ? 'Creando...' : `Iniciar Ronda ${activeRoundNum + 1}`}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ── Resumen tab ── */}
         {activeTab === 'resumen' && (
@@ -510,9 +624,9 @@ export default function ScoringPage() {
         <div style={{ overflowX: 'auto', marginBottom: '28px' }}>
           <div style={{ display: 'flex', gap: '12px', padding: '4px 0' }}>
             {players.map((p) => {
-              const round      = p.rounds?.[0]
+              const round      = getActiveRound(p)
               const isSelected = p.id === selectedId
-              const isDone     = round?.status === 'completed'
+              const isDone     = round?.status === 'closed' || round?.status === 'official'
               return (
                 <button
                   key={p.id}
@@ -760,7 +874,7 @@ export default function ScoringPage() {
             </div>
 
             {/* Finalize button */}
-            {allFilled && selectedRound?.status !== 'completed' && (
+            {allFilled && selectedRound?.status !== 'completed' && selectedRound?.status !== 'closed' && selectedRound?.status !== 'official' && (
               <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(196,153,42,0.1)', display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   onClick={handleFinalize}
@@ -782,7 +896,7 @@ export default function ScoringPage() {
               </div>
             )}
 
-            {selectedRound?.status === 'completed' && (
+            {(selectedRound?.status === 'completed' || selectedRound?.status === 'closed' || selectedRound?.status === 'official') && (
               <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(22,163,74,0.2)', background: 'rgba(22,163,74,0.05)', textAlign: 'center', color: '#4ade80', fontSize: '14px' }}>
                 ✓ Ronda finalizada
               </div>

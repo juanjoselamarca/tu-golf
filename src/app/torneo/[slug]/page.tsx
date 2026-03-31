@@ -23,6 +23,7 @@ interface DBPlayer {
     total_gross: number
     total_net: number
     total_points: number
+    round_number: number
     hole_scores: { hole_number: number; gross_score: number | null }[]
   }[]
 }
@@ -33,6 +34,7 @@ interface DBTournament {
   slug: string
   format: string
   hole_count: number
+  total_rounds: number
   modo_juego: ModoJuego | null
   date_start: string | null
   status: string
@@ -141,7 +143,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   // Try to fetch real tournament
   const { data: rawTournament } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, hole_count, modo_juego, date_start, status, codigo, afecta_estadisticas, courses(id, nombre, ciudad, par_total, slope_rating, course_rating)')
+    .select('id, name, slug, format, hole_count, total_rounds, modo_juego, date_start, status, codigo, afecta_estadisticas, courses(id, nombre, ciudad, par_total, slope_rating, course_rating)')
     .eq('slug', params.slug)
     .single()
 
@@ -331,46 +333,75 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           `id, handicap_at_registration,
            profiles(name, indice),
            categories(name),
-           rounds(id, status, total_gross, total_net, total_points,
+           rounds(id, status, total_gross, total_net, total_points, round_number,
              hole_scores(hole_number, gross_score))`
         )
         .eq('tournament_id', tournament.id)
 
       const dbPlayers = (rawPlayers as unknown as DBPlayer[]) || []
+      const tournamentTotalRounds = tournament.total_rounds ?? 1
+      const isMultiRound = tournamentTotalRounds > 1
 
       if (dbPlayers.length > 0) {
-        // Map to Player type expected by LeaderboardTable
-        const sorted = dbPlayers
-          .filter((p) => p.rounds?.length > 0)
-          .sort((a, b) => {
-            const an = a.rounds[0].total_net ?? 999
-            const bn = b.rounds[0].total_net ?? 999
-            return an - bn
-          })
+        // Build intermediate entries for countback — multi-round aware
+        const withRounds = dbPlayers.filter((p) => p.rounds?.length > 0)
 
-        // Build intermediate entries for countback
-        const legacyEntries = sorted.map((p) => {
-          const round  = p.rounds[0]
-          const hcp    = p.handicap_at_registration ?? 0
-          const scores = new Array(18).fill(null) as (number | null)[]
+        const legacyEntries = withRounds.map((p) => {
+          const hcp = p.handicap_at_registration ?? 0
+          // Sort rounds by round_number
+          const sortedRounds = [...(p.rounds || [])].sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
 
-          ;(round.hole_scores || []).forEach((hs) => {
-            if (hs.gross_score != null) scores[hs.hole_number - 1] = hs.gross_score
-          })
+          // Cumulative totals across all rounds
+          let cumulGross = 0, cumulNet = 0, cumulPoints = 0, totalHolesPlayed = 0
+          const roundTotals: { gross: number; net: number; points: number; holes: number }[] = []
+          // Scores from the latest round for countback (single-round behavior for tiebreaking)
+          let latestScores = new Array(totalHoyos).fill(null) as (number | null)[]
+          let allFinished = true
 
-          const holesPlayed = scores.filter((s) => s !== null).length
-          const netVsPar    = holesPlayed > 0 ? round.total_net - parTotal : 0
+          for (const round of sortedRounds) {
+            cumulGross += round.total_gross ?? 0
+            cumulNet += round.total_net ?? 0
+            cumulPoints += round.total_points ?? 0
+
+            const scores = new Array(totalHoyos).fill(null) as (number | null)[]
+            ;(round.hole_scores || []).forEach((hs) => {
+              if (hs.gross_score != null) scores[hs.hole_number - 1] = hs.gross_score
+            })
+            const roundHoles = scores.filter(s => s !== null).length
+            totalHolesPlayed += roundHoles
+            roundTotals.push({ gross: round.total_gross ?? 0, net: round.total_net ?? 0, points: round.total_points ?? 0, holes: roundHoles })
+
+            if (round.status !== 'closed' && round.status !== 'official') allFinished = false
+            latestScores = scores
+          }
+
+          // For single-round tournaments: vsPar is net - parTotal
+          // For multi-round: vsPar is cumulative net - (parTotal * roundsPlayed)
+          const roundsPlayed = sortedRounds.length
+          const netVsPar = totalHolesPlayed > 0 ? cumulNet - (parTotal * roundsPlayed) : 0
+
+          // Determine current round number for "today" display
+          const latestRound = sortedRounds[sortedRounds.length - 1]
+          const todayNet = latestRound ? (latestRound.total_net ?? 0) - parTotal : 0
 
           return {
             dbPlayer: p,
             hcp,
-            scores,
-            holesPlayed,
+            scores: latestScores,
+            holesPlayed: totalHolesPlayed,
             netVsPar,
-            grossTotal: round.total_gross ?? 0,
-            netTotal:   round.total_net ?? 0,
-            status: (round.status === 'closed' || round.status === 'official' ? 'F' : 'live') as 'F' | 'live',
+            todayVsPar: isMultiRound ? todayNet : netVsPar,
+            grossTotal: cumulGross,
+            netTotal: cumulNet,
+            roundTotals,
+            status: (allFinished ? 'F' : 'live') as 'F' | 'live',
           }
+        })
+
+        // Sort by cumulative score
+        legacyEntries.sort((a, b) => {
+          if (modoJuego === 'neto') return (a.netTotal || 999) - (b.netTotal || 999)
+          return (a.grossTotal || 999) - (b.grossTotal || 999)
         })
 
         // Apply countback
@@ -393,7 +424,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             country: 'CL',
             cat:     e.dbPlayer.categories?.name ? `Cat. ${e.dbPlayer.categories.name}` : 'General',
             hcp:     e.hcp,
-            today:   e.netVsPar,
+            today:   e.todayVsPar,
             total:   e.netVsPar,
             holes:   e.holesPlayed,
             status:  e.status,
@@ -405,7 +436,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         const noRound = dbPlayers.filter((p) => !p.rounds?.length)
         noRound.forEach((p, i) => {
           players.push({
-            pos:     sorted.length + i + 1,
+            pos:     withRounds.length + i + 1,
             name:    p.profiles?.name || 'Jugador',
             country: 'CL',
             cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
@@ -414,7 +445,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             total:   0,
             holes:   0,
             status:  'live',
-            scores:  new Array(18).fill(null),
+            scores:  new Array(totalHoyos).fill(null),
           })
         })
         stats = computeStats(dbPlayers, courseHoles, parTotal)
@@ -557,6 +588,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
           <p className="font-sans text-sm text-gray-soft">
             Par {parTotal}
+            {tournament && (tournament.total_rounds ?? 1) > 1 && <> &nbsp;·&nbsp; {tournament.total_rounds} rondas ({(tournament.hole_count ?? 18) * tournament.total_rounds} hoyos)</>}
             {tournament?.courses?.nombre && <> &nbsp;·&nbsp; {tournament.courses.nombre}</>}
             {tournament?.courses?.ciudad && <>, {tournament.courses.ciudad}</>}
             {dateDisplay && <> &nbsp;·&nbsp; {dateDisplay}</>}
