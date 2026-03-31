@@ -298,7 +298,110 @@ export async function POST(request: NextRequest) {
       }
     } catch { /* historical_rounds save is non-blocking */ }
 
-    return NextResponse.json({ success: true })
+    // Check next round availability for multi-round tournaments
+    let nextRoundInfo: { ready: boolean; currentRound: number; totalRounds: number } | null = null
+    try {
+      const { data: roundInfo } = await svc
+        .from('rounds')
+        .select('round_number')
+        .eq('id', round_id)
+        .single()
+      const { data: tInfo } = await svc
+        .from('tournaments')
+        .select('id, total_rounds')
+        .eq('id', tournament_id)
+        .single()
+      const currentRoundNum = (roundInfo as { round_number: number } | null)?.round_number ?? 1
+      const totalRounds = (tInfo as { id: string; total_rounds: number } | null)?.total_rounds ?? 1
+
+      if (totalRounds > 1) {
+        // Check if ALL rounds of the current round_number are closed
+        const { count: openCount } = await svc
+          .from('rounds')
+          .select('*', { count: 'exact', head: true })
+          .eq('tournament_id', tournament_id)
+          .eq('round_number', currentRoundNum)
+          .neq('status', 'closed')
+          .neq('status', 'official')
+
+        nextRoundInfo = {
+          ready: (openCount ?? 0) === 0 && currentRoundNum < totalRounds,
+          currentRound: currentRoundNum,
+          totalRounds,
+        }
+      }
+    } catch { /* non-blocking */ }
+
+    return NextResponse.json({ success: true, nextRoundInfo })
+  }
+
+  // ── start_next_round ───────────────────────────────────
+  if (action === 'start_next_round') {
+    // Only organizer can start next round
+    if (tournament.organizer_id !== user.id) {
+      return NextResponse.json({ error: 'Solo el organizador puede iniciar la siguiente ronda' }, { status: 403 })
+    }
+
+    const { data: tInfo } = await svc
+      .from('tournaments')
+      .select('id, total_rounds')
+      .eq('id', tournament_id)
+      .single()
+    const totalRounds = (tInfo as { id: string; total_rounds: number } | null)?.total_rounds ?? 1
+
+    // Find current max round_number
+    const { data: maxRoundData } = await svc
+      .from('rounds')
+      .select('round_number')
+      .eq('tournament_id', tournament_id)
+      .order('round_number', { ascending: false })
+      .limit(1)
+      .single()
+
+    const currentRound = (maxRoundData as { round_number: number } | null)?.round_number ?? 1
+    const nextRound = currentRound + 1
+
+    if (nextRound > totalRounds) {
+      return NextResponse.json({ error: 'Ya se completaron todas las rondas del torneo' }, { status: 409 })
+    }
+
+    // Check all current rounds are closed
+    const { count: openCount } = await svc
+      .from('rounds')
+      .select('*', { count: 'exact', head: true })
+      .eq('tournament_id', tournament_id)
+      .eq('round_number', currentRound)
+      .neq('status', 'closed')
+      .neq('status', 'official')
+
+    if ((openCount ?? 0) > 0) {
+      return NextResponse.json({ error: `Hay rondas de la ronda ${currentRound} sin finalizar` }, { status: 409 })
+    }
+
+    // Get all approved players
+    const { data: playersData } = await svc
+      .from('players')
+      .select('id')
+      .eq('tournament_id', tournament_id)
+
+    if (!playersData || playersData.length === 0) {
+      return NextResponse.json({ error: 'No hay jugadores en el torneo' }, { status: 400 })
+    }
+
+    // Create new rounds for all players
+    const newRounds = playersData.map((p: { id: string }) => ({
+      tournament_id,
+      player_id: p.id,
+      round_number: nextRound,
+      status: 'in_progress',
+    }))
+
+    const { error: insertErr } = await svc.from('rounds').insert(newRounds)
+    if (insertErr) {
+      return NextResponse.json({ error: 'No se pudieron crear las rondas. Intenta de nuevo.' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, roundNumber: nextRound, playersCount: playersData.length })
   }
 
   return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 })

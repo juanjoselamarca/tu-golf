@@ -61,6 +61,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
   const [day,            setDay]            = useState('')
   const [month,          setMonth]          = useState('')
   const [year,           setYear]           = useState('')
+  const [totalRounds,    setTotalRounds]    = useState(1)
   const [coverUrl,       setCoverUrl]       = useState('')
   const [loading,        setLoading]        = useState(false)
 
@@ -175,6 +176,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
       cover_image_url:      coverUrl.trim() || null,
       status:               'draft',
       date_start:           dateISO,
+      total_rounds:         totalRounds,
     }
 
     // Intento 1: con modo_juego
@@ -418,6 +420,41 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                 ))}
               </div>
               <FieldErr msg={fieldError('tees')} />
+            </div>
+          </div>
+
+          {/* 5b. Duración del torneo (multi-ronda) */}
+          <div>
+            <label style={labelStyle}>Duracion del torneo</label>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {([
+                { rounds: 1, label: '1 dia', desc: `${holeCount}h` },
+                { rounds: 2, label: '2 dias', desc: `${holeCount * 2}h` },
+                { rounds: 3, label: '3 dias', desc: `${holeCount * 3}h` },
+                { rounds: 4, label: '4 dias', desc: `${holeCount * 4}h` },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.rounds}
+                  type="button"
+                  onClick={() => setTotalRounds(opt.rounds)}
+                  style={{
+                    flex: 1,
+                    minWidth: '70px',
+                    padding: '10px 8px',
+                    border: totalRounds === opt.rounds ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)',
+                    borderRadius: '8px',
+                    background: totalRounds === opt.rounds ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)',
+                    color: totalRounds === opt.rounds ? '#edeae4' : '#94a8c0',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: totalRounds === opt.rounds ? 600 : 400,
+                    textAlign: 'center',
+                  }}
+                >
+                  <div>{opt.label}</div>
+                  <div style={{ fontSize: '11px', color: '#94a8c0', marginTop: '2px' }}>{opt.desc}</div>
+                </button>
+              ))}
             </div>
           </div>
 
