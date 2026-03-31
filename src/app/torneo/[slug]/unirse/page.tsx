@@ -4,11 +4,44 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 
-interface PlayerRow {
+interface TournamentInfo {
   id: string
-  user_id: string | null
-  handicap_at_registration: number | null
-  profiles: { name: string; indice: number | null } | null
+  name: string
+  slug: string
+  format: string
+  date_start: string | null
+  codigo: string | null
+  course_name: string | null
+  courses: { nombre: string; ciudad: string; slope_rating: number; course_rating: number; par_total: number } | null
+}
+
+interface ProfileInfo {
+  name: string
+  indice: number | null
+}
+
+function calcCourseHandicap(indice: number, slope: number, rating: number, par: number) {
+  return Math.round(indice * (slope / 113) + (rating - par))
+}
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('es-CL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function formatLabel(format: string) {
+  const labels: Record<string, string> = {
+    stroke_play: 'Stroke Play',
+    match_play: 'Match Play',
+    stableford: 'Stableford',
+    scramble: 'Scramble',
+    best_ball: 'Best Ball',
+  }
+  return labels[format] || format
 }
 
 export default function UnirsePage() {
@@ -17,13 +50,13 @@ export default function UnirsePage() {
   const slug = params.slug as string
 
   const [loading, setLoading] = useState(true)
-  const [tournamentName, setTournamentName] = useState('')
-  const [tournamentId, setTournamentId] = useState('')
-  const [players, setPlayers] = useState<PlayerRow[]>([])
+  const [tournament, setTournament] = useState<TournamentInfo | null>(null)
+  const [profile, setProfile] = useState<ProfileInfo | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
-  const [claimingId, setClaimingId] = useState<string | null>(null)
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false)
+  const [inscribing, setInscribing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [confirmed, setConfirmed] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
 
   const supabase = createClient()
 
@@ -36,10 +69,18 @@ export default function UnirsePage() {
     }
     setUserId(user.id)
 
+    // Fetch profile
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('name, indice')
+      .eq('id', user.id)
+      .single()
+    if (prof) setProfile(prof as ProfileInfo)
+
     // Fetch tournament
     const { data: t, error: tErr } = await supabase
       .from('tournaments')
-      .select('id, name')
+      .select('id, name, slug, format, date_start, codigo, course_name, courses(nombre, ciudad, slope_rating, course_rating, par_total)')
       .eq('slug', slug)
       .single()
 
@@ -48,22 +89,18 @@ export default function UnirsePage() {
       setLoading(false)
       return
     }
-    setTournamentName(t.name)
-    setTournamentId(t.id)
+    setTournament(t as unknown as TournamentInfo)
 
-    // Fetch players with profiles
-    const { data: p, error: pErr } = await supabase
+    // Check if already registered
+    const { data: existing } = await supabase
       .from('players')
-      .select('id, user_id, handicap_at_registration, profiles(name, indice)')
+      .select('id')
       .eq('tournament_id', t.id)
+      .eq('user_id', user.id)
+      .maybeSingle()
 
-    if (pErr) {
-      setError('Error al cargar jugadores')
-      setLoading(false)
-      return
-    }
+    if (existing) setAlreadyRegistered(true)
 
-    setPlayers((p as unknown as PlayerRow[]) || [])
     setLoading(false)
   }, [slug, router, supabase])
 
@@ -72,30 +109,54 @@ export default function UnirsePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const claimPlayer = async (playerId: string, playerName: string) => {
-    if (!userId || claimingId) return
-    setClaimingId(playerId)
+  const handleInscribirse = async () => {
+    if (!userId || !tournament || !profile || inscribing) return
+    setInscribing(true)
     setError(null)
 
-    const { error: upErr } = await supabase
-      .from('players')
-      .update({ user_id: userId })
-      .eq('id', playerId)
+    const course = tournament.courses
+    const courseHandicap =
+      profile.indice != null && course
+        ? calcCourseHandicap(profile.indice, course.slope_rating, course.course_rating, course.par_total)
+        : null
 
-    if (upErr) {
-      setError('No se pudo reclamar este jugador. Intentá de nuevo.')
-      setClaimingId(null)
+    // Insert player
+    const { data: player, error: pErr } = await supabase
+      .from('players')
+      .insert({
+        tournament_id: tournament.id,
+        user_id: userId,
+        handicap_at_registration: courseHandicap,
+        status: 'approved',
+      })
+      .select()
+      .single()
+
+    if (pErr || !player) {
+      const isDuplicate = pErr?.message?.toLowerCase().includes('duplicate') || pErr?.message?.toLowerCase().includes('unique')
+      if (isDuplicate) {
+        setError('Ya estas inscrito en este torneo.')
+        setAlreadyRegistered(true)
+      } else {
+        setError('No se pudo completar la inscripcion. Intenta nuevamente.')
+      }
+      setInscribing(false)
       return
     }
 
-    setConfirmed(playerName)
-    setTimeout(() => {
-      router.push(`/torneo/${slug}`)
-    }, 1800)
+    // Create round
+    await supabase.from('rounds').insert({
+      tournament_id: tournament.id,
+      player_id: player.id,
+      status: 'in_progress',
+    })
+
+    setSuccess(true)
+    setInscribing(false)
   }
 
-  // Confirmation overlay
-  if (confirmed) {
+  // Success screen
+  if (success && tournament) {
     return (
       <div
         style={{
@@ -118,13 +179,50 @@ export default function UnirsePage() {
             color: '#edeae4',
             fontWeight: 700,
             textAlign: 'center',
+            marginBottom: '8px',
           }}
         >
-          ¡Listo, {confirmed}!
+          Inscripcion exitosa!
         </div>
-        <div style={{ fontSize: '14px', color: '#94a8c0', marginTop: '8px' }}>
-          Redirigiendo al torneo...
+        <div style={{ fontSize: '14px', color: '#94a8c0', textAlign: 'center', marginBottom: '24px' }}>
+          Estas inscrito en {tournament.name}
         </div>
+
+        {tournament.codigo && (
+          <div
+            style={{
+              background: 'rgba(14,28,47,0.92)',
+              border: '1px solid rgba(196,153,42,0.3)',
+              borderRadius: '14px',
+              padding: '20px 32px',
+              textAlign: 'center',
+              marginBottom: '24px',
+            }}
+          >
+            <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+              Codigo del torneo
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: '32px', fontWeight: 700, color: '#c4992a', letterSpacing: '0.15em' }}>
+              {tournament.codigo}
+            </div>
+          </div>
+        )}
+
+        <Link
+          href={`/torneo/${slug}`}
+          style={{
+            background: '#c4992a',
+            color: '#070d18',
+            fontWeight: 700,
+            fontSize: '15px',
+            padding: '14px 32px',
+            borderRadius: '10px',
+            textDecoration: 'none',
+            display: 'inline-block',
+          }}
+        >
+          Ver leaderboard →
+        </Link>
         <style>{`
           @keyframes bounce {
             from { transform: translateY(0); }
@@ -137,178 +235,187 @@ export default function UnirsePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#070d18', padding: '0' }}>
+
       {/* Header */}
-      <div style={{ padding: '24px 20px 16px' }}>
-        <div
-          style={{
-            fontFamily: 'monospace',
-            fontSize: '11px',
-            color: '#94a8c0',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            marginBottom: '8px',
-          }}
-        >
-          {tournamentName || 'Cargando...'}
-        </div>
+      <div style={{ padding: '24px 20px 0' }}>
+        <Link href={`/torneo/${slug}`} style={{ color: '#94a8c0', fontSize: '13px', textDecoration: 'none' }}>
+          ← Volver al torneo
+        </Link>
+      </div>
+
+      <div style={{ maxWidth: '480px', margin: '0 auto', padding: '32px 20px' }}>
+
         <h1
           style={{
             fontFamily: '"Playfair Display", serif',
-            fontSize: '24px',
+            fontSize: '26px',
             color: '#edeae4',
             fontWeight: 700,
-            margin: 0,
+            margin: '0 0 24px',
           }}
         >
-          ¿Cuál eres tú?
+          Inscribirse al torneo
         </h1>
-      </div>
 
-      {/* Error */}
-      {error && (
-        <div
-          style={{
-            margin: '0 20px 16px',
-            background: 'rgba(220,50,50,0.12)',
-            border: '1px solid rgba(220,50,50,0.3)',
-            borderRadius: '12px',
-            padding: '14px 16px',
-            color: '#f87171',
-            fontSize: '14px',
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a8c0', fontSize: '14px' }}>
-          Cargando jugadores...
-        </div>
-      )}
-
-      {/* Player list */}
-      {!loading && players.length > 0 && (
-        <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {players.map((p) => {
-            const name = p.profiles?.name || 'Jugador'
-            const hcp = p.handicap_at_registration ?? p.profiles?.indice ?? '-'
-            const isMe = p.user_id === userId
-            const isTaken = p.user_id != null && p.user_id !== userId
-            const isClaiming = claimingId === p.id
-
-            return (
-              <button
-                key={p.id}
-                onClick={() => {
-                  if (!isTaken && !isMe) claimPlayer(p.id, name)
-                }}
-                disabled={isTaken || isMe || !!claimingId}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  width: '100%',
-                  height: '64px',
-                  background: '#0e1c2f',
-                  border: isMe
-                    ? '1.5px solid rgba(196,153,42,0.6)'
-                    : '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: '12px',
-                  padding: '0 16px',
-                  cursor: isTaken || isMe ? 'default' : 'pointer',
-                  opacity: isTaken ? 0.4 : 1,
-                  textAlign: 'left',
-                }}
-              >
-                {/* Flag */}
-                <span style={{ fontSize: '20px' }}>🇨🇱</span>
-
-                {/* Name + handicap */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: '15px',
-                      fontWeight: 600,
-                      color: '#edeae4',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {name}
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#94a8c0' }}>
-                    HCP {hcp}
-                  </div>
-                </div>
-
-                {/* Status badge */}
-                {isClaiming && (
-                  <div
-                    style={{
-                      width: '20px',
-                      height: '20px',
-                      border: '2px solid #c4992a',
-                      borderTopColor: 'transparent',
-                      borderRadius: '50%',
-                      animation: 'spin 0.8s linear infinite',
-                    }}
-                  />
-                )}
-                {isMe && (
-                  <span
-                    style={{
-                      background: 'rgba(196,153,42,0.2)',
-                      color: '#c4992a',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      padding: '3px 10px',
-                      borderRadius: '6px',
-                    }}
-                  >
-                    TÚ
-                  </span>
-                )}
-                {isTaken && !isMe && (
-                  <span style={{ fontSize: '12px', color: '#94a8c0' }}>ocupado</span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      {/* No players */}
-      {!loading && players.length === 0 && !error && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a8c0', fontSize: '14px' }}>
-          No hay jugadores inscritos en este torneo.
-        </div>
-      )}
-
-      {/* Bottom link */}
-      {!loading && (
-        <div style={{ textAlign: 'center', padding: '28px 20px' }}>
-          <Link
-            href={`/torneo/${slug}`}
+        {/* Error */}
+        {error && (
+          <div
             style={{
-              color: '#94a8c0',
+              background: 'rgba(220,50,50,0.12)',
+              border: '1px solid rgba(220,50,50,0.3)',
+              borderRadius: '12px',
+              padding: '14px 16px',
+              color: '#f87171',
               fontSize: '14px',
-              textDecoration: 'underline',
-              textUnderlineOffset: '3px',
+              marginBottom: '20px',
             }}
           >
-            Mi nombre no aparece
-          </Link>
-        </div>
-      )}
+            {error}
+          </div>
+        )}
 
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+        {/* Loading */}
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a8c0', fontSize: '14px' }}>
+            Cargando...
+          </div>
+        )}
+
+        {/* Tournament info card */}
+        {!loading && tournament && (
+          <>
+            <div
+              style={{
+                background: 'rgba(14,28,47,0.92)',
+                border: '1px solid rgba(196,153,42,0.2)',
+                borderRadius: '14px',
+                padding: '24px',
+                marginBottom: '20px',
+              }}
+            >
+              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+                Torneo
+              </div>
+              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', fontWeight: 700, marginBottom: '16px' }}>
+                {tournament.name}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {(tournament.courses?.nombre || tournament.course_name) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px' }}>⛳</span>
+                    <span style={{ fontSize: '14px', color: '#94a8c0' }}>
+                      {tournament.courses?.nombre || tournament.course_name}
+                      {tournament.courses?.ciudad && `, ${tournament.courses.ciudad}`}
+                    </span>
+                  </div>
+                )}
+                {tournament.date_start && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px' }}>📅</span>
+                    <span style={{ fontSize: '14px', color: '#94a8c0' }}>{formatDate(tournament.date_start)}</span>
+                  </div>
+                )}
+                {tournament.format && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px' }}>🏌️</span>
+                    <span style={{ fontSize: '14px', color: '#94a8c0' }}>{formatLabel(tournament.format)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Player info card */}
+            {profile && (
+              <div
+                style={{
+                  background: 'rgba(14,28,47,0.92)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '14px',
+                  padding: '24px',
+                  marginBottom: '24px',
+                }}
+              >
+                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+                  Tu perfil
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div
+                    style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      background: 'rgba(196,153,42,0.15)',
+                      border: '1.5px solid rgba(196,153,42,0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '20px',
+                      color: '#c4992a',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {profile.name?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#edeae4' }}>{profile.name}</div>
+                    <div style={{ fontSize: '13px', color: '#94a8c0' }}>
+                      {profile.indice != null
+                        ? `Handicap Index: ${Number(profile.indice).toFixed(1)}`
+                        : 'Sin handicap registrado'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action */}
+            {alreadyRegistered ? (
+              <div
+                style={{
+                  background: 'rgba(34,197,94,0.1)',
+                  border: '1px solid rgba(34,197,94,0.25)',
+                  borderRadius: '12px',
+                  padding: '18px',
+                  textAlign: 'center',
+                  marginBottom: '16px',
+                }}
+              >
+                <div style={{ fontSize: '15px', color: '#22c55e', fontWeight: 600, marginBottom: '4px' }}>
+                  Ya estas inscrito en este torneo
+                </div>
+                <Link
+                  href={`/torneo/${slug}`}
+                  style={{ fontSize: '13px', color: '#94a8c0', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                >
+                  Ver leaderboard →
+                </Link>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleInscribirse}
+                disabled={inscribing || !profile}
+                style={{
+                  width: '100%',
+                  background: '#c4992a',
+                  color: '#070d18',
+                  fontWeight: 700,
+                  fontSize: '16px',
+                  padding: '16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  cursor: inscribing ? 'not-allowed' : 'pointer',
+                  opacity: inscribing ? 0.7 : 1,
+                  transition: 'opacity 200ms',
+                }}
+              >
+                {inscribing ? 'Inscribiendo...' : 'Inscribirme'}
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
