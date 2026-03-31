@@ -162,16 +162,8 @@ function ScorePageContent() {
     }
   }, [view, codigo])
 
-  // Theme: white by default, dark mode toggle with localStorage persistence
-  const [darkMode, setDarkMode] = useState(() => {
-    try { return localStorage.getItem('scorecard-theme') === 'dark' } catch { return false }
-  })
-
-  useEffect(() => {
-    try { localStorage.setItem('scorecard-theme', darkMode ? 'dark' : 'light') } catch {}
-  }, [darkMode])
-
-  const theme = darkMode ? {
+  // Dark theme permanent — consistent with all other scoring pages
+  const theme = {
     bg: '#070d18',
     card: '#0e1c2f',
     text: '#edeae4',
@@ -188,23 +180,6 @@ function ScorePageContent() {
     buttonText: 'rgba(255,255,255,0.7)',
     navBg: 'rgba(7,13,24,0.95)',
     headerBg: 'rgba(7,13,24,0.95)',
-  } : {
-    bg: '#ffffff',
-    card: '#f9fafb',
-    text: '#111827',
-    textMuted: '#6b7280',
-    textFaint: '#9ca3af',
-    border: '#e5e7eb',
-    badgeBg: '#f3f4f6',
-    badgeBorder: '#e5e7eb',
-    badgeText: '#374151',
-    scoreText: '#111827',
-    scoreDimmed: '#d1d5db',
-    buttonBg: '#f3f4f6',
-    buttonBorder: '#e5e7eb',
-    buttonText: '#374151',
-    navBg: 'rgba(255,255,255,0.95)',
-    headerBg: 'rgba(255,255,255,0.97)',
   }
 
   const retryCountRef = useRef(0)
@@ -466,8 +441,15 @@ function ScorePageContent() {
     const prevIdx = currentHoleIdx - 1
     if (prevIdx >= 0) setCurrentHole(ordenHoyos[prevIdx])
   }
+  const [confirmFinalize, setConfirmFinalize] = useState(false)
   const finalizeRound = async () => {
     if (!ronda || !activeJugadorId) return
+    if (!confirmFinalize) {
+      setConfirmFinalize(true)
+      haptic(15)
+      return
+    }
+    setConfirmFinalize(false)
     haptic(30)
     // Auto-fill last hole with par if not entered
     if (scores[activeJugadorId]?.[currentHole] == null) {
@@ -637,7 +619,7 @@ function ScorePageContent() {
   const isAboveDoubleBogey = score != null && score > par + 2
 
   // Score styles for mini scorecard (theme-aware)
-  const currentScoreStyles = darkMode ? SCORE_STYLES : SCORE_STYLES_LIGHT
+  const currentScoreStyles = SCORE_STYLES
 
   return (
     <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
@@ -685,12 +667,6 @@ function ScorePageContent() {
           <div style={{ fontSize: '10px', color: theme.textFaint }}>{ronda.course_name}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <button onClick={() => setDarkMode(!darkMode)} aria-label="Cambiar tema" style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: theme.textMuted, fontSize: '16px', padding: '6px',
-            minWidth: '36px', minHeight: '36px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>{darkMode ? '\u2600\uFE0F' : '\uD83C\uDF19'}</button>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '16px', fontWeight: 700, color: totalOverUnder < 0 ? '#93C5FD' : totalOverUnder === 0 ? theme.textMuted : '#FCD34D' }}>
               {holesPlayed > 0 ? (totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : totalOverUnder) : '—'}
@@ -700,7 +676,7 @@ function ScorePageContent() {
         </div>
       </header>
       {/* Progress bar */}
-      <div style={{ height: '3px', background: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', flexShrink: 0 }}>
+      <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }}>
         <div style={{ height: '3px', background: '#C4992A', width: `${(holesPlayed / totalHoles) * 100}%`, transition: 'width 0.3s ease' }} />
       </div>
 
@@ -798,7 +774,7 @@ function ScorePageContent() {
       </div>
 
       {/* ── Hole info: 3 columns + share ── */}
-      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
         {[
           { label: 'PAR', value: String(par) },
           { label: 'HDCP', value: String(holeData.stroke_index) },
@@ -822,7 +798,7 @@ function ScorePageContent() {
 
       {/* ── Toggle Scorecard / Leaderboard (multi-player only) ── */}
       {jugadores.length > 1 && (
-        <div style={{ display: 'flex', background: darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', borderRadius: '20px', padding: '2px', margin: '5px 16px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.07)', borderRadius: '20px', padding: '2px', margin: '5px 16px', flexShrink: 0 }}>
           {(['scorecard', 'leaderboard'] as const).map(v => (
             <button key={v} onClick={() => setView(v)} style={{
               flex: 1, padding: '6px', borderRadius: '16px', fontSize: '12px', fontWeight: 500,
@@ -839,7 +815,7 @@ function ScorePageContent() {
 
       {/* ── Player tabs (multi-player only, scorecard view) ── */}
       {jugadores.length > 1 && view === 'scorecard' && (
-        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`, WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
+        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${'rgba(255,255,255,0.06)'}`, WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
           {jugadores.map(j => {
             const active = j.id === activeJugadorId
             return (
@@ -889,7 +865,7 @@ function ScorePageContent() {
           <div style={{
             marginTop: '8px', padding: '4px 16px', borderRadius: '20px',
             fontSize: '13px', fontWeight: 500, letterSpacing: '0.01em',
-            ...getChipStyle(score, par, darkMode),
+            ...getChipStyle(score, par, true),
           }}>{getChipLabel(score, par)}</div>
         )}
 
@@ -933,7 +909,7 @@ function ScorePageContent() {
           style={{
             width: '80px', height: '80px', borderRadius: '20px',
             fontSize: '32px', fontWeight: 600,
-            background: '#C4992A', color: darkMode ? '#070D18' : '#070D18', border: 'none',
+            background: '#C4992A', color: '#070D18', border: 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
             userSelect: 'none', transition: 'transform 0.08s ease-out',
@@ -988,7 +964,7 @@ function ScorePageContent() {
             aria-label="Hoyo anterior"
             style={{
               flex: 1, padding: '14px', background: 'transparent',
-              color: theme.textMuted, border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+              color: theme.textMuted, border: `1px solid ${'rgba(255,255,255,0.08)'}`,
               borderRadius: '12px', fontSize: '14px', fontWeight: 400,
               cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             }}
@@ -996,18 +972,18 @@ function ScorePageContent() {
         )}
         <button
           onTouchStart={() => {}}
-          onClick={isLastHole ? finalizeRound : goToNextHole}
-          aria-label={isLastHole ? 'Finalizar ronda' : 'Siguiente hoyo'}
+          onClick={isLastHole ? finalizeRound : () => { setConfirmFinalize(false); goToNextHole() }}
+          aria-label={isLastHole ? (confirmFinalize ? 'Confirmar finalización' : 'Finalizar ronda') : 'Siguiente hoyo'}
           style={{
             flex: 2, padding: '14px',
-            background: '#C4992A',
-            color: '#070D18',
+            background: (isLastHole && confirmFinalize) ? '#dc2626' : '#C4992A',
+            color: (isLastHole && confirmFinalize) ? '#ffffff' : '#070D18',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
             cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             touchAction: 'manipulation', letterSpacing: '0.01em',
             transition: 'background 0.3s ease',
           }}
-        >{isLastHole ? 'Finalizar ronda \u2713' : 'Siguiente \u2192'}</button>
+        >{isLastHole ? (confirmFinalize ? 'Confirmar finalización' : 'Finalizar ronda \u2713') : 'Siguiente \u2192'}</button>
       </div>
 
       {/* ── tAIger banners ── */}

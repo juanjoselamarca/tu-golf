@@ -319,14 +319,17 @@ export default function ScoreGrupoPage() {
   }
   const maxThru = Math.max(...jugadores.map(j => holesWithScores(j.id)), 0)
 
-  // Player totals
+  // Player totals with OUT/IN breakdown
   const getPlayerTotal = (jId: string) => {
-    let gross = 0, parTotal = 0
+    let gross = 0, parTotal = 0, out = 0, inn = 0
     for (let h = 1; h <= totalHoles; h++) {
       const s = scores[jId]?.[h]
-      if (s != null) { gross += s; parTotal += parMap[h] ?? 4 }
+      if (s != null) {
+        gross += s; parTotal += parMap[h] ?? 4
+        if (h <= 9) out += s; else inn += s
+      }
     }
-    return { gross, vsPar: gross - parTotal }
+    return { gross, vsPar: gross - parTotal, out, inn }
   }
 
   const goToNextHole = async () => {
@@ -426,7 +429,7 @@ export default function ScoreGrupoPage() {
       <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
         {[
           { label: 'PAR', value: String(par) },
-          { label: 'HDCP', value: String(holeData.stroke_index) },
+          { label: 'SI', value: String(holeData.stroke_index) },
           { label: 'YDS', value: holeData.yardaje ? String(holeData.yardaje) : '\u2014' },
         ].map(col => (
           <div key={col.label} style={{
@@ -450,7 +453,7 @@ export default function ScoreGrupoPage() {
             const playerScore = scores[j.id]?.[currentHole]
             const displayScore = playerScore ?? par
             const diff = playerScore != null ? playerScore - par : 0
-            const { gross, vsPar } = getPlayerTotal(j.id)
+            const { gross, vsPar, out, inn } = getPlayerTotal(j.id)
             const played = holesWithScores(j.id)
             const scoreResult = playerScore != null ? getScoreResult(playerScore, par) : null
             const chipStyle = scoreResult ? SCORE_STYLES[scoreResult] : null
@@ -468,7 +471,9 @@ export default function ScoreGrupoPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {played > 0 && (
                       <>
-                        <span style={{ fontSize: '12px', color: theme.textFaint }}>{gross} ({played}h)</span>
+                        <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
+                          {out > 0 ? `${out}` : ''}{out > 0 && inn > 0 ? '+' : ''}{inn > 0 ? `${inn}` : ''}={gross}
+                        </span>
                         <span style={{
                           fontSize: '13px', fontWeight: 700,
                           color: getVsParColor(vsPar),
