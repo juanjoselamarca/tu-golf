@@ -30,15 +30,16 @@ export async function POST(req: NextRequest) {
     // Prevent duplicate sessions for same ronda_libre_id
     const { data: existing } = await supabase
       .from('taiger_sessions')
-      .select('id, coach_response')
+      .select('id, messages')
       .eq('user_id', user.id)
       .eq('ronda_libre_id', ronda_libre_id)
       .maybeSingle()
 
     if (existing) {
+      const lastAssistant = (existing.messages as Array<{ role: string; content: string }>)?.filter(m => m.role === 'assistant').pop()
       return NextResponse.json({
         session_id: existing.id,
-        analysis: existing.coach_response,
+        analysis: lastAssistant?.content ?? null,
         cached: true,
       })
     }
@@ -168,8 +169,10 @@ export async function POST(req: NextRequest) {
         user_id: user.id,
         session_type: 'post_round',
         ronda_libre_id,
-        user_message: 'Análisis post-ronda automático',
-        coach_response: analysis,
+        messages: [
+          { role: 'user', content: 'Análisis post-ronda automático' },
+          { role: 'assistant', content: analysis },
+        ],
         techniques_assigned: [],
         next_focus: null,
       })
