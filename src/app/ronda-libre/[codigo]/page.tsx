@@ -325,7 +325,7 @@ function RondaLibrePageContent() {
     if (!isAnonymous || bannerDismissed || role === 'jugador') return
     const dismissed = sessionStorage.getItem(`banner-dismissed-${codigo}`)
     if (dismissed) { setBannerDismissed(true); return }
-    const timer = setTimeout(() => setShowBanner(true), 30000)
+    const timer = setTimeout(() => setShowBanner(true), 8000)
     const handleScroll = () => { setShowBanner(true); window.removeEventListener('scroll', handleScroll) }
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => { clearTimeout(timer); window.removeEventListener('scroll', handleScroll) }
@@ -435,7 +435,27 @@ function RondaLibrePageContent() {
   }
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/ronda-libre/${codigo}` : ''
-  const shareText = ronda ? `Sigue mi ronda en ${ronda.course_name} en vivo` : 'Sigue la ronda en vivo'
+  const shareText = (() => {
+    if (!ronda) return 'Sigue la ronda en vivo en Golfers+'
+    const jugadores = ronda.ronda_libre_jugadores
+    if (jugadores.length === 0) return `Ronda en ${ronda.course_name} — Golfers+`
+    const leader = [...jugadores]
+      .map(j => {
+        let gross = 0, parTotal = 0, holesPlayed = 0
+        for (let h = 1; h <= ronda.holes; h++) {
+          const s = j.scores?.[String(h)] ?? j.scores?.[h]
+          if (s != null) { gross += s; parTotal += parMap[h] ?? 4; holesPlayed++ }
+        }
+        const vsPar = gross - parTotal
+        return { nombre: j.nombre, gross, vsPar, holesPlayed }
+      })
+      .filter(j => j.holesPlayed > 0)
+      .sort((a, b) => a.vsPar - b.vsPar)[0]
+
+    if (!leader) return `Ronda en vivo en ${ronda.course_name} — Golfers+`
+    const vsParStr = leader.vsPar > 0 ? `+${leader.vsPar}` : leader.vsPar === 0 ? 'E' : String(leader.vsPar)
+    return `${leader.nombre} va ${leader.gross} (${vsParStr}) en ${ronda.course_name} — Seguila en vivo`
+  })()
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl)
@@ -740,14 +760,14 @@ function RondaLibrePageContent() {
           }}>
             <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#edeae4' }}>Golfers+</div>
-                <div style={{ fontSize: '12px', color: '#94a8c0' }}>Sigue la ronda en tiempo real</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#edeae4' }}>Registr&aacute; tu propio score</div>
+                <div style={{ fontSize: '12px', color: '#94a8c0' }}>Crea tu cuenta gratis y jug&aacute; con Golfers+</div>
               </div>
-              <Link href={`/login?next=/ronda-libre/${codigo}`} style={{
+              <Link href={`/register?next=/ronda-libre/${codigo}`} style={{
                 background: '#c4992a', color: '#070d18', fontWeight: 700,
                 fontSize: '13px', padding: '10px 18px', borderRadius: '8px',
                 textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
-              }}>Crear cuenta</Link>
+              }}>Unirme gratis</Link>
               <button onClick={dismissBanner} style={{
                 background: 'none', border: 'none', color: '#94a8c0',
                 fontSize: '20px', cursor: 'pointer', padding: '4px 8px', flexShrink: 0,
@@ -1006,6 +1026,13 @@ function RondaLibrePageContent() {
           )}
 
           {/* GWI — solo si hay >= 2 jugadores y al menos 3 hoyos jugados */}
+          {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
+              <span style={{ fontSize: '11px', color: '#94a8c0' }}>Probabilidad de ganar en tiempo real</span>
+              <a href="/indices" style={{ fontSize: '10px', color: 'rgba(196,153,42,0.6)', textDecoration: 'none', marginLeft: 'auto' }}>Saber m&aacute;s</a>
+            </div>
+          )}
           {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
             <GWILeaderboard
               jugadores={gwiInputs}
@@ -1268,21 +1295,21 @@ function RondaLibrePageContent() {
             <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#edeae4' }}>
-                  Golfers+
+                  Registr&aacute; tu propio score
                 </div>
                 <div style={{ fontSize: '12px', color: '#94a8c0' }}>
-                  Sigue la ronda en tiempo real
+                  Crea tu cuenta gratis y jug&aacute; con Golfers+
                 </div>
               </div>
               <Link
-                href={`/login?next=/ronda-libre/${codigo}`}
+                href={`/register?next=/ronda-libre/${codigo}`}
                 style={{
                   background: '#c4992a', color: '#070d18', fontWeight: 700,
                   fontSize: '13px', padding: '10px 18px', borderRadius: '8px',
                   textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
                 }}
               >
-                Crear cuenta
+                Unirme gratis
               </Link>
               <button
                 onClick={dismissBanner}
