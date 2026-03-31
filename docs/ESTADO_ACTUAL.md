@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-03-30 | Commit: `1fd3bde`
+> Auto-generado: 2026-03-31 | Commit: `45f1ebd`
 
 ## Último deploy
 
-- **Commit:** `1fd3bde` — feat: UI índice dual + niveles en perfil
-- **Fecha:** 2026-03-30
-- **Branch:** main (261 commits total)
+- **Commit:** `45f1ebd` — feat: Fase 3 — save indicator visible, OUT/IN organizer, SI label
+- **Fecha:** 2026-03-31
+- **Branch:** main (269 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (37 páginas)
@@ -68,25 +68,25 @@
 
 ---
 
-## Sesion 30 Mar 2026 — Sesion masiva: seguridad, Sentry, PostHog, UX, rebrand, golf module
+## Sesion 30 Mar 2026 (cont.) — Índice Dual + Sistema de Niveles + Estabilización
 
 **Fecha:** 30 Mar 2026
-**Estado:** COMPLETO — 20+ commits
+**Estado:** COMPLETO — 11 commits
 
-### Sprint 5 — Seguridad completado
-- X-XSS-Protection header, CORS restrictivo en /api/en-vivo
+### Recuperación de sesión interrumpida
+- Motor de notificaciones inteligente (shouldNotify)
+- Celebraciones birdie/eagle integradas en score page
+- Componentes con accesibilidad (ARIA, Escape key)
 
-### Sentry + PostHog activados en produccion
-- Sentry: DSN configurado, instrumentation-client.ts, global-error.tsx
-- PostHog: autocapture pageviews/clicks, respect DNT, sin IP tracking
+### Fixes de estabilización (del backlog 17 Mar)
+- taiger/context filtra historical_rounds por user_id (P1)
+- Middleware ya no logea datos sensibles en producción
+- golf/coach/ completo: 7 pattern detectors + analyzeRound() real
+- 45+ mensajes de error reescritos en español amigable (37 archivos)
+- Eliminación de cuenta: de alert()/confirm() a UI branded con toasts
 
-### Bug critico corregido
-- /api/en-vivo filtraba por 'in_progress' (no existe en BD) → corregido a 'en_curso'
-
-### 10 mejoras UX para usuarios 60+
-- Toast en errores (crear ronda, score, torneo) — antes: console.error invisible
-- Pagina /recuperar contraseña nueva
-- Tipografia Navbar mas legible (10→11px)
+### Sprint Índice Dual + Niveles
+- Migración SQL 010: indice_golfers, nivel, diferencial (con backfill)
 
 ---
 

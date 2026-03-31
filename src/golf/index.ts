@@ -10,6 +10,7 @@ export * from './core/rules'
 export * from './core/scoring'
 export * from './core/compare'
 export * from './core/colors'
+export * from './core/countback'
 
 // Formats
 export { getFormat, FORMATS } from './formats'

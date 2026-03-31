@@ -63,6 +63,9 @@ export default function ScoringPage() {
   const [errorHoles,        setErrorHoles]        = useState<Set<number>>(new Set())
   const [saving,            setSaving]            = useState(false)
   const [loading,           setLoading]           = useState(true)
+  const [activeTab,         setActiveTab]         = useState<'scoring' | 'resumen'>('scoring')
+  const [editingHcp,        setEditingHcp]        = useState<string | null>(null)
+  const [editHcpValue,      setEditHcpValue]      = useState('')
 
   // Estadísticas adicionales por hoyo
   const [showStats,    setShowStats]    = useState(false)
@@ -263,6 +266,29 @@ export default function ScoringPage() {
     setHoleGir({})
   }
 
+  const handleHcpSave = async (playerId: string) => {
+    const value = parseFloat(editHcpValue)
+    if (isNaN(value) || value < 0 || value > 54) {
+      showWarning('Handicap inválido', 'Debe ser un número entre 0 y 54.')
+      setEditingHcp(null)
+      return
+    }
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('players')
+      .update({ handicap_at_registration: value })
+      .eq('id', playerId)
+    if (error) {
+      showError('Error', 'No se pudo actualizar el handicap.')
+    } else {
+      setPlayers((prev) =>
+        prev.map((p) => p.id === playerId ? { ...p, handicap_at_registration: value } : p)
+      )
+      showSuccess('Handicap actualizado', '', { duration: 1500 })
+    }
+    setEditingHcp(null)
+  }
+
   if (loading) {
     return (
       <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -347,6 +373,138 @@ export default function ScoringPage() {
       </div>
 
       <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '28px 20px' }}>
+
+        {/* Tab switcher */}
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'rgba(14,28,47,0.7)', borderRadius: '10px', padding: '4px', border: '1px solid rgba(122,143,168,0.15)' }}>
+          {(['scoring', 'resumen'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                flex: 1,
+                padding: '10px 16px',
+                background: activeTab === tab ? 'rgba(196,153,42,0.15)' : 'transparent',
+                border: activeTab === tab ? '1px solid rgba(196,153,42,0.4)' : '1px solid transparent',
+                borderRadius: '8px',
+                color: activeTab === tab ? '#c4992a' : '#94a8c0',
+                fontSize: '14px',
+                fontWeight: activeTab === tab ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'all 180ms',
+              }}
+            >
+              {tab === 'scoring' ? 'Scoring' : 'Resumen'}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Resumen tab ── */}
+        {activeTab === 'resumen' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Stats cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+              {(() => {
+                const completed = players.filter(p => p.rounds?.[0]?.status === 'completed').length
+                const withScores = players.filter(p => p.rounds?.[0]?.total_gross > 0).length
+                const bestGross = players.reduce((best, p) => {
+                  const g = p.rounds?.[0]?.total_gross
+                  return g && g > 0 && (!best || g < best.score) ? { name: p.profiles?.name, score: g } : best
+                }, null as { name: string; score: number } | null)
+                const bestNet = players.reduce((best, p) => {
+                  const n = p.rounds?.[0]?.total_net
+                  return n != null && n !== 0 && (!best || n < best.score) ? { name: p.profiles?.name, score: n } : best
+                }, null as { name: string; score: number } | null)
+
+                const cards = [
+                  { label: 'Jugadores', value: `${withScores}/${players.length}`, sub: `${completed} completos` },
+                  { label: 'Mejor Gross', value: bestGross ? String(bestGross.score) : '--', sub: bestGross?.name?.split(' ')[0] || '' },
+                  { label: 'Mejor Neto', value: bestNet ? String(bestNet.score) : '--', sub: bestNet?.name?.split(' ')[0] || '' },
+                ]
+
+                return cards.map((c) => (
+                  <div key={c.label} style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '11px', color: '#94a8c0', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
+                    <div style={{ fontSize: '24px', fontWeight: 700, color: '#edeae4', fontFamily: '"Playfair Display", serif' }}>{c.value}</div>
+                    {c.sub && <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '4px' }}>{c.sub}</div>}
+                  </div>
+                ))
+              })()}
+            </div>
+
+            {/* Player table with editable handicap */}
+            <div style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(196,153,42,0.1)' }}>
+                <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: '#edeae4' }}>Jugadores</span>
+                <span style={{ fontSize: '12px', color: '#94a8c0', marginLeft: '8px' }}>Toca el handicap para editar</span>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(122,143,168,0.15)' }}>
+                      {['Jugador', 'HCP', 'Gross', 'Neto', 'Pts', 'Estado'].map((h) => (
+                        <th key={h} style={{ color: '#94a8c0', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '10px 12px', textAlign: h === 'Jugador' ? 'left' : 'center' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {players.map((p) => {
+                      const round = p.rounds?.[0]
+                      const isDone = round?.status === 'completed'
+                      const isEditingThis = editingHcp === p.id
+                      return (
+                        <tr key={p.id} style={{ borderBottom: '1px solid rgba(122,143,168,0.06)' }}>
+                          <td style={{ padding: '10px 12px', color: '#edeae4', fontWeight: 500 }}>{p.profiles?.name || '--'}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            {isEditingThis ? (
+                              <input
+                                type="number"
+                                step="0.1"
+                                min={0}
+                                max={54}
+                                autoFocus
+                                value={editHcpValue}
+                                onChange={(e) => setEditHcpValue(e.target.value)}
+                                onBlur={() => handleHcpSave(p.id)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleHcpSave(p.id); if (e.key === 'Escape') setEditingHcp(null) }}
+                                style={{ width: '56px', background: 'rgba(7,13,24,0.8)', border: '1px solid #c4992a', borderRadius: '4px', color: '#edeae4', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none' }}
+                              />
+                            ) : (
+                              <button
+                                onClick={() => { setEditingHcp(p.id); setEditHcpValue(String(p.handicap_at_registration ?? '')) }}
+                                style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#c4992a', cursor: 'pointer', padding: '4px 8px', fontSize: '13px', fontWeight: 600 }}
+                                title="Editar handicap"
+                              >
+                                {p.handicap_at_registration ?? '--'}
+                              </button>
+                            )}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', color: '#edeae4', fontWeight: 600 }}>{round?.total_gross || '--'}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', color: '#edeae4' }}>{round?.total_net || '--'}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', color: '#edeae4' }}>{round?.total_points || '--'}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <span style={{
+                              fontSize: '11px',
+                              padding: '3px 8px',
+                              borderRadius: '12px',
+                              background: isDone ? 'rgba(22,163,74,0.15)' : 'rgba(122,143,168,0.1)',
+                              color: isDone ? '#4ade80' : '#94a8c0',
+                              border: `1px solid ${isDone ? 'rgba(22,163,74,0.3)' : 'rgba(122,143,168,0.2)'}`,
+                            }}>
+                              {isDone ? 'Completo' : 'En juego'}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Scoring tab ── */}
+        {activeTab === 'scoring' && <>
 
         {/* Player cards */}
         <div style={{ overflowX: 'auto', marginBottom: '28px' }}>
@@ -637,6 +795,8 @@ export default function ScoringPage() {
             <div style={{ fontSize: '13px' }}>Luego ingresa los scores hoyo a hoyo.</div>
           </div>
         )}
+
+        </>}
       </div>
     </div>
   )
