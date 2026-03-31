@@ -28,17 +28,37 @@ export interface CourseHole {
 }
 
 export interface Tournament {
-  id:           string
-  name:         string
-  slug:         string
-  format:       string
-  modo_juego:   ModoJuego
-  hole_count:   number
-  date_start:   string | null
-  status:       string
-  organizer_id: string
-  course_id:    string | null
-  created_at:   string
+  id:                    string
+  name:                  string
+  slug:                  string
+  format:                string
+  modo_juego:            ModoJuego
+  hole_count:            number
+  date_start:            string | null
+  status:                string
+  organizer_id:          string
+  course_id:             string | null
+  course_name:           string
+  afecta_estadisticas?:  boolean
+  codigo?:               string | null
+  created_at:            string
+}
+
+export interface TournamentGroup {
+  id:               string
+  tournament_id:    string
+  name:             string
+  tee_time:         string | null
+  ronda_libre_id:   string | null
+  sort_order:       number
+  created_at:       string
+}
+
+export interface TournamentGroupPlayer {
+  id:                string
+  group_id:          string
+  player_id:         string
+  jugador_ronda_id:  string | null
 }
 
 export interface Player {

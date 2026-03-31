@@ -55,6 +55,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
   const [holeCount,      setHoleCount]      = useState(18)
   const [tees,           setTees]           = useState('blanco')
   const [useHandicap,    setUseHandicap]    = useState(true)
+  const [afectaStats,    setAfectaStats]    = useState(true)
   const [categories,     setCategories]     = useState<string[]>(['A', 'B', 'C'])
   const [newCat,         setNewCat]         = useState('')
   const [day,            setDay]            = useState('')
@@ -158,18 +159,22 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
 
     await supabase.from('profiles').update({ role: 'organizer' }).eq('id', userId)
 
+    const codigo = Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('')
+
     const tournamentBase = {
-      name:            name.trim(),
+      name:                 name.trim(),
       slug,
-      organizer_id:    userId,
-      course_id:       selectedCourse!.id,
+      organizer_id:         userId,
+      course_id:            selectedCourse!.id,
       format,
-      hole_count:      holeCount,
+      hole_count:           holeCount,
       tees,
-      use_handicap:    useHandicap,
-      cover_image_url: coverUrl.trim() || null,
-      status:          'draft',
-      date_start:      dateISO,
+      use_handicap:         useHandicap,
+      afecta_estadisticas:  afectaStats,
+      codigo,
+      cover_image_url:      coverUrl.trim() || null,
+      status:               'draft',
+      date_start:           dateISO,
     }
 
     // Intento 1: con modo_juego
@@ -428,6 +433,21 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
               style={{ width: '48px', height: '26px', borderRadius: '13px', background: useHandicap ? '#c4992a' : 'rgba(122,143,168,0.3)', position: 'relative', transition: 'background 200ms', border: 'none', cursor: 'pointer', flexShrink: 0 }}
             >
               <span style={{ position: 'absolute', top: '3px', left: useHandicap ? '25px' : '3px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 200ms' }} />
+            </button>
+          </div>
+
+          {/* 7. Afecta estadísticas toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'rgba(7,13,24,0.4)', borderRadius: '10px', border: '1px solid rgba(122,143,168,0.15)' }}>
+            <div>
+              <div style={{ color: '#edeae4', fontSize: '14px', fontWeight: 500 }}>Afecta el perfil del jugador</div>
+              <div style={{ color: '#94a8c0', fontSize: '12px', marginTop: '2px' }}>Los scores actualizan el CPI e &Iacute;ndice Golfers+ de cada jugador</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAfectaStats(!afectaStats)}
+              style={{ width: '48px', height: '26px', borderRadius: '13px', background: afectaStats ? '#c4992a' : 'rgba(122,143,168,0.3)', position: 'relative', transition: 'background 200ms', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+            >
+              <span style={{ position: 'absolute', top: '3px', left: afectaStats ? '25px' : '3px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 200ms' }} />
             </button>
           </div>
 
