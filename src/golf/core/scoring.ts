@@ -37,11 +37,12 @@ export function puntosStablefordHoyo(
 ): number {
   const neto = scoreNetoHoyo(grossScore, handicapIndex, strokeIndex)
   const diff = neto - par
-  if (diff <= -2) return 4
-  if (diff === -1) return 3
-  if (diff === 0)  return 2
-  if (diff === 1)  return 1
-  return 0
+  if (diff <= -3) return 5  // Albatross o mejor
+  if (diff === -2) return 4 // Eagle
+  if (diff === -1) return 3 // Birdie
+  if (diff === 0)  return 2 // Par
+  if (diff === 1)  return 1 // Bogey
+  return 0                  // Doble bogey+
 }
 
 // ─── Interfaces ───
