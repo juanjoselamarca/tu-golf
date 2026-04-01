@@ -4,6 +4,71 @@
 
 ---
 
+## Sesion 31 Mar – 1 Apr 2026 — Arquitectura de Torneos + Testing Exhaustivo
+
+**Fecha:** 31 Mar – 1 Apr 2026
+**Estado:** COMPLETO — 45 commits, 36 tests, 21+ páginas verificadas
+**Bloques:** 8 bloques ejecutados (sesión de ~8h)
+
+### Bloque 1-2: Diseño y Fase 1 de Torneos
+- Arquitectura completa documentada en 4 fases (arch/diseño)
+- Fase 1: scoring organizer mejorado, score max, net_score bug fix, terminología
+- CHECK constraint violations al inscribir jugadores corregidas
+- /ronda-libre/nueva protegida por middleware
+
+### Bloque 3: Fase 2 — Inscripción y Grupos
+- tournament_groups + afecta_estadisticas + código de inscripción
+- Leaderboard de torneo con scores desde rondas libres vinculadas
+- Inscripción por código visible en gestión de jugadores
+- Fase 2 estabilización: dark mode, OUT/IN en grupo, confirmación finalizar
+
+### Bloque 4: Fase 3 — Reglas de Golf BD + Countback
+- golf_rules en BD (R&A oficial)
+- Countback USGA implementado (últimos 9, 6, 3, 1)
+- Hoja de salida generada desde grupos
+- Admin scoring mejorado con edición directa
+
+### Bloque 5: Fase 4 — Resultados y Multi-ronda
+- Resultados de torneo con vinculación a historical_rounds
+- Soporte torneos multi-día (multi-ronda)
+- Formulario con selector de duración + API start_next_round
+- Scoring con tabs por ronda + leaderboard acumulativo
+- Gestión de grupos + iniciar/cerrar torneo en panel de jugadores
+
+### Bloque 6: Mejoras UX y SEO
+- tAIger+ activado: de "Próximamente" a coach funcional
+- Golf Intelligence Labs con experiencia premium y PGA Tour examples
+- Navbar reorganizado: avatar dropdown + menú sin scroll
+- /indices como experiencia de contenido CPI, GWI e Índice Golfers+
+- Neto y Stableford funcional en ronda libre + par validado 3-5
+- Stableford: 5 puntos por albatross (USGA)
+- SEO: metadata dinámica y OG tags para todas las páginas públicas
+- Limpieza global: Handicap -> Índice, textos en español
+- Seed course_holes estándar para 38 canchas + auditoría RLS
+- Dashboard mejorado: torneos activos, última ronda con compartir, progreso de índice
+
+### Bloque 7: Testing Exhaustivo (producción)
+- 12/12 páginas públicas responden 200
+- 9/9 páginas protegidas redirigen 307
+- 4/4 APIs sin auth devuelven mensajes amigables en español
+- Smoke test ronda libre: crear, 2 jugadores, scores JSONB, espectador 200, cleanup
+- Smoke test tAIger+: 96 rondas históricas, 3 patrones, CPI 39.57
+- 6/6 edge cases DB: HIO(1) OK, score 0 rechazado, score 19 OK, score 20 rechazado, duplicado rechazado, status inválido rechazado
+- Health check: OK (supabase: true, 7ms)
+
+### Bloque 8: Documentación
+- Sprint log actualizado
+- docs/ actualizados con script
+
+### Métricas clave
+- **45 commits** en la sesión
+- **36 tests** pasando (5 suites)
+- **21+ páginas** verificadas en producción
+- **4 fases** de arquitectura de torneos completadas
+- **0 errores** TypeScript
+
+---
+
 ## Sesion 30 Mar 2026 (cont.) — Índice Dual + Sistema de Niveles + Estabilización
 
 **Fecha:** 30 Mar 2026
