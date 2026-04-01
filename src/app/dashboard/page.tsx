@@ -1,12 +1,12 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import LogoutButton from '@/components/LogoutButton'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
 import { ExperiencePopupWrapper } from '@/components/ExperiencePopupWrapper'
 import { HoleColorBar } from '@/components/HoleColorBar'
 import { PostLoginRedirect } from '@/components/PostLoginRedirect'
 import EnVivoWidget from '@/components/EnVivoWidget'
+import ShareRoundButton from '@/components/ShareRoundButton'
 
 interface Tournament {
   id: string
@@ -14,6 +14,7 @@ interface Tournament {
   slug: string
   status: string
   date_start: string | null
+  total_rounds?: number
   courses: { nombre: string } | null
 }
 
@@ -23,6 +24,11 @@ interface RondaLibre {
   course_name: string
   fecha: string
   estado: string
+}
+
+interface ActivePlayerTournament {
+  tournaments: Tournament | null
+  // rounds linked to the player for progress tracking
 }
 
 const STATUS_LABEL: Record<string, { label: string; bg: string; color: string }> = {
@@ -47,6 +53,12 @@ export default async function DashboardPage() {
 
   const userName     = user.user_metadata?.name || user.email?.split('@')[0] || 'Golfista'
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+  void userInitials // used in avatar if needed
+
+  // Calculate 7 days ago for recent round query
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
 
   const [
     { data: myTournaments },
@@ -55,6 +67,10 @@ export default async function DashboardPage() {
     { count: totalPlayers },
     { data: rondasRaw },
     { count: initialRounds },
+    { data: activeTournamentsRaw },
+    { data: recentRoundRaw },
+    { count: rondasConDiferencial },
+    { data: userProfile },
   ] = await Promise.all([
     supabase.from('tournaments').select('id, name, slug, status, date_start, courses(nombre)').eq('organizer_id', user.id).order('created_at', { ascending: false }),
     supabase.from('players').select('tournaments(id, name, slug, status, date_start, courses(nombre))').eq('user_id', user.id).order('created_at', { ascending: false }),
@@ -62,6 +78,14 @@ export default async function DashboardPage() {
     supabase.from('players').select('id, tournaments!inner(organizer_id)', { count: 'exact', head: true }).eq('tournaments.organizer_id', user.id),
     supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado').eq('creador_id', user.id).order('created_at', { ascending: false }).limit(5),
     supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+    // 4.1 — Active tournaments the player is enrolled in
+    supabase.from('players').select('tournaments!inner(id, name, slug, status, date_start, total_rounds, courses(nombre))').eq('user_id', user.id).in('tournaments.status', ['open', 'in_progress']),
+    // 4.2 — Recent completed round (last 7 days)
+    supabase.from('historical_rounds').select('id, total_gross, course_name, played_at, diferencial').eq('user_id', user.id).gte('played_at', sevenDaysAgoStr).order('played_at', { ascending: false }).limit(1),
+    // 4.3 — Count rounds with diferencial for index progress
+    supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', user.id).not('diferencial', 'is', null),
+    // Profile with indice_golfers
+    supabase.from('profiles').select('indice, indice_golfers').eq('id', user.id).single(),
   ])
 
   const today = new Date().toISOString().split('T')[0]
@@ -73,16 +97,24 @@ export default async function DashboardPage() {
     .limit(1)
     .single()
 
-  const { data: userProfile } = await supabase
-    .from('profiles')
-    .select('indice')
-    .eq('id', user.id)
-    .single()
-
   const tournaments       = (myTournaments as unknown as Tournament[]) || []
   const playedTournaments = ((playedRaw || []).map((p: unknown) => (p as { tournaments: Tournament | null }).tournaments).filter(Boolean)) as Tournament[]
   const rondasLibres      = (rondasRaw as RondaLibre[]) || []
   const latestTournament  = tournaments[0] || null
+
+  // 4.1 — Extract active tournaments
+  const activeTournaments = ((activeTournamentsRaw || []).map((p: unknown) => (p as ActivePlayerTournament).tournaments).filter(Boolean)) as Tournament[]
+
+  // 4.2 — Recent completed round
+  const recentRound = recentRoundRaw?.[0] as { id: string; total_gross: number | null; course_name: string | null; played_at: string | null; diferencial: number | null } | undefined
+
+  // 4.3 — Index progress
+  const rondasParaIndice = rondasConDiferencial ?? 0
+  const indiceGolfers = userProfile?.indice_golfers as number | null
+  const indiceActivo = indiceGolfers != null
+
+  // Detect truly new user: no tournaments, no rondas, no rounds
+  const isNewUser = tournaments.length === 0 && rondasLibres.length === 0 && (initialRounds ?? 0) === 0 && playedTournaments.length === 0
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
@@ -130,10 +162,130 @@ export default async function DashboardPage() {
           )
         })()}
 
+        {/* 4.1 — Active tournaments the player is enrolled in */}
+        {activeTournaments.length > 0 && (
+          <>
+            {activeTournaments.map((t) => {
+              const st = STATUS_LABEL[t.status] ?? STATUS_LABEL.open
+              const fechaT = t.date_start ? new Date(t.date_start).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+              const totalRounds = t.total_rounds ?? 1
+              return (
+                <div key={t.id} style={{
+                  background: 'rgba(196,153,42,0.05)', border: '1px solid rgba(196,153,42,0.2)',
+                  borderLeft: '3px solid #c4992a', borderRadius: '14px', padding: '16px', marginBottom: '16px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: st.color, background: st.bg, border: `1px solid ${st.color}40`, padding: '2px 10px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Torneo {st.label}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif', marginBottom: '4px' }}>
+                    {t.name}
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '4px' }}>
+                    {t.courses?.nombre && <span>⛳ {t.courses.nombre}</span>}
+                    {fechaT && <span style={{ marginLeft: '12px' }}>📅 {fechaT}</span>}
+                  </div>
+                  {totalRounds > 1 && (
+                    <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px' }}>
+                      {totalRounds} rondas en total
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <Link href={`/torneo/${t.slug}`} style={{ flex: 1, padding: '12px', background: '#C4992A', color: '#070D18', borderRadius: '10px', fontSize: '14px', fontWeight: 700, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
+                      Continuar →
+                    </Link>
+                    <Link href={`/torneo/${t.slug}`} style={{ padding: '10px 16px', background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--text-3)', borderRadius: '10px', fontSize: '13px', textDecoration: 'none', display: 'block' }}>
+                      Leaderboard
+                    </Link>
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )}
+
         <div style={{ height: '1px', background: 'linear-gradient(90deg, #c4992a, transparent)', marginBottom: '24px' }} />
 
+        {/* 4.3 — Index progress indicator */}
+        {indiceActivo ? (
+          <div style={{
+            background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.25)',
+            borderRadius: '14px', padding: '20px', marginBottom: '20px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '11px', color: '#c4992a', fontFamily: 'var(--font-dm-mono), monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+              Índice Golfers+ activo
+            </div>
+            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '42px', color: '#c4992a', fontWeight: 700, lineHeight: 1.1 }}>
+              {indiceGolfers!.toFixed(1)}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '4px' }}>
+              Basado en {rondasParaIndice} ronda{rondasParaIndice !== 1 ? 's' : ''} registrada{rondasParaIndice !== 1 ? 's' : ''}
+            </div>
+            <Link href="/perfil/stats" style={{ display: 'inline-block', marginTop: '12px', color: '#c4992a', fontSize: '13px', fontWeight: 600, textDecoration: 'none' }}>
+              Ver evolución →
+            </Link>
+          </div>
+        ) : rondasParaIndice > 0 && rondasParaIndice < 3 ? (
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.2)',
+            borderRadius: '14px', padding: '20px', marginBottom: '20px',
+          }}>
+            <div style={{ fontSize: '11px', color: '#c4992a', fontFamily: 'var(--font-dm-mono), monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+              Progreso del índice
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>
+              {rondasParaIndice} de 3 rondas para activar tu Índice Golfers+
+            </div>
+            {/* Progress bar */}
+            <div style={{ background: 'rgba(196,153,42,0.1)', borderRadius: '6px', height: '8px', overflow: 'hidden', marginBottom: '10px' }}>
+              <div style={{ background: '#c4992a', height: '100%', borderRadius: '6px', width: `${(rondasParaIndice / 3) * 100}%`, transition: 'width 0.3s' }} />
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
+              Juega {3 - rondasParaIndice} ronda{3 - rondasParaIndice !== 1 ? 's' : ''} más para desbloquear tu Índice Golfers+
+            </div>
+          </div>
+        ) : null}
+
+        {/* 4.2 — Recent completed round with share */}
+        {recentRound && recentRound.total_gross != null && (
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.2)',
+            borderRadius: '14px', padding: '16px', marginBottom: '20px',
+          }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-3)', fontFamily: 'var(--font-dm-mono), monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+              Tu última ronda
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif' }}>
+                  {recentRound.total_gross}
+                  {recentRound.diferencial != null && (
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: recentRound.diferencial <= 0 ? '#4ade80' : recentRound.diferencial <= 5 ? '#c4992a' : '#f87171', marginLeft: '8px' }}>
+                      ({recentRound.diferencial >= 0 ? '+' : ''}{recentRound.diferencial})
+                    </span>
+                  )}
+                  <span style={{ fontSize: '14px', fontWeight: 400, color: 'var(--text-2)', marginLeft: '8px' }}>
+                    en {recentRound.course_name ?? 'Cancha'}
+                  </span>
+                </div>
+                {recentRound.played_at && (
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '2px' }}>
+                    {new Date(recentRound.played_at + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
+                )}
+              </div>
+              <ShareRoundButton
+                scoreGross={recentRound.total_gross}
+                scoreDiff={recentRound.diferencial ?? 0}
+                courseName={recentRound.course_name ?? 'Cancha'}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Onboarding card */}
-        {!userProfile?.indice && (
+        {!userProfile?.indice && !isNewUser && (
           <div style={{
             background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.2)',
             borderRadius: '14px', padding: '20px', marginBottom: '20px',
@@ -157,8 +309,8 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Import CTA — show when user has few rounds */}
-        {(initialRounds ?? 0) < 5 && (
+        {/* Import CTA — show when user has few rounds and is not brand new */}
+        {(initialRounds ?? 0) < 5 && !isNewUser && (
           <div style={{
             background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.15)',
             borderRadius: '14px', padding: '20px', marginBottom: '20px',
@@ -182,28 +334,86 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* 2 — Action cards */}
-        <div className="dashboard-actions" style={{ gap: '20px', marginBottom: '32px' }}>
-          {/* Ronda Libre — gold, prominent */}
-          <div style={{ background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(196,153,42,0.35)', borderRadius: '14px', padding: '20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '32px', marginBottom: '16px' }}>⛳</div>
-            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#c4992a', marginBottom: '8px' }}>Ronda Libre</h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '16px' }}>Juega con amigos, score en vivo, sin torneo formal</p>
-            <Link href="/ronda-libre/nueva" style={{ ...btnPrimary, display: 'inline-block' }}>
-              Nueva ronda →
-            </Link>
-          </div>
+        {/* 4.4 — Welcome empty state for brand new users */}
+        {isNewUser && (
+          <div style={{ marginBottom: '32px' }}>
+            <div style={{
+              background: 'rgba(196,153,42,0.04)', border: '1px solid rgba(196,153,42,0.2)',
+              borderRadius: '16px', padding: '32px 24px', textAlign: 'center', marginBottom: '24px',
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '12px' }}>⛳</div>
+              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '8px' }}>
+                Bienvenido a Golfers+
+              </div>
+              <p style={{ fontSize: '15px', color: 'var(--text-2)', margin: '0 auto', maxWidth: '420px', lineHeight: 1.5 }}>
+                La plataforma de golf en español. Registra tus rondas, compite con amigos y mejora tu juego con inteligencia artificial.
+              </p>
+            </div>
 
-          {/* Organizar torneo */}
-          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '32px', marginBottom: '16px' }}>🏆</div>
-            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', marginBottom: '8px' }}>Organizar un torneo</h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '16px' }}>Crea y gestiona tu propio torneo en minutos.</p>
-            <Link href="/organizador/nuevo" style={{ display: 'inline-block', background: '#c4992a', color: '#070d18', fontWeight: 600, borderRadius: '8px', padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
-              Crear torneo →
-            </Link>
+            <div className="dashboard-actions" style={{ gap: '16px' }}>
+              {/* Crear primera ronda */}
+              <Link href="/ronda-libre/nueva" style={{ textDecoration: 'none' }}>
+                <div style={{
+                  background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(196,153,42,0.35)',
+                  borderRadius: '14px', padding: '20px', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏌️</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#c4992a', marginBottom: '6px' }}>Crea tu primera ronda</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>Juega con amigos, registra tu score en vivo</div>
+                </div>
+              </Link>
+
+              {/* Importar historial */}
+              <Link href="/importar" style={{ textDecoration: 'none' }}>
+                <div style={{
+                  background: 'var(--bg-surface)', border: '1px solid var(--border)',
+                  borderRadius: '14px', padding: '20px', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>📥</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>Importa tu historial</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>Trae tus rondas pasadas y activa tu Índice Golfers+</div>
+                </div>
+              </Link>
+
+              {/* Golf Intelligence */}
+              <Link href="/perfil/stats" style={{ textDecoration: 'none' }}>
+                <div style={{
+                  background: 'var(--bg-surface)', border: '1px solid var(--border)',
+                  borderRadius: '14px', padding: '20px', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>🧠</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>Explora Golf Intelligence</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>Estadísticas, tendencias y coaching con IA</div>
+                </div>
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* 2 — Action cards (only show if not brand new — new users see welcome cards above) */}
+        {!isNewUser && (
+          <div className="dashboard-actions" style={{ gap: '20px', marginBottom: '32px' }}>
+            {/* Ronda Libre — gold, prominent */}
+            <div style={{ background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(196,153,42,0.35)', borderRadius: '14px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '32px', marginBottom: '16px' }}>⛳</div>
+              <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#c4992a', marginBottom: '8px' }}>Ronda Libre</h2>
+              <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '16px' }}>Juega con amigos, score en vivo, sin torneo formal</p>
+              <Link href="/ronda-libre/nueva" style={{ ...btnPrimary, display: 'inline-block' }}>
+                Nueva ronda →
+              </Link>
+            </div>
+
+            {/* Organizar torneo */}
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '32px', marginBottom: '16px' }}>🏆</div>
+              <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', marginBottom: '8px' }}>Organizar un torneo</h2>
+              <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '16px' }}>Crea y gestiona tu propio torneo en minutos.</p>
+              <Link href="/organizador/nuevo" style={{ display: 'inline-block', background: '#c4992a', color: '#070d18', fontWeight: 600, borderRadius: '8px', padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
+                Crear torneo →
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Stats card */}
         <Link href="/perfil/stats" style={{
