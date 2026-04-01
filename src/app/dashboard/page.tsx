@@ -45,7 +45,9 @@ const STATUS_LABEL: Record<string, { label: string; bg: string; color: string }>
 const btnPrimary:     React.CSSProperties = { background: '#c4992a', color: '#070d18', fontWeight: 700, padding: '12px 20px', borderRadius: '10px', fontSize: '13px', textDecoration: 'none', border: 'none' }
 const btnSecondary:   React.CSSProperties = { background: 'transparent', border: '1px solid rgba(196,153,42,0.4)', color: '#c4992a', padding: '12px 20px', borderRadius: '10px', fontSize: '13px', textDecoration: 'none' }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
+  const params = await searchParams
+  const isWelcome = params.welcome === 'true'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -113,8 +115,8 @@ export default async function DashboardPage() {
   const indiceGolfers = userProfile?.indice_golfers as number | null
   const indiceActivo = indiceGolfers != null
 
-  // Detect truly new user: no tournaments, no rondas, no rounds
-  const isNewUser = tournaments.length === 0 && rondasLibres.length === 0 && (initialRounds ?? 0) === 0 && playedTournaments.length === 0
+  // Detect truly new user: no tournaments, no rondas, no rounds (or explicit welcome param from registration)
+  const isNewUser = isWelcome || (tournaments.length === 0 && rondasLibres.length === 0 && (initialRounds ?? 0) === 0 && playedTournaments.length === 0)
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
@@ -346,7 +348,7 @@ export default async function DashboardPage() {
                 Bienvenido a Golfers+
               </div>
               <p style={{ fontSize: '15px', color: 'var(--text-2)', margin: '0 auto', maxWidth: '420px', lineHeight: 1.5 }}>
-                La plataforma de golf en español. Registra tus rondas, compite con amigos y mejora tu juego con inteligencia artificial.
+                Tu primer paso: crea una ronda o importa tu historial. Con 3+ rondas se activa tu Indice Golfers+ y el coaching con IA.
               </p>
             </div>
 

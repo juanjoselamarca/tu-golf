@@ -828,15 +828,34 @@ function HistorialContent() {
               </>
             ) : (
               <>
-                <div style={{ fontSize: '56px', marginBottom: '16px' }}>&#128047;</div>
-                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#111827', marginBottom: '8px' }}>
-                  tAIger+ está listo para analizar tu juego
+                <div style={{ fontSize: '56px', marginBottom: '16px' }}>📋</div>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '8px' }}>
+                  Tu historial esta vacio
                 </div>
-                <div style={{ fontSize: '14px', color: '#9ca3af', marginBottom: '28px', maxWidth: '320px', margin: '0 auto 28px' }}>
-                  Registra tu primera tarjeta histórica y comenzarás a descubrir los patrones que más afectan tu score.
+                <div style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '28px', maxWidth: '360px', margin: '0 auto 28px', lineHeight: 1.6 }}>
+                  Importa tu historial o registra tu primera ronda para activar tus estadisticas y el coaching con IA.
                 </div>
-                <div style={{ fontSize: '12px', color: 'rgba(196,153,42,0.6)', padding: '10px 16px', background: 'rgba(196,153,42,0.06)', borderRadius: '8px', display: 'inline-block' }}>
-                  &#128279; Integración Garmin Golf — Próximamente
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => setShowForm(true)}
+                    style={{
+                      background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px',
+                      padding: '12px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                    }}
+                  >
+                    Registrar ronda
+                  </button>
+                  <a href="/importar" style={{
+                    display: 'inline-flex', alignItems: 'center',
+                    background: 'transparent', color: '#c4992a', fontWeight: 600, fontSize: '14px',
+                    padding: '12px 24px', borderRadius: '10px', border: '1px solid rgba(196,153,42,0.4)',
+                    textDecoration: 'none',
+                  }}>
+                    Importar historial
+                  </a>
+                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(196,153,42,0.6)', padding: '10px 16px', background: 'rgba(196,153,42,0.06)', borderRadius: '8px', display: 'inline-block', marginTop: '20px' }}>
+                  &#128047; tAIger+ analizara tu juego con 3+ rondas
                 </div>
               </>
             )}

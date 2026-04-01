@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularCPI } from '@/golf/stats/cpi'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportRoundData } from '@/lib/import-types'
 export const dynamic = 'force-dynamic'
 
@@ -349,6 +350,9 @@ export async function POST(request: NextRequest) {
 
     // Generate tAIger+ insights (async, don't block)
     generarInsights(user.id, insertedIds.length, supabase).catch(() => {})
+
+    // Detectar patrones automáticamente post-importación (non-blocking)
+    detectAndSavePatterns(supabase, user.id).catch(() => {})
 
     return NextResponse.json({
       success: true,

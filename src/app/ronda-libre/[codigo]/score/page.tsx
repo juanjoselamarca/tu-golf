@@ -521,6 +521,10 @@ function ScorePageContent() {
               nivel_expires_at: expira.toISOString(),
             }).eq('id', authUser.id).then(() => {})
           })
+
+        // Detectar patrones automáticamente (non-blocking)
+        fetch('/api/taiger/patterns', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+          .then(() => {}).catch(() => {})
       }
     } catch { /* don't block finalization */ }
 

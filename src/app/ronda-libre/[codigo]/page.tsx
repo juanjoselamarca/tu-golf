@@ -948,21 +948,23 @@ function RondaLibrePageContent() {
 
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
 
-          {/* ── Winner celebration + share CTA (finished rounds) ── */}
+          {/* ── Winner celebration + podium + share CTA (finished rounds) ── */}
           {isFinished && leaderboard.length > 0 && leaderboard[0].holesPlayed > 0 && (() => {
             const isTie = leaderboard.length > 1 && leaderboard[0].vsPar === leaderboard[1].vsPar
             const winnerScore = leaderboard[0].vsPar
             const scoreColor = winnerScore < 0 ? '#16a34a' : winnerScore === 0 ? '#374151' : '#dc2626'
+            const playedPlayers = leaderboard.filter(j => j.holesPlayed > 0)
             return (
               <div style={{ marginBottom: '16px' }}>
-                {/* Winner card — white, clean */}
+                {/* Winner card — white, gold border */}
                 <div style={{
                   background: '#ffffff', borderRadius: '16px',
-                  border: '1px solid #e5e7eb',
+                  border: '2px solid #c4992a',
                   overflow: 'hidden',
+                  boxShadow: '0 4px 24px rgba(196,153,42,0.15)',
                 }}>
                   {/* Gold accent bar */}
-                  <div style={{ height: '3px', background: 'linear-gradient(90deg, #c4992a, #d4a843, #c4992a)' }} />
+                  <div style={{ height: '4px', background: 'linear-gradient(90deg, #c4992a, #d4a843, #c4992a)' }} />
                   <div style={{ padding: '24px 20px 16px', textAlign: 'center' }}>
                     <div style={{ fontSize: '48px', marginBottom: '4px' }}>{isTie ? '🤝' : '🏆'}</div>
                     <div style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '6px' }}>
@@ -979,12 +981,48 @@ function RondaLibrePageContent() {
                     <div style={{ fontSize: '13px', color: '#9ca3af', marginTop: '6px' }}>{ronda.course_name} · {fechaDisplay}</div>
                   </div>
 
-                  {/* Share button — PROMINENT inside the card */}
+                  {/* Final leaderboard with positions */}
+                  {playedPlayers.length > 1 && (
+                    <div style={{ padding: '0 20px 16px' }}>
+                      <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+                        {playedPlayers.map((j, idx) => {
+                          const posLabel = idx === 0 ? '1\u00b0' : idx === 1 ? '2\u00b0' : idx === 2 ? '3\u00b0' : `${idx + 1}\u00b0`
+                          const posColor = idx === 0 ? '#c4992a' : idx === 1 ? '#94a8c0' : idx === 2 ? '#b87333' : '#9ca3af'
+                          const isWinner = idx === 0
+                          const jScoreColor = j.vsPar < 0 ? '#16a34a' : j.vsPar === 0 ? '#374151' : '#dc2626'
+                          return (
+                            <div key={j.id} style={{
+                              display: 'flex', alignItems: 'center', gap: '12px',
+                              padding: '8px 0',
+                              borderBottom: idx < playedPlayers.length - 1 ? '1px solid #f3f4f6' : 'none',
+                            }}>
+                              <span style={{
+                                fontSize: '15px', fontWeight: 800, color: posColor,
+                                minWidth: '28px', textAlign: 'center',
+                              }}>{posLabel}</span>
+                              <span style={{
+                                flex: 1, fontSize: '14px', color: '#111827',
+                                fontWeight: isWinner ? 700 : 500,
+                              }}>{j.nombre}</span>
+                              <span style={{
+                                fontSize: '15px', fontWeight: 700, color: jScoreColor,
+                              }}>{formatOverUnder(j.vsPar)}</span>
+                              <span style={{ fontSize: '12px', color: '#9ca3af', minWidth: '40px', textAlign: 'right' }}>
+                                {j.holesPlayed}/{ronda.holes}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Share button — "Compartir resultados" CTA */}
                   <div style={{ padding: '0 20px 20px' }}>
                     <button
                       onClick={async () => {
                         const shareData: LeaderboardShareData = {
-                          players: leaderboard.filter(j => j.holesPlayed > 0).map(j => ({
+                          players: playedPlayers.map(j => ({
                             nombre: j.nombre, vsPar: j.vsPar, holesPlayed: j.holesPlayed, totalHoles: ronda.holes,
                           })),
                           courseName: ronda.course_name, fecha: fechaDisplay, rondaCodigo: codigo, isFinished: true,
@@ -1000,7 +1038,7 @@ function RondaLibrePageContent() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                       }}
                     >
-                      Compartir leaderboard
+                      Compartir resultados
                     </button>
                   </div>
                 </div>
@@ -1518,11 +1556,25 @@ function RondaLibrePageContent() {
           </div>
         )}
 
-        {/* Banner animation */}
+        {/* Banner animation + live badge pulse */}
         <style>{`
           @keyframes slideUpBanner {
             from { transform: translateY(100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
+          }
+          @keyframes livePulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+          }
+          .live-dot {
+            animation: livePulse 1.5s ease-in-out infinite;
+          }
+          .live-badge-pulse {
+            animation: liveBadgePulse 3s ease-in-out infinite;
+          }
+          @keyframes liveBadgePulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.3); }
+            50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
           }
         `}</style>
       </div>

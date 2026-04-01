@@ -255,6 +255,60 @@ export default function StatsPage() {
           {allRounds.length} ronda{allRounds.length !== 1 ? 's' : ''} registrada{allRounds.length !== 1 ? 's' : ''}
         </p>
 
+        {/* ── Empty state for < 3 rounds ── */}
+        {allRounds.length === 0 && (
+          <div style={{
+            ...cardStyle, marginBottom: 20, textAlign: 'center', padding: '48px 20px',
+            background: 'rgba(196,153,42,0.04)', border: '1px solid rgba(196,153,42,0.2)',
+          }}>
+            <div style={{ fontSize: 56, marginBottom: 12 }}>📊</div>
+            <p style={{ color: C.ivory, fontSize: 20, fontWeight: 600, margin: '0 0 8px' }}>
+              Aun no tenes rondas registradas
+            </p>
+            <p style={{ color: C.muted, fontSize: 14, margin: '0 auto 20px', maxWidth: 360, lineHeight: 1.5 }}>
+              Registra 3+ rondas para ver tus estadisticas: tendencia de scoring, GWI, birdies, eagles y mas.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link href="/ronda-libre/nueva" style={{
+                display: 'inline-block', background: '#c4992a', color: '#070d18',
+                fontWeight: 700, fontSize: 14, padding: '12px 24px', borderRadius: 10,
+                textDecoration: 'none',
+              }}>
+                Crear ronda
+              </Link>
+              <Link href="/perfil/historial" style={{
+                display: 'inline-block', background: 'transparent', color: '#c4992a',
+                fontWeight: 600, fontSize: 14, padding: '12px 24px', borderRadius: 10,
+                textDecoration: 'none', border: '1px solid rgba(196,153,42,0.4)',
+              }}>
+                Importar historial
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {allRounds.length > 0 && allRounds.length < 3 && (
+          <div style={{
+            ...cardStyle, marginBottom: 20, textAlign: 'center',
+            background: 'rgba(196,153,42,0.04)', border: '1px solid rgba(196,153,42,0.2)',
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
+            <p style={{ color: C.ivory, fontSize: 15, fontWeight: 600, margin: '0 0 6px' }}>
+              Registra {3 - allRounds.length} ronda{3 - allRounds.length !== 1 ? 's' : ''} mas para estadisticas completas
+            </p>
+            <p style={{ color: C.muted, fontSize: 13, margin: '0 0 12px' }}>
+              Con 3+ rondas se activan tendencias, promedios y tu Indice Golfers+.
+            </p>
+            <Link href="/ronda-libre/nueva" style={{
+              display: 'inline-block', background: '#c4992a', color: '#070d18',
+              fontWeight: 700, fontSize: 13, padding: '10px 20px', borderRadius: 10,
+              textDecoration: 'none',
+            }}>
+              Nueva ronda
+            </Link>
+          </div>
+        )}
+
         {/* ── Dual Index ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
           <div style={{ ...cardStyle, textAlign: 'center', padding: '16px 12px' }}>
@@ -486,6 +540,122 @@ export default function StatsPage() {
             </div>
           ))}
         </div>
+
+        {/* ── Scoring Trend Indicator ── */}
+        {trendData && (
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 12px' }}>
+              Tendencia reciente
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 12,
+                background: trendData.improving ? C.greenDim : trendData.declining ? 'rgba(220,38,38,0.12)' : 'rgba(255,255,255,0.06)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22,
+              }}>
+                {trendData.improving ? '↗' : trendData.declining ? '↘' : '→'}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{
+                  color: trendData.improving ? C.green : trendData.declining ? C.red : C.ivory,
+                  fontSize: 15, fontWeight: 700, margin: '0 0 2px',
+                }}>
+                  {trendData.improving ? 'Mejorando' : trendData.declining ? 'En declive' : 'Estable'}
+                </p>
+                <p style={{ color: C.muted, fontSize: 12, margin: 0 }}>
+                  Últimas 5: <strong style={{ color: C.ivory }}>{trendData.avgLast}</strong>
+                  {' · '}
+                  Anteriores {trendData.prevCount}: <strong style={{ color: C.ivory }}>{trendData.avgPrev}</strong>
+                  {' · '}
+                  <span style={{ color: trendData.improving ? C.green : trendData.declining ? C.red : C.muted }}>
+                    {parseFloat(trendData.diff) > 0 ? '+' : ''}{trendData.diff} golpes
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Scoring Distribution ── */}
+        {hasRounds && scoringTotal > 0 && (
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <p style={{ color: C.ivory, fontSize: 14, fontWeight: 600, margin: '0 0 14px' }}>
+              Distribución de scoring
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: 'Eagle', count: scoringCounts.eagles, color: SCORE_STYLES.eagle_or_better.textColor, bg: SCORE_STYLES.eagle_or_better.bg },
+                { label: 'Birdie', count: scoringCounts.birdies, color: SCORE_STYLES.birdie.textColor, bg: SCORE_STYLES.birdie.bg },
+                { label: 'Par', count: scoringCounts.pars, color: '#c4992a', bg: 'rgba(196,153,42,0.10)' },
+                { label: 'Bogey', count: scoringCounts.bogeys, color: SCORE_STYLES.bogey.textColor, bg: SCORE_STYLES.bogey.bg },
+                { label: 'Doble+', count: scoringCounts.doubles, color: SCORE_STYLES.double_or_worse.textColor, bg: SCORE_STYLES.double_or_worse.bg },
+              ].map(({ label, count, color, bg }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ color, fontSize: 12, fontWeight: 600, width: 50, textAlign: 'right', flexShrink: 0 }}>
+                    {label}
+                  </span>
+                  <div style={{ flex: 1, height: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 6, overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${Math.max(count / scoringTotal * 100, count > 0 ? 2 : 0)}%`,
+                      height: '100%',
+                      background: bg,
+                      borderRadius: 6,
+                      borderRight: count > 0 ? `2px solid ${color}` : 'none',
+                      transition: 'width 0.5s ease',
+                    }} />
+                  </div>
+                  <span style={{ color: C.ivory, fontSize: 13, fontWeight: 600, width: 36, textAlign: 'right', flexShrink: 0 }}>
+                    {count}
+                  </span>
+                  <span style={{ color: C.muted, fontSize: 11, width: 38, flexShrink: 0 }}>
+                    {(count / scoringTotal * 100).toFixed(0)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Best & Worst Rounds ── */}
+        {hasRounds && bestRoundData && worstRoundData && rounds.length >= 3 && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div style={{ ...cardStyle, textAlign: 'center' }}>
+              <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
+                Mejor ronda
+              </p>
+              <p style={{ color: C.green, fontSize: 28, fontWeight: 700, margin: '0 0 2px' }}>
+                {bestRoundData.total_gross}
+              </p>
+              <p style={{ color: C.green, fontSize: 13, fontWeight: 600, margin: '0 0 6px' }}>
+                {formatOverUnder(vsPar(bestRoundData))}
+              </p>
+              <p style={{ color: C.muted, fontSize: 11, margin: '0 0 2px', lineHeight: 1.3 }}>
+                {bestRoundData.course_name}
+              </p>
+              <p style={{ color: C.muted, fontSize: 10, margin: 0 }}>
+                {fmtDate(bestRoundData.played_at)}
+              </p>
+            </div>
+            <div style={{ ...cardStyle, textAlign: 'center' }}>
+              <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
+                Peor ronda
+              </p>
+              <p style={{ color: C.red, fontSize: 28, fontWeight: 700, margin: '0 0 2px' }}>
+                {worstRoundData.total_gross}
+              </p>
+              <p style={{ color: C.red, fontSize: 13, fontWeight: 600, margin: '0 0 6px' }}>
+                {formatOverUnder(vsPar(worstRoundData))}
+              </p>
+              <p style={{ color: C.muted, fontSize: 11, margin: '0 0 2px', lineHeight: 1.3 }}>
+                {worstRoundData.course_name}
+              </p>
+              <p style={{ color: C.muted, fontSize: 10, margin: 0 }}>
+                {fmtDate(worstRoundData.played_at)}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ── Front 9 vs Back 9 ── */}
         {nineHoleData && (

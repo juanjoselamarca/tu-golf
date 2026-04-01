@@ -31,5 +31,6 @@ export * from './courses/matching'
 // Coach
 export { detectPatterns } from './coach/patterns'
 export type { GolfPattern, PatternRound } from './coach/patterns'
+export { detectAndSavePatterns } from './coach/detect-and-save-patterns'
 export { analyzeRound } from './coach/analysis'
 export type { RoundAnalysis } from './coach/analysis'

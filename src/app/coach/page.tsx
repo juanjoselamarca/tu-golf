@@ -90,6 +90,38 @@ export default function CoachDashboard() {
         ))}
       </div>
 
+      {/* Data requirement notice */}
+      {stats.rounds === 0 && (
+        <div style={{
+          background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.2)',
+          borderRadius: '14px', padding: '20px', marginBottom: '16px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔑</div>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4', marginBottom: '6px' }}>
+            tAIger+ necesita datos para analizar tu juego
+          </div>
+          <div style={{ fontSize: '13px', color: '#94a8c0', lineHeight: 1.6, marginBottom: '14px', maxWidth: '340px', marginLeft: 'auto', marginRight: 'auto' }}>
+            Registra rondas en tu historial o juega rondas libres. Con 3+ rondas, tAIger+ detecta patrones y arma planes personalizados.
+          </div>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href="/ronda-libre/nueva" style={{
+              display: 'inline-block', background: '#c4992a', color: '#070d18',
+              fontWeight: 700, fontSize: '13px', padding: '10px 20px', borderRadius: '10px',
+              textDecoration: 'none',
+            }}>
+              Nueva ronda
+            </Link>
+            <Link href="/perfil/historial" style={{
+              display: 'inline-block', background: 'transparent', color: '#c4992a',
+              fontWeight: 600, fontSize: '13px', padding: '10px 20px', borderRadius: '10px',
+              textDecoration: 'none', border: '1px solid rgba(196,153,42,0.4)',
+            }}>
+              Importar historial
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* New session CTA */}
       <Link href="/coach/sesion/nueva" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
