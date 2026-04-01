@@ -100,6 +100,7 @@ type TimelineEvent = {
   hole: number
   score: number
   diff: number
+  timestamp?: number // epoch ms approximation for relative time
 }
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
@@ -255,6 +256,8 @@ function RondaLibrePageContent() {
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authModalAction, setAuthModalAction] = useState('')
+  const [lastUpdated, setLastUpdated] = useState<number>(Date.now())
+  const [timeSinceUpdate, setTimeSinceUpdate] = useState('')
   // Admin score editing
   const [editingScore, setEditingScore] = useState<{ jugadorId: string; hole: number; currentScore: number } | null>(null)
   const [editScoreValue, setEditScoreValue] = useState<number>(0)
@@ -292,6 +295,7 @@ function RondaLibrePageContent() {
         // On transient errors (network, auth), silently retry on next poll
       } else {
         setFetchError(false)
+        setLastUpdated(Date.now())
         setRonda(data as unknown as RondaLibre)
         // Fetch hole pars if course linked
         if ((data as unknown as RondaLibre).course_id) {
@@ -404,12 +408,21 @@ function RondaLibrePageContent() {
     return () => clearInterval(interval)
   }, [fetchRonda, fetchGWI, role, checkScoreEvents])
 
-  // Countdown tick
+  // Countdown tick + time since update
   useEffect(() => {
     if (role !== 'espectador') return
-    const tick = setInterval(() => setCountdown(c => c <= 1 ? 15 : c - 1), 1000)
+    const updateTimeSince = () => {
+      const diff = Math.floor((Date.now() - lastUpdated) / 1000)
+      if (diff < 60) setTimeSinceUpdate(`Actualizado hace ${diff} seg`)
+      else setTimeSinceUpdate(`Actualizado hace ${Math.floor(diff / 60)} min`)
+    }
+    updateTimeSince()
+    const tick = setInterval(() => {
+      setCountdown(c => c <= 1 ? 15 : c - 1)
+      updateTimeSince()
+    }, 1000)
     return () => clearInterval(tick)
-  }, [role])
+  }, [role, lastUpdated])
 
   /* ── Handlers ── */
   const dismissBanner = () => {
@@ -884,17 +897,42 @@ function RondaLibrePageContent() {
                 <div style={{ fontSize: '13px', color: '#9ca3af' }}>
                   {ronda.course_name} · {fechaDisplay}
                 </div>
+                {/* 9.2 — Last update timestamp */}
+                {!isFinished && timeSinceUpdate && (
+                  <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                    {timeSinceUpdate}
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '4px',
-                  background: isEnCurso ? 'rgba(34,197,94,0.12)' : 'rgba(122,143,168,0.12)',
-                  color: isEnCurso ? '#22c55e' : '#9ca3af',
-                  border: `1px solid ${isEnCurso ? 'rgba(34,197,94,0.3)' : 'rgba(122,143,168,0.3)'}`,
-                  padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
-                }}>
-                  {isEnCurso ? '● EN CURSO' : '✓ FINALIZADA'}
-                </span>
+                {/* 9.1 — Live indicator badge */}
+                {isEnCurso ? (
+                  <span className="live-badge-pulse" style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    background: 'rgba(34,197,94,0.15)',
+                    color: '#22c55e',
+                    border: '1px solid rgba(34,197,94,0.4)',
+                    padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
+                    letterSpacing: '0.05em',
+                  }}>
+                    <span className="live-dot" style={{
+                      width: '8px', height: '8px', borderRadius: '50%',
+                      background: '#22c55e', display: 'inline-block', flexShrink: 0,
+                    }} />
+                    EN VIVO
+                  </span>
+                ) : (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                    background: 'rgba(196,153,42,0.12)',
+                    color: '#c4992a',
+                    border: '1px solid rgba(196,153,42,0.35)',
+                    padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
+                    letterSpacing: '0.05em',
+                  }}>
+                    FINALIZADA
+                  </span>
+                )}
                 {!isFinished && (
                   <button
                     onClick={() => { sessionStorage.removeItem(SS_KEY(codigo)); setRole(null) }}
@@ -1040,20 +1078,49 @@ function RondaLibrePageContent() {
           {timelineEvents.length > 0 && (
             <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px 16px', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
-                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Momentos recientes</span>
-                {!isFinished && <span style={{ fontSize: '12px', color: '#c4992a' }}>Actualiza cada 15s</span>}
+                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>Momentos recientes</span>
+                {!isFinished && timeSinceUpdate && (
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>{timeSinceUpdate}</span>
+                )}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {timelineEvents.map((event) => {
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {timelineEvents.map((event, idx) => {
                   const label = event.diff <= -2 ? 'Eagle' : event.diff === -1 ? 'Birdie' : event.diff === 0 ? 'Par' : event.diff === 1 ? 'Bogey' : `+${event.diff}`
-                  const color = event.diff <= -2 ? '#c8a55a' : event.diff === -1 ? '#16a34a' : event.diff === 0 ? '#374151' : '#dc2626'
+                  const color = event.diff <= -2 ? '#c8a55a' : event.diff === -1 ? '#16a34a' : event.diff === 0 ? '#6b7280' : '#dc2626'
+                  const bgColor = event.diff <= -2 ? 'rgba(200,165,90,0.08)' : event.diff === -1 ? 'rgba(22,163,74,0.06)' : event.diff >= 2 ? 'rgba(220,38,38,0.04)' : 'transparent'
+                  // Approximate relative time: most recent event ~now, each previous ~15s*poll interval ago
+                  const approxMinAgo = idx === 0 ? 0 : idx
+                  const timeLabel = approxMinAgo === 0 ? 'ahora' : approxMinAgo === 1 ? 'hace ~1 min' : `hace ~${approxMinAgo} min`
                   return (
-                    <div key={`${event.jugador}-${event.hole}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                      <div>
-                        <div style={{ fontSize: '14px', color: '#111827', fontWeight: 700 }}>{event.jugador}</div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Hoyo {event.hole} · {event.score} golpes</div>
+                    <div key={`${event.jugador}-${event.hole}`} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      padding: '8px 10px', borderRadius: '8px',
+                      background: bgColor,
+                    }}>
+                      {/* Hole number prominent */}
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '50%',
+                        background: '#f3f4f6', border: '1px solid #e5e7eb',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      }}>
+                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#374151' }}>{event.hole}</span>
                       </div>
-                      <span style={{ color, fontSize: '13px', fontWeight: 700 }}>{label}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '14px', color: '#111827', fontWeight: 700 }}>{event.jugador}</div>
+                        <div style={{ fontSize: '12px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>Hoyo {event.hole} · {event.score} golpes</span>
+                          <span style={{ color: '#d1d5db' }}>·</span>
+                          <span style={{ fontStyle: 'italic' }}>{timeLabel}</span>
+                        </div>
+                      </div>
+                      <span style={{
+                        color, fontSize: '13px', fontWeight: 700,
+                        padding: '2px 8px', borderRadius: '6px',
+                        background: event.diff <= -1 ? `${color}12` : event.diff >= 1 ? `${color}12` : 'transparent',
+                        flexShrink: 0,
+                      }}>
+                        {label}
+                      </span>
                     </div>
                   )
                 })}

@@ -104,19 +104,24 @@ export default function HeroSection() {
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 href="/register"
-                className="inline-flex items-center justify-center gap-2 font-sans font-semibold text-base px-8 py-4 transition-all duration-200 hover:brightness-110 active:scale-95"
+                className="inline-flex items-center justify-center gap-2 font-sans font-bold text-lg px-10 py-4 transition-all duration-200 hover:brightness-110 active:scale-95 shadow-lg"
                 style={{ background: '#c4992a', color: '#070d18', borderRadius: '10px' }}
               >
-                Comenzar gratis →
+                Crear cuenta gratis
               </Link>
               <Link
-                href="/leaderboard"
+                href="/demo"
                 className="inline-flex items-center justify-center gap-2 font-sans font-semibold text-base px-8 py-4 transition-all duration-200 hover:bg-gold/10 active:scale-95"
                 style={{ border: '1px solid #c4992a', color: '#c4992a', borderRadius: '10px' }}
               >
-                Ver demo leaderboard
+                Ver demo
               </Link>
             </div>
+
+            {/* Trust badge */}
+            <p className="mt-5 font-sans text-xs text-ivory/45 tracking-wide">
+              Sin tarjeta &middot; Sin descarga &middot; En español
+            </p>
           </div>
 
           {/* Right — PGA widget, visible on ALL sizes ──── */}

@@ -113,7 +113,9 @@ function RegisterContent() {
       showError(title, body)
       setLoading(false)
     } else {
-      router.push(redirectTo)
+      // Add welcome flag for new users going to dashboard
+      const dest = redirectTo === '/dashboard' ? '/dashboard?welcome=true' : redirectTo
+      router.push(dest)
     }
   }
 

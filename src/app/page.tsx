@@ -1,7 +1,30 @@
 import Link from 'next/link'
 import HeroSection  from '@/components/HeroSection'
 import StatsSection from '@/components/StatsSection'
-import { createClient } from '@/utils/supabase/server'
+
+const FEATURES = [
+  {
+    icon:  '📱',
+    title: 'Live Scoring',
+    desc:  'Registra score hoyo a hoyo desde tu celular. Leaderboard en tiempo real para que todos sigan la ronda.',
+    href:  '/demo',
+    cta:   'Ver demo',
+  },
+  {
+    icon:  '📊',
+    title: 'Índice Dual',
+    desc:  'Tu índice oficial + tu rendimiento real calculado por Golfers+. Sabes exactamente dónde estás y hacia dónde vas.',
+    href:  '/indices',
+    cta:   'Cómo funciona',
+  },
+  {
+    icon:  '🤖',
+    title: 'tAIger+',
+    desc:  'Coach IA que conoce tu juego y te dice exactamente qué practicar. Análisis de patrones y plan de mejora personalizado.',
+    href:  '/register',
+    cta:   'Probar gratis',
+  },
+]
 
 const STEPS = [
   {
@@ -24,49 +47,54 @@ const STEPS = [
   },
 ]
 
-export default async function Home() {
-  const supabase = await createClient()
-
-  // Stats are now hardcoded in StatsSection (no DB query needed)
-
+export default function Home() {
   return (
     <div>
       {/* ── Hero ──────────────────────────────────────── */}
       <HeroSection />
 
-      {/* Demo link */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <Link
-          href="/demo"
-          style={{
-            display: 'block',
-            background: 'rgba(196,153,42,0.06)',
-            border: '1px solid rgba(196,153,42,0.2)',
-            borderRadius: '16px',
-            padding: '16px',
-            textDecoration: 'none',
-            transition: 'all 0.2s',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#c4992a', background: 'rgba(196,153,42,0.15)', padding: '3px 10px', borderRadius: '10px', fontWeight: 600, letterSpacing: '0.08em' }}>
-              ✦ VER DEMO EN VIVO
-            </span>
-          </div>
-          <h2 className="font-display font-bold text-xl text-ivory mb-2">
-            Explora un perfil completo de Golfers+
-          </h2>
-          <p className="font-sans text-sm text-gray-soft mb-4">
-            30 rondas reales, tu índice Golfers+ calculado, patrones de juego analizados. Sin crear cuenta.
-          </p>
-          <span style={{ color: '#c4992a', fontSize: '14px', fontWeight: 600 }}>
-            Ver perfil demo →
-          </span>
-        </Link>
-      </section>
-
-      {/* ── Stats ─────────────────────────────────────── */}
+      {/* ── Stats (social proof) ──────────────────────── */}
       <StatsSection />
+
+      {/* ── Feature highlights ────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+        <div className="text-center mb-10 md:mb-16">
+          <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-ivory mb-4">
+            Todo para mejorar tu juego
+          </h2>
+          <p className="font-sans text-gray-soft text-base md:text-lg max-w-2xl mx-auto">
+            Tres herramientas diseñadas para el golfista amateur que quiere jugar mejor
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {FEATURES.map((f) => (
+            <div
+              key={f.title}
+              className="group relative rounded-2xl p-6 md:p-8 transition-all duration-300 hover:scale-[1.02]"
+              style={{
+                background: 'rgba(14,28,47,0.7)',
+                border: '1px solid rgba(196,153,42,0.12)',
+              }}
+            >
+              <span className="text-3xl mb-4 block">{f.icon}</span>
+              <h3 className="font-display font-bold text-xl text-ivory mb-3">
+                {f.title}
+              </h3>
+              <p className="font-sans text-sm text-gray-soft leading-relaxed mb-6">
+                {f.desc}
+              </p>
+              <Link
+                href={f.href}
+                className="inline-flex items-center font-sans text-sm font-semibold transition-colors duration-200"
+                style={{ color: '#c4992a' }}
+              >
+                {f.cta} <span className="ml-1 group-hover:translate-x-1 transition-transform duration-200">&rarr;</span>
+              </Link>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* ── Cómo funciona ─────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-28">
@@ -124,6 +152,42 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* ── Golf Intelligence Labs ────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
+        <Link
+          href="/indices"
+          className="block rounded-2xl p-6 md:p-10 transition-all duration-300 hover:scale-[1.01]"
+          style={{
+            background: 'linear-gradient(135deg, rgba(14,28,47,0.8), rgba(14,28,47,0.5))',
+            border: '1px solid rgba(196,153,42,0.2)',
+          }}
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <span
+                className="inline-flex items-center gap-2 px-3 py-1 mb-4 text-[10px] font-mono font-bold uppercase tracking-widest rounded-full"
+                style={{ background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a' }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
+                LABS
+              </span>
+              <h2 className="font-display font-bold text-2xl md:text-3xl text-ivory mb-2">
+                La ciencia detrás de tu juego
+              </h2>
+              <p className="font-sans text-sm md:text-base text-gray-soft max-w-lg">
+                Descubre cómo funciona el Índice Dual de Golfers+ y por qué es más útil que el hándicap tradicional para mejorar.
+              </p>
+            </div>
+            <span
+              className="font-sans font-semibold text-sm md:text-base whitespace-nowrap"
+              style={{ color: '#c4992a' }}
+            >
+              Explorar &rarr;
+            </span>
+          </div>
+        </Link>
+      </section>
+
       {/* ── CTA ───────────────────────────────────────── */}
       <section className="bg-bg-card">
         <div className="gold-divider" />
@@ -131,16 +195,28 @@ export default async function Home() {
           <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-ivory mb-6">
             Empieza a jugar diferente
           </h2>
-          <p className="font-sans text-gray-soft text-base md:text-lg mb-10">
-            Únete gratis. Sin tarjeta. Sin descargas. Tu primer torneo listo en menos de 2 minutos.
+          <p className="font-sans text-gray-soft text-base md:text-lg mb-8">
+            Únete gratis y empieza a entender tu juego hoy.
           </p>
-          <Link
-            href="/register"
-            className="inline-flex items-center gap-2 font-sans font-bold text-lg px-12 py-4 transition-all duration-200 hover:brightness-110 active:scale-95"
-            style={{ background: '#c4992a', color: '#070d18', borderRadius: '10px' }}
-          >
-            Crear cuenta gratis
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 font-sans font-bold text-lg px-12 py-4 transition-all duration-200 hover:brightness-110 active:scale-95 shadow-lg"
+              style={{ background: '#c4992a', color: '#070d18', borderRadius: '10px' }}
+            >
+              Crear cuenta gratis
+            </Link>
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-2 font-sans font-semibold text-base px-8 py-4 transition-all duration-200 hover:bg-gold/10 active:scale-95"
+              style={{ border: '1px solid #c4992a', color: '#c4992a', borderRadius: '10px' }}
+            >
+              Ver demo
+            </Link>
+          </div>
+          <p className="font-sans text-xs text-ivory/40 tracking-wide">
+            Sin tarjeta &middot; Sin descarga &middot; En español
+          </p>
         </div>
         <div className="gold-divider" />
       </section>

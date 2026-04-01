@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { vsPar, sortRoundsByPerformance, countByResult, splitByHoles, bestRoundByVsPar } from '@/golf/core/compare'
 import { formatOverUnder } from '@/golf/core/rules'
+import { SCORE_STYLES } from '@/golf/core/colors'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   Tooltip, CartesianGrid, PieChart, Pie, Cell,
@@ -45,6 +46,11 @@ interface Round {
   created_at: string
 }
 
+interface ProfileIndex {
+  indice: number | null
+  indice_golfers: number | null
+}
+
 type RangeKey = '5' | '10' | '20' | 'all'
 
 /* ── Helpers ── */
@@ -58,6 +64,7 @@ export default function StatsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [allRounds, setAllRounds] = useState<Round[]>([])
+  const [profileIndex, setProfileIndex] = useState<ProfileIndex>({ indice: null, indice_golfers: null })
   const [range, setRange] = useState<RangeKey>('all')
   const [mounted, setMounted] = useState(false)
 
@@ -69,12 +76,22 @@ export default function StatsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth'); return }
 
-    const { data } = await supabase
-      .from('historical_rounds')
-      .select('id, course_name, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
-      .order('played_at', { ascending: true })
+    const [roundsRes, profileRes] = await Promise.all([
+      supabase
+        .from('historical_rounds')
+        .select('id, course_name, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
+        .order('played_at', { ascending: true }),
+      supabase
+        .from('profiles')
+        .select('indice, indice_golfers')
+        .eq('id', user.id)
+        .single(),
+    ])
 
-    setAllRounds((data as Round[]) || [])
+    setAllRounds((roundsRes.data as Round[]) || [])
+    if (profileRes.data) {
+      setProfileIndex(profileRes.data as ProfileIndex)
+    }
     setLoading(false)
   }, [router])
 
@@ -96,18 +113,23 @@ export default function StatsPage() {
   const bestRound = bestRoundData ? bestRoundData.total_gross : 0
   const bestRoundVsPar = bestRoundData ? vsPar(bestRoundData) : 0
 
-  // Count birdies/eagles usando par real por hoyo (fallback par 4 si no hay datos)
-  const { birdies, eagles } = useMemo(() => {
-    let b = 0, e = 0
+  // Count all scoring results usando par real por hoyo (fallback par 4 si no hay datos)
+  const scoringCounts = useMemo(() => {
+    let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0
     for (const r of rounds) {
       if (!r.scores || !Array.isArray(r.scores)) continue
-      const pars = Array(r.scores.length).fill(4) // fallback: par 4 por hoyo
-      const counts = countByResult(r.scores, pars)
-      b += counts.birdies
-      e += counts.eagles
+      const holePars = Array(r.scores.length).fill(4) // fallback: par 4 por hoyo
+      const counts = countByResult(r.scores, holePars)
+      eagles += counts.eagles
+      birdies += counts.birdies
+      pars += counts.pars
+      bogeys += counts.bogeys
+      doubles += counts.doubles
     }
-    return { birdies: b, eagles: e }
+    return { eagles, birdies, pars, bogeys, doubles }
   }, [rounds])
+
+  const { birdies, eagles } = scoringCounts
 
   // GWI
   const gwiValue = hasRounds
@@ -134,6 +156,38 @@ export default function StatsPage() {
   const topRounds = useMemo(() => {
     return sortRoundsByPerformance(rounds).slice(0, 5)
   }, [rounds])
+
+  // Worst round by vsPar
+  const worstRoundData = useMemo(() => {
+    if (rounds.length === 0) return null
+    return [...rounds].sort((a, b) => vsPar(b) - vsPar(a))[0]
+  }, [rounds])
+
+  // Scoring trend: last 5 vs previous 5
+  const trendData = useMemo(() => {
+    if (allRounds.length < 5) return null
+    const last5 = allRounds.slice(-5)
+    const prev5 = allRounds.slice(-10, -5)
+    if (prev5.length === 0) return null
+    const avgLast = last5.reduce((s, r) => s + r.total_gross, 0) / last5.length
+    const avgPrev = prev5.reduce((s, r) => s + r.total_gross, 0) / prev5.length
+    const diff = avgLast - avgPrev
+    return {
+      avgLast: avgLast.toFixed(1),
+      avgPrev: avgPrev.toFixed(1),
+      diff: diff.toFixed(1),
+      improving: diff < -0.5,
+      declining: diff > 0.5,
+      stable: Math.abs(diff) <= 0.5,
+      prevCount: prev5.length,
+    }
+  }, [allRounds])
+
+  // Scoring distribution total for bar widths
+  const scoringTotal = useMemo(() => {
+    const { eagles, birdies, pars, bogeys, doubles } = scoringCounts
+    return eagles + birdies + pars + bogeys + doubles
+  }, [scoringCounts])
 
   /* ── Range toggle ── */
   const ranges: { key: RangeKey; label: string }[] = [
@@ -200,6 +254,33 @@ export default function StatsPage() {
         <p style={{ color: C.muted, fontSize: 13, margin: '0 0 16px' }}>
           {allRounds.length} ronda{allRounds.length !== 1 ? 's' : ''} registrada{allRounds.length !== 1 ? 's' : ''}
         </p>
+
+        {/* ── Dual Index ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+          <div style={{ ...cardStyle, textAlign: 'center', padding: '16px 12px' }}>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.muted, margin: '0 0 6px' }}>
+              Federación
+            </p>
+            <p style={{ fontSize: 32, fontWeight: 700, color: C.ivory, lineHeight: 1, margin: '0 0 4px', fontFamily: '"Cormorant Garamond", serif' }}>
+              {profileIndex.indice != null ? profileIndex.indice.toFixed(1) : '—'}
+            </p>
+            <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>Oficial</p>
+          </div>
+          <div style={{
+            ...cardStyle, textAlign: 'center', padding: '16px 12px',
+            borderColor: profileIndex.indice_golfers != null ? 'rgba(196,153,42,0.35)' : C.cardBorder,
+          }}>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.gold, margin: '0 0 6px' }}>
+              Golfers+
+            </p>
+            <p style={{ fontSize: 32, fontWeight: 700, color: profileIndex.indice_golfers != null ? C.gold : C.muted, lineHeight: 1, margin: '0 0 4px', fontFamily: '"Cormorant Garamond", serif' }}>
+              {profileIndex.indice_golfers != null ? profileIndex.indice_golfers.toFixed(1) : '—'}
+            </p>
+            <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>
+              {profileIndex.indice_golfers != null ? 'Historial real' : '3+ rondas para activar'}
+            </p>
+          </div>
+        </div>
 
         {/* Range toggle */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
