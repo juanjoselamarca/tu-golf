@@ -1,6 +1,12 @@
 -- RLS Fixes — Audit Hardening 2026-03-24
 -- Ejecutar manualmente en Supabase SQL Editor
 -- ============================================================
+--
+-- STATUS (2026-03-30): RESUELTO — Ambas tablas ya tienen policies UPDATE
+-- más robustas que las propuestas aquí:
+--   - ronda_libre_jugadores: tiene 'gestionar_jugadores' (ALL) que restringe al creador
+--   - hole_scores: tiene 'Jugador edita scores' (UPDATE) que bloquea confirmed/corrected
+-- No es necesario ejecutar estos fixes.
 
 -- Fix 3: ronda_libre_jugadores UPDATE policy
 -- Solo el creador de la ronda puede modificar jugadores

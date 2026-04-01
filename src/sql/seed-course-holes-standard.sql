@@ -1,0 +1,52 @@
+-- Seed: course_holes estándar para canchas sin datos de hoyos
+-- Ejecutado automáticamente el 2026-03-30 via API REST
+-- ============================================================
+--
+-- CONTEXTO:
+-- 47 canchas en la DB, pero solo 9 tenían course_holes.
+-- Sin course_holes, el scoring y cálculo de handicap usan par 4 para todo.
+-- Esta migración agrega 18 hoyos con pars estándar y stroke_index para las 38 restantes.
+--
+-- LAYOUT ESTÁNDAR:
+-- Par 72 (36 canchas): 4,3,5,4,4,3,4,5,4 | 4,3,5,4,4,3,4,5,4
+-- Par 71 (1 cancha - Club El Rancho): 4,3,5,4,4,3,4,5,4 | 4,3,5,4,3,3,4,5,4
+-- Par 70 (1 cancha - Club de Golf Papudo): 4,3,5,4,3,3,4,5,4 | 4,3,5,4,3,3,4,5,4
+--
+-- Stroke Index interleaving estándar:
+-- 7,15,3,11,1,17,5,9,13 | 8,16,4,12,2,18,6,10,14
+--
+-- NOTA: Estos son datos genéricos. Cuando se obtengan los datos reales de cada
+-- cancha, se deben actualizar con los pars y stroke_index correctos.
+-- El campo datos_verificados=false en courses indica que los datos no son oficiales.
+--
+-- RESULTADO: 684 filas insertadas (38 canchas × 18 hoyos)
+-- Total course_holes: 864 (180 existentes + 684 nuevas)
+--
+-- CANCHAS AFECTADAS (38):
+-- Club de Campo Bellavista, Club de Campo Coya, Club de Campo La Posada,
+-- Club de Golf Aconcagua, Club de Golf Angostura, Club de Golf Chapultepec,
+-- Club de Golf Costa Cachagua, Club de Golf Granadilla, Club de Golf La Dehesa,
+-- Club de Golf La Serena, Club de Golf Las Araucarias,
+-- Club de Golf Las Brisas de Chicureo, Club de Golf Los Lirios,
+-- Club de Golf Marbella, Club de Golf Mexico, Club de Golf Papudo,
+-- Club de Golf Santa Augusta de Quintay, Club de Golf Valle Escondido,
+-- Club de Golf y Polo El Principal, Club El Rancho,
+-- Club Naval de Campo Las Salinas, Club Naval de Campo Tumbes,
+-- Country Club de Bogotá, GEBA Golf Club, Hacienda Chicureo Golf Club,
+-- Hurlingham Club, Jockey Club Argentina, La Planicie Golf Club,
+-- Los Inkas Golf Club, Los Lagartos Country Club, Nevados de Villarrica,
+-- Nordelta Golf Club, Olivos Golf Club, Paico Alto Club de Golf,
+-- Patagonia Virgin Frutillar, Real del Monte Golf Club,
+-- Talca Country Club, Valdivia Golf Club
+
+-- SQL equivalente (ya ejecutado via REST API, documentado aquí para referencia):
+-- INSERT INTO course_holes (course_id, numero, par, stroke_index)
+-- SELECT c.id, h.numero, h.par, h.stroke_index
+-- FROM courses c
+-- CROSS JOIN (
+--   VALUES (1,4,7),(2,3,15),(3,5,3),(4,4,11),(5,4,1),(6,3,17),(7,4,5),(8,5,9),(9,4,13),
+--          (10,4,8),(11,3,16),(12,5,4),(13,4,12),(14,4,2),(15,3,18),(16,4,6),(17,5,10),(18,4,14)
+-- ) AS h(numero, par, stroke_index)
+-- WHERE c.id NOT IN (
+--   SELECT DISTINCT course_id FROM course_holes
+-- );
