@@ -251,13 +251,14 @@ export default function ImportWizard() {
         }
       } catch (err) {
         console.error('Upload error:', err)
-        setUploadError(
-          state.source === 'garmin_zip'
-            ? 'Error al procesar el archivo ZIP. Verifica que sea el archivo de Garmin.'
-            : state.source === 'photos'
-              ? 'Error al subir las fotos. Intenta de nuevo.'
-              : 'Error al procesar el archivo. Verifica el formato.',
-        )
+        const errMsg = err instanceof Error ? err.message : ''
+        // Preserve specific server errors (e.g. Gemini unavailable)
+        const fallback = state.source === 'garmin_zip'
+          ? 'Error al procesar el archivo ZIP. Verifica que sea el archivo de Garmin.'
+          : state.source === 'photos'
+            ? 'Error al subir las fotos. Intenta de nuevo.'
+            : 'Error al procesar el archivo. Verifica el formato.'
+        setUploadError(errMsg || fallback)
         setUploading(false)
       }
     },

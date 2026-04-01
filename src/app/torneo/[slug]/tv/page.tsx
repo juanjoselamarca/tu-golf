@@ -21,6 +21,8 @@ interface TournamentInfo {
   course_name: string
   par_total: number
   date_start: string | null
+  codigo: string | null
+  total_rounds: number
 }
 
 /* ── Score helpers ─────────────────────────────────────── */
@@ -52,8 +54,17 @@ interface DBPlayerRaw {
 interface DBTournamentRaw {
   name: string
   date_start: string | null
+  codigo: string | null
+  total_rounds: number | null
   courses: { nombre: string; par_total: number } | null
 }
+
+const TV_KEYFRAMES = `
+@keyframes tvPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+`
 
 export default function TVPage() {
   const params = useParams()
@@ -69,7 +80,7 @@ export default function TVPage() {
 
     const { data: rawT } = await supabase
       .from('tournaments')
-      .select('name, date_start, courses(nombre, par_total)')
+      .select('name, date_start, codigo, total_rounds, courses(nombre, par_total)')
       .eq('slug', slug)
       .single()
 
@@ -77,12 +88,15 @@ export default function TVPage() {
 
     const t = rawT as unknown as DBTournamentRaw
     const parTotal = t.courses?.par_total ?? 72
+    const totalRounds = t.total_rounds ?? 1
 
     setTournament({
       name: t.name,
       course_name: t.courses?.nombre ?? '',
       par_total: parTotal,
       date_start: t.date_start,
+      codigo: t.codigo ?? null,
+      total_rounds: totalRounds,
     })
 
     // Get tournament id
@@ -110,16 +124,22 @@ export default function TVPage() {
     const mapped: TVPlayer[] = dbPlayers
       .filter((p) => p.rounds?.length > 0)
       .map((p) => {
-        const round        = p.rounds[0]
-        const holesPlayed  = (round.hole_scores || []).filter((hs) => hs.gross_score != null).length
-        const netVsPar     = holesPlayed > 0 ? round.total_net - parTotal : 0
+        // Aggregate across all rounds (multi-round tournaments)
+        const totalNet   = p.rounds.reduce((sum, r) => sum + r.total_net, 0)
+        const totalGross = p.rounds.reduce((sum, r) => sum + r.total_gross, 0)
+        const holesPlayed = p.rounds.reduce(
+          (sum, r) => sum + (r.hole_scores || []).filter((hs) => hs.gross_score != null).length,
+          0,
+        )
+        const roundsPlayed = p.rounds.length
+        const netVsPar     = holesPlayed > 0 ? totalNet - (parTotal * roundsPlayed) : 0
 
         return {
           id:          p.id,
           name:        p.profiles?.name || 'Jugador',
           handicap:    p.handicap_at_registration ?? 0,
-          total_net:   round.total_net,
-          total_gross: round.total_gross,
+          total_net:   totalNet,
+          total_gross: totalGross,
           holesPlayed,
           netVsPar,
           category:    p.categories?.name || '',
@@ -137,6 +157,17 @@ export default function TVPage() {
     setLastUpdate(new Date())
     setLoading(false)
   }, [slug])
+
+  // Inject keyframes
+  useEffect(() => {
+    const id = 'tv-keyframes'
+    if (typeof document !== 'undefined' && !document.getElementById(id)) {
+      const style = document.createElement('style')
+      style.id = id
+      style.textContent = TV_KEYFRAMES
+      document.head.appendChild(style)
+    }
+  }, [])
 
   // Initial load
   useEffect(() => { fetchData() }, [fetchData])
@@ -162,7 +193,28 @@ export default function TVPage() {
     : ''
 
   return (
-    <div style={{ background: '#070d18', minHeight: '100vh', padding: '40px 32px' }}>
+    <div style={{ background: '#070d18', minHeight: '100vh', padding: '40px 32px', position: 'relative' }}>
+
+      {/* ── Codigo badge (top-right) ────────────────────── */}
+      {tournament?.codigo && (
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          right: '24px',
+          background: 'rgba(196,153,42,0.12)',
+          border: '1px solid rgba(196,153,42,0.3)',
+          borderRadius: '10px',
+          padding: '10px 16px',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '10px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+            Codigo para unirse
+          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: '22px', fontWeight: 700, color: '#c4992a', letterSpacing: '0.15em' }}>
+            {tournament.codigo}
+          </div>
+        </div>
+      )}
 
       {/* ── Header ──────────────────────────────────────── */}
       <div style={{ textAlign: 'center', marginBottom: '48px' }}>
@@ -243,7 +295,7 @@ export default function TVPage() {
                     {p.handicap}
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '16px', color: '#94a8c0' }}>
-                    {p.holesPlayed}/18
+                    {p.holesPlayed}/{18 * (tournament?.total_rounds ?? 1)}
                   </div>
                 </div>
               )
@@ -252,8 +304,18 @@ export default function TVPage() {
         </div>
 
         {/* Footer */}
-        <div style={{ marginTop: '32px', textAlign: 'center', color: '#94a8c0', fontSize: '14px' }}>
-          Actualizado: {lastUpdate.toLocaleTimeString('es-CL')} &nbsp;·&nbsp; Auto-refresca cada 30s
+        <div style={{ marginTop: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#94a8c0', fontSize: '14px' }}>
+          <span style={{
+            display: 'inline-block',
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            background: '#22c55e',
+            animation: 'tvPulse 2s ease-in-out infinite',
+          }} />
+          <span>Auto-actualizacion cada 30s</span>
+          <span>&nbsp;·&nbsp;</span>
+          <span>Actualizado: {lastUpdate.toLocaleTimeString('es-CL')}</span>
         </div>
       </div>
     </div>

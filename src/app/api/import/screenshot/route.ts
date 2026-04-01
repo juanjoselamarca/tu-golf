@@ -436,7 +436,7 @@ export async function POST(request: NextRequest) {
 
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY
     if (!geminiKey) {
-      return NextResponse.json({ error: 'El servicio de lectura de fotos no está configurado (GEMINI_API_KEY faltante). Contacta al administrador.' }, { status: 503 })
+      return NextResponse.json({ error: 'El reconocimiento de fotos no está disponible. Usa importación manual o Garmin.' }, { status: 503 })
     }
 
     const genAI = new GoogleGenerativeAI(geminiKey)

@@ -386,7 +386,7 @@ export default function StepCelebration({
           }}
         >
           <button
-            onClick={() => router.push('/perfil/historial')}
+            onClick={() => router.push('/perfil/stats')}
             style={{
               width: '100%',
               padding: '16px 24px',
@@ -402,7 +402,7 @@ export default function StepCelebration({
               letterSpacing: '0.3px',
             }}
           >
-            Ver historial &rarr;
+            Ver mi CPI y estadisticas &rarr;
           </button>
           <button
             onClick={() => router.push('/coach')}
@@ -421,6 +421,24 @@ export default function StepCelebration({
             }}
           >
             Hablar con tAIger+
+          </button>
+          <button
+            onClick={() => router.push('/perfil/historial')}
+            style={{
+              width: '100%',
+              padding: '16px 24px',
+              borderRadius: '14px',
+              fontSize: '14px',
+              fontWeight: 500,
+              background: 'transparent',
+              color: '#94a8c0',
+              border: 'none',
+              cursor: 'pointer',
+              minHeight: '44px',
+              fontFamily: '"DM Sans", sans-serif',
+            }}
+          >
+            Ver historial de rondas
           </button>
         </div>
       </div>
