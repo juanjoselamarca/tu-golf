@@ -88,7 +88,7 @@ export default function PrivacidadPage() {
         <ul style={S.list}>
           <li>Nombre y correo electr&oacute;nico (al crear tu cuenta).</li>
           <li>Scores de golf y datos de tus rondas.</li>
-          <li>Handicap index (opcional).</li>
+          <li>Índice de golf (opcional).</li>
         </ul>
 
         <p style={S.body}><strong>Datos que se generan al usar la app:</strong></p>

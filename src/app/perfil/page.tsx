@@ -221,7 +221,7 @@ export default function PerfilPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ color: 'var(--text-3)' }}>○</span>
                 <span style={{ color: 'var(--text-3)', fontSize: '14px' }}>
-                  Agregar índice / handicap
+                  Agregar índice
                 </span>
                 <button onClick={() => setEditing(true)} style={{ color: 'var(--brand)', fontSize: '13px', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, marginLeft: 'auto' }}>
                   Completar →

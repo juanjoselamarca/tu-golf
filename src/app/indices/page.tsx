@@ -207,10 +207,10 @@ export default function IndicesPage() {
               />
             </Section>
 
-            <Section title="CPI vs Handicap" subtitle="\u00bfCU\u00c1L ES LA DIFERENCIA?">
+            <Section title="CPI vs \u00cdndice" subtitle="\u00bfCU\u00c1L ES LA DIFERENCIA?">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: textFaint, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>HANDICAP</div>
+                  <div style={{ fontSize: '11px', color: textFaint, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>ÍNDICE</div>
                   <div style={{ fontSize: '36px', fontWeight: 700, color: textMuted, fontFamily: '"Cormorant Garamond", serif', lineHeight: 1 }}>12</div>
                   <div style={{ fontSize: '12px', color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>potencial</strong>. Usa tus mejores rondas. Lo que pod\u00e9s hacer en un buen d\u00eda.</div>
                 </div>
@@ -288,7 +288,7 @@ export default function IndicesPage() {
         {/* ═══════════════════════════════════════════ */}
         {activeTab === 'indice' && (
           <>
-            <Section title="\u00cdndice Golfers+" subtitle="TU HANDICAP CALCULADO CON F\u00d3RMULA USGA">
+            <Section title="\u00cdndice Golfers+" subtitle="TU \u00cdNDICE CALCULADO CON F\u00d3RMULA USGA">
               <p style={{ fontSize: '14px', color: textMuted, lineHeight: 1.6, margin: '0 0 16px' }}>
                 La misma f\u00f3rmula que usa la USGA para calcular el World Handicap System, aplicada a tus rondas reales en Golfers+. Coexiste con tu \u00edndice de Federaci\u00f3n \u2014 la app nunca toca tu n\u00famero oficial.
               </p>

@@ -361,8 +361,8 @@ export default function UnirsePage() {
                     <div style={{ fontSize: '16px', fontWeight: 600, color: '#edeae4' }}>{profile.name}</div>
                     <div style={{ fontSize: '13px', color: '#94a8c0' }}>
                       {profile.indice != null
-                        ? `Handicap Index: ${Number(profile.indice).toFixed(1)}`
-                        : 'Sin handicap registrado'}
+                        ? `Índice: ${Number(profile.indice).toFixed(1)}`
+                        : 'Sin índice registrado'}
                     </div>
                   </div>
                 </div>

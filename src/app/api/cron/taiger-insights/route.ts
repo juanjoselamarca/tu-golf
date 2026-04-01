@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       .select('id, indice')
 
     if (!profiles || profiles.length === 0) {
-      return NextResponse.json({ message: 'No profiles found', insights: 0 })
+      return NextResponse.json({ message: 'Sin perfiles encontrados', insights: 0 })
     }
 
     // Group users by handicap range
