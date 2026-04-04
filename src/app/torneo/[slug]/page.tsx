@@ -2,6 +2,8 @@
 import Link from 'next/link'
 import LeaderboardTable from '@/components/LeaderboardTable'
 import GWILeaderboard from '@/components/GWILeaderboard'
+import TournamentTabs from '@/components/TournamentTabs'
+import type { GroupData } from '@/components/TournamentTabs'
 import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
 import ShareResultsButton from '@/components/ShareResultsButton'
 import { PLAYERS, PAR } from '@/lib/golf-data'
@@ -170,6 +172,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     totalEagles: number
     totalBirdies: number
   } | null = null
+  let groupsData: GroupData[] = []
+  let playerIdToIndex: Record<string, number> = {}
 
   if (tournament) {
     tournamentName = tournament.name
@@ -199,11 +203,21 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     // ── Check if tournament uses ronda-libre-based groups ──
     const { data: rawGroups } = await supabase
       .from('tournament_groups')
-      .select('id, ronda_libre_id, name')
+      .select('id, ronda_libre_id, name, tee_time, sort_order, tournament_group_players(player_id)')
       .eq('tournament_id', tournament.id)
+      .order('sort_order')
 
-    const groups = (rawGroups as unknown as DBTournamentGroup[]) || []
+    const groups = (rawGroups as unknown as (DBTournamentGroup & { tee_time: string | null; sort_order: number; tournament_group_players: { player_id: string }[] })[]) || []
     const hasRondaLibreGroups = groups.some((g) => g.ronda_libre_id != null)
+
+    // Build groups data for the tabs component
+    groupsData = groups.map(g => ({
+      id: g.id,
+      name: g.name,
+      teeTime: g.tee_time ? new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }) : null,
+      sortOrder: g.sort_order ?? 0,
+      playerIds: (g.tournament_group_players || []).map((gp: { player_id: string }) => gp.player_id),
+    }))
 
     if (hasRondaLibreGroups) {
       // ═══ NEW PATH: Aggregate scores from rondas libres ═══
@@ -433,9 +447,16 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           }
         })
 
+        // Build playerIdToIndex: DB player.id → index in players[]
+        cbResultsLegacy.forEach((r, idx) => {
+          const e = legacyEntries[parseInt(r.id)]
+          playerIdToIndex[e.dbPlayer.id] = idx
+        })
+
         // Players with no round yet (registered but not started)
         const noRound = dbPlayers.filter((p) => !p.rounds?.length)
         noRound.forEach((p, i) => {
+          const playerIdx = players.length
           players.push({
             pos:     withRounds.length + i + 1,
             name:    p.profiles?.name || 'Jugador',
@@ -448,6 +469,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             status:  'live',
             scores:  new Array(totalHoyos).fill(null),
           })
+          playerIdToIndex[p.id] = playerIdx
         })
         stats = computeStats(dbPlayers, courseHoles, parTotal)
 
@@ -618,20 +640,15 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           </div>
         )}
         {players.length > 0 ? (
-          <>
-            <LeaderboardTable players={players} modoJuego={modoJuego} />
-            {/* GWI panel — only when enough data */}
-            {isLive && gwiInputs.length >= 2 && (
-              <div style={{ marginTop: '24px' }}>
-                <GWILeaderboard
-                  jugadores={gwiInputs}
-                  hoyosRestantes={totalHoyos - (gwiInputs.reduce((mx, g) => Math.max(mx, g.hoyosCompletados), 0))}
-                  totalHoyos={totalHoyos}
-                  modoJuego={modoJuego}
-                />
-              </div>
-            )}
-          </>
+          <TournamentTabs
+            players={players}
+            groups={groupsData}
+            modoJuego={modoJuego}
+            totalHoyos={totalHoyos}
+            isLive={isLive}
+            gwiInputs={gwiInputs}
+            playerIdToIndex={playerIdToIndex}
+          />
         ) : (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a8c0' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
