@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
+import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import type { ModoJuego } from '@/golf/core/rules'
 
 /* ── Types ── */
 interface Jugador {
@@ -11,6 +13,7 @@ interface Jugador {
   nombre: string
   user_id: string | null
   scores: Record<string, number>
+  handicap?: number | null
 }
 
 interface RondaLibre {
@@ -22,6 +25,7 @@ interface RondaLibre {
   holes: number
   fecha: string
   estado: string
+  modo_juego: ModoJuego
   admin_mode?: boolean
   admin_user_id?: string
   hoyo_inicio?: number | null
@@ -99,8 +103,10 @@ export default function ScoreGrupoPage() {
   const [scores, setScores] = useState<Record<string, Record<number, number>>>({})
   const [parMap, setParMap] = useState<Record<number, number>>({})
   const [holeDataMap, setHoleDataMap] = useState<Record<number, HoleData>>({})
+  const [playerHcp, setPlayerHcp] = useState<Record<string, number>>({})
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
+  const [confirmFinalize, setConfirmFinalize] = useState(false)
   const swipeRef = useRef({ startX: 0, startY: 0 })
   const progressRef = useRef<HTMLDivElement>(null)
 
@@ -113,7 +119,7 @@ export default function ScoreGrupoPage() {
 
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, admin_mode, admin_user_id, hoyo_inicio, ronda_libre_jugadores(id, nombre, user_id, scores)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, hoyo_inicio, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
         .eq('codigo', codigo)
         .single()
 
@@ -174,6 +180,15 @@ export default function ScoreGrupoPage() {
       } else {
         setHoleDataMap(hdm)
       }
+
+      // Load handicaps
+      const hcpMap: Record<string, number> = {}
+      for (const j of r.ronda_libre_jugadores) {
+        if (j.handicap != null) { hcpMap[j.id] = j.handicap }
+        else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); hcpMap[j.id] = p?.indice ?? 18 }
+        else hcpMap[j.id] = 18
+      }
+      setPlayerHcp(hcpMap)
 
       // Find first empty hole
       const orden = generarOrdenHoyos(r.hoyo_inicio ?? 1, r.holes)
@@ -261,9 +276,17 @@ export default function ScoreGrupoPage() {
     }
   }, [currentHole])
 
+  /* ── Reset confirmation on hole change ── */
+  useEffect(() => { setConfirmFinalize(false) }, [currentHole])
+
   /* ── Finalize ── */
   const finalizeRound = async () => {
     if (!ronda) return
+    if (!confirmFinalize) {
+      setConfirmFinalize(true)
+      haptic([20, 50, 20])
+      return
+    }
     haptic(30)
     // Auto-fill missing holes with par for all players
     const updatedScores = { ...scores }
@@ -308,6 +331,9 @@ export default function ScoreGrupoPage() {
   const isLastHole = currentHoleIdx >= totalHoles - 1
   const par = parMap[currentHole] ?? 4
   const holeData = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole, yardaje: null }
+  const modoJuego = ronda.modo_juego || 'gross'
+  const modoLabel = modoJuego === 'gross' ? 'Gross' : modoJuego === 'neto' ? 'Neto' : 'Stableford'
+  const showNetStableford = modoJuego !== 'gross'
 
   // Calculate totals for thru indicator
   const holesWithScores = (jId: string) => {
@@ -383,10 +409,21 @@ export default function ScoreGrupoPage() {
           {'\u2190'}
         </button>
         <div style={{ textAlign: 'center', flex: 1 }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: theme.gold, letterSpacing: '0.05em' }}>
-            HOYO {currentHole}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: theme.gold, letterSpacing: '0.05em' }}>
+              HOYO {currentHole}
+            </div>
+            <span style={{
+              fontSize: '9px', fontWeight: 600, letterSpacing: '0.05em',
+              padding: '2px 8px', borderRadius: '10px',
+              background: 'rgba(196,153,42,0.15)', color: theme.gold,
+              border: '1px solid rgba(196,153,42,0.25)',
+              textTransform: 'uppercase' as const,
+            }}>
+              {modoLabel}
+            </span>
           </div>
-          <div style={{ fontSize: '10px', color: theme.textFaint }}>{ronda.course_name}</div>
+          <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>{ronda.course_name}</div>
         </div>
         <div style={{ textAlign: 'right', minWidth: '60px' }}>
           <div style={{ fontSize: '10px', color: theme.textFaint, letterSpacing: '0.04em' }}>THRU</div>
@@ -431,15 +468,25 @@ export default function ScoreGrupoPage() {
           { label: 'PAR', value: String(par) },
           { label: 'SI', value: String(holeData.stroke_index) },
           { label: 'YDS', value: holeData.yardaje ? String(holeData.yardaje) : '\u2014' },
-        ].map(col => (
+        ].map((col, i, arr) => (
           <div key={col.label} style={{
-            flex: 1, textAlign: 'center', padding: '8px 2px',
-            borderRight: `1px solid ${theme.border}`,
+            flex: 1, textAlign: 'center', padding: '6px 2px',
+            borderRight: i < arr.length - 1 || showNetStableford ? `1px solid ${theme.border}` : 'none',
           }}>
-            <div style={{ fontSize: '9px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
-            <div style={{ fontSize: '16px', fontWeight: 600, color: theme.text }}>{col.value}</div>
+            <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>{col.label}</div>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: theme.text }}>{col.value}</div>
           </div>
         ))}
+        {showNetStableford && (() => {
+          // Show max strokes received among players for context
+          const maxStrokes = Math.max(...jugadores.map(j => strokesRecibidosEnHoyo(playerHcp[j.id] ?? 18, holeData.stroke_index)))
+          return (
+            <div style={{ flex: 1, textAlign: 'center', padding: '6px 2px' }}>
+              <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>GOLPES</div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#c4992a' }}>{maxStrokes > 0 ? `+${maxStrokes}` : '0'}</div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Player columns — scrollable main area */}
@@ -457,6 +504,27 @@ export default function ScoreGrupoPage() {
             const played = holesWithScores(j.id)
             const scoreResult = playerScore != null ? getScoreResult(playerScore, par) : null
             const chipStyle = scoreResult ? SCORE_STYLES[scoreResult] : null
+            const hcp = playerHcp[j.id] ?? 18
+            const strokesThisHole = strokesRecibidosEnHoyo(hcp, holeData.stroke_index)
+            const netScoreThisHole = playerScore != null ? playerScore - strokesThisHole : null
+            const stablefordPts = playerScore != null ? puntosStablefordHoyo(playerScore, par, hcp, holeData.stroke_index) : null
+
+            // Running net/stableford totals
+            let runningStableford = 0
+            let runningNetVsPar = 0
+            if (showNetStableford) {
+              for (let h = 1; h <= totalHoles; h++) {
+                const s = scores[j.id]?.[h]
+                if (s != null) {
+                  const hd = holeDataMap[h]
+                  if (hd) {
+                    const si = hd.stroke_index
+                    runningStableford += puntosStablefordHoyo(s, hd.par, hcp, si)
+                    runningNetVsPar += (s - strokesRecibidosEnHoyo(hcp, si)) - hd.par
+                  }
+                }
+              }
+            }
 
             return (
               <div key={j.id} style={{
@@ -467,19 +535,30 @@ export default function ScoreGrupoPage() {
               }}>
                 {/* Player name + running total */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: theme.text }}>{j.nombre}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: theme.text }}>{j.nombre}</div>
+                    {showNetStableford && played > 0 && (
+                      <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>
+                        HCP {hcp}{strokesThisHole > 0 ? ` · +${strokesThisHole} este hoyo` : ''}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', flexDirection: 'column', gap: '2px' }}>
                     {played > 0 && (
                       <>
-                        <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
-                          {out > 0 ? `${out}` : ''}{out > 0 && inn > 0 ? '+' : ''}{inn > 0 ? `${inn}` : ''}={gross}
-                        </span>
-                        <span style={{
-                          fontSize: '13px', fontWeight: 700,
-                          color: getVsParColor(vsPar),
-                        }}>
-                          {getVsParLabel(vsPar)}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
+                            {out > 0 ? `${out}` : ''}{out > 0 && inn > 0 ? '+' : ''}{inn > 0 ? `${inn}` : ''}={gross}
+                          </span>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: getVsParColor(vsPar) }}>
+                            {getVsParLabel(vsPar)}
+                          </span>
+                        </div>
+                        {showNetStableford && (
+                          <span style={{ fontSize: '10px', color: modoJuego === 'stableford' ? '#c4992a' : '#60A5FA' }}>
+                            {modoJuego === 'stableford' ? `${runningStableford} pts` : `Net: ${runningNetVsPar >= 0 ? '+' : ''}${runningNetVsPar}`}
+                          </span>
+                        )}
                       </>
                     )}
                   </div>
@@ -505,7 +584,7 @@ export default function ScoreGrupoPage() {
                   </button>
 
                   {/* Score display */}
-                  <div style={{ textAlign: 'center', minWidth: '70px' }}>
+                  <div style={{ textAlign: 'center', minWidth: '80px' }}>
                     <div style={{
                       fontSize: '42px', fontWeight: 700, lineHeight: 1,
                       color: playerScore != null ? '#FFFFFF' : 'rgba(255,255,255,0.25)',
@@ -514,17 +593,33 @@ export default function ScoreGrupoPage() {
                       {displayScore}
                     </div>
                     {/* Chip */}
-                    {playerScore != null && chipStyle && (
-                      <div style={{
-                        marginTop: '4px', padding: '2px 10px', borderRadius: '12px',
-                        fontSize: '10px', fontWeight: 500,
-                        background: chipStyle.bg, color: chipStyle.textColor,
-                        border: `${chipStyle.borderWidth} solid ${chipStyle.border}`,
-                        display: 'inline-block',
-                      }}>
-                        {diff <= -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : diff === 1 ? 'Bogey' : `+${diff}`}
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                      {playerScore != null && chipStyle && (
+                        <div style={{
+                          padding: '2px 10px', borderRadius: '12px',
+                          fontSize: '10px', fontWeight: 500,
+                          background: chipStyle.bg, color: chipStyle.textColor,
+                          border: `${chipStyle.borderWidth} solid ${chipStyle.border}`,
+                          display: 'inline-block',
+                        }}>
+                          {diff <= -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : diff === 1 ? 'Bogey' : `+${diff}`}
+                        </div>
+                      )}
+                      {showNetStableford && playerScore != null && (
+                        <div style={{
+                          padding: '2px 8px', borderRadius: '10px',
+                          fontSize: '9px', fontWeight: 600,
+                          background: modoJuego === 'stableford' ? 'rgba(196,153,42,0.15)' : 'rgba(96,165,250,0.15)',
+                          color: modoJuego === 'stableford' ? '#c4992a' : '#60A5FA',
+                          border: `1px solid ${modoJuego === 'stableford' ? 'rgba(196,153,42,0.3)' : 'rgba(96,165,250,0.3)'}`,
+                          display: 'inline-block',
+                        }}>
+                          {modoJuego === 'stableford'
+                            ? `${stablefordPts} pts`
+                            : `Net: ${netScoreThisHole != null ? netScoreThisHole - par >= 0 ? '+' + (netScoreThisHole - par) : String(netScoreThisHole - par) : '—'}`}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Plus button */}
@@ -573,14 +668,17 @@ export default function ScoreGrupoPage() {
           onClick={isLastHole ? finalizeRound : goToNextHole}
           style={{
             flex: 2, padding: '14px',
-            background: theme.gold,
+            background: isLastHole && confirmFinalize ? '#d97706' : theme.gold,
             color: '#070D18',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
             cursor: 'pointer', minHeight: '48px',
             touchAction: 'manipulation', letterSpacing: '0.01em',
+            transition: 'background 0.2s ease',
           }}
         >
-          {isLastHole ? 'Finalizar ronda \u2713' : 'Siguiente \u2192'}
+          {isLastHole
+            ? confirmFinalize ? '\u00bfFinalizar ronda?' : 'Finalizar ronda \u2713'
+            : 'Siguiente \u2192'}
         </button>
       </div>
 

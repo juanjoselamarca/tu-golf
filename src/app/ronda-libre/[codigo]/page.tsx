@@ -542,7 +542,7 @@ function RondaLibrePageContent() {
           Error al cargar la ronda
         </h1>
         <p style={{ color: '#94a8c0', textAlign: 'center', maxWidth: '320px', fontSize: '14px' }}>
-          No pudimos conectar con el servidor. Revisa tu conexion e intenta de nuevo.
+          No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.
         </p>
         <button
           onClick={() => { setFetchError(false); setLoading(true); fetchRonda() }}
@@ -639,7 +639,7 @@ function RondaLibrePageContent() {
             borderRadius: '10px',
             padding: '8px 18px',
           }}>
-            <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Codigo</span>
+            <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Código</span>
             <span style={{ fontFamily: 'monospace', color: '#c4992a', fontWeight: 700, fontSize: '22px', letterSpacing: '3px' }}>
               {ronda.codigo}
             </span>
@@ -874,6 +874,11 @@ function RondaLibrePageContent() {
   /* ── SPECTATOR VIEW ─────────────────────────────────────────────────── */
   /* ─────────────────────────────────────────────────────────────────────── */
   const isCreator = !!(currentUserId && ronda.creador_id === currentUserId)
+  const isAdmin = ronda.admin_mode && ronda.admin_user_id === currentUserId
+  const isAdminRound = !!ronda.admin_mode
+  const adminPlayerName = isAdminRound
+    ? ronda.ronda_libre_jugadores.find(j => j.user_id === ronda.admin_user_id)?.nombre ?? 'El admin'
+    : null
 
   if (role === 'espectador') {
     // White theme score colors
@@ -948,6 +953,20 @@ function RondaLibrePageContent() {
 
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
 
+          {/* ── Admin mode info banner for non-admin members ── */}
+          {isAdminRound && !isAdmin && currentUserId && adminPlayerName && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.2)',
+              borderRadius: '12px', padding: '12px 16px', marginBottom: '16px',
+            }}>
+              <span style={{ fontSize: '18px', flexShrink: 0 }}>📋</span>
+              <span style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.4 }}>
+                <strong style={{ color: '#374151' }}>{adminPlayerName}</strong> lleva el score del grupo
+              </span>
+            </div>
+          )}
+
           {/* ── Winner celebration + podium + share CTA (finished rounds) ── */}
           {isFinished && leaderboard.length > 0 && leaderboard[0].holesPlayed > 0 && (() => {
             const isTie = leaderboard.length > 1 && leaderboard[0].vsPar === leaderboard[1].vsPar
@@ -986,7 +1005,7 @@ function RondaLibrePageContent() {
                     <div style={{ padding: '0 20px 16px' }}>
                       <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
                         {playedPlayers.map((j, idx) => {
-                          const posLabel = idx === 0 ? '1\u00b0' : idx === 1 ? '2\u00b0' : idx === 2 ? '3\u00b0' : `${idx + 1}\u00b0`
+                          const posLabel = idx === 0 ? '1°' : idx === 1 ? '2°' : idx === 2 ? '3°' : `${idx + 1}°`
                           const posColor = idx === 0 ? '#c4992a' : idx === 1 ? '#94a8c0' : idx === 2 ? '#b87333' : '#9ca3af'
                           const isWinner = idx === 0
                           const jScoreColor = j.vsPar < 0 ? '#16a34a' : j.vsPar === 0 ? '#374151' : '#dc2626'
@@ -1520,7 +1539,7 @@ function RondaLibrePageContent() {
                     fontSize: '24px', fontWeight: 300, color: '#374151',
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
-                >{'\u2212'}</button>
+                >{'−'}</button>
                 <div style={{ fontSize: '40px', fontWeight: 700, color: '#111827', minWidth: '60px', textAlign: 'center' }}>
                   {editScoreValue}
                 </div>
@@ -1584,37 +1603,10 @@ function RondaLibrePageContent() {
   /* ─────────────────────────────────────────────────────────────────────── */
   /* ── PLAYER VIEW ────────────────────────────────────────────────────── */
   /* ─────────────────────────────────────────────────────────────────────── */
-  const isAdmin = ronda.admin_mode && ronda.admin_user_id === currentUserId
-  const isAdminRound = !!ronda.admin_mode
 
-  // Admin mode: admin goes to score-grupo, others see "tu grupo lleva tu score"
-  if (isAdminRound && !isAdmin && currentUserId) {
-    return (
-      <div style={{ background: '#070d18', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
-        {sharedHeader}
-        <div style={{ maxWidth: '640px', margin: '0 auto', padding: '40px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
-          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', marginBottom: '8px' }}>
-            Tu grupo lleva tu score
-          </h2>
-          <p style={{ color: '#94a8c0', fontSize: '14px', marginBottom: '24px', lineHeight: 1.6 }}>
-            Un miembro de tu grupo esta anotando el score de todos. Puedes seguir el marcador en vivo.
-          </p>
-          <button
-            onClick={() => chooseRole('espectador')}
-            style={{
-              width: '100%', maxWidth: '320px', padding: '16px',
-              background: '#c4992a', color: '#070d18',
-              border: 'none', borderRadius: '12px',
-              fontWeight: 700, fontSize: '16px',
-              cursor: 'pointer',
-            }}
-          >
-            Ver marcador en vivo
-          </button>
-        </div>
-      </div>
-    )
+  // Admin mode: non-admin members go directly to spectator/leaderboard view
+  if (isAdminRound && !isAdmin && currentUserId && !role) {
+    chooseRole('espectador')
   }
 
   if (isAdmin) {
@@ -1639,7 +1631,7 @@ function RondaLibrePageContent() {
               cursor: 'pointer', marginBottom: '12px',
             }}
           >
-            Anotar score de grupo {'\u2192'}
+            Anotar score de grupo {'→'}
           </button>
           <button
             onClick={() => chooseRole('espectador')}

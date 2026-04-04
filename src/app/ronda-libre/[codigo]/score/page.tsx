@@ -34,7 +34,7 @@ function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void })
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
       <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '480px', background: '#0e1c2f', borderRadius: '16px 16px 0 0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
         <div style={{ width: '36px', height: '4px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', margin: '0 auto 16px' }} />
-        <button onClick={() => doShare(scoreUrl, 'Unete a jugar en Golfers+')} style={{
+        <button onClick={() => doShare(scoreUrl, 'Únete a jugar en Golfers+')} style={{
           width: '100%', padding: '16px', marginBottom: '8px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', color: '#EDE9E4', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
         }}>
           <span style={{ fontSize: '20px' }}>🏌️</span> Invitar a jugar
@@ -52,7 +52,7 @@ function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void })
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number>; handicap?: number | null }
-interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; hoyo_inicio?: number | null; ronda_libre_jugadores: Jugador[] }
+interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; hoyo_inicio?: number | null; admin_mode?: boolean; admin_user_id?: string; ronda_libre_jugadores: Jugador[] }
 interface HoleData { numero: number; par: number; stroke_index: number; yardaje: number | null }
 
 /* ── Tee → yardage column mapping ──────────────────────────────────── */
@@ -242,13 +242,25 @@ function ScorePageContent() {
       const supabase = createClient()
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, hoyo_inicio, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, hoyo_inicio, admin_mode, admin_user_id, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
         .eq('codigo', codigo)
         .single()
       if (!data) { router.push('/dashboard'); return }
       const r = data as unknown as RondaLibre
       // If ronda was closed (by admin or player), redirect to detail view (read-only)
       if (r.estado === 'finalizada') { router.replace(`/ronda-libre/${codigo}`); return }
+      // Admin mode: non-admin members cannot use individual scoring
+      if (r.admin_mode) {
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (r.admin_user_id === authUser?.id) {
+          router.replace(`/ronda-libre/${codigo}/score-grupo`)
+          return
+        }
+        if (r.admin_user_id !== authUser?.id) {
+          router.replace(`/ronda-libre/${codigo}`)
+          return
+        }
+      }
       setRonda(r)
 
       const initialScores: Record<string, Record<number, number>> = {}
@@ -661,7 +673,7 @@ function ScorePageContent() {
       {/* ── Offline banner ── */}
       {!isOnline && (
         <div style={{ background: '#92400e', color: '#fef3c7', textAlign: 'center', padding: '4px', fontSize: '11px', fontWeight: 600, flexShrink: 0 }}>
-          Sin conexion — guardado local
+          Sin conexión — guardado local
         </div>
       )}
 
