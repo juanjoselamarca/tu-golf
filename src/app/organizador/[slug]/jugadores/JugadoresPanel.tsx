@@ -13,7 +13,6 @@ interface Tournament {
   date_start?: string; total_rounds?: number
 }
 interface Category { id: string; name: string; handicap_min: number | null; handicap_max: number | null }
-interface Flight   { id: string; name: string; tee_time: string | null }
 interface Profile  { id: string; name: string; email: string; indice: number | null }
 export interface Player {
   id: string
@@ -22,7 +21,6 @@ export interface Player {
   status: string
   profiles: { name: string; email: string; indice: number | null }
   categories: { name: string } | null
-  flights: { name: string } | null
 }
 
 interface TournamentGroup {
@@ -38,7 +36,6 @@ interface Props {
   tournament:     Tournament & { codigo?: string | null }
   initialPlayers: Player[]
   categories:     Category[]
-  flights:        Flight[]
 }
 
 function calcCourseHandicap(indice: number, slope: number, rating: number, par: number) {
@@ -57,7 +54,7 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 }
 
-export default function JugadoresPanel({ tournament, initialPlayers, categories, flights }: Props) {
+export default function JugadoresPanel({ tournament, initialPlayers, categories }: Props) {
   const router = useRouter()
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { showError, showWarning, showSuccess } = useToast()
@@ -69,7 +66,6 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
   const [showResults,     setShowResults]     = useState(false)
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null)
   const [selectedCat,     setSelectedCat]     = useState(categories[0]?.id || '')
-  const [selectedFlight,  setSelectedFlight]  = useState(flights[0]?.id || '')
   const [loading,         setLoading]         = useState(false)
   const [starting,        setStarting]        = useState(false)
   const [closing,         setClosing]         = useState(false)
@@ -81,6 +77,9 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
   const [newGroupTeeTime, setNewGroupTeeTime] = useState('')
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [allRoundsClosed, setAllRoundsClosed] = useState(false)
+  const [teeStartTime, setTeeStartTime] = useState('08:00')
+  const [teeInterval, setTeeInterval] = useState(10)
+  const [generatingTees, setGeneratingTees] = useState(false)
 
   // Debounced search
   useEffect(() => {
@@ -114,7 +113,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
     const { data } = await supabase
       .from('players')
       .select(
-        'id, user_id, handicap_at_registration, status, profiles(name, email, indice), categories(name), flights(name)'
+        'id, user_id, handicap_at_registration, status, profiles(name, email, indice), categories(name)'
       )
       .eq('tournament_id', tournament.id)
       .order('created_at', { ascending: true })
@@ -207,6 +206,31 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
     await fetchGroups()
   }
 
+  // Auto-generate tee times for all groups
+  const handleGenerateTeeTimes = async () => {
+    if (groups.length === 0) { showWarning('Sin grupos', 'Crea grupos primero antes de generar horarios.'); return }
+    setGeneratingTees(true)
+    const supabase = createClient()
+    const dateBase = tournament.date_start || new Date().toISOString().split('T')[0]
+    const [startH, startM] = teeStartTime.split(':').map(Number)
+
+    for (let i = 0; i < groups.length; i++) {
+      const totalMinutes = startH * 60 + startM + (i * teeInterval)
+      const h = Math.floor(totalMinutes / 60).toString().padStart(2, '0')
+      const m = (totalMinutes % 60).toString().padStart(2, '0')
+      const teeTimeValue = `${dateBase}T${h}:${m}:00`
+
+      await supabase
+        .from('tournament_groups')
+        .update({ tee_time: teeTimeValue })
+        .eq('id', groups[i].id)
+    }
+
+    await fetchGroups()
+    setGeneratingTees(false)
+    showSuccess('Horarios generados', `${groups.length} grupos con horarios desde las ${teeStartTime} cada ${teeInterval} min.`)
+  }
+
   // Assign player to group
   const handleAssignPlayer = async (playerId: string, groupId: string) => {
     const supabase = createClient()
@@ -235,8 +259,6 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
 
   const handleInscribir = async () => {
     if (!selectedProfile) { showWarning('Jugador requerido', 'Busca y selecciona un jugador primero.'); return }
-    if (!selectedCat)     { showWarning('Categoría requerida', 'Selecciona la categoría del jugador.'); return }
-    if (!selectedFlight)  { showWarning('Flight requerido', 'Selecciona un flight para inscribir al jugador.'); return }
 
     setLoading(true)
     const supabase = createClient()
@@ -252,13 +274,15 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
           )
         : null
 
+    // Auto-assign default category if none selected
+    const catId = selectedCat || categories[0]?.id || null
+
     const { data: player, error: pErr } = await supabase
       .from('players')
       .insert({
         tournament_id:           tournament.id,
         user_id:                 selectedProfile.id,
-        category_id:             selectedCat,
-        flight_id:               selectedFlight,
+        category_id:             catId,
         handicap_at_registration: courseHandicap,
         status:                  'approved',
       })
@@ -564,34 +588,6 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
               )}
             </div>
 
-            {/* Category */}
-            <div style={{ flex: '0 1 160px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Categoría</label>
-              <select
-                value={selectedCat}
-                onChange={(e) => setSelectedCat(e.target.value)}
-                style={{ ...inputStyle, width: '100%' }}
-              >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Flight */}
-            <div style={{ flex: '0 1 160px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Flight</label>
-              <select
-                value={selectedFlight}
-                onChange={(e) => setSelectedFlight(e.target.value)}
-                style={{ ...inputStyle, width: '100%' }}
-              >
-                {flights.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-            </div>
-
             {/* Button */}
             <button
               type="button"
@@ -674,6 +670,51 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
             </div>
           )}
 
+          {/* Generate tee times */}
+          {tournamentStatus === 'draft' && groups.length > 0 && (
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px', padding: '16px', background: 'rgba(7,13,24,0.4)', borderRadius: '10px', border: '1px solid rgba(122,143,168,0.1)' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Hora inicio</label>
+                <input
+                  type="time"
+                  value={teeStartTime}
+                  onChange={(e) => setTeeStartTime(e.target.value)}
+                  style={{ ...inputStyle, width: '120px' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Intervalo (min)</label>
+                <input
+                  type="number"
+                  value={teeInterval}
+                  onChange={(e) => setTeeInterval(Math.max(1, parseInt(e.target.value) || 10))}
+                  min={1}
+                  max={30}
+                  style={{ ...inputStyle, width: '80px' }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateTeeTimes}
+                disabled={generatingTees}
+                style={{
+                  background: 'rgba(196,153,42,0.15)',
+                  border: '1px solid rgba(196,153,42,0.4)',
+                  color: '#c4992a',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  cursor: generatingTees ? 'not-allowed' : 'pointer',
+                  opacity: generatingTees ? 0.6 : 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {generatingTees ? 'Generando...' : `Generar horarios (${groups.length} grupos)`}
+              </button>
+            </div>
+          )}
+
           {/* Group cards */}
           {groups.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px', color: '#94a8c0', fontSize: '13px' }}>
@@ -750,7 +791,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    {['#', 'Nombre', 'Índice', 'Course HCP', 'Categoría', 'Flight', 'Grupo', ''].map((h) => (
+                    {['#', 'Nombre', 'Índice', 'Course HCP', 'Categoría', 'Grupo', ''].map((h) => (
                       <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                         {h}
                       </th>
@@ -770,7 +811,6 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories,
                       <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '14px' }}>{p.profiles?.indice ?? '—'}</td>
                       <td style={{ padding: '12px 16px', color: '#c4992a', fontSize: '14px', fontWeight: 600 }}>{p.handicap_at_registration ?? '—'}</td>
                       <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
-                      <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '13px' }}>{p.flights?.name || '—'}</td>
                       <td style={{ padding: '12px 16px' }}>
                         {groups.length > 0 ? (
                           <select

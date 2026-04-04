@@ -25,22 +25,17 @@ export default async function JugadoresPage({
   const [
     { data: players },
     { data: categories },
-    { data: flights },
   ] = await Promise.all([
     supabase
       .from('players')
       .select(
-        'id, user_id, handicap_at_registration, status, profiles(name, email, indice), categories(name), flights(name)'
+        'id, user_id, handicap_at_registration, status, profiles(name, email, indice), categories(name)'
       )
       .eq('tournament_id', tournament.id)
       .order('created_at', { ascending: true }),
     supabase
       .from('categories')
       .select('id, name, handicap_min, handicap_max')
-      .eq('tournament_id', tournament.id),
-    supabase
-      .from('flights')
-      .select('id, name, tee_time')
       .eq('tournament_id', tournament.id),
   ])
 
@@ -49,7 +44,6 @@ export default async function JugadoresPage({
       tournament={tournament}
       initialPlayers={(players as unknown as Player[]) || []}
       categories={categories || []}
-      flights={flights || []}
     />
   )
 }
