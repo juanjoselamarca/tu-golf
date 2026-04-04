@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { Player } from '@/lib/golf-data'
-import LeaderboardTable from '@/components/LeaderboardTable'
 import GWILeaderboard from '@/components/GWILeaderboard'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
@@ -11,9 +10,9 @@ import type { ModoJuego } from '@/golf/core/rules'
 export interface GroupData {
   id: string
   name: string
-  teeTime: string | null   // formatted HH:MM
+  teeTime: string | null
   sortOrder: number
-  playerIds: string[]       // player_id references
+  playerIds: string[]
 }
 
 interface Props {
@@ -23,11 +22,26 @@ interface Props {
   totalHoyos: number
   isLive: boolean
   gwiInputs: JugadorGWIInput[]
-  /** Map from player.id (DB) → index in players[] */
   playerIdToIndex: Record<string, number>
 }
 
 type Tab = 'leaderboard' | 'grupos'
+
+/* ── Design tokens ────────────────────────────────────────── */
+const T = {
+  bg:        '#070d18',
+  card:      '#0e1c2f',
+  gold:      '#c4992a',
+  ivory:     '#edeae4',
+  muted:     'rgba(255,255,255,0.55)',
+  faint:     'rgba(255,255,255,0.35)',
+  border:    'rgba(196,153,42,0.12)',
+  green:     '#16a34a',
+  red:       '#dc2626',
+  rowAlt:    'rgba(255,255,255,0.015)',
+  leaderBg:  'rgba(196,153,42,0.04)',
+  leaderBd:  'rgba(196,153,42,0.25)',
+} as const
 
 /* ── Helpers ──────────────────────────────────────────────── */
 function formatScore(n: number) {
@@ -36,9 +50,9 @@ function formatScore(n: number) {
 }
 
 function scoreColor(n: number) {
-  if (n < 0) return '#16a34a'
-  if (n > 0) return '#dc2626'
-  return '#edeae4'
+  if (n < 0) return T.green
+  if (n > 0) return T.red
+  return T.ivory
 }
 
 function thruLabel(p: Player, totalHoyos: number) {
@@ -47,14 +61,31 @@ function thruLabel(p: Player, totalHoyos: number) {
   return `${p.holes}`
 }
 
-/* ── Group status ─────────────────────────────────────────── */
-function groupStatus(groupPlayers: Player[], totalHoyos: number): { label: string; color: string; bg: string } {
-  if (groupPlayers.length === 0) return { label: 'Sin jugadores', color: '#94a8c0', bg: 'rgba(148,168,192,0.1)' }
+/** Compute tied positions: players with same score get "T3" style labels */
+function computePositions(players: Player[]): string[] {
+  if (players.length === 0) return []
+  const positions: string[] = []
+  let i = 0
+  while (i < players.length) {
+    let j = i + 1
+    while (j < players.length && players[j].total === players[i].total) j++
+    const tied = j - i > 1
+    for (let k = i; k < j; k++) {
+      positions.push(tied ? `T${i + 1}` : `${i + 1}`)
+    }
+    i = j
+  }
+  return positions
+}
+
+/* ── Group status dot ─────────────────────────────────────── */
+function groupStatusDot(groupPlayers: Player[], totalHoyos: number): { dot: string; color: string } {
+  if (groupPlayers.length === 0) return { dot: '\u26AA', color: '#94a8c0' }
   const allFinished = groupPlayers.every(p => p.status === 'F')
   const anyStarted = groupPlayers.some(p => p.holes > 0)
-  if (allFinished) return { label: 'Terminado', color: '#16a34a', bg: 'rgba(22,163,74,0.1)' }
-  if (anyStarted) return { label: 'En cancha', color: '#c4992a', bg: 'rgba(196,153,42,0.1)' }
-  return { label: 'Por salir', color: '#94a8c0', bg: 'rgba(148,168,192,0.1)' }
+  if (allFinished) return { dot: '\uD83D\uDFE2', color: T.green }
+  if (anyStarted) return { dot: '\uD83D\uDFE1', color: T.gold }
+  return { dot: '\u26AA', color: '#94a8c0' }
 }
 
 /* ── Component ────────────────────────────────────────────── */
@@ -63,29 +94,36 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
   const hasGroups = groups.length > 0
 
   // Build map: playerId → Player
-  const playerByDbId = new Map<string, Player>()
-  Object.entries(playerIdToIndex).forEach(([dbId, idx]) => {
-    if (players[idx]) playerByDbId.set(dbId, players[idx])
-  })
+  const playerByDbId = useMemo(() => {
+    const map = new Map<string, Player>()
+    Object.entries(playerIdToIndex).forEach(([dbId, idx]) => {
+      if (players[idx]) map.set(dbId, players[idx])
+    })
+    return map
+  }, [players, playerIdToIndex])
 
-  // Find players not in any group
-  const assignedPlayerIds = new Set(groups.flatMap(g => g.playerIds))
-  const unassignedPlayers = Object.entries(playerIdToIndex)
-    .filter(([dbId]) => !assignedPlayerIds.has(dbId))
-    .map(([dbId, idx]) => players[idx])
-    .filter(Boolean)
+  // Find unassigned players
+  const unassignedPlayers = useMemo(() => {
+    const assignedIds = new Set(groups.flatMap(g => g.playerIds))
+    return Object.entries(playerIdToIndex)
+      .filter(([dbId]) => !assignedIds.has(dbId))
+      .map(([, idx]) => players[idx])
+      .filter(Boolean)
+  }, [groups, playerIdToIndex, players])
+
+  // Positions for leaderboard
+  const positions = useMemo(() => computePositions(players), [players])
 
   return (
     <>
-      {/* ── Tab toggle (only if groups exist) ── */}
+      {/* ── Tab toggle ── */}
       {hasGroups && (
         <div style={{
           display: 'flex',
-          background: 'rgba(255,255,255,0.07)',
-          borderRadius: '12px',
-          padding: '3px',
-          marginBottom: '16px',
-          maxWidth: '320px',
+          width: '100%',
+          maxWidth: '400px',
+          margin: '0 auto 20px',
+          borderBottom: `1px solid ${T.border}`,
         }}>
           {([
             { key: 'leaderboard' as Tab, label: 'Leaderboard' },
@@ -96,17 +134,18 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
               onClick={() => setTab(key)}
               style={{
                 flex: 1,
-                padding: '8px 16px',
-                borderRadius: '10px',
-                fontSize: '13px',
+                padding: '10px 0',
+                fontSize: '14px',
                 fontWeight: 600,
                 border: 'none',
+                borderBottom: tab === key ? `2px solid ${T.gold}` : '2px solid transparent',
                 cursor: 'pointer',
-                background: tab === key ? '#c4992a' : 'transparent',
-                color: tab === key ? '#070d18' : 'rgba(255,255,255,0.55)',
-                transition: 'all 0.15s ease',
+                background: 'transparent',
+                color: tab === key ? T.gold : T.muted,
+                transition: 'all 0.2s ease',
                 fontFamily: '"DM Sans", system-ui, sans-serif',
                 WebkitTapHighlightColor: 'transparent',
+                letterSpacing: '0.02em',
               }}
             >
               {label}
@@ -115,10 +154,118 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
         </div>
       )}
 
-      {/* ── Leaderboard view ── */}
+      {/* ── Leaderboard tab ── */}
       {tab === 'leaderboard' && (
         <>
-          <LeaderboardTable players={players} modoJuego={modoJuego} />
+          {/* PGA-style table */}
+          <div style={{ width: '100%', overflow: 'hidden' }}>
+            {/* Header row */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '42px 1fr 48px 48px 56px',
+              padding: '8px 12px',
+              borderBottom: `1px solid ${T.border}`,
+            }}>
+              {['POS', 'JUGADOR', 'HCP', 'THRU', 'SCORE'].map(h => (
+                <span key={h} style={{
+                  fontFamily: '"DM Mono", monospace',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  color: T.faint,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  textAlign: h === 'JUGADOR' ? 'left' : 'center',
+                }}>
+                  {h}
+                </span>
+              ))}
+            </div>
+
+            {/* Player rows */}
+            {players.map((p, idx) => {
+              const isLeader = idx === 0 && p.holes > 0
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '42px 1fr 48px 48px 56px',
+                    padding: '10px 12px',
+                    alignItems: 'center',
+                    background: idx % 2 === 1 ? T.rowAlt : 'transparent',
+                    borderLeft: isLeader ? `3px solid ${T.gold}` : '3px solid transparent',
+                    ...(isLeader ? { background: T.leaderBg } : {}),
+                  }}
+                >
+                  {/* POS */}
+                  <span style={{
+                    fontFamily: '"DM Mono", monospace',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: isLeader ? T.gold : T.muted,
+                    textAlign: 'center',
+                  }}>
+                    {positions[idx] || idx + 1}
+                  </span>
+
+                  {/* JUGADOR */}
+                  <span style={{
+                    fontFamily: '"DM Sans", system-ui, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: isLeader ? T.ivory : T.ivory,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    paddingRight: '8px',
+                  }}>
+                    {p.name}
+                  </span>
+
+                  {/* HCP */}
+                  <span style={{
+                    fontFamily: '"DM Mono", monospace',
+                    fontSize: '12px',
+                    color: T.muted,
+                    textAlign: 'center',
+                  }}>
+                    {Math.round(p.hcp)}
+                  </span>
+
+                  {/* THRU */}
+                  <span style={{
+                    fontFamily: '"DM Mono", monospace',
+                    fontSize: '12px',
+                    color: p.status === 'F' ? T.green : T.muted,
+                    textAlign: 'center',
+                    fontWeight: p.status === 'F' ? 700 : 400,
+                  }}>
+                    {thruLabel(p, totalHoyos)}
+                  </span>
+
+                  {/* SCORE */}
+                  <span style={{
+                    fontFamily: '"Cormorant Garamond", serif',
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: p.holes > 0 ? scoreColor(p.total) : T.faint,
+                    textAlign: 'center',
+                    lineHeight: 1,
+                  }}>
+                    {p.holes > 0 ? formatScore(p.total) : '-'}
+                  </span>
+                </div>
+              )
+            })}
+
+            {players.length === 0 && (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: T.muted, fontSize: '14px' }}>
+                Sin jugadores aún
+              </div>
+            )}
+          </div>
+
+          {/* GWI Leaderboard (live only) */}
           {isLive && gwiInputs.length >= 2 && (
             <div style={{ marginTop: '24px' }}>
               <GWILeaderboard
@@ -132,162 +279,118 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
         </>
       )}
 
-      {/* ── Groups view ── */}
+      {/* ── Groups tab ── */}
       {tab === 'grupos' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {groups.map(group => {
             const groupPlayers = group.playerIds
               .map(pid => playerByDbId.get(pid))
               .filter(Boolean) as Player[]
-            const status = groupStatus(groupPlayers, totalHoyos)
+            const status = groupStatusDot(groupPlayers, totalHoyos)
 
             return (
               <div
                 key={group.id}
                 style={{
-                  background: '#0e1c2f',
-                  border: '1px solid rgba(196,153,42,0.12)',
-                  borderRadius: '14px',
+                  background: T.card,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: '12px',
                   overflow: 'hidden',
                 }}
               >
-                {/* Group header */}
+                {/* Group header — tee time · name · dot */}
                 <div style={{
-                  padding: '14px 18px',
+                  padding: '12px 16px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  borderBottom: '1px solid rgba(196,153,42,0.08)',
-                  background: 'rgba(196,153,42,0.04)',
+                  gap: '10px',
+                  borderBottom: groupPlayers.length > 0 ? `1px solid rgba(255,255,255,0.04)` : 'none',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {group.teeTime && (
                     <span style={{
-                      fontFamily: '"DM Sans", system-ui, sans-serif',
-                      fontSize: '15px',
-                      fontWeight: 700,
-                      color: '#edeae4',
+                      fontFamily: '"DM Mono", monospace',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: T.gold,
                     }}>
-                      {group.name}
+                      {group.teeTime}
                     </span>
-                    {group.teeTime && (
-                      <span style={{
-                        fontFamily: '"DM Mono", monospace',
-                        fontSize: '12px',
-                        color: '#c4992a',
-                        background: 'rgba(196,153,42,0.1)',
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(196,153,42,0.2)',
-                      }}>
-                        {group.teeTime}
-                      </span>
-                    )}
-                  </div>
+                  )}
                   <span style={{
-                    fontSize: '11px',
+                    fontFamily: '"DM Sans", system-ui, sans-serif',
+                    fontSize: '14px',
                     fontWeight: 600,
-                    color: status.color,
-                    background: status.bg,
-                    padding: '3px 10px',
-                    borderRadius: '8px',
-                    border: `1px solid ${status.color}25`,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    fontFamily: '"DM Mono", monospace',
+                    color: T.ivory,
+                    flex: 1,
                   }}>
-                    {status.label}
+                    {group.name}
                   </span>
+                  <span style={{ fontSize: '10px', lineHeight: 1 }}>{status.dot}</span>
                 </div>
 
-                {/* Player rows */}
+                {/* Player rows — compact, no column headers */}
                 {groupPlayers.length > 0 ? (
                   <div>
-                    {/* Table header */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 60px 60px 70px',
-                      padding: '8px 18px',
-                      borderBottom: '1px solid rgba(255,255,255,0.04)',
-                    }}>
-                      {['JUGADOR', 'HCP', 'THRU', 'SCORE'].map(h => (
-                        <span key={h} style={{
-                          fontFamily: '"DM Mono", monospace',
-                          fontSize: '10px',
-                          fontWeight: 600,
-                          color: 'rgba(255,255,255,0.35)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.1em',
-                          textAlign: h === 'JUGADOR' ? 'left' : 'center',
-                        }}>
-                          {h}
-                        </span>
-                      ))}
-                    </div>
-
                     {groupPlayers.map((p, idx) => (
                       <div
                         key={idx}
                         style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 60px 60px 70px',
-                          padding: '10px 18px',
+                          display: 'flex',
                           alignItems: 'center',
-                          background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
-                          borderBottom: idx < groupPlayers.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                          justifyContent: 'space-between',
+                          padding: '8px 16px',
+                          background: idx % 2 === 1 ? T.rowAlt : 'transparent',
                         }}
                       >
-                        {/* Name */}
-                        <div style={{
+                        {/* Name (HCP) */}
+                        <span style={{
                           fontFamily: '"DM Sans", system-ui, sans-serif',
                           fontSize: '14px',
-                          fontWeight: 600,
-                          color: '#edeae4',
+                          fontWeight: 500,
+                          color: T.ivory,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
+                          flex: 1,
+                          minWidth: 0,
                         }}>
                           {p.name}
-                        </div>
-                        {/* HCP */}
-                        <div style={{
-                          fontFamily: '"DM Mono", monospace',
-                          fontSize: '12px',
-                          color: 'rgba(255,255,255,0.55)',
-                          textAlign: 'center',
-                        }}>
-                          {p.hcp.toFixed(1)}
-                        </div>
-                        {/* THRU */}
-                        <div style={{
-                          fontFamily: '"DM Mono", monospace',
-                          fontSize: '12px',
-                          color: p.status === 'F' ? '#16a34a' : 'rgba(255,255,255,0.55)',
-                          textAlign: 'center',
-                          fontWeight: p.status === 'F' ? 700 : 400,
-                        }}>
-                          {thruLabel(p, totalHoyos)}
-                        </div>
-                        {/* Score */}
-                        <div style={{
-                          fontFamily: '"Cormorant Garamond", serif',
-                          fontSize: '18px',
-                          fontWeight: 700,
-                          color: scoreColor(p.total),
-                          textAlign: 'center',
-                        }}>
-                          {p.holes > 0 ? formatScore(p.total) : '-'}
+                          <span style={{ color: T.muted, fontWeight: 400 }}> ({Math.round(p.hcp)})</span>
+                        </span>
+
+                        {/* Score + THRU */}
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexShrink: 0, marginLeft: '12px' }}>
+                          <span style={{
+                            fontFamily: '"Cormorant Garamond", serif',
+                            fontSize: '18px',
+                            fontWeight: 700,
+                            color: p.holes > 0 ? scoreColor(p.total) : T.faint,
+                            lineHeight: 1,
+                          }}>
+                            {p.holes > 0 ? formatScore(p.total) : '-'}
+                          </span>
+                          <span style={{
+                            fontFamily: '"DM Mono", monospace',
+                            fontSize: '11px',
+                            color: p.status === 'F' ? T.green : T.faint,
+                            fontWeight: p.status === 'F' ? 600 : 400,
+                            minWidth: '16px',
+                            textAlign: 'right',
+                          }}>
+                            {thruLabel(p, totalHoyos)}
+                          </span>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div style={{
-                    padding: '20px 18px',
+                    padding: '16px',
                     textAlign: 'center',
-                    color: 'rgba(255,255,255,0.35)',
+                    color: T.faint,
                     fontSize: '13px',
                   }}>
-                    Sin jugadores asignados
+                    Sin jugadores
                   </div>
                 )}
               </div>
@@ -296,80 +399,38 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
 
           {/* Unassigned players */}
           {unassignedPlayers.length > 0 && (
-            <div style={{
-              background: '#0e1c2f',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: '14px',
-              overflow: 'hidden',
-            }}>
+            <div style={{ marginTop: '4px' }}>
               <div style={{
-                padding: '14px 18px',
-                borderBottom: '1px solid rgba(255,255,255,0.04)',
-                background: 'rgba(255,255,255,0.02)',
+                fontFamily: '"DM Mono", monospace',
+                fontSize: '11px',
+                color: T.faint,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                marginBottom: '8px',
+                paddingLeft: '4px',
               }}>
-                <span style={{
-                  fontFamily: '"DM Sans", system-ui, sans-serif',
-                  fontSize: '15px',
-                  fontWeight: 700,
-                  color: 'rgba(255,255,255,0.55)',
-                }}>
-                  Sin grupo
-                </span>
+                Sin grupo asignado
               </div>
-              <div>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 60px 60px 70px',
-                  padding: '8px 18px',
-                  borderBottom: '1px solid rgba(255,255,255,0.04)',
-                }}>
-                  {['JUGADOR', 'HCP', 'THRU', 'SCORE'].map(h => (
-                    <span key={h} style={{
-                      fontFamily: '"DM Mono", monospace',
-                      fontSize: '10px',
-                      fontWeight: 600,
-                      color: 'rgba(255,255,255,0.35)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.1em',
-                      textAlign: h === 'JUGADOR' ? 'left' : 'center',
-                    }}>
-                      {h}
-                    </span>
-                  ))}
+              {unassignedPlayers.map((p, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '6px 4px',
+                    gap: '8px',
+                  }}
+                >
+                  <span style={{
+                    fontFamily: '"DM Sans", system-ui, sans-serif',
+                    fontSize: '13px',
+                    color: T.muted,
+                  }}>
+                    {p.name}
+                    <span style={{ color: T.faint }}> ({Math.round(p.hcp)})</span>
+                  </span>
                 </div>
-                {unassignedPlayers.map((p, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 60px 60px 70px',
-                      padding: '10px 18px',
-                      alignItems: 'center',
-                      background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
-                    }}
-                  >
-                    <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '14px', fontWeight: 600, color: '#edeae4' }}>
-                      {p.name}
-                    </div>
-                    <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '12px', color: 'rgba(255,255,255,0.55)', textAlign: 'center' }}>
-                      {p.hcp.toFixed(1)}
-                    </div>
-                    <div style={{
-                      fontFamily: '"DM Mono", monospace', fontSize: '12px',
-                      color: p.status === 'F' ? '#16a34a' : 'rgba(255,255,255,0.55)',
-                      textAlign: 'center', fontWeight: p.status === 'F' ? 700 : 400,
-                    }}>
-                      {thruLabel(p, totalHoyos)}
-                    </div>
-                    <div style={{
-                      fontFamily: '"Cormorant Garamond", serif', fontSize: '18px', fontWeight: 700,
-                      color: scoreColor(p.total), textAlign: 'center',
-                    }}>
-                      {p.holes > 0 ? formatScore(p.total) : '-'}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
           )}
         </div>

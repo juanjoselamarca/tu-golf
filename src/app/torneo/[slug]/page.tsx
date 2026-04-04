@@ -1,7 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link'
-import LeaderboardTable from '@/components/LeaderboardTable'
-import GWILeaderboard from '@/components/GWILeaderboard'
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
@@ -133,11 +131,6 @@ function computeStats(dbPlayers: DBPlayer[], courseHoles: DBCourseHole[], parTot
   })
 
   return { bestName, bestNet, avgNet, eagles, birdies, hardestHole, easiestHole }
-}
-
-function fmtNet(n: number) {
-  if (n === 0) return 'E'
-  return n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1)
 }
 
 export default async function TorneoPage({ params }: { params: { slug: string } }) {
@@ -556,89 +549,79 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     }
   }
 
-  // Use real cover or default golf photo
-  const coverImage = 'https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1920&q=80'
-
   return (
     <div className="min-h-screen bg-bg-deep">
 
-      {/* Tournament header */}
-      <div className="relative overflow-hidden" style={{ height: 280 }}>
-        <img
-          src={coverImage}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
-        <div
-          className="absolute inset-0"
-          style={{ background: 'linear-gradient(to bottom, rgba(7,13,24,0.35) 0%, rgba(7,13,24,0.92) 100%)' }}
-        />
-
-        {/* Logo */}
-        <div className="absolute top-4 left-4 sm:top-5 sm:left-6 z-10">
-          <Link href="/" className="flex items-center gap-1 group">
-            <span className="font-display font-bold text-lg text-ivory group-hover:text-ivory/80 transition-colors">Golfers</span>
-            <span className="font-display font-bold text-lg text-gold group-hover:text-gold-light transition-colors">+</span>
+      {/* ── Clean dark header ── */}
+      <div style={{ background: '#070d18', borderBottom: '1px solid rgba(196,153,42,0.12)' }}>
+        {/* Top bar: logo + TV button */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 0', maxWidth: '1080px', margin: '0 auto' }}>
+          <Link href="/" className="flex items-center gap-1 group" style={{ textDecoration: 'none' }}>
+            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#edeae4' }}>Golfers</span>
+            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#c4992a' }}>+</span>
           </Link>
-        </div>
-
-        {/* TV button */}
-        {tournament && (
-          <div className="absolute top-4 right-4 sm:top-5 sm:right-6 z-10">
+          {tournament && (
             <Link
               href={`/torneo/${tournament.slug}/tv`}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ background: 'rgba(14,28,47,0.85)', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '7px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+              style={{ color: '#c4992a', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(196,153,42,0.2)', fontFamily: '"DM Sans", system-ui, sans-serif' }}
             >
-              📺 Modo TV
+              Modo TV
             </Link>
-          </div>
-        )}
-
-        {/* Content */}
-        <div className="relative h-full flex flex-col items-center justify-center text-center px-4 pb-4 pt-16">
-          {isLive && (
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-2 h-2 rounded-full bg-gold live-dot inline-block" />
-              <span className="font-sans font-semibold text-sm" style={{ color: '#c4992a' }}>EN VIVO</span>
-            </div>
           )}
+        </div>
 
-          <h1 className="font-display font-bold text-ivory mb-3" style={{ fontSize: 'clamp(24px, 4.5vw, 36px)', lineHeight: 1.1 }}>
+        {/* Tournament info */}
+        <div style={{ padding: '24px 20px 20px', maxWidth: '1080px', margin: '0 auto' }}>
+          <h1 style={{
+            fontFamily: '"Playfair Display", serif',
+            fontSize: '24px',
+            fontWeight: 700,
+            color: '#edeae4',
+            margin: '0 0 8px',
+            lineHeight: 1.2,
+          }}>
             {tournamentName}
           </h1>
 
-          <p className="font-sans text-sm text-gray-soft">
-            Par {parTotal}
-            {tournament && (tournament.total_rounds ?? 1) > 1 && <> &nbsp;·&nbsp; {tournament.total_rounds} rondas ({(tournament.hole_count ?? 18) * tournament.total_rounds} hoyos)</>}
-            {tournament?.courses?.nombre && <> &nbsp;·&nbsp; {tournament.courses.nombre}</>}
-            {tournament?.courses?.ciudad && <>, {tournament.courses.ciudad}</>}
-            {dateDisplay && <> &nbsp;·&nbsp; {dateDisplay}</>}
-          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>
+            {tournament?.courses?.nombre && <span>{tournament.courses.nombre}</span>}
+            {tournament?.courses?.nombre && <span style={{ color: 'rgba(255,255,255,0.25)' }}>&middot;</span>}
+            <span>{totalHoyos}H</span>
+            <span style={{ color: 'rgba(255,255,255,0.25)' }}>&middot;</span>
+            <span>{modoJuego === 'gross' ? 'Gross' : modoJuego === 'neto' ? 'Neto' : 'Stableford'}</span>
+            <span style={{ color: 'rgba(255,255,255,0.25)' }}>&middot;</span>
+            <span>{dateDisplay}</span>
+
+            {/* Status indicator */}
+            {isLive && (
+              <>
+                <span style={{ color: 'rgba(255,255,255,0.25)' }}>&middot;</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <span className="live-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />
+                  <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>EN VIVO</span>
+                </span>
+              </>
+            )}
+            {isClosed && (
+              <>
+                <span style={{ color: 'rgba(255,255,255,0.25)' }}>&middot;</span>
+                <span style={{ color: '#c4992a', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>FINALIZADO</span>
+              </>
+            )}
+          </div>
 
           {tournament?.codigo && (
-            <div style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(14,28,47,0.7)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '8px', padding: '5px 12px' }}>
-              <span style={{ fontSize: '11px', color: '#94a8c0' }}>Codigo:</span>
-              <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#c4992a', letterSpacing: '0.1em' }}>{tournament.codigo}</span>
+            <div style={{ marginTop: '10px', fontFamily: '"DM Mono", monospace', fontSize: '12px', color: 'rgba(255,255,255,0.35)' }}>
+              Codigo: <span style={{ color: '#c4992a', fontWeight: 600, letterSpacing: '0.08em' }}>{tournament.codigo}</span>
             </div>
           )}
         </div>
       </div>
 
-      <div className="gold-divider" />
-
       {/* Leaderboard */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
-        {/* Modo badge */}
-        {tournament && (
-          <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '12px', padding: '3px 10px', borderRadius: '8px', fontWeight: 600 }}>
-              {modoJuego === 'gross' ? 'Gross' : modoJuego === 'neto' ? 'Neto' : 'Stableford'}
-            </span>
-            {isLive && <span style={{ fontSize: '12px', color: '#94a8c0' }}>{totalHoyos} hoyos</span>}
-          </div>
-        )}
         {players.length > 0 ? (
           <TournamentTabs
             players={players}
@@ -664,118 +647,62 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         )}
       </div>
 
-      {/* Tournament stats */}
-      {stats && (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="gold-divider mb-8" />
-          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', marginBottom: '20px', fontWeight: 600 }}>
-            Estadísticas del torneo
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-            {/* Mejor tarjeta */}
-            <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '28px', marginBottom: '8px' }}>🏆</div>
-              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Mejor tarjeta</div>
-              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', fontWeight: 700, marginBottom: '4px' }}>{stats.bestName}</div>
-              <div style={{ fontSize: '14px', color: '#c4992a', fontWeight: 600 }}>{fmtNet(stats.bestNet - parTotal)}</div>
-            </div>
-            {/* Scoring average */}
-            <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '28px', marginBottom: '8px' }}>📊</div>
-              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Promedio del campo</div>
-              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{fmtNet(stats.avgNet)}</div>
-            </div>
-            {/* Eagles */}
-            <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '28px', marginBottom: '8px' }}>🦅</div>
-              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Eagles</div>
-              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{stats.eagles}</div>
-            </div>
-            {/* Birdies */}
-            <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '28px', marginBottom: '8px' }}>🐦</div>
-              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Birdies</div>
-              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>{stats.birdies}</div>
-            </div>
-            {/* Hardest hole */}
-            {stats.hardestHole && (
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                <div style={{ fontSize: '28px', marginBottom: '8px' }}>⛳</div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Hoyo más difícil</div>
-                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>Hoyo {stats.hardestHole.hole}</div>
-                <div style={{ fontSize: '13px', color: '#94a8c0' }}>Avg {fmtNet(stats.hardestHole.avg)} vs par</div>
-              </div>
-            )}
-            {/* Easiest hole */}
-            {stats.easiestHole && (
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-                <div style={{ fontSize: '28px', marginBottom: '8px' }}>💪</div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Hoyo más fácil</div>
-                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#c4992a', fontWeight: 700 }}>Hoyo {stats.easiestHole.hole}</div>
-                <div style={{ fontSize: '13px', color: '#94a8c0' }}>Avg {fmtNet(stats.easiestHole.avg)} vs par</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Tournament results — only when closed/published */}
+      {/* ── Results — compact premium layout (closed tournaments) ── */}
       {resultados && (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="gold-divider mb-8" />
-          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', marginBottom: '20px', fontWeight: 600 }}>
-            Resultados
-          </h2>
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div style={{ borderTop: '1px solid rgba(196,153,42,0.12)', marginBottom: '24px' }} />
+
+          {/* 1st place row — side by side */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
             {resultados.grossWinner && (
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '24px' }}>🏆</span>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1° Gross</div>
-                  <div style={{ fontSize: '16px', color: '#edeae4', fontWeight: 700 }}>{resultados.grossWinner.name} <span style={{ color: '#c4992a' }}>({resultados.grossWinner.score})</span></div>
-                </div>
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '10px', padding: '14px 16px' }}>
+                <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>1° Gross</div>
+                <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{resultados.grossWinner.name}</div>
+                <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700, marginTop: '2px' }}>{resultados.grossWinner.score}</div>
               </div>
             )}
             {resultados.netoWinner && (
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '24px' }}>🏆</span>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1° Neto</div>
-                  <div style={{ fontSize: '16px', color: '#edeae4', fontWeight: 700 }}>{resultados.netoWinner.name} <span style={{ color: '#c4992a' }}>({resultados.netoWinner.score})</span></div>
-                </div>
+              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '10px', padding: '14px 16px' }}>
+                <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>1° Neto</div>
+                <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{resultados.netoWinner.name}</div>
+                <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700, marginTop: '2px' }}>{resultados.netoWinner.score}</div>
               </div>
             )}
-            {resultados.grossSecond && (
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '24px' }}>🥈</span>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2° Gross</div>
-                  <div style={{ fontSize: '16px', color: '#edeae4', fontWeight: 700 }}>{resultados.grossSecond.name} <span style={{ color: '#c4992a' }}>({resultados.grossSecond.score})</span></div>
+          </div>
+
+          {/* 2nd place row — side by side, subtle */}
+          {(resultados.grossSecond || resultados.netoSecond) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              {resultados.grossSecond && (
+                <div style={{ background: '#0e1c2f', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '12px 16px' }}>
+                  <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>2° Gross</div>
+                  <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '14px', color: '#edeae4', fontWeight: 600 }}>{resultados.grossSecond.name} <span style={{ color: 'rgba(255,255,255,0.55)' }}>({resultados.grossSecond.score})</span></div>
                 </div>
-              </div>
-            )}
-            {resultados.netoSecond && (
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '24px' }}>🥈</span>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2° Neto</div>
-                  <div style={{ fontSize: '16px', color: '#edeae4', fontWeight: 700 }}>{resultados.netoSecond.name} <span style={{ color: '#c4992a' }}>({resultados.netoSecond.score})</span></div>
+              )}
+              {resultados.netoSecond && (
+                <div style={{ background: '#0e1c2f', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '12px 16px' }}>
+                  <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>2° Neto</div>
+                  <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '14px', color: '#edeae4', fontWeight: 600 }}>{resultados.netoSecond.name} <span style={{ color: 'rgba(255,255,255,0.55)' }}>({resultados.netoSecond.score})</span></div>
                 </div>
-              </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Promedio field</div>
-                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700 }}>{resultados.avgField.toFixed(1)}</div>
-              </div>
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Eagles</div>
-                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700 }}>{resultados.totalEagles}</div>
-              </div>
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Birdies</div>
-                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700 }}>{resultados.totalBirdies}</div>
-              </div>
+              )}
+            </div>
+          )}
+
+          {/* Stats row — horizontal, compact */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', padding: '12px 0' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Promedio</div>
+              <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '20px', color: '#c4992a', fontWeight: 700 }}>{resultados.avgField.toFixed(1)}</div>
+            </div>
+            <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', alignSelf: 'stretch' }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Eagles</div>
+              <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '20px', color: '#c4992a', fontWeight: 700 }}>{resultados.totalEagles}</div>
+            </div>
+            <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', alignSelf: 'stretch' }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Birdies</div>
+              <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '20px', color: '#c4992a', fontWeight: 700 }}>{resultados.totalBirdies}</div>
             </div>
           </div>
         </div>
