@@ -202,7 +202,7 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
                     fontFamily: '"DM Mono", monospace',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: isLeader ? T.gold : T.muted,
+                    color: isLeader ? T.gold : idx < 3 ? T.ivory : T.muted,
                     textAlign: 'center',
                   }}>
                     {positions[idx] || idx + 1}

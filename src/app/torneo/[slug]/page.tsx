@@ -613,8 +613,9 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           </div>
 
           {tournament?.codigo && (
-            <div style={{ marginTop: '10px', fontFamily: '"DM Mono", monospace', fontSize: '12px', color: 'rgba(255,255,255,0.35)' }}>
-              Codigo: <span style={{ color: '#c4992a', fontWeight: 600, letterSpacing: '0.08em' }}>{tournament.codigo}</span>
+            <div style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '8px', padding: '6px 12px' }}>
+              <span style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>Únete con</span>
+              <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '14px', color: '#c4992a', fontWeight: 700, letterSpacing: '0.1em' }}>{tournament.codigo}</span>
             </div>
           )}
         </div>
@@ -725,63 +726,27 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         </div>
       )}
 
-      {/* Premium footer */}
-      <footer className="bg-bg-deep">
-        <div className="gold-divider" />
-        <div className="max-w-xl mx-auto px-4 sm:px-6 py-14">
-          <div
-            style={{
-              background: '#0e1c2f',
-              border: '1px solid rgba(196,153,42,0.2)',
-              borderRadius: '16px',
-              padding: '28px 24px',
-            }}
-          >
-            {/* Brand */}
-            <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>
-              GOLFERS+
-            </div>
-            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', fontWeight: 700, marginBottom: '20px' }}>
-              El golf amateur en español
-            </div>
-
-            {/* CTA 1 — Gold */}
-            <Link
-              href="/register"
-              style={{
-                display: 'block',
-                background: '#c4992a',
-                borderRadius: '12px',
-                padding: '16px 20px',
-                textDecoration: 'none',
-                marginBottom: '10px',
-              }}
-            >
-              <div style={{ fontSize: '15px', fontWeight: 700, color: '#070d18' }}>
-                Registra tu ronda gratis →
-              </div>
-              <div style={{ fontSize: '13px', color: 'rgba(7,13,24,0.65)', marginTop: '2px' }}>
-                Calcula tu GWI™ · Sin descarga
-              </div>
+      {/* Premium footer — minimal */}
+      <footer style={{ borderTop: '1px solid rgba(196,153,42,0.08)', marginTop: '32px' }}>
+        <div style={{ maxWidth: '480px', margin: '0 auto', padding: '32px 20px', textAlign: 'center' }}>
+          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: '#edeae4', fontWeight: 700, marginBottom: '4px' }}>
+            <span>Golfers</span><span style={{ color: '#c4992a' }}>+</span>
+          </div>
+          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)', marginBottom: '20px' }}>
+            Scoring en vivo &middot; &Iacute;ndices &middot; Coach IA
+          </div>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <Link href="/register" style={{
+              background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px',
+              padding: '12px 24px', borderRadius: '10px', textDecoration: 'none',
+            }}>
+              Crear cuenta gratis
             </Link>
-
-            {/* CTA 2 — Subtle */}
-            <Link
-              href="/register"
-              style={{
-                display: 'block',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: '12px',
-                padding: '16px 20px',
-                textDecoration: 'none',
-              }}
-            >
-              <div style={{ fontSize: '15px', fontWeight: 700, color: '#edeae4' }}>
-                Crea tu propio torneo →
-              </div>
-              <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>
-                100% gratis · En 2 minutos
-              </div>
+            <Link href="/demo" style={{
+              color: 'rgba(255,255,255,0.45)', fontSize: '14px', fontWeight: 500,
+              padding: '12px 16px', textDecoration: 'none',
+            }}>
+              Ver demo
             </Link>
           </div>
         </div>
