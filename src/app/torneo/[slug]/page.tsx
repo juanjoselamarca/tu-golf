@@ -3,6 +3,7 @@ import Link from 'next/link'
 import LeaderboardTable from '@/components/LeaderboardTable'
 import GWILeaderboard from '@/components/GWILeaderboard'
 import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
+import ShareResultsButton from '@/components/ShareResultsButton'
 import { PLAYERS, PAR } from '@/lib/golf-data'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
@@ -760,6 +761,23 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Share results button — only when closed/published */}
+      {isClosed && players.length > 0 && (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 text-center">
+          <ShareResultsButton
+            tournamentName={tournamentName}
+            courseName={tournament?.courses?.nombre ?? 'Cancha'}
+            dateDisplay={dateDisplay}
+            parTotal={parTotal}
+            topPlayers={players.slice(0, 5).map((p, i) => ({
+              pos: i + 1,
+              name: p.name,
+              score: p.total === 0 ? 'E' : p.total > 0 ? `+${p.total}` : `${p.total}`,
+            }))}
+          />
         </div>
       )}
 
