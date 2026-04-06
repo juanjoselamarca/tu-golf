@@ -45,9 +45,9 @@ function buildReport(checks: CheckItem[], timestamp: string): string {
   }
 
   lines.push('')
-  lines.push('## Accion requerida:')
+  lines.push('## Acción requerida:')
   lines.push(
-    'Estos problemas no se pudieron resolver automaticamente.'
+    'Estos problemas no se pudieron resolver automáticamente.'
   )
   lines.push('Revisar y arreglar cada uno antes de continuar.')
   lines.push('')

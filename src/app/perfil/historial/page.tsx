@@ -37,16 +37,17 @@ const YEARS = Array.from({ length: 6 }, (_, i) => THIS_YEAR - i)
 
 /* ─── Types ────────────────────────────────────────────── */
 interface HistoricalRound {
-  id:          string
-  course_name: string
-  course_id?:  string | null
-  tee_color:   string | null
-  played_at:   string
-  scores:      (number | null)[]
-  total_gross: number | null
-  notes:       string | null
-  privacy:     string
-  created_at:  string
+  id:           string
+  course_name:  string
+  course_id?:   string | null
+  tee_color:    string | null
+  played_at:    string
+  scores:       (number | null)[]
+  total_gross:  number | null
+  holes_played: number | null
+  notes:        string | null
+  privacy:      string
+  created_at:   string
 }
 
 interface BestRound {
@@ -338,7 +339,7 @@ function HistorialContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('historical_rounds')
-        .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
+        .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at')
         .order('played_at', { ascending: false })
         .limit(500)
       if (error) { setLoadError(true); return }
@@ -882,7 +883,9 @@ function HistorialContent() {
                   {group.rounds.map((r, rIdx) => {
                     const stats   = computeStats(r.scores)
                     const dateStr = formatDateShort(r.played_at)
-                    const ov      = r.total_gross != null ? r.total_gross - 72 : null
+                    const holes   = r.holes_played ?? r.scores?.filter(Boolean).length ?? 18
+                    const par     = holes <= 9 ? 36 : 72
+                    const ov      = r.total_gross != null ? r.total_gross - par : null
                     const isOpen  = expanded.has(r.id)
                     const teeHex  = r.tee_color ? TEE_COLORS[r.tee_color] || '#9ca3af' : null
 

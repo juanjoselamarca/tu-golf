@@ -361,10 +361,10 @@ export default function PerfilPage() {
             marginBottom: '18px',
           }}>
             <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#c4992a', fontWeight: 700, marginBottom: '8px' }}>
-              Activ&aacute; tu CPI&trade;
+              Activa tu CPI&trade;
             </div>
             <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 14px', lineHeight: 1.5 }}>
-              Necesit&aacute;s 5+ rondas para activar tu CPI&trade;. Import&aacute; tus rondas hist&oacute;ricas para calcular tu &iacute;ndice de rendimiento.
+              Necesitas 5+ rondas para activar tu CPI&trade;. Importa tus rondas hist&oacute;ricas para calcular tu &iacute;ndice de rendimiento.
             </p>
             <Link href="/importar" style={{
               display: 'inline-flex', alignItems: 'center',
@@ -388,7 +388,7 @@ export default function PerfilPage() {
           }}>
             <div style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>CPI&trade;</div>
             <p style={{ fontSize: '14px', color: '#d97706', margin: '0 0 10px', fontWeight: 600 }}>
-              Jug&aacute; una ronda reciente para reactivar tu CPI&trade;
+              Juega una ronda reciente para reactivar tu CPI&trade;
             </p>
             <Link href="/ronda-libre/nueva" style={{ fontSize: '13px', color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>
               Crear ronda &rarr;

@@ -23,6 +23,7 @@ interface TournamentInfo {
   date_start: string | null
   codigo: string | null
   total_rounds: number
+  hole_count: number
 }
 
 /* ── Score helpers ─────────────────────────────────────── */
@@ -56,6 +57,7 @@ interface DBTournamentRaw {
   date_start: string | null
   codigo: string | null
   total_rounds: number | null
+  hole_count: number | null
   courses: { nombre: string; par_total: number } | null
 }
 
@@ -80,7 +82,7 @@ export default function TVPage() {
 
     const { data: rawT } = await supabase
       .from('tournaments')
-      .select('name, date_start, codigo, total_rounds, courses(nombre, par_total)')
+      .select('name, date_start, codigo, total_rounds, hole_count, courses(nombre, par_total)')
       .eq('slug', slug)
       .single()
 
@@ -97,6 +99,7 @@ export default function TVPage() {
       date_start: t.date_start,
       codigo: t.codigo ?? null,
       total_rounds: totalRounds,
+      hole_count: t.hole_count ?? 18,
     })
 
     // Get tournament id
@@ -208,7 +211,7 @@ export default function TVPage() {
           textAlign: 'center',
         }}>
           <div style={{ fontSize: '10px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
-            Codigo para unirse
+            Código para unirse
           </div>
           <div style={{ fontFamily: 'monospace', fontSize: '22px', fontWeight: 700, color: '#c4992a', letterSpacing: '0.15em' }}>
             {tournament.codigo}
@@ -295,7 +298,7 @@ export default function TVPage() {
                     {p.handicap}
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '16px', color: '#94a8c0' }}>
-                    {p.holesPlayed}/{18 * (tournament?.total_rounds ?? 1)}
+                    {p.holesPlayed}/{(tournament?.hole_count ?? 18) * (tournament?.total_rounds ?? 1)}
                   </div>
                 </div>
               )
@@ -313,7 +316,7 @@ export default function TVPage() {
             background: '#22c55e',
             animation: 'tvPulse 2s ease-in-out infinite',
           }} />
-          <span>Auto-actualizacion cada 30s</span>
+          <span>Auto-actualización cada 30s</span>
           <span>&nbsp;·&nbsp;</span>
           <span>Actualizado: {lastUpdate.toLocaleTimeString('es-CL')}</span>
         </div>

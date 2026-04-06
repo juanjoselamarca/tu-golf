@@ -204,7 +204,7 @@ export function useDemoSimulation() {
         const vspar = lastScore !== null ? lastScore - lastPar : 0
 
         events.push(
-          `${player.name} H.${lastHoleIdx + 1} Par ${lastPar} \u2192 ${lastScore} (${vspar < 0 ? vspar : vspar > 0 ? '+' + vspar : 'E'})`
+          `${player.name} H.${lastHoleIdx + 1} Par ${lastPar} → ${lastScore} (${vspar < 0 ? vspar : vspar > 0 ? '+' + vspar : 'E'})`
         )
 
         next[pi] = {
@@ -223,7 +223,7 @@ export function useDemoSimulation() {
 
       // Set last event (show all events joined)
       if (events.length > 0) {
-        setLastEvent(events.join('  \u00b7  '))
+        setLastEvent(events.join('  ·  '))
       }
 
       // Sort by score vs par

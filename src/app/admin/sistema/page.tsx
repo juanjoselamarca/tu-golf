@@ -166,12 +166,12 @@ export default function SistemaPage() {
 
   // Auto-fix mapping: check name → fixId
   const AUTO_FIXES: Record<string, string> = {
-    'Jugadores huerfanos': 'orphaned-jugadores',
-    'Rounds huerfanos': 'orphaned-rounds',
-    'Scores huerfanos': 'orphaned-scores',
-    'Rondas abandonadas': 'abandoned-rondas',
-    'Push duplicados': 'duplicate-push',
-    'Estados rondas validos': 'invalid-ronda-estados',
+    'Jugadores huérfanos (rondas libres)': 'orphaned-jugadores',
+    'Rounds huérfanos': 'orphaned-rounds',
+    'Scores con hoyos inválidos': 'orphaned-scores',
+    'Rondas abandonadas (>48h en_curso)': 'abandoned-rondas',
+    'Push subscriptions duplicadas': 'duplicate-push',
+    'Estados válidos (rondas_libres)': 'invalid-ronda-estados',
   }
 
   const [fixingId, setFixingId] = useState<string | null>(null)
@@ -404,8 +404,8 @@ export default function SistemaPage() {
                       {escalateResult}
                     </div>
                     <div style={{ ...adminFonts.mono, fontSize: '11px', color: adminColors.grayDim, marginTop: '6px' }}>
-                      Abre una nueva sesion de Claude Code y pega el contenido del archivo descargado.
-                      Claude va a diagnosticar y arreglar los problemas automaticamente.
+                      Abre una nueva sesión de Claude Code y pega el contenido del archivo descargado.
+                      Claude va a diagnosticar y arreglar los problemas automáticamente.
                     </div>
                   </div>
                 </div>

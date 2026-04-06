@@ -1,5 +1,7 @@
 'use client'
 
+import { SITE_URL, SITE_DOMAIN } from '@/lib/site-url'
+
 interface Props {
   scoreGross: number
   scoreDiff: number
@@ -8,12 +10,12 @@ interface Props {
 
 export default function ShareRoundButton({ scoreGross, scoreDiff, courseName }: Props) {
   const diffLabel = scoreDiff === 0 ? 'Par' : scoreDiff > 0 ? `+${scoreDiff}` : `${scoreDiff}`
-  const text = `Jugué ${scoreGross} (${diffLabel}) en ${courseName}. Golfers+ — golfersplus.vercel.app`
+  const text = `Jugué ${scoreGross} (${diffLabel}) en ${courseName}. Golfers+ — ${SITE_DOMAIN}`
 
   async function handleShare() {
     if (typeof navigator.share === 'function') {
       try {
-        await navigator.share({ title: 'Mi ronda — Golfers+', text, url: 'https://golfersplus.vercel.app' })
+        await navigator.share({ title: 'Mi ronda — Golfers+', text, url: SITE_URL })
         return
       } catch { /* user cancelled or not supported */ }
     }

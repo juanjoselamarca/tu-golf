@@ -258,12 +258,12 @@ function RegisterContent() {
               <label htmlFor="acepta-terminos" style={{
                 fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5, cursor: 'pointer',
               }}>
-                He leido y acepto los{' '}
+                He leído y acepto los{' '}
                 <a href="/terminos" target="_blank" rel="noopener" style={{ color: '#c4992a', textDecoration: 'underline' }}>
-                  Terminos y Condiciones
+                  Términos y Condiciones
                 </a>{' '}y la{' '}
                 <a href="/privacidad" target="_blank" rel="noopener" style={{ color: '#c4992a', textDecoration: 'underline' }}>
-                  Politica de Privacidad
+                  Política de Privacidad
                 </a>
               </label>
             </div>

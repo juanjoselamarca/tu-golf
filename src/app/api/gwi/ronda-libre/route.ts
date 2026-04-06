@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data: rounds, count } = await supabase
     .from('historical_rounds')
-    .select('total_gross, played_at', { count: 'exact' })
+    .select('total_gross, played_at, holes_played', { count: 'exact' })
     .eq('user_id', user.id)
     .order('played_at', { ascending: false })
     .limit(20)
@@ -18,8 +18,14 @@ export async function GET() {
     return NextResponse.json({ gwi: 0, total_rounds: 0, level: 'sin_datos' })
   }
 
-  const avg = (rounds ?? []).reduce((a, b) => a + (b.total_gross ?? 0), 0) / rounds.length
-  const gwi = Math.max(0, Math.min(100, Math.round(100 - (avg - 72) * 2)))
+  // Normalizar a over/under par por ronda (respetando 9 vs 18 hoyos)
+  const overUnders = rounds.map(r => {
+    const par = (r.holes_played ?? 18) <= 9 ? 36 : 72
+    return (r.total_gross ?? par) - par
+  })
+  const avgOverUnder = overUnders.reduce((a, b) => a + b, 0) / overUnders.length
+  const avg = rounds.reduce((a, b) => a + (b.total_gross ?? 0), 0) / rounds.length
+  const gwi = Math.max(0, Math.min(100, Math.round(100 - avgOverUnder * 2)))
 
   return NextResponse.json({
     gwi,

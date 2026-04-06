@@ -130,7 +130,7 @@ export default function CoachDashboard() {
         textDecoration: 'none', marginBottom: '24px',
         minHeight: '52px',
       }}>
-        Nueva sesi\u00f3n con tAIger+
+        Nueva sesión con tAIger+
       </Link>
 
       {/* Quick actions */}
@@ -142,7 +142,7 @@ export default function CoachDashboard() {
         }}>
           <span style={{ fontSize: '24px' }}>📅</span>
           <span style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4' }}>Plan semanal</span>
-          <span style={{ fontSize: '11px', color: '#94a8c0' }}>Qu\u00e9 practicar esta semana</span>
+          <span style={{ fontSize: '11px', color: '#94a8c0' }}>Qué practicar esta semana</span>
         </Link>
         <Link href="/coach/sesion/nueva/chat?tipo=free" style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
@@ -151,7 +151,7 @@ export default function CoachDashboard() {
         }}>
           <span style={{ fontSize: '24px' }}>💬</span>
           <span style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4' }}>Consulta libre</span>
-          <span style={{ fontSize: '11px', color: '#94a8c0' }}>Pregunt\u00e1 lo que quieras</span>
+          <span style={{ fontSize: '11px', color: '#94a8c0' }}>Pregunta lo que quieras</span>
         </Link>
       </div>
 
@@ -188,7 +188,7 @@ export default function CoachDashboard() {
       ) : (
         <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '14px', padding: '24px', textAlign: 'center' }}>
           <div style={{ fontSize: '13px', color: '#94a8c0', lineHeight: 1.6 }}>
-            A\u00fan no ten\u00e9s sesiones. Inici\u00e1 tu primera conversaci\u00f3n con tAIger+ y descubr\u00ed lo que la inteligencia artificial ve en tu juego.
+            Aún no tienes sesiones. Inicia tu primera conversación con tAIger+ y descubre lo que la inteligencia artificial ve en tu juego.
           </div>
         </div>
       )}
@@ -199,7 +199,7 @@ export default function CoachDashboard() {
           display: 'block', textAlign: 'center', marginTop: '16px',
           fontSize: '13px', color: '#c4992a', textDecoration: 'none', fontWeight: 600,
         }}>
-          Completar perfil psicol\u00f3gico (opcional)
+          Completar perfil psicológico (opcional)
         </Link>
       )}
     </div>

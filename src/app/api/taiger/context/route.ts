@@ -24,7 +24,7 @@ export async function GET() {
 
     const [roundsRes, patternsRes, sessionsRes, recommendationsRes, insightsRes] = await Promise.all([
       supabase.from('historical_rounds')
-        .select('id, course_name, played_at, scores, total_gross')
+        .select('id, course_name, played_at, scores, total_gross, holes_played')
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
         .limit(50),
@@ -84,12 +84,17 @@ export async function GET() {
     const front9Avg = front9Count > 0 ? Math.round(front9Sum / front9Count * 9 * 10) / 10 : null
     const back9Avg  = back9Count  > 0 ? Math.round(back9Sum  / back9Count  * 9 * 10) / 10 : null
 
-    const recentRounds = validRounds.slice(0, 5).map(r => ({
-      course_name: r.course_name,
-      played_at:   r.played_at,
-      total_gross: r.total_gross,
-      over_under:  r.total_gross - 72,
-    }))
+    const recentRounds = validRounds.slice(0, 5).map(r => {
+      const holes = r.holes_played ?? (Array.isArray(r.scores) ? r.scores.filter(Boolean).length : 18)
+      const par = holes <= 9 ? 36 : 72
+      return {
+        course_name: r.course_name,
+        played_at:   r.played_at,
+        total_gross: r.total_gross,
+        holes_played: holes,
+        over_under:  r.total_gross - par,
+      }
+    })
 
     const lastSession = sessions.length > 0 ? sessions[0] : null
 

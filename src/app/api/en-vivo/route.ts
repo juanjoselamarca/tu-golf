@@ -54,11 +54,7 @@ export async function GET(request: Request) {
       }
     })
 
-    const corsOrigin = process.env.NEXT_PUBLIC_SITE_URL || (
-      process.env.NODE_ENV === 'production'
-        ? 'https://golfersplus.vercel.app'
-        : 'http://localhost:3000'
-    )
+    const corsOrigin = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
 
     return NextResponse.json({
       rondas,

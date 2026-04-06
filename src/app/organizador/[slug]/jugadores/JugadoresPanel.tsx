@@ -319,9 +319,43 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   }
 
   const handleDesinscribir = async (playerId: string) => {
-    const supabase = createClient()
-    await supabase.from('players').delete().eq('id', playerId)
+    const playerName = players.find(p => p.id === playerId)?.profiles?.name || 'este jugador'
+
+    if (tournamentStatus === 'in_progress') {
+      if (!window.confirm(`Retirar a ${playerName}? Se borrarán todos sus scores del torneo.`)) return
+      // Use API to cascade delete rounds/scores
+      const res = await fetch('/api/game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'withdraw_player', tournament_id: tournament.id, player_id: playerId }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        showError('Error', data.error || 'No se pudo retirar al jugador.')
+        return
+      }
+      showSuccess('Jugador retirado', `${playerName} fue retirado del torneo.`)
+    } else {
+      const supabase = createClient()
+      await supabase.from('players').delete().eq('id', playerId)
+    }
     await fetchPlayers()
+  }
+
+  const handleCancelTournament = async () => {
+    if (!window.confirm('Cancelar y eliminar este torneo? Esta acción no se puede deshacer.')) return
+    const res = await fetch('/api/game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'cancel_tournament', tournament_id: tournament.id }),
+    })
+    if (!res.ok) {
+      const data = await res.json()
+      showError('Error', data.error || 'No se pudo cancelar el torneo.')
+      return
+    }
+    showSuccess('Torneo eliminado', 'El torneo fue eliminado.')
+    router.push('/dashboard')
   }
 
   const handleStartTournament = async () => {
@@ -718,7 +752,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           {/* Group cards */}
           {groups.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px', color: '#94a8c0', fontSize: '13px' }}>
-              Sin grupos aun. Crea grupos y asigna jugadores.
+              Sin grupos aún. Crea grupos y asigna jugadores.
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
@@ -828,12 +862,14 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                         )}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        <button
-                          onClick={() => handleDesinscribir(p.id)}
-                          style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}
-                        >
-                          ✕
-                        </button>
+                        {tournamentStatus !== 'closed' && (
+                          <button
+                            onClick={() => handleDesinscribir(p.id)}
+                            style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}
+                          >
+                            ✕
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -847,28 +883,62 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
       {/* Sticky bottom bar */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(7,13,24,0.96)', borderTop: '1px solid rgba(196,153,42,0.2)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', justifyContent: 'center', gap: '12px', zIndex: 50 }}>
         {tournamentStatus === 'draft' && (
-          <button
-            onClick={handleStartTournament}
-            disabled={players.length < 1 || starting}
-            style={{
-              background: players.length >= 1 ? '#c4992a' : 'rgba(122,143,168,0.2)',
-              color: players.length >= 1 ? '#070d18' : '#94a8c0',
-              fontWeight: 700,
-              fontSize: '16px',
-              padding: '14px 40px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: players.length < 1 || starting ? 'not-allowed' : 'pointer',
-              transition: 'all 200ms',
-              minWidth: '280px',
-            }}
-          >
-            {starting ? 'Iniciando...' : `Iniciar torneo (${players.length} jugador${players.length !== 1 ? 'es' : ''})`}
-          </button>
+          <>
+            <button
+              onClick={handleCancelTournament}
+              style={{
+                background: 'rgba(220,38,38,0.1)',
+                color: '#fca5a5',
+                fontWeight: 600,
+                fontSize: '14px',
+                padding: '14px 24px',
+                borderRadius: '8px',
+                border: '1px solid rgba(220,38,38,0.25)',
+                cursor: 'pointer',
+                transition: 'all 200ms',
+              }}
+            >
+              Eliminar torneo
+            </button>
+            <button
+              onClick={handleStartTournament}
+              disabled={players.length < 1 || starting}
+              style={{
+                background: players.length >= 1 ? '#c4992a' : 'rgba(122,143,168,0.2)',
+                color: players.length >= 1 ? '#070d18' : '#94a8c0',
+                fontWeight: 700,
+                fontSize: '16px',
+                padding: '14px 40px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: players.length < 1 || starting ? 'not-allowed' : 'pointer',
+                transition: 'all 200ms',
+                minWidth: '280px',
+              }}
+            >
+              {starting ? 'Iniciando...' : `Iniciar torneo (${players.length} jugador${players.length !== 1 ? 'es' : ''})`}
+            </button>
+          </>
         )}
 
         {tournamentStatus === 'in_progress' && (
           <>
+            <button
+              onClick={() => router.push(`/organizador/${tournament.slug}/salida`)}
+              style={{
+                background: 'rgba(196,153,42,0.12)',
+                color: '#c4992a',
+                fontWeight: 600,
+                fontSize: '14px',
+                padding: '14px 20px',
+                borderRadius: '8px',
+                border: '1px solid rgba(196,153,42,0.3)',
+                cursor: 'pointer',
+                transition: 'all 200ms',
+              }}
+            >
+              Hoja de salida
+            </button>
             <button
               onClick={() => router.push(`/organizador/${tournament.slug}/scoring`)}
               style={{
@@ -908,8 +978,25 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         )}
 
         {tournamentStatus === 'closed' && (
-          <div style={{ color: '#94a8c0', fontSize: '16px', fontWeight: 600, padding: '14px' }}>
-            Torneo cerrado — Resultados definitivos
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span style={{ color: '#94a8c0', fontSize: '14px', fontWeight: 600 }}>
+              Torneo cerrado — Resultados definitivos
+            </span>
+            <button
+              onClick={() => window.open(`/torneo/${tournament.slug}`, '_blank')}
+              style={{
+                background: '#c4992a',
+                color: '#070d18',
+                fontWeight: 700,
+                fontSize: '14px',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Ver leaderboard
+            </button>
           </div>
         )}
       </div>

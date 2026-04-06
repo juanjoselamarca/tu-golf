@@ -17,34 +17,34 @@ interface Question {
 const QUESTIONS: Question[] = [
   {
     id: 'indice_actual',
-    text: '\u00bfCu\u00e1l es tu \u00edndice oficial de golf hoy?',
-    badge: '\u26f3 Base de juego',
-    options: ['M\u00e1s de 25', '16 a 25', '8 a 15', 'Menos de 8'],
+    text: '¿Cuál es tu índice oficial de golf hoy?',
+    badge: '⛳ Base de juego',
+    options: ['Más de 25', '16 a 25', '8 a 15', 'Menos de 8'],
   },
   {
     id: 'meta_principal',
-    text: '\u00bfCu\u00e1l es tu principal objetivo con el golf este a\u00f1o?',
-    badge: '\ud83c\udfaf Motivaci\u00f3n',
-    options: ['Bajar mi \u00edndice', 'Disfrutar m\u00e1s', 'Ganar torneos', 'Jugar mejor con mis amigos'],
+    text: '¿Cuál es tu principal objetivo con el golf este año?',
+    badge: '�� Motivación',
+    options: ['Bajar mi índice', 'Disfrutar más', 'Ganar torneos', 'Jugar mejor con mis amigos'],
   },
   {
     id: 'mayor_fortaleza',
-    text: '\u00bfCu\u00e1l es la parte m\u00e1s fuerte de tu juego?',
-    badge: '\ud83d\udcca Diagn\u00f3stico t\u00e9cnico',
+    text: '¿Cuál es la parte más fuerte de tu juego?',
+    badge: '�� Diagnóstico técnico',
     options: ['Mi driver / tee shots', 'Mis hierros / approach', 'Mi juego corto', 'Mi putting'],
   },
   {
     id: 'mayor_debilidad',
-    text: '\u00bfQu\u00e9 \u00e1rea te est\u00e1 costando M\u00c1S strokes actualmente?',
-    badge: '\ud83d\udcca Diagn\u00f3stico t\u00e9cnico',
+    text: '¿Qué área te está costando MÁS strokes actualmente?',
+    badge: '�� Diagnóstico técnico',
     options: ['Driver / salida', 'Hierros / approach', 'Juego corto', 'Putting'],
   },
   {
     id: 'respuesta_errores',
-    text: 'Haces un triple bogey en el hoyo 3. \u00bfC\u00f3mo reaccionas normalmente?',
-    badge: '\ud83e\udde0 Resiliencia mental',
+    text: 'Haces un triple bogey en el hoyo 3. ¿Cómo reaccionas normalmente?',
+    badge: '�� Resiliencia mental',
     options: [
-      'Me repongo r\u00e1pido y sigo',
+      'Me repongo rápido y sigo',
       'Me irrita pero lo supero a la vuelta',
       'Me cuesta varios hoyos recuperarme',
       'Me afecta toda la ronda',
@@ -52,30 +52,30 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 'presion_torneos',
-    text: 'En un torneo importante, cuando est\u00e1s jugando bien a mitad de ronda...',
-    badge: '\ud83e\udde0 Presi\u00f3n',
+    text: 'En un torneo importante, cuando estás jugando bien a mitad de ronda...',
+    badge: '�� Presión',
     options: [
       'Me crezco y sigo atacando',
-      'Juego m\u00e1s conservador para cuidar el score',
+      'Juego más conservador para cuidar el score',
       'Me pongo nervioso y empiezo a cometer errores',
-      'Depende del d\u00eda',
+      'Depende del día',
     ],
   },
   {
     id: 'putting_emocional',
-    text: '\u00bfQu\u00e9 pasa por tu mente cuando tienes un putt importante para par?',
-    badge: '\ud83c\udfcc\ufe0f Rutina mental',
+    text: '¿Qué pasa por tu mente cuando tienes un putt importante para par?',
+    badge: '��️ Rutina mental',
     options: [
       'Me fijo en NO fallar',
-      'Visualizo la trayectoria y conf\u00edo',
+      'Visualizo la trayectoria y confío',
       'Me tiemblan las manos',
-      'Pienso demasiado en la t\u00e9cnica',
+      'Pienso demasiado en la técnica',
     ],
   },
   {
     id: 'tipo_practicante',
-    text: '\u00bfC\u00f3mo describes tu pr\u00e1ctica habitual?',
-    badge: '\ud83e\udde0 H\u00e1bitos',
+    text: '¿Cómo describes tu práctica habitual?',
+    badge: '�� Hábitos',
     options: [
       'Estructurada con objetivos claros',
       'Practico lo que necesito mejorar',
@@ -85,48 +85,48 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 'back9_gestion',
-    text: 'Vas en -1 despu\u00e9s de 9 hoyos. \u00bfC\u00f3mo afrontas el back 9?',
-    badge: '\ud83c\udfcc\ufe0f VISION54',
+    text: 'Vas en -1 después de 9 hoyos. ¿Cómo afrontas el back 9?',
+    badge: '��️ VISION54',
     options: [
       'Sigo atacando igual',
-      'Me pongo m\u00e1s conservador',
-      'Empiezo a calcular qu\u00e9 score puedo hacer',
+      'Me pongo más conservador',
+      'Empiezo a calcular qué score puedo hacer',
       'Juego hoyo a hoyo sin pensar en el total',
     ],
   },
   {
     id: 'rutina_preshot',
     text: 'Antes de ejecutar un golpe, normalmente...',
-    badge: '\ud83c\udfcc\ufe0f Proceso',
+    badge: '��️ Proceso',
     options: [
       'Tengo una rutina fija que siempre sigo',
       'A veces la sigo, a veces no',
-      'Pienso mucho en la t\u00e9cnica antes de golpear',
-      'Me preparo r\u00e1pido y golpeo',
+      'Pienso mucho en la técnica antes de golpear',
+      'Me preparo rápido y golpeo',
     ],
   },
   {
     id: 'mal_dia',
-    text: 'Cuando nada sale bien (todo al rough, tees malos), \u00bfqu\u00e9 haces?',
-    badge: '\ud83e\udde0 Autocontrol',
+    text: 'Cuando nada sale bien (todo al rough, tees malos), ¿qué haces?',
+    badge: '�� Autocontrol',
     options: [
       'Me frustro pero lo verbalizo y sigo',
       'Me mantengo calmo y lo analizo',
-      'La mala racha me baja el \u00e1nimo completamente',
+      'La mala racha me baja el ánimo completamente',
       'Finjo que no pasa nada pero por dentro me afecta',
     ],
   },
   {
     id: 'motivaciones',
-    text: '\u00bfQu\u00e9 m\u00e1s describe tu relaci\u00f3n con el golf? (Elige todas las que aplican)',
-    badge: '\ud83c\udfaf Perfil completo',
+    text: '¿Qué más describe tu relación con el golf? (Elige todas las que aplican)',
+    badge: '�� Perfil completo',
     options: [
       'Me importa mucho ganar',
       'Quiero mejorar constantemente',
-      'Lo m\u00e1s importante es disfrutar',
+      'Lo más importante es disfrutar',
       'El aspecto social es clave',
-      'Es mi escape del estr\u00e9s',
-      'Me encantan las estad\u00edsticas',
+      'Es mi escape del estrés',
+      'Me encantan las estadísticas',
     ],
     multiSelect: true,
   },
@@ -138,7 +138,7 @@ function deriveGolfDNA(answers: Record<string, string | string[]>) {
   // Level from Q1
   const idx = answers.indice_actual as string
   let level = 'Jugador intermedio'
-  if (idx === 'M\u00e1s de 25') level = 'Jugador en desarrollo'
+  if (idx === 'Más de 25') level = 'Jugador en desarrollo'
   else if (idx === '16 a 25') level = 'Jugador intermedio'
   else if (idx === '8 a 15') level = 'Jugador avanzado'
   else if (idx === 'Menos de 8') level = 'Jugador elite'
@@ -150,22 +150,22 @@ function deriveGolfDNA(answers: Record<string, string | string[]>) {
 
   let mentalScore = 0
   // Q5 scoring
-  if (q5 === 'Me repongo r\u00e1pido y sigo') mentalScore += 3
+  if (q5 === 'Me repongo rápido y sigo') mentalScore += 3
   else if (q5 === 'Me irrita pero lo supero a la vuelta') mentalScore += 2
   else if (q5 === 'Me cuesta varios hoyos recuperarme') mentalScore += 1
   // Q6 scoring
   if (q6 === 'Me crezco y sigo atacando') mentalScore += 3
-  else if (q6 === 'Juego m\u00e1s conservador para cuidar el score') mentalScore += 2
-  else if (q6 === 'Depende del d\u00eda') mentalScore += 1
+  else if (q6 === 'Juego más conservador para cuidar el score') mentalScore += 2
+  else if (q6 === 'Depende del día') mentalScore += 1
   // Q11 scoring
   if (q11 === 'Me mantengo calmo y lo analizo') mentalScore += 3
   else if (q11 === 'Me frustro pero lo verbalizo y sigo') mentalScore += 2
   else if (q11 === 'Finjo que no pasa nada pero por dentro me afecta') mentalScore += 1
 
   let mentalProfile = 'Mental en desarrollo'
-  let mentalEmoji = '\ud83e\udde0'
-  if (mentalScore >= 7) { mentalProfile = 'Fortaleza mental alta'; mentalEmoji = '\ud83d\udcaa' }
-  else if (mentalScore >= 4) { mentalProfile = 'Mental con potencial'; mentalEmoji = '\u26a1' }
+  let mentalEmoji = '��'
+  if (mentalScore >= 7) { mentalProfile = 'Fortaleza mental alta'; mentalEmoji = '��' }
+  else if (mentalScore >= 4) { mentalProfile = 'Mental con potencial'; mentalEmoji = '⚡' }
 
   // Priority area from Q4
   const weakness = answers.mayor_debilidad as string
@@ -173,10 +173,10 @@ function deriveGolfDNA(answers: Record<string, string | string[]>) {
 
   // Approach description
   const goal = answers.meta_principal as string
-  let approach = 'Te ayudar\u00e9 a mejorar tu juego con datos y estrategia mental.'
-  if (goal === 'Bajar mi \u00edndice') approach = 'Nos enfocaremos en tu \u00e1rea d\u00e9bil y gesti\u00f3n del campo para bajar strokes reales.'
-  else if (goal === 'Disfrutar m\u00e1s') approach = 'Trabajaremos tu relaci\u00f3n emocional con el golf para que cada ronda sea placentera.'
-  else if (goal === 'Ganar torneos') approach = 'Entrenaremos tu mentalidad competitiva y gesti\u00f3n de presi\u00f3n en torneos.'
+  let approach = 'Te ayudaré a mejorar tu juego con datos y estrategia mental.'
+  if (goal === 'Bajar mi índice') approach = 'Nos enfocaremos en tu área débil y gestión del campo para bajar strokes reales.'
+  else if (goal === 'Disfrutar más') approach = 'Trabajaremos tu relación emocional con el golf para que cada ronda sea placentera.'
+  else if (goal === 'Ganar torneos') approach = 'Entrenaremos tu mentalidad competitiva y gestión de presión en torneos.'
   else if (goal === 'Jugar mejor con mis amigos') approach = 'Potenciaremos tu consistencia y confianza para disfrutar y competir con tus amigos.'
 
   return { level, mentalProfile, mentalEmoji, priority, approach }
@@ -299,20 +299,20 @@ export default function CoachOnboarding() {
   if (step === -1) {
     return (
       <div style={{ maxWidth: '500px', margin: '0 auto', padding: '48px 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: '48px', marginBottom: '20px' }}>{'\ud83d\udc2f'}</div>
+        <div style={{ fontSize: '48px', marginBottom: '20px' }}>{'��'}</div>
 
         <h1 style={{
           color: colors.gold, fontSize: '24px',
           fontFamily: '"Playfair Display", serif', fontWeight: 700,
           marginBottom: '12px',
         }}>
-          Con\u00f3cete como golfista
+          Conócete como golfista
         </h1>
 
         <p style={{ color: colors.gray, fontSize: '15px', lineHeight: 1.6, marginBottom: '28px' }}>
           12 preguntas basadas en ciencia deportiva.<br />
           3 minutos. Sin respuestas correctas ni incorrectas.<br />
-          Tu perfil es \u00fanico y tAIger+ se adaptar\u00e1 a ti.
+          Tu perfil es único y tAIger+ se adaptará a ti.
         </p>
 
         {/* Scientific badges */}
@@ -321,17 +321,17 @@ export default function CoachOnboarding() {
           justifyContent: 'center', marginBottom: '36px',
         }}>
           {[
-            '\ud83e\udde0 ACSI-28',
-            '\ud83c\udfcc\ufe0f Rotella',
-            '\ud83d\udcca VISION54',
-            '\ud83d\udd2c SMTQ',
+            '�� ACSI-28',
+            '��️ Rotella',
+            '�� VISION54',
+            '�� SMTQ',
           ].map(b => (
             <span key={b} style={pillStyle}>{b}</span>
           ))}
         </div>
 
         <button onClick={() => setStep(0)} style={btnGold}>
-          Comenzar \u2192
+          Comenzar →
         </button>
       </div>
     )
@@ -345,7 +345,7 @@ export default function CoachOnboarding() {
     if (saveError) {
       return (
         <div style={{ maxWidth: '500px', margin: '0 auto', padding: '60px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '20px' }}>{'\ud83d\udc2f'}</div>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>{'��'}</div>
           <p style={{ color: '#dc2626', fontSize: '15px', marginBottom: '20px' }}>{saveError}</p>
           <button onClick={handleFinish} style={btnGold}>
             Reintentar
@@ -356,7 +356,7 @@ export default function CoachOnboarding() {
 
     return (
       <div style={{ maxWidth: '500px', margin: '0 auto', padding: '40px 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>{'\ud83e\uddec'}</div>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>{'��'}</div>
 
         <h1 style={{
           color: colors.gold, fontSize: '24px',
@@ -366,7 +366,7 @@ export default function CoachOnboarding() {
           Golfers+ DNA
         </h1>
         <p style={{ color: colors.gray, fontSize: '14px', marginBottom: '28px' }}>
-          As\u00ed te ve tAIger+ despu\u00e9s de conocerte
+          Así te ve tAIger+ después de conocerte
         </p>
 
         {/* DNA Summary Card */}
@@ -379,9 +379,9 @@ export default function CoachOnboarding() {
           marginBottom: '28px',
         }}>
           {[
-            { label: 'Nivel', value: dna.level, emoji: '\u26f3' },
+            { label: 'Nivel', value: dna.level, emoji: '⛳' },
             { label: 'Perfil mental', value: dna.mentalProfile, emoji: dna.mentalEmoji },
-            { label: '\u00c1rea prioritaria', value: dna.priority, emoji: '\ud83c\udfaf' },
+            { label: 'Área prioritaria', value: dna.priority, emoji: '��' },
           ].map((row, i) => (
             <div key={row.label} style={{
               display: 'flex', alignItems: 'center', gap: '12px',
@@ -411,7 +411,7 @@ export default function CoachOnboarding() {
           textAlign: 'left',
         }}>
           <p style={{ color: colors.gray, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-            {'\ud83d\udc2f'} C\u00f3mo trabajar\u00e1 tAIger+ contigo
+            {'��'} Cómo trabajará tAIger+ contigo
           </p>
           <p style={{ color: colors.ivory, fontSize: '14px', lineHeight: 1.5 }}>
             {dna.approach}
@@ -427,7 +427,7 @@ export default function CoachOnboarding() {
             cursor: saving ? 'not-allowed' : 'pointer',
           }}
         >
-          {saving ? 'Guardando...' : 'Comenzar con tAIger+ \u2192'}
+          {saving ? 'Guardando...' : 'Comenzar con tAIger+ →'}
         </button>
       </div>
     )
@@ -509,7 +509,7 @@ export default function CoachOnboarding() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '12px', color: isSelected ? colors.gold : 'transparent',
                 }}>
-                  {isSelected ? '\u2713' : ''}
+                  {isSelected ? '✓' : ''}
                 </span>
               )}
               {opt}
@@ -530,7 +530,7 @@ export default function CoachOnboarding() {
             cursor: multiAnswers.length === 0 ? 'not-allowed' : 'pointer',
           }}
         >
-          Continuar \u2192
+          Continuar →
         </button>
       )}
     </div>

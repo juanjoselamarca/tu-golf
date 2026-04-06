@@ -80,7 +80,7 @@ export default function FinanzasPage() {
               display: 'grid', gridTemplateColumns: '1fr 100px 90px 1fr 1fr', gap: '8px',
               padding: '8px 0', borderBottom: `1px solid ${adminColors.border}`,
             }}>
-              {['Service', 'Plan', 'Cost/mes', 'Uso', 'Limite'].map(h => (
+              {['Service', 'Plan', 'Cost/mes', 'Uso', 'Límite'].map(h => (
                 <span key={h} style={{ ...adminFonts.label, fontSize: '10px' }}>{h}</span>
               ))}
             </div>

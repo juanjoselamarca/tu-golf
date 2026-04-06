@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { SITE_DOMAIN } from '@/lib/site-url'
 
 interface ShareResultsProps {
   tournamentName: string
@@ -27,7 +28,7 @@ export default function ShareResultsButton({
       const medal = p.pos === 1 ? '🏆' : p.pos === 2 ? '🥈' : p.pos === 3 ? '🥉' : `${p.pos}.`
       text += `${medal} ${p.name} — ${p.score}\n`
     })
-    text += `\nVer leaderboard completo en golfersplus.vercel.app`
+    text += `\nVer leaderboard completo en ${SITE_DOMAIN}`
     return text
   }
 

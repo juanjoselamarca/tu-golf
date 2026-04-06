@@ -236,7 +236,7 @@ export default function ImportWizard() {
 
           if (data.needsMapping) {
             setUploadError(
-              'No pudimos detectar las columnas automaticamente. Renombra las columnas a: fecha, campo, score_total.',
+              'No pudimos detectar las columnas automáticamente. Renombra las columnas a: fecha, campo, score_total.',
             )
             setUploading(false)
             return

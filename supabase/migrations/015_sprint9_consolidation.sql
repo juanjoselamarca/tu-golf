@@ -1,0 +1,19 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- MIGRACIÓN 015 — Consolidación de SPRINT9 + SPRINT9B
+-- Ya ejecutado en producción (Mar 2026). Archivo de referencia.
+-- Contenido original en: SPRINT9_SUPABASE.sql y SPRINT9B_SUPABASE.sql
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- Tablas creadas:
+--   player_patterns, taiger_sessions, player_psych_profile,
+--   garmin_connections, handicap_history
+--
+-- Columnas agregadas:
+--   profiles.patterns_need_recalc
+--   rondas_libres.modo_juego
+--   tournaments.modo_juego
+--   historical_rounds.total_neto, total_stableford
+--   hole_scores.net_score, points
+--
+-- Esta migración NO ejecuta nada (ya aplicado). Solo documenta.
+-- ═══════════════════════════════════════════════════════════════════════════

@@ -44,9 +44,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Normalize session_type to valid DB values
-    const validTypes = ['post_round', 'weekly_plan', 'pre_tournament', 'onboarding']
-    const rawType = body.session_type || 'post_round'
-    const session_type = validTypes.includes(rawType) ? rawType : 'post_round'
+    const validTypes = ['post_round', 'weekly_plan', 'pre_tournament', 'onboarding', 'free']
+    const rawType = body.session_type || 'free'
+    const session_type = validTypes.includes(rawType) ? rawType : 'free'
 
     // Prevent duplicate sessions for same ronda_libre_id
     if (ronda_libre_id) {
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     if ((count ?? 0) >= 3) {
       return NextResponse.json(
-        { error: 'Límite mensual alcanzado (3 sesiones). Próximamente plan Premium.' },
+        { error: 'Llegaste al límite de 3 sesiones este mes. Escríbenos por WhatsApp para acceso ilimitado.', code: 'limit_reached', whatsapp: 'https://wa.me/56912345678?text=Quiero%20tAIger%2B%20Premium' },
         { status: 429 }
       )
     }

@@ -76,6 +76,11 @@ export default function ScoringPage() {
   const [holeFairway,  setHoleFairway]  = useState<Record<number, boolean | null>>({})
   const [holeGir,      setHoleGir]      = useState<Record<number, boolean | null>>({})
 
+  // Undo last score
+  const [lastAction, setLastAction] = useState<{
+    holeNumber: number; previousScore: number | undefined; playerId: string
+  } | null>(null)
+
   // Load all data
   useEffect(() => {
     const load = async () => {
@@ -199,6 +204,9 @@ export default function ScoringPage() {
     if (tournament.format === 'stableford') {
       points = Math.max(0, 2 - (netScore - par))
     }
+
+    // Save previous for undo
+    setLastAction({ holeNumber, previousScore: currentScores[holeNumber], playerId: selectedId })
 
     // Optimistic update
     setCurrentScores((prev) => ({ ...prev, [holeNumber]: gross }))
@@ -426,6 +434,36 @@ export default function ScoringPage() {
               </span>
             )}
             {saving && <span style={{ fontSize: '12px', color: '#94a8c0', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
+            {lastAction && !saving && (
+              <button
+                onClick={async () => {
+                  if (!lastAction || !tournament) return
+                  const player = players.find(p => p.id === lastAction.playerId)
+                  const round = getActiveRound(player)
+                  if (!round) return
+                  if (lastAction.previousScore !== undefined) {
+                    setCurrentScores(prev => ({ ...prev, [lastAction.holeNumber]: lastAction.previousScore! }))
+                    const hole = courseHoles.find(h => h.numero === lastAction.holeNumber)
+                    await fetch('/api/game', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
+                        hole_number: lastAction.holeNumber, par: hole?.par ?? 4,
+                        gross_score: lastAction.previousScore,
+                      }),
+                    })
+                  } else {
+                    setCurrentScores(prev => { const next = { ...prev }; delete next[lastAction.holeNumber]; return next })
+                  }
+                  showSuccess('Deshacer', `Hoyo ${lastAction.holeNumber} restaurado`, { duration: 1500 })
+                  setLastAction(null)
+                }}
+                style={{ fontSize: '12px', color: '#c4992a', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
+              >
+                Deshacer hoyo {lastAction.holeNumber}
+              </button>
+            )}
           </h1>
           <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
         </div>

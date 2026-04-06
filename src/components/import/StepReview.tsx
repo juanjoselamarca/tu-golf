@@ -272,7 +272,7 @@ export default function StepReview({
             color: '#edeae4', fontSize: '18px', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
-          }}>{'\u2190'}</button>
+          }}>{'←'}</button>
           <div style={{ flex: 1 }}>
             <h2 style={{
               fontFamily: "'Playfair Display', serif",
@@ -370,8 +370,8 @@ export default function StepReview({
                     background: isRejected ? 'rgba(255,255,255,0.03)' : statusLabel.bg,
                     padding: '4px 10px', borderRadius: '10px',
                   }}>
-                    {!isRejected && isGarmin && <span style={{ fontSize: '12px' }}>{'\uD83D\uDCE6'}</span>}
-                    {!isRejected && level === 'high' && <span style={{ fontSize: '12px' }}>{'\u2705'}</span>}
+                    {!isRejected && isGarmin && <span style={{ fontSize: '12px' }}>{'��'}</span>}
+                    {!isRejected && level === 'high' && <span style={{ fontSize: '12px' }}>{'✅'}</span>}
                     <span style={{
                       fontSize: '11px', fontWeight: 600,
                       color: isRejected ? '#5a7494' : statusLabel.color,
@@ -394,12 +394,12 @@ export default function StepReview({
                   color: isRejected ? '#5a7494' : '#edeae4',
                   margin: '0 0 4px', lineHeight: 1.2,
                 }}>
-                  {'\u26F3'} {round.course_name || 'Campo desconocido'}
+                  {'⛳'} {round.course_name || 'Campo desconocido'}
                 </h3>
 
                 {/* Date + holes */}
                 <div style={{ fontSize: '13px', color: '#94a8c0', marginBottom: '16px' }}>
-                  {round.played_at} {'\u00B7'} {round.holes_played} hoyos
+                  {round.played_at} {'·'} {round.holes_played} hoyos
                 </div>
 
                 {/* Score total */}
@@ -440,7 +440,7 @@ export default function StepReview({
                       transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
                       transition: 'transform 0.2s ease',
                       fontSize: '10px',
-                    }}>{'\u25BC'}</span>
+                    }}>{'▼'}</span>
                   </button>
                 )}
 
@@ -488,7 +488,7 @@ export default function StepReview({
                           color: '#50c878', fontSize: '14px', fontWeight: 600,
                           minHeight: '44px',
                         }}>
-                          {'\u2714'} Aceptada
+                          {'✔'} Aceptada
                         </span>
                         <button
                           onClick={() => handleDecision(round.tempId, 'rejected')}
@@ -515,7 +515,7 @@ export default function StepReview({
                           textAlign: 'left',
                         }}
                       >
-                        {'\u2714'} Aceptar
+                        {'✔'} Aceptar
                       </button>
                     )}
                   </div>
@@ -563,7 +563,7 @@ export default function StepReview({
               transition: 'all 0.2s ease',
             }}
           >
-            {confirming ? 'Importando...' : `Importar ${acceptedCount} ${acceptedCount === 1 ? 'ronda' : 'rondas'} \u2192`}
+            {confirming ? 'Importando...' : `Importar ${acceptedCount} ${acceptedCount === 1 ? 'ronda' : 'rondas'} →`}
           </button>
         </div>
       )}

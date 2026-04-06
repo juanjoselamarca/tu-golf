@@ -215,7 +215,7 @@ export default function CommandCenterPage() {
           xAxisKey="date"
           type="area"
           height={280}
-          emptyMessage="Sin actividad registrada aun"
+          emptyMessage="Sin actividad registrada aún"
         />
       </div>
 

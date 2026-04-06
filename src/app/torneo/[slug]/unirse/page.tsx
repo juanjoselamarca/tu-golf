@@ -135,10 +135,10 @@ export default function UnirsePage() {
     if (pErr || !player) {
       const isDuplicate = pErr?.message?.toLowerCase().includes('duplicate') || pErr?.message?.toLowerCase().includes('unique')
       if (isDuplicate) {
-        setError('Ya estas inscrito en este torneo.')
+        setError('Ya estás inscrito en este torneo.')
         setAlreadyRegistered(true)
       } else {
-        setError('No se pudo completar la inscripcion. Intenta nuevamente.')
+        setError('No se pudo completar la inscripción. Intenta nuevamente.')
       }
       setInscribing(false)
       return
@@ -182,10 +182,10 @@ export default function UnirsePage() {
             marginBottom: '8px',
           }}
         >
-          Inscripcion exitosa!
+          ¡Inscripción exitosa!
         </div>
         <div style={{ fontSize: '14px', color: '#94a8c0', textAlign: 'center', marginBottom: '24px' }}>
-          Estas inscrito en {tournament.name}
+          Estás inscrito en {tournament.name}
         </div>
 
         {tournament.codigo && (
@@ -200,7 +200,7 @@ export default function UnirsePage() {
             }}
           >
             <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-              Codigo del torneo
+              Código del torneo
             </div>
             <div style={{ fontFamily: 'monospace', fontSize: '32px', fontWeight: 700, color: '#c4992a', letterSpacing: '0.15em' }}>
               {tournament.codigo}
@@ -382,7 +382,7 @@ export default function UnirsePage() {
                 }}
               >
                 <div style={{ fontSize: '15px', color: '#22c55e', fontWeight: 600, marginBottom: '4px' }}>
-                  Ya estas inscrito en este torneo
+                  Ya estás inscrito en este torneo
                 </div>
                 <Link
                   href={`/torneo/${slug}`}

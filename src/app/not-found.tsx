@@ -14,10 +14,10 @@ export default function NotFound() {
         fontSize: '28px', fontWeight: 700, color: '#edeae4',
         marginBottom: '8px',
       }}>
-        Pagina no encontrada
+        Página no encontrada
       </h1>
       <p style={{ fontSize: '14px', color: '#94a8c0', marginBottom: '24px', maxWidth: '320px' }}>
-        El link que buscas no existe o fue movido.
+        Esta página no existe. El link puede haber cambiado o expirado.
       </p>
       <Link href="/" style={{
         background: '#c4992a', color: '#070d18', fontWeight: 700,

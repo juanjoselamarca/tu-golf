@@ -166,7 +166,7 @@ export default function EnVivoPage() {
               fontFamily: 'var(--font-dm-sans)', fontSize: '14px',
               color: 'var(--text-2)', marginBottom: '24px', lineHeight: 1.6,
             }}>
-              Cuando alguien empiece una ronda, aparece aqui en tiempo real.
+              Las rondas activas aparecen aquí en tiempo real.
             </p>
             {isLoggedIn ? (
               <Link href="/ronda-libre/nueva" style={{
@@ -174,7 +174,7 @@ export default function EnVivoPage() {
                 background: 'var(--brand)', color: 'var(--brand-dark)',
                 borderRadius: '10px', fontSize: '15px', fontWeight: 700,
                 textDecoration: 'none',
-              }}>Crea una ronda y empeza a jugar →</Link>
+              }}>Crea una ronda y empieza a jugar →</Link>
             ) : (
               <Link href="/register" style={{
                 display: 'inline-block', padding: '14px 28px',
@@ -272,7 +272,7 @@ export default function EnVivoPage() {
             borderRadius: '14px', textAlign: 'center',
           }}>
             <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ivory)', margin: '0 0 8px' }}>
-              Registrate para ver scores completos
+              Regístrate para ver scores completos
             </p>
             <Link href="/register" style={{
               fontSize: '14px', fontWeight: 700, color: 'var(--brand)',

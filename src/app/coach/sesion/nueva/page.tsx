@@ -79,7 +79,7 @@ export default function NuevaSesionPage() {
       const data = await res.json()
 
       if (res.status === 429 && data.code === 'limit_reached') {
-        setError('Has alcanzado el límite de sesiones gratuitas por hoy. Vuelve mañana para un nuevo análisis.')
+        setError('Llegaste al límite de 3 sesiones este mes. Escríbenos por WhatsApp para acceso ilimitado.')
         setLoading(false)
         return
       }

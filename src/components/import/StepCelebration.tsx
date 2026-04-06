@@ -53,19 +53,19 @@ function getPersonalizedMessage(score: number, trend: number, roundCount: number
       ? 'La tendencia en ascenso es una senal clara de progreso'
       : trend < 0
         ? 'Hay margen para optimizar, y eso es una oportunidad'
-        : 'La estabilidad muestra una base solida'
-    return `Estas construyendo un momentum solido. Con ${roundCount} rondas analizadas, tu consistencia muestra una base fuerte. ${trendDetailed} — cada ronda suma a tu evolucion.`
+        : 'La estabilidad muestra una base sólida'
+    return `Estás construyendo un momentum sólido. Con ${roundCount} rondas analizadas, tu consistencia muestra una base fuerte. ${trendDetailed} — cada ronda suma a tu evolución.`
   }
   if (score >= 40) {
     const trendDetailed = trend > 0
-      ? 'La tendencia positiva indica que vas en la direccion correcta.'
+      ? 'La tendencia positiva indica que vas en la dirección correcta.'
       : trend < 0
         ? 'Algunos ajustes pueden cambiar la trayectoria.'
         : 'La estabilidad es un buen punto de partida.'
-    return `Tu momentum esta en desarrollo. Las ${roundCount} rondas revelan oportunidades claras para crecer. ${trendDetailed} tAIger+ tiene la informacion que necesita para guiarte.`
+    return `Tu momentum está en desarrollo. Las ${roundCount} rondas revelan oportunidades claras para crecer. ${trendDetailed} tAIger+ tiene la información que necesita para guiarte.`
   }
   if (score >= 20) {
-    return `El momentum empieza aqui. Con ${roundCount} rondas ya tenemos suficiente para que tAIger+ identifique los patrones clave de tu juego.`
+    return `El momentum empieza aquí. Con ${roundCount} rondas ya tenemos suficiente para que tAIger+ identifique los patrones clave de tu juego.`
   }
   return 'Cada ronda que agregas construye tu momentum. Sigue importando para que tAIger+ pueda analizar tu juego a fondo.'
 }

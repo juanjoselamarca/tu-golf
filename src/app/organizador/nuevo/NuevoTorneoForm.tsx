@@ -160,7 +160,6 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
       total_rounds:         1,
     }
 
-    // Intento 1: con modo_juego
     let tError: { message?: string; code?: string } | null = null
     let tournament: Record<string, unknown> | null = null
 
@@ -172,19 +171,6 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
 
     if (!te1) {
       tournament = t1
-    } else if (
-      te1.message?.includes('modo_juego') ||
-      te1.message?.includes('schema cache') ||
-      te1.code === '42703'
-    ) {
-      // Columna no existe — reintentar sin modo_juego
-      const { data: t2, error: te2 } = await supabase
-        .from('tournaments')
-        .insert(tournamentBase)
-        .select()
-        .single()
-      tournament = t2
-      tError = te2
     } else {
       tError = te1
     }

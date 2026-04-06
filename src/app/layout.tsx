@@ -8,6 +8,7 @@ import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { LiveRoundIndicator } from '@/components/LiveRoundIndicator'
 import { SystemStatusBanner } from '@/components/SystemStatusBanner'
 import { PostHogProvider } from '@/components/PostHogProvider'
+import { OfflineBanner } from '@/components/OfflineBanner'
 
 const playfair = Playfair_Display({
   subsets:  ['latin'],
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Golfers+ — Tu golf, potenciado por IA',
     description: 'Scoring en vivo, coach IA con psicologia deportiva y leaderboard interactivo. Gratis.',
-    url: 'https://golfersplus.vercel.app',
+    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app',
     siteName: 'Golfers+',
     locale: 'es_CL',
     type: 'website',
@@ -80,6 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <PostHogProvider>
+        <OfflineBanner />
         <SystemStatusBanner />
         <Navbar />
         <ToastContainer />

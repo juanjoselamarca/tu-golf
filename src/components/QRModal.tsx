@@ -2,12 +2,13 @@
 
 import { QRCodeSVG } from 'qrcode.react'
 import { useState } from 'react'
+import { SITE_URL } from '@/lib/site-url'
 
 export default function QRModal({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)
   const url = typeof window !== 'undefined'
     ? `${window.location.origin}/torneo/${slug}`
-    : `https://golfersplus.vercel.app/torneo/${slug}`
+    : `${SITE_URL}/torneo/${slug}`
 
   return (
     <>

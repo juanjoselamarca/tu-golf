@@ -245,22 +245,41 @@ function ChatContent() {
           }}>
             {error}
             {limitReached && (
-              <button
-                onClick={() => router.push('/coach')}
-                style={{
-                  display: 'block',
-                  marginTop: 12,
-                  background: 'rgba(196,153,42,0.15)',
-                  border: '1px solid rgba(196,153,42,0.3)',
-                  borderRadius: 8,
-                  padding: '8px 16px',
-                  color: '#c4992a',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                }}
-              >
-                Entendido
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <a
+                  href="https://wa.me/56912345678?text=Quiero%20tAIger%2B%20Premium"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-block',
+                    background: '#25d366',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '8px 16px',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                  }}
+                >
+                  Quiero acceso ilimitado
+                </a>
+                <button
+                  onClick={() => router.push('/coach')}
+                  style={{
+                    background: 'rgba(196,153,42,0.15)',
+                    border: '1px solid rgba(196,153,42,0.3)',
+                    borderRadius: 8,
+                    padding: '8px 16px',
+                    color: '#c4992a',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                  }}
+                >
+                  Volver
+                </button>
+              </div>
             )}
           </div>
         )}

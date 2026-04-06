@@ -15,18 +15,18 @@ const FIXES: Record<
   }
 > = {
   'orphaned-jugadores': {
-    label: 'Limpiar jugadores huerfanos',
+    label: 'Limpiar jugadores huérfanos',
     run: async (admin) => {
       const { data } = await admin.rpc('exec_sql', {
         query:
           "DELETE FROM ronda_libre_jugadores WHERE ronda_id NOT IN (SELECT id FROM rondas_libres) RETURNING id",
       })
       const count = Array.isArray(data) ? data.length : 0
-      return { fixed: count, detail: `${count} jugadores huerfanos eliminados` }
+      return { fixed: count, detail: `${count} jugadores huérfanos eliminados` }
     },
   },
   'orphaned-rounds': {
-    label: 'Limpiar rounds huerfanos',
+    label: 'Limpiar rounds huérfanos',
     run: async (admin) => {
       await admin.rpc('exec_sql', {
         query:
@@ -39,19 +39,19 @@ const FIXES: Record<
       const count = Array.isArray(data) ? data.length : 0
       return {
         fixed: count,
-        detail: `${count} rounds huerfanos eliminados (con sus scores)`,
+        detail: `${count} rounds huérfanos eliminados (con sus scores)`,
       }
     },
   },
   'orphaned-scores': {
-    label: 'Limpiar scores huerfanos',
+    label: 'Limpiar scores huérfanos',
     run: async (admin) => {
       const { data } = await admin.rpc('exec_sql', {
         query:
           "DELETE FROM hole_scores WHERE round_id NOT IN (SELECT id FROM rounds) RETURNING id",
       })
       const count = Array.isArray(data) ? data.length : 0
-      return { fixed: count, detail: `${count} scores huerfanos eliminados` }
+      return { fixed: count, detail: `${count} scores huérfanos eliminados` }
     },
   },
   'abandoned-rondas': {
@@ -80,7 +80,7 @@ const FIXES: Record<
     },
   },
   'invalid-ronda-estados': {
-    label: 'Corregir estados de rondas invalidos',
+    label: 'Corregir estados de rondas inválidos',
     run: async (admin) => {
       const { data } = await admin.rpc('exec_sql', {
         query:

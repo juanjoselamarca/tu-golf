@@ -103,9 +103,9 @@ export default function Navbar() {
       {/* ── Header bar — always visible ─────────────────── */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(7,13,24,0.95)',
+        background: 'rgba(255,255,255,0.97)',
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(196,153,42,0.12)',
+        borderBottom: '1px solid #e2e8f0',
         height: '56px',
       }}>
         <div style={{
@@ -119,7 +119,7 @@ export default function Navbar() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: '44px', height: '44px', background: 'none', border: 'none',
-              cursor: 'pointer', padding: 0, color: 'rgba(255,255,255,0.7)',
+              cursor: 'pointer', padding: 0, color: '#4a5568',
               WebkitTapHighlightColor: 'transparent',
             }}
             aria-label="Menú"
@@ -131,7 +131,7 @@ export default function Navbar() {
 
           {/* Logo — always goes to landing */}
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '2px', textDecoration: 'none', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
-            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: '#edeae4' }}>Golfers</span>
+            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: '#1a1a2e' }}>Golfers</span>
             <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: '#C4992A' }}>+</span>
           </Link>
 
@@ -142,8 +142,8 @@ export default function Navbar() {
                 onClick={() => setAvatarMenuOpen(!avatarMenuOpen)}
                 style={{
                   width: '36px', height: '36px', borderRadius: '50%',
-                  background: avatarMenuOpen ? '#edeae4' : '#C4992A',
-                  color: '#070d18',
+                  background: avatarMenuOpen ? '#e2e8f0' : '#C4992A',
+                  color: '#ffffff',
                   fontWeight: 700, fontSize: '13px', border: 'none',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', flexShrink: 0,
@@ -160,20 +160,20 @@ export default function Navbar() {
                   <div onClick={() => setAvatarMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
                   <div style={{
                     position: 'absolute', top: '44px', right: 0, zIndex: 200,
-                    background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)',
+                    background: '#ffffff', border: '1px solid #e2e8f0',
                     borderRadius: '12px', padding: '8px', minWidth: '200px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
                   }}>
                     <Link href="/perfil" onClick={() => setAvatarMenuOpen(false)} style={{
                       display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                      color: '#edeae4', fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
+                      color: '#1a1a2e', fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
                       minHeight: '44px',
                     }}>
                       <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>👤</span>Mi Perfil
                     </Link>
                     <button onClick={() => { setAvatarMenuOpen(false); setNotifHubOpen(true) }} style={{
                       display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                      color: '#edeae4', fontSize: '14px', background: 'none', border: 'none',
+                      color: '#1a1a2e', fontSize: '14px', background: 'none', border: 'none',
                       cursor: 'pointer', borderRadius: '8px', width: '100%', textAlign: 'left',
                       minHeight: '44px',
                     }}>
@@ -182,16 +182,16 @@ export default function Navbar() {
                     {isAdmin && (
                       <Link href="/admin" onClick={() => setAvatarMenuOpen(false)} style={{
                         display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                        color: '#edeae4', fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
+                        color: '#1a1a2e', fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
                         minHeight: '44px',
                       }}>
                         <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>⚙️</span>Administración
                       </Link>
                     )}
-                    <div style={{ height: '1px', background: 'rgba(196,153,42,0.1)', margin: '4px 0' }} />
+                    <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }} />
                     <button onClick={() => { setAvatarMenuOpen(false); handleLogout() }} style={{
                       display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                      color: '#94a8c0', fontSize: '14px', background: 'none', border: 'none',
+                      color: '#94a3b8', fontSize: '14px', background: 'none', border: 'none',
                       cursor: 'pointer', borderRadius: '8px', width: '100%', textAlign: 'left',
                       minHeight: '44px',
                     }}>
@@ -205,7 +205,7 @@ export default function Navbar() {
             <Link href="/login" style={{
               fontSize: '14px', fontWeight: 600, color: '#C4992A',
               textDecoration: 'none', padding: '8px 16px',
-              border: '1px solid rgba(196,153,42,0.3)', borderRadius: '10px',
+              border: '1px solid rgba(196,153,42,0.4)', borderRadius: '10px',
             }}>
               Entrar
             </Link>
@@ -218,7 +218,7 @@ export default function Navbar() {
         onClick={() => setSidebarOpen(false)}
         style={{
           position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.6)',
+          background: 'rgba(0,0,0,0.3)',
           zIndex: 198,
           opacity: sidebarOpen ? 1 : 0,
           pointerEvents: sidebarOpen ? 'auto' : 'none',
@@ -230,8 +230,8 @@ export default function Navbar() {
       <div style={{
         position: 'fixed', top: 0, left: 0, bottom: 0,
         width: '280px', zIndex: 199,
-        background: '#0a1628',
-        borderRight: '1px solid rgba(196,153,42,0.12)',
+        background: '#ffffff',
+        borderRight: '1px solid #e2e8f0',
         transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
         transition: 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
         display: 'flex', flexDirection: 'column',
@@ -240,15 +240,15 @@ export default function Navbar() {
         {/* Sidebar header */}
         <div style={{
           padding: '20px 20px 16px',
-          borderBottom: '1px solid rgba(196,153,42,0.1)',
+          borderBottom: '1px solid #e2e8f0',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: user ? '16px' : '0' }}>
             <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px' }}>
-              <span style={{ color: '#edeae4' }}>Golfers</span>
+              <span style={{ color: '#1a1a2e' }}>Golfers</span>
               <span style={{ color: '#C4992A' }}>+</span>
             </span>
             <button onClick={() => setSidebarOpen(false)} aria-label="Cerrar menú" style={{
-              background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)',
+              background: 'none', border: 'none', color: '#94a3b8',
               fontSize: '24px', cursor: 'pointer', padding: '4px 8px', lineHeight: 1,
             }}>×</button>
           </div>
@@ -257,13 +257,13 @@ export default function Navbar() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
                 width: '40px', height: '40px', borderRadius: '50%',
-                background: '#C4992A', color: '#070d18',
+                background: '#C4992A', color: '#ffffff',
                 fontWeight: 700, fontSize: '14px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>{userInitials}</div>
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#edeae4' }}>{userName}</div>
-                <div style={{ fontSize: '12px', color: '#94a8c0' }}>{user.email}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a2e' }}>{userName}</div>
+                <div style={{ fontSize: '12px', color: '#4a5568' }}>{user.email}</div>
               </div>
             </div>
           )}

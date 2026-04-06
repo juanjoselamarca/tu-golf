@@ -76,7 +76,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
         marginBottom: '28px',
         animation: 'selectorFadeIn 0.4s ease-out 0.08s both',
       }}>
-        Mientras mas rondas subas, mejor te conoce tu coach tAIger+
+        Más rondas = mejor análisis. tAIger+ aprende de cada tarjeta.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -146,7 +146,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                     Pantallazo de scorecard
                   </span>
                   <span style={{ fontSize: '10px', fontWeight: 600, color: '#c4992a', letterSpacing: '0.04em' }}>
-                    Altisima precision
+                    Altísima precisión
                   </span>
                 </div>
                 <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 10px', lineHeight: 1.4 }}>
@@ -223,7 +223,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                     Archivo de Garmin
                   </span>
                   <span style={{ fontSize: '10px', fontWeight: 600, color: '#22c55e', letterSpacing: '0.04em' }}>
-                    100% precision
+                    100% precisión
                   </span>
                 </div>
                 <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 10px', lineHeight: 1.4 }}>
@@ -305,7 +305,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                   Pantallazo de scorecard
                 </span>
                 <span style={{ fontSize: '10px', fontWeight: 600, color: '#c4992a', letterSpacing: '0.04em' }}>
-                  Altisima precision
+                  Altísima precisión
                 </span>
               </div>
               <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 10px', lineHeight: 1.4 }}>
@@ -373,7 +373,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                   Archivo de Garmin
                 </span>
                 <span style={{ fontSize: '10px', fontWeight: 600, color: '#22c55e', letterSpacing: '0.04em' }}>
-                  100% precision
+                  100% precisión
                 </span>
               </div>
               <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 10px', lineHeight: 1.4 }}>

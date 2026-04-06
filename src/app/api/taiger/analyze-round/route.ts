@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     if ((count ?? 0) >= 3) {
       return NextResponse.json(
-        { error: 'Límite mensual alcanzado (3 sesiones). Próximamente plan Premium.' },
+        { error: 'Llegaste al límite de 3 sesiones este mes. Escríbenos por WhatsApp para acceso ilimitado.', code: 'limit_reached', whatsapp: 'https://wa.me/56912345678?text=Quiero%20tAIger%2B%20Premium' },
         { status: 429 }
       )
     }

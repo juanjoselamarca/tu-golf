@@ -149,7 +149,7 @@ export interface PlayerPattern {
 export interface TaigerSession {
   id:                  string
   user_id:             string
-  session_type:        'post_round' | 'weekly_plan' | 'pre_tournament' | 'onboarding'
+  session_type:        'post_round' | 'weekly_plan' | 'pre_tournament' | 'onboarding' | 'free'
   tournament_id:       string | null
   ronda_libre_id:      string | null
   messages:            Array<{ role: 'user' | 'assistant'; content: string }>

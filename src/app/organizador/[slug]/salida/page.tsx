@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { SITE_DOMAIN } from '@/lib/site-url'
 import { createClient } from '@/lib/supabase'
 
 interface Group {
@@ -73,7 +74,7 @@ export default function HojaSalidaPage() {
     if (!tournament) return ''
     const lines: string[] = []
     lines.push(tournament.name.toUpperCase())
-    lines.push(`${tournament.course_name} \u00b7 ${tournament.hole_count}H \u00b7 Tees ${tournament.tees}`)
+    lines.push(`${tournament.course_name} · ${tournament.hole_count}H · Tees ${tournament.tees}`)
     const dateStr = tournament.date_start ? new Date(tournament.date_start + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''
     if (dateStr) lines.push(dateStr)
     lines.push('')
@@ -86,7 +87,7 @@ export default function HojaSalidaPage() {
       }
       lines.push('')
     }
-    lines.push('Golfers+ \u00b7 golfersplus.vercel.app')
+    lines.push(`Golfers+ · ${SITE_DOMAIN}`)
     return lines.join('\n')
   }
 
@@ -133,7 +134,7 @@ export default function HojaSalidaPage() {
           background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(196,153,42,0.12)',
           color: copied ? '#22c55e' : '#c4992a',
         }}>
-          {copied ? '\u2713 Copiado' : 'Copiar texto'}
+          {copied ? '✓ Copiado' : 'Copiar texto'}
         </button>
         <button onClick={handleShare} style={{
           flex: 1, padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', border: 'none',
@@ -158,7 +159,7 @@ export default function HojaSalidaPage() {
             <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: j > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
               <span style={{ fontSize: '14px', color: '#edeae4' }}>{p.name}</span>
               <span style={{ fontSize: '13px', color: '#94a8c0', fontFamily: '"DM Mono", monospace' }}>
-                {p.handicap != null ? p.handicap.toFixed(1) : '\u2014'}
+                {p.handicap != null ? p.handicap.toFixed(1) : '—'}
               </span>
             </div>
           ))}
@@ -167,7 +168,7 @@ export default function HojaSalidaPage() {
 
       {groups.length === 0 && (
         <div style={{ textAlign: 'center', padding: '32px', color: '#94a8c0' }}>
-          No hay grupos armados a\u00fan. Crea grupos desde la gesti\u00f3n de jugadores.
+          No hay grupos armados aún. Crea grupos desde la gestión de jugadores.
         </div>
       )}
     </div>

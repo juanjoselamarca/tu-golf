@@ -13,6 +13,11 @@ describe('strokesRecibidosEnHoyo', () => {
   it('hcp 36 recibe 2 strokes en todos los hoyos', () => {
     expect(strokesRecibidosEnHoyo(36, 1)).toBe(2)
   })
+  it('hcp 10 recibe stroke en los 10 hoyos más difíciles', () => {
+    expect(strokesRecibidosEnHoyo(10, 1)).toBe(1)
+    expect(strokesRecibidosEnHoyo(10, 10)).toBe(1)
+    expect(strokesRecibidosEnHoyo(10, 11)).toBe(0)
+  })
 })
 
 describe('puntosStablefordHoyo', () => {

@@ -404,5 +404,77 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, roundNumber: nextRound, playersCount: playersData.length })
   }
 
+  // ── cancel_tournament ────────────────────────────────────
+  if (action === 'cancel_tournament') {
+    if (tournament.organizer_id !== user.id) {
+      return NextResponse.json({ error: 'Solo el organizador puede cancelar el torneo' }, { status: 403 })
+    }
+    if (tournament.status !== 'draft') {
+      return NextResponse.json({ error: 'Solo se puede cancelar un torneo en borrador' }, { status: 409 })
+    }
+
+    // Cascade delete: scores → rounds → group_players → groups → players → categories → tournament
+    const { data: rounds } = await svc.from('rounds').select('id').eq('tournament_id', tournament_id)
+    if (rounds && rounds.length > 0) {
+      const roundIds = rounds.map((r: { id: string }) => r.id)
+      await svc.from('hole_scores').delete().in('round_id', roundIds)
+      await svc.from('rounds').delete().eq('tournament_id', tournament_id)
+    }
+
+    const { data: grps } = await svc.from('tournament_groups').select('id').eq('tournament_id', tournament_id)
+    if (grps && grps.length > 0) {
+      const grpIds = grps.map((g: { id: string }) => g.id)
+      await svc.from('tournament_group_players').delete().in('group_id', grpIds)
+      await svc.from('tournament_groups').delete().eq('tournament_id', tournament_id)
+    }
+
+    await svc.from('players').delete().eq('tournament_id', tournament_id)
+    await svc.from('categories').delete().eq('tournament_id', tournament_id)
+    await svc.from('tournaments').delete().eq('id', tournament_id)
+
+    return NextResponse.json({ success: true })
+  }
+
+  // ── withdraw_player ─────────────────────────────────────
+  if (action === 'withdraw_player') {
+    const { player_id } = body
+    if (!player_id) return NextResponse.json({ error: 'player_id requerido' }, { status: 400 })
+
+    // Only organizer or the player themselves can withdraw
+    const { data: playerData } = await svc
+      .from('players')
+      .select('id, user_id')
+      .eq('id', player_id)
+      .eq('tournament_id', tournament_id)
+      .single()
+
+    if (!playerData) {
+      return NextResponse.json({ error: 'Jugador no encontrado en este torneo' }, { status: 404 })
+    }
+
+    const isOrganizer = tournament.organizer_id === user.id
+    const isSelf = playerData.user_id === user.id
+    if (!isOrganizer && !isSelf) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
+
+    if (tournament.status === 'closed') {
+      return NextResponse.json({ error: 'No se puede retirar jugadores de un torneo cerrado' }, { status: 409 })
+    }
+
+    // Delete hole_scores → rounds → group_players → player
+    const { data: rounds } = await svc.from('rounds').select('id').eq('player_id', player_id)
+    if (rounds && rounds.length > 0) {
+      const roundIds = rounds.map((r: { id: string }) => r.id)
+      await svc.from('hole_scores').delete().in('round_id', roundIds)
+      await svc.from('rounds').delete().eq('player_id', player_id)
+    }
+
+    await svc.from('tournament_group_players').delete().eq('player_id', player_id)
+    await svc.from('players').delete().eq('id', player_id)
+
+    return NextResponse.json({ success: true })
+  }
+
   return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 })
 }

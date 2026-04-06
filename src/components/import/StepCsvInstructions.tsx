@@ -199,7 +199,7 @@ export default function StepCsvInstructions({
               marginBottom: '12px',
             }}
           >
-            No pudimos detectar automaticamente las columnas. Estas son las
+            No pudimos detectar automáticamente las columnas. Estas son las
             columnas encontradas:
           </p>
           <div
