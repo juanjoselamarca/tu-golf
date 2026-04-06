@@ -107,15 +107,18 @@ export default function NuevaRondaLibrePage() {
   const router = useRouter()
   const { showError } = useToast()
 
+  // Wizard step
+  const [step, setStep] = useState(1)
+
   const [userId, setUserId] = useState<string | null>(null)
+  const [creatorName, setCreatorName] = useState('')
   const [creatorHandicap, setCreatorHandicap] = useState<number | null>(null)
   const [cancha, setCancha] = useState('')
   const [canchaSearch, setCanchaSearch] = useState('')
   const [showCanchaDropdown, setShowCanchaDropdown] = useState(false)
   const [courseId, setCourseId] = useState<string | null>(null)
   const [coursesDB, setCoursesDB] = useState<CourseDB[]>([])
-  const [tees, setTees] = useState('azul')
-  const [holes, setHoles] = useState<18 | 9>(18)
+  const [tees, setTees] = useState('blanco')
   const [partidaSimultanea, setPartidaSimultanea] = useState(false)
   const [hoyoInicio, setHoyoInicio] = useState(1)
   const [adminMode, setAdminMode] = useState(false)
@@ -125,9 +128,10 @@ export default function NuevaRondaLibrePage() {
     tipo: 'cuenta' | 'invitado'
     nombre: string
     telefono: string
+    handicap: number | null
   }
   const [adminPlayers, setAdminPlayers] = useState<AdminPlayer[]>([])
-  const updateAdminPlayer = (idx: number, field: keyof AdminPlayer, value: string) => {
+  const updateAdminPlayer = (idx: number, field: keyof AdminPlayer, value: string | number | null) => {
     setAdminPlayers(prev => {
       const next = [...prev]
       next[idx] = { ...next[idx], [field]: value }
@@ -139,14 +143,13 @@ export default function NuevaRondaLibrePage() {
   }
   const addAdminPlayer = () => {
     if (adminPlayers.length < 3) {
-      setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: '', telefono: '' }])
+      setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
     }
   }
   const [fechaStr, setFechaStr] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
-  const [jugadores, setJugadores] = useState<string[]>(['', '', '', ''])
   const [courseDetails, setCourseDetails] = useState<CourseDetails | null>(null)
   const [courseTees, setCourseTees] = useState<CourseTee[]>([])
   const [courseLoops, setCourseLoops] = useState<CourseLoop[]>([])
@@ -170,7 +173,7 @@ export default function NuevaRondaLibrePage() {
 
       setCreatorHandicap(profile?.indice ?? null)
       const name = profile?.name || user.user_metadata?.name || user.email?.split('@')[0] || 'Jugador'
-      setJugadores([name, '', '', ''])
+      setCreatorName(name)
 
       const { data: courses } = await supabase
         .from('courses')
@@ -218,7 +221,9 @@ export default function NuevaRondaLibrePage() {
         .order('yardaje_total', { ascending: false })
       setCourseTees((tees as CourseTee[]) || [])
       if (tees && tees.length > 0) {
-        setTees(tees[0].nombre.toLowerCase())
+        // Default to "blanco" if available
+        const blanco = tees.find(t => t.nombre.toLowerCase() === 'blanco')
+        setTees(blanco ? 'blanco' : tees[0].nombre.toLowerCase())
       }
 
       // Detect multi-loop courses (e.g. Brisas de Santo Domingo: Norte, Este, Sur)
@@ -238,7 +243,6 @@ export default function NuevaRondaLibrePage() {
           const loops: CourseLoop[] = nonDefault.map(([r, d]) => ({ recorrido: r, holes: d.count, par: d.par }))
           loops.sort((a, b) => a.recorrido.localeCompare(b.recorrido))
           setCourseLoops(loops)
-          // Auto-select first two for 18h
           setSelectedLoops(loops.slice(0, 2).map(l => l.recorrido))
         } else {
           setCourseLoops([])
@@ -252,18 +256,17 @@ export default function NuevaRondaLibrePage() {
     fetchCourseData()
   }, [courseId])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async () => {
     if (!userId) return
     if (!cancha) {
       showError('Selecciona una cancha', 'Elige la cancha donde vas a jugar.')
       return
     }
 
-    // In admin mode, use adminPlayers list instead of jugadores
+    // Build player list
     const jugadoresValidos = adminMode
-      ? [jugadores[0], ...adminPlayers.filter(p => p.nombre.trim()).map(p => p.nombre.trim())]
-      : jugadores.filter(j => j.trim() !== '')
+      ? [creatorName, ...adminPlayers.filter(p => p.nombre.trim()).map(p => p.nombre.trim())]
+      : [creatorName]
     if (jugadoresValidos.length === 0) {
       showError('Faltan jugadores', 'Agrega al menos un jugador para crear la ronda.')
       return
@@ -273,6 +276,8 @@ export default function NuevaRondaLibrePage() {
 
     const supabase = createClient()
     const codigo = Math.random().toString(36).substring(2, 8).toUpperCase()
+
+    const holes = 18
 
     const baseData: Record<string, unknown> = {
       codigo,
@@ -320,27 +325,27 @@ export default function NuevaRondaLibrePage() {
         if (e2 || !d2) {
           setLoading(false)
           if (e2?.message?.includes("'public.rondas_libres'") || e2?.message?.includes('relation') || e2?.code === '42P01') {
-            showError('Error de configuración', 'La base de datos no está configurada. Contacta al administrador.')
+            showError('Error de configuracion', 'La base de datos no esta configurada. Contacta al administrador.')
           } else {
-            showError('Error al crear la ronda', e2?.message || 'Algo salió mal. Intenta nuevamente.')
+            showError('Error al crear la ronda', e2?.message || 'Algo salio mal. Intenta nuevamente.')
           }
           return
         }
         ronda = d2
       } else if (e1.message?.includes("'public.rondas_libres'") || e1.message?.includes('relation') || e1.code === '42P01') {
         setLoading(false)
-        showError('Error de configuración', 'La base de datos no está configurada. Contacta al administrador.')
+        showError('Error de configuracion', 'La base de datos no esta configurada. Contacta al administrador.')
         return
       } else {
         setLoading(false)
-        showError('Error al crear la ronda', e1.message || 'Algo salió mal. Intenta nuevamente.')
+        showError('Error al crear la ronda', e1.message || 'Algo salio mal. Intenta nuevamente.')
         return
       }
     }
 
     if (!ronda) {
       setLoading(false)
-      showError('Error al crear la ronda', 'Algo salió mal. Intenta nuevamente.')
+      showError('Error al crear la ronda', 'Algo salio mal. Intenta nuevamente.')
       return
     }
 
@@ -350,7 +355,7 @@ export default function NuevaRondaLibrePage() {
         nombre: jugadoresValidos[i],
         user_id: i === 0 ? userId : null,
         scores: {},
-        handicap: i === 0 ? creatorHandicap : null,
+        handicap: i === 0 ? creatorHandicap : (adminMode && i > 0 ? adminPlayers[i - 1]?.handicap ?? null : null),
       }
       // In admin mode, mark non-creator players as guests with phone
       if (adminMode && i > 0) {
@@ -375,15 +380,13 @@ export default function NuevaRondaLibrePage() {
     setLoading(false)
   }
 
-  const filledCount = jugadores.filter((j) => j.trim()).length
-
   const handleShareWhatsApp = (type: 'jugar' | 'seguir') => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://golfersplus.vercel.app'
     const link = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
     const message = type === 'jugar'
-      ? `Únete a mi ronda en Golfers+! Código: ${roundCode}\n${link}`
+      ? `Unete a mi ronda en Golfers+! Codigo: ${roundCode}\n${link}`
       : `Sigue mi ronda en vivo en Golfers+!\n${link}`
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
   }
@@ -396,12 +399,11 @@ export default function NuevaRondaLibrePage() {
     navigator.clipboard.writeText(link)
   }
 
-  // Share screen after round creation
+  // ─── Share screen after round creation ───
   if (showShareScreen) {
     return (
       <div style={{ background: colors.bg, minHeight: '100vh', padding: '20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
-
           <div style={{
             background: colors.card,
             border: `1px solid ${colors.cardBorder}`,
@@ -425,7 +427,7 @@ export default function NuevaRondaLibrePage() {
             </div>
 
             <div style={{ fontSize: '14px', color: colors.textSecondary, marginBottom: '32px' }}>
-              {cancha} &middot; {holes} hoyos
+              {cancha} &middot; 18 hoyos
             </div>
 
             {/* Invitar a jugar */}
@@ -437,15 +439,8 @@ export default function NuevaRondaLibrePage() {
                 <button
                   onClick={() => handleShareWhatsApp('jugar')}
                   style={{
-                    flex: 1,
-                    background: '#25D366',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '15px',
-                    padding: '14px 16px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    cursor: 'pointer',
+                    flex: 1, background: '#25D366', color: '#ffffff', fontWeight: 700, fontSize: '15px',
+                    padding: '14px 16px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                     WebkitTapHighlightColor: 'transparent',
                   }}
                 >
@@ -454,14 +449,8 @@ export default function NuevaRondaLibrePage() {
                 <button
                   onClick={() => handleCopyLink('jugar')}
                   style={{
-                    padding: '14px 16px',
-                    background: colors.card,
-                    border: `1px solid ${colors.cardBorder}`,
-                    color: colors.textSecondary,
-                    fontWeight: 500,
-                    fontSize: '14px',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
+                    padding: '14px 16px', background: colors.card, border: `1px solid ${colors.cardBorder}`,
+                    color: colors.textSecondary, fontWeight: 500, fontSize: '14px', borderRadius: '12px', cursor: 'pointer',
                     WebkitTapHighlightColor: 'transparent',
                   }}
                 >
@@ -479,15 +468,8 @@ export default function NuevaRondaLibrePage() {
                 <button
                   onClick={() => handleShareWhatsApp('seguir')}
                   style={{
-                    flex: 1,
-                    background: '#25D366',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '15px',
-                    padding: '14px 16px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    cursor: 'pointer',
+                    flex: 1, background: '#25D366', color: '#ffffff', fontWeight: 700, fontSize: '15px',
+                    padding: '14px 16px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                     WebkitTapHighlightColor: 'transparent',
                   }}
                 >
@@ -496,14 +478,8 @@ export default function NuevaRondaLibrePage() {
                 <button
                   onClick={() => handleCopyLink('seguir')}
                   style={{
-                    padding: '14px 16px',
-                    background: colors.card,
-                    border: `1px solid ${colors.cardBorder}`,
-                    color: colors.textSecondary,
-                    fontWeight: 500,
-                    fontSize: '14px',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
+                    padding: '14px 16px', background: colors.card, border: `1px solid ${colors.cardBorder}`,
+                    color: colors.textSecondary, fontWeight: 500, fontSize: '14px', borderRadius: '12px', cursor: 'pointer',
                     WebkitTapHighlightColor: 'transparent',
                   }}
                 >
@@ -515,19 +491,12 @@ export default function NuevaRondaLibrePage() {
             <button
               onClick={() => router.push(adminMode ? `/ronda-libre/${roundCode}/score-grupo` : `/ronda-libre/${roundCode}/score`)}
               style={{
-                width: '100%',
-                background: colors.gold,
-                color: colors.activeBtnText,
-                fontWeight: 700,
-                fontSize: '16px',
-                padding: '16px',
-                borderRadius: '14px',
-                border: 'none',
-                cursor: 'pointer',
+                width: '100%', background: colors.gold, color: colors.activeBtnText, fontWeight: 700, fontSize: '16px',
+                padding: '16px', borderRadius: '14px', border: 'none', cursor: 'pointer',
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              {adminMode ? 'Empezar score de grupo →' : 'Empezar a jugar →'}
+              {adminMode ? 'Empezar score de grupo \u2192' : 'Empezar a jugar \u2192'}
             </button>
           </div>
         </div>
@@ -535,672 +504,143 @@ export default function NuevaRondaLibrePage() {
     )
   }
 
+  // ─── Step indicator ───
+  const StepIndicator = () => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '28px' }}>
+      {[1, 2, 3].map(s => (
+        <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '28px', height: '28px', borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '13px', fontWeight: 600,
+            background: s === step ? colors.gold : s < step ? 'rgba(196,153,42,0.15)' : '#f3f4f6',
+            color: s === step ? '#ffffff' : s < step ? colors.gold : colors.textLabel,
+            transition: 'all 0.2s',
+          }}>
+            {s < step ? '\u2713' : s}
+          </div>
+          {s < 3 && (
+            <div style={{
+              width: '32px', height: '2px',
+              background: s < step ? colors.gold : '#e5e7eb',
+              transition: 'background 0.2s',
+            }} />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
   return (
     <div style={{ background: colors.bg, minHeight: '100vh', padding: '20px 16px 80px' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
 
         {/* Back link */}
         <Link href="/dashboard" style={{ color: colors.textSecondary, fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '24px' }}>
-          ← Dashboard
+          {'\u2190'} Dashboard
         </Link>
 
         {/* Header */}
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '32px', color: colors.textPrimary, marginBottom: '4px', marginTop: 0, fontWeight: 700 }}>
           Nueva Ronda
         </h1>
-        <p style={{ fontSize: '14px', color: colors.textSecondary, marginTop: 0, marginBottom: '28px' }}>
-          Selecciona la cancha y configura tu ronda
+        <p style={{ fontSize: '14px', color: colors.textSecondary, marginTop: 0, marginBottom: '20px' }}>
+          {step === 1 ? 'Como quieres jugar?' : step === 2 ? 'Donde juegas?' : 'Con quien juegas?'}
         </p>
 
-        <form onSubmit={handleSubmit}>
+        <StepIndicator />
 
-          {/* Cancha — autocomplete */}
-          <div style={{
-            background: colors.card,
-            border: `1px solid ${colors.cardBorder}`,
-            borderRadius: '16px',
-            padding: '20px',
-            marginBottom: '16px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-          }}>
-            <div style={{ position: 'relative' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-                Cancha *
-              </label>
-              <input
-                type="text"
-                placeholder="Buscar cancha..."
-                value={showCanchaDropdown ? canchaSearch : cancha}
-                onChange={(e) => {
-                  setCanchaSearch(e.target.value)
-                  setShowCanchaDropdown(true)
-                  if (!e.target.value) { setCancha(''); setCourseId(null) }
-                }}
-                onFocus={() => {
-                  setCanchaSearch(cancha)
-                  setShowCanchaDropdown(true)
-                }}
-                onBlur={() => setTimeout(() => setShowCanchaDropdown(false), 200)}
-                style={{
-                  background: colors.inputBg,
-                  border: `1px solid ${colors.inputBorder}`,
-                  color: colors.textPrimary,
-                  borderRadius: '10px',
-                  padding: '12px 14px',
-                  fontSize: '16px',
-                  outline: 'none',
-                  width: '100%',
-                  boxSizing: 'border-box' as const,
-                  minHeight: '48px',
-                }}
-              />
-              {cancha && !showCanchaDropdown && (
-                <button
-                  type="button"
-                  onClick={() => { setCancha(''); setCourseId(null); setCanchaSearch('') }}
-                  style={{
-                    position: 'absolute', right: '12px', top: '32px',
-                    background: 'none', border: 'none', color: colors.textLabel,
-                    fontSize: '18px', cursor: 'pointer', padding: '4px',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >×</button>
-              )}
-              {showCanchaDropdown && (() => {
-                const q = canchaSearch.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-                const dbByName = new Map(coursesDB.map(c => [c.nombre, c]))
-                const unified: { name: string; courseId: string | null; ciudad: string | null }[] = []
-                const seen = new Set<string>()
-                for (const name of CANCHAS_CHILE) {
-                  if (!name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)) continue
-                  const db = dbByName.get(name)
-                  unified.push({ name, courseId: db?.id ?? null, ciudad: db?.ciudad ?? null })
-                  seen.add(name)
-                }
-                for (const c of coursesDB) {
-                  if (seen.has(c.nombre)) continue
-                  if (!c.nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)) continue
-                  unified.push({ name: c.nombre, courseId: c.id, ciudad: c.ciudad })
-                }
-                const results = unified.slice(0, 10)
-                const hasResults = results.length > 0
-
-                if (!hasResults && canchaSearch.length < 1) return null
-
-                return (
-                  <div style={{
-                    position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20,
-                    background: colors.inputBg, border: `1px solid ${colors.cardBorder}`,
-                    borderRadius: '10px', marginTop: '4px', maxHeight: '50vh', overflowY: 'auto',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                  }}>
-                    {results.map(c => (
-                      <button
-                        key={c.name}
-                        type="button"
-                        onMouseDown={() => {
-                          setCancha(c.name)
-                          setCourseId(c.courseId)
-                          setCanchaSearch(c.name)
-                          setShowCanchaDropdown(false)
-                        }}
-                        style={{
-                          display: 'block', width: '100%', textAlign: 'left',
-                          padding: '10px 14px', background: 'none', border: 'none',
-                          color: colors.textPrimary, fontSize: '14px', cursor: 'pointer',
-                          borderBottom: `1px solid ${colors.cardBorder}`,
-                        }}
-                      >
-                        {c.name}
-                        {c.ciudad && <span style={{ color: colors.textLabel, fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
-                      </button>
-                    ))}
-                    {!hasResults && canchaSearch.length >= 2 && (
-                      <button
-                        type="button"
-                        onMouseDown={() => {
-                          setCancha(canchaSearch)
-                          setCourseId(null)
-                          setShowCanchaDropdown(false)
-                        }}
-                        style={{
-                          display: 'block', width: '100%', textAlign: 'left',
-                          padding: '12px 14px', background: 'none', border: 'none',
-                          color: colors.gold, fontSize: '14px', cursor: 'pointer',
-                        }}
-                      >
-                        Usar &quot;{canchaSearch}&quot; como nombre de cancha
-                      </button>
-                    )}
-                  </div>
-                )
-              })()}
-            </div>
-
-            {/* Course info badge */}
-            {courseDetails && (
-              <div style={{
-                marginTop: '12px',
-                padding: '10px 14px',
-                background: 'rgba(196,153,42,0.08)',
-                borderRadius: '10px',
-                fontSize: '13px',
-                color: '#374151',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}>
-                <span style={{ color: '#16a34a', fontWeight: 700 }}>&#10003;</span>
-                {courseDetails.par_total && <span>Par {courseDetails.par_total}</span>}
-                {courseDetails.course_rating && <span>&middot; CR {courseDetails.course_rating}</span>}
-                {courseDetails.slope_rating && <span>&middot; Slope {courseDetails.slope_rating}</span>}
-                <span>&middot; Datos verificados</span>
-              </div>
-            )}
-
-            {/* Multi-loop selector (e.g. Brisas de Santo Domingo: Norte + Este + Sur) */}
-            {courseLoops.length >= 2 && (
-              <div style={{
-                marginTop: '12px',
-                padding: '14px',
-                background: 'rgba(196,153,42,0.05)',
-                border: '1px solid rgba(196,153,42,0.2)',
-                borderRadius: '12px',
-              }}>
-                <div style={{ fontSize: '12px', color: colors.textLabel, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-                  Recorridos ({holes === 18 ? 'elige 2' : 'elige 1'})
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {courseLoops.map(loop => {
-                    const isSelected = selectedLoops.includes(loop.recorrido)
-                    const maxLoops = holes === 18 ? 2 : 1
-                    const canSelect = isSelected || selectedLoops.length < maxLoops
-                    return (
-                      <button
-                        key={loop.recorrido}
-                        type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedLoops(prev => prev.filter(l => l !== loop.recorrido))
-                          } else if (canSelect) {
-                            setSelectedLoops(prev => [...prev, loop.recorrido])
-                          }
-                        }}
-                        style={{
-                          padding: '10px 16px',
-                          borderRadius: '12px',
-                          border: '1px solid',
-                          cursor: canSelect || isSelected ? 'pointer' : 'default',
-                          fontSize: '14px',
-                          fontWeight: isSelected ? 600 : 400,
-                          background: isSelected ? colors.activeBtn : colors.inactiveBtn,
-                          borderColor: isSelected ? colors.activeBtn : colors.inputBorder,
-                          color: isSelected ? colors.activeBtnText : colors.inactiveBtnText,
-                          opacity: canSelect || isSelected ? 1 : 0.4,
-                          transition: 'all 0.15s',
-                          WebkitTapHighlightColor: 'transparent',
-                        }}
-                      >
-                        <div>{loop.recorrido}</div>
-                        <div style={{ fontSize: '10px', color: isSelected ? 'rgba(7,13,24,0.6)' : '#9ca3af', marginTop: '2px' }}>
-                          {loop.holes} hoyos &middot; Par {loop.par}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-                {selectedLoops.length > 0 && (
-                  <div style={{ fontSize: '12px', color: colors.gold, marginTop: '8px', fontWeight: 500 }}>
-                    {selectedLoops.join(' + ')} &middot; Par {courseLoops.filter(l => selectedLoops.includes(l.recorrido)).reduce((a, l) => a + l.par, 0)}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Tees + Holes row */}
-          <div style={{
-            background: colors.card,
-            border: `1px solid ${colors.cardBorder}`,
-            borderRadius: '16px',
-            padding: '20px',
-            marginBottom: '16px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-          }}>
-            {/* Tees */}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-                Tees
-              </label>
-              {courseTees.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {courseTees.map((t) => {
-                    const val = t.nombre.toLowerCase()
-                    const active = tees === val
-                    return (
-                      <button
-                        key={t.nombre}
-                        type="button"
-                        onClick={() => setTees(val)}
-                        style={{
-                          width: '100%',
-                          padding: '14px 16px',
-                          borderRadius: '12px',
-                          border: '1px solid',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          fontWeight: active ? 600 : 400,
-                          background: active ? colors.activeBtn : '#f9fafb',
-                          borderColor: active ? colors.activeBtn : '#e5e7eb',
-                          color: active ? colors.activeBtnText : '#374151',
-                          transition: 'all 0.15s',
-                          WebkitTapHighlightColor: 'transparent',
-                        }}
-                      >
-                        <div style={{ fontSize: '14px', fontWeight: 600 }}>{t.nombre}</div>
-                        <div style={{ fontSize: '11px', color: active ? 'rgba(7,13,24,0.7)' : '#6b7280', marginTop: '2px' }}>
-                          {t.yardaje_total?.toLocaleString()} yds
-                          {t.rating ? ` · CR ${t.rating}` : ''}
-                          {t.slope ? ` · Slope ${t.slope}` : ''}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {TEES_OPTIONS.map((t) => {
-                    const val = t.toLowerCase()
-                    const active = tees === val
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTees(val)}
-                        style={{
-                          padding: '10px 18px',
-                          borderRadius: '24px',
-                          border: '1px solid',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          minHeight: '40px',
-                          fontWeight: active ? 600 : 400,
-                          background: active ? colors.activeBtn : colors.inactiveBtn,
-                          borderColor: active ? colors.activeBtn : colors.inputBorder,
-                          color: active ? colors.activeBtnText : colors.inactiveBtnText,
-                          transition: 'all 0.15s',
-                          WebkitTapHighlightColor: 'transparent',
-                        }}
-                      >
-                        {t}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Hoyos */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-                Hoyos
-              </label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {([18, 9] as const).map((h) => {
-                  const active = holes === h
-                  return (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => {
-                        setHoles(h)
-                        // Trim selected loops to match hole count (9h = 1 loop, 18h = 2 loops)
-                        if (courseLoops.length >= 2) {
-                          const max = h === 18 ? 2 : 1
-                          setSelectedLoops(prev => prev.slice(0, max))
-                        }
-                      }}
-                      style={{
-                        padding: '10px 28px',
-                        borderRadius: '24px',
-                        border: '1px solid',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        minHeight: '40px',
-                        fontWeight: active ? 600 : 400,
-                        background: active ? colors.activeBtn : colors.inactiveBtn,
-                        borderColor: active ? colors.activeBtn : colors.inputBorder,
-                        color: active ? colors.activeBtnText : colors.inactiveBtnText,
-                        transition: 'all 0.15s',
-                        WebkitTapHighlightColor: 'transparent',
-                      }}
-                    >
-                      {h} hoyos
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Partida simultánea */}
-          <div style={{ marginTop: '16px' }}>
-            <div
-              onClick={() => {
-                setPartidaSimultanea(prev => { if (prev) setHoyoInicio(1); return !prev })
-              }}
+        {/* ═══ STEP 1: Como quieres jugar? ═══ */}
+        {step === 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Card: Cada uno marca */}
+            <button
+              type="button"
+              onClick={() => { setAdminMode(false); setAdminPlayers([]); setStep(2) }}
               style={{
-                display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
-                padding: '12px 16px', borderRadius: '12px',
-                background: partidaSimultanea ? 'rgba(196,153,42,0.08)' : 'transparent',
-                border: `1px solid ${partidaSimultanea ? 'rgba(196,153,42,0.2)' : 'transparent'}`,
-                transition: 'all 0.15s',
-              }}
-            >
-              <div style={{
-                width: '40px', height: '24px', borderRadius: '12px',
-                background: partidaSimultanea ? '#c4992a' : 'rgba(255,255,255,0.15)',
-                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-              }}>
-                <div style={{
-                  width: '18px', height: '18px', borderRadius: '50%', background: '#ffffff',
-                  position: 'absolute', top: '3px',
-                  left: partidaSimultanea ? '19px' : '3px',
-                  transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                }} />
-              </div>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 500, color: '#edeae4' }}>Partida simultánea</div>
-                <div style={{ fontSize: '11px', color: '#94a8c0' }}>Empieza en un hoyo distinto al 1</div>
-              </div>
-            </div>
-
-            {partidaSimultanea && (
-              <div style={{ marginTop: '12px', padding: '0 4px' }}>
-                <div style={{ fontSize: '12px', color: '#94a8c0', marginBottom: '8px' }}>Hoyo de inicio:</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {Array.from({ length: holes - 1 }, (_, i) => i + 2).map(h => (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => setHoyoInicio(h)}
-                      style={{
-                        width: '38px', height: '38px', borderRadius: '10px',
-                        fontSize: '14px', fontWeight: hoyoInicio === h ? 700 : 400,
-                        background: hoyoInicio === h ? '#c4992a' : 'rgba(255,255,255,0.06)',
-                        color: hoyoInicio === h ? '#070d18' : '#94a8c0',
-                        border: `1px solid ${hoyoInicio === h ? '#c4992a' : 'rgba(255,255,255,0.1)'}`,
-                        cursor: 'pointer', transition: 'all 0.15s',
-                      }}
-                    >
-                      {h}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Admin Mode Toggle */}
-          <div style={{
-            background: colors.card,
-            border: `1px solid ${adminMode ? colors.gold : colors.cardBorder}`,
-            borderRadius: '16px',
-            padding: '20px',
-            marginBottom: '16px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            transition: 'border-color 0.2s',
-          }}>
-            <div
-              onClick={() => {
-                setAdminMode(prev => {
-                  if (!prev) {
-                    // Initialize with empty player slots
-                    setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '' }])
-                  } else {
-                    setAdminPlayers([])
-                  }
-                  return !prev
-                })
-              }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
-              }}
-            >
-              <div style={{
-                width: '40px', height: '24px', borderRadius: '12px',
-                background: adminMode ? colors.gold : '#d1d5db',
-                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-              }}>
-                <div style={{
-                  width: '18px', height: '18px', borderRadius: '50%', background: '#ffffff',
-                  position: 'absolute', top: '3px',
-                  left: adminMode ? '19px' : '3px',
-                  transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                }} />
-              </div>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary }}>Llevar el score de tu grupo</div>
-                <div style={{ fontSize: '11px', color: colors.textSecondary }}>Tu llevas la tarjeta de todos los jugadores</div>
-              </div>
-            </div>
-
-            {/* Admin mode player slots */}
-            {adminMode && (
-              <div style={{ marginTop: '16px', borderTop: `1px solid ${colors.cardBorder}`, paddingTop: '16px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-                  Jugadores de tu grupo ({1 + adminPlayers.filter(p => p.nombre.trim()).length}/4)
-                </label>
-
-                {/* Player 1 (creator) — read only */}
-                <div style={{ position: 'relative', marginBottom: '10px' }}>
-                  <input
-                    readOnly
-                    value={jugadores[0]}
-                    style={{
-                      background: colors.inputBg,
-                      border: `1px solid ${colors.inputBorder}`,
-                      color: colors.gold,
-                      borderRadius: '10px',
-                      padding: '12px 14px',
-                      fontSize: '16px',
-                      outline: 'none',
-                      width: '100%',
-                      boxSizing: 'border-box' as const,
-                      minHeight: '48px',
-                      cursor: 'default',
-                      paddingRight: '60px',
-                    }}
-                  />
-                  <span style={{
-                    position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                    fontSize: '11px', color: colors.textSecondary,
-                    background: 'rgba(196,153,42,0.1)', padding: '2px 7px', borderRadius: '10px',
-                  }}>
-                    Tu
-                  </span>
-                </div>
-
-                {/* Additional player slots */}
-                {adminPlayers.map((player, idx) => (
-                  <div key={idx} style={{
-                    marginBottom: '10px',
-                    background: colors.inputBg,
-                    border: `1px solid ${colors.cardBorder}`,
-                    borderRadius: '12px',
-                    padding: '12px',
-                  }}>
-                    {/* Type selector */}
-                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                      {(['cuenta', 'invitado'] as const).map(tipo => (
-                        <button
-                          key={tipo}
-                          type="button"
-                          onClick={() => updateAdminPlayer(idx, 'tipo', tipo)}
-                          style={{
-                            flex: 1, padding: '6px 10px', borderRadius: '8px',
-                            fontSize: '12px', fontWeight: player.tipo === tipo ? 600 : 400,
-                            background: player.tipo === tipo ? 'rgba(196,153,42,0.15)' : 'transparent',
-                            color: player.tipo === tipo ? colors.gold : colors.textSecondary,
-                            border: `1px solid ${player.tipo === tipo ? colors.gold : colors.cardBorder}`,
-                            cursor: 'pointer',
-                            minHeight: '32px',
-                          }}
-                        >
-                          {tipo === 'cuenta' ? 'Con cuenta' : 'Invitado'}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Name input */}
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        placeholder={player.tipo === 'cuenta' ? 'Nombre del jugador' : 'Nombre del invitado'}
-                        value={player.nombre}
-                        onChange={(e) => updateAdminPlayer(idx, 'nombre', e.target.value)}
-                        style={{
-                          background: colors.inputBg,
-                          border: `1px solid ${colors.inputBorder}`,
-                          color: colors.textPrimary,
-                          borderRadius: '10px',
-                          padding: '10px 12px',
-                          fontSize: '15px',
-                          outline: 'none',
-                          flex: 1,
-                          minHeight: '44px',
-                          boxSizing: 'border-box' as const,
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeAdminPlayer(idx)}
-                        style={{
-                          background: 'transparent',
-                          border: `1px solid ${colors.cardBorder}`,
-                          color: '#ef4444',
-                          borderRadius: '10px',
-                          padding: '8px 12px',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                          fontSize: '14px',
-                          minHeight: '44px',
-                          minWidth: '44px',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}
-                      >
-                        x
-                      </button>
-                    </div>
-
-                    {/* Phone input for guests */}
-                    {player.tipo === 'invitado' && (
-                      <input
-                        type="tel"
-                        placeholder="Telefono (WhatsApp, opcional)"
-                        value={player.telefono}
-                        onChange={(e) => updateAdminPlayer(idx, 'telefono', e.target.value)}
-                        style={{
-                          background: colors.inputBg,
-                          border: `1px solid ${colors.inputBorder}`,
-                          color: colors.textPrimary,
-                          borderRadius: '10px',
-                          padding: '10px 12px',
-                          fontSize: '15px',
-                          outline: 'none',
-                          width: '100%',
-                          minHeight: '44px',
-                          marginTop: '6px',
-                          boxSizing: 'border-box' as const,
-                        }}
-                      />
-                    )}
-                  </div>
-                ))}
-
-                {/* Add player button */}
-                {adminPlayers.length < 3 && (
-                  <button
-                    type="button"
-                    onClick={addAdminPlayer}
-                    style={{
-                      width: '100%',
-                      background: 'transparent',
-                      border: `1px dashed ${colors.gold}`,
-                      color: colors.gold,
-                      borderRadius: '10px',
-                      padding: '12px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      textAlign: 'center',
-                      minHeight: '44px',
-                    }}
-                  >
-                    + Agregar jugador al grupo
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Fecha */}
-          <div style={{
-            background: colors.card,
-            border: `1px solid ${colors.cardBorder}`,
-            borderRadius: '16px',
-            padding: '20px',
-            marginBottom: '16px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-          }}>
-            <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-              Fecha
-            </label>
-            <input
-              type="date"
-              value={fechaStr}
-              onChange={(e) => setFechaStr(e.target.value)}
-              style={{
-                background: colors.inputBg,
-                border: `1px solid ${colors.inputBorder}`,
-                color: colors.textPrimary,
-                borderRadius: '10px',
-                padding: '12px 14px',
-                fontSize: '16px',
-                outline: 'none',
-                width: '100%',
-                boxSizing: 'border-box' as const,
-                minHeight: '48px',
+                background: !adminMode ? 'rgba(196,153,42,0.06)' : colors.card,
+                border: `2px solid ${!adminMode ? colors.gold : colors.cardBorder}`,
+                borderRadius: '16px',
+                padding: '28px 24px',
                 cursor: 'pointer',
-                WebkitAppearance: 'none' as const,
-                appearance: 'none' as const,
+                textAlign: 'left',
+                transition: 'all 0.15s',
+                WebkitTapHighlightColor: 'transparent',
               }}
-            />
+            >
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>{'\u26F3'}</div>
+              <div style={{ fontSize: '17px', fontWeight: 700, color: colors.textPrimary, marginBottom: '4px' }}>
+                Cada uno marca su score
+              </div>
+              <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+                Cada jugador usa su celular
+              </div>
+            </button>
+
+            {/* Card: Yo llevo el score */}
+            <button
+              type="button"
+              onClick={() => {
+                setAdminMode(true)
+                setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
+                setStep(2)
+              }}
+              style={{
+                background: adminMode ? 'rgba(196,153,42,0.06)' : colors.card,
+                border: `2px solid ${adminMode ? colors.gold : colors.cardBorder}`,
+                borderRadius: '16px',
+                padding: '28px 24px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>{'\uD83D\uDCCB'}</div>
+              <div style={{ fontSize: '17px', fontWeight: 700, color: colors.textPrimary, marginBottom: '4px' }}>
+                Yo llevo el score del grupo
+              </div>
+              <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+                Tu marcas el score de todos
+              </div>
+            </button>
           </div>
+        )}
 
-          {/* Jugadores — hidden when admin mode is active */}
-          {!adminMode && <div style={{
-            background: colors.card,
-            border: `1px solid ${colors.cardBorder}`,
-            borderRadius: '16px',
-            padding: '20px',
-            marginBottom: '24px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-          }}>
-            <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-              Jugadores ({filledCount}/4)
-            </label>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {/* Jugador 1 (tu) */}
+        {/* ═══ STEP 2: Donde juegas? ═══ */}
+        {step === 2 && (
+          <div>
+            {/* Cancha — autocomplete */}
+            <div style={{
+              background: colors.card,
+              border: `1px solid ${colors.cardBorder}`,
+              borderRadius: '16px',
+              padding: '20px',
+              marginBottom: '16px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}>
               <div style={{ position: 'relative' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                  Cancha *
+                </label>
                 <input
-                  readOnly
-                  value={jugadores[0]}
+                  type="text"
+                  placeholder="Buscar cancha..."
+                  value={showCanchaDropdown ? canchaSearch : cancha}
+                  onChange={(e) => {
+                    setCanchaSearch(e.target.value)
+                    setShowCanchaDropdown(true)
+                    if (!e.target.value) { setCancha(''); setCourseId(null) }
+                  }}
+                  onFocus={() => {
+                    setCanchaSearch(cancha)
+                    setShowCanchaDropdown(true)
+                  }}
+                  onBlur={() => setTimeout(() => setShowCanchaDropdown(false), 200)}
                   style={{
                     background: colors.inputBg,
                     border: `1px solid ${colors.inputBorder}`,
-                    color: colors.gold,
+                    color: colors.textPrimary,
                     borderRadius: '10px',
                     padding: '12px 14px',
                     fontSize: '16px',
@@ -1208,133 +648,568 @@ export default function NuevaRondaLibrePage() {
                     width: '100%',
                     boxSizing: 'border-box' as const,
                     minHeight: '48px',
-                    cursor: 'default',
-                    paddingRight: '60px',
                   }}
                 />
+                {cancha && !showCanchaDropdown && (
+                  <button
+                    type="button"
+                    onClick={() => { setCancha(''); setCourseId(null); setCanchaSearch('') }}
+                    style={{
+                      position: 'absolute', right: '12px', top: '32px',
+                      background: 'none', border: 'none', color: colors.textLabel,
+                      fontSize: '18px', cursor: 'pointer', padding: '4px',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >{'\u00D7'}</button>
+                )}
+                {showCanchaDropdown && (() => {
+                  const q = canchaSearch.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                  const dbByName = new Map(coursesDB.map(c => [c.nombre, c]))
+                  const unified: { name: string; courseId: string | null; ciudad: string | null }[] = []
+                  const seen = new Set<string>()
+                  for (const name of CANCHAS_CHILE) {
+                    if (!name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) continue
+                    const db = dbByName.get(name)
+                    unified.push({ name, courseId: db?.id ?? null, ciudad: db?.ciudad ?? null })
+                    seen.add(name)
+                  }
+                  for (const c of coursesDB) {
+                    if (seen.has(c.nombre)) continue
+                    if (!c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) continue
+                    unified.push({ name: c.nombre, courseId: c.id, ciudad: c.ciudad })
+                  }
+                  const results = unified.slice(0, 10)
+                  const hasResults = results.length > 0
+
+                  if (!hasResults && canchaSearch.length < 1) return null
+
+                  return (
+                    <div style={{
+                      position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20,
+                      background: colors.inputBg, border: `1px solid ${colors.cardBorder}`,
+                      borderRadius: '10px', marginTop: '4px', maxHeight: '50vh', overflowY: 'auto',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                    }}>
+                      {results.map(c => (
+                        <button
+                          key={c.name}
+                          type="button"
+                          onMouseDown={() => {
+                            setCancha(c.name)
+                            setCourseId(c.courseId)
+                            setCanchaSearch(c.name)
+                            setShowCanchaDropdown(false)
+                          }}
+                          style={{
+                            display: 'block', width: '100%', textAlign: 'left',
+                            padding: '10px 14px', background: 'none', border: 'none',
+                            color: colors.textPrimary, fontSize: '14px', cursor: 'pointer',
+                            borderBottom: `1px solid ${colors.cardBorder}`,
+                          }}
+                        >
+                          {c.name}
+                          {c.ciudad && <span style={{ color: colors.textLabel, fontSize: '12px', marginLeft: '8px' }}>{'\u2014'} {c.ciudad}</span>}
+                        </button>
+                      ))}
+                      {!hasResults && canchaSearch.length >= 2 && (
+                        <button
+                          type="button"
+                          onMouseDown={() => {
+                            setCancha(canchaSearch)
+                            setCourseId(null)
+                            setShowCanchaDropdown(false)
+                          }}
+                          style={{
+                            display: 'block', width: '100%', textAlign: 'left',
+                            padding: '12px 14px', background: 'none', border: 'none',
+                            color: colors.gold, fontSize: '14px', cursor: 'pointer',
+                          }}
+                        >
+                          Usar &quot;{canchaSearch}&quot; como nombre de cancha
+                        </button>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+
+              {/* Course info badge */}
+              {courseDetails && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '10px 14px',
+                  background: 'rgba(196,153,42,0.08)',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  color: '#374151',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}>
+                  <span style={{ color: '#16a34a', fontWeight: 700 }}>{'\u2713'}</span>
+                  {courseDetails.par_total && <span>Par {courseDetails.par_total}</span>}
+                  {courseDetails.course_rating && <span>&middot; CR {courseDetails.course_rating}</span>}
+                  {courseDetails.slope_rating && <span>&middot; Slope {courseDetails.slope_rating}</span>}
+                  <span>&middot; Datos verificados</span>
+                </div>
+              )}
+
+              {/* Multi-loop selector */}
+              {courseLoops.length >= 2 && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '14px',
+                  background: 'rgba(196,153,42,0.05)',
+                  border: '1px solid rgba(196,153,42,0.2)',
+                  borderRadius: '12px',
+                }}>
+                  <div style={{ fontSize: '12px', color: colors.textLabel, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                    Recorridos (elige 2)
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {courseLoops.map(loop => {
+                      const isSelected = selectedLoops.includes(loop.recorrido)
+                      const canSelect = isSelected || selectedLoops.length < 2
+                      return (
+                        <button
+                          key={loop.recorrido}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedLoops(prev => prev.filter(l => l !== loop.recorrido))
+                            } else if (canSelect) {
+                              setSelectedLoops(prev => [...prev, loop.recorrido])
+                            }
+                          }}
+                          style={{
+                            padding: '10px 16px', borderRadius: '12px',
+                            border: '1px solid',
+                            cursor: canSelect || isSelected ? 'pointer' : 'default',
+                            fontSize: '14px',
+                            fontWeight: isSelected ? 600 : 400,
+                            background: isSelected ? colors.activeBtn : colors.inactiveBtn,
+                            borderColor: isSelected ? colors.activeBtn : colors.inputBorder,
+                            color: isSelected ? colors.activeBtnText : colors.inactiveBtnText,
+                            opacity: canSelect || isSelected ? 1 : 0.4,
+                            transition: 'all 0.15s',
+                            WebkitTapHighlightColor: 'transparent',
+                          }}
+                        >
+                          <div>{loop.recorrido}</div>
+                          <div style={{ fontSize: '10px', color: isSelected ? 'rgba(7,13,24,0.6)' : '#9ca3af', marginTop: '2px' }}>
+                            {loop.holes} hoyos &middot; Par {loop.par}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {selectedLoops.length > 0 && (
+                    <div style={{ fontSize: '12px', color: colors.gold, marginTop: '8px', fontWeight: 500 }}>
+                      {selectedLoops.join(' + ')} &middot; Par {courseLoops.filter(l => selectedLoops.includes(l.recorrido)).reduce((a, l) => a + l.par, 0)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Tees + Date row */}
+            <div style={{
+              background: colors.card,
+              border: `1px solid ${colors.cardBorder}`,
+              borderRadius: '16px',
+              padding: '20px',
+              marginBottom: '16px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}>
+              {/* Tees */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                  Tees
+                </label>
+                {courseTees.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {courseTees.map((t) => {
+                      const val = t.nombre.toLowerCase()
+                      const active = tees === val
+                      return (
+                        <button
+                          key={t.nombre}
+                          type="button"
+                          onClick={() => setTees(val)}
+                          style={{
+                            width: '100%', padding: '14px 16px', borderRadius: '12px',
+                            border: '1px solid',
+                            cursor: 'pointer', textAlign: 'left',
+                            fontWeight: active ? 600 : 400,
+                            background: active ? colors.activeBtn : '#f9fafb',
+                            borderColor: active ? colors.activeBtn : '#e5e7eb',
+                            color: active ? colors.activeBtnText : '#374151',
+                            transition: 'all 0.15s',
+                            WebkitTapHighlightColor: 'transparent',
+                          }}
+                        >
+                          <div style={{ fontSize: '14px', fontWeight: 600 }}>{t.nombre}</div>
+                          <div style={{ fontSize: '11px', color: active ? 'rgba(7,13,24,0.7)' : '#6b7280', marginTop: '2px' }}>
+                            {t.yardaje_total?.toLocaleString()} yds
+                            {t.rating ? ` \u00b7 CR ${t.rating}` : ''}
+                            {t.slope ? ` \u00b7 Slope ${t.slope}` : ''}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {TEES_OPTIONS.map((t) => {
+                      const val = t.toLowerCase()
+                      const active = tees === val
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setTees(val)}
+                          style={{
+                            padding: '10px 18px', borderRadius: '24px',
+                            border: '1px solid',
+                            cursor: 'pointer', fontSize: '14px', minHeight: '40px',
+                            fontWeight: active ? 600 : 400,
+                            background: active ? colors.activeBtn : colors.inactiveBtn,
+                            borderColor: active ? colors.activeBtn : colors.inputBorder,
+                            color: active ? colors.activeBtnText : colors.inactiveBtnText,
+                            transition: 'all 0.15s',
+                            WebkitTapHighlightColor: 'transparent',
+                          }}
+                        >
+                          {t}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Fecha */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                  Fecha
+                </label>
+                <input
+                  type="date"
+                  value={fechaStr}
+                  onChange={(e) => setFechaStr(e.target.value)}
+                  style={{
+                    background: colors.inputBg,
+                    border: `1px solid ${colors.inputBorder}`,
+                    color: colors.textPrimary,
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    fontSize: '16px',
+                    outline: 'none',
+                    width: '100%',
+                    boxSizing: 'border-box' as const,
+                    minHeight: '48px',
+                    cursor: 'pointer',
+                    WebkitAppearance: 'none' as const,
+                    appearance: 'none' as const,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Partida simultanea */}
+            <div style={{
+              background: colors.card,
+              border: `1px solid ${colors.cardBorder}`,
+              borderRadius: '16px',
+              padding: '16px 20px',
+              marginBottom: '24px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}>
+              <div
+                onClick={() => {
+                  setPartidaSimultanea(prev => { if (prev) setHoyoInicio(1); return !prev })
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer',
+                }}
+              >
+                <div style={{
+                  width: '40px', height: '24px', borderRadius: '12px',
+                  background: partidaSimultanea ? colors.gold : '#d1d5db',
+                  position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                }}>
+                  <div style={{
+                    width: '18px', height: '18px', borderRadius: '50%', background: '#ffffff',
+                    position: 'absolute', top: '3px',
+                    left: partidaSimultanea ? '19px' : '3px',
+                    transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 500, color: colors.textPrimary }}>Partida simultanea</div>
+                  <div style={{ fontSize: '11px', color: colors.textSecondary }}>Empieza en un hoyo distinto al 1</div>
+                </div>
+              </div>
+
+              {partidaSimultanea && (
+                <div style={{ marginTop: '12px', padding: '0 4px' }}>
+                  <div style={{ fontSize: '12px', color: colors.textSecondary, marginBottom: '8px' }}>Hoyo de inicio:</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {Array.from({ length: 17 }, (_, i) => i + 2).map(h => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => setHoyoInicio(h)}
+                        style={{
+                          width: '38px', height: '38px', borderRadius: '10px',
+                          fontSize: '14px', fontWeight: hoyoInicio === h ? 700 : 400,
+                          background: hoyoInicio === h ? colors.gold : '#f3f4f6',
+                          color: hoyoInicio === h ? '#ffffff' : colors.textSecondary,
+                          border: `1px solid ${hoyoInicio === h ? colors.gold : colors.cardBorder}`,
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >
+                        {h}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Nav buttons */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                style={{
+                  flex: 1, padding: '14px', background: 'transparent',
+                  border: `1px solid ${colors.cardBorder}`, borderRadius: '12px',
+                  color: colors.textSecondary, fontSize: '15px', fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                {'\u2190'} Atras
+              </button>
+              <button
+                type="button"
+                disabled={!cancha}
+                onClick={() => setStep(3)}
+                style={{
+                  flex: 2, padding: '14px',
+                  background: !cancha ? '#e5e7eb' : colors.gold,
+                  color: !cancha ? '#9ca3af' : colors.activeBtnText,
+                  border: 'none', borderRadius: '12px',
+                  fontSize: '16px', fontWeight: 600, cursor: !cancha ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                Siguiente {'\u2192'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ STEP 3: Con quien juegas? ═══ */}
+        {step === 3 && (
+          <div>
+            {/* Creator (read-only) */}
+            <div style={{
+              background: colors.card,
+              border: `1px solid ${colors.cardBorder}`,
+              borderRadius: '16px',
+              padding: '20px',
+              marginBottom: '16px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}>
+              <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                Jugadores
+              </label>
+
+              {/* Creator card */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 14px', borderRadius: '12px',
+                background: 'rgba(196,153,42,0.06)', border: `1px solid rgba(196,153,42,0.2)`,
+                marginBottom: '10px',
+              }}>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: colors.textPrimary }}>{creatorName}</div>
+                  <div style={{ fontSize: '12px', color: colors.textSecondary }}>
+                    HCP {creatorHandicap != null ? creatorHandicap : '--'}
+                  </div>
+                </div>
                 <span style={{
-                  position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                  fontSize: '11px', color: colors.textSecondary,
-                  background: 'rgba(196,153,42,0.1)', padding: '2px 7px', borderRadius: '10px',
+                  fontSize: '11px', color: colors.gold,
+                  background: 'rgba(196,153,42,0.1)', padding: '3px 10px', borderRadius: '10px', fontWeight: 600,
                 }}>
                   Tu
                 </span>
               </div>
 
-              {/* Jugadores 2-4 */}
-              {[1, 2, 3].map((idx) => {
-                const show = idx <= filledCount || jugadores[idx] !== ''
-                if (!show && filledCount < idx) return null
-                return (
-                  <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      placeholder="Nombre del jugador"
-                      value={jugadores[idx]}
-                      onChange={(e) => {
-                        const next = [...jugadores]
-                        next[idx] = e.target.value
-                        setJugadores(next)
-                      }}
-                      style={{
-                        background: colors.inputBg,
-                        border: `1px solid ${colors.inputBorder}`,
-                        color: colors.textPrimary,
-                        borderRadius: '10px',
-                        padding: '12px 14px',
-                        fontSize: '16px',
-                        outline: 'none',
-                        width: '100%',
-                        boxSizing: 'border-box' as const,
-                        minHeight: '48px',
-                      }}
-                    />
+              {/* Admin mode players */}
+              {adminMode && (
+                <>
+                  {adminPlayers.map((player, idx) => (
+                    <div key={idx} style={{
+                      marginBottom: '10px',
+                      background: colors.inputBg,
+                      border: `1px solid ${colors.cardBorder}`,
+                      borderRadius: '12px',
+                      padding: '12px',
+                    }}>
+                      {/* Type selector */}
+                      <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                        {(['cuenta', 'invitado'] as const).map(tipo => (
+                          <button
+                            key={tipo}
+                            type="button"
+                            onClick={() => updateAdminPlayer(idx, 'tipo', tipo)}
+                            style={{
+                              flex: 1, padding: '6px 10px', borderRadius: '8px',
+                              fontSize: '12px', fontWeight: player.tipo === tipo ? 600 : 400,
+                              background: player.tipo === tipo ? 'rgba(196,153,42,0.15)' : 'transparent',
+                              color: player.tipo === tipo ? colors.gold : colors.textSecondary,
+                              border: `1px solid ${player.tipo === tipo ? colors.gold : colors.cardBorder}`,
+                              cursor: 'pointer', minHeight: '32px',
+                            }}
+                          >
+                            {tipo === 'cuenta' ? 'Con cuenta' : 'Invitado'}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Name input */}
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
+                        <input
+                          type="text"
+                          placeholder={player.tipo === 'cuenta' ? 'Nombre del jugador' : 'Nombre del invitado'}
+                          value={player.nombre}
+                          onChange={(e) => updateAdminPlayer(idx, 'nombre', e.target.value)}
+                          style={{
+                            background: colors.inputBg, border: `1px solid ${colors.inputBorder}`,
+                            color: colors.textPrimary, borderRadius: '10px',
+                            padding: '10px 12px', fontSize: '15px', outline: 'none',
+                            flex: 1, minHeight: '44px', boxSizing: 'border-box' as const,
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeAdminPlayer(idx)}
+                          style={{
+                            background: 'transparent', border: `1px solid ${colors.cardBorder}`,
+                            color: '#ef4444', borderRadius: '10px', padding: '8px 12px',
+                            cursor: 'pointer', flexShrink: 0, fontSize: '14px',
+                            minHeight: '44px', minWidth: '44px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          x
+                        </button>
+                      </div>
+
+                      {/* HCP input */}
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <label style={{ fontSize: '12px', color: colors.textLabel, flexShrink: 0 }}>HCP</label>
+                        <input
+                          type="number"
+                          placeholder="--"
+                          value={player.handicap ?? ''}
+                          onChange={(e) => updateAdminPlayer(idx, 'handicap', e.target.value ? Number(e.target.value) : null)}
+                          style={{
+                            background: colors.inputBg, border: `1px solid ${colors.inputBorder}`,
+                            color: colors.textPrimary, borderRadius: '10px',
+                            padding: '8px 12px', fontSize: '14px', outline: 'none',
+                            width: '80px', minHeight: '38px', boxSizing: 'border-box' as const,
+                          }}
+                        />
+                      </div>
+
+                      {/* Phone input for guests */}
+                      {player.tipo === 'invitado' && (
+                        <input
+                          type="tel"
+                          placeholder="Telefono (WhatsApp, opcional)"
+                          value={player.telefono}
+                          onChange={(e) => updateAdminPlayer(idx, 'telefono', e.target.value)}
+                          style={{
+                            background: colors.inputBg, border: `1px solid ${colors.inputBorder}`,
+                            color: colors.textPrimary, borderRadius: '10px',
+                            padding: '10px 12px', fontSize: '15px', outline: 'none',
+                            width: '100%', minHeight: '44px', marginTop: '6px',
+                            boxSizing: 'border-box' as const,
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Add player button */}
+                  {adminPlayers.length < 3 && (
                     <button
                       type="button"
-                      onClick={() => {
-                        const next = [...jugadores]
-                        next[idx] = ''
-                        setJugadores(next)
-                      }}
+                      onClick={addAdminPlayer}
                       style={{
-                        background: 'transparent',
-                        border: `1px solid ${colors.cardBorder}`,
-                        color: '#ef4444',
-                        borderRadius: '10px',
-                        padding: '8px 12px',
-                        cursor: 'pointer',
-                        flexShrink: 0,
-                        fontSize: '14px',
-                        minHeight: '48px',
-                        WebkitTapHighlightColor: 'transparent',
+                        width: '100%', background: 'transparent',
+                        border: `1px dashed ${colors.gold}`, color: colors.gold,
+                        borderRadius: '10px', padding: '12px', cursor: 'pointer',
+                        fontSize: '14px', fontWeight: 500, textAlign: 'center', minHeight: '44px',
                       }}
                     >
-                      ×
+                      + Agregar jugador
                     </button>
-                  </div>
-                )
-              })}
+                  )}
+                </>
+              )}
 
-              {/* Add player button */}
-              {filledCount < 4 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const emptyIdx = jugadores.findIndex((j, i) => i > 0 && j.trim() === '')
-                    if (emptyIdx === -1) return
-                    const next = [...jugadores]
-                    next[emptyIdx] = ' '
-                    setJugadores(next)
-                    setTimeout(() => {
-                      setJugadores((prev) => {
-                        const arr = [...prev]
-                        arr[emptyIdx] = ''
-                        return arr
-                      })
-                    }, 0)
-                  }}
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid rgba(196,153,42,0.25)',
-                    color: colors.gold,
-                    borderRadius: '10px',
-                    padding: '12px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    textAlign: 'center',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
-                  + Agregar jugador
-                </button>
+              {/* Non-admin: simple note */}
+              {!adminMode && (
+                <div style={{
+                  padding: '14px',
+                  background: 'rgba(196,153,42,0.04)',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  color: colors.textSecondary,
+                  lineHeight: 1.5,
+                }}>
+                  Otros jugadores pueden unirse compartiendo el enlace despues de crear la ronda.
+                </div>
               )}
             </div>
-          </div>}
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading || !cancha}
-            style={{
-              width: '100%',
-              background: colors.gold,
-              color: colors.activeBtnText,
-              fontWeight: 700,
-              fontSize: '16px',
-              padding: '16px',
-              borderRadius: '14px',
-              border: 'none',
-              cursor: loading || !cancha ? 'not-allowed' : 'pointer',
-              opacity: loading || !cancha ? 0.35 : 1,
-              transition: 'all 0.15s',
-              boxShadow: '0 2px 8px rgba(196,153,42,0.3)',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            {loading ? 'Creando ronda...' : 'Crear ronda →'}
-          </button>
-        </form>
+            {/* Nav buttons */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                style={{
+                  flex: 1, padding: '14px', background: 'transparent',
+                  border: `1px solid ${colors.cardBorder}`, borderRadius: '12px',
+                  color: colors.textSecondary, fontSize: '15px', fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                {'\u2190'} Atras
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleSubmit}
+                style={{
+                  flex: 2, padding: '14px',
+                  background: loading ? '#e5e7eb' : colors.gold,
+                  color: loading ? '#9ca3af' : colors.activeBtnText,
+                  border: 'none', borderRadius: '12px',
+                  fontSize: '16px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+                  boxShadow: loading ? 'none' : '0 2px 8px rgba(196,153,42,0.3)',
+                  transition: 'all 0.15s',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                {loading ? 'Creando ronda...' : 'Crear ronda \u2192'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
