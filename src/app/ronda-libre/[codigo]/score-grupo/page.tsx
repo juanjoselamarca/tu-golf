@@ -64,15 +64,15 @@ function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && 
 
 /* ── Theme ── */
 const theme = {
-  bg: '#070d18',
-  card: '#0e1c2f',
-  text: '#edeae4',
-  textMuted: 'rgba(255,255,255,0.55)',
-  textFaint: 'rgba(255,255,255,0.3)',
-  border: 'rgba(196,153,42,0.12)',
+  bg: '#ffffff',
+  card: '#f8f9fa',
+  text: '#1a1a2e',
+  textMuted: '#4a5568',
+  textFaint: '#94a3b8',
+  border: '#e2e8f0',
   gold: '#C4992A',
-  navBg: 'rgba(7,13,24,0.95)',
-  headerBg: 'rgba(7,13,24,0.95)',
+  navBg: 'rgba(255,255,255,0.97)',
+  headerBg: 'rgba(255,255,255,0.97)',
 }
 
 /* ── Score color chip ── */
@@ -221,12 +221,13 @@ export default function ScoreGrupoPage() {
 
     const supabase = createClient()
     let allOk = true
-    for (const j of ronda.ronda_libre_jugadores) {
+    const savePromises = ronda.ronda_libre_jugadores.map(j => {
       const scoresObj: Record<string, number> = {}
-      for (const [k, v] of Object.entries(scores[j.id] ?? {})) scoresObj[k] = v
-      const { error } = await supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
-      if (error) allOk = false
-    }
+      for (const [k, v] of Object.entries(scores[j.id] ?? {})) scoresObj[String(k)] = v  // Explicit string keys for JSONB
+      return supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
+    })
+    const results = await Promise.all(savePromises)
+    if (results.some(r => r.error)) allOk = false
 
     if (allOk) {
       setSaveStatus('saved')
@@ -299,15 +300,15 @@ export default function ScoreGrupoPage() {
     }
     setScores(updatedScores)
 
-    // Save all
+    // Save ALL players in parallel, then finalize
     const supabase = createClient()
-    for (const j of ronda.ronda_libre_jugadores) {
+    const savePromises = ronda.ronda_libre_jugadores.map(j => {
       const scoresObj: Record<string, number> = {}
-      for (const [k, v] of Object.entries(updatedScores[j.id] ?? {})) scoresObj[k] = v
-      await supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
-    }
-
-    // Finalize round
+      for (const [k, v] of Object.entries(updatedScores[j.id] ?? {})) scoresObj[String(k)] = v  // Explicit string keys
+      return supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
+    })
+    await Promise.all(savePromises)
+    // NOW safe to finalize
     await supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
     router.push(`/ronda-libre/${codigo}?finished=true`)
   }
@@ -339,7 +340,7 @@ export default function ScoreGrupoPage() {
   const holesWithScores = (jId: string) => {
     let count = 0
     for (let h = 1; h <= totalHoles; h++) {
-      if (scores[jId]?.[h] != null) count++
+      if ((scores[jId]?.[h] ?? scores[jId]?.[String(h) as unknown as number]) != null) count++
     }
     return count
   }
@@ -349,7 +350,7 @@ export default function ScoreGrupoPage() {
   const getPlayerTotal = (jId: string) => {
     let gross = 0, parTotal = 0, out = 0, inn = 0
     for (let h = 1; h <= totalHoles; h++) {
-      const s = scores[jId]?.[h]
+      const s = scores[jId]?.[h] ?? scores[jId]?.[String(h) as unknown as number]  // Check BOTH key types
       if (s != null) {
         gross += s; parTotal += parMap[h] ?? 4
         if (h <= 9) out += s; else inn += s
@@ -432,7 +433,7 @@ export default function ScoreGrupoPage() {
       </header>
 
       {/* Progress bar */}
-      <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }}>
+      <div style={{ height: '3px', background: '#e2e8f0', flexShrink: 0 }}>
         <div style={{ height: '3px', background: theme.gold, width: `${(maxThru / totalHoles) * 100}%`, transition: 'width 0.3s ease' }} />
       </div>
 
@@ -449,8 +450,8 @@ export default function ScoreGrupoPage() {
                 <div style={{ fontSize: '8px', color: isActive ? theme.gold : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
                 <div style={{
                   width: '22px', height: '22px', borderRadius: '3px',
-                  background: allHaveScore ? 'rgba(196,153,42,0.2)' : isActive ? 'rgba(196,153,42,0.15)' : 'rgba(255,255,255,0.06)',
-                  border: isActive ? '1.5px solid #C4992A' : allHaveScore ? '1px solid rgba(196,153,42,0.3)' : '1px solid rgba(255,255,255,0.1)',
+                  background: allHaveScore ? 'rgba(196,153,42,0.12)' : isActive ? 'rgba(196,153,42,0.08)' : '#f3f4f6',
+                  border: isActive ? '1.5px solid #C4992A' : allHaveScore ? '1px solid rgba(196,153,42,0.3)' : '1px solid #e2e8f0',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '9px', color: allHaveScore ? theme.gold : 'transparent', fontWeight: 600,
                 }}>
@@ -463,7 +464,7 @@ export default function ScoreGrupoPage() {
       </div>
 
       {/* Hole info row */}
-      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: '#f8f9fa', flexShrink: 0 }}>
         {[
           { label: 'PAR', value: String(par) },
           { label: 'SI', value: String(holeData.stroke_index) },
@@ -573,8 +574,8 @@ export default function ScoreGrupoPage() {
                     style={{
                       width: '52px', height: '52px', borderRadius: '14px',
                       fontSize: '24px', fontWeight: 300,
-                      background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)',
-                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: '#f3f4f6', color: '#374151',
+                      border: '1px solid #e2e8f0',
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       touchAction: 'manipulation', userSelect: 'none',
                       opacity: playerScore != null && playerScore <= 1 ? 0.3 : 1,
@@ -587,7 +588,7 @@ export default function ScoreGrupoPage() {
                   <div style={{ textAlign: 'center', minWidth: '80px' }}>
                     <div style={{
                       fontSize: '42px', fontWeight: 700, lineHeight: 1,
-                      color: playerScore != null ? '#FFFFFF' : 'rgba(255,255,255,0.25)',
+                      color: playerScore != null ? '#1a1a2e' : '#d1d5db',
                       fontVariantNumeric: 'tabular-nums',
                     }}>
                       {displayScore}
@@ -629,7 +630,7 @@ export default function ScoreGrupoPage() {
                     style={{
                       width: '52px', height: '52px', borderRadius: '14px',
                       fontSize: '24px', fontWeight: 600,
-                      background: theme.gold, color: '#070D18', border: 'none',
+                      background: theme.gold, color: '#ffffff', border: 'none',
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       touchAction: 'manipulation', userSelect: 'none',
                       opacity: playerScore != null && playerScore >= 15 ? 0.3 : 1,
@@ -656,7 +657,7 @@ export default function ScoreGrupoPage() {
             onClick={goToPrevHole}
             style={{
               flex: 1, padding: '14px', background: 'transparent',
-              color: theme.textMuted, border: '1px solid rgba(255,255,255,0.08)',
+              color: theme.textMuted, border: '1px solid #e2e8f0',
               borderRadius: '12px', fontSize: '14px', fontWeight: 400,
               cursor: 'pointer', minHeight: '48px',
             }}
@@ -669,7 +670,7 @@ export default function ScoreGrupoPage() {
           style={{
             flex: 2, padding: '14px',
             background: isLastHole && confirmFinalize ? '#d97706' : theme.gold,
-            color: '#070D18',
+            color: '#ffffff',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
             cursor: 'pointer', minHeight: '48px',
             touchAction: 'manipulation', letterSpacing: '0.01em',

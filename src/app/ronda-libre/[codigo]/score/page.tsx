@@ -32,19 +32,19 @@ function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void })
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '480px', background: '#0e1c2f', borderRadius: '16px 16px 0 0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
-        <div style={{ width: '36px', height: '4px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', margin: '0 auto 16px' }} />
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '480px', background: '#ffffff', borderRadius: '16px 16px 0 0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
+        <div style={{ width: '36px', height: '4px', background: '#d1d5db', borderRadius: '2px', margin: '0 auto 16px' }} />
         <button onClick={() => doShare(scoreUrl, 'Únete a jugar en Golfers+')} style={{
-          width: '100%', padding: '16px', marginBottom: '8px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', color: '#EDE9E4', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
+          width: '100%', padding: '16px', marginBottom: '8px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
         }}>
           <span style={{ fontSize: '20px' }}>🏌️</span> Invitar a jugar
         </button>
         <button onClick={() => doShare(liveUrl, 'Sigue mi ronda en vivo en Golfers+')} style={{
-          width: '100%', padding: '16px', background: 'rgba(37,211,102,0.08)', border: '1px solid rgba(37,211,102,0.25)', borderRadius: '12px', color: '#EDE9E4', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
+          width: '100%', padding: '16px', background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
         }}>
           <span style={{ fontSize: '20px' }}>👁</span> Seguir en vivo
         </button>
-        <button onClick={onClose} style={{ width: '100%', padding: '14px', marginTop: '8px', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '14px', cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={onClose} style={{ width: '100%', padding: '14px', marginTop: '8px', background: 'none', border: 'none', color: '#94a3b8', fontSize: '14px', cursor: 'pointer' }}>Cancelar</button>
       </div>
     </div>
   )
@@ -164,22 +164,22 @@ function ScorePageContent() {
 
   // Dark theme permanent — consistent with all other scoring pages
   const theme = {
-    bg: '#070d18',
-    card: '#0e1c2f',
-    text: '#edeae4',
-    textMuted: 'rgba(255,255,255,0.55)',
-    textFaint: 'rgba(255,255,255,0.3)',
-    border: 'rgba(196,153,42,0.12)',
-    badgeBg: 'rgba(255,255,255,0.06)',
-    badgeBorder: 'rgba(255,255,255,0.1)',
-    badgeText: 'rgba(255,255,255,0.7)',
-    scoreText: '#FFFFFF',
-    scoreDimmed: 'rgba(255,255,255,0.25)',
-    buttonBg: 'rgba(255,255,255,0.06)',
-    buttonBorder: 'rgba(255,255,255,0.1)',
-    buttonText: 'rgba(255,255,255,0.7)',
-    navBg: 'rgba(7,13,24,0.95)',
-    headerBg: 'rgba(7,13,24,0.95)',
+    bg: '#ffffff',
+    card: '#f8f9fa',
+    text: '#1a1a2e',
+    textMuted: '#4a5568',
+    textFaint: '#94a3b8',
+    border: '#e2e8f0',
+    badgeBg: '#f3f4f6',
+    badgeBorder: '#e2e8f0',
+    badgeText: '#374151',
+    scoreText: '#1a1a2e',
+    scoreDimmed: '#d1d5db',
+    buttonBg: '#f3f4f6',
+    buttonBorder: '#e2e8f0',
+    buttonText: '#374151',
+    navBg: 'rgba(255,255,255,0.97)',
+    headerBg: 'rgba(255,255,255,0.97)',
   }
 
   const retryCountRef = useRef(0)
@@ -338,7 +338,7 @@ function ScorePageContent() {
     }
 
     const scoresObj: Record<string, number> = {}
-    for (const [k, v] of Object.entries(holeScores)) scoresObj[k] = v
+    for (const [k, v] of Object.entries(holeScores)) scoresObj[String(k)] = v  // Explicit string keys for JSONB
 
     let success = false
     retryCountRef.current = 0
@@ -687,7 +687,7 @@ function ScorePageContent() {
             : saveStatus === 'saved' ? 'rgba(0,230,118,0.85)'
             : saveStatus === 'offline' ? 'rgba(252,211,77,0.9)'
             : 'rgba(255,68,68,0.9)',
-          color: saveStatus === 'saved' ? '#070d18' : saveStatus === 'offline' ? '#070d18' : '#ffffff',
+          color: saveStatus === 'saved' ? '#1a1a2e' : saveStatus === 'offline' ? '#1a1a2e' : '#ffffff',
           animation: saveStatus === 'saving' ? 'savePulse 1s ease infinite' : 'none',
           pointerEvents: 'none',
         }}>
@@ -729,7 +729,7 @@ function ScorePageContent() {
         </div>
       </header>
       {/* Progress bar */}
-      <div style={{ height: '3px', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }}>
+      <div style={{ height: '3px', background: '#e2e8f0', flexShrink: 0 }}>
         <div style={{ height: '3px', background: '#C4992A', width: `${(holesPlayed / totalHoles) * 100}%`, transition: 'width 0.3s ease' }} />
       </div>
 
@@ -762,7 +762,7 @@ function ScorePageContent() {
                     borderRadius: diff != null && diff < 0 ? '50%' : '2px',
                     boxShadow: isActive ? '0 0 0 1.5px #C4992A' : 'none',
                   }}>
-                    {s === 1 ? <span style={{ color: '#070d18', fontWeight: 800 }}>1</span> : s}
+                    {s === 1 ? <span style={{ color: '#ffffff', fontWeight: 800 }}>1</span> : s}
                   </div>
                 ) : (
                   <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : theme.badgeBg, border: isActive ? '1.5px solid #C4992A' : `1px solid ${theme.badgeBorder}` }} />
@@ -800,7 +800,7 @@ function ScorePageContent() {
                     borderRadius: diff != null && diff < 0 ? '50%' : '2px',
                     boxShadow: isActive ? '0 0 0 1.5px #C4992A' : 'none',
                   }}>
-                    {s === 1 ? <span style={{ color: '#070d18', fontWeight: 800 }}>1</span> : s}
+                    {s === 1 ? <span style={{ color: '#ffffff', fontWeight: 800 }}>1</span> : s}
                   </div>
                 ) : (
                   <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : theme.badgeBg, border: isActive ? '1.5px solid #C4992A' : `1px solid ${theme.badgeBorder}` }} />
@@ -827,7 +827,7 @@ function ScorePageContent() {
       </div>
 
       {/* ── Hole info: 3-4 columns + share ── */}
-      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: '#f8f9fa', flexShrink: 0 }}>
         {[
           { label: 'PAR', value: String(par) },
           { label: 'SI', value: String(holeData.stroke_index) },
@@ -852,13 +852,13 @@ function ScorePageContent() {
 
       {/* ── Toggle Scorecard / Leaderboard (multi-player only) ── */}
       {jugadores.length > 1 && (
-        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.07)', borderRadius: '20px', padding: '2px', margin: '5px 16px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '20px', padding: '2px', margin: '5px 16px', flexShrink: 0 }}>
           {(['scorecard', 'leaderboard'] as const).map(v => (
             <button key={v} onClick={() => setView(v)} style={{
               flex: 1, padding: '6px', borderRadius: '16px', fontSize: '12px', fontWeight: 500,
               border: 'none', cursor: 'pointer',
               background: view === v ? '#C4992A' : 'transparent',
-              color: view === v ? '#070D18' : theme.textFaint,
+              color: view === v ? '#ffffff' : theme.textFaint,
               transition: 'all 0.15s ease', WebkitTapHighlightColor: 'transparent',
             }}>
               {v === 'scorecard' ? 'Scorecard' : 'Leaderboard'}
@@ -869,7 +869,7 @@ function ScorePageContent() {
 
       {/* ── Player tabs (multi-player only, scorecard view) ── */}
       {jugadores.length > 1 && view === 'scorecard' && (
-        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${'rgba(255,255,255,0.06)'}`, WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
+        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid #e2e8f0`, WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
           {jugadores.map(j => {
             const active = j.id === activeJugadorId
             return (
@@ -976,7 +976,7 @@ function ScorePageContent() {
           style={{
             width: '80px', height: '80px', borderRadius: '20px',
             fontSize: '32px', fontWeight: 600,
-            background: '#C4992A', color: '#070D18', border: 'none',
+            background: '#C4992A', color: '#ffffff', border: 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
             userSelect: 'none', transition: 'transform 0.08s ease-out',
@@ -1031,7 +1031,7 @@ function ScorePageContent() {
             aria-label="Hoyo anterior"
             style={{
               flex: 1, padding: '14px', background: 'transparent',
-              color: theme.textMuted, border: `1px solid ${'rgba(255,255,255,0.08)'}`,
+              color: theme.textMuted, border: `1px solid #e2e8f0`,
               borderRadius: '12px', fontSize: '14px', fontWeight: 400,
               cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             }}
@@ -1044,7 +1044,7 @@ function ScorePageContent() {
           style={{
             flex: 2, padding: '14px',
             background: (isLastHole && confirmFinalize) ? '#dc2626' : '#C4992A',
-            color: (isLastHole && confirmFinalize) ? '#ffffff' : '#070D18',
+            color: (isLastHole && confirmFinalize) ? '#ffffff' : '#ffffff',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
             cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             touchAction: 'manipulation', letterSpacing: '0.01em',
@@ -1055,16 +1055,16 @@ function ScorePageContent() {
 
       {/* ── tAIger banners ── */}
       {taigerStatus === 'analyzing' && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90, background: 'rgba(14,28,47,0.97)', borderTop: '1px solid rgba(196,153,42,0.3)', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', textAlign: 'center' }}>
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90, background: 'rgba(255,255,255,0.97)', borderTop: '1px solid #e2e8f0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', textAlign: 'center' }}>
           <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>tAIger+ esta analizando tu ronda...</div>
-          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>Esto toma unos segundos</div>
+          <div style={{ color: '#94a3b8', fontSize: '13px' }}>Esto toma unos segundos</div>
         </div>
       )}
       {taigerStatus === 'ready' && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90, background: 'rgba(14,28,47,0.97)', borderTop: '1px solid rgba(196,153,42,0.3)', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', textAlign: 'center' }}>
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90, background: 'rgba(255,255,255,0.97)', borderTop: '1px solid #e2e8f0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', textAlign: 'center' }}>
           <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Tu analisis esta listo</div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{ background: '#c4992a', color: '#070d18', padding: '12px 24px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}>Ver analisis {'\u2192'}</Link>
+            <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{ background: '#c4992a', color: '#ffffff', padding: '12px 24px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}>Ver analisis {'\u2192'}</Link>
             <Link href={`/ronda-libre/${codigo}?finished=true`} style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '12px 24px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>Ver scorecard</Link>
           </div>
         </div>
@@ -1158,24 +1158,24 @@ function ScorePageContent() {
                 const back9 = holeNums.slice(9, 18).reduce((sum, h) => sum + (playerScores[h] ?? 0), 0)
                 const cColor = (h: number) => {
                   const s = playerScores[h]; const p = parMap[h] ?? 4
-                  if (s == null) return 'rgba(255,255,255,0.2)'
+                  if (s == null) return '#d1d5db'
                   const d = s - p
                   if (d <= -2) return '#c4992a'
                   if (d === -1) return '#4ade80'
-                  if (d === 0) return 'rgba(255,255,255,0.7)'
+                  if (d === 0) return '#4a5568'
                   if (d === 1) return '#fbbf24'
                   return '#f87171'
                 }
                 return (
-                  <div style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '10px', marginBottom: '20px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <div style={{ width: '100%', background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px', marginBottom: '20px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     <table style={{ width: '100%', minWidth: '300px', borderCollapse: 'collapse' }}>
                       <tbody>
                         {/* Front 9 */}
                         <tr>
                           {holeNums.slice(0, 9).map(h => (
-                            <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>{h}</td>
+                            <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: '#94a3b8' }}>{h}</td>
                           ))}
-                          <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, borderLeft: '1px solid rgba(255,255,255,0.08)' }}>OUT</td>
+                          <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: '#4a5568', fontWeight: 700, borderLeft: '1px solid #e2e8f0' }}>OUT</td>
                         </tr>
                         <tr>
                           {holeNums.slice(0, 9).map(h => (
@@ -1183,7 +1183,7 @@ function ScorePageContent() {
                               <span style={{ fontSize: '13px', fontWeight: 700, color: cColor(h) }}>{playerScores[h] ?? '·'}</span>
                             </td>
                           ))}
-                          <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: '#edeae4', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>{front9}</td>
+                          <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: '#1a1a2e', borderLeft: '1px solid #e2e8f0' }}>{front9}</td>
                         </tr>
                         {/* Back 9 */}
                         {totalHoles > 9 && (
@@ -1191,9 +1191,9 @@ function ScorePageContent() {
                             <tr><td colSpan={10} style={{ padding: '3px' }} /></tr>
                             <tr>
                               {holeNums.slice(9, 18).map(h => (
-                                <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.25)' }}>{h}</td>
+                                <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: '#94a3b8' }}>{h}</td>
                               ))}
-                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, borderLeft: '1px solid rgba(255,255,255,0.08)' }}>IN</td>
+                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: '#4a5568', fontWeight: 700, borderLeft: '1px solid #e2e8f0' }}>IN</td>
                             </tr>
                             <tr>
                               {holeNums.slice(9, 18).map(h => (
@@ -1201,12 +1201,12 @@ function ScorePageContent() {
                                   <span style={{ fontSize: '13px', fontWeight: 700, color: cColor(h) }}>{playerScores[h] ?? '·'}</span>
                                 </td>
                               ))}
-                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: '#edeae4', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>{back9}</td>
+                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: '#1a1a2e', borderLeft: '1px solid #e2e8f0' }}>{back9}</td>
                             </tr>
                             {/* Total */}
                             <tr>
-                              <td colSpan={9} style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '4px 0 0' }} />
-                              <td style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '4px 3px 0', textAlign: 'center', fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>{finalScore.gross}</td>
+                              <td colSpan={9} style={{ borderTop: '1px solid #e2e8f0', padding: '4px 0 0' }} />
+                              <td style={{ borderTop: '1px solid #e2e8f0', padding: '4px 3px 0', textAlign: 'center', fontSize: '15px', fontWeight: 900, color: '#1a1a2e' }}>{finalScore.gross}</td>
                             </tr>
                           </>
                         )}
@@ -1232,8 +1232,8 @@ function ScorePageContent() {
                           Ver leaderboard en vivo
                         </Link>
                         <button onClick={handleShareCard} style={{
-                          width: '100%', padding: '14px', background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid rgba(255,255,255,0.12)', color: '#edeae4',
+                          width: '100%', padding: '14px', background: '#f3f4f6',
+                          border: '1px solid #e2e8f0', color: '#1a1a2e',
                           fontWeight: 600, fontSize: '14px', borderRadius: '12px', cursor: 'pointer',
                         }}>
                           Compartir mi score
@@ -1261,7 +1261,7 @@ function ScorePageContent() {
                       style={{
                         width: '100%', padding: '12px',
                         background: 'none', border: 'none',
-                        color: 'rgba(255,255,255,0.35)', fontSize: '14px',
+                        color: '#94a3b8', fontSize: '14px',
                         cursor: 'pointer',
                       }}
                     >
@@ -1271,7 +1271,7 @@ function ScorePageContent() {
                 )
               })()}
 
-              <p style={{ color: 'rgba(255,255,255,0.15)', fontSize: '11px', marginTop: '16px' }}>Golfers+ · El golf amateur en español</p>
+              <p style={{ color: '#d1d5db', fontSize: '11px', marginTop: '16px' }}>Golfers+ · El golf amateur en español</p>
             </div>
 
             {/* Confetti + trophy animations */}
