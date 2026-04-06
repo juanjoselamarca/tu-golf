@@ -171,7 +171,7 @@ export async function GET() {
   const processedRounds: HistorialRound[] = []
 
   // Course stats accumulator
-  const courseStats = new Map<string, { count: number; totalScore: number; bestScore: number }>()
+  const courseStats = new Map<string, { count: number; totalScore: number; bestScore: number; bestVsPar: number }>()
 
   for (const raw of rawRounds) {
     const scores = (raw.scores ?? []).filter((s): s is number => s != null && typeof s === 'number')
@@ -235,15 +235,17 @@ export async function GET() {
       rounds9.push({ round: histRound, totalPar })
     }
 
-    // Course stats
+    // Course stats — usar vsPar para comparar rondas de distinto largo
     const cName = raw.course_name
+    const roundVsPar = vsPar ?? (totalGross - (holesPlayed <= 9 ? 36 : 72))
     const existing = courseStats.get(cName)
     if (existing) {
       existing.count++
       existing.totalScore += totalGross
       existing.bestScore = Math.min(existing.bestScore, totalGross)
+      existing.bestVsPar = Math.min(existing.bestVsPar, roundVsPar)
     } else {
-      courseStats.set(cName, { count: 1, totalScore: totalGross, bestScore: totalGross })
+      courseStats.set(cName, { count: 1, totalScore: totalGross, bestScore: totalGross, bestVsPar: roundVsPar })
     }
   }
 
@@ -322,6 +324,7 @@ export async function GET() {
       roundCount: stats.count,
       avgScore: Math.round((stats.totalScore / stats.count) * 10) / 10,
       bestScore: stats.bestScore,
+      bestVsPar: stats.bestVsPar,
     }))
 
   // Rounds grouped by month

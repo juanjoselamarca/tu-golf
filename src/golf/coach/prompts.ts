@@ -221,7 +221,7 @@ export function buildContextString(context: TaigerContext): string {
     : 'Sin patrones estadísticos aún (necesita más rondas)'
 
   const sgText = stats.avg_score && indice
-    ? `Score promedio: ${stats.avg_score.toFixed(1)} (sobre ${stats.total_rounds ?? '?'} rondas)\nÍndice actual: ${indice}`
+    ? `Score promedio: ${stats.avg_score.toFixed(1)}\nÍndice actual: ${indice}`
     : 'Sin suficientes datos estadísticos'
 
   // Build session history section

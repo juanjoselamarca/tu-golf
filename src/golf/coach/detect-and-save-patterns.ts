@@ -22,7 +22,7 @@ export async function detectAndSavePatterns(
 ): Promise<DetectResult> {
   const { data: rounds } = await supabase
     .from('historical_rounds')
-    .select('scores, total_gross, metadata')
+    .select('scores, total_gross, holes_played, metadata')
     .eq('user_id', userId)
     .not('scores', 'is', null)
     .limit(50)
@@ -31,15 +31,20 @@ export async function detectAndSavePatterns(
     return { detected: 0, total_rounds: rounds?.length ?? 0, patterns: [] }
   }
 
-  // Map DB rows to PatternRound interface
-  const patternRounds: PatternRound[] = rounds.map(r => ({
-    scores: r.scores as (number | null)[],
-    total_gross: r.total_gross,
-    par_total: 72, // standard
-    course_name: '',
-    played_at: '',
-    metadata: r.metadata as Record<string, unknown> | null,
-  }))
+  // Map DB rows to PatternRound interface (solo rondas de 18 hoyos para patrones)
+  const patternRounds: PatternRound[] = rounds
+    .filter(r => {
+      const holes = (r as Record<string, unknown>).holes_played as number | null
+      return !holes || holes >= 18
+    })
+    .map(r => ({
+      scores: r.scores as (number | null)[],
+      total_gross: r.total_gross,
+      par_total: 72,
+      course_name: '',
+      played_at: '',
+      metadata: r.metadata as Record<string, unknown> | null,
+    }))
 
   const detected = detectPatterns(patternRounds)
 

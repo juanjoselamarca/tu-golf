@@ -621,6 +621,7 @@ function ScorePageContent() {
   }
   const totalOverUnder = totalGross - totalParPlayed
   const holesPlayed = Object.keys(scores[activeJugadorId] ?? {}).length
+  const canFinalize = holesPlayed >= 9 || currentHoleIdx >= totalHoles - 1
 
   // FIX #6: Front 9 / Back 9 totals
   let f9Gross = 0, f9Par = 0, f9Count = 0
@@ -1047,20 +1048,41 @@ function ScorePageContent() {
             }}
           >{'\u2190'} Anterior</button>
         )}
-        <button
-          onTouchStart={() => {}}
-          onClick={isLastHole ? finalizeRound : () => { setConfirmFinalize(false); goToNextHole() }}
-          aria-label={isLastHole ? (confirmFinalize ? 'Confirmar finalización' : 'Finalizar ronda') : 'Siguiente hoyo'}
-          style={{
-            flex: 2, padding: '14px',
-            background: (isLastHole && confirmFinalize) ? '#dc2626' : '#C4992A',
-            color: (isLastHole && confirmFinalize) ? '#ffffff' : '#ffffff',
-            border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
-            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-            touchAction: 'manipulation', letterSpacing: '0.01em',
-            transition: 'background 0.3s ease',
-          }}
-        >{isLastHole ? (confirmFinalize ? 'Confirmar finalización' : 'Finalizar ronda \u2713') : 'Siguiente \u2192'}</button>
+        {/* Primary button: Siguiente or Finalizar (on last hole) */}
+        {!isLastHole && (
+          <button
+            onTouchStart={() => {}}
+            onClick={() => { setConfirmFinalize(false); goToNextHole() }}
+            aria-label="Siguiente hoyo"
+            style={{
+              flex: 2, padding: '14px',
+              background: '#C4992A', color: '#ffffff',
+              border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation', letterSpacing: '0.01em',
+            }}
+          >Siguiente {'\u2192'}</button>
+        )}
+        {/* Finalize button: secondary from hole 9, primary on last hole */}
+        {canFinalize && (
+          <button
+            onTouchStart={() => {}}
+            onClick={finalizeRound}
+            aria-label={confirmFinalize ? 'Confirmar finalizacion' : 'Finalizar ronda'}
+            style={{
+              flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
+              background: confirmFinalize ? '#dc2626' : isLastHole ? '#C4992A' : 'transparent',
+              color: confirmFinalize ? '#ffffff' : isLastHole ? '#ffffff' : '#C4992A',
+              border: isLastHole ? 'none' : '1px solid rgba(196,153,42,0.4)',
+              borderRadius: '12px',
+              fontSize: isLastHole ? '16px' : '13px',
+              fontWeight: isLastHole ? 600 : 500,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation', letterSpacing: '0.01em',
+              transition: 'background 0.3s ease',
+            }}
+          >{confirmFinalize ? 'Confirmar finalizacion' : 'Finalizar ronda \u2713'}</button>
+        )}
       </div>
 
       {/* ── tAIger banners ── */}

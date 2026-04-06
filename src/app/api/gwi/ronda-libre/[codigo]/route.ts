@@ -65,7 +65,7 @@ export async function GET(
         .in('id', userIds.length > 0 ? userIds : ['']),
       supabase
         .from('historical_rounds')
-        .select('user_id, total_gross, course_name')
+        .select('user_id, total_gross, course_name, holes_played')
         .in('user_id', userIds.length > 0 ? userIds : [''])
         .not('total_gross', 'is', null)
         .order('played_at', { ascending: false }),
@@ -130,7 +130,12 @@ export async function GET(
       let courseRoundsCount = 0
 
       if (j.user_id) {
-        const rounds = histByUser.get(j.user_id)?.slice(0, 30) ?? []
+        // Filtrar histórico al mismo tipo de ronda (9 o 18 hoyos)
+        const allRounds = histByUser.get(j.user_id)?.slice(0, 60) ?? []
+        const rounds = allRounds.filter(r => {
+          const h = (r as Record<string, unknown>).holes_played as number | null
+          return !h || (totalHoyos <= 9 ? h <= 9 : h >= 18)
+        }).slice(0, 30)
 
         if (rounds.length > 0) {
           historicalRoundsCount = rounds.length

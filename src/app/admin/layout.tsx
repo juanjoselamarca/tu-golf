@@ -10,6 +10,7 @@ import { adminColors } from '@/components/admin/admin-tokens'
 
 const NAV_ITEMS = [
   { href: '/admin',            icon: '\u26A1', label: 'Command' },
+  { href: '/admin/usuarios',   icon: '\uD83D\uDC65', label: 'Usuarios' },
   { href: '/admin/analytics',  icon: '\uD83D\uDCCA', label: 'Analytics' },
   { href: '/admin/golf-ops',   icon: '\u26F3',  label: 'Golf Ops' },
   { href: '/admin/finanzas',   icon: '\uD83D\uDCB0', label: 'Finanzas' },
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
 
 const SECTION_NAMES: Record<string, string> = {
   '/admin': 'Command Center',
+  '/admin/usuarios': 'Usuarios',
   '/admin/analytics': 'Analytics',
   '/admin/golf-ops': 'Golf Ops',
   '/admin/finanzas': 'Finanzas',

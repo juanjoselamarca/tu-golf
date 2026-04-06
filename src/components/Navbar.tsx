@@ -375,15 +375,7 @@ export default function Navbar() {
       {/* ── Bottom Nav Bar (mobile only, logged in) ────── */}
       {user && (
         <>
-          {/* CSS for mobile-only visibility */}
-          <style>{`
-            .bottom-nav-bar { display: none !important; }
-            @media (max-width: 767px) {
-              .bottom-nav-bar { display: flex !important; }
-            }
-          `}</style>
-
-          <nav className="bottom-nav-bar" style={{
+          <nav style={{
             position: 'fixed',
             bottom: 0, left: 0, right: 0,
             paddingBottom: 'env(safe-area-inset-bottom, 0px)',
@@ -394,7 +386,7 @@ export default function Navbar() {
             {/* Gold accent line at top */}
             <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent 10%, rgba(196,153,42,0.25) 50%, transparent 90%)' }} />
 
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '52px', padding: '0 8px', width: '100%', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '52px', padding: '0 8px', maxWidth: '600px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
 
               {/* Inicio */}
               {(() => {

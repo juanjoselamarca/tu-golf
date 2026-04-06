@@ -290,17 +290,12 @@ export default function ScoreGrupoPage() {
     }
   }, [currentHole])
 
-  /* ── Reset confirmation when leaving last hole ── */
+  /* ── Reset confirmation when changing holes ── */
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (!ronda) return
-    const orden = generarOrdenHoyos(ronda.hoyo_inicio ?? 1, ronda.holes)
-    const isOnLast = orden.indexOf(currentHole) >= orden.length - 1
-    if (!isOnLast) {
-      setConfirmFinalize(false)
-      if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
-    }
-  }, [currentHole, ronda])
+    setConfirmFinalize(false)
+    if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
+  }, [currentHole])
 
   /* ── Finalize ── */
   const finalizeRound = async () => {
@@ -363,7 +358,7 @@ export default function ScoreGrupoPage() {
   const modoLabel = modoJuego === 'gross' ? 'Gross' : modoJuego === 'neto' ? 'Neto' : 'Stableford'
   const showNetStableford = modoJuego !== 'gross'
 
-  // Calculate totals for thru indicator
+  // Calculate totals for thru indicator + canFinalize
   const holesWithScores = (jId: string) => {
     let count = 0
     for (let h = 1; h <= totalHoles; h++) {
@@ -372,6 +367,7 @@ export default function ScoreGrupoPage() {
     return count
   }
   const maxThru = Math.max(...jugadores.map(j => holesWithScores(j.id)), 0)
+  const canFinalize = maxThru >= 9 || currentHoleIdx >= totalHoles - 1
 
   // Player totals with OUT/IN breakdown
   const getPlayerTotal = (jId: string) => {
@@ -692,26 +688,45 @@ export default function ScoreGrupoPage() {
             {'\u2190'} Anterior
           </button>
         )}
-        <button
-          onClick={isLastHole ? finalizeRound : goToNextHole}
-          disabled={finalizing}
-          style={{
-            flex: 2, padding: '14px',
-            background: finalizing ? '#9ca3af' : isLastHole && confirmFinalize ? '#d97706' : theme.gold,
-            color: '#ffffff',
-            border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
-            cursor: finalizing ? 'not-allowed' : 'pointer', minHeight: '48px',
-            touchAction: 'manipulation', letterSpacing: '0.01em',
-            transition: 'background 0.2s ease',
-            opacity: finalizing ? 0.7 : 1,
-          }}
-        >
-          {finalizing
-            ? 'Finalizando...'
-            : isLastHole
-              ? confirmFinalize ? '\u00bfFinalizar ronda?' : 'Finalizar ronda \u2713'
-              : 'Siguiente \u2192'}
-        </button>
+        {/* Primary: Siguiente (hidden on last hole) */}
+        {!isLastHole && (
+          <button
+            onClick={goToNextHole}
+            style={{
+              flex: 2, padding: '14px',
+              background: theme.gold, color: '#ffffff',
+              border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
+              cursor: 'pointer', minHeight: '48px',
+              touchAction: 'manipulation', letterSpacing: '0.01em',
+            }}
+          >
+            Siguiente {'\u2192'}
+          </button>
+        )}
+        {/* Finalize: secondary from hole 9, primary on last hole */}
+        {canFinalize && (
+          <button
+            onClick={finalizeRound}
+            disabled={finalizing}
+            style={{
+              flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
+              background: finalizing ? '#9ca3af' : confirmFinalize ? '#d97706' : isLastHole ? theme.gold : 'transparent',
+              color: finalizing ? '#ffffff' : confirmFinalize ? '#ffffff' : isLastHole ? '#ffffff' : theme.gold,
+              border: isLastHole ? 'none' : `1px solid rgba(196,153,42,0.4)`,
+              borderRadius: '12px',
+              fontSize: isLastHole ? '16px' : '13px',
+              fontWeight: isLastHole ? 600 : 500,
+              cursor: finalizing ? 'not-allowed' : 'pointer', minHeight: '48px',
+              touchAction: 'manipulation', letterSpacing: '0.01em',
+              transition: 'background 0.2s ease',
+              opacity: finalizing ? 0.7 : 1,
+            }}
+          >
+            {finalizing
+              ? 'Finalizando...'
+              : confirmFinalize ? '\u00bfFinalizar ronda?' : 'Finalizar ronda \u2713'}
+          </button>
+        )}
       </div>
 
       {/* Animations */}

@@ -80,7 +80,7 @@ export async function GET(
     const [{ data: allHist }, { data: allPatterns }] = await Promise.all([
       supabase
         .from('historical_rounds')
-        .select('user_id, total_gross')
+        .select('user_id, total_gross, holes_played')
         .in('user_id', userIds)
         .not('total_gross', 'is', null)
         .order('played_at', { ascending: false }),
@@ -130,7 +130,12 @@ export async function GET(
       let historicalAvg: number | null = null
       let historicalRoundsCount = 0
 
-      const histRounds = histByUser.get(p.user_id)?.slice(0, 20) ?? []
+      // Filtrar histórico al mismo tipo de ronda (9 o 18 hoyos)
+      const allHistRounds = histByUser.get(p.user_id)?.slice(0, 40) ?? []
+      const histRounds = allHistRounds.filter(r => {
+        const h = (r as Record<string, unknown>).holes_played as number | null
+        return !h || (totalHoyos <= 9 ? h <= 9 : h >= 18)
+      }).slice(0, 20)
       if (histRounds.length > 0) {
         historicalRoundsCount = histRounds.length
         const avg = histRounds.reduce((s, r) => s + r.total_gross, 0) / histRounds.length

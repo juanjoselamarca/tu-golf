@@ -78,6 +78,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Si no es organizador, verifica si es el jugador de la ronda
+  // cancel_tournament y withdraw_player hacen sus propios checks de auth más abajo
+  const selfAuthActions = ['cancel_tournament', 'withdraw_player']
   let isAllowed = tournament.organizer_id === user.id
   if (!isAllowed && action === 'upsert_score') {
     const { round_id } = body
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
     const playerUserId = (round?.players as unknown as { user_id: string } | null)?.user_id
     isAllowed = playerUserId === user.id
   }
-  if (!isAllowed) {
+  if (!isAllowed && !selfAuthActions.includes(action)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
   }
 

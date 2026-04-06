@@ -10,11 +10,13 @@
 export function calcularDiferencial(
   totalGross: number,
   courseRating: number,
-  slopeRating: number
+  slopeRating: number,
+  holesPlayed?: number | null
 ): number | null {
   if (!totalGross || !courseRating || !slopeRating || slopeRating === 0) return null
-  // Skip 9-hole rounds — course_rating is for 18 holes
-  if (totalGross < 60) return null
+  // Solo calcular diferencial para rondas de 18 hoyos
+  if (holesPlayed != null && holesPlayed < 18) return null
+  if (holesPlayed == null && totalGross < 60) return null // fallback heurístico
   return parseFloat(((totalGross - courseRating) * 113 / slopeRating).toFixed(2))
 }
 

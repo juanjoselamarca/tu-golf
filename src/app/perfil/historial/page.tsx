@@ -108,7 +108,7 @@ function computeStats(scores: (number | null)[], holePars?: number[]) {
     else doubles++
   }
   const front9    = filled.slice(0, 9).reduce((a, b) => a + b, 0)
-  const back9     = filled.slice(9).reduce((a, b) => a + b, 0)
+  const back9     = filled.length > 9 ? filled.slice(9).reduce((a, b) => a + b, 0) : null
   return { total, overUnder, eagles, birdies, pars, bogeys, doubles, front9, back9, filledHoles: filled.length }
 }
 
@@ -987,7 +987,7 @@ function HistorialContent() {
                             <div style={{ padding: '0 10px 14px' }}>
                               <div style={{ height: '1px', background: '#eee', marginBottom: '10px' }} />
                               {renderRow(1, 'OUT', stats.front9)}
-                              {renderRow(10, 'IN', stats.back9)}
+                              {stats.back9 != null && renderRow(10, 'IN', stats.back9)}
 
                               {/* TOTAL */}
                               <div style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '4px' }}>

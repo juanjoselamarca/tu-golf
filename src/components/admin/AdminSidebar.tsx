@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { adminColors } from './admin-tokens'
 
 const NAV_ITEMS = [
-  { href: '/admin',          icon: '\u26A1', label: 'Command Center' },
+  { href: '/admin',           icon: '\u26A1', label: 'Command Center' },
+  { href: '/admin/usuarios',  icon: '\uD83D\uDC65', label: 'Usuarios' },
   { href: '/admin/analytics', icon: '\uD83D\uDCCA', label: 'Analytics' },
   { href: '/admin/golf-ops',  icon: '\u26F3', label: 'Golf Ops' },
   { href: '/admin/finanzas',  icon: '\uD83D\uDCB0', label: 'Finanzas' },

@@ -671,6 +671,7 @@ export default function ScoringPage() {
                   onClick={() => {
                     setSelectedId(p.id)
                     setCurrentScores({})
+                    setLastAction(null)
                   }}
                   style={{
                     minWidth: '120px',

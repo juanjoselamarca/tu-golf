@@ -11,19 +11,24 @@ export async function GET() {
 
   const { data: rondas, error } = await supabase
     .from('historical_rounds')
-    .select('played_at, total_gross, course_rating, slope_rating')
+    .select('played_at, total_gross, course_rating, slope_rating, holes_played')
     .eq('user_id', user.id)
     .order('played_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: 'No pudimos calcular tu índice. Intenta de nuevo.' }, { status: 500 })
 
-  // Map to CPI input format - holes_played may not exist yet
-  const rondasCPI = (rondas ?? []).map(r => ({
-    played_at: r.played_at,
-    total_gross: r.total_gross,
-    course_rating: r.course_rating ?? null,
-    slope_rating: r.slope_rating ?? null,
-  }))
+  // Map to CPI input format — solo rondas de 18 hoyos (9H no tienen course_rating comparable)
+  const rondasCPI = (rondas ?? [])
+    .filter(r => {
+      const holes = (r as Record<string, unknown>).holes_played as number | null
+      return !holes || holes >= 18
+    })
+    .map(r => ({
+      played_at: r.played_at,
+      total_gross: r.total_gross,
+      course_rating: r.course_rating ?? null,
+      slope_rating: r.slope_rating ?? null,
+    }))
 
   const resultado = calcularCPI(rondasCPI)
 

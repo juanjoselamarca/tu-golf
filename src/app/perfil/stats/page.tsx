@@ -163,18 +163,18 @@ export default function StatsPage() {
     return [...rounds].sort((a, b) => vsPar(b) - vsPar(a))[0]
   }, [rounds])
 
-  // Scoring trend: last 5 vs previous 5
+  // Scoring trend: last 5 vs previous 5 (usando vsPar para normalizar 9/18H)
   const trendData = useMemo(() => {
     if (allRounds.length < 5) return null
     const last5 = allRounds.slice(-5)
     const prev5 = allRounds.slice(-10, -5)
     if (prev5.length === 0) return null
-    const avgLast = last5.reduce((s, r) => s + r.total_gross, 0) / last5.length
-    const avgPrev = prev5.reduce((s, r) => s + r.total_gross, 0) / prev5.length
-    const diff = avgLast - avgPrev
+    const avgLastVsPar = last5.reduce((s, r) => s + vsPar(r), 0) / last5.length
+    const avgPrevVsPar = prev5.reduce((s, r) => s + vsPar(r), 0) / prev5.length
+    const diff = avgLastVsPar - avgPrevVsPar
     return {
-      avgLast: avgLast.toFixed(1),
-      avgPrev: avgPrev.toFixed(1),
+      avgLast: (last5.reduce((s, r) => s + r.total_gross, 0) / last5.length).toFixed(1),
+      avgPrev: (prev5.reduce((s, r) => s + r.total_gross, 0) / prev5.length).toFixed(1),
       diff: diff.toFixed(1),
       improving: diff < -0.5,
       declining: diff > 0.5,
