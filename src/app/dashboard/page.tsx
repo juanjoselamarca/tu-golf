@@ -73,6 +73,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     { data: recentRoundRaw },
     { count: rondasConDiferencial },
     { data: userProfile },
+    { count: taigerSessionCount },
   ] = await Promise.all([
     supabase.from('tournaments').select('id, name, slug, status, date_start, courses(nombre)').eq('organizer_id', user.id).order('created_at', { ascending: false }),
     supabase.from('players').select('tournaments(id, name, slug, status, date_start, courses(nombre))').eq('user_id', user.id).order('created_at', { ascending: false }),
@@ -87,7 +88,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     // 4.3 — Count rounds with diferencial for index progress
     supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', user.id).not('diferencial', 'is', null),
     // Profile with indice_golfers
-    supabase.from('profiles').select('indice, indice_golfers').eq('id', user.id).single(),
+    supabase.from('profiles').select('indice, indice_golfers, cpi_score, cpi_status').eq('id', user.id).single(),
+    // tAIger session count
+    supabase.from('taiger_sessions').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
   ])
 
   const today = new Date().toISOString().split('T')[0]
@@ -114,6 +117,53 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const rondasParaIndice = rondasConDiferencial ?? 0
   const indiceGolfers = userProfile?.indice_golfers as number | null
   const indiceActivo = indiceGolfers != null
+  const totalRounds = initialRounds ?? 0
+  const taigerUsed = (taigerSessionCount ?? 0) > 0
+
+  // 4.4 — Next step logic (single, prioritized)
+  const lastPlayedDaysAgo = recentRound?.played_at
+    ? Math.floor((Date.now() - new Date(recentRound.played_at).getTime()) / 86400000)
+    : null
+
+  type NextStep = { title: string; description: string; href: string; cta: string } | null
+  let nextStep: NextStep = null
+
+  if (totalRounds === 0) {
+    nextStep = {
+      title: 'Tu primera ronda te espera',
+      description: 'Juega con amigos o importa rondas anteriores para comenzar a medir tu juego.',
+      href: '/ronda-libre/nueva',
+      cta: 'Crear ronda',
+    }
+  } else if (rondasParaIndice < 3) {
+    nextStep = {
+      title: `${3 - rondasParaIndice} ronda${3 - rondasParaIndice !== 1 ? 's' : ''} más para tu Indice Golfers+`,
+      description: 'Juega en canchas con slope y course rating para que podamos calcular tu indice automaticamente.',
+      href: totalRounds < 3 ? '/importar' : '/ronda-libre/nueva',
+      cta: totalRounds < 3 ? 'Importar historial' : 'Jugar ronda',
+    }
+  } else if (totalRounds < 5) {
+    nextStep = {
+      title: `${5 - totalRounds} ronda${5 - totalRounds !== 1 ? 's' : ''} más para activar tAIger+`,
+      description: 'Con 5 rondas, tAIger+ detecta patrones en tu juego y arma un plan para mejorar.',
+      href: '/importar',
+      cta: 'Importar historial',
+    }
+  } else if (!taigerUsed) {
+    nextStep = {
+      title: 'Tienes datos suficientes para tAIger+',
+      description: 'Tu coach con IA ya puede analizar tu juego. Pide tu primer analisis.',
+      href: '/coach/sesion/nueva',
+      cta: 'Hablar con tAIger+',
+    }
+  } else if (lastPlayedDaysAgo !== null && lastPlayedDaysAgo > 14) {
+    nextStep = {
+      title: `Hace ${lastPlayedDaysAgo} dias que no juegas`,
+      description: 'Registra una ronda para mantener tu CPI activo y que tAIger+ tenga datos frescos.',
+      href: '/ronda-libre/nueva',
+      cta: 'Crear ronda',
+    }
+  }
 
   // Detect truly new user: no tournaments, no rondas, no rounds (or explicit welcome param from registration)
   const isNewUser = isWelcome || (tournaments.length === 0 && rondasLibres.length === 0 && (initialRounds ?? 0) === 0 && playedTournaments.length === 0)
@@ -286,52 +336,49 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         )}
 
-        {/* Onboarding card */}
-        {!userProfile?.indice && !isNewUser && (
+        {/* Next step — single contextual nudge */}
+        {nextStep && !isNewUser && (
           <div style={{
-            background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.2)',
-            borderRadius: '14px', padding: '20px', marginBottom: '20px',
+            background: 'linear-gradient(135deg, rgba(196,153,42,0.06) 0%, rgba(196,153,42,0.02) 100%)',
+            border: '1px solid rgba(196,153,42,0.15)',
+            borderRadius: '16px',
+            padding: '24px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            flexWrap: 'wrap',
           }}>
-            <div style={{ fontSize: '11px', color: '#c4992a', fontFamily: 'var(--font-dm-mono), monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-              Paso 1 de 2
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <div style={{
+                fontSize: '16px',
+                fontWeight: 600,
+                color: 'var(--text)',
+                marginBottom: '6px',
+                lineHeight: 1.3,
+              }}>
+                {nextStep.title}
+              </div>
+              <div style={{
+                fontSize: '13px',
+                color: 'var(--text-2)',
+                lineHeight: 1.5,
+              }}>
+                {nextStep.description}
+              </div>
             </div>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
-              Agrega tu índice de golf
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
-              Tu GWI™ (Índice Golfers+) mide cómo juegas realmente vs tu potencial. Necesito tu índice para calcularlo.
-            </div>
-            <Link href="/perfil" style={{
-              display: 'inline-block', background: '#c4992a', color: '#070d18',
-              fontWeight: 700, fontSize: '13px', padding: '10px 20px', borderRadius: '10px',
+            <Link href={nextStep.href} style={{
+              background: '#c4992a',
+              color: '#070d18',
+              fontWeight: 700,
+              fontSize: '13px',
+              padding: '12px 24px',
+              borderRadius: '10px',
               textDecoration: 'none',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}>
-              Agregar mi índice →
-            </Link>
-          </div>
-        )}
-
-        {/* Import CTA — show when user has few rounds and is not brand new */}
-        {(initialRounds ?? 0) < 5 && !isNewUser && (
-          <div style={{
-            background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.15)',
-            borderRadius: '14px', padding: '20px', marginBottom: '20px',
-          }}>
-            <div style={{ fontSize: '11px', color: '#c4992a', fontFamily: 'var(--font-dm-mono), monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-              Activa tu coach de golf con IA
-            </div>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>
-              Importá tu historial de rondas
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
-              Con 5+ rondas, tAIger+ analiza patrones en tu juego y te da un plan para mejorar
-            </div>
-            <Link href="/importar" style={{
-              display: 'inline-block', background: '#c4992a', color: '#070d18',
-              fontWeight: 700, fontSize: '13px', padding: '10px 20px', borderRadius: '10px',
-              textDecoration: 'none',
-            }}>
-              Importar historial →
+              {nextStep.cta}
             </Link>
           </div>
         )}
