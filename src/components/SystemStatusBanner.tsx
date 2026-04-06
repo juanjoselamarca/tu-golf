@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 
 const DISMISSED_KEY = 'system-status-banner-dismissed'
 const POLL_INTERVAL = 60_000 // 60 seconds
@@ -8,18 +8,25 @@ const POLL_INTERVAL = 60_000 // 60 seconds
 export function SystemStatusBanner() {
   const [visible, setVisible] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const failCountRef = useRef(0)
+  const THRESHOLD = 3
 
   const checkHealth = useCallback(async () => {
     try {
       const res = await fetch('/api/health', { cache: 'no-store' })
-      if (!res.ok) {
-        setVisible(true)
-        return
+      if (res.ok) {
+        const data = await res.json()
+        if (data.status === 'ok') {
+          failCountRef.current = 0
+          setVisible(false)
+          return
+        }
       }
-      const data = await res.json()
-      setVisible(data.status !== 'ok')
+      failCountRef.current++
+      if (failCountRef.current >= THRESHOLD) setVisible(true)
     } catch {
-      setVisible(true)
+      failCountRef.current++
+      if (failCountRef.current >= THRESHOLD) setVisible(true)
     }
   }, [])
 
