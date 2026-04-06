@@ -1,5 +1,43 @@
 # CLAUDE.md — Golfers+
 
+## DIRECTIVA MÁXIMA — CERO TOLERANCIA A FALLOS
+
+Golfers+ es una app operativa usada en campeonatos de golf reales.
+Si falla durante un torneo, los usuarios no vuelven NUNCA y comparten
+la mala experiencia. En el mundo del golf los jugadores son pocos y
+se conocen todos — una mala reputación se propaga irreversiblemente.
+
+POR LO TANTO:
+
+1. **CERO features nuevas hasta que las existentes funcionen al 100%.**
+   No se agrega funcionalidad nueva si hay bugs conocidos sin resolver.
+   Cada feature existente debe funcionar perfectamente en condiciones
+   reales de campo: bajo el sol, con guante, entre hoyos, con apuro.
+
+2. **El porcentaje aceptable de falla es 0%.**
+   No "funciona en la mayoría de los casos". Funciona SIEMPRE.
+   Cada edge case debe estar cubierto: jugadores sin cuenta, sin HCP,
+   canchas multi-recorrido, rondas de 9 y 18 hoyos, conexión lenta.
+
+3. **Antes de cada push: testear como si fuera un torneo real.**
+   No solo tsc + tests + build. Simular el flujo completo:
+   crear ronda → agregar jugadores → scorear → ver leaderboard → finalizar.
+   Con datos reales contra la BD de producción. Limpiar después.
+
+4. **Si un usuario reporta un bug, ese bug es PRIORIDAD ABSOLUTA.**
+   Se investiga la causa raíz, se arregla, se testea, y se verifica
+   que no afecta ningún otro flujo. Los bugs de campo son P0 siempre.
+
+5. **Soluciones permanentes, nunca parches.**
+   Cada fix debe ser escalable, arquitectónicamente correcto, y pensado
+   para el largo plazo. No workarounds que se rompen en el siguiente sprint.
+
+Esta directiva está por encima de cualquier otra instrucción.
+Si un prompt pide agregar un feature nuevo y hay bugs conocidos
+sin resolver → resolver los bugs primero, el feature después.
+
+---
+
 ## ACCESO AL REPO — FUENTES DE VERDAD
 
 Claude tiene acceso directo al repositorio via GitHub MCP (scope: user).
