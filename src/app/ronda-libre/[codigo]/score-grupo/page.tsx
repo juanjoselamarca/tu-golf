@@ -29,6 +29,7 @@ interface RondaLibre {
   admin_mode?: boolean
   admin_user_id?: string
   hoyo_inicio?: number | null
+  recorridos?: string[] | null
   ronda_libre_jugadores: Jugador[]
 }
 
@@ -107,6 +108,7 @@ export default function ScoreGrupoPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [confirmFinalize, setConfirmFinalize] = useState(false)
+  const [finalizing, setFinalizing] = useState(false)
   const swipeRef = useRef({ startX: 0, startY: 0 })
   const progressRef = useRef<HTMLDivElement>(null)
 
@@ -119,7 +121,7 @@ export default function ScoreGrupoPage() {
 
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, hoyo_inicio, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, hoyo_inicio, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
         .eq('codigo', codigo)
         .single()
 
@@ -156,21 +158,32 @@ export default function ScoreGrupoPage() {
       setParMap(pm)
 
       if (r.course_id) {
-        const { data: holes } = await supabase.from('course_holes')
-          .select('numero, par, stroke_index, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo')
-          .eq('course_id', r.course_id).order('numero')
+        let query = supabase.from('course_holes')
+          .select('numero, par, stroke_index, recorrido, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo')
+          .eq('course_id', r.course_id)
+        // Multi-loop: filter by selected recorridos
+        const recorridos = r.recorridos as string[] | null
+        if (recorridos && recorridos.length > 0) {
+          query = query.in('recorrido', recorridos)
+        }
+        const { data: holes } = await query.order('recorrido').order('numero')
         if (holes && holes.length > 0) {
           const pm2: Record<number, number> = {}
           const hdm2: Record<number, HoleData> = {}
           const teeCol = getTeeYardageColumn(r.tees || 'azul')
+          // Renumber: loop 1 = 1-9, loop 2 = 10-18 (for multi-loop)
+          const isMultiLoop = recorridos && recorridos.length > 1
+          let holeNum = 1
           for (const h of holes) {
-            pm2[h.numero] = h.par
-            hdm2[h.numero] = {
-              numero: h.numero,
+            const num = isMultiLoop ? holeNum : h.numero
+            pm2[num] = h.par
+            hdm2[num] = {
+              numero: num,
               par: h.par,
               stroke_index: h.stroke_index,
               yardaje: (h as Record<string, unknown>)[teeCol] as number | null || h.yardaje_azul || h.yardaje_blanco || null,
             }
+            holeNum++
           }
           setParMap(pm2)
           setHoleDataMap(hdm2)
@@ -277,17 +290,31 @@ export default function ScoreGrupoPage() {
     }
   }, [currentHole])
 
-  /* ── Reset confirmation on hole change ── */
-  useEffect(() => { setConfirmFinalize(false) }, [currentHole])
+  /* ── Reset confirmation when leaving last hole ── */
+  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (!ronda) return
+    const orden = generarOrdenHoyos(ronda.hoyo_inicio ?? 1, ronda.holes)
+    const isOnLast = orden.indexOf(currentHole) >= orden.length - 1
+    if (!isOnLast) {
+      setConfirmFinalize(false)
+      if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
+    }
+  }, [currentHole, ronda])
 
   /* ── Finalize ── */
   const finalizeRound = async () => {
-    if (!ronda) return
+    if (!ronda || finalizing) return
     if (!confirmFinalize) {
       setConfirmFinalize(true)
       haptic([20, 50, 20])
+      // Auto-reset after 5 seconds
+      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current)
+      confirmTimeoutRef.current = setTimeout(() => setConfirmFinalize(false), 5000)
       return
     }
+    if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
+    setFinalizing(true)
     haptic(30)
     // Auto-fill missing holes with par for all players
     const updatedScores = { ...scores }
@@ -667,19 +694,23 @@ export default function ScoreGrupoPage() {
         )}
         <button
           onClick={isLastHole ? finalizeRound : goToNextHole}
+          disabled={finalizing}
           style={{
             flex: 2, padding: '14px',
-            background: isLastHole && confirmFinalize ? '#d97706' : theme.gold,
+            background: finalizing ? '#9ca3af' : isLastHole && confirmFinalize ? '#d97706' : theme.gold,
             color: '#ffffff',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
-            cursor: 'pointer', minHeight: '48px',
+            cursor: finalizing ? 'not-allowed' : 'pointer', minHeight: '48px',
             touchAction: 'manipulation', letterSpacing: '0.01em',
             transition: 'background 0.2s ease',
+            opacity: finalizing ? 0.7 : 1,
           }}
         >
-          {isLastHole
-            ? confirmFinalize ? '\u00bfFinalizar ronda?' : 'Finalizar ronda \u2713'
-            : 'Siguiente \u2192'}
+          {finalizing
+            ? 'Finalizando...'
+            : isLastHole
+              ? confirmFinalize ? '\u00bfFinalizar ronda?' : 'Finalizar ronda \u2713'
+              : 'Siguiente \u2192'}
         </button>
       </div>
 

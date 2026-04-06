@@ -65,6 +65,12 @@ interface CourseDB {
   ciudad: string | null
 }
 
+interface CourseLoop {
+  recorrido: string
+  holes: number
+  par: number
+}
+
 interface CourseDetails {
   par_total: number | null
   course_rating: number | null
@@ -143,6 +149,8 @@ export default function NuevaRondaLibrePage() {
   const [jugadores, setJugadores] = useState<string[]>(['', '', '', ''])
   const [courseDetails, setCourseDetails] = useState<CourseDetails | null>(null)
   const [courseTees, setCourseTees] = useState<CourseTee[]>([])
+  const [courseLoops, setCourseLoops] = useState<CourseLoop[]>([])
+  const [selectedLoops, setSelectedLoops] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [showShareScreen, setShowShareScreen] = useState(false)
   const [roundCode, setRoundCode] = useState('')
@@ -173,11 +181,13 @@ export default function NuevaRondaLibrePage() {
     check()
   }, [router])
 
-  // Fetch course details and tees when courseId changes
+  // Fetch course details, tees, and loops when courseId changes
   useEffect(() => {
     if (!courseId) {
       setCourseDetails(null)
       setCourseTees([])
+      setCourseLoops([])
+      setSelectedLoops([])
       return
     }
     const fetchCourseData = async () => {
@@ -207,9 +217,36 @@ export default function NuevaRondaLibrePage() {
         .eq('course_id', courseId)
         .order('yardaje_total', { ascending: false })
       setCourseTees((tees as CourseTee[]) || [])
-      // If tees exist, auto-select the first one
       if (tees && tees.length > 0) {
         setTees(tees[0].nombre.toLowerCase())
+      }
+
+      // Detect multi-loop courses (e.g. Brisas de Santo Domingo: Norte, Este, Sur)
+      const { data: holeRows } = await supabase
+        .from('course_holes')
+        .select('recorrido, par')
+        .eq('course_id', courseId)
+      if (holeRows && holeRows.length > 0) {
+        const loopMap = new Map<string, { count: number; par: number }>()
+        for (const h of holeRows) {
+          const r = (h.recorrido as string) || 'default'
+          const existing = loopMap.get(r) ?? { count: 0, par: 0 }
+          loopMap.set(r, { count: existing.count + 1, par: existing.par + (h.par as number) })
+        }
+        const nonDefault = Array.from(loopMap.entries()).filter(([k]) => k !== 'default')
+        if (nonDefault.length >= 2) {
+          const loops: CourseLoop[] = nonDefault.map(([r, d]) => ({ recorrido: r, holes: d.count, par: d.par }))
+          loops.sort((a, b) => a.recorrido.localeCompare(b.recorrido))
+          setCourseLoops(loops)
+          // Auto-select first two for 18h
+          setSelectedLoops(loops.slice(0, 2).map(l => l.recorrido))
+        } else {
+          setCourseLoops([])
+          setSelectedLoops([])
+        }
+      } else {
+        setCourseLoops([])
+        setSelectedLoops([])
       }
     }
     fetchCourseData()
@@ -247,6 +284,11 @@ export default function NuevaRondaLibrePage() {
       fecha: fechaStr,
       estado: 'en_curso',
       hoyo_inicio: partidaSimultanea ? hoyoInicio : 1,
+    }
+
+    // Multi-loop courses: store selected recorridos
+    if (courseLoops.length > 0 && selectedLoops.length > 0) {
+      baseData.recorridos = selectedLoops
     }
 
     // Admin mode columns
@@ -341,7 +383,7 @@ export default function NuevaRondaLibrePage() {
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
     const message = type === 'jugar'
-      ? `Unete a mi ronda en Golfers+! Codigo: ${roundCode}\n${link}`
+      ? `Únete a mi ronda en Golfers+! Código: ${roundCode}\n${link}`
       : `Sigue mi ronda en vivo en Golfers+!\n${link}`
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
   }
@@ -565,19 +607,19 @@ export default function NuevaRondaLibrePage() {
                 >×</button>
               )}
               {showCanchaDropdown && (() => {
-                const q = canchaSearch.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                const q = canchaSearch.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
                 const dbByName = new Map(coursesDB.map(c => [c.nombre, c]))
                 const unified: { name: string; courseId: string | null; ciudad: string | null }[] = []
                 const seen = new Set<string>()
                 for (const name of CANCHAS_CHILE) {
-                  if (!name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) continue
+                  if (!name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)) continue
                   const db = dbByName.get(name)
                   unified.push({ name, courseId: db?.id ?? null, ciudad: db?.ciudad ?? null })
                   seen.add(name)
                 }
                 for (const c of coursesDB) {
                   if (seen.has(c.nombre)) continue
-                  if (!c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) continue
+                  if (!c.nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)) continue
                   unified.push({ name: c.nombre, courseId: c.id, ciudad: c.ciudad })
                 }
                 const results = unified.slice(0, 10)
@@ -655,6 +697,65 @@ export default function NuevaRondaLibrePage() {
                 <span>&middot; Datos verificados</span>
               </div>
             )}
+
+            {/* Multi-loop selector (e.g. Brisas de Santo Domingo: Norte + Este + Sur) */}
+            {courseLoops.length >= 2 && (
+              <div style={{
+                marginTop: '12px',
+                padding: '14px',
+                background: 'rgba(196,153,42,0.05)',
+                border: '1px solid rgba(196,153,42,0.2)',
+                borderRadius: '12px',
+              }}>
+                <div style={{ fontSize: '12px', color: colors.textLabel, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                  Recorridos ({holes === 18 ? 'elige 2' : 'elige 1'})
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {courseLoops.map(loop => {
+                    const isSelected = selectedLoops.includes(loop.recorrido)
+                    const maxLoops = holes === 18 ? 2 : 1
+                    const canSelect = isSelected || selectedLoops.length < maxLoops
+                    return (
+                      <button
+                        key={loop.recorrido}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedLoops(prev => prev.filter(l => l !== loop.recorrido))
+                          } else if (canSelect) {
+                            setSelectedLoops(prev => [...prev, loop.recorrido])
+                          }
+                        }}
+                        style={{
+                          padding: '10px 16px',
+                          borderRadius: '12px',
+                          border: '1px solid',
+                          cursor: canSelect || isSelected ? 'pointer' : 'default',
+                          fontSize: '14px',
+                          fontWeight: isSelected ? 600 : 400,
+                          background: isSelected ? colors.activeBtn : colors.inactiveBtn,
+                          borderColor: isSelected ? colors.activeBtn : colors.inputBorder,
+                          color: isSelected ? colors.activeBtnText : colors.inactiveBtnText,
+                          opacity: canSelect || isSelected ? 1 : 0.4,
+                          transition: 'all 0.15s',
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                      >
+                        <div>{loop.recorrido}</div>
+                        <div style={{ fontSize: '10px', color: isSelected ? 'rgba(7,13,24,0.6)' : '#9ca3af', marginTop: '2px' }}>
+                          {loop.holes} hoyos &middot; Par {loop.par}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+                {selectedLoops.length > 0 && (
+                  <div style={{ fontSize: '12px', color: colors.gold, marginTop: '8px', fontWeight: 500 }}>
+                    {selectedLoops.join(' + ')} &middot; Par {courseLoops.filter(l => selectedLoops.includes(l.recorrido)).reduce((a, l) => a + l.par, 0)}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Tees + Holes row */}
@@ -699,8 +800,8 @@ export default function NuevaRondaLibrePage() {
                         <div style={{ fontSize: '14px', fontWeight: 600 }}>{t.nombre}</div>
                         <div style={{ fontSize: '11px', color: active ? 'rgba(7,13,24,0.7)' : '#6b7280', marginTop: '2px' }}>
                           {t.yardaje_total?.toLocaleString()} yds
-                          {t.rating ? ` \u00b7 CR ${t.rating}` : ''}
-                          {t.slope ? ` \u00b7 Slope ${t.slope}` : ''}
+                          {t.rating ? ` · CR ${t.rating}` : ''}
+                          {t.slope ? ` · Slope ${t.slope}` : ''}
                         </div>
                       </button>
                     )
@@ -751,7 +852,14 @@ export default function NuevaRondaLibrePage() {
                     <button
                       key={h}
                       type="button"
-                      onClick={() => setHoles(h)}
+                      onClick={() => {
+                        setHoles(h)
+                        // Trim selected loops to match hole count (9h = 1 loop, 18h = 2 loops)
+                        if (courseLoops.length >= 2) {
+                          const max = h === 18 ? 2 : 1
+                          setSelectedLoops(prev => prev.slice(0, max))
+                        }
+                      }}
                       style={{
                         padding: '10px 28px',
                         borderRadius: '24px',

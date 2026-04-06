@@ -23,12 +23,6 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
   const [jugadores, setJugadores] = useState<JugadorLB[]>([])
   const [loading, setLoading] = useState(true)
 
-  const parFromMap = Object.keys(parMap).length > 0
-    ? Object.values(parMap).reduce((a, b) => a + b, 0)
-    : 0
-  // Fallback: if parMap is empty, estimate par as totalHoles * 4; if both are 0, use 72 (standard 18-hole par)
-  const parTotal = parFromMap > 0 ? parFromMap : (totalHoles > 0 ? totalHoles * 4 : 72)
-
   const fetchLB = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase
@@ -44,7 +38,12 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
       const entries = Object.entries(scores).filter(([, s]) => Number(s) > 0)
       const holesCompleted = entries.length
       const totalGross = entries.reduce((a, [, s]) => a + Number(s), 0)
-      const totalVsPar = holesCompleted > 0 ? totalGross - parTotal : null
+      // Calculate vs par using per-hole pars (not full course par) so mid-round scores are correct
+      const parForPlayedHoles = entries.reduce((a, [h]) => {
+        const holeNum = parseInt(h)
+        return a + (parMap[holeNum] ?? 4)
+      }, 0)
+      const totalVsPar = holesCompleted > 0 ? totalGross - parForPlayedHoles : null
       const holeNums = entries.map(([h]) => parseInt(h)).filter(n => !isNaN(n))
       const lastHole = holeNums.length > 0 ? Math.max(...holeNums) : null
       return { id: j.id, nombre: j.nombre, user_id: j.user_id ?? null, holesCompleted, totalGross, totalVsPar, lastHole }
@@ -59,7 +58,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
 
     setJugadores(jug)
     setLoading(false)
-  }, [codigoRonda, parTotal])
+  }, [codigoRonda, parMap])
 
   useEffect(() => {
     fetchLB()

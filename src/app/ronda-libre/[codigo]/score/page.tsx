@@ -52,7 +52,7 @@ function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void })
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number>; handicap?: number | null }
-interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; hoyo_inicio?: number | null; admin_mode?: boolean; admin_user_id?: string; ronda_libre_jugadores: Jugador[] }
+interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; hoyo_inicio?: number | null; admin_mode?: boolean; admin_user_id?: string; recorridos?: string[] | null; ronda_libre_jugadores: Jugador[] }
 interface HoleData { numero: number; par: number; stroke_index: number; yardaje: number | null }
 
 /* ── Tee → yardage column mapping ──────────────────────────────────── */
@@ -242,7 +242,7 @@ function ScorePageContent() {
       const supabase = createClient()
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, hoyo_inicio, admin_mode, admin_user_id, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, hoyo_inicio, admin_mode, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
         .eq('codigo', codigo)
         .single()
       if (!data) { router.push('/dashboard'); return }
@@ -277,20 +277,30 @@ function ScorePageContent() {
       setParMap(pm)
 
       if (r.course_id) {
-        const { data: holes } = await supabase.from('course_holes')
-          .select('numero, par, stroke_index, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo')
-          .eq('course_id', r.course_id).order('numero')
+        let holeQuery = supabase.from('course_holes')
+          .select('numero, par, stroke_index, recorrido, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo')
+          .eq('course_id', r.course_id)
+        // Multi-loop: filter by selected recorridos
+        const recorridos = r.recorridos as string[] | null
+        if (recorridos && recorridos.length > 0) {
+          holeQuery = holeQuery.in('recorrido', recorridos)
+        }
+        const { data: holes } = await holeQuery.order('recorrido').order('numero')
         if (holes && holes.length > 0) {
           const pm2: Record<number, number> = {}; const hdm2: Record<number, HoleData> = {}
           const teeCol = getTeeYardageColumn(r.tees || 'azul')
+          const isMultiLoop = recorridos && recorridos.length > 1
+          let holeNum = 1
           for (const h of holes) {
-            pm2[h.numero] = h.par
-            hdm2[h.numero] = {
-              numero: h.numero,
+            const num = isMultiLoop ? holeNum : h.numero
+            pm2[num] = h.par
+            hdm2[num] = {
+              numero: num,
               par: h.par,
               stroke_index: h.stroke_index,
               yardaje: (h as Record<string, unknown>)[teeCol] as number | null || h.yardaje_azul || h.yardaje_blanco || null
             }
+            holeNum++
           }
           setParMap(pm2); setHoleDataMap(hdm2)
         } else { setHoleDataMap(hdm) }

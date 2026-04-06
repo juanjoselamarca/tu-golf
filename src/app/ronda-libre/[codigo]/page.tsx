@@ -91,6 +91,7 @@ interface RondaLibre {
   admin_mode?:           boolean
   admin_user_id?:        string
   creador_id:            string
+  recorridos?:           string[] | null
   ronda_libre_jugadores: Jugador[]
 }
 
@@ -256,8 +257,7 @@ function RondaLibrePageContent() {
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authModalAction, setAuthModalAction] = useState('')
-  const [lastUpdated, setLastUpdated] = useState<number>(Date.now())
-  const [timeSinceUpdate, setTimeSinceUpdate] = useState('')
+  const [secSinceUpdate, setSecSinceUpdate] = useState(0)
   // Admin score editing
   const [editingScore, setEditingScore] = useState<{ jugadorId: string; hole: number; currentScore: number } | null>(null)
   const [editScoreValue, setEditScoreValue] = useState<number>(0)
@@ -283,7 +283,7 @@ function RondaLibrePageContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, creador_id, ronda_libre_jugadores(id, nombre, user_id, scores)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores)')
         .eq('codigo', codigo)
         .single()
 
@@ -295,18 +295,30 @@ function RondaLibrePageContent() {
         // On transient errors (network, auth), silently retry on next poll
       } else {
         setFetchError(false)
-        setLastUpdated(Date.now())
+        setSecSinceUpdate(0)
         setRonda(data as unknown as RondaLibre)
         // Fetch hole pars if course linked
         if ((data as unknown as RondaLibre).course_id) {
-          const { data: holes } = await supabase
+          const r = data as unknown as RondaLibre
+          let holeQuery = supabase
             .from('course_holes')
-            .select('numero, par, stroke_index')
-            .eq('course_id', (data as unknown as RondaLibre).course_id)
-            .order('numero')
+            .select('numero, par, stroke_index, recorrido')
+            .eq('course_id', r.course_id!)
+          // Multi-loop: filter by selected recorridos
+          const recorridos = r.recorridos as string[] | null
+          if (recorridos && recorridos.length > 0) {
+            holeQuery = holeQuery.in('recorrido', recorridos)
+          }
+          const { data: holes } = await holeQuery.order('recorrido').order('numero')
           if (holes) {
             const pm: Record<number, number> = {}
-            ;(holes as CourseHole[]).forEach(h => { pm[h.numero] = h.par })
+            const isMultiLoop = recorridos && recorridos.length > 1
+            let holeNum = 1
+            ;(holes as CourseHole[]).forEach(h => {
+              const num = isMultiLoop ? holeNum : h.numero
+              pm[num] = h.par
+              holeNum++
+            })
             setParMap(pm)
           }
         }
@@ -408,21 +420,18 @@ function RondaLibrePageContent() {
     return () => clearInterval(interval)
   }, [fetchRonda, fetchGWI, role, checkScoreEvents])
 
-  // Countdown tick + time since update
+  // Countdown tick + time since update (counter-based, no client clock dependency)
   useEffect(() => {
     if (role !== 'espectador') return
-    const updateTimeSince = () => {
-      const diff = Math.floor((Date.now() - lastUpdated) / 1000)
-      if (diff < 60) setTimeSinceUpdate(`Actualizado hace ${diff} seg`)
-      else setTimeSinceUpdate(`Actualizado hace ${Math.floor(diff / 60)} min`)
-    }
-    updateTimeSince()
     const tick = setInterval(() => {
       setCountdown(c => c <= 1 ? 15 : c - 1)
-      updateTimeSince()
+      setSecSinceUpdate(s => s + 1)
     }, 1000)
     return () => clearInterval(tick)
-  }, [role, lastUpdated])
+  }, [role])
+
+  // Derived label from counter (no client clock needed)
+  const timeSinceUpdate = secSinceUpdate < 5 ? 'Justo ahora' : secSinceUpdate < 60 ? `Actualizado hace ${secSinceUpdate}s` : `Actualizado hace ${Math.floor(secSinceUpdate / 60)}m`
 
   /* ── Handlers ── */
   const dismissBanner = () => {
