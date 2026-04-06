@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { varianzaPorHoyo } from '@/golf/stats/gwi'
 
 describe('strokesRecibidosEnHoyo', () => {
   it('hcp 18 recibe 1 stroke en cada hoyo', () => {
@@ -32,5 +33,21 @@ describe('puntosStablefordHoyo', () => {
   })
   it('doble bogey neto da 0 puntos', () => {
     expect(puntosStablefordHoyo(6, 4, 0, 9)).toBe(0)
+  })
+})
+
+describe('varianzaPorHoyo (GWI)', () => {
+  it('returns realistic values for scratch par 4', () => {
+    expect(varianzaPorHoyo(0, 4)).toBeCloseTo(0.95, 1)
+  })
+  it('increases with handicap', () => {
+    expect(varianzaPorHoyo(15, 4)).toBeCloseTo(1.25, 1)
+  })
+  it('Par 3 < Par 4 < Par 5 for same HCP', () => {
+    expect(varianzaPorHoyo(10, 3)).toBeLessThan(varianzaPorHoyo(10, 4))
+    expect(varianzaPorHoyo(10, 4)).toBeLessThan(varianzaPorHoyo(10, 5))
+  })
+  it('defaults to par 4 when no par provided', () => {
+    expect(varianzaPorHoyo(0)).toBeCloseTo(0.95, 1)
   })
 })

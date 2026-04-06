@@ -23,12 +23,22 @@ function poissonPMF(lambda: number, k: number): number {
   return Math.exp(logP)
 }
 
-export function varianzaPorHoyo(handicapIndex: number): number {
+/**
+ * Varianza realista por hoyo según par y handicap.
+ * Basada en datos estadísticos de golf amateur:
+ * - Par 3: σ ~0.80-1.20 strokes
+ * - Par 4: σ ~0.95-1.40 strokes
+ * - Par 5: σ ~1.05-1.50 strokes
+ * Mayor HCP = ligeramente más varianza
+ */
+export function varianzaPorHoyo(handicapIndex: number, parHoyo: number = 4): number {
   const hcp = Math.max(0, Math.min(handicapIndex ?? 18, 54))
-  return 1.50 + (0.085 * hcp) + (0.0012 * hcp * hcp)
+  const basePorPar: Record<number, number> = { 3: 0.80, 4: 0.95, 5: 1.05 }
+  const base = basePorPar[parHoyo] ?? 0.95
+  return base + 0.02 * hcp
 }
 export function sigmaTotal(handicapIndex: number, hoyosRestantes: number): number {
-  return Math.sqrt(hoyosRestantes) * varianzaPorHoyo(handicapIndex)
+  return Math.sqrt(Math.max(0, hoyosRestantes)) * varianzaPorHoyo(handicapIndex, 4)
 }
 
 export interface ProbHoyo {
@@ -108,6 +118,7 @@ export function calcularGWI(
   const hoyosRestantes = Math.max(totalHoyos - progreso, 0)
   const progresoRatio  = progreso / totalHoyos
   const esStableford   = jugadores[0].modoJuego === 'stableford'
+  const esNeto         = jugadores[0].modoJuego === 'neto'
   const W1 = 0.30 + progresoRatio * 0.50
   const pesoResto = 1 - W1
 
@@ -129,7 +140,9 @@ export function calcularGWI(
     const W4 = pesoResto * 0.20
     const W1ef          = W1 + (pesoResto * 0.40 * (1 - F2conf)) + (pesoResto * 0.30 * (1 - F3conf))
     const scoreAjustado = W1ef * F1 + W2 * F2 + W3 * F3 + W4 * F4
-    const sigma         = sigmaTotal(j.handicapIndex, hoyosRestantes)
+    // In neto mode, handicap already leveled the field — use scratch variance for all
+    const sigmaHcp      = esNeto ? 0 : j.handicapIndex
+    const sigma         = sigmaTotal(sigmaHcp, hoyosRestantes)
     const volatilidad   = j.handicapIndex <= 6 ? 'baja' : j.handicapIndex <= 16 ? 'media' : 'alta'
     const sigmaLabel    = j.handicapIndex <= 6 ? 'Juego muy consistente' : j.handicapIndex <= 16 ? 'Varianza moderada' : 'Alto potencial de cambio'
     return {
