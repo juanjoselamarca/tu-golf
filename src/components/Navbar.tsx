@@ -277,10 +277,10 @@ export default function Navbar() {
               if (block.items.length === 0) return null
               return (
                 <div key={block.label}>
-                  {blockIdx > 0 && <hr style={{ borderColor: 'rgba(255,255,255,0.06)', margin: '12px 0', border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)' }} />}
+                  {blockIdx > 0 && <hr style={{ borderColor: '#e2e8f0', margin: '12px 0', border: 'none', borderTop: '1px solid #e2e8f0' }} />}
                   <p style={{
                     fontFamily: 'DM Mono, monospace', fontSize: '11px',
-                    color: 'rgba(255,255,255,0.3)', letterSpacing: '0.12em',
+                    color: '#94a3b8', letterSpacing: '0.12em',
                     textTransform: 'uppercase' as const, margin: '0 4px 6px',
                   }}>{block.label}</p>
                   {block.items.map(item => {
@@ -292,7 +292,7 @@ export default function Navbar() {
                         borderRadius: '8px', marginBottom: '2px',
                         textDecoration: 'none',
                         background: isActive ? 'rgba(196,153,42,0.1)' : 'transparent',
-                        color: isActive ? '#C4992A' : '#edeae4',
+                        color: isActive ? '#C4992A' : '#1a1a2e',
                         fontSize: '14px', fontWeight: isActive ? 600 : 500,
                         transition: 'background 0.15s',
                       }}>
@@ -330,8 +330,8 @@ export default function Navbar() {
                   borderRadius: '10px', marginBottom: '2px',
                   textDecoration: 'none',
                   background: isActive ? 'rgba(196,153,42,0.1)' : 'transparent',
-                  color: isActive ? '#C4992A' : '#edeae4',
-                  fontSize: '15px', fontWeight: isActive ? 600 : 400,
+                  color: isActive ? '#C4992A' : '#1a1a2e',
+                  fontSize: '15px', fontWeight: isActive ? 600 : 500,
                   transition: 'background 0.15s',
                 }}>
                   <span style={{ fontSize: '18px', width: '24px', textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
@@ -345,18 +345,18 @@ export default function Navbar() {
         {/* Sidebar footer */}
         <div style={{
           padding: '12px 16px 20px',
-          borderTop: '1px solid rgba(196,153,42,0.1)',
+          borderTop: '1px solid #e2e8f0',
         }}>
           {user ? (
-            <div style={{ padding: '4px 12px', fontSize: '12px', color: 'rgba(255,255,255,0.25)' }}>
+            <div style={{ padding: '4px 12px', fontSize: '12px', color: '#94a3b8' }}>
               {user.email}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <Link href="/login" onClick={() => setSidebarOpen(false)} style={{
                 display: 'block', padding: '12px 16px', textAlign: 'center',
-                color: '#edeae4', fontSize: '15px', textDecoration: 'none',
-                border: '1px solid rgba(196,153,42,0.3)', borderRadius: '10px',
+                color: '#1a1a2e', fontSize: '15px', textDecoration: 'none',
+                border: '1px solid #e2e8f0', borderRadius: '10px',
               }}>
                 Iniciar sesión
               </Link>
@@ -379,19 +379,19 @@ export default function Navbar() {
             position: 'fixed',
             bottom: 0, left: 0, right: 0,
             paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-            background: 'linear-gradient(180deg, rgba(7,13,24,0.92) 0%, rgba(5,9,18,0.98) 100%)',
+            background: 'rgba(255,255,255,0.95)',
             backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+            borderTop: '1px solid #e2e8f0',
             zIndex: 100,
           }}>
-            {/* Gold accent line at top */}
-            <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent 10%, rgba(196,153,42,0.25) 50%, transparent 90%)' }} />
+            {/* Top border handled by borderTop on nav */}
 
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '52px', padding: '0 8px', maxWidth: '600px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
 
               {/* Inicio */}
               {(() => {
                 const active = pathname === '/'
-                const clr = active ? '#c4992a' : 'rgba(255,255,255,0.35)'
+                const clr = active ? '#c4992a' : '#94a3b8'
                 return (
                   <Link href="/" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '52px', height: '48px', textDecoration: 'none', position: 'relative' }}>
                     {active && <div style={{ position: 'absolute', top: '-1px', width: '20px', height: '2px', borderRadius: '1px', background: '#c4992a' }} />}
@@ -407,7 +407,7 @@ export default function Navbar() {
               {/* Live Scoring — dashboard with live indicator */}
               {(() => {
                 const active = pathname === '/dashboard' || pathname.startsWith('/dashboard/')
-                const clr = active ? '#c4992a' : 'rgba(255,255,255,0.35)'
+                const clr = active ? '#c4992a' : '#94a3b8'
                 return (
                   <Link href="/dashboard" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '52px', height: '48px', textDecoration: 'none', position: 'relative' }}>
                     {active && <div style={{ position: 'absolute', top: '-1px', width: '20px', height: '2px', borderRadius: '1px', background: '#c4992a' }} />}
@@ -456,7 +456,7 @@ export default function Navbar() {
               {/* Coach AI */}
               {(() => {
                 const active = pathname === '/coach' || pathname.startsWith('/coach/')
-                const clr = active ? '#c4992a' : 'rgba(255,255,255,0.35)'
+                const clr = active ? '#c4992a' : '#94a3b8'
                 return (
                   <Link href="/coach" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '52px', height: '48px', textDecoration: 'none', position: 'relative' }}>
                     {active && <div style={{ position: 'absolute', top: '-1px', width: '20px', height: '2px', borderRadius: '1px', background: '#c4992a' }} />}
@@ -472,7 +472,7 @@ export default function Navbar() {
               {/* Perfil */}
               {(() => {
                 const active = pathname === '/perfil' || pathname.startsWith('/perfil/')
-                const clr = active ? '#c4992a' : 'rgba(255,255,255,0.35)'
+                const clr = active ? '#c4992a' : '#94a3b8'
                 return (
                   <Link href="/perfil" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '52px', height: '48px', textDecoration: 'none', position: 'relative' }}>
                     {active && <div style={{ position: 'absolute', top: '-1px', width: '20px', height: '2px', borderRadius: '1px', background: '#c4992a' }} />}
