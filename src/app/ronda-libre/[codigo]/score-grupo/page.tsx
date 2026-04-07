@@ -311,26 +311,17 @@ export default function ScoreGrupoPage() {
     if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
     setFinalizing(true)
     haptic(30)
-    // Auto-fill missing holes with par for all players
-    const updatedScores = { ...scores }
-    for (const j of ronda.ronda_libre_jugadores) {
-      const ps = { ...(updatedScores[j.id] ?? {}) }
-      for (let h = 1; h <= ronda.holes; h++) {
-        if (ps[h] == null) ps[h] = parMap[h] ?? 4
-      }
-      updatedScores[j.id] = ps
-    }
-    setScores(updatedScores)
-
-    // Save ALL players in parallel, then finalize
+    // Guardar scores tal como están — hoyos sin marcar quedan como null/vacío
     const supabase = createClient()
     const savePromises = ronda.ronda_libre_jugadores.map(j => {
       const scoresObj: Record<string, number> = {}
-      for (const [k, v] of Object.entries(updatedScores[j.id] ?? {})) scoresObj[String(k)] = v  // Explicit string keys
+      for (const [k, v] of Object.entries(scores[j.id] ?? {})) {
+        if (v != null) scoresObj[String(k)] = v
+      }
       return supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
     })
     await Promise.all(savePromises)
-    // NOW safe to finalize
+    // Finalizar ronda
     await supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
     router.push(`/ronda-libre/${codigo}?finished=true`)
   }

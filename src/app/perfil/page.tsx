@@ -162,7 +162,7 @@ export default function PerfilPage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {initials}
             </div>
 
@@ -171,7 +171,7 @@ export default function PerfilPage() {
                 <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.24)', color: '#c8a55a', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                   Perfil de jugador
                 </span>
-                <span style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: '#9fb4aa', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
+                <span style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', color: '#4a5568', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
                   {playerTier}
                 </span>
               </div>
@@ -234,20 +234,20 @@ export default function PerfilPage() {
         {/* Dual Index Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
           {/* Índice Federación */}
-          <div style={{ background: '#0e1c2f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
-            <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', fontFamily: '"DM Mono", monospace', marginBottom: '8px', margin: '0 0 8px' }}>
+          <div style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
+            <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', fontFamily: '"DM Mono", monospace', marginBottom: '8px', margin: '0 0 8px' }}>
               Federación
             </p>
-            <p style={{ fontSize: '38px', fontWeight: 700, color: '#edeae4', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
+            <p style={{ fontSize: '38px', fontWeight: 700, color: '#1a1a2e', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
               {profile.indice != null ? profile.indice.toFixed(1) : '—'}
             </p>
-            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', margin: 0 }}>
+            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>
               Oficial · Manual
             </p>
           </div>
 
           {/* Índice Golfers+ */}
-          <div style={{ background: '#0e1c2f', border: `1px solid ${profile.indice_golfers != null ? 'rgba(196,153,42,0.35)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
+          <div style={{ background: '#f8f9fa', border: `1px solid ${profile.indice_golfers != null ? 'rgba(196,153,42,0.35)' : '#e2e8f0'}`, borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
             <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c4992a', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
               Golfers+
             </p>
@@ -256,14 +256,14 @@ export default function PerfilPage() {
                 <p style={{ fontSize: '38px', fontWeight: 700, color: '#c4992a', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
                   {profile.indice_golfers.toFixed(1)}
                 </p>
-                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', margin: 0 }}>
+                <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>
                   Historial real
                 </p>
               </>
             ) : (
               <>
-                <p style={{ fontSize: '28px', color: 'rgba(255,255,255,0.2)', lineHeight: 1, margin: '0 0 4px' }}>—</p>
-                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', margin: 0, lineHeight: 1.4 }}>
+                <p style={{ fontSize: '28px', color: '#94a3b8', lineHeight: 1, margin: '0 0 4px' }}>—</p>
+                <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0, lineHeight: 1.4 }}>
                   3+ rondas para activar
                 </p>
               </>
@@ -273,8 +273,8 @@ export default function PerfilPage() {
 
         {/* Gap note — when difference >= 1.5 between indices */}
         {profile.indice != null && profile.indice_golfers != null && Math.abs(profile.indice - profile.indice_golfers) >= 1.5 && (
-          <div style={{ padding: '10px 14px', background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '12px' }}>
-            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>
+          <div style={{ padding: '10px 14px', background: 'rgba(196,153,42,0.07)', border: '1px solid #e2e8f0', borderRadius: '10px', marginBottom: '12px' }}>
+            <p style={{ fontSize: '12px', color: '#4a5568', margin: 0, lineHeight: 1.5 }}>
               <strong style={{ color: '#c4992a' }}>{Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos</strong> de diferencia entre tu índice oficial y tu rendimiento reciente. tAIger+ puede analizar esto.
             </p>
           </div>
@@ -282,13 +282,13 @@ export default function PerfilPage() {
 
         {/* Nivel badge */}
         {profile.nivel != null && profile.nivel > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#0e1c2f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '12px', marginBottom: '16px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#c4992a', flexShrink: 0 }} />
             <div>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4', margin: 0 }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a2e', margin: 0 }}>
                 {NIVEL_LABELS[profile.nivel] ?? 'Rookie'}
               </p>
-              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+              <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>
                 {NIVEL_DESCRIPCION[profile.nivel] ?? ''}
               </p>
             </div>
@@ -334,7 +334,7 @@ export default function PerfilPage() {
 
             {/* Progress bar */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ flex: 1, height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
                 <div style={{ width: `${Math.min(100, Math.max(0, cpiData.score))}%`, height: '100%', background: `linear-gradient(90deg, ${getCpiColor(cpiData.score)}cc, ${getCpiColor(cpiData.score)})`, borderRadius: '3px', transition: 'width 0.6s ease' }} />
               </div>
               <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
@@ -368,7 +368,7 @@ export default function PerfilPage() {
             </p>
             <Link href="/importar" style={{
               display: 'inline-flex', alignItems: 'center',
-              background: '#c4992a', color: '#070d18',
+              background: '#c4992a', color: '#1a1a2e',
               padding: '10px 20px', borderRadius: '10px',
               fontSize: '14px', fontWeight: 700,
               textDecoration: 'none',
@@ -457,7 +457,7 @@ export default function PerfilPage() {
                     if (!isNaN(n) && n >= 0 && n <= 54) setEditIndice(String(n))
                   }}
                 />
-                <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '4px', margin: '4px 0 0' }}>
+                <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px', margin: '4px 0 0' }}>
                   Golfers+ calcula su propio índice automáticamente basado en tus rondas.
                 </p>
               </div>
@@ -465,7 +465,7 @@ export default function PerfilPage() {
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  style={{ background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+                  style={{ background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
                 >
                   {saving ? 'Guardando...' : 'Guardar cambios'}
                 </button>

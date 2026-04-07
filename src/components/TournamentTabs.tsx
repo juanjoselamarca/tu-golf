@@ -29,16 +29,16 @@ type Tab = 'leaderboard' | 'grupos'
 
 /* ── Design tokens ────────────────────────────────────────── */
 const T = {
-  bg:        '#070d18',
-  card:      '#0e1c2f',
+  bg:        '#ffffff',
+  card:      '#f8f9fa',
   gold:      '#c4992a',
-  ivory:     '#edeae4',
-  muted:     'rgba(255,255,255,0.55)',
-  faint:     'rgba(255,255,255,0.35)',
-  border:    'rgba(196,153,42,0.12)',
+  ivory:     '#1a1a2e',
+  muted:     '#4a5568',
+  faint:     '#94a3b8',
+  border:    '#e2e8f0',
   green:     '#16a34a',
   red:       '#dc2626',
-  rowAlt:    'rgba(255,255,255,0.015)',
+  rowAlt:    'rgba(0,0,0,0.02)',
   leaderBg:  'rgba(196,153,42,0.04)',
   leaderBd:  'rgba(196,153,42,0.25)',
 } as const
@@ -304,7 +304,7 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
-                  borderBottom: groupPlayers.length > 0 ? `1px solid rgba(255,255,255,0.04)` : 'none',
+                  borderBottom: groupPlayers.length > 0 ? `1px solid #e2e8f0` : 'none',
                 }}>
                   {group.teeTime && (
                     <span style={{

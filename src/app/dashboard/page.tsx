@@ -42,7 +42,7 @@ const STATUS_LABEL: Record<string, { label: string; bg: string; color: string }>
 }
 
 // Button style helpers
-const btnPrimary:     React.CSSProperties = { background: '#c4992a', color: '#070d18', fontWeight: 700, padding: '12px 20px', borderRadius: '10px', fontSize: '13px', textDecoration: 'none', border: 'none' }
+const btnPrimary:     React.CSSProperties = { background: '#c4992a', color: '#1a1a2e', fontWeight: 700, padding: '12px 20px', borderRadius: '10px', fontSize: '13px', textDecoration: 'none', border: 'none' }
 const btnSecondary:   React.CSSProperties = { background: 'transparent', border: '1px solid rgba(196,153,42,0.4)', color: '#c4992a', padding: '12px 20px', borderRadius: '10px', fontSize: '13px', textDecoration: 'none' }
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
@@ -369,7 +369,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </div>
             <Link href={nextStep.href} style={{
               background: '#c4992a',
-              color: '#070d18',
+              color: '#1a1a2e',
               fontWeight: 700,
               fontSize: '13px',
               padding: '12px 24px',
@@ -457,7 +457,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <div style={{ fontSize: '32px', marginBottom: '16px' }}>🏆</div>
               <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', marginBottom: '8px' }}>Organizar un torneo</h2>
               <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '16px' }}>Crea y gestiona tu propio torneo en minutos.</p>
-              <Link href="/organizador/nuevo" style={{ display: 'inline-block', background: '#c4992a', color: '#070d18', fontWeight: 600, borderRadius: '8px', padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
+              <Link href="/organizador/nuevo" style={{ display: 'inline-block', background: '#c4992a', color: '#1a1a2e', fontWeight: 600, borderRadius: '8px', padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
                 Crear torneo →
               </Link>
             </div>

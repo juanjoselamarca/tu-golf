@@ -43,9 +43,9 @@ function calcCourseHandicap(indice: number, slope: number, rating: number, par: 
 }
 
 const inputStyle: React.CSSProperties = {
-  background: 'rgba(7,13,24,0.6)',
-  border: '1px solid rgba(122,143,168,0.3)',
-  color: '#edeae4',
+  background: '#f8f9fa',
+  border: '1px solid #e2e8f0',
+  color: '#1a1a2e',
   borderRadius: '8px',
   padding: '10px 12px',
   fontSize: '14px',
@@ -479,14 +479,14 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   }
 
   return (
-    <div style={{ background: '#070d18', minHeight: '100vh', paddingBottom: '100px' }}>
+    <div style={{ background: '#ffffff', minHeight: '100vh', paddingBottom: '100px' }}>
 
       {/* Header */}
       <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '24px 32px' }}>
-        <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '12px' }}>
+        <Link href="/dashboard" style={{ color: '#4a5568', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '12px' }}>
           ← Volver al dashboard
         </Link>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', margin: '0 0 8px' }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#1a1a2e', margin: '0 0 8px' }}>
           {tournament.name}
         </h1>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -520,7 +520,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: '12px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+            <div style={{ fontSize: '12px', color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
               Comparte este codigo para que los jugadores se inscriban
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
@@ -571,7 +571,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
             marginBottom: '32px',
           }}
         >
-          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', margin: '0 0 20px' }}>
+          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#1a1a2e', margin: '0 0 20px' }}>
             Inscribir jugador
           </h2>
 
@@ -579,7 +579,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
             {/* Search */}
             <div ref={dropdownRef} style={{ flex: '1 1 220px', position: 'relative' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Jugador</label>
+              <label style={{ display: 'block', fontSize: '12px', color: '#4a5568', marginBottom: '6px' }}>Jugador</label>
               <input
                 type="text"
                 placeholder="Buscar por nombre o email..."
@@ -597,7 +597,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                 </div>
               )}
               {showResults && results.length > 0 && !selectedProfile && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '8px', maxHeight: '180px', overflowY: 'auto', zIndex: 50 }}>
+                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#ffffff', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '8px', maxHeight: '180px', overflowY: 'auto', zIndex: 50 }}>
                   {results.map((p) => (
                     <button
                       key={p.id}
@@ -607,12 +607,12 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                         setSearch(p.name)
                         setShowResults(false)
                       }}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid #e2e8f0' }}
                       onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)')}
                       onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}
                     >
-                      <div style={{ color: '#edeae4', fontSize: '13px', fontWeight: 500 }}>{p.name}</div>
-                      <div style={{ color: '#94a8c0', fontSize: '11px' }}>
+                      <div style={{ color: '#1a1a2e', fontSize: '13px', fontWeight: 500 }}>{p.name}</div>
+                      <div style={{ color: '#4a5568', fontSize: '11px' }}>
                         {p.email}
                         {p.indice != null && <span> · Índice {p.indice}</span>}
                       </div>
@@ -656,7 +656,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
             marginBottom: '32px',
           }}
         >
-          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', margin: '0 0 20px' }}>
+          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#1a1a2e', margin: '0 0 20px' }}>
             Grupos de salida ({groups.length})
           </h2>
 
@@ -664,7 +664,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           {tournamentStatus === 'draft' && (
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px' }}>
               <div style={{ flex: '1 1 180px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Nombre del grupo</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#4a5568', marginBottom: '6px' }}>Nombre del grupo</label>
                 <input
                   type="text"
                   placeholder="Ej: Grupo 1"
@@ -674,7 +674,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                 />
               </div>
               <div style={{ flex: '0 1 160px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Hora de salida (opc.)</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#4a5568', marginBottom: '6px' }}>Hora de salida (opc.)</label>
                 <input
                   type="time"
                   value={newGroupTeeTime}
@@ -708,7 +708,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           {tournamentStatus === 'draft' && groups.length > 0 && (
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px', padding: '16px', background: 'rgba(7,13,24,0.4)', borderRadius: '10px', border: '1px solid rgba(122,143,168,0.1)' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Hora inicio</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#4a5568', marginBottom: '6px' }}>Hora inicio</label>
                 <input
                   type="time"
                   value={teeStartTime}
@@ -717,7 +717,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }}>Intervalo (min)</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#4a5568', marginBottom: '6px' }}>Intervalo (min)</label>
                 <input
                   type="number"
                   value={teeInterval}
@@ -751,7 +751,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
           {/* Group cards */}
           {groups.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px', color: '#94a8c0', fontSize: '13px' }}>
+            <div style={{ textAlign: 'center', padding: '24px', color: '#4a5568', fontSize: '13px' }}>
               Sin grupos aún. Crea grupos y asigna jugadores.
             </div>
           ) : (
@@ -767,7 +767,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>{g.name}</span>
+                    <span style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a2e' }}>{g.name}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {g.tee_time && (
                         <span style={{ fontSize: '12px', color: '#c4992a', fontFamily: 'monospace' }}>
@@ -785,10 +785,10 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                     </div>
                   </div>
                   {g.players.length === 0 ? (
-                    <div style={{ fontSize: '12px', color: '#94a8c0', fontStyle: 'italic' }}>Sin jugadores</div>
+                    <div style={{ fontSize: '12px', color: '#4a5568', fontStyle: 'italic' }}>Sin jugadores</div>
                   ) : (
                     g.players.map((gp) => (
-                      <div key={gp.id} style={{ fontSize: '13px', color: '#edeae4', padding: '4px 0', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div key={gp.id} style={{ fontSize: '13px', color: '#1a1a2e', padding: '4px 0', borderTop: '1px solid #f1f5f9' }}>
                         {gp.playerName}
                       </div>
                     ))
@@ -809,24 +809,24 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           }}
         >
           <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(196,153,42,0.1)' }}>
-            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', margin: 0 }}>
+            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#1a1a2e', margin: 0 }}>
               Jugadores inscritos ({players.length})
             </h2>
           </div>
 
           {players.length === 0 ? (
-            <div style={{ padding: '48px', textAlign: 'center', color: '#94a8c0' }}>
+            <div style={{ padding: '48px', textAlign: 'center', color: '#4a5568' }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>👥</div>
-              <div style={{ fontSize: '16px', marginBottom: '6px', color: '#edeae4' }}>Sin jugadores aún</div>
+              <div style={{ fontSize: '16px', marginBottom: '6px', color: '#1a1a2e' }}>Sin jugadores aún</div>
               <div style={{ fontSize: '13px' }}>Busca y añade jugadores usando el formulario de arriba.</div>
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                     {['#', 'Nombre', 'Índice', 'Course HCP', 'Categoría', 'Grupo', ''].map((h) => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
                         {h}
                       </th>
                     ))}
@@ -836,15 +836,15 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                   {players.map((p, i) => (
                     <tr
                       key={p.id}
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 150ms' }}
-                      onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'rgba(255,255,255,0.02)')}
+                      style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 150ms' }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'rgba(0,0,0,0.02)')}
                       onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'transparent')}
                     >
-                      <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '14px' }}>{i + 1}</td>
-                      <td style={{ padding: '12px 16px', color: '#edeae4', fontSize: '14px', fontWeight: 500 }}>{p.profiles?.name || '—'}</td>
-                      <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '14px' }}>{p.profiles?.indice ?? '—'}</td>
+                      <td style={{ padding: '12px 16px', color: '#4a5568', fontSize: '14px' }}>{i + 1}</td>
+                      <td style={{ padding: '12px 16px', color: '#1a1a2e', fontSize: '14px', fontWeight: 500 }}>{p.profiles?.name || '—'}</td>
+                      <td style={{ padding: '12px 16px', color: '#4a5568', fontSize: '14px' }}>{p.profiles?.indice ?? '—'}</td>
                       <td style={{ padding: '12px 16px', color: '#c4992a', fontSize: '14px', fontWeight: 600 }}>{p.handicap_at_registration ?? '—'}</td>
-                      <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
+                      <td style={{ padding: '12px 16px', color: '#4a5568', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
                       <td style={{ padding: '12px 16px' }}>
                         {groups.length > 0 ? (
                           <select
@@ -858,7 +858,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                             ))}
                           </select>
                         ) : (
-                          <span style={{ color: '#94a8c0', fontSize: '12px' }}>—</span>
+                          <span style={{ color: '#4a5568', fontSize: '12px' }}>—</span>
                         )}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
@@ -905,7 +905,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
               disabled={players.length < 1 || starting}
               style={{
                 background: players.length >= 1 ? '#c4992a' : 'rgba(122,143,168,0.2)',
-                color: players.length >= 1 ? '#070d18' : '#94a8c0',
+                color: players.length >= 1 ? '#1a1a2e' : '#4a5568',
                 fontWeight: 700,
                 fontSize: '16px',
                 padding: '14px 40px',
@@ -979,14 +979,14 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
         {tournamentStatus === 'closed' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ color: '#94a8c0', fontSize: '14px', fontWeight: 600 }}>
+            <span style={{ color: '#4a5568', fontSize: '14px', fontWeight: 600 }}>
               Torneo cerrado — Resultados definitivos
             </span>
             <button
               onClick={() => window.open(`/torneo/${tournament.slug}`, '_blank')}
               style={{
                 background: '#c4992a',
-                color: '#070d18',
+                color: '#1a1a2e',
                 fontWeight: 700,
                 fontSize: '14px',
                 padding: '12px 24px',

@@ -474,11 +474,7 @@ function ScorePageContent() {
     }
     setConfirmFinalize(false)
     haptic(30)
-    // Auto-fill last hole with par if not entered
-    if (scores[activeJugadorId]?.[currentHole] == null) {
-      const holePar = parMap[currentHole] ?? 4
-      handleScoreChange(currentHole, holePar)
-    }
+    // Guardar scores tal como están — hoyos sin marcar quedan como null
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
     const supabase = createClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -513,9 +509,11 @@ function ScorePageContent() {
         user_id: authUser?.id,
         course_name: ronda.course_name,
         course_id: ronda.course_id ?? null,
-        played_at: new Date().toISOString().split('T')[0],
+        played_at: ronda.fecha || new Date().toISOString().split('T')[0],
         total_gross: grossTotal,
         scores: scoresArray,
+        holes_played: totalHolesForSave,
+        tee_color: ronda.tees ?? null,
         privacy: 'private',
         slope_rating: slopeRating,
         course_rating: courseRating,
@@ -551,25 +549,34 @@ function ScorePageContent() {
     } catch { /* don't block finalization */ }
 
     // Check if ALL players have completed all holes → finalize round
+    // Guard: verificar que la ronda no fue finalizada por otro jugador simultáneamente
     const holesCount = ronda.holes ?? 18
     const { data: freshRonda } = await supabase
       .from('rondas_libres')
-      .select('ronda_libre_jugadores(id, scores)')
+      .select('estado, ronda_libre_jugadores(id, scores)')
       .eq('codigo', codigo)
       .single()
-    const allDone = (freshRonda?.ronda_libre_jugadores ?? []).every((j: { scores: Record<string, number> }) => {
-      const count = Object.keys(j.scores ?? {}).filter(k => { const n = parseInt(k); return n >= 1 && n <= holesCount }).length
-      return count >= holesCount
-    })
-    if (allDone) {
-      await supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
-      // Push to all subscribers: round finished
-      sendPushViaServer({
-        title: 'Ronda finalizada',
-        body: `Resultado final listo en ${ronda.course_name}`,
-        tag: `round-finished-${codigo}`,
-        url: `/ronda-libre/${codigo}?finished=true`,
+    if (freshRonda?.estado === 'finalizada') {
+      // Otro jugador ya finalizó — no duplicar
+      setRoundDone(true)
+    } else {
+      const allDone = (freshRonda?.ronda_libre_jugadores ?? []).every((j: { scores: Record<string, number> }) => {
+        const count = Object.keys(j.scores ?? {}).filter(k => { const n = parseInt(k); return n >= 1 && n <= holesCount }).length
+        return count >= holesCount
       })
+      if (allDone) {
+        // Usar update condicional para evitar race condition
+        await supabase.from('rondas_libres')
+          .update({ estado: 'finalizada' })
+          .eq('codigo', codigo)
+          .eq('estado', 'en_curso') // Solo actualiza si aún está en curso
+        sendPushViaServer({
+          title: 'Ronda finalizada',
+          body: `Resultado final listo en ${ronda.course_name}`,
+          tag: `round-finished-${codigo}`,
+          url: `/ronda-libre/${codigo}?finished=true`,
+        })
+      }
     }
 
     // Calculate final score for modal
@@ -1010,6 +1017,9 @@ function ScorePageContent() {
             parMap={parMap}
             currentUserId={ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.user_id ?? null}
             totalHoles={ronda.holes}
+            modoJuego={ronda.modo_juego as 'gross' | 'neto' | 'stableford' ?? 'gross'}
+            hcpMap={playerHcp}
+            siMap={Object.fromEntries(Object.entries(holeDataMap).map(([k, v]) => [k, v.stroke_index]))}
           />
           {/* GWI — same as spectator view */}
           {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (

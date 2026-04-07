@@ -550,14 +550,14 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   }
 
   return (
-    <div className="min-h-screen bg-bg-deep">
+    <div className="min-h-screen" style={{ background: '#ffffff' }}>
 
       {/* ── Clean dark header ── */}
-      <div style={{ background: '#070d18', borderBottom: '1px solid rgba(196,153,42,0.12)' }}>
+      <div style={{ background: '#f8f9fa', borderBottom: '1px solid #e2e8f0' }}>
         {/* Top bar: logo + TV button */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 0', maxWidth: '1080px', margin: '0 auto' }}>
           <Link href="/" className="flex items-center gap-1 group" style={{ textDecoration: 'none' }}>
-            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#edeae4' }}>Golfers</span>
+            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#1a1a2e' }}>Golfers</span>
             <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#c4992a' }}>+</span>
           </Link>
           {tournament && (
@@ -578,26 +578,26 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             fontFamily: '"Playfair Display", serif',
             fontSize: '24px',
             fontWeight: 700,
-            color: '#edeae4',
+            color: '#1a1a2e',
             margin: '0 0 8px',
             lineHeight: 1.2,
           }}>
             {tournamentName}
           </h1>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '13px', color: '#4a5568' }}>
             {tournament?.courses?.nombre && <span>{tournament.courses.nombre}</span>}
-            {tournament?.courses?.nombre && <span style={{ color: 'rgba(255,255,255,0.25)' }}>&middot;</span>}
+            {tournament?.courses?.nombre && <span style={{ color: '#94a3b8' }}>&middot;</span>}
             <span>{totalHoyos}H</span>
-            <span style={{ color: 'rgba(255,255,255,0.25)' }}>&middot;</span>
+            <span style={{ color: '#94a3b8' }}>&middot;</span>
             <span>{modoJuego === 'gross' ? 'Gross' : modoJuego === 'neto' ? 'Neto' : 'Stableford'}</span>
-            <span style={{ color: 'rgba(255,255,255,0.25)' }}>&middot;</span>
+            <span style={{ color: '#94a3b8' }}>&middot;</span>
             <span>{dateDisplay}</span>
 
             {/* Status indicator */}
             {isLive && (
               <>
-                <span style={{ color: 'rgba(255,255,255,0.25)' }}>&middot;</span>
+                <span style={{ color: '#94a3b8' }}>&middot;</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                   <span className="live-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />
                   <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>EN VIVO</span>
@@ -606,7 +606,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             )}
             {isClosed && (
               <>
-                <span style={{ color: 'rgba(255,255,255,0.25)' }}>&middot;</span>
+                <span style={{ color: '#94a3b8' }}>&middot;</span>
                 <span style={{ color: '#c4992a', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>FINALIZADO</span>
               </>
             )}
@@ -614,7 +614,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
           {tournament?.codigo && (
             <div style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '8px', padding: '6px 12px' }}>
-              <span style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>Únete con</span>
+              <span style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '12px', color: '#94a3b8' }}>Únete con</span>
               <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '14px', color: '#c4992a', fontWeight: 700, letterSpacing: '0.1em' }}>{tournament.codigo}</span>
             </div>
           )}
@@ -634,9 +634,9 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             playerIdToIndex={playerIdToIndex}
           />
         ) : (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a8c0' }}>
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4a5568' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
-            <div style={{ fontSize: '18px', color: '#edeae4', marginBottom: '8px' }}>
+            <div style={{ fontSize: '18px', color: '#1a1a2e', marginBottom: '8px' }}>
               {tournament ? 'Sin jugadores inscritos aún' : 'Torneo no encontrado'}
             </div>
             <div style={{ fontSize: '14px' }}>
@@ -656,16 +656,16 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           {/* 1st place row — side by side */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
             {resultados.grossWinner && (
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '10px', padding: '14px 16px' }}>
-                <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>1° Gross</div>
-                <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{resultados.grossWinner.name}</div>
+              <div style={{ background: '#f8f9fa', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '10px', padding: '14px 16px' }}>
+                <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>1° Gross</div>
+                <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '15px', color: '#1a1a2e', fontWeight: 700 }}>{resultados.grossWinner.name}</div>
                 <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700, marginTop: '2px' }}>{resultados.grossWinner.score}</div>
               </div>
             )}
             {resultados.netoWinner && (
-              <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '10px', padding: '14px 16px' }}>
-                <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>1° Neto</div>
-                <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>{resultados.netoWinner.name}</div>
+              <div style={{ background: '#f8f9fa', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '10px', padding: '14px 16px' }}>
+                <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>1° Neto</div>
+                <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '15px', color: '#1a1a2e', fontWeight: 700 }}>{resultados.netoWinner.name}</div>
                 <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700, marginTop: '2px' }}>{resultados.netoWinner.score}</div>
               </div>
             )}
@@ -675,15 +675,15 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           {(resultados.grossSecond || resultados.netoSecond) && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               {resultados.grossSecond && (
-                <div style={{ background: '#0e1c2f', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '12px 16px' }}>
-                  <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>2° Gross</div>
-                  <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '14px', color: '#edeae4', fontWeight: 600 }}>{resultados.grossSecond.name} <span style={{ color: 'rgba(255,255,255,0.55)' }}>({resultados.grossSecond.score})</span></div>
+                <div style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+                  <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>2° Gross</div>
+                  <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '14px', color: '#1a1a2e', fontWeight: 600 }}>{resultados.grossSecond.name} <span style={{ color: '#4a5568' }}>({resultados.grossSecond.score})</span></div>
                 </div>
               )}
               {resultados.netoSecond && (
-                <div style={{ background: '#0e1c2f', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '12px 16px' }}>
-                  <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>2° Neto</div>
-                  <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '14px', color: '#edeae4', fontWeight: 600 }}>{resultados.netoSecond.name} <span style={{ color: 'rgba(255,255,255,0.55)' }}>({resultados.netoSecond.score})</span></div>
+                <div style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+                  <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>2° Neto</div>
+                  <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '14px', color: '#1a1a2e', fontWeight: 600 }}>{resultados.netoSecond.name} <span style={{ color: '#4a5568' }}>({resultados.netoSecond.score})</span></div>
                 </div>
               )}
             </div>
@@ -692,17 +692,17 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           {/* Stats row — horizontal, compact */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', padding: '12px 0' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Promedio</div>
+              <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Promedio</div>
               <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '20px', color: '#c4992a', fontWeight: 700 }}>{resultados.avgField.toFixed(1)}</div>
             </div>
-            <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', alignSelf: 'stretch' }} />
+            <div style={{ width: '1px', background: '#e2e8f0', alignSelf: 'stretch' }} />
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Eagles</div>
+              <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Eagles</div>
               <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '20px', color: '#c4992a', fontWeight: 700 }}>{resultados.totalEagles}</div>
             </div>
-            <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', alignSelf: 'stretch' }} />
+            <div style={{ width: '1px', background: '#e2e8f0', alignSelf: 'stretch' }} />
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Birdies</div>
+              <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Birdies</div>
               <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '20px', color: '#c4992a', fontWeight: 700 }}>{resultados.totalBirdies}</div>
             </div>
           </div>
@@ -729,21 +729,21 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       {/* Premium footer — minimal */}
       <footer style={{ borderTop: '1px solid rgba(196,153,42,0.08)', marginTop: '32px' }}>
         <div style={{ maxWidth: '480px', margin: '0 auto', padding: '32px 20px', textAlign: 'center' }}>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: '#edeae4', fontWeight: 700, marginBottom: '4px' }}>
+          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: '#1a1a2e', fontWeight: 700, marginBottom: '4px' }}>
             <span>Golfers</span><span style={{ color: '#c4992a' }}>+</span>
           </div>
-          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)', marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '20px' }}>
             Scoring en vivo &middot; &Iacute;ndices &middot; Coach IA
           </div>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
             <Link href="/register" style={{
-              background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px',
+              background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px',
               padding: '12px 24px', borderRadius: '10px', textDecoration: 'none',
             }}>
               Crear cuenta gratis
             </Link>
             <Link href="/demo" style={{
-              color: 'rgba(255,255,255,0.45)', fontSize: '14px', fontWeight: 500,
+              color: '#4a5568', fontSize: '14px', fontWeight: 500,
               padding: '12px 16px', textDecoration: 'none',
             }}>
               Ver demo

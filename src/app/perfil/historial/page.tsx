@@ -116,7 +116,7 @@ function cellBg(score: number | null): React.CSSProperties {
   if (score == null) return { background: 'rgba(7,13,24,0.4)', color: '#3a4a5a' }
   if (score <= 2)    return { background: 'rgba(37,99,235,0.38)',  color: '#93c5fd' }
   if (score === 3)   return { background: 'rgba(22,163,74,0.38)',  color: '#86efac' }
-  if (score === 4)   return { background: 'rgba(255,255,255,0.05)',color: 'var(--text)' }
+  if (score === 4)   return { background: 'rgba(0,0,0,0.04)',color: 'var(--text)' }
   if (score === 5)   return { background: 'rgba(196,153,42,0.25)', color: '#fcd34d' }
   return               { background: 'rgba(220,38,38,0.30)',  color: '#fca5a5' }
 }
@@ -513,7 +513,7 @@ function HistorialContent() {
       <button
         onClick={() => { setLoadError(false); setLoading(true); }}
         style={{
-          background: '#c4992a', color: '#070d18', fontWeight: 700,
+          background: '#c4992a', color: '#1a1a2e', fontWeight: 700,
           fontSize: '14px', padding: '12px 28px', borderRadius: '10px',
           border: 'none', cursor: 'pointer', marginTop: '8px',
         }}
@@ -792,7 +792,7 @@ function HistorialContent() {
               <button type="submit" disabled={saving || !courseName} style={{
                 width: '100%', height: '54px',
                 background: saving || !courseName ? 'rgba(196,153,42,0.4)' : '#c4992a',
-                color: '#070d18', fontWeight: 700, fontSize: '16px',
+                color: '#1a1a2e', fontWeight: 700, fontSize: '16px',
                 borderRadius: '10px', border: 'none',
                 cursor: saving || !courseName ? 'not-allowed' : 'pointer',
               }}>
@@ -820,7 +820,7 @@ function HistorialContent() {
                 <button
                   onClick={() => window.location.reload()}
                   style={{
-                    background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px',
+                    background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px',
                     padding: '12px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer',
                   }}
                 >
@@ -840,7 +840,7 @@ function HistorialContent() {
                   <button
                     onClick={() => setShowForm(true)}
                     style={{
-                      background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px',
+                      background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px',
                       padding: '12px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer',
                     }}
                   >
@@ -1071,7 +1071,7 @@ function HistorialContent() {
                                     <button
                                       onClick={(e) => { e.stopPropagation(); saveEdit(r.id) }}
                                       disabled={savingEdit}
-                                      style={{ flex: 1, padding: '10px', background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                                      style={{ flex: 1, padding: '10px', background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
                                     >
                                       {savingEdit ? 'Guardando...' : 'Guardar cambios'}
                                     </button>
@@ -1109,7 +1109,7 @@ function HistorialContent() {
           position: 'fixed', bottom: '24px', right: '24px',
           width: '56px', height: '56px', borderRadius: '50%',
           background: showForm ? '#6b7280' : '#c4992a',
-          color: showForm ? '#ffffff' : '#070d18',
+          color: showForm ? '#ffffff' : '#1a1a2e',
           border: 'none', cursor: 'pointer',
           boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
           fontSize: '24px', fontWeight: 700,

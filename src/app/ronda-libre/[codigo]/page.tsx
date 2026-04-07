@@ -43,7 +43,7 @@ function NotifBanner({ onEnable }: { onEnable: () => void }) {
       {!activated && (
         <>
           <button onClick={handleActivate} style={{
-            background: '#c4992a', color: '#070d18', border: 'none', borderRadius: '8px',
+            background: '#c4992a', color: '#1a1a2e', border: 'none', borderRadius: '8px',
             padding: '10px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', flexShrink: 0,
             minHeight: '44px',
           }}>Activar</button>
@@ -161,13 +161,13 @@ function AuthModal({ action, codigo, onClose }: { action: string; codigo: string
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: 'linear-gradient(165deg, #111827 0%, #0a1628 100%)',
+          background: '#ffffff',
           borderRadius: '24px',
-          border: '1px solid rgba(196,153,42,0.15)',
+          border: '1px solid #e2e8f0',
           padding: '40px 32px 32px',
           maxWidth: '400px', width: '100%',
           textAlign: 'center',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(196,153,42,0.08)',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)',
         }}
       >
         {/* Logo */}
@@ -182,13 +182,13 @@ function AuthModal({ action, codigo, onClose }: { action: string; codigo: string
         </div>
         <h2 style={{
           fontFamily: '"Playfair Display", serif',
-          fontSize: '24px', fontWeight: 700, color: '#edeae4',
+          fontSize: '24px', fontWeight: 700, color: '#1a1a2e',
           marginBottom: '8px', lineHeight: 1.3,
         }}>
           {action}
         </h2>
         <p style={{
-          fontSize: '14px', color: '#94a8c0', marginBottom: '28px',
+          fontSize: '14px', color: '#4a5568', marginBottom: '28px',
           lineHeight: 1.6, maxWidth: '300px', margin: '0 auto 28px',
         }}>
           Crea tu cuenta gratis en Golfers+ para acceder a todas las funciones.
@@ -198,7 +198,7 @@ function AuthModal({ action, codigo, onClose }: { action: string; codigo: string
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
             width: '100%', padding: '14px 20px',
-            background: '#c4992a', color: '#070d18',
+            background: '#c4992a', color: '#1a1a2e',
             fontWeight: 700, fontSize: '15px',
             borderRadius: '12px', textDecoration: 'none',
             marginBottom: '8px',
@@ -217,7 +217,7 @@ function AuthModal({ action, codigo, onClose }: { action: string; codigo: string
           onClick={onClose}
           style={{
             background: 'none', border: 'none',
-            color: '#94a8c0', fontSize: '14px',
+            color: '#4a5568', fontSize: '14px',
             cursor: 'pointer', padding: '12px 16px',
             width: '100%',
           }}
@@ -536,7 +536,7 @@ function RondaLibrePageContent() {
   /* ── Loading ── */
   if (loading) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0', fontFamily: 'DM Sans, sans-serif' }}>
+      <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a5568', fontFamily: 'DM Sans, sans-serif' }}>
         Cargando ronda...
       </div>
     )
@@ -545,18 +545,18 @@ function RondaLibrePageContent() {
   /* ── Fetch error — show retry UI instead of blank screen ── */
   if (fetchError && !ronda) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', fontFamily: 'DM Sans, sans-serif', padding: '24px' }}>
+      <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', fontFamily: 'DM Sans, sans-serif', padding: '24px' }}>
         <div style={{ fontSize: '48px' }}>⛳</div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#edeae4', textAlign: 'center' }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#1a1a2e', textAlign: 'center' }}>
           Error al cargar la ronda
         </h1>
-        <p style={{ color: '#94a8c0', textAlign: 'center', maxWidth: '320px', fontSize: '14px' }}>
+        <p style={{ color: '#4a5568', textAlign: 'center', maxWidth: '320px', fontSize: '14px' }}>
           No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.
         </p>
         <button
           onClick={() => { setFetchError(false); setLoading(true); fetchRonda() }}
           style={{
-            background: '#c4992a', color: '#070d18', fontWeight: 700,
+            background: '#c4992a', color: '#1a1a2e', fontWeight: 700,
             fontSize: '14px', padding: '12px 24px', borderRadius: '10px',
             border: 'none', cursor: 'pointer',
           }}
@@ -573,18 +573,18 @@ function RondaLibrePageContent() {
   /* ── Not found ── */
   if (notFound || !ronda) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', fontFamily: 'DM Sans, sans-serif', padding: '24px' }}>
+      <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', fontFamily: 'DM Sans, sans-serif', padding: '24px' }}>
         <div style={{ fontSize: '64px' }}>🏌️</div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', textAlign: 'center' }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#1a1a2e', textAlign: 'center' }}>
           Ronda no encontrada
         </h1>
-        <p style={{ color: '#94a8c0', textAlign: 'center', maxWidth: '320px', lineHeight: 1.5 }}>
+        <p style={{ color: '#4a5568', textAlign: 'center', maxWidth: '320px', lineHeight: 1.5 }}>
           El código <strong style={{ color: '#c4992a' }}>{codigo}</strong> no existe o fue eliminado.
           Verifica que el código sea exacto (mayúsculas y minúsculas importan).
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
           <Link href="/ronda-libre/nueva" style={{
-            background: '#c4992a', color: '#070d18', textDecoration: 'none',
+            background: '#c4992a', color: '#1a1a2e', textDecoration: 'none',
             fontWeight: 600, fontSize: '15px', padding: '12px 24px', borderRadius: '10px',
             display: 'inline-block',
           }}>
@@ -630,14 +630,14 @@ function RondaLibrePageContent() {
   /* ─────────────────────────────────────────────────────────────────────── */
   if (!role) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
+      <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
         {/* Header */}
-        <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '24px 16px', textAlign: 'center' }}>
+        <div style={{ background: '#f8f9fa', borderBottom: '1px solid #e2e8f0', padding: '24px 16px', textAlign: 'center' }}>
           <div style={{ fontSize: '48px', marginBottom: '10px' }}>⛳</div>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#edeae4', margin: '0 0 6px' }}>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#1a1a2e', margin: '0 0 6px' }}>
             Ronda Libre
           </h1>
-          <p style={{ color: '#94a8c0', fontSize: '14px', margin: 0 }}>
+          <p style={{ color: '#4a5568', fontSize: '14px', margin: 0 }}>
             {ronda.course_name} · {fechaDisplay}
           </p>
           <div style={{
@@ -648,7 +648,7 @@ function RondaLibrePageContent() {
             borderRadius: '10px',
             padding: '8px 18px',
           }}>
-            <span style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Código</span>
+            <span style={{ fontSize: '11px', color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Código</span>
             <span style={{ fontFamily: 'monospace', color: '#c4992a', fontWeight: 700, fontSize: '22px', letterSpacing: '3px' }}>
               {ronda.codigo}
             </span>
@@ -661,8 +661,8 @@ function RondaLibrePageContent() {
             style={{
               width: '100%',
               maxWidth: '360px',
-              background: 'rgba(14,28,47,0.9)',
-              border: '1px solid rgba(196,153,42,0.16)',
+              background: '#f8f9fa',
+              border: '1px solid #e2e8f0',
               borderRadius: '16px',
               padding: '18px 18px 16px',
               marginBottom: '4px',
@@ -670,32 +670,32 @@ function RondaLibrePageContent() {
           >
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
               <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estado</div>
-                <div style={{ fontSize: '14px', color: isEnCurso ? '#22c55e' : '#edeae4', fontWeight: 700 }}>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estado</div>
+                <div style={{ fontSize: '14px', color: isEnCurso ? '#22c55e' : '#1a1a2e', fontWeight: 700 }}>
                   {isEnCurso ? 'En vivo ahora' : 'Ronda finalizada'}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
-                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
+                <div style={{ fontSize: '14px', color: '#1a1a2e', fontWeight: 700 }}>
                   {ronda.ronda_libre_jugadores.length}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Recorrido</div>
-                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700 }}>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Recorrido</div>
+                <div style={{ fontSize: '14px', color: '#1a1a2e', fontWeight: 700 }}>
                   {ronda.holes} hoyos
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modo</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modo</div>
                 <div style={{ fontSize: '14px', color: '#c4992a', fontWeight: 700, textTransform: 'capitalize' }}>
                   {ronda.modo_juego === 'stableford' ? 'Stableford' : ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tees</div>
-                <div style={{ fontSize: '14px', color: '#edeae4', fontWeight: 700, textTransform: 'capitalize' }}>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tees</div>
+                <div style={{ fontSize: '14px', color: '#1a1a2e', fontWeight: 700, textTransform: 'capitalize' }}>
                   {ronda.tees}
                 </div>
               </div>
@@ -703,7 +703,7 @@ function RondaLibrePageContent() {
           </div>
           {ronda.estado === 'finalizada' ? (
             <>
-              <p style={{ color: '#94a8c0', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
+              <p style={{ color: '#4a5568', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
                 Esta ronda ya finalizó
               </p>
               <button
@@ -711,7 +711,7 @@ function RondaLibrePageContent() {
                 aria-label="Ver resultados"
                 style={{
                   width: '100%', maxWidth: '360px', minHeight: '80px',
-                  background: '#c4992a', color: '#070d18',
+                  background: '#c4992a', color: '#1a1a2e',
                   border: 'none', borderRadius: '16px',
                   padding: '20px 24px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '20px',
@@ -727,7 +727,7 @@ function RondaLibrePageContent() {
             </>
           ) : (
             <>
-              <p style={{ color: '#94a8c0', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
+              <p style={{ color: '#4a5568', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
                 ¿Cómo quieres unirte a esta ronda?
               </p>
 
@@ -740,7 +740,7 @@ function RondaLibrePageContent() {
                 aria-label="Soy jugador"
                 style={{
                   width: '100%', maxWidth: '360px', minHeight: '80px',
-                  background: '#c4992a', color: '#070d18',
+                  background: '#c4992a', color: '#1a1a2e',
                   border: 'none', borderRadius: '16px',
                   padding: '20px 24px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '20px',
@@ -759,8 +759,8 @@ function RondaLibrePageContent() {
                 aria-label="Solo ver"
                 style={{
                   width: '100%', maxWidth: '360px', minHeight: '80px',
-                  background: 'rgba(14,28,47,0.8)', color: '#edeae4',
-                  border: '1px solid rgba(196,153,42,0.3)', borderRadius: '16px',
+                  background: '#f8f9fa', color: '#1a1a2e',
+                  border: '1px solid #e2e8f0', borderRadius: '16px',
                   padding: '20px 24px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '20px',
                   textAlign: 'left',
@@ -769,7 +769,7 @@ function RondaLibrePageContent() {
                 <span style={{ fontSize: '32px', flexShrink: 0 }}>👁</span>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Solo ver</div>
-                  <div style={{ fontSize: '14px', color: '#94a8c0' }}>Seguiré el marcador en vivo</div>
+                  <div style={{ fontSize: '14px', color: '#4a5568' }}>Seguiré el marcador en vivo</div>
                 </div>
               </button>
             </>
@@ -777,7 +777,7 @@ function RondaLibrePageContent() {
 
           {/* Player count hint */}
           {ronda.ronda_libre_jugadores.length > 0 && (
-            <p style={{ color: '#94a8c0', fontSize: '13px', marginTop: '8px', textAlign: 'center' }}>
+            <p style={{ color: '#94a3b8', fontSize: '13px', marginTop: '8px', textAlign: 'center' }}>
               {ronda.ronda_libre_jugadores.length} jugador{ronda.ronda_libre_jugadores.length !== 1 ? 'es' : ''} en esta ronda
             </p>
           )}
@@ -808,24 +808,24 @@ function RondaLibrePageContent() {
         {showBanner && isAnonymous && !bannerDismissed && (
           <div style={{
             position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-            background: 'rgba(17,24,39,0.92)',
+            background: 'rgba(255,255,255,0.95)',
             backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            borderTop: '1px solid rgba(196,153,42,0.2)',
+            borderTop: '1px solid #e2e8f0',
             padding: '14px 16px',
             animation: 'slideUpBanner 0.4s ease-out',
           }}>
             <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#edeae4' }}>Registr&aacute; tu propio score</div>
-                <div style={{ fontSize: '12px', color: '#94a8c0' }}>Crea tu cuenta gratis y jug&aacute; con Golfers+</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a2e' }}>Registra tu propio score</div>
+                <div style={{ fontSize: '12px', color: '#4a5568' }}>Crea tu cuenta gratis y juega con Golfers+</div>
               </div>
               <Link href={`/register?next=/ronda-libre/${codigo}`} style={{
-                background: '#c4992a', color: '#070d18', fontWeight: 700,
+                background: '#c4992a', color: '#1a1a2e', fontWeight: 700,
                 fontSize: '13px', padding: '10px 18px', borderRadius: '8px',
                 textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
               }}>Unirme gratis</Link>
               <button onClick={dismissBanner} style={{
-                background: 'none', border: 'none', color: '#94a8c0',
+                background: 'none', border: 'none', color: '#4a5568',
                 fontSize: '20px', cursor: 'pointer', padding: '4px 8px', flexShrink: 0,
                 minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>×</button>
@@ -846,14 +846,14 @@ function RondaLibrePageContent() {
   /* ── SHARED HEADER ──────────────────────────────────────────────────── */
   /* ─────────────────────────────────────────────────────────────────────── */
   const sharedHeader = (
-    <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '16px' }}>
+    <div style={{ background: '#f8f9fa', borderBottom: '1px solid #e2e8f0', padding: '16px' }}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div>
-            <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', margin: '0 0 4px' }}>
+            <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#1a1a2e', margin: '0 0 4px' }}>
               {role === 'espectador' ? 'Marcador en vivo' : 'Unirse a la ronda'}
             </h1>
-            <div style={{ fontSize: '13px', color: '#94a8c0' }}>
+            <div style={{ fontSize: '13px', color: '#4a5568' }}>
               {ronda.course_name} · {fechaDisplay}
             </div>
           </div>
@@ -869,7 +869,7 @@ function RondaLibrePageContent() {
             </span>
             <button
               onClick={() => { sessionStorage.removeItem(SS_KEY(codigo)); setRole(null) }}
-              style={{ background: 'none', border: 'none', color: '#94a8c0', fontSize: '12px', cursor: 'pointer', padding: 0 }}
+              style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: '12px', cursor: 'pointer', padding: 0 }}
             >
               Cambiar rol
             </button>
@@ -1198,7 +1198,7 @@ function RondaLibrePageContent() {
           {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', marginBottom: '4px' }}>
               <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
-              <span style={{ fontSize: '11px', color: '#94a8c0' }}>Probabilidad de ganar en tiempo real</span>
+              <span style={{ fontSize: '11px', color: '#4a5568' }}>Probabilidad de ganar en tiempo real</span>
               <a href="/indices" style={{ fontSize: '10px', color: 'rgba(196,153,42,0.6)', textDecoration: 'none', marginLeft: 'auto' }}>Saber m&aacute;s</a>
             </div>
           )}
@@ -1469,25 +1469,25 @@ function RondaLibrePageContent() {
         {showBanner && isAnonymous && !bannerDismissed && (
           <div style={{
             position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-            background: 'rgba(17,24,39,0.92)',
+            background: 'rgba(255,255,255,0.95)',
             backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            borderTop: '1px solid rgba(196,153,42,0.2)',
+            borderTop: '1px solid #e2e8f0',
             padding: '14px 16px',
             animation: 'slideUpBanner 0.4s ease-out',
           }}>
             <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#edeae4' }}>
-                  Registr&aacute; tu propio score
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a2e' }}>
+                  Registra tu propio score
                 </div>
-                <div style={{ fontSize: '12px', color: '#94a8c0' }}>
-                  Crea tu cuenta gratis y jug&aacute; con Golfers+
+                <div style={{ fontSize: '12px', color: '#4a5568' }}>
+                  Crea tu cuenta gratis y juega con Golfers+
                 </div>
               </div>
               <Link
                 href={`/register?next=/ronda-libre/${codigo}`}
                 style={{
-                  background: '#c4992a', color: '#070d18', fontWeight: 700,
+                  background: '#c4992a', color: '#1a1a2e', fontWeight: 700,
                   fontSize: '13px', padding: '10px 18px', borderRadius: '8px',
                   textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
                 }}
@@ -1497,7 +1497,7 @@ function RondaLibrePageContent() {
               <button
                 onClick={dismissBanner}
                 style={{
-                  background: 'none', border: 'none', color: '#94a8c0',
+                  background: 'none', border: 'none', color: '#4a5568',
                   fontSize: '20px', cursor: 'pointer', padding: '4px 8px',
                   flexShrink: 0, minHeight: '44px', minWidth: '44px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1557,7 +1557,7 @@ function RondaLibrePageContent() {
                   style={{
                     width: '48px', height: '48px', borderRadius: '12px',
                     background: '#c4992a', border: 'none',
-                    fontSize: '24px', fontWeight: 600, color: '#070d18',
+                    fontSize: '24px', fontWeight: 600, color: '#1a1a2e',
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
                 >+</button>
@@ -1576,7 +1576,7 @@ function RondaLibrePageContent() {
                   style={{
                     flex: 1, padding: '12px', background: '#c4992a',
                     border: 'none', borderRadius: '10px',
-                    fontSize: '14px', fontWeight: 700, color: '#070d18', cursor: 'pointer',
+                    fontSize: '14px', fontWeight: 700, color: '#1a1a2e', cursor: 'pointer',
                   }}
                 >Guardar</button>
               </div>
@@ -1620,21 +1620,21 @@ function RondaLibrePageContent() {
 
   if (isAdmin) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
+      <div style={{ background: '#ffffff', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
         {sharedHeader}
         <div style={{ maxWidth: '640px', margin: '0 auto', padding: '40px 16px', textAlign: 'center' }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
-          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#edeae4', marginBottom: '8px' }}>
+          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#1a1a2e', marginBottom: '8px' }}>
             Score en grupo
           </h2>
-          <p style={{ color: '#94a8c0', fontSize: '14px', marginBottom: '24px', lineHeight: 1.6 }}>
+          <p style={{ color: '#4a5568', fontSize: '14px', marginBottom: '24px', lineHeight: 1.6 }}>
             Llevas el score de {ronda.ronda_libre_jugadores.length} jugador{ronda.ronda_libre_jugadores.length !== 1 ? 'es' : ''} en esta ronda.
           </p>
           <button
             onClick={() => router.push(`/ronda-libre/${codigo}/score-grupo`)}
             style={{
               width: '100%', maxWidth: '320px', padding: '16px',
-              background: '#c4992a', color: '#070d18',
+              background: '#c4992a', color: '#1a1a2e',
               border: 'none', borderRadius: '12px',
               fontWeight: 700, fontSize: '16px',
               cursor: 'pointer', marginBottom: '12px',
@@ -1646,7 +1646,7 @@ function RondaLibrePageContent() {
             onClick={() => chooseRole('espectador')}
             style={{
               width: '100%', maxWidth: '320px', padding: '14px',
-              background: 'transparent', color: '#94a8c0',
+              background: 'transparent', color: '#4a5568',
               border: '1px solid rgba(196,153,42,0.2)', borderRadius: '12px',
               fontWeight: 500, fontSize: '14px',
               cursor: 'pointer',
@@ -1660,19 +1660,19 @@ function RondaLibrePageContent() {
   }
 
   return (
-    <div style={{ background: '#070d18', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
+    <div style={{ background: '#ffffff', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
       {sharedHeader}
 
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '24px 16px' }}>
-        <p style={{ color: '#edeae4', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
+        <p style={{ color: '#1a1a2e', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
           ¿Cuál es tu nombre?
         </p>
-        <p style={{ color: '#94a8c0', fontSize: '14px', marginBottom: '24px' }}>
+        <p style={{ color: '#4a5568', fontSize: '14px', marginBottom: '24px' }}>
           Selecciona tu nombre de la lista para ingresar tu score
         </p>
 
         {ronda.ronda_libre_jugadores.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a8c0', fontSize: '14px' }}>
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#4a5568', fontSize: '14px' }}>
             No hay jugadores registrados en esta ronda aún.
           </div>
         ) : (
@@ -1687,7 +1687,7 @@ function RondaLibrePageContent() {
                   key={j.id}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '14px',
-                    background: isSelected ? 'rgba(196,153,42,0.1)' : '#0e1c2f',
+                    background: isSelected ? 'rgba(196,153,42,0.08)' : '#f8f9fa',
                     border: `2px solid ${isSelected ? '#c4992a' : 'rgba(122,143,168,0.12)'}`,
                     borderRadius: '12px', padding: '16px', cursor: 'pointer',
                     transition: 'all 0.15s',
@@ -1700,7 +1700,7 @@ function RondaLibrePageContent() {
                     background: isSelected ? '#c4992a' : 'transparent',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    {isSelected && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#070d18' }} />}
+                    {isSelected && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffffff' }} />}
                   </div>
                   <input
                     type="radio"
@@ -1713,8 +1713,8 @@ function RondaLibrePageContent() {
 
                   {/* Info */}
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#edeae4' }}>{j.nombre}</div>
-                    <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a2e' }}>{j.nombre}</div>
+                    <div style={{ fontSize: '13px', color: '#4a5568', marginTop: '2px' }}>
                       {hp === 0 ? 'Sin scores aún' : `${hp}/${ronda.holes} hoyos · ${formatOverUnder(vp)}`}
                     </div>
                   </div>
@@ -1726,7 +1726,7 @@ function RondaLibrePageContent() {
                       color: (() => {
                         if (vp <= -2) return '#3b82f6'
                         if (vp === -1) return '#22c55e'
-                        if (vp === 0)  return '#edeae4'
+                        if (vp === 0)  return '#374151'
                         if (vp === 1)  return '#c4992a'
                         return '#dc2626'
                       })(),
@@ -1748,7 +1748,7 @@ function RondaLibrePageContent() {
             style={{
               width: '100%', padding: '18px',
               background: selectedJ ? '#c4992a' : 'rgba(196,153,42,0.25)',
-              color: selectedJ ? '#070d18' : '#94a8c0',
+              color: selectedJ ? '#1a1a2e' : '#94a3b8',
               border: 'none', borderRadius: '12px',
               fontWeight: 700, fontSize: '16px',
               cursor: selectedJ ? 'pointer' : 'not-allowed',
@@ -1769,7 +1769,7 @@ function RondaLibrePageContent() {
           </button>
           <button
             onClick={handleCopy}
-            style={{ background: 'none', border: '1px solid rgba(196,153,42,0.2)', color: '#94a8c0', fontSize: '13px', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer' }}
+            style={{ background: 'none', border: '1px solid rgba(196,153,42,0.2)', color: '#4a5568', fontSize: '13px', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer' }}
           >
             {copied ? '✓ Copiado' : 'Copiar link'}
           </button>
@@ -1781,7 +1781,7 @@ function RondaLibrePageContent() {
 
 export default function RondaLibrePage() {
   return (
-    <Suspense fallback={<div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0', fontFamily: 'DM Sans, sans-serif' }}>Cargando ronda...</div>}>
+    <Suspense fallback={<div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a5568', fontFamily: 'DM Sans, sans-serif' }}>Cargando ronda...</div>}>
       <RondaLibrePageContent />
     </Suspense>
   )

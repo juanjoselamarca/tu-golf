@@ -79,9 +79,9 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
 
   // Input style helper — red border on error
   const inputStyle = (field: string): React.CSSProperties => ({
-    background:  'rgba(7,13,24,0.6)',
-    border:      `1px solid ${fieldError(field) ? '#dc2626' : 'rgba(122,143,168,0.3)'}`,
-    color:       '#edeae4',
+    background:  '#f8f9fa',
+    border:      `1px solid ${fieldError(field) ? '#dc2626' : '#e2e8f0'}`,
+    color:       '#1a1a2e',
     borderRadius: '8px',
     padding:     '12px',
     width:       '100%',
@@ -94,7 +94,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
   const labelStyle: React.CSSProperties = {
     display:    'block',
     fontSize:   '12px',
-    color:      '#94a8c0',
+    color:      '#4a5568',
     marginBottom: '6px',
   }
 
@@ -238,13 +238,13 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
           width:                '100%',
         }}
       >
-        <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>
+        <Link href="/dashboard" style={{ color: '#4a5568', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>
           ← Volver al dashboard
         </Link>
 
         <div style={{ marginBottom: '28px' }}>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>Golfers+</div>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', margin: 0 }}>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#1a1a2e', margin: 0 }}>
             Crear nuevo torneo
           </h1>
         </div>
@@ -287,18 +287,18 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
             )}
             <FieldErr msg={fieldError('course')} />
             {showCourses && filteredCourses.length > 0 && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 50 }}>
+              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#ffffff', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 50 }}>
                 {filteredCourses.slice(0, 15).map((c) => (
                   <button
                     key={c.id}
                     type="button"
                     onClick={() => { setSelectedCourse(c); setCourseSearch(c.nombre); setShowCourses(false); clearAll() }}
-                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#edeae4', fontSize: '14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#1a1a2e', fontSize: '14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
                     onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)')}
                     onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}
                   >
                     {c.nombre}
-                    {c.ciudad && <span style={{ color: '#94a8c0', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
+                    {c.ciudad && <span style={{ color: '#4a5568', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
                   </button>
                 ))}
               </div>
@@ -322,8 +322,8 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                     cursor: 'pointer', textAlign: 'left', transition: 'all 200ms',
                   }}
                 >
-                  <div style={{ color: '#edeae4', fontWeight: 600, fontSize: '14px' }}>{f.label}</div>
-                  <div style={{ color: '#94a8c0', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
+                  <div style={{ color: '#1a1a2e', fontWeight: 600, fontSize: '14px' }}>{f.label}</div>
+                  <div style={{ color: '#4a5568', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
                 </button>
               ))}
             </div>
@@ -344,7 +344,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                       border: holeCount === n ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)',
                       borderRadius: '8px',
                       background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)',
-                      color: holeCount === n ? '#edeae4' : '#94a8c0',
+                      color: holeCount === n ? '#1a1a2e' : '#4a5568',
                       cursor: 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400,
                     }}
                   >
@@ -369,7 +369,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                         : `1px solid ${fieldError('tees') ? 'rgba(220,38,38,0.5)' : 'rgba(122,143,168,0.3)'}`,
                       borderRadius: '6px',
                       background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)',
-                      color: tees === t.value ? '#edeae4' : '#94a8c0',
+                      color: tees === t.value ? '#1a1a2e' : '#4a5568',
                       cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400,
                     }}
                   >
@@ -384,8 +384,8 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
           {/* 6. Handicap toggle */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'rgba(7,13,24,0.4)', borderRadius: '10px', border: '1px solid rgba(122,143,168,0.15)' }}>
             <div>
-              <div style={{ color: '#edeae4', fontSize: '14px', fontWeight: 500 }}>Aplicar hándicap WHS</div>
-              <div style={{ color: '#94a8c0', fontSize: '12px', marginTop: '2px' }}>Ajusta los scores según el índice de cada jugador</div>
+              <div style={{ color: '#1a1a2e', fontSize: '14px', fontWeight: 500 }}>Aplicar hándicap WHS</div>
+              <div style={{ color: '#4a5568', fontSize: '12px', marginTop: '2px' }}>Ajusta los scores según el índice de cada jugador</div>
             </div>
             <button
               type="button"
@@ -433,7 +433,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
               placeholder="URL de imagen (Unsplash, etc.)"
               value={coverUrl}
               onChange={(e) => setCoverUrl(e.target.value)}
-              style={{ background: 'rgba(7,13,24,0.6)', border: '1px solid rgba(122,143,168,0.3)', color: '#edeae4', borderRadius: '8px', padding: '12px', width: '100%', fontSize: '15px', outline: 'none', boxSizing: 'border-box' }}
+              style={{ background: 'rgba(7,13,24,0.6)', border: '1px solid rgba(122,143,168,0.3)', color: '#1a1a2e', borderRadius: '8px', padding: '12px', width: '100%', fontSize: '15px', outline: 'none', boxSizing: 'border-box' }}
               onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
               onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
             />
@@ -447,7 +447,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
           <button
             type="submit"
             disabled={loading}
-            style={{ background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '16px', width: '100%', borderRadius: '8px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms', marginTop: '4px' }}
+            style={{ background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '16px', width: '100%', borderRadius: '8px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms', marginTop: '4px' }}
             onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.08)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)' }}
           >

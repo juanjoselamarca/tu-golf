@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
+import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import type { ModoJuego } from '@/golf/core/rules'
 
 interface JugadorLB {
   id: string
@@ -9,6 +11,8 @@ interface JugadorLB {
   holesCompleted: number
   totalGross: number
   totalVsPar: number | null
+  totalStableford: number
+  totalNetVsPar: number | null
   lastHole: number | null
 }
 
@@ -17,9 +21,12 @@ interface Props {
   parMap: Record<number, number>
   currentUserId: string | null
   totalHoles: number
+  modoJuego?: ModoJuego
+  hcpMap?: Record<string, number>
+  siMap?: Record<number, number>
 }
 
-export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles }: Props) {
+export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', hcpMap = {}, siMap = {} }: Props) {
   const [jugadores, setJugadores] = useState<JugadorLB[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -34,31 +41,47 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
     if (!data) return
 
     const jug: JugadorLB[] = (data.ronda_libre_jugadores ?? []).map((j: { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }) => {
-      const scores = j.scores ?? {}
-      const entries = Object.entries(scores).filter(([, s]) => Number(s) > 0)
+      const sc = j.scores ?? {}
+      const entries = Object.entries(sc).filter(([, s]) => Number(s) > 0)
       const holesCompleted = entries.length
       const totalGross = entries.reduce((a, [, s]) => a + Number(s), 0)
-      // Calculate vs par using per-hole pars (not full course par) so mid-round scores are correct
-      const parForPlayedHoles = entries.reduce((a, [h]) => {
-        const holeNum = parseInt(h)
-        return a + (parMap[holeNum] ?? 4)
-      }, 0)
+      const parForPlayedHoles = entries.reduce((a, [h]) => a + (parMap[parseInt(h)] ?? 4), 0)
       const totalVsPar = holesCompleted > 0 ? totalGross - parForPlayedHoles : null
+      // Neto y Stableford para sorting correcto
+      const hcp = hcpMap[j.id] ?? 18
+      let totalStableford = 0
+      let totalNetVsPar: number | null = null
+      if (holesCompleted > 0) {
+        let netSum = 0
+        for (const [h, s] of entries) {
+          const hNum = parseInt(h)
+          const par = parMap[hNum] ?? 4
+          const si = siMap[hNum] ?? hNum
+          const strokes = strokesRecibidosEnHoyo(hcp, si)
+          netSum += (Number(s) - strokes)
+          totalStableford += puntosStablefordHoyo(Number(s), par, hcp, si)
+        }
+        totalNetVsPar = netSum - parForPlayedHoles
+      }
       const holeNums = entries.map(([h]) => parseInt(h)).filter(n => !isNaN(n))
       const lastHole = holeNums.length > 0 ? Math.max(...holeNums) : null
-      return { id: j.id, nombre: j.nombre, user_id: j.user_id ?? null, holesCompleted, totalGross, totalVsPar, lastHole }
+      return { id: j.id, nombre: j.nombre, user_id: j.user_id ?? null, holesCompleted, totalGross, totalVsPar, totalStableford, totalNetVsPar, lastHole }
     })
 
+    // Ordenar según modo de juego
     jug.sort((a, b) => {
-      if (a.totalGross > 0 && b.totalGross > 0) return a.totalGross - b.totalGross
-      if (a.totalGross > 0) return -1
-      if (b.totalGross > 0) return 1
-      return 0
+      if (a.holesCompleted === 0 && b.holesCompleted === 0) return 0
+      if (a.holesCompleted === 0) return 1
+      if (b.holesCompleted === 0) return -1
+      if (modoJuego === 'stableford') return b.totalStableford - a.totalStableford // más puntos = mejor
+      if (modoJuego === 'neto') return (a.totalNetVsPar ?? 0) - (b.totalNetVsPar ?? 0) // menos = mejor
+      return (a.totalVsPar ?? 0) - (b.totalVsPar ?? 0) // gross: menos vs par = mejor
     })
 
     setJugadores(jug)
     setLoading(false)
-  }, [codigoRonda, parMap])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- hcpMap/siMap son objetos nuevos cada render, parMap es estable
+  }, [codigoRonda, parMap, modoJuego])
 
   useEffect(() => {
     fetchLB()
