@@ -7,6 +7,7 @@ import { HoleColorBar } from '@/components/HoleColorBar'
 import { PostLoginRedirect } from '@/components/PostLoginRedirect'
 import EnVivoWidget from '@/components/EnVivoWidget'
 import ShareRoundButton from '@/components/ShareRoundButton'
+import InvitarAmigos from '@/components/InvitarAmigos'
 
 interface Tournament {
   id: string
@@ -257,6 +258,53 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </>
         )}
 
+        {/* Next step — single contextual nudge (positioned high for visibility) */}
+        {nextStep && !isNewUser && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(196,153,42,0.06) 0%, rgba(196,153,42,0.02) 100%)',
+            border: '1px solid rgba(196,153,42,0.15)',
+            borderRadius: '16px',
+            padding: '24px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            flexWrap: 'wrap',
+          }}>
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <div style={{
+                fontSize: '16px',
+                fontWeight: 600,
+                color: 'var(--text)',
+                marginBottom: '6px',
+                lineHeight: 1.3,
+              }}>
+                {nextStep.title}
+              </div>
+              <div style={{
+                fontSize: '13px',
+                color: 'var(--text-2)',
+                lineHeight: 1.5,
+              }}>
+                {nextStep.description}
+              </div>
+            </div>
+            <Link href={nextStep.href} style={{
+              background: '#c4992a',
+              color: '#1a1a2e',
+              fontWeight: 700,
+              fontSize: '13px',
+              padding: '12px 24px',
+              borderRadius: '10px',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}>
+              {nextStep.cta}
+            </Link>
+          </div>
+        )}
+
         <div style={{ height: '1px', background: 'linear-gradient(90deg, #c4992a, transparent)', marginBottom: '24px' }} />
 
         {/* 4.3 — Index progress indicator */}
@@ -273,6 +321,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '4px' }}>
               Basado en {rondasParaIndice} ronda{rondasParaIndice !== 1 ? 's' : ''} registrada{rondasParaIndice !== 1 ? 's' : ''}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '6px', fontStyle: 'italic' }}>
+              {indiceGolfers! <= 5 ? 'Nivel scratch — top del juego amateur' :
+               indiceGolfers! <= 10 ? 'Single digit — entre los mejores amateurs' :
+               indiceGolfers! <= 15 ? 'Jugador sólido — consistente y competitivo' :
+               indiceGolfers! <= 20 ? 'Buen nivel — en camino a single digit' :
+               indiceGolfers! <= 28 ? 'En progreso — cada ronda suma experiencia' :
+               'Empezando tu camino en el golf'}
             </div>
             <Link href="/perfil/stats" style={{ display: 'inline-block', marginTop: '12px', color: '#c4992a', fontSize: '13px', fontWeight: 600, textDecoration: 'none' }}>
               Ver evolución →
@@ -336,52 +392,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         )}
 
-        {/* Next step — single contextual nudge */}
-        {nextStep && !isNewUser && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(196,153,42,0.06) 0%, rgba(196,153,42,0.02) 100%)',
-            border: '1px solid rgba(196,153,42,0.15)',
-            borderRadius: '16px',
-            padding: '24px',
-            marginBottom: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '20px',
-            flexWrap: 'wrap',
-          }}>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <div style={{
-                fontSize: '16px',
-                fontWeight: 600,
-                color: 'var(--text)',
-                marginBottom: '6px',
-                lineHeight: 1.3,
-              }}>
-                {nextStep.title}
-              </div>
-              <div style={{
-                fontSize: '13px',
-                color: 'var(--text-2)',
-                lineHeight: 1.5,
-              }}>
-                {nextStep.description}
-              </div>
-            </div>
-            <Link href={nextStep.href} style={{
-              background: '#c4992a',
-              color: '#1a1a2e',
-              fontWeight: 700,
-              fontSize: '13px',
-              padding: '12px 24px',
-              borderRadius: '10px',
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}>
-              {nextStep.cta}
-            </Link>
-          </div>
-        )}
+        {/* Next step nudge was moved above the divider for better visibility */}
 
         {/* 4.4 — Welcome empty state for brand new users */}
         {isNewUser && (
@@ -412,15 +423,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </div>
               </Link>
 
-              {/* Importar historial */}
+              {/* Importar historial — FAST TRACK destacado */}
               <Link href="/importar" style={{ textDecoration: 'none' }}>
                 <div style={{
-                  background: 'var(--bg-surface)', border: '1px solid var(--border)',
-                  borderRadius: '14px', padding: '20px', textAlign: 'center',
+                  background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(196,153,42,0.35)',
+                  borderRadius: '14px', padding: '20px', textAlign: 'center', position: 'relative',
                 }}>
+                  <div style={{
+                    position: 'absolute', top: '-8px', right: '12px',
+                    background: '#c4992a', color: '#070D18', fontSize: '10px', fontWeight: 700,
+                    padding: '2px 10px', borderRadius: '10px', letterSpacing: '0.05em',
+                  }}>
+                    FAST TRACK
+                  </div>
                   <div style={{ fontSize: '32px', marginBottom: '12px' }}>📥</div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>Importa tu historial</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>Trae tus rondas pasadas y activa tu Índice Golfers+</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#c4992a', marginBottom: '6px' }}>Importa tu historial</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>Trae tus rondas de Garmin en 2 minutos y activa tu Índice + tAIger+</div>
                 </div>
               </Link>
 
@@ -463,6 +481,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </div>
           </div>
         )}
+
+        {/* Invitar amigos */}
+        {!isNewUser && <InvitarAmigos userId={user.id} />}
 
         {/* Stats card */}
         <Link href="/perfil/stats" style={{

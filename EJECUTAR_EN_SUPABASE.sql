@@ -48,7 +48,13 @@ CREATE POLICY "gestionar_jugadores" ON ronda_libre_jugadores
     )
   );
 CREATE POLICY "jugador_update_scores" ON ronda_libre_jugadores
-  FOR UPDATE USING (user_id = auth.uid() OR user_id IS NULL);
+  FOR UPDATE USING (
+    user_id = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM rondas_libres r
+      WHERE r.id = ronda_id AND r.creador_id = auth.uid()
+    )
+  );
 
 -- ── Historial de tarjetas (Sprint 8 anterior) ─────────────────
 

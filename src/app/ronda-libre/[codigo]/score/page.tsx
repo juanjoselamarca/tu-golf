@@ -141,6 +141,7 @@ function ScorePageContent() {
   const [holeInOneData, setHoleInOneData] = useState<{ playerName: string; hole: number } | null>(null)
   const [birdieData, setBirdieData] = useState<{ playerName: string; hole: number } | null>(null)
   const [eagleData, setEagleData] = useState<{ playerName: string; hole: number } | null>(null)
+  const [streakMsg, setStreakMsg] = useState<string | null>(null)
 
   // Offline score sync — guarda localmente ANTES de enviar al servidor
   const scoreSync = useScoreSync(codigo, activeJugadorId)
@@ -465,6 +466,27 @@ function ScorePageContent() {
           }
           sendPushViaServer({ title: `Birdie — ${playerName}`, body: `Birdie en hoyo ${currentHole} en ${ronda.course_name}`, tag: `birdie-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
         }
+      }
+    }
+
+    // Streak detection: 3+ consecutive pars or better
+    if (savedScore != null && activeJugadorId) {
+      const ps = scores[activeJugadorId] ?? {}
+      let streak = 0
+      for (let i = currentHoleIdx; i >= 0; i--) {
+        const h = ordenHoyos[i]
+        const s = ps[h]; const p = parMap[h] ?? 4
+        if (s != null && s <= p) streak++
+        else break
+      }
+      if (streak >= 3) {
+        const msgs = [
+          `${streak} hoyos en par o mejor`,
+          `Racha de ${streak} — consistencia`,
+          `${streak} seguidos — en la zona`,
+        ]
+        setStreakMsg(msgs[Math.min(streak - 3, msgs.length - 1)])
+        setTimeout(() => setStreakMsg(null), 2500)
       }
     }
 
@@ -1325,6 +1347,52 @@ function ScorePageContent() {
                 </div>
               )}
 
+              {/* Mini-análisis inteligente post-ronda */}
+              {(() => {
+                const par3s: number[] = [], par4s: number[] = [], par5s: number[] = []
+                holeNums.forEach(h => {
+                  const s = playerScores[h]; const p = parMap[h] ?? 4
+                  if (s == null) return
+                  const d = s - p
+                  if (p === 3) par3s.push(d)
+                  else if (p === 4) par4s.push(d)
+                  else if (p >= 5) par5s.push(d)
+                })
+                const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
+                const best = [
+                  { label: 'Par 3', avg: avg(par3s), count: par3s.length },
+                  { label: 'Par 4', avg: avg(par4s), count: par4s.length },
+                  { label: 'Par 5', avg: avg(par5s), count: par5s.length },
+                ].filter(x => x.count > 0).sort((a, b) => a.avg - b.avg)
+
+                const front9Diff = holeNums.slice(0, 9).reduce((sum, h) => sum + ((playerScores[h] ?? parMap[h] ?? 4) - (parMap[h] ?? 4)), 0)
+                const back9Diff = totalHoles > 9 ? holeNums.slice(9, 18).reduce((sum, h) => sum + ((playerScores[h] ?? parMap[h] ?? 4) - (parMap[h] ?? 4)), 0) : null
+
+                if (best.length === 0) return null
+                return (
+                  <div style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px' }}>Análisis rápido</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {best[0] && (
+                        <div style={{ fontSize: '13px', color: '#4ade80' }}>
+                          Tu fortaleza: {best[0].label} ({best[0].avg <= 0 ? `${best[0].avg.toFixed(1)} vs par` : `+${best[0].avg.toFixed(1)} vs par`})
+                        </div>
+                      )}
+                      {best.length > 1 && best[best.length - 1].avg > 0.5 && (
+                        <div style={{ fontSize: '13px', color: '#fbbf24' }}>
+                          A mejorar: {best[best.length - 1].label} (+{best[best.length - 1].avg.toFixed(1)} vs par)
+                        </div>
+                      )}
+                      {back9Diff !== null && Math.abs(front9Diff - back9Diff) >= 3 && (
+                        <div style={{ fontSize: '13px', color: front9Diff < back9Diff ? '#4ade80' : '#f87171' }}>
+                          {front9Diff < back9Diff ? `Ida más fuerte que vuelta (${front9Diff >= 0 ? '+' : ''}${front9Diff} vs ${back9Diff >= 0 ? '+' : ''}${back9Diff})` : `Vuelta más fuerte que ida (${back9Diff >= 0 ? '+' : ''}${back9Diff} vs ${front9Diff >= 0 ? '+' : ''}${front9Diff})`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Scorecard table with OUT/IN/TOTAL */}
               {(() => {
                 const front9 = holeNums.slice(0, 9).reduce((sum, h) => sum + (playerScores[h] ?? 0), 0)
@@ -1500,6 +1568,18 @@ function ScorePageContent() {
           holeNumber={holeInOneData.hole}
           onClose={() => setHoleInOneData(null)}
         />
+      )}
+      {/* Streak toast */}
+      {streakMsg && (
+        <div style={{
+          position: 'fixed', bottom: '100px', left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(22,163,74,0.95)', color: '#ffffff', padding: '10px 20px',
+          borderRadius: '24px', fontSize: '14px', fontWeight: 600, zIndex: 180,
+          animation: 'fadeInOut 2.5s ease-in-out forwards', whiteSpace: 'nowrap',
+          boxShadow: '0 4px 16px rgba(22,163,74,0.3)',
+        }}>
+          🔥 {streakMsg}
+        </div>
       )}
     </div>
   )

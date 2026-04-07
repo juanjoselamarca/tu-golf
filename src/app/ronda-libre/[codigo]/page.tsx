@@ -923,10 +923,15 @@ function RondaLibrePageContent() {
 
           {/* GWI — solo si hay >= 2 jugadores y al menos 3 hoyos jugados */}
           {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', marginBottom: '4px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
-              <span style={{ fontSize: '11px', color: '#4a5568' }}>Probabilidad de ganar en tiempo real</span>
-              <a href="/indices" style={{ fontSize: '10px', color: 'rgba(196,153,42,0.6)', textDecoration: 'none', marginLeft: 'auto' }}>Saber m&aacute;s</a>
+            <div style={{ padding: '8px 12px', marginBottom: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
+                <span style={{ fontSize: '11px', color: '#4a5568' }}>Probabilidad de ganar en tiempo real</span>
+                <a href="/indices" style={{ fontSize: '10px', color: 'rgba(196,153,42,0.6)', textDecoration: 'none', marginLeft: 'auto' }}>Saber m&aacute;s</a>
+              </div>
+              <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px', lineHeight: 1.4 }}>
+                El Golf Win Index calcula la probabilidad de victoria de cada jugador usando su score actual, historial y patrones de juego. Se actualiza hoyo a hoyo.
+              </div>
             </div>
           )}
           {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
