@@ -65,6 +65,7 @@ interface LeaderboardEntry {
   handicap: number
   grossTotal: number
   netTotal: number
+  stablefordTotal: number
   vsPar: number
   holesPlayed: number
   scores: (number | null)[]
@@ -229,7 +230,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         const hcp = j.handicap ?? 0
         const scoresMap = j.scores || {}
         const scoreArr = new Array(totalHoyos).fill(null) as (number | null)[]
-        let grossTotal = 0, netTotal = 0, holesPlayed = 0
+        let grossTotal = 0, netTotal = 0, stablefordTotal = 0, holesPlayed = 0
 
         for (let h = 1; h <= totalHoyos; h++) {
           const gross = scoresMap[String(h)]
@@ -239,6 +240,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             const hole = holeMap.get(h)
             const strokes = hole ? strokesRecibidosEnHoyo(hcp, hole.stroke_index) : 0
             netTotal += gross - strokes
+            if (hole) stablefordTotal += puntosStablefordHoyo(gross, hole.par, hcp, hole.stroke_index)
             holesPlayed++
           }
         }
@@ -252,6 +254,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           handicap: hcp,
           grossTotal,
           netTotal,
+          stablefordTotal,
           vsPar: holesPlayed > 0 ? grossTotal - parPlayed : 0,
           holesPlayed,
           scores: scoreArr,
@@ -261,6 +264,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
       // Sort by modo_juego
       entries.sort((a, b) => {
+        if (modoJuego === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
         if (modoJuego === 'neto') return (a.netTotal || 999) - (b.netTotal || 999)
         return (a.grossTotal || 999) - (b.grossTotal || 999)
       })
@@ -271,7 +275,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         id: String(idx),
         name: e.name,
         scores: e.scores.map((s) => s ?? 0),
-        primaryScore: modoJuego === 'neto' ? e.netTotal : e.grossTotal,
+        primaryScore: modoJuego === 'stableford' ? e.stablefordTotal : modoJuego === 'neto' ? e.netTotal : e.grossTotal,
       }))
       const cbResults = resolveLeaderboardTies(cbPlayers, cbMode)
 
@@ -401,6 +405,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             todayVsPar: isMultiRound ? todayNet : netVsPar,
             grossTotal: cumulGross,
             netTotal: cumulNet,
+            stablefordTotal: cumulPoints,
             roundTotals,
             status: (allFinished ? 'F' : 'live') as 'F' | 'live',
           }
@@ -408,6 +413,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
         // Sort by cumulative score
         legacyEntries.sort((a, b) => {
+          if (modoJuego === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
           if (modoJuego === 'neto') return (a.netTotal || 999) - (b.netTotal || 999)
           return (a.grossTotal || 999) - (b.grossTotal || 999)
         })
@@ -418,7 +424,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           id: String(idx),
           name: e.dbPlayer.profiles?.name || 'Jugador',
           scores: e.scores.map((s) => s ?? 0),
-          primaryScore: modoJuego === 'neto' ? e.netTotal : e.grossTotal,
+          primaryScore: modoJuego === 'stableford' ? e.stablefordTotal : modoJuego === 'neto' ? e.netTotal : e.grossTotal,
         }))
         const cbResultsLegacy = resolveLeaderboardTies(cbPlayersLegacy, cbModeLegacy)
 

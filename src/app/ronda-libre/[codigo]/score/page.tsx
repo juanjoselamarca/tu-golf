@@ -17,9 +17,10 @@ import { shouldNotify } from '@/golf/notifications'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 
 /* ── Share menu component ──────────────────────────────────────────── */
-function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void }) {
-  const scoreUrl = typeof window !== 'undefined' ? `${window.location.origin}/ronda-libre/${codigo}/score` : ''
-  const liveUrl = typeof window !== 'undefined' ? `${window.location.origin}/ronda-libre/${codigo}` : ''
+function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; onClose: () => void; isAdminMode?: boolean }) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
+  const scoreUrl = `${siteUrl}/ronda-libre/${codigo}/score`
+  const liveUrl = `${siteUrl}/ronda-libre/${codigo}`
 
   const doShare = async (url: string, text: string) => {
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -34,11 +35,13 @@ function ShareMenu({ codigo, onClose }: { codigo: string; onClose: () => void })
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
       <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '480px', background: '#ffffff', borderRadius: '16px 16px 0 0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
         <div style={{ width: '36px', height: '4px', background: '#d1d5db', borderRadius: '2px', margin: '0 auto 16px' }} />
-        <button onClick={() => doShare(scoreUrl, 'Únete a jugar en Golfers+')} style={{
-          width: '100%', padding: '16px', marginBottom: '8px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
-        }}>
-          <span style={{ fontSize: '20px' }}>🏌️</span> Invitar a jugar
-        </button>
+        {!isAdminMode && (
+          <button onClick={() => doShare(scoreUrl, 'Únete a jugar en Golfers+')} style={{
+            width: '100%', padding: '16px', marginBottom: '8px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
+          }}>
+            <span style={{ fontSize: '20px' }}>🏌️</span> Invitar a jugar
+          </button>
+        )}
         <button onClick={() => doShare(liveUrl, 'Sigue mi ronda en vivo en Golfers+')} style={{
           width: '100%', padding: '16px', background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
         }}>
@@ -132,6 +135,7 @@ function ScorePageContent() {
   const [taigerSessionId, setTaigerSessionId] = useState<string | null>(null)
   const [saveCheckVisible, setSaveCheckVisible] = useState(false) // FIX #8: save feedback toast
   const [showShareMenu, setShowShareMenu] = useState(false)
+  const [adminRedirectMsg, setAdminRedirectMsg] = useState<string | null>(null)
   const [roundDone, setRoundDone] = useState(false)
   const [finalScore, setFinalScore] = useState({ gross: 0, totalPar: 0 })
   const [holeInOneData, setHoleInOneData] = useState<{ playerName: string; hole: number } | null>(null)
@@ -259,7 +263,9 @@ function ScorePageContent() {
           return
         }
         if (r.admin_user_id !== authUser?.id) {
-          router.replace(`/ronda-libre/${codigo}`)
+          // Show message before redirecting
+          setAdminRedirectMsg('El admin de grupo lleva tu score. Redirigiendo al leaderboard...')
+          setTimeout(() => router.replace(`/ronda-libre/${codigo}`), 1500)
           return
         }
       }
@@ -637,6 +643,11 @@ function ScorePageContent() {
   }, [ronda, scores, parMap])
 
   /* ── Render ── */
+  if (adminRedirectMsg) return (
+    <div style={{ minHeight: '100dvh', background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
+      <div style={{ fontSize: '14px', color: '#4a5568' }}>{adminRedirectMsg}</div>
+    </div>
+  )
   if (loading) return <div style={{ background: theme.bg, minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textFaint }}>Cargando ronda...</div>
   if (!ronda || !activeJugadorId) return null
 
@@ -757,7 +768,7 @@ function ScorePageContent() {
     <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
 
       {/* ── Share menu modal ── */}
-      {showShareMenu && <ShareMenu codigo={codigo} onClose={() => setShowShareMenu(false)} />}
+      {showShareMenu && <ShareMenu codigo={codigo} onClose={() => setShowShareMenu(false)} isAdminMode={!!ronda?.admin_mode} />}
 
       {/* ── Offline banner ── */}
       {!isOnline && (

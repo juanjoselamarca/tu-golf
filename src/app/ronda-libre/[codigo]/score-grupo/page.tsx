@@ -227,16 +227,17 @@ export default function ScoreGrupoPage() {
   }, [hasUnsaved])
 
   /* ── Save all players ── */
-  const saveAllScores = useCallback(async () => {
+  const saveAllScores = useCallback(async (overrideScores?: Record<string, Record<number, number>>) => {
     if (!ronda) return
+    const toSave = overrideScores ?? scores
     setSaveStatus('saving')
-    lsSave(codigo, scores)
+    lsSave(codigo, toSave)
 
     const supabase = createClient()
     let allOk = true
     const savePromises = ronda.ronda_libre_jugadores.map(j => {
       const scoresObj: Record<string, number> = {}
-      for (const [k, v] of Object.entries(scores[j.id] ?? {})) scoresObj[String(k)] = v  // Explicit string keys for JSONB
+      for (const [k, v] of Object.entries(toSave[j.id] ?? {})) scoresObj[String(k)] = v  // Explicit string keys for JSONB
       return supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
     })
     const results = await Promise.all(savePromises)
@@ -376,13 +377,21 @@ export default function ScoreGrupoPage() {
   const goToNextHole = async () => {
     if (!ronda) return
     haptic(30)
-    // Auto-fill missing scores with par for all players on current hole
+    // Auto-fill ALL players who don't have a score for the current hole with par
+    const updatedScores = { ...scores }
     for (const j of jugadores) {
-      if (scores[j.id]?.[currentHole] == null) {
-        handleScoreChange(j.id, currentHole, 0) // sets to par
+      if (updatedScores[j.id]?.[currentHole] == null) {
+        updatedScores[j.id] = { ...(updatedScores[j.id] ?? {}), [currentHole]: par }
       }
     }
-    await saveAllScores()
+    setScores(updatedScores)
+    setHasUnsaved(true)
+    lsSave(codigo, updatedScores)
+
+    // Save ALL atomically BEFORE advancing
+    await saveAllScores(updatedScores)
+
+    // NOW advance
     const nextIdx = currentHoleIdx + 1
     if (nextIdx < ordenHoyos.length) {
       setCurrentHole(ordenHoyos[nextIdx])

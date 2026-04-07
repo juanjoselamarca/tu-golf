@@ -13,6 +13,7 @@ interface DBHole { numero: number; par: number; stroke_index: number }
 interface DBJugador {
   id: string; nombre: string; user_id: string | null
   scores: Record<string, number>
+  handicap: number | null
 }
 interface DBPattern {
   pattern_type: string; confidence: number; metadata: Record<string, number>; status: string
@@ -28,7 +29,7 @@ export async function GET(
     // Fetch ronda
     const { data: ronda } = await supabase
       .from('rondas_libres')
-      .select('id, course_name, course_id, holes, modo_juego, ronda_libre_jugadores(id, nombre, user_id, scores)')
+      .select('id, course_name, course_id, holes, modo_juego, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
       .eq('codigo', params.codigo)
       .single()
 
@@ -101,12 +102,11 @@ export async function GET(
       const scores = j.scores ?? {}
       let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0
       let hoyosCompletados = 0
-      let handicapIndex = 18  // default
-
-      // Get handicap from batch profiles
-      if (j.user_id) {
+      // Priority: 1) handicap stored in ronda_libre_jugadores, 2) profile indice, 3) default 18
+      let handicapIndex = j.handicap ?? 18
+      if (handicapIndex === 18 && j.user_id) {
         const prof = profileByUser.get(j.user_id)
-        handicapIndex = prof?.indice ?? 18
+        if (prof?.indice != null) handicapIndex = prof.indice
       }
 
       for (const h of holes) {

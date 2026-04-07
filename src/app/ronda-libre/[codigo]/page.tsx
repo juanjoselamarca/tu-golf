@@ -450,7 +450,8 @@ function RondaLibrePageContent() {
     }
   }, [role, ronda, isAnonymous, codigo])
 
-  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/ronda-libre/${codigo}` : ''
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://golfersplus.vercel.app')
+  const shareUrl = `${siteUrl}/ronda-libre/${codigo}`
   const shareText = (() => {
     if (!ronda) return 'Sigue la ronda en vivo en Golfers+'
     const jugadores = ronda.ronda_libre_jugadores
@@ -1190,6 +1191,25 @@ function RondaLibrePageContent() {
 
           {/* Explorar link is at the top of spectator view */}
         </div>
+
+        {/* ── Admin: return to scoring bar ── */}
+        {isAdmin && ronda.estado === 'en_curso' && (
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+            background: '#ffffff', borderTop: '1px solid #e2e8f0',
+            padding: '12px 20px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+            display: 'flex', justifyContent: 'center',
+          }}>
+            <Link href={`/ronda-libre/${codigo}/score-grupo`} style={{
+              background: '#c4992a', color: '#ffffff', fontWeight: 700,
+              fontSize: '15px', padding: '14px 32px', borderRadius: '12px',
+              textDecoration: 'none', textAlign: 'center', width: '100%', maxWidth: '400px',
+              display: 'block',
+            }}>
+              Volver a scorear
+            </Link>
+          </div>
+        )}
 
         {/* ── Registration Banner (anonymous spectators, after 30s or scroll) ── */}
         {showBanner && isAnonymous && !bannerDismissed && (

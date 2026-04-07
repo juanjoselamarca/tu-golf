@@ -373,6 +373,14 @@ export default function NuevaRondaLibrePage() {
       await supabase.from('ronda_libre_jugadores').insert(playerData)
     }
 
+    // Snapshot de cancha para scoring inmutable
+    if (courseId && ronda?.id) {
+      try {
+        const { saveCourseSnapshot } = await import('@/lib/save-course-snapshot')
+        await saveCourseSnapshot(supabase, 'rondas_libres', ronda.id, courseId)
+      } catch { /* non-blocking */ }
+    }
+
     await trackEvent(supabase, userId, 'ronda_creada', { codigo, cancha, holes })
 
     setRoundCode(codigo)
@@ -381,7 +389,7 @@ export default function NuevaRondaLibrePage() {
   }
 
   const handleShareWhatsApp = (type: 'jugar' | 'seguir') => {
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://golfersplus.vercel.app'
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://golfersplus.vercel.app')
     const link = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
@@ -392,7 +400,7 @@ export default function NuevaRondaLibrePage() {
   }
 
   const handleCopyLink = (type: 'jugar' | 'seguir') => {
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://golfersplus.vercel.app'
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://golfersplus.vercel.app')
     const link = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
