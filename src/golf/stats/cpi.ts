@@ -46,11 +46,11 @@ export function validarRonda(round: ImportRoundData): {
         message: `Hoyo ${hole}: score faltante o cero`,
         canFix: true,
       })
-    } else if (score < 1 || score > 15) {
+    } else if (score < 1 || score > 20) {
       issues.push({
         type: 'score_out_of_range',
         holeNumber: hole,
-        message: `Hoyo ${hole}: score ${score} fuera de rango (1-15)`,
+        message: `Hoyo ${hole}: score ${score} fuera de rango (1-20)`,
         canFix: true,
       })
     }

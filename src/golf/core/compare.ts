@@ -66,18 +66,19 @@ export function splitByHoles<T extends RoundForCompare>(rounds: T[]): { rounds18
 export function countByResult(
   scores: (number | null)[],
   holePars: number[]
-): { eagles: number; birdies: number; pars: number; bogeys: number; doubles: number } {
-  let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0
+): { albatros: number; eagles: number; birdies: number; pars: number; bogeys: number; doubles: number } {
+  let albatros = 0, eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0
   for (let i = 0; i < scores.length; i++) {
     const s = scores[i]
     const par = holePars[i] ?? 4
     if (s == null || s === 0) continue
     const diff = s - par
-    if (diff <= -2) eagles++
+    if (diff <= -3) albatros++
+    else if (diff === -2) eagles++
     else if (diff === -1) birdies++
     else if (diff === 0) pars++
     else if (diff === 1) bogeys++
     else doubles++
   }
-  return { eagles, birdies, pars, bogeys, doubles }
+  return { albatros, eagles, birdies, pars, bogeys, doubles }
 }

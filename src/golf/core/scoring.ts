@@ -67,6 +67,7 @@ export interface ResumenRonda {
   overUnderGross:  number
   overUnderNeto:   number
   hoyos:           ResultadoHoyo[]
+  albatros:        number
   eagles:          number
   birdiesGross:    number
   birdiesNeto:     number
@@ -83,7 +84,7 @@ export function calcularResumenRonda(
   parTotal: number
 ): ResumenRonda {
   let totalGross = 0, totalNeto = 0, totalStableford = 0
-  let eagles = 0, birdiesGross = 0, birdiesNeto = 0
+  let albatros = 0, eagles = 0, birdiesGross = 0, birdiesNeto = 0
   let pares = 0, bogiesGross = 0, dobles = 0
 
   const hoyos: ResultadoHoyo[] = holes
@@ -100,7 +101,8 @@ export function calcularResumenRonda(
       totalNeto       += neto
       totalStableford += stableford
 
-      if (ouGross <= -2)       eagles++
+      if (ouGross <= -3)       albatros++
+      else if (ouGross === -2) eagles++
       else if (ouGross === -1) birdiesGross++
       else if (ouGross === 0)  pares++
       else if (ouGross === 1)  bogiesGross++
@@ -127,7 +129,7 @@ export function calcularResumenRonda(
     totalGross, totalNeto, totalStableford,
     overUnderGross: totalGross - parTotal,
     overUnderNeto:  totalNeto  - parTotal,
-    hoyos, eagles, birdiesGross, birdiesNeto, pares, bogiesGross, dobles,
+    hoyos, albatros, eagles, birdiesGross, birdiesNeto, pares, bogiesGross, dobles,
   }
 }
 

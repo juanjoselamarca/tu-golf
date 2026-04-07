@@ -761,14 +761,17 @@ function ScorePageContent() {
 
   // Total net & stableford across all holes played
   let totalNet = 0, totalNetPar = 0, totalStableford = 0
+  let missingStrokeIndex = false
   for (let h = 1; h <= totalHoles; h++) {
     const s = scores[activeJugadorId]?.[h]
     if (s != null) {
       const hd = holeDataMap[h]
-      const strk = strokesRecibidosEnHoyo(hcpForPlayer, hd?.stroke_index ?? h)
+      if (!hd?.stroke_index && (ronda.modo_juego === 'neto' || ronda.modo_juego === 'stableford')) missingStrokeIndex = true
+      const si = hd?.stroke_index ?? h
+      const strk = strokesRecibidosEnHoyo(hcpForPlayer, si)
       totalNet += s - strk
       totalNetPar += parMap[h] ?? 4
-      totalStableford += puntosStablefordHoyo(s, parMap[h] ?? 4, hcpForPlayer, hd?.stroke_index ?? h)
+      totalStableford += puntosStablefordHoyo(s, parMap[h] ?? 4, hcpForPlayer, si)
     }
   }
   const totalNetOverUnder = totalNet - totalNetPar
@@ -779,6 +782,9 @@ function ScorePageContent() {
   const showStableford = modoJuego === 'stableford'
   const displayOverUnder = showNet ? totalNetOverUnder : totalOverUnder
   const displayTotal = showStableford ? totalStableford : totalGross
+
+  // Warning if stroke index is missing for neto/stableford modes
+  const showStrokeIndexWarning = missingStrokeIndex && (showNet || showStableford)
 
   // Double bogey warning
   const isAboveDoubleBogey = score != null && score > par + 2
@@ -1055,6 +1061,16 @@ function ScorePageContent() {
               <span>{currentStablefordPts} {currentStablefordPts === 1 ? 'punto' : 'puntos'}</span>
             )}
             {strokesOnHole > 0 && <span style={{ color: theme.textFaint }}> ({strokesOnHole} golpe{strokesOnHole > 1 ? 's' : ''})</span>}
+          </div>
+        )}
+
+        {/* Stroke index warning */}
+        {showStrokeIndexWarning && (
+          <div style={{
+            marginTop: '4px', fontSize: '11px', color: '#f59e0b',
+            letterSpacing: '0.02em',
+          }}>
+            Neto aproximado — cancha sin stroke index
           </div>
         )}
 

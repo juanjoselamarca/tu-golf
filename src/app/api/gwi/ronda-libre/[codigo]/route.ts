@@ -165,8 +165,8 @@ export async function GET(
                 avgDiff:    p.metadata?.diff ?? 3,
               }
             }
-            if (p.pattern_type === 'first_hole_anxiety') {
-              patternData.postBogeySpiral = { confidence: p.confidence * 0.6 }
+            if (p.pattern_type === 'post_bogey_spiral') {
+              patternData.postBogeySpiral = { confidence: p.confidence }
             }
           }
         }
