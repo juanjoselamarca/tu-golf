@@ -95,7 +95,7 @@ interface RondaLibre {
   ronda_libre_jugadores: Jugador[]
 }
 
-type Role = 'espectador' | 'jugador' | null
+type Role = 'espectador' | null
 type TimelineEvent = {
   jugador: string
   hole: number
@@ -243,7 +243,6 @@ function RondaLibrePageContent() {
   const [notFound,    setNotFound]    = useState(false)
   const [fetchError,  setFetchError]  = useState(false)
   const [role,        setRole]        = useState<Role>(null)
-  const [selectedJ,   setSelectedJ]   = useState<string>('')
   const [expanded,    setExpanded]    = useState<string | null>(null)
   const prevLeaderRef = useRef<string | null>(null)
   const prevScoresRef = useRef<Record<string, number>>({})
@@ -343,7 +342,7 @@ function RondaLibrePageContent() {
 
   // Show registration banner after 30s for anonymous users (welcome screen or spectator view)
   useEffect(() => {
-    if (!isAnonymous || bannerDismissed || role === 'jugador') return
+    if (!isAnonymous || bannerDismissed) return
     const dismissed = sessionStorage.getItem(`banner-dismissed-${codigo}`)
     if (dismissed) { setBannerDismissed(true); return }
     const timer = setTimeout(() => setShowBanner(true), 8000)
@@ -363,17 +362,11 @@ function RondaLibrePageContent() {
     return () => document.removeEventListener('visibilitychange', handler)
   }, [fetchRonda])
 
-  // Restore role from sessionStorage — override to espectador for finished rounds
+  // Always spectator — this page is read-only leaderboard
   useEffect(() => {
-    if (finishedParam || ronda?.estado === 'finalizada') {
-      // Clear stale jugador role and force espectador
-      sessionStorage.setItem(SS_KEY(codigo), 'espectador')
-      setRole('espectador')
-      return
-    }
-    const saved = sessionStorage.getItem(SS_KEY(codigo))
-    if (saved === 'espectador' || saved === 'jugador') setRole(saved)
-  }, [codigo, finishedParam, ronda?.estado])
+    sessionStorage.setItem(SS_KEY(codigo), 'espectador')
+    setRole('espectador')
+  }, [codigo])
 
   // Polling every 15s (spectator only)
   // Spectator: detect score events and send notifications
@@ -449,17 +442,13 @@ function RondaLibrePageContent() {
     return false
   }
 
-  const chooseRole = (r: Role) => {
-    if (!r) return
-    sessionStorage.setItem(SS_KEY(codigo), r)
-    setRole(r)
-    if (r === 'espectador') setCountdown(15)
-    // Track active ronda for live indicator — only for authenticated users
-    // Anonymous spectators don't navigate the app, so no pulse needed
-    if (ronda && isEnCurso && !isAnonymous) {
+
+  // Track active ronda for live indicator on role set
+  useEffect(() => {
+    if (role === 'espectador' && ronda && ronda.estado === 'en_curso' && !isAnonymous) {
       setActiveRondaSession(codigo, ronda.course_name)
     }
-  }
+  }, [role, ronda, isAnonymous, codigo])
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/ronda-libre/${codigo}` : ''
   const shareText = (() => {
@@ -497,11 +486,6 @@ function RondaLibrePageContent() {
     } else {
       window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${shareUrl}`)}`, '_blank')
     }
-  }
-
-  const handleGoScore = () => {
-    if (!selectedJ) return
-    router.push(`/ronda-libre/${codigo}/score?j=${selectedJ}`)
   }
 
   // Admin score editing — save updated score to supabase
@@ -626,258 +610,8 @@ function RondaLibrePageContent() {
   const isFinished = finishedParam || ronda.estado === 'finalizada'
 
   /* ─────────────────────────────────────────────────────────────────────── */
-  /* ── WELCOME SCREEN ─────────────────────────────────────────────────── */
+  /* ── WELCOME SCREEN — removed, page is always spectator ─────────────── */
   /* ─────────────────────────────────────────────────────────────────────── */
-  if (!role) {
-    return (
-      <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
-        {/* Header */}
-        <div style={{ background: '#f8f9fa', borderBottom: '1px solid #e2e8f0', padding: '24px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '10px' }}>⛳</div>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#1a1a2e', margin: '0 0 6px' }}>
-            Ronda Libre
-          </h1>
-          <p style={{ color: '#4a5568', fontSize: '14px', margin: 0 }}>
-            {ronda.course_name} · {fechaDisplay}
-          </p>
-          <div style={{
-            marginTop: '12px',
-            display: 'inline-flex', alignItems: 'center', gap: '10px',
-            background: 'rgba(196,153,42,0.08)',
-            border: '1px solid rgba(196,153,42,0.25)',
-            borderRadius: '10px',
-            padding: '8px 18px',
-          }}>
-            <span style={{ fontSize: '11px', color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Código</span>
-            <span style={{ fontFamily: 'monospace', color: '#c4992a', fontWeight: 700, fontSize: '22px', letterSpacing: '3px' }}>
-              {ronda.codigo}
-            </span>
-          </div>
-        </div>
-
-        {/* Role selection */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', gap: '16px' }}>
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '360px',
-              background: '#f8f9fa',
-              border: '1px solid #e2e8f0',
-              borderRadius: '16px',
-              padding: '18px 18px 16px',
-              marginBottom: '4px',
-            }}
-          >
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-              <div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estado</div>
-                <div style={{ fontSize: '14px', color: isEnCurso ? '#22c55e' : '#1a1a2e', fontWeight: 700 }}>
-                  {isEnCurso ? 'En vivo ahora' : 'Ronda finalizada'}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jugadores</div>
-                <div style={{ fontSize: '14px', color: '#1a1a2e', fontWeight: 700 }}>
-                  {ronda.ronda_libre_jugadores.length}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Recorrido</div>
-                <div style={{ fontSize: '14px', color: '#1a1a2e', fontWeight: 700 }}>
-                  {ronda.holes} hoyos
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Modo</div>
-                <div style={{ fontSize: '14px', color: '#c4992a', fontWeight: 700, textTransform: 'capitalize' }}>
-                  {ronda.modo_juego === 'stableford' ? 'Stableford' : ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tees</div>
-                <div style={{ fontSize: '14px', color: '#1a1a2e', fontWeight: 700, textTransform: 'capitalize' }}>
-                  {ronda.tees}
-                </div>
-              </div>
-            </div>
-          </div>
-          {ronda.estado === 'finalizada' ? (
-            <>
-              <p style={{ color: '#4a5568', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
-                Esta ronda ya finalizó
-              </p>
-              <button
-                onClick={() => chooseRole('espectador')}
-                aria-label="Ver resultados"
-                style={{
-                  width: '100%', maxWidth: '360px', minHeight: '80px',
-                  background: '#c4992a', color: '#1a1a2e',
-                  border: 'none', borderRadius: '16px',
-                  padding: '20px 24px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '20px',
-                  textAlign: 'left',
-                }}
-              >
-                <span style={{ fontSize: '32px', flexShrink: 0 }}>📊</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Ver resultados</div>
-                  <div style={{ fontSize: '14px', opacity: 0.8 }}>Revisa el marcador final</div>
-                </div>
-              </button>
-            </>
-          ) : (
-            <>
-              <p style={{ color: '#4a5568', fontSize: '15px', marginBottom: '8px', textAlign: 'center' }}>
-                ¿Cómo quieres unirte a esta ronda?
-              </p>
-
-              {/* M4: welcome buttons 80px, 20px font */}
-              <button
-                onClick={() => {
-                  if (requireAuth('Ingresa tu score en la ronda')) return
-                  chooseRole('jugador')
-                }}
-                aria-label="Soy jugador"
-                style={{
-                  width: '100%', maxWidth: '360px', minHeight: '80px',
-                  background: '#c4992a', color: '#1a1a2e',
-                  border: 'none', borderRadius: '16px',
-                  padding: '20px 24px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '20px',
-                  textAlign: 'left',
-                }}
-              >
-                <span style={{ fontSize: '32px', flexShrink: 0 }}>🏌️</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Soy jugador</div>
-                  <div style={{ fontSize: '14px', opacity: 0.8 }}>Ingresaré mi propio score</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => chooseRole('espectador')}
-                aria-label="Solo ver"
-                style={{
-                  width: '100%', maxWidth: '360px', minHeight: '80px',
-                  background: '#f8f9fa', color: '#1a1a2e',
-                  border: '1px solid #e2e8f0', borderRadius: '16px',
-                  padding: '20px 24px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '20px',
-                  textAlign: 'left',
-                }}
-              >
-                <span style={{ fontSize: '32px', flexShrink: 0 }}>👁</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '20px', marginBottom: '4px' }}>Solo ver</div>
-                  <div style={{ fontSize: '14px', color: '#4a5568' }}>Seguiré el marcador en vivo</div>
-                </div>
-              </button>
-            </>
-          )}
-
-          {/* Player count hint */}
-          {ronda.ronda_libre_jugadores.length > 0 && (
-            <p style={{ color: '#94a3b8', fontSize: '13px', marginTop: '8px', textAlign: 'center' }}>
-              {ronda.ronda_libre_jugadores.length} jugador{ronda.ronda_libre_jugadores.length !== 1 ? 'es' : ''} en esta ronda
-            </p>
-          )}
-
-          {/* WhatsApp share on welcome */}
-          <button
-            onClick={handleShare}
-            style={{
-              width: '100%', maxWidth: '360px', minHeight: '48px',
-              marginTop: '8px',
-              background: 'rgba(37,211,102,0.12)',
-              border: '1px solid rgba(37,211,102,0.3)',
-              color: '#25D366',
-              borderRadius: '12px',
-              padding: '12px 20px',
-              cursor: 'pointer',
-              fontSize: '15px',
-              fontWeight: 600,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            Compartir por WhatsApp
-          </button>
-        </div>
-
-        {/* ── Registration Banner on Welcome Screen ── */}
-        {showBanner && isAnonymous && !bannerDismissed && (
-          <div style={{
-            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-            background: 'rgba(255,255,255,0.95)',
-            backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            borderTop: '1px solid #e2e8f0',
-            padding: '14px 16px',
-            animation: 'slideUpBanner 0.4s ease-out',
-          }}>
-            <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a2e' }}>Registra tu propio score</div>
-                <div style={{ fontSize: '12px', color: '#4a5568' }}>Crea tu cuenta gratis y juega con Golfers+</div>
-              </div>
-              <Link href={`/register?next=/ronda-libre/${codigo}`} style={{
-                background: '#c4992a', color: '#1a1a2e', fontWeight: 700,
-                fontSize: '13px', padding: '10px 18px', borderRadius: '8px',
-                textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
-              }}>Unirme gratis</Link>
-              <button onClick={dismissBanner} style={{
-                background: 'none', border: 'none', color: '#4a5568',
-                fontSize: '20px', cursor: 'pointer', padding: '4px 8px', flexShrink: 0,
-                minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>×</button>
-            </div>
-          </div>
-        )}
-        <style>{`@keyframes slideUpBanner { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
-
-        {/* ── Auth Modal on Welcome Screen ── */}
-        {showAuthModal && (
-          <AuthModal action={authModalAction} codigo={codigo} onClose={() => setShowAuthModal(false)} />
-        )}
-      </div>
-    )
-  }
-
-  /* ─────────────────────────────────────────────────────────────────────── */
-  /* ── SHARED HEADER ──────────────────────────────────────────────────── */
-  /* ─────────────────────────────────────────────────────────────────────── */
-  const sharedHeader = (
-    <div style={{ background: '#f8f9fa', borderBottom: '1px solid #e2e8f0', padding: '16px' }}>
-      <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-          <div>
-            <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#1a1a2e', margin: '0 0 4px' }}>
-              {role === 'espectador' ? 'Marcador en vivo' : 'Unirse a la ronda'}
-            </h1>
-            <div style={{ fontSize: '13px', color: '#4a5568' }}>
-              {ronda.course_name} · {fechaDisplay}
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '4px',
-              background: isEnCurso ? 'rgba(34,197,94,0.12)' : 'rgba(122,143,168,0.12)',
-              color: isEnCurso ? '#22c55e' : '#94a8c0',
-              border: `1px solid ${isEnCurso ? 'rgba(34,197,94,0.3)' : 'rgba(122,143,168,0.3)'}`,
-              padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
-            }}>
-              {isEnCurso ? '● EN CURSO' : '✓ FINALIZADA'}
-            </span>
-            <button
-              onClick={() => { sessionStorage.removeItem(SS_KEY(codigo)); setRole(null) }}
-              style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: '12px', cursor: 'pointer', padding: 0 }}
-            >
-              Cambiar rol
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
 
   /* ─────────────────────────────────────────────────────────────────────── */
   /* ── SPECTATOR VIEW ─────────────────────────────────────────────────── */
@@ -946,14 +680,6 @@ function RondaLibrePageContent() {
                   }}>
                     FINALIZADA
                   </span>
-                )}
-                {!isFinished && (
-                  <button
-                    onClick={() => { sessionStorage.removeItem(SS_KEY(codigo)); setRole(null) }}
-                    style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '12px', cursor: 'pointer', padding: 0 }}
-                  >
-                    Cambiar rol
-                  </button>
                 )}
               </div>
             </div>
@@ -1609,174 +1335,8 @@ function RondaLibrePageContent() {
     )
   }
 
-  /* ─────────────────────────────────────────────────────────────────────── */
-  /* ── PLAYER VIEW ────────────────────────────────────────────────────── */
-  /* ─────────────────────────────────────────────────────────────────────── */
-
-  // Admin mode: non-admin members go directly to spectator/leaderboard view
-  if (isAdminRound && !isAdmin && currentUserId && !role) {
-    chooseRole('espectador')
-  }
-
-  if (isAdmin) {
-    return (
-      <div style={{ background: '#ffffff', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
-        {sharedHeader}
-        <div style={{ maxWidth: '640px', margin: '0 auto', padding: '40px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
-          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#1a1a2e', marginBottom: '8px' }}>
-            Score en grupo
-          </h2>
-          <p style={{ color: '#4a5568', fontSize: '14px', marginBottom: '24px', lineHeight: 1.6 }}>
-            Llevas el score de {ronda.ronda_libre_jugadores.length} jugador{ronda.ronda_libre_jugadores.length !== 1 ? 'es' : ''} en esta ronda.
-          </p>
-          <button
-            onClick={() => router.push(`/ronda-libre/${codigo}/score-grupo`)}
-            style={{
-              width: '100%', maxWidth: '320px', padding: '16px',
-              background: '#c4992a', color: '#1a1a2e',
-              border: 'none', borderRadius: '12px',
-              fontWeight: 700, fontSize: '16px',
-              cursor: 'pointer', marginBottom: '12px',
-            }}
-          >
-            Anotar score de grupo {'→'}
-          </button>
-          <button
-            onClick={() => chooseRole('espectador')}
-            style={{
-              width: '100%', maxWidth: '320px', padding: '14px',
-              background: 'transparent', color: '#4a5568',
-              border: '1px solid rgba(196,153,42,0.2)', borderRadius: '12px',
-              fontWeight: 500, fontSize: '14px',
-              cursor: 'pointer',
-            }}
-          >
-            Ver marcador
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ background: '#ffffff', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
-      {sharedHeader}
-
-      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '24px 16px' }}>
-        <p style={{ color: '#1a1a2e', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
-          ¿Cuál es tu nombre?
-        </p>
-        <p style={{ color: '#4a5568', fontSize: '14px', marginBottom: '24px' }}>
-          Selecciona tu nombre de la lista para ingresar tu score
-        </p>
-
-        {ronda.ronda_libre_jugadores.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#4a5568', fontSize: '14px' }}>
-            No hay jugadores registrados en esta ronda aún.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '32px' }}>
-            {ronda.ronda_libre_jugadores.map(j => {
-              const hp       = getHolesPlayed(j.scores, ronda.holes)
-              const vp       = getVsPar(j.scores, ronda.holes, parMap)
-              const isSelected = selectedJ === j.id
-
-              return (
-                <label
-                  key={j.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '14px',
-                    background: isSelected ? 'rgba(196,153,42,0.08)' : '#f8f9fa',
-                    border: `2px solid ${isSelected ? '#c4992a' : 'rgba(122,143,168,0.12)'}`,
-                    borderRadius: '12px', padding: '16px', cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {/* Custom radio */}
-                  <div style={{
-                    width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
-                    border: `2px solid ${isSelected ? '#c4992a' : '#3a4a5a'}`,
-                    background: isSelected ? '#c4992a' : 'transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {isSelected && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffffff' }} />}
-                  </div>
-                  <input
-                    type="radio"
-                    name="jugador"
-                    value={j.id}
-                    checked={isSelected}
-                    onChange={() => setSelectedJ(j.id)}
-                    style={{ display: 'none' }}
-                  />
-
-                  {/* Info */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a2e' }}>{j.nombre}</div>
-                    <div style={{ fontSize: '13px', color: '#4a5568', marginTop: '2px' }}>
-                      {hp === 0 ? 'Sin scores aún' : `${hp}/${ronda.holes} hoyos · ${formatOverUnder(vp)}`}
-                    </div>
-                  </div>
-
-                  {/* Progress indicator */}
-                  {hp > 0 && (
-                    <div style={{
-                      fontSize: '14px', fontWeight: 700,
-                      color: (() => {
-                        if (vp <= -2) return '#3b82f6'
-                        if (vp === -1) return '#22c55e'
-                        if (vp === 0)  return '#374151'
-                        if (vp === 1)  return '#c4992a'
-                        return '#dc2626'
-                      })(),
-                    }}>
-                      {formatOverUnder(vp)}
-                    </div>
-                  )}
-                </label>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Confirm button */}
-        {ronda.ronda_libre_jugadores.length > 0 && (
-          <button
-            onClick={handleGoScore}
-            disabled={!selectedJ}
-            style={{
-              width: '100%', padding: '18px',
-              background: selectedJ ? '#c4992a' : 'rgba(196,153,42,0.25)',
-              color: selectedJ ? '#1a1a2e' : '#94a3b8',
-              border: 'none', borderRadius: '12px',
-              fontWeight: 700, fontSize: '16px',
-              cursor: selectedJ ? 'pointer' : 'not-allowed',
-              transition: 'all 0.15s',
-            }}
-          >
-            {selectedJ ? 'Ingresar mi score →' : 'Selecciona tu nombre'}
-          </button>
-        )}
-
-        {/* Share + Copy */}
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
-          <button
-            onClick={handleShare}
-            style={{ background: 'rgba(37,211,102,0.12)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366', fontSize: '13px', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
-          >
-            Compartir por WhatsApp
-          </button>
-          <button
-            onClick={handleCopy}
-            style={{ background: 'none', border: '1px solid rgba(196,153,42,0.2)', color: '#4a5568', fontSize: '13px', padding: '8px 18px', borderRadius: '8px', cursor: 'pointer' }}
-          >
-            {copied ? '✓ Copiado' : 'Copiar link'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+  // Unreachable — role is always 'espectador', handled above
+  return null
 }
 
 export default function RondaLibrePage() {

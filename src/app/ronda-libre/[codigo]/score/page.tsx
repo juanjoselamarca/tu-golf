@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback, Suspense } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
@@ -140,6 +140,8 @@ function ScorePageContent() {
 
   // Offline score sync — guarda localmente ANTES de enviar al servidor
   const scoreSync = useScoreSync(codigo, activeJugadorId)
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
+  const [showRanking, setShowRanking] = useState(false)
   const [view, setView] = useState<'scorecard' | 'leaderboard'>('scorecard')
   const [gwiInputs, setGwiInputs] = useState<JugadorGWIInput[]>([])
   const [, setGwiResults] = useState<GWIResult[]>([])
@@ -314,14 +316,26 @@ function ScorePageContent() {
       }
       setPlayerHcp(hcpMap)
 
-      const preselect = jugadorParam ? r.ronda_libre_jugadores.find(j => j.id === jugadorParam)?.id ?? r.ronda_libre_jugadores[0]?.id : r.ronda_libre_jugadores[0]?.id
-      setActiveJugadorId(preselect ?? null)
+      // Auto-detect player: if user is logged in and matches a jugador, auto-select
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      const matchedPlayer = authUser ? r.ronda_libre_jugadores.find(j => j.user_id === authUser.id) : null
+      // If jugadorParam is set OR user matches a player, auto-select and lock
+      const preselect = jugadorParam
+        ? r.ronda_libre_jugadores.find(j => j.id === jugadorParam)?.id ?? r.ronda_libre_jugadores[0]?.id
+        : matchedPlayer?.id ?? (r.ronda_libre_jugadores.length === 1 ? r.ronda_libre_jugadores[0]?.id : null)
+
       if (preselect) {
+        setSelectedPlayer(preselect)
+        setActiveJugadorId(preselect)
         const ex = initialScores[preselect] ?? {}
         const orden = generarOrdenHoyos(r.hoyo_inicio ?? 1, r.holes)
         const firstEmpty = orden.find(h => ex[h] == null)
         if (firstEmpty != null) setCurrentHole(firstEmpty)
         else setCurrentHole(orden[0])
+      } else {
+        // Multi-player, no auto-match: show player selection screen
+        // Set activeJugadorId to first player so data is loaded, but don't lock
+        setActiveJugadorId(r.ronda_libre_jugadores[0]?.id ?? null)
       }
       setLoading(false)
     }
@@ -605,6 +619,23 @@ function ScorePageContent() {
     }
   }, [currentHole])
 
+  // Mini ranking calculation (must be before early returns for hook ordering)
+  const ranking = useMemo(() => {
+    if (!ronda) return []
+    const jug = ronda.ronda_libre_jugadores
+    const th = ronda.holes
+    return jug.map(j => {
+      let gross = 0, parTotal = 0, holesPlayed = 0
+      for (let h = 1; h <= th; h++) {
+        const s = scores[j.id]?.[h] ?? scores[j.id]?.[String(h) as unknown as number]
+        if (s != null) { gross += s; parTotal += parMap[h] ?? 4; holesPlayed++ }
+      }
+      return { id: j.id, nombre: j.nombre, vsPar: gross - parTotal, holesPlayed, gross }
+    })
+    .filter(j => j.holesPlayed > 0)
+    .sort((a, b) => a.vsPar - b.vsPar)
+  }, [ronda, scores, parMap])
+
   /* ── Render ── */
   if (loading) return <div style={{ background: theme.bg, minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textFaint }}>Cargando ronda...</div>
   if (!ronda || !activeJugadorId) return null
@@ -613,6 +644,46 @@ function ScorePageContent() {
   const totalHoles = ronda.holes
   const hoyoInicio = ronda.hoyo_inicio ?? 1
   const ordenHoyos = generarOrdenHoyos(hoyoInicio, totalHoles)
+
+  /* ── Player selection screen (multi-player, no auto-match) ── */
+  if (!selectedPlayer && jugadores.length > 1) {
+    return (
+      <div style={{ minHeight: '100dvh', background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: '#1a1a2e', marginBottom: '8px' }}>
+          Quien eres?
+        </h1>
+        <p style={{ fontSize: '14px', color: '#4a5568', marginBottom: '24px' }}>
+          Selecciona tu nombre para marcar tu score
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '360px' }}>
+          {jugadores.map(j => (
+            <button key={j.id} onClick={() => {
+              setSelectedPlayer(j.id)
+              setActiveJugadorId(j.id)
+              // Jump to first empty hole for this player
+              const ex = scores[j.id] ?? {}
+              const orden = generarOrdenHoyos(ronda.hoyo_inicio ?? 1, ronda.holes)
+              const firstEmpty = orden.find(h => ex[h] == null)
+              if (firstEmpty != null) setCurrentHole(firstEmpty)
+              else setCurrentHole(orden[0])
+            }} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 20px', background: '#f8f9fa', border: '1px solid #e2e8f0',
+              borderRadius: '12px', cursor: 'pointer', width: '100%', textAlign: 'left',
+            }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a2e' }}>{j.nombre}</div>
+                {playerHcp[j.id] != null && (
+                  <div style={{ fontSize: '13px', color: '#94a3b8' }}>HCP {playerHcp[j.id]}</div>
+                )}
+              </div>
+              <span style={{ color: '#c4992a', fontSize: '20px' }}>{'\u2192'}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
   const currentHoleIdx = ordenHoyos.indexOf(currentHole)
   const isLastHole = currentHoleIdx >= totalHoles - 1
   const par = parMap[currentHole] ?? 4
@@ -885,8 +956,8 @@ function ScorePageContent() {
         </div>
       )}
 
-      {/* ── Player tabs (multi-player only, scorecard view) ── */}
-      {jugadores.length > 1 && view === 'scorecard' && (
+      {/* ── Player tabs (only if NO specific player is selected — legacy/admin) ── */}
+      {!selectedPlayer && jugadores.length > 1 && view === 'scorecard' && (
         <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid #e2e8f0`, WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
           {jugadores.map(j => {
             const active = j.id === activeJugadorId
@@ -1035,6 +1106,55 @@ function ScorePageContent() {
           <div style={{ fontSize: '9px', color: theme.textFaint, textAlign: 'center', marginTop: '8px' }}>
             Vuelve a Scorecard en 10s
           </div>
+        </div>
+      )}
+
+      {/* ── Mini ranking (collapsible, multi-player only) ── */}
+      {ranking.length > 1 && view === 'scorecard' && (
+        <div style={{ margin: '0 16px 8px', flexShrink: 0 }}>
+          <button
+            onClick={() => setShowRanking(!showRanking)}
+            style={{
+              width: '100%', padding: '8px 12px',
+              background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '10px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#4a5568',
+            }}
+          >
+            <span>Ranking</span>
+            <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+              {showRanking ? '\u25B2' : '\u25BC'}
+            </span>
+          </button>
+          {showRanking && (
+            <div style={{ marginTop: '4px', background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+              {ranking.map((r, idx) => {
+                const isMe = r.id === activeJugadorId
+                const vsParStr = r.vsPar > 0 ? `+${r.vsPar}` : r.vsPar === 0 ? 'E' : String(r.vsPar)
+                return (
+                  <div key={r.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    background: isMe ? 'rgba(196,153,42,0.08)' : 'transparent',
+                    borderBottom: idx < ranking.length - 1 ? '1px solid #e2e8f0' : 'none',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', width: '20px' }}>{idx + 1}</span>
+                      <span style={{ fontSize: '14px', fontWeight: isMe ? 700 : 500, color: isMe ? '#c4992a' : '#1a1a2e' }}>
+                        {r.nombre}{isMe ? ' \u2190' : ''}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: r.vsPar < 0 ? '#16a34a' : r.vsPar > 0 ? '#dc2626' : '#1a1a2e' }}>
+                        {vsParStr}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>({r.holesPlayed}h)</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
