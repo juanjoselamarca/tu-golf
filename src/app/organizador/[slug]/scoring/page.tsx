@@ -779,6 +779,17 @@ export default function ScoringPage() {
                       }}
                       placeholder="—"
                     />
+                    {haScore && tournament?.format === 'stableford' && (() => {
+                      const currentPlayer = players.find(p => p.id === selectedId)
+                      const strokes = strokesOnHole(currentPlayer?.handicap_at_registration ?? 0, courseHoles.find(h => h.numero === holeNum)?.stroke_index ?? holeNum)
+                      const neto = gross - strokes
+                      const pts = Math.max(0, 2 - (neto - par))
+                      return (
+                        <div style={{ fontSize: '10px', color: pts >= 2 ? '#16a34a' : pts === 1 ? '#c4992a' : '#94a3b8', fontWeight: 600, marginTop: '2px' }}>
+                          {pts} pt{pts !== 1 ? 's' : ''}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })}

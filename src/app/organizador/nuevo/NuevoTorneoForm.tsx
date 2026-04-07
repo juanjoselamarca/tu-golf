@@ -60,6 +60,11 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
   const [year,           setYear]           = useState('')
   const [coverUrl,       setCoverUrl]       = useState('')
   const [loading,        setLoading]        = useState(false)
+  const [showSIGrid,     setShowSIGrid]     = useState(false)
+  const [customSI,       setCustomSI]       = useState<Record<string, number>>({})
+  const [courseHoles,     setCourseHoles]    = useState<Array<{ numero: number; par: number; stroke_index: number; yardaje_blanco?: number }>>([])
+  const [siSource,       setSiSource]       = useState<'estimated' | 'generic' | 'verified'>('generic')
+  const [suggestSI,      setSuggestSI]      = useState(false)
 
   const filteredCourses = courses.filter(
     (c) =>
@@ -76,6 +81,32 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  // Load course holes when a course is selected
+  useEffect(() => {
+    if (!selectedCourse) { setCourseHoles([]); return }
+    const supabase = createClient()
+    supabase.from('course_holes')
+      .select('numero, par, stroke_index, yardaje_blanco')
+      .eq('course_id', selectedCourse.id)
+      .order('numero')
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setCourseHoles(data)
+          // Check if SI is generic
+          const isGeneric = data.length === 18 &&
+            data[0].stroke_index === 7 && data[1].stroke_index === 15
+          setSiSource(isGeneric ? 'generic' : 'estimated')
+        }
+      })
+    supabase.from('courses')
+      .select('si_verificado')
+      .eq('id', selectedCourse.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.si_verificado) setSiSource('verified')
+      })
+  }, [selectedCourse])
 
   // Input style helper — red border on error
   const inputStyle = (field: string): React.CSSProperties => ({
@@ -197,6 +228,22 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
       setLoading(false)
       return
     }
+
+    // Snapshot de cancha: guardar par, SI, yardaje inmutable para scoring
+    try {
+      const { saveCourseSnapshot } = await import('@/lib/save-course-snapshot')
+      const siOverride = Object.keys(customSI).length > 0 ? customSI : null
+      await saveCourseSnapshot(supabase, 'tournaments', tournament.id as string, selectedCourse!.id, siOverride)
+
+      // Contribución comunitaria: proponer SI para la cancha
+      if (suggestSI && siOverride && selectedCourse) {
+        await supabase.from('course_si_proposals').insert({
+          course_id: selectedCourse.id,
+          proposed_by: userId,
+          stroke_index: siOverride,
+        })
+      }
+    } catch { /* non-blocking */ }
 
     await trackEvent(supabase, userId, 'torneo_creado', { name: name.trim(), slug })
 
@@ -395,6 +442,125 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
               <span style={{ position: 'absolute', top: '3px', left: useHandicap ? '25px' : '3px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 200ms' }} />
             </button>
           </div>
+
+          {/* 6b. SI warning for Stableford */}
+          {format === 'stableford' && selectedCourse && siSource !== 'verified' && (
+            <div style={{
+              background: 'rgba(245,158,11,0.06)',
+              border: '1px solid rgba(245,158,11,0.2)',
+              borderRadius: '12px',
+              padding: '16px',
+            }}>
+              <div style={{ fontSize: '13px', color: '#92400e', lineHeight: 1.5, marginBottom: '12px' }}>
+                La dificultad por hoyo (stroke index) de esta cancha esta {siSource === 'generic' ? 'generica' : 'estimada'}.
+                En Stableford, esto puede afectar el resultado en ±2 puntos.
+              </div>
+              {!showSIGrid ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Pre-fill with current SI
+                    const prefill: Record<string, number> = {}
+                    courseHoles.forEach(h => { prefill[String(h.numero)] = h.stroke_index })
+                    setCustomSI(prefill)
+                    setShowSIGrid(true)
+                  }}
+                  style={{
+                    background: 'none',
+                    border: '1px solid rgba(245,158,11,0.3)',
+                    color: '#92400e',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                  }}
+                >
+                  Corregir con la scorecard del club
+                </button>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '12px', color: '#92400e', marginBottom: '8px', fontWeight: 500 }}>
+                    Ingresa la dificultad (1 = mas dificil, {holeCount} = mas facil):
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: holeCount === 18 ? '1fr 1fr' : '1fr', gap: '2px' }}>
+                    {/* Front 9 */}
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600, padding: '4px 8px', textTransform: 'uppercase' }}>
+                        {holeCount === 18 ? 'Front 9' : 'Hoyos'}
+                      </div>
+                      {courseHoles.slice(0, Math.min(9, holeCount)).map(h => (
+                        <div key={h.numero} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px' }}>
+                          <span style={{ fontSize: '12px', color: '#6b7280', width: '20px' }}>H{h.numero}</span>
+                          <span style={{ fontSize: '11px', color: '#9ca3af', width: '30px' }}>P{h.par}</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={holeCount}
+                            value={customSI[String(h.numero)] || ''}
+                            onChange={e => setCustomSI(prev => ({ ...prev, [String(h.numero)]: parseInt(e.target.value) || 0 }))}
+                            style={{
+                              width: '48px', padding: '4px 6px', fontSize: '13px',
+                              background: '#fff', border: '1px solid #d1d5db', borderRadius: '4px',
+                              textAlign: 'center', color: '#1a1a2e',
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {/* Back 9 */}
+                    {holeCount === 18 && (
+                      <div>
+                        <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600, padding: '4px 8px', textTransform: 'uppercase' }}>
+                          Back 9
+                        </div>
+                        {courseHoles.slice(9, 18).map(h => (
+                          <div key={h.numero} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px' }}>
+                            <span style={{ fontSize: '12px', color: '#6b7280', width: '20px' }}>H{h.numero}</span>
+                            <span style={{ fontSize: '11px', color: '#9ca3af', width: '30px' }}>P{h.par}</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={18}
+                              value={customSI[String(h.numero)] || ''}
+                              onChange={e => setCustomSI(prev => ({ ...prev, [String(h.numero)]: parseInt(e.target.value) || 0 }))}
+                              style={{
+                                width: '48px', padding: '4px 6px', fontSize: '13px',
+                                background: '#fff', border: '1px solid #d1d5db', borderRadius: '4px',
+                                textAlign: 'center', color: '#1a1a2e',
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setShowSIGrid(false); setCustomSI({}) }}
+                      style={{ fontSize: '12px', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSIGrid(false)}
+                      style={{ fontSize: '12px', color: '#92400e', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '6px', cursor: 'pointer', padding: '4px 12px', fontWeight: 500 }}
+                    >
+                      Guardar dificultad
+                    </button>
+                  </div>
+                  <div style={{ marginTop: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#6b7280', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={suggestSI} onChange={e => setSuggestSI(e.target.checked)} style={{ accentColor: '#c4992a' }} />
+                      Sugerir esta dificultad para futuros torneos en esta cancha
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 7. Fecha */}
           <div>
