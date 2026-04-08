@@ -227,30 +227,59 @@ export default function NuevaRondaLibrePage() {
       }
 
       // Detect multi-loop courses (e.g. Brisas de Santo Domingo: Norte, Este, Sur)
-      const { data: holeRows } = await supabase
-        .from('course_holes')
-        .select('recorrido, par')
-        .eq('course_id', courseId)
-      if (holeRows && holeRows.length > 0) {
-        const loopMap = new Map<string, { count: number; par: number }>()
-        for (const h of holeRows) {
-          const r = (h.recorrido as string) || 'default'
-          const existing = loopMap.get(r) ?? { count: 0, par: 0 }
-          loopMap.set(r, { count: existing.count + 1, par: existing.par + (h.par as number) })
+      // First check children courses (proper model for 27h courses)
+      const { data: children } = await supabase
+        .from('courses')
+        .select('id, loop_nombre, par_total')
+        .eq('parent_id', courseId)
+        .order('loop_nombre')
+      if (children && children.length >= 2) {
+        // Multi-loop via children — verify each child has 9 holes
+        const validLoops: CourseLoop[] = []
+        for (const child of children) {
+          const { count } = await supabase
+            .from('course_holes')
+            .select('*', { count: 'exact', head: true })
+            .eq('course_id', child.id)
+          if ((count ?? 0) >= 9 && child.loop_nombre) {
+            validLoops.push({ recorrido: child.loop_nombre, holes: count ?? 9, par: child.par_total ?? 36 })
+          }
         }
-        const nonDefault = Array.from(loopMap.entries()).filter(([k]) => k !== 'default')
-        if (nonDefault.length >= 2) {
-          const loops: CourseLoop[] = nonDefault.map(([r, d]) => ({ recorrido: r, holes: d.count, par: d.par }))
-          loops.sort((a, b) => a.recorrido.localeCompare(b.recorrido))
-          setCourseLoops(loops)
-          setSelectedLoops(loops.slice(0, 2).map(l => l.recorrido))
+        if (validLoops.length >= 2) {
+          validLoops.sort((a, b) => a.recorrido.localeCompare(b.recorrido))
+          setCourseLoops(validLoops)
+          setSelectedLoops(validLoops.slice(0, 2).map(l => l.recorrido))
         } else {
           setCourseLoops([])
           setSelectedLoops([])
         }
       } else {
-        setCourseLoops([])
-        setSelectedLoops([])
+        // Fallback: check holes directly on parent (legacy model)
+        const { data: holeRows } = await supabase
+          .from('course_holes')
+          .select('recorrido, par')
+          .eq('course_id', courseId)
+        if (holeRows && holeRows.length > 0) {
+          const loopMap = new Map<string, { count: number; par: number }>()
+          for (const h of holeRows) {
+            const r = (h.recorrido as string) || 'default'
+            const existing = loopMap.get(r) ?? { count: 0, par: 0 }
+            loopMap.set(r, { count: existing.count + 1, par: existing.par + (h.par as number) })
+          }
+          const nonDefault = Array.from(loopMap.entries()).filter(([k]) => k !== 'default')
+          if (nonDefault.length >= 2) {
+            const loops: CourseLoop[] = nonDefault.map(([r, d]) => ({ recorrido: r, holes: d.count, par: d.par }))
+            loops.sort((a, b) => a.recorrido.localeCompare(b.recorrido))
+            setCourseLoops(loops)
+            setSelectedLoops(loops.slice(0, 2).map(l => l.recorrido))
+          } else {
+            setCourseLoops([])
+            setSelectedLoops([])
+          }
+        } else {
+          setCourseLoops([])
+          setSelectedLoops([])
+        }
       }
     }
     fetchCourseData()
@@ -440,7 +469,7 @@ export default function NuevaRondaLibrePage() {
 
             {/* Invitar a jugar */}
             <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '12px', color: colors.textLabel, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+              <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>
                 Invitar a jugar
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -469,7 +498,7 @@ export default function NuevaRondaLibrePage() {
 
             {/* Invitar a seguir */}
             <div style={{ marginBottom: '32px' }}>
-              <div style={{ fontSize: '12px', color: colors.textLabel, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+              <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>
                 Invitar a seguir
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -628,7 +657,7 @@ export default function NuevaRondaLibrePage() {
               boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
             }}>
               <div style={{ position: 'relative' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                <label style={{ display: 'block', fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>
                   Cancha *
                 </label>
                 <input
@@ -762,62 +791,75 @@ export default function NuevaRondaLibrePage() {
                 </div>
               )}
 
-              {/* Multi-loop selector */}
-              {courseLoops.length >= 2 && (
-                <div style={{
-                  marginTop: '12px',
-                  padding: '14px',
-                  background: 'rgba(196,153,42,0.05)',
-                  border: '1px solid rgba(196,153,42,0.2)',
-                  borderRadius: '12px',
-                }}>
-                  <div style={{ fontSize: '12px', color: colors.textLabel, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
-                    Recorridos (elige 2)
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {courseLoops.map(loop => {
-                      const isSelected = selectedLoops.includes(loop.recorrido)
-                      const canSelect = isSelected || selectedLoops.length < 2
-                      return (
-                        <button
-                          key={loop.recorrido}
-                          type="button"
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedLoops(prev => prev.filter(l => l !== loop.recorrido))
-                            } else if (canSelect) {
-                              setSelectedLoops(prev => [...prev, loop.recorrido])
-                            }
-                          }}
-                          style={{
-                            padding: '10px 16px', borderRadius: '12px',
-                            border: '1px solid',
-                            cursor: canSelect || isSelected ? 'pointer' : 'default',
-                            fontSize: '14px',
-                            fontWeight: isSelected ? 600 : 400,
-                            background: isSelected ? colors.activeBtn : colors.inactiveBtn,
-                            borderColor: isSelected ? colors.activeBtn : colors.inputBorder,
-                            color: isSelected ? colors.activeBtnText : colors.inactiveBtnText,
-                            opacity: canSelect || isSelected ? 1 : 0.4,
-                            transition: 'all 0.15s',
-                            WebkitTapHighlightColor: 'transparent',
-                          }}
-                        >
-                          <div>{loop.recorrido}</div>
-                          <div style={{ fontSize: '10px', color: isSelected ? 'rgba(7,13,24,0.6)' : '#9ca3af', marginTop: '2px' }}>
-                            {loop.holes} hoyos &middot; Par {loop.par}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {selectedLoops.length > 0 && (
-                    <div style={{ fontSize: '12px', color: colors.gold, marginTop: '8px', fontWeight: 500 }}>
-                      {selectedLoops.join(' + ')} &middot; Par {courseLoops.filter(l => selectedLoops.includes(l.recorrido)).reduce((a, l) => a + l.par, 0)}
+              {/* Multi-loop selector — combination-based for 27h courses */}
+              {courseLoops.length >= 2 && (() => {
+                // Generate all 2-loop combinations
+                const combos: Array<{ loops: string[]; par: number; key: string }> = []
+                for (let i = 0; i < courseLoops.length; i++) {
+                  for (let j = i + 1; j < courseLoops.length; j++) {
+                    const l1 = courseLoops[i], l2 = courseLoops[j]
+                    combos.push({
+                      loops: [l1.recorrido, l2.recorrido],
+                      par: l1.par + l2.par,
+                      key: [l1.recorrido, l2.recorrido].map(l => l.toLowerCase()).sort().join('_'),
+                    })
+                  }
+                }
+                const activeKey = selectedLoops.length === 2
+                  ? selectedLoops.map(l => l.toLowerCase()).sort().join('_')
+                  : null
+                // Find matching tees for each combo
+                const teesForCombo = (key: string) => courseTees.filter(t => t.nombre.toLowerCase().includes(key))
+                return (
+                  <div style={{ marginTop: '16px' }}>
+                    <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '10px', fontWeight: 500 }}>
+                      Elige tu recorrido de 18 hoyos
                     </div>
-                  )}
-                </div>
-              )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {combos.map(combo => {
+                        const isActive = combo.key === activeKey
+                        const comboTees = teesForCombo(combo.key)
+                        const blancoTee = comboTees.find(t => t.nombre.startsWith('blanco'))
+                        return (
+                          <button
+                            key={combo.key}
+                            type="button"
+                            onClick={() => setSelectedLoops(combo.loops)}
+                            style={{
+                              width: '100%', padding: '16px 20px', borderRadius: '14px',
+                              border: isActive ? `2px solid ${colors.gold}` : '1px solid #e5e7eb',
+                              cursor: 'pointer', textAlign: 'left',
+                              background: isActive ? 'rgba(196,153,42,0.06)' : '#ffffff',
+                              transition: 'all 0.15s',
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', fontWeight: 600, color: isActive ? colors.gold : colors.textPrimary }}>
+                                  {combo.loops.join(' + ')}
+                                </div>
+                                <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '12px', color: '#6b7280', marginTop: '3px' }}>
+                                  18 hoyos &middot; Par {combo.par}
+                                  {blancoTee ? ` \u00b7 ${blancoTee.yardaje_total?.toLocaleString()} yds` : ''}
+                                </div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                {blancoTee ? (
+                                  <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '11px', color: '#9ca3af' }}>
+                                    <div>CR {blancoTee.rating}</div>
+                                    <div>Slope {blancoTee.slope}</div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Tees + Date row */}
@@ -831,40 +873,54 @@ export default function NuevaRondaLibrePage() {
             }}>
               {/* Tees */}
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                <label style={{ display: 'block', fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>
                   Tees
                 </label>
                 {courseTees.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {courseTees.map((t) => {
-                      const val = t.nombre.toLowerCase()
-                      const active = tees === val
-                      return (
-                        <button
-                          key={t.nombre}
-                          type="button"
-                          onClick={() => setTees(val)}
-                          style={{
-                            width: '100%', padding: '14px 16px', borderRadius: '12px',
-                            border: '1px solid',
-                            cursor: 'pointer', textAlign: 'left',
-                            fontWeight: active ? 600 : 400,
-                            background: active ? colors.activeBtn : '#f9fafb',
-                            borderColor: active ? colors.activeBtn : '#e5e7eb',
-                            color: active ? colors.activeBtnText : '#374151',
-                            transition: 'all 0.15s',
-                            WebkitTapHighlightColor: 'transparent',
-                          }}
-                        >
-                          <div style={{ fontSize: '14px', fontWeight: 600 }}>{t.nombre}</div>
-                          <div style={{ fontSize: '11px', color: active ? 'rgba(7,13,24,0.7)' : '#6b7280', marginTop: '2px' }}>
-                            {t.yardaje_total?.toLocaleString()} yds
-                            {t.rating ? ` \u00b7 CR ${t.rating}` : ''}
-                            {t.slope ? ` \u00b7 Slope ${t.slope}` : ''}
-                          </div>
-                        </button>
-                      )
-                    })}
+                    {(() => {
+                      // Filter tees by selected loop combination (e.g., "blanco_norte_sur")
+                      const loopKey = selectedLoops.length === 2
+                        ? selectedLoops.map(l => l.toLowerCase()).sort().join('_')
+                        : null
+                      const filtered = loopKey
+                        ? courseTees.filter(t => t.nombre.toLowerCase().includes(loopKey))
+                        : courseTees
+                      const teesToShow = filtered.length > 0 ? filtered : courseTees
+                      return teesToShow.map((t) => {
+                        const val = t.nombre.toLowerCase()
+                        const active = tees === val
+                        // Pretty-print tee name: "blanco_norte_sur" → "Blanco"
+                        const displayName = loopKey
+                          ? t.nombre.split('_')[0].charAt(0).toUpperCase() + t.nombre.split('_')[0].slice(1)
+                          : t.nombre.charAt(0).toUpperCase() + t.nombre.slice(1)
+                        return (
+                          <button
+                            key={t.nombre}
+                            type="button"
+                            onClick={() => setTees(val)}
+                            style={{
+                              width: '100%', padding: '14px 16px', borderRadius: '12px',
+                              border: '1px solid',
+                              cursor: 'pointer', textAlign: 'left',
+                              fontWeight: active ? 600 : 400,
+                              background: active ? colors.activeBtn : '#f9fafb',
+                              borderColor: active ? colors.activeBtn : '#e5e7eb',
+                              color: active ? colors.activeBtnText : '#374151',
+                              transition: 'all 0.15s',
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >
+                            <div style={{ fontSize: '14px', fontWeight: 600 }}>{displayName}</div>
+                            <div style={{ fontSize: '11px', color: active ? 'rgba(7,13,24,0.7)' : '#6b7280', marginTop: '2px' }}>
+                              {t.yardaje_total?.toLocaleString()} yds
+                              {t.rating ? ` \u00b7 CR ${t.rating}` : ''}
+                              {t.slope ? ` \u00b7 Slope ${t.slope}` : ''}
+                            </div>
+                          </button>
+                        )
+                      })
+                    })()}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -898,7 +954,7 @@ export default function NuevaRondaLibrePage() {
 
               {/* Fecha */}
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+                <label style={{ display: 'block', fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>
                   Fecha
                 </label>
                 <input
@@ -1030,7 +1086,7 @@ export default function NuevaRondaLibrePage() {
               marginBottom: '16px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
             }}>
-              <label style={{ display: 'block', fontSize: '12px', color: colors.textLabel, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>
+              <label style={{ display: 'block', fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '10px', fontWeight: 500 }}>
                 Jugadores
               </label>
 

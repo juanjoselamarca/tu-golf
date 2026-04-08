@@ -124,9 +124,11 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
 
   const labelStyle: React.CSSProperties = {
     display:    'block',
-    fontSize:   '12px',
-    color:      '#4a5568',
-    marginBottom: '6px',
+    fontFamily: '"DM Sans", sans-serif',
+    fontSize:   '13px',
+    color:      '#6b7280',
+    marginBottom: '8px',
+    fontWeight:  500,
   }
 
   // Derive ISO date string from the three selects
@@ -291,8 +293,8 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
 
         <div style={{ marginBottom: '28px' }}>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>Golfers+</div>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#1a1a2e', margin: 0 }}>
-            Crear nuevo torneo
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '32px', fontWeight: 700, color: '#1a1a2e', margin: 0 }}>
+            Nuevo Torneo
           </h1>
         </div>
 
