@@ -3,7 +3,8 @@
 // NOTE: course_holes uses "numero" (not hole_number).
 // NOTE: courses uses "nombre", "ciudad", "pais" (not name/city/country).
 
-export type ModoJuego = 'gross' | 'neto' | 'stableford'
+export type ModoJuego = 'gross' | 'neto' | 'stableford' | 'match_play_neto'
+export type FormatoJuego = 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
 
 export interface Course {
   id:            string
@@ -98,17 +99,18 @@ export interface HoleScore {
 }
 
 export interface RondaLibre {
-  id:          string
-  codigo:      string
-  creador_id:  string
-  course_id:   string | null
-  course_name: string
-  tees:        'blanco' | 'azul' | 'campeonato' | 'rojo'
-  holes:       number
-  fecha:       string
-  estado:      'en_curso' | 'finalizada'
-  modo_juego:  ModoJuego
-  created_at:  string
+  id:             string
+  codigo:         string
+  creador_id:     string
+  course_id:      string | null
+  course_name:    string
+  tees:           'blanco' | 'azul' | 'campeonato' | 'rojo'
+  holes:          number
+  fecha:          string
+  estado:         'en_curso' | 'finalizada'
+  modo_juego:     ModoJuego
+  formato_juego?: FormatoJuego
+  created_at:     string
 }
 
 export interface RondaLibreJugador {

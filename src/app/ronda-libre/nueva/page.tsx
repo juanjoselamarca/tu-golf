@@ -148,7 +148,7 @@ export default function NuevaRondaLibrePage() {
       setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
     }
   }
-  const [formato, setFormato] = useState<'stroke_play' | 'stableford' | 'match_play'>('stroke_play')
+  const [formato, setFormato] = useState<'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'>('stroke_play')
   const [fechaStr, setFechaStr] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -341,23 +341,27 @@ export default function NuevaRondaLibrePage() {
 
     // modo_juego según formato seleccionado
     const modoJuego = formato === 'match_play' ? 'match_play_neto'
-      : formato === 'stableford' ? 'stableford' : 'gross'
+      : formato === 'stableford' ? 'stableford' : 'neto'
+    // formato_juego es la estructura de competencia (ortogonal a modo_juego)
+    const formatoJuego = formato === 'match_play' ? 'match_play'
+      : formato === 'stableford' ? 'stableford' : formato
     const { data: d1, error: e1 } = await supabase
       .from('rondas_libres')
-      .insert({ ...baseData, modo_juego: modoJuego })
+      .insert({ ...baseData, modo_juego: modoJuego, formato_juego: formatoJuego })
       .select('id')
       .single()
 
     let ronda = d1
     if (e1) {
       if (
-        e1.message?.includes('modo_juego') ||
+        e1.message?.includes('formato_juego') ||
         e1.message?.includes('schema cache') ||
         e1.code === '42703'
       ) {
+        // Fallback: formato_juego no existe aún en BD → insertar sin él pero CON modo_juego
         const { data: d2, error: e2 } = await supabase
           .from('rondas_libres')
-          .insert(baseData)
+          .insert({ ...baseData, modo_juego: modoJuego })
           .select('id')
           .single()
 
@@ -906,6 +910,10 @@ export default function NuevaRondaLibrePage() {
                   { value: 'stroke_play' as const, label: 'Stroke Play', desc: 'Gana el de menos golpes', icon: '\u26F3' },
                   { value: 'stableford' as const, label: 'Stableford', desc: 'Puntos por hoyo (neto)', icon: '\u2B50' },
                   { value: 'match_play' as const, label: 'Match Play Neto', desc: 'Hoyo a hoyo, 1 vs 1', icon: '\u2694\uFE0F' },
+                  // Team formats: motores listos, UI de equipos pendiente
+                  // { value: 'best_ball' as const, label: 'Best Ball', desc: 'Equipos: cuenta la mejor bola', icon: '\uD83C\uDFC6' },
+                  // { value: 'scramble' as const, label: 'Scramble', desc: 'Equipos: eligen el mejor tiro', icon: '\uD83E\uDD1D' },
+                  // { value: 'foursome' as const, label: 'Foursome', desc: 'Equipos de 2: tiros alternados', icon: '\uD83D\uDD04' },
                 ]).map(f => {
                   const active = formato === f.value
                   return (
@@ -916,6 +924,11 @@ export default function NuevaRondaLibrePage() {
                         setFormato(f.value)
                         // Match play fuerza admin mode con 1 rival
                         if (f.value === 'match_play' && !adminMode) {
+                          setAdminMode(true)
+                          setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
+                        }
+                        // Team formats also force admin mode
+                        if (['best_ball', 'scramble', 'foursome'].includes(f.value) && !adminMode) {
                           setAdminMode(true)
                           setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
                         }

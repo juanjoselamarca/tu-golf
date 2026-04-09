@@ -1160,6 +1160,109 @@ function ScorePageContent() {
             Por encima de doble bogey
           </div>
         )}
+
+        {/* ── Match Play: tarjeta head-to-head del hoyo actual ── */}
+        {isMatchPlay && matchResult && ronda && (() => {
+          const jug = ronda.ronda_libre_jugadores
+          if (jug.length !== 2) return null
+          const holeDetail = matchResult.holes.find(h => h.numero === currentHole)
+          if (!holeDetail) return null
+          const nombreA = jug[0].nombre
+          const nombreB = jug[1].nombre
+          const resultColors: Record<string, string> = {
+            won_a: '#16a34a', won_b: '#dc2626', halved: '#6b7280',
+            conceded_a: '#dc2626', conceded_b: '#16a34a', not_played: '#9ca3af',
+          }
+          const resultLabels: Record<string, string> = {
+            won_a: `${nombreA} gana`, won_b: `${nombreB} gana`, halved: 'Empate',
+            conceded_a: `${nombreA} concede`, conceded_b: `${nombreB} concede`, not_played: 'Pendiente',
+          }
+          return (
+            <div style={{
+              marginTop: '12px', padding: '12px 16px', width: '100%', maxWidth: '320px',
+              background: 'rgba(255,255,255,0.06)', border: `1px solid ${theme.border}`,
+              borderRadius: '12px',
+            }}>
+              {/* Nombre vs Nombre */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: theme.text }}>{nombreA}</span>
+                <span style={{ fontSize: '10px', color: theme.textFaint }}>VS</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: theme.text }}>{nombreB}</span>
+              </div>
+              {/* Scores lado a lado */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '8px', alignItems: 'center' }}>
+                {/* Jugador A */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: '"DM Mono", monospace', color: theme.text }}>
+                    {holeDetail.grossA ?? '—'}
+                  </div>
+                  {holeDetail.strokesA > 0 && (
+                    <div style={{ fontSize: '10px', color: '#c4992a', marginTop: '2px' }}>
+                      -{holeDetail.strokesA} stroke{holeDetail.strokesA > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {holeDetail.netoA != null && (
+                    <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '1px' }}>
+                      neto {holeDetail.netoA}
+                    </div>
+                  )}
+                </div>
+                {/* Resultado del hoyo */}
+                <div style={{ textAlign: 'center' }}>
+                  {holeDetail.result !== 'not_played' ? (
+                    <div style={{
+                      width: '32px', height: '32px', borderRadius: '50%',
+                      background: `${resultColors[holeDetail.result]}15`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '10px', fontWeight: 700,
+                      color: resultColors[holeDetail.result],
+                    }}>
+                      {holeDetail.result === 'halved' ? '=' : holeDetail.result === 'won_a' || holeDetail.result === 'conceded_b' ? nombreA[0] : nombreB[0]}
+                    </div>
+                  ) : (
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: theme.badgeBg, border: `1px dashed ${theme.border}` }} />
+                  )}
+                </div>
+                {/* Jugador B */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: '"DM Mono", monospace', color: theme.text }}>
+                    {holeDetail.grossB ?? '—'}
+                  </div>
+                  {holeDetail.strokesB > 0 && (
+                    <div style={{ fontSize: '10px', color: '#c4992a', marginTop: '2px' }}>
+                      -{holeDetail.strokesB} stroke{holeDetail.strokesB > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {holeDetail.netoB != null && (
+                    <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '1px' }}>
+                      neto {holeDetail.netoB}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Label del resultado */}
+              {holeDetail.result !== 'not_played' && (
+                <div style={{
+                  textAlign: 'center', marginTop: '8px', fontSize: '11px', fontWeight: 600,
+                  color: resultColors[holeDetail.result],
+                }}>
+                  {resultLabels[holeDetail.result]}
+                </div>
+              )}
+              {/* Estado running del match */}
+              <div style={{
+                textAlign: 'center', marginTop: '6px', paddingTop: '6px',
+                borderTop: `1px solid ${theme.border}`,
+                fontSize: '12px', fontWeight: 700, fontFamily: '"DM Mono", monospace',
+                color: holeDetail.matchState === 0 ? theme.textMuted : '#c4992a',
+              }}>
+                {holeDetail.matchState === 0 ? 'ALL SQUARE'
+                  : holeDetail.matchState > 0 ? `${nombreA} ${holeDetail.matchState} UP`
+                  : `${nombreB} ${Math.abs(holeDetail.matchState)} UP`}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* ── +/- Buttons (80px + padding) ── */}

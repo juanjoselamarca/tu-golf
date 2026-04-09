@@ -144,7 +144,7 @@ export function calcularResumenRonda(
 // ─── Score primario según modo ───
 export function scorePrimario(resumen: ResumenRonda, modo: ModoJuego): number {
   if (modo === 'gross') return resumen.overUnderGross
-  if (modo === 'neto')  return resumen.overUnderNeto
+  if (modo === 'neto' || modo === 'match_play_neto') return resumen.overUnderNeto
   return resumen.totalStableford
 }
 

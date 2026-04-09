@@ -5,6 +5,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
+import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult, type MatchHoleDetail } from '@/golf/formats/match-play'
+import { calcularGWIMatch } from '@/golf/stats/gwi-match'
 import { notifyScoreEvent, getNotifPrefs, setNotifPrefs, isPushSupported, requestPermission } from '@/lib/push-notifications'
 import { setActiveRondaSession, clearActiveRondaSession } from '@/components/LiveRoundIndicator'
 import { compartirLeaderboard } from '@/lib/share-card'
@@ -69,6 +71,7 @@ interface Jugador {
   nombre: string
   user_id: string | null
   scores: Record<string, number>
+  handicap?: number | null
 }
 
 interface CourseHole {
@@ -239,6 +242,7 @@ function RondaLibrePageContent() {
 
   const [ronda,       setRonda]       = useState<RondaLibre | null>(null)
   const [parMap,      setParMap]      = useState<Record<number, number>>({})
+  const [siMap,       setSiMap]       = useState<Record<number, number>>({})
   const [loading,     setLoading]     = useState(true)
   const [notFound,    setNotFound]    = useState(false)
   const [fetchError,  setFetchError]  = useState(false)
@@ -282,7 +286,7 @@ function RondaLibrePageContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
         .eq('codigo', codigo)
         .single()
 
@@ -311,14 +315,17 @@ function RondaLibrePageContent() {
           const { data: holes } = await holeQuery.order('recorrido').order('numero')
           if (holes) {
             const pm: Record<number, number> = {}
+            const sm: Record<number, number> = {}
             const isMultiLoop = recorridos && recorridos.length > 1
             let holeNum = 1
             ;(holes as CourseHole[]).forEach(h => {
               const num = isMultiLoop ? holeNum : h.numero
               pm[num] = h.par
+              sm[num] = h.stroke_index
               holeNum++
             })
             setParMap(pm)
+            setSiMap(sm)
           }
         }
       }
@@ -881,16 +888,46 @@ function RondaLibrePageContent() {
                   const label = event.diff <= -2 ? 'Eagle' : event.diff === -1 ? 'Birdie' : event.diff === 0 ? 'Par' : event.diff === 1 ? 'Bogey' : `+${event.diff}`
                   const color = event.diff <= -2 ? '#c8a55a' : event.diff === -1 ? '#16a34a' : event.diff === 0 ? '#6b7280' : '#dc2626'
                   const bgColor = event.diff <= -2 ? 'rgba(200,165,90,0.08)' : event.diff === -1 ? 'rgba(22,163,74,0.06)' : event.diff >= 2 ? 'rgba(220,38,38,0.04)' : 'transparent'
-                  // Approximate relative time: most recent event ~now, each previous ~15s*poll interval ago
                   const approxMinAgo = idx === 0 ? 0 : idx
                   const timeLabel = approxMinAgo === 0 ? 'ahora' : approxMinAgo === 1 ? 'hace ~1 min' : `hace ~${approxMinAgo} min`
+
+                  // Match play context: find the match hole detail for this event
+                  let matchContext: string | null = null
+                  if (ronda.modo_juego === 'match_play_neto' && ronda.ronda_libre_jugadores.length === 2) {
+                    const jugMP = ronda.ronda_libre_jugadores
+                    const holesArr = Object.entries(parMap).map(([num, par]) => ({
+                      numero: Number(num), par, stroke_index: siMap[Number(num)] ?? Number(num),
+                    }))
+                    if (holesArr.length > 0) {
+                      const scA: Record<string, number> = {}
+                      const scB: Record<string, number> = {}
+                      for (const [k, v] of Object.entries(jugMP[0].scores)) { if (v > 0) scA[k] = v }
+                      for (const [k, v] of Object.entries(jugMP[1].scores)) { if (v > 0) scB[k] = v }
+                      const mrTL = calcularMatchPlay(scA, scB, holesArr, {
+                        courseHandicapA: jugMP[0].handicap ?? 0,
+                        courseHandicapB: jugMP[1].handicap ?? 0,
+                        totalHoles: ronda.holes,
+                      })
+                      const holeDetail = mrTL.holes.find(h => h.numero === event.hole)
+                      if (holeDetail && holeDetail.result !== 'not_played') {
+                        const winnerName = (holeDetail.result === 'won_a' || holeDetail.result === 'conceded_b') ? jugMP[0].nombre
+                          : (holeDetail.result === 'won_b' || holeDetail.result === 'conceded_a') ? jugMP[1].nombre : null
+                        const stateText = holeDetail.matchState === 0 ? 'All Square'
+                          : holeDetail.matchState > 0 ? `${jugMP[0].nombre.split(' ')[0]} ${holeDetail.matchState} UP`
+                          : `${jugMP[1].nombre.split(' ')[0]} ${Math.abs(holeDetail.matchState)} UP`
+                        matchContext = winnerName
+                          ? `${winnerName.split(' ')[0]} gana hoyo → ${stateText}`
+                          : `Empate → ${stateText}`
+                      }
+                    }
+                  }
+
                   return (
                     <div key={`${event.jugador}-${event.hole}`} style={{
                       display: 'flex', alignItems: 'center', gap: '12px',
                       padding: '8px 10px', borderRadius: '8px',
                       background: bgColor,
                     }}>
-                      {/* Hole number prominent */}
                       <div style={{
                         width: '36px', height: '36px', borderRadius: '50%',
                         background: '#f3f4f6', border: '1px solid #e5e7eb',
@@ -905,6 +942,12 @@ function RondaLibrePageContent() {
                           <span style={{ color: '#d1d5db' }}>·</span>
                           <span style={{ fontStyle: 'italic' }}>{timeLabel}</span>
                         </div>
+                        {/* Match play context line */}
+                        {matchContext && (
+                          <div style={{ fontSize: '11px', color: '#c4992a', fontWeight: 600, marginTop: '2px' }}>
+                            {matchContext}
+                          </div>
+                        )}
                       </div>
                       <span style={{
                         color, fontSize: '13px', fontWeight: 700,
@@ -921,8 +964,8 @@ function RondaLibrePageContent() {
             </div>
           )}
 
-          {/* GWI — solo si hay >= 2 jugadores y al menos 3 hoyos jugados */}
-          {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+          {/* GWI — solo para formatos individuales (stroke/stableford), NO match play ni equipos */}
+          {ronda.modo_juego !== 'match_play_neto' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
             <div style={{ padding: '8px 12px', marginBottom: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
@@ -934,7 +977,7 @@ function RondaLibrePageContent() {
               </div>
             </div>
           )}
-          {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+          {ronda.modo_juego !== 'match_play_neto' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
             <GWILeaderboard
               jugadores={gwiInputs}
               hoyosRestantes={ronda.holes - Math.max(...gwiInputs.map(j => j.hoyosCompletados), 0)}
@@ -943,8 +986,243 @@ function RondaLibrePageContent() {
             />
           )}
 
-          {/* Leaderboard — white theme */}
-          <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px' }}>
+          {/* Match Play state card — only for match_play_neto with 2 players */}
+          {ronda.modo_juego === 'match_play_neto' && leaderboard.length === 2 && (() => {
+            const jug = ronda.ronda_libre_jugadores
+            const holesArr = Object.entries(parMap).map(([num, par]) => ({
+              numero: Number(num), par, stroke_index: siMap[Number(num)] ?? Number(num),
+            }))
+            if (holesArr.length === 0) return null
+            const scA: Record<string, number> = {}
+            const scB: Record<string, number> = {}
+            for (const [k, v] of Object.entries(jug[0].scores)) { if (v > 0) scA[k] = v }
+            for (const [k, v] of Object.entries(jug[1].scores)) { if (v > 0) scB[k] = v }
+            const mr = calcularMatchPlay(scA, scB, holesArr, {
+              courseHandicapA: jug[0].handicap ?? 0,
+              courseHandicapB: jug[1].handicap ?? 0,
+              totalHoles: ronda.holes,
+            })
+            return (
+              <div style={{
+                background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px',
+                padding: '20px', marginBottom: '12px',
+              }}>
+                {/* Player names */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>{jug[0].nombre}</div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {jug[0].handicap ?? '--'}</div>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600 }}>VS</div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>{jug[1].nombre}</div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {jug[1].handicap ?? '--'}</div>
+                  </div>
+                </div>
+
+                {/* Match state */}
+                <div style={{
+                  textAlign: 'center', padding: '16px 0',
+                  background: '#f9fafb', borderRadius: '10px', marginBottom: '12px',
+                }}>
+                  <div style={{
+                    fontSize: '28px', fontWeight: 700, fontFamily: '"Playfair Display", serif',
+                    color: mr.state === 0 ? '#6b7280' : '#c4992a',
+                  }}>
+                    {mr.holesPlayed > 0 ? mr.display : 'All Square'}
+                  </div>
+                  {mr.isFinished && mr.winner && (
+                    <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600, marginTop: '4px' }}>
+                      {jug[mr.winner === 'a' ? 0 : 1].nombre} gana
+                    </div>
+                  )}
+                  {!mr.isFinished && mr.holesPlayed > 0 && (
+                    <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
+                      {mr.holesPlayed} de {ronda.holes} hoyos jugados
+                    </div>
+                  )}
+                </div>
+
+                {/* Stats row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', textAlign: 'center', gap: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: mr.holesWonA > mr.holesWonB ? '#16a34a' : '#374151' }}>
+                      {mr.holesWonA}
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>Ganados</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#6b7280' }}>{mr.holesHalved}</div>
+                    <div style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>Empates</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: mr.holesWonB > mr.holesWonA ? '#16a34a' : '#374151' }}>
+                      {mr.holesWonB}
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>Ganados</div>
+                  </div>
+                </div>
+
+                {/* Hole-by-hole detailed table */}
+                {mr.holesPlayed > 0 && (
+                  <div style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+                    <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 600 }}>
+                      Hoyo a hoyo
+                    </div>
+                    {/* Compact dots row */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+                      {mr.holes.filter(h => !h.afterMatchEnd && h.result !== 'not_played').map(h => {
+                        const bg = h.result === 'won_a' || h.result === 'conceded_b' ? 'rgba(22,163,74,0.12)'
+                          : h.result === 'won_b' || h.result === 'conceded_a' ? 'rgba(220,38,38,0.12)'
+                          : 'rgba(107,114,128,0.08)'
+                        const color = h.result === 'won_a' || h.result === 'conceded_b' ? '#16a34a'
+                          : h.result === 'won_b' || h.result === 'conceded_a' ? '#dc2626'
+                          : '#6b7280'
+                        const label = h.result === 'halved' ? '=' : (h.result === 'won_a' || h.result === 'conceded_b') ? jug[0].nombre[0] : jug[1].nombre[0]
+                        return (
+                          <div key={h.numero} style={{
+                            width: '28px', height: '28px', borderRadius: '6px',
+                            background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '11px', fontWeight: 600, color,
+                          }} title={`Hoyo ${h.numero}`}>
+                            {label}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {/* Detailed scorecard: both players side by side */}
+                    <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #f3f4f6' }}>
+                      {/* Header row */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 40px 28px 40px 1fr', background: '#f9fafb', padding: '6px 8px', gap: '4px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 600 }}>HOYO</span>
+                        <span style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 600, textAlign: 'center' }}>{jug[0].nombre.split(' ')[0]}</span>
+                        <span style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 600, textAlign: 'center' }}>PAR</span>
+                        <span />
+                        <span style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 600, textAlign: 'center' }}>PAR</span>
+                        <span style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 600, textAlign: 'center' }}>{jug[1].nombre.split(' ')[0]}</span>
+                      </div>
+                      {mr.holes.filter(h => !h.afterMatchEnd && h.result !== 'not_played').map((h) => {
+                        const winA = h.result === 'won_a' || h.result === 'conceded_b'
+                        const winB = h.result === 'won_b' || h.result === 'conceded_a'
+                        const dotColor = winA ? '#16a34a' : winB ? '#dc2626' : '#6b7280'
+                        const dotBg = winA ? 'rgba(22,163,74,0.1)' : winB ? 'rgba(220,38,38,0.1)' : 'rgba(107,114,128,0.06)'
+                        return (
+                          <div key={h.numero} style={{
+                            display: 'grid', gridTemplateColumns: '36px 1fr 40px 28px 40px 1fr',
+                            padding: '5px 8px', gap: '4px', alignItems: 'center',
+                            borderTop: '1px solid #f3f4f6',
+                          }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#374151' }}>{h.numero}</span>
+                            {/* Player A score */}
+                            <div style={{ textAlign: 'center' }}>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: winA ? '#16a34a' : '#374151', fontFamily: '"DM Mono", monospace' }}>
+                                {h.grossA ?? '—'}
+                              </span>
+                              {h.netoA != null && h.netoA !== h.grossA && (
+                                <span style={{ fontSize: '9px', color: '#c4992a', marginLeft: '3px' }}>({h.netoA})</span>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center' }}>{h.par}</span>
+                            {/* Result dot */}
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                              <div style={{
+                                width: '20px', height: '20px', borderRadius: '50%', background: dotBg,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '9px', fontWeight: 700, color: dotColor,
+                              }}>
+                                {h.result === 'halved' ? '=' : winA ? jug[0].nombre[0] : jug[1].nombre[0]}
+                              </div>
+                            </div>
+                            <span style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center' }}>{h.par}</span>
+                            {/* Player B score */}
+                            <div style={{ textAlign: 'center' }}>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: winB ? '#16a34a' : '#374151', fontFamily: '"DM Mono", monospace' }}>
+                                {h.grossB ?? '—'}
+                              </span>
+                              {h.netoB != null && h.netoB !== h.grossB && (
+                                <span style={{ fontSize: '9px', color: '#c4992a', marginLeft: '3px' }}>({h.netoB})</span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* GWI Match Play — probabilidad de ganar */}
+                {!mr.isFinished && mr.holesPlayed >= 2 && mr.holesRemaining > 0 && (() => {
+                  const gwi = calcularGWIMatch({
+                    nombreA: jug[0].nombre,
+                    nombreB: jug[1].nombre,
+                    handicapA: jug[0].handicap ?? 0,
+                    handicapB: jug[1].handicap ?? 0,
+                    holesUp: mr.state,
+                    holesRemaining: mr.holesRemaining,
+                    roundsCountA: 10,
+                    roundsCountB: 10,
+                  })
+                  return (
+                    <div style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
+                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>Probabilidad de ganar el match</span>
+                      </div>
+                      {/* Probability bar */}
+                      <div style={{ display: 'flex', height: '28px', borderRadius: '8px', overflow: 'hidden', background: '#f3f4f6' }}>
+                        {gwi.probA > 0 && (
+                          <div style={{
+                            width: `${gwi.probA}%`, background: 'rgba(22,163,74,0.15)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '11px', fontWeight: 700, color: '#16a34a',
+                            transition: 'width 0.5s ease',
+                          }}>
+                            {gwi.probA >= 15 ? `${gwi.probA}%` : ''}
+                          </div>
+                        )}
+                        {gwi.probTie > 0 && (
+                          <div style={{
+                            width: `${gwi.probTie}%`, background: 'rgba(107,114,128,0.08)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '10px', fontWeight: 600, color: '#6b7280',
+                            transition: 'width 0.5s ease',
+                          }}>
+                            {gwi.probTie >= 10 ? `${gwi.probTie}%` : ''}
+                          </div>
+                        )}
+                        {gwi.probB > 0 && (
+                          <div style={{
+                            width: `${gwi.probB}%`, background: 'rgba(220,38,38,0.12)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '11px', fontWeight: 700, color: '#dc2626',
+                            transition: 'width 0.5s ease',
+                          }}>
+                            {gwi.probB >= 15 ? `${gwi.probB}%` : ''}
+                          </div>
+                        )}
+                      </div>
+                      {/* Labels */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                        <span style={{ fontSize: '10px', color: '#16a34a', fontWeight: 600 }}>{jug[0].nombre.split(' ')[0]}</span>
+                        {gwi.probTie > 5 && <span style={{ fontSize: '10px', color: '#6b7280' }}>Empate</span>}
+                        <span style={{ fontSize: '10px', color: '#dc2626', fontWeight: 600 }}>{jug[1].nombre.split(' ')[0]}</span>
+                      </div>
+                      {/* Narrative */}
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px', textAlign: 'center', fontStyle: 'italic' }}>
+                        {gwi.narrativa}
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            )
+          })()}
+
+          {/* Leaderboard — white theme (hidden for match play, shown for stroke/stableford) */}
+          <div style={{
+            background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px',
+            display: ronda.modo_juego === 'match_play_neto' ? 'none' : 'block',
+          }}>
 
             {/* Table header */}
             <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px', padding: '10px 16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
