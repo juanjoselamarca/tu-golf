@@ -45,13 +45,14 @@ interface CheckResult {
 }
 
 export async function GET(request: NextRequest) {
-  // Verificar auth del cron — si CRON_SECRET no esta configurado, permitir (para testing)
+  // Verificar auth del cron — CRON_SECRET obligatorio en produccion
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const authHeader = request.headers.get('Authorization')
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Acceso no autorizado' }, { status: 401 })
-    }
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET no configurado' }, { status: 500 })
+  }
+  const authHeader = request.headers.get('Authorization')
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Acceso no autorizado' }, { status: 401 })
   }
 
   const startTime = Date.now()
