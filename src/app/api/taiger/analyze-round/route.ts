@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { TAIGER_SYSTEM_PROMPT, buildContextString } from '@/golf/coach/prompts'
+import { checkRateLimit } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
 
 export const runtime = 'nodejs'
@@ -13,6 +14,12 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
+    }
+
+    // Rate limit: 10 análisis por hora por usuario (protege costos Anthropic)
+    const rl = checkRateLimit(`analyze:${user.id}`, 10, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Demasiados análisis. Intenta de nuevo en una hora.' }, { status: 429 })
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY

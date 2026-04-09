@@ -5,6 +5,7 @@ import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { normalizeGarminColor, colorToDiff, isAmbiguousColor } from '@/golf/core/colors'
 import { matchCourseInDB } from '@/golf/courses/matching'
+import { checkRateLimit } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
 
 // Vercel Hobby: max 60s. Needed because Claude Vision can take 10-30s per image.
@@ -384,6 +385,15 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Rate limit: 20 requests por hora por usuario (protege costos Gemini)
+    const rl = checkRateLimit(`screenshot:${user.id}`, 20, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiadas importaciones. Intenta de nuevo en una hora.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+      )
     }
 
     let formData: FormData
