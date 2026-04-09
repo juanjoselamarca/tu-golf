@@ -9,6 +9,7 @@ import { LiveRoundIndicator } from '@/components/LiveRoundIndicator'
 import { SystemStatusBanner } from '@/components/SystemStatusBanner'
 import { PostHogProvider } from '@/components/PostHogProvider'
 import { OfflineBanner } from '@/components/OfflineBanner'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 
 const playfair = Playfair_Display({
   subsets:  ['latin'],
@@ -80,6 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preload" as="image" href="https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=75" />
       </head>
       <body>
+        <ThemeProvider>
         <PostHogProvider>
         <OfflineBanner />
         <SystemStatusBanner />
@@ -114,6 +116,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </footer>
         </PostHogProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import NotificationHub from '@/components/NotificationHub'
+import { useTheme } from '@/contexts/ThemeContext'
 
 // KNOWN ISSUE (audit 2026-03-24): There is a potential race condition between
 // getUser() and onAuthStateChange(). The setUser/setIsAdmin calls are not
@@ -23,6 +24,69 @@ export default function Navbar() {
   const [playSheetOpen, setPlaySheetOpen] = useState(false)
   const [notifHubOpen, setNotifHubOpen] = useState(false)
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
+  const { theme, toggleTheme } = useTheme()
+  const isDark = theme === 'dark'
+
+  // Theme-aware colors — light is default, dark is opt-in
+  const t = isDark ? {
+    navBg: 'rgba(10,22,40,0.97)',
+    navBorder: 'rgba(196,153,42,0.12)',
+    iconColor: '#94a8c0',
+    logoText: '#edeae4',
+    avatarOpenBg: 'rgba(255,255,255,0.1)',
+    dropdownBg: '#0e1c2f',
+    dropdownBorder: 'rgba(196,153,42,0.12)',
+    dropdownShadow: '0 8px 32px rgba(0,0,0,0.4)',
+    menuText: '#edeae4',
+    menuMuted: '#94a3b8',
+    menuDivider: 'rgba(196,153,42,0.12)',
+    sidebarBg: '#0a1628',
+    sidebarBorder: 'rgba(196,153,42,0.12)',
+    userName: '#edeae4',
+    userEmail: '#94a8c0',
+    sectionLabel: '#94a3b8',
+    itemText: '#edeae4',
+    itemActive: '#C4992A',
+    itemActiveBg: 'rgba(196,153,42,0.1)',
+    bottomNavBg: 'rgba(10,22,40,0.95)',
+    bottomNavBorder: 'rgba(196,153,42,0.12)',
+    loginBtnBorder: 'rgba(196,153,42,0.4)',
+    loginBtnText: '#C4992A',
+    guestBtnBg: 'transparent',
+    guestBtnText: '#edeae4',
+    guestBtnBorder: 'rgba(196,153,42,0.2)',
+    registerBg: '#C4992A',
+    registerText: '#070d18',
+  } : {
+    navBg: 'rgba(255,255,255,0.97)',
+    navBorder: '#e2e8f0',
+    iconColor: '#4a5568',
+    logoText: '#1a1a2e',
+    avatarOpenBg: '#e2e8f0',
+    dropdownBg: '#ffffff',
+    dropdownBorder: '#e2e8f0',
+    dropdownShadow: '0 8px 32px rgba(0,0,0,0.12)',
+    menuText: '#1a1a2e',
+    menuMuted: '#94a3b8',
+    menuDivider: '#e2e8f0',
+    sidebarBg: '#ffffff',
+    sidebarBorder: '#e2e8f0',
+    userName: '#1a1a2e',
+    userEmail: '#4a5568',
+    sectionLabel: '#94a3b8',
+    itemText: '#1a1a2e',
+    itemActive: '#C4992A',
+    itemActiveBg: 'rgba(196,153,42,0.1)',
+    bottomNavBg: 'rgba(255,255,255,0.95)',
+    bottomNavBorder: '#e2e8f0',
+    loginBtnBorder: 'rgba(196,153,42,0.4)',
+    loginBtnText: '#C4992A',
+    guestBtnBg: 'transparent',
+    guestBtnText: '#1a1a2e',
+    guestBtnBorder: '#e2e8f0',
+    registerBg: '#C4992A',
+    registerText: '#070d18',
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -103,9 +167,9 @@ export default function Navbar() {
       {/* ── Header bar — always visible ─────────────────── */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(255,255,255,0.97)',
+        background: t.navBg,
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid #e2e8f0',
+        borderBottom: `1px solid ${t.navBorder}`,
         height: '56px',
       }}>
         <div style={{
@@ -119,7 +183,7 @@ export default function Navbar() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: '44px', height: '44px', background: 'none', border: 'none',
-              cursor: 'pointer', padding: 0, color: '#4a5568',
+              cursor: 'pointer', padding: 0, color: t.iconColor,
               WebkitTapHighlightColor: 'transparent',
             }}
             aria-label="Menú"
@@ -131,7 +195,7 @@ export default function Navbar() {
 
           {/* Logo — always goes to landing */}
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '2px', textDecoration: 'none', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
-            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: '#1a1a2e' }}>Golfers</span>
+            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: t.logoText }}>Golfers</span>
             <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: '#C4992A' }}>+</span>
           </Link>
 
@@ -142,7 +206,7 @@ export default function Navbar() {
                 onClick={() => setAvatarMenuOpen(!avatarMenuOpen)}
                 style={{
                   width: '36px', height: '36px', borderRadius: '50%',
-                  background: avatarMenuOpen ? '#e2e8f0' : '#C4992A',
+                  background: avatarMenuOpen ? t.avatarOpenBg : '#C4992A',
                   color: '#ffffff',
                   fontWeight: 700, fontSize: '13px', border: 'none',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -160,20 +224,20 @@ export default function Navbar() {
                   <div onClick={() => setAvatarMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
                   <div style={{
                     position: 'absolute', top: '44px', right: 0, zIndex: 200,
-                    background: '#ffffff', border: '1px solid #e2e8f0',
+                    background: t.dropdownBg, border: `1px solid ${t.dropdownBorder}`,
                     borderRadius: '12px', padding: '8px', minWidth: '200px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                    boxShadow: t.dropdownShadow,
                   }}>
                     <Link href="/perfil" onClick={() => setAvatarMenuOpen(false)} style={{
                       display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                      color: '#1a1a2e', fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
+                      color: t.menuText, fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
                       minHeight: '44px',
                     }}>
                       <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>👤</span>Mi Perfil
                     </Link>
                     <button onClick={() => { setAvatarMenuOpen(false); setNotifHubOpen(true) }} style={{
                       display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                      color: '#1a1a2e', fontSize: '14px', background: 'none', border: 'none',
+                      color: t.menuText, fontSize: '14px', background: 'none', border: 'none',
                       cursor: 'pointer', borderRadius: '8px', width: '100%', textAlign: 'left',
                       minHeight: '44px',
                     }}>
@@ -182,16 +246,16 @@ export default function Navbar() {
                     {isAdmin && (
                       <Link href="/admin" onClick={() => setAvatarMenuOpen(false)} style={{
                         display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                        color: '#1a1a2e', fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
+                        color: t.menuText, fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
                         minHeight: '44px',
                       }}>
                         <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>⚙️</span>Administración
                       </Link>
                     )}
-                    <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }} />
+                    <div style={{ height: '1px', background: t.menuDivider, margin: '4px 0' }} />
                     <button onClick={() => { setAvatarMenuOpen(false); handleLogout() }} style={{
                       display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-                      color: '#94a3b8', fontSize: '14px', background: 'none', border: 'none',
+                      color: t.menuMuted, fontSize: '14px', background: 'none', border: 'none',
                       cursor: 'pointer', borderRadius: '8px', width: '100%', textAlign: 'left',
                       minHeight: '44px',
                     }}>
@@ -203,9 +267,9 @@ export default function Navbar() {
             </div>
           ) : (
             <Link href="/login" style={{
-              fontSize: '14px', fontWeight: 600, color: '#C4992A',
+              fontSize: '14px', fontWeight: 600, color: t.loginBtnText,
               textDecoration: 'none', padding: '8px 16px',
-              border: '1px solid rgba(196,153,42,0.4)', borderRadius: '10px',
+              border: `1px solid ${t.loginBtnBorder}`, borderRadius: '10px',
             }}>
               Entrar
             </Link>
@@ -230,8 +294,8 @@ export default function Navbar() {
       <div style={{
         position: 'fixed', top: 0, left: 0, bottom: 0,
         width: '280px', zIndex: 199,
-        background: '#ffffff',
-        borderRight: '1px solid #e2e8f0',
+        background: t.sidebarBg,
+        borderRight: `1px solid ${t.sidebarBorder}`,
         transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
         transition: 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
         display: 'flex', flexDirection: 'column',
@@ -240,15 +304,15 @@ export default function Navbar() {
         {/* Sidebar header */}
         <div style={{
           padding: '20px 20px 16px',
-          borderBottom: '1px solid #e2e8f0',
+          borderBottom: `1px solid ${t.sidebarBorder}`,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: user ? '16px' : '0' }}>
             <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px' }}>
-              <span style={{ color: '#1a1a2e' }}>Golfers</span>
+              <span style={{ color: t.logoText }}>Golfers</span>
               <span style={{ color: '#C4992A' }}>+</span>
             </span>
             <button onClick={() => setSidebarOpen(false)} aria-label="Cerrar menú" style={{
-              background: 'none', border: 'none', color: '#94a3b8',
+              background: 'none', border: 'none', color: t.menuMuted,
               fontSize: '24px', cursor: 'pointer', padding: '4px 8px', lineHeight: 1,
             }}>×</button>
           </div>
@@ -262,8 +326,8 @@ export default function Navbar() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>{userInitials}</div>
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a2e' }}>{userName}</div>
-                <div style={{ fontSize: '12px', color: '#4a5568' }}>{user.email}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: t.userName }}>{userName}</div>
+                <div style={{ fontSize: '12px', color: t.userEmail }}>{user.email}</div>
               </div>
             </div>
           )}
@@ -277,10 +341,10 @@ export default function Navbar() {
               if (block.items.length === 0) return null
               return (
                 <div key={block.label}>
-                  {blockIdx > 0 && <hr style={{ borderColor: '#e2e8f0', margin: '12px 0', border: 'none', borderTop: '1px solid #e2e8f0' }} />}
+                  {blockIdx > 0 && <hr style={{ borderColor: t.sidebarBorder, margin: '12px 0', border: 'none', borderTop: `1px solid ${t.sidebarBorder}` }} />}
                   <p style={{
                     fontFamily: 'DM Mono, monospace', fontSize: '11px',
-                    color: '#94a3b8', letterSpacing: '0.12em',
+                    color: t.sectionLabel, letterSpacing: '0.12em',
                     textTransform: 'uppercase' as const, margin: '0 4px 6px',
                   }}>{block.label}</p>
                   {block.items.map(item => {
@@ -291,8 +355,8 @@ export default function Navbar() {
                         padding: '10px 8px', minHeight: '44px',
                         borderRadius: '8px', marginBottom: '2px',
                         textDecoration: 'none',
-                        background: isActive ? 'rgba(196,153,42,0.1)' : 'transparent',
-                        color: isActive ? '#C4992A' : '#1a1a2e',
+                        background: isActive ? t.itemActiveBg : 'transparent',
+                        color: isActive ? t.itemActive : t.itemText,
                         fontSize: '14px', fontWeight: isActive ? 600 : 500,
                         transition: 'background 0.15s',
                       }}>
@@ -329,8 +393,8 @@ export default function Navbar() {
                   padding: '12px 12px', minHeight: '48px',
                   borderRadius: '10px', marginBottom: '2px',
                   textDecoration: 'none',
-                  background: isActive ? 'rgba(196,153,42,0.1)' : 'transparent',
-                  color: isActive ? '#C4992A' : '#1a1a2e',
+                  background: isActive ? t.itemActiveBg : 'transparent',
+                  color: isActive ? t.itemActive : t.itemText,
                   fontSize: '15px', fontWeight: isActive ? 600 : 500,
                   transition: 'background 0.15s',
                 }}>
@@ -340,30 +404,52 @@ export default function Navbar() {
               )
             })
           )}
+
+          {/* Dark mode toggle */}
+          <div style={{ padding: '4px 8px', marginTop: '8px' }}>
+            <hr style={{ border: 'none', borderTop: `1px solid ${t.sidebarBorder}`, margin: '0 0 12px' }} />
+            <button
+              onClick={toggleTheme}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '10px 8px', minHeight: '44px',
+                borderRadius: '8px', width: '100%',
+                background: 'none', border: 'none',
+                cursor: 'pointer', fontSize: '14px',
+                color: t.menuMuted,
+                transition: 'background 0.15s',
+              }}
+            >
+              <span style={{ fontSize: '18px', width: '24px', textAlign: 'center', flexShrink: 0 }}>
+                {isDark ? '☀️' : '🌙'}
+              </span>
+              <span>{isDark ? 'Modo claro' : 'Modo oscuro'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Sidebar footer */}
         <div style={{
           padding: '12px 16px 20px',
-          borderTop: '1px solid #e2e8f0',
+          borderTop: `1px solid ${t.sidebarBorder}`,
         }}>
           {user ? (
-            <div style={{ padding: '4px 12px', fontSize: '12px', color: '#94a3b8' }}>
+            <div style={{ padding: '4px 12px', fontSize: '12px', color: t.menuMuted }}>
               {user.email}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <Link href="/login" onClick={() => setSidebarOpen(false)} style={{
                 display: 'block', padding: '12px 16px', textAlign: 'center',
-                color: '#1a1a2e', fontSize: '15px', textDecoration: 'none',
-                border: '1px solid #e2e8f0', borderRadius: '10px',
+                color: t.guestBtnText, fontSize: '15px', textDecoration: 'none',
+                border: `1px solid ${t.guestBtnBorder}`, borderRadius: '10px',
               }}>
                 Iniciar sesión
               </Link>
               <Link href="/register" onClick={() => setSidebarOpen(false)} style={{
                 display: 'block', padding: '12px 16px', textAlign: 'center',
-                color: '#070d18', fontSize: '15px', fontWeight: 700, textDecoration: 'none',
-                background: '#C4992A', borderRadius: '10px',
+                color: t.registerText, fontSize: '15px', fontWeight: 700, textDecoration: 'none',
+                background: t.registerBg, borderRadius: '10px',
               }}>
                 Registrarse gratis
               </Link>
@@ -379,9 +465,9 @@ export default function Navbar() {
             position: 'fixed',
             bottom: 0, left: 0, right: 0,
             paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-            background: 'rgba(255,255,255,0.95)',
+            background: t.bottomNavBg,
             backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-            borderTop: '1px solid #e2e8f0',
+            borderTop: `1px solid ${t.bottomNavBorder}`,
             zIndex: 100,
           }}>
             {/* Top border handled by borderTop on nav */}

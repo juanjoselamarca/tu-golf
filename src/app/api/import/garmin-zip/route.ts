@@ -217,7 +217,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 7. Process each round
+    // 7. Pre-fetch all courses and holes (avoid N+1 per scorecard)
+    const { data: allCourses } = await supabase
+      .from('courses')
+      .select('id, nombre')
+
+    // Pre-fetch holes for all courses that have them
+    const allCourseIds = allCourses?.map(c => c.id) ?? []
+    const { data: allCoursesHoles } = allCourseIds.length > 0
+      ? await supabase
+          .from('course_holes')
+          .select('course_id, recorrido, numero, par')
+          .in('course_id', allCourseIds)
+          .order('recorrido')
+          .order('numero')
+      : { data: null }
+
+    // Index holes by course_id
+    const holesByCourseId = new Map<string, Array<{ recorrido: string | null; numero: number; par: number }>>()
+    if (allCoursesHoles) {
+      for (const h of allCoursesHoles) {
+        if (!holesByCourseId.has(h.course_id)) holesByCourseId.set(h.course_id, [])
+        holesByCourseId.get(h.course_id)!.push(h)
+      }
+    }
+
+    // Process each round
     const rounds: ImportRoundData[] = []
     const skipped: Array<{ garmin_id: number; reason: string }> = []
     const garminIds: string[] = []
@@ -291,24 +316,13 @@ export async function POST(request: NextRequest) {
       const parPerHole: Record<string, number> = {}
       let parSource = 'default'
 
-      // Look up course in our DB using scoring-based matching
-      // Handles ambiguity when multiple courses share similar names
-      // (e.g., Brisas de Santo Domingo vs Rocas de Santo Domingo)
-      const { data: allCourses } = await supabase
-        .from('courses')
-        .select('id, nombre')
-
+      // Look up course in pre-fetched data (no additional queries)
       const courseMatch = allCourses ? findBestCourseMatch(courseName, allCourses) : null
       const dbCourse = courseMatch ? { id: courseMatch.id } : null
 
       if (dbCourse) {
         // Check if course has multiple recorridos (e.g., 27-hole courses like Brisas, Rocas)
-        const { data: allHoles } = await supabase
-          .from('course_holes')
-          .select('recorrido, numero, par')
-          .eq('course_id', dbCourse.id)
-          .order('recorrido')
-          .order('numero')
+        const allHoles = holesByCourseId.get(dbCourse.id) ?? []
 
         const recorridos = new Map<string, Array<{ numero: number; par: number }>>()
         if (allHoles) {

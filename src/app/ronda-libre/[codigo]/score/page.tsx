@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
 import type { ModoJuego } from '@/golf/core/rules'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
@@ -534,17 +535,39 @@ function ScorePageContent() {
       // Fetch slope/rating from courses for diferencial calculation
       let slopeRating: number | null = null
       let courseRating: number | null = null
+      let nineHoleRatings: { cr9h: number; slope9h: number } | null = null
       if (ronda.course_id) {
-        const { data: courseData } = await supabase
-          .from('courses')
-          .select('slope_rating, course_rating')
-          .eq('id', ronda.course_id)
-          .single()
-        slopeRating = courseData?.slope_rating ?? null
-        courseRating = courseData?.course_rating ?? null
+        // Try tee-specific CR/Slope first (more accurate)
+        if (ronda.tees) {
+          const { data: teeData } = await supabase
+            .from('course_tees')
+            .select('rating, slope, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating')
+            .eq('course_id', ronda.course_id)
+            .ilike('nombre', `${ronda.tees}%`)
+            .limit(1)
+            .single()
+          if (teeData?.rating && teeData?.slope) {
+            courseRating = teeData.rating
+            slopeRating = teeData.slope
+          }
+          // Extract 9h ratings if available (front 9 default, could be back based on recorrido)
+          if (teeData?.front_course_rating && teeData?.front_slope_rating) {
+            nineHoleRatings = { cr9h: teeData.front_course_rating, slope9h: teeData.front_slope_rating }
+          }
+        }
+        // Fallback to course-level ratings
+        if (!courseRating || !slopeRating) {
+          const { data: courseData } = await supabase
+            .from('courses')
+            .select('slope_rating, course_rating')
+            .eq('id', ronda.course_id)
+            .single()
+          slopeRating = slopeRating ?? courseData?.slope_rating ?? null
+          courseRating = courseRating ?? courseData?.course_rating ?? null
+        }
       }
       const diferencial = (slopeRating && courseRating)
-        ? calcularDiferencial(grossTotal, courseRating, slopeRating)
+        ? calcularDiferencial(grossTotal, courseRating, slopeRating, totalHolesForSave, nineHoleRatings)
         : null
 
       await supabase.from('historical_rounds').insert({
@@ -663,6 +686,40 @@ function ScorePageContent() {
     .filter(j => j.holesPlayed > 0)
     .sort((a, b) => a.vsPar - b.vsPar)
   }, [ronda, scores, parMap])
+
+  // Match Play state calculation
+  const isMatchPlay = ronda?.modo_juego === 'match_play_neto'
+  const matchResult: MatchResult | null = useMemo(() => {
+    if (!isMatchPlay || !ronda) return null
+    const jug = ronda.ronda_libre_jugadores
+    if (jug.length !== 2) return null
+
+    // Build scores records from state
+    const scoresA: Record<string, number> = {}
+    const scoresB: Record<string, number> = {}
+    const playerScoresA = scores[jug[0].id] ?? {}
+    const playerScoresB = scores[jug[1].id] ?? {}
+    for (const [k, v] of Object.entries(playerScoresA)) {
+      if (v != null && v > 0) scoresA[String(k)] = v
+    }
+    for (const [k, v] of Object.entries(playerScoresB)) {
+      if (v != null && v > 0) scoresB[String(k)] = v
+    }
+
+    // Build holes array from holeDataMap
+    const holes = Object.entries(holeDataMap).map(([num, data]) => ({
+      numero: Number(num),
+      par: data.par,
+      stroke_index: data.stroke_index,
+    }))
+    if (holes.length === 0) return null
+
+    return calcularMatchPlay(scoresA, scoresB, holes, {
+      courseHandicapA: jug[0].handicap ?? 0,
+      courseHandicapB: jug[1].handicap ?? 0,
+      totalHoles: ronda.holes,
+    })
+  }, [isMatchPlay, ronda, scores, holeDataMap])
 
   /* ── Render ── */
   if (adminRedirectMsg) return (
@@ -846,13 +903,33 @@ function ScorePageContent() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: showStableford ? '#C4992A' : displayOverUnder < 0 ? '#93C5FD' : displayOverUnder === 0 ? theme.textMuted : '#FCD34D' }}>
-              {holesPlayed > 0 ? (showStableford ? `${totalStableford} pts` : displayOverUnder > 0 ? `+${displayOverUnder}` : displayOverUnder === 0 ? 'E' : displayOverUnder) : '—'}
-            </div>
-            <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>
-              {showNet && <span style={{ color: '#C4992A', marginRight: '4px' }}>HCP {hcpForPlayer}</span>}
-              THRU {holesPlayed}/{totalHoles}
-            </div>
+            {isMatchPlay && matchResult ? (
+              <>
+                <div style={{
+                  fontSize: '16px', fontWeight: 700,
+                  color: matchResult.state === 0 ? theme.textMuted : matchResult.state > 0
+                    ? (activeJugadorId === ronda.ronda_libre_jugadores[0]?.id ? '#16a34a' : '#dc2626')
+                    : (activeJugadorId === ronda.ronda_libre_jugadores[0]?.id ? '#dc2626' : '#16a34a'),
+                }}>
+                  {matchResult.holesPlayed > 0
+                    ? displayDesdeJugador(matchResult.state, activeJugadorId === ronda.ronda_libre_jugadores[0]?.id ? 'a' : 'b')
+                    : '—'}
+                </div>
+                <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>
+                  MATCH PLAY · {matchResult.holesPlayed}/{totalHoles}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: showStableford ? '#C4992A' : displayOverUnder < 0 ? '#93C5FD' : displayOverUnder === 0 ? theme.textMuted : '#FCD34D' }}>
+                  {holesPlayed > 0 ? (showStableford ? `${totalStableford} pts` : displayOverUnder > 0 ? `+${displayOverUnder}` : displayOverUnder === 0 ? 'E' : displayOverUnder) : '—'}
+                </div>
+                <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>
+                  {showNet && <span style={{ color: '#C4992A', marginRight: '4px' }}>HCP {hcpForPlayer}</span>}
+                  THRU {holesPlayed}/{totalHoles}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -1137,7 +1214,7 @@ function ScorePageContent() {
             parMap={parMap}
             currentUserId={ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.user_id ?? null}
             totalHoles={ronda.holes}
-            modoJuego={ronda.modo_juego as 'gross' | 'neto' | 'stableford' ?? 'gross'}
+            modoJuego={(ronda.modo_juego === 'match_play_neto' ? 'neto' : ronda.modo_juego) as 'gross' | 'neto' | 'stableford' ?? 'gross'}
             hcpMap={playerHcp}
             siMap={Object.fromEntries(Object.entries(holeDataMap).map(([k, v]) => [k, v.stroke_index]))}
           />
@@ -1158,51 +1235,92 @@ function ScorePageContent() {
         </div>
       )}
 
-      {/* ── Mini ranking (collapsible, multi-player only) ── */}
+      {/* ── Mini ranking / Match state (collapsible, multi-player only) ── */}
       {ranking.length > 1 && view === 'scorecard' && (
         <div style={{ margin: '0 16px 8px', flexShrink: 0 }}>
-          <button
-            onClick={() => setShowRanking(!showRanking)}
-            style={{
-              width: '100%', padding: '8px 12px',
-              background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '10px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#4a5568',
-            }}
-          >
-            <span>Ranking</span>
-            <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-              {showRanking ? '\u25B2' : '\u25BC'}
-            </span>
-          </button>
-          {showRanking && (
-            <div style={{ marginTop: '4px', background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-              {ranking.map((r, idx) => {
-                const isMe = r.id === activeJugadorId
-                const vsParStr = r.vsPar > 0 ? `+${r.vsPar}` : r.vsPar === 0 ? 'E' : String(r.vsPar)
-                return (
-                  <div key={r.id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    background: isMe ? 'rgba(196,153,42,0.08)' : 'transparent',
-                    borderBottom: idx < ranking.length - 1 ? '1px solid #e2e8f0' : 'none',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', width: '20px' }}>{idx + 1}</span>
-                      <span style={{ fontSize: '14px', fontWeight: isMe ? 700 : 500, color: isMe ? '#c4992a' : '#1a1a2e' }}>
-                        {r.nombre}{isMe ? ' \u2190' : ''}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '14px', fontWeight: 600, color: r.vsPar < 0 ? '#16a34a' : r.vsPar > 0 ? '#dc2626' : '#1a1a2e' }}>
-                        {vsParStr}
-                      </span>
-                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>({r.holesPlayed}h)</span>
-                    </div>
-                  </div>
-                )
-              })}
+          {isMatchPlay && matchResult ? (
+            /* ── Match Play: show match state bar ── */
+            <div style={{
+              padding: '12px 16px',
+              background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a2e' }}>
+                  {ronda!.ronda_libre_jugadores[0]?.nombre}
+                </span>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a2e' }}>
+                  {ronda!.ronda_libre_jugadores[1]?.nombre}
+                </span>
+              </div>
+              <div style={{
+                textAlign: 'center', padding: '8px 0',
+                fontSize: '20px', fontWeight: 700, fontFamily: '"Playfair Display", serif',
+                color: matchResult.state === 0 ? '#6b7280' : matchResult.state > 0 ? '#16a34a' : '#dc2626',
+              }}>
+                {matchResult.display}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8' }}>
+                <span>{matchResult.holesWonA} ganados</span>
+                <span>{matchResult.holesHalved} empates</span>
+                <span>{matchResult.holesWonB} ganados</span>
+              </div>
+              {matchResult.isFinished && matchResult.winner && (
+                <div style={{
+                  marginTop: '8px', padding: '6px 12px', borderRadius: '8px',
+                  background: 'rgba(196,153,42,0.1)', textAlign: 'center',
+                  fontSize: '13px', fontWeight: 600, color: '#c4992a',
+                }}>
+                  {ronda!.ronda_libre_jugadores[matchResult.winner === 'a' ? 0 : 1]?.nombre} gana {matchResult.display}
+                </div>
+              )}
             </div>
+          ) : (
+            /* ── Stroke/Stableford: show ranking ── */
+            <>
+              <button
+                onClick={() => setShowRanking(!showRanking)}
+                style={{
+                  width: '100%', padding: '8px 12px',
+                  background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '10px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#4a5568',
+                }}
+              >
+                <span>Ranking</span>
+                <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                  {showRanking ? '\u25B2' : '\u25BC'}
+                </span>
+              </button>
+              {showRanking && (
+                <div style={{ marginTop: '4px', background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                  {ranking.map((r, idx) => {
+                    const isMe = r.id === activeJugadorId
+                    const vsParStr = r.vsPar > 0 ? `+${r.vsPar}` : r.vsPar === 0 ? 'E' : String(r.vsPar)
+                    return (
+                      <div key={r.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        background: isMe ? 'rgba(196,153,42,0.08)' : 'transparent',
+                        borderBottom: idx < ranking.length - 1 ? '1px solid #e2e8f0' : 'none',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', width: '20px' }}>{idx + 1}</span>
+                          <span style={{ fontSize: '14px', fontWeight: isMe ? 700 : 500, color: isMe ? '#c4992a' : '#1a1a2e' }}>
+                            {r.nombre}{isMe ? ' \u2190' : ''}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 600, color: r.vsPar < 0 ? '#16a34a' : r.vsPar > 0 ? '#dc2626' : '#1a1a2e' }}>
+                            {vsParStr}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#94a3b8' }}>({r.holesPlayed}h)</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

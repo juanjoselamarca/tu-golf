@@ -9,7 +9,7 @@ export interface HoleData {
   numero: number
   par: number
   stroke_index: number
-  yardaje_blanco?: number | null
+  yardaje?: number | null
 }
 
 export interface CourseSnapshot {

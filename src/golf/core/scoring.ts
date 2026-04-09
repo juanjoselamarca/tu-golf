@@ -5,17 +5,21 @@
 import { type ModoJuego, labelResultado } from './rules'
 
 // ─── Strokes que recibe un jugador en un hoyo ───
+// holeCount: 9 o 18 — determina cómo se distribuyen los golpes
 export function strokesRecibidosEnHoyo(
   handicapIndex: number,
-  strokeIndex: number
+  strokeIndex: number,
+  holeCount: number = 18
 ): number {
+  const totalHoles = holeCount === 9 ? 9 : 18
   if (handicapIndex < 0) {
     const hcpAbs = Math.abs(Math.round(handicapIndex))
     return -(hcpAbs >= strokeIndex ? 1 : 0)
   }
-  const hcp = Math.round(Math.max(0, Math.min(handicapIndex, 54)))
-  const strokesBase = Math.floor(hcp / 18)
-  const extra = (hcp % 18) >= strokeIndex ? 1 : 0
+  const maxHcp = totalHoles === 9 ? 27 : 54 // WHS: max 3 strokes/hole
+  const hcp = Math.round(Math.max(0, Math.min(handicapIndex, maxHcp)))
+  const strokesBase = Math.floor(hcp / totalHoles)
+  const extra = (hcp % totalHoles) >= strokeIndex ? 1 : 0
   return strokesBase + extra
 }
 
@@ -23,9 +27,10 @@ export function strokesRecibidosEnHoyo(
 export function scoreNetoHoyo(
   grossScore: number,
   handicapIndex: number,
-  strokeIndex: number
+  strokeIndex: number,
+  holeCount: number = 18
 ): number {
-  return grossScore - strokesRecibidosEnHoyo(handicapIndex, strokeIndex)
+  return grossScore - strokesRecibidosEnHoyo(handicapIndex, strokeIndex, holeCount)
 }
 
 // ─── Puntos Stableford (siempre en neto) ───
@@ -33,9 +38,10 @@ export function puntosStablefordHoyo(
   grossScore: number,
   par: number,
   handicapIndex: number,
-  strokeIndex: number
+  strokeIndex: number,
+  holeCount: number = 18
 ): number {
-  const neto = scoreNetoHoyo(grossScore, handicapIndex, strokeIndex)
+  const neto = scoreNetoHoyo(grossScore, handicapIndex, strokeIndex, holeCount)
   const diff = neto - par
   if (diff <= -3) return 5  // Albatross o mejor
   if (diff === -2) return 4 // Eagle
@@ -81,8 +87,10 @@ export function calcularResumenRonda(
   scores: Record<string, number>,
   holes: Array<{ numero: number; par: number; stroke_index: number }>,
   handicapIndex: number,
-  parTotal: number
+  parTotal: number,
+  holeCount?: number
 ): ResumenRonda {
+  const totalHoles = holeCount ?? holes.length
   let totalGross = 0, totalNeto = 0, totalStableford = 0
   let albatros = 0, eagles = 0, birdiesGross = 0, birdiesNeto = 0
   let pares = 0, bogiesGross = 0, dobles = 0
@@ -91,11 +99,11 @@ export function calcularResumenRonda(
     .map(h => {
       const gross = scores[String(h.numero)]
       if (!gross || gross === 0) return null
-      const strokes    = strokesRecibidosEnHoyo(handicapIndex, h.stroke_index)
+      const strokes    = strokesRecibidosEnHoyo(handicapIndex, h.stroke_index, totalHoles)
       const neto       = gross - strokes
       const ouGross    = gross - h.par
       const ouNeto     = neto - h.par
-      const stableford = puntosStablefordHoyo(gross, h.par, handicapIndex, h.stroke_index)
+      const stableford = puntosStablefordHoyo(gross, h.par, handicapIndex, h.stroke_index, totalHoles)
 
       totalGross      += gross
       totalNeto       += neto

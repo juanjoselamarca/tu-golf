@@ -478,6 +478,31 @@ export async function POST(request: NextRequest) {
     }
 
     // -------------------------------------------------------------------
+    // Cache: avoid repeated course lookups + hole fetches across images
+    // -------------------------------------------------------------------
+    const courseMatchCache = new Map<string, { id: string } | null>()
+    const courseHolesCache = new Map<string, Array<{ numero: number; par: number }>>()
+
+    const cachedMatchCourse = async (courseName: string) => {
+      if (courseMatchCache.has(courseName)) return courseMatchCache.get(courseName)!
+      const match = await matchCourseInDB(courseName, supabase)
+      courseMatchCache.set(courseName, match)
+      if (match && !courseHolesCache.has(match.id)) {
+        const { data: holes } = await supabase
+          .from('course_holes')
+          .select('numero, par')
+          .eq('course_id', match.id)
+          .order('numero')
+        courseHolesCache.set(match.id, holes ?? [])
+      }
+      return match
+    }
+
+    const getCachedHoles = (courseId: string) => {
+      return courseHolesCache.get(courseId) ?? []
+    }
+
+    // -------------------------------------------------------------------
     // Helper: build ImportRoundData from a scorecard response
     // -------------------------------------------------------------------
     const buildScorecardRound = async (parsed: VisionScorecard): Promise<ImportRoundData> => {
@@ -498,17 +523,12 @@ export async function POST(request: NextRequest) {
         round.par_per_hole = parsed.par_per_hole
       }
 
-      // If Gemini didn't return pars, look up from DB
+      // If Gemini didn't return pars, look up from DB (cached)
       if (!round.par_per_hole && round.course_name !== 'Cancha desconocida') {
-        const match = await matchCourseInDB(round.course_name, supabase)
+        const match = await cachedMatchCourse(round.course_name)
         if (match) {
-          const { data: holes } = await supabase
-            .from('course_holes')
-            .select('numero, par')
-            .eq('course_id', match.id)
-            .order('numero')
-
-          if (holes && holes.length > 0) {
+          const holes = getCachedHoles(match.id)
+          if (holes.length > 0) {
             const pars: Record<string, number> = {}
             for (const h of holes) {
               pars[String(h.numero)] = h.par
@@ -531,20 +551,16 @@ export async function POST(request: NextRequest) {
     // Helper: build ImportRoundData from an activity-list round
     // -------------------------------------------------------------------
     const buildActivityRound = async (actRound: VisionActivityRound): Promise<ImportRoundData> => {
-      // Use matchCourseInDB for better course matching
+      // Use cached course matching
       let dbPars: Record<number, number> | undefined
       let dbParPerHole: Record<string, number> | undefined
 
       if (actRound.course_name) {
-        const match = await matchCourseInDB(actRound.course_name, supabase)
+        const match = await cachedMatchCourse(actRound.course_name)
         if (match) {
-          const { data: holes } = await supabase
-            .from('course_holes')
-            .select('numero, par')
-            .eq('course_id', match.id)
-            .order('numero')
+          const holes = getCachedHoles(match.id)
 
-          if (holes && holes.length > 0) {
+          if (holes.length > 0) {
             // If course has multiple recorridos (e.g. 27 holes), try to match combo
             // by checking if the course name hints at a specific 9-hole loop
             let filteredHoles = holes

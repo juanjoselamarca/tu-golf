@@ -63,6 +63,8 @@ interface CourseDB {
   id: string
   nombre: string
   ciudad: string | null
+  datos_verificados?: boolean | null
+  par_total?: number | null
 }
 
 interface CourseLoop {
@@ -146,6 +148,7 @@ export default function NuevaRondaLibrePage() {
       setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
     }
   }
+  const [formato, setFormato] = useState<'stroke_play' | 'stableford' | 'match_play'>('stroke_play')
   const [fechaStr, setFechaStr] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -177,7 +180,9 @@ export default function NuevaRondaLibrePage() {
 
       const { data: courses } = await supabase
         .from('courses')
-        .select('id, nombre, ciudad')
+        .select('id, nombre, ciudad, datos_verificados, par_total')
+        .eq('activa', true)
+        .is('parent_id', null)
         .order('nombre')
       setCoursesDB((courses as CourseDB[]) || [])
     }
@@ -195,15 +200,20 @@ export default function NuevaRondaLibrePage() {
     }
     const fetchCourseData = async () => {
       const supabase = createClient()
-      const { data: course } = await supabase
-        .from('courses')
-        .select('par_total, course_rating, slope_rating')
-        .eq('id', courseId)
-        .single()
-      const { count: holeCount } = await supabase
-        .from('course_holes')
-        .select('*', { count: 'exact', head: true })
-        .eq('course_id', courseId)
+
+      // Parallel fetch: course info, hole count, tees, and children — all independent
+      const [
+        { data: course },
+        { count: holeCount },
+        { data: tees },
+        { data: children },
+      ] = await Promise.all([
+        supabase.from('courses').select('par_total, course_rating, slope_rating').eq('id', courseId).single(),
+        supabase.from('course_holes').select('*', { count: 'exact', head: true }).eq('course_id', courseId),
+        supabase.from('course_tees').select('nombre, yardaje_total, rating, slope').eq('course_id', courseId).order('yardaje_total', { ascending: false }),
+        supabase.from('courses').select('id, loop_nombre, par_total').eq('parent_id', courseId).order('loop_nombre'),
+      ])
+
       if (course) {
         setCourseDetails({
           par_total: course.par_total,
@@ -214,35 +224,29 @@ export default function NuevaRondaLibrePage() {
       } else {
         setCourseDetails(null)
       }
-      const { data: tees } = await supabase
-        .from('course_tees')
-        .select('nombre, yardaje_total, rating, slope')
-        .eq('course_id', courseId)
-        .order('yardaje_total', { ascending: false })
       setCourseTees((tees as CourseTee[]) || [])
       if (tees && tees.length > 0) {
-        // Default to "blanco" if available
         const blanco = tees.find(t => t.nombre.toLowerCase() === 'blanco')
         setTees(blanco ? 'blanco' : tees[0].nombre.toLowerCase())
       }
-
-      // Detect multi-loop courses (e.g. Brisas de Santo Domingo: Norte, Este, Sur)
-      // First check children courses (proper model for 27h courses)
-      const { data: children } = await supabase
-        .from('courses')
-        .select('id, loop_nombre, par_total')
-        .eq('parent_id', courseId)
-        .order('loop_nombre')
       if (children && children.length >= 2) {
-        // Multi-loop via children — verify each child has 9 holes
+        // Multi-loop via children — batch verify hole counts in single query
+        const childIds = children.map(c => c.id)
+        const { data: allChildHoles } = await supabase
+          .from('course_holes')
+          .select('course_id')
+          .in('course_id', childIds)
+        const holeCountMap = new Map<string, number>()
+        if (allChildHoles) {
+          for (const h of allChildHoles) {
+            holeCountMap.set(h.course_id, (holeCountMap.get(h.course_id) ?? 0) + 1)
+          }
+        }
         const validLoops: CourseLoop[] = []
         for (const child of children) {
-          const { count } = await supabase
-            .from('course_holes')
-            .select('*', { count: 'exact', head: true })
-            .eq('course_id', child.id)
-          if ((count ?? 0) >= 9 && child.loop_nombre) {
-            validLoops.push({ recorrido: child.loop_nombre, holes: count ?? 9, par: child.par_total ?? 36 })
+          const count = holeCountMap.get(child.id) ?? 0
+          if (count >= 9 && child.loop_nombre) {
+            validLoops.push({ recorrido: child.loop_nombre, holes: count, par: child.par_total ?? 36 })
           }
         }
         if (validLoops.length >= 2) {
@@ -300,6 +304,10 @@ export default function NuevaRondaLibrePage() {
       showError('Faltan jugadores', 'Agrega al menos un jugador para crear la ronda.')
       return
     }
+    if (formato === 'match_play' && jugadoresValidos.length !== 2) {
+      showError('Match Play requiere 2 jugadores', 'Agrega exactamente un rival para jugar Match Play.')
+      return
+    }
 
     setLoading(true)
 
@@ -331,10 +339,12 @@ export default function NuevaRondaLibrePage() {
       baseData.admin_user_id = userId
     }
 
-    // Intento 1: con modo_juego = 'gross'
+    // modo_juego según formato seleccionado
+    const modoJuego = formato === 'match_play' ? 'match_play_neto'
+      : formato === 'stableford' ? 'stableford' : 'gross'
     const { data: d1, error: e1 } = await supabase
       .from('rondas_libres')
-      .insert({ ...baseData, modo_juego: 'gross' })
+      .insert({ ...baseData, modo_juego: modoJuego })
       .select('id')
       .single()
 
@@ -406,7 +416,7 @@ export default function NuevaRondaLibrePage() {
     if (courseId && ronda?.id) {
       try {
         const { saveCourseSnapshot } = await import('@/lib/save-course-snapshot')
-        await saveCourseSnapshot(supabase, 'rondas_libres', ronda.id, courseId)
+        await saveCourseSnapshot(supabase, 'rondas_libres', ronda.id, courseId, null, tees)
       } catch { /* non-blocking */ }
     }
 
@@ -702,18 +712,18 @@ export default function NuevaRondaLibrePage() {
                 {showCanchaDropdown && (() => {
                   const q = canchaSearch.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                   const dbByName = new Map(coursesDB.map(c => [c.nombre, c]))
-                  const unified: { name: string; courseId: string | null; ciudad: string | null }[] = []
+                  const unified: { name: string; courseId: string | null; ciudad: string | null; verified: boolean }[] = []
                   const seen = new Set<string>()
                   for (const name of CANCHAS_CHILE) {
                     if (!name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) continue
                     const db = dbByName.get(name)
-                    unified.push({ name, courseId: db?.id ?? null, ciudad: db?.ciudad ?? null })
+                    unified.push({ name, courseId: db?.id ?? null, ciudad: db?.ciudad ?? null, verified: !!db?.datos_verificados })
                     seen.add(name)
                   }
                   for (const c of coursesDB) {
                     if (seen.has(c.nombre)) continue
                     if (!c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) continue
-                    unified.push({ name: c.nombre, courseId: c.id, ciudad: c.ciudad })
+                    unified.push({ name: c.nombre, courseId: c.id, ciudad: c.ciudad, verified: !!c.datos_verificados })
                   }
                   const results = unified.slice(0, 10)
                   const hasResults = results.length > 0
@@ -744,7 +754,15 @@ export default function NuevaRondaLibrePage() {
                             borderBottom: `1px solid ${colors.cardBorder}`,
                           }}
                         >
-                          {c.name}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            {c.courseId && (
+                              <span style={{
+                                width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0,
+                                background: c.verified ? '#16a34a' : '#d97706',
+                              }} />
+                            )}
+                            {c.name}
+                          </span>
                           {c.ciudad && <span style={{ color: colors.textLabel, fontSize: '12px', marginLeft: '8px' }}>{'\u2014'} {c.ciudad}</span>}
                         </button>
                       ))}
@@ -775,19 +793,28 @@ export default function NuevaRondaLibrePage() {
                 <div style={{
                   marginTop: '12px',
                   padding: '10px 14px',
-                  background: 'rgba(196,153,42,0.08)',
+                  background: courseDetails.has_holes ? 'rgba(196,153,42,0.08)' : 'rgba(217,119,6,0.08)',
                   borderRadius: '10px',
                   fontSize: '13px',
                   color: '#374151',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
+                  flexWrap: 'wrap',
                 }}>
-                  <span style={{ color: '#16a34a', fontWeight: 700 }}>{'\u2713'}</span>
-                  {courseDetails.par_total && <span>Par {courseDetails.par_total}</span>}
-                  {courseDetails.course_rating && <span>&middot; CR {courseDetails.course_rating}</span>}
-                  {courseDetails.slope_rating && <span>&middot; Slope {courseDetails.slope_rating}</span>}
-                  <span>&middot; Datos verificados</span>
+                  {courseDetails.has_holes ? (
+                    <>
+                      <span style={{ color: '#16a34a', fontWeight: 700 }}>{'\u2713'}</span>
+                      {courseDetails.par_total && <span>Par {courseDetails.par_total}</span>}
+                      {courseDetails.course_rating && <span>&middot; CR {courseDetails.course_rating}</span>}
+                      {courseDetails.slope_rating && <span>&middot; Slope {courseDetails.slope_rating}</span>}
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ color: '#d97706', fontWeight: 700 }}>{'!'}</span>
+                      <span style={{ color: '#92400e' }}>Datos parciales — el scoring puede no ser exacto</span>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -860,6 +887,78 @@ export default function NuevaRondaLibrePage() {
                   </div>
                 )
               })()}
+            </div>
+
+            {/* Formato de juego */}
+            <div style={{
+              background: colors.card,
+              border: `1px solid ${colors.cardBorder}`,
+              borderRadius: '16px',
+              padding: '20px',
+              marginBottom: '16px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}>
+              <label style={{ display: 'block', fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '10px', fontWeight: 500 }}>
+                Formato de juego
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {([
+                  { value: 'stroke_play' as const, label: 'Stroke Play', desc: 'Gana el de menos golpes', icon: '\u26F3' },
+                  { value: 'stableford' as const, label: 'Stableford', desc: 'Puntos por hoyo (neto)', icon: '\u2B50' },
+                  { value: 'match_play' as const, label: 'Match Play Neto', desc: 'Hoyo a hoyo, 1 vs 1', icon: '\u2694\uFE0F' },
+                ]).map(f => {
+                  const active = formato === f.value
+                  return (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => {
+                        setFormato(f.value)
+                        // Match play fuerza admin mode con 1 rival
+                        if (f.value === 'match_play' && !adminMode) {
+                          setAdminMode(true)
+                          setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
+                        }
+                      }}
+                      style={{
+                        width: '100%', padding: '14px 16px', borderRadius: '12px',
+                        border: active ? `2px solid ${colors.gold}` : `1px solid ${colors.cardBorder}`,
+                        background: active ? 'rgba(196,153,42,0.06)' : '#ffffff',
+                        cursor: 'pointer', textAlign: 'left',
+                        transition: 'all 0.15s',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '20px' }}>{f.icon}</span>
+                        <div>
+                          <div style={{
+                            fontSize: '15px', fontWeight: 600,
+                            color: active ? colors.gold : colors.textPrimary,
+                          }}>
+                            {f.label}
+                          </div>
+                          <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '2px' }}>
+                            {f.desc}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Match play info badge */}
+              {formato === 'match_play' && (
+                <div style={{
+                  marginTop: '12px', padding: '10px 14px',
+                  background: 'rgba(196,153,42,0.08)', borderRadius: '10px',
+                  fontSize: '12px', color: '#92400e', lineHeight: 1.5,
+                }}>
+                  Match Play Neto: se aplica la diferencia de handicap entre los 2 jugadores.
+                  El de mayor HCP recibe strokes en los hoyos mas dificiles.
+                </div>
+              )}
             </div>
 
             {/* Tees + Date row */}
@@ -1208,8 +1307,8 @@ export default function NuevaRondaLibrePage() {
                     </div>
                   ))}
 
-                  {/* Add player button */}
-                  {adminPlayers.length < 3 && (
+                  {/* Add player button — match play only allows 1 rival */}
+                  {adminPlayers.length < (formato === 'match_play' ? 1 : 3) && (
                     <button
                       type="button"
                       onClick={addAdminPlayer}
@@ -1226,8 +1325,44 @@ export default function NuevaRondaLibrePage() {
                 </>
               )}
 
+              {/* Match Play: handicap difference preview */}
+              {formato === 'match_play' && adminPlayers.length === 1 && (
+                <div style={{
+                  marginTop: '12px', padding: '14px',
+                  background: 'rgba(196,153,42,0.06)',
+                  border: '1px solid rgba(196,153,42,0.2)',
+                  borderRadius: '12px',
+                }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: colors.gold, marginBottom: '8px' }}>
+                    Match Play Neto
+                  </div>
+                  {(() => {
+                    const hcpA = creatorHandicap ?? 0
+                    const hcpB = adminPlayers[0]?.handicap ?? 0
+                    const diff = Math.abs(hcpA - hcpB)
+                    const receiver = hcpA > hcpB ? creatorName : (adminPlayers[0]?.nombre || 'Rival')
+                    if (diff === 0) {
+                      return (
+                        <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+                          Mismo handicap — sin strokes de ventaja
+                        </div>
+                      )
+                    }
+                    return (
+                      <div style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.6 }}>
+                        <strong>{receiver}</strong> recibe <strong style={{ color: colors.gold }}>{diff} stroke{diff !== 1 ? 's' : ''}</strong> de ventaja
+                        <br />
+                        <span style={{ fontSize: '11px', color: colors.textLabel }}>
+                          HCP {creatorName}: {hcpA} vs HCP {adminPlayers[0]?.nombre || 'Rival'}: {hcpB}
+                        </span>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+
               {/* Non-admin: simple note */}
-              {!adminMode && (
+              {!adminMode && formato !== 'match_play' && (
                 <div style={{
                   padding: '14px',
                   background: 'rgba(196,153,42,0.04)',

@@ -26,6 +26,7 @@ function Spinner() {
 const FORMATS = [
   { value: 'stroke_play', label: 'Stroke Play', desc: 'Contar golpes totales' },
   { value: 'stableford',  label: 'Stableford',  desc: 'Puntos por hoyo' },
+  { value: 'match_play',  label: 'Match Play',  desc: 'Hoyo a hoyo, 1 vs 1' },
 ]
 
 const TEES = [
@@ -235,7 +236,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
     try {
       const { saveCourseSnapshot } = await import('@/lib/save-course-snapshot')
       const siOverride = Object.keys(customSI).length > 0 ? customSI : null
-      await saveCourseSnapshot(supabase, 'tournaments', tournament.id as string, selectedCourse!.id, siOverride)
+      await saveCourseSnapshot(supabase, 'tournaments', tournament.id as string, selectedCourse!.id, siOverride, tees)
 
       // Contribución comunitaria: proponer SI para la cancha
       if (suggestSI && siOverride && selectedCourse) {

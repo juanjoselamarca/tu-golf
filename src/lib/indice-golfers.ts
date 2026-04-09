@@ -4,18 +4,34 @@
  */
 
 /**
- * Diferencial USGA para una ronda.
- * (gross - course_rating) × 113 / slope_rating
+ * Diferencial WHS para una ronda.
+ * 18h: (gross - CR) × 113 / Slope
+ * 9h:  (gross - CR_9h) × 113 / Slope_9h  (si hay ratings de 9h)
+ *       Fallback 9h: (gross - CR/2) × 113 / (Slope)  — aproximación
  */
 export function calcularDiferencial(
   totalGross: number,
   courseRating: number,
   slopeRating: number,
-  holesPlayed?: number | null
+  holesPlayed?: number | null,
+  nineHoleRatings?: { cr9h: number; slope9h: number } | null
 ): number | null {
-  if (!totalGross || !courseRating || !slopeRating || slopeRating === 0) return null
-  // Solo calcular diferencial para rondas de 18 hoyos
-  if (holesPlayed != null && holesPlayed < 18) return null
+  if (!totalGross || !slopeRating || slopeRating === 0) return null
+
+  if (holesPlayed != null && holesPlayed <= 9) {
+    // 9-hole differential
+    if (nineHoleRatings?.cr9h && nineHoleRatings?.slope9h) {
+      return parseFloat(((totalGross - nineHoleRatings.cr9h) * 113 / nineHoleRatings.slope9h).toFixed(2))
+    }
+    // Fallback: use half of 18h course rating
+    if (courseRating) {
+      return parseFloat(((totalGross - courseRating / 2) * 113 / slopeRating).toFixed(2))
+    }
+    return null
+  }
+
+  // 18-hole differential
+  if (!courseRating) return null
   if (holesPlayed == null && totalGross < 60) return null // fallback heurístico
   return parseFloat(((totalGross - courseRating) * 113 / slopeRating).toFixed(2))
 }

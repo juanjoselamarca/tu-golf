@@ -229,13 +229,14 @@ export async function POST(request: NextRequest) {
       if (round) {
         const { data: tourneyData } = await svc
           .from('tournaments')
-          .select('afecta_estadisticas, course_id, courses(nombre, slope_rating, course_rating)')
+          .select('afecta_estadisticas, course_id, tees, courses(nombre, slope_rating, course_rating)')
           .eq('id', round.tournament_id)
           .single()
 
         const tourney = tourneyData as unknown as {
           afecta_estadisticas: boolean | null
           course_id: string | null
+          tees: string | null
           courses: { nombre: string; slope_rating: number; course_rating: number } | null
         } | null
 
@@ -257,8 +258,22 @@ export async function POST(request: NextRequest) {
             return hs?.gross_score ?? null
           })
 
-          const slopeRating = tourney.courses?.slope_rating ?? null
-          const courseRating = tourney.courses?.course_rating ?? null
+          // Try tee-specific CR/Slope for accuracy
+          let slopeRating: number | null = null
+          let courseRating: number | null = null
+          if (tourney.course_id && tourney.tees) {
+            const { data: teeData } = await svc
+              .from('course_tees')
+              .select('rating, slope')
+              .eq('course_id', tourney.course_id)
+              .ilike('nombre', `${tourney.tees}%`)
+              .limit(1)
+              .single()
+            if (teeData?.rating) courseRating = teeData.rating
+            if (teeData?.slope) slopeRating = teeData.slope
+          }
+          if (!courseRating) courseRating = tourney.courses?.course_rating ?? null
+          if (!slopeRating) slopeRating = tourney.courses?.slope_rating ?? null
           const diferencial = (slopeRating && courseRating)
             ? calcularDiferencial(round.total_gross, courseRating, slopeRating)
             : null

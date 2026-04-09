@@ -377,9 +377,21 @@ function HistorialContent() {
         .limit(1)
         .single()
       if (courseData) {
-        slopeRating = courseData.slope_rating ?? null
-        courseRating = courseData.course_rating ?? null
         courseId = courseData.id
+        // Try tee-specific CR/Slope
+        if (teeColor && courseData.id) {
+          const { data: teeData } = await supabase
+            .from('course_tees')
+            .select('rating, slope')
+            .eq('course_id', courseData.id)
+            .ilike('nombre', `${teeColor}%`)
+            .limit(1)
+            .single()
+          if (teeData?.rating) courseRating = teeData.rating
+          if (teeData?.slope) slopeRating = teeData.slope
+        }
+        if (!courseRating) courseRating = courseData.course_rating ?? null
+        if (!slopeRating) slopeRating = courseData.slope_rating ?? null
       }
     }
     const diferencial = (slopeRating && courseRating && totalGross)

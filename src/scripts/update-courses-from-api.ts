@@ -15,7 +15,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const API_KEY = process.env.GOLF_COURSE_API_KEY || 'PT4JTCIYP63XOIRLXXXDEI36NE'
+const API_KEY = process.env.GOLF_COURSE_API_KEY
+if (!API_KEY) {
+  console.error('ERROR: GOLF_COURSE_API_KEY no configurada en .env.local')
+  process.exit(1)
+}
 const API_BASE = 'https://api.golfcourseapi.com/v1'
 
 // ─── Course mapping: our DB name → API search query ─────────────────────

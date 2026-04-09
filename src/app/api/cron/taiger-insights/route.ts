@@ -49,24 +49,38 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Batch fetch ALL patterns and recommendations in 2 queries instead of 2×N
+    const allUserIds = profiles.map(p => p.id)
+    const [{ data: allPatterns }, { data: allRecs }] = await Promise.all([
+      admin.from('player_patterns').select('user_id, pattern_type, confidence').in('user_id', allUserIds).eq('status', 'active'),
+      admin.from('taiger_recommendations').select('user_id, category, focus_area, status').in('user_id', allUserIds),
+    ])
+
+    // Index by user_id for fast lookup
+    const patternsByUser = new Map<string, typeof allPatterns>()
+    const recsByUser = new Map<string, typeof allRecs>()
+    for (const p of allPatterns ?? []) {
+      if (!patternsByUser.has(p.user_id)) patternsByUser.set(p.user_id, [])
+      patternsByUser.get(p.user_id)!.push(p)
+    }
+    for (const r of allRecs ?? []) {
+      if (!recsByUser.has(r.user_id)) recsByUser.set(r.user_id, [])
+      recsByUser.get(r.user_id)!.push(r)
+    }
+
     let totalInserts = 0
+    const insightsBatch: Array<{
+      pattern_type: string; handicap_range: string; insight: string;
+      sample_size: number; confidence: number; computed_at: string;
+    }> = []
 
     for (const range of HANDICAP_RANGES) {
       const userIds = usersByRange[range]
       if (userIds.length < 5) continue
 
-      // Fetch patterns for this range
-      const { data: patterns } = await admin
-        .from('player_patterns')
-        .select('pattern_type, confidence')
-        .in('user_id', userIds)
-        .eq('status', 'active')
-
-      // Fetch recommendations for this range
-      const { data: recommendations } = await admin
-        .from('taiger_recommendations')
-        .select('category, focus_area, status')
-        .in('user_id', userIds)
+      // Filter from pre-fetched data (no additional queries)
+      const patterns = userIds.flatMap(uid => patternsByUser.get(uid) ?? [])
+      const recommendations = userIds.flatMap(uid => recsByUser.get(uid) ?? [])
 
       // Compute most common patterns
       if (patterns && patterns.length > 0) {
@@ -101,17 +115,14 @@ export async function GET(request: NextRequest) {
           const desc = patternDescriptions[patternType] ?? patternType
           const insight = `${pct}% de los jugadores con índice ${range} presenta ${desc}`
 
-          await admin.from('collective_insights').upsert(
-            {
-              pattern_type: patternType,
-              handicap_range: range,
-              insight,
-              sample_size: userIds.length,
-              confidence: Math.round(avgConf * 100) / 100,
-              computed_at: new Date().toISOString(),
-            },
-            { onConflict: 'pattern_type,handicap_range', ignoreDuplicates: false }
-          )
+          insightsBatch.push({
+            pattern_type: patternType,
+            handicap_range: range,
+            insight,
+            sample_size: userIds.length,
+            confidence: Math.round(avgConf * 100) / 100,
+            computed_at: new Date().toISOString(),
+          })
           totalInserts++
         }
       }
@@ -120,12 +131,13 @@ export async function GET(request: NextRequest) {
       if (recommendations && recommendations.length > 0) {
         const catCounts: Record<string, { total: number; resolved: number }> = {}
         for (const r of recommendations) {
-          if (!catCounts[r.category]) {
-            catCounts[r.category] = { total: 0, resolved: 0 }
+          const cat = (r as { category: string }).category
+          if (!catCounts[cat]) {
+            catCounts[cat] = { total: 0, resolved: 0 }
           }
-          catCounts[r.category].total++
-          if (r.status === 'resolved' || r.status === 'improving') {
-            catCounts[r.category].resolved++
+          catCounts[cat].total++
+          if ((r as { status: string }).status === 'resolved' || (r as { status: string }).status === 'improving') {
+            catCounts[cat].resolved++
           }
         }
 
@@ -138,20 +150,25 @@ export async function GET(request: NextRequest) {
           const effectiveRate = Math.round((data.resolved / data.total) * 100)
           const insight = `Recomendaciones de tipo "${category}" tienen ${effectiveRate}% de efectividad en jugadores con índice ${range}`
 
-          await admin.from('collective_insights').upsert(
-            {
-              pattern_type: `recommendation_effectiveness_${category}`,
-              handicap_range: range,
-              insight,
-              sample_size: data.total,
-              confidence: Math.round((data.resolved / data.total) * 100) / 100,
-              computed_at: new Date().toISOString(),
-            },
-            { onConflict: 'pattern_type,handicap_range', ignoreDuplicates: false }
-          )
+          insightsBatch.push({
+            pattern_type: `recommendation_effectiveness_${category}`,
+            handicap_range: range,
+            insight,
+            sample_size: data.total,
+            confidence: Math.round((data.resolved / data.total) * 100) / 100,
+            computed_at: new Date().toISOString(),
+          })
           totalInserts++
         }
       }
+    }
+
+    // Batch upsert all insights in a single operation
+    if (insightsBatch.length > 0) {
+      await admin.from('collective_insights').upsert(
+        insightsBatch,
+        { onConflict: 'pattern_type,handicap_range', ignoreDuplicates: false }
+      )
     }
 
     return NextResponse.json({
