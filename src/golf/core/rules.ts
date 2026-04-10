@@ -4,7 +4,8 @@
  */
 
 /** Lente de scoring: cómo se calculan los puntos */
-export type ModoJuego = 'gross' | 'neto' | 'stableford' | 'match_play_neto'
+/** Modo de scoring: gross (sin handicap) o neto (con handicap) */
+export type ModoJuego = 'gross' | 'neto'
 
 /**
  * Estructura de competencia: cómo se organiza el juego.
@@ -47,7 +48,7 @@ export const FORMAT_META: Record<FormatoJuego, {
     requiereEquipos: false,
     requiereParejas: false,
     jugadoresPorEquipo: null,
-    modosPermitidos: ['stableford'],
+    modosPermitidos: ['neto'],
   },
   match_play: {
     category: 'head_to_head',
@@ -56,7 +57,7 @@ export const FORMAT_META: Record<FormatoJuego, {
     requiereEquipos: false,
     requiereParejas: true,
     jugadoresPorEquipo: null,
-    modosPermitidos: ['gross', 'neto', 'match_play_neto'],
+    modosPermitidos: ['gross', 'neto'],
   },
   best_ball: {
     category: 'team',
@@ -65,7 +66,7 @@ export const FORMAT_META: Record<FormatoJuego, {
     requiereEquipos: true,
     requiereParejas: false,
     jugadoresPorEquipo: { min: 2, max: 4 },
-    modosPermitidos: ['gross', 'neto', 'stableford'],
+    modosPermitidos: ['gross', 'neto'],
   },
   scramble: {
     category: 'team',
@@ -74,7 +75,7 @@ export const FORMAT_META: Record<FormatoJuego, {
     requiereEquipos: true,
     requiereParejas: false,
     jugadoresPorEquipo: { min: 2, max: 4 },
-    modosPermitidos: ['gross', 'neto', 'stableford'],
+    modosPermitidos: ['gross', 'neto'],
   },
   foursome: {
     category: 'team',

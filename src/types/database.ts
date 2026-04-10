@@ -3,7 +3,10 @@
 // NOTE: course_holes uses "numero" (not hole_number).
 // NOTE: courses uses "nombre", "ciudad", "pais" (not name/city/country).
 
-export type ModoJuego = 'gross' | 'neto' | 'stableford' | 'match_play_neto'
+/** Modo de scoring: si el handicap entra en juego o no */
+export type ModoJuego = 'gross' | 'neto'
+
+/** Formato de competencia: cómo se estructura el juego */
 export type FormatoJuego = 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
 
 export interface Course {
@@ -109,7 +112,7 @@ export interface RondaLibre {
   fecha:          string
   estado:         'en_curso' | 'finalizada'
   modo_juego:     ModoJuego
-  formato_juego?: FormatoJuego
+  formato_juego: FormatoJuego
   created_at:     string
 }
 
