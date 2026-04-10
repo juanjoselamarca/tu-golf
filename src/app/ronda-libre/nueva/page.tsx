@@ -927,6 +927,11 @@ export default function NuevaRondaLibrePage() {
                           setAdminMode(true)
                           setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
                         }
+                        // Stableford requiere handicap de todos los jugadores desde el inicio → fuerza admin mode
+                        if (f.value === 'stableford' && !adminMode) {
+                          setAdminMode(true)
+                          setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
+                        }
                         // Team formats also force admin mode
                         if (['best_ball', 'scramble', 'foursome'].includes(f.value) && !adminMode) {
                           setAdminMode(true)
