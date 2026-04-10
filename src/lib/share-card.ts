@@ -64,6 +64,31 @@ function scoreColor(diff: number): string {
   return diff < 0 ? '#4ade80' : diff === 0 ? '#c9a84c' : '#f87171'
 }
 
+// Badge "9 HOYOS" / "18 HOYOS" — defensive UX, el usuario siempre sabe qué ronda es
+function drawHolesBadge(ctx: CanvasRenderingContext2D, holes: number, cx: number, cy: number) {
+  const label = `${holes} HOYOS`
+  ctx.save()
+  ctx.font = 'bold 22px Arial, sans-serif'
+  const textW = ctx.measureText(label).width
+  const padX = 18, padY = 10
+  const w = textW + padX * 2, h = 38
+  const x = cx - w / 2, y = cy - h / 2
+  // 9 hoyos = más prominente (dorado sólido), 18 hoyos = sutil (outline)
+  const isNine = holes <= 9
+  roundRect(ctx, x, y, w, h, h / 2)
+  ctx.fillStyle = isNine ? 'rgba(201,168,76,0.28)' : 'rgba(201,168,76,0.12)'
+  ctx.fill()
+  ctx.strokeStyle = isNine ? 'rgba(201,168,76,0.9)' : 'rgba(201,168,76,0.45)'
+  ctx.lineWidth = isNine ? 2 : 1.2
+  ctx.stroke()
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#c9a84c'
+  ctx.fillText(label, cx, cy + 1)
+  ctx.textBaseline = 'alphabetic'
+  ctx.restore()
+}
+
 // ── Base: fondo + bordes + logo ───────────────────────────────────
 
 function drawBase(ctx: CanvasRenderingContext2D, W: number, H: number) {
@@ -165,11 +190,12 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
   const diffTxt = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
   ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
   ctx.font = '32px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 900)
+  drawHolesBadge(ctx, data.holesPlayed, W / 2, 940)
 
-  drawDivider(ctx, 930, W)
-  drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.holesPlayed, 955, W)
+  drawDivider(ctx, 975, W)
+  drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.holesPlayed, 1000, W)
 
-  const statsY = 1170
+  const statsY = 1200
   const items: string[] = []
   if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
   if (data.birdies > 0) items.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
@@ -213,14 +239,15 @@ function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: 
   ctx.font = 'bold 40px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 815)
   ctx.font = '30px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 862)
   ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillText(`${data.totalJugadores} jugadores`, W / 2, 898)
+  drawHolesBadge(ctx, 18, W / 2, 938)
 
-  drawDivider(ctx, 928, W)
-  drawScorecard(ctx, data.scoresByHole, data.parsByHole, 18, 953, W)
+  drawDivider(ctx, 973, W)
+  drawScorecard(ctx, data.scoresByHole, data.parsByHole, 18, 998, W)
 
   const items: string[] = []
   if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
   if (data.birdies > 0) items.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
-  if (items.length > 0) { ctx.font = 'bold 30px Arial, sans-serif'; ctx.fillStyle = '#c9a84c'; ctx.textAlign = 'center'; ctx.fillText(items.join('    '), W / 2, 1168) }
+  if (items.length > 0) { ctx.font = 'bold 30px Arial, sans-serif'; ctx.fillStyle = '#c9a84c'; ctx.textAlign = 'center'; ctx.fillText(items.join('    '), W / 2, 1200) }
 }
 
 // ── Generador principal ──────────────────────────────────────────

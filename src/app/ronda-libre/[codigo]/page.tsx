@@ -752,8 +752,25 @@ function RondaLibrePageContent() {
                 <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#ffffff', margin: '0 0 4px' }}>
                   {isFinished ? 'Resultado final' : 'Marcador en vivo'}
                 </h1>
-                <div style={{ fontSize: '13px', color: '#9ca3af' }}>
-                  {ronda.course_name} · {fechaDisplay}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: '13px', color: '#9ca3af' }}>
+                    {ronda.course_name} · {fechaDisplay}
+                  </div>
+                  {/* Badge defensivo "9/18 HOYOS" */}
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '3px 9px',
+                    background: ronda.holes <= 9 ? 'rgba(196,153,42,0.25)' : 'rgba(196,153,42,0.12)',
+                    color: '#c4992a',
+                    border: ronda.holes <= 9 ? '1px solid rgba(196,153,42,0.6)' : '1px solid rgba(196,153,42,0.3)',
+                    borderRadius: '999px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    fontFamily: 'DM Mono, monospace',
+                    textTransform: 'uppercase',
+                    whiteSpace: 'nowrap',
+                  }}>{ronda.holes} HOYOS</span>
                 </div>
                 {/* 9.2 — Last update timestamp */}
                 {!isFinished && timeSinceUpdate && (
@@ -1294,7 +1311,23 @@ function RondaLibrePageContent() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Club</div>
-                <div style={{ fontSize: '15px', color: '#111827', fontWeight: 700 }}>{ronda.course_name}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: '15px', color: '#111827', fontWeight: 700 }}>{ronda.course_name}</div>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '2px 8px',
+                    background: ronda.holes <= 9 ? 'rgba(196,153,42,0.22)' : 'rgba(196,153,42,0.1)',
+                    color: '#c4992a',
+                    border: ronda.holes <= 9 ? '1px solid rgba(196,153,42,0.55)' : '1px solid rgba(196,153,42,0.28)',
+                    borderRadius: '999px',
+                    fontSize: '9px',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    fontFamily: 'DM Mono, monospace',
+                    textTransform: 'uppercase',
+                    whiteSpace: 'nowrap',
+                  }}>{ronda.holes}H</span>
+                </div>
               </div>
               <div>
                 <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Fecha</div>

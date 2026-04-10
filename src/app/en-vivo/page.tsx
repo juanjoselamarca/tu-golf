@@ -209,16 +209,33 @@ export default function EnVivoPage() {
                 }}>
                   {/* Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                    <div>
-                      <div style={{
-                        fontSize: '15px', fontWeight: 700, color: 'var(--ivory)',
-                        fontFamily: 'var(--font-dm-sans)',
-                      }}>{ronda.course_name}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{
+                          fontSize: '15px', fontWeight: 700, color: 'var(--ivory)',
+                          fontFamily: 'var(--font-dm-sans)',
+                        }}>{ronda.course_name}</div>
+                        {/* Badge defensivo "9/18 HOYOS" — nunca confundir rondas de 9 con 18 */}
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 9px',
+                          background: ronda.holes <= 9 ? 'rgba(196,153,42,0.22)' : 'rgba(196,153,42,0.12)',
+                          color: '#c4992a',
+                          border: ronda.holes <= 9 ? '1px solid rgba(196,153,42,0.55)' : '1px solid rgba(196,153,42,0.28)',
+                          borderRadius: '999px',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          letterSpacing: '0.06em',
+                          fontFamily: 'DM Mono, monospace',
+                          textTransform: 'uppercase',
+                          whiteSpace: 'nowrap',
+                        }}>{ronda.holes} HOYOS</span>
+                      </div>
                       <div style={{
                         fontSize: '11px', fontFamily: 'DM Mono, monospace',
                         color: 'var(--text-3)', marginTop: '2px',
                       }}>
-                        {ronda.totalJugadores} jugador{ronda.totalJugadores > 1 ? 'es' : ''} · {ronda.holes} hoyos · {tiempoRelativo(ronda.fecha)}
+                        {ronda.totalJugadores} jugador{ronda.totalJugadores > 1 ? 'es' : ''} · {tiempoRelativo(ronda.fecha)}
                       </div>
                     </div>
                     <span style={{
