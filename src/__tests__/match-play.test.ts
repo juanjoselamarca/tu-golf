@@ -547,3 +547,96 @@ describe('display con nombres reales', () => {
     expect(mr.display).not.toContain('Pedro')
   })
 })
+
+describe('Match Play: modo gross vs neto', () => {
+  it('modo gross IGNORA la diferencia de handicap completamente', () => {
+    // A tiene HCP 10, B tiene HCP 20 (diff = 10 si fuera neto).
+    // En gross nadie recibe strokes — los scores se comparan brutos.
+    const scA = scoresConstantes(4, 18) // A par en todos
+    const scB = scoresConstantes(5, 18) // B bogey en todos
+    const cfg: MatchPlayConfig = {
+      courseHandicapA: 10,
+      courseHandicapB: 20,
+      totalHoles: 18,
+      modo: 'gross',
+    }
+    const mr = calcularMatchPlay(scA, scB, holes18, cfg)
+    // A gana todos los hoyos en gross (4 vs 5). Termina temprano.
+    expect(mr.winner).toBe('a')
+    // Todos los hoyos jugados deben tener strokes=0 para ambos jugadores
+    mr.holes.filter(h => !h.afterMatchEnd && h.result !== 'not_played').forEach(h => {
+      expect(h.strokesA).toBe(0)
+      expect(h.strokesB).toBe(0)
+    })
+  })
+
+  it('modo neto SI aplica la diferencia de handicap', () => {
+    // Mismo escenario que gross pero con neto: B recibe 10 strokes.
+    const scA = scoresConstantes(4, 18)
+    const scB = scoresConstantes(5, 18)
+    const cfg: MatchPlayConfig = {
+      courseHandicapA: 10,
+      courseHandicapB: 20,
+      totalHoles: 18,
+      modo: 'neto',
+    }
+    const mr = calcularMatchPlay(scA, scB, holes18, cfg)
+    // B recibe strokes en los 10 hoyos con SI más bajos — debe haber empates
+    expect(mr.holesHalved).toBeGreaterThan(0)
+    expect(mr.holes.some(h => h.strokesB > 0)).toBe(true)
+  })
+
+  it('modo default (sin especificar) = neto (backward compat)', () => {
+    const scA = scoresConstantes(4, 18)
+    const scB = scoresConstantes(5, 18)
+    const cfgDefault: MatchPlayConfig = {
+      courseHandicapA: 10,
+      courseHandicapB: 20,
+      totalHoles: 18,
+    }
+    const cfgNeto: MatchPlayConfig = { ...cfgDefault, modo: 'neto' }
+    const mrDefault = calcularMatchPlay(scA, scB, holes18, cfgDefault)
+    const mrNeto = calcularMatchPlay(scA, scB, holes18, cfgNeto)
+    expect(mrDefault.holesWonA).toBe(mrNeto.holesWonA)
+    expect(mrDefault.holesWonB).toBe(mrNeto.holesWonB)
+    expect(mrDefault.holesHalved).toBe(mrNeto.holesHalved)
+  })
+
+  it('gross con mismo HCP = neto con mismo HCP (diff = 0)', () => {
+    const scA = { '1': 4, '2': 5, '3': 3 }
+    const scB = { '1': 5, '2': 4, '3': 4 }
+    const cfgGross: MatchPlayConfig = {
+      courseHandicapA: 15,
+      courseHandicapB: 15,
+      totalHoles: 18,
+      modo: 'gross',
+    }
+    const cfgNeto: MatchPlayConfig = { ...cfgGross, modo: 'neto' }
+    const mrGross = calcularMatchPlay(scA, scB, holes18, cfgGross)
+    const mrNeto = calcularMatchPlay(scA, scB, holes18, cfgNeto)
+    expect(mrGross.holesWonA).toBe(mrNeto.holesWonA)
+    expect(mrGross.holesWonB).toBe(mrNeto.holesWonB)
+    expect(mrGross.state).toBe(mrNeto.state)
+  })
+
+  it('caso regresión: ronda ID669G Juan 10.5 vs Benja null/0 en gross', () => {
+    // Benja sin handicap (fallback a 0), Juan con 10.5.
+    // En gross: diff debe ser 0, ambos juegan bruto.
+    const scJuan = { '1': 5, '2': 4, '3': 3, '4': 7, '5': 5, '6': 3, '7': 6, '8': 5, '9': 7 }
+    const scBenja = { '1': 5, '2': 5, '3': 3, '4': 5, '5': 5, '6': 3, '7': 6, '8': 6, '9': 7 }
+    const cfg: MatchPlayConfig = {
+      courseHandicapA: 11, // Juan 10.5 → round a 11
+      courseHandicapB: 0,  // Benja sin handicap
+      totalHoles: 18,
+      modo: 'gross',
+    }
+    const mr = calcularMatchPlay(scJuan, scBenja, holes18, cfg)
+    // Ningún hoyo debe aplicar strokes
+    mr.holes.filter(h => h.result !== 'not_played').forEach(h => {
+      expect(h.strokesA).toBe(0)
+      expect(h.strokesB).toBe(0)
+      expect(h.netoA).toBe(h.grossA)
+      expect(h.netoB).toBe(h.grossB)
+    })
+  })
+})

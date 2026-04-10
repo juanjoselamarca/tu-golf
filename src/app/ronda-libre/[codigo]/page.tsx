@@ -365,7 +365,7 @@ function RondaLibrePageContent() {
             index = j.handicap
           } else if (j.user_id) {
             const { data: p } = await supabaseForProfiles.from('profiles').select('indice').eq('id', j.user_id).single()
-            index = p?.indice ?? 18
+            index = p?.indice ?? 0
           } else {
             index = 18
           }
@@ -426,7 +426,7 @@ function RondaLibrePageContent() {
     const isNeto = ronda.modo_juego === 'neto'
     const lb = [...ronda.ronda_libre_jugadores]
       .map(j => {
-        const ch = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 18)
+        const ch = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)
         const vsPar = isNeto
           ? getVsParNeto(j.scores, ronda.holes, parMap, siMap, ch)
           : getVsPar(j.scores, ronda.holes, parMap)
@@ -529,10 +529,12 @@ function RondaLibrePageContent() {
           courseHandicapA: courseHcpMap[jugadores[0].id] ?? 0,
           courseHandicapB: courseHcpMap[jugadores[1].id] ?? 0,
           totalHoles: ronda.holes,
+          modo: ronda.modo_juego,
         }, { nombreA: jugadores[0].nombre, nombreB: jugadores[1].nombre })
         if (mr.isFinished && mr.winner) {
           const ganador = mr.winner === 'a' ? jugadores[0].nombre : jugadores[1].nombre
-          return `${ganador} ganó ${mr.display} en ${ronda.course_name} — Match Play Neto`
+          const modoLabel = ronda.modo_juego === 'neto' ? 'Match Play Neto' : 'Match Play Gross'
+          return `${ganador} ganó ${mr.display} en ${ronda.course_name} — ${modoLabel}`
         }
         return `Match Play en vivo: ${mr.display} en ${ronda.course_name} — Seguila en vivo`
       }
@@ -542,7 +544,7 @@ function RondaLibrePageContent() {
     const leader = [...jugadores]
       .map(j => {
         let gross = 0, parTotal = 0, holesPlayed = 0, stabPts = 0
-        const ch = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 18)
+        const ch = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)
         for (let h = 1; h <= ronda.holes; h++) {
           const s = j.scores?.[String(h)] ?? j.scores?.[h]
           if (s != null) {
@@ -684,7 +686,7 @@ function RondaLibrePageContent() {
   const leaderboard = [...ronda.ronda_libre_jugadores]
     .map(j => {
       const vsParGross = getVsPar(j.scores, ronda.holes, parMap)
-      const courseHcp = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 18)
+      const courseHcp = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)
       const vsParNeto = getVsParNeto(j.scores, ronda.holes, parMap, siMap, courseHcp)
       // vsPar es el valor que se usa para ordenar y mostrar en la columna principal
       const vsPar = isNetoMode ? vsParNeto : vsParGross
@@ -825,6 +827,7 @@ function RondaLibrePageContent() {
               courseHandicapA: courseHcpMap[jug[0].id] ?? 0,
               courseHandicapB: courseHcpMap[jug[1].id] ?? 0,
               totalHoles: ronda.holes,
+              modo: ronda.modo_juego,
             }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
 
             const ganador = mr.winner === 'a' ? jug[0] : mr.winner === 'b' ? jug[1] : null
@@ -861,7 +864,7 @@ function RondaLibrePageContent() {
                       {mr.display}
                     </div>
                     <div style={{ fontSize: '13px', color: '#9ca3af', marginTop: '10px' }}>
-                      Match Play Neto &middot; {ronda.course_name}
+                      {ronda.modo_juego === 'neto' ? 'Match Play Neto' : 'Match Play Gross'} &middot; {ronda.course_name}
                     </div>
                   </div>
 
@@ -1075,6 +1078,7 @@ function RondaLibrePageContent() {
               courseHandicapA: courseHcpMap[jug[0].id] ?? 0,
               courseHandicapB: courseHcpMap[jug[1].id] ?? 0,
               totalHoles: ronda.holes,
+              modo: ronda.modo_juego,
             }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
             return (
               <div style={{
@@ -1303,10 +1307,15 @@ function RondaLibrePageContent() {
               <div>
                 <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Formato</div>
                 <div style={{ fontSize: '15px', color: '#111827', fontWeight: 700 }}>
-                  {ronda.formato_juego === 'match_play' ? 'Match Play Neto'
-                   : ronda.formato_juego === 'stableford' ? 'Stableford'
-                   : ronda.modo_juego === 'neto' ? `Stroke Play Neto · ${ronda.holes}h`
-                   : `Stroke Play · ${ronda.holes}h`}
+                  {(() => {
+                    if (ronda.formato_juego === 'stableford') return 'Stableford'
+                    const modoSuffix = ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'
+                    if (ronda.formato_juego === 'match_play') return `Match Play ${modoSuffix}`
+                    if (ronda.formato_juego === 'best_ball') return `Best Ball ${modoSuffix}`
+                    if (ronda.formato_juego === 'scramble') return `Scramble ${modoSuffix}`
+                    if (ronda.formato_juego === 'foursome') return `Foursome ${modoSuffix}`
+                    return `Stroke Play ${modoSuffix} · ${ronda.holes}h`
+                  })()}
                 </div>
               </div>
             </div>
@@ -1344,6 +1353,7 @@ function RondaLibrePageContent() {
                         courseHandicapA: courseHcpMap[jugMP[0].id] ?? 0,
                         courseHandicapB: courseHcpMap[jugMP[1].id] ?? 0,
                         totalHoles: ronda.holes,
+                        modo: ronda.modo_juego,
                       }, { nombreA: jugMP[0].nombre, nombreB: jugMP[1].nombre })
                       const holeDetail = mrTL.holes.find(h => h.numero === event.hole)
                       if (holeDetail && holeDetail.result !== 'not_played') {
@@ -1552,7 +1562,7 @@ function RondaLibrePageContent() {
                           {holes.map(h => {
                             const hScore = getS(h)
                             const stabPtsH = (ronda.formato_juego === 'stableford' && hScore != null)
-                              ? puntosStablefordHoyo(hScore, parMap[h] ?? 4, courseHcpMap[j.id] ?? Math.round(j.handicap ?? 18), siMap[h] ?? h, ronda.holes)
+                              ? puntosStablefordHoyo(hScore, parMap[h] ?? 4, courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0), siMap[h] ?? h, ronda.holes)
                               : null
                             return (
                             <div key={h} style={{ flex: 1, textAlign: 'center', minWidth: 0, cursor: isCreator ? 'pointer' : 'default' }}

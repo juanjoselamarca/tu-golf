@@ -325,8 +325,8 @@ function ScorePageContent() {
       for (const j of r.ronda_libre_jugadores) {
         let index: number
         if (j.handicap != null) { index = j.handicap }
-        else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); index = p?.indice ?? 18 }
-        else { index = 18 }
+        else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); index = p?.indice ?? 0 }
+        else { index = 0 }
         hcpMap[j.id] = resolverCourseHandicap(index, courseData)
       }
       setPlayerHcp(hcpMap)
@@ -725,6 +725,7 @@ function ScorePageContent() {
       courseHandicapA: playerHcp[jug[0].id] ?? 0,
       courseHandicapB: playerHcp[jug[1].id] ?? 0,
       totalHoles: ronda.holes,
+      modo: ronda.modo_juego,
     }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
   }, [isMatchPlay, ronda, scores, holeDataMap, playerHcp])
 
@@ -815,7 +816,7 @@ function ScorePageContent() {
   }
 
   // Handicap strokes on this hole
-  const hcpForPlayer = playerHcp[activeJugadorId] ?? 18
+  const hcpForPlayer = playerHcp[activeJugadorId] ?? 0
   const strokesOnHole = strokesRecibidosEnHoyo(hcpForPlayer, holeData.stroke_index)
 
   // Net score & Stableford for current hole

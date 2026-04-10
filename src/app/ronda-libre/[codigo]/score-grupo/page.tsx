@@ -204,8 +204,8 @@ export default function ScoreGrupoPage() {
       for (const j of r.ronda_libre_jugadores) {
         let index: number
         if (j.handicap != null) { index = j.handicap }
-        else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); index = p?.indice ?? 18 }
-        else { index = 18 }
+        else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); index = p?.indice ?? 0 }
+        else { index = 0 }
         hcpMap[j.id] = resolverCourseHandicap(index, courseData)
       }
       setPlayerHcp(hcpMap)
@@ -514,7 +514,7 @@ export default function ScoreGrupoPage() {
         ))}
         {showNetStableford && (() => {
           // Show max strokes received among players for context
-          const maxStrokes = Math.max(...jugadores.map(j => strokesRecibidosEnHoyo(playerHcp[j.id] ?? 18, holeData.stroke_index)))
+          const maxStrokes = Math.max(...jugadores.map(j => strokesRecibidosEnHoyo(playerHcp[j.id] ?? 0, holeData.stroke_index)))
           return (
             <div style={{ flex: 1, textAlign: 'center', padding: '6px 2px' }}>
               <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>GOLPES</div>
@@ -539,7 +539,7 @@ export default function ScoreGrupoPage() {
             const played = holesWithScores(j.id)
             const scoreResult = playerScore != null ? getScoreResult(playerScore, par) : null
             const chipStyle = scoreResult ? SCORE_STYLES[scoreResult] : null
-            const hcp = playerHcp[j.id] ?? 18
+            const hcp = playerHcp[j.id] ?? 0
             const strokesThisHole = strokesRecibidosEnHoyo(hcp, holeData.stroke_index)
             const netScoreThisHole = playerScore != null ? playerScore - strokesThisHole : null
             const stablefordPts = playerScore != null ? puntosStablefordHoyo(playerScore, par, hcp, holeData.stroke_index) : null

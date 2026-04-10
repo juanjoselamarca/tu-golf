@@ -56,12 +56,18 @@ export interface MatchResult {
 }
 
 export interface MatchPlayConfig {
-  /** Course handicap del jugador A (ya ajustado por slope/CR) */
+  /** Course handicap del jugador A (ya ajustado por slope/CR). Ignorado si modo='gross'. */
   courseHandicapA: number
-  /** Course handicap del jugador B (ya ajustado por slope/CR) */
+  /** Course handicap del jugador B (ya ajustado por slope/CR). Ignorado si modo='gross'. */
   courseHandicapB: number
   /** Total de hoyos del recorrido (9 o 18) */
   totalHoles: number
+  /**
+   * Modo de scoring: 'gross' ignora handicap completamente (no aplica diferencia),
+   * 'neto' aplica la diferencia de course handicap (R&A Rule 6.2a).
+   * Si no se especifica, default = 'neto' (backward compatibility).
+   */
+  modo?: 'gross' | 'neto'
 }
 
 export interface MatchPlayNames {
@@ -196,8 +202,11 @@ export function calcularMatchPlay(
   config: MatchPlayConfig,
   nombres?: MatchPlayNames
 ): MatchResult {
-  const { courseHandicapA, courseHandicapB, totalHoles } = config
-  const [diffA, diffB] = calcularDiferenciaHandicap(courseHandicapA, courseHandicapB)
+  const { courseHandicapA, courseHandicapB, totalHoles, modo = 'neto' } = config
+  // En modo gross, no se aplica handicap — todos juegan con sus scores brutos
+  const [diffA, diffB] = modo === 'gross'
+    ? [0, 0]
+    : calcularDiferenciaHandicap(courseHandicapA, courseHandicapB)
 
   const sortedHoles = [...holes]
     .sort((a, b) => a.numero - b.numero)
