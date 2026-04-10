@@ -1,5 +1,7 @@
 /* client-only — importar solo desde componentes con 'use client' */
 
+import { parTotalEstandar } from '@/golf/core/round-score'
+
 // ── Tipos ─────────────────────────────────────────────────────────
 
 export interface ShareCardRondaLibre {
@@ -268,13 +270,15 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
   // Convert to ronda_libre format
   const winner = data.players[0]
   const isTie = data.players.length > 1 && data.players[1].vsPar === winner.vsPar
+  // FIX: calcular parTotal real según hoyos jugados (no hardcoded 72)
+  const parTotal = parTotalEstandar(winner.totalHoles)
   const cardData: ShareCardRondaLibre = {
     tipo: 'ronda_libre', ganador: winner.nombre, esEmpate: isTie,
     jugadores: isTie ? data.players.filter(p => p.vsPar === winner.vsPar).map(p => p.nombre) : undefined,
-    scoreGross: 72 + winner.vsPar, scoreDiff: winner.vsPar,
+    scoreGross: parTotal + winner.vsPar, scoreDiff: winner.vsPar,
     courseName: data.courseName, fecha: data.fecha, birdies: 0, eagles: 0,
     scoresByHole: {}, parsByHole: {}, holesPlayed: winner.totalHoles,
-    ranking: data.players.map(p => ({ nombre: p.nombre, score: 72 + p.vsPar, diff: p.vsPar })),
+    ranking: data.players.map(p => ({ nombre: p.nombre, score: parTotalEstandar(p.totalHoles) + p.vsPar, diff: p.vsPar })),
   }
   return compartirResultado(cardData)
 }
