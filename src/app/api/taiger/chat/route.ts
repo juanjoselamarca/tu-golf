@@ -2,10 +2,22 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { TAIGER_SYSTEM_PROMPT, buildContextString, SESSION_STARTERS } from '@/golf/coach/prompts'
+import { z } from 'zod'
+import { checkRateLimit } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
+
+const chatInputSchema = z.object({
+  message: z.string().min(1).max(2000).optional(),
+  messages: z.array(z.object({
+    role: z.string(),
+    content: z.string().max(2000),
+  })).max(50).optional(),
+  session_type: z.string().max(100).optional(),
+  ronda_libre_id: z.string().uuid().optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,18 +27,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
     }
 
+    // Rate limit: 30 mensajes por hora por usuario (protege costos Anthropic)
+    const rl = checkRateLimit(`chat:${user.id}`, 30, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Demasiados mensajes. Intenta de nuevo en una hora.' }, { status: 429 })
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
       return NextResponse.json({ error: 'Servicio no configurado' }, { status: 503 })
     }
 
-    const body = await req.json()
-    const { ronda_libre_id } = body as {
-      message?: string
-      messages?: Array<{ role: string; content: string }>
-      session_type?: string
-      ronda_libre_id?: string
+    const rawBody = await req.json()
+    const parsed = chatInputSchema.safeParse(rawBody)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Input inválido', details: parsed.error.issues[0]?.message }, { status: 400 })
     }
+    const body = parsed.data
+    const { ronda_libre_id } = body
 
     // Accept both 'message' (string) and 'messages' (array)
     let userMessage: string
