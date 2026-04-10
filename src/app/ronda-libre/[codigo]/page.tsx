@@ -876,12 +876,12 @@ function RondaLibrePageContent() {
                     }}>
                       <div style={{ textAlign: 'left' }}>
                         <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>{jug[0].nombre}</div>
-                        <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {courseHcpMap[jug[0].id] ?? '--'}</div>
+                        {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {courseHcpMap[jug[0].id] ?? '--'}</div>}
                       </div>
                       <div style={{ fontSize: '11px', color: '#c4992a', fontWeight: 700 }}>VS</div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>{jug[1].nombre}</div>
-                        <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {courseHcpMap[jug[1].id] ?? '--'}</div>
+                        {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {courseHcpMap[jug[1].id] ?? '--'}</div>}
                       </div>
                     </div>
                   </div>
@@ -1089,12 +1089,12 @@ function RondaLibrePageContent() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>{jug[0].nombre}</div>
-                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {courseHcpMap[jug[0].id] ?? '--'}</div>
+                    {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {courseHcpMap[jug[0].id] ?? '--'}</div>}
                   </div>
                   <div style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600 }}>VS</div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>{jug[1].nombre}</div>
-                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {courseHcpMap[jug[1].id] ?? '--'}</div>
+                    {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {courseHcpMap[jug[1].id] ?? '--'}</div>}
                   </div>
                 </div>
 

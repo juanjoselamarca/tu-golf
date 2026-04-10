@@ -1133,7 +1133,7 @@ function ScorePageContent() {
                 fontVariantNumeric: 'tabular-nums',
               }}
             >{score ?? par}</div>
-            {strokesOnHole > 0 && (
+            {ronda?.modo_juego !== 'gross' && strokesOnHole > 0 && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '1px',
                 fontSize: '12px', fontWeight: 700, color: '#c4992a',

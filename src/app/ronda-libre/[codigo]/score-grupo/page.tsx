@@ -628,7 +628,7 @@ export default function ScoreGrupoPage() {
                       }}>
                         {displayScore}
                       </div>
-                      {strokesThisHole > 0 && (
+                      {ronda.modo_juego !== 'gross' && strokesThisHole > 0 && (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: '1px',
                           fontSize: '10px', fontWeight: 700, color: '#c4992a',
