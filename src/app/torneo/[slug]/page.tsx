@@ -8,7 +8,7 @@ import { PLAYERS, PAR } from '@/lib/golf-data'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
-import type { ModoJuego } from '@/golf/core/rules'
+import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { resolveLeaderboardTies } from '@/golf/core/countback'
 import type { CountbackPlayer, CountbackMode, CountbackResult } from '@/golf/core/countback'
@@ -37,6 +37,7 @@ interface DBTournament {
   hole_count: number
   total_rounds: number
   modo_juego: ModoJuego | null
+  formato_juego: FormatoJuego | null
   date_start: string | null
   status: string
   codigo: string | null
@@ -140,7 +141,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   // Try to fetch real tournament
   const { data: rawTournament } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, hole_count, total_rounds, modo_juego, date_start, status, codigo, afecta_estadisticas, courses(id, nombre, ciudad, par_total, slope_rating, course_rating)')
+    .select('id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, date_start, status, codigo, afecta_estadisticas, courses(id, nombre, ciudad, par_total, slope_rating, course_rating)')
     .eq('slug', params.slug)
     .single()
 
@@ -152,6 +153,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   let tournamentName                   = 'TPC Sawgrass Amateur 2025'
   let parTotal                         = 72
   let modoJuego: ModoJuego             = 'gross'
+  let formatoJuego: FormatoJuego       = 'stroke_play'
   let totalHoyos                       = 18
   let dateDisplay                      = '12 Mar 2025'
   let isLive                           = false
@@ -173,6 +175,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     tournamentName = tournament.name
     parTotal       = tournament.courses?.par_total ?? 72
     modoJuego      = tournament.modo_juego ?? 'gross'
+    formatoJuego   = tournament.formato_juego ?? 'stroke_play'
     totalHoyos     = tournament.hole_count ?? 18
     isLive         = tournament.status === 'active' || tournament.status === 'in_progress'
     isClosed       = tournament.status === 'closed' || tournament.status === 'published'
@@ -264,18 +267,18 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
       // Sort by modo_juego
       entries.sort((a, b) => {
-        if (modoJuego === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
+        if (formatoJuego === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
         if (modoJuego === 'neto') return (a.netTotal || 999) - (b.netTotal || 999)
         return (a.grossTotal || 999) - (b.grossTotal || 999)
       })
 
       // Apply countback to resolve ties
-      const cbMode: CountbackMode = modoJuego === 'stableford' ? 'higher_wins' : 'lower_wins'
+      const cbMode: CountbackMode = formatoJuego === 'stableford' ? 'higher_wins' : 'lower_wins'
       const cbPlayers: CountbackPlayer[] = entries.map((e, idx) => ({
         id: String(idx),
         name: e.name,
         scores: e.scores.map((s) => s ?? 0),
-        primaryScore: modoJuego === 'stableford' ? e.stablefordTotal : modoJuego === 'neto' ? e.netTotal : e.grossTotal,
+        primaryScore: formatoJuego === 'stableford' ? e.stablefordTotal : modoJuego === 'neto' ? e.netTotal : e.grossTotal,
       }))
       const cbResults = resolveLeaderboardTies(cbPlayers, cbMode)
 
@@ -319,7 +322,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           totalSF += puntosStablefordHoyo(gross, hole.par, hcp, hole.stroke_index)
         }
 
-        const currentScore = modoJuego === 'stableford' ? totalSF
+        const currentScore = formatoJuego === 'stableford' ? totalSF
           : modoJuego === 'neto' ? overUnderNeto : overUnderGross
 
         return {
@@ -329,6 +332,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           currentScore,
           hoyosCompletados:     hoyosComp,
           modoJuego,
+          formatoJuego,
           historicalAvg:        null,
           historicalRoundsCount: 0,
           courseAvg:            null,
@@ -413,18 +417,18 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
         // Sort by cumulative score
         legacyEntries.sort((a, b) => {
-          if (modoJuego === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
+          if (formatoJuego === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
           if (modoJuego === 'neto') return (a.netTotal || 999) - (b.netTotal || 999)
           return (a.grossTotal || 999) - (b.grossTotal || 999)
         })
 
         // Apply countback
-        const cbModeLegacy: CountbackMode = modoJuego === 'stableford' ? 'higher_wins' : 'lower_wins'
+        const cbModeLegacy: CountbackMode = formatoJuego === 'stableford' ? 'higher_wins' : 'lower_wins'
         const cbPlayersLegacy: CountbackPlayer[] = legacyEntries.map((e, idx) => ({
           id: String(idx),
           name: e.dbPlayer.profiles?.name || 'Jugador',
           scores: e.scores.map((s) => s ?? 0),
-          primaryScore: modoJuego === 'stableford' ? e.stablefordTotal : modoJuego === 'neto' ? e.netTotal : e.grossTotal,
+          primaryScore: formatoJuego === 'stableford' ? e.stablefordTotal : modoJuego === 'neto' ? e.netTotal : e.grossTotal,
         }))
         const cbResultsLegacy = resolveLeaderboardTies(cbPlayersLegacy, cbModeLegacy)
 
@@ -491,7 +495,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
               totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, hole.stroke_index)
             }
 
-            const currentScore = modoJuego === 'stableford' ? totalSF
+            const currentScore = formatoJuego === 'stableford' ? totalSF
               : modoJuego === 'neto' ? overUnderNeto : overUnderGross
 
             return {
@@ -501,6 +505,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
               currentScore,
               hoyosCompletados:     hoyosComp,
               modoJuego,
+              formatoJuego,
               historicalAvg:        null,
               historicalRoundsCount: 0,
               courseAvg:            null,

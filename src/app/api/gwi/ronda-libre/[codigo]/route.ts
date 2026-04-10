@@ -29,13 +29,14 @@ export async function GET(
     // Fetch ronda
     const { data: ronda } = await supabase
       .from('rondas_libres')
-      .select('id, course_name, course_id, holes, modo_juego, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+      .select('id, course_name, course_id, holes, modo_juego, formato_juego, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
       .eq('codigo', params.codigo)
       .single()
 
     if (!ronda) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
-    const modo      = (ronda.modo_juego as 'gross' | 'neto' | 'stableford') || 'gross'
+    const modo      = (ronda.modo_juego as 'gross' | 'neto') || 'gross'
+    const formato   = (ronda.formato_juego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') || 'stroke_play'
     const totalHoyos = ronda.holes ?? 18
     const parTotal   = totalHoyos === 9 ? 36 : 72
 
@@ -119,9 +120,9 @@ export async function GET(
         totalStableford += puntosStablefordHoyo(gross, h.par, handicapIndex, h.stroke_index)
       }
 
-      const currentScore = modo === 'gross' ? overUnderGross
+      const currentScore = formato === 'stableford' ? totalStableford
         : modo === 'neto'  ? overUnderNeto
-        : totalStableford
+        : overUnderGross
 
       // Historical rounds (from batch)
       let historicalAvg: number | null = null
@@ -179,6 +180,7 @@ export async function GET(
         currentScore,
         hoyosCompletados,
         modoJuego:             modo,
+        formatoJuego:          formato,
         historicalAvg,
         historicalRoundsCount,
         courseAvg,

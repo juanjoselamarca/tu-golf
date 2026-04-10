@@ -7,7 +7,7 @@
  * y detalles según formato.
  */
 
-import type { ModoJuego } from '@/golf/core/rules'
+import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { formatOverUnder } from '@/golf/core/rules'
 
 interface TeamEntry {
@@ -26,6 +26,7 @@ interface TeamEntry {
 interface Props {
   teams: TeamEntry[]
   modoJuego: ModoJuego
+  formatoJuego?: FormatoJuego
   totalHoles: number
   formato: 'best_ball' | 'scramble' | 'foursome'
 }
@@ -36,24 +37,25 @@ const FORMATO_LABEL: Record<string, string> = {
   foursome: 'Foursome',
 }
 
-function primaryScore(team: TeamEntry, modo: ModoJuego): number {
-  if (modo === 'stableford') return team.totalStableford
+function primaryScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego): number {
+  if (formato === 'stableford') return team.totalStableford
   if (modo === 'neto') return team.overUnderNeto
   return team.overUnderGross
 }
 
-function displayScore(team: TeamEntry, modo: ModoJuego, hasCourse: boolean): string {
-  if (modo === 'stableford') return String(team.totalStableford)
+function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string {
+  if (formato === 'stableford') return String(team.totalStableford)
   if (!hasCourse) return String(modo === 'neto' ? team.totalNeto : team.totalGross)
   return formatOverUnder(modo === 'neto' ? team.overUnderNeto : team.overUnderGross)
 }
 
-export default function TeamLeaderboard({ teams, modoJuego, totalHoles, formato }: Props) {
+export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stroke_play', totalHoles, formato }: Props) {
   const hasCourse = teams.some(t => t.overUnderGross !== t.totalGross)
+  const isStableford = formatoJuego === 'stableford'
   const sorted = [...teams].sort((a, b) => {
-    const sa = primaryScore(a, modoJuego)
-    const sb = primaryScore(b, modoJuego)
-    if (modoJuego === 'stableford') return sb - sa
+    const sa = primaryScore(a, modoJuego, formatoJuego)
+    const sb = primaryScore(b, modoJuego, formatoJuego)
+    if (isStableford) return sb - sa
     return sa - sb
   })
 
@@ -75,7 +77,7 @@ export default function TeamLeaderboard({ teams, modoJuego, totalHoles, formato 
             fontSize: '10px', fontWeight: 600, color: '#c4992a',
             background: 'rgba(196,153,42,0.08)', padding: '2px 8px', borderRadius: '10px',
           }}>
-            {modoJuego === 'stableford' ? 'Stableford' : modoJuego === 'neto' ? 'Neto' : 'Gross'}
+            {isStableford ? 'Stableford' : modoJuego === 'neto' ? 'Neto' : 'Gross'}
           </span>
         </div>
       </div>
@@ -99,9 +101,9 @@ export default function TeamLeaderboard({ teams, modoJuego, totalHoles, formato 
           Esperando scores...
         </div>
       ) : sorted.map((team, idx) => {
-        const score = primaryScore(team, modoJuego)
-        const isEven = score === 0 && modoJuego !== 'stableford'
-        const isGood = modoJuego === 'stableford' ? score > 0 : score < 0
+        const score = primaryScore(team, modoJuego, formatoJuego)
+        const isEven = score === 0 && !isStableford
+        const isGood = isStableford ? score > 0 : score < 0
 
         return (
           <div key={team.teamId} style={{
@@ -138,7 +140,7 @@ export default function TeamLeaderboard({ teams, modoJuego, totalHoles, formato 
                 fontSize: '16px', fontWeight: 700, fontFamily: '"DM Mono", monospace',
                 color: isEven ? '#6b7280' : isGood ? '#16a34a' : '#dc2626',
               }}>
-                {displayScore(team, modoJuego, hasCourse)}
+                {displayScore(team, modoJuego, formatoJuego, hasCourse)}
               </span>
             </div>
 

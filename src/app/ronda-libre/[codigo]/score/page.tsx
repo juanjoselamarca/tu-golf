@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
-import type { ModoJuego } from '@/golf/core/rules'
+import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
@@ -57,7 +57,7 @@ function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; onClose: 
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number>; handicap?: number | null }
-interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; hoyo_inicio?: number | null; admin_mode?: boolean; admin_user_id?: string; recorridos?: string[] | null; ronda_libre_jugadores: Jugador[] }
+interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; formato_juego: FormatoJuego; hoyo_inicio?: number | null; admin_mode?: boolean; admin_user_id?: string; recorridos?: string[] | null; ronda_libre_jugadores: Jugador[] }
 interface HoleData { numero: number; par: number; stroke_index: number; yardaje: number | null }
 
 /* ── Tee → yardage column mapping ──────────────────────────────────── */
@@ -251,7 +251,7 @@ function ScorePageContent() {
       const supabase = createClient()
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, hoyo_inicio, admin_mode, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, hoyo_inicio, admin_mode, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
         .eq('codigo', codigo)
         .single()
       if (!data) { router.push('/dashboard'); return }
@@ -695,7 +695,7 @@ function ScorePageContent() {
   }, [ronda, scores, parMap])
 
   // Match Play state calculation
-  const isMatchPlay = ronda?.modo_juego === 'match_play_neto'
+  const isMatchPlay = ronda?.formato_juego === 'match_play'
   const matchResult: MatchResult | null = useMemo(() => {
     if (!isMatchPlay || !ronda) return null
     const jug = ronda.ronda_libre_jugadores
@@ -830,7 +830,7 @@ function ScorePageContent() {
     const s = scores[activeJugadorId]?.[h]
     if (s != null) {
       const hd = holeDataMap[h]
-      if (!hd?.stroke_index && (ronda.modo_juego === 'neto' || ronda.modo_juego === 'stableford')) missingStrokeIndex = true
+      if (!hd?.stroke_index && (ronda.modo_juego === 'neto' || ronda.formato_juego === 'stableford')) missingStrokeIndex = true
       const si = hd?.stroke_index ?? h
       const strk = strokesRecibidosEnHoyo(hcpForPlayer, si)
       totalNet += s - strk
@@ -840,14 +840,15 @@ function ScorePageContent() {
   }
   const totalNetOverUnder = totalNet - totalNetPar
 
-  // What to display based on modo_juego
+  // What to display based on formato_juego + modo_juego
   const modoJuego = ronda.modo_juego ?? 'gross'
-  const modoLabel = modoJuego === 'match_play_neto' ? 'Match Play Neto'
-    : modoJuego === 'stableford' ? 'Stableford'
+  const formatoJuego = ronda.formato_juego ?? 'stroke_play'
+  const modoLabel = formatoJuego === 'match_play' ? 'Match Play Neto'
+    : formatoJuego === 'stableford' ? 'Stableford'
     : modoJuego === 'neto' ? 'Stroke Play Neto'
     : 'Stroke Play'
-  const showNet = modoJuego === 'neto'
-  const showStableford = modoJuego === 'stableford'
+  const showNet = modoJuego === 'neto' && formatoJuego !== 'stableford'
+  const showStableford = formatoJuego === 'stableford'
   const displayOverUnder = showNet ? totalNetOverUnder : totalOverUnder
   const displayTotal = showStableford ? totalStableford : totalGross
 
@@ -1350,7 +1351,8 @@ function ScorePageContent() {
             parMap={parMap}
             currentUserId={ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.user_id ?? null}
             totalHoles={ronda.holes}
-            modoJuego={(ronda.modo_juego === 'match_play_neto' ? 'neto' : ronda.modo_juego) as 'gross' | 'neto' | 'stableford' ?? 'gross'}
+            modoJuego={ronda.modo_juego ?? 'gross'}
+            formatoJuego={ronda.formato_juego ?? 'stroke_play'}
             hcpMap={playerHcp}
             siMap={Object.fromEntries(Object.entries(holeDataMap).map(([k, v]) => [k, v.stroke_index]))}
           />

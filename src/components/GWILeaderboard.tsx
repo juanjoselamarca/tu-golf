@@ -17,10 +17,8 @@ interface Props {
 }
 
 const MODO_LABEL: Record<ModoJuego, string> = {
-  gross:           'Gross',
-  neto:            'Neto',
-  stableford:      'Stableford',
-  match_play_neto: 'Match Play',
+  gross: 'Gross',
+  neto:  'Neto',
 }
 
 const MEDALS = ['🥇', '🥈', '🥉']

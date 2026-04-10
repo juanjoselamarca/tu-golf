@@ -62,7 +62,7 @@ function NotifBanner({ onEnable }: { onEnable: () => void }) {
 import GWILeaderboard from '@/components/GWILeaderboard'
 import { calcularGWI } from '@/golf/stats/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
-import type { ModoJuego } from '@/golf/core/rules'
+import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
 import { Suspense } from 'react'
@@ -92,6 +92,7 @@ interface RondaLibre {
   fecha:                 string
   estado:                string
   modo_juego:            ModoJuego
+  formato_juego:         FormatoJuego
   hoyo_inicio?:          number | null
   admin_mode?:           boolean
   admin_user_id?:        string
@@ -289,7 +290,7 @@ function RondaLibrePageContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
         .eq('codigo', codigo)
         .single()
 
@@ -488,7 +489,7 @@ function RondaLibrePageContent() {
     if (jugadores.length === 0) return `Ronda en ${ronda.course_name} — Golfers+`
 
     // Match Play — calculate result inline
-    if (ronda.modo_juego === 'match_play_neto' && jugadores.length === 2) {
+    if (ronda.formato_juego === 'match_play' && jugadores.length === 2) {
       const holesArr = Object.entries(parMap).map(([num, par]) => ({
         numero: Number(num), par, stroke_index: siMap[Number(num)] ?? Number(num),
       }))
@@ -510,7 +511,7 @@ function RondaLibrePageContent() {
       }
     }
 
-    const isStab = ronda.modo_juego === 'stableford'
+    const isStab = ronda.formato_juego === 'stableford'
     const leader = [...jugadores]
       .map(j => {
         let gross = 0, parTotal = 0, holesPlayed = 0, stabPts = 0
@@ -657,7 +658,7 @@ function RondaLibrePageContent() {
       const vsPar = getVsPar(j.scores, ronda.holes, parMap)
       const holesPlayed = getHolesPlayed(j.scores, ronda.holes)
       let stablefordPts = 0
-      if (ronda.modo_juego === 'stableford') {
+      if (ronda.formato_juego === 'stableford') {
         const ch = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 18)
         for (let h = 1; h <= ronda.holes; h++) {
           const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
@@ -674,7 +675,7 @@ function RondaLibrePageContent() {
       if (a.holesPlayed === 0 && b.holesPlayed === 0) return 0
       if (a.holesPlayed === 0) return 1
       if (b.holesPlayed === 0) return -1
-      if (ronda.modo_juego === 'stableford') return b.stablefordPts - a.stablefordPts
+      if (ronda.formato_juego === 'stableford') return b.stablefordPts - a.stablefordPts
       return a.vsPar - b.vsPar
     })
 
@@ -779,7 +780,7 @@ function RondaLibrePageContent() {
           )}
 
           {/* ── Match Play Winner celebration (finished rounds) ── */}
-          {isFinished && ronda.modo_juego === 'match_play_neto' && ronda.ronda_libre_jugadores.length === 2 && (() => {
+          {isFinished && ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2 && (() => {
             const jug = ronda.ronda_libre_jugadores
             const holesArr = Object.entries(parMap).map(([num, par]) => ({
               numero: Number(num), par, stroke_index: siMap[Number(num)] ?? Number(num),
@@ -891,8 +892,8 @@ function RondaLibrePageContent() {
           })()}
 
           {/* ── Winner celebration + podium + share CTA (finished rounds, non-match-play) ── */}
-          {isFinished && ronda.modo_juego !== 'match_play_neto' && leaderboard.length > 0 && leaderboard[0].holesPlayed > 0 && (() => {
-            const isStab = ronda.modo_juego === 'stableford'
+          {isFinished && ronda.formato_juego !== 'match_play' && leaderboard.length > 0 && leaderboard[0].holesPlayed > 0 && (() => {
+            const isStab = ronda.formato_juego === 'stableford'
             const isTie = leaderboard.length > 1 && (isStab
               ? leaderboard[0].stablefordPts === leaderboard[1].stablefordPts
               : leaderboard[0].vsPar === leaderboard[1].vsPar)
@@ -1029,7 +1030,7 @@ function RondaLibrePageContent() {
           )}
 
           {/* Match Play state card — only for match_play_neto with 2 players */}
-          {ronda.modo_juego === 'match_play_neto' && leaderboard.length === 2 && (() => {
+          {ronda.formato_juego === 'match_play' && leaderboard.length === 2 && (() => {
             const jug = ronda.ronda_libre_jugadores
             const holesArr = Object.entries(parMap).map(([num, par]) => ({
               numero: Number(num), par, stroke_index: siMap[Number(num)] ?? Number(num),
@@ -1271,8 +1272,8 @@ function RondaLibrePageContent() {
               <div>
                 <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Formato</div>
                 <div style={{ fontSize: '15px', color: '#111827', fontWeight: 700 }}>
-                  {ronda.modo_juego === 'match_play_neto' ? 'Match Play Neto'
-                   : ronda.modo_juego === 'stableford' ? 'Stableford'
+                  {ronda.formato_juego === 'match_play' ? 'Match Play Neto'
+                   : ronda.formato_juego === 'stableford' ? 'Stableford'
                    : ronda.modo_juego === 'neto' ? `Stroke Play Neto · ${ronda.holes}h`
                    : `Stroke Play · ${ronda.holes}h`}
                 </div>
@@ -1298,7 +1299,7 @@ function RondaLibrePageContent() {
 
                   // Match play context: find the match hole detail for this event
                   let matchContext: string | null = null
-                  if (ronda.modo_juego === 'match_play_neto' && ronda.ronda_libre_jugadores.length === 2) {
+                  if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2) {
                     const jugMP = ronda.ronda_libre_jugadores
                     const holesArr = Object.entries(parMap).map(([num, par]) => ({
                       numero: Number(num), par, stroke_index: siMap[Number(num)] ?? Number(num),
@@ -1370,7 +1371,7 @@ function RondaLibrePageContent() {
           )}
 
           {/* GWI — solo para formatos individuales (stroke/stableford), NO match play ni equipos */}
-          {ronda.modo_juego !== 'match_play_neto' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+          {ronda.formato_juego !== 'match_play' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
             <div style={{ padding: '8px 12px', marginBottom: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
@@ -1382,7 +1383,7 @@ function RondaLibrePageContent() {
               </div>
             </div>
           )}
-          {ronda.modo_juego !== 'match_play_neto' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+          {ronda.formato_juego !== 'match_play' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
             <GWILeaderboard
               jugadores={gwiInputs}
               hoyosRestantes={ronda.holes - Math.max(...gwiInputs.map(j => j.hoyosCompletados), 0)}
@@ -1394,7 +1395,7 @@ function RondaLibrePageContent() {
           {/* Leaderboard — white theme (hidden for match play, shown for stroke/stableford) */}
           <div style={{
             background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px',
-            display: ronda.modo_juego === 'match_play_neto' ? 'none' : 'block',
+            display: ronda.formato_juego === 'match_play' ? 'none' : 'block',
           }}>
 
             {/* Table header */}
@@ -1402,7 +1403,7 @@ function RondaLibrePageContent() {
               <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase' }}>#</span>
               <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase' }}>Jugador</span>
               <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'center' }}>
-                {ronda.modo_juego === 'stableford' ? 'PTS' : hasCourse ? '+/- Par' : 'Score'}
+                {ronda.formato_juego === 'stableford' ? 'PTS' : hasCourse ? '+/- Par' : 'Score'}
               </span>
               <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
             </div>
@@ -1415,7 +1416,7 @@ function RondaLibrePageContent() {
 
             {leaderboard.map((j, idx) => {
               const isExpanded = expanded === j.id
-              const isStableford = ronda.modo_juego === 'stableford'
+              const isStableford = ronda.formato_juego === 'stableford'
               const scoreColor = isStableford
                 ? (j.holesPlayed === 0 ? '#9ca3af' : '#c4992a')
                 : whiteThemeScoreColor(j.vsPar, j.holesPlayed)
@@ -1497,7 +1498,7 @@ function RondaLibrePageContent() {
                         <div style={{ flex: 1, display: 'flex' }}>
                           {holes.map(h => {
                             const hScore = getS(h)
-                            const stabPtsH = (ronda.modo_juego === 'stableford' && hScore != null)
+                            const stabPtsH = (ronda.formato_juego === 'stableford' && hScore != null)
                               ? puntosStablefordHoyo(hScore, parMap[h] ?? 4, courseHcpMap[j.id] ?? Math.round(j.handicap ?? 18), siMap[h] ?? h, ronda.holes)
                               : null
                             return (
@@ -1537,7 +1538,7 @@ function RondaLibrePageContent() {
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', marginLeft: 'auto' }}>
                             <div style={{ fontSize: '8px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' as const }}>TOT</div>
                             <div style={{ fontSize: '14px', fontWeight: 800, color: '#111827' }}>{front9T + back9T}</div>
-                            {ronda.modo_juego === 'stableford' && (
+                            {ronda.formato_juego === 'stableford' && (
                               <div style={{ fontSize: '10px', fontWeight: 700, color: '#c4992a' }}>{j.stablefordPts} pts</div>
                             )}
                           </div>

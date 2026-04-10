@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
-import type { ModoJuego } from '@/golf/core/rules'
+import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 
 interface JugadorLB {
   id: string
@@ -22,11 +22,12 @@ interface Props {
   currentUserId: string | null
   totalHoles: number
   modoJuego?: ModoJuego
+  formatoJuego?: FormatoJuego
   hcpMap?: Record<string, number>
   siMap?: Record<number, number>
 }
 
-export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', hcpMap = {}, siMap = {} }: Props) {
+export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', formatoJuego = 'stroke_play', hcpMap = {}, siMap = {} }: Props) {
   const [jugadores, setJugadores] = useState<JugadorLB[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -73,7 +74,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
       if (a.holesCompleted === 0 && b.holesCompleted === 0) return 0
       if (a.holesCompleted === 0) return 1
       if (b.holesCompleted === 0) return -1
-      if (modoJuego === 'stableford') return b.totalStableford - a.totalStableford // más puntos = mejor
+      if (formatoJuego === 'stableford') return b.totalStableford - a.totalStableford // más puntos = mejor
       if (modoJuego === 'neto') return (a.totalNetVsPar ?? 0) - (b.totalNetVsPar ?? 0) // menos = mejor
       return (a.totalVsPar ?? 0) - (b.totalVsPar ?? 0) // gross: menos vs par = mejor
     })
@@ -81,7 +82,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
     setJugadores(jug)
     setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- hcpMap/siMap son objetos nuevos cada render, parMap es estable
-  }, [codigoRonda, parMap, modoJuego])
+  }, [codigoRonda, parMap, modoJuego, formatoJuego])
 
   useEffect(() => {
     fetchLB()

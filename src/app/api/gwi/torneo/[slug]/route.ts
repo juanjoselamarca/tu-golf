@@ -22,18 +22,19 @@ export async function GET(
     // Fetch tournament
     const { data: rawT } = await supabase
       .from('tournaments')
-      .select('id, name, hole_count, modo_juego, courses(id, par_total)')
+      .select('id, name, hole_count, modo_juego, formato_juego, courses(id, par_total)')
       .eq('slug', params.slug)
       .single()
 
     if (!rawT) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
     const t = rawT as unknown as {
-      id: string; name: string; hole_count: number; modo_juego: string | null
+      id: string; name: string; hole_count: number; modo_juego: string | null; formato_juego: string | null
       courses: { id: string; par_total: number } | null
     }
 
-    const modo       = (t.modo_juego as 'gross' | 'neto' | 'stableford') || 'gross'
+    const modo       = (t.modo_juego as 'gross' | 'neto') || 'gross'
+    const formato    = (t.formato_juego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') || 'stroke_play'
     const totalHoyos = t.hole_count ?? 18
     const parTotal   = t.courses?.par_total ?? (totalHoyos === 9 ? 36 : 72)
 
@@ -122,9 +123,9 @@ export async function GET(
         totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, hole.stroke_index)
       }
 
-      const currentScore = modo === 'gross' ? overUnderGross
+      const currentScore = formato === 'stableford' ? totalStableford
         : modo === 'neto'  ? overUnderNeto
-        : totalStableford
+        : overUnderGross
 
       // Historical (from batch)
       let historicalAvg: number | null = null
@@ -162,6 +163,7 @@ export async function GET(
         currentScore,
         hoyosCompletados,
         modoJuego:             modo,
+        formatoJuego:          formato,
         historicalAvg,
         historicalRoundsCount,
         courseAvg:             null,

@@ -3,7 +3,7 @@
  * Probabilidad de ganar basada en situación actual, historial, cancha y patrones.
  */
 
-import type { ModoJuego } from '../core/rules'
+import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Matemáticas base ───
 function normalCDF(x: number): number {
@@ -72,6 +72,7 @@ export interface JugadorGWIInput {
   currentScore:          number
   hoyosCompletados:      number
   modoJuego:             ModoJuego
+  formatoJuego:          FormatoJuego
   historicalAvg:         number | null
   historicalRoundsCount: number
   courseAvg:             number | null
@@ -117,7 +118,7 @@ export function calcularGWI(
   const progreso       = Math.max(...jugadores.map(j => j.hoyosCompletados), 0)
   const hoyosRestantes = Math.max(totalHoyos - progreso, 0)
   const progresoRatio  = progreso / totalHoyos
-  const esStableford   = jugadores[0].modoJuego === 'stableford'
+  const esStableford   = jugadores[0].formatoJuego === 'stableford'
   const esNeto         = jugadores[0].modoJuego === 'neto'
   const W1 = 0.30 + progresoRatio * 0.50
   const pesoResto = 1 - W1

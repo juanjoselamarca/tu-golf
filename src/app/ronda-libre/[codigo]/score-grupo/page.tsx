@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
-import type { ModoJuego } from '@/golf/core/rules'
+import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 
 /* ── Types ── */
@@ -27,6 +27,7 @@ interface RondaLibre {
   fecha: string
   estado: string
   modo_juego: ModoJuego
+  formato_juego: FormatoJuego
   admin_mode?: boolean
   admin_user_id?: string
   hoyo_inicio?: number | null
@@ -122,7 +123,7 @@ export default function ScoreGrupoPage() {
 
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, admin_mode, admin_user_id, hoyo_inicio, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, hoyo_inicio, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
         .eq('codigo', codigo)
         .single()
 
@@ -353,8 +354,9 @@ export default function ScoreGrupoPage() {
   const par = parMap[currentHole] ?? 4
   const holeData = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole, yardaje: null }
   const modoJuego = ronda.modo_juego || 'gross'
-  const modoLabel = modoJuego === 'match_play_neto' ? 'Match Play Neto'
-    : modoJuego === 'stableford' ? 'Stableford'
+  const formatoJuego = ronda.formato_juego || 'stroke_play'
+  const modoLabel = formatoJuego === 'match_play' ? 'Match Play Neto'
+    : formatoJuego === 'stableford' ? 'Stableford'
     : modoJuego === 'neto' ? 'Stroke Play Neto'
     : 'Stroke Play'
   const showNetStableford = modoJuego !== 'gross'
@@ -588,8 +590,8 @@ export default function ScoreGrupoPage() {
                           </span>
                         </div>
                         {showNetStableford && (
-                          <span style={{ fontSize: '10px', color: modoJuego === 'stableford' ? '#c4992a' : '#60A5FA' }}>
-                            {modoJuego === 'stableford' ? `${runningStableford} pts` : `Net: ${runningNetVsPar >= 0 ? '+' : ''}${runningNetVsPar}`}
+                          <span style={{ fontSize: '10px', color: formatoJuego === 'stableford' ? '#c4992a' : '#60A5FA' }}>
+                            {formatoJuego === 'stableford' ? `${runningStableford} pts` : `Net: ${runningNetVsPar >= 0 ? '+' : ''}${runningNetVsPar}`}
                           </span>
                         )}
                       </>
@@ -653,12 +655,12 @@ export default function ScoreGrupoPage() {
                         <div style={{
                           padding: '2px 8px', borderRadius: '10px',
                           fontSize: '9px', fontWeight: 600,
-                          background: modoJuego === 'stableford' ? 'rgba(196,153,42,0.15)' : 'rgba(96,165,250,0.15)',
-                          color: modoJuego === 'stableford' ? '#c4992a' : '#60A5FA',
-                          border: `1px solid ${modoJuego === 'stableford' ? 'rgba(196,153,42,0.3)' : 'rgba(96,165,250,0.3)'}`,
+                          background: formatoJuego === 'stableford' ? 'rgba(196,153,42,0.15)' : 'rgba(96,165,250,0.15)',
+                          color: formatoJuego === 'stableford' ? '#c4992a' : '#60A5FA',
+                          border: `1px solid ${formatoJuego === 'stableford' ? 'rgba(196,153,42,0.3)' : 'rgba(96,165,250,0.3)'}`,
                           display: 'inline-block',
                         }}>
-                          {modoJuego === 'stableford'
+                          {formatoJuego === 'stableford'
                             ? `${stablefordPts} pts`
                             : `Net: ${netScoreThisHole != null ? netScoreThisHole - par >= 0 ? '+' + (netScoreThisHole - par) : String(netScoreThisHole - par) : '—'}`}
                         </div>
