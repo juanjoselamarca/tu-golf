@@ -120,10 +120,12 @@ export async function fedegolfGetCanchas(
         Cookie: session.cookie,
       },
       body: body.toString(),
+      redirect: 'manual', // PHP endpoints return 302 with JSON body
     }
   )
 
-  if (!res.ok) {
+  // PHP endpoints may return 302 with valid JSON body
+  if (!res.ok && res.status !== 302) {
     throw new Error(`fedegolf: error obteniendo canchas del club ${clubId} (${res.status})`)
   }
 
@@ -158,10 +160,11 @@ export async function fedegolfGetInfoCancha(
         Cookie: session.cookie,
       },
       body: body.toString(),
+      redirect: 'manual',
     }
   )
 
-  if (!res.ok) {
+  if (!res.ok && res.status !== 302) {
     throw new Error(
       `fedegolf: error obteniendo info cancha ${canchaId} del club ${clubId} (${res.status})`
     )
@@ -228,10 +231,11 @@ export async function fedegolfGetIndice(
         Cookie: session.cookie,
       },
       body: body.toString(),
+      redirect: 'manual',
     }
   )
 
-  if (!res.ok) {
+  if (!res.ok && res.status !== 302) {
     throw new Error(`fedegolf: error consultando indice para RUT ${rut} (${res.status})`)
   }
 
@@ -268,10 +272,11 @@ export async function fedegolfGetMiembrosClub(
         Cookie: session.cookie,
       },
       body: body.toString(),
+      redirect: 'manual',
     }
   )
 
-  if (!res.ok) {
+  if (!res.ok && res.status !== 302) {
     throw new Error(`fedegolf: error obteniendo miembros del club ${clubId} (${res.status})`)
   }
 

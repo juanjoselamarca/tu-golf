@@ -66,6 +66,7 @@ async function upsertCancha(
 
   const courseRow = {
     nombre: nombreCurso,
+    ciudad: '',
     pais: 'Chile',
     par_total: info.par,
     fuente: 'fedegolf',
