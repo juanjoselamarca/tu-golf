@@ -10,6 +10,7 @@ import { SystemStatusBanner } from '@/components/SystemStatusBanner'
 import { PostHogProvider } from '@/components/PostHogProvider'
 import { OfflineBanner } from '@/components/OfflineBanner'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import FedegolfSync from '@/components/FedegolfSync'
 
 const playfair = Playfair_Display({
   subsets:  ['latin'],
@@ -89,6 +90,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ToastContainer />
         <PWAInstallBanner />
         <LiveRoundIndicator />
+        <FedegolfSync />
         <main className="min-h-screen">{children}</main>
 
         {/* Footer */}
