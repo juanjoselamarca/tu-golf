@@ -16,6 +16,7 @@ import {
 } from '@/golf/core/scoring'
 import { calcularDiferenciaHandicap } from '@/golf/formats/match-play'
 import { resolverCourseHandicap } from '@/golf/core/course-handicap'
+import { FORMAT_META, type ModoJuego, type FormatoJuego } from '@/golf/core/rules'
 
 describe('Verificación reglas oficiales R&A/USGA', () => {
 
@@ -171,5 +172,85 @@ describe('Verificación reglas oficiales R&A/USGA', () => {
         expect(strokesRecibidosEnHoyo(5, si, 9)).toBe(0)
       }
     })
+  })
+})
+
+describe('Separación conceptual Formato vs Modo', () => {
+  it('ModoJuego solo tiene gross y neto', () => {
+    const modos: ModoJuego[] = ['gross', 'neto']
+    expect(modos.length).toBe(2)
+    // @ts-expect-error — 'stableford' NO es un ModoJuego válido
+    const invalidMode: ModoJuego = 'stableford'
+    expect(invalidMode).toBeDefined() // Just to use the variable
+  })
+
+  it('Stableford es un FORMATO, no un modo', () => {
+    const formatos: FormatoJuego[] = ['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome']
+    expect(formatos).toContain('stableford')
+    expect(formatos).toContain('match_play')
+    expect(formatos.length).toBe(6)
+  })
+
+  it('FORMAT_META.stableford solo permite modo neto (R&A Rule 32.1b)', () => {
+    expect(FORMAT_META.stableford.modosPermitidos).toEqual(['neto'])
+  })
+
+  it('FORMAT_META.stroke_play permite gross y neto', () => {
+    expect(FORMAT_META.stroke_play.modosPermitidos).toContain('gross')
+    expect(FORMAT_META.stroke_play.modosPermitidos).toContain('neto')
+  })
+
+  it('FORMAT_META.match_play permite gross y neto', () => {
+    expect(FORMAT_META.match_play.modosPermitidos).toContain('gross')
+    expect(FORMAT_META.match_play.modosPermitidos).toContain('neto')
+  })
+
+  it('FORMAT_META.best_ball permite gross y neto (stableford NO es modo)', () => {
+    expect(FORMAT_META.best_ball.modosPermitidos).toEqual(['gross', 'neto'])
+  })
+
+  it('FORMAT_META.scramble permite gross y neto', () => {
+    expect(FORMAT_META.scramble.modosPermitidos).toEqual(['gross', 'neto'])
+  })
+
+  it('FORMAT_META.foursome permite gross y neto', () => {
+    expect(FORMAT_META.foursome.modosPermitidos).toEqual(['gross', 'neto'])
+  })
+
+  it('scorePrimario recibe formato y modo separados', async () => {
+    const { scorePrimario, calcularResumenRonda } = await import('@/golf/core/scoring')
+    const resumen = calcularResumenRonda(
+      { '1': 4, '2': 5 },
+      [
+        { numero: 1, par: 4, stroke_index: 1 },
+        { numero: 2, par: 4, stroke_index: 2 },
+      ],
+      0,
+      8,
+      18
+    )
+    // Stroke play gross
+    expect(scorePrimario(resumen, 'stroke_play', 'gross')).toBe(resumen.overUnderGross)
+    // Stroke play neto
+    expect(scorePrimario(resumen, 'stroke_play', 'neto')).toBe(resumen.overUnderNeto)
+    // Stableford: ignora modo, siempre devuelve puntos
+    expect(scorePrimario(resumen, 'stableford', 'neto')).toBe(resumen.totalStableford)
+  })
+
+  it('ordenarJugadores respeta el formato (stableford DESC, otros ASC)', async () => {
+    const { ordenarJugadores } = await import('@/golf/core/scoring')
+    const jugadores = [
+      { id: '1', overUnderGross: 5, overUnderNeto: 3, totalStableford: 20 },
+      { id: '2', overUnderGross: 2, overUnderNeto: 1, totalStableford: 30 },
+    ]
+    // Stroke play gross: menor gross primero
+    const strokePlay = ordenarJugadores(jugadores, 'stroke_play', 'gross')
+    expect(strokePlay[0].id).toBe('2')
+    // Stableford: mayor puntos primero
+    const stableford = ordenarJugadores(jugadores, 'stableford', 'neto')
+    expect(stableford[0].id).toBe('2') // también 2, tiene más puntos
+    // Stroke play neto: menor neto primero
+    const neto = ordenarJugadores(jugadores, 'stroke_play', 'neto')
+    expect(neto[0].id).toBe('2')
   })
 })
