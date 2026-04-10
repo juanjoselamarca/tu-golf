@@ -766,8 +766,8 @@ export default function NuevaRondaLibrePage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {([
                   { value: 'stroke_play' as const, label: 'Stroke Play', desc: 'Gana el de menos golpes', icon: '\u26F3' },
-                  { value: 'stableford' as const, label: 'Stableford', desc: 'Puntos por hoyo (neto)', icon: '\u2B50' },
-                  { value: 'match_play' as const, label: 'Match Play Neto', desc: 'Hoyo a hoyo, 1 vs 1', icon: '\u2694\uFE0F' },
+                  { value: 'stableford' as const, label: 'Stableford', desc: 'Puntos por hoyo', icon: '\u2B50' },
+                  { value: 'match_play' as const, label: 'Match Play', desc: 'Hoyo a hoyo, 1 vs 1', icon: '\u2694\uFE0F' },
                   // Team formats: motores listos, UI de equipos pendiente
                   // { value: 'best_ball' as const, label: 'Best Ball', desc: 'Equipos: cuenta la mejor bola', icon: '\uD83C\uDFC6' },
                   // { value: 'scramble' as const, label: 'Scramble', desc: 'Equipos: eligen el mejor tiro', icon: '\uD83E\uDD1D' },
@@ -832,8 +832,8 @@ export default function NuevaRondaLibrePage() {
                   background: 'rgba(196,153,42,0.08)', borderRadius: '10px',
                   fontSize: '12px', color: '#92400e', lineHeight: 1.5,
                 }}>
-                  Match Play Neto: se aplica la diferencia de handicap entre los 2 jugadores.
-                  El de mayor HCP recibe strokes en los hoyos mas dificiles.
+                  Match Play: hoyo a hoyo entre 2 jugadores. En modo neto se aplica
+                  la diferencia de handicap y el de mayor HCP recibe strokes en los hoyos mas dificiles.
                 </div>
               )}
 
@@ -1270,8 +1270,8 @@ export default function NuevaRondaLibrePage() {
                 </>
               )}
 
-              {/* Match Play: handicap difference preview */}
-              {formato === 'match_play' && adminPlayers.length === 1 && (
+              {/* Match Play Neto: handicap difference preview (solo si modo = neto) */}
+              {formato === 'match_play' && modo === 'neto' && adminPlayers.length === 1 && (
                 <div style={{
                   marginTop: '12px', padding: '14px',
                   background: 'rgba(196,153,42,0.06)',
@@ -1279,7 +1279,7 @@ export default function NuevaRondaLibrePage() {
                   borderRadius: '12px',
                 }}>
                   <div style={{ fontSize: '13px', fontWeight: 600, color: colors.gold, marginBottom: '8px' }}>
-                    Match Play Neto
+                    Diferencia de handicap
                   </div>
                   {(() => {
                     const hcpA = creatorHandicap ?? 0
