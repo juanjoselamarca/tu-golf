@@ -1,8 +1,26 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { calcularScoreRonda } from '@/golf/core/round-score'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+type RondaRow = {
+  id: string
+  codigo: string
+  course_name: string | null
+  course_id: string | null
+  tees: string | null
+  holes: number | null
+  fecha: string
+  hoyo_inicio: number | null
+  ronda_libre_jugadores: Array<{
+    id: string
+    nombre: string | null
+    user_id: string | null
+    scores: Record<string, number> | null
+  }> | null
+}
 
 export async function GET(request: Request) {
   try {
@@ -13,7 +31,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from('rondas_libres')
       .select(`
-        id, codigo, course_name, tees, holes,
+        id, codigo, course_name, course_id, tees, holes,
         fecha, estado, hoyo_inicio,
         ronda_libre_jugadores ( id, nombre, user_id, scores )
       `)
@@ -28,28 +46,63 @@ export async function GET(request: Request) {
     const { data, error } = await query
     if (error) throw error
 
-    const rondas = (data ?? []).map((ronda: Record<string, unknown>) => {
-      const jugadores = ((ronda.ronda_libre_jugadores ?? []) as Array<{ id: string; nombre: string; user_id: string | null; scores: Record<string, number> }>).map(j => {
-        const scores = j.scores ?? {}
-        const validos = Object.values(scores).filter(s => s != null && Number(s) > 0)
+    const rondasRaw = (data ?? []) as unknown as RondaRow[]
+
+    // Batch fetch course_holes for every ronda que tenga course_id (1 query)
+    const courseIds = Array.from(
+      new Set(rondasRaw.map(r => r.course_id).filter((id): id is string => !!id))
+    )
+
+    const parMapByCourse = new Map<string, Record<number, number>>()
+    if (courseIds.length > 0) {
+      const { data: holesData } = await supabase
+        .from('course_holes')
+        .select('course_id, numero, par')
+        .in('course_id', courseIds)
+
+      for (const row of (holesData ?? []) as Array<{ course_id: string; numero: number; par: number }>) {
+        const map = parMapByCourse.get(row.course_id) ?? {}
+        map[row.numero] = row.par
+        parMapByCourse.set(row.course_id, map)
+      }
+    }
+
+    const rondas = rondasRaw.map(ronda => {
+      const totalHoles = ronda.holes ?? 18
+      // parMap: si el curso no tiene datos cargados, fallback par 4 por hoyo
+      const parMap: Record<number, number> =
+        (ronda.course_id && parMapByCourse.get(ronda.course_id)) || {}
+      if (Object.keys(parMap).length === 0) {
+        for (let i = 1; i <= totalHoles; i++) parMap[i] = 4
+      }
+
+      const jugadores = (ronda.ronda_libre_jugadores ?? []).map(j => {
+        const scores = (j.scores ?? {}) as Record<string, number>
+        const { gross, vsPar, holesPlayed } = calcularScoreRonda({
+          scores,
+          roundHoles: totalHoles,
+          parMap,
+        })
         return {
           id: j.id,
           nombre: j.nombre ?? 'Jugador',
-          holesCompleted: validos.length,
-          totalGross: validos.reduce((a, b) => a + Number(b), 0),
+          holesCompleted: holesPlayed,
+          totalGross: gross,
+          vsPar,
+          totalHoles,
         }
       })
 
       return {
         id: ronda.id,
         codigo: ronda.codigo,
-        course_name: (ronda.course_name as string) ?? 'Cancha',
+        course_name: ronda.course_name ?? 'Cancha',
         tees: ronda.tees,
-        holes: (ronda.holes as number) ?? 18,
+        holes: totalHoles,
         fecha: ronda.fecha,
-        hoyo_inicio: (ronda.hoyo_inicio as number) ?? 1,
+        hoyo_inicio: ronda.hoyo_inicio ?? 1,
         jugadores,
-        maxHolesCompleted: jugadores.reduce((m: number, j: { holesCompleted: number }) => Math.max(m, j.holesCompleted), 0),
+        maxHolesCompleted: jugadores.reduce((m, j) => Math.max(m, j.holesCompleted), 0),
         totalJugadores: jugadores.length,
       }
     })

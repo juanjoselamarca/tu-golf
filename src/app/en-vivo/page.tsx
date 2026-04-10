@@ -9,6 +9,14 @@ interface JugadorEnVivo {
   nombre: string
   holesCompleted: number
   totalGross: number
+  vsPar: number
+  totalHoles: number
+}
+
+function formatVsPar(vsPar: number): string {
+  if (vsPar === 0) return 'E'
+  if (vsPar > 0) return `+${vsPar}`
+  return `${vsPar}`
 }
 
 interface RondaEnVivo {
@@ -224,7 +232,14 @@ export default function EnVivoPage() {
                   {/* Jugadores */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {ronda.jugadores
-                      .sort((a, b) => a.totalGross - b.totalGross)
+                      .slice()
+                      .sort((a, b) => {
+                        // Jugadores sin hoyos jugados van al final
+                        if (a.holesCompleted === 0 && b.holesCompleted === 0) return 0
+                        if (a.holesCompleted === 0) return 1
+                        if (b.holesCompleted === 0) return -1
+                        return a.vsPar - b.vsPar
+                      })
                       .slice(0, 4)
                       .map((j: JugadorEnVivo, idx: number) => (
                         <div key={j.id} style={{
@@ -242,7 +257,23 @@ export default function EnVivoPage() {
                             <span style={{
                               fontSize: '12px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
                               color: 'var(--text-2)',
-                            }}>{j.totalGross}</span>
+                              display: 'flex', alignItems: 'baseline', gap: '6px',
+                            }}>
+                              <span style={{ color: 'var(--ivory)' }}>{formatVsPar(j.vsPar)}</span>
+                              {j.holesCompleted < j.totalHoles ? (
+                                <span style={{
+                                  fontSize: '10px', fontWeight: 500, color: 'var(--text-3)',
+                                }}>
+                                  en {j.holesCompleted} {j.holesCompleted === 1 ? 'hoyo' : 'hoyos'}
+                                </span>
+                              ) : (
+                                <span style={{
+                                  fontSize: '10px', fontWeight: 500, color: 'var(--text-3)',
+                                }}>
+                                  ({j.totalGross})
+                                </span>
+                              )}
+                            </span>
                           )}
                           {!isLoggedIn && (
                             <span style={{
