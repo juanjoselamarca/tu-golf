@@ -89,6 +89,7 @@ export default function NuevaRondaLibrePage() {
     }
   }
   const [formato, setFormato] = useState<'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'>('stroke_play')
+  const [modo, setModo] = useState<'gross' | 'neto'>('neto')
   const [fechaStr, setFechaStr] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -271,12 +272,9 @@ export default function NuevaRondaLibrePage() {
       baseData.admin_user_id = userId
     }
 
-    // modo_juego según formato seleccionado
-    const modoJuego = formato === 'match_play' ? 'match_play_neto'
-      : formato === 'stableford' ? 'stableford' : 'neto'
-    // formato_juego es la estructura de competencia (ortogonal a modo_juego)
-    const formatoJuego = formato === 'match_play' ? 'match_play'
-      : formato === 'stableford' ? 'stableford' : formato
+    // Stableford siempre es neto (R&A Rule 32.1b). Otros formatos usan el modo seleccionado por el usuario.
+    const modoJuego = formato === 'stableford' ? 'neto' : modo
+    const formatoJuego = formato
     const { data: d1, error: e1 } = await supabase
       .from('rondas_libres')
       .insert({ ...baseData, modo_juego: modoJuego, formato_juego: formatoJuego })
@@ -782,6 +780,7 @@ export default function NuevaRondaLibrePage() {
                       type="button"
                       onClick={() => {
                         setFormato(f.value)
+                        if (f.value === 'stableford') setModo('neto')
                         // Match play fuerza admin mode con 1 rival
                         if (f.value === 'match_play' && !adminMode) {
                           setAdminMode(true)
@@ -835,6 +834,74 @@ export default function NuevaRondaLibrePage() {
                 }}>
                   Match Play Neto: se aplica la diferencia de handicap entre los 2 jugadores.
                   El de mayor HCP recibe strokes en los hoyos mas dificiles.
+                </div>
+              )}
+
+              {/* Selector Gross/Neto — separado del formato */}
+              {formato !== 'stableford' && (
+                <div style={{ marginTop: '20px' }}>
+                  <div style={{
+                    fontFamily: '"DM Sans", sans-serif',
+                    fontSize: '13px', color: colors.textSecondary, marginBottom: '10px',
+                    fontWeight: 500,
+                  }}>
+                    Modo de scoring
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {([
+                      { value: 'neto' as const, label: 'Neto', desc: 'Con handicap', icon: '\u2696\uFE0F' },
+                      { value: 'gross' as const, label: 'Gross', desc: 'Sin handicap', icon: '\uD83C\uDFAF' },
+                    ]).map(m => {
+                      const active = modo === m.value
+                      return (
+                        <button
+                          key={m.value}
+                          type="button"
+                          onClick={() => setModo(m.value)}
+                          style={{
+                            flex: 1,
+                            padding: '16px',
+                            borderRadius: '12px',
+                            border: active ? `2px solid ${colors.gold}` : `1px solid ${colors.cardBorder}`,
+                            background: active ? 'rgba(196,153,42,0.06)' : '#ffffff',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s',
+                            WebkitTapHighlightColor: 'transparent',
+                          }}
+                        >
+                          <div style={{ fontSize: '20px', marginBottom: '6px' }}>{m.icon}</div>
+                          <div style={{
+                            fontSize: '15px', fontWeight: 600,
+                            color: active ? colors.gold : colors.textPrimary,
+                            marginBottom: '2px',
+                          }}>
+                            {m.label}
+                          </div>
+                          <div style={{ fontSize: '11px', color: colors.textSecondary }}>{m.desc}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Mensaje informativo para Stableford */}
+              {formato === 'stableford' && (
+                <div style={{
+                  marginTop: '16px',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  background: 'rgba(196,153,42,0.06)',
+                  border: '1px solid rgba(196,153,42,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}>
+                  <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
+                  <span style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.4 }}>
+                    Stableford siempre se juega con handicap (neto) segun las reglas oficiales R&amp;A.
+                  </span>
                 </div>
               )}
             </div>

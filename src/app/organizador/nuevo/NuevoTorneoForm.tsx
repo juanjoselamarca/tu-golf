@@ -53,6 +53,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
   const [selectedCourse, setSelectedCourse] = useState<CourseOption | null>(null)
   const [showCourses,    setShowCourses]    = useState(false)
   const [format,         setFormat]         = useState('stroke_play')
+  const [modo,           setModo]           = useState<'gross' | 'neto'>('neto')
   const [holeCount,      setHoleCount]      = useState(18)
   const [tees,           setTees]           = useState('blanco')
   const [useHandicap,    setUseHandicap]    = useState(true)
@@ -199,7 +200,11 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
 
     const { data: t1, error: te1 } = await supabase
       .from('tournaments')
-      .insert({ ...tournamentBase, modo_juego: 'gross' })
+      .insert({
+        ...tournamentBase,
+        modo_juego: format === 'stableford' ? 'neto' : modo,
+        formato_juego: format,
+      })
       .select()
       .single()
 
@@ -363,7 +368,10 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                 <button
                   key={f.value}
                   type="button"
-                  onClick={() => setFormat(f.value)}
+                  onClick={() => {
+                    setFormat(f.value)
+                    if (f.value === 'stableford') setModo('neto')
+                  }}
                   style={{
                     flex: 1, padding: '14px',
                     border: format === f.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)',
@@ -377,6 +385,55 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                 </button>
               ))}
             </div>
+
+            {/* Selector Gross/Neto — separado del formato */}
+            {format !== 'stableford' ? (
+              <div style={{ marginTop: '16px' }}>
+                <label style={labelStyle}>Modo de scoring</label>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {([
+                    { value: 'neto' as const, label: 'Neto', desc: 'Con handicap', icon: '\u2696\uFE0F' },
+                    { value: 'gross' as const, label: 'Gross', desc: 'Sin handicap', icon: '\uD83C\uDFAF' },
+                  ]).map(m => {
+                    const active = modo === m.value
+                    return (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => setModo(m.value)}
+                        style={{
+                          flex: 1, padding: '14px',
+                          border: active ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)',
+                          borderRadius: '10px',
+                          background: active ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)',
+                          cursor: 'pointer', textAlign: 'left', transition: 'all 200ms',
+                        }}
+                      >
+                        <div style={{ fontSize: '18px', marginBottom: '4px' }}>{m.icon}</div>
+                        <div style={{ color: '#1a1a2e', fontWeight: 600, fontSize: '14px' }}>{m.label}</div>
+                        <div style={{ color: '#4a5568', fontSize: '12px', marginTop: '2px' }}>{m.desc}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div style={{
+                marginTop: '16px',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                background: 'rgba(196,153,42,0.06)',
+                border: '1px solid rgba(196,153,42,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}>
+                <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
+                <span style={{ fontSize: '12px', color: '#92400e', lineHeight: 1.4 }}>
+                  Stableford siempre se juega con handicap (neto) segun las reglas oficiales R&amp;A.
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 4+5. Hoyos + Tees */}
