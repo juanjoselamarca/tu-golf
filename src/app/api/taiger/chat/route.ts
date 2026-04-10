@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { TAIGER_SYSTEM_PROMPT, buildContextString, SESSION_STARTERS } from '@/golf/coach/prompts'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { TAIGER_FREE_MONTHLY_LIMIT, WHATSAPP_TAIGER_PREMIUM_URL } from '@/lib/constants'
 export const dynamic = 'force-dynamic'
 
 export const runtime = 'nodejs'
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Freemium limit: 3 sessions/month (exclude onboarding)
+    // Freemium limit (exclude onboarding)
     const startOfMonth = new Date()
     startOfMonth.setDate(1)
     startOfMonth.setHours(0, 0, 0, 0)
@@ -95,9 +96,9 @@ export async function POST(req: NextRequest) {
       .neq('session_type', 'onboarding')
       .gte('created_at', startOfMonth.toISOString())
 
-    if ((count ?? 0) >= 3) {
+    if ((count ?? 0) >= TAIGER_FREE_MONTHLY_LIMIT) {
       return NextResponse.json(
-        { error: 'Llegaste al límite de 3 sesiones este mes. Escríbenos por WhatsApp para acceso ilimitado.', code: 'limit_reached', whatsapp: 'https://wa.me/56912345678?text=Quiero%20tAIger%2B%20Premium' },
+        { error: `Llegaste al límite de ${TAIGER_FREE_MONTHLY_LIMIT} sesiones este mes. Escríbenos por WhatsApp para acceso ilimitado.`, code: 'limit_reached', whatsapp: WHATSAPP_TAIGER_PREMIUM_URL },
         { status: 429 }
       )
     }

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 // Configure web-push with VAPID keys
 webpush.setVapidDetails(
-  'mailto:juanjoselamarca@gmail.com',
+  process.env.VAPID_CONTACT_EMAIL || 'mailto:juanjoselamarca@gmail.com',
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!
 )
