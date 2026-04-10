@@ -6,22 +6,24 @@ interface Props {
   scoreGross: number
   scoreDiff: number
   courseName: string
+  roundUrl?: string
 }
 
-export default function ShareRoundButton({ scoreGross, scoreDiff, courseName }: Props) {
+export default function ShareRoundButton({ scoreGross, scoreDiff, courseName, roundUrl }: Props) {
   const diffLabel = scoreDiff === 0 ? 'Par' : scoreDiff > 0 ? `+${scoreDiff}` : `${scoreDiff}`
   const text = `Jugué ${scoreGross} (${diffLabel}) en ${courseName}. Golfers+ — ${SITE_DOMAIN}`
+  const url = roundUrl ?? SITE_URL
 
   async function handleShare() {
     if (typeof navigator.share === 'function') {
       try {
-        await navigator.share({ title: 'Mi ronda — Golfers+', text, url: SITE_URL })
+        await navigator.share({ title: 'Mi ronda — Golfers+', text, url })
         return
       } catch { /* user cancelled or not supported */ }
     }
     // Fallback: copy to clipboard
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(`${text}\n${url}`)
       alert('Copiado al portapapeles')
     } catch { /* ignore */ }
   }

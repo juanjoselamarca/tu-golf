@@ -16,7 +16,7 @@ import { calcularResumenRonda, scorePrimario, ordenarJugadores } from '../core/s
 // ─── Re-exports de cada formato ───
 
 export { calcularMatchPlay, calcularNassau, calcularDiferenciaHandicap, displayDesdeJugador, colorResultadoHoyo, labelResultadoHoyo, CONCEDE } from './match-play'
-export type { MatchResult, MatchHoleDetail, MatchPlayConfig, HoleResult, NassauResult } from './match-play'
+export type { MatchResult, MatchHoleDetail, MatchPlayConfig, MatchPlayNames, HoleResult, NassauResult } from './match-play'
 
 export { calcularBestBall, scorePrimarioBestBall, ordenarEquiposBestBall } from './best-ball'
 export type { BestBallTeam, BestBallPlayer, BestBallTeamResult, BestBallHoleDetail } from './best-ball'

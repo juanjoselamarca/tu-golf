@@ -353,7 +353,10 @@ export default function ScoreGrupoPage() {
   const par = parMap[currentHole] ?? 4
   const holeData = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole, yardaje: null }
   const modoJuego = ronda.modo_juego || 'gross'
-  const modoLabel = modoJuego === 'gross' ? 'Gross' : modoJuego === 'neto' ? 'Neto' : 'Stableford'
+  const modoLabel = modoJuego === 'match_play_neto' ? 'Match Play Neto'
+    : modoJuego === 'stableford' ? 'Stableford'
+    : modoJuego === 'neto' ? 'Stroke Play Neto'
+    : 'Stroke Play'
   const showNetStableford = modoJuego !== 'gross'
 
   // Calculate totals for thru indicator + canFinalize
@@ -569,7 +572,7 @@ export default function ScoreGrupoPage() {
                     <div style={{ fontSize: '14px', fontWeight: 600, color: theme.text }}>{j.nombre}</div>
                     {showNetStableford && played > 0 && (
                       <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>
-                        HCP {hcp}{strokesThisHole > 0 ? ` · +${strokesThisHole} este hoyo` : ''}
+                        HCP {hcp}
                       </div>
                     )}
                   </div>
@@ -615,12 +618,23 @@ export default function ScoreGrupoPage() {
 
                   {/* Score display */}
                   <div style={{ textAlign: 'center', minWidth: '80px' }}>
-                    <div style={{
-                      fontSize: '42px', fontWeight: 700, lineHeight: 1,
-                      color: playerScore != null ? '#1a1a2e' : '#d1d5db',
-                      fontVariantNumeric: 'tabular-nums',
-                    }}>
-                      {displayScore}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <div style={{
+                        fontSize: '42px', fontWeight: 700, lineHeight: 1,
+                        color: playerScore != null ? '#1a1a2e' : '#d1d5db',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {displayScore}
+                      </div>
+                      {strokesThisHole > 0 && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '1px',
+                          fontSize: '10px', fontWeight: 700, color: '#c4992a',
+                          alignSelf: 'flex-start', marginTop: '4px',
+                        }}>
+                          {'●'.repeat(strokesThisHole)}
+                        </span>
+                      )}
                     </div>
                     {/* Chip */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>

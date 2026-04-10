@@ -501,3 +501,49 @@ describe('calcularMatchPlay — edge cases avanzados', () => {
     expect(result.holes[1].result).toBe('not_played')
   })
 })
+
+describe('display con nombres reales', () => {
+  it('muestra nombre del jugador en display en curso', () => {
+    const cfg: MatchPlayConfig = { courseHandicapA: 10, courseHandicapB: 10, totalHoles: 18 }
+    const scA = { '1': 4, '2': 4, '3': 4 }
+    const scB = { '1': 5, '2': 5, '3': 4 }
+    const mr = calcularMatchPlay(scA, scB, holes18, cfg, { nombreA: 'Juan', nombreB: 'Pedro' })
+    expect(mr.display).toBe('2 UP Juan con 15 por jugar')
+  })
+
+  it('muestra primer nombre solamente (no apellido)', () => {
+    const cfg: MatchPlayConfig = { courseHandicapA: 10, courseHandicapB: 10, totalHoles: 18 }
+    const scA = { '1': 5 }
+    const scB = { '1': 4 }
+    const mr = calcularMatchPlay(scA, scB, holes18, cfg, { nombreA: 'Juan José Lamarca', nombreB: 'Pedro González' })
+    expect(mr.display).toContain('Pedro')
+    expect(mr.display).not.toContain('González')
+  })
+
+  it('funciona sin nombres (backward compatible)', () => {
+    const cfg: MatchPlayConfig = { courseHandicapA: 10, courseHandicapB: 10, totalHoles: 18 }
+    const scA = { '1': 4 }
+    const scB = { '1': 5 }
+    const mr = calcularMatchPlay(scA, scB, holes18, cfg)
+    expect(mr.display).toBe('1 UP A con 17 por jugar')
+  })
+
+  it('muestra nombre de B cuando B va ganando', () => {
+    const cfg: MatchPlayConfig = { courseHandicapA: 10, courseHandicapB: 10, totalHoles: 18 }
+    const scA = { '1': 5, '2': 5 }
+    const scB = { '1': 4, '2': 4 }
+    const mr = calcularMatchPlay(scA, scB, holes18, cfg, { nombreA: 'Carlos', nombreB: 'Martín' })
+    expect(mr.display).toBe('2 UP Martín con 16 por jugar')
+  })
+
+  it('resultado final no incluye nombres (convención golf)', () => {
+    const cfg: MatchPlayConfig = { courseHandicapA: 10, courseHandicapB: 10, totalHoles: 18 }
+    const scA = scoresConstantes(3, 18)
+    const scB = scoresConstantes(4, 18)
+    const mr = calcularMatchPlay(scA, scB, holes18, cfg, { nombreA: 'Juan', nombreB: 'Pedro' })
+    expect(mr.isFinished).toBe(true)
+    // Final results use "X&Y" or "X UP" format without names
+    expect(mr.display).not.toContain('Juan')
+    expect(mr.display).not.toContain('Pedro')
+  })
+})

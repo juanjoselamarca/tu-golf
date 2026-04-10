@@ -725,7 +725,7 @@ function ScorePageContent() {
       courseHandicapA: playerHcp[jug[0].id] ?? 0,
       courseHandicapB: playerHcp[jug[1].id] ?? 0,
       totalHoles: ronda.holes,
-    })
+    }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
   }, [isMatchPlay, ronda, scores, holeDataMap, playerHcp])
 
   /* ── Render ── */
@@ -842,6 +842,10 @@ function ScorePageContent() {
 
   // What to display based on modo_juego
   const modoJuego = ronda.modo_juego ?? 'gross'
+  const modoLabel = modoJuego === 'match_play_neto' ? 'Match Play Neto'
+    : modoJuego === 'stableford' ? 'Stableford'
+    : modoJuego === 'neto' ? 'Stroke Play Neto'
+    : 'Stroke Play'
   const showNet = modoJuego === 'neto'
   const showStableford = modoJuego === 'stableford'
   const displayOverUnder = showNet ? totalNetOverUnder : totalOverUnder
@@ -905,7 +909,18 @@ function ScorePageContent() {
           WebkitTapHighlightColor: 'transparent',
         }}>←</button>
         <div style={{ textAlign: 'center', flex: 1 }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
+            <span style={{
+              fontSize: '9px', fontWeight: 600, letterSpacing: '0.05em',
+              padding: '2px 8px', borderRadius: '10px',
+              background: 'rgba(196,153,42,0.15)', color: '#C4992A',
+              border: '1px solid rgba(196,153,42,0.25)',
+              textTransform: 'uppercase' as const,
+            }}>
+              {modoLabel}
+            </span>
+          </div>
           <div style={{ fontSize: '10px', color: theme.textFaint }}>{ronda.course_name}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1107,14 +1122,25 @@ function ScorePageContent() {
       >
         {/* Score number */}
         <div style={{ position: 'relative' }}>
-          <div
-            className={scoreAnimating ? 'score-animating' : ''}
-            style={{
-              fontSize: 'clamp(72px, 20vw, 96px)', fontWeight: 700, fontFamily: 'var(--font-dm-sans)',
-              lineHeight: 1, color: score != null ? theme.scoreText : theme.scoreDimmed, letterSpacing: '-3px',
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >{score ?? par}</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+            <div
+              className={scoreAnimating ? 'score-animating' : ''}
+              style={{
+                fontSize: 'clamp(72px, 20vw, 96px)', fontWeight: 700, fontFamily: 'var(--font-dm-sans)',
+                lineHeight: 1, color: score != null ? theme.scoreText : theme.scoreDimmed, letterSpacing: '-3px',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >{score ?? par}</div>
+            {strokesOnHole > 0 && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '1px',
+                fontSize: '12px', fontWeight: 700, color: '#c4992a',
+                alignSelf: 'flex-start', marginTop: '8px',
+              }}>
+                {'●'.repeat(strokesOnHole)}
+              </span>
+            )}
+          </div>
 
           {/* Save check toast */}
           {saveCheckVisible && (

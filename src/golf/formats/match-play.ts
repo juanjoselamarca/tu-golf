@@ -64,6 +64,11 @@ export interface MatchPlayConfig {
   totalHoles: number
 }
 
+export interface MatchPlayNames {
+  nombreA?: string
+  nombreB?: string
+}
+
 // ─── Handicap: strokes que recibe cada jugador ───
 
 /**
@@ -121,10 +126,12 @@ function resultadoHoyo(netoA: number, netoB: number): HoleResult {
 
 // ─── Display del estado del match ───
 
-function displayMatchState(state: number): string {
+function displayMatchState(state: number, nombres?: MatchPlayNames): string {
   if (state === 0) return 'AS' // All Square
   const abs = Math.abs(state)
-  const quien = state > 0 ? 'A' : 'B'
+  const quien = state > 0
+    ? (nombres?.nombreA?.split(' ')[0] ?? 'A')
+    : (nombres?.nombreB?.split(' ')[0] ?? 'B')
   return `${abs} UP ${quien}`
 }
 
@@ -141,13 +148,16 @@ function displayResultado(
   holesRemaining: number,
   isFinished: boolean,
   totalHoles: number,
-  holesPlayed: number
+  holesPlayed: number,
+  nombres?: MatchPlayNames
 ): string {
   // Match en curso (no todos los hoyos jugados y no terminó temprano)
   if (!isFinished && holesPlayed < totalHoles) {
     if (state === 0) return 'All Square'
     const abs = Math.abs(state)
-    const quien = state > 0 ? 'A' : 'B'
+    const quien = state > 0
+      ? (nombres?.nombreA?.split(' ')[0] ?? 'A')
+      : (nombres?.nombreB?.split(' ')[0] ?? 'B')
     return `${abs} UP ${quien} con ${holesRemaining} por jugar`
   }
 
@@ -183,7 +193,8 @@ export function calcularMatchPlay(
   scoresA: Record<string, number>,
   scoresB: Record<string, number>,
   holes: Array<{ numero: number; par: number; stroke_index: number }>,
-  config: MatchPlayConfig
+  config: MatchPlayConfig,
+  nombres?: MatchPlayNames
 ): MatchResult {
   const { courseHandicapA, courseHandicapB, totalHoles } = config
   const [diffA, diffB] = calcularDiferenciaHandicap(courseHandicapA, courseHandicapB)
@@ -321,7 +332,7 @@ export function calcularMatchPlay(
     state: matchState,
     isFinished,
     winner,
-    display: displayResultado(matchState, holesRemaining, isFinished, totalHoles, holesPlayed),
+    display: displayResultado(matchState, holesRemaining, isFinished, totalHoles, holesPlayed, nombres),
     holesWonA,
     holesWonB,
     holesHalved,
@@ -394,7 +405,8 @@ export function calcularNassau(
   scoresA: Record<string, number>,
   scoresB: Record<string, number>,
   holes: Array<{ numero: number; par: number; stroke_index: number }>,
-  config: MatchPlayConfig
+  config: MatchPlayConfig,
+  nombres?: MatchPlayNames
 ): NassauResult | null {
   // Nassau requiere 18 hoyos (front 9 + back 9)
   const frontHoles = holes.filter((h) => h.numero <= 9)
@@ -407,14 +419,14 @@ export function calcularNassau(
   const front = calcularMatchPlay(scoresA, scoresB, frontHoles, {
     ...config,
     totalHoles: frontHoles.length,
-  })
+  }, nombres)
 
   const back = calcularMatchPlay(scoresA, scoresB, backHoles, {
     ...config,
     totalHoles: backHoles.length,
-  })
+  }, nombres)
 
-  const overall = calcularMatchPlay(scoresA, scoresB, holes, config)
+  const overall = calcularMatchPlay(scoresA, scoresB, holes, config, nombres)
 
   return { front, back, overall }
 }
