@@ -252,35 +252,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 3b: Update existing Garmin rounds (upsert by garmin_scorecard_id)
-    for (let i = 0; i < garminUpsertRows.length; i++) {
-      const row = garminUpsertRows[i]
-      const tid = garminUpsertTempIds[i]
-
-      const { data: updated, error: updateError } = await supabase
-        .from('historical_rounds')
-        .update({
-          course_name: row.course_name,
-          played_at: row.played_at,
-          scores: row.scores,
-          total_gross: row.total_gross,
-          holes_played: row.holes_played,
-          import_confidence: row.import_confidence,
-          import_source: row.import_source,
-          metadata: row.metadata,
-          course_rating: row.course_rating,
-          slope_rating: row.slope_rating,
-        })
-        .eq('user_id', user.id)
-        .eq('garmin_scorecard_id', row.garmin_scorecard_id!)
-        .select('id')
-
-      if (updateError) {
-        insertErrors.push({ tempId: tid, error: updateError.message })
-      } else if (updated && updated.length > 0) {
-        insertedIds.push(updated[0].id)
-      }
-    }
+    // Step 3b: Update existing Garmin rounds (upsert by garmin_scorecard_id) — parallelized
+    const upsertResults = await Promise.all(
+      garminUpsertRows.map((row, i) =>
+        supabase
+          .from('historical_rounds')
+          .update({
+            course_name: row.course_name,
+            played_at: row.played_at,
+            scores: row.scores,
+            total_gross: row.total_gross,
+            holes_played: row.holes_played,
+            import_confidence: row.import_confidence,
+            import_source: row.import_source,
+            metadata: row.metadata,
+            course_rating: row.course_rating,
+            slope_rating: row.slope_rating,
+          })
+          .eq('user_id', user.id)
+          .eq('garmin_scorecard_id', row.garmin_scorecard_id!)
+          .select('id')
+          .then(({ data: updated, error: updateError }) => {
+            if (updateError) {
+              insertErrors.push({ tempId: garminUpsertTempIds[i], error: updateError.message })
+            } else if (updated && updated.length > 0) {
+              insertedIds.push(updated[0].id)
+            }
+          })
+      )
+    )
 
     // Update job status
     await supabase
