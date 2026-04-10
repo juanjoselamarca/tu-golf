@@ -29,10 +29,10 @@ const TEST_USER_EMAIL = 'test-jugador-a@golfers.plus'
 
 const RONDAS = [
   { cancha: 'Club de Golf Los Leones', holes: 18, tees: 'blanco', modo: 'gross',      jugadores: ['Test Jugador A', 'Compañero 1'] },
-  { cancha: 'Prince of Wales',         holes: 18, tees: 'azul',   modo: 'stableford', jugadores: ['Test Jugador A'] },
+  { cancha: 'Prince of Wales',         holes: 18, tees: 'azul',   modo: 'neto', formato: 'stableford', jugadores: ['Test Jugador A'] },
   { cancha: 'Club de Golf La Dehesa',  holes: 9,  tees: 'blanco', modo: 'neto',       jugadores: ['Test Jugador A', 'Compañero 2', 'Compañero 3'] },
   { cancha: 'Club de Golf Chicureo',   holes: 18, tees: 'rojo',   modo: 'gross',      jugadores: ['Test Jugador A', 'Compañero 4'] },
-  { cancha: 'Santiago Golf Club',      holes: 18, tees: 'blanco', modo: 'stableford', jugadores: ['Test Jugador A'] },
+  { cancha: 'Santiago Golf Club',      holes: 18, tees: 'blanco', modo: 'neto', formato: 'stableford', jugadores: ['Test Jugador A'] },
 ]
 
 const PARS_18 = [4,5,3,4,3,4,4,3,5, 4,5,4,3,5,4,5,3,4]
@@ -138,7 +138,8 @@ async function simulate() {
     const rondaNum = r + 1
     console.log(`\n${'═'.repeat(56)}`)
     console.log(`RONDA ${rondaNum}/5 — ${ronda.cancha}`)
-    console.log(`  ${ronda.holes} hoyos · ${ronda.tees} · ${ronda.modo} · ${ronda.jugadores.length} jugadores`)
+    const modoLabel = (ronda as { formato?: string }).formato ? `${ronda.modo}/${(ronda as { formato?: string }).formato}` : ronda.modo
+    console.log(`  ${ronda.holes} hoyos · ${ronda.tees} · ${modoLabel} · ${ronda.jugadores.length} jugadores`)
     console.log('═'.repeat(56))
 
     // ── PASO 2: Crear ronda libre ──
@@ -158,7 +159,9 @@ async function simulate() {
 
     // Try with modo_juego first (may not exist)
     let rondaId: string | null = null
-    const { data: d1, error: e1 } = await sb.from('rondas_libres').insert({ ...insertData, modo_juego: ronda.modo }).select('id').single()
+    const modeFields: Record<string, unknown> = { modo_juego: ronda.modo }
+    if ((ronda as { formato?: string }).formato) modeFields.formato_juego = (ronda as { formato?: string }).formato
+    const { data: d1, error: e1 } = await sb.from('rondas_libres').insert({ ...insertData, ...modeFields }).select('id').single()
 
     if (e1) {
       if (e1.message.includes('modo_juego') || e1.message.includes('schema cache')) {

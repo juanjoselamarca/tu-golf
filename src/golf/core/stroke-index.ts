@@ -149,7 +149,7 @@ export function shouldShowSIWarning(
   if (modoJuego === 'gross' && format === 'stroke_play') return false
 
   // Stableford and match play always need accurate SI
-  if (format === 'stableford' || modoJuego === 'stableford') return siSource !== 'custom' && siSource !== 'verified'
+  if (format === 'stableford') return siSource !== 'custom' && siSource !== 'verified'
 
   // Neto only matters for 9 holes (total net is same regardless of SI for 18)
   if (modoJuego === 'neto' && holeCount === 9) return siSource !== 'custom' && siSource !== 'verified'

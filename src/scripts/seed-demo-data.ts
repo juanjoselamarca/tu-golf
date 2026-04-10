@@ -124,7 +124,8 @@ async function seed() {
       hole_count: 18,
       use_handicap: true,
       status: 'draft',
-      modo_juego: 'stableford',
+      modo_juego: 'neto',
+      formato_juego: 'stableford',
     }).select('id').single()
     if (tErr) { console.error(`  ❌ Torneo: ${tErr.message}`); process.exit(1) }
     tournamentId = newT!.id

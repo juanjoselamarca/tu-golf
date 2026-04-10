@@ -457,7 +457,7 @@ function ToastStack({
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────
 
-export default function LeaderboardTable({ players, modoJuego }: { players: Player[]; modoJuego?: string }) {
+export default function LeaderboardTable({ players, modoJuego, formatoJuego }: { players: Player[]; modoJuego?: string; formatoJuego?: string }) {
   const [activeTab,   setActiveTab]   = useState<Category>('General')
   const [expandedId,  setExpandedId]  = useState<number | null>(null)
   const [toasts,      setToasts]      = useState<ToastItem[]>([])
@@ -624,8 +624,8 @@ export default function LeaderboardTable({ players, modoJuego }: { players: Play
                   { label: 'JUGADOR',align: 'left',   w: 'auto' },
                   { label: 'HCP',    align: 'center', w: 60  },
                   { label: 'PAR',    align: 'center', w: 70  },
-                  { label: modoJuego === 'stableford' ? 'PTS' : 'HOY',   align: 'center', w: 80  },
-                  { label: modoJuego === 'stableford' ? 'TOTAL PTS' : 'TOTAL', align: 'center', w: 80  },
+                  { label: formatoJuego === 'stableford' ? 'PTS' : 'HOY',   align: 'center', w: 80  },
+                  { label: formatoJuego === 'stableford' ? 'TOTAL PTS' : 'TOTAL', align: 'center', w: 80  },
                   { label: 'HOYO',   align: 'center', w: 110 },
                   { label: 'GWI™',   align: 'right',  w: 100 },
                 ].map(col => (
