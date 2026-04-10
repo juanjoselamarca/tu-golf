@@ -196,7 +196,7 @@ function GenderToggle({ value, onChange }: { value: Gender; onChange: (g: Gender
     <div
       style={{
         display: 'inline-flex',
-        borderRadius: 8,
+        borderRadius: 6,
         border: `1px solid ${C.goldFaint}`,
         overflow: 'hidden',
         flexShrink: 0,
@@ -208,15 +208,16 @@ function GenderToggle({ value, onChange }: { value: Gender; onChange: (g: Gender
           type="button"
           onClick={(e) => { e.stopPropagation(); onChange(g) }}
           style={{
-            padding: '4px 10px',
-            fontSize: 12,
+            padding: '2px 7px',
+            fontSize: 11,
             fontWeight: 600,
             background: value === g ? C.gold : 'transparent',
             color: value === g ? C.bg : C.muted,
             border: 'none',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
-            minHeight: 28,
+            minHeight: 22,
+            lineHeight: '16px',
           }}
         >
           {g === 'M' ? 'V' : 'D'}
@@ -559,22 +560,25 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
 
   // ── Course list item ────────────────────────────────────────────────────────
 
-  const renderCourseItem = (course: MergedCourse, showClub = true) => {
+  const renderCourseItem = (course: MergedCourse, showClub = true, isSearchResult = false) => {
     const fav = isFavorite(course.displayName, course.clubId)
+    const hasBothGenders = !!(course.varonesId && course.damasId)
+    // Only show verification dot for non-fedegolf search results
+    const showVerifiedDot = isSearchResult && course.fuente !== 'fedegolf' && course.verified
     return (
       <div
         key={`${course.clubId}_${course.displayName}`}
         style={{
           display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '10px 12px',
+          flexDirection: 'column',
+          gap: 4,
+          padding: '14px 16px',
           background: C.white04,
           border: `1px solid ${C.goldFaint}`,
           borderRadius: 12,
           cursor: 'pointer',
           transition: 'all 0.2s ease',
-          minHeight: 48,
+          minHeight: 56,
         }}
         onClick={() => doSelect(course, gender)}
         onMouseEnter={(e) => {
@@ -586,23 +590,25 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
           e.currentTarget.style.borderColor = C.goldFaint
         }}
       >
-        {/* Verification dot */}
-        {course.verified && (
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: '#4ade80',
-              flexShrink: 0,
-            }}
-          />
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Row 1: Name + Star */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {showVerifiedDot && (
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#4ade80',
+                flexShrink: 0,
+              }}
+            />
+          )}
           <div
             style={{
-              fontSize: 14,
-              fontWeight: 500,
+              flex: 1,
+              minWidth: 0,
+              fontSize: 15,
+              fontWeight: 600,
               color: C.ivory,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -611,45 +617,50 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
           >
             {course.displayName}
           </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); toggleFavorite(course) }}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 4,
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+            aria-label={fav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+          >
+            <StarIcon filled={fav} size={16} />
+          </button>
+        </div>
+        {/* Row 2: Club + Par + V/D toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {showClub && course.clubName && (
-            <div
+            <span
               style={{
                 fontSize: 12,
                 color: C.tertiary,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                marginTop: 1,
+                flex: 1,
+                minWidth: 0,
               }}
             >
               {course.clubName}
-            </div>
+            </span>
+          )}
+          {!showClub || !course.clubName ? <span style={{ flex: 1 }} /> : null}
+          {course.parTotal && (
+            <span style={{ fontSize: 12, color: C.muted, flexShrink: 0 }}>
+              Par {course.parTotal}
+            </span>
+          )}
+          {hasBothGenders && (
+            <GenderToggle value={gender} onChange={(g) => doSelect(course, g)} />
           )}
         </div>
-        {course.parTotal && (
-          <span style={{ fontSize: 12, color: C.muted, flexShrink: 0 }}>
-            Par {course.parTotal}
-          </span>
-        )}
-        {(course.varonesId && course.damasId) && (
-          <GenderToggle value={gender} onChange={(g) => doSelect(course, g)} />
-        )}
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); toggleFavorite(course) }}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 4,
-            display: 'flex',
-            alignItems: 'center',
-            flexShrink: 0,
-          }}
-          aria-label={fav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
-        >
-          <StarIcon filled={fav} size={16} />
-        </button>
       </div>
     )
   }
@@ -683,7 +694,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
             {favorites.length > 0 && !hasSearch && (
               <div style={{ marginBottom: 8 }}>
                 <SectionLabel>Favoritas</SectionLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {favorites.map((fav) => {
                     const merged = allCourses.find(
                       c => c.displayName === fav.displayName && c.clubId === fav.clubId
@@ -698,7 +709,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
             {recents.length > 0 && !hasSearch && (
               <div style={{ marginBottom: 8 }}>
                 <SectionLabel>Recientes</SectionLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {recents.map((rec) => {
                     const merged = allCourses.find(
                       c => c.displayName === rec.displayName && c.clubId === rec.clubId
@@ -716,8 +727,8 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
                 {searchLoading ? (
                   <Spinner />
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {mergedSearchResults.map((course) => renderCourseItem(course))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {mergedSearchResults.map((course) => renderCourseItem(course, true, true))}
                     {noSearchMatch && (
                       <div style={{ padding: '12px 0', textAlign: 'center' }}>
                         <p style={{ fontSize: 13, color: C.tertiary, marginBottom: 8 }}>
@@ -750,7 +761,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
               /* ── Canchas populares ── */
               <div style={{ marginBottom: 8 }}>
                 <SectionLabel>Canchas populares</SectionLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {sortedCourses.map((course) => renderCourseItem(course))}
                 </div>
               </div>
