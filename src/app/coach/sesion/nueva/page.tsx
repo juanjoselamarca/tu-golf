@@ -35,7 +35,10 @@ export default function NuevaSesionPage() {
         .limit(5)
 
       if (!joinErr && rondasJoin && rondasJoin.length > 0) {
-        setRondas(rondasJoin.map((r: any) => ({
+        type RondaLibreJoin = {
+          rondas_libres: { id: string; codigo: string; course_name: string; fecha: string }
+        }
+        setRondas((rondasJoin as unknown as RondaLibreJoin[]).map((r) => ({
           id: r.rondas_libres.id,
           codigo: r.rondas_libres.codigo,
           course_name: r.rondas_libres.course_name,

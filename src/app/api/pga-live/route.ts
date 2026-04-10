@@ -93,22 +93,33 @@ export async function GET() {
     const tournamentRoundNum = roundMatch ? parseInt(roundMatch[1], 10) : 1
 
     // Sort by score
-    const sorted = [...(competitors as any[])].sort((a, b) => {
-      const sa = parseFloat(a.score) || 0
-      const sb = parseFloat(b.score) || 0
+    interface EspnLineScore {
+      displayValue?: string
+      linescores?: Array<{ displayValue?: string }>
+    }
+    interface EspnCompetitor {
+      score?: string
+      athlete?: { displayName?: string; flag?: { alt?: string }; [k: string]: unknown }
+      status?: { type?: { state?: string; completed?: boolean }; teeTime?: string; startDate?: string; [k: string]: unknown }
+      linescores?: EspnLineScore[]
+      [k: string]: unknown
+    }
+    const sorted = [...(competitors as EspnCompetitor[])].sort((a, b) => {
+      const sa = parseFloat(a.score ?? '0') || 0
+      const sb = parseFloat(b.score ?? '0') || 0
       return sa - sb
     })
 
-    const top10 = sorted.slice(0, 10).map((c: any, index: number) => {
+    const top10 = sorted.slice(0, 10).map((c: EspnCompetitor, index: number) => {
       // Score total
-      const rawScore = parseFloat(c.score)
+      const rawScore = parseFloat(c.score ?? '0')
       let score = 'E'
       if (!isNaN(rawScore)) {
         score = rawScore < 0 ? String(rawScore) : rawScore > 0 ? `+${rawScore}` : 'E'
       }
 
       // All rounds data
-      const rounds: any[] = c.linescores || []
+      const rounds: EspnLineScore[] = c.linescores || []
 
       // Current round = the one matching tournamentRoundNum (0-indexed)
       // If tournament is in R2, we want rounds[1], not the last one with data
@@ -146,8 +157,8 @@ export async function GET() {
       }
 
       // Posicion con ties
-      const prevScore = index > 0 ? parseFloat(sorted[index - 1]?.score) : null
-      const myScore = parseFloat(c.score)
+      const prevScore = index > 0 ? parseFloat(sorted[index - 1]?.score ?? '0') : null
+      const myScore = parseFloat(c.score ?? '0')
       const pos = prevScore !== null && !isNaN(prevScore) && !isNaN(myScore) && prevScore === myScore
         ? `T${index + 1}` : String(index + 1)
 
