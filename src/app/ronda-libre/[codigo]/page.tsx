@@ -64,7 +64,7 @@ import { calcularGWI } from '@/golf/stats/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
-import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { Suspense } from 'react'
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
@@ -118,6 +118,26 @@ function getVsPar(scores: Record<string, number>, holes: number, parMap: Record<
   for (let h = 1; h <= holes; h++) {
     const s = scores[String(h)] ?? scores[h]
     if (s != null) total += s - (parMap[h] ?? 4)
+  }
+  return total
+}
+
+/** Calcula vs par NETO aplicando strokes del course handicap por stroke index */
+function getVsParNeto(
+  scores: Record<string, number>,
+  holes: number,
+  parMap: Record<number, number>,
+  siMap: Record<number, number>,
+  courseHandicap: number,
+): number {
+  let total = 0
+  for (let h = 1; h <= holes; h++) {
+    const s = scores[String(h)] ?? scores[h]
+    if (s == null) continue
+    const si = siMap[h] ?? h
+    const strokes = strokesRecibidosEnHoyo(courseHandicap, si, holes)
+    const neto = s - strokes
+    total += neto - (parMap[h] ?? 4)
   }
   return total
 }
@@ -403,8 +423,15 @@ function RondaLibrePageContent() {
   // Spectator: detect score events and send notifications
   const checkScoreEvents = useCallback(() => {
     if (!ronda || !getNotifPrefs().spectator) return
+    const isNeto = ronda.modo_juego === 'neto'
     const lb = [...ronda.ronda_libre_jugadores]
-      .map(j => ({ nombre: j.nombre, vsPar: getVsPar(j.scores, ronda.holes, parMap), hp: getHolesPlayed(j.scores, ronda.holes) }))
+      .map(j => {
+        const ch = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 18)
+        const vsPar = isNeto
+          ? getVsParNeto(j.scores, ronda.holes, parMap, siMap, ch)
+          : getVsPar(j.scores, ronda.holes, parMap)
+        return { nombre: j.nombre, vsPar, hp: getHolesPlayed(j.scores, ronda.holes) }
+      })
       .filter(j => j.hp > 0)
       .sort((a, b) => a.vsPar - b.vsPar)
 
@@ -431,7 +458,7 @@ function RondaLibrePageContent() {
         }
       }
     }
-  }, [ronda, parMap, codigo])
+  }, [ronda, parMap, siMap, courseHcpMap, codigo])
 
   useEffect(() => {
     if (role !== 'espectador') return
@@ -652,24 +679,28 @@ function RondaLibrePageContent() {
   const hasCourse = Object.keys(parMap).length > 0
   const timelineEvents = buildTimelineEvents(ronda.ronda_libre_jugadores, ronda.holes, parMap)
 
-  // Sorted leaderboard
+  // Sorted leaderboard — calcula gross Y neto, usa el correcto según modo_juego
+  const isNetoMode = ronda.modo_juego === 'neto'
   const leaderboard = [...ronda.ronda_libre_jugadores]
     .map(j => {
-      const vsPar = getVsPar(j.scores, ronda.holes, parMap)
+      const vsParGross = getVsPar(j.scores, ronda.holes, parMap)
+      const courseHcp = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 18)
+      const vsParNeto = getVsParNeto(j.scores, ronda.holes, parMap, siMap, courseHcp)
+      // vsPar es el valor que se usa para ordenar y mostrar en la columna principal
+      const vsPar = isNetoMode ? vsParNeto : vsParGross
       const holesPlayed = getHolesPlayed(j.scores, ronda.holes)
       let stablefordPts = 0
       if (ronda.formato_juego === 'stableford') {
-        const ch = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 18)
         for (let h = 1; h <= ronda.holes; h++) {
           const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
           if (s != null) {
             const si = siMap[h] ?? h
             const par = parMap[h] ?? 4
-            stablefordPts += puntosStablefordHoyo(s, par, ch, si, ronda.holes)
+            stablefordPts += puntosStablefordHoyo(s, par, courseHcp, si, ronda.holes)
           }
         }
       }
-      return { ...j, vsPar, holesPlayed, stablefordPts }
+      return { ...j, vsPar, vsParGross, vsParNeto, courseHcp, holesPlayed, stablefordPts }
     })
     .sort((a, b) => {
       if (a.holesPlayed === 0 && b.holesPlayed === 0) return 0
@@ -1398,12 +1429,21 @@ function RondaLibrePageContent() {
             display: ronda.formato_juego === 'match_play' ? 'none' : 'block',
           }}>
 
-            {/* Table header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px', padding: '10px 16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+            {/* Table header — incluye columna HCP cuando modo = neto */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isNetoMode && ronda.formato_juego !== 'stableford'
+                ? '28px 1fr 40px 64px 52px'
+                : '32px 1fr 72px 60px',
+              padding: '10px 16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', gap: '4px',
+            }}>
               <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase' }}>#</span>
               <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase' }}>Jugador</span>
+              {isNetoMode && ronda.formato_juego !== 'stableford' && (
+                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'center' }}>HCP</span>
+              )}
               <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'center' }}>
-                {ronda.formato_juego === 'stableford' ? 'PTS' : hasCourse ? '+/- Par' : 'Score'}
+                {ronda.formato_juego === 'stableford' ? 'PTS' : hasCourse ? (isNetoMode ? 'Neto' : 'Gross') : 'Score'}
               </span>
               <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
             </div>
@@ -1433,12 +1473,15 @@ function RondaLibrePageContent() {
                     aria-label={isExpanded ? `Colapsar scorecard de ${j.nombre}` : `Expandir scorecard de ${j.nombre}`}
                     style={{
                       width: '100%', background: '#ffffff', border: 'none', cursor: 'pointer',
-                      display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px',
-                      padding: '13px 16px', alignItems: 'center', textAlign: 'left',
+                      display: 'grid',
+                      gridTemplateColumns: isNetoMode && !isStableford
+                        ? '28px 1fr 40px 64px 52px'
+                        : '32px 1fr 72px 60px',
+                      padding: '13px 16px', alignItems: 'center', textAlign: 'left', gap: '4px',
                     }}
                   >
                     <span style={{ fontSize: '14px', color: '#9ca3af', fontWeight: 600 }}>{idx + 1}</span>
-                    <span style={{ fontSize: '15px', color: '#111827', fontWeight: 600 }}>
+                    <span style={{ fontSize: '15px', color: '#111827', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {j.nombre}
                       {j.holesPlayed > 0 && (
                         <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400, marginLeft: '6px' }}>
@@ -1446,10 +1489,20 @@ function RondaLibrePageContent() {
                         </span>
                       )}
                     </span>
+                    {isNetoMode && !isStableford && (
+                      <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 700, textAlign: 'center', fontFamily: '"DM Mono", monospace' }}>
+                        {j.courseHcp}
+                      </span>
+                    )}
                     <div style={{ textAlign: 'center' }}>
-                      <span style={{ fontSize: '17px', fontWeight: 700, color: scoreColor }}>
+                      <span style={{ fontSize: '17px', fontWeight: 700, color: scoreColor, fontFamily: '"DM Mono", monospace' }}>
                         {vsParStr}
                       </span>
+                      {isNetoMode && !isStableford && j.holesPlayed > 0 && (
+                        <div style={{ fontSize: '10px', color: '#9ca3af', fontFamily: '"DM Mono", monospace' }}>
+                          Gross {formatOverUnder(j.vsParGross)}
+                        </div>
+                      )}
                     </div>
                     <span style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'right' }}>
                       {j.holesPlayed}/{ronda.holes}
