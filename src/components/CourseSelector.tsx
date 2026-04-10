@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface CourseSelectorProps {
   onSelect: (course: {
@@ -13,115 +15,321 @@ interface CourseSelectorProps {
   initialValue?: string
 }
 
-interface ClubGroup {
-  fedegolf_club_id: number
-  nombre: string
-  count: number
-}
-
-interface CourseResult {
+interface CourseRow {
   id: string
   nombre: string
   par_total: number | null
   fuente: string | null
   datos_verificados: boolean | null
+  fedegolf_club_id: number | null
 }
 
-type Tab = 'oficial' | 'buscar'
-type View = 'clubs' | 'courses'
+/** A merged course = one entry per course, with both VARONES and DAMAS ids */
+interface MergedCourse {
+  displayName: string
+  clubName: string
+  clubId: number | null
+  parTotal: number | null
+  verified: boolean
+  varonesId: string | null
+  damasId: string | null
+  varonesParTotal: number | null
+  damasParTotal: number | null
+  fuente: string | null
+}
 
-export default function CourseSelector({ onSelect, initialValue }: CourseSelectorProps) {
-  const [tab, setTab] = useState<Tab>('oficial')
-  const [view, setView] = useState<View>('clubs')
-  const [clubs, setClubs] = useState<ClubGroup[]>([])
-  const [clubCourses, setClubCourses] = useState<CourseResult[]>([])
-  const [selectedClubName, setSelectedClubName] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<CourseResult[]>([])
-  const [loading, setLoading] = useState(false)
-  const [selectedName, setSelectedName] = useState(initialValue ?? '')
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+interface FavoriteCourse {
+  displayName: string
+  clubName: string
+  clubId: number | null
+  varonesId: string | null
+  damasId: string | null
+  varonesParTotal: number | null
+  damasParTotal: number | null
+  fuente: string | null
+}
 
-  const supabase = createClient()
+type Gender = 'M' | 'F'
 
-  // Load clubs on mount
-  useEffect(() => {
-    async function loadClubs() {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('courses')
-        .select('fedegolf_club_id, nombre')
-        .not('fedegolf_club_id', 'is', null)
-        .eq('activa', true)
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-      if (error || !data) {
-        setLoading(false)
-        return
-      }
+const FAVORITES_KEY = 'golfers_favorite_courses'
+const RECENTS_KEY = 'golfers_recent_courses'
+const MAX_FAVORITES = 5
+const MAX_RECENTS = 3
 
-      // Group by fedegolf_club_id, extract club name (first part before " - " or full name)
-      const clubMap = new Map<number, { nombre: string; count: number }>()
-      for (const row of data) {
-        const clubId = row.fedegolf_club_id as number
-        if (!clubMap.has(clubId)) {
-          // Club name: use the part before " - " if present, otherwise full name
-          const parts = row.nombre.split(' - ')
-          const clubName = parts.length > 1 ? parts[0].trim() : row.nombre
-          clubMap.set(clubId, { nombre: clubName, count: 0 })
-        }
-        clubMap.get(clubId)!.count++
-      }
+/** Club IDs ordered by popularity in Chilean golf */
+const CLUB_POPULARITY_ORDER = [
+  5, 4, 1, 3, 7, 2, 58, 9, 6, 26, 50, 10, 16, 17, 56,
+  20, 21, 25, 8, 14, 18, 12, 27, 22, 19, 24,
+]
 
-      const grouped: ClubGroup[] = Array.from(clubMap.entries())
-        .map(([id, info]) => ({
-          fedegolf_club_id: id,
-          nombre: info.nombre,
-          count: info.count,
-        }))
-        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+// ─── Design tokens ──────────────────────────────────────────────────────────
 
-      setClubs(grouped)
-      setLoading(false)
+const C = {
+  bg: '#070d18',
+  card: '#0e1c2f',
+  cardGradient: 'linear-gradient(135deg, rgba(14,28,47,0.9), rgba(14,28,47,0.7))',
+  gold: '#c4992a',
+  goldDim: 'rgba(196,153,42,0.2)',
+  goldFaint: 'rgba(196,153,42,0.12)',
+  ivory: '#edeae4',
+  muted: '#94a8c0',
+  tertiary: '#5a6a7a',
+  inputBg: 'rgba(255,255,255,0.04)',
+  white04: 'rgba(255,255,255,0.04)',
+  white08: 'rgba(255,255,255,0.08)',
+} as const
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function cleanCourseName(nombre: string): { displayName: string; clubName: string } {
+  const dashIdx = nombre.indexOf(' - ')
+  let clubName = ''
+  let coursePart = nombre
+
+  if (dashIdx !== -1) {
+    clubName = nombre.substring(0, dashIdx).trim()
+    coursePart = nombre.substring(dashIdx + 3).trim()
+  }
+
+  // Remove gender suffixes
+  coursePart = coursePart
+    .replace(/\s*\(VARONES\)\s*/i, '')
+    .replace(/\s*\(DAMAS\)\s*/i, '')
+    .trim()
+
+  return { displayName: coursePart || clubName, clubName }
+}
+
+function isVarones(nombre: string): boolean {
+  return /\(VARONES\)/i.test(nombre)
+}
+
+function isDamas(nombre: string): boolean {
+  return /\(DAMAS\)/i.test(nombre)
+}
+
+/** Merge VARONES/DAMAS pairs into single entries */
+function mergeCourses(courses: CourseRow[]): MergedCourse[] {
+  const map = new Map<string, MergedCourse>()
+
+  for (const c of courses) {
+    const { displayName, clubName } = cleanCourseName(c.nombre)
+    const key = `${c.fedegolf_club_id ?? 'null'}_${displayName}`
+
+    if (!map.has(key)) {
+      map.set(key, {
+        displayName,
+        clubName,
+        clubId: c.fedegolf_club_id,
+        parTotal: c.par_total,
+        verified: c.datos_verificados ?? false,
+        varonesId: null,
+        damasId: null,
+        varonesParTotal: null,
+        damasParTotal: null,
+        fuente: c.fuente,
+      })
     }
 
-    loadClubs()
+    const entry = map.get(key)!
+    if (isDamas(c.nombre)) {
+      entry.damasId = c.id
+      entry.damasParTotal = c.par_total
+    } else {
+      // Default to varones (or the only variant)
+      entry.varonesId = c.id
+      entry.varonesParTotal = c.par_total
+      entry.parTotal = c.par_total
+    }
+
+    if (c.datos_verificados) entry.verified = true
+  }
+
+  return Array.from(map.values())
+}
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function saveToStorage<T>(key: string, value: T): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Silently fail
+  }
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function StarIcon({ filled, size = 18 }: { filled: boolean; size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? C.gold : 'none'}
+      stroke={filled ? C.gold : C.tertiary}
+      strokeWidth={1.5}
+      style={{ flexShrink: 0, transition: 'all 0.2s ease' }}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+      />
+    </svg>
+  )
+}
+
+function GenderToggle({ value, onChange }: { value: Gender; onChange: (g: Gender) => void }) {
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        borderRadius: 8,
+        border: `1px solid ${C.goldFaint}`,
+        overflow: 'hidden',
+        flexShrink: 0,
+      }}
+    >
+      {(['M', 'F'] as Gender[]).map((g) => (
+        <button
+          key={g}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onChange(g) }}
+          style={{
+            padding: '4px 10px',
+            fontSize: 12,
+            fontWeight: 600,
+            background: value === g ? C.gold : 'transparent',
+            color: value === g ? C.bg : C.muted,
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            minHeight: 28,
+          }}
+        >
+          {g === 'M' ? 'V' : 'D'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function Spinner() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+      <div
+        style={{
+          width: 24,
+          height: 24,
+          border: `2px solid ${C.goldDim}`,
+          borderTopColor: C.gold,
+          borderRadius: '50%',
+          animation: 'course-spin 0.8s linear infinite',
+        }}
+      />
+      <style>{`@keyframes course-spin { to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: 11,
+        fontWeight: 600,
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        color: C.tertiary,
+        padding: '8px 4px 4px',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
+export default function CourseSelector({ onSelect, initialValue }: CourseSelectorProps) {
+  const [allCourses, setAllCourses] = useState<MergedCourse[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedName, setSelectedName] = useState(initialValue ?? '')
+  const [selectedCourse, setSelectedCourse] = useState<MergedCourse | null>(null)
+  const [gender, setGender] = useState<Gender>('M')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<CourseRow[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [favorites, setFavorites] = useState<FavoriteCourse[]>(() =>
+    loadFromStorage<FavoriteCourse[]>(FAVORITES_KEY, [])
+  )
+  const [recents, setRecents] = useState<FavoriteCourse[]>(() =>
+    loadFromStorage<FavoriteCourse[]>(RECENTS_KEY, [])
+  )
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const supabase = createClient()
+
+  // Load all fedegolf courses on mount
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      const { data } = await supabase
+        .from('courses')
+        .select('id, nombre, par_total, fuente, datos_verificados, fedegolf_club_id')
+        .eq('fuente', 'fedegolf')
+        .eq('activa', true)
+
+      if (data) {
+        setAllCourses(mergeCourses(data as CourseRow[]))
+      }
+      setLoading(false)
+    }
+    load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const loadClubCourses = useCallback(async (clubId: number, clubName: string) => {
-    setLoading(true)
-    setSelectedClubName(clubName)
-    setView('courses')
+  // Sort courses by popularity
+  const sortedCourses = useMemo(() => {
+    const popularityMap = new Map<number, number>()
+    CLUB_POPULARITY_ORDER.forEach((id, idx) => popularityMap.set(id, idx))
 
-    const { data } = await supabase
-      .from('courses')
-      .select('id, nombre, par_total, fuente, datos_verificados')
-      .eq('fedegolf_club_id', clubId)
-      .eq('activa', true)
-      .order('nombre')
+    return [...allCourses].sort((a, b) => {
+      const aIdx = a.clubId !== null ? (popularityMap.get(a.clubId) ?? 999) : 999
+      const bIdx = b.clubId !== null ? (popularityMap.get(b.clubId) ?? 999) : 999
+      if (aIdx !== bIdx) return aIdx - bIdx
+      return a.displayName.localeCompare(b.displayName, 'es')
+    })
+  }, [allCourses])
 
-    setClubCourses(data ?? [])
-    setLoading(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
+  // Search handler
   const handleSearch = useCallback(async (query: string) => {
     if (query.length < 2) {
       setSearchResults([])
       return
     }
-
-    setLoading(true)
+    setSearchLoading(true)
     const { data } = await supabase
       .from('courses')
-      .select('id, nombre, par_total, fuente, datos_verificados')
+      .select('id, nombre, par_total, fuente, datos_verificados, fedegolf_club_id')
       .eq('activa', true)
       .ilike('nombre', `%${query}%`)
       .order('datos_verificados', { ascending: false })
       .limit(15)
 
-    setSearchResults(data ?? [])
-    setLoading(false)
+    setSearchResults((data as CourseRow[]) ?? [])
+    setSearchLoading(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -131,16 +339,76 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
     debounceRef.current = setTimeout(() => handleSearch(value), 300)
   }
 
-  const selectCourse = (course: CourseResult) => {
-    setSelectedName(course.nombre)
+  const mergedSearchResults = useMemo(() => {
+    return mergeCourses(searchResults)
+  }, [searchResults])
+
+  // Select a course
+  const doSelect = useCallback((course: MergedCourse, g: Gender) => {
+    const id = g === 'F' ? (course.damasId ?? course.varonesId) : (course.varonesId ?? course.damasId)
+    const par = g === 'F' ? (course.damasParTotal ?? course.varonesParTotal) : (course.varonesParTotal ?? course.damasParTotal)
+
+    setSelectedName(course.displayName)
+    setSelectedCourse(course)
+    setGender(g)
+
+    // Add to recents
+    const asFav: FavoriteCourse = {
+      displayName: course.displayName,
+      clubName: course.clubName,
+      clubId: course.clubId,
+      varonesId: course.varonesId,
+      damasId: course.damasId,
+      varonesParTotal: course.varonesParTotal,
+      damasParTotal: course.damasParTotal,
+      fuente: course.fuente,
+    }
+    setRecents(prev => {
+      const filtered = prev.filter(r => r.displayName !== course.displayName || r.clubId !== course.clubId)
+      const updated = [asFav, ...filtered].slice(0, MAX_RECENTS)
+      saveToStorage(RECENTS_KEY, updated)
+      return updated
+    })
+
     onSelect({
-      id: course.id,
-      nombre: course.nombre,
-      par_total: course.par_total,
+      id: id ?? null,
+      nombre: course.displayName,
+      par_total: par ?? null,
       fuente: course.fuente,
     })
-  }
+  }, [onSelect])
 
+  // Toggle favorite
+  const toggleFavorite = useCallback((course: MergedCourse | FavoriteCourse) => {
+    setFavorites(prev => {
+      const exists = prev.some(f => f.displayName === course.displayName && f.clubId === course.clubId)
+      let updated: FavoriteCourse[]
+      if (exists) {
+        updated = prev.filter(f => !(f.displayName === course.displayName && f.clubId === course.clubId))
+      } else {
+        if (prev.length >= MAX_FAVORITES) return prev
+        const asFav: FavoriteCourse = {
+          displayName: course.displayName,
+          clubName: course.clubName,
+          clubId: course.clubId,
+          varonesId: 'varonesId' in course ? course.varonesId : null,
+          damasId: 'damasId' in course ? course.damasId : null,
+          varonesParTotal: 'varonesParTotal' in course ? course.varonesParTotal : null,
+          damasParTotal: 'damasParTotal' in course ? course.damasParTotal : null,
+          fuente: course.fuente,
+        }
+        updated = [...prev, asFav]
+      }
+      saveToStorage(FAVORITES_KEY, updated)
+      return updated
+    })
+  }, [])
+
+  const isFavorite = useCallback((displayName: string, clubId: number | null) => {
+    return favorites.some(f => f.displayName === displayName && f.clubId === clubId)
+  }, [favorites])
+
+  // Select custom course from search
   const selectCustom = () => {
     if (!searchQuery.trim()) return
     setSelectedName(searchQuery.trim())
@@ -152,21 +420,136 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
     })
   }
 
-  const goBackToClubs = () => {
-    setView('clubs')
-    setClubCourses([])
-    setSelectedClubName('')
+  // Convert FavoriteCourse to MergedCourse for selection
+  const favToMerged = (fav: FavoriteCourse): MergedCourse => ({
+    ...fav,
+    parTotal: fav.varonesParTotal,
+    verified: true,
+  })
+
+  // ── Selected state ──────────────────────────────────────────────────────────
+
+  if (selectedName && selectedCourse) {
+    const par = gender === 'F'
+      ? (selectedCourse.damasParTotal ?? selectedCourse.varonesParTotal)
+      : (selectedCourse.varonesParTotal ?? selectedCourse.damasParTotal)
+
+    return (
+      <div
+        style={{
+          background: C.cardGradient,
+          border: `1px solid ${C.goldDim}`,
+          borderRadius: 14,
+          padding: '14px 16px',
+          transition: 'all 0.2s ease',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                color: C.ivory,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {selectedCourse.displayName}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+              {selectedCourse.clubName && (
+                <span style={{ fontSize: 13, color: C.gold }}>
+                  {selectedCourse.clubName}
+                </span>
+              )}
+              {par && (
+                <span style={{ fontSize: 12, color: C.muted }}>
+                  Par {par}
+                </span>
+              )}
+            </div>
+          </div>
+          {(selectedCourse.varonesId && selectedCourse.damasId) && (
+            <GenderToggle
+              value={gender}
+              onChange={(g) => {
+                setGender(g)
+                doSelect(selectedCourse, g)
+              }}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedName('')
+              setSelectedCourse(null)
+            }}
+            style={{
+              padding: '6px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+              color: C.muted,
+              background: C.white04,
+              border: `1px solid ${C.goldFaint}`,
+              borderRadius: 8,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              minHeight: 36,
+            }}
+          >
+            Cambiar
+          </button>
+        </div>
+      </div>
+    )
   }
 
-  // If already selected, show compact view
+  // Simple selected (custom or from initialValue without course object)
   if (selectedName) {
     return (
-      <div className="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-2">
-        <span className="flex-1 text-sm text-white truncate">{selectedName}</span>
+      <div
+        style={{
+          background: C.cardGradient,
+          border: `1px solid ${C.goldDim}`,
+          borderRadius: 14,
+          padding: '14px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            fontSize: 14,
+            color: C.ivory,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {selectedName}
+        </span>
         <button
           type="button"
-          onClick={() => setSelectedName('')}
-          className="text-xs text-zinc-400 hover:text-white transition-colors"
+          onClick={() => {
+            setSelectedName('')
+            setSelectedCourse(null)
+          }}
+          style={{
+            padding: '6px 14px',
+            fontSize: 13,
+            fontWeight: 500,
+            color: C.muted,
+            background: C.white04,
+            border: `1px solid ${C.goldFaint}`,
+            borderRadius: 8,
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            minHeight: 36,
+          }}
         >
           Cambiar
         </button>
@@ -174,167 +557,243 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
     )
   }
 
-  const noSearchMatch = tab === 'buscar' && searchQuery.length >= 2 && !loading && searchResults.length === 0
+  // ── Course list item ────────────────────────────────────────────────────────
 
-  return (
-    <div className="rounded-lg bg-zinc-900 border border-zinc-700 overflow-hidden">
-      {/* Tabs */}
-      <div className="flex bg-zinc-800">
+  const renderCourseItem = (course: MergedCourse, showClub = true) => {
+    const fav = isFavorite(course.displayName, course.clubId)
+    return (
+      <div
+        key={`${course.clubId}_${course.displayName}`}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '10px 12px',
+          background: C.white04,
+          border: `1px solid ${C.goldFaint}`,
+          borderRadius: 12,
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          minHeight: 48,
+        }}
+        onClick={() => doSelect(course, gender)}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = C.white08
+          e.currentTarget.style.borderColor = C.goldDim
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = C.white04
+          e.currentTarget.style.borderColor = C.goldFaint
+        }}
+      >
+        {/* Verification dot */}
+        {course.verified && (
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#4ade80',
+              flexShrink: 0,
+            }}
+          />
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 500,
+              color: C.ivory,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {course.displayName}
+          </div>
+          {showClub && course.clubName && (
+            <div
+              style={{
+                fontSize: 12,
+                color: C.tertiary,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                marginTop: 1,
+              }}
+            >
+              {course.clubName}
+            </div>
+          )}
+        </div>
+        {course.parTotal && (
+          <span style={{ fontSize: 12, color: C.muted, flexShrink: 0 }}>
+            Par {course.parTotal}
+          </span>
+        )}
+        {(course.varonesId && course.damasId) && (
+          <GenderToggle value={gender} onChange={(g) => doSelect(course, g)} />
+        )}
         <button
           type="button"
-          onClick={() => { setTab('oficial'); setView('clubs') }}
-          className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
-            tab === 'oficial'
-              ? 'bg-emerald-600 text-white'
-              : 'text-zinc-400 hover:text-white'
-          }`}
+          onClick={(e) => { e.stopPropagation(); toggleFavorite(course) }}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 4,
+            display: 'flex',
+            alignItems: 'center',
+            flexShrink: 0,
+          }}
+          aria-label={fav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
         >
-          Canchas Oficiales
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('buscar')}
-          className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
-            tab === 'buscar'
-              ? 'bg-emerald-600 text-white'
-              : 'text-zinc-400 hover:text-white'
-          }`}
-        >
-          Buscar cancha
+          <StarIcon filled={fav} size={16} />
         </button>
       </div>
+    )
+  }
 
-      <div className="p-3">
-        {/* Tab: Canchas Oficiales */}
-        {tab === 'oficial' && (
+  // ── Open selector ───────────────────────────────────────────────────────────
+
+  const hasSearch = searchQuery.length >= 2
+  const noSearchMatch = hasSearch && !searchLoading && mergedSearchResults.length === 0
+
+  return (
+    <div
+      style={{
+        background: C.cardGradient,
+        border: `1px solid ${C.goldDim}`,
+        borderRadius: 14,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          maxHeight: '55vh',
+          overflowY: 'auto',
+          padding: '12px 12px 0',
+        }}
+      >
+        {loading ? (
+          <Spinner />
+        ) : (
           <>
-            {view === 'courses' && (
-              <button
-                type="button"
-                onClick={goBackToClubs}
-                className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 mb-2 transition-colors"
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-                {selectedClubName}
-              </button>
+            {/* ── Favoritas ── */}
+            {favorites.length > 0 && !hasSearch && (
+              <div style={{ marginBottom: 8 }}>
+                <SectionLabel>Favoritas</SectionLabel>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {favorites.map((fav) => {
+                    const merged = allCourses.find(
+                      c => c.displayName === fav.displayName && c.clubId === fav.clubId
+                    ) ?? favToMerged(fav)
+                    return renderCourseItem(merged)
+                  })}
+                </div>
+              </div>
             )}
 
-            {loading ? (
-              <div className="flex justify-center py-6">
-                <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+            {/* ── Recientes ── */}
+            {recents.length > 0 && !hasSearch && (
+              <div style={{ marginBottom: 8 }}>
+                <SectionLabel>Recientes</SectionLabel>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {recents.map((rec) => {
+                    const merged = allCourses.find(
+                      c => c.displayName === rec.displayName && c.clubId === rec.clubId
+                    ) ?? favToMerged(rec)
+                    return renderCourseItem(merged)
+                  })}
+                </div>
               </div>
-            ) : view === 'clubs' ? (
-              <div className="max-h-64 overflow-y-auto space-y-1">
-                {clubs.length === 0 ? (
-                  <p className="text-sm text-zinc-500 text-center py-4">No hay clubes disponibles</p>
+            )}
+
+            {/* ── Search results ── */}
+            {hasSearch ? (
+              <div style={{ marginBottom: 8 }}>
+                <SectionLabel>Resultados</SectionLabel>
+                {searchLoading ? (
+                  <Spinner />
                 ) : (
-                  clubs.map((club) => (
-                    <button
-                      key={club.fedegolf_club_id}
-                      type="button"
-                      onClick={() => loadClubCourses(club.fedegolf_club_id, club.nombre)}
-                      className="w-full flex items-center justify-between rounded-lg bg-zinc-800/50 px-3 py-2 text-left hover:bg-zinc-700 transition-colors"
-                    >
-                      <span className="text-sm text-white truncate">{club.nombre}</span>
-                      <span className="text-xs text-zinc-500 ml-2 shrink-0">
-                        {club.count} {club.count === 1 ? 'cancha' : 'canchas'}
-                      </span>
-                    </button>
-                  ))
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {mergedSearchResults.map((course) => renderCourseItem(course))}
+                    {noSearchMatch && (
+                      <div style={{ padding: '12px 0', textAlign: 'center' }}>
+                        <p style={{ fontSize: 13, color: C.tertiary, marginBottom: 8 }}>
+                          No se encontraron canchas
+                        </p>
+                        <button
+                          type="button"
+                          onClick={selectCustom}
+                          style={{
+                            width: '100%',
+                            padding: '10px 16px',
+                            fontSize: 14,
+                            color: C.muted,
+                            background: 'transparent',
+                            border: `1px dashed ${C.tertiary}`,
+                            borderRadius: 10,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            minHeight: 44,
+                          }}
+                        >
+                          Usar &ldquo;{searchQuery}&rdquo; como cancha
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ) : (
-              <div className="max-h-64 overflow-y-auto space-y-1">
-                {clubCourses.length === 0 ? (
-                  <p className="text-sm text-zinc-500 text-center py-4">Sin canchas</p>
-                ) : (
-                  clubCourses.map((course) => (
-                    <button
-                      key={course.id}
-                      type="button"
-                      onClick={() => selectCourse(course)}
-                      className="w-full flex items-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2 text-left hover:bg-zinc-700 transition-colors"
-                    >
-                      <VerificationDot verified={course.datos_verificados} />
-                      <span className="text-sm text-white truncate flex-1">{course.nombre}</span>
-                      {course.par_total && (
-                        <span className="text-xs text-zinc-500 shrink-0">Par {course.par_total}</span>
-                      )}
-                    </button>
-                  ))
-                )}
+              /* ── Canchas populares ── */
+              <div style={{ marginBottom: 8 }}>
+                <SectionLabel>Canchas populares</SectionLabel>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {sortedCourses.map((course) => renderCourseItem(course))}
+                </div>
               </div>
             )}
           </>
         )}
+      </div>
 
-        {/* Tab: Buscar cancha */}
-        {tab === 'buscar' && (
-          <>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchInput(e.target.value)}
-              placeholder="Nombre de la cancha..."
-              className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none transition-colors"
-              autoFocus
-            />
-
-            <div className="mt-2 max-h-64 overflow-y-auto space-y-1">
-              {loading ? (
-                <div className="flex justify-center py-6">
-                  <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : (
-                <>
-                  {searchResults.map((course) => (
-                    <button
-                      key={course.id}
-                      type="button"
-                      onClick={() => selectCourse(course)}
-                      className="w-full flex items-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2 text-left hover:bg-zinc-700 transition-colors"
-                    >
-                      <VerificationDot verified={course.datos_verificados} />
-                      <span className="text-sm text-white truncate flex-1">{course.nombre}</span>
-                      {course.par_total && (
-                        <span className="text-xs text-zinc-500 shrink-0">Par {course.par_total}</span>
-                      )}
-                    </button>
-                  ))}
-
-                  {noSearchMatch && (
-                    <div className="space-y-2 py-2">
-                      <p className="text-xs text-zinc-500 text-center">
-                        No se encontraron canchas con ese nombre
-                      </p>
-                      <button
-                        type="button"
-                        onClick={selectCustom}
-                        className="w-full rounded-lg border border-dashed border-zinc-600 px-3 py-2 text-sm text-zinc-300 hover:border-emerald-500 hover:text-white transition-colors"
-                      >
-                        Usar &quot;{searchQuery}&quot; como nombre
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </>
-        )}
+      {/* ── Search bar (bottom, sticky feel) ── */}
+      <div
+        style={{
+          padding: '10px 12px 12px',
+          borderTop: `1px solid ${C.goldFaint}`,
+          background: C.card,
+        }}
+      >
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => onSearchInput(e.target.value)}
+          placeholder="Buscar cancha..."
+          style={{
+            width: '100%',
+            padding: '10px 14px',
+            fontSize: 14,
+            color: C.ivory,
+            background: C.inputBg,
+            border: `1px solid ${C.goldDim}`,
+            borderRadius: 10,
+            outline: 'none',
+            transition: 'all 0.2s ease',
+            minHeight: 44,
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = C.gold
+            e.currentTarget.style.boxShadow = `0 0 0 2px rgba(196,153,42,0.15)`
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = C.goldDim
+            e.currentTarget.style.boxShadow = 'none'
+          }}
+        />
       </div>
     </div>
-  )
-}
-
-function VerificationDot({ verified }: { verified: boolean | null }) {
-  return (
-    <span
-      className={`inline-block w-2 h-2 rounded-full shrink-0 ${
-        verified ? 'bg-emerald-400' : 'bg-amber-400'
-      }`}
-      title={verified ? 'Verificada' : 'Sin verificar'}
-    />
   )
 }
