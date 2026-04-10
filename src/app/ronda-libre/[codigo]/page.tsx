@@ -1294,7 +1294,7 @@ function RondaLibrePageContent() {
                   const color = event.diff <= -2 ? '#c8a55a' : event.diff === -1 ? '#16a34a' : event.diff === 0 ? '#6b7280' : '#dc2626'
                   const bgColor = event.diff <= -2 ? 'rgba(200,165,90,0.08)' : event.diff === -1 ? 'rgba(22,163,74,0.06)' : event.diff >= 2 ? 'rgba(220,38,38,0.04)' : 'transparent'
                   const approxMinAgo = idx === 0 ? 0 : idx
-                  const timeLabel = approxMinAgo === 0 ? 'ahora' : approxMinAgo === 1 ? 'hace ~1 min' : `hace ~${approxMinAgo} min`
+                  const timeLabel = approxMinAgo === 0 ? 'ahora' : approxMinAgo === 1 ? 'hace 1 min' : `hace ${approxMinAgo} min`
 
                   // Match play context: find the match hole detail for this event
                   let matchContext: string | null = null
@@ -1459,7 +1459,7 @@ function RondaLibrePageContent() {
                   {isExpanded && j.holesPlayed > 0 && (() => {
                     const getS = (h: number) => j.scores[String(h)] ?? (j.scores as Record<number, number>)[h] ?? null
                     const front9T = holeNums.slice(0, 9).reduce((sum, h) => sum + (getS(h) ?? 0), 0)
-                    const back9T = holeNums.slice(9, 18).reduce((sum, h) => sum + (getS(h) ?? 0), 0)
+                    const back9T = holeNums.slice(9).reduce((sum, h) => sum + (getS(h) ?? 0), 0)
 
                     const scoreCell = (h: number) => {
                       const s = getS(h)
@@ -1527,7 +1527,7 @@ function RondaLibrePageContent() {
                     return (
                       <div style={{ padding: '4px 8px 10px', background: '#f9fafb' }}>
                         {renderHalf(holeNums.slice(0, 9), 'OUT', front9T)}
-                        {ronda.holes > 9 && renderHalf(holeNums.slice(9, 18), 'IN', back9T)}
+                        {ronda.holes > 9 && renderHalf(holeNums.slice(9), 'IN', back9T)}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e5e7eb', paddingTop: '4px' }}>
                           {isCreator && (
                             <div style={{ fontSize: '9px', color: '#c4992a', fontWeight: 500 }}>

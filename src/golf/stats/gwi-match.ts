@@ -17,6 +17,11 @@
 
 import { varianzaPorHoyo } from './gwi'
 
+/** Capitaliza cada palabra: "juan ruiz" → "Juan Ruiz" */
+function capitalize(name: string): string {
+  return name.replace(/\b\w/g, c => c.toUpperCase())
+}
+
 // ─── Types ───
 
 export interface MatchGWIInput {
@@ -183,23 +188,23 @@ export function calcularGWIMatch(input: MatchGWIInput): MatchGWIResult {
   // Narrativa
   let narrativa = ''
   if (holesRemaining === 0) {
-    narrativa = holesUp > 0 ? `${input.nombreA} gana`
-      : holesUp < 0 ? `${input.nombreB} gana`
+    narrativa = holesUp > 0 ? `${capitalize(input.nombreA)} gana`
+      : holesUp < 0 ? `${capitalize(input.nombreB)} gana`
       : 'All Square'
   } else if (holesUp > 0 && holesUp === holesRemaining) {
-    narrativa = `${input.nombreA} está dormie — no puede perder por strokes`
+    narrativa = `${capitalize(input.nombreA)} está dormie`
   } else if (holesUp < 0 && -holesUp === holesRemaining) {
-    narrativa = `${input.nombreB} está dormie — no puede perder por strokes`
+    narrativa = `${capitalize(input.nombreB)} está dormie`
   } else if (probA >= 90) {
-    narrativa = `${input.nombreA} tiene el match casi asegurado`
+    narrativa = `${capitalize(input.nombreA)} tiene el match casi asegurado`
   } else if (probB >= 90) {
-    narrativa = `${input.nombreB} tiene el match casi asegurado`
+    narrativa = `${capitalize(input.nombreB)} tiene el match casi asegurado`
   } else if (Math.abs(holesUp) <= 1 && holesRemaining <= 3) {
     narrativa = 'Match al rojo vivo en los últimos hoyos'
   } else if (probA >= 60) {
-    narrativa = `${input.nombreA} lidera pero queda partido`
+    narrativa = `${capitalize(input.nombreA)} lidera pero queda partido`
   } else if (probB >= 60) {
-    narrativa = `${input.nombreB} lidera pero queda partido`
+    narrativa = `${capitalize(input.nombreB)} lidera pero queda partido`
   } else {
     narrativa = 'Match abierto — cualquiera puede ganar'
   }
