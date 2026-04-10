@@ -6,66 +6,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { useToast } from '@/hooks/useToast'
-
-const CANCHAS_CHILE = [
-  // Tier 1 — Elite Santiago
-  'Club de Golf Los Leones',
-  'Prince of Wales Country Club',
-  'Club de Golf La Dehesa',
-  'Club de Golf El Polo',
-  'Club de Golf Lomas de La Dehesa',
-  'Las Brisas de Chicureo',
-  'Hacienda Chicureo Golf Club',
-  'Santiago Golf Club',
-  // Tier 2 — Major national
-  'Club de Golf Granadilla',
-  'Club de Golf Sport Francés',
-  'Club de Golf Mapocho',
-  'Club de Golf Las Araucarias',
-  // Tier 3 — Well-known Santiago
-  'Club de Golf Peñalolén',
-  'Club de Golf Los Arrayanes',
-  'Club de Golf El Principal',
-  'Club de Golf Altos de Chicureo',
-  'Club de Golf Lomas Verdes',
-  'Club de Golf Curacaví',
-  'Club de Golf Cultivo',
-  'Club de Golf Cajón del Maipo',
-  // Tier 4 — Coast & Resort
-  'Club de Golf Marbella',
-  'Club de Golf Viña del Mar',
-  'Club de Golf Reñaca',
-  'Club de Golf Rocas de Santo Domingo',
-  // Tier 5 — Regional
-  'Club de Golf La Serena',
-  'Club de Golf Concepción',
-  'Club de Golf Temuco',
-  'Club de Golf Antofagasta',
-  'Club de Golf Puerto Montt',
-  'Club de Golf Puerto Varas',
-  'Club de Golf Osorno',
-  'Club de Golf Rancagua',
-  'Club de Golf Chillán',
-  'Club de Golf Talca',
-  'Club de Golf Curicó',
-  'Club de Golf Iquique',
-  'Club de Golf Arica',
-  'Club de Golf Coquimbo',
-  'Club de Golf Copiapó',
-  'Club de Golf Punta Arenas',
-  // Otros
-  'Otra cancha',
-]
+import CourseSelector from '@/components/CourseSelector'
 
 const TEES_OPTIONS = ['Campeonato', 'Azul', 'Blanco', 'Rojo']
-
-interface CourseDB {
-  id: string
-  nombre: string
-  ciudad: string | null
-  datos_verificados?: boolean | null
-  par_total?: number | null
-}
 
 interface CourseLoop {
   recorrido: string
@@ -116,10 +59,7 @@ export default function NuevaRondaLibrePage() {
   const [creatorName, setCreatorName] = useState('')
   const [creatorHandicap, setCreatorHandicap] = useState<number | null>(null)
   const [cancha, setCancha] = useState('')
-  const [canchaSearch, setCanchaSearch] = useState('')
-  const [showCanchaDropdown, setShowCanchaDropdown] = useState(false)
   const [courseId, setCourseId] = useState<string | null>(null)
-  const [coursesDB, setCoursesDB] = useState<CourseDB[]>([])
   const [tees, setTees] = useState('blanco')
   const [partidaSimultanea, setPartidaSimultanea] = useState(false)
   const [hoyoInicio, setHoyoInicio] = useState(1)
@@ -177,14 +117,6 @@ export default function NuevaRondaLibrePage() {
       setCreatorHandicap(profile?.indice ?? null)
       const name = profile?.name || user.user_metadata?.name || user.email?.split('@')[0] || 'Jugador'
       setCreatorName(name)
-
-      const { data: courses } = await supabase
-        .from('courses')
-        .select('id, nombre, ciudad, datos_verificados, par_total')
-        .eq('activa', true)
-        .is('parent_id', null)
-        .order('nombre')
-      setCoursesDB((courses as CourseDB[]) || [])
     }
     check()
   }, [router])
@@ -670,126 +602,54 @@ export default function NuevaRondaLibrePage() {
               marginBottom: '16px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
             }}>
-              <div style={{ position: 'relative' }}>
+              <div>
                 <label style={{ display: 'block', fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>
                   Cancha *
                 </label>
-                <input
-                  type="text"
-                  placeholder="Buscar cancha..."
-                  value={showCanchaDropdown ? canchaSearch : cancha}
-                  onChange={(e) => {
-                    setCanchaSearch(e.target.value)
-                    setShowCanchaDropdown(true)
-                    if (!e.target.value) { setCancha(''); setCourseId(null) }
-                  }}
-                  onFocus={() => {
-                    setCanchaSearch(cancha)
-                    setShowCanchaDropdown(true)
-                  }}
-                  onBlur={() => setTimeout(() => setShowCanchaDropdown(false), 200)}
-                  style={{
+                {!cancha ? (
+                  <CourseSelector
+                    onSelect={(course) => {
+                      setCancha(course.nombre)
+                      setCourseId(course.id)
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '12px 14px',
                     background: colors.inputBg,
                     border: `1px solid ${colors.inputBorder}`,
-                    color: colors.textPrimary,
                     borderRadius: '10px',
-                    padding: '12px 14px',
-                    fontSize: '16px',
-                    outline: 'none',
-                    width: '100%',
-                    boxSizing: 'border-box' as const,
                     minHeight: '48px',
-                  }}
-                />
-                {cancha && !showCanchaDropdown && (
-                  <button
-                    type="button"
-                    onClick={() => { setCancha(''); setCourseId(null); setCanchaSearch('') }}
-                    style={{
-                      position: 'absolute', right: '12px', top: '32px',
-                      background: 'none', border: 'none', color: colors.textLabel,
-                      fontSize: '18px', cursor: 'pointer', padding: '4px',
-                      WebkitTapHighlightColor: 'transparent',
-                    }}
-                  >{'\u00D7'}</button>
+                  }}>
+                    <span style={{
+                      width: '8px', height: '8px', borderRadius: '50%',
+                      background: courseId ? '#16a34a' : '#d97706',
+                      flexShrink: 0,
+                    }} />
+                    <span style={{ color: colors.textPrimary, fontSize: '14px', flex: 1 }}>{cancha}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCancha('')
+                        setCourseId(null)
+                        setCourseTees([])
+                        setCourseLoops([])
+                        setSelectedLoops([])
+                      }}
+                      style={{
+                        background: 'none', border: 'none',
+                        color: colors.textLabel, fontSize: '13px',
+                        cursor: 'pointer', padding: '4px 8px',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
+                      Cambiar
+                    </button>
+                  </div>
                 )}
-                {showCanchaDropdown && (() => {
-                  const q = canchaSearch.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                  const dbByName = new Map(coursesDB.map(c => [c.nombre, c]))
-                  const unified: { name: string; courseId: string | null; ciudad: string | null; verified: boolean }[] = []
-                  const seen = new Set<string>()
-                  for (const name of CANCHAS_CHILE) {
-                    if (!name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) continue
-                    const db = dbByName.get(name)
-                    unified.push({ name, courseId: db?.id ?? null, ciudad: db?.ciudad ?? null, verified: !!db?.datos_verificados })
-                    seen.add(name)
-                  }
-                  for (const c of coursesDB) {
-                    if (seen.has(c.nombre)) continue
-                    if (!c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)) continue
-                    unified.push({ name: c.nombre, courseId: c.id, ciudad: c.ciudad, verified: !!c.datos_verificados })
-                  }
-                  const results = unified.slice(0, 10)
-                  const hasResults = results.length > 0
-
-                  if (!hasResults && canchaSearch.length < 1) return null
-
-                  return (
-                    <div style={{
-                      position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20,
-                      background: colors.inputBg, border: `1px solid ${colors.cardBorder}`,
-                      borderRadius: '10px', marginTop: '4px', maxHeight: '50vh', overflowY: 'auto',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                    }}>
-                      {results.map(c => (
-                        <button
-                          key={c.name}
-                          type="button"
-                          onMouseDown={() => {
-                            setCancha(c.name)
-                            setCourseId(c.courseId)
-                            setCanchaSearch(c.name)
-                            setShowCanchaDropdown(false)
-                          }}
-                          style={{
-                            display: 'block', width: '100%', textAlign: 'left',
-                            padding: '10px 14px', background: 'none', border: 'none',
-                            color: colors.textPrimary, fontSize: '14px', cursor: 'pointer',
-                            borderBottom: `1px solid ${colors.cardBorder}`,
-                          }}
-                        >
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            {c.courseId && (
-                              <span style={{
-                                width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0,
-                                background: c.verified ? '#16a34a' : '#d97706',
-                              }} />
-                            )}
-                            {c.name}
-                          </span>
-                          {c.ciudad && <span style={{ color: colors.textLabel, fontSize: '12px', marginLeft: '8px' }}>{'\u2014'} {c.ciudad}</span>}
-                        </button>
-                      ))}
-                      {!hasResults && canchaSearch.length >= 2 && (
-                        <button
-                          type="button"
-                          onMouseDown={() => {
-                            setCancha(canchaSearch)
-                            setCourseId(null)
-                            setShowCanchaDropdown(false)
-                          }}
-                          style={{
-                            display: 'block', width: '100%', textAlign: 'left',
-                            padding: '12px 14px', background: 'none', border: 'none',
-                            color: colors.gold, fontSize: '14px', cursor: 'pointer',
-                          }}
-                        >
-                          Usar &quot;{canchaSearch}&quot; como nombre de cancha
-                        </button>
-                      )}
-                    </div>
-                  )
-                })()}
               </div>
 
               {/* Course info badge */}
