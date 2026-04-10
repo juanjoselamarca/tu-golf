@@ -180,15 +180,16 @@ export default function GolfOpsPage() {
       if (!res.ok) throw new Error('Error cargando torneo')
       const data = await res.json()
       renderTournamentDrawer(data.tournament, data.players ?? [], data.rounds ?? [])
-    } catch (err: any) {
-      setDrawerContent(<div style={errorBox}>{err?.message ?? 'Error desconocido'}</div>)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      setDrawerContent(<div style={errorBox}>{msg}</div>)
     }
   }
 
   const renderTournamentDrawer = (
-    tournament: any,
-    players: any[],
-    rounds: any[],
+    tournament: { id: string; name?: string; status?: string; format?: string; hole_count?: number; [k: string]: unknown },
+    players: Array<{ id?: string; user_id?: string; profiles?: { name?: string; email?: string } | null; [k: string]: unknown }>,
+    rounds: Array<{ round_number?: number; total_gross?: number | string; [k: string]: unknown }>,
   ) => {
     let editName = tournament.name ?? ''
     let editStatus = tournament.status ?? 'draft'
@@ -243,15 +244,19 @@ export default function GolfOpsPage() {
             {players.length === 0 ? (
               <span style={{ color: adminColors.grayDim, fontSize: '13px' }}>Sin jugadores</span>
             ) : (
-              players.map((p: any, i: number) => (
-                <div key={i} style={{
-                  display: 'flex', justifyContent: 'space-between', padding: '6px 0',
-                  borderBottom: i < players.length - 1 ? `1px solid ${adminColors.border}` : 'none',
-                }}>
-                  <span style={adminFonts.body}>{p.profiles?.name ?? p.user_id?.slice(0, 8)}</span>
-                  <span style={adminFonts.mono}>{p.profiles?.email ?? ''}</span>
-                </div>
-              ))
+              players.map((p, i) => {
+                const profile = p.profiles as { name?: string; email?: string } | null | undefined
+                const userId = p.user_id as string | undefined
+                return (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between', padding: '6px 0',
+                    borderBottom: i < players.length - 1 ? `1px solid ${adminColors.border}` : 'none',
+                  }}>
+                    <span style={adminFonts.body}>{profile?.name ?? userId?.slice(0, 8)}</span>
+                    <span style={adminFonts.mono}>{profile?.email ?? ''}</span>
+                  </div>
+                )
+              })
             )}
           </div>
 
@@ -263,14 +268,14 @@ export default function GolfOpsPage() {
             {rounds.length === 0 ? (
               <span style={{ color: adminColors.grayDim, fontSize: '13px' }}>Sin rondas</span>
             ) : (
-              rounds.map((r: any, i: number) => (
+              rounds.map((r, i) => (
                 <div key={i} style={{
                   display: 'flex', justifyContent: 'space-between', padding: '6px 0',
                   borderBottom: i < rounds.length - 1 ? `1px solid ${adminColors.border}` : 'none',
                 }}>
-                  <span style={adminFonts.mono}>Ronda {r.round_number ?? i + 1}</span>
+                  <span style={adminFonts.mono}>Ronda {(r.round_number as number | undefined) ?? i + 1}</span>
                   <span style={{ ...adminFonts.body, color: adminColors.gold }}>
-                    Total: {r.total_gross ?? '-'}
+                    Total: {(r.total_gross as number | string | undefined) ?? '-'}
                   </span>
                 </div>
               ))
@@ -315,8 +320,8 @@ export default function GolfOpsPage() {
                 if (!res.ok) throw new Error('Error guardando cambios')
                 closeDrawer()
                 fetchOps()
-              } catch (e: any) {
-                error = e?.message ?? 'Error'; saving = false; render()
+              } catch (e) {
+                error = e instanceof Error ? e.message : 'Error'; saving = false; render()
               }
             }}
           >{saving ? '...' : 'Guardar cambios'}</button>
@@ -342,12 +347,16 @@ export default function GolfOpsPage() {
       if (!res.ok) throw new Error('Error cargando ronda')
       const data = await res.json()
       renderRondaDrawer(data.ronda, data.jugadores ?? [])
-    } catch (err: any) {
-      setDrawerContent(<div style={errorBox}>{err?.message ?? 'Error desconocido'}</div>)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      setDrawerContent(<div style={errorBox}>{msg}</div>)
     }
   }
 
-  const renderRondaDrawer = (ronda: any, jugadores: any[]) => {
+  const renderRondaDrawer = (
+    ronda: { id: string; codigo?: string; course_name?: string; tees?: string; holes?: number; modo_juego?: string; estado?: string; created_at?: string; [k: string]: unknown },
+    jugadores: Array<{ id: string; scores?: number[]; user_id?: string; profiles?: { name?: string } | null; [k: string]: unknown }>,
+  ) => {
     const modifiedScores: Record<string, { jugadorId: string; scores: number[] }> = {}
     let saving = false
     let error = ''
@@ -382,7 +391,7 @@ export default function GolfOpsPage() {
             </div>
             <div style={fieldGroup}>
               <span style={fieldLabel}>ESTADO</span>
-              <AdminBadge text={ronda.estado ?? '-'} variant={statusVariant(ronda.estado)} dot />
+              <AdminBadge text={ronda.estado ?? '-'} variant={statusVariant(ronda.estado ?? '')} dot />
             </div>
             <div style={fieldGroup}>
               <span style={fieldLabel}>FECHA</span>
@@ -398,7 +407,7 @@ export default function GolfOpsPage() {
             {jugadores.length === 0 ? (
               <span style={{ color: adminColors.grayDim, fontSize: '13px' }}>Sin jugadores</span>
             ) : (
-              jugadores.map((j: any, jIdx: number) => {
+              jugadores.map((j, jIdx: number) => {
                 const scores: number[] = Array.isArray(j.scores) ? j.scores : []
                 return (
                   <div key={jIdx} style={{
@@ -511,8 +520,8 @@ export default function GolfOpsPage() {
                 }
                 closeDrawer()
                 fetchRondasList()
-              } catch (e: any) {
-                error = e?.message ?? 'Error'; saving = false; render()
+              } catch (e) {
+                error = e instanceof Error ? e.message : 'Error'; saving = false; render()
               }
             }}
           >{saving ? '...' : 'Guardar Scores'}</button>
@@ -538,12 +547,16 @@ export default function GolfOpsPage() {
       if (!res.ok) throw new Error('Error cargando usuario')
       const data = await res.json()
       renderUserDrawer(data.profile, data.counts)
-    } catch (err: any) {
-      setDrawerContent(<div style={errorBox}>{err?.message ?? 'Error desconocido'}</div>)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      setDrawerContent(<div style={errorBox}>{msg}</div>)
     }
   }
 
-  const renderUserDrawer = (profile: any, counts: any) => {
+  const renderUserDrawer = (
+    profile: { id: string; name?: string; email?: string; indice?: number | string; role?: string; [k: string]: unknown },
+    counts: { rondas?: number; tournaments?: number; taigerSessions?: number; [k: string]: number | undefined },
+  ) => {
     let editName = profile.name ?? ''
     let editEmail = profile.email ?? ''
     let editHcp = profile.indice ?? ''
@@ -637,8 +650,8 @@ export default function GolfOpsPage() {
                 if (!res.ok) throw new Error('Error guardando cambios')
                 closeDrawer()
                 fetchUsers(userSearch, userPage)
-              } catch (e: any) {
-                error = e?.message ?? 'Error'; saving = false; render()
+              } catch (e) {
+                error = e instanceof Error ? e.message : 'Error'; saving = false; render()
               }
             }}
           >{saving ? '...' : 'Guardar cambios'}</button>
@@ -664,13 +677,15 @@ export default function GolfOpsPage() {
       if (!res.ok) throw new Error('Error cargando sesion')
       const data = await res.json()
       renderTaigerDrawer(data.session)
-    } catch (err: any) {
-      setDrawerContent(<div style={errorBox}>{err?.message ?? 'Error desconocido'}</div>)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      setDrawerContent(<div style={errorBox}>{msg}</div>)
     }
   }
 
-  const renderTaigerDrawer = (session: any) => {
-    const messages: any[] = Array.isArray(session.messages) ? session.messages : []
+  const renderTaigerDrawer = (session: { id: string; messages?: unknown; session_type?: string; created_at?: string; assigned_techniques?: unknown; [k: string]: unknown }) => {
+    type TaigerMessage = { role?: string; content?: string; [k: string]: unknown }
+    const messages: TaigerMessage[] = Array.isArray(session.messages) ? session.messages as TaigerMessage[] : []
     const tecnicas: string[] = Array.isArray(session.assigned_techniques) ? session.assigned_techniques :
       (session.assigned_techniques ? [String(session.assigned_techniques)] : [])
 
@@ -709,7 +724,7 @@ export default function GolfOpsPage() {
             {messages.length === 0 && (
               <span style={{ color: adminColors.grayDim, fontSize: '13px' }}>Sin mensajes</span>
             )}
-            {messages.map((m: any, i: number) => {
+            {messages.map((m, i: number) => {
               const isUser = m.role === 'user'
               return (
                 <div key={i} style={{

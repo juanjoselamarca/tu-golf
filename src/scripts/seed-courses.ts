@@ -181,7 +181,7 @@ async function seedAll() {
       { numero: 18, par: 4, stroke_index: 12, yardaje_azul: 337, yardaje_blanco: 312, yardaje_rojo: 271 },
     ])
     console.log('✅ Club de Golf Lomas de La Dehesa (18 hoyos)'); ok++
-  } catch (e: any) { console.error('❌ Lomas:', e.message); err++ }
+  } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); console.error('❌ Lomas:', msg); err++ }
 
   // ── 2. LOS LEONES ─────────────────────────────────────────
   try {
@@ -217,7 +217,7 @@ async function seedAll() {
       { numero: 18, par: 5, stroke_index: 12, yardaje_campeonato: 542, yardaje_azul: 511, yardaje_blanco: 487 },
     ])
     console.log('✅ Club de Golf Los Leones (18 hoyos)'); ok++
-  } catch (e: any) { console.error('❌ Los Leones:', e.message); err++ }
+  } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); console.error('❌ Los Leones:', msg); err++ }
 
   // ── 3. POLO SAN CRISTÓBAL ─────────────────────────────────
   try {
@@ -253,7 +253,7 @@ async function seedAll() {
       { numero: 18, par: 4, stroke_index: 14, yardaje_campeonato: 471, yardaje_azul: 460, yardaje_blanco: 438 },
     ])
     console.log('✅ Polo San Cristóbal (18 hoyos)'); ok++
-  } catch (e: any) { console.error('❌ San Cristóbal:', e.message); err++ }
+  } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); console.error('❌ San Cristóbal:', msg); err++ }
 
   // ── 4. PRINCE OF WALES ────────────────────────────────────
   try {
@@ -289,7 +289,7 @@ async function seedAll() {
       { numero: 18, par: 5, stroke_index: 10, yardaje_campeonato: 580, yardaje_azul: 537, yardaje_blanco: 504 },
     ])
     console.log('✅ Club de Golf Prince of Wales (18 hoyos)'); ok++
-  } catch (e: any) { console.error('❌ Prince of Wales:', e.message); err++ }
+  } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); console.error('❌ Prince of Wales:', msg); err++ }
 
   // ── 5. SPORT FRANCÉS ──────────────────────────────────────
   try {
@@ -325,7 +325,7 @@ async function seedAll() {
       { numero: 18, par: 5, stroke_index: 6, yardaje_azul: 572, yardaje_blanco: 531, yardaje_rojo: 507 },
     ])
     console.log('✅ Club de Golf Sport Francés (18 hoyos)'); ok++
-  } catch (e: any) { console.error('❌ Sport Francés:', e.message); err++ }
+  } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); console.error('❌ Sport Francés:', msg); err++ }
 
   // ── 6. MAPOCHO ────────────────────────────────────────────
   try {
@@ -361,7 +361,7 @@ async function seedAll() {
       { numero: 18, par: 5, stroke_index: 12, yardaje_campeonato: 551, yardaje_azul: 526, yardaje_blanco: 497 },
     ])
     console.log('✅ Club de Golf Mapocho (18 hoyos)'); ok++
-  } catch (e: any) { console.error('❌ Mapocho:', e.message); err++ }
+  } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); console.error('❌ Mapocho:', msg); err++ }
 
   // ── 7. Conectar historical_rounds ─────────────────────────
   console.log('\n🔗 Conectando historical_rounds...')
