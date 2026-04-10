@@ -4,6 +4,7 @@ import {
   strokesRecibidosEnHoyo,
   puntosStablefordHoyo,
 } from '@/golf/core/scoring'
+import { parTotalEstandar } from '@/golf/core/round-score'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 
 export const dynamic = 'force-dynamic'

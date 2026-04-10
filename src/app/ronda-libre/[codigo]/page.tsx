@@ -65,6 +65,7 @@ import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { calcularScoreRonda, parTotalEstandar } from '@/golf/core/round-score'
 import { Suspense } from 'react'
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
@@ -114,12 +115,8 @@ type TimelineEvent = {
 const SS_KEY = (codigo: string) => `ronda-${codigo}-role`
 
 function getVsPar(scores: Record<string, number>, holes: number, parMap: Record<number, number>): number {
-  let total = 0
-  for (let h = 1; h <= holes; h++) {
-    const s = scores[String(h)] ?? scores[h]
-    if (s != null) total += s - (parMap[h] ?? 4)
-  }
-  return total
+  // Delegado al helper centralizado (fuente única de verdad)
+  return calcularScoreRonda({ scores, roundHoles: holes, parMap }).vsPar
 }
 
 /** Calcula vs par NETO aplicando strokes del course handicap por stroke index */
@@ -325,7 +322,7 @@ function RondaLibrePageContent() {
         setSecSinceUpdate(0)
         setRonda(data as unknown as RondaLibre)
         const r = data as unknown as RondaLibre
-        let finalParTotal = r.holes <= 9 ? 36 : 72
+        let finalParTotal = parTotalEstandar(r.holes)
         // Fetch hole pars if course linked
         if (r.course_id) {
           let holeQuery = supabase

@@ -7,6 +7,7 @@ import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
+import { parTotalEstandar } from '@/golf/core/round-score'
 
 /* ── Types ── */
 interface Jugador {
@@ -158,7 +159,7 @@ export default function ScoreGrupoPage() {
       const hdm: Record<number, HoleData> = {}
       for (let i = 1; i <= r.holes; i++) { pm[i] = 4; hdm[i] = { numero: i, par: 4, stroke_index: i, yardaje: null } }
       setParMap(pm)
-      let finalParTotal = r.holes <= 9 ? 36 : 72  // se actualiza si hay course_holes
+      let finalParTotal = parTotalEstandar(r.holes)  // se actualiza si hay course_holes
 
       if (r.course_id) {
         let query = supabase.from('course_holes')
