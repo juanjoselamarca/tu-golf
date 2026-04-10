@@ -133,12 +133,16 @@ export default function UnirsePage() {
       .single()
 
     if (pErr || !player) {
-      const isDuplicate = pErr?.message?.toLowerCase().includes('duplicate') || pErr?.message?.toLowerCase().includes('unique')
-      if (isDuplicate) {
+      const msg = pErr?.message?.toLowerCase() || ''
+      if (msg.includes('duplicate') || msg.includes('unique')) {
         setError('Ya estás inscrito en este torneo.')
         setAlreadyRegistered(true)
+      } else if (msg.includes('permission') || msg.includes('policy') || pErr?.code === '42501') {
+        setError('No tienes permiso para inscribirte. Contacta al organizador del torneo.')
+      } else if (msg.includes('violates check') || msg.includes('not-null')) {
+        setError('Faltan datos en tu perfil. Verifica que tengas nombre y handicap configurados.')
       } else {
-        setError('No se pudo completar la inscripción. Intenta nuevamente.')
+        setError(`No se pudo completar la inscripción: ${pErr?.message || 'error desconocido'}. Intenta nuevamente.`)
       }
       setInscribing(false)
       return
