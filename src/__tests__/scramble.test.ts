@@ -127,7 +127,7 @@ describe('Scramble', () => {
       const rA = calcularScramble(teamA, HOLES_9, PAR_9)
       const rB = calcularScramble(teamB, HOLES_9, PAR_9)
 
-      const sorted = ordenarEquiposScramble([rA, rB], 'gross')
+      const sorted = ordenarEquiposScramble([rA, rB], 'stroke_play', 'gross')
       expect(sorted[0].teamId).toBe('b') // menor gross primero
     })
 
@@ -144,7 +144,7 @@ describe('Scramble', () => {
       const rA = calcularScramble(teamA, HOLES_9, PAR_9)
       const rB = calcularScramble(teamB, HOLES_9, PAR_9)
 
-      const sorted = ordenarEquiposScramble([rA, rB], 'stableford')
+      const sorted = ordenarEquiposScramble([rA, rB], 'stableford', 'neto')
       expect(sorted[0].teamId).toBe('b') // mayor stableford primero
     })
   })

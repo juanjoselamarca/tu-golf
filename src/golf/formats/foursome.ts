@@ -19,7 +19,7 @@
  */
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
-import type { ModoJuego } from '../core/rules'
+import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
 
@@ -183,26 +183,30 @@ export function calcularFoursome(
 }
 
 /**
- * Score primario de un equipo foursome según modo de juego.
+ * Score primario de un equipo foursome según formato y modo de juego.
  */
 export function scorePrimarioFoursome(
   result: FoursomeTeamResult,
+  formato: FormatoJuego,
   modo: ModoJuego
 ): number {
+  if (formato === 'stableford') return result.totalStableford
   if (modo === 'neto') return result.overUnderNeto
   return result.overUnderGross
 }
 
 /**
- * Ordena equipos foursome según modo de juego.
+ * Ordena equipos foursome según formato y modo de juego.
  */
 export function ordenarEquiposFoursome(
   teams: FoursomeTeamResult[],
+  formato: FormatoJuego,
   modo: ModoJuego
 ): FoursomeTeamResult[] {
   return [...teams].sort((a, b) => {
-    const sa = scorePrimarioFoursome(a, modo)
-    const sb = scorePrimarioFoursome(b, modo)
-    return sa - sb // Siempre menor es mejor en foursome (no se juega stableford)
+    const sa = scorePrimarioFoursome(a, formato, modo)
+    const sb = scorePrimarioFoursome(b, formato, modo)
+    if (formato === 'stableford') return sb - sa // DESC
+    return sa - sb // ASC — menor es mejor
   })
 }

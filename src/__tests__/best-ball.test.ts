@@ -158,19 +158,19 @@ describe('Best Ball (Four-Ball)', () => {
     it('retorna overUnderGross para modo gross', () => {
       const team = makeTeam()
       const result = calcularBestBall(team, HOLES_9, PAR_9)
-      expect(scorePrimarioBestBall(result, 'gross')).toBe(result.overUnderGross)
+      expect(scorePrimarioBestBall(result, 'stroke_play', 'gross')).toBe(result.overUnderGross)
     })
 
     it('retorna overUnderNeto para modo neto', () => {
       const team = makeTeam()
       const result = calcularBestBall(team, HOLES_9, PAR_9)
-      expect(scorePrimarioBestBall(result, 'neto')).toBe(result.overUnderNeto)
+      expect(scorePrimarioBestBall(result, 'stroke_play', 'neto')).toBe(result.overUnderNeto)
     })
 
     it('retorna totalStableford para modo stableford', () => {
       const team = makeTeam()
       const result = calcularBestBall(team, HOLES_9, PAR_9)
-      expect(scorePrimarioBestBall(result, 'stableford')).toBe(result.totalStableford)
+      expect(scorePrimarioBestBall(result, 'stableford', 'neto')).toBe(result.totalStableford)
     })
   })
 
@@ -199,7 +199,7 @@ describe('Best Ball (Four-Ball)', () => {
       const resultA = calcularBestBall(teamA, HOLES_9, PAR_9)
       const resultB = calcularBestBall(teamB, HOLES_9, PAR_9)
 
-      const sorted = ordenarEquiposBestBall([resultA, resultB], 'gross')
+      const sorted = ordenarEquiposBestBall([resultA, resultB], 'stroke_play', 'gross')
       // Equipo B debería ir primero (mejor gross)
       expect(sorted[0].teamId).toBe('b')
     })
@@ -228,7 +228,7 @@ describe('Best Ball (Four-Ball)', () => {
       const resultA = calcularBestBall(teamA, HOLES_9, PAR_9)
       const resultB = calcularBestBall(teamB, HOLES_9, PAR_9)
 
-      const sorted = ordenarEquiposBestBall([resultA, resultB], 'stableford')
+      const sorted = ordenarEquiposBestBall([resultA, resultB], 'stableford', 'neto')
       // Mayor stableford primero
       expect(sorted[0].teamId).toBe('b')
     })

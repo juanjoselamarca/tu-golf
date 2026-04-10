@@ -171,12 +171,12 @@ describe('Foursome (Alternate Shot)', () => {
 
     it('retorna overUnderGross para modo gross', () => {
       const result = calcularFoursome(team, HOLES_9, PAR_9)
-      expect(scorePrimarioFoursome(result, 'gross')).toBe(result.overUnderGross)
+      expect(scorePrimarioFoursome(result, 'stroke_play', 'gross')).toBe(result.overUnderGross)
     })
 
     it('retorna overUnderNeto para modo neto', () => {
       const result = calcularFoursome(team, HOLES_9, PAR_9)
-      expect(scorePrimarioFoursome(result, 'neto')).toBe(result.overUnderNeto)
+      expect(scorePrimarioFoursome(result, 'stroke_play', 'neto')).toBe(result.overUnderNeto)
     })
   })
 
@@ -194,7 +194,7 @@ describe('Foursome (Alternate Shot)', () => {
       const rA = calcularFoursome(teamA, HOLES_9, PAR_9)
       const rB = calcularFoursome(teamB, HOLES_9, PAR_9)
 
-      const sorted = ordenarEquiposFoursome([rA, rB], 'gross')
+      const sorted = ordenarEquiposFoursome([rA, rB], 'stroke_play', 'gross')
       expect(sorted[0].teamId).toBe('b')
     })
   })

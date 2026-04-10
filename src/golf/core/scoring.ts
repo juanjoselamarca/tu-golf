@@ -2,7 +2,7 @@
  * Cálculos de scoring — strokes, neto, stableford, resumen de ronda.
  */
 
-import { type ModoJuego, labelResultado } from './rules'
+import { type ModoJuego, type FormatoJuego, labelResultado } from './rules'
 
 // ─── Strokes que recibe un jugador en un hoyo ───
 // holeCount: 9 o 18 — determina cómo se distribuyen los golpes
@@ -141,11 +141,17 @@ export function calcularResumenRonda(
   }
 }
 
-// ─── Score primario según modo ───
-export function scorePrimario(resumen: ResumenRonda, modo: ModoJuego): number {
+// ─── Score primario según formato y modo ───
+export function scorePrimario(
+  resumen: ResumenRonda,
+  formato: FormatoJuego,
+  modo: ModoJuego
+): number {
+  // Stableford es un FORMATO que siempre usa puntos Stableford (neto)
+  if (formato === 'stableford') return resumen.totalStableford
+  // Otros formatos: gross o neto según el modo
   if (modo === 'gross') return resumen.overUnderGross
-  if (modo === 'neto' || modo === 'match_play_neto') return resumen.overUnderNeto
-  return resumen.totalStableford
+  return resumen.overUnderNeto
 }
 
 // ─── Ordenar jugadores ───
@@ -153,9 +159,11 @@ export function ordenarJugadores<T extends {
   overUnderGross:  number
   overUnderNeto:   number
   totalStableford: number
-}>(jugadores: T[], modo: ModoJuego): T[] {
+}>(jugadores: T[], formato: FormatoJuego, modo: ModoJuego): T[] {
   return [...jugadores].sort((a, b) => {
-    if (modo === 'stableford') return b.totalStableford - a.totalStableford
+    // Stableford: mayor puntos gana (DESC)
+    if (formato === 'stableford') return b.totalStableford - a.totalStableford
+    // Stroke play: menor score gana (ASC), usa gross o neto según el modo
     const sa = modo === 'gross' ? a.overUnderGross : a.overUnderNeto
     const sb = modo === 'gross' ? b.overUnderGross : b.overUnderNeto
     return sa - sb

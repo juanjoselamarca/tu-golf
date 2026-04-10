@@ -17,7 +17,7 @@
  */
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
-import type { ModoJuego } from '../core/rules'
+import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
 
@@ -172,28 +172,30 @@ export function calcularScramble(
 }
 
 /**
- * Score primario de un equipo scramble según modo de juego.
+ * Score primario de un equipo scramble según formato y modo de juego.
  */
 export function scorePrimarioScramble(
   result: ScrambleTeamResult,
+  formato: FormatoJuego,
   modo: ModoJuego
 ): number {
-  if (modo === 'stableford') return result.totalStableford
+  if (formato === 'stableford') return result.totalStableford
   if (modo === 'neto') return result.overUnderNeto
   return result.overUnderGross
 }
 
 /**
- * Ordena equipos scramble según modo de juego.
+ * Ordena equipos scramble según formato y modo de juego.
  */
 export function ordenarEquiposScramble(
   teams: ScrambleTeamResult[],
+  formato: FormatoJuego,
   modo: ModoJuego
 ): ScrambleTeamResult[] {
   return [...teams].sort((a, b) => {
-    const sa = scorePrimarioScramble(a, modo)
-    const sb = scorePrimarioScramble(b, modo)
-    if (modo === 'stableford') return sb - sa
+    const sa = scorePrimarioScramble(a, formato, modo)
+    const sb = scorePrimarioScramble(b, formato, modo)
+    if (formato === 'stableford') return sb - sa
     return sa - sb
   })
 }

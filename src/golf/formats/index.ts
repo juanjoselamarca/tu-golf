@@ -9,8 +9,7 @@
  * 3. Toda la app lo soporta automáticamente
  */
 
-import type { ModoJuego, FormatoJuego, FormatCategory } from '../core/rules'
-import type { ResumenRonda } from '../core/scoring'
+import type { FormatCategory } from '../core/rules'
 import { calcularResumenRonda, scorePrimario, ordenarJugadores } from '../core/scoring'
 
 // ─── Re-exports de cada formato ───
@@ -52,9 +51,8 @@ const stableford: GolfFormat = {
   description: 'Gana el jugador con más puntos Stableford',
   category: 'individual',
   calcularResumen: calcularResumenRonda,
-  scorePrimario: (resumen: ResumenRonda) => resumen.totalStableford,
-  ordenar: (jugadores, _modo: ModoJuego) =>
-    ordenarJugadores(jugadores, 'stableford'),
+  scorePrimario,
+  ordenar: ordenarJugadores,
 }
 
 /**

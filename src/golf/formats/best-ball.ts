@@ -13,7 +13,7 @@
  */
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
-import type { ModoJuego } from '../core/rules'
+import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
 
@@ -182,29 +182,31 @@ export function calcularBestBall(
 }
 
 /**
- * Score primario de un equipo best ball según modo de juego.
+ * Score primario de un equipo best ball según formato y modo de juego.
  */
 export function scorePrimarioBestBall(
   result: BestBallTeamResult,
+  formato: FormatoJuego,
   modo: ModoJuego
 ): number {
-  if (modo === 'stableford') return result.totalStableford
+  if (formato === 'stableford') return result.totalStableford
   if (modo === 'neto') return result.overUnderNeto
   return result.overUnderGross
 }
 
 /**
- * Ordena equipos best ball según modo de juego.
+ * Ordena equipos best ball según formato y modo de juego.
  * Stableford: mayor puntaje primero. Gross/Neto: menor over/under primero.
  */
 export function ordenarEquiposBestBall(
   teams: BestBallTeamResult[],
+  formato: FormatoJuego,
   modo: ModoJuego
 ): BestBallTeamResult[] {
   return [...teams].sort((a, b) => {
-    const sa = scorePrimarioBestBall(a, modo)
-    const sb = scorePrimarioBestBall(b, modo)
-    if (modo === 'stableford') return sb - sa // DESC
+    const sa = scorePrimarioBestBall(a, formato, modo)
+    const sb = scorePrimarioBestBall(b, formato, modo)
+    if (formato === 'stableford') return sb - sa // DESC
     return sa - sb // ASC
   })
 }
