@@ -8,6 +8,7 @@ import { trackEvent } from '@/lib/analytics'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
 import type { ModoJuego } from '@/golf/core/rules'
+import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 import BirdieCelebration from '@/components/BirdieCelebration'
@@ -285,6 +286,7 @@ function ScorePageContent() {
       const hdm: Record<number, HoleData> = {}
       for (let i = 1; i <= r.holes; i++) { pm[i] = 4; hdm[i] = { numero: i, par: 4, stroke_index: i, yardaje: null } }
       setParMap(pm)
+      let finalParTotal = r.holes <= 9 ? 36 : 72  // se actualiza si hay course_holes
 
       if (r.course_id) {
         let holeQuery = supabase.from('course_holes')
@@ -313,14 +315,19 @@ function ScorePageContent() {
             holeNum++
           }
           setParMap(pm2); setHoleDataMap(hdm2)
+          finalParTotal = Object.values(pm2).reduce((a, b) => a + b, 0)
         } else { setHoleDataMap(hdm) }
       } else { setHoleDataMap(hdm) }
 
+      // Convertir índice → course handicap usando fórmula WHS
       const hcpMap: Record<string, number> = {}
+      const courseData = await cargarCourseData(r.course_id ?? null, r.tees || 'azul', r.holes, finalParTotal)
       for (const j of r.ronda_libre_jugadores) {
-        if (j.handicap != null) { hcpMap[j.id] = j.handicap }
-        else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); hcpMap[j.id] = p?.indice ?? 18 }
-        else hcpMap[j.id] = 18
+        let index: number
+        if (j.handicap != null) { index = j.handicap }
+        else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); index = p?.indice ?? 18 }
+        else { index = 18 }
+        hcpMap[j.id] = resolverCourseHandicap(index, courseData)
       }
       setPlayerHcp(hcpMap)
 
@@ -715,11 +722,11 @@ function ScorePageContent() {
     if (holes.length === 0) return null
 
     return calcularMatchPlay(scoresA, scoresB, holes, {
-      courseHandicapA: jug[0].handicap ?? 0,
-      courseHandicapB: jug[1].handicap ?? 0,
+      courseHandicapA: playerHcp[jug[0].id] ?? 0,
+      courseHandicapB: playerHcp[jug[1].id] ?? 0,
       totalHoles: ronda.holes,
     })
-  }, [isMatchPlay, ronda, scores, holeDataMap])
+  }, [isMatchPlay, ronda, scores, holeDataMap, playerHcp])
 
   /* ── Render ── */
   if (adminRedirectMsg) return (

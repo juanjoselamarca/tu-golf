@@ -63,6 +63,7 @@ import GWILeaderboard from '@/components/GWILeaderboard'
 import { calcularGWI } from '@/golf/stats/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
+import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { Suspense } from 'react'
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
@@ -243,6 +244,7 @@ function RondaLibrePageContent() {
   const [ronda,       setRonda]       = useState<RondaLibre | null>(null)
   const [parMap,      setParMap]      = useState<Record<number, number>>({})
   const [siMap,       setSiMap]       = useState<Record<number, number>>({})
+  const [courseHcpMap, setCourseHcpMap] = useState<Record<string, number>>({})
   const [loading,     setLoading]     = useState(true)
   const [notFound,    setNotFound]    = useState(false)
   const [fetchError,  setFetchError]  = useState(false)
@@ -300,9 +302,10 @@ function RondaLibrePageContent() {
         setFetchError(false)
         setSecSinceUpdate(0)
         setRonda(data as unknown as RondaLibre)
+        const r = data as unknown as RondaLibre
+        let finalParTotal = r.holes <= 9 ? 36 : 72
         // Fetch hole pars if course linked
-        if ((data as unknown as RondaLibre).course_id) {
-          const r = data as unknown as RondaLibre
+        if (r.course_id) {
           let holeQuery = supabase
             .from('course_holes')
             .select('numero, par, stroke_index, recorrido')
@@ -326,8 +329,27 @@ function RondaLibrePageContent() {
             })
             setParMap(pm)
             setSiMap(sm)
+            finalParTotal = Object.values(pm).reduce((a, b) => a + b, 0)
           }
         }
+
+        // Convertir índice → course handicap usando fórmula WHS
+        const courseData = await cargarCourseData(r.course_id, r.tees || 'azul', r.holes, finalParTotal)
+        const chMap: Record<string, number> = {}
+        const supabaseForProfiles = createClient()
+        for (const j of r.ronda_libre_jugadores) {
+          let index: number
+          if (j.handicap != null) {
+            index = j.handicap
+          } else if (j.user_id) {
+            const { data: p } = await supabaseForProfiles.from('profiles').select('indice').eq('id', j.user_id).single()
+            index = p?.indice ?? 18
+          } else {
+            index = 18
+          }
+          chMap[j.id] = resolverCourseHandicap(index, courseData)
+        }
+        setCourseHcpMap(chMap)
       }
     } catch (err) {
       console.error('[fetchRonda error]', err)
@@ -904,8 +926,8 @@ function RondaLibrePageContent() {
                       for (const [k, v] of Object.entries(jugMP[0].scores)) { if (v > 0) scA[k] = v }
                       for (const [k, v] of Object.entries(jugMP[1].scores)) { if (v > 0) scB[k] = v }
                       const mrTL = calcularMatchPlay(scA, scB, holesArr, {
-                        courseHandicapA: jugMP[0].handicap ?? 0,
-                        courseHandicapB: jugMP[1].handicap ?? 0,
+                        courseHandicapA: courseHcpMap[jugMP[0].id] ?? 0,
+                        courseHandicapB: courseHcpMap[jugMP[1].id] ?? 0,
                         totalHoles: ronda.holes,
                       })
                       const holeDetail = mrTL.holes.find(h => h.numero === event.hole)
@@ -998,8 +1020,8 @@ function RondaLibrePageContent() {
             for (const [k, v] of Object.entries(jug[0].scores)) { if (v > 0) scA[k] = v }
             for (const [k, v] of Object.entries(jug[1].scores)) { if (v > 0) scB[k] = v }
             const mr = calcularMatchPlay(scA, scB, holesArr, {
-              courseHandicapA: jug[0].handicap ?? 0,
-              courseHandicapB: jug[1].handicap ?? 0,
+              courseHandicapA: courseHcpMap[jug[0].id] ?? 0,
+              courseHandicapB: courseHcpMap[jug[1].id] ?? 0,
               totalHoles: ronda.holes,
             })
             return (
@@ -1011,12 +1033,12 @@ function RondaLibrePageContent() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>{jug[0].nombre}</div>
-                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {jug[0].handicap ?? '--'}</div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {courseHcpMap[jug[0].id] ?? '--'}</div>
                   </div>
                   <div style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600 }}>VS</div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>{jug[1].nombre}</div>
-                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {jug[1].handicap ?? '--'}</div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>HCP {courseHcpMap[jug[1].id] ?? '--'}</div>
                   </div>
                 </div>
 
@@ -1155,8 +1177,8 @@ function RondaLibrePageContent() {
                   const gwi = calcularGWIMatch({
                     nombreA: jug[0].nombre,
                     nombreB: jug[1].nombre,
-                    handicapA: jug[0].handicap ?? 0,
-                    handicapB: jug[1].handicap ?? 0,
+                    handicapA: courseHcpMap[jug[0].id] ?? 0,
+                    handicapB: courseHcpMap[jug[1].id] ?? 0,
                     holesUp: mr.state,
                     holesRemaining: mr.holesRemaining,
                     roundsCountA: 10,
