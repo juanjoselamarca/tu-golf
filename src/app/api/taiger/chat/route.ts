@@ -84,23 +84,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Freemium limit (exclude onboarding)
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
+    // Freemium limit (exclude onboarding) — bypass para admins
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    const isAdmin = profile?.role === 'admin'
 
-    const { count } = await supabase
-      .from('taiger_sessions')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .neq('session_type', 'onboarding')
-      .gte('created_at', startOfMonth.toISOString())
+    if (!isAdmin) {
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
 
-    if ((count ?? 0) >= TAIGER_FREE_MONTHLY_LIMIT) {
-      return NextResponse.json(
-        { error: `Llegaste al límite de ${TAIGER_FREE_MONTHLY_LIMIT} sesiones este mes. Escríbenos por WhatsApp para acceso ilimitado.`, code: 'limit_reached', whatsapp: WHATSAPP_TAIGER_PREMIUM_URL },
-        { status: 429 }
-      )
+      const { count } = await supabase
+        .from('taiger_sessions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .neq('session_type', 'onboarding')
+        .gte('created_at', startOfMonth.toISOString())
+
+      if ((count ?? 0) >= TAIGER_FREE_MONTHLY_LIMIT) {
+        return NextResponse.json(
+          { error: `Llegaste al límite de ${TAIGER_FREE_MONTHLY_LIMIT} sesiones este mes. Escríbenos por WhatsApp para acceso ilimitado.`, code: 'limit_reached', whatsapp: WHATSAPP_TAIGER_PREMIUM_URL },
+          { status: 429 }
+        )
+      }
     }
 
     // Fetch context from /api/taiger/context forwarding cookies
