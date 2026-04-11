@@ -57,7 +57,9 @@ export const FORMAT_META: Record<FormatoJuego, {
     requiereEquipos: false,
     requiereParejas: true,
     jugadoresPorEquipo: null,
-    modosPermitidos: ['gross', 'neto'],
+    // Match Play en Chile se juega SIEMPRE neto (con handicap)
+    // Alineado con Stableford (R&A 32.1b) — evita confusión de usuarios
+    modosPermitidos: ['neto'],
   },
   best_ball: {
     category: 'team',

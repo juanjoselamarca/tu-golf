@@ -272,8 +272,9 @@ export default function NuevaRondaLibrePage() {
       baseData.admin_user_id = userId
     }
 
-    // Stableford siempre es neto (R&A Rule 32.1b). Otros formatos usan el modo seleccionado por el usuario.
-    const modoJuego = formato === 'stableford' ? 'neto' : modo
+    // Stableford siempre es neto (R&A Rule 32.1b).
+    // Match Play siempre es neto (cultura golf Chile — con handicap).
+    const modoJuego = (formato === 'stableford' || formato === 'match_play') ? 'neto' : modo
     const formatoJuego = formato
     const { data: d1, error: e1 } = await supabase
       .from('rondas_libres')
@@ -766,7 +767,7 @@ export default function NuevaRondaLibrePage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {([
                   { value: 'stroke_play' as const, label: 'Stroke Play', desc: 'Gana el de menos golpes', icon: '\u26F3' },
-                  { value: 'stableford' as const, label: 'Stableford', desc: 'Puntos por hoyo', icon: '\u2B50' },
+                  { value: 'stableford' as const, label: 'Stableford', desc: 'Puntos por hoyo \u2014 gana el de m\u00E1s puntos', icon: '\u2B50' },
                   { value: 'match_play' as const, label: 'Match Play', desc: 'Hoyo a hoyo, 1 vs 1', icon: '\u2694\uFE0F' },
                   // Team formats: motores listos, UI de equipos pendiente
                   // { value: 'best_ball' as const, label: 'Best Ball', desc: 'Equipos: cuenta la mejor bola', icon: '\uD83C\uDFC6' },
@@ -781,6 +782,8 @@ export default function NuevaRondaLibrePage() {
                       onClick={() => {
                         setFormato(f.value)
                         if (f.value === 'stableford') setModo('neto')
+                        // Match Play siempre neto (cultura golf Chile)
+                        if (f.value === 'match_play') setModo('neto')
                         // Match play fuerza admin mode con 1 rival
                         if (f.value === 'match_play' && !adminMode) {
                           setAdminMode(true)
@@ -837,8 +840,9 @@ export default function NuevaRondaLibrePage() {
                 </div>
               )}
 
-              {/* Selector Gross/Neto — separado del formato */}
-              {formato !== 'stableford' && (
+              {/* Selector Gross/Neto — separado del formato.
+                  Oculto para Stableford (R&A 32.1b) y Match Play (cultura golf Chile) — ambos siempre neto. */}
+              {formato !== 'stableford' && formato !== 'match_play' && (
                 <div style={{ marginTop: '20px' }}>
                   <div style={{
                     fontFamily: '"DM Sans", sans-serif',
@@ -895,13 +899,47 @@ export default function NuevaRondaLibrePage() {
                   background: 'rgba(196,153,42,0.06)',
                   border: '1px solid rgba(196,153,42,0.15)',
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
+                  flexDirection: 'column',
+                  gap: '8px',
                 }}>
-                  <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
-                  <span style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.4 }}>
-                    Stableford siempre se juega con handicap (neto) segun las reglas oficiales R&amp;A.
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
+                    <span style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.4 }}>
+                      Stableford siempre se juega con handicap (neto) segun las reglas oficiales R&amp;A.
+                    </span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '6px',
+                    paddingTop: '8px',
+                    borderTop: '1px solid rgba(196,153,42,0.15)',
+                  }}>
+                    {[
+                      { label: 'Eagle', pts: 4 },
+                      { label: 'Birdie', pts: 3 },
+                      { label: 'Par', pts: 2 },
+                      { label: 'Bogey', pts: 1 },
+                      { label: 'Doble+', pts: 0 },
+                    ].map(item => (
+                      <span key={item.label} style={{
+                        fontSize: '11px',
+                        fontFamily: '"DM Mono", monospace',
+                        color: colors.textSecondary,
+                        background: '#ffffff',
+                        border: '1px solid rgba(196,153,42,0.2)',
+                        borderRadius: '6px',
+                        padding: '3px 7px',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        <span style={{ color: '#c4992a', fontWeight: 700 }}>{item.pts}</span>
+                        {' '}{item.label}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: '10px', color: colors.textSecondary, opacity: 0.75, lineHeight: 1.3 }}>
+                    Gana el jugador con mas puntos al final de la ronda.
+                  </div>
                 </div>
               )}
             </div>
@@ -1271,7 +1309,7 @@ export default function NuevaRondaLibrePage() {
               )}
 
               {/* Match Play Neto: handicap difference preview (solo si modo = neto) */}
-              {formato === 'match_play' && modo === 'neto' && adminPlayers.length === 1 && (
+              {formato === 'match_play' && adminPlayers.length === 1 && (
                 <div style={{
                   marginTop: '12px', padding: '14px',
                   background: 'rgba(196,153,42,0.06)',
