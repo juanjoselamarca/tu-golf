@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularScoreRonda } from '@/golf/core/round-score'
+import { puntosStablefordHoyo } from '@/golf/core/scoring'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -14,11 +15,13 @@ type RondaRow = {
   holes: number | null
   fecha: string
   hoyo_inicio: number | null
+  formato_juego: string | null
   ronda_libre_jugadores: Array<{
     id: string
     nombre: string | null
     user_id: string | null
     scores: Record<string, number> | null
+    handicap: number | null
   }> | null
 }
 
@@ -32,8 +35,8 @@ export async function GET(request: Request) {
       .from('rondas_libres')
       .select(`
         id, codigo, course_name, course_id, tees, holes,
-        fecha, estado, hoyo_inicio,
-        ronda_libre_jugadores ( id, nombre, user_id, scores )
+        fecha, estado, hoyo_inicio, formato_juego,
+        ronda_libre_jugadores ( id, nombre, user_id, scores, handicap )
       `)
       .eq('estado', 'en_curso')
       .order('fecha', { ascending: false })
@@ -54,16 +57,20 @@ export async function GET(request: Request) {
     )
 
     const parMapByCourse = new Map<string, Record<number, number>>()
+    const siMapByCourse = new Map<string, Record<number, number>>()
     if (courseIds.length > 0) {
       const { data: holesData } = await supabase
         .from('course_holes')
-        .select('course_id, numero, par')
+        .select('course_id, numero, par, stroke_index')
         .in('course_id', courseIds)
 
-      for (const row of (holesData ?? []) as Array<{ course_id: string; numero: number; par: number }>) {
-        const map = parMapByCourse.get(row.course_id) ?? {}
-        map[row.numero] = row.par
-        parMapByCourse.set(row.course_id, map)
+      for (const row of (holesData ?? []) as Array<{ course_id: string; numero: number; par: number; stroke_index: number | null }>) {
+        const pMap = parMapByCourse.get(row.course_id) ?? {}
+        pMap[row.numero] = row.par
+        parMapByCourse.set(row.course_id, pMap)
+        const sMap = siMapByCourse.get(row.course_id) ?? {}
+        sMap[row.numero] = row.stroke_index ?? row.numero
+        siMapByCourse.set(row.course_id, sMap)
       }
     }
 
@@ -75,6 +82,12 @@ export async function GET(request: Request) {
       if (Object.keys(parMap).length === 0) {
         for (let i = 1; i <= totalHoles; i++) parMap[i] = 4
       }
+      const siMap: Record<number, number> =
+        (ronda.course_id && siMapByCourse.get(ronda.course_id)) || {}
+      if (Object.keys(siMap).length === 0) {
+        for (let i = 1; i <= totalHoles; i++) siMap[i] = i
+      }
+      const isStableford = ronda.formato_juego === 'stableford'
 
       const jugadores = (ronda.ronda_libre_jugadores ?? []).map(j => {
         const scores = (j.scores ?? {}) as Record<string, number>
@@ -83,12 +96,23 @@ export async function GET(request: Request) {
           roundHoles: totalHoles,
           parMap,
         })
+        let stablefordPts = 0
+        if (isStableford) {
+          const hcp = Math.round(j.handicap ?? 0)
+          for (let h = 1; h <= totalHoles; h++) {
+            const s = scores[String(h)] ?? (scores as Record<number, number>)[h]
+            if (s != null && s > 0) {
+              stablefordPts += puntosStablefordHoyo(s, parMap[h] ?? 4, hcp, siMap[h] ?? h, totalHoles)
+            }
+          }
+        }
         return {
           id: j.id,
           nombre: j.nombre ?? 'Jugador',
           holesCompleted: holesPlayed,
           totalGross: gross,
           vsPar,
+          stablefordPts,
           totalHoles,
         }
       })
@@ -101,6 +125,7 @@ export async function GET(request: Request) {
         holes: totalHoles,
         fecha: ronda.fecha,
         hoyo_inicio: ronda.hoyo_inicio ?? 1,
+        formato_juego: ronda.formato_juego ?? 'stroke_play',
         jugadores,
         maxHolesCompleted: jugadores.reduce((m, j) => Math.max(m, j.holesCompleted), 0),
         totalJugadores: jugadores.length,

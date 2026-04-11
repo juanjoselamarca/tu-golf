@@ -10,6 +10,7 @@ interface JugadorEnVivo {
   holesCompleted: number
   totalGross: number
   vsPar: number
+  stablefordPts: number
   totalHoles: number
 }
 
@@ -27,6 +28,7 @@ interface RondaEnVivo {
   holes: number
   fecha: string
   hoyo_inicio: number
+  formato_juego: string
   jugadores: JugadorEnVivo[]
   maxHolesCompleted: number
   totalJugadores: number
@@ -248,13 +250,15 @@ export default function EnVivoPage() {
 
                   {/* Jugadores */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {ronda.jugadores
+                    {(() => { const isStab = ronda.formato_juego === 'stableford'; return ronda.jugadores
                       .slice()
                       .sort((a, b) => {
                         // Jugadores sin hoyos jugados van al final
                         if (a.holesCompleted === 0 && b.holesCompleted === 0) return 0
                         if (a.holesCompleted === 0) return 1
                         if (b.holesCompleted === 0) return -1
+                        // Stableford: mayor pts primero. Stroke/otros: menor vsPar primero.
+                        if (isStab) return b.stablefordPts - a.stablefordPts
                         return a.vsPar - b.vsPar
                       })
                       .slice(0, 4)
@@ -276,20 +280,22 @@ export default function EnVivoPage() {
                               color: 'var(--text-2)',
                               display: 'flex', alignItems: 'baseline', gap: '6px',
                             }}>
-                              <span style={{ color: 'var(--ivory)' }}>{formatVsPar(j.vsPar)}</span>
+                              <span style={{ color: 'var(--ivory)' }}>
+                                {isStab ? `${j.stablefordPts} pts` : formatVsPar(j.vsPar)}
+                              </span>
                               {j.holesCompleted < j.totalHoles ? (
                                 <span style={{
                                   fontSize: '10px', fontWeight: 500, color: 'var(--text-3)',
                                 }}>
                                   en {j.holesCompleted} {j.holesCompleted === 1 ? 'hoyo' : 'hoyos'}
                                 </span>
-                              ) : (
+                              ) : !isStab ? (
                                 <span style={{
                                   fontSize: '10px', fontWeight: 500, color: 'var(--text-3)',
                                 }}>
                                   ({j.totalGross})
                                 </span>
-                              )}
+                              ) : null}
                             </span>
                           )}
                           {!isLoggedIn && (
@@ -299,7 +305,7 @@ export default function EnVivoPage() {
                             }}>Ver →</span>
                           )}
                         </div>
-                      ))}
+                      )) })()}
                     {ronda.totalJugadores > 4 && (
                       <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '2px 8px' }}>
                         +{ronda.totalJugadores - 4} más
