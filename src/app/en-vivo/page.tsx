@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import { formatLabel } from '@/golf/core/rules'
 
 interface JugadorEnVivo {
   id: string
@@ -232,6 +233,23 @@ export default function EnVivoPage() {
                           textTransform: 'uppercase',
                           whiteSpace: 'nowrap',
                         }}>{ronda.holes} HOYOS</span>
+                        {/* Badge de formato — el espectador siempre sabe qué modalidad se juega */}
+                        {ronda.formato_juego && (
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '3px 9px',
+                            background: 'rgba(196,153,42,0.15)',
+                            color: '#c4992a',
+                            border: '1px solid rgba(196,153,42,0.32)',
+                            borderRadius: '999px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            letterSpacing: '0.06em',
+                            fontFamily: 'DM Mono, monospace',
+                            textTransform: 'uppercase',
+                            whiteSpace: 'nowrap',
+                          }}>{formatLabel(ronda.formato_juego)}</span>
+                        )}
                       </div>
                       <div style={{
                         fontSize: '11px', fontFamily: 'DM Mono, monospace',

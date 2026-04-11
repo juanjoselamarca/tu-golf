@@ -1574,6 +1574,8 @@ function ScorePageContent() {
             scoresByHole: playerScores,
             parsByHole: parMap,
             holesPlayed: totalHoles,
+            formato_juego: ronda.formato_juego,
+            modo_juego: ronda.modo_juego,
           }
           await compartirResultado(shareData)
         }

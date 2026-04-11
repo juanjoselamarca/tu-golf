@@ -90,6 +90,23 @@ export const FORMAT_META: Record<FormatoJuego, {
   },
 }
 
+/**
+ * Display label de un formato de juego (con modo opcional).
+ * Ej: formatLabel('stroke_play', 'neto') → 'Stroke Play Neto'
+ * Usado en share cards, en-vivo y headers de torneo para que el espectador
+ * sepa exactamente qué modalidad se está jugando.
+ */
+export function formatLabel(formato: FormatoJuego | string, modo?: ModoJuego | string | null): string {
+  const meta = FORMAT_META[formato as FormatoJuego]
+  const base = meta?.label ?? 'Stroke Play'
+  // Stableford + Match Play son SIEMPRE neto en Golfers+ (cultura Chile / R&A)
+  // → no tiene sentido mostrar el sufijo "Neto" porque es redundante
+  if (formato === 'stableford' || formato === 'match_play') return base
+  if (modo === 'neto') return `${base} Neto`
+  if (modo === 'gross') return `${base} Gross`
+  return base
+}
+
 /** Label textual de un resultado vs par */
 export function labelResultado(overUnder: number): string {
   if (overUnder <= -3) return 'albatros'

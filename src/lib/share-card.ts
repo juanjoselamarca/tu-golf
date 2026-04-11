@@ -1,6 +1,7 @@
 /* client-only — importar solo desde componentes con 'use client' */
 
 import { parTotalEstandar } from '@/golf/core/round-score'
+import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 
 // ── Tipos ─────────────────────────────────────────────────────────
 
@@ -18,6 +19,8 @@ export interface ShareCardRondaLibre {
   scoresByHole: Record<string | number, number>
   parsByHole: Record<number, number>
   holesPlayed: number
+  formato_juego?: FormatoJuego | string
+  modo_juego?: ModoJuego | string | null
   ranking?: Array<{ nombre: string; score: number; diff: number }>
 }
 
@@ -35,13 +38,23 @@ export interface ShareCardTorneo {
   eagles: number
   scoresByHole: Record<string | number, number>
   parsByHole: Record<number, number>
+  formato_juego?: FormatoJuego | string
+  modo_juego?: ModoJuego | string | null
 }
 
 export type ShareCardData = ShareCardRondaLibre | ShareCardTorneo
 
 // Keep backwards compat
 export interface LeaderboardPlayer { nombre: string; vsPar: number; holesPlayed: number; totalHoles: number }
-export interface LeaderboardShareData { players: LeaderboardPlayer[]; courseName: string; fecha: string; rondaCodigo: string; isFinished: boolean }
+export interface LeaderboardShareData {
+  players: LeaderboardPlayer[]
+  courseName: string
+  fecha: string
+  rondaCodigo: string
+  isFinished: boolean
+  formato_juego?: FormatoJuego | string
+  modo_juego?: ModoJuego | string | null
+}
 
 // ── Helpers internos ──────────────────────────────────────────────
 
@@ -80,6 +93,40 @@ function drawHolesBadge(ctx: CanvasRenderingContext2D, holes: number, cx: number
   ctx.fill()
   ctx.strokeStyle = isNine ? 'rgba(201,168,76,0.9)' : 'rgba(201,168,76,0.45)'
   ctx.lineWidth = isNine ? 2 : 1.2
+  ctx.stroke()
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#c9a84c'
+  ctx.fillText(label, cx, cy + 1)
+  ctx.textBaseline = 'alphabetic'
+  ctx.restore()
+}
+
+// Badge de formato de juego — "STROKE PLAY NETO", "STABLEFORD", "MATCH PLAY"
+// Es defensivo: el receptor de la share card siempre sabe qué modalidad se jugó.
+// Pill dorada sólida, estilo premium — mismo lenguaje visual que drawHolesBadge.
+function drawFormatBadge(
+  ctx: CanvasRenderingContext2D,
+  formato: FormatoJuego | string | undefined,
+  modo: ModoJuego | string | null | undefined,
+  cx: number,
+  cy: number,
+) {
+  if (!formato) return
+  const label = formatLabel(formato, modo ?? undefined).toUpperCase()
+  ctx.save()
+  ctx.font = 'bold 22px Arial, sans-serif'
+  const textW = ctx.measureText(label).width
+  const padX = 18
+  const w = textW + padX * 2
+  const h = 38
+  const x = cx - w / 2
+  const y = cy - h / 2
+  roundRect(ctx, x, y, w, h, h / 2)
+  ctx.fillStyle = 'rgba(201,168,76,0.22)'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(201,168,76,0.75)'
+  ctx.lineWidth = 1.5
   ctx.stroke()
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
@@ -190,10 +237,17 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
   const diffTxt = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
   ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
   ctx.font = '32px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 900)
-  drawHolesBadge(ctx, data.holesPlayed, W / 2, 940)
-
-  drawDivider(ctx, 975, W)
-  drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.holesPlayed, 1000, W)
+  // Badges: holes + formato (si hay formato, los ponemos apilados para no chocar)
+  if (data.formato_juego) {
+    drawHolesBadge(ctx, data.holesPlayed, W / 2, 935)
+    drawFormatBadge(ctx, data.formato_juego, data.modo_juego, W / 2, 982)
+    drawDivider(ctx, 1015, W)
+    drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.holesPlayed, 1035, W)
+  } else {
+    drawHolesBadge(ctx, data.holesPlayed, W / 2, 940)
+    drawDivider(ctx, 975, W)
+    drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.holesPlayed, 1000, W)
+  }
 
   const statsY = 1200
   const items: string[] = []
@@ -239,10 +293,16 @@ function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: 
   ctx.font = 'bold 40px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 815)
   ctx.font = '30px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 862)
   ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillText(`${data.totalJugadores} jugadores`, W / 2, 898)
-  drawHolesBadge(ctx, 18, W / 2, 938)
-
-  drawDivider(ctx, 973, W)
-  drawScorecard(ctx, data.scoresByHole, data.parsByHole, 18, 998, W)
+  if (data.formato_juego) {
+    drawHolesBadge(ctx, 18, W / 2, 932)
+    drawFormatBadge(ctx, data.formato_juego, data.modo_juego, W / 2, 980)
+    drawDivider(ctx, 1013, W)
+    drawScorecard(ctx, data.scoresByHole, data.parsByHole, 18, 1033, W)
+  } else {
+    drawHolesBadge(ctx, 18, W / 2, 938)
+    drawDivider(ctx, 973, W)
+    drawScorecard(ctx, data.scoresByHole, data.parsByHole, 18, 998, W)
+  }
 
   const items: string[] = []
   if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
@@ -305,6 +365,8 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
     scoreGross: parTotal + winner.vsPar, scoreDiff: winner.vsPar,
     courseName: data.courseName, fecha: data.fecha, birdies: 0, eagles: 0,
     scoresByHole: {}, parsByHole: {}, holesPlayed: winner.totalHoles,
+    formato_juego: data.formato_juego,
+    modo_juego: data.modo_juego,
     ranking: data.players.map(p => ({ nombre: p.nombre, score: parTotalEstandar(p.totalHoles) + p.vsPar, diff: p.vsPar })),
   }
   return compartirResultado(cardData)
