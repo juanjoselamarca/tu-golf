@@ -1636,6 +1636,28 @@ function RondaLibrePageContent() {
                             )}
                           </div>
                         </div>
+                        {ronda.formato_juego === 'stableford' && (
+                          <div style={{
+                            marginTop: '6px',
+                            paddingTop: '6px',
+                            borderTop: '1px dashed #e5e7eb',
+                            fontSize: '9px',
+                            color: '#6b7280',
+                            textAlign: 'center',
+                            fontFamily: '"DM Mono", monospace',
+                            letterSpacing: '0.2px',
+                          }}>
+                            <span style={{ color: '#c4992a', fontWeight: 700 }}>4</span> Eagle
+                            {' \u00B7 '}
+                            <span style={{ color: '#c4992a', fontWeight: 700 }}>3</span> Birdie
+                            {' \u00B7 '}
+                            <span style={{ color: '#c4992a', fontWeight: 700 }}>2</span> Par
+                            {' \u00B7 '}
+                            <span style={{ color: '#c4992a', fontWeight: 700 }}>1</span> Bogey
+                            {' \u00B7 '}
+                            <span style={{ color: '#c4992a', fontWeight: 700 }}>0</span> Doble+
+                          </div>
+                        )}
                       </div>
                     )
                   })()}
