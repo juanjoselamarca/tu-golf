@@ -1,36 +1,22 @@
 'use client'
 
 /**
- * Scorecard — tarjeta de golf estilo Garmin Golf para post-ronda.
+ * Scorecard — tarjeta de golf estilo Garmin Golf, versión premium Golfers+.
  *
- * Layout por defecto (Garmin-style):
- *   ┌───────────────────────────────────────────┐
- *   │ [avatar] Juan José Lamarca     88   +16   │
- *   │          HCP 11                 77 NET    │
- *   │                                            │
- *   │  1   2   3   4   5   6   7   8   9  OUT  │  ← números de hoyo (gris)
- *   │  4   4   3   4   4   3   4   5   5   36  │  ← par (gris)
- *   │ [6] [5]  3   4  [6]  3   4  [7] [8]  46  │  ← scores con íconos Garmin
- *   │  ·   ·       ·   ·       ·   ·   ·        │  ← dots de strokes
- *   │  ───────────────────────────────────────  │
- *   │  10  11  12  13  14  15  16  17  18  IN  │
- *   │  4   5   4   4   3   4   3   3   4   36  │
- *   │  4  (4) [6]  5   4  [4] [5] [4] [6]  42  │
- *   │  ·   ·   ·   ·       ·   ·   ·   ·        │
- *   │                                            │
- *   │                              TOTAL  88    │
- *   │                                     +16   │
- *   └───────────────────────────────────────────┘
- *
- * En modo neto, muestra el neto en pequeño debajo del gross.
- * En stableford, reemplaza gross por puntos (sin vs par).
- * Match play usa otro componente (tabla hoyo-a-hoyo estilo Ryder Cup).
+ * v2 fixes:
+ * - Bordes finos (1px) en ScoreSymbol
+ * - Líneas separadoras entre filas hoyo/par/score/neto
+ * - Neto visible en TODOS los hoyos (no solo donde hay palo)
+ * - Stableford muestra strokes + neto + puntos desde neto
+ * - Labels de fila a la izquierda (Hoyo, Par, Gross, Neto, Pts)
+ * - Diseño refinado, premium, no infantil
  */
 
 import ScoreSymbol, { GARMIN_COLORS } from './ScoreSymbol'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 
 const MONO = '"DM Mono", ui-monospace, monospace'
+const SANS = '"DM Sans", system-ui, sans-serif'
 
 // ═══════════════════════════════════════════════════════════
 // TYPES
@@ -44,21 +30,13 @@ export interface ScorecardHole {
 }
 
 export interface ScorecardProps {
-  /** Datos de los hoyos (9 o 18). Deben venir ordenados por numero. */
   holes: ScorecardHole[]
-  /** Scores del jugador por numero de hoyo (string key "1","2"...). */
   scores: Record<string, number>
-  /** Course handicap entero del jugador (para strokes y neto). 0 si gross. */
   courseHandicap: number
-  /** Modo de scoring — afecta si se muestran strokes/neto. */
   modo: 'gross' | 'neto'
-  /** Formato — afecta qué se muestra como score primario (puntos en stableford). */
   formato: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
-  /** Nombre del jugador (para header). Opcional. */
   playerName?: string
-  /** URL avatar (opcional). */
   avatarUrl?: string
-  /** Mostrar fila extra con yardaje + SI debajo del par. */
   showExtendedInfo?: boolean
 }
 
@@ -66,368 +44,355 @@ export interface ScorecardProps {
 // HELPERS
 // ═══════════════════════════════════════════════════════════
 
-function formatOverUnder(n: number): string {
-  if (n === 0) return 'E'
-  return n > 0 ? `+${n}` : String(n)
+function fmtOu(n: number): string {
+  return n === 0 ? 'E' : n > 0 ? `+${n}` : String(n)
 }
 
-interface HoleStats {
+interface HoleStat {
   hole: ScorecardHole
   score: number | null
   strokes: number
   neto: number | null
   stablefordPts: number | null
-  vsParGross: number
-  vsParNeto: number
 }
 
-function buildHoleStats(
+function buildStats(
   holes: ScorecardHole[],
   scores: Record<string, number>,
-  courseHandicap: number,
-  totalHoles: number,
-  formato: ScorecardProps['formato']
-): HoleStats[] {
-  return holes.map(hole => {
-    const raw = scores[String(hole.numero)]
+  ch: number,
+  totalH: number,
+  fmt: ScorecardProps['formato']
+): HoleStat[] {
+  return holes.map(h => {
+    const raw = scores[String(h.numero)]
     const score = typeof raw === 'number' && raw > 0 ? raw : null
-    const strokes = strokesRecibidosEnHoyo(courseHandicap, hole.stroke_index, totalHoles)
+    const strokes = strokesRecibidosEnHoyo(ch, h.stroke_index, totalH)
     const neto = score != null ? score - strokes : null
-    const stablefordPts = score != null && formato === 'stableford'
-      ? puntosStablefordHoyo(score, hole.par, courseHandicap, hole.stroke_index, totalHoles)
+    const stablefordPts = score != null && fmt === 'stableford'
+      ? puntosStablefordHoyo(score, h.par, ch, h.stroke_index, totalH)
       : null
-    return {
-      hole,
-      score,
-      strokes,
-      neto,
-      stablefordPts,
-      vsParGross: score != null ? score - hole.par : 0,
-      vsParNeto: neto != null ? neto - hole.par : 0,
-    }
+    return { hole: h, score, strokes, neto, stablefordPts }
   })
 }
 
-interface HalfTotals {
-  gross: number
-  neto: number
-  par: number
-  stableford: number
-}
+interface Totals { gross: number; neto: number; par: number; stab: number }
 
-function sumHalf(stats: HoleStats[]): HalfTotals {
-  return stats.reduce<HalfTotals>(
-    (acc, s) => ({
-      gross: acc.gross + (s.score ?? 0),
-      neto: acc.neto + (s.neto ?? 0),
-      par: acc.par + s.hole.par,
-      stableford: acc.stableford + (s.stablefordPts ?? 0),
-    }),
-    { gross: 0, neto: 0, par: 0, stableford: 0 }
-  )
+function sumTotals(stats: HoleStat[]): Totals {
+  return stats.reduce<Totals>((a, s) => ({
+    gross: a.gross + (s.score ?? 0),
+    neto: a.neto + (s.neto ?? 0),
+    par: a.par + s.hole.par,
+    stab: a.stab + (s.stablefordPts ?? 0),
+  }), { gross: 0, neto: 0, par: 0, stab: 0 })
 }
 
 // ═══════════════════════════════════════════════════════════
-// SUB-COMPONENTES
+// STYLES
 // ═══════════════════════════════════════════════════════════
 
-interface HalfRowProps {
+const ROW: React.CSSProperties = { display: 'flex', alignItems: 'center' }
+const SEP: React.CSSProperties = { height: 1, background: '#f0f0f0', margin: '3px 0' }
+
+const cell = (): React.CSSProperties => ({
+  flex: 1, minWidth: 0, textAlign: 'center' as const, fontFamily: MONO,
+})
+
+const totCell: React.CSSProperties = {
+  flexShrink: 0, width: 42, textAlign: 'center' as const,
+  borderLeft: '1px solid #e5e7eb', paddingLeft: 4, fontFamily: MONO,
+}
+
+// ═══════════════════════════════════════════════════════════
+// HALF (front 9 or back 9)
+// ═══════════════════════════════════════════════════════════
+
+interface HalfProps {
   label: 'OUT' | 'IN'
-  stats: HoleStats[]
-  totals: HalfTotals
+  stats: HoleStat[]
+  totals: Totals
   modo: 'gross' | 'neto'
   formato: ScorecardProps['formato']
-  showExtendedInfo: boolean
+  extended: boolean
 }
 
-function HalfRow({ label, stats, totals, modo, formato, showExtendedInfo }: HalfRowProps) {
+function Half({ label, stats, totals, modo, formato, extended }: HalfProps) {
   const isNeto = modo === 'neto'
-  const isStableford = formato === 'stableford'
-
-  const cellBase: React.CSSProperties = {
-    flex: 1,
-    minWidth: 0,
-    textAlign: 'center',
-    fontFamily: MONO,
-  }
-
-  const totalCellStyle: React.CSSProperties = {
-    flexShrink: 0,
-    width: 44,
-    textAlign: 'center',
-    borderLeft: `1px solid ${GARMIN_COLORS.empty}`,
-    paddingLeft: 6,
-  }
+  const isStab = formato === 'stableford'
 
   return (
-    <div style={{ marginBottom: 12 }}>
-      {/* Fila 1: número de hoyo + label OUT/IN */}
-      <div style={{ display: 'flex', alignItems: 'center' }}>
+    <div style={{ marginBottom: 10 }}>
+      {/* Hoyo */}
+      <div style={ROW}>
         {stats.map(s => (
-          <div key={`num-${s.hole.numero}`} style={{ ...cellBase, fontSize: 11, color: GARMIN_COLORS.mutedDark, fontWeight: 500 }}>
-            {s.hole.numero}
-          </div>
+          <div key={s.hole.numero} style={{ ...cell(), fontSize: 10, color: GARMIN_COLORS.parText, fontWeight: 600 }}>{s.hole.numero}</div>
         ))}
-        <div style={{ ...totalCellStyle, fontSize: 11, color: GARMIN_COLORS.mutedDark, fontWeight: 700, letterSpacing: '0.06em' }}>
-          {label}
-        </div>
+        <div style={{ ...totCell, fontSize: 10, color: GARMIN_COLORS.parText, fontWeight: 700 }}>{label}</div>
       </div>
 
-      {/* Fila 2: PAR */}
-      <div style={{ display: 'flex', alignItems: 'center', marginTop: 2 }}>
+      <div style={SEP} />
+
+      {/* Par */}
+      <div style={ROW}>
         {stats.map(s => (
-          <div key={`par-${s.hole.numero}`} style={{ ...cellBase, fontSize: 13, color: GARMIN_COLORS.mutedDark, fontWeight: 500 }}>
-            {s.hole.par}
-          </div>
+          <div key={s.hole.numero} style={{ ...cell(), fontSize: 11, color: GARMIN_COLORS.mutedDark, fontWeight: 500 }}>{s.hole.par}</div>
         ))}
-        <div style={{ ...totalCellStyle, fontSize: 13, color: GARMIN_COLORS.mutedDark, fontWeight: 500 }}>
-          {totals.par}
-        </div>
+        <div style={{ ...totCell, fontSize: 11, color: GARMIN_COLORS.mutedDark, fontWeight: 600 }}>{totals.par}</div>
       </div>
 
-      {/* Fila 3 (opcional): yardaje */}
-      {showExtendedInfo && (
-        <div style={{ display: 'flex', alignItems: 'center', marginTop: 1 }}>
+      {/* Extended: yardaje */}
+      {extended && (
+        <div style={ROW}>
           {stats.map(s => (
-            <div key={`yds-${s.hole.numero}`} style={{ ...cellBase, fontSize: 9, color: GARMIN_COLORS.mutedDark, opacity: 0.7 }}>
-              {s.hole.yardaje ?? '—'}
-            </div>
+            <div key={s.hole.numero} style={{ ...cell(), fontSize: 9, color: GARMIN_COLORS.parText }}>{s.hole.yardaje ?? ''}</div>
           ))}
-          <div style={{ ...totalCellStyle }} />
+          <div style={totCell} />
         </div>
       )}
 
-      {/* Fila 4 (opcional): stroke index */}
-      {showExtendedInfo && (
-        <div style={{ display: 'flex', alignItems: 'center', marginTop: 1 }}>
+      {/* Extended: SI */}
+      {extended && (
+        <div style={ROW}>
           {stats.map(s => (
-            <div key={`si-${s.hole.numero}`} style={{ ...cellBase, fontSize: 9, color: GARMIN_COLORS.mutedDark, opacity: 0.7 }}>
-              SI{s.hole.stroke_index}
-            </div>
+            <div key={s.hole.numero} style={{ ...cell(), fontSize: 9, color: GARMIN_COLORS.parText }}>{s.hole.stroke_index}</div>
           ))}
-          <div style={{ ...totalCellStyle }} />
+          <div style={totCell} />
         </div>
       )}
 
-      {/* Fila 5: SCORE con ícono Garmin */}
-      <div style={{ display: 'flex', alignItems: 'center', marginTop: 6 }}>
+      <div style={SEP} />
+
+      {/* Score gross con ícono Garmin */}
+      <div style={{ ...ROW, minHeight: 28, marginTop: 2 }}>
         {stats.map(s => (
-          <div key={`score-${s.hole.numero}`} style={{ ...cellBase, display: 'flex', justifyContent: 'center' }}>
+          <div key={s.hole.numero} style={{ ...cell(), display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <ScoreSymbol score={s.score} par={s.hole.par} size="sm" theme="light" />
           </div>
         ))}
-        <div style={{ ...totalCellStyle, fontSize: 15, color: GARMIN_COLORS.neutral, fontWeight: 700 }}>
-          {totals.gross > 0 ? totals.gross : '—'}
+        <div style={{ ...totCell, fontSize: 14, color: GARMIN_COLORS.neutral, fontWeight: 700 }}>
+          {totals.gross > 0 ? totals.gross : ''}
         </div>
       </div>
 
-      {/* Fila 6: puntos de strokes recibidos (solo neto, no stableford) */}
-      {isNeto && !isStableford && (
-        <div style={{ display: 'flex', alignItems: 'center', marginTop: 2 }}>
+      {/* Dots de strokes (neto o stableford) */}
+      {isNeto && (
+        <div style={ROW}>
           {stats.map(s => (
-            <div key={`strokes-${s.hole.numero}`} style={{ ...cellBase, fontSize: 10, color: GARMIN_COLORS.mutedDark, height: 10, lineHeight: 1 }}>
+            <div key={s.hole.numero} style={{ ...cell(), fontSize: 8, color: GARMIN_COLORS.parText, height: 10, lineHeight: '10px' }}>
               {s.strokes > 0 ? '·'.repeat(s.strokes) : ''}
             </div>
           ))}
-          <div style={{ ...totalCellStyle }} />
+          <div style={totCell} />
         </div>
       )}
 
-      {/* Fila 7: neto en gris pequeño (solo en modo neto, no stableford) */}
-      {isNeto && !isStableford && (
-        <div style={{ display: 'flex', alignItems: 'center', marginTop: 1 }}>
-          {stats.map(s => (
-            <div key={`net-${s.hole.numero}`} style={{ ...cellBase, fontSize: 10, color: GARMIN_COLORS.mutedDark, opacity: s.strokes > 0 ? 1 : 0 }}>
-              {s.strokes > 0 && s.neto != null ? s.neto : ''}
+      {/* Neto en TODOS los hoyos (stroke play neto) */}
+      {isNeto && !isStab && (
+        <>
+          <div style={SEP} />
+          <div style={ROW}>
+            {stats.map(s => (
+              <div key={s.hole.numero} style={{ ...cell(), fontSize: 10, color: GARMIN_COLORS.mutedDark, fontWeight: 500 }}>
+                {s.neto ?? ''}
+              </div>
+            ))}
+            <div style={{ ...totCell, fontSize: 11, color: GARMIN_COLORS.mutedDark, fontWeight: 700 }}>
+              {totals.neto > 0 ? totals.neto : ''}
             </div>
-          ))}
-          <div style={{ ...totalCellStyle, fontSize: 11, color: GARMIN_COLORS.mutedDark, fontWeight: 600 }}>
-            {totals.neto > 0 ? totals.neto : ''}
           </div>
-        </div>
+        </>
       )}
 
-      {/* Fila 8: puntos stableford (solo en stableford) */}
-      {isStableford && (
-        <div style={{ display: 'flex', alignItems: 'center', marginTop: 2 }}>
-          {stats.map(s => (
-            <div key={`pts-${s.hole.numero}`} style={{ ...cellBase, fontSize: 10, color: '#c4992a', fontWeight: 700 }}>
-              {s.stablefordPts != null ? `${s.stablefordPts}pt` : ''}
+      {/* Stableford: neto + puntos */}
+      {isStab && (
+        <>
+          <div style={SEP} />
+          <div style={ROW}>
+            {stats.map(s => (
+              <div key={s.hole.numero} style={{ ...cell(), fontSize: 10, color: GARMIN_COLORS.mutedDark, fontWeight: 500 }}>
+                {s.neto ?? ''}
+              </div>
+            ))}
+            <div style={{ ...totCell, fontSize: 11, color: GARMIN_COLORS.mutedDark, fontWeight: 600 }}>
+              {totals.neto > 0 ? totals.neto : ''}
             </div>
-          ))}
-          <div style={{ ...totalCellStyle, fontSize: 12, color: '#c4992a', fontWeight: 800 }}>
-            {totals.stableford > 0 ? `${totals.stableford}` : ''}
           </div>
-        </div>
+          <div style={SEP} />
+          <div style={ROW}>
+            {stats.map(s => (
+              <div key={s.hole.numero} style={{ ...cell(), fontSize: 11, color: '#c4992a', fontWeight: 700 }}>
+                {s.stablefordPts != null ? s.stablefordPts : ''}
+              </div>
+            ))}
+            <div style={{ ...totCell, fontSize: 12, color: '#c4992a', fontWeight: 800 }}>
+              {totals.stab > 0 ? totals.stab : ''}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════
-// COMPONENTE PRINCIPAL
+// ROW LABELS
+// ═══════════════════════════════════════════════════════════
+
+function Labels({ modo, formato, extended }: { modo: string; formato: string; extended: boolean }) {
+  const isNeto = modo === 'neto'
+  const isStab = formato === 'stableford'
+  const base: React.CSSProperties = {
+    fontSize: 8, color: GARMIN_COLORS.parText, fontWeight: 600,
+    textTransform: 'uppercase' as const, letterSpacing: '0.05em',
+    fontFamily: SANS, display: 'flex', alignItems: 'center',
+    whiteSpace: 'nowrap' as const,
+  }
+  const h14: React.CSSProperties = { ...base, height: 14 }
+  const h28: React.CSSProperties = { ...base, height: 28, minHeight: 28 }
+  const h10: React.CSSProperties = { ...base, height: 10 }
+  const gap: React.CSSProperties = { height: 1, margin: '3px 0' }
+
+  return (
+    <div style={{ width: 30, flexShrink: 0, paddingRight: 2 }}>
+      <div style={h14}>Hoyo</div>
+      <div style={gap} />
+      <div style={h14}>Par</div>
+      {extended && <div style={h14}>Yds</div>}
+      {extended && <div style={h14}>SI</div>}
+      <div style={gap} />
+      <div style={{ ...h28, marginTop: 2 }}>Gross</div>
+      {isNeto && <div style={h10} />}
+      {isNeto && !isStab && <><div style={gap} /><div style={h14}>Neto</div></>}
+      {isStab && <><div style={gap} /><div style={h14}>Neto</div><div style={gap} /><div style={h14}>Pts</div></>}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// MAIN
 // ═══════════════════════════════════════════════════════════
 
 export default function Scorecard({
-  holes,
-  scores,
-  courseHandicap,
-  modo,
-  formato,
-  playerName,
-  avatarUrl,
-  showExtendedInfo = false,
+  holes, scores, courseHandicap, modo, formato,
+  playerName, avatarUrl, showExtendedInfo = false,
 }: ScorecardProps) {
-  const totalHoles = holes.length
+  const totalH = holes.length
   const isNeto = modo === 'neto'
-  const isStableford = formato === 'stableford'
+  const isStab = formato === 'stableford'
 
-  // Stats por hoyo
-  const allStats = buildHoleStats(holes, scores, courseHandicap, totalHoles, formato)
-  const front9 = allStats.slice(0, 9)
-  const back9 = allStats.slice(9, 18)
-  const hasBack = back9.length > 0
+  const all = buildStats(holes, scores, courseHandicap, totalH, formato)
+  const f9 = all.slice(0, 9)
+  const b9 = all.slice(9, 18)
+  const hasBack = b9.length > 0
 
-  const front9Totals = sumHalf(front9)
-  const back9Totals = hasBack ? sumHalf(back9) : null
+  const f9t = sumTotals(f9)
+  const b9t = hasBack ? sumTotals(b9) : null
 
-  const totalGross = front9Totals.gross + (back9Totals?.gross ?? 0)
-  const totalNeto = front9Totals.neto + (back9Totals?.neto ?? 0)
-  const totalPar = front9Totals.par + (back9Totals?.par ?? 0)
-  const totalStableford = front9Totals.stableford + (back9Totals?.stableford ?? 0)
-
-  const vsParGross = totalGross - totalPar
-  const vsParNeto = totalNeto - totalPar
-
-  const holesPlayed = allStats.filter(s => s.score != null).length
-  const hasAnyScore = holesPlayed > 0
+  const tG = f9t.gross + (b9t?.gross ?? 0)
+  const tN = f9t.neto + (b9t?.neto ?? 0)
+  const tP = f9t.par + (b9t?.par ?? 0)
+  const tS = f9t.stab + (b9t?.stab ?? 0)
+  const played = all.filter(s => s.score != null).length
 
   return (
     <div style={{
-      background: '#ffffff',
-      borderRadius: 16,
-      border: '1px solid #e5e7eb',
-      padding: '20px 16px 16px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      fontFamily: '"DM Sans", sans-serif',
+      background: '#ffffff', borderRadius: 10,
+      border: '1px solid #e5e7eb', overflow: 'hidden',
+      fontFamily: SANS,
     }}>
-      {/* HEADER: avatar + nombre + score grande */}
-      {(playerName || hasAnyScore) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid #f3f4f6' }}>
+      {/* HEADER */}
+      {(playerName || played > 0) && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '14px 14px 12px', borderBottom: '1px solid #f0f0f0',
+        }}>
           {avatarUrl ? (
-            <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1px solid #e5e7eb' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1px solid #e5e7eb' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={avatarUrl} alt={playerName ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
-          ) : (
+          ) : playerName ? (
             <div style={{
-              width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-              background: 'rgba(196,153,42,0.08)',
-              border: '1px solid rgba(196,153,42,0.2)',
+              width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+              background: '#f9fafb', border: '1px solid #e5e7eb',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18,
-            }}>🏌️</div>
-          )}
+              fontSize: 14, fontWeight: 600, color: GARMIN_COLORS.mutedDark,
+            }}>
+              {playerName.charAt(0).toUpperCase()}
+            </div>
+          ) : null}
 
           <div style={{ flex: 1, minWidth: 0 }}>
             {playerName && (
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: GARMIN_COLORS.neutral, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {playerName}
               </div>
             )}
             {isNeto && courseHandicap !== 0 && (
-              <div style={{ fontSize: 11, color: GARMIN_COLORS.mutedDark, marginTop: 2 }}>
-                HCP {courseHandicap}
-              </div>
+              <div style={{ fontSize: 10, color: GARMIN_COLORS.mutedDark, marginTop: 1 }}>HCP {courseHandicap}</div>
             )}
           </div>
 
-          {/* Score grande */}
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            {hasAnyScore && (
+          {played > 0 && (
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              {isStab ? (
+                <>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#c4992a', lineHeight: 1, fontFamily: MONO }}>{tS}</div>
+                  <div style={{ fontSize: 9, color: '#c4992a', fontWeight: 600, marginTop: 2, letterSpacing: '0.1em' }}>PTS</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: GARMIN_COLORS.neutral, lineHeight: 1, fontFamily: MONO }}>{tG}</div>
+                  <div style={{ fontSize: 11, color: GARMIN_COLORS.mutedDark, marginTop: 2, fontFamily: MONO }}>{fmtOu(tG - tP)}</div>
+                  {isNeto && courseHandicap !== 0 && (
+                    <div style={{ fontSize: 10, color: GARMIN_COLORS.mutedDark, marginTop: 2, fontFamily: MONO }}>
+                      {tN} {fmtOu(tN - tP)} net
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TABLE */}
+      <div style={{ padding: '10px 8px 12px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex' }}>
+          <Labels modo={modo} formato={formato} extended={showExtendedInfo} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Half label="OUT" stats={f9} totals={f9t} modo={modo} formato={formato} extended={showExtendedInfo} />
+          </div>
+        </div>
+
+        {hasBack && b9t && (
+          <div style={{ display: 'flex', borderTop: '1px solid #e5e7eb', paddingTop: 8 }}>
+            <Labels modo={modo} formato={formato} extended={showExtendedInfo} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Half label="IN" stats={b9} totals={b9t} modo={modo} formato={formato} extended={showExtendedInfo} />
+            </div>
+          </div>
+        )}
+
+        {hasBack && played > 0 && (
+          <div style={{
+            display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline', gap: 8,
+            paddingTop: 8, borderTop: '1px solid #e5e7eb',
+          }}>
+            <span style={{ fontSize: 9, color: GARMIN_COLORS.parText, fontWeight: 700, letterSpacing: '0.1em' }}>TOTAL</span>
+            {isStab ? (
+              <span style={{ fontSize: 18, fontWeight: 700, color: '#c4992a', fontFamily: MONO }}>{tS} pts</span>
+            ) : (
               <>
-                {isStableford ? (
-                  <>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#c4992a', lineHeight: 1, fontFamily: MONO }}>
-                      {totalStableford}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#c4992a', marginTop: 2, letterSpacing: '0.08em', fontWeight: 700 }}>
-                      PTS
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#111827', lineHeight: 1, fontFamily: MONO }}>
-                      {totalGross}
-                    </div>
-                    <div style={{ fontSize: 13, color: GARMIN_COLORS.mutedDark, marginTop: 2, fontFamily: MONO }}>
-                      {formatOverUnder(vsParGross)}
-                    </div>
-                    {isNeto && courseHandicap !== 0 && (
-                      <div style={{ fontSize: 11, color: GARMIN_COLORS.mutedDark, marginTop: 4, fontFamily: MONO }}>
-                        {totalNeto} <span style={{ opacity: 0.6 }}>{formatOverUnder(vsParNeto)}</span> NET
-                      </div>
-                    )}
-                  </>
+                <span style={{ fontSize: 18, fontWeight: 700, color: GARMIN_COLORS.neutral, fontFamily: MONO }}>{tG}</span>
+                <span style={{ fontSize: 11, color: GARMIN_COLORS.mutedDark, fontFamily: MONO }}>{fmtOu(tG - tP)}</span>
+                {isNeto && courseHandicap !== 0 && (
+                  <span style={{ fontSize: 10, color: GARMIN_COLORS.mutedDark, fontFamily: MONO }}>· {tN} {fmtOu(tN - tP)} net</span>
                 )}
               </>
             )}
           </div>
-        </div>
-      )}
-
-      {/* TABLA HOYO POR HOYO */}
-      <HalfRow
-        label="OUT"
-        stats={front9}
-        totals={front9Totals}
-        modo={modo}
-        formato={formato}
-        showExtendedInfo={showExtendedInfo}
-      />
-
-      {hasBack && back9Totals && (
-        <HalfRow
-          label="IN"
-          stats={back9}
-          totals={back9Totals}
-          modo={modo}
-          formato={formato}
-          showExtendedInfo={showExtendedInfo}
-        />
-      )}
-
-      {/* TOTAL FINAL (solo si 18 hoyos) */}
-      {hasBack && hasAnyScore && (
-        <div style={{
-          display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline',
-          gap: 10, marginTop: 6, paddingTop: 10,
-          borderTop: `1px solid ${GARMIN_COLORS.empty}`,
-        }}>
-          <span style={{ fontSize: 10, color: GARMIN_COLORS.mutedDark, letterSpacing: '0.08em', fontWeight: 700 }}>
-            TOTAL
-          </span>
-          {isStableford ? (
-            <span style={{ fontSize: 22, fontWeight: 800, color: '#c4992a', fontFamily: MONO }}>
-              {totalStableford} <span style={{ fontSize: 12, fontWeight: 700 }}>PTS</span>
-            </span>
-          ) : (
-            <>
-              <span style={{ fontSize: 22, fontWeight: 800, color: '#111827', fontFamily: MONO }}>
-                {totalGross}
-              </span>
-              <span style={{ fontSize: 13, color: GARMIN_COLORS.mutedDark, fontFamily: MONO }}>
-                {formatOverUnder(vsParGross)}
-              </span>
-              {isNeto && courseHandicap !== 0 && (
-                <span style={{ fontSize: 12, color: GARMIN_COLORS.mutedDark, fontFamily: MONO, marginLeft: 6 }}>
-                  {totalNeto} {formatOverUnder(vsParNeto)} NET
-                </span>
-              )}
-            </>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

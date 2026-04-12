@@ -1,96 +1,75 @@
 'use client'
 
 /**
- * HoleBar — barra horizontal de segmentos hoyo-por-hoyo estilo Garmin Activity.
+ * HoleBar — barra horizontal de rendimiento hoyo-por-hoyo.
  *
- * Cada hoyo es un segmento corto con gap entre ellos, coloreado según
- * el resultado vs par (igual paleta que ScoreSymbol):
- *
- *   ● ● · ● ● · ● · · · · ● ● ● ● · · ●     (18 hoyos)
- *
- *   Celeste = birdie (-1) o mejor
- *   Gris neutro = par (0)
- *   Naranja = bogey (+1)
- *   Rojo = doble bogey (+2) o peor
- *   Vacío (transparente outline) = hoyo sin score
- *
- * Permite al usuario escanear su historial y ver "cómo le fue" de un vistazo.
+ * Versión profesional inspirada en Garmin Activity:
+ * - Segmentos delgados con bordes redondeados sutiles
+ * - Colores Garmin: celeste (birdie+), gris neutro (par), dorado (bogey), rojo (doble+)
+ * - Gap mínimo entre segmentos para sensación continua pero articulada
+ * - Sin hover, sin tooltips: la barra es un resumen visual puro
  */
 
 import { GARMIN_COLORS } from './ScoreSymbol'
 
 export interface HoleBarProps {
-  /** Scores por número de hoyo. */
   scores: Record<string, number> | (number | null)[]
-  /** Pares por número de hoyo (same key). Si no está, asume 4. */
   pars: Record<string, number> | number[]
-  /** Total de hoyos a renderizar (9 o 18). */
   totalHoles: number
-  /** Altura de la barra en px. Default 8. */
   height?: number
-  /** Gap entre segmentos en px. Default 2. */
   gap?: number
 }
 
-function segmentColor(score: number | null | undefined, par: number): string {
+function getColor(score: number | null | undefined, par: number): string {
   if (score == null || score === 0) return 'transparent'
-  const diff = score - par
-  if (diff <= -1) return GARMIN_COLORS.birdie
-  if (diff === 0) return GARMIN_COLORS.mutedDark // gris neutro para par
-  if (diff === 1) return GARMIN_COLORS.bogey
+  const d = score - par
+  if (d <= -1) return GARMIN_COLORS.birdie
+  if (d === 0) return '#b0b8c4' // gris medio sutil para par (no tan oscuro ni tan claro)
+  if (d === 1) return GARMIN_COLORS.bogey
   return GARMIN_COLORS.double
 }
 
-function getScore(scores: HoleBarProps['scores'], hole: number): number | null {
-  if (Array.isArray(scores)) {
-    return scores[hole - 1] ?? null
-  }
-  const raw = scores[String(hole)] ?? (scores as Record<number, number>)[hole]
-  return typeof raw === 'number' && raw > 0 ? raw : null
+function getS(scores: HoleBarProps['scores'], h: number): number | null {
+  if (Array.isArray(scores)) return scores[h - 1] ?? null
+  const v = scores[String(h)] ?? (scores as Record<number, number>)[h]
+  return typeof v === 'number' && v > 0 ? v : null
 }
 
-function getPar(pars: HoleBarProps['pars'], hole: number): number {
-  if (Array.isArray(pars)) {
-    return pars[hole - 1] ?? 4
-  }
-  const raw = pars[String(hole)] ?? (pars as Record<number, number>)[hole]
-  return typeof raw === 'number' ? raw : 4
+function getP(pars: HoleBarProps['pars'], h: number): number {
+  if (Array.isArray(pars)) return pars[h - 1] ?? 4
+  const v = pars[String(h)] ?? (pars as Record<number, number>)[h]
+  return typeof v === 'number' ? v : 4
 }
 
 export default function HoleBar({
-  scores,
-  pars,
-  totalHoles,
-  height = 8,
+  scores, pars, totalHoles,
+  height = 6,
   gap = 2,
 }: HoleBarProps) {
-  const segments = Array.from({ length: totalHoles }, (_, i) => {
-    const hole = i + 1
-    const score = getScore(scores, hole)
-    const par = getPar(pars, hole)
-    const color = segmentColor(score, par)
-    return { hole, color, hasScore: score != null }
+  const segs = Array.from({ length: totalHoles }, (_, i) => {
+    const h = i + 1
+    const s = getS(scores, h)
+    const p = getP(pars, h)
+    return { h, color: getColor(s, p), has: s != null }
   })
 
   return (
     <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: `${gap}px`,
-      width: '100%',
+      display: 'flex', alignItems: 'center', gap,
+      width: '100%', height,
     }}>
-      {segments.map(seg => (
+      {segs.map(seg => (
         <div
-          key={seg.hole}
+          key={seg.h}
           style={{
             flex: 1,
-            height,
-            borderRadius: height / 2,
-            background: seg.hasScore ? seg.color : 'transparent',
-            border: seg.hasScore ? 'none' : `1px solid ${GARMIN_COLORS.empty}`,
-            minWidth: 4,
+            height: '100%',
+            borderRadius: 1,
+            background: seg.has ? seg.color : 'transparent',
+            border: seg.has ? 'none' : `1px solid ${GARMIN_COLORS.empty}`,
+            minWidth: 3,
+            transition: 'background 0.2s',
           }}
-          title={`Hoyo ${seg.hole}`}
         />
       ))}
     </div>
