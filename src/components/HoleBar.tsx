@@ -24,7 +24,7 @@ function getColor(score: number | null | undefined, par: number): string {
   if (score == null || score === 0) return 'transparent'
   const d = score - par
   if (d <= -1) return GARMIN_COLORS.birdie
-  if (d === 0) return '#b0b8c4' // gris medio sutil para par (no tan oscuro ni tan claro)
+  if (d === 0) return '#d0d5dc' // gris claro para par — baseline visual, casi invisible
   if (d === 1) return GARMIN_COLORS.bogey
   return GARMIN_COLORS.double
 }
