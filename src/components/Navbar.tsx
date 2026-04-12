@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import NotificationHub from '@/components/NotificationHub'
 import { useTheme } from '@/contexts/ThemeContext'
+import { getNavTheme } from './nav/nav-theme'
 
 // KNOWN ISSUE (audit 2026-03-24): There is a potential race condition between
 // getUser() and onAuthStateChange(). The setUser/setIsAdmin calls are not
@@ -26,67 +27,7 @@ export default function Navbar() {
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
-
-  // Theme-aware colors — light is default, dark is opt-in
-  const t = isDark ? {
-    navBg: 'rgba(10,22,40,0.97)',
-    navBorder: 'rgba(196,153,42,0.12)',
-    iconColor: '#94a8c0',
-    logoText: '#edeae4',
-    avatarOpenBg: 'rgba(255,255,255,0.1)',
-    dropdownBg: '#0e1c2f',
-    dropdownBorder: 'rgba(196,153,42,0.12)',
-    dropdownShadow: '0 8px 32px rgba(0,0,0,0.4)',
-    menuText: '#edeae4',
-    menuMuted: '#94a3b8',
-    menuDivider: 'rgba(196,153,42,0.12)',
-    sidebarBg: '#0a1628',
-    sidebarBorder: 'rgba(196,153,42,0.12)',
-    userName: '#edeae4',
-    userEmail: '#94a8c0',
-    sectionLabel: '#94a3b8',
-    itemText: '#edeae4',
-    itemActive: '#C4992A',
-    itemActiveBg: 'rgba(196,153,42,0.1)',
-    bottomNavBg: 'rgba(10,22,40,0.95)',
-    bottomNavBorder: 'rgba(196,153,42,0.12)',
-    loginBtnBorder: 'rgba(196,153,42,0.4)',
-    loginBtnText: '#C4992A',
-    guestBtnBg: 'transparent',
-    guestBtnText: '#edeae4',
-    guestBtnBorder: 'rgba(196,153,42,0.2)',
-    registerBg: '#C4992A',
-    registerText: '#070d18',
-  } : {
-    navBg: 'rgba(255,255,255,0.97)',
-    navBorder: '#e2e8f0',
-    iconColor: '#4a5568',
-    logoText: '#1a1a2e',
-    avatarOpenBg: '#e2e8f0',
-    dropdownBg: '#ffffff',
-    dropdownBorder: '#e2e8f0',
-    dropdownShadow: '0 8px 32px rgba(0,0,0,0.12)',
-    menuText: '#1a1a2e',
-    menuMuted: '#94a3b8',
-    menuDivider: '#e2e8f0',
-    sidebarBg: '#ffffff',
-    sidebarBorder: '#e2e8f0',
-    userName: '#1a1a2e',
-    userEmail: '#4a5568',
-    sectionLabel: '#94a3b8',
-    itemText: '#1a1a2e',
-    itemActive: '#C4992A',
-    itemActiveBg: 'rgba(196,153,42,0.1)',
-    bottomNavBg: 'rgba(255,255,255,0.95)',
-    bottomNavBorder: '#e2e8f0',
-    loginBtnBorder: 'rgba(196,153,42,0.4)',
-    loginBtnText: '#C4992A',
-    guestBtnBg: 'transparent',
-    guestBtnText: '#1a1a2e',
-    guestBtnBorder: '#e2e8f0',
-    registerBg: '#C4992A',
-    registerText: '#070d18',
-  }
+  const t = getNavTheme(isDark)
 
   useEffect(() => {
     const supabase = createClient()
