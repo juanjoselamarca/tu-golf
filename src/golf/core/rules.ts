@@ -57,7 +57,9 @@ export const FORMAT_META: Record<FormatoJuego, {
     requiereEquipos: false,
     requiereParejas: true,
     jugadoresPorEquipo: null,
-    modosPermitidos: ['gross', 'neto'],
+    // Match Play en Chile se juega SIEMPRE neto (con handicap)
+    // Alineado con Stableford (R&A 32.1b) — evita confusión de usuarios
+    modosPermitidos: ['neto'],
   },
   best_ball: {
     category: 'team',
@@ -86,6 +88,23 @@ export const FORMAT_META: Record<FormatoJuego, {
     jugadoresPorEquipo: { min: 2, max: 2 },
     modosPermitidos: ['gross', 'neto'],
   },
+}
+
+/**
+ * Display label de un formato de juego (con modo opcional).
+ * Ej: formatLabel('stroke_play', 'neto') → 'Stroke Play Neto'
+ * Usado en share cards, en-vivo y headers de torneo para que el espectador
+ * sepa exactamente qué modalidad se está jugando.
+ */
+export function formatLabel(formato: FormatoJuego | string, modo?: ModoJuego | string | null): string {
+  const meta = FORMAT_META[formato as FormatoJuego]
+  const base = meta?.label ?? 'Stroke Play'
+  // Stableford + Match Play son SIEMPRE neto en Golfers+ (cultura Chile / R&A)
+  // → no tiene sentido mostrar el sufijo "Neto" porque es redundante
+  if (formato === 'stableford' || formato === 'match_play') return base
+  if (modo === 'neto') return `${base} Neto`
+  if (modo === 'gross') return `${base} Gross`
+  return base
 }
 
 /** Label textual de un resultado vs par */

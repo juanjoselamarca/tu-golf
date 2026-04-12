@@ -202,7 +202,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
       .from('tournaments')
       .insert({
         ...tournamentBase,
-        modo_juego: format === 'stableford' ? 'neto' : modo,
+        modo_juego: (format === 'stableford' || format === 'match_play') ? 'neto' : modo,
         formato_juego: format,
       })
       .select()
@@ -371,6 +371,8 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                   onClick={() => {
                     setFormat(f.value)
                     if (f.value === 'stableford') setModo('neto')
+                    // Match Play siempre neto (cultura golf Chile)
+                    if (f.value === 'match_play') setModo('neto')
                   }}
                   style={{
                     flex: 1, padding: '14px',
@@ -386,8 +388,9 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
               ))}
             </div>
 
-            {/* Selector Gross/Neto — separado del formato */}
-            {format !== 'stableford' ? (
+            {/* Selector Gross/Neto — separado del formato.
+                Oculto para Stableford (R&A 32.1b) y Match Play (cultura golf Chile) — ambos siempre neto. */}
+            {format !== 'stableford' && format !== 'match_play' ? (
               <div style={{ marginTop: '16px' }}>
                 <label style={labelStyle}>Modo de scoring</label>
                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -430,7 +433,9 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
               }}>
                 <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
                 <span style={{ fontSize: '12px', color: '#92400e', lineHeight: 1.4 }}>
-                  Stableford siempre se juega con handicap (neto) segun las reglas oficiales R&amp;A.
+                  {format === 'stableford'
+                    ? 'Stableford siempre se juega con handicap (neto) segun las reglas oficiales R&A.'
+                    : 'Match Play siempre se juega con handicap (neto) — formato estandar en clubes de Chile.'}
                 </span>
               </div>
             )}

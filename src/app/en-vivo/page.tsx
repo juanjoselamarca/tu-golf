@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import { formatLabel } from '@/golf/core/rules'
 
 interface JugadorEnVivo {
   id: string
@@ -10,6 +11,7 @@ interface JugadorEnVivo {
   holesCompleted: number
   totalGross: number
   vsPar: number
+  stablefordPts: number
   totalHoles: number
 }
 
@@ -27,6 +29,7 @@ interface RondaEnVivo {
   holes: number
   fecha: string
   hoyo_inicio: number
+  formato_juego: string
   jugadores: JugadorEnVivo[]
   maxHolesCompleted: number
   totalJugadores: number
@@ -230,6 +233,23 @@ export default function EnVivoPage() {
                           textTransform: 'uppercase',
                           whiteSpace: 'nowrap',
                         }}>{ronda.holes} HOYOS</span>
+                        {/* Badge de formato — el espectador siempre sabe qué modalidad se juega */}
+                        {ronda.formato_juego && (
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '3px 9px',
+                            background: 'rgba(196,153,42,0.15)',
+                            color: '#c4992a',
+                            border: '1px solid rgba(196,153,42,0.32)',
+                            borderRadius: '999px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            letterSpacing: '0.06em',
+                            fontFamily: 'DM Mono, monospace',
+                            textTransform: 'uppercase',
+                            whiteSpace: 'nowrap',
+                          }}>{formatLabel(ronda.formato_juego)}</span>
+                        )}
                       </div>
                       <div style={{
                         fontSize: '11px', fontFamily: 'DM Mono, monospace',
@@ -248,13 +268,15 @@ export default function EnVivoPage() {
 
                   {/* Jugadores */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {ronda.jugadores
+                    {(() => { const isStab = ronda.formato_juego === 'stableford'; return ronda.jugadores
                       .slice()
                       .sort((a, b) => {
                         // Jugadores sin hoyos jugados van al final
                         if (a.holesCompleted === 0 && b.holesCompleted === 0) return 0
                         if (a.holesCompleted === 0) return 1
                         if (b.holesCompleted === 0) return -1
+                        // Stableford: mayor pts primero. Stroke/otros: menor vsPar primero.
+                        if (isStab) return b.stablefordPts - a.stablefordPts
                         return a.vsPar - b.vsPar
                       })
                       .slice(0, 4)
@@ -276,20 +298,22 @@ export default function EnVivoPage() {
                               color: 'var(--text-2)',
                               display: 'flex', alignItems: 'baseline', gap: '6px',
                             }}>
-                              <span style={{ color: 'var(--ivory)' }}>{formatVsPar(j.vsPar)}</span>
+                              <span style={{ color: 'var(--ivory)' }}>
+                                {isStab ? `${j.stablefordPts} pts` : formatVsPar(j.vsPar)}
+                              </span>
                               {j.holesCompleted < j.totalHoles ? (
                                 <span style={{
                                   fontSize: '10px', fontWeight: 500, color: 'var(--text-3)',
                                 }}>
                                   en {j.holesCompleted} {j.holesCompleted === 1 ? 'hoyo' : 'hoyos'}
                                 </span>
-                              ) : (
+                              ) : !isStab ? (
                                 <span style={{
                                   fontSize: '10px', fontWeight: 500, color: 'var(--text-3)',
                                 }}>
                                   ({j.totalGross})
                                 </span>
-                              )}
+                              ) : null}
                             </span>
                           )}
                           {!isLoggedIn && (
@@ -299,7 +323,7 @@ export default function EnVivoPage() {
                             }}>Ver →</span>
                           )}
                         </div>
-                      ))}
+                      )) })()}
                     {ronda.totalJugadores > 4 && (
                       <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '2px 8px' }}>
                         +{ronda.totalJugadores - 4} más

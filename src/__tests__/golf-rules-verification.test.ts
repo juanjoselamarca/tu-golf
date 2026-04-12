@@ -200,9 +200,11 @@ describe('Separación conceptual Formato vs Modo', () => {
     expect(FORMAT_META.stroke_play.modosPermitidos).toContain('neto')
   })
 
-  it('FORMAT_META.match_play permite gross y neto', () => {
-    expect(FORMAT_META.match_play.modosPermitidos).toContain('gross')
-    expect(FORMAT_META.match_play.modosPermitidos).toContain('neto')
+  it('FORMAT_META.match_play SOLO permite neto (cultura golf Chile)', () => {
+    // Match Play en Chile se juega siempre con handicap (neto) — alineado con
+    // Stableford (R&A 32.1b). El UI no debe ofrecer la opcion gross.
+    expect(FORMAT_META.match_play.modosPermitidos).toEqual(['neto'])
+    expect(FORMAT_META.match_play.modosPermitidos).not.toContain('gross')
   })
 
   it('FORMAT_META.best_ball permite gross y neto (stableford NO es modo)', () => {

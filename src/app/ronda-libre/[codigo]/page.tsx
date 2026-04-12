@@ -65,6 +65,7 @@ import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { calcularScoreRonda, parTotalEstandar } from '@/golf/core/round-score'
 import { Suspense } from 'react'
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
@@ -114,12 +115,8 @@ type TimelineEvent = {
 const SS_KEY = (codigo: string) => `ronda-${codigo}-role`
 
 function getVsPar(scores: Record<string, number>, holes: number, parMap: Record<number, number>): number {
-  let total = 0
-  for (let h = 1; h <= holes; h++) {
-    const s = scores[String(h)] ?? scores[h]
-    if (s != null) total += s - (parMap[h] ?? 4)
-  }
-  return total
+  // Delegado al helper centralizado (fuente única de verdad)
+  return calcularScoreRonda({ scores, roundHoles: holes, parMap }).vsPar
 }
 
 /** Calcula vs par NETO aplicando strokes del course handicap por stroke index */
@@ -325,7 +322,7 @@ function RondaLibrePageContent() {
         setSecSinceUpdate(0)
         setRonda(data as unknown as RondaLibre)
         const r = data as unknown as RondaLibre
-        let finalParTotal = r.holes <= 9 ? 36 : 72
+        let finalParTotal = parTotalEstandar(r.holes)
         // Fetch hole pars if course linked
         if (r.course_id) {
           let holeQuery = supabase
@@ -1158,11 +1155,91 @@ function RondaLibrePageContent() {
                   </div>
                 </div>
 
-                {/* Tabla estilo Ryder Cup */}
+                {/* Strip compacto hoyo a hoyo — siempre visible en mobile (Ryder Cup style) */}
+                {mr.holesPlayed > 0 && (() => {
+                  const playedHoles = mr.holes.filter(h => !h.afterMatchEnd && h.result !== 'not_played')
+                  const firstName = jug[0].nombre.split(' ')[0]
+                  const secondName = jug[1].nombre.split(' ')[0]
+                  const renderCell = (h: MatchHoleDetail) => {
+                    const winA = h.result === 'won_a' || h.result === 'conceded_b'
+                    const winB = h.result === 'won_b' || h.result === 'conceded_a'
+                    const bg = winA ? '#16a34a' : winB ? '#dc2626' : '#94a8c0'
+                    const color = '#ffffff'
+                    const label = winA ? firstName[0]?.toUpperCase() ?? 'A' : winB ? secondName[0]?.toUpperCase() ?? 'B' : '='
+                    return (
+                      <div
+                        key={h.numero}
+                        title={`Hoyo ${h.numero} · Par ${h.par} · ${winA ? `${firstName} gana` : winB ? `${secondName} gana` : 'Empate'}`}
+                        style={{
+                          flex: '0 0 auto',
+                          minWidth: '30px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '3px',
+                        }}
+                      >
+                        <div style={{ fontSize: '9px', color: '#9ca3af', fontWeight: 600, lineHeight: 1 }}>{h.numero}</div>
+                        <div style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '8px',
+                          background: bg,
+                          color,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          letterSpacing: '0.02em',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                        }}>
+                          {label}
+                        </div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px',
+                      }}>
+                        <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>
+                          Hoyo a hoyo
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', fontSize: '9px', color: '#6b7280', fontWeight: 600 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#16a34a' }} />
+                            {firstName}
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#94a8c0' }} />
+                            Empate
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#dc2626' }} />
+                            {secondName}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '4px' }}>
+                        <div style={{ display: 'flex', gap: '6px', minWidth: 'min-content' }}>
+                          {playedHoles.slice(0, 9).map(renderCell)}
+                          {playedHoles.length > 9 && (
+                            <div style={{ width: '1px', background: '#e5e7eb', margin: '8px 2px' }} />
+                          )}
+                          {playedHoles.slice(9).map(renderCell)}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Tabla detallada hoyo a hoyo — scroll horizontal */}
                 {mr.holesPlayed > 0 && (
-                  <div style={{ overflowX: 'auto', marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
-                    <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 600 }}>
-                      Hoyo a hoyo
+                  <div style={{ overflowX: 'auto', marginTop: '12px', paddingTop: '8px' }}>
+                    <div style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 600 }}>
+                      Detalle
                     </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                       <thead>
@@ -1639,6 +1716,28 @@ function RondaLibrePageContent() {
                             )}
                           </div>
                         </div>
+                        {ronda.formato_juego === 'stableford' && (
+                          <div style={{
+                            marginTop: '6px',
+                            paddingTop: '6px',
+                            borderTop: '1px dashed #e5e7eb',
+                            fontSize: '9px',
+                            color: '#6b7280',
+                            textAlign: 'center',
+                            fontFamily: '"DM Mono", monospace',
+                            letterSpacing: '0.2px',
+                          }}>
+                            <span style={{ color: '#c4992a', fontWeight: 700 }}>4</span> Eagle
+                            {' \u00B7 '}
+                            <span style={{ color: '#c4992a', fontWeight: 700 }}>3</span> Birdie
+                            {' \u00B7 '}
+                            <span style={{ color: '#c4992a', fontWeight: 700 }}>2</span> Par
+                            {' \u00B7 '}
+                            <span style={{ color: '#c4992a', fontWeight: 700 }}>1</span> Bogey
+                            {' \u00B7 '}
+                            <span style={{ color: '#c4992a', fontWeight: 700 }}>0</span> Doble+
+                          </div>
+                        )}
                       </div>
                     )
                   })()}

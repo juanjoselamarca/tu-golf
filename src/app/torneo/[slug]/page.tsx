@@ -8,7 +8,7 @@ import { PLAYERS, PAR } from '@/lib/golf-data'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
-import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
+import { formatLabel, type ModoJuego, type FormatoJuego } from '@/golf/core/rules'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { resolveLeaderboardTies } from '@/golf/core/countback'
 import type { CountbackPlayer, CountbackMode, CountbackResult } from '@/golf/core/countback'
@@ -601,7 +601,20 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             {tournament?.courses?.nombre && <span style={{ color: '#94a3b8' }}>&middot;</span>}
             <span>{totalHoyos}H</span>
             <span style={{ color: '#94a3b8' }}>&middot;</span>
-            <span>{modoJuego === 'gross' ? 'Gross' : modoJuego === 'neto' ? 'Neto' : 'Stableford'}</span>
+            <span style={{
+              display: 'inline-block',
+              padding: '3px 10px',
+              background: 'rgba(196,153,42,0.15)',
+              color: '#c4992a',
+              border: '1px solid rgba(196,153,42,0.32)',
+              borderRadius: '999px',
+              fontSize: '11px',
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              fontFamily: '"DM Mono", monospace',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+            }}>{formatLabel(formatoJuego, modoJuego)}</span>
             <span style={{ color: '#94a3b8' }}>&middot;</span>
             <span>{dateDisplay}</span>
 

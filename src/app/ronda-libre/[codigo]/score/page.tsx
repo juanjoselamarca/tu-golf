@@ -9,6 +9,7 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
+import { parTotalEstandar } from '@/golf/core/round-score'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 import BirdieCelebration from '@/components/BirdieCelebration'
@@ -286,7 +287,7 @@ function ScorePageContent() {
       const hdm: Record<number, HoleData> = {}
       for (let i = 1; i <= r.holes; i++) { pm[i] = 4; hdm[i] = { numero: i, par: 4, stroke_index: i, yardaje: null } }
       setParMap(pm)
-      let finalParTotal = r.holes <= 9 ? 36 : 72  // se actualiza si hay course_holes
+      let finalParTotal = parTotalEstandar(r.holes)  // se actualiza si hay course_holes
 
       if (r.course_id) {
         let holeQuery = supabase.from('course_holes')
@@ -1573,6 +1574,8 @@ function ScorePageContent() {
             scoresByHole: playerScores,
             parsByHole: parMap,
             holesPlayed: totalHoles,
+            formato_juego: ronda.formato_juego,
+            modo_juego: ronda.modo_juego,
           }
           await compartirResultado(shareData)
         }
