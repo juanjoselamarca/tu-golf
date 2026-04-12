@@ -2,7 +2,10 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  // Request ID para trazabilidad (aparece en logs y headers de respuesta)
+  const requestId = crypto.randomUUID()
   let supabaseResponse = NextResponse.next({ request })
+  supabaseResponse.headers.set('x-request-id', requestId)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,6 +45,7 @@ export async function middleware(request: NextRequest) {
   // Helper: redirect while preserving refreshed session cookies (including options)
   const redirectWithCookies = (url: URL) => {
     const response = NextResponse.redirect(url)
+    response.headers.set('x-request-id', requestId)
     supabaseResponse.cookies.getAll().forEach(cookie => {
       response.cookies.set(cookie.name, cookie.value, {
         path: '/',
