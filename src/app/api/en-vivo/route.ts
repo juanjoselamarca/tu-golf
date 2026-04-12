@@ -3,7 +3,6 @@ import { createClient } from '@/utils/supabase/server'
 import { calcularScoreRonda } from '@/golf/core/round-score'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 type RondaRow = {
   id: string
@@ -114,7 +113,10 @@ export async function GET(request: Request) {
       total: rondas.length,
       timestamp: new Date().toISOString(),
     }, {
-      headers: { 'Access-Control-Allow-Origin': corsOrigin },
+      headers: {
+        'Access-Control-Allow-Origin': corsOrigin,
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20',
+      },
     })
   } catch (err) {
     console.error('[/api/en-vivo]', err)
