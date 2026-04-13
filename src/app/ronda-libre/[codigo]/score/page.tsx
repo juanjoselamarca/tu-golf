@@ -1545,13 +1545,21 @@ function ScorePageContent() {
         const diffLabel = diff === 0 ? 'Par' : diff > 0 ? `+${diff} sobre par` : `${diff} bajo par`
         const diffColor = diff < 0 ? '#4ade80' : diff === 0 ? '#c9a84c' : '#f87171'
 
-        // Count birdies/eagles
+        // Count birdies/eagles — usa scores netos cuando el modo es neto
         const playerScores = activeJugadorId ? (scores[activeJugadorId] ?? {}) : {}
+        const isStableford = ronda?.formato_juego === 'stableford'
+        const isNeto = ronda?.modo_juego === 'neto'
+        const shareHcp = activeJugadorId ? (playerHcp[activeJugadorId] ?? 0) : 0
         let birdieCount = 0, eagleCount = 0
         Object.entries(playerScores).forEach(([h, s]) => {
           const p = parMap[parseInt(h)] ?? 4
-          if (s === p - 1) birdieCount++
-          if (s <= p - 2) eagleCount++
+          let scoreForStats = s
+          if (isNeto && shareHcp != null) {
+            const si = holeDataMap[parseInt(h)]?.stroke_index ?? parseInt(h)
+            scoreForStats = s - strokesRecibidosEnHoyo(shareHcp, si, ronda?.holes ?? 18)
+          }
+          if (scoreForStats === p - 1) birdieCount++
+          if (scoreForStats <= p - 2) eagleCount++
         })
 
         // Mini scorecard data
@@ -1565,8 +1573,9 @@ function ScorePageContent() {
             tipo: 'ronda_libre',
             ganador: jugador?.nombre ?? 'Jugador',
             esEmpate: false,
-            scoreGross: finalScore.gross,
-            scoreDiff: diff,
+            // Stableford: mostrar puntos totales; otros: gross score + diff vs par
+            scoreGross: isStableford ? totalStableford : finalScore.gross,
+            scoreDiff: isStableford ? 0 : diff,
             courseName: ronda.course_name,
             fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }),
             birdies: birdieCount,

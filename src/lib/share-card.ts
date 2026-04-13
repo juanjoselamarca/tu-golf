@@ -229,13 +229,19 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
   const name = data.esEmpate && data.jugadores ? data.jugadores.map(n => n.split(' ')[0]).join(' · ') : data.ganador
   ctx.font = 'bold 68px Georgia, serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(name, W / 2, 560)
 
-  const clr = scoreColor(data.scoreDiff)
+  const isStableford = data.formato_juego === 'stableford'
+  const clr = isStableford ? '#c9a84c' : scoreColor(data.scoreDiff)
   ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 35
   ctx.font = 'bold 210px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(String(data.scoreGross), W / 2, 790)
   ctx.restore()
 
-  const diffTxt = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
-  ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
+  if (isStableford) {
+    // Stableford: mostrar "puntos" en lugar de vs-par
+    ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('puntos', W / 2, 848)
+  } else {
+    const diffTxt = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
+    ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
+  }
   ctx.font = '32px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 900)
   // Badges: holes + formato (si hay formato, los ponemos apilados para no chocar)
   if (data.formato_juego) {
@@ -264,8 +270,14 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
       const ly = rkY + 16 + i * 56
       ctx.textAlign = 'left'; ctx.font = `${i === 0 ? 'bold ' : ''}28px Arial, sans-serif`
       ctx.fillStyle = i === 0 ? '#ffffff' : 'rgba(255,255,255,0.45)'; ctx.fillText(`${i + 1}. ${j.nombre}`, 110, ly + 36)
-      ctx.textAlign = 'right'; ctx.font = 'bold 28px Arial, sans-serif'; ctx.fillStyle = scoreColor(j.diff)
-      ctx.fillText(`${j.score} (${j.diff >= 0 ? '+' : ''}${j.diff})`, W - 110, ly + 36)
+      ctx.textAlign = 'right'; ctx.font = 'bold 28px Arial, sans-serif'
+      if (isStableford) {
+        ctx.fillStyle = '#c9a84c'
+        ctx.fillText(`${j.score} pts`, W - 110, ly + 36)
+      } else {
+        ctx.fillStyle = scoreColor(j.diff)
+        ctx.fillText(`${j.score} (${j.diff >= 0 ? '+' : ''}${j.diff})`, W - 110, ly + 36)
+      }
     })
   }
 }
@@ -335,8 +347,12 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
   const fileName = `golfers-${nombre}-${Date.now()}.png`
   const file = new File([blob], fileName, { type: 'image/png' })
 
+  const isStab = data.tipo === 'ronda_libre' && data.formato_juego === 'stableford'
+  const scoreText = isStab
+    ? `${data.scoreGross} pts`
+    : `${data.scoreGross} (${(data as ShareCardRondaLibre).scoreDiff >= 0 ? '+' : ''}${(data as ShareCardRondaLibre).scoreDiff})`
   const texto = data.tipo === 'ronda_libre'
-    ? `${data.esEmpate ? 'Empate épico' : data.ganador + ' gano'} en ${data.courseName}! Score: ${data.scoreGross} (${data.scoreDiff >= 0 ? '+' : ''}${data.scoreDiff}). Golfers+ golfersplus.vercel.app`
+    ? `${data.esEmpate ? 'Empate épico' : data.ganador + ' gano'} en ${data.courseName}! Score: ${scoreText}. Golfers+ golfersplus.vercel.app`
     : `${(data as ShareCardTorneo).jugadorNombre} quedo #${(data as ShareCardTorneo).posicion} en ${(data as ShareCardTorneo).torneoNombre}. Score: ${data.scoreGross}. Golfers+ golfersplus.vercel.app`
 
   if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
@@ -356,18 +372,26 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
 export async function compartirLeaderboard(data: LeaderboardShareData): Promise<{ success: boolean; method: 'share' | 'download' }> {
   // Convert to ronda_libre format
   const winner = data.players[0]
+  const isStableford = data.formato_juego === 'stableford'
+  // Tie detection: for Stableford, higher vsPar (= more points) wins, same = tie
   const isTie = data.players.length > 1 && data.players[1].vsPar === winner.vsPar
   // FIX: calcular parTotal real según hoyos jugados (no hardcoded 72)
   const parTotal = parTotalEstandar(winner.totalHoles)
   const cardData: ShareCardRondaLibre = {
     tipo: 'ronda_libre', ganador: winner.nombre, esEmpate: isTie,
     jugadores: isTie ? data.players.filter(p => p.vsPar === winner.vsPar).map(p => p.nombre) : undefined,
-    scoreGross: parTotal + winner.vsPar, scoreDiff: winner.vsPar,
+    // Stableford: scoreGross = puntos, scoreDiff = 0 (no aplica vs-par)
+    scoreGross: isStableford ? winner.vsPar : parTotal + winner.vsPar,
+    scoreDiff: isStableford ? 0 : winner.vsPar,
     courseName: data.courseName, fecha: data.fecha, birdies: 0, eagles: 0,
     scoresByHole: {}, parsByHole: {}, holesPlayed: winner.totalHoles,
     formato_juego: data.formato_juego,
     modo_juego: data.modo_juego,
-    ranking: data.players.map(p => ({ nombre: p.nombre, score: parTotalEstandar(p.totalHoles) + p.vsPar, diff: p.vsPar })),
+    ranking: data.players.map(p => ({
+      nombre: p.nombre,
+      score: isStableford ? p.vsPar : parTotalEstandar(p.totalHoles) + p.vsPar,
+      diff: isStableford ? 0 : p.vsPar,
+    })),
   }
   return compartirResultado(cardData)
 }

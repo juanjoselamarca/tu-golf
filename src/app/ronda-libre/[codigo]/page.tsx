@@ -1018,9 +1018,14 @@ function RondaLibrePageContent() {
                       onClick={async () => {
                         const shareData: LeaderboardShareData = {
                           players: playedPlayers.map(j => ({
-                            nombre: j.nombre, vsPar: j.vsPar, holesPlayed: j.holesPlayed, totalHoles: ronda.holes,
+                            nombre: j.nombre,
+                            vsPar: ronda.formato_juego === 'stableford' ? j.stablefordPts : j.vsPar,
+                            holesPlayed: j.holesPlayed,
+                            totalHoles: ronda.holes,
                           })),
                           courseName: ronda.course_name, fecha: fechaDisplay, rondaCodigo: codigo, isFinished: true,
+                          formato_juego: ronda.formato_juego,
+                          modo_juego: ronda.modo_juego,
                         }
                         await compartirLeaderboard(shareData)
                       }}
@@ -1772,7 +1777,7 @@ function RondaLibrePageContent() {
                 const shareData: LeaderboardShareData = {
                   players: leaderboard.filter(j => j.holesPlayed > 0).map(j => ({
                     nombre: j.nombre,
-                    vsPar: j.vsPar,
+                    vsPar: ronda.formato_juego === 'stableford' ? j.stablefordPts : j.vsPar,
                     holesPlayed: j.holesPlayed,
                     totalHoles: ronda.holes,
                   })),
@@ -1780,6 +1785,8 @@ function RondaLibrePageContent() {
                   fecha: fechaDisplay,
                   rondaCodigo: codigo,
                   isFinished,
+                  formato_juego: ronda.formato_juego,
+                  modo_juego: ronda.modo_juego,
                 }
                 await compartirLeaderboard(shareData)
               }}
