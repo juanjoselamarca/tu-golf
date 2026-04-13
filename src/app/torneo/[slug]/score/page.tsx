@@ -6,11 +6,14 @@ import Link from 'next/link'
 import { SCORE_STYLES, getScoreResult } from '@/golf/core/colors'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
+import { formatLabel } from '@/golf/core/rules'
+import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
 interface Round { id: string; status: string }
 interface Player { id: string; handicap_at_registration: number | null; profiles: { name: string }; rounds: Round[] }
-interface Tournament { id: string; name: string; slug: string; format: string; hole_count: number }
+interface Tournament { id: string; name: string; slug: string; format: string; hole_count: number; formato_juego: FormatoJuego | null; modo_juego: ModoJuego | null }
 
 function strokesOnHole(courseHandicap: number, strokeIndex: number) {
   const base      = Math.floor(courseHandicap / 18)
@@ -35,7 +38,7 @@ export default function PlayerScoringPage() {
       const supabase = createClient()
       const { data: t } = await supabase
         .from('tournaments')
-        .select('id, name, slug, format, hole_count, courses(id)')
+        .select('id, name, slug, format, hole_count, formato_juego, modo_juego, courses(id)')
         .eq('slug', slug).single()
       if (!t) { setLoading(false); return }
       setTournament(t as unknown as Tournament)
@@ -76,11 +79,14 @@ export default function PlayerScoringPage() {
     const hole       = courseHoles.find(h => h.numero === holeNumber)
     const par        = hole?.par ?? 4
     const si         = hole?.stroke_index ?? holeNumber
-    const courseHcp  = player.handicap_at_registration ?? 0
-    const strokes    = strokesOnHole(courseHcp, si)
+    const holeCount  = tournament.hole_count || 18
+    const handicapIndex = player.handicap_at_registration ?? 0
+    const strokes    = strokesOnHole(handicapIndex, si)
     const netScore   = gross - strokes
     let points = 0
-    if (tournament.format === 'stableford') points = Math.max(0, 2 - (netScore - par))
+    if (tournament.formato_juego === 'stableford') {
+      points = puntosStablefordHoyo(gross, par, handicapIndex, si, holeCount)
+    }
     setCurrentScores(prev => ({ ...prev, [holeNumber]: gross }))
     setSaving(true)
     setSaveError(null)
@@ -121,8 +127,28 @@ export default function PlayerScoringPage() {
             </button>
           )}
         </div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', margin: '0 0 2px' }}>{tournament.name}</h1>
-        {selectedPlayer && <p style={{ fontSize: '13px', color: '#c4992a', margin: 0 }}>{selectedPlayer.profiles?.name} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div>
+            <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', margin: '0 0 2px' }}>{tournament.name}</h1>
+            {selectedPlayer && <p style={{ fontSize: '13px', color: '#c4992a', margin: 0 }}>{selectedPlayer.profiles?.name} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}
+          </div>
+          {tournament.formato_juego && (
+            <span style={{
+              display: 'inline-block',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              background: 'rgba(196,153,42,0.12)',
+              color: '#92400e',
+              fontSize: '10px',
+              fontWeight: 600,
+              fontFamily: '"DM Mono", monospace',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}>
+              {formatLabel(tournament.formato_juego, tournament.modo_juego)}
+            </span>
+          )}
+        </div>
       </div>
 
       <div style={{ padding: '24px 16px', maxWidth: '500px', margin: '0 auto' }}>
@@ -155,6 +181,7 @@ export default function PlayerScoringPage() {
               {holes.map(holeNum => {
                 const hole    = courseHoles.find(h => h.numero === holeNum)
                 const par     = hole?.par ?? 4
+                const si      = hole?.stroke_index ?? holeNum
                 const gross   = currentScores[holeNum]
                 const isSaved = savedHoles.has(holeNum)
                 const diff    = gross != null ? gross - par : null
@@ -162,6 +189,15 @@ export default function PlayerScoringPage() {
                 const ss = SCORE_STYLES[sr]
                 const bg = gross != null ? ss.bg : 'rgba(14,28,47,0.9)'
                 const border = gross != null ? `${ss.borderWidth} solid ${ss.border}` : '1px solid rgba(122,143,168,0.2)'
+
+                // Calculate Stableford points if it's stableford format and we have a score
+                let stablefordPoints = null
+                if (tournament.formato_juego === 'stableford' && gross != null && selectedPlayer) {
+                  const holeCount = tournament.hole_count || 18
+                  const handicapIndex = selectedPlayer.handicap_at_registration ?? 0
+                  stablefordPoints = puntosStablefordHoyo(gross, par, handicapIndex, si, holeCount)
+                }
+
                 return (
                   <div key={holeNum} style={{ background: bg, border, borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 200ms' }}>
                     <div>
@@ -169,7 +205,14 @@ export default function PlayerScoringPage() {
                       <div style={{ color: '#edeae4', fontSize: '14px' }}>Par {par}{hole?.stroke_index ? ` · SI ${hole.stroke_index}` : ''}</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      {isSaved && gross != null && <span style={{ fontSize: '12px', color: '#4ade80' }}>✓</span>}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        {isSaved && gross != null && <span style={{ fontSize: '12px', color: '#4ade80' }}>✓</span>}
+                        {stablefordPoints != null && (
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#c4992a', fontFamily: '"DM Mono", monospace' }}>
+                            {stablefordPoints} pts
+                          </div>
+                        )}
+                      </div>
                       <input
                         type="number" min={1} max={19} inputMode="numeric"
                         defaultValue={gross ?? ''}
