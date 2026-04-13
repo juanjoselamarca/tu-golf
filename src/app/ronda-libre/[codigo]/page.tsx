@@ -60,6 +60,7 @@ function NotifBanner({ onEnable }: { onEnable: () => void }) {
   )
 }
 import GWILeaderboard from '@/components/GWILeaderboard'
+import ScoreSymbol from '@/components/ScoreSymbol'
 import { calcularGWI } from '@/golf/stats/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
@@ -1638,32 +1639,7 @@ function RondaLibrePageContent() {
                     const scoreCell = (h: number) => {
                       const s = getS(h)
                       if (s == null) return <span style={{ color: '#d1d5db', fontSize: '11px' }}>·</span>
-                      const d = s - (parMap[h] ?? 4)
-                      const isAce = s === 1
-                      const color = isAce ? '#c4992a' : '#374151'
-                      if (d <= -2) return (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', border: '1.5px solid #c4992a', position: 'relative' }}>
-                          <span style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', border: '1px solid #c4992a' }} />
-                          <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                        </span>
-                      )
-                      if (d === -1) return (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', border: '1.5px solid #c4992a' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                        </span>
-                      )
-                      if (d === 0) return <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                      if (d === 1) return (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 3px', borderRadius: '2px', border: '1.5px solid #EF4444' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                        </span>
-                      )
-                      return (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 3px', borderRadius: '2px', border: '1.5px solid #EF4444', position: 'relative' }}>
-                          <span style={{ position: 'absolute', inset: '-4px', borderRadius: '3px', border: '1px solid #EF4444' }} />
-                          <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                        </span>
-                      )
+                      return <ScoreSymbol score={s} par={parMap[h] ?? 4} size="sm" />
                     }
 
                     const renderHalf = (holes: number[], label: string, total: number) => (
