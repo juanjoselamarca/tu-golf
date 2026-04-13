@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import NotificationHub from '@/components/NotificationHub'
+import { Home, Trophy, Radio, TrendingUp, ClipboardList, Upload, Zap, Play } from '@/components/icons'
+import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { useTheme } from '@/contexts/ThemeContext'
 import { getNavTheme } from './nav/nav-theme'
 
@@ -76,31 +78,31 @@ export default function Navbar() {
     {
       label: 'COMUNIDAD',
       items: [
-        { href: '/en-vivo', icon: '🟢', label: 'En Vivo', badge: 'LIVE' },
+        { href: '/en-vivo', icon: <Radio size={18} />, label: 'En Vivo', badge: 'LIVE' },
       ],
     },
     {
       label: 'MI JUEGO',
       items: [
-        { href: '/perfil/stats', icon: '📊', label: 'Mi CPI' },
-        { href: '/perfil/historial', icon: '📋', label: 'Mis rondas' },
-        { href: '/coach', icon: '🐯', label: 'tAIger+', badge: 'IA' },
-        { href: '/importar', icon: '📥', label: 'Importar' },
+        { href: '/perfil/stats', icon: <TrendingUp size={18} />, label: 'Mi CPI' },
+        { href: '/perfil/historial', icon: <ClipboardList size={18} />, label: 'Rondas' },
+        { href: '/coach', icon: <TaigerIcon size={18} />, label: 'tAIger+', badge: 'AI' },
+        { href: '/importar', icon: <Upload size={18} />, label: 'Importar' },
       ],
     },
     {
       label: 'LABORATORIO',
       items: [
-        { href: '/indices', icon: '⚡', label: 'Golf Intelligence' },
+        { href: '/indices', icon: <Zap size={18} />, label: 'Intelligence' },
       ],
     },
   ] : []
 
   const navItemsGuest = [
-    { href: '/', icon: '🏠', label: 'Inicio' },
-    { href: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
-    { href: '/demo', icon: '✦', label: 'Ver Demo' },
-    { href: '/indices', icon: '⚡', label: 'Golf Intelligence' },
+    { href: '/', icon: <Home size={18} />, label: 'Inicio' },
+    { href: '/leaderboard', icon: <Trophy size={18} />, label: 'Ranking' },
+    { href: '/demo', icon: <Play size={18} />, label: 'Demo' },
+    { href: '/indices', icon: <Zap size={18} />, label: 'Intelligence' },
   ]
 
   return (
@@ -301,7 +303,7 @@ export default function Navbar() {
                         fontSize: '14px', fontWeight: isActive ? 600 : 500,
                         transition: 'background 0.15s',
                       }}>
-                        <span style={{ fontSize: '18px', width: '24px', textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', flexShrink: 0 }}>{item.icon}</span>
                         <span style={{ flex: 1 }}>{item.label}</span>
                         {'badge' in item && (item as { badge?: string }).badge && (() => {
                           const b = (item as { badge?: string }).badge
@@ -339,7 +341,7 @@ export default function Navbar() {
                   fontSize: '15px', fontWeight: isActive ? 600 : 500,
                   transition: 'background 0.15s',
                 }}>
-                  <span style={{ fontSize: '18px', width: '24px', textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', flexShrink: 0 }}>{item.icon}</span>
                   {item.label}
                 </Link>
               )
