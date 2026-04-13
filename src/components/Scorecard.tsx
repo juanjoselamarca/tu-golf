@@ -109,15 +109,15 @@ function countRes(st: HS[]) {
 
 const K = {
   line: '#dfe2e6',
-  lineBold: '#c8cdd3',    // M1: separador grueso par→score
+  lineBold: '#c8cdd3',
   bgH: '#f5f6f8',
   bgS: '#ffffff',
   bgTot: '#edf0f3',
   tp: '#1a1a2e',
-  ts: '#7c8594',
-  tm: '#9ca3af',
+  ts: '#5a6370',           // subido contraste (era #7c8594)
+  tm: '#7c8594',           // subido contraste (era #9ca3af)
   gold: '#c4992a',
-  dotColor: '#7c8594',
+  dotColor: '#5a6370',     // dots más visibles
   dotSize: 4,
 } as const
 
@@ -203,13 +203,16 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
         <TotCell><TX t={String(tot.p)} sz={10} c={K.tm} w={600} /></TotCell>
       </GR>
 
-      {/* Extended: yardaje */}
-      {ext && (
-        <GR cols={cols} h={20} bg={K.bgH}>
-          {st.map(s => <Cell key={s.hole.numero}><TX t={s.hole.yardaje ? String(s.hole.yardaje) : ''} sz={8} c={K.tm} /></Cell>)}
-          <TotCell><TX t="" sz={8} c={K.tm} /></TotCell>
-        </GR>
-      )}
+      {/* Extended: yardaje con total */}
+      {ext && (() => {
+        const ydsTotal = st.reduce((a, s) => a + (s.hole.yardaje ?? 0), 0)
+        return (
+          <GR cols={cols} h={20} bg={K.bgH}>
+            {st.map(s => <Cell key={s.hole.numero}><TX t={s.hole.yardaje ? String(s.hole.yardaje) : ''} sz={8} c={K.tm} /></Cell>)}
+            <TotCell><TX t={ydsTotal > 0 ? String(ydsTotal) : ''} sz={8} c={K.tm} w={600} /></TotCell>
+          </GR>
+        )
+      })()}
 
       {/* Extended: Hdcp */}
       {ext && (
@@ -241,14 +244,14 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
         </GR>
       )}
 
-      {/* STABLEFORD */}
+      {/* STABLEFORD — sin líneas dobles entre neto y pts */}
       {isSt && (
         <>
-          <GR cols={cols} h={24} bg={K.bgS} bt>
+          <GR cols={cols} h={24} bg={K.bgS} bt bb={false}>
             {st.map(s => <Cell key={s.hole.numero}><TX t={s.neto != null ? String(s.neto) : ''} sz={10} c={K.ts} w={500} it /></Cell>)}
             <TotCell bg={K.bgS}><TX t={tot.n > 0 ? String(tot.n) : ''} sz={10} c={K.ts} w={600} it /></TotCell>
           </GR>
-          <GR cols={cols} h={26} bg={K.bgS}>
+          <GR cols={cols} h={26} bg={K.bgS} bt>
             {st.map(s => <Cell key={s.hole.numero}><TX t={s.stabPts != null ? String(s.stabPts) : ''} sz={12} c={K.gold} w={700} /></Cell>)}
             <TotCell bg={K.bgS}><TX t={tot.s > 0 ? String(tot.s) : ''} sz={14} c={K.gold} w={800} /></TotCell>
           </GR>
@@ -353,13 +356,19 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
       />
 
       {/* Extended: yardaje */}
-      {ext && (
-        <R lbl={L('YDS')} h={22} bg={K.bgH}
-          fCells={f.map(s => <TX key={s.hole.numero} t={s.hole.yardaje ? String(s.hole.yardaje) : ''} sz={9} c={K.tm} />)}
-          fTot={null} bCells={b.map(s => <TX key={s.hole.numero} t={s.hole.yardaje ? String(s.hole.yardaje) : ''} sz={9} c={K.tm} />)}
-          bTot={null} grand={null}
-        />
-      )}
+      {ext && (() => {
+        const fYds = f.reduce((a, s) => a + (s.hole.yardaje ?? 0), 0)
+        const bYds = b.reduce((a, s) => a + (s.hole.yardaje ?? 0), 0)
+        return (
+          <R lbl={L('YDS')} h={22} bg={K.bgH}
+            fCells={f.map(s => <TX key={s.hole.numero} t={s.hole.yardaje ? String(s.hole.yardaje) : ''} sz={9} c={K.tm} />)}
+            fTot={fYds > 0 ? <TX t={String(fYds)} sz={9} c={K.tm} w={600} /> : null}
+            bCells={b.map(s => <TX key={s.hole.numero} t={s.hole.yardaje ? String(s.hole.yardaje) : ''} sz={9} c={K.tm} />)}
+            bTot={bYds > 0 ? <TX t={String(bYds)} sz={9} c={K.tm} w={600} /> : null}
+            grand={fYds + bYds > 0 ? <TX t={String(fYds + bYds)} sz={9} c={K.ts} w={700} /> : null}
+          />
+        )
+      })()}
 
       {/* Extended: Hdcp */}
       {ext && (
@@ -370,13 +379,13 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
         />
       )}
 
-      {/* SCORE — D3: 44px height */}
+      {/* SCORE — D3: 44px, solo números en totals (vs-par solo en header) */}
       <R lbl={L('GROSS')} h={44} bg={K.bgS} bb={!isN} scoreRow
         fCells={f.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />)}
-        fTot={<><TX t={ft.g > 0 ? String(ft.g) : ''} sz={15} c={K.tp} w={700} />{ft.g > 0 && <><br /><TX t={fmtOu(ft.g - ft.p)} sz={9} c={K.ts} /></>}</>}
+        fTot={<TX t={ft.g > 0 ? String(ft.g) : ''} sz={15} c={K.tp} w={700} />}
         bCells={b.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />)}
-        bTot={<><TX t={bt.g > 0 ? String(bt.g) : ''} sz={15} c={K.tp} w={700} />{bt.g > 0 && <><br /><TX t={fmtOu(bt.g - bt.p)} sz={9} c={K.ts} /></>}</>}
-        grand={<><TX t={gt.g > 0 ? String(gt.g) : ''} sz={16} c={K.tp} w={800} />{gt.g > 0 && <><br /><TX t={fmtOu(gt.g - gt.p)} sz={9} c={K.ts} /></>}</>}
+        bTot={<TX t={bt.g > 0 ? String(bt.g) : ''} sz={15} c={K.tp} w={700} />}
+        grand={<TX t={gt.g > 0 ? String(gt.g) : ''} sz={16} c={K.tp} w={800} />}
       />
 
       {/* DOTS */}
@@ -399,17 +408,17 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
         />
       )}
 
-      {/* STABLEFORD */}
+      {/* STABLEFORD — sin líneas dobles */}
       {isSt && (
         <>
-          <R lbl={L('NETO')} h={26} bg={K.bgS} bbt
+          <R lbl={L('NETO')} h={26} bg={K.bgS} bbt bb={false}
             fCells={f.map(s => <TX key={s.hole.numero} t={s.neto != null ? String(s.neto) : ''} sz={12} c={K.ts} w={500} it />)}
             fTot={<TX t={ft.n > 0 ? String(ft.n) : ''} sz={12} c={K.ts} w={600} it />}
             bCells={b.map(s => <TX key={s.hole.numero} t={s.neto != null ? String(s.neto) : ''} sz={12} c={K.ts} w={500} it />)}
             bTot={<TX t={bt.n > 0 ? String(bt.n) : ''} sz={12} c={K.ts} w={600} it />}
             grand={<TX t={gt.n > 0 ? String(gt.n) : ''} sz={12} c={K.ts} w={700} it />}
           />
-          <R lbl={L('PTS')} h={28} bg={K.bgS}
+          <R lbl={L('PTS')} h={28} bg={K.bgS} bbt
             fCells={f.map(s => <TX key={s.hole.numero} t={s.stabPts != null ? String(s.stabPts) : ''} sz={13} c={K.gold} w={700} />)}
             fTot={<TX t={ft.s > 0 ? String(ft.s) : ''} sz={14} c={K.gold} w={800} />}
             bCells={b.map(s => <TX key={s.hole.numero} t={s.stabPts != null ? String(s.stabPts) : ''} sz={13} c={K.gold} w={700} />)}
@@ -498,12 +507,12 @@ export default function Scorecard({
                 </div>
               ) : (
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, justifyContent: 'flex-end' }}>
-                    <span style={{ fontSize: 24, fontWeight: 700, color: K.tp, lineHeight: 1, fontFamily: MONO }}>{gt.g}</span>
-                    <span style={{ fontSize: 12, color: K.ts, fontFamily: MONO }}>{fmtOu(gt.g - gt.p)}</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, justifyContent: 'flex-end' }}>
+                    <span style={{ fontSize: 28, fontWeight: 700, color: K.tp, lineHeight: 1, fontFamily: MONO }}>{gt.g}</span>
+                    <span style={{ fontSize: 14, color: K.ts, fontWeight: 500, fontFamily: MONO }}>{fmtOu(gt.g - gt.p)}</span>
                   </div>
                   {isN && courseHandicap !== 0 && (
-                    <div style={{ fontSize: 10, color: K.tm, marginTop: 2, fontFamily: MONO, textAlign: 'right' }}>{gt.n} {fmtOu(gt.n - gt.p)} net</div>
+                    <div style={{ fontSize: 11, color: K.tm, marginTop: 3, fontFamily: MONO, textAlign: 'right' }}>{gt.n} {fmtOu(gt.n - gt.p)} net</div>
                   )}
                 </div>
               )}
