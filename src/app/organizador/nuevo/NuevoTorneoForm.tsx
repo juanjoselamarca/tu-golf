@@ -53,7 +53,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
   const [selectedCourse, setSelectedCourse] = useState<CourseOption | null>(null)
   const [showCourses,    setShowCourses]    = useState(false)
   const [format,         setFormat]         = useState('stroke_play')
-  const [modo,           setModo]           = useState<'gross' | 'neto'>('neto')
+  const [modo,           setModo]           = useState<'gross' | 'neto'>('gross')
   const [holeCount,      setHoleCount]      = useState(18)
   const [tees,           setTees]           = useState('blanco')
   const [useHandicap,    setUseHandicap]    = useState(true)

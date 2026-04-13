@@ -89,7 +89,7 @@ export default function NuevaRondaLibrePage() {
     }
   }
   const [formato, setFormato] = useState<'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'>('stroke_play')
-  const [modo, setModo] = useState<'gross' | 'neto'>('neto')
+  const [modo, setModo] = useState<'gross' | 'neto'>('gross')
   const [fechaStr, setFechaStr] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
