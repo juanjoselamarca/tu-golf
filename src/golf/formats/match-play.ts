@@ -251,9 +251,9 @@ export function calcularMatchPlay(
     const strkA = strokesMatchPlayEnHoyo(diffA, hole.stroke_index)
     const strkB = strokesMatchPlayEnHoyo(diffB, hole.stroke_index)
 
-    // Concesiones
+    // Concesiones — R&A 3.2c: cuando un hoyo se concede, ningún score se registra
     if (concededA) {
-      // A concede el hoyo → B gana
+      // A concede el hoyo → B gana, pero ambos scores quedan null
       holesPlayed++
       holesWonB++
       matchState--
@@ -264,12 +264,13 @@ export function calcularMatchPlay(
       }
       return {
         numero: hole.numero, par: hole.par, strokeIndex: hole.stroke_index,
-        grossA: null, grossB: hasScoreB ? rawB : null,
+        grossA: null, grossB: null,
         strokesA: strkA, strokesB: strkB, netoA: null, netoB: null,
         result: 'conceded_a' as HoleResult, matchState, afterMatchEnd: false,
       }
     }
     if (concededB) {
+      // B concede el hoyo → A gana, pero ambos scores quedan null
       holesPlayed++
       holesWonA++
       matchState++
@@ -280,7 +281,7 @@ export function calcularMatchPlay(
       }
       return {
         numero: hole.numero, par: hole.par, strokeIndex: hole.stroke_index,
-        grossA: hasScoreA ? rawA : null, grossB: null,
+        grossA: null, grossB: null,
         strokesA: strkA, strokesB: strkB, netoA: null, netoB: null,
         result: 'conceded_b' as HoleResult, matchState, afterMatchEnd: false,
       }
