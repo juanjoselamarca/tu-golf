@@ -48,6 +48,8 @@ interface HistoricalRound {
   notes:        string | null
   privacy:      string
   created_at:   string
+  formato_juego?: string
+  modo_juego?:    string
 }
 
 interface BestRound {
@@ -339,7 +341,7 @@ function HistorialContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('historical_rounds')
-        .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at')
+        .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego')
         .order('played_at', { ascending: false })
         .limit(500)
       if (error) { setLoadError(true); return }
