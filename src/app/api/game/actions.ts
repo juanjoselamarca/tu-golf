@@ -12,8 +12,16 @@
 
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import * as Sentry from '@sentry/nextjs'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+
+function captureGameError(action: string, error: unknown, extra?: Record<string, unknown>) {
+  Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
+    tags: { action, component: 'game-engine' },
+    extra,
+  })
+}
 
 type Svc = SupabaseClient
 
@@ -102,7 +110,10 @@ export async function upsertScore(
     { onConflict: 'round_id,hole_number' }
   )
 
-  if (error) return NextResponse.json({ error: 'No se pudo guardar el score. Intenta de nuevo.' }, { status: 500 })
+  if (error) {
+    captureGameError('upsert_score', error, { round_id, hole_number })
+    return NextResponse.json({ error: 'No se pudo guardar el score. Intenta de nuevo.' }, { status: 500 })
+  }
 
   if (gross_score != null) {
     try {
