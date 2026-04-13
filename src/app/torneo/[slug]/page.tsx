@@ -682,6 +682,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             isLive={isLive}
             gwiInputs={gwiInputs}
             playerIdToIndex={playerIdToIndex}
+            formato={formatoJuego}
           />
         ) : (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4a5568' }}>

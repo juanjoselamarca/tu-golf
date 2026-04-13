@@ -23,6 +23,7 @@ interface Props {
   isLive: boolean
   gwiInputs: JugadorGWIInput[]
   playerIdToIndex: Record<string, number>
+  formato?: string
 }
 
 type Tab = 'leaderboard' | 'grupos'
@@ -89,9 +90,10 @@ function groupStatusDot(groupPlayers: Player[], totalHoyos: number): { dot: stri
 }
 
 /* ── Component ────────────────────────────────────────────── */
-export default function TournamentTabs({ players, groups, modoJuego, totalHoyos, isLive, gwiInputs, playerIdToIndex }: Props) {
+export default function TournamentTabs({ players, groups, modoJuego, totalHoyos, isLive, gwiInputs, playerIdToIndex, formato }: Props) {
   const [tab, setTab] = useState<Tab>('leaderboard')
   const hasGroups = groups.length > 0
+  const scoreHeader = formato === 'stableford' ? 'PUNTOS' : 'SCORE'
 
   // Build map: playerId → Player
   const playerByDbId = useMemo(() => {
@@ -166,7 +168,7 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
               padding: '8px 12px',
               borderBottom: `1px solid ${T.border}`,
             }}>
-              {['POS', 'JUGADOR', 'HCP', 'THRU', 'SCORE'].map(h => (
+              {['POS', 'JUGADOR', 'HCP', 'THRU', scoreHeader].map(h => (
                 <span key={h} style={{
                   fontFamily: '"DM Mono", monospace',
                   fontSize: '10px',
