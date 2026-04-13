@@ -1,17 +1,15 @@
 'use client'
 
 /**
- * Scorecard v6 — Responsive: mobile stacked, desktop full 18-hole horizontal.
+ * Scorecard v7 — Precision + detail pass.
  *
- * Mobile (< 640px): Front 9 y Back 9 apilados verticalmente (como v5)
- * Desktop (>= 640px): Tabla horizontal completa de 18 hoyos + OUT + IN + TOT
- *   como una scorecard impresa real de club de golf.
- *
- * Mejoras sobre v5:
- * - Dots de strokes en dorado (#c4992a) visibles, no gris invisible
- * - Desktop: 21 columnas (9 + OUT + 9 + IN + TOT) en una sola fila
- * - useMediaQuery para detectar breakpoint
- * - Resumen de stats al pie (birdies, pares, bogeys, dobles)
+ * Fixes sobre v6:
+ * - Dots de strokes: texto "·" gris pequeño como Garmin (no círculos dorados)
+ * - Desktop: tabla 18h horizontal con columnas proporcionales y label column
+ * - Desktop: max-width 900px, no se estira al infinito
+ * - Separador visual claro entre header (HOLE/PAR) y datos (SCORE/NETO)
+ * - Totals con vs-par debajo
+ * - Verificado para 375px, 1024px, 1280px
  */
 
 import { memo, useState, useEffect } from 'react'
@@ -47,15 +45,15 @@ export interface ScorecardProps {
 // HOOKS
 // ═══════════════════════════════════════════════════════════
 
-function useIsDesktop(breakpoint = 640): boolean {
-  const [isDesktop, setIsDesktop] = useState(false)
+function useIsWide(bp = 768): boolean {
+  const [w, setW] = useState(false)
   useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= breakpoint)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [breakpoint])
-  return isDesktop
+    const ck = () => setW(window.innerWidth >= bp)
+    ck()
+    window.addEventListener('resize', ck)
+    return () => window.removeEventListener('resize', ck)
+  }, [bp])
+  return w
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -66,327 +64,252 @@ function fmtOu(n: number): string {
   return n === 0 ? 'E' : n > 0 ? `+${n}` : String(n)
 }
 
-interface HoleStat {
-  hole: ScorecardHole
-  score: number | null
-  strokes: number
-  neto: number | null
-  stablefordPts: number | null
-  diff: number
+interface HS {
+  hole: ScorecardHole; score: number | null; strokes: number
+  neto: number | null; stabPts: number | null; diff: number
 }
 
-function buildStats(
-  holes: ScorecardHole[], scores: Record<string, number>,
-  ch: number, totalH: number, fmt: ScorecardProps['formato']
-): HoleStat[] {
-  return holes.map(h => {
-    const raw = scores[String(h.numero)]
+function buildStats(h: ScorecardHole[], sc: Record<string, number>, ch: number, tH: number, fmt: string): HS[] {
+  return h.map(hole => {
+    const raw = sc[String(hole.numero)]
     const score = typeof raw === 'number' && raw > 0 ? raw : null
-    const strokes = strokesRecibidosEnHoyo(ch, h.stroke_index, totalH)
+    const strokes = strokesRecibidosEnHoyo(ch, hole.stroke_index, tH)
     const neto = score != null ? score - strokes : null
-    const stablefordPts = score != null && fmt === 'stableford'
-      ? puntosStablefordHoyo(score, h.par, ch, h.stroke_index, totalH) : null
-    return { hole: h, score, strokes, neto, stablefordPts, diff: score != null ? score - h.par : 0 }
+    const stabPts = score != null && fmt === 'stableford'
+      ? puntosStablefordHoyo(score, hole.par, ch, hole.stroke_index, tH) : null
+    return { hole, score, strokes, neto, stabPts, diff: score != null ? score - hole.par : 0 }
   })
 }
 
-interface Totals { gross: number; neto: number; par: number; stab: number }
+interface Tot { g: number; n: number; p: number; s: number }
 
-function sumTotals(stats: HoleStat[]): Totals {
-  return stats.reduce<Totals>((a, s) => ({
-    gross: a.gross + (s.score ?? 0), neto: a.neto + (s.neto ?? 0),
-    par: a.par + s.hole.par, stab: a.stab + (s.stablefordPts ?? 0),
-  }), { gross: 0, neto: 0, par: 0, stab: 0 })
+function sumT(st: HS[]): Tot {
+  return st.reduce<Tot>((a, s) => ({
+    g: a.g + (s.score ?? 0), n: a.n + (s.neto ?? 0),
+    p: a.p + s.hole.par, s: a.s + (s.stabPts ?? 0),
+  }), { g: 0, n: 0, p: 0, s: 0 })
 }
 
-function countResults(stats: HoleStat[]): { eagles: number; birdies: number; pars: number; bogeys: number; doubles: number } {
-  let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0
-  for (const s of stats) {
-    if (s.score == null) continue
-    if (s.diff <= -2) eagles++
-    else if (s.diff === -1) birdies++
-    else if (s.diff === 0) pars++
-    else if (s.diff === 1) bogeys++
-    else doubles++
+function countRes(st: HS[]) {
+  let e = 0, b = 0, p = 0, bo = 0, d = 0
+  for (const s of st) {
+    if (!s.score) continue
+    if (s.diff <= -2) e++; else if (s.diff === -1) b++
+    else if (s.diff === 0) p++; else if (s.diff === 1) bo++; else d++
   }
-  return { eagles, birdies, pars, bogeys, doubles }
+  return { e, b, p, bo, d }
 }
 
 // ═══════════════════════════════════════════════════════════
-// DESIGN TOKENS
+// TOKENS
 // ═══════════════════════════════════════════════════════════
 
-const T = {
+const K = {
   line: '#dfe2e6',
-  bgInfo: '#f5f6f8',
-  bgScore: '#ffffff',
-  textPrimary: '#1a1a2e',
-  textSecondary: '#7c8594',
-  textMuted: '#a3aab6',
+  bgH: '#f5f6f8',    // header rows (hole, par)
+  bgS: '#ffffff',     // score rows
+  bgTot: '#edf0f3',  // grand total column (desktop)
+  tp: '#1a1a2e',      // text primary
+  ts: '#7c8594',      // text secondary
+  tm: '#9ca3af',      // text muted / dots
   gold: '#c4992a',
-  dotColor: '#c4992a',     // dots de strokes VISIBLES en dorado
-  dotSize: 7,              // px del dot
-  rowH: 26,
-  scoreRowH: 38,
-  totalW: 48,
-  lineW: 1,
-  fontSm: 10,
-  fontMd: 11,
-  fontScore: 13,
-  fontTotal: 14,
-  fontHeader: 24,
 } as const
 
 // ═══════════════════════════════════════════════════════════
-// STROKE DOTS — componente visible
+// CELL HELPERS
 // ═══════════════════════════════════════════════════════════
 
-function StrokeDots({ count }: { count: number }) {
-  if (count === 0) return null
-  return (
-    <span style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
-      {Array.from({ length: count }, (_, i) => (
-        <span key={i} style={{
-          width: T.dotSize, height: T.dotSize, borderRadius: '50%',
-          background: T.dotColor, display: 'inline-block',
-        }} />
-      ))}
-    </span>
-  )
-}
+const C = (ch: React.ReactNode, extra?: React.CSSProperties): React.ReactNode => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, minWidth: 0, height: '100%', ...extra }}>
+    {ch}
+  </div>
+)
+
+// Total cell with left border + bg
+const TC = (ch: React.ReactNode, bg: string = K.bgH): React.ReactNode => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, height: '100%', borderLeft: `1px solid ${K.line}`, background: bg }}>
+    {ch}
+  </div>
+)
+
+const S = (t: string, sz: number, c: string, w = 400, it = false) => (
+  <span style={{ fontSize: sz, color: c, fontWeight: w, fontStyle: it ? 'italic' : 'normal' }}>{t}</span>
+)
+
+// Garmin-style dots: texto "·" gris pequeño, NO círculos rellenos
+const Dots = (n: number) => n > 0
+  ? <span style={{ fontSize: 10, color: K.tm, letterSpacing: 2 }}>{'·'.repeat(n)}</span>
+  : null
 
 // ═══════════════════════════════════════════════════════════
-// GENERIC ROW (used by both mobile and desktop)
+// GRID ROW
 // ═══════════════════════════════════════════════════════════
 
-interface RowProps {
-  gridCols: string
-  cells: React.ReactNode[]
-  bg: string
-  height: number
-  borderBottom?: boolean
-  borderTop?: boolean
-}
-
-function Row({ gridCols, cells, bg, height, borderBottom = true, borderTop = false }: RowProps) {
+function GR({ cols, cells, h, bg, bb = true, bt = false }: {
+  cols: string; cells: React.ReactNode[]; h: number; bg: string; bb?: boolean; bt?: boolean
+}) {
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: gridCols,
-      background: bg, minHeight: height,
-      borderBottom: borderBottom ? `${T.lineW}px solid ${T.line}` : 'none',
-      borderTop: borderTop ? `${T.lineW}px solid ${T.line}` : 'none',
+      display: 'grid', gridTemplateColumns: cols, background: bg, minHeight: h,
+      borderBottom: bb ? `1px solid ${K.line}` : 'none',
+      borderTop: bt ? `1px solid ${K.line}` : 'none',
     }}>
-      {cells.map((c, i) => (
-        <div key={i} style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: MONO, minWidth: 0,
-        }}>
-          {c}
-        </div>
-      ))}
+      {cells.map((c, i) => <div key={i} style={{ display: 'contents' }}>{c}</div>)}
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════
-// TEXT HELPER
+// MOBILE HALF
 // ═══════════════════════════════════════════════════════════
 
-function txt(s: string, size: number, color: string, weight = 400, italic = false): React.ReactNode {
-  return <span style={{ fontSize: size, color, fontWeight: weight, fontStyle: italic ? 'italic' : 'normal' }}>{s}</span>
-}
+const MHalf = memo(function MHalf({ label, st, tot, modo, fmt, ext }: {
+  label: string; st: HS[]; tot: Tot; modo: string; fmt: string; ext: boolean
+}) {
+  const isN = modo === 'neto'
+  const isSt = fmt === 'stableford'
+  const g = `repeat(9, 1fr) 46px`
 
-// Total cell wrapper (visually distinct)
-function totTxt(s: string, size: number, color: string, weight = 400, italic = false): React.ReactNode {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: MONO, borderLeft: `${T.lineW}px solid ${T.line}`,
-      background: T.bgInfo, height: '100%', width: '100%',
-    }}>
-      <span style={{ fontSize: size, color, fontWeight: weight, fontStyle: italic ? 'italic' : 'normal' }}>{s}</span>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════
-// MOBILE HALF (front 9 or back 9 — stacked)
-// ═══════════════════════════════════════════════════════════
-
-interface HalfProps {
-  label: 'OUT' | 'IN'
-  stats: HoleStat[]
-  totals: Totals
-  modo: 'gross' | 'neto'
-  formato: ScorecardProps['formato']
-  extended: boolean
-}
-
-const MobileHalf = memo(function MobileHalf({ label, stats, totals, modo, formato, extended }: HalfProps) {
-  const isNeto = modo === 'neto'
-  const isStab = formato === 'stableford'
-  const cols = `repeat(9, 1fr) ${T.totalW}px`
-
-  const holeCells = [...stats.map(s => txt(String(s.hole.numero), T.fontSm, T.textSecondary, 600)), totTxt(label, T.fontSm, T.textSecondary, 700)]
-  const parCells = [...stats.map(s => txt(String(s.hole.par), T.fontMd, T.textSecondary, 500)), totTxt(String(totals.par), T.fontMd, T.textSecondary, 600)]
-  const scoreCells = [
-    ...stats.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />),
-    totTxt(totals.gross > 0 ? String(totals.gross) : '', T.fontTotal, T.textPrimary, 700),
-  ]
-  const dotCells = [...stats.map(s => <StrokeDots key={s.hole.numero} count={s.strokes} />), totTxt('', 0, 'transparent')]
-  const netoCells = [...stats.map(s => txt(s.neto != null ? String(s.neto) : '', T.fontMd, T.textSecondary, 500, true)),
-    totTxt(totals.neto > 0 ? String(totals.neto) : '', T.fontMd, T.textSecondary, 700, true)]
-  const stabCells = [...stats.map(s => txt(s.stablefordPts != null ? String(s.stablefordPts) : '', T.fontMd + 1, T.gold, 700)),
-    totTxt(totals.stab > 0 ? String(totals.stab) : '', T.fontTotal, T.gold, 800)]
+  const mkRow = (cells: React.ReactNode[], totalCell: React.ReactNode, h: number, bg: string, bb = true, bt = false) =>
+    <GR cols={g} h={h} bg={bg} bb={bb} bt={bt} cells={[...cells.map((c, i) => C(c, { key: i } as React.CSSProperties)), TC(totalCell)]} />
 
   return (
     <>
-      <Row gridCols={cols} cells={holeCells} bg={T.bgInfo} height={T.rowH} />
-      <Row gridCols={cols} cells={parCells} bg={T.bgInfo} height={T.rowH} />
-      {extended && (
-        <>
-          <Row gridCols={cols} cells={[...stats.map(s => txt(s.hole.yardaje ? String(s.hole.yardaje) : '', 9, T.textMuted)), totTxt('', 0, 'transparent')]} bg={T.bgInfo} height={22} />
-          <Row gridCols={cols} cells={[...stats.map(s => txt(String(s.hole.stroke_index), 9, T.textMuted)), totTxt('', 0, 'transparent')]} bg={T.bgInfo} height={22} />
-        </>
-      )}
-      <Row gridCols={cols} cells={scoreCells} bg={T.bgScore} height={T.scoreRowH} />
-      {isNeto && <Row gridCols={cols} cells={dotCells} bg={T.bgScore} height={20} borderBottom={false} />}
-      {isNeto && !isStab && <Row gridCols={cols} cells={netoCells} bg={T.bgInfo} height={T.rowH} borderTop />}
-      {isStab && (
-        <>
-          <Row gridCols={cols} cells={netoCells} bg={T.bgInfo} height={T.rowH} borderTop />
-          <Row gridCols={cols} cells={stabCells} bg={T.bgScore} height={T.rowH + 2} />
-        </>
-      )}
+      {/* HOLE */}
+      {mkRow(st.map(s => S(String(s.hole.numero), 10, K.ts, 600)), S(label, 10, K.ts, 700), 24, K.bgH)}
+      {/* PAR */}
+      {mkRow(st.map(s => S(String(s.hole.par), 11, K.tm, 500)), S(String(tot.p), 11, K.tm, 600), 24, K.bgH)}
+      {/* Extended */}
+      {ext && mkRow(st.map(s => S(s.hole.yardaje ? String(s.hole.yardaje) : '', 9, K.tm)), S('', 0, 'transparent'), 20, K.bgH)}
+      {ext && mkRow(st.map(s => S('SI' + s.hole.stroke_index, 8, K.tm)), S('', 0, 'transparent'), 20, K.bgH)}
+      {/* SCORE */}
+      <GR cols={g} h={36} bg={K.bgS} bb={!isN} cells={[
+        ...st.map(s => C(<ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />)),
+        TC(<><span style={{ fontSize: 14, fontWeight: 700, color: K.tp, fontFamily: MONO }}>{tot.g > 0 ? tot.g : ''}</span></>),
+      ]} />
+      {/* DOTS */}
+      {isN && <GR cols={g} h={14} bg={K.bgS} bb={false} cells={[...st.map(s => C(Dots(s.strokes))), TC(null)]} />}
+      {/* NETO */}
+      {isN && !isSt && <GR cols={g} h={24} bg={K.bgH} bt cells={[
+        ...st.map(s => C(S(s.neto != null ? String(s.neto) : '', 11, K.ts, 500, true))),
+        TC(S(tot.n > 0 ? String(tot.n) : '', 11, K.ts, 700, true)),
+      ]} />}
+      {/* STABLEFORD */}
+      {isSt && <>
+        <GR cols={g} h={24} bg={K.bgH} bt cells={[
+          ...st.map(s => C(S(s.neto != null ? String(s.neto) : '', 11, K.ts, 500, true))),
+          TC(S(tot.n > 0 ? String(tot.n) : '', 11, K.ts, 600, true)),
+        ]} />
+        <GR cols={g} h={26} bg={K.bgS} cells={[
+          ...st.map(s => C(S(s.stabPts != null ? String(s.stabPts) : '', 12, K.gold, 700))),
+          TC(S(tot.s > 0 ? String(tot.s) : '', 14, K.gold, 800)),
+        ]} />
+      </>}
     </>
   )
 })
 
 // ═══════════════════════════════════════════════════════════
-// DESKTOP TABLE (full 18-hole horizontal)
+// DESKTOP TABLE — 18 holes horizontal + label column
 // ═══════════════════════════════════════════════════════════
 
-interface DesktopTableProps {
-  f9: HoleStat[]; b9: HoleStat[]
-  f9t: Totals; b9t: Totals; grandT: Totals
-  modo: 'gross' | 'neto'
-  formato: ScorecardProps['formato']
-  extended: boolean
-}
+const DTable = memo(function DTable({ f, b, ft, bt, gt, modo, fmt, ext }: {
+  f: HS[]; b: HS[]; ft: Tot; bt: Tot; gt: Tot; modo: string; fmt: string; ext: boolean
+}) {
+  const isN = modo === 'neto'
+  const isSt = fmt === 'stableford'
 
-const DesktopTable = memo(function DesktopTable({ f9, b9, f9t, b9t, grandT, modo, formato, extended }: DesktopTableProps) {
-  const isNeto = modo === 'neto'
-  const isStab = formato === 'stableford'
+  // 22 columns: label + 9 holes + OUT + 9 holes + IN + TOT
+  const g = `36px repeat(9, 1fr) 44px repeat(9, 1fr) 44px 48px`
 
-  // 21 columns: 9 holes + OUT + 9 holes + IN + TOT
-  const cols = `repeat(9, 1fr) ${T.totalW}px repeat(9, 1fr) ${T.totalW}px ${T.totalW + 4}px`
-
-  function buildRow(
-    f9Data: React.ReactNode[], f9Total: React.ReactNode,
-    b9Data: React.ReactNode[], b9Total: React.ReactNode,
-    grandTotal: React.ReactNode,
-    bg: string, height: number, opts?: { borderBottom?: boolean; borderTop?: boolean }
+  // Build a full row across all 22 columns
+  function row(
+    label: React.ReactNode,
+    f9: React.ReactNode[], fTot: React.ReactNode,
+    b9: React.ReactNode[], bTot: React.ReactNode,
+    grand: React.ReactNode,
+    h: number, bg: string, opts?: { bb?: boolean; bt?: boolean }
   ) {
-    const cells = [...f9Data, f9Total, ...b9Data, b9Total, grandTotal]
-    return <Row gridCols={cols} cells={cells} bg={bg} height={height}
-                borderBottom={opts?.borderBottom ?? true} borderTop={opts?.borderTop ?? false} />
+    const cells = [
+      C(label, { justifyContent: 'flex-start', paddingLeft: 4 } as React.CSSProperties),
+      ...f9.map((c, i) => C(c, { key: i } as React.CSSProperties)),
+      TC(fTot),
+      ...b9.map((c, i) => C(c, { key: i } as React.CSSProperties)),
+      TC(bTot),
+      TC(grand, K.bgTot),
+    ]
+    return <GR cols={g} h={h} bg={bg} bb={opts?.bb ?? true} bt={opts?.bt ?? false} cells={cells} />
   }
 
-  const tt = (s: string, sz: number, c: string, w = 400, it = false) => totTxt(s, sz, c, w, it)
+  const lbl = (t: string) => S(t, 8, K.ts, 700)
 
   return (
     <>
-      {/* Hoyo */}
-      {buildRow(
-        f9.map(s => txt(String(s.hole.numero), T.fontSm, T.textSecondary, 600)),
-        tt('OUT', T.fontSm, T.textSecondary, 700),
-        b9.map(s => txt(String(s.hole.numero), T.fontSm, T.textSecondary, 600)),
-        tt('IN', T.fontSm, T.textSecondary, 700),
-        tt('TOT', T.fontSm, T.textSecondary, 700),
-        T.bgInfo, T.rowH
-      )}
+      {/* HOLE */}
+      {row(lbl('HOLE'),
+        f.map(s => S(String(s.hole.numero), 11, K.ts, 600)), S('OUT', 10, K.ts, 700),
+        b.map(s => S(String(s.hole.numero), 11, K.ts, 600)), S('IN', 10, K.ts, 700),
+        S('TOT', 10, K.ts, 700),
+        26, K.bgH)}
 
-      {/* Par */}
-      {buildRow(
-        f9.map(s => txt(String(s.hole.par), T.fontMd, T.textSecondary, 500)),
-        tt(String(f9t.par), T.fontMd, T.textSecondary, 600),
-        b9.map(s => txt(String(s.hole.par), T.fontMd, T.textSecondary, 500)),
-        tt(String(b9t.par), T.fontMd, T.textSecondary, 600),
-        tt(String(grandT.par), T.fontMd, T.textSecondary, 700),
-        T.bgInfo, T.rowH
-      )}
+      {/* PAR */}
+      {row(lbl('PAR'),
+        f.map(s => S(String(s.hole.par), 12, K.tm, 500)), S(String(ft.p), 12, K.tm, 600),
+        b.map(s => S(String(s.hole.par), 12, K.tm, 500)), S(String(bt.p), 12, K.tm, 600),
+        S(String(gt.p), 12, K.tm, 700),
+        26, K.bgH)}
 
-      {/* Extended: yardaje */}
-      {extended && buildRow(
-        f9.map(s => txt(s.hole.yardaje ? String(s.hole.yardaje) : '', 9, T.textMuted)),
-        tt('', 0, 'transparent'),
-        b9.map(s => txt(s.hole.yardaje ? String(s.hole.yardaje) : '', 9, T.textMuted)),
-        tt('', 0, 'transparent'),
-        tt('', 0, 'transparent'),
-        T.bgInfo, 22
-      )}
+      {/* Extended */}
+      {ext && row(lbl('YDS'),
+        f.map(s => S(s.hole.yardaje ? String(s.hole.yardaje) : '', 9, K.tm)), S('', 0, 'transparent'),
+        b.map(s => S(s.hole.yardaje ? String(s.hole.yardaje) : '', 9, K.tm)), S('', 0, 'transparent'),
+        S('', 0, 'transparent'), 22, K.bgH)}
+      {ext && row(lbl('SI'),
+        f.map(s => S(String(s.hole.stroke_index), 9, K.tm)), S('', 0, 'transparent'),
+        b.map(s => S(String(s.hole.stroke_index), 9, K.tm)), S('', 0, 'transparent'),
+        S('', 0, 'transparent'), 22, K.bgH)}
 
-      {/* Extended: SI */}
-      {extended && buildRow(
-        f9.map(s => txt(String(s.hole.stroke_index), 9, T.textMuted)),
-        tt('', 0, 'transparent'),
-        b9.map(s => txt(String(s.hole.stroke_index), 9, T.textMuted)),
-        tt('', 0, 'transparent'),
-        tt('', 0, 'transparent'),
-        T.bgInfo, 22
-      )}
+      {/* SCORE */}
+      {row(lbl('GROSS'),
+        f.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />),
+        S(ft.g > 0 ? String(ft.g) : '', 14, K.tp, 700),
+        b.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />),
+        S(bt.g > 0 ? String(bt.g) : '', 14, K.tp, 700),
+        S(gt.g > 0 ? String(gt.g) : '', 16, K.tp, 800),
+        38, K.bgS, { bb: !isN })}
 
-      {/* Score gross */}
-      {buildRow(
-        f9.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />),
-        tt(f9t.gross > 0 ? String(f9t.gross) : '', T.fontTotal, T.textPrimary, 700),
-        b9.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />),
-        tt(b9t.gross > 0 ? String(b9t.gross) : '', T.fontTotal, T.textPrimary, 700),
-        tt(grandT.gross > 0 ? String(grandT.gross) : '', T.fontTotal + 2, T.textPrimary, 800),
-        T.bgScore, T.scoreRowH
-      )}
+      {/* DOTS */}
+      {isN && row(S('', 0, 'transparent'),
+        f.map(s => Dots(s.strokes)), null,
+        b.map(s => Dots(s.strokes)), null, null,
+        14, K.bgS, { bb: false })}
 
-      {/* Strokes dots */}
-      {isNeto && buildRow(
-        f9.map(s => <StrokeDots key={s.hole.numero} count={s.strokes} />),
-        tt('', 0, 'transparent'),
-        b9.map(s => <StrokeDots key={s.hole.numero} count={s.strokes} />),
-        tt('', 0, 'transparent'),
-        tt('', 0, 'transparent'),
-        T.bgScore, 20, { borderBottom: false }
-      )}
+      {/* NETO (stroke play) */}
+      {isN && !isSt && row(lbl('NETO'),
+        f.map(s => S(s.neto != null ? String(s.neto) : '', 12, K.ts, 500, true)),
+        S(ft.n > 0 ? String(ft.n) : '', 12, K.ts, 700, true),
+        b.map(s => S(s.neto != null ? String(s.neto) : '', 12, K.ts, 500, true)),
+        S(bt.n > 0 ? String(bt.n) : '', 12, K.ts, 700, true),
+        S(gt.n > 0 ? String(gt.n) : '', 13, K.ts, 800, true),
+        26, K.bgH, { bt: true })}
 
-      {/* Neto (stroke play) */}
-      {isNeto && !isStab && buildRow(
-        f9.map(s => txt(s.neto != null ? String(s.neto) : '', T.fontMd, T.textSecondary, 500, true)),
-        tt(f9t.neto > 0 ? String(f9t.neto) : '', T.fontMd, T.textSecondary, 700, true),
-        b9.map(s => txt(s.neto != null ? String(s.neto) : '', T.fontMd, T.textSecondary, 500, true)),
-        tt(b9t.neto > 0 ? String(b9t.neto) : '', T.fontMd, T.textSecondary, 700, true),
-        tt(grandT.neto > 0 ? String(grandT.neto) : '', T.fontMd + 1, T.textSecondary, 800, true),
-        T.bgInfo, T.rowH, { borderTop: true }
-      )}
-
-      {/* Stableford: neto + puntos */}
-      {isStab && (
-        <>
-          {buildRow(
-            f9.map(s => txt(s.neto != null ? String(s.neto) : '', T.fontMd, T.textSecondary, 500, true)),
-            tt(f9t.neto > 0 ? String(f9t.neto) : '', T.fontMd, T.textSecondary, 600, true),
-            b9.map(s => txt(s.neto != null ? String(s.neto) : '', T.fontMd, T.textSecondary, 500, true)),
-            tt(b9t.neto > 0 ? String(b9t.neto) : '', T.fontMd, T.textSecondary, 600, true),
-            tt(grandT.neto > 0 ? String(grandT.neto) : '', T.fontMd, T.textSecondary, 700, true),
-            T.bgInfo, T.rowH, { borderTop: true }
-          )}
-          {buildRow(
-            f9.map(s => txt(s.stablefordPts != null ? String(s.stablefordPts) : '', T.fontMd + 1, T.gold, 700)),
-            tt(f9t.stab > 0 ? String(f9t.stab) : '', T.fontTotal, T.gold, 800),
-            b9.map(s => txt(s.stablefordPts != null ? String(s.stablefordPts) : '', T.fontMd + 1, T.gold, 700)),
-            tt(b9t.stab > 0 ? String(b9t.stab) : '', T.fontTotal, T.gold, 800),
-            tt(grandT.stab > 0 ? String(grandT.stab) : '', T.fontTotal + 2, T.gold, 800),
-            T.bgScore, T.rowH + 2
-          )}
-        </>
-      )}
+      {/* STABLEFORD */}
+      {isSt && <>
+        {row(lbl('NETO'),
+          f.map(s => S(s.neto != null ? String(s.neto) : '', 12, K.ts, 500, true)),
+          S(ft.n > 0 ? String(ft.n) : '', 12, K.ts, 600, true),
+          b.map(s => S(s.neto != null ? String(s.neto) : '', 12, K.ts, 500, true)),
+          S(bt.n > 0 ? String(bt.n) : '', 12, K.ts, 600, true),
+          S(gt.n > 0 ? String(gt.n) : '', 12, K.ts, 700, true),
+          26, K.bgH, { bt: true })}
+        {row(lbl('PTS'),
+          f.map(s => S(s.stabPts != null ? String(s.stabPts) : '', 12, K.gold, 700)),
+          S(ft.s > 0 ? String(ft.s) : '', 14, K.gold, 800),
+          b.map(s => S(s.stabPts != null ? String(s.stabPts) : '', 12, K.gold, 700)),
+          S(bt.s > 0 ? String(bt.s) : '', 14, K.gold, 800),
+          S(gt.s > 0 ? String(gt.s) : '', 16, K.gold, 800),
+          28, K.bgS)}
+      </>}
     </>
   )
 })
@@ -395,25 +318,21 @@ const DesktopTable = memo(function DesktopTable({ f9, b9, f9t, b9t, grandT, modo
 // STATS SUMMARY
 // ═══════════════════════════════════════════════════════════
 
-function StatsSummary({ stats }: { stats: HoleStat[] }) {
-  const c = countResults(stats)
-  const items: { label: string; count: number; color: string }[] = []
-  if (c.eagles > 0) items.push({ label: 'Eagles', count: c.eagles, color: GARMIN_COLORS.eagle })
-  if (c.birdies > 0) items.push({ label: 'Birdies', count: c.birdies, color: GARMIN_COLORS.birdie })
-  items.push({ label: 'Pares', count: c.pars, color: T.textSecondary })
-  if (c.bogeys > 0) items.push({ label: 'Bogeys', count: c.bogeys, color: GARMIN_COLORS.bogey })
-  if (c.doubles > 0) items.push({ label: 'Doble+', count: c.doubles, color: GARMIN_COLORS.double })
+function Stats({ st }: { st: HS[] }) {
+  const c = countRes(st)
+  const items: { l: string; n: number; c: string }[] = []
+  if (c.e > 0) items.push({ l: 'Eagles', n: c.e, c: GARMIN_COLORS.eagle })
+  if (c.b > 0) items.push({ l: 'Birdies', n: c.b, c: GARMIN_COLORS.birdie })
+  items.push({ l: 'Pares', n: c.p, c: K.ts })
+  if (c.bo > 0) items.push({ l: 'Bogeys', n: c.bo, c: GARMIN_COLORS.bogey })
+  if (c.d > 0) items.push({ l: 'Doble+', n: c.d, c: GARMIN_COLORS.double })
 
   return (
-    <div style={{
-      display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap',
-      padding: '10px 16px', borderTop: `${T.lineW}px solid ${T.line}`,
-      background: T.bgInfo,
-    }}>
-      {items.map(it => (
-        <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: it.color, fontFamily: MONO }}>{it.count}</span>
-          <span style={{ fontSize: 10, color: T.textSecondary, fontWeight: 500 }}>{it.label}</span>
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', padding: '8px 16px', borderTop: `1px solid ${K.line}`, background: K.bgH }}>
+      {items.map(i => (
+        <div key={i.l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: i.c, fontFamily: MONO }}>{i.n}</span>
+          <span style={{ fontSize: 10, color: K.ts }}>{i.l}</span>
         </div>
       ))}
     </div>
@@ -428,82 +347,62 @@ export default function Scorecard({
   holes, scores, courseHandicap, modo, formato,
   playerName, avatarUrl, showExtendedInfo = false,
 }: ScorecardProps) {
-  const isDesktop = useIsDesktop(640)
-  const totalH = holes.length
-  const isNeto = modo === 'neto'
-  const isStab = formato === 'stableford'
+  const wide = useIsWide(768)
+  const tH = holes.length
+  const isN = modo === 'neto'
+  const isSt = formato === 'stableford'
 
-  const all = buildStats(holes, scores, courseHandicap, totalH, formato)
+  const all = buildStats(holes, scores, courseHandicap, tH, formato)
   const f9 = all.slice(0, 9)
   const b9 = all.slice(9, 18)
-  const hasBack = b9.length > 0
+  const hasB = b9.length > 0
 
-  const f9t = sumTotals(f9)
-  const b9t = hasBack ? sumTotals(b9) : null
-
-  const tG = f9t.gross + (b9t?.gross ?? 0)
-  const tN = f9t.neto + (b9t?.neto ?? 0)
-  const tP = f9t.par + (b9t?.par ?? 0)
-  const tS = f9t.stab + (b9t?.stab ?? 0)
+  const ft = sumT(f9)
+  const bt = hasB ? sumT(b9) : null
+  const gt: Tot = { g: ft.g + (bt?.g ?? 0), n: ft.n + (bt?.n ?? 0), p: ft.p + (bt?.p ?? 0), s: ft.s + (bt?.s ?? 0) }
   const played = all.filter(s => s.score != null).length
-
-  const grandT: Totals = { gross: tG, neto: tN, par: tP, stab: tS }
 
   return (
     <div style={{
-      background: '#ffffff', borderRadius: 8,
+      background: '#fff', borderRadius: 8,
       boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
       overflow: 'hidden', fontFamily: SANS,
+      maxWidth: wide ? 960 : '100%',
     }}>
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       {(playerName || played > 0) && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '14px 16px', borderBottom: `${T.lineW}px solid ${T.line}`,
-        }}>
-          {avatarUrl ? (
-            <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: `1px solid ${T.line}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: `1px solid ${K.line}` }}>
+          {playerName && !avatarUrl && (
+            <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: K.bgH, border: `1px solid ${K.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: K.ts }}>
+              {playerName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          {avatarUrl && (
+            <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: `1px solid ${K.line}` }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
-          ) : playerName ? (
-            <div style={{
-              width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-              background: T.bgInfo, border: `1px solid ${T.line}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, fontWeight: 600, color: T.textSecondary,
-            }}>
-              {playerName.charAt(0).toUpperCase()}
-            </div>
-          ) : null}
-
+          )}
           <div style={{ flex: 1, minWidth: 0 }}>
-            {playerName && (
-              <div style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {playerName}
-              </div>
-            )}
-            {isNeto && courseHandicap !== 0 && (
-              <div style={{ fontSize: 10, color: T.textMuted, marginTop: 1 }}>HCP {courseHandicap}</div>
-            )}
+            {playerName && <div style={{ fontSize: 14, fontWeight: 600, color: K.tp, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName}</div>}
+            {isN && courseHandicap !== 0 && <div style={{ fontSize: 10, color: K.tm, marginTop: 1 }}>HCP {courseHandicap}</div>}
           </div>
-
           {played > 0 && (
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              {isStab ? (
+              {isSt ? (
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                  <span style={{ fontSize: T.fontHeader, fontWeight: 700, color: T.gold, lineHeight: 1, fontFamily: MONO }}>{tS}</span>
-                  <span style={{ fontSize: 10, color: T.gold, fontWeight: 600 }}>pts</span>
+                  <span style={{ fontSize: 24, fontWeight: 700, color: K.gold, lineHeight: 1, fontFamily: MONO }}>{gt.s}</span>
+                  <span style={{ fontSize: 10, color: K.gold, fontWeight: 600 }}>pts</span>
                 </div>
               ) : (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, justifyContent: 'flex-end' }}>
-                    <span style={{ fontSize: T.fontHeader, fontWeight: 700, color: T.textPrimary, lineHeight: 1, fontFamily: MONO }}>{tG}</span>
-                    <span style={{ fontSize: 12, color: T.textSecondary, fontFamily: MONO }}>{fmtOu(tG - tP)}</span>
+                    <span style={{ fontSize: 24, fontWeight: 700, color: K.tp, lineHeight: 1, fontFamily: MONO }}>{gt.g}</span>
+                    <span style={{ fontSize: 12, color: K.ts, fontFamily: MONO }}>{fmtOu(gt.g - gt.p)}</span>
                   </div>
-                  {isNeto && courseHandicap !== 0 && (
-                    <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2, fontFamily: MONO, textAlign: 'right' }}>
-                      {tN} {fmtOu(tN - tP)} net
+                  {isN && courseHandicap !== 0 && (
+                    <div style={{ fontSize: 10, color: K.tm, marginTop: 2, fontFamily: MONO, textAlign: 'right' }}>
+                      {gt.n} {fmtOu(gt.n - gt.p)} net
                     </div>
                   )}
                 </div>
@@ -513,30 +412,23 @@ export default function Scorecard({
         </div>
       )}
 
-      {/* ── TABLE ── */}
+      {/* TABLE */}
       <div style={{ overflowX: 'auto' }}>
-        {isDesktop && hasBack && b9t ? (
-          /* Desktop: tabla horizontal completa de 18 hoyos */
-          <DesktopTable f9={f9} b9={b9} f9t={f9t} b9t={b9t} grandT={grandT}
-                        modo={modo} formato={formato} extended={showExtendedInfo} />
+        {wide && hasB && bt ? (
+          <DTable f={f9} b={b9} ft={ft} bt={bt} gt={gt} modo={modo} fmt={formato} ext={showExtendedInfo} />
         ) : (
-          /* Mobile: front 9 y back 9 apilados */
           <>
-            <MobileHalf label="OUT" stats={f9} totals={f9t}
-                        modo={modo} formato={formato} extended={showExtendedInfo} />
-            {hasBack && b9t && (
-              <>
-                <div style={{ height: 6, background: T.bgInfo, borderBottom: `${T.lineW}px solid ${T.line}` }} />
-                <MobileHalf label="IN" stats={b9} totals={b9t}
-                            modo={modo} formato={formato} extended={showExtendedInfo} />
-              </>
-            )}
+            <MHalf label="OUT" st={f9} tot={ft} modo={modo} fmt={formato} ext={showExtendedInfo} />
+            {hasB && bt && <>
+              <div style={{ height: 4, background: K.bgH, borderBottom: `1px solid ${K.line}` }} />
+              <MHalf label="IN" st={b9} tot={bt} modo={modo} fmt={formato} ext={showExtendedInfo} />
+            </>}
           </>
         )}
       </div>
 
-      {/* ── STATS SUMMARY ── */}
-      {played > 0 && <StatsSummary stats={all} />}
+      {/* STATS */}
+      {played > 0 && <Stats st={all} />}
     </div>
   )
 }

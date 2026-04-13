@@ -63,7 +63,7 @@ const page: React.CSSProperties = {
   background: '#f7f7f8', minHeight: '100vh', padding: '20px 14px 80px',
   fontFamily: '"DM Sans", system-ui, sans-serif',
 }
-const wrap: React.CSSProperties = { maxWidth: 480, margin: '0 auto' }
+const wrap: React.CSSProperties = { maxWidth: 960, margin: '0 auto' }
 const title: React.CSSProperties = {
   fontSize: 17, fontWeight: 700, color: '#111827',
   marginTop: 28, marginBottom: 3, letterSpacing: '-0.01em',
