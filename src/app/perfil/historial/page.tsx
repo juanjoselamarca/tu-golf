@@ -114,13 +114,14 @@ function computeStats(scores: (number | null)[], holePars?: number[]) {
   return { total, overUnder, eagles, birdies, pars, bogeys, doubles, front9, back9, filledHoles: filled.length }
 }
 
-function cellBg(score: number | null): React.CSSProperties {
+function cellBg(score: number | null, par: number = 4): React.CSSProperties {
   if (score == null) return { background: 'rgba(7,13,24,0.4)', color: '#3a4a5a' }
-  if (score <= 2)    return { background: 'rgba(37,99,235,0.38)',  color: '#93c5fd' }
-  if (score === 3)   return { background: 'rgba(22,163,74,0.38)',  color: '#86efac' }
-  if (score === 4)   return { background: 'rgba(0,0,0,0.04)',color: 'var(--text)' }
-  if (score === 5)   return { background: 'rgba(196,153,42,0.25)', color: '#fcd34d' }
-  return               { background: 'rgba(220,38,38,0.30)',  color: '#fca5a5' }
+  const diff = score - par
+  if (diff <= -2) return { background: 'rgba(11,107,166,0.30)',  color: '#93c5fd' }  // eagle+
+  if (diff === -1) return { background: 'rgba(20,179,217,0.25)', color: '#67e8f9' }  // birdie
+  if (diff === 0)  return { background: 'rgba(0,0,0,0.04)',      color: 'var(--text)' } // par
+  if (diff === 1)  return { background: 'rgba(196,153,42,0.25)', color: '#fcd34d' }  // bogey
+  return { background: 'rgba(220,59,46,0.30)', color: '#fca5a5' }                    // double+
 }
 
 function formatOv(n: number) { return n > 0 ? `+${n}` : n === 0 ? 'E' : String(n) }
