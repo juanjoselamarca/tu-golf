@@ -175,7 +175,7 @@ export default function ScorecardDemoPage() {
             fontSize: 12, fontWeight: 600, cursor: 'pointer', marginBottom: 10,
           }}
         >
-          {ext ? 'Ocultar detalles' : 'Mostrar yardajes + SI'}
+          {ext ? 'Ocultar detalles' : 'Mostrar yardajes + Hdcp'}
         </button>
         <Scorecard holes={H18} scores={SC88} courseHandicap={0} modo="gross" formato="stroke_play" playerName="Juan José Lamarca" showExtendedInfo={ext} />
 
