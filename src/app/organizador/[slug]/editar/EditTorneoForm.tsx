@@ -12,6 +12,7 @@ interface TournamentData {
   id: string; name: string; slug: string; format: string; hole_count: number
   tees: string; use_handicap: boolean; date_start: string | null
   cover_image_url: string | null; courses: { id: string; nombre: string } | null
+  has_scores?: boolean
 }
 
 interface Props { tournament: TournamentData; courses: CourseOption[] }
@@ -167,13 +168,16 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <label style={labelStyle}>Formato</label>
             <div style={{ display: 'flex', gap: '12px' }}>
               {FORMATS.map((f) => (
-                <button key={f.value} type="button" onClick={() => setFormat(f.value)}
-                  style={{ flex: 1, padding: '14px', border: format === f.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', background: format === f.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', cursor: 'pointer', textAlign: 'left', transition: 'all 200ms' }}>
+                <button key={f.value} type="button" onClick={() => setFormat(f.value)} disabled={tournament.has_scores}
+                  style={{ flex: 1, padding: '14px', border: format === f.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', background: format === f.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', cursor: tournament.has_scores ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 200ms', opacity: tournament.has_scores ? 0.5 : 1 }}>
                   <div style={{ color: '#edeae4', fontWeight: 600, fontSize: '14px' }}>{f.label}</div>
                   <div style={{ color: '#94a8c0', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
                 </button>
               ))}
             </div>
+            {tournament.has_scores && (
+              <p style={{ fontSize: '12px', color: '#f87171', marginTop: '8px' }}>No se puede cambiar el formato después de que los jugadores comenzaron a scorear.</p>
+            )}
           </div>
 
           {/* Hoyos + Tees */}
@@ -182,12 +186,15 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               <label style={labelStyle}>Hoyos</label>
               <div style={{ display: 'flex', gap: '10px' }}>
                 {[18, 9].map((n) => (
-                  <button key={n} type="button" onClick={() => setHoleCount(n)}
-                    style={{ flex: 1, padding: '10px', border: holeCount === n ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', color: holeCount === n ? '#edeae4' : '#94a8c0', cursor: 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400 }}>
+                  <button key={n} type="button" onClick={() => setHoleCount(n)} disabled={tournament.has_scores}
+                    style={{ flex: 1, padding: '10px', border: holeCount === n ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', color: holeCount === n ? '#edeae4' : '#94a8c0', cursor: tournament.has_scores ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400, opacity: tournament.has_scores ? 0.5 : 1 }}>
                     {n} hoyos
                   </button>
                 ))}
               </div>
+              {tournament.has_scores && (
+                <p style={{ fontSize: '12px', color: '#f87171', marginTop: '8px' }}>No se puede cambiar el número de hoyos después de que los jugadores comenzaron a scorear.</p>
+              )}
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Tee</label>
