@@ -14,7 +14,7 @@
  */
 export function puntosStablefordHoyo(scoreNeto: number, par: number): number {
   const diff = scoreNeto - par
-  if (diff <= -3) return 5 // Doble Eagle o mejor
+  if (diff <= -3) return 5 // Albatross o mejor
   if (diff === -2) return 4 // Eagle
   if (diff === -1) return 3 // Birdie
   if (diff === 0) return 2 // Par
@@ -105,17 +105,20 @@ export function calcularStableford(input: StablefordInput): StablefordResult {
 export function strokesRecibidosEnHoyo(
   courseHandicap: number,
   strokeIndex: number,
-  roundHoles: number,
+  roundHoles: number = 18,
 ): number {
+  if (courseHandicap < 0) {
+    const hcpAbs = Math.abs(Math.round(courseHandicap))
+    return strokeIndex <= hcpAbs ? -1 : 0
+  }
   if (courseHandicap <= 0) return 0
   const maxSI = roundHoles
-
   const primeraVuelta = strokeIndex <= Math.min(courseHandicap, maxSI) ? 1 : 0
-
   if (courseHandicap <= maxSI) return primeraVuelta
-
-  const restante = courseHandicap - maxSI
-  const segundaVuelta = strokeIndex <= restante ? 1 : 0
-
-  return primeraVuelta + segundaVuelta
+  const restante2 = courseHandicap - maxSI
+  const segundaVuelta = strokeIndex <= Math.min(restante2, maxSI) ? 1 : 0
+  if (courseHandicap <= maxSI * 2) return primeraVuelta + segundaVuelta
+  const restante3 = courseHandicap - maxSI * 2
+  const terceraVuelta = strokeIndex <= restante3 ? 1 : 0
+  return primeraVuelta + segundaVuelta + terceraVuelta
 }

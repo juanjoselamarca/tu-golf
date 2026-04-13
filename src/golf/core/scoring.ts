@@ -3,25 +3,8 @@
  */
 
 import { type ModoJuego, type FormatoJuego, labelResultado } from './rules'
-
-// ─── Strokes que recibe un jugador en un hoyo ───
-// holeCount: 9 o 18 — determina cómo se distribuyen los golpes
-export function strokesRecibidosEnHoyo(
-  handicapIndex: number,
-  strokeIndex: number,
-  holeCount: number = 18
-): number {
-  const totalHoles = holeCount === 9 ? 9 : 18
-  if (handicapIndex < 0) {
-    const hcpAbs = Math.abs(Math.round(handicapIndex))
-    return -(hcpAbs >= strokeIndex ? 1 : 0)
-  }
-  const maxHcp = totalHoles === 9 ? 27 : 54 // WHS: max 3 strokes/hole
-  const hcp = Math.round(Math.max(0, Math.min(handicapIndex, maxHcp)))
-  const strokesBase = Math.floor(hcp / totalHoles)
-  const extra = (hcp % totalHoles) >= strokeIndex ? 1 : 0
-  return strokesBase + extra
-}
+import { strokesRecibidosEnHoyo } from './stableford-score'
+export { strokesRecibidosEnHoyo } from './stableford-score'
 
 // ─── Score neto de un hoyo ───
 export function scoreNetoHoyo(

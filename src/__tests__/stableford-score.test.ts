@@ -81,8 +81,10 @@ describe('strokesRecibidosEnHoyo', () => {
     expect(strokesRecibidosEnHoyo(5, 6, 9)).toBe(0)
   })
 
-  it('negative handicap → no strokes', () => {
-    expect(strokesRecibidosEnHoyo(-2, 1, 18)).toBe(0)
+  it('negative handicap (plus player) → gives back strokes on lowest SI', () => {
+    expect(strokesRecibidosEnHoyo(-2, 1, 18)).toBe(-1)
+    expect(strokesRecibidosEnHoyo(-2, 2, 18)).toBe(-1)
+    expect(strokesRecibidosEnHoyo(-2, 3, 18)).toBe(0)
   })
 })
 
