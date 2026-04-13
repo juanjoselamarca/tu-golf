@@ -1,26 +1,26 @@
 'use client'
 
 /**
- * Scorecard v3 — Elegancia, modernidad, best UI performance.
+ * Scorecard v5 — Precision instrument design.
  *
- * Cambios v3:
- * - Filas con background alternado (hoyo/par en gris sutil, score en blanco)
- * - Fila de score más alta (34px) con padding — protagonismo visual
- * - Columna total con fondo sutil y borde izquierdo visible
- * - Separadores más visibles (#e0e2e6)
- * - Labels eliminados (Garmin no los usa y se lee mejor sin ellos)
- * - Score cells con más padding/aire
- * - Container con shadow suave, sin borde visible
- * - Neto con tipografía diferenciada (gris más claro, italic sutil)
- * - React.memo en Half para performance
+ * Principios:
+ * 1. CSS Grid real con columnas fijas — pixel-perfect alignment
+ * 2. UN solo estilo de línea en TODA la tabla (1px #dfe2e6)
+ * 3. Row heights estandarizadas: 26px info, 38px score
+ * 4. Todo DM Mono en la tabla — alineación vertical perfecta
+ * 5. Dos niveles: score = primario (14px, bold), resto = secundario (11px, normal)
+ * 6. Simetría absoluta: front 9 y back 9 son espejos visuales
+ *
+ * Basado en: PGA Tour Haskell design system, Garmin Golf,
+ * Masters.com leaderboard, best practices de scorecards físicas.
  */
 
 import { memo } from 'react'
 import ScoreSymbol, { GARMIN_COLORS } from './ScoreSymbol'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 
-const MONO = '"DM Mono", ui-monospace, monospace'
-const SANS = '"DM Sans", system-ui, sans-serif'
+const MONO = '"DM Mono", ui-monospace, SFMono-Regular, monospace'
+const SANS = '"DM Sans", system-ui, -apple-system, sans-serif'
 
 // ═══════════════════════════════════════════════════════════
 // TYPES
@@ -85,25 +85,81 @@ function sumTotals(stats: HoleStat[]): Totals {
 }
 
 // ═══════════════════════════════════════════════════════════
-// PALETTE
+// DESIGN TOKENS — un solo lugar, cero variación
 // ═══════════════════════════════════════════════════════════
 
-const C = {
-  bg: '#f8f9fa',       // background sutil para filas secundarias
-  bgWhite: '#ffffff',  // background para filas protagonistas (score)
-  sep: '#e0e2e6',      // separadores visibles
-  sepLight: '#eef0f2', // separadores entre sub-filas
-  totBg: '#f4f5f7',    // fondo columna total
-  totBorder: '#d8dade', // borde izquierdo columna total
-  holeNum: '#8b95a3',  // número de hoyo
-  parNum: '#9ca3af',   // par
-  scoreNum: '#1a1a2e', // score (protagonista)
-  netoNum: '#a0a8b4',  // neto (secundario)
-  gold: '#c4992a',     // Golfers+ gold
+const T = {
+  // Colores
+  line: '#dfe2e6',          // UN solo color de línea en toda la tabla
+  bgHeader: '#f5f6f8',     // fondo de filas info (hoyo, par, neto)
+  bgScore: '#ffffff',       // fondo de fila score (protagonista)
+  textPrimary: '#1a1a2e',  // scores
+  textSecondary: '#7c8594', // hoyo, par, neto
+  textMuted: '#a3aab6',    // dots, placeholders
+  gold: '#c4992a',          // Golfers+ stableford
+
+  // Dimensiones
+  rowH: 26,                 // altura fila secundaria
+  scoreRowH: 38,            // altura fila score (protagonista)
+  totalW: 48,               // ancho columna total
+  lineW: 1,                 // grosor de TODAS las líneas
+
+  // Tipografía
+  fontSm: 10,               // hoyo numbers, dots
+  fontMd: 11,               // par, neto, stableford pts
+  fontScore: 13,            // gross scores (protagonista en tabla)
+  fontTotal: 14,            // totales OUT/IN
+  fontHeader: 24,           // score grande en header
 } as const
 
+// Grid: 9 columnas de hoyo + 1 columna total
+const GRID_COLS = `repeat(9, 1fr) ${T.totalW}px`
+
 // ═══════════════════════════════════════════════════════════
-// HALF (front 9 or back 9) — memoized
+// TABLE ROW — componente base para cada fila de la tabla
+// ═══════════════════════════════════════════════════════════
+
+interface RowProps {
+  cells: React.ReactNode[]
+  total: React.ReactNode
+  bg: string
+  height: number
+  borderBottom?: boolean
+  borderTop?: boolean
+}
+
+function Row({ cells, total, bg, height, borderBottom = true, borderTop = false }: RowProps) {
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: GRID_COLS,
+      background: bg,
+      minHeight: height,
+      borderBottom: borderBottom ? `${T.lineW}px solid ${T.line}` : 'none',
+      borderTop: borderTop ? `${T.lineW}px solid ${T.line}` : 'none',
+    }}>
+      {cells.map((c, i) => (
+        <div key={i} style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: MONO, minWidth: 0,
+        }}>
+          {c}
+        </div>
+      ))}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: MONO,
+        borderLeft: `${T.lineW}px solid ${T.line}`,
+        background: T.bgHeader,
+      }}>
+        {total}
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// HALF (front 9 or back 9)
 // ═══════════════════════════════════════════════════════════
 
 interface HalfProps {
@@ -119,136 +175,123 @@ const Half = memo(function Half({ label, stats, totals, modo, formato, extended 
   const isNeto = modo === 'neto'
   const isStab = formato === 'stableford'
 
-  const cell: React.CSSProperties = { flex: 1, minWidth: 0, textAlign: 'center', fontFamily: MONO }
-  const tot: React.CSSProperties = {
-    flexShrink: 0, width: 46, textAlign: 'center', fontFamily: MONO,
-    borderLeft: `1px solid ${C.totBorder}`, background: C.totBg,
-  }
-  const row = (bg: string, h?: number): React.CSSProperties => ({
-    display: 'flex', alignItems: 'center', background: bg,
-    minHeight: h ?? 20, padding: '0 2px',
-  })
-  const sep = (color: string = C.sep): React.CSSProperties => ({
-    height: 1, background: color, width: '100%',
-  })
+  const txt = (s: string, size: number, color: string, weight = 400, italic = false): React.ReactNode => (
+    <span style={{ fontSize: size, color, fontWeight: weight, fontStyle: italic ? 'italic' : 'normal' }}>{s}</span>
+  )
 
   return (
-    <div>
-      {/* ── Hoyo numbers ── */}
-      <div style={row(C.bg)}>
-        {stats.map(s => (
-          <div key={s.hole.numero} style={{ ...cell, fontSize: 10, color: C.holeNum, fontWeight: 600, padding: '5px 0' }}>
-            {s.hole.numero}
-          </div>
-        ))}
-        <div style={{ ...tot, fontSize: 10, color: C.holeNum, fontWeight: 700, padding: '5px 0' }}>{label}</div>
-      </div>
+    <>
+      {/* Hoyo */}
+      <Row
+        bg={T.bgHeader}
+        height={T.rowH}
+        cells={stats.map(s => txt(String(s.hole.numero), T.fontSm, T.textSecondary, 600))}
+        total={txt(label, T.fontSm, T.textSecondary, 700)}
+      />
 
-      <div style={sep()} />
+      {/* Par */}
+      <Row
+        bg={T.bgHeader}
+        height={T.rowH}
+        cells={stats.map(s => txt(String(s.hole.par), T.fontMd, T.textSecondary, 500))}
+        total={txt(String(totals.par), T.fontMd, T.textSecondary, 600)}
+      />
 
-      {/* ── Par ── */}
-      <div style={row(C.bg)}>
-        {stats.map(s => (
-          <div key={s.hole.numero} style={{ ...cell, fontSize: 11, color: C.parNum, fontWeight: 500, padding: '4px 0' }}>
-            {s.hole.par}
-          </div>
-        ))}
-        <div style={{ ...tot, fontSize: 11, color: C.parNum, fontWeight: 600, padding: '4px 0' }}>{totals.par}</div>
-      </div>
-
-      {/* ── Extended: yardaje ── */}
+      {/* Yardaje (extended) */}
       {extended && (
-        <div style={row(C.bg)}>
-          {stats.map(s => (
-            <div key={s.hole.numero} style={{ ...cell, fontSize: 9, color: C.holeNum, padding: '2px 0' }}>
-              {s.hole.yardaje ?? ''}
-            </div>
-          ))}
-          <div style={tot} />
-        </div>
+        <Row
+          bg={T.bgHeader}
+          height={22}
+          cells={stats.map(s => txt(s.hole.yardaje ? String(s.hole.yardaje) : '', 9, T.textMuted))}
+          total={txt('', 9, T.textMuted)}
+        />
       )}
 
-      {/* ── Extended: SI ── */}
+      {/* SI (extended) */}
       {extended && (
-        <div style={row(C.bg)}>
-          {stats.map(s => (
-            <div key={s.hole.numero} style={{ ...cell, fontSize: 9, color: C.holeNum, padding: '2px 0' }}>
-              {s.hole.stroke_index}
-            </div>
-          ))}
-          <div style={tot} />
-        </div>
+        <Row
+          bg={T.bgHeader}
+          height={22}
+          cells={stats.map(s => txt(String(s.hole.stroke_index), 9, T.textMuted))}
+          total={txt('', 9, T.textMuted)}
+        />
       )}
 
-      <div style={sep()} />
-
-      {/* ── SCORE GROSS — protagonista ── */}
-      <div style={row(C.bgWhite, 34)}>
-        {stats.map(s => (
-          <div key={s.hole.numero} style={{ ...cell, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '4px 0' }}>
-            <ScoreSymbol score={s.score} par={s.hole.par} size="sm" theme="light" />
-          </div>
+      {/* ══ SCORE GROSS — protagonista ══ */}
+      <Row
+        bg={T.bgScore}
+        height={T.scoreRowH}
+        cells={stats.map(s => (
+          <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />
         ))}
-        <div style={{ ...tot, fontSize: 15, color: C.scoreNum, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {totals.gross > 0 ? totals.gross : ''}
-        </div>
-      </div>
+        total={txt(
+          totals.gross > 0 ? String(totals.gross) : '',
+          T.fontTotal, T.textPrimary, 700
+        )}
+      />
 
-      {/* ── Dots de strokes (neto) ── */}
+      {/* Strokes dots (neto modes) */}
       {isNeto && (
-        <div style={row(C.bgWhite)}>
-          {stats.map(s => (
-            <div key={s.hole.numero} style={{ ...cell, fontSize: 9, color: C.holeNum, height: 12, lineHeight: '12px' }}>
-              {s.strokes > 0 ? '·'.repeat(s.strokes) : ''}
-            </div>
+        <Row
+          bg={T.bgScore}
+          height={16}
+          borderBottom={false}
+          cells={stats.map(s => txt(
+            s.strokes > 0 ? '·'.repeat(s.strokes) : '',
+            9, T.textMuted
           ))}
-          <div style={tot} />
-        </div>
+          total={txt('', 9, T.textMuted)}
+        />
       )}
 
-      <div style={sep()} />
-
-      {/* ── Neto en TODOS los hoyos (stroke play neto) ── */}
+      {/* Neto TODOS los hoyos (stroke play neto) */}
       {isNeto && !isStab && (
-        <div style={row(C.bg)}>
-          {stats.map(s => (
-            <div key={s.hole.numero} style={{ ...cell, fontSize: 10, color: C.netoNum, fontWeight: 500, fontStyle: 'italic', padding: '4px 0' }}>
-              {s.neto ?? ''}
-            </div>
+        <Row
+          bg={T.bgHeader}
+          height={T.rowH}
+          borderTop={true}
+          cells={stats.map(s => txt(
+            s.neto != null ? String(s.neto) : '',
+            T.fontMd, T.textSecondary, 500, true
           ))}
-          <div style={{ ...tot, fontSize: 11, color: C.netoNum, fontWeight: 700, fontStyle: 'italic', padding: '4px 0' }}>
-            {totals.neto > 0 ? totals.neto : ''}
-          </div>
-        </div>
+          total={txt(
+            totals.neto > 0 ? String(totals.neto) : '',
+            T.fontMd, T.textSecondary, 700, true
+          )}
+        />
       )}
 
-      {/* ── Stableford: neto + puntos ── */}
+      {/* Stableford: neto + puntos */}
       {isStab && (
         <>
-          <div style={row(C.bg)}>
-            {stats.map(s => (
-              <div key={s.hole.numero} style={{ ...cell, fontSize: 10, color: C.netoNum, fontWeight: 500, fontStyle: 'italic', padding: '3px 0' }}>
-                {s.neto ?? ''}
-              </div>
+          <Row
+            bg={T.bgHeader}
+            height={T.rowH}
+            borderTop={true}
+            cells={stats.map(s => txt(
+              s.neto != null ? String(s.neto) : '',
+              T.fontMd, T.textSecondary, 500, true
             ))}
-            <div style={{ ...tot, fontSize: 11, color: C.netoNum, fontWeight: 600, fontStyle: 'italic', padding: '3px 0' }}>
-              {totals.neto > 0 ? totals.neto : ''}
-            </div>
-          </div>
-          <div style={sep(C.sepLight)} />
-          <div style={row(C.bgWhite)}>
-            {stats.map(s => (
-              <div key={s.hole.numero} style={{ ...cell, fontSize: 11, color: C.gold, fontWeight: 700, padding: '4px 0' }}>
-                {s.stablefordPts != null ? s.stablefordPts : ''}
-              </div>
+            total={txt(
+              totals.neto > 0 ? String(totals.neto) : '',
+              T.fontMd, T.textSecondary, 600, true
+            )}
+          />
+          <Row
+            bg={T.bgScore}
+            height={T.rowH + 2}
+            cells={stats.map(s => txt(
+              s.stablefordPts != null ? String(s.stablefordPts) : '',
+              T.fontMd + 1, T.gold, 700
             ))}
-            <div style={{ ...tot, fontSize: 13, color: C.gold, fontWeight: 800, padding: '4px 0' }}>
-              {totals.stab > 0 ? totals.stab : ''}
-            </div>
-          </div>
+            total={txt(
+              totals.stab > 0 ? String(totals.stab) : '',
+              T.fontTotal, T.gold, 800
+            )}
+          />
         </>
       )}
-    </div>
+    </>
   )
 })
 
@@ -282,7 +325,7 @@ export default function Scorecard({
     <div style={{
       background: '#ffffff',
       borderRadius: 8,
-      boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
       overflow: 'hidden',
       fontFamily: SANS,
     }}>
@@ -290,20 +333,23 @@ export default function Scorecard({
       {(playerName || played > 0) && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
-          padding: '12px 14px',
-          borderBottom: `1px solid ${C.sep}`,
+          padding: '14px 16px',
+          borderBottom: `${T.lineW}px solid ${T.line}`,
         }}>
           {avatarUrl ? (
-            <div style={{ width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: `1px solid ${C.sep}` }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: '50%', overflow: 'hidden',
+              flexShrink: 0, border: `1px solid ${T.line}`,
+            }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           ) : playerName ? (
             <div style={{
-              width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-              background: C.bg, border: `1px solid ${C.sep}`,
+              width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+              background: T.bgHeader, border: `1px solid ${T.line}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 13, fontWeight: 600, color: C.holeNum,
+              fontSize: 14, fontWeight: 600, color: T.textSecondary,
             }}>
               {playerName.charAt(0).toUpperCase()}
             </div>
@@ -311,30 +357,41 @@ export default function Scorecard({
 
           <div style={{ flex: 1, minWidth: 0 }}>
             {playerName && (
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.scoreNum, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{
+                fontSize: 14, fontWeight: 600, color: T.textPrimary,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
                 {playerName}
               </div>
             )}
             {isNeto && courseHandicap !== 0 && (
-              <div style={{ fontSize: 10, color: C.netoNum, marginTop: 1 }}>HCP {courseHandicap}</div>
+              <div style={{ fontSize: 10, color: T.textMuted, marginTop: 1 }}>
+                HCP {courseHandicap}
+              </div>
             )}
           </div>
 
           {played > 0 && (
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               {isStab ? (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                  <span style={{ fontSize: 24, fontWeight: 700, color: C.gold, lineHeight: 1, fontFamily: MONO }}>{tS}</span>
-                  <span style={{ fontSize: 10, color: C.gold, fontWeight: 600 }}>pts</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                  <span style={{ fontSize: T.fontHeader, fontWeight: 700, color: T.gold, lineHeight: 1, fontFamily: MONO }}>
+                    {tS}
+                  </span>
+                  <span style={{ fontSize: 10, color: T.gold, fontWeight: 600 }}>pts</span>
                 </div>
               ) : (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, justifyContent: 'flex-end' }}>
-                    <span style={{ fontSize: 24, fontWeight: 700, color: C.scoreNum, lineHeight: 1, fontFamily: MONO }}>{tG}</span>
-                    <span style={{ fontSize: 12, color: C.netoNum, fontFamily: MONO }}>{fmtOu(tG - tP)}</span>
+                    <span style={{ fontSize: T.fontHeader, fontWeight: 700, color: T.textPrimary, lineHeight: 1, fontFamily: MONO }}>
+                      {tG}
+                    </span>
+                    <span style={{ fontSize: 12, color: T.textSecondary, fontFamily: MONO }}>
+                      {fmtOu(tG - tP)}
+                    </span>
                   </div>
                   {isNeto && courseHandicap !== 0 && (
-                    <div style={{ fontSize: 10, color: C.netoNum, marginTop: 2, fontFamily: MONO, textAlign: 'right' }}>
+                    <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2, fontFamily: MONO, textAlign: 'right' }}>
                       {tN} {fmtOu(tN - tP)} net
                     </div>
                   )}
@@ -347,38 +404,47 @@ export default function Scorecard({
 
       {/* ── TABLE ── */}
       <div style={{ overflowX: 'auto' }}>
-        <Half label="OUT" stats={f9} totals={f9t} modo={modo} formato={formato} extended={showExtendedInfo} />
+        <Half label="OUT" stats={f9} totals={f9t}
+              modo={modo} formato={formato} extended={showExtendedInfo} />
 
         {hasBack && b9t && (
           <>
-            <div style={{ height: 2, background: C.sep }} />
-            <Half label="IN" stats={b9} totals={b9t} modo={modo} formato={formato} extended={showExtendedInfo} />
+            {/* Separador Front/Back — mismo estilo que todas las líneas */}
+            <div style={{ height: 6, background: T.bgHeader, borderBottom: `${T.lineW}px solid ${T.line}` }} />
+            <Half label="IN" stats={b9} totals={b9t}
+                  modo={modo} formato={formato} extended={showExtendedInfo} />
           </>
         )}
-
-        {/* ── TOTAL ── */}
-        {hasBack && played > 0 && (
-          <div style={{
-            display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline', gap: 8,
-            padding: '10px 14px',
-            borderTop: `2px solid ${C.sep}`,
-            background: C.bg,
-          }}>
-            <span style={{ fontSize: 9, color: C.holeNum, fontWeight: 700, letterSpacing: '0.12em' }}>TOTAL</span>
-            {isStab ? (
-              <span style={{ fontSize: 20, fontWeight: 700, color: C.gold, fontFamily: MONO }}>{tS} <span style={{ fontSize: 11 }}>pts</span></span>
-            ) : (
-              <>
-                <span style={{ fontSize: 20, fontWeight: 700, color: C.scoreNum, fontFamily: MONO }}>{tG}</span>
-                <span style={{ fontSize: 12, color: C.netoNum, fontFamily: MONO }}>{fmtOu(tG - tP)}</span>
-                {isNeto && courseHandicap !== 0 && (
-                  <span style={{ fontSize: 10, color: C.netoNum, fontFamily: MONO }}>· {tN} {fmtOu(tN - tP)} net</span>
-                )}
-              </>
-            )}
-          </div>
-        )}
       </div>
+
+      {/* ── TOTAL FINAL ── */}
+      {hasBack && played > 0 && (
+        <div style={{
+          display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline', gap: 8,
+          padding: '10px 16px',
+          background: T.bgHeader,
+          borderTop: `${T.lineW}px solid ${T.line}`,
+        }}>
+          <span style={{ fontSize: 9, color: T.textMuted, fontWeight: 700, letterSpacing: '0.12em', fontFamily: SANS }}>
+            TOTAL
+          </span>
+          {isStab ? (
+            <span style={{ fontSize: 20, fontWeight: 700, color: T.gold, fontFamily: MONO }}>
+              {tS} <span style={{ fontSize: 11, fontWeight: 600 }}>pts</span>
+            </span>
+          ) : (
+            <>
+              <span style={{ fontSize: 20, fontWeight: 700, color: T.textPrimary, fontFamily: MONO }}>{tG}</span>
+              <span style={{ fontSize: 12, color: T.textSecondary, fontFamily: MONO }}>{fmtOu(tG - tP)}</span>
+              {isNeto && courseHandicap !== 0 && (
+                <span style={{ fontSize: 10, color: T.textMuted, fontFamily: MONO }}>
+                  · {tN} {fmtOu(tN - tP)} net
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
