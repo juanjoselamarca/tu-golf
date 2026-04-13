@@ -128,20 +128,14 @@ export default function ScorecardDemoPage() {
         <div><span style={tag}>GROSS</span><span style={tag}>18H</span></div>
         <Scorecard holes={H18} scores={SC88} courseHandicap={0} modo="gross" formato="stroke_play" playerName="Juan José Lamarca" />
 
-        {/* ── 2. Stroke Play Neto (progressive disclosure) ── */}
+        {/* ── 2. Stroke Play Neto ── */}
         <div style={title}>2. Stroke Play Neto</div>
         <div style={desc}>
-          HCP 11. Por defecto muestra 3 filas limpias (estilo Garmin). El botón
-          &quot;VER NETO Y DETALLE&quot; al fondo revela strokes, neto por hoyo.
-          Heat map sutil en celdas de score. HoleBar integrado como firma visual.
+          HCP 11. Neto visible en TODOS los hoyos. Puntitos grises debajo del gross
+          en hoyos donde hay palo. Labels a la izquierda: Hoyo, Par, Gross, Neto.
         </div>
-        <div><span style={tag}>NETO</span><span style={tag}>HCP 11</span><span style={tag}>PROGRESSIVE DISCLOSURE</span></div>
+        <div><span style={tag}>NETO</span><span style={tag}>HCP 11</span><span style={tag}>18H</span></div>
         <Scorecard holes={H18} scores={SC88} courseHandicap={11} modo="neto" formato="stroke_play" playerName="Juan José Lamarca" />
-
-        {/* ── 2b. Neto expandido por defecto ── */}
-        <div style={{ ...title, marginTop: 16 }}>2b. Neto expandido</div>
-        <div style={desc}>Mismo scorecard con detalle visible por defecto (defaultExpanded).</div>
-        <Scorecard holes={H18} scores={SC88} courseHandicap={11} modo="neto" formato="stroke_play" playerName="Juan José Lamarca" defaultExpanded />
 
         {/* ── 3. Stableford ── */}
         <div style={title}>3. Stableford</div>
@@ -151,7 +145,7 @@ export default function ScorecardDemoPage() {
           haces par gross en un hoyo con palo, tu neto es birdie = 3 pts.
         </div>
         <div><span style={tag}>STABLEFORD</span><span style={tag}>HCP 11</span></div>
-        <Scorecard holes={H18} scores={SC88} courseHandicap={11} modo="neto" formato="stableford" playerName="Juan José Lamarca" defaultExpanded />
+        <Scorecard holes={H18} scores={SC88} courseHandicap={11} modo="neto" formato="stableford" playerName="Juan José Lamarca" />
 
         {/* ── 4. Ronda con Eagle ── */}
         <div style={title}>4. Eagle + 4 birdies</div>
