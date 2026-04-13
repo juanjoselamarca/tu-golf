@@ -67,6 +67,7 @@ interface LeaderboardEntry {
   grossTotal: number
   netTotal: number
   stablefordTotal: number
+  stablefordScores?: number[]
   vsPar: number
   holesPlayed: number
   scores: (number | null)[]
@@ -252,12 +253,24 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           .filter((ch) => scoresMap[String(ch.numero)] != null)
           .reduce((sum, ch) => sum + ch.par, 0)
 
+        const stablefordScores: number[] = formatoJuego === 'stableford'
+          ? Array.from({ length: totalHoyos }, (_, i) => {
+              const h = i + 1
+              const gross = scoreArr[i] ?? 0
+              if (gross === 0) return 0
+              const hole = holeMap.get(h)
+              if (!hole) return 0
+              return puntosStablefordHoyo(gross, hole.par, hcp, hole.stroke_index)
+            })
+          : []
+
         return {
           name: j.nombre,
           handicap: hcp,
           grossTotal,
           netTotal,
           stablefordTotal,
+          stablefordScores,
           vsPar: holesPlayed > 0 ? grossTotal - parPlayed : 0,
           holesPlayed,
           scores: scoreArr,
@@ -277,7 +290,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       const cbPlayers: CountbackPlayer[] = entries.map((e, idx) => ({
         id: String(idx),
         name: e.name,
-        scores: e.scores.map((s) => s ?? 0),
+        scores: formatoJuego === 'stableford' ? (e.stablefordScores ?? e.scores.map(s => s ?? 0)) : e.scores.map((s) => s ?? 0),
         primaryScore: formatoJuego === 'stableford' ? e.stablefordTotal : modoJuego === 'neto' ? e.netTotal : e.grossTotal,
       }))
       const cbResults = resolveLeaderboardTies(cbPlayers, cbMode)
@@ -400,10 +413,23 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           const latestRound = sortedRounds[sortedRounds.length - 1]
           const todayNet = latestRound ? (latestRound.total_net ?? 0) - parTotal : 0
 
+          const legacyHoleMap = new Map(courseHoles.map((h) => [h.numero, h]))
+          const stablefordScores: number[] = formatoJuego === 'stableford'
+            ? Array.from({ length: totalHoyos }, (_, i) => {
+                const h = i + 1
+                const gross = latestScores[i] ?? 0
+                if (gross === 0) return 0
+                const hole = legacyHoleMap.get(h)
+                if (!hole) return 0
+                return puntosStablefordHoyo(gross, hole.par, hcp, hole.stroke_index)
+              })
+            : []
+
           return {
             dbPlayer: p,
             hcp,
             scores: latestScores,
+            stablefordScores,
             holesPlayed: totalHolesPlayed,
             netVsPar,
             todayVsPar: isMultiRound ? todayNet : netVsPar,
@@ -427,7 +453,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         const cbPlayersLegacy: CountbackPlayer[] = legacyEntries.map((e, idx) => ({
           id: String(idx),
           name: e.dbPlayer.profiles?.name || 'Jugador',
-          scores: e.scores.map((s) => s ?? 0),
+          scores: formatoJuego === 'stableford' ? (e.stablefordScores ?? e.scores.map(s => s ?? 0)) : e.scores.map((s) => s ?? 0),
           primaryScore: formatoJuego === 'stableford' ? e.stablefordTotal : modoJuego === 'neto' ? e.netTotal : e.grossTotal,
         }))
         const cbResultsLegacy = resolveLeaderboardTies(cbPlayersLegacy, cbModeLegacy)
