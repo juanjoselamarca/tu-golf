@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { HoleColorBar } from '@/components/HoleColorBar'
 import { getHoleBoxStyle, getScoreNumberStyle } from '@/golf/core/colors'
+import { formatLabel } from '@/golf/core/rules'
 import ScoreSymbol from '@/components/ScoreSymbol'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 
@@ -111,7 +112,7 @@ function computeStats(scores: (number | null)[], holePars?: number[]) {
   }
   const front9    = filled.slice(0, 9).reduce((a, b) => a + b, 0)
   const back9     = filled.length > 9 ? filled.slice(9).reduce((a, b) => a + b, 0) : null
-  return { total, overUnder, eagles, birdies, pars, bogeys, doubles, front9, back9, filledHoles: filled.length }
+  return { total, overUnder, eagles, birdies, pars, bogeys, doubles, front9, back9, filledHoles: filled.length, holePars: pars_arr }
 }
 
 function cellBg(score: number | null, par: number = 4): React.CSSProperties {
@@ -899,7 +900,7 @@ function HistorialContent() {
                     const stats   = computeStats(r.scores)
                     const dateStr = formatDateShort(r.played_at)
                     const holes   = r.holes_played ?? r.scores?.filter(Boolean).length ?? 18
-                    const par     = holes <= 9 ? 36 : 72
+                    const par     = stats?.holePars ? stats.holePars.reduce((a: number, b: number) => a + b, 0) : (holes <= 9 ? 36 : 72)
                     const ov      = r.total_gross != null ? r.total_gross - par : null
                     const isOpen  = expanded.has(r.id)
                     const teeHex  = r.tee_color ? TEE_COLORS[r.tee_color] || '#9ca3af' : null
@@ -944,6 +945,40 @@ function HistorialContent() {
                               <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {r.course_name}
                               </span>
+                              {r.formato_juego && r.formato_juego !== 'stroke_play' && (
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(196,153,42,0.12)',
+                                  color: '#92400e',
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  fontFamily: '"DM Mono", monospace',
+                                  letterSpacing: '0.02em',
+                                  marginLeft: '6px',
+                                  flexShrink: 0,
+                                }}>
+                                  {formatLabel(r.formato_juego, r.modo_juego)}
+                                </span>
+                              )}
+                              {r.modo_juego === 'neto' && r.formato_juego !== 'stableford' && r.formato_juego !== 'match_play' && (
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '2px 6px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(59,130,246,0.10)',
+                                  color: '#1e40af',
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  fontFamily: '"DM Mono", monospace',
+                                  letterSpacing: '0.02em',
+                                  marginLeft: '4px',
+                                  flexShrink: 0,
+                                }}>
+                                  NETO
+                                </span>
+                              )}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
                               <span style={{ fontSize: '12px', color: '#9ca3af' }}>{dateStr}</span>
@@ -968,6 +1003,17 @@ function HistorialContent() {
                             }}>&#9660;</span>
                           </div>
                         </div>
+
+                        {/* Garmin activity bar */}
+                        {r.scores && r.scores.some(Boolean) && (
+                          <div style={{ padding: '0 16px 8px' }}>
+                            <HoleColorBar
+                              scores={r.scores.map((s, i) => s != null ? { gross: s, par: stats?.holePars?.[i] ?? 4 } : null)}
+                              totalHoles={holes}
+                              formato={r.formato_juego}
+                            />
+                          </div>
+                        )}
 
                         {/* ── Expanded scorecard ── */}
                         {isOpen && stats && (() => {
