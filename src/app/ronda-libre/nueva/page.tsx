@@ -242,6 +242,15 @@ export default function NuevaRondaLibrePage() {
       return
     }
 
+    if (formato === 'stableford') {
+      const missingHCP = adminPlayers.some(p => p.handicap == null)
+      if (creatorHandicap == null || missingHCP) {
+        showError('Handicaps requeridos', 'Stableford requiere el handicap de todos los jugadores para calcular puntos.')
+        setLoading(false)
+        return
+      }
+    }
+
     setLoading(true)
 
     const supabase = createClient()
