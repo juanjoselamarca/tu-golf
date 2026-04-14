@@ -1,26 +1,28 @@
 import Link from 'next/link'
+import { Smartphone, TrendingUp, Trophy } from '@/components/icons'
+import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import HeroSection  from '@/components/HeroSection'
 import StatsSection from '@/components/StatsSection'
 
 const FEATURES = [
   {
-    icon:  '📱',
-    title: 'Live Scoring',
-    desc:  'Registra score hoyo a hoyo desde tu celular. Leaderboard en tiempo real para que todos sigan la ronda.',
+    icon:  <Smartphone size={24} />,
+    title: 'Scoring en tiempo real',
+    desc:  'Tu score, visible para todos. Al instante.',
     href:  '/demo',
     cta:   'Ver demo',
   },
   {
-    icon:  '📊',
-    title: 'Índice Dual',
-    desc:  'Tu índice oficial + tu rendimiento real calculado por Golfers+. Sabes exactamente dónde estás y hacia dónde vas.',
+    icon:  <TrendingUp size={24} />,
+    title: 'Tu indice, completo',
+    desc:  'El handicap oficial mas tu rendimiento real en cancha.',
     href:  '/indices',
     cta:   'Cómo funciona',
   },
   {
-    icon:  '🤖',
-    title: 'tAIger+',
-    desc:  'Coach IA que conoce tu juego y te dice exactamente qué practicar. Análisis de patrones y plan de mejora personalizado.',
+    icon:  <TaigerIcon size={24} />,
+    title: 'Tu coach personal',
+    desc:  'Analiza tus patrones y te dice donde estan tus golpes.',
     href:  '/register',
     cta:   'Probar gratis',
   },
@@ -29,20 +31,20 @@ const FEATURES = [
 const STEPS = [
   {
     num:   '01',
-    icon:  '🏆',
-    title: 'Crea tu torneo en 2 minutos',
+    icon:  <Trophy size={24} />,
+    title: 'Crea la competencia',
     desc:  'Nombre, cancha, categorías y jugadores. Sin papel ni complicaciones.',
   },
   {
     num:   '02',
-    icon:  '📱',
+    icon:  <Smartphone size={24} />,
     title: 'Cada jugador marca en su celular',
     desc:  'Score hoyo a hoyo desde cualquier celular. Sin descargar nada.',
   },
   {
     num:   '03',
-    icon:  '📊',
-    title: 'Leaderboard en vivo para todos',
+    icon:  <TrendingUp size={24} />,
+    title: 'Ranking en vivo para todos',
     desc:  'Posiciones en tiempo real. Comparte el link y todos siguen el torneo.',
   },
 ]
@@ -77,7 +79,7 @@ export default function Home() {
                 border: '1px solid rgba(196,153,42,0.12)',
               }}
             >
-              <span className="text-3xl mb-4 block">{f.icon}</span>
+              <span className="mb-4 flex items-center text-gold">{f.icon}</span>
               <h3 className="font-display font-bold text-xl text-ivory mb-3">
                 {f.title}
               </h3>
@@ -134,7 +136,7 @@ export default function Home() {
                   {s.num}
                 </span>
                 <span
-                  className="absolute top-1 left-1 text-xl"
+                  className="absolute top-1 left-1 flex items-center text-gold"
                   style={{ filter: 'drop-shadow(0 0 6px rgba(196,153,42,0.5))' }}
                 >
                   {s.icon}
