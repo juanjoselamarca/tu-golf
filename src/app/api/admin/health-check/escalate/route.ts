@@ -15,6 +15,7 @@ interface CheckItem {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+// Share text — emoji OK for external platforms (GitHub issue markdown report)
 function statusIcon(status: string): string {
   switch (status) {
     case 'fail':

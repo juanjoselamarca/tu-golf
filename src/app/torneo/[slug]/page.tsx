@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link'
+import { Users } from '@/components/icons'
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
@@ -686,7 +687,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           />
         ) : (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4a5568' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><Users size={48} strokeWidth={1.5} /></div>
             <div style={{ fontSize: '18px', color: '#1a1a2e', marginBottom: '8px' }}>
               {tournament ? 'Sin jugadores inscritos aún' : 'Torneo no encontrado'}
             </div>

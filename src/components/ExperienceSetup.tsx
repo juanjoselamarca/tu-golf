@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { isPushSupported, getPermissionState, requestPermission, getNotifPrefs, setNotifPrefs } from '@/lib/push-notifications'
+import { Flag, Eye } from '@/components/icons'
 
 /**
  * Pop-up de primera vez: invita al usuario a personalizar su experiencia.
@@ -48,7 +49,7 @@ export function ExperiencePopup({ onSetup }: { onSetup: () => void }) {
         <div style={{ width: '36px', height: '4px', background: '#e5e7eb', borderRadius: '2px', margin: '0 auto 20px' }} />
 
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <div style={{ fontSize: '36px', marginBottom: '12px' }}>⛳</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}><Flag size={36} strokeWidth={1.5} /></div>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>
             Personaliza tu experiencia
           </div>
@@ -156,7 +157,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
             background: prefs.spectator ? 'rgba(22,163,74,0.1)' : 'rgba(156,163,175,0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '22px',
-          }}>👁</div>
+          }}><Eye size={22} strokeWidth={1.5} /></div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>Alertas de espectador</div>
             <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px', lineHeight: 1.4 }}>
@@ -192,7 +193,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
             background: prefs.player ? 'rgba(196,153,42,0.1)' : 'rgba(156,163,175,0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '22px',
-          }}>⛳</div>
+          }}><Flag size={22} strokeWidth={1.5} /></div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>Scorecard inteligente</div>
             <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px', lineHeight: 1.4 }}>

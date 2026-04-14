@@ -8,6 +8,7 @@ import { ExperiencePanel } from '@/components/ExperienceSetup'
 import { nivelCPI } from '@/golf/stats/cpi'
 import { addToast } from '@/hooks/useToast'
 import { NIVEL_LABELS, NIVEL_DESCRIPCION, rondasParaActivar } from '@/lib/indice-golfers'
+import { PersonStanding } from '@/components/icons'
 
 interface Profile {
   id: string
@@ -398,7 +399,7 @@ export default function PerfilPage() {
 
         {profile.indice != null && (
           <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '14px', padding: '18px 16px', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{ fontSize: '24px' }}>🏌️</div>
+            <div style={{ display: 'flex', alignItems: 'center' }}><PersonStanding size={24} strokeWidth={1.5} /></div>
             <div>
               <div style={{ fontSize: '26px', color: '#c8a55a', fontWeight: 700, lineHeight: 1.1, fontFamily: '"Playfair Display", serif' }}>
                 {profile.indice}

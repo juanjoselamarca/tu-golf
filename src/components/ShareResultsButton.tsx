@@ -25,6 +25,7 @@ export default function ShareResultsButton({
     text += `${courseName} | Par ${parTotal} | ${dateDisplay}\n\n`
     text += `Resultados finales:\n`
     topPlayers.forEach((p) => {
+      // Share text — emoji OK for external platforms
       const medal = p.pos === 1 ? '🏆' : p.pos === 2 ? '🥈' : p.pos === 3 ? '🥉' : `${p.pos}.`
       text += `${medal} ${p.name} — ${p.score}\n`
     })

@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
+import { PersonStanding, Eye, Flame } from '@/components/icons'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
@@ -42,13 +43,13 @@ function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; onClose: 
           <button onClick={() => doShare(scoreUrl, 'Únete a jugar en Golfers+')} style={{
             width: '100%', padding: '16px', marginBottom: '8px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
           }}>
-            <span style={{ fontSize: '20px' }}>🏌️</span> Invitar a jugar
+            <PersonStanding size={20} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> Invitar a jugar
           </button>
         )}
         <button onClick={() => doShare(liveUrl, 'Sigue mi ronda en vivo en Golfers+')} style={{
           width: '100%', padding: '16px', background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
         }}>
-          <span style={{ fontSize: '20px' }}>👁</span> Seguir en vivo
+          <Eye size={20} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> Seguir en vivo
         </button>
         <button onClick={onClose} style={{ width: '100%', padding: '14px', marginTop: '8px', background: 'none', border: 'none', color: '#94a3b8', fontSize: '14px', cursor: 'pointer' }}>Cancelar</button>
       </div>
@@ -1863,7 +1864,7 @@ function ScorePageContent() {
           animation: 'fadeInOut 2.5s ease-in-out forwards', whiteSpace: 'nowrap',
           boxShadow: '0 4px 16px rgba(22,163,74,0.3)',
         }}>
-          🔥 {streakMsg}
+          <Flame size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> {streakMsg}
         </div>
       )}
     </div>

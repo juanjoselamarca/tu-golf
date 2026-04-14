@@ -9,6 +9,7 @@ import { formatLabel } from '@/golf/core/rules'
 import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components/Scorecard'
 import HoleBar from '@/components/HoleBar'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+import { Radio, ClipboardList } from '@/components/icons'
 
 /* ─── Datos ────────────────────────────────────────────── */
 const CANCHAS_CHILE = [
@@ -825,7 +826,7 @@ function HistorialContent() {
           <div style={{ textAlign: 'center', padding: '80px 20px' }}>
             {loadError ? (
               <>
-                <div style={{ fontSize: '56px', marginBottom: '16px' }}>📡</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><Radio size={56} strokeWidth={1.5} /></div>
                 <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#111827', marginBottom: '8px' }}>
                   La carga tardó más de lo esperado
                 </div>
@@ -844,7 +845,7 @@ function HistorialContent() {
               </>
             ) : (
               <>
-                <div style={{ fontSize: '56px', marginBottom: '16px' }}>📋</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><ClipboardList size={56} strokeWidth={1.5} /></div>
                 <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '8px' }}>
                   Tu historial esta vacio
                 </div>

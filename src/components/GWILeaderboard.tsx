@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { calcularGWI, probResultadoHoyo } from '@/golf/stats/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
+import { Trophy, BarChart3, Zap, Target, AlertTriangle, MapPin, Dices } from '@/components/icons'
 
 interface HoleInfo { numero: number; par: number }
 
@@ -21,7 +22,7 @@ const MODO_LABEL: Record<ModoJuego, string> = {
   neto:  'Neto',
 }
 
-const MEDALS = ['🥇', '🥈', '🥉']
+const MEDALS = ['1.', '2.', '3.']
 
 function TendenciaIcon({ t }: { t: GWIResult['tendencia'] }) {
   if (t === 'up')   return <span style={{ color: '#22c55e', fontSize: '13px' }}>↑</span>
@@ -31,16 +32,17 @@ function TendenciaIcon({ t }: { t: GWIResult['tendencia'] }) {
 
 function VolatilityBadge({ v }: { v: GWIResult['volatilidad'] }) {
   const cfg = v === 'baja'
-    ? { icon: '🎯', label: 'Consistente', color: 'rgba(22,163,74,0.15)', border: 'rgba(22,163,74,0.3)', text: '#86efac' }
+    ? { icon: <Target size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Consistente', color: 'rgba(22,163,74,0.15)', border: 'rgba(22,163,74,0.3)', text: '#86efac' }
     : v === 'media'
-    ? { icon: '⚡', label: 'Volátil',     color: 'rgba(234,179,8,0.12)', border: 'rgba(234,179,8,0.3)',  text: '#fde047' }
-    : { icon: '🎲', label: 'Imprevisible',color: 'rgba(249,115,22,0.12)',border: 'rgba(249,115,22,0.3)', text: '#fdba74' }
+    ? { icon: <Zap size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Volátil',     color: 'rgba(234,179,8,0.12)', border: 'rgba(234,179,8,0.3)',  text: '#fde047' }
+    : { icon: <Dices size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Imprevisible',color: 'rgba(249,115,22,0.12)',border: 'rgba(249,115,22,0.3)', text: '#fdba74' }
   return (
     <span style={{
       fontSize: '10px', padding: '2px 6px', borderRadius: '8px',
       background: cfg.color, border: `1px solid ${cfg.border}`, color: cfg.text,
+      display: 'inline-flex', alignItems: 'center',
     }}>
-      {cfg.icon} {cfg.label}
+      {cfg.icon}{cfg.label}
     </span>
   )
 }
@@ -58,11 +60,11 @@ export default function GWILeaderboard({
     return (
       <div style={{ background: '#0e1c2f', borderRadius: '12px', padding: '20px', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.12)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: '#edeae4' }}>🏆 Probabilidades de Ganar</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: '#edeae4' }}><Trophy size={15} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Probabilidades de Ganar</span>
           <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
         <div style={{ textAlign: 'center', padding: '16px', color: '#94a8c0', fontSize: '13px' }}>
-          📊 Las probabilidades estarán disponibles a partir del hoyo 3
+          <BarChart3 size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Las probabilidades estarán disponibles a partir del hoyo 3
         </div>
         <div style={{ height: '4px', background: 'rgba(196,153,42,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${(hoyosJugados / 3) * 100}%`, background: '#c4992a', borderRadius: '2px', transition: 'width 0.5s ease' }} />
@@ -93,7 +95,7 @@ export default function GWILeaderboard({
       {/* Header */}
       <div style={{ background: 'rgba(196,153,42,0.06)', borderBottom: '1px solid rgba(196,153,42,0.12)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: '#edeae4', fontWeight: 700 }}>🏆 Probabilidades de Ganar</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: '#edeae4', fontWeight: 700 }}><Trophy size={15} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Probabilidades de Ganar</span>
           <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
         <span style={{ fontSize: '11px', color: '#94a8c0' }}>
@@ -105,7 +107,7 @@ export default function GWILeaderboard({
       {/* Drama box */}
       {isFinale && (
         <div style={{ margin: '12px', padding: '12px 16px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '10px' }}>
-          <div style={{ fontSize: '13px', color: '#c4992a', fontWeight: 700, marginBottom: '4px' }}>⚡ RECTA FINAL</div>
+          <div style={{ fontSize: '13px', color: '#c4992a', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}><Zap size={13} /> RECTA FINAL</div>
           <div style={{ fontSize: '12px', color: '#94a8c0' }}>
             {sorted[0] && `${sorted[0].nombre} lidera con ${sorted[0].winProbability}% de probabilidad.`}
             {sorted[1] && sorted[1].winProbability > 20 && ` ${sorted[1].nombre} tiene ${sorted[1].winProbability}% — aún está en juego.`}
@@ -191,7 +193,7 @@ export default function GWILeaderboard({
                   {/* Pattern warning */}
                   {r.breakdown.patrones.valor > 1 && (
                     <div style={{ fontSize: '11px', color: '#fcd34d', marginBottom: '4px' }}>
-                      ⚠️ Patrón: colapso back 9 detectado
+                      <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Patrón: colapso back 9 detectado
                     </div>
                   )}
                   {/* HCP info */}
@@ -211,7 +213,7 @@ export default function GWILeaderboard({
       {nextHole && holesInfo && hoyosRestantes > 0 && (
         <div style={{ borderTop: '1px solid rgba(122,143,168,0.1)', padding: '12px 16px' }}>
           <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
-            📍 PRÓXIMO HOYO: H{nextHole.numero} · Par {nextHole.par}
+            <MapPin size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />PRÓXIMO HOYO: H{nextHole.numero} · Par {nextHole.par}
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ fontSize: '11px', color: '#94a8c0', borderCollapse: 'collapse', width: '100%' }}>

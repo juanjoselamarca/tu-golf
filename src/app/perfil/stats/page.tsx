@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { BarChart3 } from '@/components/icons'
 import { vsPar, sortRoundsByPerformance, countByResult, splitByHoles, bestRoundByVsPar } from '@/golf/core/compare'
 import { formatOverUnder } from '@/golf/core/rules'
 import { SCORE_STYLES } from '@/golf/core/colors'
@@ -261,7 +262,7 @@ export default function StatsPage() {
             ...cardStyle, marginBottom: 20, textAlign: 'center', padding: '48px 20px',
             background: 'rgba(196,153,42,0.04)', border: '1px solid rgba(196,153,42,0.2)',
           }}>
-            <div style={{ fontSize: 56, marginBottom: 12 }}>📊</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><BarChart3 size={56} strokeWidth={1.5} /></div>
             <p style={{ color: C.ivory, fontSize: 20, fontWeight: 600, margin: '0 0 8px' }}>
               Aun no tenes rondas registradas
             </p>
@@ -292,7 +293,7 @@ export default function StatsPage() {
             ...cardStyle, marginBottom: 20, textAlign: 'center',
             background: 'rgba(196,153,42,0.04)', border: '1px solid rgba(196,153,42,0.2)',
           }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><BarChart3 size={32} strokeWidth={1.5} /></div>
             <p style={{ color: C.ivory, fontSize: 15, fontWeight: 600, margin: '0 0 6px' }}>
               Registra {3 - allRounds.length} ronda{3 - allRounds.length !== 1 ? 's' : ''} mas para estadisticas completas
             </p>

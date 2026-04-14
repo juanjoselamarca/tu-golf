@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { Trophy } from '@/components/icons'
 
 /* ── Types ─────────────────────────────────────────────── */
 interface TVPlayer {
@@ -276,7 +277,7 @@ export default function TVPage() {
                   }}
                 >
                   <div style={{ fontSize: highlight ? '28px' : '22px', color: highlight ? '#c4992a' : '#94a8c0', fontWeight: 700, fontFamily: '"Playfair Display", serif' }}>
-                    {idx === 0 ? '🏆' : idx + 1}
+                    {idx === 0 ? <Trophy size={22} strokeWidth={1.5} /> : idx + 1}
                   </div>
                   <div>
                     <div style={{ fontFamily: '"Playfair Display", serif', fontSize: highlight ? '26px' : '20px', color: '#edeae4', fontWeight: 600, lineHeight: 1.2 }}>

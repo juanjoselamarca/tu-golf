@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import { PersonStanding, Flag, Calendar } from '@/components/icons'
 
 interface TournamentInfo {
   id: string
@@ -173,8 +174,8 @@ export default function UnirsePage() {
           padding: '20px',
         }}
       >
-        <div style={{ fontSize: '64px', marginBottom: '20px', animation: 'bounce 0.6s ease infinite alternate' }}>
-          🏌️
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', animation: 'bounce 0.6s ease infinite alternate' }}>
+          <PersonStanding size={64} strokeWidth={1.5} />
         </div>
         <div
           style={{
@@ -307,7 +308,7 @@ export default function UnirsePage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {(tournament.courses?.nombre || tournament.course_name) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px' }}>⛳</span>
+                    <Flag size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} />
                     <span style={{ fontSize: '14px', color: '#94a8c0' }}>
                       {tournament.courses?.nombre || tournament.course_name}
                       {tournament.courses?.ciudad && `, ${tournament.courses.ciudad}`}
@@ -316,13 +317,13 @@ export default function UnirsePage() {
                 )}
                 {tournament.date_start && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px' }}>📅</span>
+                    <Calendar size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />
                     <span style={{ fontSize: '14px', color: '#94a8c0' }}>{formatDate(tournament.date_start)}</span>
                   </div>
                 )}
                 {tournament.format && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px' }}>🏌️</span>
+                    <PersonStanding size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} />
                     <span style={{ fontSize: '14px', color: '#94a8c0' }}>{formatLabel(tournament.format)}</span>
                   </div>
                 )}

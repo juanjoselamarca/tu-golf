@@ -211,6 +211,7 @@ function drawCTA(ctx: CanvasRenderingContext2D, W: number, H: number) {
   ctx.font = '34px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.82)'; ctx.fillText('golfersplus.vercel.app', W / 2, ctaY + 108)
   ctx.font = '24px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.fillText('Primera plataforma de golf en español', W / 2, ctaY + 148)
 
+  // Share text — emoji OK for external platforms (canvas-rendered share card image)
   ctx.font = 'bold 26px Arial, sans-serif'; ctx.fillStyle = 'rgba(201,168,76,0.55)'; ctx.fillText('#GolfersMas  ⛳  #GolfLatAm', W / 2, H - 130)
   ctx.font = '22px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillText('Golfers+ — El golf amateur en español', W / 2, H - 80)
 }
@@ -219,6 +220,7 @@ function drawCTA(ctx: CanvasRenderingContext2D, W: number, H: number) {
 
 function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLibre, W: number, H: number) {
   ctx.textAlign = 'center'
+  // Share text — emoji OK for external platforms (canvas-rendered share card image)
   ctx.font = '180px serif'; ctx.fillText(data.esEmpate ? '🤝' : '🏆', W / 2, 420)
 
   ctx.font = 'bold 24px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.45)'
@@ -285,6 +287,7 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
 // ── Template: Torneo ─────────────────────────────────────────────
 
 function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: number, H: number) {
+  // Share text — emoji OK for external platforms (canvas-rendered share card image)
   const posEmoji = data.posicion === 1 ? '🥇' : data.posicion === 2 ? '🥈' : data.posicion === 3 ? '🥉' : `#${data.posicion}`
   ctx.textAlign = 'center'; ctx.font = '140px serif'; ctx.fillText(posEmoji, W / 2, 370)
 

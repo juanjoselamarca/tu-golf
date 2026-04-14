@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { Flag } from '@/components/icons'
 
 interface RondaWidget {
   codigo: string
@@ -83,7 +84,7 @@ export default function EnVivoWidget() {
                 border: '1px solid var(--border)',
                 transition: 'background 0.15s',
               }}>
-                <span style={{ fontSize: '20px', flexShrink: 0 }}>⛳</span>
+                <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}><Flag size={20} strokeWidth={1.5} /></span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: '13px', fontWeight: 600, color: 'var(--ivory)',

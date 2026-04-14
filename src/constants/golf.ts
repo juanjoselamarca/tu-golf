@@ -18,7 +18,7 @@ export function getScoreColor(score: number, par: number): string {
 }
 
 export function getScoreLabel(score: number, par: number): string {
-  if (score === 1) return 'HOYO EN UNO ⚡'
+  if (score === 1) return 'HOYO EN UNO'
   const diff = score - par
   if (diff <= -2) return 'EAGLE'
   if (diff === -1) return 'BIRDIE'
