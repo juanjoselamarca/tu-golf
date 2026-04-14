@@ -245,7 +245,7 @@ export default function NuevaRondaLibrePage() {
     if (formato === 'stableford') {
       const missingHCP = adminPlayers.some(p => p.handicap == null)
       if (creatorHandicap == null || missingHCP) {
-        showError('Handicaps requeridos', 'Stableford requiere el handicap de todos los jugadores para calcular puntos.')
+        showError('Índice requerido', 'Esta modalidad requiere el índice WHS de todos los jugadores para calcular el handicap de cancha.')
         setLoading(false)
         return
       }
@@ -1193,7 +1193,7 @@ export default function NuevaRondaLibrePage() {
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: 600, color: colors.textPrimary }}>{creatorName}</div>
                   <div style={{ fontSize: '12px', color: colors.textSecondary }}>
-                    HCP {creatorHandicap != null ? creatorHandicap : '--'}
+                    Índice {creatorHandicap != null ? creatorHandicap : '--'}
                   </div>
                 </div>
                 <span style={{
@@ -1265,19 +1265,20 @@ export default function NuevaRondaLibrePage() {
                         </button>
                       </div>
 
-                      {/* HCP input */}
+                      {/* Índice WHS — se usa para calcular handicap de cancha */}
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <label style={{ fontSize: '12px', color: colors.textLabel, flexShrink: 0 }}>HCP</label>
+                        <label style={{ fontSize: '12px', color: colors.textLabel, flexShrink: 0 }}>Índice</label>
                         <input
                           type="number"
-                          placeholder="--"
+                          step="0.1"
+                          placeholder="Ej: 10.5"
                           value={player.handicap ?? ''}
                           onChange={(e) => updateAdminPlayer(idx, 'handicap', e.target.value ? Number(e.target.value) : null)}
                           style={{
                             background: colors.inputBg, border: `1px solid ${colors.inputBorder}`,
                             color: colors.textPrimary, borderRadius: '10px',
                             padding: '8px 12px', fontSize: '14px', outline: 'none',
-                            width: '80px', minHeight: '38px', boxSizing: 'border-box' as const,
+                            width: '90px', minHeight: '38px', boxSizing: 'border-box' as const,
                           }}
                         />
                       </div>
