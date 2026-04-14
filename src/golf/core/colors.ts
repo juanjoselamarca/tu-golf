@@ -40,16 +40,16 @@ interface ScoreStyle {
 
 export const SCORE_STYLES: Record<ScoreResult, ScoreStyle> = {
   eagle_or_better: {
-    bg: 'rgba(196,153,42,0.15)',
-    textColor: '#c4992a',
-    border: '#c4992a',
+    bg: 'rgba(11,107,166,0.15)',
+    textColor: '#0B6BA6',
+    border: '#0B6BA6',
     borderWidth: '2px',
     label: 'Eagle',
   },
   birdie: {
-    bg: 'rgba(22,163,74,0.12)',
-    textColor: '#16a34a',
-    border: '#16a34a',
+    bg: 'rgba(20,179,217,0.12)',
+    textColor: '#14B3D9',
+    border: '#14B3D9',
     borderWidth: '2px',
     label: 'Birdie',
   },
@@ -61,9 +61,9 @@ export const SCORE_STYLES: Record<ScoreResult, ScoreStyle> = {
     label: 'Par',
   },
   bogey: {
-    bg: 'rgba(217,119,6,0.10)',
-    textColor: '#d97706',
-    border: 'rgba(217,119,6,0.35)',
+    bg: 'rgba(212,164,66,0.10)',
+    textColor: '#D4A442',
+    border: 'rgba(212,164,66,0.35)',
     borderWidth: '1px',
     label: 'Bogey',
   },
@@ -85,16 +85,16 @@ export const SCORE_STYLES: Record<ScoreResult, ScoreStyle> = {
 
 export const SCORE_STYLES_LIGHT: Record<ScoreResult, ScoreStyle> = {
   eagle_or_better: {
-    bg: '#fef3c7',
-    textColor: '#92400e',
-    border: '#fbbf24',
+    bg: '#e8f4fa',
+    textColor: '#0B6BA6',
+    border: '#0B6BA6',
     borderWidth: '1px',
     label: 'Eagle',
   },
   birdie: {
-    bg: '#dcfce7',
-    textColor: '#166534',
-    border: '#86efac',
+    bg: '#e6f7fa',
+    textColor: '#0e8a9e',
+    border: '#14B3D9',
     borderWidth: '1px',
     label: 'Birdie',
   },
@@ -106,9 +106,9 @@ export const SCORE_STYLES_LIGHT: Record<ScoreResult, ScoreStyle> = {
     label: 'Par',
   },
   bogey: {
-    bg: '#fef3c7',
-    textColor: '#92400e',
-    border: '#fecaca',
+    bg: '#fef8ee',
+    textColor: '#92700e',
+    border: '#D4A442',
     borderWidth: '1px',
     label: 'Bogey',
   },
