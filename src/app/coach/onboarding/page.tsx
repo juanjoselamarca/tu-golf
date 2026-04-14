@@ -26,25 +26,25 @@ const QUESTIONS: Question[] = [
   {
     id: 'meta_principal',
     text: '¿Cuál es tu principal objetivo con el golf este año?',
-    badge: '�� Motivación',
+    badge: 'Motivación',
     options: ['Bajar mi índice', 'Disfrutar más', 'Ganar torneos', 'Jugar mejor con mis amigos'],
   },
   {
     id: 'mayor_fortaleza',
     text: '¿Cuál es la parte más fuerte de tu juego?',
-    badge: '�� Diagnóstico técnico',
+    badge: 'Diagnóstico técnico',
     options: ['Mi driver / tee shots', 'Mis hierros / approach', 'Mi juego corto', 'Mi putting'],
   },
   {
     id: 'mayor_debilidad',
     text: '¿Qué área te está costando MÁS strokes actualmente?',
-    badge: '�� Diagnóstico técnico',
+    badge: 'Diagnóstico técnico',
     options: ['Driver / salida', 'Hierros / approach', 'Juego corto', 'Putting'],
   },
   {
     id: 'respuesta_errores',
     text: 'Haces un triple bogey en el hoyo 3. ¿Cómo reaccionas normalmente?',
-    badge: '�� Resiliencia mental',
+    badge: 'Resiliencia mental',
     options: [
       'Me repongo rápido y sigo',
       'Me irrita pero lo supero a la vuelta',
@@ -55,7 +55,7 @@ const QUESTIONS: Question[] = [
   {
     id: 'presion_torneos',
     text: 'En un torneo importante, cuando estás jugando bien a mitad de ronda...',
-    badge: '�� Presión',
+    badge: 'Presión',
     options: [
       'Me crezco y sigo atacando',
       'Juego más conservador para cuidar el score',
@@ -66,7 +66,7 @@ const QUESTIONS: Question[] = [
   {
     id: 'putting_emocional',
     text: '¿Qué pasa por tu mente cuando tienes un putt importante para par?',
-    badge: '��️ Rutina mental',
+    badge: 'Rutina mental',
     options: [
       'Me fijo en NO fallar',
       'Visualizo la trayectoria y confío',
@@ -77,7 +77,7 @@ const QUESTIONS: Question[] = [
   {
     id: 'tipo_practicante',
     text: '¿Cómo describes tu práctica habitual?',
-    badge: '�� Hábitos',
+    badge: 'Hábitos',
     options: [
       'Estructurada con objetivos claros',
       'Practico lo que necesito mejorar',
@@ -88,7 +88,7 @@ const QUESTIONS: Question[] = [
   {
     id: 'back9_gestion',
     text: 'Vas en -1 después de 9 hoyos. ¿Cómo afrontas el back 9?',
-    badge: '��️ VISION54',
+    badge: 'VISION54',
     options: [
       'Sigo atacando igual',
       'Me pongo más conservador',
@@ -99,7 +99,7 @@ const QUESTIONS: Question[] = [
   {
     id: 'rutina_preshot',
     text: 'Antes de ejecutar un golpe, normalmente...',
-    badge: '��️ Proceso',
+    badge: 'Proceso',
     options: [
       'Tengo una rutina fija que siempre sigo',
       'A veces la sigo, a veces no',
@@ -110,7 +110,7 @@ const QUESTIONS: Question[] = [
   {
     id: 'mal_dia',
     text: 'Cuando nada sale bien (todo al rough, tees malos), ¿qué haces?',
-    badge: '�� Autocontrol',
+    badge: 'Autocontrol',
     options: [
       'Me frustro pero lo verbalizo y sigo',
       'Me mantengo calmo y lo analizo',
@@ -121,7 +121,7 @@ const QUESTIONS: Question[] = [
   {
     id: 'motivaciones',
     text: '¿Qué más describe tu relación con el golf? (Elige todas las que aplican)',
-    badge: '�� Perfil completo',
+    badge: 'Perfil completo',
     options: [
       'Me importa mucho ganar',
       'Quiero mejorar constantemente',
@@ -301,7 +301,7 @@ export default function CoachOnboarding() {
   if (step === -1) {
     return (
       <div style={{ maxWidth: '500px', margin: '0 auto', padding: '48px 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: '48px', marginBottom: '20px' }}>{'��'}</div>
+        <div style={{ fontSize: '48px', marginBottom: '20px' }}>{''}</div>
 
         <h1 style={{
           color: colors.gold, fontSize: '24px',
@@ -323,10 +323,10 @@ export default function CoachOnboarding() {
           justifyContent: 'center', marginBottom: '36px',
         }}>
           {[
-            '�� ACSI-28',
-            '��️ Rotella',
-            '�� VISION54',
-            '�� SMTQ',
+            'ACSI-28',
+            'Rotella',
+            'VISION54',
+            'SMTQ',
           ].map(b => (
             <span key={b} style={pillStyle}>{b}</span>
           ))}
@@ -347,7 +347,7 @@ export default function CoachOnboarding() {
     if (saveError) {
       return (
         <div style={{ maxWidth: '500px', margin: '0 auto', padding: '60px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '20px' }}>{'��'}</div>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>{''}</div>
           <p style={{ color: '#dc2626', fontSize: '15px', marginBottom: '20px' }}>{saveError}</p>
           <button onClick={handleFinish} style={btnGold}>
             Reintentar
@@ -358,7 +358,7 @@ export default function CoachOnboarding() {
 
     return (
       <div style={{ maxWidth: '500px', margin: '0 auto', padding: '40px 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>{'��'}</div>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>{''}</div>
 
         <h1 style={{
           color: colors.gold, fontSize: '24px',
@@ -383,7 +383,7 @@ export default function CoachOnboarding() {
           {[
             { label: 'Nivel', value: dna.level, emoji: <Flag size={16} /> },
             { label: 'Perfil mental', value: dna.mentalProfile, emoji: dna.mentalEmoji },
-            { label: 'Área prioritaria', value: dna.priority, emoji: '��' },
+            { label: 'Área prioritaria', value: dna.priority, emoji: '' },
           ].map((row, i) => (
             <div key={row.label} style={{
               display: 'flex', alignItems: 'center', gap: '12px',
@@ -413,7 +413,7 @@ export default function CoachOnboarding() {
           textAlign: 'left',
         }}>
           <p style={{ color: colors.gray, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-            {'��'} Cómo trabajará tAIger+ contigo
+            {''} Cómo trabajará tAIger+ contigo
           </p>
           <p style={{ color: colors.ivory, fontSize: '14px', lineHeight: 1.5 }}>
             {dna.approach}
@@ -511,7 +511,7 @@ export default function CoachOnboarding() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '12px', color: isSelected ? colors.gold : 'transparent',
                 }}>
-                  {isSelected ? '✓' : ''}
+                  {isSelected ? '' : ''}
                 </span>
               )}
               {opt}
