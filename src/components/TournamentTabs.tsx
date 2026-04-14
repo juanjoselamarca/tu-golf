@@ -5,6 +5,8 @@ import type { Player } from '@/lib/golf-data'
 import GWILeaderboard from '@/components/GWILeaderboard'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
+import Scorecard from '@/components/Scorecard'
+import type { ScorecardHole } from '@/components/Scorecard'
 
 /* ── Types ────────────────────────────────────────────────── */
 export interface GroupData {
@@ -24,6 +26,9 @@ interface Props {
   gwiInputs: JugadorGWIInput[]
   playerIdToIndex: Record<string, number>
   formato?: string
+  courseHoles?: ScorecardHole[]
+  courseName?: string
+  formatLabel?: string
 }
 
 type Tab = 'leaderboard' | 'grupos'
@@ -90,10 +95,20 @@ function groupStatusDot(groupPlayers: Player[], totalHoyos: number): { dot: stri
 }
 
 /* ── Component ────────────────────────────────────────────── */
-export default function TournamentTabs({ players, groups, modoJuego, totalHoyos, isLive, gwiInputs, playerIdToIndex, formato }: Props) {
+export default function TournamentTabs({ players, groups, modoJuego, totalHoyos, isLive, gwiInputs, playerIdToIndex, formato, courseHoles, courseName, formatLabel: formatLabelProp }: Props) {
   const [tab, setTab] = useState<Tab>('leaderboard')
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const hasGroups = groups.length > 0
   const scoreHeader = formato === 'stableford' ? 'PUNTOS' : 'SCORE'
+
+  // Resolve holes for Scorecard: use courseHoles if provided, else generate defaults
+  const resolvedHoles: ScorecardHole[] = courseHoles && courseHoles.length > 0
+    ? courseHoles
+    : Array.from({ length: totalHoyos }, (_, i) => ({
+        numero: i + 1,
+        par: 4,
+        stroke_index: i + 1,
+      }))
 
   // Build map: playerId → Player
   const playerByDbId = useMemo(() => {
@@ -186,76 +201,119 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
             {/* Player rows */}
             {players.map((p, idx) => {
               const isLeader = idx === 0 && p.holes > 0
+              const isExpanded = expandedIdx === idx
+              const hasScores = p.holes > 0
+
+              // Convert scores array to Record<string, number> for Scorecard
+              const scoresRecord: Record<string, number> = {}
+              if (p.scores) {
+                p.scores.forEach((s, i) => {
+                  if (s !== null) scoresRecord[String(i + 1)] = s
+                })
+              }
+
               return (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '42px 1fr 48px 48px 56px',
-                    padding: '10px 12px',
-                    alignItems: 'center',
-                    background: idx % 2 === 1 ? T.rowAlt : 'transparent',
-                    borderLeft: isLeader ? `3px solid ${T.gold}` : '3px solid transparent',
-                    ...(isLeader ? { background: T.leaderBg } : {}),
-                  }}
-                >
-                  {/* POS */}
-                  <span style={{
-                    fontFamily: '"DM Mono", monospace',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: isLeader ? T.gold : idx < 3 ? T.ivory : T.muted,
-                    textAlign: 'center',
-                  }}>
-                    {positions[idx] || idx + 1}
-                  </span>
+                <div key={idx}>
+                  {/* Player row */}
+                  <div
+                    onClick={() => hasScores && setExpandedIdx(isExpanded ? null : idx)}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '42px 1fr 48px 48px 56px',
+                      padding: '10px 12px',
+                      alignItems: 'center',
+                      background: isExpanded ? 'rgba(196,153,42,0.06)' : idx % 2 === 1 ? T.rowAlt : 'transparent',
+                      borderLeft: isLeader ? `3px solid ${T.gold}` : isExpanded ? `3px solid rgba(196,153,42,0.4)` : '3px solid transparent',
+                      cursor: hasScores ? 'pointer' : 'default',
+                      transition: 'background 140ms ease',
+                    }}
+                  >
+                    {/* POS */}
+                    <span style={{
+                      fontFamily: '"DM Mono", monospace',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: isLeader ? T.gold : idx < 3 ? T.ivory : T.muted,
+                      textAlign: 'center',
+                    }}>
+                      {positions[idx] || idx + 1}
+                    </span>
 
-                  {/* JUGADOR */}
-                  <span style={{
-                    fontFamily: '"DM Sans", system-ui, sans-serif',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: isLeader ? T.ivory : T.ivory,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    paddingRight: '8px',
-                  }}>
-                    {p.name}
-                  </span>
+                    {/* JUGADOR */}
+                    <span style={{
+                      fontFamily: '"DM Sans", system-ui, sans-serif',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: T.ivory,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      paddingRight: '8px',
+                    }}>
+                      {p.name}
+                    </span>
 
-                  {/* HCP */}
-                  <span style={{
-                    fontFamily: '"DM Mono", monospace',
-                    fontSize: '12px',
-                    color: T.muted,
-                    textAlign: 'center',
-                  }}>
-                    {Math.round(p.hcp)}
-                  </span>
+                    {/* HCP */}
+                    <span style={{
+                      fontFamily: '"DM Mono", monospace',
+                      fontSize: '12px',
+                      color: T.muted,
+                      textAlign: 'center',
+                    }}>
+                      {Math.round(p.hcp)}
+                    </span>
 
-                  {/* THRU */}
-                  <span style={{
-                    fontFamily: '"DM Mono", monospace',
-                    fontSize: '12px',
-                    color: p.status === 'F' ? T.green : T.muted,
-                    textAlign: 'center',
-                    fontWeight: p.status === 'F' ? 700 : 400,
-                  }}>
-                    {thruLabel(p, totalHoyos)}
-                  </span>
+                    {/* THRU */}
+                    <span style={{
+                      fontFamily: '"DM Mono", monospace',
+                      fontSize: '12px',
+                      color: p.status === 'F' ? T.green : T.muted,
+                      textAlign: 'center',
+                      fontWeight: p.status === 'F' ? 700 : 400,
+                    }}>
+                      {thruLabel(p, totalHoyos)}
+                    </span>
 
-                  {/* SCORE */}
-                  <span style={{
-                    fontFamily: '"Cormorant Garamond", serif',
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    color: p.holes > 0 ? scoreColor(p.total) : T.faint,
-                    textAlign: 'center',
-                    lineHeight: 1,
-                  }}>
-                    {p.holes > 0 ? formatScore(p.total) : '-'}
-                  </span>
+                    {/* SCORE + expand chevron */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <span style={{
+                        fontFamily: '"Cormorant Garamond", serif',
+                        fontSize: '20px',
+                        fontWeight: 700,
+                        color: p.holes > 0 ? scoreColor(p.total) : T.faint,
+                        lineHeight: 1,
+                      }}>
+                        {p.holes > 0 ? formatScore(p.total) : '-'}
+                      </span>
+                      {hasScores && (
+                        <span style={{
+                          fontSize: '9px',
+                          color: T.faint,
+                          lineHeight: 1,
+                          marginTop: '2px',
+                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 200ms ease',
+                          display: 'inline-block',
+                        }}>▼</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expandable Scorecard */}
+                  {isExpanded && hasScores && (
+                    <div style={{ borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}` }}>
+                      <Scorecard
+                        holes={resolvedHoles}
+                        scores={scoresRecord}
+                        courseHandicap={Math.round(p.hcp)}
+                        modo={modoJuego === 'neto' ? 'neto' : 'gross'}
+                        formato={formato as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome' ?? 'stroke_play'}
+                        playerName={p.name}
+                        courseName={courseName}
+                        formatLabel={formatLabelProp}
+                      />
+                    </div>
+                  )}
                 </div>
               )
             })}

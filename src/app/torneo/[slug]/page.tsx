@@ -172,6 +172,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   } | null = null
   let groupsData: GroupData[] = []
   let playerIdToIndex: Record<string, number> = {}
+  let courseHoles: DBCourseHole[] = []
 
   if (tournament) {
     tournamentName = tournament.name
@@ -189,7 +190,6 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     }
 
     // Course holes for stats + GWI
-    let courseHoles: DBCourseHole[] = []
     if (tournament.courses?.id) {
       const { data: ch } = await supabase
         .from('course_holes').select('numero, par, stroke_index').eq('course_id', tournament.courses.id)
@@ -684,6 +684,9 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             gwiInputs={gwiInputs}
             playerIdToIndex={playerIdToIndex}
             formato={formatoJuego}
+            courseHoles={courseHoles}
+            courseName={tournament?.courses?.nombre}
+            formatLabel={formatLabel(formatoJuego, modoJuego)}
           />
         ) : (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4a5568' }}>
