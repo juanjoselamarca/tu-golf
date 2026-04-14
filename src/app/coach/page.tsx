@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { Calendar } from '@/components/icons'
+import { TaigerIcon } from '@/components/icons/TaigerIcon'
 
 interface Session {
   id: string
@@ -54,7 +56,7 @@ export default function CoachDashboard() {
     return (
       <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '12px', animation: 'tpulse 1.5s ease infinite' }}>🐯</div>
+          <div style={{ marginBottom: '12px', animation: 'tpulse 1.5s ease infinite', color: '#c4992a' }}><TaigerIcon size={48} /></div>
           <div style={{ color: '#c4992a', fontSize: '14px' }}>Cargando tAIger+...</div>
           <style>{`@keyframes tpulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }`}</style>
         </div>
@@ -67,7 +69,7 @@ export default function CoachDashboard() {
 
       {/* Hero */}
       <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-        <div style={{ fontSize: '48px', marginBottom: '8px' }}>🐯</div>
+        <div style={{ marginBottom: '8px', color: '#c4992a' }}><TaigerIcon size={48} /></div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', fontWeight: 700, color: '#edeae4', margin: '0 0 6px' }}>
           tAIger+
         </h1>
@@ -96,7 +98,7 @@ export default function CoachDashboard() {
           background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.2)',
           borderRadius: '14px', padding: '20px', marginBottom: '16px', textAlign: 'center',
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔑</div>
+          <div style={{ marginBottom: '8px' }}></div>
           <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4', marginBottom: '6px' }}>
             tAIger+ necesita datos para analizar tu juego
           </div>
@@ -140,7 +142,7 @@ export default function CoachDashboard() {
           background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
           padding: '16px 12px', textDecoration: 'none', textAlign: 'center',
         }}>
-          <span style={{ fontSize: '24px' }}>📅</span>
+          <span style={{ color: '#c4992a' }}><Calendar size={24} /></span>
           <span style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4' }}>Plan semanal</span>
           <span style={{ fontSize: '11px', color: '#94a8c0' }}>Qué practicar esta semana</span>
         </Link>
@@ -149,7 +151,6 @@ export default function CoachDashboard() {
           background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
           padding: '16px 12px', textDecoration: 'none', textAlign: 'center',
         }}>
-          <span style={{ fontSize: '24px' }}>💬</span>
           <span style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4' }}>Consulta libre</span>
           <span style={{ fontSize: '11px', color: '#94a8c0' }}>Pregunta lo que quieras</span>
         </Link>

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { Calendar, PersonStanding } from '@/components/icons'
+import { TaigerIcon } from '@/components/icons/TaigerIcon'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -21,9 +23,14 @@ interface TaigerSession {
 }
 
 const SESSION_TYPE_LABELS: Record<string, string> = {
-  post_round: '🏌️ Análisis post-ronda',
-  weekly_plan: '📅 Plan semanal',
-  free: '💬 Consulta libre',
+  post_round: 'Analisis post-ronda',
+  weekly_plan: 'Plan semanal',
+  free: 'Consulta libre',
+}
+
+const SESSION_TYPE_ICONS: Record<string, React.ReactNode> = {
+  post_round: <PersonStanding size={14} />,
+  weekly_plan: <Calendar size={14} />,
 }
 
 export default function SesionDetailPage() {
@@ -291,7 +298,10 @@ export default function SesionDetailPage() {
             fontSize: 12,
             fontWeight: 500,
           }}>
-            {SESSION_TYPE_LABELS[session?.session_type || ''] || session?.session_type}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {SESSION_TYPE_ICONS[session?.session_type || '']}
+              {SESSION_TYPE_LABELS[session?.session_type || ''] || session?.session_type}
+            </span>
           </span>
           <span style={{ color: '#94a8c0', fontSize: 12 }}>
             {sessionDate}
@@ -321,7 +331,7 @@ export default function SesionDetailPage() {
                 flexShrink: 0,
                 marginTop: 2,
               }}>
-                🐯
+                <TaigerIcon size={18} />
               </div>
             )}
             <div style={{

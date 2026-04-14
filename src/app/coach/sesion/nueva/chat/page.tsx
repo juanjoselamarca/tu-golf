@@ -2,6 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { Calendar } from '@/components/icons'
+import { TaigerIcon } from '@/components/icons/TaigerIcon'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -176,7 +178,10 @@ function ChatContent() {
           fontWeight: 500,
           marginBottom: 20,
         }}>
-          {tipo === 'weekly_plan' ? '📅 Plan semanal' : '💬 Consulta libre'}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {tipo === 'weekly_plan' && <Calendar size={14} />}
+            {tipo === 'weekly_plan' ? 'Plan semanal' : 'Consulta libre'}
+          </span>
         </div>
 
         {messages.map((msg, i) => (
@@ -202,7 +207,7 @@ function ChatContent() {
                 flexShrink: 0,
                 marginTop: 2,
               }}>
-                🐯
+                <TaigerIcon size={18} />
               </div>
             )}
             <div style={{

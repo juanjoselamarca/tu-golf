@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { Calendar, PersonStanding } from '@/components/icons'
+import { TaigerIcon } from '@/components/icons/TaigerIcon'
 
 interface RondaOption {
   id: string
@@ -128,10 +130,10 @@ export default function NuevaSesionPage() {
         padding: 20,
       }}>
         <div style={{
-          fontSize: 48,
           animation: 'pulse 1.5s ease-in-out infinite',
+          color: '#c4992a',
         }}>
-          🐯
+          <TaigerIcon size={48} />
         </div>
         <p style={{
           color: '#c4992a',
@@ -211,7 +213,7 @@ export default function NuevaSesionPage() {
           onMouseEnter={e => (e.currentTarget.style.borderColor = '#c4992a')}
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(196,153,42,0.2)')}
         >
-          <div style={{ fontSize: 28, marginBottom: 10 }}>🏌️</div>
+          <div style={{ marginBottom: 10, color: '#c4992a' }}><PersonStanding size={28} /></div>
           <h2 style={{ color: '#edeae4', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
             Análisis post-ronda
           </h2>
@@ -285,7 +287,7 @@ export default function NuevaSesionPage() {
           onMouseEnter={e => (e.currentTarget.style.borderColor = '#c4992a')}
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(196,153,42,0.2)')}
         >
-          <div style={{ fontSize: 28, marginBottom: 10 }}>📅</div>
+          <div style={{ marginBottom: 10, color: '#c4992a' }}><Calendar size={28} /></div>
           <h2 style={{ color: '#edeae4', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
             Plan semanal
           </h2>
@@ -301,7 +303,7 @@ export default function NuevaSesionPage() {
           onMouseEnter={e => (e.currentTarget.style.borderColor = '#c4992a')}
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(196,153,42,0.2)')}
         >
-          <div style={{ fontSize: 28, marginBottom: 10 }}>💬</div>
+          <div style={{ marginBottom: 10 }}></div>
           <h2 style={{ color: '#edeae4', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
             Consulta libre
           </h2>
