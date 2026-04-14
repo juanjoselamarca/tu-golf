@@ -136,6 +136,7 @@ function ScorePageContent() {
   const [scoreAnimating, setScoreAnimating] = useState(false)
   const [_showMiniCard, _setShowMiniCard] = useState(true) // kept for compat, mini scorecard always visible now
   const [taigerStatus, setTaigerStatus] = useState<'idle' | 'analyzing' | 'ready' | 'error'>('idle')
+  const [historicalRoundId, setHistoricalRoundId] = useState<string | null>(null)
   const [taigerSessionId, setTaigerSessionId] = useState<string | null>(null)
   const [saveCheckVisible, setSaveCheckVisible] = useState(false) // FIX #8: save feedback toast
   const [showShareMenu, setShowShareMenu] = useState(false)
@@ -579,7 +580,7 @@ function ScorePageContent() {
         ? calcularDiferencial(grossTotal, courseRating, slopeRating, totalHolesForSave, nineHoleRatings)
         : null
 
-      await supabase.from('historical_rounds').insert({
+      const { data: insertedRound } = await supabase.from('historical_rounds').insert({
         user_id: authUser?.id,
         course_name: ronda.course_name,
         course_id: ronda.course_id ?? null,
@@ -592,7 +593,11 @@ function ScorePageContent() {
         slope_rating: slopeRating,
         course_rating: courseRating,
         diferencial,
-      })
+      }).select('id').single()
+
+      if (insertedRound?.id) {
+        setHistoricalRoundId(insertedRound.id)
+      }
 
       // Recalculate Índice Golfers+ and nivel
       if (authUser?.id) {
@@ -1590,11 +1595,29 @@ function ScorePageContent() {
         const handleShareCard = async () => {
           if (!ronda || !activeJugadorId) return
           const jugador = (ronda.ronda_libre_jugadores ?? []).find(j => j.id === activeJugadorId)
+          const playerName = jugador?.nombre ?? 'Jugador'
+          const vsParStr = diff === 0 ? 'Par' : diff > 0 ? `+${diff}` : String(diff)
+
+          // Si tenemos el ID de la tarjeta, compartir link a /tarjeta/[id]
+          if (historicalRoundId) {
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
+            const tarjetaUrl = `${siteUrl}/tarjeta/${historicalRoundId}`
+            const text = isStableford
+              ? `${playerName} hizo ${totalStableford} pts en ${ronda.course_name}`
+              : `${playerName} jugó ${finalScore.gross} (${vsParStr}) en ${ronda.course_name}`
+
+            if (navigator.share) {
+              try { await navigator.share({ title: `${playerName} — Golfers+`, text, url: tarjetaUrl }); return } catch { /* cancelled */ }
+            }
+            await navigator.clipboard.writeText(`${text}\n${tarjetaUrl}`)
+            return
+          }
+
+          // Fallback: compartir imagen canvas (si no hay ID de tarjeta)
           const shareData: ShareCardData = {
             tipo: 'ronda_libre',
-            ganador: jugador?.nombre ?? 'Jugador',
+            ganador: playerName,
             esEmpate: false,
-            // Stableford: mostrar puntos totales; otros: gross score + diff vs par
             scoreGross: isStableford ? totalStableford : finalScore.gross,
             scoreDiff: isStableford ? 0 : diff,
             courseName: ronda.course_name,
