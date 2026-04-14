@@ -191,8 +191,8 @@ describe('Separación conceptual Formato vs Modo', () => {
     expect(formatos.length).toBe(6)
   })
 
-  it('FORMAT_META.stableford solo permite modo neto (R&A Rule 32.1b)', () => {
-    expect(FORMAT_META.stableford.modosPermitidos).toEqual(['neto'])
+  it('FORMAT_META.stableford permite gross y neto', () => {
+    expect(FORMAT_META.stableford.modosPermitidos).toEqual(['gross', 'neto'])
   })
 
   it('FORMAT_META.stroke_play permite gross y neto', () => {
@@ -254,5 +254,28 @@ describe('Separación conceptual Formato vs Modo', () => {
     // Stroke play neto: menor neto primero
     const neto = ordenarJugadores(jugadores, 'stroke_play', 'neto')
     expect(neto[0].id).toBe('2')
+  })
+})
+
+describe('Stableford Gross', () => {
+  it('FORMAT_META permite gross en stableford', () => {
+    expect(FORMAT_META.stableford.modosPermitidos).toContain('gross')
+    expect(FORMAT_META.stableford.modosPermitidos).toContain('neto')
+  })
+
+  it('Stableford gross: puntos sin handicap (HCP 0)', () => {
+    // Par 4, gross 5 (bogey) → neto = 5 (no strokes) → diff = +1 → 1 pt
+    expect(puntosStablefordHoyo(5, 4, 0, 1, 18)).toBe(1)
+    // Par 4, gross 4 (par) → 2 pts
+    expect(puntosStablefordHoyo(4, 4, 0, 1, 18)).toBe(2)
+    // Par 4, gross 3 (birdie) → 3 pts
+    expect(puntosStablefordHoyo(3, 4, 0, 1, 18)).toBe(3)
+  })
+
+  it('Stableford neto vs gross: jugador HCP 18 en SI 1 tiene diferencia', () => {
+    // Gross 5 en par 4, SI 1, HCP 18 → neto = 4 → diff = 0 → 2 pts (par neto)
+    expect(puntosStablefordHoyo(5, 4, 18, 1, 18)).toBe(2)
+    // Gross 5 en par 4, SI 1, HCP 0 → neto = 5 → diff = +1 → 1 pt (bogey)
+    expect(puntosStablefordHoyo(5, 4, 0, 1, 18)).toBe(1)
   })
 })

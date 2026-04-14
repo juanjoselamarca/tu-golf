@@ -281,9 +281,9 @@ export default function NuevaRondaLibrePage() {
       baseData.admin_user_id = userId
     }
 
-    // Stableford siempre es neto (R&A Rule 32.1b).
     // Match Play siempre es neto (cultura golf Chile — con handicap).
-    const modoJuego = (formato === 'stableford' || formato === 'match_play') ? 'neto' : modo
+    // Stableford ahora permite gross (sin handicap) y neto (con handicap).
+    const modoJuego = formato === 'match_play' ? 'neto' : modo
     const formatoJuego = formato
     const { data: d1, error: e1 } = await supabase
       .from('rondas_libres')
@@ -790,7 +790,6 @@ export default function NuevaRondaLibrePage() {
                       type="button"
                       onClick={() => {
                         setFormato(f.value)
-                        if (f.value === 'stableford') setModo('neto')
                         // Match Play siempre neto (cultura golf Chile)
                         if (f.value === 'match_play') setModo('neto')
                         // Match play fuerza admin mode con 1 rival
@@ -850,8 +849,8 @@ export default function NuevaRondaLibrePage() {
               )}
 
               {/* Selector Gross/Neto — separado del formato.
-                  Oculto para Stableford (R&A 32.1b) y Match Play (cultura golf Chile) — ambos siempre neto. */}
-              {formato !== 'stableford' && formato !== 'match_play' && (
+                  Oculto para Match Play (cultura golf Chile) — siempre neto. */}
+              {formato !== 'match_play' && (
                 <div style={{ marginTop: '20px' }}>
                   <div style={{
                     fontFamily: '"DM Sans", sans-serif',
@@ -914,7 +913,9 @@ export default function NuevaRondaLibrePage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
                     <span style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.4 }}>
-                      Stableford siempre se juega con handicap (neto) segun las reglas oficiales R&amp;A.
+                      {modo === 'neto'
+                        ? 'Stableford Neto: puntos calculados sobre el score neto (con handicap aplicado).'
+                        : 'Stableford Gross: puntos calculados sobre el score bruto (sin handicap).'}
                     </span>
                   </div>
                   <div style={{

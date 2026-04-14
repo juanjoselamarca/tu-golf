@@ -202,7 +202,7 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
       .from('tournaments')
       .insert({
         ...tournamentBase,
-        modo_juego: (format === 'stableford' || format === 'match_play') ? 'neto' : modo,
+        modo_juego: format === 'match_play' ? 'neto' : modo,
         formato_juego: format,
       })
       .select()
@@ -370,7 +370,6 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                   type="button"
                   onClick={() => {
                     setFormat(f.value)
-                    if (f.value === 'stableford') setModo('neto')
                     // Match Play siempre neto (cultura golf Chile)
                     if (f.value === 'match_play') setModo('neto')
                   }}
@@ -389,8 +388,8 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
             </div>
 
             {/* Selector Gross/Neto — separado del formato.
-                Oculto para Stableford (R&A 32.1b) y Match Play (cultura golf Chile) — ambos siempre neto. */}
-            {format !== 'stableford' && format !== 'match_play' ? (
+                Oculto para Match Play (cultura golf Chile) — siempre neto. */}
+            {format !== 'match_play' ? (
               <div style={{ marginTop: '16px' }}>
                 <label style={labelStyle}>Modo de scoring</label>
                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -419,6 +418,57 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                     )
                   })}
                 </div>
+                {format === 'stableford' && (
+                  <div style={{
+                    marginTop: '12px',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    background: 'rgba(196,153,42,0.06)',
+                    border: '1px solid rgba(196,153,42,0.2)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
+                      <span style={{ fontSize: '12px', color: '#92400e', lineHeight: 1.4 }}>
+                        {modo === 'neto'
+                          ? 'Stableford Neto: puntos calculados sobre el score neto (con handicap aplicado).'
+                          : 'Stableford Gross: puntos calculados sobre el score bruto (sin handicap).'}
+                      </span>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '6px',
+                      paddingTop: '8px',
+                      borderTop: '1px solid rgba(196,153,42,0.15)',
+                    }}>
+                      {[
+                        { label: 'Albatross+', pts: 5 },
+                        { label: 'Eagle', pts: 4 },
+                        { label: 'Birdie', pts: 3 },
+                        { label: 'Par', pts: 2 },
+                        { label: 'Bogey', pts: 1 },
+                        { label: 'Doble+', pts: 0 },
+                      ].map(item => (
+                        <span key={item.label} style={{
+                          fontSize: '11px',
+                          fontFamily: '"DM Mono", monospace',
+                          color: '#92400e',
+                          background: '#ffffff',
+                          border: '1px solid rgba(196,153,42,0.2)',
+                          borderRadius: '6px',
+                          padding: '3px 7px',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          <span style={{ color: '#c4992a', fontWeight: 700 }}>{item.pts}</span>
+                          {' '}{item.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{
@@ -434,43 +484,9 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
                   <span style={{ fontSize: '12px', color: '#92400e', lineHeight: 1.4 }}>
-                    {format === 'stableford'
-                      ? 'Stableford: puntos por hoyo segun resultado vs par. Siempre se juega con handicap (neto).'
-                      : 'Match Play siempre se juega con handicap (neto) — formato estandar en clubes de Chile.'}
+                    Match Play siempre se juega con handicap (neto) — formato estandar en clubes de Chile.
                   </span>
                 </div>
-                {format === 'stableford' && (
-                  <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '6px',
-                    paddingTop: '8px',
-                    borderTop: '1px solid rgba(196,153,42,0.15)',
-                  }}>
-                    {[
-                      { label: 'Albatross+', pts: 5 },
-                      { label: 'Eagle', pts: 4 },
-                      { label: 'Birdie', pts: 3 },
-                      { label: 'Par', pts: 2 },
-                      { label: 'Bogey', pts: 1 },
-                      { label: 'Doble+', pts: 0 },
-                    ].map(item => (
-                      <span key={item.label} style={{
-                        fontSize: '11px',
-                        fontFamily: '"DM Mono", monospace',
-                        color: '#92400e',
-                        background: '#ffffff',
-                        border: '1px solid rgba(196,153,42,0.2)',
-                        borderRadius: '6px',
-                        padding: '3px 7px',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        <span style={{ color: '#c4992a', fontWeight: 700 }}>{item.pts}</span>
-                        {' '}{item.label}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
           </div>

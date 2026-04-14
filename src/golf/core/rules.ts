@@ -48,7 +48,7 @@ export const FORMAT_META: Record<FormatoJuego, {
     requiereEquipos: false,
     requiereParejas: false,
     jugadoresPorEquipo: null,
-    modosPermitidos: ['neto'],
+    modosPermitidos: ['gross', 'neto'],
   },
   match_play: {
     category: 'head_to_head',
