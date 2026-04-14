@@ -74,7 +74,11 @@ function drawDivider(ctx: CanvasRenderingContext2D, y: number, W: number) {
 }
 
 function scoreColor(diff: number): string {
-  return diff < 0 ? '#4ade80' : diff === 0 ? '#c9a84c' : '#f87171'
+  if (diff <= -2) return '#0B6BA6' // eagle+ azul oscuro Garmin
+  if (diff === -1) return '#14B3D9' // birdie celeste Garmin
+  if (diff === 0) return '#c9a84c'  // par dorado Golfers+
+  if (diff === 1) return '#D4A442'  // bogey dorado Garmin
+  return '#DC3B2E'                   // doble+ rojo Garmin
 }
 
 // Badge "9 HOYOS" / "18 HOYOS" — defensive UX, el usuario siempre sabe qué ronda es
