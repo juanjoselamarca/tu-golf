@@ -67,3 +67,51 @@ describe('calcularScoreRonda — canary tests para bug 9 vs 18 hoyos', () => {
     expect(sorted[2].vsPar).toBe(5)
   })
 })
+
+// ═══════════════════════════════════════════════════════════
+// Regresión: bug diferencial incorrecto al primer hoyo (Sprint Feedback 1.1)
+// ═══════════════════════════════════════════════════════════
+
+describe('Regresión: diferencial no usa par total del recorrido', () => {
+  const parMap: Record<number, number> = {}
+  for (let i = 1; i <= 18; i++) parMap[i] = i <= 4 ? 4 : i <= 8 ? 3 : i <= 14 ? 4 : 5
+  // parTotal del recorrido = 4+4+4+4+3+3+3+3+4+4+4+4+4+4+5+5+5+5 = 72ish
+
+  it('1 hoyo jugado: vsPar = gross - par de ESE hoyo, NO gross - 72', () => {
+    const result = calcularScoreRonda({
+      scores: { '1': 5 }, // bogey en hoyo 1 (par 4)
+      roundHoles: 18,
+      parMap,
+    })
+    expect(result.vsPar).toBe(1)  // 5 - 4 = +1, NO 5 - 72 = -67
+    expect(result.holesPlayed).toBe(1)
+    expect(result.parJugado).toBe(4)
+  })
+
+  it('2 hoyos jugados: vsPar acumulado solo de hoyos jugados', () => {
+    const result = calcularScoreRonda({
+      scores: { '1': 5, '2': 6 }, // bogey + doble bogey
+      roundHoles: 18,
+      parMap,
+    })
+    expect(result.vsPar).toBe(3)  // (5+6) - (4+4) = 11 - 8 = +3
+    expect(result.holesPlayed).toBe(2)
+    expect(result.parJugado).toBe(8)
+  })
+
+  it('todos los 18 hoyos: vsPar = gross - parTotal', () => {
+    const scores: Record<string, number> = {}
+    let expectedGross = 0
+    for (let i = 1; i <= 18; i++) {
+      scores[String(i)] = (parMap[i] ?? 4) + 1 // todos bogey
+      expectedGross += (parMap[i] ?? 4) + 1
+    }
+    const result = calcularScoreRonda({
+      scores,
+      roundHoles: 18,
+      parMap,
+    })
+    expect(result.vsPar).toBe(18) // +1 por hoyo × 18 hoyos
+    expect(result.holesPlayed).toBe(18)
+  })
+})
