@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 
 /**
- * tAIger+ Hero — entrada cinematica al abrir la seccion coach.
- * Garras animadas que revelan la marca. Fondo con depth.
+ * tAIger+ Hero — tiger coach portrait con entrada cinematica.
+ * Usa la imagen real del tigre-coach con animaciones premium.
  */
 export function TaigerHero({ subtitle }: { subtitle?: string }) {
   const [mounted, setMounted] = useState(false)
@@ -13,108 +14,103 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
   return (
     <>
       <style>{`
-        @keyframes clawReveal {
-          0% { transform: scaleY(0) rotate(-8deg); opacity: 0; }
-          60% { transform: scaleY(1.05) rotate(-8deg); opacity: 1; }
-          100% { transform: scaleY(1) rotate(-8deg); opacity: 1; }
+        @keyframes heroReveal {
+          0% { opacity: 0; transform: scale(1.08); }
+          100% { opacity: 1; transform: scale(1); }
         }
-        @keyframes heroGlow {
-          0%, 100% { opacity: 0.4; }
-          50% { opacity: 0.7; }
+        @keyframes textSlideUp {
+          0% { opacity: 0; transform: translateY(20px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
-        @keyframes brandReveal {
-          0% { opacity: 0; transform: translateY(16px) scale(0.95); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
+        @keyframes glowPulse {
+          0%, 100% { box-shadow: 0 0 30px rgba(196,153,42,0.08), inset 0 0 30px rgba(196,153,42,0.03); }
+          50% { box-shadow: 0 0 50px rgba(196,153,42,0.15), inset 0 0 40px rgba(196,153,42,0.06); }
         }
-        @keyframes subtleShine {
-          0% { left: -60%; }
-          100% { left: 160%; }
+        @keyframes shimmer {
+          0% { left: -100%; }
+          100% { left: 200%; }
         }
       `}</style>
       <div style={{
         position: 'relative',
         borderRadius: 20,
         overflow: 'hidden',
-        background: 'linear-gradient(160deg, #0d1a2d 0%, #0a1628 40%, #111827 100%)',
-        border: '1px solid rgba(196,153,42,0.12)',
-        padding: '40px 24px 36px',
+        background: '#0a1219',
         marginBottom: 28,
+        animation: mounted ? 'glowPulse 5s ease-in-out infinite' : 'none',
+        border: '1px solid rgba(196,153,42,0.1)',
       }}>
-        {/* Background glow */}
+        {/* Tiger portrait — left half of the dual image (coach with glasses) */}
         <div style={{
-          position: 'absolute',
-          top: '30%', left: '50%',
-          width: 200, height: 200,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(196,153,42,0.15) 0%, transparent 70%)',
-          transform: 'translate(-50%, -50%)',
-          animation: mounted ? 'heroGlow 4s ease-in-out infinite' : 'none',
-          pointerEvents: 'none',
-        }} />
-
-        {/* Claw marks — 3 dramatic slashes */}
-        <div style={{
-          display: 'flex', justifyContent: 'center', gap: 10,
-          marginBottom: 24, height: 56,
-          position: 'relative', zIndex: 1,
+          position: 'relative',
+          width: '100%',
+          height: 220,
+          overflow: 'hidden',
+          animation: mounted ? 'heroReveal 1s ease-out 0.1s both' : 'none',
         }}>
-          {[0, 1, 2].map(i => (
-            <div
-              key={i}
-              style={{
-                width: 6,
-                height: '100%',
-                borderRadius: 3,
-                background: `linear-gradient(180deg, #c4992a ${40 + i * 10}%, #e8c06a 100%)`,
-                transformOrigin: 'top center',
-                animation: mounted ? `clawReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.15 + i * 0.1}s both` : 'none',
-                boxShadow: '0 0 12px rgba(196,153,42,0.3)',
-              }}
-            />
-          ))}
+          <Image
+            src="/images/taiger/tiger-coaches.png"
+            alt="tAIger+ Coach"
+            fill
+            style={{
+              objectFit: 'cover',
+              objectPosition: '12% 15%',
+            }}
+            sizes="(max-width: 640px) 100vw, 640px"
+            priority
+          />
+          {/* Gradient overlay bottom — blends image into content */}
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            height: '60%',
+            background: 'linear-gradient(to top, #0a1219 0%, rgba(10,18,25,0.7) 40%, transparent 100%)',
+            pointerEvents: 'none',
+          }} />
+          {/* Shimmer effect */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            overflow: 'hidden',
+            pointerEvents: 'none',
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: 0, left: '-100%',
+              width: '50%', height: '100%',
+              background: 'linear-gradient(90deg, transparent, rgba(196,153,42,0.06), transparent)',
+              animation: mounted ? 'shimmer 3s ease-in-out 1.5s' : 'none',
+            }} />
+          </div>
         </div>
 
-        {/* Brand name */}
+        {/* Brand text — overlaps the gradient */}
         <div style={{
-          position: 'relative', zIndex: 1,
-          textAlign: 'center',
-          animation: mounted ? 'brandReveal 0.6s ease-out 0.6s both' : 'none',
+          position: 'relative',
+          marginTop: -48,
+          padding: '0 24px 24px',
+          zIndex: 2,
         }}>
           <h2 style={{
             fontFamily: "'Playfair Display', serif",
-            fontSize: 28, fontWeight: 700, letterSpacing: '2px',
-            color: '#edeae4', margin: 0,
-            position: 'relative', display: 'inline-block',
-            overflow: 'hidden',
+            fontSize: 28,
+            fontWeight: 700,
+            letterSpacing: '1px',
+            color: '#edeae4',
+            margin: 0,
+            animation: mounted ? 'textSlideUp 0.7s ease-out 0.5s both' : 'none',
           }}>
             tAIger+
-            {/* Shine sweep */}
-            <span style={{
-              position: 'absolute', top: 0, left: '-60%',
-              width: '40%', height: '100%',
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)',
-              animation: mounted ? 'subtleShine 2s ease-in-out 1.2s' : 'none',
-              pointerEvents: 'none',
-            }} />
           </h2>
-
           {subtitle && (
             <p style={{
-              color: '#94a8c0', fontSize: 13, margin: '8px 0 0',
-              letterSpacing: '0.5px',
+              color: '#94a8c0',
+              fontSize: 13,
+              margin: '6px 0 0',
+              animation: mounted ? 'textSlideUp 0.7s ease-out 0.7s both' : 'none',
             }}>
               {subtitle}
             </p>
           )}
         </div>
-
-        {/* Bottom accent line */}
-        <div style={{
-          position: 'absolute', bottom: 0, left: '10%', right: '10%',
-          height: 2,
-          background: 'linear-gradient(90deg, transparent, rgba(196,153,42,0.4), transparent)',
-          borderRadius: 1,
-        }} />
       </div>
     </>
   )

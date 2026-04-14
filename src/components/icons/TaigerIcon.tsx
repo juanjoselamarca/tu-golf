@@ -1,21 +1,35 @@
 /**
- * tAIger+ brand mark — three tiger claw slashes.
- * Diagonal strokes with slight curve. Clean, premium, aggressive.
+ * tAIger+ nav icon — tiger face crop in a circle.
+ * Uses the real tiger-coach image, cropped via CSS.
+ * For nav/sidebar at 18-24px. For larger uses, use TaigerHero.
  */
+import Image from 'next/image'
+
 export function TaigerIcon({ size = 20, className }: { size?: number; className?: string }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
+    <span
       className={className}
+      style={{
+        display: 'inline-flex',
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        overflow: 'hidden',
+        flexShrink: 0,
+        border: '1.5px solid rgba(196,153,42,0.4)',
+        position: 'relative',
+      }}
     >
-      <path d="M6 3 C5 9, 4 15, 3 21" strokeWidth="2.8" />
-      <path d="M13 2 C12.5 8, 12 14, 12 22" strokeWidth="3" />
-      <path d="M19 3 C19.5 9, 20.5 15, 21.5 21" strokeWidth="2.8" />
-    </svg>
+      <Image
+        src="/images/taiger/tiger-coaches.png"
+        alt="tAIger+"
+        width={size}
+        height={size}
+        style={{
+          objectFit: 'cover',
+          objectPosition: '12% 12%',
+        }}
+      />
+    </span>
   )
 }
