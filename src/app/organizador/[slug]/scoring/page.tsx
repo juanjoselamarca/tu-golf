@@ -403,7 +403,14 @@ export default function ScoringPage() {
   }
   const filledCount    = holes.filter((h) => currentScores[h] != null).length
   const allFilled      = filledCount === holeCount
-  const parTotal       = tournament.courses?.par_total ?? 72
+  const parTotalRecorrido = tournament.courses?.par_total ?? 72
+
+  // Par acumulado SOLO de hoyos jugados (no del recorrido completo)
+  const parJugado = holes.reduce((s, h) => {
+    if (!currentScores[h]) return s
+    const hole = courseHoles.find((ch) => ch.numero === h)
+    return s + (hole?.par ?? 4)
+  }, 0)
 
   const grossTotal = holes.reduce((s, h) => s + (currentScores[h] ?? 0), 0)
   const outGross   = holes.filter(h => h <= 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
@@ -728,7 +735,10 @@ export default function ScoringPage() {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '11px', color: '#4a5568', marginBottom: '2px' }}>vs PAR</div>
                   <div style={{ fontSize: '18px', fontWeight: 700, color: '#4a5568' }}>
-                    {grossTotal ? (netTotal - parTotal <= 0 ? netTotal - parTotal : `+${netTotal - parTotal}`) : '—'}
+                    {grossTotal ? (() => {
+                      const vp = grossTotal - parJugado
+                      return vp <= 0 ? String(vp) : `+${vp}`
+                    })() : '—'}
                   </div>
                 </div>
               </div>
