@@ -826,6 +826,20 @@ function ScorePageContent() {
   const hcpForPlayer = playerHcp[activeJugadorId] ?? 0
   const strokesOnHole = strokesRecibidosEnHoyo(hcpForPlayer, holeData.stroke_index)
 
+  // Diferencia de strokes vs rival (para dots: solo mostrar donde HAY ventaja)
+  // En match play o neto con 2 jugadores: dot solo donde jugador activo tiene
+  // más strokes que el rival (es decir, donde hay ventaja real)
+  const jug = ronda?.ronda_libre_jugadores ?? []
+  const rivalId = jug.length === 2 ? jug.find(j => j.id !== activeJugadorId)?.id : null
+  const rivalHcp = rivalId ? (playerHcp[rivalId] ?? 0) : 0
+  const hasStrokeAdvantage = (si: number): boolean => {
+    if (modoJuego === 'gross' || jug.length !== 2) return strokesRecibidosEnHoyo(hcpForPlayer, si) > 0
+    const myStrokes = strokesRecibidosEnHoyo(hcpForPlayer, si)
+    const theirStrokes = strokesRecibidosEnHoyo(rivalHcp, si)
+    return myStrokes > theirStrokes
+  }
+  const strokeAdvantageOnHole = hasStrokeAdvantage(holeData.stroke_index)
+
   // Net score & Stableford for current hole
   const currentNetScore = score != null ? score - strokesOnHole : null
   const currentNetDiff = currentNetScore != null ? currentNetScore - par : null
@@ -985,7 +999,7 @@ function ScorePageContent() {
             const isActive = h === currentHole
             const diff = s != null ? s - p : null
             const indicatorColor = s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff < 0 ? '#c4992a' : diff != null && diff > 0 ? '#EF4444' : 'transparent'
-            const holeStrokeCount = modoJuego !== 'gross' ? strokesRecibidosEnHoyo(hcpForPlayer, holeDataMap[h]?.stroke_index ?? h) : 0
+            const holeStrokeCount = modoJuego !== 'gross' && hasStrokeAdvantage(holeDataMap[h]?.stroke_index ?? h) ? 1 : 0
             return (
               <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative' }}>
                 <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
@@ -1026,7 +1040,7 @@ function ScorePageContent() {
             const isActive = h === currentHole
             const diff = s != null ? s - p : null
             const indicatorColor = s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff < 0 ? '#c4992a' : diff != null && diff > 0 ? '#EF4444' : 'transparent'
-            const holeStrokeCount = modoJuego !== 'gross' ? strokesRecibidosEnHoyo(hcpForPlayer, holeDataMap[h]?.stroke_index ?? h) : 0
+            const holeStrokeCount = modoJuego !== 'gross' && hasStrokeAdvantage(holeDataMap[h]?.stroke_index ?? h) ? 1 : 0
             return (
               <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative' }}>
                 <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
@@ -1149,7 +1163,7 @@ function ScorePageContent() {
                 fontVariantNumeric: 'tabular-nums',
               }}
             >{score ?? par}</div>
-            {ronda?.modo_juego !== 'gross' && strokesOnHole > 0 && (
+            {ronda?.modo_juego !== 'gross' && strokeAdvantageOnHole && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '3px',
                 alignSelf: 'flex-start', marginTop: '12px',
