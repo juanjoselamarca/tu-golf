@@ -980,8 +980,9 @@ function ScorePageContent() {
             const isActive = h === currentHole
             const diff = s != null ? s - p : null
             const indicatorColor = s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff < 0 ? '#c4992a' : diff != null && diff > 0 ? '#EF4444' : 'transparent'
+            const holeStrokeCount = modoJuego !== 'gross' ? strokesRecibidosEnHoyo(hcpForPlayer, holeDataMap[h]?.stroke_index ?? h) : 0
             return (
-              <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer' }}>
+              <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative' }}>
                 <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
                 {s != null ? (
                   <div style={{
@@ -997,6 +998,13 @@ function ScorePageContent() {
                   </div>
                 ) : (
                   <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : theme.badgeBg, border: isActive ? '1.5px solid #C4992A' : `1px solid ${theme.badgeBorder}` }} />
+                )}
+                {holeStrokeCount > 0 && (
+                  <div style={{ position: 'absolute', bottom: '-2px', right: '-1px', display: 'flex', gap: '1px' }}>
+                    {Array.from({ length: holeStrokeCount }, (_, i) => (
+                      <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#c4992a', border: '0.5px solid rgba(255,255,255,0.8)' }} />
+                    ))}
+                  </div>
                 )}
               </div>
             )
@@ -1018,8 +1026,9 @@ function ScorePageContent() {
             const isActive = h === currentHole
             const diff = s != null ? s - p : null
             const indicatorColor = s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff < 0 ? '#c4992a' : diff != null && diff > 0 ? '#EF4444' : 'transparent'
+            const holeStrokeCount = modoJuego !== 'gross' ? strokesRecibidosEnHoyo(hcpForPlayer, holeDataMap[h]?.stroke_index ?? h) : 0
             return (
-              <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer' }}>
+              <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative' }}>
                 <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
                 {s != null ? (
                   <div style={{
@@ -1035,6 +1044,13 @@ function ScorePageContent() {
                   </div>
                 ) : (
                   <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : theme.badgeBg, border: isActive ? '1.5px solid #C4992A' : `1px solid ${theme.badgeBorder}` }} />
+                )}
+                {holeStrokeCount > 0 && (
+                  <div style={{ position: 'absolute', bottom: '-2px', right: '-1px', display: 'flex', gap: '1px' }}>
+                    {Array.from({ length: holeStrokeCount }, (_, i) => (
+                      <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#c4992a', border: '0.5px solid rgba(255,255,255,0.8)' }} />
+                    ))}
+                  </div>
                 )}
               </div>
             )
@@ -1137,11 +1153,15 @@ function ScorePageContent() {
             >{score ?? par}</div>
             {ronda?.modo_juego !== 'gross' && strokesOnHole > 0 && (
               <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: '1px',
-                fontSize: '12px', fontWeight: 700, color: '#c4992a',
-                alignSelf: 'flex-start', marginTop: '8px',
+                display: 'inline-flex', alignItems: 'center', gap: '3px',
+                fontSize: '11px', fontWeight: 700, color: '#1a1a2e',
+                alignSelf: 'flex-start', marginTop: '12px',
+                background: 'rgba(196,153,42,0.18)', border: '1px solid rgba(196,153,42,0.4)',
+                borderRadius: '12px', padding: '2px 8px', height: '24px',
+                letterSpacing: '0.02em',
               }}>
-                {'●'.repeat(strokesOnHole)}
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#c4992a', flexShrink: 0 }} />
+                <span style={{ color: '#c4992a' }}>{strokesOnHole === 1 ? 'Palo' : `${strokesOnHole} Palos`}</span>
               </span>
             )}
           </div>

@@ -478,9 +478,10 @@ export default function ScoreGrupoPage() {
           {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
             const isActive = h === currentHole
             const allHaveScore = jugadores.every(j => scores[j.id]?.[h] != null)
+            const anyPlayerGetsStroke = showNetStableford && jugadores.some(j => strokesRecibidosEnHoyo(playerHcp[j.id] ?? 0, holeDataMap[h]?.stroke_index ?? h) > 0)
             return (
               <div key={h} onClick={() => setCurrentHole(h)} style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative',
               }}>
                 <div style={{ fontSize: '8px', color: isActive ? theme.gold : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
                 <div style={{
@@ -492,6 +493,9 @@ export default function ScoreGrupoPage() {
                 }}>
                   {allHaveScore ? '\u2713' : ''}
                 </div>
+                {anyPlayerGetsStroke && (
+                  <div style={{ position: 'absolute', bottom: '-2px', right: '-1px', width: '6px', height: '6px', borderRadius: '50%', background: '#c4992a', border: '0.5px solid rgba(255,255,255,0.8)' }} />
+                )}
               </div>
             )
           })}
@@ -631,11 +635,15 @@ export default function ScoreGrupoPage() {
                       </div>
                       {ronda.modo_juego !== 'gross' && strokesThisHole > 0 && (
                         <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '1px',
+                          display: 'inline-flex', alignItems: 'center', gap: '3px',
                           fontSize: '10px', fontWeight: 700, color: '#c4992a',
-                          alignSelf: 'flex-start', marginTop: '4px',
+                          alignSelf: 'flex-start', marginTop: '6px',
+                          background: 'rgba(196,153,42,0.15)', border: '1px solid rgba(196,153,42,0.35)',
+                          borderRadius: '10px', padding: '1px 7px', height: '20px',
+                          letterSpacing: '0.02em',
                         }}>
-                          {'●'.repeat(strokesThisHole)}
+                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#c4992a', flexShrink: 0 }} />
+                          {strokesThisHole === 1 ? 'Palo' : `${strokesThisHole} Palos`}
                         </span>
                       )}
                     </div>
