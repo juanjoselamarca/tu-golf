@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react'
 
 /**
- * tAIger+ Hero — animacion premium al entrar a la seccion coach.
- * Gradientes amber/gold con rayas tiger abstractas.
- * Breathing effect + entrada staggered.
+ * tAIger+ Hero — entrada cinematica al abrir la seccion coach.
+ * Garras animadas que revelan la marca. Fondo con depth.
  */
 export function TaigerHero({ subtitle }: { subtitle?: string }) {
   const [mounted, setMounted] = useState(false)
@@ -14,94 +13,108 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
   return (
     <>
       <style>{`
-        @keyframes taigerBreathe {
-          0%, 100% { transform: scale(1); opacity: 0.9; }
-          50% { transform: scale(1.02); opacity: 1; }
+        @keyframes clawReveal {
+          0% { transform: scaleY(0) rotate(-8deg); opacity: 0; }
+          60% { transform: scaleY(1.05) rotate(-8deg); opacity: 1; }
+          100% { transform: scaleY(1) rotate(-8deg); opacity: 1; }
         }
-        @keyframes taigerStripeSlide {
-          0% { transform: translateX(-100%) skewX(-15deg); }
-          100% { transform: translateX(0) skewX(-15deg); }
+        @keyframes heroGlow {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.7; }
         }
-        @keyframes taigerFadeUp {
-          0% { opacity: 0; transform: translateY(12px); }
-          100% { opacity: 1; transform: translateY(0); }
+        @keyframes brandReveal {
+          0% { opacity: 0; transform: translateY(16px) scale(0.95); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
         }
-        @keyframes taigerGlow {
-          0%, 100% { box-shadow: 0 0 20px rgba(196,153,42,0.1); }
-          50% { box-shadow: 0 0 40px rgba(196,153,42,0.2); }
+        @keyframes subtleShine {
+          0% { left: -60%; }
+          100% { left: 160%; }
         }
       `}</style>
       <div style={{
         position: 'relative',
-        borderRadius: 16,
+        borderRadius: 20,
         overflow: 'hidden',
-        background: 'linear-gradient(135deg, rgba(196,153,42,0.08) 0%, rgba(196,153,42,0.02) 100%)',
-        border: '1px solid rgba(196,153,42,0.15)',
-        padding: '32px 24px',
-        marginBottom: 24,
-        animation: mounted ? 'taigerGlow 4s ease-in-out infinite' : 'none',
+        background: 'linear-gradient(160deg, #0d1a2d 0%, #0a1628 40%, #111827 100%)',
+        border: '1px solid rgba(196,153,42,0.12)',
+        padding: '40px 24px 36px',
+        marginBottom: 28,
       }}>
-        {/* Tiger stripes — abstract diagonal lines */}
+        {/* Background glow */}
         <div style={{
-          position: 'absolute', inset: 0, overflow: 'hidden', opacity: 0.06,
+          position: 'absolute',
+          top: '30%', left: '50%',
+          width: 200, height: 200,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(196,153,42,0.15) 0%, transparent 70%)',
+          transform: 'translate(-50%, -50%)',
+          animation: mounted ? 'heroGlow 4s ease-in-out infinite' : 'none',
           pointerEvents: 'none',
+        }} />
+
+        {/* Claw marks — 3 dramatic slashes */}
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: 10,
+          marginBottom: 24, height: 56,
+          position: 'relative', zIndex: 1,
         }}>
-          {[0, 1, 2, 3, 4].map(i => (
-            <div key={i} style={{
-              position: 'absolute',
-              top: 0, bottom: 0,
-              left: `${15 + i * 18}%`,
-              width: '8%',
-              background: '#c4992a',
-              transform: 'skewX(-15deg)',
-              animation: mounted ? `taigerStripeSlide 0.6s ease-out ${0.1 + i * 0.08}s both` : 'none',
-            }} />
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              style={{
+                width: 6,
+                height: '100%',
+                borderRadius: 3,
+                background: `linear-gradient(180deg, #c4992a ${40 + i * 10}%, #e8c06a 100%)`,
+                transformOrigin: 'top center',
+                animation: mounted ? `clawReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.15 + i * 0.1}s both` : 'none',
+                boxShadow: '0 0 12px rgba(196,153,42,0.3)',
+              }}
+            />
           ))}
         </div>
 
-        {/* Content */}
+        {/* Brand name */}
         <div style={{
           position: 'relative', zIndex: 1,
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          animation: mounted ? 'taigerFadeUp 0.5s ease-out 0.2s both' : 'none',
+          textAlign: 'center',
+          animation: mounted ? 'brandReveal 0.6s ease-out 0.6s both' : 'none',
         }}>
-          {/* Monogram large */}
-          <div style={{
-            width: 64, height: 64,
-            borderRadius: 16,
-            background: 'linear-gradient(135deg, #c4992a, #e8c06a)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: 16,
-            animation: mounted ? 'taigerBreathe 3s ease-in-out infinite' : 'none',
-            boxShadow: '0 4px 16px rgba(196,153,42,0.3)',
-          }}>
-            <span style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: 32, fontWeight: 800,
-              color: '#070d18', letterSpacing: '-1px',
-            }}>T</span>
-          </div>
-
-          {/* Brand name */}
           <h2 style={{
             fontFamily: "'Playfair Display', serif",
-            fontSize: 24, fontWeight: 700,
+            fontSize: 28, fontWeight: 700, letterSpacing: '2px',
             color: '#edeae4', margin: 0,
-            animation: mounted ? 'taigerFadeUp 0.5s ease-out 0.35s both' : 'none',
+            position: 'relative', display: 'inline-block',
+            overflow: 'hidden',
           }}>
             tAIger+
+            {/* Shine sweep */}
+            <span style={{
+              position: 'absolute', top: 0, left: '-60%',
+              width: '40%', height: '100%',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)',
+              animation: mounted ? 'subtleShine 2s ease-in-out 1.2s' : 'none',
+              pointerEvents: 'none',
+            }} />
           </h2>
 
-          {/* Subtitle */}
           {subtitle && (
             <p style={{
-              color: '#94a8c0', fontSize: 14, margin: '6px 0 0',
-              animation: mounted ? 'taigerFadeUp 0.5s ease-out 0.45s both' : 'none',
+              color: '#94a8c0', fontSize: 13, margin: '8px 0 0',
+              letterSpacing: '0.5px',
             }}>
               {subtitle}
             </p>
           )}
         </div>
+
+        {/* Bottom accent line */}
+        <div style={{
+          position: 'absolute', bottom: 0, left: '10%', right: '10%',
+          height: 2,
+          background: 'linear-gradient(90deg, transparent, rgba(196,153,42,0.4), transparent)',
+          borderRadius: 1,
+        }} />
       </div>
     </>
   )
