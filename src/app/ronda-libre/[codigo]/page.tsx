@@ -60,8 +60,9 @@ function NotifBanner({ onEnable }: { onEnable: () => void }) {
     </div>
   )
 }
+import Scorecard from '@/components/Scorecard'
+import type { ScorecardProps } from '@/components/Scorecard'
 import GWILeaderboard from '@/components/GWILeaderboard'
-import ScoreSymbol from '@/components/ScoreSymbol'
 import { calcularGWI } from '@/golf/stats/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
@@ -1636,93 +1637,29 @@ function RondaLibrePageContent() {
                     </span>
                   </button>
 
-                  {/* Expandable scorecard — PGA format with circles/squares */}
-                  {isExpanded && j.holesPlayed > 0 && (() => {
-                    const getS = (h: number) => j.scores[String(h)] ?? (j.scores as Record<number, number>)[h] ?? null
-                    const front9T = holeNums.slice(0, 9).reduce((sum, h) => sum + (getS(h) ?? 0), 0)
-                    const back9T = holeNums.slice(9).reduce((sum, h) => sum + (getS(h) ?? 0), 0)
-
-                    const scoreCell = (h: number) => {
-                      const s = getS(h)
-                      if (s == null) return <span style={{ color: '#d1d5db', fontSize: '11px' }}>·</span>
-                      return <ScoreSymbol score={s} par={parMap[h] ?? 4} size="sm" />
-                    }
-
-                    const renderHalf = (holes: number[], label: string, total: number) => (
-                      <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '8px' }}>
-                        <div style={{ flex: 1, display: 'flex' }}>
-                          {holes.map(h => {
-                            const hScore = getS(h)
-                            const stabPtsH = (ronda.formato_juego === 'stableford' && hScore != null)
-                              ? puntosStablefordHoyo(hScore, parMap[h] ?? 4, courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0), siMap[h] ?? h, ronda.holes)
-                              : null
-                            return (
-                            <div key={h} style={{ flex: 1, textAlign: 'center', minWidth: 0, cursor: isCreator ? 'pointer' : 'default' }}
-                              onClick={isCreator ? (e) => {
-                                e.stopPropagation()
-                                setEditingScore({ jugadorId: j.id, hole: h, currentScore: hScore ?? (parMap[h] ?? 4) })
-                                setEditScoreValue(hScore ?? (parMap[h] ?? 4))
-                              } : undefined}
-                            >
-                              <div style={{ fontSize: '8px', color: '#9ca3af', marginBottom: '2px' }}>{h}</div>
-                              <div style={{ minHeight: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{scoreCell(h)}</div>
-                              {stabPtsH != null && (
-                                <div style={{ fontSize: '8px', fontWeight: 600, color: '#c4992a', marginTop: '1px' }}>{stabPtsH}pt</div>
-                              )}
-                            </div>
-                            )
-                          })}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', flexShrink: 0, borderLeft: '1px solid #e5e7eb', paddingLeft: '4px', marginLeft: '4px' }}>
-                          <div style={{ fontSize: '8px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' as const }}>{label}</div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>{total}</div>
-                        </div>
-                      </div>
-                    )
-
-                    return (
-                      <div style={{ padding: '4px 8px 10px', background: '#f9fafb' }}>
-                        {renderHalf(holeNums.slice(0, 9), 'OUT', front9T)}
-                        {ronda.holes > 9 && renderHalf(holeNums.slice(9), 'IN', back9T)}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e5e7eb', paddingTop: '4px' }}>
-                          {isCreator && (
-                            <div style={{ fontSize: '9px', color: '#c4992a', fontWeight: 500 }}>
-                              Toca un score para editarlo
-                            </div>
-                          )}
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', marginLeft: 'auto' }}>
-                            <div style={{ fontSize: '8px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase' as const }}>TOT</div>
-                            <div style={{ fontSize: '14px', fontWeight: 800, color: '#111827' }}>{front9T + back9T}</div>
-                            {ronda.formato_juego === 'stableford' && (
-                              <div style={{ fontSize: '10px', fontWeight: 700, color: '#c4992a' }}>{j.stablefordPts} pts</div>
-                            )}
-                          </div>
-                        </div>
-                        {ronda.formato_juego === 'stableford' && (
-                          <div style={{
-                            marginTop: '6px',
-                            paddingTop: '6px',
-                            borderTop: '1px dashed #e5e7eb',
-                            fontSize: '9px',
-                            color: '#6b7280',
-                            textAlign: 'center',
-                            fontFamily: '"DM Mono", monospace',
-                            letterSpacing: '0.2px',
-                          }}>
-                            <span style={{ color: '#c4992a', fontWeight: 700 }}>4</span> Eagle
-                            {' \u00B7 '}
-                            <span style={{ color: '#c4992a', fontWeight: 700 }}>3</span> Birdie
-                            {' \u00B7 '}
-                            <span style={{ color: '#c4992a', fontWeight: 700 }}>2</span> Par
-                            {' \u00B7 '}
-                            <span style={{ color: '#c4992a', fontWeight: 700 }}>1</span> Bogey
-                            {' \u00B7 '}
-                            <span style={{ color: '#c4992a', fontWeight: 700 }}>0</span> Doble+
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })()}
+                  {/* Expandable scorecard — Componente Scorecard premium */}
+                  {isExpanded && j.holesPlayed > 0 && (
+                    <Scorecard
+                      holes={holeNums.map(h => ({
+                        numero: h,
+                        par: parMap[h] ?? 4,
+                        stroke_index: siMap[h] ?? h,
+                      }))}
+                      scores={j.scores}
+                      courseHandicap={courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)}
+                      modo={ronda.modo_juego as 'gross' | 'neto'}
+                      formato={ronda.formato_juego as ScorecardProps['formato']}
+                      playerName={j.nombre}
+                      courseName={ronda.course_name}
+                      date={fechaDisplay}
+                      formatLabel={(() => {
+                        if (ronda.formato_juego === 'stableford') return 'Stableford'
+                        const modoSuffix = ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'
+                        if (ronda.formato_juego === 'match_play') return `Match Play ${modoSuffix}`
+                        return `Stroke Play ${modoSuffix}`
+                      })()}
+                    />
+                  )}
                 </div>
               )
             })}
