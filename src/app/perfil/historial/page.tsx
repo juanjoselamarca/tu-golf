@@ -167,7 +167,7 @@ function scoreColor(vsPar: number | null): string {
   if (vsPar == null) return '#374151'
   if (vsPar < 0) return '#16a34a'
   if (vsPar === 0) return '#c4992a'
-  return '#dc2626'
+  return '#5a6370' // sobre par = gris neutro (NUNCA rojo para score total)
 }
 
 const TEE_COLORS: Record<string, string> = {
@@ -909,7 +909,7 @@ function HistorialContent() {
                       <div
                         key={r.id}
                         className="card-animate"
-                        onClick={() => toggleExpand(r.id)}
+                        onClick={() => router.push(`/perfil/historial/${r.id}`)}
                         style={{
                           borderBottom: rIdx < group.rounds.length - 1 ? '1px solid #f0f0f0' : 'none',
                           cursor: 'pointer',
