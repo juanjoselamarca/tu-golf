@@ -224,8 +224,8 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
         </GR>
       )}
 
-      {/* SCORE */}
-      <GR cols={cols} h={38} bg={K.bgS} bb={!isN}>
+      {/* SCORE — sin border bottom (el separador front/back o stats lo marca) */}
+      <GR cols={cols} h={38} bg={K.bgS} bb={false}>
         {st.map(s => <Cell key={s.hole.numero}><ScoreSymbol score={s.score} par={s.hole.par} size="sm" theme="light" /></Cell>)}
         <TotCellVsPar gross={tot.g} par={tot.p} />
       </GR>
@@ -545,10 +545,8 @@ export default function Scorecard({
           <>
             <MobileHalf label="OUT" st={f9} tot={ft} modo={modo} fmt={formato} ext={showExtendedInfo} />
             {hasB && bt && <>
-              {/* Mejora #4: separador Front/Back más intencional */}
-              <div style={{ height: 8, background: K.bgH, borderTop: `1px solid ${K.lineBold}`, borderBottom: `1px solid ${K.lineBold}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ width: 20, height: 1, background: K.lineBold }} />
-              </div>
+              {/* Separador Front/Back — solo espacio, sin líneas extra */}
+              <div style={{ height: 6, background: K.bgH }} />
               <MobileHalf label="IN" st={b9} tot={bt} modo={modo} fmt={formato} ext={showExtendedInfo} />
             </>}
           </>
