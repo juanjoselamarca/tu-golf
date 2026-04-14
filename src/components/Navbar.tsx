@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import NotificationHub from '@/components/NotificationHub'
-import { Home, Trophy, Radio, TrendingUp, ClipboardList, Upload, Zap, Play } from '@/components/icons'
+import { Home, Trophy, Radio, TrendingUp, ClipboardList, Upload, Zap, Play, Bell } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { useTheme } from '@/contexts/ThemeContext'
 import { getNavTheme } from './nav/nav-theme'
@@ -184,7 +184,7 @@ export default function Navbar() {
                       cursor: 'pointer', borderRadius: '8px', width: '100%', textAlign: 'left',
                       minHeight: '44px',
                     }}>
-                      <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>🔔</span>Notificaciones
+                      <span style={{ width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Bell size={16} /></span>Notificaciones
                     </button>
                     {isAdmin && (
                       <Link href="/admin" onClick={() => setAvatarMenuOpen(false)} style={{

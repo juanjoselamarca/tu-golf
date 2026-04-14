@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
+import { Flag, Users } from '@/components/icons'
 
 interface Course { slope_rating: number; course_rating: number; par_total: number; nombre?: string }
 interface Tournament {
@@ -495,7 +496,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           {tournament.courses && (
             <span style={{ background: 'rgba(196,153,42,0.12)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.3)', padding: '3px 10px', borderRadius: '20px', fontSize: '12px' }}>
-              ⛳ {(tournament.courses as unknown as { nombre: string }).nombre || 'Cancha'}
+              <Flag size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />{(tournament.courses as unknown as { nombre: string }).nombre || 'Cancha'}
             </span>
           )}
           <span style={{
@@ -850,7 +851,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
           {players.length === 0 ? (
             <div style={{ padding: '48px', textAlign: 'center', color: '#94a8c0' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>👥</div>
+              <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Users size={40} strokeWidth={1.5} /></div>
               <div style={{ fontSize: '16px', marginBottom: '6px', color: '#edeae4' }}>Sin jugadores aún</div>
               <div style={{ fontSize: '13px' }}>Busca y añade jugadores usando el formulario de arriba.</div>
             </div>

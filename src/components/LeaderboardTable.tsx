@@ -64,7 +64,7 @@ const TOAST_BORDER: Record<ToastType, string> = {
 }
 
 const AUTO_TOASTS: Omit<ToastItem, 'id' | 'visible'>[] = [
-  { type: 'birdie', icon: '🟡', title: 'Birdie · Carlos Méndez',      sub: 'Hoyo 12 · -9 total'            },
+  { type: 'birdie', icon: 'circle', title: 'Birdie · Carlos Méndez',      sub: 'Hoyo 12 · -9 total'            },
   { type: 'eagle',  icon: '🔵', title: 'Eagle · Roberto Silva',        sub: 'Hoyo 7 · -7 total'             },
   { type: 'leader', icon: 'trophy', title: 'Nuevo líder · C. Méndez',      sub: '-8 · TPC Sawgrass Amateur'      },
   { type: 'rise',   icon: '⬆️', title: 'Subió 2 puestos · F. García',  sub: 'Posición 4 · -2 total'          },

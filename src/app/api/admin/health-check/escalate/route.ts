@@ -17,6 +17,7 @@ interface CheckItem {
 
 // Share text — emoji OK for external platforms (GitHub issue markdown report)
 function statusIcon(status: string): string {
+  // Share text — emoji OK (GitHub Issue markdown)
   switch (status) {
     case 'fail':
       return '🔴'

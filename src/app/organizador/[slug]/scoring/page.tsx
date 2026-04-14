@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { Flag, PersonStanding } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 
@@ -337,7 +338,7 @@ export default function ScoringPage() {
     return (
       <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <div style={{ fontSize: '56px', marginBottom: '20px' }}>🏌️</div>
+          <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}><PersonStanding size={56} strokeWidth={1.5} /></div>
           <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#1a1a2e', marginBottom: '10px' }}>
             Sin jugadores inscritos
           </h3>
@@ -954,7 +955,7 @@ export default function ScoringPage() {
           </div>
         ) : (
           <div style={{ background: 'rgba(14,28,47,0.7)', border: '1px solid rgba(122,143,168,0.15)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: '#4a5568' }}>
-            <div style={{ fontSize: '36px', marginBottom: '12px' }}>⛳</div>
+            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Flag size={36} strokeWidth={1.5} /></div>
             <div style={{ fontSize: '16px', color: '#1a1a2e', marginBottom: '6px' }}>Selecciona un jugador arriba</div>
             <div style={{ fontSize: '13px' }}>Luego ingresa los scores hoyo a hoyo.</div>
           </div>

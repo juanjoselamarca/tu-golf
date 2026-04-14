@@ -1,5 +1,7 @@
 'use client'
 
+import { AlertTriangle } from '@/components/icons'
+
 interface ErrorStateProps {
   message:  string
   onRetry?: () => void
@@ -8,7 +10,7 @@ interface ErrorStateProps {
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <div style={{ textAlign: 'center', padding: '40px 20px' }} role="alert">
-      <div style={{ fontSize: '2rem', marginBottom: '12px' }}>⚠️</div>
+      <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><AlertTriangle size={32} strokeWidth={1.5} /></div>
       <p style={{ color: '#edeae4', marginBottom: '8px', fontSize: '15px' }}>{message}</p>
       {onRetry && (
         <button
