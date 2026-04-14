@@ -1,6 +1,5 @@
 'use client'
 import { AlertTriangle } from '@/components/icons'
-'use client'
 export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
     <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
