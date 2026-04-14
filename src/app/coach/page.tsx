@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Calendar } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
+import { TaigerHero } from '@/components/coach/TaigerHero'
 
 interface Session {
   id: string
@@ -68,15 +69,7 @@ export default function CoachDashboard() {
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 100px' }}>
 
       {/* Hero */}
-      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-        <div style={{ marginBottom: '8px', color: '#c4992a' }}><TaigerIcon size={48} /></div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', fontWeight: 700, color: '#edeae4', margin: '0 0 6px' }}>
-          tAIger+
-        </h1>
-        <p style={{ fontSize: '13px', color: '#94a8c0', margin: 0 }}>
-          Tu coach de rendimiento con inteligencia artificial
-        </p>
-      </div>
+      <TaigerHero subtitle="Tu coach de rendimiento con inteligencia artificial" />
 
       {/* Data summary */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '20px' }}>
