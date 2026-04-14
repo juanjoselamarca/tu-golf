@@ -1194,6 +1194,11 @@ export default function NuevaRondaLibrePage() {
                   <div style={{ fontSize: '15px', fontWeight: 600, color: colors.textPrimary }}>{creatorName}</div>
                   <div style={{ fontSize: '12px', color: colors.textSecondary }}>
                     Índice {creatorHandicap != null ? creatorHandicap : '--'}
+                    {creatorHandicap != null && courseDetails?.slope_rating && courseDetails?.course_rating && courseDetails?.par_total && (
+                      <span style={{ color: '#c4992a', marginLeft: '6px' }}>
+                        HCP {Math.round(creatorHandicap * (courseDetails.slope_rating / 113) + ((courseDetails.course_rating ?? 72) - (courseDetails.par_total ?? 72)))}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span style={{
@@ -1265,8 +1270,8 @@ export default function NuevaRondaLibrePage() {
                         </button>
                       </div>
 
-                      {/* Índice WHS — se usa para calcular handicap de cancha */}
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {/* Índice WHS → Handicap de cancha calculado */}
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <label style={{ fontSize: '12px', color: colors.textLabel, flexShrink: 0 }}>Índice</label>
                         <input
                           type="number"
@@ -1281,6 +1286,11 @@ export default function NuevaRondaLibrePage() {
                             width: '90px', minHeight: '38px', boxSizing: 'border-box' as const,
                           }}
                         />
+                        {player.handicap != null && courseDetails?.slope_rating && courseDetails?.course_rating && courseDetails?.par_total && (
+                          <span style={{ fontSize: '12px', color: '#c4992a', fontWeight: 600 }}>
+                            HCP {Math.round(player.handicap * (courseDetails.slope_rating / 113) + ((courseDetails.course_rating ?? 72) - (courseDetails.par_total ?? 72)))}
+                          </span>
+                        )}
                       </div>
 
                       {/* Phone input for guests */}
