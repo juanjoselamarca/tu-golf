@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Flag, CheckCircle, Bell, ClipboardList, Trophy, Handshake, PersonStanding } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult, type MatchHoleDetail } from '@/golf/formats/match-play'
@@ -33,7 +34,7 @@ function NotifBanner({ onEnable }: { onEnable: () => void }) {
       display: 'flex', alignItems: 'center', gap: '12px',
       transition: 'all 0.3s',
     }}>
-      <span style={{ fontSize: '20px', flexShrink: 0 }}>{activated ? '✅' : '🔔'}</span>
+      <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>{activated ? <CheckCircle size={20} /> : <Bell size={20} />}</span>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: '13px', fontWeight: 600, color: activated ? '#16a34a' : '#111827' }}>
           {activated ? 'Alertas activadas' : 'Sigue la ronda en vivo'}
@@ -200,9 +201,9 @@ function AuthModal({ action, codigo, onClose }: { action: string; codigo: string
           background: 'rgba(196,153,42,0.1)',
           border: '1px solid rgba(196,153,42,0.2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 20px', fontSize: '28px',
+          margin: '0 auto 20px',
         }}>
-          ⛳
+          <Flag size={28} />
         </div>
         <h2 style={{
           fontFamily: '"Playfair Display", serif',
@@ -621,7 +622,7 @@ function RondaLibrePageContent() {
   if (fetchError && !ronda) {
     return (
       <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', fontFamily: 'DM Sans, sans-serif', padding: '24px' }}>
-        <div style={{ fontSize: '48px' }}>⛳</div>
+        <div style={{ display: 'flex', justifyContent: 'center' }}><Flag size={48} strokeWidth={1.5} /></div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#1a1a2e', textAlign: 'center' }}>
           Error al cargar la ronda
         </h1>
@@ -649,7 +650,7 @@ function RondaLibrePageContent() {
   if (notFound || !ronda) {
     return (
       <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', fontFamily: 'DM Sans, sans-serif', padding: '24px' }}>
-        <div style={{ fontSize: '64px' }}>🏌️</div>
+        <div style={{ display: 'flex', justifyContent: 'center' }}><PersonStanding size={64} strokeWidth={1.5} /></div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#1a1a2e', textAlign: 'center' }}>
           Ronda no encontrada
         </h1>
@@ -820,7 +821,7 @@ function RondaLibrePageContent() {
               background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.2)',
               borderRadius: '12px', padding: '12px 16px', marginBottom: '16px',
             }}>
-              <span style={{ fontSize: '18px', flexShrink: 0 }}>📋</span>
+              <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}><ClipboardList size={18} /></span>
               <span style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.4 }}>
                 <strong style={{ color: '#374151' }}>{adminPlayerName}</strong> lleva el score del grupo
               </span>
@@ -857,7 +858,7 @@ function RondaLibrePageContent() {
                 }}>
                   <div style={{ height: '4px', background: 'linear-gradient(90deg, #c4992a, #d4a843, #c4992a)' }} />
                   <div style={{ padding: '28px 20px 20px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '8px' }}>{isAllSquare ? '🤝' : '🏆'}</div>
+                    <div style={{ fontSize: '48px', marginBottom: '8px' }}>{isAllSquare ? <Handshake size={48} /> : <Trophy size={48} />}</div>
                     <div style={{
                       fontSize: '11px', fontWeight: 700, color: '#c4992a',
                       textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '8px',
@@ -961,7 +962,7 @@ function RondaLibrePageContent() {
                   {/* Gold accent bar */}
                   <div style={{ height: '4px', background: 'linear-gradient(90deg, #c4992a, #d4a843, #c4992a)' }} />
                   <div style={{ padding: '24px 20px 16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '4px' }}>{isTie ? '🤝' : '🏆'}</div>
+                    <div style={{ fontSize: '48px', marginBottom: '4px' }}>{isTie ? <Handshake size={48} /> : <Trophy size={48} />}</div>
                     <div style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '6px' }}>
                       {isTie ? 'Empate' : 'Ganador'}
                     </div>

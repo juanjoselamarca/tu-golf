@@ -8,6 +8,7 @@ import {
   getInitials, formatScore, scoreColor, holeResult,
 } from '@/lib/golf-data'
 import { GWICell } from '@/components/GWICell'
+import { Flag } from '@/components/icons'
 
 // GWI demo data keyed by player name
 function generateGWISeries(indice: number, seed: number): number[] {
@@ -65,7 +66,7 @@ const TOAST_BORDER: Record<ToastType, string> = {
 const AUTO_TOASTS: Omit<ToastItem, 'id' | 'visible'>[] = [
   { type: 'birdie', icon: '🟡', title: 'Birdie · Carlos Méndez',      sub: 'Hoyo 12 · -9 total'            },
   { type: 'eagle',  icon: '🔵', title: 'Eagle · Roberto Silva',        sub: 'Hoyo 7 · -7 total'             },
-  { type: 'leader', icon: '🏆', title: 'Nuevo líder · C. Méndez',      sub: '-8 · TPC Sawgrass Amateur'      },
+  { type: 'leader', icon: 'trophy', title: 'Nuevo líder · C. Méndez',      sub: '-8 · TPC Sawgrass Amateur'      },
   { type: 'rise',   icon: '⬆️', title: 'Subió 2 puestos · F. García',  sub: 'Posición 4 · -2 total'          },
 ]
 
@@ -282,7 +283,7 @@ function ShareCard({
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <div style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: 17, fontWeight: 700, color: '#c4992a' }}>Golfers+</div>
-        <div style={{ fontSize: 17 }}>⛳</div>
+        <div style={{ display: 'flex', alignItems: 'center' }}><Flag size={17} /></div>
       </div>
 
       {/* Gold line */}
