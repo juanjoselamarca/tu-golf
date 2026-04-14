@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { useFormErrors } from '@/hooks/useFormErrors'
+import { Zap, Check } from '@/components/icons'
 
 function Spinner() {
   return (
@@ -182,7 +183,7 @@ function RegisterContent() {
           onMouseLeave={(e) => { if (!isOpen) (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '18px', color: '#c4992a' }}>⚡</span>
+            <Zap size={18} color="#c4992a" strokeWidth={1.5} />
             <div style={{ textAlign: 'left' }}>
               <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>Registro con email y contraseña</div>
               <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>Email, contraseña, nombre e índice (opcional)</div>
@@ -280,7 +281,7 @@ function RegisterContent() {
               {loading ? 'Creando cuenta...' : 'Crear mi cuenta →'}
             </button>
             <p style={{ fontSize: '11px', color: 'var(--text-2)', textAlign: 'center', margin: '2px 0 0' }}>
-              ✓ Gratis &nbsp;·&nbsp; ✓ Sin tarjeta &nbsp;·&nbsp; ✓ Sin spam
+              <Check size={12} strokeWidth={2} style={{ display: 'inline', verticalAlign: 'middle' }} /> Gratis &nbsp;&middot;&nbsp; <Check size={12} strokeWidth={2} style={{ display: 'inline', verticalAlign: 'middle' }} /> Sin tarjeta &nbsp;&middot;&nbsp; <Check size={12} strokeWidth={2} style={{ display: 'inline', verticalAlign: 'middle' }} /> Sin spam
             </p>
           </form>
         </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatLabel } from '@/golf/core/rules'
+import { Radio, Flag } from '@/components/icons'
 
 interface JugadorEnVivo {
   id: string
@@ -149,7 +150,7 @@ export default function EnVivoPage() {
         ) : fetchError ? (
           /* Error de conexión */
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ fontSize: '56px', marginBottom: '16px' }}>📡</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><Radio size={56} strokeWidth={1.5} /></div>
             <h2 style={{
               fontFamily: 'var(--font-playfair)', fontSize: '22px', fontWeight: 700,
               color: 'var(--ivory)', marginBottom: '8px',
@@ -168,7 +169,7 @@ export default function EnVivoPage() {
         ) : rondas.length === 0 ? (
           /* Estado vacío */
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ fontSize: '56px', marginBottom: '16px' }}>⛳</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><Flag size={56} strokeWidth={1.5} /></div>
             <h2 style={{
               fontFamily: 'var(--font-playfair)', fontSize: '22px', fontWeight: 700,
               color: 'var(--ivory)', marginBottom: '8px',

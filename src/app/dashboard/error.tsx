@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Flag } from '@/components/icons'
 
 export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
@@ -10,7 +11,7 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
       alignItems: 'center', justifyContent: 'center',
       padding: '24px', textAlign: 'center',
     }}>
-      <div style={{ fontSize: '48px', marginBottom: '16px' }}>⛳</div>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><Flag size={48} strokeWidth={1.5} /></div>
       <h1 style={{
         fontFamily: '"Playfair Display", serif',
         fontSize: '24px', fontWeight: 700, color: '#edeae4',
