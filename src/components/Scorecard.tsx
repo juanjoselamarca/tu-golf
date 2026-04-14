@@ -1,19 +1,17 @@
 'use client'
 
 /**
- * Scorecard v9 — Mejoras M1, M2, M4, D1-D5.
+ * Scorecard v11 — 9 mejoras finales pre-producción.
  *
- * MOBILE:
- * M1: Separador 2px entre par y score (marca inicio de datos)
- * M2: Totales OUT/IN con vs-par debajo (+10, -2, E)
- * M4: Fila neto con fondo blanco (dato del jugador, no contexto de cancha)
- *
- * DESKTOP:
- * D1: Columna OUT con borderRight visible (cierre front 9 / back 9)
- * D2: Hover en columna de hoyo (highlight vertical)
- * D3: Score row 44px (más aire)
- * D4: Grand total TOT con borderLeft 2px
- * D5: Labels con letter-spacing 0.1em
+ * 1. Contexto de ronda en header (club, fecha, formato)
+ * 2. Front 9 vs Back 9 comparison en stats
+ * 3. ScoreSymbol md en desktop (28px vs 22px mobile)
+ * 4. Separador Front/Back más intencional en mobile
+ * 5. Label "PTS" visible en stableford mobile (columna total)
+ * 6. Stats expandido en desktop (una línea con front/back + conteos)
+ * 7. Hole numbers mobile 10px (era 9px)
+ * 8. Hover desktop 8% (era 4%)
+ * 9. Props para contexto de ronda (courseName, date, formatLabel)
  */
 
 import { memo, useState, useEffect } from 'react'
@@ -43,6 +41,10 @@ export interface ScorecardProps {
   playerName?: string
   avatarUrl?: string
   showExtendedInfo?: boolean
+  /** Contexto de ronda — mejora #1 */
+  courseName?: string
+  date?: string
+  formatLabel?: string
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -114,11 +116,12 @@ const K = {
   bgS: '#ffffff',
   bgTot: '#edf0f3',
   tp: '#1a1a2e',
-  ts: '#5a6370',           // subido contraste (era #7c8594)
-  tm: '#7c8594',           // subido contraste (era #9ca3af)
+  ts: '#5a6370',
+  tm: '#7c8594',
   gold: '#c4992a',
-  dotColor: '#5a6370',     // dots más visibles
+  dotColor: '#5a6370',
   dotSize: 4,
+  hoverBg: 'rgba(196,153,42,0.08)', // mejora #8: hover 8%
 } as const
 
 // ═══════════════════════════════════════════════════════════
@@ -144,7 +147,6 @@ function Cell({ children, style }: { children: React.ReactNode; style?: React.CS
   return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, height: '100%', fontFamily: MONO, ...style }}>{children}</div>
 }
 
-// M2: Total cell with vs-par underneath
 function TotCellVsPar({ gross, par, bg = K.bgH }: { gross: number; par: number; bg?: string }) {
   const ou = gross - par
   return (
@@ -179,7 +181,7 @@ function GR({ cols, children, h, bg, bb = true, bt = false, bbColor = K.line, bb
 }
 
 // ═══════════════════════════════════════════════════════════
-// MOBILE
+// MOBILE HALF
 // ═══════════════════════════════════════════════════════════
 
 const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: {
@@ -191,13 +193,13 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
 
   return (
     <>
-      {/* HOLE */}
+      {/* HOLE — mejora #7: 10px */}
       <GR cols={cols} h={22} bg={K.bgH}>
-        {st.map(s => <Cell key={s.hole.numero}><TX t={String(s.hole.numero)} sz={9} c={K.tm} w={600} /></Cell>)}
-        <TotCell><TX t={label} sz={9} c={K.ts} w={700} /></TotCell>
+        {st.map(s => <Cell key={s.hole.numero}><TX t={String(s.hole.numero)} sz={10} c={K.tm} w={600} /></Cell>)}
+        <TotCell><TX t={label} sz={10} c={K.ts} w={700} /></TotCell>
       </GR>
 
-      {/* PAR — M1: bottom border 2px bold (separador visible par→score) */}
+      {/* PAR — separador grueso debajo */}
       <GR cols={cols} h={22} bg={K.bgH} bbColor={K.lineBold} bbW={2}>
         {st.map(s => <Cell key={s.hole.numero}><TX t={String(s.hole.par)} sz={10} c={K.tm} w={500} /></Cell>)}
         <TotCell><TX t={String(tot.p)} sz={10} c={K.tm} w={600} /></TotCell>
@@ -205,24 +207,24 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
 
       {/* Extended: yardaje con total */}
       {ext && (() => {
-        const ydsTotal = st.reduce((a, s) => a + (s.hole.yardaje ?? 0), 0)
+        const ydsT = st.reduce((a, s) => a + (s.hole.yardaje ?? 0), 0)
         return (
           <GR cols={cols} h={20} bg={K.bgH}>
-            {st.map(s => <Cell key={s.hole.numero}><TX t={s.hole.yardaje ? String(s.hole.yardaje) : ''} sz={8} c={K.tm} /></Cell>)}
-            <TotCell><TX t={ydsTotal > 0 ? String(ydsTotal) : ''} sz={8} c={K.tm} w={600} /></TotCell>
+            {st.map(s => <Cell key={s.hole.numero}><TX t={s.hole.yardaje ? String(s.hole.yardaje) : ''} sz={9} c={K.tm} /></Cell>)}
+            <TotCell><TX t={ydsT > 0 ? String(ydsT) : ''} sz={9} c={K.tm} w={600} /></TotCell>
           </GR>
         )
       })()}
 
-      {/* Extended: Hdcp */}
+      {/* Extended: Hdcp — mejora #6 mobile: label "Hdcp" en total */}
       {ext && (
         <GR cols={cols} h={20} bg={K.bgH} bbColor={K.lineBold} bbW={2}>
-          {st.map(s => <Cell key={s.hole.numero}><TX t={String(s.hole.stroke_index)} sz={8} c={K.tm} /></Cell>)}
-          <TotCell><TX t="Hdcp" sz={7} c={K.tm} w={600} /></TotCell>
+          {st.map(s => <Cell key={s.hole.numero}><TX t={String(s.hole.stroke_index)} sz={9} c={K.tm} /></Cell>)}
+          <TotCell><TX t="Hdcp" sz={7} c={K.ts} w={600} /></TotCell>
         </GR>
       )}
 
-      {/* SCORE — M2: TotCellVsPar with gross + vs-par underneath */}
+      {/* SCORE */}
       <GR cols={cols} h={38} bg={K.bgS} bb={!isN}>
         {st.map(s => <Cell key={s.hole.numero}><ScoreSymbol score={s.score} par={s.hole.par} size="sm" theme="light" /></Cell>)}
         <TotCellVsPar gross={tot.g} par={tot.p} />
@@ -236,24 +238,29 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
         </GR>
       )}
 
-      {/* NETO — M4: fondo blanco (dato del jugador) */}
+      {/* NETO */}
       {isN && !isSt && (
-        <GR cols={cols} h={24} bg={K.bgS} bt>
+        <GR cols={cols} h={24} bg={K.bgS}>
           {st.map(s => <Cell key={s.hole.numero}><TX t={s.neto != null ? String(s.neto) : ''} sz={10} c={K.ts} w={500} it /></Cell>)}
           <TotCell bg={K.bgS}><TX t={tot.n > 0 ? String(tot.n) : ''} sz={11} c={K.ts} w={700} it /></TotCell>
         </GR>
       )}
 
-      {/* STABLEFORD — sin líneas dobles entre neto y pts */}
+      {/* STABLEFORD — mejora #5: label "PTS" en total cell */}
       {isSt && (
         <>
-          <GR cols={cols} h={24} bg={K.bgS} bt bb={false}>
+          <GR cols={cols} h={24} bg={K.bgS} bb={false}>
             {st.map(s => <Cell key={s.hole.numero}><TX t={s.neto != null ? String(s.neto) : ''} sz={10} c={K.ts} w={500} it /></Cell>)}
             <TotCell bg={K.bgS}><TX t={tot.n > 0 ? String(tot.n) : ''} sz={10} c={K.ts} w={600} it /></TotCell>
           </GR>
-          <GR cols={cols} h={26} bg={K.bgS} bt>
+          <GR cols={cols} h={28} bg={K.bgS}>
             {st.map(s => <Cell key={s.hole.numero}><TX t={s.stabPts != null ? String(s.stabPts) : ''} sz={12} c={K.gold} w={700} /></Cell>)}
-            <TotCell bg={K.bgS}><TX t={tot.s > 0 ? String(tot.s) : ''} sz={14} c={K.gold} w={800} /></TotCell>
+            <TotCell bg={K.bgS}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <TX t={tot.s > 0 ? String(tot.s) : ''} sz={14} c={K.gold} w={800} />
+                {tot.s > 0 && <span style={{ fontSize: 7, color: K.gold, fontWeight: 600, fontFamily: SANS, letterSpacing: '0.08em' }}>PTS</span>}
+              </div>
+            </TotCell>
           </GR>
         </>
       )}
@@ -262,7 +269,7 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
 })
 
 // ═══════════════════════════════════════════════════════════
-// DESKTOP — D1-D5
+// DESKTOP TABLE — mejoras #3 (md icons), #8 (hover 8%)
 // ═══════════════════════════════════════════════════════════
 
 const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, ext }: {
@@ -272,72 +279,41 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
   const isSt = fmt === 'stableford'
   const [hoverCol, setHoverCol] = useState<number | null>(null)
 
-  // 22 cols: label(38px) + 9×1fr + OUT(46px) + 9×1fr + IN(46px) + TOT(50px)
   const cols = `38px repeat(9, 1fr) 46px repeat(9, 1fr) 46px 50px`
 
-  // D2: hover highlight color
-  const hoverBg = 'rgba(196,153,42,0.04)'
-
-  function R({ lbl, fCells, fTot, bCells, bTot, grand, h, bg, bb = true, bbt = false,
-               bbColor = K.line, bbW = 1, scoreRow = false }: {
+  function R({ lbl, fCells, fTot, bCells, bTot, grand, h, bg, bb = true, bbt = false, bbColor = K.line, bbW = 1 }: {
     lbl: React.ReactNode; fCells: React.ReactNode[]; fTot: React.ReactNode
     bCells: React.ReactNode[]; bTot: React.ReactNode; grand: React.ReactNode
     h: number; bg: string; bb?: boolean; bbt?: boolean; bbColor?: string; bbW?: number
-    scoreRow?: boolean
   }) {
     return (
       <GR cols={cols} h={h} bg={bg} bb={bb} bt={bbt} bbColor={bbColor} bbW={bbW}>
-        {/* D5: Label with letter-spacing */}
         <Cell style={{ justifyContent: 'flex-start', paddingLeft: 6 }}>{lbl}</Cell>
-
-        {/* Front 9 — D2: hover */}
         {fCells.map((c, i) => (
-          <Cell key={`f${i}`}
-            style={{ background: hoverCol === i ? hoverBg : 'transparent', transition: 'background 0.1s' }}
-          >
+          <Cell key={`f${i}`} style={{ background: hoverCol === i ? K.hoverBg : 'transparent', transition: 'background 0.1s' }}>
             <div onMouseEnter={() => setHoverCol(i)} onMouseLeave={() => setHoverCol(null)}
-                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-              {c}
-            </div>
+                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>{c}</div>
           </Cell>
         ))}
-
-        {/* D1: OUT with borderRight */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO,
-          height: '100%', borderLeft: `1px solid ${K.line}`, borderRight: `1px solid ${K.line}`,
-          background: K.bgH,
-        }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, height: '100%', borderLeft: `1px solid ${K.line}`, borderRight: `1px solid ${K.line}`, background: K.bgH }}>
           {fTot}
         </div>
-
-        {/* Back 9 — D2: hover (offset by 9) */}
         {bCells.map((c, i) => (
-          <Cell key={`b${i}`}
-            style={{ background: hoverCol === i + 9 ? hoverBg : 'transparent', transition: 'background 0.1s' }}
-          >
+          <Cell key={`b${i}`} style={{ background: hoverCol === i + 9 ? K.hoverBg : 'transparent', transition: 'background 0.1s' }}>
             <div onMouseEnter={() => setHoverCol(i + 9)} onMouseLeave={() => setHoverCol(null)}
-                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-              {c}
-            </div>
+                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>{c}</div>
           </Cell>
         ))}
-
-        {/* IN */}
         <TotCell>{bTot}</TotCell>
-
-        {/* D4: TOT with 2px border and darker bg */}
         <TotCell bg={K.bgTot} borderW={2}>{grand}</TotCell>
       </GR>
     )
   }
 
-  // D5: labels with tracking
   const L = (t: string) => <span style={{ fontSize: 8, color: K.ts, fontWeight: 700, letterSpacing: '0.1em', fontFamily: SANS }}>{t}</span>
 
   return (
     <>
-      {/* HOLE */}
       <R lbl={L('HOLE')} h={26} bg={K.bgH}
         fCells={f.map(s => <TX key={s.hole.numero} t={String(s.hole.numero)} sz={11} c={K.ts} w={600} />)}
         fTot={<TX t="OUT" sz={10} c={K.ts} w={700} />}
@@ -346,7 +322,6 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
         grand={<TX t="TOT" sz={10} c={K.ts} w={700} />}
       />
 
-      {/* PAR — M1: bold bottom border */}
       <R lbl={L('PAR')} h={26} bg={K.bgH} bbColor={K.lineBold} bbW={2}
         fCells={f.map(s => <TX key={s.hole.numero} t={String(s.hole.par)} sz={12} c={K.tm} w={500} />)}
         fTot={<TX t={String(ft.p)} sz={12} c={K.tm} w={600} />}
@@ -355,22 +330,20 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
         grand={<TX t={String(gt.p)} sz={12} c={K.tm} w={700} />}
       />
 
-      {/* Extended: yardaje */}
       {ext && (() => {
-        const fYds = f.reduce((a, s) => a + (s.hole.yardaje ?? 0), 0)
-        const bYds = b.reduce((a, s) => a + (s.hole.yardaje ?? 0), 0)
+        const fY = f.reduce((a, s) => a + (s.hole.yardaje ?? 0), 0)
+        const bY = b.reduce((a, s) => a + (s.hole.yardaje ?? 0), 0)
         return (
           <R lbl={L('YDS')} h={22} bg={K.bgH}
             fCells={f.map(s => <TX key={s.hole.numero} t={s.hole.yardaje ? String(s.hole.yardaje) : ''} sz={9} c={K.tm} />)}
-            fTot={fYds > 0 ? <TX t={String(fYds)} sz={9} c={K.tm} w={600} /> : null}
+            fTot={fY > 0 ? <TX t={String(fY)} sz={9} c={K.tm} w={600} /> : null}
             bCells={b.map(s => <TX key={s.hole.numero} t={s.hole.yardaje ? String(s.hole.yardaje) : ''} sz={9} c={K.tm} />)}
-            bTot={bYds > 0 ? <TX t={String(bYds)} sz={9} c={K.tm} w={600} /> : null}
-            grand={fYds + bYds > 0 ? <TX t={String(fYds + bYds)} sz={9} c={K.ts} w={700} /> : null}
+            bTot={bY > 0 ? <TX t={String(bY)} sz={9} c={K.tm} w={600} /> : null}
+            grand={fY + bY > 0 ? <TX t={String(fY + bY)} sz={9} c={K.ts} w={700} /> : null}
           />
         )
       })()}
 
-      {/* Extended: Hdcp */}
       {ext && (
         <R lbl={L('HDCP')} h={22} bg={K.bgH} bbColor={K.lineBold} bbW={2}
           fCells={f.map(s => <TX key={s.hole.numero} t={String(s.hole.stroke_index)} sz={9} c={K.tm} />)}
@@ -379,16 +352,15 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
         />
       )}
 
-      {/* SCORE — D3: 44px, solo números en totals (vs-par solo en header) */}
-      <R lbl={L('GROSS')} h={44} bg={K.bgS} bb={!isN} scoreRow
-        fCells={f.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />)}
+      {/* SCORE — mejora #3: md icons en desktop (28px) */}
+      <R lbl={L('GROSS')} h={44} bg={K.bgS} bb={!isN}
+        fCells={f.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="md" theme="light" />)}
         fTot={<TX t={ft.g > 0 ? String(ft.g) : ''} sz={15} c={K.tp} w={700} />}
-        bCells={b.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="sm" theme="light" />)}
+        bCells={b.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="md" theme="light" />)}
         bTot={<TX t={bt.g > 0 ? String(bt.g) : ''} sz={15} c={K.tp} w={700} />}
         grand={<TX t={gt.g > 0 ? String(gt.g) : ''} sz={16} c={K.tp} w={800} />}
       />
 
-      {/* DOTS */}
       {isN && (
         <R lbl={<span />} h={16} bg={K.bgS} bb={false}
           fCells={f.map(s => <StrokeDots key={s.hole.numero} count={s.strokes} />)}
@@ -397,7 +369,6 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
         />
       )}
 
-      {/* NETO — M4: white bg */}
       {isN && !isSt && (
         <R lbl={L('NETO')} h={26} bg={K.bgS} bbt
           fCells={f.map(s => <TX key={s.hole.numero} t={s.neto != null ? String(s.neto) : ''} sz={12} c={K.ts} w={500} it />)}
@@ -408,7 +379,6 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
         />
       )}
 
-      {/* STABLEFORD — sin líneas dobles */}
       {isSt && (
         <>
           <R lbl={L('NETO')} h={26} bg={K.bgS} bbt bb={false}
@@ -418,7 +388,7 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
             bTot={<TX t={bt.n > 0 ? String(bt.n) : ''} sz={12} c={K.ts} w={600} it />}
             grand={<TX t={gt.n > 0 ? String(gt.n) : ''} sz={12} c={K.ts} w={700} it />}
           />
-          <R lbl={L('PTS')} h={28} bg={K.bgS} bbt
+          <R lbl={L('PTS')} h={28} bg={K.bgS}
             fCells={f.map(s => <TX key={s.hole.numero} t={s.stabPts != null ? String(s.stabPts) : ''} sz={13} c={K.gold} w={700} />)}
             fTot={<TX t={ft.s > 0 ? String(ft.s) : ''} sz={14} c={K.gold} w={800} />}
             bCells={b.map(s => <TX key={s.hole.numero} t={s.stabPts != null ? String(s.stabPts) : ''} sz={13} c={K.gold} w={700} />)}
@@ -432,10 +402,10 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
 })
 
 // ═══════════════════════════════════════════════════════════
-// STATS
+// STATS — mejora #2 y #6: front/back comparison + expandido desktop
 // ═══════════════════════════════════════════════════════════
 
-function Stats({ st }: { st: HS[] }) {
+function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: boolean }) {
   const c = countRes(st)
   const items: { l: string; n: number; c: string }[] = []
   if (c.e > 0) items.push({ l: 'Eagles', n: c.e, c: GARMIN_COLORS.eagle })
@@ -443,14 +413,41 @@ function Stats({ st }: { st: HS[] }) {
   items.push({ l: 'Pares', n: c.p, c: K.ts })
   if (c.bo > 0) items.push({ l: 'Bogeys', n: c.bo, c: GARMIN_COLORS.bogey })
   if (c.d > 0) items.push({ l: 'Doble+', n: c.d, c: GARMIN_COLORS.double })
+
+  // Mejora #2: front vs back comparison
+  const hasBoth = bt != null && ft.g > 0 && bt.g > 0
+  const fOu = ft.g - ft.p
+  const bOu = bt ? bt.g - bt.p : 0
+  const diff = hasBoth ? bOu - fOu : 0
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', padding: '8px 16px', borderTop: `1px solid ${K.line}`, background: K.bgH }}>
-      {items.map(i => (
-        <div key={i.l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: i.c, fontFamily: MONO }}>{i.n}</span>
-          <span style={{ fontSize: 10, color: K.ts }}>{i.l}</span>
+    <div style={{ borderTop: `1px solid ${K.line}`, background: K.bgH, padding: wide ? '10px 20px' : '8px 14px' }}>
+      {/* Score counts */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: wide ? 16 : 12, flexWrap: 'wrap' }}>
+        {items.map(i => (
+          <div key={i.l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{ fontSize: wide ? 13 : 12, fontWeight: 700, color: i.c, fontFamily: MONO }}>{i.n}</span>
+            <span style={{ fontSize: wide ? 11 : 10, color: K.ts }}>{i.l}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Front vs Back — mejora #2 */}
+      {hasBoth && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: wide ? 20 : 12,
+          marginTop: 6, paddingTop: 6, borderTop: `1px solid ${K.line}`,
+          fontSize: wide ? 11 : 10, color: K.ts, fontFamily: MONO,
+        }}>
+          <span>Front: {ft.g} ({fmtOu(fOu)})</span>
+          <span>Back: {bt!.g} ({fmtOu(bOu)})</span>
+          {diff !== 0 && (
+            <span style={{ color: diff < 0 ? GARMIN_COLORS.birdie : GARMIN_COLORS.double, fontWeight: 600 }}>
+              {diff < 0 ? `↑ Mejoró ${Math.abs(diff)}` : `↓ Subió ${diff}`}
+            </span>
+          )}
         </div>
-      ))}
+      )}
     </div>
   )
 }
@@ -462,6 +459,7 @@ function Stats({ st }: { st: HS[] }) {
 export default function Scorecard({
   holes, scores, courseHandicap, modo, formato,
   playerName, avatarUrl, showExtendedInfo = false,
+  courseName, date, formatLabel,
 }: ScorecardProps) {
   const wide = useIsWide(768)
   const tH = holes.length
@@ -480,39 +478,57 @@ export default function Scorecard({
       boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
       overflow: 'hidden', fontFamily: SANS, maxWidth: wide ? 960 : '100%',
     }}>
-      {/* HEADER */}
-      {(playerName || played > 0) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: `1px solid ${K.line}` }}>
-          {playerName && !avatarUrl && (
-            <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: K.bgH, border: `1px solid ${K.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: K.ts }}>
-              {playerName.charAt(0).toUpperCase()}
-            </div>
-          )}
-          {avatarUrl && (
-            <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: `1px solid ${K.line}` }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-          )}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {playerName && <div style={{ fontSize: 14, fontWeight: 600, color: K.tp, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName}</div>}
-            {isN && courseHandicap !== 0 && <div style={{ fontSize: 10, color: K.tm, marginTop: 1 }}>HCP {courseHandicap}</div>}
-          </div>
-          {played > 0 && (
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              {isSt ? (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                  <span style={{ fontSize: 24, fontWeight: 700, color: K.gold, lineHeight: 1, fontFamily: MONO }}>{gt.s}</span>
-                  <span style={{ fontSize: 10, color: K.gold, fontWeight: 600 }}>pts</span>
+      {/* HEADER — mejora #1: contexto de ronda */}
+      {(playerName || played > 0 || courseName) && (
+        <div style={{ padding: '14px 16px', borderBottom: `1px solid ${K.line}` }}>
+          {/* Contexto: club, fecha, formato */}
+          {(courseName || date || formatLabel) && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: playerName ? 10 : 0 }}>
+              <div>
+                {courseName && <div style={{ fontSize: 13, fontWeight: 600, color: K.tp }}>{courseName}</div>}
+                <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                  {date && <span style={{ fontSize: 10, color: K.tm }}>{date}</span>}
+                  {formatLabel && <span style={{ fontSize: 10, color: K.gold, fontWeight: 600 }}>{formatLabel}</span>}
                 </div>
-              ) : (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, justifyContent: 'flex-end' }}>
-                    <span style={{ fontSize: 28, fontWeight: 700, color: K.tp, lineHeight: 1, fontFamily: MONO }}>{gt.g}</span>
-                    <span style={{ fontSize: 14, color: K.ts, fontWeight: 500, fontFamily: MONO }}>{fmtOu(gt.g - gt.p)}</span>
-                  </div>
-                  {isN && courseHandicap !== 0 && (
-                    <div style={{ fontSize: 11, color: K.tm, marginTop: 3, fontFamily: MONO, textAlign: 'right' }}>{gt.n} {fmtOu(gt.n - gt.p)} net</div>
+              </div>
+            </div>
+          )}
+
+          {/* Player + score */}
+          {(playerName || played > 0) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {playerName && !avatarUrl && (
+                <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: K.bgH, border: `1px solid ${K.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: K.ts }}>
+                  {playerName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              {avatarUrl && (
+                <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: `1px solid ${K.line}` }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {playerName && <div style={{ fontSize: 14, fontWeight: 600, color: K.tp, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName}</div>}
+                {isN && courseHandicap !== 0 && <div style={{ fontSize: 10, color: K.tm, marginTop: 1 }}>HCP {courseHandicap}</div>}
+              </div>
+              {played > 0 && (
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  {isSt ? (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                      <span style={{ fontSize: wide ? 28 : 24, fontWeight: 700, color: K.gold, lineHeight: 1, fontFamily: MONO }}>{gt.s}</span>
+                      <span style={{ fontSize: 10, color: K.gold, fontWeight: 600 }}>pts</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, justifyContent: 'flex-end' }}>
+                        <span style={{ fontSize: wide ? 28 : 24, fontWeight: 700, color: K.tp, lineHeight: 1, fontFamily: MONO }}>{gt.g}</span>
+                        <span style={{ fontSize: wide ? 14 : 12, color: K.ts, fontWeight: 500, fontFamily: MONO }}>{fmtOu(gt.g - gt.p)}</span>
+                      </div>
+                      {isN && courseHandicap !== 0 && (
+                        <div style={{ fontSize: wide ? 11 : 10, color: K.tm, marginTop: 3, fontFamily: MONO, textAlign: 'right' }}>{gt.n} {fmtOu(gt.n - gt.p)} net</div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -529,15 +545,18 @@ export default function Scorecard({
           <>
             <MobileHalf label="OUT" st={f9} tot={ft} modo={modo} fmt={formato} ext={showExtendedInfo} />
             {hasB && bt && <>
-              <div style={{ height: 4, background: K.bgH, borderBottom: `1px solid ${K.line}` }} />
+              {/* Mejora #4: separador Front/Back más intencional */}
+              <div style={{ height: 8, background: K.bgH, borderTop: `1px solid ${K.lineBold}`, borderBottom: `1px solid ${K.lineBold}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 20, height: 1, background: K.lineBold }} />
+              </div>
               <MobileHalf label="IN" st={b9} tot={bt} modo={modo} fmt={formato} ext={showExtendedInfo} />
             </>}
           </>
         )}
       </div>
 
-      {/* STATS */}
-      {played > 0 && <Stats st={all} />}
+      {/* STATS — mejora #2 y #6 */}
+      {played > 0 && <Stats st={all} ft={ft} bt={bt} wide={wide} />}
     </div>
   )
 }

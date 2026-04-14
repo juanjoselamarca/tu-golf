@@ -126,7 +126,7 @@ export default function ScorecardDemoPage() {
         <div style={title}>1. Stroke Play Gross</div>
         <div style={desc}>Sin handicap. Solo scores brutos con íconos Garmin.</div>
         <div><span style={tag}>GROSS</span><span style={tag}>18H</span></div>
-        <Scorecard holes={H18} scores={SC88} courseHandicap={0} modo="gross" formato="stroke_play" playerName="Juan José Lamarca" />
+        <Scorecard holes={H18} scores={SC88} courseHandicap={0} modo="gross" formato="stroke_play" playerName="Juan José Lamarca" courseName="Club de Golf Lomas de la Dehesa" date="13 Abr 2026" formatLabel="Stroke Play Gross" />
 
         {/* ── 2. Stroke Play Neto ── */}
         <div style={title}>2. Stroke Play Neto</div>
@@ -135,7 +135,7 @@ export default function ScorecardDemoPage() {
           en hoyos donde hay palo. Labels a la izquierda: Hoyo, Par, Gross, Neto.
         </div>
         <div><span style={tag}>NETO</span><span style={tag}>HCP 11</span><span style={tag}>18H</span></div>
-        <Scorecard holes={H18} scores={SC88} courseHandicap={11} modo="neto" formato="stroke_play" playerName="Juan José Lamarca" />
+        <Scorecard holes={H18} scores={SC88} courseHandicap={11} modo="neto" formato="stroke_play" playerName="Juan José Lamarca" courseName="Club de Golf Lomas de la Dehesa" date="13 Abr 2026" formatLabel="Stroke Play Neto" />
 
         {/* ── 3. Stableford ── */}
         <div style={title}>3. Stableford</div>
@@ -145,7 +145,7 @@ export default function ScorecardDemoPage() {
           haces par gross en un hoyo con palo, tu neto es birdie = 3 pts.
         </div>
         <div><span style={tag}>STABLEFORD</span><span style={tag}>HCP 11</span></div>
-        <Scorecard holes={H18} scores={SC88} courseHandicap={11} modo="neto" formato="stableford" playerName="Juan José Lamarca" />
+        <Scorecard holes={H18} scores={SC88} courseHandicap={11} modo="neto" formato="stableford" playerName="Juan José Lamarca" courseName="Club de Golf Lomas de la Dehesa" date="13 Abr 2026" formatLabel="Stableford" />
 
         {/* ── 4. Ronda con Eagle ── */}
         <div style={title}>4. Eagle + 4 birdies</div>
@@ -154,13 +154,13 @@ export default function ScorecardDemoPage() {
           Hoyos 2, 6, 12, 14, 16 con birdies (círculo celeste).
         </div>
         <div><span style={tag}>GROSS</span><span style={tag}>72 PAR</span></div>
-        <Scorecard holes={H18} scores={SC72} courseHandicap={0} modo="gross" formato="stroke_play" playerName="Juan José Lamarca" />
+        <Scorecard holes={H18} scores={SC72} courseHandicap={0} modo="gross" formato="stroke_play" playerName="Juan José Lamarca" courseName="Club de Golf Lomas de la Dehesa" date="13 Abr 2026" formatLabel="Stroke Play Gross" />
 
         {/* ── 5. Front 9 ── */}
         <div style={title}>5. Front 9 solamente</div>
         <div style={desc}>Ronda de 9 hoyos en modo neto.</div>
         <div><span style={tag}>NETO</span><span style={tag}>HCP 11</span><span style={tag}>9H</span></div>
-        <Scorecard holes={H18.slice(0, 9)} scores={SC9} courseHandicap={11} modo="neto" formato="stroke_play" playerName="Juan José Lamarca" />
+        <Scorecard holes={H18.slice(0, 9)} scores={SC9} courseHandicap={11} modo="neto" formato="stroke_play" playerName="Juan José Lamarca" courseName="Los Leones" date="5 Feb 2026" formatLabel="Stroke Play Neto" />
 
         {/* ── 6. Modo extendido ── */}
         <div style={title}>6. Modo extendido</div>
