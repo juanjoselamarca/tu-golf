@@ -5,10 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
-import { HoleColorBar } from '@/components/HoleColorBar'
-import { getHoleBoxStyle, getScoreNumberStyle } from '@/golf/core/colors'
 import { formatLabel } from '@/golf/core/rules'
-import ScoreSymbol from '@/components/ScoreSymbol'
+import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components/Scorecard'
+import HoleBar from '@/components/HoleBar'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 
 /* ─── Datos ────────────────────────────────────────────── */
@@ -1007,68 +1006,46 @@ function HistorialContent() {
                         {/* Garmin activity bar */}
                         {r.scores && r.scores.some(Boolean) && (
                           <div style={{ padding: '0 16px 8px' }}>
-                            <HoleColorBar
-                              scores={r.scores.map((s, i) => s != null ? { gross: s, par: stats?.holePars?.[i] ?? 4 } : null)}
-                              totalHoles={holes}
-                              formato={r.formato_juego}
+                            <HoleBar
+                              scores={r.scores ?? []}
+                              pars={r.course_id ? (courseParCache[r.course_id] ?? {}) : {}}
+                              totalHoles={r.holes_played ?? 18}
+                              height={5}
+                              gap={1.5}
                             />
                           </div>
                         )}
 
                         {/* ── Expanded scorecard ── */}
-                        {isOpen && stats && (() => {
-                          const sc = r.scores ?? []
+                        {isOpen && (() => {
                           const cp = r.course_id ? (courseParCache[r.course_id] ?? {}) : {}
-                          const gp = (h: number) => cp[h] ?? 4
-
-                          const renderRow = (start: number, label: string, total: number) => (
-                            <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '10px' }}>
-                              <div style={{ flex: 1, display: 'flex' }}>
-                                {Array.from({ length: 9 }, (_, i) => {
-                                  const h = start + i
-                                  const s = sc[h - 1] ?? null
-                                  return (
-                                    <div key={i} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-                                      <div style={{ fontSize: '8px', color: '#aaa', marginBottom: '2px' }}>{h}</div>
-                                      <div style={{ minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <ScoreSymbol score={s} par={gp(h)} size="sm" theme="light" />
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '36px', flexShrink: 0, borderLeft: '1px solid #eee', paddingLeft: '6px', marginLeft: '4px' }}>
-                                <div style={{ fontSize: '9px', fontWeight: 600, color: '#999', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{label}</div>
-                                <div style={{ fontSize: '15px', fontWeight: 700, color: '#111' }}>{total}</div>
-                              </div>
-                            </div>
+                          const totalHoles = r.holes_played ?? 18
+                          const scorecardHoles: ScorecardHole[] = Array.from({ length: totalHoles }, (_, i) => ({
+                            numero: i + 1,
+                            par: cp[i + 1] ?? 4,
+                            stroke_index: i + 1,
+                          }))
+                          const scorecardScores: Record<string, number> = Object.fromEntries(
+                            (r.scores ?? [])
+                              .map((s: number | null, i: number) => [String(i + 1), s] as [string, number | null])
+                              .filter((pair): pair is [string, number] => pair[1] != null)
                           )
 
                           return (
-                            <div style={{ padding: '0 10px 14px' }}>
-                              <div style={{ height: '1px', background: '#eee', marginBottom: '10px' }} />
-                              {renderRow(1, 'OUT', stats.front9)}
-                              {stats.back9 != null && renderRow(10, 'IN', stats.back9)}
-
-                              {/* TOTAL */}
-                              <div style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '4px' }}>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: '#9ca3af', flexWrap: 'wrap', alignItems: 'center' }}>
-                                    {stats.eagles > 0 && <span style={{ color: '#c4992a', fontWeight: 600 }}>{stats.eagles} Eagle</span>}
-                                    {stats.birdies > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>{stats.birdies} Birdie</span>}
-                                    <span>{stats.pars} Par</span>
-                                    {stats.bogeys > 0 && <span style={{ color: '#d97706' }}>{stats.bogeys} Bogey</span>}
-                                    {stats.doubles > 0 && <span style={{ color: '#dc2626' }}>{stats.doubles} Doble+</span>}
-                                  </div>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '36px', flexShrink: 0, borderLeft: '1px solid #eee', paddingLeft: '6px', marginLeft: '4px' }}>
-                                  <div style={{ fontSize: '9px', fontWeight: 600, color: '#999', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>TOT</div>
-                                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#111', fontVariantNumeric: 'tabular-nums' as const }}>{stats.total}</div>
-                                </div>
-                              </div>
+                            <div style={{ padding: '0 0 14px' }} onClick={(e) => e.stopPropagation()}>
+                              <Scorecard
+                                holes={scorecardHoles}
+                                scores={scorecardScores}
+                                courseHandicap={0}
+                                modo="gross"
+                                formato={(r.formato_juego as ScorecardProps['formato']) ?? 'stroke_play'}
+                                playerName={undefined}
+                                courseName={r.course_name}
+                                date={dateStr}
+                              />
 
                               {/* Action buttons */}
-                              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                              <div style={{ display: 'flex', gap: '8px', marginTop: '10px', padding: '0 10px' }}>
                                 {editingId !== r.id && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); startEdit(r) }}
