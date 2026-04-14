@@ -559,7 +559,7 @@ export default function NuevaRondaLibrePage() {
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <div style={{ fontSize: '28px', marginBottom: '10px' }}>{'\u26F3'}</div>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}></div>
               <div style={{ fontSize: '17px', fontWeight: 700, color: colors.textPrimary, marginBottom: '4px' }}>
                 Cada uno marca su score
               </div>
@@ -587,7 +587,7 @@ export default function NuevaRondaLibrePage() {
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <div style={{ fontSize: '28px', marginBottom: '10px' }}>{'\uD83D\uDCCB'}</div>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}></div>
               <div style={{ fontSize: '17px', fontWeight: 700, color: colors.textPrimary, marginBottom: '4px' }}>
                 Yo llevo el score del grupo
               </div>
@@ -775,9 +775,9 @@ export default function NuevaRondaLibrePage() {
               </label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {([
-                  { value: 'stroke_play' as const, label: 'Stroke Play', desc: 'Gana el de menos golpes', icon: '\u26F3' },
-                  { value: 'stableford' as const, label: 'Stableford', desc: 'Puntos por hoyo \u2014 gana el de m\u00E1s puntos', icon: '\u2B50' },
-                  { value: 'match_play' as const, label: 'Match Play', desc: 'Hoyo a hoyo, 1 vs 1', icon: '\u2694\uFE0F' },
+                  { value: 'stroke_play' as const, label: 'Stroke Play', desc: 'Gana el de menos golpes', icon: '' },
+                  { value: 'stableford' as const, label: 'Stableford', desc: 'Puntos por hoyo — gana el de más puntos', icon: '' },
+                  { value: 'match_play' as const, label: 'Match Play', desc: 'Hoyo a hoyo, 1 vs 1', icon: '' },
                   // Team formats: motores listos, UI de equipos pendiente
                   // { value: 'best_ball' as const, label: 'Best Ball', desc: 'Equipos: cuenta la mejor bola', icon: '\uD83C\uDFC6' },
                   // { value: 'scramble' as const, label: 'Scramble', desc: 'Equipos: eligen el mejor tiro', icon: '\uD83E\uDD1D' },
@@ -861,8 +861,8 @@ export default function NuevaRondaLibrePage() {
                   </div>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     {([
-                      { value: 'neto' as const, label: 'Neto', desc: 'Con handicap', icon: '\u2696\uFE0F' },
-                      { value: 'gross' as const, label: 'Gross', desc: 'Sin handicap', icon: '\uD83C\uDFAF' },
+                      { value: 'neto' as const, label: 'Neto', desc: 'Con handicap', icon: '' },
+                      { value: 'gross' as const, label: 'Gross', desc: 'Sin handicap', icon: '' },
                     ]).map(m => {
                       const active = modo === m.value
                       return (
