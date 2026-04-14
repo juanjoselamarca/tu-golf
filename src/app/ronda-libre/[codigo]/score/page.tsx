@@ -22,7 +22,7 @@ import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 
 /* ── Share menu component ──────────────────────────────────────────── */
 function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; onClose: () => void; isAdminMode?: boolean }) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
+  const siteUrl = 'https://golfersplus.vercel.app'
   const scoreUrl = `${siteUrl}/ronda-libre/${codigo}/score`
   const liveUrl = `${siteUrl}/ronda-libre/${codigo}`
 
@@ -1016,12 +1016,7 @@ function ScorePageContent() {
           })}
 
           {/* OUT */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '28px', padding: '0 3px', flexShrink: 0 }}>
-            <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginBottom: '2px' }}>OUT</div>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: theme.text }}>{f9Count > 0 ? f9Gross : '—'}</div>
-          </div>
-
-          {/* Separator */}
+          {/* Separator entre front y back */}
           {totalHoles > 9 && <div style={{ width: '1px', background: theme.border, margin: '2px 1px', flexShrink: 0 }} />}
 
           {/* Back 9 */}
@@ -1061,19 +1056,17 @@ function ScorePageContent() {
             )
           })}
 
-          {/* IN */}
-          {totalHoles > 9 && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '28px', padding: '0 3px', flexShrink: 0 }}>
-              <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginBottom: '2px' }}>IN</div>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: theme.text }}>{b9Count > 0 ? b9Gross : '—'}</div>
-            </div>
-          )}
-
-          {/* Separator + TOT */}
+          {/* Score total: gross + neto */}
           <div style={{ width: '1px', background: theme.border, margin: '2px 1px', flexShrink: 0 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', padding: '0 4px', flexShrink: 0 }}>
-            <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginBottom: '2px' }}>TOT</div>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#C4992A' }}>{totalGross > 0 ? totalGross : '—'}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '36px', padding: '0 4px', flexShrink: 0 }}>
+            <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginBottom: '2px' }}>GROSS</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a2e' }}>{totalGross > 0 ? totalGross : '—'}</div>
+            {showNet && totalGross > 0 && (
+              <>
+                <div style={{ fontSize: '7px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginTop: '3px' }}>NET</div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#5a6370' }}>{totalNet > 0 ? totalNet : '—'}</div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1159,14 +1152,11 @@ function ScorePageContent() {
             {ronda?.modo_juego !== 'gross' && strokesOnHole > 0 && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '3px',
-                fontSize: '11px', fontWeight: 700, color: '#1a1a2e',
                 alignSelf: 'flex-start', marginTop: '12px',
-                background: 'rgba(196,153,42,0.18)', border: '1px solid rgba(196,153,42,0.4)',
-                borderRadius: '12px', padding: '2px 8px', height: '24px',
-                letterSpacing: '0.02em',
               }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#c4992a', flexShrink: 0 }} />
-                <span style={{ color: '#c4992a' }}>{strokesOnHole === 1 ? 'Palo' : `${strokesOnHole} Palos`}</span>
+                {Array.from({ length: strokesOnHole }, (_, i) => (
+                  <span key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#c4992a' }} />
+                ))}
               </span>
             )}
           </div>

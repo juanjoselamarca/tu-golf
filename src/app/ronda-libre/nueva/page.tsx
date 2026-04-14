@@ -372,7 +372,7 @@ export default function NuevaRondaLibrePage() {
   }
 
   const handleShareWhatsApp = (type: 'jugar' | 'seguir') => {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://golfersplus.vercel.app')
+    const baseUrl = 'https://golfersplus.vercel.app'
     const link = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
@@ -383,7 +383,7 @@ export default function NuevaRondaLibrePage() {
   }
 
   const handleCopyLink = (type: 'jugar' | 'seguir') => {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://golfersplus.vercel.app')
+    const baseUrl = 'https://golfersplus.vercel.app'
     const link = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`

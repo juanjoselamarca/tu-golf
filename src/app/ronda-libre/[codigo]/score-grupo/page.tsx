@@ -636,14 +636,11 @@ export default function ScoreGrupoPage() {
                       {ronda.modo_juego !== 'gross' && strokesThisHole > 0 && (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: '3px',
-                          fontSize: '10px', fontWeight: 700, color: '#c4992a',
                           alignSelf: 'flex-start', marginTop: '6px',
-                          background: 'rgba(196,153,42,0.15)', border: '1px solid rgba(196,153,42,0.35)',
-                          borderRadius: '10px', padding: '1px 7px', height: '20px',
-                          letterSpacing: '0.02em',
                         }}>
-                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#c4992a', flexShrink: 0 }} />
-                          {strokesThisHole === 1 ? 'Palo' : `${strokesThisHole} Palos`}
+                          {Array.from({ length: strokesThisHole }, (_, i) => (
+                            <span key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#c4992a' }} />
+                          ))}
                         </span>
                       )}
                     </div>

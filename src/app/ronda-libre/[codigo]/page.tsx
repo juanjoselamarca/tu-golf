@@ -508,7 +508,7 @@ function RondaLibrePageContent() {
     }
   }, [role, ronda, isAnonymous, codigo])
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://golfersplus.vercel.app')
+  const siteUrl = 'https://golfersplus.vercel.app'
   const shareUrl = `${siteUrl}/ronda-libre/${codigo}`
   const shareText = (() => {
     if (!ronda) return 'Sigue la ronda en vivo en Golfers+'
