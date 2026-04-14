@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Flag } from '@/components/icons'
 
 /* ── Design tokens ──────────────────────────────────── */
 const gold = '#C4992A'
@@ -185,7 +186,7 @@ export default function IndicesPage() {
             <Section title="Los 4 factores del CPI™" subtitle="QUÉ MUEVE TU NÚMERO">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                 {[
-                  { pts: '55', label: 'Base', desc: 'Tu diferencial promedio ponderado por recencia. Scratch = 55 pts.', icon: '⛳' },
+                  { pts: '55', label: 'Base', desc: 'Tu diferencial promedio ponderado por recencia. Scratch = 55 pts.', icon: <Flag size={16} /> },
                   { pts: '25', label: 'Consistencia', desc: 'Menos variación entre rondas = más puntos. La desviación te penaliza.', icon: '��' },
                   { pts: '20', label: 'Tendencia', desc: 'Rondas recientes vs antiguas. Mejorando = más puntos.', icon: '��' },
                   { pts: '×1', label: 'Volumen', desc: 'Multiplicador de 0 a 1. Con 10+ rondas se desbloquea el 100%.', icon: '��' },

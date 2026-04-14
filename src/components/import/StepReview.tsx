@@ -5,6 +5,7 @@ import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
 import type { ImportState } from './ImportWizard'
 import ScoreSymbol from '@/components/ScoreSymbol'
+import { CheckCircle, Flag } from '@/components/icons'
 
 interface StepReviewProps {
   rounds: ImportRoundData[]
@@ -371,7 +372,7 @@ export default function StepReview({
                     padding: '4px 10px', borderRadius: '10px',
                   }}>
                     {!isRejected && isGarmin && <span style={{ fontSize: '12px' }}>{'��'}</span>}
-                    {!isRejected && level === 'high' && <span style={{ fontSize: '12px' }}>{'✅'}</span>}
+                    {!isRejected && level === 'high' && <span style={{ fontSize: '12px' }}><CheckCircle size={12} /></span>}
                     <span style={{
                       fontSize: '11px', fontWeight: 600,
                       color: isRejected ? '#5a7494' : statusLabel.color,
@@ -394,7 +395,7 @@ export default function StepReview({
                   color: isRejected ? '#5a7494' : '#edeae4',
                   margin: '0 0 4px', lineHeight: 1.2,
                 }}>
-                  {'⛳'} {round.course_name || 'Campo desconocido'}
+                  <Flag size={14} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> {round.course_name || 'Campo desconocido'}
                 </h3>
 
                 {/* Date + holes */}

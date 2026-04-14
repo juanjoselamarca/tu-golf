@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { Flag, Zap } from '@/components/icons'
+import type { ReactNode } from 'react'
 import { trackEvent } from '@/lib/analytics'
 
 /* ─── Questions ─────────────────────────────────────────────── */
@@ -18,7 +20,7 @@ const QUESTIONS: Question[] = [
   {
     id: 'indice_actual',
     text: '¿Cuál es tu índice oficial de golf hoy?',
-    badge: '⛳ Base de juego',
+    badge: 'Base de juego',
     options: ['Más de 25', '16 a 25', '8 a 15', 'Menos de 8'],
   },
   {
@@ -163,9 +165,9 @@ function deriveGolfDNA(answers: Record<string, string | string[]>) {
   else if (q11 === 'Finjo que no pasa nada pero por dentro me afecta') mentalScore += 1
 
   let mentalProfile = 'Mental en desarrollo'
-  let mentalEmoji = '��'
-  if (mentalScore >= 7) { mentalProfile = 'Fortaleza mental alta'; mentalEmoji = '��' }
-  else if (mentalScore >= 4) { mentalProfile = 'Mental con potencial'; mentalEmoji = '⚡' }
+  let mentalEmoji: ReactNode = <Zap size={16} />
+  if (mentalScore >= 7) { mentalProfile = 'Fortaleza mental alta'; mentalEmoji = <Zap size={16} /> }
+  else if (mentalScore >= 4) { mentalProfile = 'Mental con potencial'; mentalEmoji = <Zap size={16} /> }
 
   // Priority area from Q4
   const weakness = answers.mayor_debilidad as string
@@ -379,7 +381,7 @@ export default function CoachOnboarding() {
           marginBottom: '28px',
         }}>
           {[
-            { label: 'Nivel', value: dna.level, emoji: '⛳' },
+            { label: 'Nivel', value: dna.level, emoji: <Flag size={16} /> },
             { label: 'Perfil mental', value: dna.mentalProfile, emoji: dna.mentalEmoji },
             { label: 'Área prioritaria', value: dna.priority, emoji: '��' },
           ].map((row, i) => (

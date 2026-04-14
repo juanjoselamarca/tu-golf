@@ -5,13 +5,13 @@ import { isAdmin } from '@/lib/admin'
 export const dynamic = 'force-dynamic'
 
 const EVENT_CONFIG: Record<string, { icon: string; type: string; template: string }> = {
-  ronda_creada: { icon: '⛳', type: 'round', template: '{name} creó una ronda libre' },
-  score_registrado: { icon: '🏌️', type: 'score', template: '{name} registró score' },
-  torneo_creado: { icon: '🏆', type: 'tournament', template: '{name} creó un torneo' },
-  tarjeta_historica_agregada: { icon: '📋', type: 'score', template: '{name} agregó tarjeta histórica' },
-  taiger_session_start: { icon: '🐯', type: 'taiger', template: '{name} inició sesión tAIger' },
-  user_registered: { icon: '👤', type: 'register', template: '{name} se registró en la plataforma' },
-  ronda_finalizada: { icon: '✅', type: 'round', template: '{name} finalizó su ronda' },
+  ronda_creada: { icon: 'flag', type: 'round', template: '{name} creó una ronda libre' },
+  score_registrado: { icon: 'person-standing', type: 'score', template: '{name} registró score' },
+  torneo_creado: { icon: 'trophy', type: 'tournament', template: '{name} creó un torneo' },
+  tarjeta_historica_agregada: { icon: 'clipboard-list', type: 'score', template: '{name} agregó tarjeta histórica' },
+  taiger_session_start: { icon: 'bot', type: 'taiger', template: '{name} inició sesión tAIger' },
+  user_registered: { icon: 'user', type: 'register', template: '{name} se registró en la plataforma' },
+  ronda_finalizada: { icon: 'check-circle', type: 'round', template: '{name} finalizó su ronda' },
 }
 
 export async function GET() {
