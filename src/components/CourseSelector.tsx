@@ -220,7 +220,7 @@ function GenderToggle({ value, onChange }: { value: Gender; onChange: (g: Gender
             lineHeight: '16px',
           }}
         >
-          {g === 'M' ? 'V' : 'D'}
+          {g === 'M' ? 'Varones' : 'Damas'}
         </button>
       ))}
     </div>
@@ -679,9 +679,24 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
         overflow: 'hidden',
       }}
     >
+      {/* ── Search bar (TOP) ── */}
+      <div style={{ padding: '12px 12px 8px', borderBottom: `1px solid ${C.goldFaint}`, background: C.card }}>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => onSearchInput(e.target.value)}
+          placeholder="Buscar cancha..."
+          style={{
+            width: '100%', padding: '10px 14px', fontSize: 14,
+            color: C.ivory, background: C.inputBg,
+            border: `1px solid ${C.goldDim}`, borderRadius: 10,
+            outline: 'none', minHeight: 44,
+          }}
+        />
+      </div>
       <div
         style={{
-          maxHeight: '55vh',
+          maxHeight: '50vh',
           overflowY: 'auto',
           padding: '12px 12px 0',
         }}
@@ -770,41 +785,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
         )}
       </div>
 
-      {/* ── Search bar (bottom, sticky feel) ── */}
-      <div
-        style={{
-          padding: '10px 12px 12px',
-          borderTop: `1px solid ${C.goldFaint}`,
-          background: C.card,
-        }}
-      >
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchInput(e.target.value)}
-          placeholder="Buscar cancha..."
-          style={{
-            width: '100%',
-            padding: '10px 14px',
-            fontSize: 14,
-            color: C.ivory,
-            background: C.inputBg,
-            border: `1px solid ${C.goldDim}`,
-            borderRadius: 10,
-            outline: 'none',
-            transition: 'all 0.2s ease',
-            minHeight: 44,
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = C.gold
-            e.currentTarget.style.boxShadow = `0 0 0 2px rgba(196,153,42,0.15)`
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = C.goldDim
-            e.currentTarget.style.boxShadow = 'none'
-          }}
-        />
-      </div>
+      {/* Search bar moved to top */}
     </div>
   )
 }
