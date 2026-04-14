@@ -428,15 +428,49 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                 background: 'rgba(196,153,42,0.06)',
                 border: '1px solid rgba(196,153,42,0.2)',
                 display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
+                flexDirection: 'column',
+                gap: '8px',
               }}>
-                <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
-                <span style={{ fontSize: '12px', color: '#92400e', lineHeight: 1.4 }}>
-                  {format === 'stableford'
-                    ? 'Stableford siempre se juega con handicap (neto) segun las reglas oficiales R&A.'
-                    : 'Match Play siempre se juega con handicap (neto) — formato estandar en clubes de Chile.'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
+                  <span style={{ fontSize: '12px', color: '#92400e', lineHeight: 1.4 }}>
+                    {format === 'stableford'
+                      ? 'Stableford: puntos por hoyo segun resultado vs par. Siempre se juega con handicap (neto).'
+                      : 'Match Play siempre se juega con handicap (neto) — formato estandar en clubes de Chile.'}
+                  </span>
+                </div>
+                {format === 'stableford' && (
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '6px',
+                    paddingTop: '8px',
+                    borderTop: '1px solid rgba(196,153,42,0.15)',
+                  }}>
+                    {[
+                      { label: 'Albatross+', pts: 5 },
+                      { label: 'Eagle', pts: 4 },
+                      { label: 'Birdie', pts: 3 },
+                      { label: 'Par', pts: 2 },
+                      { label: 'Bogey', pts: 1 },
+                      { label: 'Doble+', pts: 0 },
+                    ].map(item => (
+                      <span key={item.label} style={{
+                        fontSize: '11px',
+                        fontFamily: '"DM Mono", monospace',
+                        color: '#92400e',
+                        background: '#ffffff',
+                        border: '1px solid rgba(196,153,42,0.2)',
+                        borderRadius: '6px',
+                        padding: '3px 7px',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        <span style={{ color: '#c4992a', fontWeight: 700 }}>{item.pts}</span>
+                        {' '}{item.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

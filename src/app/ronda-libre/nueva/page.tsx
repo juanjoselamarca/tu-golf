@@ -925,6 +925,7 @@ export default function NuevaRondaLibrePage() {
                     borderTop: '1px solid rgba(196,153,42,0.15)',
                   }}>
                     {[
+                      { label: 'Albatross+', pts: 5 },
                       { label: 'Eagle', pts: 4 },
                       { label: 'Birdie', pts: 3 },
                       { label: 'Par', pts: 2 },
