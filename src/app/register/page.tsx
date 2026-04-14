@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { useFormErrors } from '@/hooks/useFormErrors'
-import { Zap, Check } from '@/components/icons'
+import { Zap, Check, Mail, ArrowLeft } from '@/components/icons'
 
 function Spinner() {
   return (
@@ -69,6 +69,9 @@ function RegisterContent() {
   const [indice,   setIndice]   = useState('')
   const [showPwd,  setShowPwd]  = useState(false)
   const [loading,  setLoading]  = useState(false)
+  const [pendingConfirmation, setPendingConfirmation] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resent, setResent] = useState(false)
 
   const handleGoogle = async () => {
     if (typeof window !== 'undefined' && redirectTo !== '/dashboard') {
@@ -97,7 +100,7 @@ function RegisterContent() {
 
     setLoading(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -113,11 +116,133 @@ function RegisterContent() {
       if (field) setFieldError(field, title)
       showError(title, body)
       setLoading(false)
+    } else if (!data.session || data.user?.identities?.length === 0) {
+      // Email confirmation required — show confirmation screen
+      setLoading(false)
+      setPendingConfirmation(true)
     } else {
       // Add welcome flag for new users going to dashboard
       const dest = redirectTo === '/dashboard' ? '/dashboard?welcome=true' : redirectTo
       router.push(dest)
     }
+  }
+
+  const handleResend = async () => {
+    setResending(true)
+    setResent(false)
+    const supabase = createClient()
+    await supabase.auth.resend({ type: 'signup', email })
+    setResending(false)
+    setResent(true)
+  }
+
+  if (pendingConfirmation) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--bg-surface)',
+          padding: '24px 0',
+        }}
+      >
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 10,
+            background: 'var(--bg-card-light)',
+            border: '1px solid rgba(196,153,42,0.25)',
+            borderRadius: '16px',
+            padding: 'clamp(32px, 6vw, 48px)',
+            maxWidth: '420px',
+            width: '90%',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: 'rgba(196,153,42,0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 20px',
+          }}>
+            <Mail size={28} color="#c4992a" strokeWidth={1.5} />
+          </div>
+
+          <h1 style={{
+            fontFamily: '"Playfair Display", serif',
+            fontSize: '24px',
+            color: 'var(--text)',
+            margin: '0 0 12px',
+          }}>
+            Revisa tu correo
+          </h1>
+
+          <p style={{
+            fontSize: '14px',
+            color: 'var(--text-2)',
+            lineHeight: 1.6,
+            margin: '0 0 28px',
+          }}>
+            Te enviamos un link a <strong style={{ color: 'var(--text)' }}>{email}</strong> para confirmar tu cuenta.
+            Revisa tu bandeja de entrada y carpeta de spam.
+          </p>
+
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            style={{
+              background: 'transparent',
+              color: '#c4992a',
+              border: '1px solid rgba(196,153,42,0.5)',
+              borderRadius: '10px',
+              padding: '12px 24px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: resending ? 'not-allowed' : 'pointer',
+              opacity: resending ? 0.7 : 1,
+              transition: 'all 200ms',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+            }}
+          >
+            {resending ? <Spinner /> : null}
+            {resending ? 'Reenviando...' : resent ? 'Email reenviado' : 'Reenviar email'}
+          </button>
+
+          {resent && (
+            <p style={{ fontSize: '12px', color: 'rgba(34,197,94,0.9)', marginTop: '8px' }}>
+              Revisa tu bandeja de entrada nuevamente.
+            </p>
+          )}
+
+          <Link
+            href="/login"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'var(--text-2)',
+              fontSize: '14px',
+              textDecoration: 'none',
+              marginTop: '24px',
+              transition: 'color 200ms',
+            }}
+          >
+            <ArrowLeft size={16} />
+            Volver al login
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   const inputStyle = (field: string): React.CSSProperties => ({

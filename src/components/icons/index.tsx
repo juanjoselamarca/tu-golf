@@ -3,5 +3,5 @@ export {
   Flag, Calendar, Users, BarChart3, Target, DollarSign, Wrench, RefreshCw,
   FileText, Bot, CheckCircle, Circle, Bell, Handshake, Sparkles,
   ChevronUp, ChevronDown, Smartphone, PersonStanding, Check,
-  Eye, Flame, AlertTriangle, MapPin, Dices,
+  Eye, Flame, AlertTriangle, MapPin, Dices, Mail, ArrowLeft,
 } from 'lucide-react'
