@@ -577,7 +577,7 @@ function RondaLibrePageContent() {
         await navigator.share({ title: 'Golfers+ — Ronda en vivo', text: shareText, url: shareUrl })
       } catch { /* user cancelled */ }
     } else {
-      window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${shareUrl}`)}`, '_blank')
+      window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`, '_blank')
     }
   }
 

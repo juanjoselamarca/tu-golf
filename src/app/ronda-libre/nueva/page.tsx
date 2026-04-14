@@ -377,8 +377,8 @@ export default function NuevaRondaLibrePage() {
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
     const message = type === 'jugar'
-      ? `Unete a mi ronda en Golfers+! Codigo: ${roundCode}\n${link}`
-      : `Sigue mi ronda en vivo en Golfers+!\n${link}`
+      ? `Unete a mi ronda en Golfers+! ${link}`
+      : `Sigue mi ronda en vivo en Golfers+! ${link}`
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
   }
 
