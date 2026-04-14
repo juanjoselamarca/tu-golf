@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Flag, Calendar, Trophy, Users, Upload, BarChart3, ClipboardList, PersonStanding } from '@/components/icons'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
 import { ExperiencePopupWrapper } from '@/components/ExperiencePopupWrapper'
 import { HoleColorBar } from '@/components/HoleColorBar'
@@ -236,8 +237,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     {t.name}
                   </div>
                   <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '4px' }}>
-                    {t.courses?.nombre && <span>⛳ {t.courses.nombre}</span>}
-                    {fechaT && <span style={{ marginLeft: '12px' }}>📅 {fechaT}</span>}
+                    {t.courses?.nombre && <span><Flag size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> {t.courses.nombre}</span>}
+                    {fechaT && <span style={{ marginLeft: '12px' }}><Calendar size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> {fechaT}</span>}
                   </div>
                   {totalRounds > 1 && (
                     <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '8px' }}>
@@ -401,7 +402,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               background: 'rgba(196,153,42,0.04)', border: '1px solid rgba(196,153,42,0.2)',
               borderRadius: '16px', padding: '32px 24px', textAlign: 'center', marginBottom: '24px',
             }}>
-              <div style={{ fontSize: '48px', marginBottom: '12px' }}>⛳</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}><Flag size={48} strokeWidth={1.5} /></div>
               <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '8px' }}>
                 Bienvenido a Golfers+
               </div>
@@ -417,7 +418,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(196,153,42,0.35)',
                   borderRadius: '14px', padding: '20px', textAlign: 'center',
                 }}>
-                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏌️</div>
+                  <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><PersonStanding size={32} strokeWidth={1.5} /></div>
                   <div style={{ fontSize: '16px', fontWeight: 700, color: '#c4992a', marginBottom: '6px' }}>Crea tu primera ronda</div>
                   <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>Juega con amigos, registra tu score en vivo</div>
                 </div>
@@ -436,7 +437,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   }}>
                     FAST TRACK
                   </div>
-                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>📥</div>
+                  <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Upload size={32} strokeWidth={1.5} /></div>
                   <div style={{ fontSize: '16px', fontWeight: 700, color: '#c4992a', marginBottom: '6px' }}>Importa tu historial</div>
                   <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>Trae tus rondas de Garmin en 2 minutos y activa tu Índice + tAIger+</div>
                 </div>
@@ -462,7 +463,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <div className="dashboard-actions" style={{ gap: '20px', marginBottom: '32px' }}>
             {/* Ronda Libre — gold, prominent */}
             <div style={{ background: 'rgba(196,153,42,0.07)', border: '1px solid rgba(196,153,42,0.35)', borderRadius: '14px', padding: '20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '32px', marginBottom: '16px' }}>⛳</div>
+              <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><Flag size={32} strokeWidth={1.5} /></div>
               <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#c4992a', marginBottom: '8px' }}>Ronda Libre</h2>
               <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '16px' }}>Juega con amigos, score en vivo, sin torneo formal</p>
               <Link href="/ronda-libre/nueva" style={{ ...btnPrimary, display: 'inline-block' }}>
@@ -472,7 +473,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
             {/* Organizar torneo */}
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '32px', marginBottom: '16px' }}>🏆</div>
+              <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><Trophy size={32} strokeWidth={1.5} /></div>
               <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', marginBottom: '8px' }}>Organizar un torneo</h2>
               <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '16px' }}>Crea y gestiona tu propio torneo en minutos.</p>
               <Link href="/organizador/nuevo" style={{ display: 'inline-block', background: '#c4992a', color: '#1a1a2e', fontWeight: 600, borderRadius: '8px', padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
@@ -492,7 +493,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           borderRadius: '14px', padding: '20px', marginBottom: '24px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <span style={{ fontSize: '24px' }}>📊</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}><BarChart3 size={24} strokeWidth={1.5} /></span>
             <span style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600 }}>Mis estadísticas</span>
           </div>
           <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 12px' }}>
@@ -511,7 +512,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
         {tournaments.length === 0 ? (
           <div style={{ background: 'rgba(196,153,42,0.03)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '14px', padding: '40px', textAlign: 'center' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>📋</div>
+            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><ClipboardList size={48} strokeWidth={1.5} /></div>
             <p style={{ color: 'var(--text-2)', marginBottom: '20px', fontSize: '15px' }}>Aún no has creado ningún torneo.</p>
             <Link href="/organizador/nuevo" style={{ ...btnPrimary, display: 'inline-block', padding: '12px 28px', fontSize: '15px' }}>
               Crear mi primer torneo →
@@ -530,8 +531,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                       <span style={{ background: st.bg, color: st.color, border: `1px solid ${st.color}40`, padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{st.label}</span>
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
-                      {t.courses?.nombre && <span>⛳ {t.courses.nombre}</span>}
-                      {t.date_start && <span style={{ marginLeft: '12px' }}>📅 {new Date(t.date_start).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                      {t.courses?.nombre && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> {t.courses.nombre}</span>}
+                      {t.date_start && <span style={{ marginLeft: '12px', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Calendar size={14} /> {new Date(t.date_start).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                     </div>
                   </div>
                   <TournamentCardMenu slug={t.slug} isActive={isActive} />
@@ -548,7 +549,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </h2>
         {playedTournaments.length === 0 ? (
           <div style={{ background: 'rgba(196,153,42,0.03)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🏌️</div>
+            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><PersonStanding size={48} strokeWidth={1.5} /></div>
             <p style={{ color: 'var(--text-2)', fontSize: '15px', margin: 0 }}>Aún no has jugado en ningún torneo.</p>
           </div>
         ) : (
@@ -563,8 +564,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                       <span style={{ background: st.bg, color: st.color, border: `1px solid ${st.color}40`, padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{st.label}</span>
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
-                      {t.courses?.nombre && <span>⛳ {t.courses.nombre}</span>}
-                      {t.date_start && <span style={{ marginLeft: '12px' }}>📅 {new Date(t.date_start).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                      {t.courses?.nombre && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> {t.courses.nombre}</span>}
+                      {t.date_start && <span style={{ marginLeft: '12px', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Calendar size={14} /> {new Date(t.date_start).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                     </div>
                   </div>
                   <Link href={`/torneo/${t.slug}`} style={{ ...btnSecondary }}>Ver leaderboard →</Link>
@@ -584,7 +585,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </h2>
         {rondasLibres.length === 0 ? (
           <div style={{ background: 'rgba(196,153,42,0.03)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '14px', padding: '32px', textAlign: 'center' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>⛳</div>
+            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Flag size={48} strokeWidth={1.5} /></div>
             <p style={{ color: 'var(--text-2)', fontSize: '15px', margin: 0 }}>
               Aún no has creado ninguna ronda libre.{' '}
               <Link href="/ronda-libre/nueva" style={{ color: '#c4992a', textDecoration: 'none' }}>Nueva ronda →</Link>
@@ -625,9 +626,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <div style={{ height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.4), transparent)', margin: '32px 0 24px' }} />
             <div className="dashboard-metrics-grid">
               {[
-                { label: 'Torneos organizados', value: totalTournaments ?? 0, icon: '🏆' },
-                { label: 'Jugadores inscritos',  value: totalPlayers ?? 0,    icon: '👥' },
-                { label: 'Último torneo',        value: latestTournament?.name || '—', icon: '📅', small: true },
+                { label: 'Torneos organizados', value: totalTournaments ?? 0, icon: <Trophy size={20} /> },
+                { label: 'Jugadores inscritos',  value: totalPlayers ?? 0,    icon: <Users size={20} /> },
+                { label: 'Ultimo torneo',        value: latestTournament?.name || '—', icon: <Calendar size={20} />, small: true },
               ].map((m) => (
                 <div key={m.label} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
                   <div style={{ fontSize: '28px', marginBottom: '8px' }}>{m.icon}</div>
