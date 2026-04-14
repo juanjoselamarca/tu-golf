@@ -1,7 +1,8 @@
 /**
- * tAIger+ brand icon — premium tiger silhouette.
- * Geometric, bold, recognizable at small sizes.
- * Matches Lucide weight but with filled accents for distinction.
+ * tAIger+ brand icon — imposing tiger profile.
+ * Inspired by luxury brand marks (Jaguar, Puma).
+ * Side-profile silhouette: powerful jaw, alert ear, confident gaze.
+ * Recognizable at 16px, striking at 48px.
  */
 export function TaigerIcon({ size = 20, className }: { size?: number; className?: string }) {
   return (
@@ -10,28 +11,34 @@ export function TaigerIcon({ size = 20, className }: { size?: number; className?
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
       className={className}
     >
-      {/* Ears */}
-      <path d="M3 3l4 5" strokeWidth="2" />
-      <path d="M21 3l-4 5" strokeWidth="2" />
-      {/* Head */}
-      <path d="M7 8c-1.5 2-2 4-2 6 0 3.5 3 7 7 7s7-3.5 7-7c0-2-.5-4-2-6" />
-      {/* Eyes */}
-      <circle cx="9.5" cy="12" r="1" fill="currentColor" stroke="none" />
-      <circle cx="14.5" cy="12" r="1" fill="currentColor" stroke="none" />
-      {/* Nose + mouth */}
-      <path d="M12 14.5v1" strokeWidth="1.5" />
-      <path d="M10 16.5c.8.8 3.2.8 4 0" strokeWidth="1.5" />
-      {/* Stripes */}
-      <path d="M7.5 10l2 1.5" strokeWidth="1.5" opacity="0.7" />
-      <path d="M16.5 10l-2 1.5" strokeWidth="1.5" opacity="0.7" />
-      <path d="M6.5 13l1.5 0.5" strokeWidth="1.5" opacity="0.5" />
-      <path d="M17.5 13l-1.5 0.5" strokeWidth="1.5" opacity="0.5" />
+      {/* Tiger head — side profile silhouette */}
+      <path
+        d="M5 4l2 3.5
+           C7 8.5 7.5 10 8 11.5
+           c.5 1.5 1 3 2.5 4
+           c1.5 1 3.5 1.5 5.5 1.5
+           c1.5 0 3-.5 4-1.5
+           c1-1 1.5-2.5 1.5-4
+           c0-1.5-.5-3-1.5-4
+           L21 4"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Eye — piercing, filled */}
+      <circle cx="14" cy="10.5" r="1.25" fill="currentColor" />
+      {/* Inner ear detail */}
+      <path d="M6.5 5.5l1 2" stroke="currentColor" strokeWidth="1.25" opacity="0.6" />
+      {/* Nose */}
+      <path d="M19.5 12c0 .5-.5 1-1 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Jaw line — strong, defined */}
+      <path d="M18 14.5c-1 1.5-3 2.5-5.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Stripe accents — signature tiger */}
+      <path d="M9 9l2 1" stroke="currentColor" strokeWidth="1.5" opacity="0.5" strokeLinecap="round" />
+      <path d="M8.5 12l1.5 .5" stroke="currentColor" strokeWidth="1.5" opacity="0.4" strokeLinecap="round" />
     </svg>
   )
 }
