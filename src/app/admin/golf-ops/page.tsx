@@ -7,6 +7,8 @@ import { AdminBadge } from '@/components/admin/AdminBadge'
 import AdminDrawer from '@/components/admin/AdminDrawer'
 import AdminConfirmModal from '@/components/admin/AdminConfirmModal'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
+import { Trophy, Flag, Radio, CheckCircle, FileText, RefreshCw, Target } from '@/components/icons'
+import { TaigerIcon } from '@/components/icons/TaigerIcon'
 
 /* ─── types ─── */
 
@@ -840,7 +842,7 @@ export default function GolfOpsPage() {
       {activeTab === 'torneos' && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
-            <AdminCard icon="🏆" label="Total Torneos" value={ops?.tournaments.total ?? 0} loading={loading} />
+            <AdminCard icon={<Trophy size={20} />} label="Total Torneos" value={ops?.tournaments.total ?? 0} loading={loading} />
           </div>
           <AdminTable<{ _id: string; name: string; status: string; holes: number; date: string }>
             columns={[
@@ -863,12 +865,12 @@ export default function GolfOpsPage() {
       {activeTab === 'rondas' && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-            <AdminCard icon="⛳" label="Total Rondas Libres" value={ops?.rondasLibres.total ?? 0} loading={loading} />
-            <AdminCard icon="🟢" label="En Curso" value={ops?.rondasLibres.enCurso ?? 0} loading={loading} />
-            <AdminCard icon="✅" label="Finalizadas" value={ops?.rondasLibres.finalizadas ?? 0} loading={loading} />
-            <AdminCard icon="📝" label="Total Scores" value={ops?.scoring.totalHoleScores ?? 0} loading={loading} />
-            <AdminCard icon="🔄" label="Total Rounds" value={ops?.scoring.totalRounds ?? 0} loading={loading} />
-            <AdminCard icon="🎯" label="Total Hole Scores" value={ops?.scoring.totalHoleScores ?? 0} loading={loading} />
+            <AdminCard icon={<Flag size={20} />} label="Total Rondas Libres" value={ops?.rondasLibres.total ?? 0} loading={loading} />
+            <AdminCard icon={<Radio size={20} />} label="En Curso" value={ops?.rondasLibres.enCurso ?? 0} loading={loading} />
+            <AdminCard icon={<CheckCircle size={20} />} label="Finalizadas" value={ops?.rondasLibres.finalizadas ?? 0} loading={loading} />
+            <AdminCard icon={<FileText size={20} />} label="Total Scores" value={ops?.scoring.totalHoleScores ?? 0} loading={loading} />
+            <AdminCard icon={<RefreshCw size={20} />} label="Total Rounds" value={ops?.scoring.totalRounds ?? 0} loading={loading} />
+            <AdminCard icon={<Target size={20} />} label="Total Hole Scores" value={ops?.scoring.totalHoleScores ?? 0} loading={loading} />
           </div>
           <AdminTable<{ _id: string; codigo: string; cancha: string; hoyos: number | string; jugadores: number; estado: string; fecha: string }>
             columns={[
@@ -964,7 +966,7 @@ export default function GolfOpsPage() {
       {activeTab === 'taiger' && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            <AdminCard icon="🤖" label="Total Sessions" value={ops?.taiger.totalSessions ?? 0} loading={loading} />
+            <AdminCard icon={<TaigerIcon size={20} />} label="Total Sessions" value={ops?.taiger.totalSessions ?? 0} loading={loading} />
           </div>
 
           {/* Session type distribution */}

@@ -3,7 +3,7 @@ import { CSSProperties, ReactNode } from 'react'
 import { adminColors, adminFonts, adminCard } from './admin-tokens'
 
 interface AdminCardProps {
-  icon?: string
+  icon?: ReactNode
   label: string
   value: string | number
   delta?: { value: number; label: string }
@@ -16,7 +16,7 @@ interface AdminCardProps {
 export function AdminCard({ icon, label, value, delta, loading, sparkline, children, style }: AdminCardProps) {
   return (
     <div style={{ ...adminCard, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0, ...style }}>
-      {icon && <span style={{ fontSize: '20px' }}>{icon}</span>}
+      {icon && <span style={{ fontSize: '20px', display: 'flex', alignItems: 'center' }}>{icon}</span>}
       {loading ? (
         <div style={{
           height: '32px', width: '80px', borderRadius: '8px',

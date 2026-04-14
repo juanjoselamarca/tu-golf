@@ -6,6 +6,7 @@ import { AdminChart } from '@/components/admin/AdminChart'
 import { AdminTable } from '@/components/admin/AdminTable'
 import { FunnelChart } from '@/components/admin/FunnelChart'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
+import { Users, ChevronUp, BarChart3, ChevronDown, PersonStanding, Target } from '@/components/icons'
 
 interface AnalyticsData {
   growth: {
@@ -74,27 +75,27 @@ export default function AnalyticsPage() {
         <h2 style={{ ...adminFonts.sectionTitle, marginBottom: '16px' }}>Growth Metrics</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
           <AdminCard
-            icon="👥"
+            icon={<Users size={20} />}
             label="Total Users"
             value={data?.growth.total ?? 0}
             loading={loading}
           />
           <AdminCard
-            icon="📈"
+            icon={<ChevronUp size={20} />}
             label="New 7d"
             value={data?.growth.new7d ?? 0}
             loading={loading}
             delta={data ? { value: data.growth.new7d, label: 'ultimos 7d' } : undefined}
           />
           <AdminCard
-            icon="📊"
+            icon={<BarChart3 size={20} />}
             label="New 30d"
             value={data?.growth.new30d ?? 0}
             loading={loading}
             delta={data ? { value: data.growth.new30d, label: 'ultimos 30d' } : undefined}
           />
           <AdminCard
-            icon="📉"
+            icon={<ChevronDown size={20} />}
             label="New 90d"
             value={data?.growth.new90d ?? 0}
             loading={loading}
@@ -145,13 +146,13 @@ export default function AnalyticsPage() {
         <h2 style={{ ...adminFonts.sectionTitle, marginBottom: '16px' }}>Engagement</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <AdminCard
-            icon="🏌️"
+            icon={<PersonStanding size={20} />}
             label="Avg Rounds/User"
             value={data?.engagement.avgRoundsPerUser ?? 0}
             loading={loading}
           />
           <AdminCard
-            icon="🎯"
+            icon={<Target size={20} />}
             label="Total Rounds Played"
             value={data?.engagement.totalRoundsPlayed ?? 0}
             loading={loading}

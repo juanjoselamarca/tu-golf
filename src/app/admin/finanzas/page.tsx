@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { AdminCard } from '@/components/admin/AdminCard'
 import { ProjectionSlider } from '@/components/admin/ProjectionSlider'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
+import { DollarSign, ChevronUp, Users, Wrench } from '@/components/icons'
 
 interface CostEntry {
   plan: string
@@ -62,10 +63,10 @@ export default function FinanzasPage() {
       <section>
         <h2 style={{ ...adminFonts.sectionTitle, marginBottom: '16px' }}>Overview</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-          <AdminCard icon="💰" label="MRR" value={`$${data?.mrr ?? 0}`} loading={loading} />
-          <AdminCard icon="📈" label="ARR" value={`$${data?.arr ?? 0}`} loading={loading} />
-          <AdminCard icon="👥" label="Total Users" value={data?.totalUsers ?? 0} loading={loading} />
-          <AdminCard icon="🔧" label="Monthly Costs" value={`$${monthlyCost.toFixed(2)}`} loading={loading} />
+          <AdminCard icon={<DollarSign size={20} />} label="MRR" value={`$${data?.mrr ?? 0}`} loading={loading} />
+          <AdminCard icon={<ChevronUp size={20} />} label="ARR" value={`$${data?.arr ?? 0}`} loading={loading} />
+          <AdminCard icon={<Users size={20} />} label="Total Users" value={data?.totalUsers ?? 0} loading={loading} />
+          <AdminCard icon={<Wrench size={20} />} label="Monthly Costs" value={`$${monthlyCost.toFixed(2)}`} loading={loading} />
         </div>
       </section>
 

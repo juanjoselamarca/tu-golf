@@ -7,6 +7,8 @@ import { LiveFeed } from '@/components/admin/LiveFeed'
 import { HealthGrid } from '@/components/admin/HealthGrid'
 import { AdminBadge } from '@/components/admin/AdminBadge'
 import { adminColors, adminFonts } from '@/components/admin/admin-tokens'
+import { Users, Sparkles, Flag, Trophy, CheckCircle } from '@/components/icons'
+import { TaigerIcon } from '@/components/icons/TaigerIcon'
 
 // ── Types ──
 interface OverviewData {
@@ -151,7 +153,7 @@ export default function CommandCenterPage() {
           display: 'flex', gap: '12px', flexWrap: 'wrap',
         }}>
           <AdminCard
-            icon={'\uD83D\uDC65'}
+            icon={<Users size={20} />}
             label="Total Usuarios"
             value={overview?.users.total ?? 0}
             delta={overview ? { value: overview.users.new7d, label: 'nuevos 7d' } : undefined}
@@ -160,7 +162,7 @@ export default function CommandCenterPage() {
             style={{ flex: '1 1 180px', minWidth: '160px' }}
           />
           <AdminCard
-            icon={'\uD83C\uDD95'}
+            icon={<Sparkles size={20} />}
             label="Nuevos 7d"
             value={overview?.users.new7d ?? 0}
             delta={overview ? { value: overview.users.new30d, label: 'nuevos 30d' } : undefined}
@@ -168,7 +170,7 @@ export default function CommandCenterPage() {
             style={{ flex: '1 1 180px', minWidth: '160px' }}
           />
           <AdminCard
-            icon={'\u26F3'}
+            icon={<Flag size={20} />}
             label="Rondas Libres"
             value={overview?.rounds.freeRoundsTotal ?? 0}
             delta={overview ? { value: overview.rounds.freeRounds7d, label: 'ult. 7d' } : undefined}
@@ -176,14 +178,14 @@ export default function CommandCenterPage() {
             style={{ flex: '1 1 180px', minWidth: '160px' }}
           />
           <AdminCard
-            icon={'\uD83E\uDD16'}
+            icon={<TaigerIcon size={20} />}
             label="tAIger Sessions"
             value={overview?.taiger.sessions ?? 0}
             loading={loading}
             style={{ flex: '1 1 180px', minWidth: '160px' }}
           />
           <AdminCard
-            icon={'\uD83C\uDFC6'}
+            icon={<Trophy size={20} />}
             label="Torneos"
             value={overview?.tournaments.total ?? 0}
             delta={overview ? { value: overview.tournaments.last30d, label: 'ult. 30d' } : undefined}
@@ -191,7 +193,7 @@ export default function CommandCenterPage() {
             style={{ flex: '1 1 180px', minWidth: '160px' }}
           />
           <AdminCard
-            icon={'\uD83D\uDC9A'}
+            icon={<CheckCircle size={20} />}
             label="Health Score"
             value={loading ? 0 : `${healthScore}%`}
             loading={loading}
