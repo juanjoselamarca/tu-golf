@@ -122,6 +122,7 @@ export default function TVPage() {
         rounds(total_net, total_gross, hole_scores(hole_number, gross_score))
       `)
       .eq('tournament_id', tournamentId)
+      .in('status', ['pending', 'approved', 'waitlist'])
 
     const dbPlayers = (rawPlayers as unknown as DBPlayerRaw[]) || []
 

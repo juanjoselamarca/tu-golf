@@ -326,8 +326,8 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     const playerName = players.find(p => p.id === playerId)?.profiles?.name || 'este jugador'
 
     if (tournamentStatus === 'in_progress') {
-      if (!window.confirm(`Retirar a ${playerName}? Se borrarán todos sus scores del torneo.`)) return
-      // Use API to cascade delete rounds/scores
+      if (!window.confirm(`Retirar a ${playerName} (WD)? Sus scores se conservan en el historial.`)) return
+      // Marca status='withdrawn' — preserva scores
       const res = await fetch('/api/game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -338,11 +338,35 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         showError('Error', data.error || 'No se pudo retirar al jugador.')
         return
       }
-      showSuccess('Jugador retirado', `${playerName} fue retirado del torneo.`)
+      showSuccess('Jugador retirado (WD)', `${playerName} fue marcado como retirado.`)
     } else {
+      // Torneo aún no empezó: se puede eliminar la inscripción sin penalizar historial
       const supabase = createClient()
       await supabase.from('players').delete().eq('id', playerId)
     }
+    await fetchPlayers()
+  }
+
+  const handleDescalificar = async (playerId: string) => {
+    const playerName = players.find(p => p.id === playerId)?.profiles?.name || 'este jugador'
+    const reason = window.prompt(`Descalificar a ${playerName} (DQ). Motivo (opcional):`)
+    if (reason === null) return // canceló el prompt
+    const res = await fetch('/api/game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'disqualify_player',
+        tournament_id: tournament.id,
+        player_id: playerId,
+        reason: reason.trim() || null,
+      }),
+    })
+    if (!res.ok) {
+      const data = await res.json()
+      showError('Error', data.error || 'No se pudo descalificar al jugador.')
+      return
+    }
+    showSuccess('Jugador descalificado (DQ)', `${playerName} fue marcado como descalificado.`)
     await fetchPlayers()
   }
 
@@ -876,7 +900,15 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                       onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'transparent')}
                     >
                       <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '14px' }}>{i + 1}</td>
-                      <td style={{ padding: '12px 16px', color: '#edeae4', fontSize: '14px', fontWeight: 500 }}>{p.profiles?.name || '—'}</td>
+                      <td style={{ padding: '12px 16px', color: '#edeae4', fontSize: '14px', fontWeight: 500 }}>
+                        {p.profiles?.name || '—'}
+                        {p.status === 'withdrawn' && (
+                          <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(148,168,192,0.15)', color: '#94a8c0', letterSpacing: '0.05em' }}>WD</span>
+                        )}
+                        {p.status === 'disqualified' && (
+                          <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(220,38,38,0.2)', color: '#fca5a5', letterSpacing: '0.05em' }}>DQ</span>
+                        )}
+                      </td>
                       <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '14px' }}>{p.profiles?.indice ?? '—'}</td>
                       <td style={{ padding: '12px 16px', color: '#c4992a', fontSize: '14px', fontWeight: 600 }}>{p.handicap_at_registration ?? '—'}</td>
                       <td style={{ padding: '12px 16px', color: '#94a8c0', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
@@ -896,14 +928,26 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
                           <span style={{ color: '#94a8c0', fontSize: '12px' }}>—</span>
                         )}
                       </td>
-                      <td style={{ padding: '12px 16px' }}>
-                        {tournamentStatus !== 'closed' && (
-                          <button
-                            onClick={() => handleDesinscribir(p.id)}
-                            style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}
-                          >
-                            ✕
-                          </button>
+                      <td style={{ padding: '12px 16px', display: 'flex', gap: '6px' }}>
+                        {tournamentStatus !== 'closed' && p.status !== 'withdrawn' && p.status !== 'disqualified' && (
+                          <>
+                            <button
+                              onClick={() => handleDesinscribir(p.id)}
+                              title="Retirar (WD)"
+                              style={{ background: 'rgba(148,168,192,0.12)', border: '1px solid rgba(148,168,192,0.3)', color: '#94a8c0', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              WD
+                            </button>
+                            {tournamentStatus === 'in_progress' && (
+                              <button
+                                onClick={() => handleDescalificar(p.id)}
+                                title="Descalificar (DQ)"
+                                style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                DQ
+                              </button>
+                            )}
+                          </>
                         )}
                       </td>
                     </tr>

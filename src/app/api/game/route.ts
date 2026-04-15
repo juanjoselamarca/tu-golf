@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer } from './actions'
+import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer, disqualifyPlayer } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -94,6 +94,8 @@ export async function POST(request: NextRequest) {
       return cancelTournament(svc, user.id, tournament_id, tournament.organizer_id, tournament.status)
     case 'withdraw_player':
       return withdrawPlayer(svc, user.id, tournament_id, tournament.organizer_id, tournament.status, body)
+    case 'disqualify_player':
+      return disqualifyPlayer(svc, user.id, tournament_id, tournament.organizer_id, tournament.status, body)
     default:
       return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 })
   }

@@ -367,6 +367,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
              hole_scores(hole_number, gross_score))`
         )
         .eq('tournament_id', tournament.id)
+        .in('status', ['pending', 'approved', 'waitlist'])
 
       const dbPlayers = (rawPlayers as unknown as DBPlayer[]) || []
       const tournamentTotalRounds = tournament.total_rounds ?? 1
