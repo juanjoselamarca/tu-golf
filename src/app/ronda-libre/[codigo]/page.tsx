@@ -1034,6 +1034,29 @@ function RondaLibrePageContent() {
                           formato_juego: ronda.formato_juego,
                           modo_juego: ronda.modo_juego,
                         }
+
+                        // Match Play: calcular display ("3&2", "1 UP", "All Square") para la card
+                        if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length >= 2) {
+                          const jug = ronda.ronda_libre_jugadores
+                          const holesArr = Object.entries(parMap).map(([num, par]) => ({
+                            numero: Number(num), par, stroke_index: siMap[Number(num)] ?? Number(num),
+                          }))
+                          if (holesArr.length > 0) {
+                            const scA: Record<string, number> = {}
+                            const scB: Record<string, number> = {}
+                            for (const [k, v] of Object.entries(jug[0].scores)) { if (v > 0) scA[k] = v }
+                            for (const [k, v] of Object.entries(jug[1].scores)) { if (v > 0) scB[k] = v }
+                            const mr = calcularMatchPlay(scA, scB, holesArr, {
+                              courseHandicapA: courseHcpMap[jug[0].id] ?? 0,
+                              courseHandicapB: courseHcpMap[jug[1].id] ?? 0,
+                              totalHoles: ronda.holes,
+                              modo: ronda.modo_juego,
+                            }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
+                            shareData.matchResult = mr.display
+                            shareData.matchWinner = mr.winner === 'a' ? jug[0].nombre : mr.winner === 'b' ? jug[1].nombre : undefined
+                          }
+                        }
+
                         await compartirLeaderboard(shareData)
                       }}
                       style={{
@@ -1731,6 +1754,29 @@ function RondaLibrePageContent() {
                   formato_juego: ronda.formato_juego,
                   modo_juego: ronda.modo_juego,
                 }
+
+                // Match Play: calcular display del match para la card
+                if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length >= 2) {
+                  const jug = ronda.ronda_libre_jugadores
+                  const holesArr = Object.entries(parMap).map(([num, par]) => ({
+                    numero: Number(num), par, stroke_index: siMap[Number(num)] ?? Number(num),
+                  }))
+                  if (holesArr.length > 0) {
+                    const scA: Record<string, number> = {}
+                    const scB: Record<string, number> = {}
+                    for (const [k, v] of Object.entries(jug[0].scores)) { if (v > 0) scA[k] = v }
+                    for (const [k, v] of Object.entries(jug[1].scores)) { if (v > 0) scB[k] = v }
+                    const mr = calcularMatchPlay(scA, scB, holesArr, {
+                      courseHandicapA: courseHcpMap[jug[0].id] ?? 0,
+                      courseHandicapB: courseHcpMap[jug[1].id] ?? 0,
+                      totalHoles: ronda.holes,
+                      modo: ronda.modo_juego,
+                    }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
+                    shareData.matchResult = mr.display
+                    shareData.matchWinner = mr.winner === 'a' ? jug[0].nombre : mr.winner === 'b' ? jug[1].nombre : undefined
+                  }
+                }
+
                 await compartirLeaderboard(shareData)
               }}
               style={{

@@ -59,6 +59,13 @@ export interface LeaderboardShareData {
   isFinished: boolean
   formato_juego?: FormatoJuego | string
   modo_juego?: ModoJuego | string | null
+  /** Match Play: display string del resultado ("3&2", "1 UP", "All Square", etc.).
+   *  Cuando formato_juego === 'match_play' y matchResult está presente, la card
+   *  renderiza el estado del match en vez del total bruto. */
+  matchResult?: string
+  /** Match Play: nombre del ganador (si no es empate). Si matchResult indica
+   *  "All Square" o similar, este campo se ignora. */
+  matchWinner?: string
 }
 
 // ── Helpers internos ──────────────────────────────────────────────
@@ -382,8 +389,12 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
 
   const statsY = 1200
   const items: string[] = []
-  if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
-  if (data.birdies > 0) items.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
+  // Stableford y Match Play: eagles/birdies no son relevantes para el resultado.
+  // Solo se muestran en Stroke Play donde el total gross manda.
+  if (!isStableford && !isMatchPlay) {
+    if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
+    if (data.birdies > 0) items.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
+  }
   if (items.length > 0) { ctx.font = 'bold 30px Arial, sans-serif'; ctx.fillStyle = '#c9a84c'; ctx.textAlign = 'center'; ctx.fillText(items.join('    '), W / 2, statsY) }
 
   if (data.ranking && data.ranking.length > 1) {
@@ -442,9 +453,14 @@ function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: 
     drawScorecard(ctx, data.scoresByHole, data.parsByHole, 18, 998, W)
   }
 
+  // Stableford y Match Play: eagles/birdies no son relevantes.
+  const isStabT = data.formato_juego === 'stableford'
+  const isMatchT = data.formato_juego === 'match_play'
   const items: string[] = []
-  if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
-  if (data.birdies > 0) items.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
+  if (!isStabT && !isMatchT) {
+    if (data.eagles > 0) items.push(`${data.eagles} eagle${data.eagles > 1 ? 's' : ''}`)
+    if (data.birdies > 0) items.push(`${data.birdies} birdie${data.birdies > 1 ? 's' : ''}`)
+  }
   if (items.length > 0) { ctx.font = 'bold 30px Arial, sans-serif'; ctx.fillStyle = '#c9a84c'; ctx.textAlign = 'center'; ctx.fillText(items.join('    '), W / 2, 1200) }
 }
 
@@ -496,12 +512,34 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
 // ── Leaderboard share (backwards compat) ─────────────────────────
 
 export async function compartirLeaderboard(data: LeaderboardShareData): Promise<{ success: boolean; method: 'share' | 'download' }> {
-  // Convert to ronda_libre format
   const winner = data.players[0]
   const isStableford = data.formato_juego === 'stableford'
-  // Tie detection: for Stableford, higher vsPar (= more points) wins, same = tie
+  const isMatchPlay = data.formato_juego === 'match_play'
+
+  if (isMatchPlay && data.matchResult) {
+    // Match Play: el resultado del match es lo que importa ("3&2", "1 UP", "All Square").
+    // No hay "ganador por stroke total" — el ganador lo define el estado del match.
+    const allSquare = /all\s*square|^a\s*s$/i.test(data.matchResult)
+    const cardData: ShareCardRondaLibre = {
+      tipo: 'ronda_libre',
+      ganador: allSquare ? (data.players.map(p => p.nombre).join(' · ')) : (data.matchWinner ?? winner.nombre),
+      esEmpate: allSquare,
+      jugadores: allSquare ? data.players.map(p => p.nombre) : undefined,
+      scoreGross: 0,
+      scoreDiff: 0,
+      courseName: data.courseName, fecha: data.fecha,
+      birdies: 0, eagles: 0,
+      scoresByHole: {}, parsByHole: {},
+      holesPlayed: winner.totalHoles,
+      formato_juego: data.formato_juego,
+      modo_juego: data.modo_juego,
+      matchResult: data.matchResult,
+    }
+    return compartirResultado(cardData)
+  }
+
+  // Stroke Play / Stableford: ranking por vsPar
   const isTie = data.players.length > 1 && data.players[1].vsPar === winner.vsPar
-  // FIX: calcular parTotal real según hoyos jugados (no hardcoded 72)
   const parTotal = parTotalEstandar(winner.totalHoles)
   const cardData: ShareCardRondaLibre = {
     tipo: 'ronda_libre', ganador: winner.nombre, esEmpate: isTie,
