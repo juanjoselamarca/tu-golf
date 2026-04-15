@@ -255,11 +255,11 @@ export default function NuevaRondaLibrePage() {
       return
     }
 
-    // Modalidades que exigen índice WHS para todos los jugadores con nombre
+    // Modalidades que exigen índice WHS para todos los jugadores con nombre.
+    // Stableford Gross NO requiere HCP (los puntos se calculan sobre bruto vs par).
     const requiereHCP =
-      formato === 'stableford' ||
       formato === 'match_play' ||
-      (modo === 'neto' && (formato === 'stroke_play' || formato === 'best_ball' || formato === 'scramble' || formato === 'foursome'))
+      (modo === 'neto' && (formato === 'stroke_play' || formato === 'stableford' || formato === 'best_ball' || formato === 'scramble' || formato === 'foursome'))
     if (requiereHCP) {
       const filledAdmin = adminMode ? adminPlayers.filter(p => p.nombre.trim()) : []
       const missingHCP = filledAdmin.some(p => p.handicap == null)

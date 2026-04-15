@@ -1703,6 +1703,10 @@ function ScorePageContent() {
             holesPlayed: totalHoles,
             formato_juego: ronda.formato_juego,
             modo_juego: ronda.modo_juego,
+            // Match Play: pasar el display del resultado ("3&2", "All Square", etc.)
+            // para que el share card muestre eso en vez de score + vs-par.
+            matchResult: isMatchPlay && matchResult ? matchResult.display : undefined,
+            stablefordPoints: isStableford ? totalStableford : undefined,
           }
           await compartirResultado(shareData)
         }

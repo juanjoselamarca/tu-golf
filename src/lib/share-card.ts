@@ -22,6 +22,11 @@ export interface ShareCardRondaLibre {
   formato_juego?: FormatoJuego | string
   modo_juego?: ModoJuego | string | null
   ranking?: Array<{ nombre: string; score: number; diff: number }>
+  /** Resultado Match Play (ej: "3&2", "All Square", "1 UP"). Si viene y formato es match_play,
+   * se muestra prominente en lugar de score + vs-par. */
+  matchResult?: string
+  /** Total Stableford del jugador (para mostrar "N pts" como subtítulo). */
+  stablefordPoints?: number
 }
 
 export interface ShareCardTorneo {
@@ -339,17 +344,28 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
   ctx.font = 'bold 68px Georgia, serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(name, W / 2, 560)
 
   const isStableford = data.formato_juego === 'stableford'
-  const clr = isStableford ? '#c9a84c' : scoreColor(data.scoreDiff)
-  ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 35
-  ctx.font = 'bold 210px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(String(data.scoreGross), W / 2, 790)
-  ctx.restore()
+  const isMatchPlay = data.formato_juego === 'match_play'
+  const clr = isStableford ? '#c9a84c' : isMatchPlay ? '#c9a84c' : scoreColor(data.scoreDiff)
 
-  if (isStableford) {
-    // Stableford: mostrar "puntos" en lugar de vs-par
-    ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('puntos', W / 2, 848)
+  if (isMatchPlay && data.matchResult) {
+    // Match Play: el resultado del match es lo que importa, no el stroke total.
+    // Mostrar el display ("3&2", "All Square", "1 UP") como el número grande.
+    ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 35
+    const label = data.matchResult
+    const fontSize = label.length > 8 ? 130 : label.length > 5 ? 170 : 200
+    ctx.font = `bold ${fontSize}px Arial, sans-serif`; ctx.fillStyle = clr; ctx.fillText(label, W / 2, 790)
+    ctx.restore()
+    ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('Match Play', W / 2, 848)
   } else {
-    const diffTxt = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
-    ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
+    ctx.save(); ctx.shadowColor = clr; ctx.shadowBlur = 35
+    ctx.font = 'bold 210px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(String(data.scoreGross), W / 2, 790)
+    ctx.restore()
+    if (isStableford) {
+      ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText('puntos', W / 2, 848)
+    } else {
+      const diffTxt = data.scoreDiff === 0 ? 'Par' : data.scoreDiff > 0 ? `+${data.scoreDiff} sobre par` : `${data.scoreDiff} bajo par`
+      ctx.font = 'bold 42px Arial, sans-serif'; ctx.fillStyle = clr; ctx.fillText(diffTxt, W / 2, 848)
+    }
   }
   ctx.font = '32px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(`${data.courseName}  ·  ${data.fecha}`, W / 2, 900)
   // Badges: holes + formato (si hay formato, los ponemos apilados para no chocar)

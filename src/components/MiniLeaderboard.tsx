@@ -149,7 +149,8 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
                   <>
                     <div style={{
                       fontSize: '14px', fontWeight: 700, lineHeight: 1.2,
-                      color: j.totalVsPar != null && j.totalVsPar < 0 ? '#4ade80' : j.totalVsPar === 0 ? '#c4992a' : 'rgba(255,255,255,0.55)',
+                      // Paleta Garmin: under-par = birdie celeste, par = dorado neutral, over-par = discreto
+                      color: j.totalVsPar != null && j.totalVsPar < 0 ? '#14B3D9' : j.totalVsPar === 0 ? '#c4992a' : 'rgba(255,255,255,0.55)',
                     }}>{j.totalGross}</div>
                     <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', lineHeight: 1.2 }}>
                       {j.totalVsPar == null ? '–' : j.totalVsPar === 0 ? 'Par' : j.totalVsPar > 0 ? `+${j.totalVsPar}` : `${j.totalVsPar}`}
