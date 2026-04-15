@@ -172,33 +172,136 @@ function drawBase(ctx: CanvasRenderingContext2D, W: number, H: number) {
 
 // ── Scorecard 18 hoyos ───────────────────────────────────────────
 
+// Garmin palette (verified 24-Mar-2026) — matches ScoreSymbol component
+const GARMIN = {
+  eagle: '#0B6BA6',
+  birdie: '#14B3D9',
+  bogey: '#D4A442',
+  double: '#DC3B2E',
+} as const
+
+// Dibuja el símbolo Garmin alrededor del número (círculo/cuadrado/doble)
+function drawScoreSymbol(ctx: CanvasRenderingContext2D, cx: number, cy: number, diff: number) {
+  const r = 26 // radio base del símbolo
+  ctx.save()
+  ctx.lineWidth = 2
+  if (diff <= -2) {
+    // Eagle+: doble círculo azul oscuro
+    ctx.strokeStyle = GARMIN.eagle
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke()
+    ctx.beginPath(); ctx.arc(cx, cy, r - 5, 0, Math.PI * 2); ctx.stroke()
+  } else if (diff === -1) {
+    // Birdie: círculo celeste
+    ctx.strokeStyle = GARMIN.birdie
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke()
+  } else if (diff === 1) {
+    // Bogey: cuadrado dorado
+    ctx.strokeStyle = GARMIN.bogey
+    ctx.strokeRect(cx - r, cy - r, r * 2, r * 2)
+  } else if (diff >= 2) {
+    // Double+: doble cuadrado rojo
+    ctx.strokeStyle = GARMIN.double
+    ctx.strokeRect(cx - r, cy - r, r * 2, r * 2)
+    ctx.strokeRect(cx - r + 5, cy - r + 5, (r - 5) * 2, (r - 5) * 2)
+  }
+  // Par (diff === 0): sin símbolo, solo el número
+  ctx.restore()
+}
+
 function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<string | number, number>, pars: Record<number, number>, holes: number, startY: number, W: number) {
-  const boxW = 90, boxH = 80, gapX = 5, gapY = 6
-  const totalW = 9 * boxW + 8 * gapX; const startX = (W - totalW) / 2
+  // Panel de scorecard claro (tipo captura del componente Scorecard)
+  const panelPad = 70
+  const panelX = panelPad
+  const panelY = startY - 20
+  const panelW = W - panelPad * 2
+  const rows = holes <= 9 ? 1 : 2
+  const rowH = 92
+  const headerH = 28
+  const totalRowH = 34
+  const panelH = headerH + rows * rowH + totalRowH + 24
 
-  for (let row = 0; row < 2; row++) {
+  roundRect(ctx, panelX, panelY, panelW, panelH, 16)
+  ctx.fillStyle = '#ffffff'; ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1; ctx.stroke()
+
+  const cellW = (panelW - 32) / 10 // 9 holes + 1 OUT/IN column
+  const gridX = panelX + 16
+
+  // Header row: hole numbers
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.font = 'bold 16px Arial, sans-serif'; ctx.fillStyle = '#5a6370'
+
+  for (let row = 0; row < rows; row++) {
+    const rowY = panelY + headerH + row * rowH
+    const headerY = rowY - 4
+
+    // Hole number labels (Hoyo 1..9 or 10..18)
+    ctx.font = 'bold 14px Arial, sans-serif'; ctx.fillStyle = '#7c8594'
     for (let col = 0; col < 9; col++) {
-      const h = row * 9 + col + 1; if (h > holes) break
-      const s = scores[h] ?? scores[String(h)]; const p = pars[h] ?? 4
-      const d = s != null ? s - p : null
-      const x = startX + col * (boxW + gapX); const y = startY + row * (boxH + gapY)
+      const h = row * 9 + col + 1
+      if (h > holes) break
+      ctx.fillText(String(h), gridX + col * cellW + cellW / 2, headerY + 8)
+    }
+    // OUT / IN label
+    ctx.fillStyle = '#c4992a'; ctx.font = 'bold 14px Arial, sans-serif'
+    ctx.fillText(row === 0 ? 'OUT' : 'IN', gridX + 9 * cellW + cellW / 2, headerY + 8)
 
-      let bg = 'rgba(255,255,255,0.05)', tc = 'rgba(255,255,255,0.22)', bc = 'rgba(255,255,255,0.07)', bw = 1
-      if (d !== null) {
-        if (d <= -2) { bg = 'rgba(201,168,76,0.22)'; tc = '#c9a84c'; bc = 'rgba(201,168,76,0.65)'; bw = 2 }
-        else if (d === -1) { bg = 'rgba(74,222,128,0.18)'; tc = '#4ade80'; bc = 'rgba(74,222,128,0.55)'; bw = 2 }
-        else if (d === 0) { bg = 'rgba(255,255,255,0.05)'; tc = 'rgba(255,255,255,0.72)'; bc = 'rgba(255,255,255,0.16)' }
-        else if (d === 1) { bg = 'rgba(217,119,6,0.16)'; tc = '#f59e0b'; bc = 'rgba(217,119,6,0.42)' }
-        else { bg = 'rgba(248,113,113,0.18)'; tc = '#f87171'; bc = 'rgba(248,113,113,0.48)'; bw = 2 }
+    // Score row: number + Garmin symbol
+    let rowTotal = 0; let rowHasAll = true
+    for (let col = 0; col < 9; col++) {
+      const h = row * 9 + col + 1
+      if (h > holes) { rowHasAll = false; break }
+      const s = scores[h] ?? scores[String(h)]
+      const p = pars[h] ?? 4
+      const cx = gridX + col * cellW + cellW / 2
+      const cy = rowY + 48
+
+      if (s == null) {
+        rowHasAll = false
+        ctx.font = '32px "DM Mono", Courier, monospace'; ctx.fillStyle = '#d1d5db'
+        ctx.fillText('–', cx, cy)
+      } else {
+        const d = s - p
+        drawScoreSymbol(ctx, cx, cy, d)
+        ctx.font = 'bold 30px "DM Mono", Courier, monospace'; ctx.fillStyle = '#1a1a2e'
+        ctx.fillText(String(s), cx, cy)
+        rowTotal += s
       }
-
-      roundRect(ctx, x, y, boxW, boxH, 9); ctx.fillStyle = bg; ctx.fill()
-      ctx.strokeStyle = bc; ctx.lineWidth = bw; ctx.stroke()
-      ctx.textAlign = 'center'
-      ctx.font = '16px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.32)'; ctx.fillText(String(h), x + boxW / 2, y + 21)
-      ctx.font = 'bold 36px Arial, sans-serif'; ctx.fillStyle = tc; ctx.fillText(s != null ? String(s) : '–', x + boxW / 2, y + 63)
+    }
+    // Row total (OUT/IN sum)
+    const totX = gridX + 9 * cellW + cellW / 2
+    const totY = rowY + 48
+    if (rowHasAll && rowTotal > 0) {
+      ctx.font = 'bold 30px "DM Mono", Courier, monospace'; ctx.fillStyle = '#c4992a'
+      ctx.fillText(String(rowTotal), totX, totY)
+    } else if (rowTotal > 0) {
+      ctx.font = '26px "DM Mono", Courier, monospace'; ctx.fillStyle = '#9ca3af'
+      ctx.fillText(String(rowTotal), totX, totY)
     }
   }
+
+  // Total line at bottom
+  const totalY = panelY + headerH + rows * rowH + 4
+  ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(panelX + 16, totalY); ctx.lineTo(panelX + panelW - 16, totalY); ctx.stroke()
+
+  const grandTotal = Array.from({ length: holes }, (_, i) => {
+    const h = i + 1; const s = scores[h] ?? scores[String(h)]
+    return typeof s === 'number' ? s : 0
+  }).reduce((a, b) => a + b, 0)
+  const grandPar = Array.from({ length: holes }, (_, i) => pars[i + 1] ?? 4).reduce((a, b) => a + b, 0)
+  const grandDiff = grandTotal - grandPar
+
+  ctx.textAlign = 'left'; ctx.font = 'bold 18px Arial, sans-serif'; ctx.fillStyle = '#5a6370'
+  ctx.fillText('TOTAL', panelX + 32, totalY + totalRowH / 2 + 6)
+  ctx.textAlign = 'right'
+  ctx.font = 'bold 28px "DM Mono", Courier, monospace'; ctx.fillStyle = '#1a1a2e'
+  const diffLabel = grandDiff === 0 ? 'E' : (grandDiff > 0 ? `+${grandDiff}` : `${grandDiff}`)
+  const diffColor = grandDiff < 0 ? GARMIN.birdie : (grandDiff > 0 ? GARMIN.bogey : '#1a1a2e')
+  ctx.fillText(String(grandTotal), panelX + panelW - 100, totalY + totalRowH / 2 + 8)
+  ctx.fillStyle = diffColor; ctx.font = 'bold 22px Arial, sans-serif'
+  ctx.fillText(diffLabel, panelX + panelW - 32, totalY + totalRowH / 2 + 8)
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
 }
 
 // ── CTA inferior ─────────────────────────────────────────────────
