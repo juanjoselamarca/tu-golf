@@ -71,6 +71,7 @@ export default function NuevaRondaLibrePage() {
     nombre: string
     telefono: string
     handicap: number | null
+    tees: string | null
   }
   const [adminPlayers, setAdminPlayers] = useState<AdminPlayer[]>([])
   const updateAdminPlayer = (idx: number, field: keyof AdminPlayer, value: string | number | null) => {
@@ -85,7 +86,7 @@ export default function NuevaRondaLibrePage() {
   }
   const addAdminPlayer = () => {
     if (adminPlayers.length < 3) {
-      setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
+      setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null }])
     }
   }
   const [formato, setFormato] = useState<'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'>('stroke_play')
@@ -101,6 +102,18 @@ export default function NuevaRondaLibrePage() {
   const [loading, setLoading] = useState(false)
   const [showShareScreen, setShowShareScreen] = useState(false)
   const [roundCode, setRoundCode] = useState('')
+
+  // Slope/CR del tee seleccionado (fallback al global del curso si el tee no los tiene cargados)
+  const activeTee = courseTees.find(t => t.nombre.toLowerCase() === tees.toLowerCase())
+  const effectiveSlope = activeTee?.slope ?? courseDetails?.slope_rating ?? null
+  const effectiveCR = activeTee?.rating ?? courseDetails?.course_rating ?? null
+
+  // Helper: devuelve slope/CR del tee de un jugador, con fallback al tee global de la ronda
+  const teeSlopeCR = (teeName: string | null | undefined): { slope: number | null; cr: number | null } => {
+    if (!teeName) return { slope: effectiveSlope, cr: effectiveCR }
+    const t = courseTees.find(ct => ct.nombre.toLowerCase() === teeName.toLowerCase())
+    return { slope: t?.slope ?? effectiveSlope, cr: t?.rating ?? effectiveCR }
+  }
 
   useEffect(() => {
     const check = async () => {
@@ -242,11 +255,16 @@ export default function NuevaRondaLibrePage() {
       return
     }
 
-    if (formato === 'stableford') {
-      const missingHCP = adminPlayers.some(p => p.handicap == null)
+    // Modalidades que exigen índice WHS para todos los jugadores con nombre
+    const requiereHCP =
+      formato === 'stableford' ||
+      formato === 'match_play' ||
+      (modo === 'neto' && (formato === 'stroke_play' || formato === 'best_ball' || formato === 'scramble' || formato === 'foursome'))
+    if (requiereHCP) {
+      const filledAdmin = adminMode ? adminPlayers.filter(p => p.nombre.trim()) : []
+      const missingHCP = filledAdmin.some(p => p.handicap == null)
       if (creatorHandicap == null || missingHCP) {
         showError('Índice requerido', 'Esta modalidad requiere el índice WHS de todos los jugadores para calcular el handicap de cancha.')
-        setLoading(false)
         return
       }
     }
@@ -256,7 +274,9 @@ export default function NuevaRondaLibrePage() {
     const supabase = createClient()
     const codigo = Math.random().toString(36).substring(2, 8).toUpperCase()
 
-    const holes = 18
+    const holes = courseLoops.length > 0 && selectedLoops.length > 0
+      ? selectedLoops.reduce((sum, r) => sum + (courseLoops.find(l => l.recorrido === r)?.holes ?? 9), 0)
+      : 18
 
     const baseData: Record<string, unknown> = {
       codigo,
@@ -339,6 +359,8 @@ export default function NuevaRondaLibrePage() {
         user_id: i === 0 ? userId : null,
         scores: {},
         handicap: i === 0 ? creatorHandicap : (adminMode && i > 0 ? adminPlayers[i - 1]?.handicap ?? null : null),
+        // Tee por jugador: creador usa el tee global, admin players pueden tener el suyo
+        tees: i === 0 ? tees : (adminMode && i > 0 ? (adminPlayers[i - 1]?.tees ?? tees) : tees),
       }
       // In admin mode, mark non-creator players as guests with phone
       if (adminMode && i > 0) {
@@ -573,7 +595,7 @@ export default function NuevaRondaLibrePage() {
               type="button"
               onClick={() => {
                 setAdminMode(true)
-                setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
+                setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null }])
                 setStep(2)
               }}
               style={{
@@ -795,17 +817,17 @@ export default function NuevaRondaLibrePage() {
                         // Match play fuerza admin mode con 1 rival
                         if (f.value === 'match_play' && !adminMode) {
                           setAdminMode(true)
-                          setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
+                          setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null }])
                         }
                         // Stableford requiere handicap de todos los jugadores desde el inicio → fuerza admin mode
                         if (f.value === 'stableford' && !adminMode) {
                           setAdminMode(true)
-                          setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
+                          setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null }])
                         }
                         // Team formats also force admin mode
                         if (['best_ball', 'scramble', 'foursome'].includes(f.value) && !adminMode) {
                           setAdminMode(true)
-                          setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null }])
+                          setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null }])
                         }
                       }}
                       style={{
@@ -1194,9 +1216,9 @@ export default function NuevaRondaLibrePage() {
                   <div style={{ fontSize: '15px', fontWeight: 600, color: colors.textPrimary }}>{creatorName}</div>
                   <div style={{ fontSize: '12px', color: colors.textSecondary }}>
                     Índice {creatorHandicap != null ? creatorHandicap : '--'}
-                    {creatorHandicap != null && courseDetails?.slope_rating && courseDetails?.course_rating && courseDetails?.par_total && (
+                    {creatorHandicap != null && effectiveSlope && effectiveCR && courseDetails?.par_total && (
                       <span style={{ color: '#c4992a', marginLeft: '6px' }}>
-                        HCP {Math.round(creatorHandicap * (courseDetails.slope_rating / 113) + ((courseDetails.course_rating ?? 72) - (courseDetails.par_total ?? 72)))}
+                        HCP {Math.round(creatorHandicap * (effectiveSlope / 113) + (effectiveCR - courseDetails.par_total))}
                       </span>
                     )}
                   </div>
@@ -1286,11 +1308,35 @@ export default function NuevaRondaLibrePage() {
                             width: '90px', minHeight: '38px', boxSizing: 'border-box' as const,
                           }}
                         />
-                        {player.handicap != null && courseDetails?.slope_rating && courseDetails?.course_rating && courseDetails?.par_total && (
-                          <span style={{ fontSize: '12px', color: '#c4992a', fontWeight: 600 }}>
-                            HCP {Math.round(player.handicap * (courseDetails.slope_rating / 113) + ((courseDetails.course_rating ?? 72) - (courseDetails.par_total ?? 72)))}
-                          </span>
+                        {/* Tee del jugador — hereda del tee global, override opcional */}
+                        {courseTees.length > 1 && (
+                          <select
+                            value={player.tees ?? tees}
+                            onChange={(e) => updateAdminPlayer(idx, 'tees', e.target.value)}
+                            style={{
+                              background: colors.inputBg, border: `1px solid ${colors.inputBorder}`,
+                              color: colors.textPrimary, borderRadius: '10px',
+                              padding: '8px 10px', fontSize: '13px', outline: 'none',
+                              minHeight: '38px', boxSizing: 'border-box' as const,
+                              cursor: 'pointer',
+                            }}
+                            title="Tee de salida"
+                          >
+                            {courseTees.map(t => {
+                              const val = t.nombre.toLowerCase()
+                              const label = val.charAt(0).toUpperCase() + val.slice(1)
+                              return <option key={val} value={val}>{label}</option>
+                            })}
+                          </select>
                         )}
+                        {(() => {
+                          const { slope: pSlope, cr: pCR } = teeSlopeCR(player.tees ?? tees)
+                          return player.handicap != null && pSlope && pCR && courseDetails?.par_total ? (
+                            <span style={{ fontSize: '12px', color: '#c4992a', fontWeight: 600 }}>
+                              HCP {Math.round(player.handicap * (pSlope / 113) + (pCR - courseDetails.par_total))}
+                            </span>
+                          ) : null
+                        })()}
                       </div>
 
                       {/* Phone input for guests */}

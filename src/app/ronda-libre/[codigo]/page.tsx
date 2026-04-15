@@ -78,6 +78,7 @@ interface Jugador {
   user_id: string | null
   scores: Record<string, number>
   handicap?: number | null
+  tees?: string | null
 }
 
 interface CourseHole {
@@ -310,7 +311,7 @@ function RondaLibrePageContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
         .eq('codigo', codigo)
         .single()
 
@@ -355,8 +356,8 @@ function RondaLibrePageContent() {
           }
         }
 
-        // Convertir índice → course handicap usando fórmula WHS
-        const courseData = await cargarCourseData(r.course_id, r.tees || 'azul', r.holes, finalParTotal)
+        // Convertir índice → course handicap usando fórmula WHS (tee por jugador)
+        const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
         const chMap: Record<string, number> = {}
         const supabaseForProfiles = createClient()
         for (const j of r.ronda_libre_jugadores) {
@@ -369,7 +370,11 @@ function RondaLibrePageContent() {
           } else {
             index = 18
           }
-          chMap[j.id] = resolverCourseHandicap(index, courseData)
+          const playerTee = (j.tees || r.tees || 'azul').toLowerCase()
+          if (!courseDataByTee[playerTee]) {
+            courseDataByTee[playerTee] = await cargarCourseData(r.course_id, playerTee, r.holes, finalParTotal)
+          }
+          chMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee])
         }
         setCourseHcpMap(chMap)
       }

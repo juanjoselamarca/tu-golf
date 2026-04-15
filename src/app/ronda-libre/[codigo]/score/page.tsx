@@ -58,7 +58,7 @@ function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; onClose: 
 }
 
 /* ── Types ──────────────────────────────────────────────────────────── */
-interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number>; handicap?: number | null }
+interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number>; handicap?: number | null; tees?: string | null }
 interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; formato_juego: FormatoJuego; hoyo_inicio?: number | null; admin_mode?: boolean; admin_user_id?: string; recorridos?: string[] | null; ronda_libre_jugadores: Jugador[] }
 interface HoleData { numero: number; par: number; stroke_index: number; yardaje: number | null }
 
@@ -254,7 +254,7 @@ function ScorePageContent() {
       const supabase = createClient()
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, hoyo_inicio, admin_mode, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, hoyo_inicio, admin_mode, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
         .eq('codigo', codigo)
         .single()
       if (!data) { router.push('/dashboard'); return }
@@ -322,15 +322,19 @@ function ScorePageContent() {
         } else { setHoleDataMap(hdm) }
       } else { setHoleDataMap(hdm) }
 
-      // Convertir índice → course handicap usando fórmula WHS
+      // Convertir índice → course handicap usando fórmula WHS (tee por jugador)
       const hcpMap: Record<string, number> = {}
-      const courseData = await cargarCourseData(r.course_id ?? null, r.tees || 'azul', r.holes, finalParTotal)
+      const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
       for (const j of r.ronda_libre_jugadores) {
         let index: number
         if (j.handicap != null) { index = j.handicap }
         else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); index = p?.indice ?? 0 }
         else { index = 0 }
-        hcpMap[j.id] = resolverCourseHandicap(index, courseData)
+        const playerTee = (j.tees || r.tees || 'azul').toLowerCase()
+        if (!courseDataByTee[playerTee]) {
+          courseDataByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, r.holes, finalParTotal)
+        }
+        hcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee])
       }
       setPlayerHcp(hcpMap)
 
@@ -543,17 +547,20 @@ function ScorePageContent() {
     const grossTotal = scoresArray.filter((s): s is number => s != null).reduce((a, b) => a + b, 0)
     try {
       // Fetch slope/rating from courses for diferencial calculation
+      // Usar el tee del jugador que está finalizando (fallback al tee global de la ronda)
+      const activePlayer = ronda.ronda_libre_jugadores.find(p => p.id === activeJugadorId)
+      const effectivePlayerTee = activePlayer?.tees || ronda.tees
       let slopeRating: number | null = null
       let courseRating: number | null = null
       let nineHoleRatings: { cr9h: number; slope9h: number } | null = null
       if (ronda.course_id) {
-        // Try tee-specific CR/Slope first (more accurate)
-        if (ronda.tees) {
+        // Try tee-specific CR/Slope first (más preciso)
+        if (effectivePlayerTee) {
           const { data: teeData } = await supabase
             .from('course_tees')
             .select('rating, slope, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating')
             .eq('course_id', ronda.course_id)
-            .ilike('nombre', `${ronda.tees}%`)
+            .ilike('nombre', `${effectivePlayerTee}%`)
             .limit(1)
             .single()
           if (teeData?.rating && teeData?.slope) {
@@ -588,7 +595,7 @@ function ScorePageContent() {
         total_gross: grossTotal,
         scores: scoresArray,
         holes_played: totalHolesForSave,
-        tee_color: ronda.tees ?? null,
+        tee_color: effectivePlayerTee ?? null,
         privacy: 'private',
         slope_rating: slopeRating,
         course_rating: courseRating,

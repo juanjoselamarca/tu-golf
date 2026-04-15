@@ -16,6 +16,7 @@ interface Jugador {
   user_id: string | null
   scores: Record<string, number>
   handicap?: number | null
+  tees?: string | null
 }
 
 interface RondaLibre {
@@ -124,7 +125,7 @@ export default function ScoreGrupoPage() {
 
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, hoyo_inicio, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, hoyo_inicio, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
         .eq('codigo', codigo)
         .single()
 
@@ -201,13 +202,17 @@ export default function ScoreGrupoPage() {
 
       // Load handicaps: convertir índice → course handicap usando fórmula WHS
       const hcpMap: Record<string, number> = {}
-      const courseData = await cargarCourseData(r.course_id ?? null, r.tees || 'azul', r.holes, finalParTotal)
+      const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
       for (const j of r.ronda_libre_jugadores) {
         let index: number
         if (j.handicap != null) { index = j.handicap }
         else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); index = p?.indice ?? 0 }
         else { index = 0 }
-        hcpMap[j.id] = resolverCourseHandicap(index, courseData)
+        const playerTee = (j.tees || r.tees || 'azul').toLowerCase()
+        if (!courseDataByTee[playerTee]) {
+          courseDataByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, r.holes, finalParTotal)
+        }
+        hcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee])
       }
       setPlayerHcp(hcpMap)
 
