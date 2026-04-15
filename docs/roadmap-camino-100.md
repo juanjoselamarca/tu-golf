@@ -122,3 +122,11 @@ historial arreglados. Quedan items de la auditoría del 13-abr y del bug sweep d
   #4 (share card), #5 (demo cleanup) shippeados.
 - 2026-04-15 AM: Bug sweep → score-grupo insert faltante y score page
   user_id incorrecto shippeados.
+- 2026-04-15 PM: **Sprint 1 completo** (commit c04e58c):
+  - #1 tAIger+ multi-turn: verificado ya corregido en main
+  - #2 Par hardcoded: hole_pars reales de course_holes
+  - #3 GEMINI_API_KEY: error 503 gracioso existe, pendiente acción Juanjo
+  - #4 WHS 9h: scaleo ×2 a equivalente 18h + heurística legacy mejorada
+  - #5 Rondas parciales: holes_played real + diferencial solo si ≥9
+  - #6 Descartar ronda: botón dos-pasos en score y score-grupo
+  - tsc 0, 927 tests pass, build OK, deploy disparado.
