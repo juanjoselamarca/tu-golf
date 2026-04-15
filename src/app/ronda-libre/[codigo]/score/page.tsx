@@ -587,8 +587,12 @@ function ScorePageContent() {
         ? calcularDiferencial(grossTotal, courseRating, slopeRating, totalHolesForSave, nineHoleRatings)
         : null
 
+      // El historial pertenece al JUGADOR, no al dueño del dispositivo. Si el jugador
+      // activo tiene cuenta propia, usar su user_id; si no (invitado), usar la sesión actual.
+      const historicalUserId = activePlayer?.user_id ?? authUser?.id
+      if (!historicalUserId) throw new Error('no-user-id-for-historical')
       const { data: insertedRound } = await supabase.from('historical_rounds').insert({
-        user_id: authUser?.id,
+        user_id: historicalUserId,
         course_name: ronda.course_name,
         course_id: ronda.course_id ?? null,
         played_at: ronda.fecha || new Date().toISOString().split('T')[0],
@@ -608,29 +612,28 @@ function ScorePageContent() {
         setHistoricalRoundId(insertedRound.id)
       }
 
-      // Recalculate Índice Golfers+ and nivel
+      // Recalcular Índice Golfers+ y nivel del dueño de la tarjeta (no del dispositivo)
+      supabase.rpc('calcular_indice_golfers', { p_user_id: historicalUserId }).then(() => {})
+      const hace90Dias = new Date()
+      hace90Dias.setDate(hace90Dias.getDate() - 90)
+      supabase
+        .from('historical_rounds')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', historicalUserId)
+        .gte('played_at', hace90Dias.toISOString())
+        .then(({ count }) => {
+          const nuevoNivel = calcularNivel(count ?? 0)
+          const expira = new Date()
+          expira.setDate(expira.getDate() + 60)
+          supabase.from('profiles').update({
+            nivel: nuevoNivel,
+            nivel_updated_at: new Date().toISOString(),
+            nivel_expires_at: expira.toISOString(),
+          }).eq('id', historicalUserId).then(() => {})
+        })
+
+      // Detectar patrones del dueño de la sesión (tAIger+ patterns es del usuario logged-in)
       if (authUser?.id) {
-        supabase.rpc('calcular_indice_golfers', { p_user_id: authUser.id }).then(() => {})
-
-        const hace90Dias = new Date()
-        hace90Dias.setDate(hace90Dias.getDate() - 90)
-        supabase
-          .from('historical_rounds')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', authUser.id)
-          .gte('played_at', hace90Dias.toISOString())
-          .then(({ count }) => {
-            const nuevoNivel = calcularNivel(count ?? 0)
-            const expira = new Date()
-            expira.setDate(expira.getDate() + 60)
-            supabase.from('profiles').update({
-              nivel: nuevoNivel,
-              nivel_updated_at: new Date().toISOString(),
-              nivel_expires_at: expira.toISOString(),
-            }).eq('id', authUser.id).then(() => {})
-          })
-
-        // Detectar patrones automáticamente (non-blocking)
         fetch('/api/taiger/patterns', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
           .then(() => {}).catch(() => {})
       }

@@ -8,6 +8,7 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
+import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 
 /* ── Types ── */
 interface Jugador {
@@ -335,6 +336,76 @@ export default function ScoreGrupoPage() {
       return supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
     })
     await Promise.all(savePromises)
+
+    // Guardar historical_rounds para cada jugador con cuenta registrada
+    // (sin esto, los jugadores de rondas admin-mode no ven su ronda en "Mis rondas")
+    const totalHolesForSave = ronda.holes ?? 18
+    const teeSlopeCRCache: Record<string, { slope: number | null; cr: number | null; nineHole: { cr9h: number; slope9h: number } | null }> = {}
+    for (const j of ronda.ronda_libre_jugadores) {
+      if (!j.user_id) continue // invitados sin cuenta: no tienen historial
+      try {
+        const playerScores = scores[j.id] ?? {}
+        const scoresArray: (number | null)[] = Array.from({ length: totalHolesForSave }, (_, i) => {
+          const h = i + 1; const v = playerScores[h]
+          return typeof v === 'number' ? v : null
+        })
+        const grossTotal = scoresArray.filter((s): s is number => s != null).reduce((a, b) => a + b, 0)
+        if (grossTotal === 0) continue // no jugó ningún hoyo
+
+        const playerTee = (j.tees || ronda.tees || 'azul').toLowerCase()
+        if (!teeSlopeCRCache[playerTee]) {
+          let slope: number | null = null, cr: number | null = null
+          let nineHole: { cr9h: number; slope9h: number } | null = null
+          if (ronda.course_id) {
+            const { data: teeData } = await supabase.from('course_tees')
+              .select('rating, slope, front_course_rating, front_slope_rating')
+              .eq('course_id', ronda.course_id).ilike('nombre', `${playerTee}%`).limit(1).single()
+            if (teeData?.rating && teeData?.slope) { cr = teeData.rating; slope = teeData.slope }
+            if (teeData?.front_course_rating && teeData?.front_slope_rating) {
+              nineHole = { cr9h: teeData.front_course_rating, slope9h: teeData.front_slope_rating }
+            }
+            if (!slope || !cr) {
+              const { data: cd } = await supabase.from('courses').select('slope_rating, course_rating').eq('id', ronda.course_id).single()
+              slope = slope ?? cd?.slope_rating ?? null; cr = cr ?? cd?.course_rating ?? null
+            }
+          }
+          teeSlopeCRCache[playerTee] = { slope, cr, nineHole }
+        }
+        const { slope, cr, nineHole } = teeSlopeCRCache[playerTee]
+        const diferencial = (slope && cr) ? calcularDiferencial(grossTotal, cr, slope, totalHolesForSave, nineHole) : null
+
+        await supabase.from('historical_rounds').insert({
+          user_id: j.user_id,
+          course_name: ronda.course_name,
+          course_id: ronda.course_id ?? null,
+          played_at: ronda.fecha || new Date().toISOString().split('T')[0],
+          total_gross: grossTotal,
+          scores: scoresArray,
+          holes_played: totalHolesForSave,
+          tee_color: playerTee,
+          privacy: 'private',
+          slope_rating: slope,
+          course_rating: cr,
+          diferencial,
+          formato_juego: ronda.formato_juego ?? 'stroke_play',
+          modo_juego: ronda.modo_juego ?? 'gross',
+        })
+
+        // Recalcular índice y nivel del jugador (non-blocking)
+        supabase.rpc('calcular_indice_golfers', { p_user_id: j.user_id }).then(() => {})
+        const hace90 = new Date(); hace90.setDate(hace90.getDate() - 90)
+        supabase.from('historical_rounds').select('*', { count: 'exact', head: true })
+          .eq('user_id', j.user_id).gte('played_at', hace90.toISOString())
+          .then(({ count }) => {
+            const nivel = calcularNivel(count ?? 0)
+            const expira = new Date(); expira.setDate(expira.getDate() + 60)
+            supabase.from('profiles').update({
+              nivel, nivel_updated_at: new Date().toISOString(), nivel_expires_at: expira.toISOString(),
+            }).eq('id', j.user_id!).then(() => {})
+          })
+      } catch { /* no bloquear finalización si falla un jugador */ }
+    }
+
     // Finalizar ronda
     await supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
     router.push(`/ronda-libre/${codigo}?finished=true`)
