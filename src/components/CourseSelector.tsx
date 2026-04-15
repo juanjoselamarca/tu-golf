@@ -22,6 +22,8 @@ interface CourseRow {
   fuente: string | null
   datos_verificados: boolean | null
   fedegolf_club_id: number | null
+  parent_id: string | null
+  loop_nombre: string | null
 }
 
 /** A merged course = one entry per course, with both VARONES and DAMAS ids */
@@ -36,6 +38,8 @@ interface MergedCourse {
   varonesParTotal: number | null
   damasParTotal: number | null
   fuente: string | null
+  /** Loops for multi-recorrido clubs (e.g. Norte, Sur, Este) */
+  loops: { name: string; id: string; par: number }[]
 }
 
 interface FavoriteCourse {
@@ -110,11 +114,23 @@ function isDamas(nombre: string): boolean {
   return /\(DAMAS\)/i.test(nombre)
 }
 
-/** Merge VARONES/DAMAS pairs into single entries */
+/** Merge VARONES/DAMAS pairs into single entries, grouping children under parents */
 function mergeCourses(courses: CourseRow[]): MergedCourse[] {
+  // Separate parents (parent_id is null) from children (parent_id is set)
+  const parents = courses.filter(c => !c.parent_id)
+  const children = courses.filter(c => c.parent_id)
+
+  // Index children by parent_id
+  const childrenByParent = new Map<string, CourseRow[]>()
+  for (const child of children) {
+    const pid = child.parent_id!
+    if (!childrenByParent.has(pid)) childrenByParent.set(pid, [])
+    childrenByParent.get(pid)!.push(child)
+  }
+
   const map = new Map<string, MergedCourse>()
 
-  for (const c of courses) {
+  for (const c of parents) {
     const { displayName, clubName } = cleanCourseName(c.nombre)
     const key = `${c.fedegolf_club_id ?? 'null'}_${displayName}`
 
@@ -130,6 +146,7 @@ function mergeCourses(courses: CourseRow[]): MergedCourse[] {
         varonesParTotal: null,
         damasParTotal: null,
         fuente: c.fuente,
+        loops: [],
       })
     }
 
@@ -138,13 +155,21 @@ function mergeCourses(courses: CourseRow[]): MergedCourse[] {
       entry.damasId = c.id
       entry.damasParTotal = c.par_total
     } else {
-      // Default to varones (or the only variant)
       entry.varonesId = c.id
       entry.varonesParTotal = c.par_total
       entry.parTotal = c.par_total
     }
 
     if (c.datos_verificados) entry.verified = true
+
+    // Attach children loops to this parent
+    const kids = childrenByParent.get(c.id)
+    if (kids && kids.length >= 2) {
+      entry.loops = kids
+        .filter(k => k.loop_nombre)
+        .map(k => ({ name: k.loop_nombre!, id: k.id, par: k.par_total ?? 36 }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    }
   }
 
   return Array.from(map.values())
@@ -282,13 +307,13 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = createClient()
 
-  // Load all fedegolf courses on mount
+  // Load all fedegolf courses on mount (parents + children for loop info)
   useEffect(() => {
     async function load() {
       setLoading(true)
       const { data } = await supabase
         .from('courses')
-        .select('id, nombre, par_total, fuente, datos_verificados, fedegolf_club_id')
+        .select('id, nombre, par_total, fuente, datos_verificados, fedegolf_club_id, parent_id, loop_nombre')
         .eq('fuente', 'fedegolf')
         .eq('activa', true)
 
@@ -314,22 +339,36 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
     })
   }, [allCourses])
 
-  // Search handler
+  // Search handler — fetch parents + their children for loop info
   const handleSearch = useCallback(async (query: string) => {
     if (query.length < 2) {
       setSearchResults([])
       return
     }
     setSearchLoading(true)
-    const { data } = await supabase
+    // Search only parent courses (parent_id is null) to avoid duplicate loop entries
+    const { data: parents } = await supabase
       .from('courses')
-      .select('id, nombre, par_total, fuente, datos_verificados, fedegolf_club_id')
+      .select('id, nombre, par_total, fuente, datos_verificados, fedegolf_club_id, parent_id, loop_nombre')
       .eq('activa', true)
+      .is('parent_id', null)
       .ilike('nombre', `%${query}%`)
       .order('datos_verificados', { ascending: false })
       .limit(15)
 
-    setSearchResults((data as CourseRow[]) ?? [])
+    if (parents && parents.length > 0) {
+      // Fetch children for any matching parents to get loop info
+      const parentIds = parents.map(p => p.id)
+      const { data: children } = await supabase
+        .from('courses')
+        .select('id, nombre, par_total, fuente, datos_verificados, fedegolf_club_id, parent_id, loop_nombre')
+        .in('parent_id', parentIds)
+        .eq('activa', true)
+
+      setSearchResults([...(parents as CourseRow[]), ...((children as CourseRow[]) ?? [])])
+    } else {
+      setSearchResults((parents as CourseRow[]) ?? [])
+    }
     setSearchLoading(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -426,6 +465,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
     ...fav,
     parTotal: fav.varonesParTotal,
     verified: true,
+    loops: [],
   })
 
   // ── Selected state ──────────────────────────────────────────────────────────
@@ -634,7 +674,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
             <StarIcon filled={fav} size={16} />
           </button>
         </div>
-        {/* Row 2: Club + Par + V/D toggle */}
+        {/* Row 2: Club + Par + loops badge + V/D toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {showClub && course.clubName && (
             <span
@@ -652,6 +692,21 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
             </span>
           )}
           {!showClub || !course.clubName ? <span style={{ flex: 1 }} /> : null}
+          {course.loops.length >= 2 && (
+            <span
+              style={{
+                fontSize: 11,
+                color: C.gold,
+                background: C.goldFaint,
+                padding: '1px 6px',
+                borderRadius: 4,
+                flexShrink: 0,
+                fontWeight: 600,
+              }}
+            >
+              {course.loops.map(l => l.name).join(' / ')}
+            </span>
+          )}
           {course.parTotal && (
             <span style={{ fontSize: 12, color: C.muted, flexShrink: 0 }}>
               Par {course.parTotal}
