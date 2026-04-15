@@ -202,7 +202,9 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
       .from('tournaments')
       .insert({
         ...tournamentBase,
-        modo_juego: format === 'match_play' ? 'neto' : modo,
+        // Match Play y Stableford oficiales requieren neto. Cualquier otra selección
+        // del usuario se ignora para evitar formatos técnicamente inválidos.
+        modo_juego: (format === 'match_play' || format === 'stableford') ? 'neto' : modo,
         formato_juego: format,
       })
       .select()
@@ -370,8 +372,9 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                   type="button"
                   onClick={() => {
                     setFormat(f.value)
-                    // Match Play siempre neto (cultura golf Chile)
-                    if (f.value === 'match_play') setModo('neto')
+                    // Match Play siempre neto (cultura golf Chile).
+                    // Stableford oficial R&A también requiere neto (suma con handicap).
+                    if (f.value === 'match_play' || f.value === 'stableford') setModo('neto')
                   }}
                   style={{
                     flex: 1, padding: '14px',
@@ -388,8 +391,8 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
             </div>
 
             {/* Selector Gross/Neto — separado del formato.
-                Oculto para Match Play (cultura golf Chile) — siempre neto. */}
-            {format !== 'match_play' ? (
+                Oculto para Match Play y Stableford — ambos siempre neto (regla oficial). */}
+            {(format !== 'match_play' && format !== 'stableford') ? (
               <div style={{ marginTop: '16px' }}>
                 <label style={labelStyle}>Modo de scoring</label>
                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -484,7 +487,9 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
                   <span style={{ fontSize: '12px', color: '#92400e', lineHeight: 1.4 }}>
-                    Match Play siempre se juega con handicap (neto) — formato estandar en clubes de Chile.
+                    {format === 'stableford'
+                      ? 'Stableford oficial se juega siempre con handicap (neto) — regla R&A/USGA.'
+                      : 'Match Play siempre se juega con handicap (neto) — formato estandar en clubes de Chile.'}
                   </span>
                 </div>
               </div>
