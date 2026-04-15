@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { TAIGER_SYSTEM_PROMPT, buildContextString, SESSION_STARTERS } from '@/golf/coach/prompts'
+import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { TAIGER_FREE_MONTHLY_LIMIT, WHATSAPP_TAIGER_PREMIUM_URL } from '@/lib/constants'
@@ -149,33 +150,75 @@ export async function POST(req: NextRequest) {
       contextString
     )
     const sessionStarter = SESSION_STARTERS[session_type] ?? SESSION_STARTERS.free
+    const toolsInstruction = `\n\nHERRAMIENTAS DISPONIBLES:\nTienes acceso a tools para consultar datos reales del jugador:\n- get_latest_round: detalle hoyo-por-hoyo de su última ronda finalizada (con pares y strokes vs par)\n- get_round_by_id: detalle de una ronda específica\n- get_recent_rounds: resumen de últimas N rondas (totales, cancha, fecha)\n- get_course_details: pares y stroke index por hoyo de una cancha\n\nREGLA CRÍTICA: Cuando el jugador haga referencia a una ronda específica, cancha, o score concreto — SIEMPRE llama la tool apropiada antes de responder. NUNCA inventes scores, pares, ni asumas configuraciones de hoyos. Si la data no está en tus tools ni en el contexto, dilo honestamente.`
 
-    // Stream response using Claude API
     const anthropic = new Anthropic({ apiKey })
+    const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}`
 
-    const stream = await anthropic.messages.stream({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      system: `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}`,
-      messages: conversation,
-    })
+    // Contexto para ejecución de tools
+    const toolCtx = {
+      supabase,
+      userId: user.id,
+      defaultRondaId: ronda_libre_id ?? null,
+    }
 
+    // Loop de tool use: máx 5 iteraciones para proteger costos/latencia
+    type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
+    const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
     let fullResponse = ''
+    const MAX_TOOL_ITERS = 5
+    let done = false
+
+    for (let iter = 0; iter < MAX_TOOL_ITERS && !done; iter++) {
+      const resp = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2048,
+        system: systemFinal,
+        tools: TAIGER_TOOLS as unknown as Anthropic.Tool[],
+        messages: loopMessages as unknown as Anthropic.MessageParam[],
+      })
+
+      if (resp.stop_reason === 'tool_use') {
+        loopMessages.push({ role: 'assistant', content: resp.content })
+        const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
+        for (const block of resp.content) {
+          if (block.type === 'tool_use') {
+            const result = await executeTool(block.name, block.input as Record<string, unknown>, toolCtx)
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            })
+          }
+        }
+        loopMessages.push({ role: 'user', content: toolResults })
+        continue
+      }
+
+      // end_turn o max_tokens — recolectar texto final
+      for (const block of resp.content) {
+        if (block.type === 'text') fullResponse += block.text
+      }
+      done = true
+    }
+
+    if (!fullResponse.trim()) {
+      fullResponse = 'Se me acabaron los pasos de análisis. ¿Puedes reformular tu pregunta?'
+    }
+
     const encoder = new TextEncoder()
 
+    // Emitir el texto final como SSE en chunks para preservar la UX de typing.
     const readable = new ReadableStream({
       async start(controller) {
         try {
-          for await (const event of stream) {
-            if (
-              event.type === 'content_block_delta' &&
-              event.delta.type === 'text_delta'
-            ) {
-              const text = event.delta.text
-              fullResponse += text
-              const sseData = `data: ${JSON.stringify({ text })}\n\n`
-              controller.enqueue(new TextEncoder().encode(sseData))
-            }
+          // Chunkear por palabra (~30 chars) para efecto streaming rápido
+          const CHUNK_SIZE = 30
+          for (let i = 0; i < fullResponse.length; i += CHUNK_SIZE) {
+            const text = fullResponse.slice(i, i + CHUNK_SIZE)
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+            // Pequeño delay para que se vea el efecto
+            await new Promise((r) => setTimeout(r, 15))
           }
 
           // En follow-up el cliente mantiene la sesión — no insertamos duplicado.

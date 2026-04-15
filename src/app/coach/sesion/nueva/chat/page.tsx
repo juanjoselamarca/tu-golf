@@ -2,6 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Calendar } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 
@@ -25,8 +27,9 @@ function ChatContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const initialSent = useRef(false)
 
-  // Coach real no corta la conversación inicial en 3 turnos.
-  const MAX_MESSAGES = 10
+  // Coach real no corta la conversación prematuramente. 25 turnos del usuario
+  // cubre prácticamente cualquier análisis post-ronda sin cortar mid-sesión.
+  const MAX_MESSAGES = 25
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -165,7 +168,8 @@ function ChatContent() {
         flex: 1,
         overflowY: 'auto',
         padding: '20px 16px',
-        paddingBottom: 100,
+        // Deja espacio para el input fijo del chat (48px alto + paddings + safe-area)
+        paddingBottom: 96,
       }}>
         {/* Session type badge */}
         <div style={{
@@ -211,18 +215,29 @@ function ChatContent() {
                 <TaigerIcon size={18} />
               </div>
             )}
-            <div style={{
-              maxWidth: '80%',
-              padding: '12px 16px',
-              borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-              background: msg.role === 'user' ? 'rgba(196,153,42,0.12)' : '#0e1c2f',
-              color: '#edeae4',
-              fontSize: 14,
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}>
-              {msg.content || (streaming && i === messages.length - 1 ? '' : '')}
+            <div
+              className={msg.role === 'assistant' ? 'taiger-md' : undefined}
+              style={{
+                maxWidth: '80%',
+                padding: '12px 16px',
+                borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                background: msg.role === 'user' ? 'rgba(196,153,42,0.12)' : '#0e1c2f',
+                color: '#edeae4',
+                fontSize: 14,
+                lineHeight: 1.6,
+                whiteSpace: msg.role === 'user' ? 'pre-wrap' : 'normal',
+                wordBreak: 'break-word',
+              }}
+            >
+              {msg.role === 'assistant' ? (
+                msg.content ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {msg.content}
+                  </ReactMarkdown>
+                ) : null
+              ) : (
+                msg.content
+              )}
             </div>
           </div>
         ))}
@@ -382,6 +397,31 @@ function ChatContent() {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
         }
+        .taiger-md > *:first-child { margin-top: 0; }
+        .taiger-md > *:last-child { margin-bottom: 0; }
+        .taiger-md p { margin: 0 0 10px 0; }
+        .taiger-md strong { color: #f3d37a; font-weight: 600; }
+        .taiger-md em { color: #c4d8ee; }
+        .taiger-md ul, .taiger-md ol { margin: 6px 0 10px 0; padding-left: 20px; }
+        .taiger-md li { margin: 2px 0; }
+        .taiger-md h1, .taiger-md h2, .taiger-md h3 {
+          margin: 12px 0 6px 0;
+          font-size: 15px;
+          color: #f3d37a;
+          font-weight: 600;
+        }
+        .taiger-md code {
+          background: rgba(255,255,255,0.08);
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-size: 13px;
+        }
+        .taiger-md hr {
+          border: none;
+          border-top: 1px solid rgba(196,153,42,0.25);
+          margin: 12px 0;
+        }
+        .taiger-md a { color: #c4992a; }
       `}</style>
     </div>
   )
