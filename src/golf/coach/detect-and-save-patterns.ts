@@ -22,7 +22,7 @@ export async function detectAndSavePatterns(
 ): Promise<DetectResult> {
   const { data: rounds } = await supabase
     .from('historical_rounds')
-    .select('scores, total_gross, holes_played, metadata')
+    .select('scores, total_gross, holes_played, metadata, courses(par_total)')
     .eq('user_id', userId)
     .not('scores', 'is', null)
     .limit(50)
@@ -40,7 +40,7 @@ export async function detectAndSavePatterns(
     .map(r => ({
       scores: r.scores as (number | null)[],
       total_gross: r.total_gross,
-      par_total: 72,
+      par_total: ((r as Record<string, unknown>).courses as { par_total?: number } | null)?.par_total ?? 72,
       course_name: '',
       played_at: '',
       metadata: r.metadata as Record<string, unknown> | null,

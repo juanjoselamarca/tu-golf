@@ -18,6 +18,9 @@ const chatInputSchema = z.object({
   })).max(50).optional(),
   session_type: z.string().max(100).optional(),
   ronda_libre_id: z.string().uuid().optional(),
+  // Si viene session_id, es un follow-up: el cliente mantiene la sesión y actualiza
+  // messages directamente. El API NO debe insertar una fila nueva ni consumir cuota.
+  session_id: z.string().uuid().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -45,19 +48,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Input inválido', details: parsed.error.issues[0]?.message }, { status: 400 })
     }
     const body = parsed.data
-    const { ronda_libre_id } = body
+    const { ronda_libre_id, session_id } = body
+    const isFollowUp = typeof session_id === 'string' && session_id.length > 0
 
-    // Accept both 'message' (string) and 'messages' (array)
-    let userMessage: string
-    if (body.message && typeof body.message === 'string') {
-      userMessage = body.message
-    } else if (Array.isArray(body.messages) && body.messages.length > 0) {
-      const lastUser = [...body.messages].reverse().find((m: { role: string }) => m.role === 'user')
-      userMessage = lastUser?.content ?? ''
-    } else {
-      userMessage = ''
+    // Build conversation history para multi-turn.
+    // Acepta 'messages' (array completo, ideal) o 'message' (string suelto, legacy).
+    type ChatMsg = { role: 'user' | 'assistant'; content: string }
+    let conversation: ChatMsg[] = []
+    if (Array.isArray(body.messages) && body.messages.length > 0) {
+      conversation = body.messages
+        .filter((m): m is ChatMsg => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim().length > 0)
+        .slice(-20) // últimos 20 turnos: balance entre memoria y costo
+    } else if (body.message && typeof body.message === 'string') {
+      conversation = [{ role: 'user', content: body.message }]
     }
 
+    // Claude requiere que el primer mensaje sea del usuario
+    while (conversation.length > 0 && conversation[0].role !== 'user') conversation.shift()
+    // Y que el último mensaje sea del usuario
+    while (conversation.length > 0 && conversation[conversation.length - 1].role !== 'user') conversation.pop()
+
+    const userMessage = conversation[conversation.length - 1]?.content ?? ''
     if (!userMessage.trim()) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 })
     }
@@ -67,8 +78,8 @@ export async function POST(req: NextRequest) {
     const rawType = body.session_type || 'free'
     const session_type = validTypes.includes(rawType) ? rawType : 'free'
 
-    // Prevent duplicate sessions for same ronda_libre_id
-    if (ronda_libre_id) {
+    // Prevent duplicate sessions for same ronda_libre_id (solo en sesión nueva)
+    if (ronda_libre_id && !isFollowUp) {
       const { data: existing } = await supabase
         .from('taiger_sessions')
         .select('id')
@@ -92,7 +103,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
     const isAdmin = profile?.role === 'admin'
 
-    if (!isAdmin) {
+    if (!isAdmin && !isFollowUp) {
       const startOfMonth = new Date()
       startOfMonth.setDate(1)
       startOfMonth.setHours(0, 0, 0, 0)
@@ -146,7 +157,7 @@ export async function POST(req: NextRequest) {
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}`,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: conversation,
     })
 
     let fullResponse = ''
@@ -167,18 +178,26 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Save session after streaming completes
-          const { data: savedSession } = await supabase.from('taiger_sessions').insert({
-            user_id: user.id,
-            session_type,
-            ronda_libre_id: ronda_libre_id || null,
-            messages: [
-              { role: 'user', content: userMessage },
-              { role: 'assistant', content: fullResponse },
-            ],
-            techniques_assigned: [],
-            next_focus: fullResponse.substring(0, 200),
-          }).select('id').single()
+          // En follow-up el cliente mantiene la sesión — no insertamos duplicado.
+          // En sesión nueva, insertamos el registro inicial con todo el historial.
+          const fullHistory: ChatMsg[] = [
+            ...conversation,
+            { role: 'assistant', content: fullResponse },
+          ]
+          let savedSession: { id: string } | null = null
+          if (isFollowUp) {
+            savedSession = { id: session_id! }
+          } else {
+            const { data } = await supabase.from('taiger_sessions').insert({
+              user_id: user.id,
+              session_type,
+              ronda_libre_id: ronda_libre_id || null,
+              messages: fullHistory,
+              techniques_assigned: [],
+              next_focus: fullResponse.substring(0, 200),
+            }).select('id').single()
+            savedSession = data
+          }
 
           // Extract and save recommendations from the response
           if (savedSession?.id) {

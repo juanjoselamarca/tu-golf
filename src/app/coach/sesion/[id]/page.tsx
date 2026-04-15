@@ -53,7 +53,9 @@ export default function SesionDetailPage() {
   const [ratingSubmitting, setRatingSubmitting] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const MAX_TOTAL_MESSAGES = 5
+  // Límite de intercambios por sesión. Un coach real no corta a las 3 preguntas.
+  // 20 mensajes = ~10 turnos de ida y vuelta, suficiente para conversación real.
+  const MAX_TOTAL_MESSAGES = 20
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -107,6 +109,7 @@ export default function SesionDetailPage() {
         body: JSON.stringify({
           messages: allMessages,
           session_type: session.session_type,
+          session_id: sessionId, // follow-up: evita INSERT duplicado y consumo de cuota
         }),
       })
 

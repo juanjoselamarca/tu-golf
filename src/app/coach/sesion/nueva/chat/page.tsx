@@ -25,7 +25,8 @@ function ChatContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const initialSent = useRef(false)
 
-  const MAX_MESSAGES = 3
+  // Coach real no corta la conversación inicial en 3 turnos.
+  const MAX_MESSAGES = 10
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

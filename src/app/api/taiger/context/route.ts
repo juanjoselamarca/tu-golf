@@ -24,7 +24,7 @@ export async function GET() {
 
     const [roundsRes, patternsRes, sessionsRes, recommendationsRes, insightsRes] = await Promise.all([
       supabase.from('historical_rounds')
-        .select('id, course_name, played_at, scores, total_gross, holes_played')
+        .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, courses(par_total)')
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
         .limit(50),
@@ -86,7 +86,12 @@ export async function GET() {
 
     const recentRounds = validRounds.slice(0, 5).map(r => {
       const holes = r.holes_played ?? (Array.isArray(r.scores) ? r.scores.filter(Boolean).length : 18)
-      const par = holes <= 9 ? 36 : 72
+      // Par real del curso cuando está disponible (Supabase relation). Si la ronda
+      // fue de 9 hoyos asumimos la mitad del par. Último recurso: 72/36.
+      const coursePar = (r as { courses?: { par_total?: number | null } | null })?.courses?.par_total ?? null
+      const par = holes <= 9
+        ? (coursePar ? Math.round(coursePar / 2) : 36)
+        : (coursePar ?? 72)
       return {
         course_name: r.course_name,
         played_at:   r.played_at,
