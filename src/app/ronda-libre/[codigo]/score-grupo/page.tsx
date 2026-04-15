@@ -127,9 +127,11 @@ export default function ScoreGrupoPage() {
     setDiscarding(true)
     haptic(30)
     const supabase = createClient()
-    await supabase.from('ronda_libre_jugadores').delete().eq('ronda_id', ronda.id)
-    await supabase.from('rondas_libres').delete().eq('id', ronda.id)
-    router.push('/dashboard')
+    const { error: e1 } = await supabase.from('ronda_libre_jugadores').delete().eq('ronda_id', ronda.id)
+    if (e1) { setDiscarding(false); alert('Error descartando ronda: ' + e1.message); return }
+    const { error: e2 } = await supabase.from('rondas_libres').delete().eq('id', ronda.id)
+    if (e2) { setDiscarding(false); alert('Error descartando ronda: ' + e2.message); return }
+    router.push('/dashboard?discarded=1')
   }
   const [finalizing, setFinalizing] = useState(false)
   const swipeRef = useRef({ startX: 0, startY: 0 })
@@ -862,7 +864,7 @@ export default function ScoreGrupoPage() {
           >
             {finalizing
               ? 'Finalizando...'
-              : confirmFinalize ? '\u00bfFinalizar ronda?' : 'Finalizar ronda \u2713'}
+              : confirmFinalize ? (maxThru < totalHoles ? `\u00bfGuardar ronda parcial (${maxThru}/${totalHoles} hoyos)?` : '\u00bfFinalizar ronda?') : 'Finalizar ronda \u2713'}
           </button>
         )}
       </div>

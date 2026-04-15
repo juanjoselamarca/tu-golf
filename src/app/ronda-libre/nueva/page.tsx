@@ -63,6 +63,9 @@ export default function NuevaRondaLibrePage() {
   const [tees, setTees] = useState('blanco')
   const [partidaSimultanea, setPartidaSimultanea] = useState(false)
   const [hoyoInicio, setHoyoInicio] = useState(1)
+  // Single-loop: elección 18 vs 9 hoyos, y qué mitad (front/back)
+  const [totalHolesChoice, setTotalHolesChoice] = useState<9 | 18>(18)
+  const [nineChoice, setNineChoice] = useState<'front' | 'back'>('front')
   const [adminMode, setAdminMode] = useState(false)
 
   // Admin mode: player slots
@@ -274,9 +277,23 @@ export default function NuevaRondaLibrePage() {
     const supabase = createClient()
     const codigo = Math.random().toString(36).substring(2, 8).toUpperCase()
 
-    const holes = courseLoops.length > 0 && selectedLoops.length > 0
+    const isMultiLoop = courseLoops.length >= 2
+    const holes = isMultiLoop && selectedLoops.length > 0
       ? selectedLoops.reduce((sum, r) => sum + (courseLoops.find(l => l.recorrido === r)?.holes ?? 9), 0)
-      : 18
+      : totalHolesChoice
+
+    // hoyo_inicio:
+    // - Multi-loop: 1 (los loops ya determinan los hoyos), salvo partida simultánea.
+    // - Single-loop 18 hoyos: 1 o hoyoInicio si partida simultánea.
+    // - Single-loop 9 hoyos: Front=1, Back=10 (ignora partida simultánea para mantener simpleza).
+    let finalHoyoInicio = 1
+    if (isMultiLoop) {
+      finalHoyoInicio = partidaSimultanea ? hoyoInicio : 1
+    } else if (totalHolesChoice === 9) {
+      finalHoyoInicio = nineChoice === 'back' ? 10 : 1
+    } else {
+      finalHoyoInicio = partidaSimultanea ? hoyoInicio : 1
+    }
 
     const baseData: Record<string, unknown> = {
       codigo,
@@ -287,7 +304,7 @@ export default function NuevaRondaLibrePage() {
       holes,
       fecha: fechaStr,
       estado: 'en_curso',
-      hoyo_inicio: partidaSimultanea ? hoyoInicio : 1,
+      hoyo_inicio: finalHoyoInicio,
     }
 
     // Multi-loop courses: store selected recorridos
@@ -699,7 +716,16 @@ export default function NuevaRondaLibrePage() {
                   {courseDetails.has_holes ? (
                     <>
                       <span style={{ color: '#16a34a', fontWeight: 700 }}>{'\u2713'}</span>
-                      {courseDetails.par_total && <span>Par {courseDetails.par_total}</span>}
+                      {courseDetails.par_total && (
+                        <span>
+                          Par {courseDetails.par_total}
+                          {courseLoops.length < 2 && totalHolesChoice === 9 && (
+                            <span style={{ color: colors.textSecondary }}>
+                              {' '}&middot; {nineChoice === 'back' ? 'Back 9 (10-18)' : 'Front 9 (1-9)'}
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </>
                   ) : (
                     <>
@@ -780,6 +806,102 @@ export default function NuevaRondaLibrePage() {
                 )
               })()}
             </div>
+
+            {/* ¿Cuántos hoyos? — solo single-loop (multi-loop ya define hoyos vía recorridos) */}
+            {cancha && courseLoops.length < 2 && (
+              <div style={{
+                background: colors.card,
+                border: `1px solid ${colors.cardBorder}`,
+                borderRadius: '16px',
+                padding: '20px',
+                marginBottom: '16px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}>
+                <label style={{ display: 'block', fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '10px', fontWeight: 500 }}>
+                  {'\u00bf'}Cu{'\u00e1'}ntos hoyos?
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {([18, 9] as const).map(n => {
+                    const active = totalHolesChoice === n
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => {
+                          setTotalHolesChoice(n)
+                          if (n === 18) {
+                            // Al volver a 18, reset hoyoInicio a 1 salvo partidaSimultanea
+                            if (!partidaSimultanea) setHoyoInicio(1)
+                          } else {
+                            // 9 hoyos: forzar default Front 9; deshabilitar partidaSimultanea
+                            setNineChoice('front')
+                            setHoyoInicio(1)
+                            if (partidaSimultanea) setPartidaSimultanea(false)
+                          }
+                        }}
+                        style={{
+                          flex: 1, padding: '14px 16px', borderRadius: '12px',
+                          border: active ? `2px solid ${colors.gold}` : `1px solid ${colors.cardBorder}`,
+                          background: active ? 'rgba(196,153,42,0.06)' : '#ffffff',
+                          cursor: 'pointer', textAlign: 'center',
+                          transition: 'all 0.15s',
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                      >
+                        <div style={{
+                          fontSize: '15px', fontWeight: 600,
+                          color: active ? colors.gold : colors.textPrimary,
+                        }}>
+                          {n} hoyos
+                        </div>
+                        <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '2px' }}>
+                          {n === 18 ? 'Ronda completa' : 'Media ronda'}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {totalHolesChoice === 9 && (
+                  <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                    {([
+                      { value: 'front' as const, label: 'Front 9', desc: 'Hoyos 1-9' },
+                      { value: 'back' as const, label: 'Back 9', desc: 'Hoyos 10-18' },
+                    ]).map(opt => {
+                      const active = nineChoice === opt.value
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setNineChoice(opt.value)
+                            setHoyoInicio(opt.value === 'back' ? 10 : 1)
+                          }}
+                          style={{
+                            flex: 1, padding: '12px 14px', borderRadius: '10px',
+                            border: active ? `2px solid ${colors.gold}` : `1px solid ${colors.cardBorder}`,
+                            background: active ? 'rgba(196,153,42,0.06)' : '#ffffff',
+                            cursor: 'pointer', textAlign: 'center',
+                            transition: 'all 0.15s',
+                            WebkitTapHighlightColor: 'transparent',
+                          }}
+                        >
+                          <div style={{
+                            fontSize: '14px', fontWeight: 600,
+                            color: active ? colors.gold : colors.textPrimary,
+                          }}>
+                            {opt.label}
+                          </div>
+                          <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px' }}>
+                            {opt.desc}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Formato de juego */}
             <div style={{
@@ -1189,7 +1311,8 @@ export default function NuevaRondaLibrePage() {
               </div>
             </div>
 
-            {/* Partida simultanea */}
+            {/* Partida simultanea — se oculta si eligió 9 hoyos (Front/Back ya define el inicio) */}
+            {!(courseLoops.length < 2 && totalHolesChoice === 9) && (
             <div style={{
               background: colors.card,
               border: `1px solid ${colors.cardBorder}`,
@@ -1249,6 +1372,7 @@ export default function NuevaRondaLibrePage() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Nav buttons */}
             <div style={{ display: 'flex', gap: '10px' }}>

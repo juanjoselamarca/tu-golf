@@ -537,9 +537,10 @@ function ScorePageContent() {
     setDiscarding(true)
     haptic(30)
     const supabase = createClient()
-    // Borra jugadores primero (FK) y luego la ronda. NO inserta en historical_rounds.
-    await supabase.from('ronda_libre_jugadores').delete().eq('ronda_id', ronda.id)
-    await supabase.from('rondas_libres').delete().eq('id', ronda.id)
+    const { error: e1 } = await supabase.from('ronda_libre_jugadores').delete().eq('ronda_id', ronda.id)
+    if (e1) { setDiscarding(false); addToast({ title: `Error al descartar: ${e1.message}`, type: 'error' }); return }
+    const { error: e2 } = await supabase.from('rondas_libres').delete().eq('id', ronda.id)
+    if (e2) { setDiscarding(false); addToast({ title: `Error al descartar: ${e2.message}`, type: 'error' }); return }
     // Limpia localStorage para esta ronda
     try {
       for (const j of ronda.ronda_libre_jugadores) lsClear(codigo, j.id)
@@ -1597,7 +1598,7 @@ function ScorePageContent() {
               touchAction: 'manipulation', letterSpacing: '0.01em',
               transition: 'background 0.3s ease',
             }}
-          >{confirmFinalize ? 'Confirmar finalizacion' : 'Finalizar ronda \u2713'}</button>
+          >{confirmFinalize ? (holesPlayed < totalHoles ? `\u00bfGuardar ronda parcial (${holesPlayed}/${totalHoles} hoyos)?` : 'Confirmar finalizacion') : 'Finalizar ronda \u2713'}</button>
         )}
       </div>
 
