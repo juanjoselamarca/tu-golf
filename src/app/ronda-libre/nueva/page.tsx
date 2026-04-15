@@ -700,8 +700,6 @@ export default function NuevaRondaLibrePage() {
                     <>
                       <span style={{ color: '#16a34a', fontWeight: 700 }}>{'\u2713'}</span>
                       {courseDetails.par_total && <span>Par {courseDetails.par_total}</span>}
-                      {courseDetails.course_rating && <span>&middot; CR {courseDetails.course_rating}</span>}
-                      {courseDetails.slope_rating && <span>&middot; Slope {courseDetails.slope_rating}</span>}
                     </>
                   ) : (
                     <>
@@ -858,15 +856,54 @@ export default function NuevaRondaLibrePage() {
                 })}
               </div>
 
-              {/* Match play info badge */}
+              {/* Match Play info — misma estructura visual que Stableford */}
               {formato === 'match_play' && (
                 <div style={{
-                  marginTop: '12px', padding: '10px 14px',
-                  background: 'rgba(196,153,42,0.08)', borderRadius: '10px',
-                  fontSize: '12px', color: '#92400e', lineHeight: 1.5,
+                  marginTop: '16px',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  background: 'rgba(196,153,42,0.06)',
+                  border: '1px solid rgba(196,153,42,0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
                 }}>
-                  Match Play: hoyo a hoyo entre 2 jugadores. En modo neto se aplica
-                  la diferencia de handicap y el de mayor HCP recibe strokes en los hoyos mas dificiles.
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
+                    <span style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.4 }}>
+                      Hoyo a hoyo, 1 vs 1. Se aplica la diferencia de handicap: el jugador con mayor HCP recibe strokes en los hoyos más difíciles.
+                    </span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '6px',
+                    paddingTop: '8px',
+                    borderTop: '1px solid rgba(196,153,42,0.15)',
+                  }}>
+                    {[
+                      { label: 'Ganas hoyo', sym: '+1' },
+                      { label: 'Empate', sym: '=' },
+                      { label: 'Pierdes hoyo', sym: '−1' },
+                    ].map(item => (
+                      <span key={item.label} style={{
+                        fontSize: '11px',
+                        fontFamily: '"DM Mono", monospace',
+                        color: colors.textSecondary,
+                        background: '#ffffff',
+                        border: '1px solid rgba(196,153,42,0.2)',
+                        borderRadius: '6px',
+                        padding: '3px 7px',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        <span style={{ color: '#c4992a', fontWeight: 700 }}>{item.sym}</span>
+                        {' '}{item.label}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: '10px', color: colors.textSecondary, opacity: 0.75, lineHeight: 1.3 }}>
+                    Gana quien cierre el match con más hoyos ganados.
+                  </div>
                 </div>
               )}
 
@@ -936,8 +973,8 @@ export default function NuevaRondaLibrePage() {
                     <span style={{ fontSize: '16px' }}>{'\u2696\uFE0F'}</span>
                     <span style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.4 }}>
                       {modo === 'neto'
-                        ? 'Stableford Neto: puntos calculados sobre el score neto (con handicap aplicado).'
-                        : 'Stableford Gross: puntos calculados sobre el score bruto (sin handicap).'}
+                        ? 'Gana quien sume más puntos. Los puntos se calculan sobre tu score neto — el handicap te da strokes en los hoyos más difíciles.'
+                        : 'Gana quien sume más puntos. Los puntos se calculan sobre tu score bruto — el handicap no entra en juego.'}
                     </span>
                   </div>
                   <div style={{
@@ -971,7 +1008,64 @@ export default function NuevaRondaLibrePage() {
                     ))}
                   </div>
                   <div style={{ fontSize: '10px', color: colors.textSecondary, opacity: 0.75, lineHeight: 1.3 }}>
-                    Gana el jugador con mas puntos al final de la ronda.
+                    Gana el jugador con más puntos al final de la ronda.
+                  </div>
+                </div>
+              )}
+
+              {/* Stroke Play info — misma estructura visual que Stableford / Match Play */}
+              {formato === 'stroke_play' && (
+                <div style={{
+                  marginTop: '16px',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  background: 'rgba(196,153,42,0.06)',
+                  border: '1px solid rgba(196,153,42,0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '16px' }}>{'\u26F3'}</span>
+                    <span style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.4 }}>
+                      {modo === 'neto'
+                        ? 'Se cuentan todos los golpes de la ronda. Al final se descuenta el handicap para obtener el score neto.'
+                        : 'Se cuentan todos los golpes de la ronda, sin descontar handicap.'}
+                    </span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '6px',
+                    paddingTop: '8px',
+                    borderTop: '1px solid rgba(196,153,42,0.15)',
+                  }}>
+                    {[
+                      { label: 'Eagle', sym: '−2' },
+                      { label: 'Birdie', sym: '−1' },
+                      { label: 'Par', sym: '0' },
+                      { label: 'Bogey', sym: '+1' },
+                      { label: 'Doble+', sym: '+2' },
+                    ].map(item => (
+                      <span key={item.label} style={{
+                        fontSize: '11px',
+                        fontFamily: '"DM Mono", monospace',
+                        color: colors.textSecondary,
+                        background: '#ffffff',
+                        border: '1px solid rgba(196,153,42,0.2)',
+                        borderRadius: '6px',
+                        padding: '3px 7px',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        <span style={{ color: '#c4992a', fontWeight: 700 }}>{item.sym}</span>
+                        {' '}{item.label}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: '10px', color: colors.textSecondary, opacity: 0.75, lineHeight: 1.3 }}>
+                    {modo === 'neto'
+                      ? 'Gana el jugador con menos golpes tras descontar el handicap.'
+                      : 'Gana el jugador con menos golpes al terminar la ronda.'}
                   </div>
                 </div>
               )}
@@ -1205,30 +1299,62 @@ export default function NuevaRondaLibrePage() {
                 Jugadores
               </label>
 
-              {/* Creator card */}
+              {/* Creator card — editable: índice y tee */}
               <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '12px 14px', borderRadius: '12px',
                 background: 'rgba(196,153,42,0.06)', border: `1px solid rgba(196,153,42,0.2)`,
                 marginBottom: '10px',
               }}>
-                <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <div style={{ fontSize: '15px', fontWeight: 600, color: colors.textPrimary }}>{creatorName}</div>
-                  <div style={{ fontSize: '12px', color: colors.textSecondary }}>
-                    Índice {creatorHandicap != null ? creatorHandicap : '--'}
-                    {creatorHandicap != null && effectiveSlope && effectiveCR && courseDetails?.par_total && (
-                      <span style={{ color: '#c4992a', marginLeft: '6px' }}>
-                        HCP {Math.round(creatorHandicap * (effectiveSlope / 113) + (effectiveCR - courseDetails.par_total))}
-                      </span>
-                    )}
-                  </div>
+                  <span style={{
+                    fontSize: '11px', color: colors.gold,
+                    background: 'rgba(196,153,42,0.1)', padding: '3px 10px', borderRadius: '10px', fontWeight: 600,
+                  }}>
+                    Tu
+                  </span>
                 </div>
-                <span style={{
-                  fontSize: '11px', color: colors.gold,
-                  background: 'rgba(196,153,42,0.1)', padding: '3px 10px', borderRadius: '10px', fontWeight: 600,
-                }}>
-                  Tu
-                </span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label style={{ fontSize: '12px', color: colors.textLabel, flexShrink: 0 }}>Índice</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Ej: 10.5"
+                    value={creatorHandicap ?? ''}
+                    onChange={(e) => setCreatorHandicap(e.target.value ? Number(e.target.value) : null)}
+                    style={{
+                      background: colors.inputBg, border: `1px solid ${colors.inputBorder}`,
+                      color: colors.textPrimary, borderRadius: '10px',
+                      padding: '8px 12px', fontSize: '14px', outline: 'none',
+                      width: '90px', minHeight: '38px', boxSizing: 'border-box' as const,
+                    }}
+                  />
+                  {courseTees.length > 1 && (
+                    <select
+                      value={tees}
+                      onChange={(e) => setTees(e.target.value)}
+                      style={{
+                        background: colors.inputBg, border: `1px solid ${colors.inputBorder}`,
+                        color: colors.textPrimary, borderRadius: '10px',
+                        padding: '8px 10px', fontSize: '13px', outline: 'none',
+                        minHeight: '38px', boxSizing: 'border-box' as const,
+                        cursor: 'pointer',
+                      }}
+                      title="Tee de salida"
+                    >
+                      {courseTees.map(t => {
+                        const val = t.nombre.toLowerCase()
+                        const label = val.charAt(0).toUpperCase() + val.slice(1)
+                        return <option key={val} value={val}>{label}</option>
+                      })}
+                    </select>
+                  )}
+                  {creatorHandicap != null && effectiveSlope && effectiveCR && courseDetails?.par_total && (
+                    <span style={{ fontSize: '12px', color: '#c4992a', fontWeight: 600 }}>
+                      HCP {Math.round(creatorHandicap * (effectiveSlope / 113) + (effectiveCR - courseDetails.par_total))}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Admin mode players */}
@@ -1388,8 +1514,16 @@ export default function NuevaRondaLibrePage() {
                     Diferencia de handicap
                   </div>
                   {(() => {
-                    const hcpA = creatorHandicap ?? 0
-                    const hcpB = adminPlayers[0]?.handicap ?? 0
+                    // HCP cancha = round(Índice × Slope/113 + (CR - Par)) según USGA/WHS
+                    const par = courseDetails?.par_total ?? 72
+                    const computeCourseHcp = (indice: number | null | undefined, teeName: string | null | undefined): number => {
+                      if (indice == null) return 0
+                      const { slope, cr } = teeSlopeCR(teeName)
+                      if (!slope || !cr) return Math.round(indice)
+                      return Math.round(indice * (slope / 113) + (cr - par))
+                    }
+                    const hcpA = computeCourseHcp(creatorHandicap, tees)
+                    const hcpB = computeCourseHcp(adminPlayers[0]?.handicap, adminPlayers[0]?.tees ?? tees)
                     const diff = Math.abs(hcpA - hcpB)
                     const receiver = hcpA > hcpB ? creatorName : (adminPlayers[0]?.nombre || 'Rival')
                     if (diff === 0) {
@@ -1404,7 +1538,7 @@ export default function NuevaRondaLibrePage() {
                         <strong>{receiver}</strong> recibe <strong style={{ color: colors.gold }}>{diff} stroke{diff !== 1 ? 's' : ''}</strong> de ventaja
                         <br />
                         <span style={{ fontSize: '11px', color: colors.textLabel }}>
-                          HCP {creatorName}: {hcpA} vs HCP {adminPlayers[0]?.nombre || 'Rival'}: {hcpB}
+                          HCP cancha: {hcpA} ({creatorName}) vs {hcpB} ({adminPlayers[0]?.nombre || 'Rival'})
                         </span>
                       </div>
                     )

@@ -53,6 +53,12 @@ interface FavoriteCourse {
   fuente: string | null
 }
 
+interface ClubGroup {
+  clubName: string
+  clubId: number | null
+  courses: MergedCourse[]
+}
+
 type Gender = 'M' | 'F'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -71,18 +77,19 @@ const CLUB_POPULARITY_ORDER = [
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
 const C = {
-  bg: '#070d18',
-  card: '#0e1c2f',
-  cardGradient: 'linear-gradient(135deg, rgba(14,28,47,0.9), rgba(14,28,47,0.7))',
+  bg: '#ffffff',
+  card: '#f9fafb',
+  cardGradient: '#ffffff',
   gold: '#c4992a',
-  goldDim: 'rgba(196,153,42,0.2)',
-  goldFaint: 'rgba(196,153,42,0.12)',
-  ivory: '#edeae4',
-  muted: '#94a8c0',
-  tertiary: '#5a6a7a',
-  inputBg: 'rgba(255,255,255,0.04)',
-  white04: 'rgba(255,255,255,0.04)',
-  white08: 'rgba(255,255,255,0.08)',
+  goldDim: 'rgba(196,153,42,0.35)',
+  goldFaint: '#e5e7eb',
+  ivory: '#111827',
+  muted: '#6b7280',
+  tertiary: '#9ca3af',
+  inputBg: '#ffffff',
+  white04: '#ffffff',
+  white08: '#fffdf5',
+  selectedBg: 'rgba(196,153,42,0.06)',
 } as const
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -172,6 +179,23 @@ function mergeCourses(courses: CourseRow[]): MergedCourse[] {
     }
   }
 
+  return Array.from(map.values())
+}
+
+/** Group merged courses by club for the two-level hierarchy (club → recorrido) */
+function groupByClub(courses: MergedCourse[]): ClubGroup[] {
+  const map = new Map<string, ClubGroup>()
+  for (const c of courses) {
+    const key = `${c.clubId ?? 'null'}_${c.clubName || c.displayName}`
+    if (!map.has(key)) {
+      map.set(key, {
+        clubName: c.clubName || c.displayName,
+        clubId: c.clubId,
+        courses: [],
+      })
+    }
+    map.get(key)!.courses.push(c)
+  }
   return Array.from(map.values())
 }
 
@@ -304,6 +328,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
   const [recents, setRecents] = useState<FavoriteCourse[]>(() =>
     loadFromStorage<FavoriteCourse[]>(RECENTS_KEY, [])
   )
+  const [expandedClubKey, setExpandedClubKey] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = createClient()
 
@@ -326,16 +351,21 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Sort courses by popularity
-  const sortedCourses = useMemo(() => {
+  // Group by club and sort by popularity
+  const sortedClubGroups = useMemo(() => {
     const popularityMap = new Map<number, number>()
     CLUB_POPULARITY_ORDER.forEach((id, idx) => popularityMap.set(id, idx))
 
-    return [...allCourses].sort((a, b) => {
+    const groups = groupByClub(allCourses)
+    // Sort recorridos inside each group alphabetically
+    for (const g of groups) {
+      g.courses.sort((a, b) => a.displayName.localeCompare(b.displayName, 'es'))
+    }
+    return groups.sort((a, b) => {
       const aIdx = a.clubId !== null ? (popularityMap.get(a.clubId) ?? 999) : 999
       const bIdx = b.clubId !== null ? (popularityMap.get(b.clubId) ?? 999) : 999
       if (aIdx !== bIdx) return aIdx - bIdx
-      return a.displayName.localeCompare(b.displayName, 'es')
+      return a.clubName.localeCompare(b.clubName, 'es')
     })
   }, [allCourses])
 
@@ -382,6 +412,14 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
   const mergedSearchResults = useMemo(() => {
     return mergeCourses(searchResults)
   }, [searchResults])
+
+  const searchClubGroups = useMemo(() => {
+    const groups = groupByClub(mergedSearchResults)
+    for (const g of groups) {
+      g.courses.sort((a, b) => a.displayName.localeCompare(b.displayName, 'es'))
+    }
+    return groups
+  }, [mergedSearchResults])
 
   // Select a course
   const doSelect = useCallback((course: MergedCourse, g: Gender) => {
@@ -602,7 +640,6 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
 
   const renderCourseItem = (course: MergedCourse, showClub = true, isSearchResult = false) => {
     const fav = isFavorite(course.displayName, course.clubId)
-    const hasBothGenders = !!(course.varonesId && course.damasId)
     // Only show verification dot for non-fedegolf search results
     const showVerifiedDot = isSearchResult && course.fuente !== 'fedegolf' && course.verified
     return (
@@ -613,7 +650,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
           flexDirection: 'column',
           gap: 4,
           padding: '14px 16px',
-          background: C.white04,
+          background: '#ffffff',
           border: `1px solid ${C.goldFaint}`,
           borderRadius: 12,
           cursor: 'pointer',
@@ -622,11 +659,11 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
         }}
         onClick={() => doSelect(course, gender)}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = C.white08
-          e.currentTarget.style.borderColor = C.goldDim
+          e.currentTarget.style.background = '#fffdf5'
+          e.currentTarget.style.borderColor = C.gold
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = C.white04
+          e.currentTarget.style.background = '#ffffff'
           e.currentTarget.style.borderColor = C.goldFaint
         }}
       >
@@ -712,10 +749,93 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
               Par {course.parTotal}
             </span>
           )}
-          {hasBothGenders && (
-            <GenderToggle value={gender} onChange={(g) => doSelect(course, g)} />
+        </div>
+      </div>
+    )
+  }
+
+  // ── Club list item (first level of hierarchy) ──────────────────────────────
+
+  const handleClubClick = (group: ClubGroup) => {
+    if (group.courses.length === 1) {
+      doSelect(group.courses[0], gender)
+      return
+    }
+    const key = `${group.clubId ?? 'null'}_${group.clubName}`
+    setExpandedClubKey(prev => (prev === key ? null : key))
+  }
+
+  const renderClubItem = (group: ClubGroup) => {
+    const key = `${group.clubId ?? 'null'}_${group.clubName}`
+    const expanded = expandedClubKey === key
+    const count = group.courses.length
+    return (
+      <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '14px 16px',
+            background: expanded ? C.selectedBg : '#ffffff',
+            border: `1px solid ${expanded ? C.gold : C.goldFaint}`,
+            borderRadius: 12,
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            minHeight: 60,
+          }}
+          onClick={() => handleClubClick(group)}
+          onMouseEnter={(e) => {
+            if (!expanded) {
+              e.currentTarget.style.background = '#fffdf5'
+              e.currentTarget.style.borderColor = C.gold
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!expanded) {
+              e.currentTarget.style.background = '#ffffff'
+              e.currentTarget.style.borderColor = C.goldFaint
+            }
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                color: C.ivory,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {group.clubName}
+            </div>
+            {count > 1 && (
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                {count} recorridos
+              </div>
+            )}
+          </div>
+          {count > 1 && (
+            <span
+              style={{
+                fontSize: 16,
+                color: expanded ? C.gold : C.tertiary,
+                transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease',
+                flexShrink: 0,
+              }}
+            >
+              {'\u203A'}
+            </span>
           )}
         </div>
+        {expanded && count > 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 12 }}>
+            {group.courses.map((c) => renderCourseItem(c, false, false))}
+          </div>
+        )}
       </div>
     )
   }
@@ -798,7 +918,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
                   <Spinner />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {mergedSearchResults.map((course) => renderCourseItem(course, true, true))}
+                    {searchClubGroups.map((group) => renderClubItem(group))}
                     {noSearchMatch && (
                       <div style={{ padding: '12px 0', textAlign: 'center' }}>
                         <p style={{ fontSize: 13, color: C.tertiary, marginBottom: 8 }}>
@@ -832,7 +952,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
               <div style={{ marginBottom: 8 }}>
                 <SectionLabel>Canchas populares</SectionLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {sortedCourses.map((course) => renderCourseItem(course))}
+                  {sortedClubGroups.map((group) => renderClubItem(group))}
                 </div>
               </div>
             )}
