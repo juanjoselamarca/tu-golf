@@ -593,6 +593,8 @@ function ScorePageContent() {
         slope_rating: slopeRating,
         course_rating: courseRating,
         diferencial,
+        formato_juego: ronda.formato_juego ?? 'stroke_play',
+        modo_juego: ronda.modo_juego ?? 'gross',
       }).select('id').single()
 
       if (insertedRound?.id) {

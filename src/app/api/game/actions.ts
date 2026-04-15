@@ -170,12 +170,13 @@ export async function finalizeRound(
     if (round) {
       const { data: tourneyData } = await svc
         .from('tournaments')
-        .select('afecta_estadisticas, course_id, tees, courses(nombre, slope_rating, course_rating)')
+        .select('afecta_estadisticas, course_id, tees, formato_juego, modo_juego, courses(nombre, slope_rating, course_rating)')
         .eq('id', round.tournament_id)
         .single()
 
       const tourney = tourneyData as unknown as {
         afecta_estadisticas: boolean | null; course_id: string | null; tees: string | null
+        formato_juego: string | null; modo_juego: string | null
         courses: { nombre: string; slope_rating: number; course_rating: number } | null
       } | null
 
@@ -221,6 +222,8 @@ export async function finalizeRound(
           course_rating: courseRating,
           diferencial,
           import_source: 'tournament',
+          formato_juego: tourney.formato_juego ?? 'stroke_play',
+          modo_juego: tourney.modo_juego ?? 'gross',
         })
 
         // Recalculate index and nivel (non-blocking)
