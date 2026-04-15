@@ -25,11 +25,20 @@ export interface PatternRound {
   par_total: number
   course_name: string
   played_at: string
+  /** Par por hoyo (18 elementos). Si se pasa, pisa STANDARD_PARS y detecta
+   * patrones contra el par REAL de la cancha (para canchas par 70/71 o con
+   * layouts no estándar). */
+  hole_pars?: number[]
   metadata?: Record<string, unknown> | null
 }
 
-// Standard par layout (used when course par data is unavailable)
+// Par layout estándar (par 72: P4/P3/P5 típico). Solo se usa cuando la ronda
+// no trae el par real de la cancha en hole_pars.
 const STANDARD_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
+
+function parForHole(round: PatternRound, i: number): number {
+  return round.hole_pars?.[i] ?? STANDARD_PARS[i]
+}
 
 export const PATTERNS: GolfPattern[] = [
   {
@@ -134,7 +143,7 @@ export const PATTERNS: GolfPattern[] = [
         for (let i = 0; i < Math.min(r.scores.length, 18); i++) {
           const s = r.scores[i]
           if (s == null) continue
-          const par = STANDARD_PARS[i]
+          const par = parForHole(r, i)
           const overPar = s - par
           if (par === 3) { par3Total += overPar; par3Count++ }
           else { otherTotal += overPar; otherCount++ }
@@ -164,7 +173,7 @@ export const PATTERNS: GolfPattern[] = [
         for (let i = 0; i < Math.min(r.scores.length, 18); i++) {
           const s = r.scores[i]
           if (s == null) continue
-          const par = STANDARD_PARS[i]
+          const par = parForHole(r, i)
           if (par === 4) { par4Total += (s - par); par4Count++ }
           if (par === 5) { par5Total += (s - par); par5Count++ }
         }
@@ -194,8 +203,8 @@ export const PATTERNS: GolfPattern[] = [
           const s = r.scores[i]
           const next = r.scores[i + 1]
           if (s == null || next == null) continue
-          const par = STANDARD_PARS[i]
-          const nextPar = STANDARD_PARS[i + 1]
+          const par = parForHole(r, i)
+          const nextPar = parForHole(r, i + 1)
           if (s >= par + 1) {
             bogeyTotal++
             if (next >= nextPar + 1) bogeyFollowedByBogey++

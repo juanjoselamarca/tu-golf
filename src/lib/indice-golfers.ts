@@ -17,22 +17,27 @@ export function calcularDiferencial(
   nineHoleRatings?: { cr9h: number; slope9h: number } | null
 ): number | null {
   if (!totalGross || !slopeRating || slopeRating === 0) return null
+  if (!courseRating) return null
 
-  if (holesPlayed != null && holesPlayed <= 9) {
-    // 9-hole differential
-    if (nineHoleRatings?.cr9h && nineHoleRatings?.slope9h) {
-      return parseFloat(((totalGross - nineHoleRatings.cr9h) * 113 / nineHoleRatings.slope9h).toFixed(2))
-    }
-    // Fallback: use half of 18h course rating
-    if (courseRating) {
-      return parseFloat(((totalGross - courseRating / 2) * 113 / slopeRating).toFixed(2))
-    }
-    return null
+  // Decisión 9h vs 18h: si holesPlayed está seteado, usarlo.
+  // Si está null (legacy), inferir por el score bruto (<=55 típicamente es 9h).
+  const is9h = holesPlayed != null
+    ? holesPlayed <= 9
+    : totalGross <= 55
+
+  if (is9h) {
+    // WHS 9-hole Score Differential.
+    //   9h SD = (9h gross − 9h CR) × 113 / 9h Slope
+    // Sin 9h CR/Slope explícitos: usar 18h CR/2 y 18h Slope como aproximación.
+    // Luego se escala × 2 para obtener un "equivalente 18h" comparable con los
+    // otros diferenciales en el cálculo del índice (aproximación práctica USGA
+    // cuando no hay un segundo 9h con el cual combinar).
+    const cr9 = nineHoleRatings?.cr9h ?? courseRating / 2
+    const slope9 = nineHoleRatings?.slope9h ?? slopeRating
+    const sd9 = (totalGross - cr9) * 113 / slope9
+    return parseFloat((sd9 * 2).toFixed(2))
   }
 
-  // 18-hole differential
-  if (!courseRating) return null
-  if (holesPlayed == null && totalGross < 60) return null // fallback heurístico
   return parseFloat(((totalGross - courseRating) * 113 / slopeRating).toFixed(2))
 }
 

@@ -31,20 +31,26 @@ describe('calcularDiferencial — 18 hoyos', () => {
     expect(calcularDiferencial(80, 0, 113)).toBeNull()
   })
 
-  it('returns null for suspiciously low gross without holes_played', () => {
-    expect(calcularDiferencial(55, 72, 113)).toBeNull()
+  it('low gross without holes_played is treated as 9-hole round (inferred)', () => {
+    // Score 55 no puede ser 18h (ni un pro tira < 60). Auto-inferir 9h.
+    // (55 - 36) × 113 / 113 × 2 = 38 — diferencial equivalente a 18h.
+    expect(calcularDiferencial(55, 72, 113)).toBe(38)
   })
 })
 
 describe('calcularDiferencial — 9 hoyos', () => {
-  it('uses 9-hole ratings when available', () => {
+  it('uses 9-hole ratings when available (scaled to 18h equivalent)', () => {
     const diff = calcularDiferencial(40, 72, 113, 9, { cr9h: 36, slope9h: 113 })
-    expect(diff).toBe(4) // (40 - 36) × 113 / 113
+    // 9h SD = (40 - 36) × 113 / 113 = 4
+    // equivalente 18h = 4 × 2 = 8 (para comparar con diffs de 18h en el índice)
+    expect(diff).toBe(8)
   })
 
-  it('falls back to half of 18-hole CR', () => {
+  it('falls back to half of 18-hole CR (scaled to 18h equivalent)', () => {
     const diff = calcularDiferencial(40, 72, 113, 9)
-    expect(diff).toBe(4) // (40 - 36) × 113 / 113
+    // Fallback: cr9 = 72/2 = 36, slope9 = 113
+    // SD 9h = (40 - 36) × 113 / 113 = 4 → ×2 = 8
+    expect(diff).toBe(8)
   })
 
   it('returns null for 9 holes without CR', () => {

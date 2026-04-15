@@ -85,6 +85,7 @@ function generarOrdenHoyos(hoyoInicio: number, totalHoles: number): number[] {
 function lsKey(c: string, j: string) { return `ronda_${c}_${j}` }
 function lsSave(c: string, j: string, s: Record<number, number>) { try { localStorage.setItem(lsKey(c, j), JSON.stringify(s)) } catch {} }
 function lsLoad(c: string, j: string): Record<number, number> { try { return JSON.parse(localStorage.getItem(lsKey(c, j)) ?? '{}') } catch { return {} } }
+function lsClear(c: string, j: string) { try { localStorage.removeItem(lsKey(c, j)) } catch {} }
 function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(p) }
 
 // Chip colors from centralized score-colors system
@@ -522,6 +523,31 @@ function ScorePageContent() {
     if (prevIdx >= 0) setCurrentHole(ordenHoyos[prevIdx])
   }
   const [confirmFinalize, setConfirmFinalize] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
+
+  const discardRound = async () => {
+    if (!ronda || discarding) return
+    if (!confirmDiscard) {
+      setConfirmDiscard(true)
+      haptic([20, 40, 20])
+      setTimeout(() => setConfirmDiscard(false), 5000)
+      return
+    }
+    setDiscarding(true)
+    haptic(30)
+    const supabase = createClient()
+    // Borra jugadores primero (FK) y luego la ronda. NO inserta en historical_rounds.
+    await supabase.from('ronda_libre_jugadores').delete().eq('ronda_id', ronda.id)
+    await supabase.from('rondas_libres').delete().eq('id', ronda.id)
+    // Limpia localStorage para esta ronda
+    try {
+      for (const j of ronda.ronda_libre_jugadores) lsClear(codigo, j.id)
+    } catch { /* no bloquear */ }
+    addToast({ title: 'Ronda descartada', type: 'info' })
+    router.push('/dashboard')
+  }
+
   const finalizeRound = async () => {
     if (!ronda || !activeJugadorId) return
     if (!confirmFinalize) {
@@ -537,7 +563,7 @@ function ScorePageContent() {
     const { data: { user: authUser } } = await supabase.auth.getUser()
     await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
 
-    // Save to historical_rounds — array of 18 scores in hole order (1-18)
+    // Save to historical_rounds — array de scores en orden de hoyo (1..N)
     const playerScores = scores[activeJugadorId] ?? {}
     const totalHolesForSave = ronda.holes ?? 18
     const scoresArray: (number | null)[] = Array.from({ length: totalHolesForSave }, (_, i) => {
@@ -545,6 +571,16 @@ function ScorePageContent() {
       return playerScores[h] ?? null
     })
     const grossTotal = scoresArray.filter((s): s is number => s != null).reduce((a, b) => a + b, 0)
+    // holes_played = hoyos REALMENTE jugados (no el config de la ronda).
+    // Sin esto, una ronda de 15/18 se guardaba como "18 hoyos" y el diferencial WHS salía mal.
+    const actualHolesPlayed = scoresArray.filter((s): s is number => s != null).length
+    if (actualHolesPlayed === 0) {
+      // Sin scores = no tiene sentido crear historial. Usar "Descartar ronda".
+      addToast({ title: 'Sin hoyos jugados', message: 'Usa "Descartar ronda" si no quieres guardarla.', type: 'info' })
+      setRoundDone(true)
+      setHasUnsaved(false)
+      return
+    }
     try {
       // Fetch slope/rating from courses for diferencial calculation
       // Usar el tee del jugador que está finalizando (fallback al tee global de la ronda)
@@ -583,8 +619,9 @@ function ScorePageContent() {
           courseRating = courseRating ?? courseData?.course_rating ?? null
         }
       }
-      const diferencial = (slopeRating && courseRating)
-        ? calcularDiferencial(grossTotal, courseRating, slopeRating, totalHolesForSave, nineHoleRatings)
+      // Diferencial WHS: solo si jugó >= 9 hoyos. Con menos, WHS no permite calcular.
+      const diferencial = (slopeRating && courseRating && actualHolesPlayed >= 9)
+        ? calcularDiferencial(grossTotal, courseRating, slopeRating, actualHolesPlayed, nineHoleRatings)
         : null
 
       // El historial pertenece al JUGADOR, no al dueño del dispositivo. Si el jugador
@@ -598,7 +635,7 @@ function ScorePageContent() {
         played_at: ronda.fecha || new Date().toISOString().split('T')[0],
         total_gross: grossTotal,
         scores: scoresArray,
-        holes_played: totalHolesForSave,
+        holes_played: actualHolesPlayed,
         tee_color: effectivePlayerTee ?? null,
         privacy: 'private',
         slope_rating: slopeRating,
@@ -1562,6 +1599,27 @@ function ScorePageContent() {
             }}
           >{confirmFinalize ? 'Confirmar finalizacion' : 'Finalizar ronda \u2713'}</button>
         )}
+      </div>
+
+      {/* Descartar ronda — opción siempre disponible, dos-pasos, destructivo sutil */}
+      <div style={{ padding: '0 16px 12px', textAlign: 'center' }}>
+        <button
+          onClick={discardRound}
+          disabled={discarding}
+          aria-label={confirmDiscard ? 'Confirmar descarte' : 'Descartar ronda'}
+          style={{
+            background: confirmDiscard ? 'rgba(220,38,38,0.1)' : 'transparent',
+            border: confirmDiscard ? '1px solid rgba(220,38,38,0.5)' : '1px solid transparent',
+            color: confirmDiscard ? '#dc2626' : 'rgba(156,163,175,0.7)',
+            fontSize: '12px', fontWeight: confirmDiscard ? 600 : 400,
+            padding: '6px 12px', borderRadius: '8px',
+            cursor: discarding ? 'not-allowed' : 'pointer',
+            opacity: discarding ? 0.5 : 1,
+            letterSpacing: '0.02em',
+            WebkitTapHighlightColor: 'transparent',
+            transition: 'all 0.2s ease',
+          }}
+        >{discarding ? 'Descartando…' : confirmDiscard ? 'Toca otra vez para borrar todo' : 'Descartar ronda'}</button>
       </div>
 
       {/* ── tAIger banners ── */}

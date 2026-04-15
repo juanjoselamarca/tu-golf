@@ -113,6 +113,24 @@ export default function ScoreGrupoPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [confirmFinalize, setConfirmFinalize] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
+
+  const discardRound = async () => {
+    if (!ronda || discarding) return
+    if (!confirmDiscard) {
+      setConfirmDiscard(true)
+      haptic([20, 40, 20])
+      setTimeout(() => setConfirmDiscard(false), 5000)
+      return
+    }
+    setDiscarding(true)
+    haptic(30)
+    const supabase = createClient()
+    await supabase.from('ronda_libre_jugadores').delete().eq('ronda_id', ronda.id)
+    await supabase.from('rondas_libres').delete().eq('id', ronda.id)
+    router.push('/dashboard')
+  }
   const [finalizing, setFinalizing] = useState(false)
   const swipeRef = useRef({ startX: 0, startY: 0 })
   const progressRef = useRef<HTMLDivElement>(null)
@@ -350,7 +368,8 @@ export default function ScoreGrupoPage() {
           return typeof v === 'number' ? v : null
         })
         const grossTotal = scoresArray.filter((s): s is number => s != null).reduce((a, b) => a + b, 0)
-        if (grossTotal === 0) continue // no jugó ningún hoyo
+        const actualHolesPlayed = scoresArray.filter((s): s is number => s != null).length
+        if (actualHolesPlayed === 0) continue // no jugó ningún hoyo
 
         const playerTee = (j.tees || ronda.tees || 'azul').toLowerCase()
         if (!teeSlopeCRCache[playerTee]) {
@@ -372,7 +391,9 @@ export default function ScoreGrupoPage() {
           teeSlopeCRCache[playerTee] = { slope, cr, nineHole }
         }
         const { slope, cr, nineHole } = teeSlopeCRCache[playerTee]
-        const diferencial = (slope && cr) ? calcularDiferencial(grossTotal, cr, slope, totalHolesForSave, nineHole) : null
+        const diferencial = (slope && cr && actualHolesPlayed >= 9)
+          ? calcularDiferencial(grossTotal, cr, slope, actualHolesPlayed, nineHole)
+          : null
 
         await supabase.from('historical_rounds').insert({
           user_id: j.user_id,
@@ -381,7 +402,7 @@ export default function ScoreGrupoPage() {
           played_at: ronda.fecha || new Date().toISOString().split('T')[0],
           total_gross: grossTotal,
           scores: scoresArray,
-          holes_played: totalHolesForSave,
+          holes_played: actualHolesPlayed,
           tee_color: playerTee,
           privacy: 'private',
           slope_rating: slope,
@@ -437,6 +458,18 @@ export default function ScoreGrupoPage() {
     : modoJuego === 'neto' ? 'Stroke Play Neto'
     : 'Stroke Play'
   const showNetStableford = modoJuego !== 'gross'
+
+  // En Match Play Neto los dots representan la DIFERENCIA NETA de strokes
+  // entre jugadores (el de menor HCP juega scratch). En stroke play / stableford
+  // cada jugador usa su HCP absoluto.
+  const isMatchPlay = formatoJuego === 'match_play'
+  const getDotHcp = (playerId: string): number => {
+    const absHcp = playerHcp[playerId] ?? 0
+    if (!isMatchPlay) return absHcp
+    const hcps = jugadores.map(p => playerHcp[p.id] ?? 0)
+    const minHcp = hcps.length > 0 ? Math.min(...hcps) : 0
+    return Math.max(0, absHcp - minHcp)
+  }
 
   // Calculate totals for thru indicator + canFinalize
   const holesWithScores = (jId: string) => {
@@ -554,7 +587,7 @@ export default function ScoreGrupoPage() {
           {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
             const isActive = h === currentHole
             const allHaveScore = jugadores.every(j => scores[j.id]?.[h] != null)
-            const anyPlayerGetsStroke = showNetStableford && jugadores.some(j => strokesRecibidosEnHoyo(playerHcp[j.id] ?? 0, holeDataMap[h]?.stroke_index ?? h) > 0)
+            const anyPlayerGetsStroke = showNetStableford && jugadores.some(j => strokesRecibidosEnHoyo(getDotHcp(j.id), holeDataMap[h]?.stroke_index ?? h) > 0)
             return (
               <div key={h} onClick={() => setCurrentHole(h)} style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative',
@@ -595,7 +628,7 @@ export default function ScoreGrupoPage() {
         ))}
         {showNetStableford && (() => {
           // Show max strokes received among players for context
-          const maxStrokes = Math.max(...jugadores.map(j => strokesRecibidosEnHoyo(playerHcp[j.id] ?? 0, holeData.stroke_index)))
+          const maxStrokes = Math.max(...jugadores.map(j => strokesRecibidosEnHoyo(getDotHcp(j.id), holeData.stroke_index)))
           return (
             <div style={{ flex: 1, textAlign: 'center', padding: '6px 2px' }}>
               <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>GOLPES</div>
@@ -621,7 +654,8 @@ export default function ScoreGrupoPage() {
             const scoreResult = playerScore != null ? getScoreResult(playerScore, par) : null
             const chipStyle = scoreResult ? SCORE_STYLES[scoreResult] : null
             const hcp = playerHcp[j.id] ?? 0
-            const strokesThisHole = strokesRecibidosEnHoyo(hcp, holeData.stroke_index)
+            const dotHcp = getDotHcp(j.id)
+            const strokesThisHole = strokesRecibidosEnHoyo(dotHcp, holeData.stroke_index)
             const netScoreThisHole = playerScore != null ? playerScore - strokesThisHole : null
             const stablefordPts = playerScore != null ? puntosStablefordHoyo(playerScore, par, hcp, holeData.stroke_index) : null
 
@@ -831,6 +865,27 @@ export default function ScoreGrupoPage() {
               : confirmFinalize ? '\u00bfFinalizar ronda?' : 'Finalizar ronda \u2713'}
           </button>
         )}
+      </div>
+
+      {/* Descartar ronda — dos-pasos, destructivo sutil */}
+      <div style={{ padding: '0 16px 12px', textAlign: 'center' }}>
+        <button
+          onClick={discardRound}
+          disabled={discarding}
+          aria-label={confirmDiscard ? 'Confirmar descarte' : 'Descartar ronda'}
+          style={{
+            background: confirmDiscard ? 'rgba(220,38,38,0.1)' : 'transparent',
+            border: confirmDiscard ? '1px solid rgba(220,38,38,0.5)' : '1px solid transparent',
+            color: confirmDiscard ? '#dc2626' : 'rgba(156,163,175,0.7)',
+            fontSize: '12px', fontWeight: confirmDiscard ? 600 : 400,
+            padding: '6px 12px', borderRadius: '8px',
+            cursor: discarding ? 'not-allowed' : 'pointer',
+            opacity: discarding ? 0.5 : 1,
+            letterSpacing: '0.02em',
+            WebkitTapHighlightColor: 'transparent',
+            transition: 'all 0.2s ease',
+          }}
+        >{discarding ? 'Descartando\u2026' : confirmDiscard ? 'Toca otra vez para borrar todo' : 'Descartar ronda'}</button>
       </div>
 
       {/* Animations */}
