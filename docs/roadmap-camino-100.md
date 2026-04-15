@@ -130,3 +130,9 @@ historial arreglados. Quedan items de la auditoría del 13-abr y del bug sweep d
   - #5 Rondas parciales: holes_played real + diferencial solo si ≥9
   - #6 Descartar ronda: botón dos-pasos en score y score-grupo
   - tsc 0, 927 tests pass, build OK, deploy disparado.
+- 2026-04-15 PM: **Sprint 2 completo** (commit 014dc3d):
+  - #8 WD/DQ: verificado ya correcto en main (audit flag era de versión pre-fix)
+  - #9 Stableford Gross no exige HCP (estaba bloqueado por validación UI)
+  - #10 Paleta Garmin: MiniLeaderboard under-par → birdie celeste
+  - #11 Match Play share card: muestra "3&2"/"All Square" en vez de gross
+  - tsc 0, 927 tests pass, build OK, deploy disparado.
