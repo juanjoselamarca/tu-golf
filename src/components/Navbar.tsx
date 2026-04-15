@@ -69,6 +69,9 @@ export default function Navbar() {
   if (pathname === '/login' || pathname === '/register') return null
   if (pathname.includes('/score')) return null
   if (pathname.startsWith('/admin')) return null
+  // Chat de tAIger+: flujo focalizado con su propio botón "Volver a Golfers+"
+  // y barra de input fija. La navbar global + botón JUGAR flotante tapaban el chat.
+  if (pathname === '/coach/sesion/nueva/chat') return null
 
   const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'
