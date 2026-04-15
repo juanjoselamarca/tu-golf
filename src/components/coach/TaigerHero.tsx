@@ -1,34 +1,48 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 
-/**
- * tAIger+ Hero — tiger coach portrait con entrada cinematica.
- * Usa la imagen real del tigre-coach con animaciones premium.
- */
+const SLIDES = [
+  { src: '/images/taiger/taiger-domingo.png', pos: '50% 10%', label: 'Coach' },
+  { src: '/images/taiger/tiger-otros.png', pos: '12% 15%', label: 'Analyst' },
+  { src: '/images/taiger/taiger-zen.png', pos: '50% 15%', label: 'Mental' },
+  { src: '/images/taiger/tager-swing.png', pos: '50% 10%', label: 'Swing' },
+  { src: '/images/taiger/tiger-standar.png', pos: '50% 8%', label: 'Pro' },
+]
+
+const INTERVAL = 5000
+
 export function TaigerHero({ subtitle }: { subtitle?: string }) {
   const [mounted, setMounted] = useState(false)
+  const [current, setCurrent] = useState(0)
+
   useEffect(() => { setMounted(true) }, [])
+
+  const advance = useCallback(() => {
+    setCurrent(prev => (prev + 1) % SLIDES.length)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    const timer = setInterval(advance, INTERVAL)
+    return () => clearInterval(timer)
+  }, [mounted, advance])
 
   return (
     <>
       <style>{`
-        @keyframes heroReveal {
-          0% { opacity: 0; transform: scale(1.08); }
+        @keyframes heroEntry {
+          0% { opacity: 0; transform: scale(1.06); }
           100% { opacity: 1; transform: scale(1); }
         }
-        @keyframes textSlideUp {
-          0% { opacity: 0; transform: translateY(20px); }
+        @keyframes textUp {
+          0% { opacity: 0; transform: translateY(16px); }
           100% { opacity: 1; transform: translateY(0); }
         }
-        @keyframes glowPulse {
-          0%, 100% { box-shadow: 0 0 30px rgba(196,153,42,0.08), inset 0 0 30px rgba(196,153,42,0.03); }
-          50% { box-shadow: 0 0 50px rgba(196,153,42,0.15), inset 0 0 40px rgba(196,153,42,0.06); }
-        }
-        @keyframes shimmer {
-          0% { left: -100%; }
-          100% { left: 200%; }
+        @keyframes glowBreath {
+          0%, 100% { box-shadow: 0 0 24px rgba(196,153,42,0.06); }
+          50% { box-shadow: 0 0 48px rgba(196,153,42,0.14); }
         }
       `}</style>
       <div style={{
@@ -37,79 +51,93 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
         overflow: 'hidden',
         background: '#0a1219',
         marginBottom: 28,
-        animation: mounted ? 'glowPulse 5s ease-in-out infinite' : 'none',
         border: '1px solid rgba(196,153,42,0.1)',
+        animation: mounted ? 'glowBreath 6s ease-in-out infinite' : 'none',
       }}>
-        {/* Tiger portrait — left half of the dual image (coach with glasses) */}
+        {/* Image carousel — crossfade */}
         <div style={{
           position: 'relative',
           width: '100%',
-          height: 220,
+          height: 240,
           overflow: 'hidden',
-          animation: mounted ? 'heroReveal 1s ease-out 0.1s both' : 'none',
+          animation: mounted ? 'heroEntry 0.8s ease-out both' : 'none',
         }}>
-          <Image
-            src="/images/taiger/tiger-coaches.png"
-            alt="tAIger+ Coach"
-            fill
-            style={{
-              objectFit: 'cover',
-              objectPosition: '12% 15%',
-            }}
-            sizes="(max-width: 640px) 100vw, 640px"
-            priority
-          />
-          {/* Gradient overlay bottom — blends image into content */}
+          {SLIDES.map((slide, i) => (
+            <div
+              key={slide.src}
+              style={{
+                position: 'absolute', inset: 0,
+                opacity: i === current ? 1 : 0,
+                transition: 'opacity 1.2s ease-in-out',
+              }}
+            >
+              <Image
+                src={slide.src}
+                alt={`tAIger+ ${slide.label}`}
+                fill
+                style={{
+                  objectFit: 'cover',
+                  objectPosition: slide.pos,
+                }}
+                sizes="(max-width: 640px) 100vw, 640px"
+                priority={i === 0}
+              />
+            </div>
+          ))}
+
+          {/* Gradient overlay */}
           <div style={{
             position: 'absolute', bottom: 0, left: 0, right: 0,
-            height: '60%',
-            background: 'linear-gradient(to top, #0a1219 0%, rgba(10,18,25,0.7) 40%, transparent 100%)',
+            height: '65%',
+            background: 'linear-gradient(to top, #0a1219 0%, rgba(10,18,25,0.8) 35%, transparent 100%)',
             pointerEvents: 'none',
+            zIndex: 1,
           }} />
-          {/* Shimmer effect */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            overflow: 'hidden',
-            pointerEvents: 'none',
-          }}>
-            <div style={{
-              position: 'absolute',
-              top: 0, left: '-100%',
-              width: '50%', height: '100%',
-              background: 'linear-gradient(90deg, transparent, rgba(196,153,42,0.06), transparent)',
-              animation: mounted ? 'shimmer 3s ease-in-out 1.5s' : 'none',
-            }} />
-          </div>
         </div>
 
-        {/* Brand text — overlaps the gradient */}
+        {/* Brand + dots */}
         <div style={{
           position: 'relative',
-          marginTop: -48,
-          padding: '0 24px 24px',
+          marginTop: -56,
+          padding: '0 24px 20px',
           zIndex: 2,
         }}>
           <h2 style={{
             fontFamily: "'Playfair Display', serif",
-            fontSize: 28,
-            fontWeight: 700,
-            letterSpacing: '1px',
-            color: '#edeae4',
-            margin: 0,
-            animation: mounted ? 'textSlideUp 0.7s ease-out 0.5s both' : 'none',
+            fontSize: 28, fontWeight: 700, letterSpacing: '1px',
+            color: '#edeae4', margin: 0,
+            animation: mounted ? 'textUp 0.6s ease-out 0.4s both' : 'none',
           }}>
             tAIger+
           </h2>
           {subtitle && (
             <p style={{
-              color: '#94a8c0',
-              fontSize: 13,
-              margin: '6px 0 0',
-              animation: mounted ? 'textSlideUp 0.7s ease-out 0.7s both' : 'none',
+              color: '#94a8c0', fontSize: 13, margin: '6px 0 0',
+              animation: mounted ? 'textUp 0.6s ease-out 0.6s both' : 'none',
             }}>
               {subtitle}
             </p>
           )}
+
+          {/* Slide indicators */}
+          <div style={{
+            display: 'flex', gap: 6, marginTop: 14,
+            animation: mounted ? 'textUp 0.6s ease-out 0.8s both' : 'none',
+          }}>
+            {SLIDES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrent(i)}
+                style={{
+                  width: i === current ? 20 : 6, height: 6,
+                  borderRadius: 3, border: 'none', cursor: 'pointer',
+                  background: i === current ? '#c4992a' : 'rgba(196,153,42,0.25)',
+                  transition: 'all 0.4s ease',
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </>

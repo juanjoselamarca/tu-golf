@@ -1,10 +1,9 @@
-/**
- * tAIger+ nav icon — tiger face crop in a circle.
- * Uses the real tiger-coach image, cropped via CSS.
- * For nav/sidebar at 18-24px. For larger uses, use TaigerHero.
- */
 import Image from 'next/image'
 
+/**
+ * tAIger+ nav icon — tiger coach face in a gold-bordered circle.
+ * Uses the TAIGER DOMINGO image (red polo, black cap).
+ */
 export function TaigerIcon({ size = 20, className }: { size?: number; className?: string }) {
   return (
     <span
@@ -21,13 +20,15 @@ export function TaigerIcon({ size = 20, className }: { size?: number; className?
       }}
     >
       <Image
-        src="/images/taiger/tiger-coaches.png"
+        src="/images/taiger/taiger-domingo.png"
         alt="tAIger+"
-        width={size}
-        height={size}
+        width={size * 2}
+        height={size * 2}
         style={{
           objectFit: 'cover',
-          objectPosition: '12% 12%',
+          objectPosition: '50% 8%',
+          width: size,
+          height: size,
         }}
       />
     </span>
