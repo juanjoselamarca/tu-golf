@@ -84,20 +84,36 @@ export async function GET() {
     const front9Avg = front9Count > 0 ? Math.round(front9Sum / front9Count * 9 * 10) / 10 : null
     const back9Avg  = back9Count  > 0 ? Math.round(back9Sum  / back9Count  * 9 * 10) / 10 : null
 
-    const recentRounds = validRounds.slice(0, 5).map(r => {
+    // Fetch course pars for top 3 rounds (C-F8-3: hole-by-hole context)
+    const top3CourseIds = Array.from(new Set(validRounds.slice(0, 3).map(r => r.course_id).filter(Boolean)))
+    const courseParsMap: Record<string, Record<number, number>> = {}
+    if (top3CourseIds.length > 0) {
+      const { data: courseHoles } = await supabase
+        .from('course_holes')
+        .select('course_id, numero, par')
+        .in('course_id', top3CourseIds)
+        .order('numero')
+      for (const h of courseHoles ?? []) {
+        if (!courseParsMap[h.course_id]) courseParsMap[h.course_id] = {}
+        courseParsMap[h.course_id][h.numero] = h.par
+      }
+    }
+
+    const recentRounds = validRounds.slice(0, 5).map((r, idx) => {
       const holes = r.holes_played ?? (Array.isArray(r.scores) ? r.scores.filter(Boolean).length : 18)
-      // Par real del curso cuando está disponible (Supabase relation). Si la ronda
-      // fue de 9 hoyos asumimos la mitad del par. Último recurso: 72/36.
       const coursePar = (r as { courses?: { par_total?: number | null } | null })?.courses?.par_total ?? null
       const par = holes <= 9
         ? (coursePar ? Math.round(coursePar / 2) : 36)
         : (coursePar ?? 72)
       return {
         course_name: r.course_name,
+        course_id:   r.course_id,
         played_at:   r.played_at,
         total_gross: r.total_gross,
         holes_played: holes,
         over_under:  r.total_gross - par,
+        scores: idx < 3 ? (r.scores as (number | null)[] ?? null) : undefined,
+        course_pars: idx < 3 && r.course_id ? (courseParsMap[r.course_id] ?? null) : undefined,
       }
     })
 

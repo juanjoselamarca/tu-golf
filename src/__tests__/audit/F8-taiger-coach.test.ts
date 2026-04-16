@@ -272,9 +272,9 @@ describe('[peso:2] Session starters — instrucciones diferenciadas por tipo de 
     expect(SESSION_STARTERS).toHaveProperty('free')
   })
 
-  it('post_round instruye a referenciar rondas del contexto', () => {
-    expect(SESSION_STARTERS.post_round).toContain('rondas recientes en el contexto')
-    expect(SESSION_STARTERS.post_round).toContain('PROTOCOLO post_round')
+  it('post_round instruye a usar tools para obtener detalle hoyo-por-hoyo', () => {
+    expect(SESSION_STARTERS.post_round).toContain('get_latest_round')
+    expect(SESSION_STARTERS.post_round).toContain('hoyo-por-hoyo')
   })
 
   it('weekly_plan instruye a preguntar días disponibles antes de dar el plan', () => {

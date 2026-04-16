@@ -148,8 +148,11 @@ export interface TaigerContext {
   recent_rounds: Array<{
     played_at?: string
     course_name?: string
+    course_id?: string
     total_gross: number
     over_under?: number
+    scores?: (number | null)[] | null
+    course_pars?: Record<number, number> | null
   }>
   last_session: {
     session_type: string
@@ -289,15 +292,27 @@ ${recsText}
 === DATOS COLECTIVOS (jugadores de nivel similar) ===
 ${insightsText}
 
-=== ÚLTIMAS 3 RONDAS ===
-${(recent_rounds ?? []).slice(0, 3).map((r, i) =>
-  `Ronda ${i + 1}: ${r.total_gross} golpes en ${r.course_name ?? 'cancha no registrada'} (${r.played_at ? new Date(r.played_at).toLocaleDateString('es-CL') : 'fecha desconocida'})`
-).join('\n') || 'Sin rondas registradas'}
+=== ÚLTIMAS 3 RONDAS (DETALLE HOYO POR HOYO) ===
+${(recent_rounds ?? []).slice(0, 3).map((r, i) => {
+  const header = `Ronda ${i + 1}: ${r.total_gross} golpes en ${r.course_name ?? 'cancha no registrada'} (${r.played_at ? new Date(r.played_at).toLocaleDateString('es-CL') : 'fecha desconocida'}) [${(r.over_under ?? 0) > 0 ? '+' : ''}${r.over_under ?? 0}]`
+  const scores = r.scores as (number | null)[] | null | undefined
+  const pars = r.course_pars as Record<number, number> | null | undefined
+  if (!scores || !Array.isArray(scores) || scores.length === 0) return header
+  const holeLines = scores.map((s, idx) => {
+    if (s == null || s === 0) return null
+    const holeNum = idx + 1
+    const par = pars?.[holeNum] ?? null
+    const vsPar = par != null ? s - par : null
+    const label = vsPar == null ? '' : vsPar <= -2 ? ' (eagle+)' : vsPar === -1 ? ' (birdie)' : vsPar === 0 ? '' : vsPar === 1 ? ' (bogey)' : vsPar === 2 ? ' (doble)' : ` (+${vsPar})`
+    return `  H${holeNum}: ${s}${par != null ? ` (par ${par})` : ''}${label}`
+  }).filter(Boolean)
+  return header + '\\n' + holeLines.join('\\n')
+}).join('\\n\\n') || 'Sin rondas registradas'}
 `.trim()
 }
 
 export const SESSION_STARTERS: Record<string, string> = {
-  post_round: `El jugador quiere analizar su última ronda. Sigue el PROTOCOLO post_round del manual. Si no sabes el score, pregúntalo primero. Si tienes rondas recientes en el contexto, refiérelas.`,
+  post_round: `El jugador quiere analizar su última ronda. PRIMERO llama get_latest_round para obtener el detalle hoyo-por-hoyo con pares y vs_par. Con esos datos, identifica patrones (hoyos difíciles, rachas de bogeys, oportunidades de birdie) y entrega análisis concreto basado en números reales. NUNCA preguntes el score si puedes obtenerlo con la tool.`,
   weekly_plan: `El jugador quiere un plan de práctica semanal. Sigue el PROTOCOLO weekly_plan del manual. Pregunta primero: días disponibles y qué instalaciones tiene. Construye el plan solo cuando tengas esa información.`,
   pre_tournament: `El jugador se prepara para un torneo. Sigue el PROTOCOLO pre_tournament del manual. Pregunta: campo, formato, fecha del torneo. Entrega estrategia de course management y protocolo mental.`,
   onboarding: `Es la primera sesión del jugador. Da la bienvenida, explica brevemente qué es tAIger+, y guíalo hacia su primera consulta real. Sé cálido pero eficiente.`,
