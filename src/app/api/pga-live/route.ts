@@ -15,7 +15,7 @@ const PGA_2026 = [
 
 /* ── Country → ISO 3166-1 alpha-2 (for flagcdn.com images) ── */
 const COUNTRY_ISO: Record<string, string> = {
-  'United States': 'us', 'South Korea': 'kr', 'Canada': 'ca',
+  'United States': 'us', 'USA': 'us', 'South Korea': 'kr', 'Canada': 'ca',
   'England': 'gb-eng', 'Australia': 'au', 'Spain': 'es',
   'Norway': 'no', 'Sweden': 'se', 'Japan': 'jp',
   'Ireland': 'ie', 'Scotland': 'gb-sct', 'Germany': 'de',
