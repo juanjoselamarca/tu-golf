@@ -162,7 +162,37 @@ function ChatContent() {
   const inputDisabled = streaming || sessionCompleted || userMessageCount >= maxUserMessages || limitReached
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100svh' }}>
+      {/* Header con navegación */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 16px',
+        borderBottom: '1px solid rgba(196,153,42,0.15)',
+        flexShrink: 0,
+      }}>
+        <button
+          onClick={() => router.push('/coach')}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#c4992a',
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: 'pointer',
+            padding: '4px 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+          aria-label="Volver al coach"
+        >
+          ← Volver
+        </button>
+        <div style={{ flex: 1 }} />
+        <TaigerIcon size={20} />
+      </div>
       {/* Messages area */}
       <div style={{
         flex: 1,
@@ -422,6 +452,9 @@ function ChatContent() {
           margin: 12px 0;
         }
         .taiger-md a { color: #c4992a; }
+        @media (prefers-reduced-motion: reduce) {
+          * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+        }
       `}</style>
     </div>
   )
