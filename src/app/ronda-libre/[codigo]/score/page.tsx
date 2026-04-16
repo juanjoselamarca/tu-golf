@@ -1588,7 +1588,7 @@ function ScorePageContent() {
             aria-label={confirmFinalize ? 'Confirmar finalizacion' : 'Finalizar ronda'}
             style={{
               flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
-              background: confirmFinalize ? '#dc2626' : isLastHole ? '#C4992A' : 'transparent',
+              background: confirmFinalize ? '#d97706' : isLastHole ? '#C4992A' : 'transparent',
               color: confirmFinalize ? '#ffffff' : isLastHole ? '#ffffff' : '#C4992A',
               border: isLastHole ? 'none' : '1px solid rgba(196,153,42,0.4)',
               borderRadius: '12px',
@@ -1612,8 +1612,8 @@ function ScorePageContent() {
             background: confirmDiscard ? 'rgba(220,38,38,0.1)' : 'transparent',
             border: confirmDiscard ? '1px solid rgba(220,38,38,0.5)' : '1px solid transparent',
             color: confirmDiscard ? '#dc2626' : 'rgba(156,163,175,0.7)',
-            fontSize: '12px', fontWeight: confirmDiscard ? 600 : 400,
-            padding: '6px 12px', borderRadius: '8px',
+            fontSize: '14px', fontWeight: confirmDiscard ? 600 : 400,
+            padding: '8px 14px', borderRadius: '8px',
             cursor: discarding ? 'not-allowed' : 'pointer',
             opacity: discarding ? 0.5 : 1,
             letterSpacing: '0.02em',
