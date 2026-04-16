@@ -827,6 +827,7 @@ export default function NuevaRondaLibrePage() {
                       <button
                         key={n}
                         type="button"
+                        aria-pressed={active}
                         onClick={() => {
                           setTotalHolesChoice(n)
                           if (n === 18) {
@@ -873,6 +874,7 @@ export default function NuevaRondaLibrePage() {
                         <button
                           key={opt.value}
                           type="button"
+                          aria-pressed={active}
                           onClick={() => {
                             setNineChoice(opt.value)
                             setHoyoInicio(opt.value === 'back' ? 10 : 1)
