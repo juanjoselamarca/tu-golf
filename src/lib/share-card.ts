@@ -27,6 +27,12 @@ export interface ShareCardRondaLibre {
   matchResult?: string
   /** Total Stableford del jugador (para mostrar "N pts" como subtítulo). */
   stablefordPoints?: number
+  /** Para formatos de equipo: nombre del equipo ganador */
+  teamNombre?: string
+  /** Para formatos de equipo: miembros del equipo ganador */
+  teamJugadores?: string[]
+  /** Para formatos de equipo: formato específico */
+  teamFormato?: 'best_ball' | 'scramble' | 'foursome'
 }
 
 export interface ShareCardTorneo {
@@ -344,11 +350,19 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
 
   ctx.font = 'bold 24px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.45)'
   ;(ctx as any).letterSpacing = '3px'
-  ctx.fillText(data.esEmpate ? 'EMPATE ÉPICO' : 'GANADOR DE LA RONDA', W / 2, 470)
+  const isTeam = !!data.teamNombre
+  const headerLabel = isTeam ? 'EQUIPO GANADOR' : (data.esEmpate ? 'EMPATE ÉPICO' : 'GANADOR DE LA RONDA')
+  ctx.fillText(headerLabel, W / 2, 470)
   ;(ctx as any).letterSpacing = '0px'
 
-  const name = data.esEmpate && data.jugadores ? data.jugadores.map(n => n.split(' ')[0]).join(' · ') : data.ganador
+  const name = isTeam ? data.teamNombre! : (data.esEmpate && data.jugadores ? data.jugadores.map(n => n.split(' ')[0]).join(' · ') : data.ganador)
   ctx.font = 'bold 68px Georgia, serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(name, W / 2, 560)
+
+  // Team members subtitle
+  if (isTeam && data.teamJugadores && data.teamJugadores.length > 0) {
+    ctx.font = '28px Arial, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.55)'
+    ctx.fillText(data.teamJugadores.join(' \u00B7 '), W / 2, 600)
+  }
 
   const isStableford = data.formato_juego === 'stableford'
   const isMatchPlay = data.formato_juego === 'match_play'
