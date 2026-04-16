@@ -88,11 +88,17 @@ export default function NuevaRondaLibrePage() {
     setAdminPlayers(prev => prev.filter((_, i) => i !== idx))
   }
   const addAdminPlayer = () => {
-    if (adminPlayers.length < 3) {
+    const maxPlayers = isTeamFormat ? 7 : 3
+    if (adminPlayers.length < maxPlayers) {
       setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null }])
     }
   }
   const [formato, setFormato] = useState<'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'>('stroke_play')
+  const isTeamFormat = ['best_ball', 'scramble', 'foursome'].includes(formato)
+  const [equipos, setEquipos] = useState<Array<{ nombre: string; jugadorIndices: number[] }>>([
+    { nombre: 'Equipo 1', jugadorIndices: [] },
+    { nombre: 'Equipo 2', jugadorIndices: [] },
+  ])
   const [modo, setModo] = useState<'gross' | 'neto'>('gross')
   const [fechaStr, setFechaStr] = useState(() => {
     const d = new Date()
@@ -256,6 +262,27 @@ export default function NuevaRondaLibrePage() {
     if (formato === 'match_play' && jugadoresValidos.length !== 2) {
       showError('Match Play requiere 2 jugadores', 'Agrega exactamente un rival para jugar Match Play.')
       return
+    }
+
+    // Validación equipos: team formats requieren asignación completa
+    if (['best_ball', 'scramble', 'foursome'].includes(formato)) {
+      if (jugadoresValidos.length < 4) {
+        showError('Faltan jugadores', `${formato === 'foursome' ? 'Foursome' : formato === 'scramble' ? 'Scramble' : 'Best Ball'} necesita al menos 4 jugadores (2 equipos de 2)`)
+        setLoading(false)
+        return
+      }
+      const minPerTeam = formato === 'foursome' ? 2 : 2
+      const maxPerTeam = formato === 'foursome' ? 2 : 4
+      const allValid = equipos.every(e => e.jugadorIndices.length >= minPerTeam && e.jugadorIndices.length <= maxPerTeam)
+      const totalAssigned = equipos.reduce((sum, e) => sum + e.jugadorIndices.length, 0)
+      if (!allValid || totalAssigned !== jugadoresValidos.length) {
+        const msg = formato === 'foursome'
+          ? 'Foursome requiere exactamente 2 jugadores por equipo'
+          : 'Asigna todos los jugadores a un equipo (mínimo 2 por equipo)'
+        showError('Equipos incompletos', msg)
+        setLoading(false)
+        return
+      }
     }
 
     // Modalidades que exigen índice WHS para todos los jugadores con nombre.
@@ -946,10 +973,15 @@ export default function NuevaRondaLibrePage() {
                           setAdminMode(true)
                           setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null }])
                         }
-                        // Team formats also force admin mode
+                        // Team formats force admin mode with 3 rivals (min 4 players for 2 teams of 2)
                         if (['best_ball', 'scramble', 'foursome'].includes(f.value) && !adminMode) {
                           setAdminMode(true)
-                          setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null }])
+                          setAdminPlayers([
+                            { tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null },
+                            { tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null },
+                            { tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null },
+                          ])
+                          setEquipos([{ nombre: 'Equipo 1', jugadorIndices: [] }, { nombre: 'Equipo 2', jugadorIndices: [] }])
                         }
                       }}
                       style={{
@@ -1611,7 +1643,7 @@ export default function NuevaRondaLibrePage() {
                   ))}
 
                   {/* Add player button — match play only allows 1 rival */}
-                  {adminPlayers.length < (formato === 'match_play' ? 1 : 3) && (
+                  {adminPlayers.length < (formato === 'match_play' ? 1 : isTeamFormat ? 7 : 3) && (
                     <button
                       type="button"
                       onClick={addAdminPlayer}
@@ -1669,6 +1701,91 @@ export default function NuevaRondaLibrePage() {
                       </div>
                     )
                   })()}
+                </div>
+              )}
+
+              {/* Team assignment UI */}
+              {isTeamFormat && adminMode && adminPlayers.filter(p => p.nombre.trim()).length >= 3 && (
+                <div style={{
+                  background: colors.card,
+                  border: `1px solid ${colors.cardBorder}`,
+                  borderRadius: '16px',
+                  padding: '20px',
+                  marginBottom: '16px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                }}>
+                  <label style={{ display: 'block', fontFamily: '"DM Sans", sans-serif', fontSize: '13px', color: colors.textSecondary, marginBottom: '10px', fontWeight: 500 }}>
+                    Asignar equipos
+                  </label>
+                  {equipos.map((equipo, eIdx) => (
+                    <div key={eIdx} style={{
+                      background: '#f9fafb', borderRadius: '12px', padding: '12px',
+                      marginBottom: '8px', border: '1px solid #e5e7eb',
+                    }}>
+                      <input
+                        type="text"
+                        value={equipo.nombre}
+                        onChange={(e) => {
+                          const updated = [...equipos]
+                          updated[eIdx] = { ...updated[eIdx], nombre: e.target.value }
+                          setEquipos(updated)
+                        }}
+                        style={{
+                          width: '100%', border: 'none', background: 'transparent',
+                          fontSize: '14px', fontWeight: 600, color: '#111827',
+                          marginBottom: '8px', outline: 'none',
+                          fontFamily: '"DM Sans", sans-serif',
+                        }}
+                      />
+                      {[creatorName, ...adminPlayers.filter(p => p.nombre.trim()).map(p => p.nombre.trim())].map((nombre, pIdx) => {
+                        const isInThisTeam = equipo.jugadorIndices.includes(pIdx)
+                        const isInOtherTeam = equipos.some((e, i) => i !== eIdx && e.jugadorIndices.includes(pIdx))
+                        return (
+                          <button
+                            key={pIdx}
+                            type="button"
+                            disabled={isInOtherTeam}
+                            onClick={() => {
+                              const updated = [...equipos]
+                              if (isInThisTeam) {
+                                updated[eIdx] = { ...updated[eIdx], jugadorIndices: updated[eIdx].jugadorIndices.filter(i => i !== pIdx) }
+                              } else {
+                                updated[eIdx] = { ...updated[eIdx], jugadorIndices: [...updated[eIdx].jugadorIndices, pIdx] }
+                              }
+                              setEquipos(updated)
+                            }}
+                            style={{
+                              display: 'block', width: '100%', padding: '8px 12px',
+                              marginBottom: '4px', borderRadius: '8px',
+                              border: isInThisTeam ? `2px solid ${colors.gold}` : '1px solid #e5e7eb',
+                              background: isInThisTeam ? 'rgba(196,153,42,0.06)' : isInOtherTeam ? '#f3f4f6' : '#ffffff',
+                              opacity: isInOtherTeam ? 0.4 : 1,
+                              cursor: isInOtherTeam ? 'not-allowed' : 'pointer',
+                              fontSize: '13px', color: '#374151', textAlign: 'left' as const,
+                              fontFamily: '"DM Sans", sans-serif',
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >
+                            {nombre} {isInThisTeam && '\u2713'}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ))}
+                  {equipos.length < 4 && (
+                    <button
+                      type="button"
+                      onClick={() => setEquipos([...equipos, { nombre: `Equipo ${equipos.length + 1}`, jugadorIndices: [] }])}
+                      style={{
+                        width: '100%', padding: '10px', borderRadius: '8px',
+                        border: '1px dashed #d1d5db', background: 'transparent',
+                        fontSize: '13px', color: '#9ca3af', cursor: 'pointer',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
+                      + Agregar equipo
+                    </button>
+                  )}
                 </div>
               )}
 
