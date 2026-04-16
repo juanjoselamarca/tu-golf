@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST() {
   return NextResponse.json(
-    { message: 'coming_soon', status: 200 },
-    { status: 200 }
+    { error: 'Importación de archivos .FIT próximamente disponible', code: 'not_implemented' },
+    { status: 501 }
   )
 }
