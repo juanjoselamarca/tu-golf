@@ -43,3 +43,15 @@ next-env.d.ts
 .gstack/
 
 .vercel
+
+# supabase CLI local state
+supabase/.temp/
+
+# claude code local config
+.claude/settings.local.json
+.claude/commands/local.md
+.claude/commands/remoto.md
+
+# bug report photo assets (not code)
+Ejemplos fotos errores/
+
