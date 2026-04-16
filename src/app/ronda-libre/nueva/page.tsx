@@ -422,6 +422,55 @@ export default function NuevaRondaLibrePage() {
       await supabase.from('ronda_libre_jugadores').insert(playerData)
     }
 
+    // Persistir equipos para formatos team-aware
+    if (isTeamFormat && ronda?.id) {
+      const { data: insertedJugadores } = await supabase
+        .from('ronda_libre_jugadores')
+        .select('id, nombre')
+        .eq('ronda_id', ronda.id)
+        .order('created_at', { ascending: true })
+
+      if (insertedJugadores) {
+        for (const equipo of equipos) {
+          const jugadoresEquipo = equipo.jugadorIndices.map(idx => ({
+            dbRecord: insertedJugadores[idx],
+            handicap: idx === 0
+              ? (creatorHandicap ?? 0)
+              : (adminPlayers[idx - 1]?.handicap ?? 0),
+          }))
+          const handicaps = jugadoresEquipo.map(j => j.handicap)
+          let handicapEquipo: number | null = null
+          if (formato === 'scramble') {
+            const { calcularHandicapScramble } = await import('@/golf/formats/scramble')
+            handicapEquipo = calcularHandicapScramble(handicaps)
+          } else if (formato === 'foursome') {
+            const { calcularHandicapFoursome } = await import('@/golf/formats/foursome')
+            handicapEquipo = calcularHandicapFoursome(handicaps[0], handicaps[1])
+          }
+
+          const { data: equipoDB } = await supabase
+            .from('ronda_equipos')
+            .insert({
+              ronda_id: ronda.id,
+              nombre: equipo.nombre,
+              handicap_equipo: handicapEquipo,
+              scores: {},
+            })
+            .select('id')
+            .single()
+
+          if (equipoDB) {
+            const members = jugadoresEquipo.map((j, idx) => ({
+              equipo_id: equipoDB.id,
+              jugador_id: j.dbRecord.id,
+              orden: idx,
+            }))
+            await supabase.from('ronda_equipo_jugadores').insert(members)
+          }
+        }
+      }
+    }
+
     // Snapshot de cancha para scoring inmutable
     if (courseId && ronda?.id) {
       try {
