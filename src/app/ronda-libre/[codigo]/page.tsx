@@ -13,6 +13,9 @@ import { setActiveRondaSession, clearActiveRondaSession } from '@/components/Liv
 import { compartirLeaderboard } from '@/lib/share-card'
 import type { LeaderboardShareData } from '@/lib/share-card'
 import { addToast } from '@/hooks/useToast'
+import { calcularBestBall, ordenarEquiposBestBall } from '@/golf/formats'
+import type { BestBallPlayer } from '@/golf/formats'
+import TeamLeaderboard from '@/components/TeamLeaderboard'
 
 function NotifBanner({ onEnable }: { onEnable: () => void }) {
   const [dismissed, setDismissed] = useState(false)
@@ -287,6 +290,7 @@ function RondaLibrePageContent() {
   const [authModalAction, setAuthModalAction] = useState('')
   const [secSinceUpdate, setSecSinceUpdate] = useState(0)
   // Admin score editing
+  const [equipos, setEquipos] = useState<Array<{ id: string; nombre: string; handicap_equipo: number | null; jugadorIds: string[] }>>([])
   const [editingScore, setEditingScore] = useState<{ jugadorId: string; hole: number; currentScore: number } | null>(null)
   const [editScoreValue, setEditScoreValue] = useState<number>(0)
 
@@ -377,6 +381,25 @@ function RondaLibrePageContent() {
           chMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee])
         }
         setCourseHcpMap(chMap)
+
+        // Fetch team data for team formats (inside fetchRonda so polling refreshes it)
+        if (['best_ball', 'scramble', 'foursome'].includes(r.formato_juego)) {
+          const { data: eqData } = await supabase
+            .from('ronda_equipos')
+            .select('id, nombre, handicap_equipo, ronda_equipo_jugadores(jugador_id, orden)')
+            .eq('ronda_id', r.id)
+            .order('created_at')
+          if (eqData) {
+            setEquipos(eqData.map(e => ({
+              id: e.id,
+              nombre: e.nombre,
+              handicap_equipo: e.handicap_equipo,
+              jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
+                .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+                .map(m => m.jugador_id),
+            })))
+          }
+        }
       }
     } catch (err) {
       console.error('[fetchRonda error]', err)
@@ -1556,6 +1579,57 @@ function RondaLibrePageContent() {
               </div>
             </div>
           )}
+
+          {/* Team Leaderboard — Best Ball */}
+          {ronda.formato_juego === 'best_ball' && equipos.length > 0 && Object.keys(parMap).length > 0 && (() => {
+            const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
+              numero: i + 1,
+              par: parMap[i + 1] ?? 4,
+              stroke_index: siMap[i + 1] ?? (i + 1),
+            }))
+            const parTotal = holeData.reduce((s, h) => s + h.par, 0)
+
+            const teams = equipos.map(eq => ({
+              id: eq.id,
+              nombre: eq.nombre,
+              jugadores: eq.jugadorIds
+                .map(jid => {
+                  const j = ronda.ronda_libre_jugadores.find(jj => jj.id === jid)
+                  if (!j) return null
+                  return {
+                    id: j.id,
+                    nombre: j.nombre,
+                    handicapIndex: j.handicap ?? 0,
+                    scores: j.scores || {},
+                  } as BestBallPlayer
+                })
+                .filter(Boolean) as BestBallPlayer[],
+            }))
+            const results = teams.map(t => calcularBestBall(t, holeData, parTotal))
+            const sorted = ordenarEquiposBestBall(results, ronda.formato_juego, ronda.modo_juego)
+
+            return (
+              <TeamLeaderboard
+                teams={sorted.map(r => ({
+                  teamId: r.teamId,
+                  teamNombre: r.teamNombre,
+                  totalGross: r.totalGross,
+                  totalNeto: r.totalNeto,
+                  totalStableford: r.totalStableford,
+                  overUnderGross: r.overUnderGross,
+                  overUnderNeto: r.overUnderNeto,
+                  holesPlayed: r.holesPlayed,
+                  jugadores: equipos.find(e => e.id === r.teamId)?.jugadorIds
+                    .map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid)?.nombre || '')
+                    .filter(Boolean) || [],
+                }))}
+                modoJuego={ronda.modo_juego}
+                formatoJuego={ronda.formato_juego}
+                totalHoles={ronda.holes}
+                formato="best_ball"
+              />
+            )
+          })()}
 
           {/* GWI — solo para formatos individuales (stroke/stableford), NO match play ni equipos */}
           {ronda.formato_juego !== 'match_play' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
