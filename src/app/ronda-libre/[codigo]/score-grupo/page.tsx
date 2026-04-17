@@ -9,6 +9,9 @@ import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+import { calcularScramble, calcularFoursome, teePlayerEnHoyo } from '@/golf/formats'
+import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
+import TeamLeaderboard from '@/components/TeamLeaderboard'
 
 /* ── Types ── */
 interface Jugador {
@@ -134,6 +137,12 @@ export default function ScoreGrupoPage() {
     router.push('/dashboard?discarded=1')
   }
   const [finalizing, setFinalizing] = useState(false)
+  const [teamEquipos, setTeamEquipos] = useState<Array<{
+    id: string; nombre: string; handicap_equipo: number | null;
+    scores: Record<string, number>;
+    jugadorIds: string[];
+    jugadorNombres: string[];
+  }>>([])
   const swipeRef = useRef({ startX: 0, startY: 0 })
   const progressRef = useRef<HTMLDivElement>(null)
 
@@ -237,6 +246,32 @@ export default function ScoreGrupoPage() {
       }
       setPlayerHcp(hcpMap)
 
+      // Fetch team data for team formats
+      if (['scramble', 'foursome'].includes(r.formato_juego)) {
+        const { data: eqData } = await supabase
+          .from('ronda_equipos')
+          .select('id, nombre, handicap_equipo, scores, ronda_equipo_jugadores(jugador_id, orden)')
+          .eq('ronda_id', r.id)
+          .order('created_at')
+        if (eqData) {
+          setTeamEquipos(eqData.map(e => {
+            const members = ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
+              .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+            return {
+              id: e.id,
+              nombre: e.nombre,
+              handicap_equipo: e.handicap_equipo,
+              scores: (e.scores as Record<string, number>) || {},
+              jugadorIds: members.map(m => m.jugador_id),
+              jugadorNombres: members.map(m => {
+                const j = r.ronda_libre_jugadores.find(jj => jj.id === m.jugador_id)
+                return j?.nombre || '?'
+              }),
+            }
+          }))
+        }
+      }
+
       // Find first empty hole
       const orden = generarOrdenHoyos(r.hoyo_inicio ?? 1, r.holes)
       const firstJ = r.ronda_libre_jugadores[0]
@@ -303,6 +338,24 @@ export default function ScoreGrupoPage() {
     })
   }, [parMap, codigo])
 
+  /* ── Team score change ── */
+  const handleTeamScoreChange = useCallback((equipoId: string, hole: number, delta: number) => {
+    setTeamEquipos(prev => prev.map(eq => {
+      if (eq.id !== equipoId) return eq
+      const key = String(hole)
+      const current = eq.scores[key]
+      const base = current ?? (parMap[hole] ?? 4)
+      const newScore = Math.max(1, Math.min(19, base + delta))
+      const newScores = { ...eq.scores, [key]: newScore }
+      // Persist to DB
+      const supabase = createClient()
+      supabase.from('ronda_equipos').update({ scores: newScores }).eq('id', equipoId).then(() => {})
+      setHasUnsaved(true)
+      haptic(10)
+      return { ...eq, scores: newScores }
+    }))
+  }, [parMap])
+
   /* ── Swipe ── */
   const handleTouchStart = (e: React.TouchEvent) => { swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY } }
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -364,7 +417,13 @@ export default function ScoreGrupoPage() {
     for (const j of ronda.ronda_libre_jugadores) {
       if (!j.user_id) continue // invitados sin cuenta: no tienen historial
       try {
-        const playerScores = scores[j.id] ?? {}
+        // Para Scramble/Foursome: usar score del equipo (es el score real de la ronda)
+        const isTeamSharedScore = ['scramble', 'foursome'].includes(ronda.formato_juego)
+        let playerScores: Record<string | number, number> = scores[j.id] ?? {}
+        if (isTeamSharedScore) {
+          const equipoDelJugador = teamEquipos.find(eq => eq.jugadorIds.includes(j.id))
+          if (equipoDelJugador) playerScores = equipoDelJugador.scores
+        }
         const scoresArray: (number | null)[] = Array.from({ length: totalHolesForSave }, (_, i) => {
           const h = i + 1; const v = playerScores[h]
           return typeof v === 'number' ? v : null
@@ -393,9 +452,11 @@ export default function ScoreGrupoPage() {
           teeSlopeCRCache[playerTee] = { slope, cr, nineHole }
         }
         const { slope, cr, nineHole } = teeSlopeCRCache[playerTee]
-        const diferencial = (slope && cr && actualHolesPlayed >= 9)
-          ? calcularDiferencial(grossTotal, cr, slope, actualHolesPlayed, nineHole)
-          : null
+        // Rondas Scramble/Foursome no ajustan handicap individual (USGA/R&A)
+        const diferencial = isTeamSharedScore ? null
+          : (slope && cr && actualHolesPlayed >= 9)
+            ? calcularDiferencial(grossTotal, cr, slope, actualHolesPlayed, nineHole)
+            : null
 
         await supabase.from('historical_rounds').insert({
           user_id: j.user_id,
@@ -500,19 +561,34 @@ export default function ScoreGrupoPage() {
   const goToNextHole = async () => {
     if (!ronda) return
     haptic(30)
-    // Auto-fill ALL players who don't have a score for the current hole with par
-    const updatedScores = { ...scores }
-    for (const j of jugadores) {
-      if (updatedScores[j.id]?.[currentHole] == null) {
-        updatedScores[j.id] = { ...(updatedScores[j.id] ?? {}), [currentHole]: par }
-      }
-    }
-    setScores(updatedScores)
-    setHasUnsaved(true)
-    lsSave(codigo, updatedScores)
 
-    // Save ALL atomically BEFORE advancing
-    await saveAllScores(updatedScores)
+    const isTeamScoring = ['scramble', 'foursome'].includes(formatoJuego)
+
+    if (isTeamScoring) {
+      // Auto-fill teams without scores with par
+      const supabase = createClient()
+      for (const eq of teamEquipos) {
+        if (eq.scores[String(currentHole)] == null) {
+          const newScores = { ...eq.scores, [String(currentHole)]: par }
+          setTeamEquipos(prev => prev.map(e => e.id === eq.id ? { ...e, scores: newScores } : e))
+          await supabase.from('ronda_equipos').update({ scores: newScores }).eq('id', eq.id)
+        }
+      }
+    } else {
+      // Auto-fill ALL players who don't have a score for the current hole with par
+      const updatedScores = { ...scores }
+      for (const j of jugadores) {
+        if (updatedScores[j.id]?.[currentHole] == null) {
+          updatedScores[j.id] = { ...(updatedScores[j.id] ?? {}), [currentHole]: par }
+        }
+      }
+      setScores(updatedScores)
+      setHasUnsaved(true)
+      lsSave(codigo, updatedScores)
+
+      // Save ALL atomically BEFORE advancing
+      await saveAllScores(updatedScores)
+    }
 
     // NOW advance
     const nextIdx = currentHoleIdx + 1
@@ -647,7 +723,92 @@ export default function ScoreGrupoPage() {
         onTouchEnd={handleTouchEnd}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {jugadores.map(j => {
+          {/* Team scoring for Scramble/Foursome */}
+          {['scramble', 'foursome'].includes(formatoJuego) && teamEquipos.length > 0 && teamEquipos.map(equipo => {
+            const teamScore = equipo.scores[String(currentHole)]
+            const displayTeamScore = teamScore ?? par
+            const teamDiff = teamScore != null ? teamScore - par : 0
+            const scoreResult = teamScore != null ? getScoreResult(teamScore, par) : null
+            const chipStyle = scoreResult ? SCORE_STYLES[scoreResult] : null
+            // Team total
+            let teamGross = 0, teamParTotal = 0
+            for (let h = 1; h <= totalHoles; h++) {
+              const s = equipo.scores[String(h)]
+              if (s != null) { teamGross += s; teamParTotal += parMap[h] ?? 4 }
+            }
+            const teamVsPar = teamGross - teamParTotal
+            const teamPlayed = Object.keys(equipo.scores).filter(k => equipo.scores[k] != null).length
+
+            return (
+              <div key={equipo.id} style={{
+                background: theme.card, borderRadius: '14px',
+                border: `1px solid ${theme.border}`, padding: '12px 14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: theme.text }}>{equipo.nombre}</div>
+                    <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>
+                      {equipo.jugadorNombres.join(' \u00B7 ')}
+                      {equipo.handicap_equipo != null && ` \u00B7 HCP ${equipo.handicap_equipo}`}
+                    </div>
+                    {formatoJuego === 'foursome' && equipo.jugadorNombres.length === 2 && (
+                      <div style={{ fontSize: '10px', color: '#c4992a', marginTop: '2px' }}>
+                        Tira: {teePlayerEnHoyo(currentHole, equipo.jugadorNombres[0], equipo.jugadorNombres[1])}
+                      </div>
+                    )}
+                  </div>
+                  {teamPlayed > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>{teamGross}</span>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: getVsParColor(teamVsPar) }}>{getVsParLabel(teamVsPar)}</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+                  <button
+                    onClick={() => handleTeamScoreChange(equipo.id, currentHole, -1)}
+                    disabled={teamScore != null && teamScore <= 1}
+                    style={{
+                      width: '52px', height: '52px', borderRadius: '14px', fontSize: '24px', fontWeight: 300,
+                      background: '#f3f4f6', color: '#374151', border: '1px solid #e2e8f0',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      touchAction: 'manipulation', userSelect: 'none',
+                      opacity: teamScore != null && teamScore <= 1 ? 0.3 : 1,
+                    }}
+                  >{'\u2212'}</button>
+                  <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                    <div style={{ fontSize: '42px', fontWeight: 700, lineHeight: 1, color: teamScore != null ? '#1a1a2e' : '#d1d5db', fontVariantNumeric: 'tabular-nums' }}>
+                      {displayTeamScore}
+                    </div>
+                    {teamScore != null && chipStyle && (
+                      <div style={{
+                        padding: '2px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: 500,
+                        background: chipStyle.bg, color: chipStyle.textColor,
+                        border: `${chipStyle.borderWidth} solid ${chipStyle.border}`,
+                        display: 'inline-block', marginTop: '4px',
+                      }}>
+                        {teamDiff <= -2 ? 'Eagle' : teamDiff === -1 ? 'Birdie' : teamDiff === 0 ? 'Par' : teamDiff === 1 ? 'Bogey' : `+${teamDiff}`}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleTeamScoreChange(equipo.id, currentHole, 1)}
+                    disabled={teamScore != null && teamScore >= 15}
+                    style={{
+                      width: '52px', height: '52px', borderRadius: '14px', fontSize: '24px', fontWeight: 600,
+                      background: theme.gold, color: '#ffffff', border: 'none',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      touchAction: 'manipulation', userSelect: 'none',
+                      opacity: teamScore != null && teamScore >= 15 ? 0.3 : 1,
+                    }}
+                  >+</button>
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Individual scoring (hidden for team scoring formats) */}
+          {!['scramble', 'foursome'].includes(formatoJuego) && jugadores.map(j => {
             const playerScore = scores[j.id]?.[currentHole]
             const displayScore = playerScore ?? par
             const diff = playerScore != null ? playerScore - par : 0
