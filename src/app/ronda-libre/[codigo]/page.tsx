@@ -13,8 +13,8 @@ import { setActiveRondaSession, clearActiveRondaSession } from '@/components/Liv
 import { compartirLeaderboard } from '@/lib/share-card'
 import type { LeaderboardShareData } from '@/lib/share-card'
 import { addToast } from '@/hooks/useToast'
-import { calcularBestBall, ordenarEquiposBestBall } from '@/golf/formats'
-import type { BestBallPlayer } from '@/golf/formats'
+import { calcularBestBall, ordenarEquiposBestBall, calcularScramble, ordenarEquiposScramble } from '@/golf/formats'
+import type { BestBallPlayer, ScrambleTeam } from '@/golf/formats'
 import TeamLeaderboard from '@/components/TeamLeaderboard'
 
 function NotifBanner({ onEnable }: { onEnable: () => void }) {
@@ -290,7 +290,7 @@ function RondaLibrePageContent() {
   const [authModalAction, setAuthModalAction] = useState('')
   const [secSinceUpdate, setSecSinceUpdate] = useState(0)
   // Admin score editing
-  const [equipos, setEquipos] = useState<Array<{ id: string; nombre: string; handicap_equipo: number | null; jugadorIds: string[] }>>([])
+  const [equipos, setEquipos] = useState<Array<{ id: string; nombre: string; handicap_equipo: number | null; jugadorIds: string[]; scores: Record<string, number> }>>([])
   const [editingScore, setEditingScore] = useState<{ jugadorId: string; hole: number; currentScore: number } | null>(null)
   const [editScoreValue, setEditScoreValue] = useState<number>(0)
 
@@ -386,7 +386,7 @@ function RondaLibrePageContent() {
         if (['best_ball', 'scramble', 'foursome'].includes(r.formato_juego)) {
           const { data: eqData } = await supabase
             .from('ronda_equipos')
-            .select('id, nombre, handicap_equipo, ronda_equipo_jugadores(jugador_id, orden)')
+            .select('id, nombre, handicap_equipo, scores, ronda_equipo_jugadores(jugador_id, orden)')
             .eq('ronda_id', r.id)
             .order('created_at')
           if (eqData) {
@@ -394,6 +394,7 @@ function RondaLibrePageContent() {
               id: e.id,
               nombre: e.nombre,
               handicap_equipo: e.handicap_equipo,
+              scores: (e.scores as Record<string, number>) || {},
               jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
                 .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
                 .map(m => m.jugador_id),
@@ -1627,6 +1628,51 @@ function RondaLibrePageContent() {
                 formatoJuego={ronda.formato_juego}
                 totalHoles={ronda.holes}
                 formato="best_ball"
+              />
+            )
+          })()}
+
+          {/* Team Leaderboard — Scramble */}
+          {ronda.formato_juego === 'scramble' && equipos.length > 0 && Object.keys(parMap).length > 0 && (() => {
+            const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
+              numero: i + 1,
+              par: parMap[i + 1] ?? 4,
+              stroke_index: siMap[i + 1] ?? (i + 1),
+            }))
+            const parTotal = holeData.reduce((s, h) => s + h.par, 0)
+
+            const teams: ScrambleTeam[] = equipos.map(eq => ({
+              id: eq.id,
+              nombre: eq.nombre,
+              handicaps: eq.jugadorIds.map(jid => {
+                const j = ronda.ronda_libre_jugadores.find(jj => jj.id === jid)
+                return j?.handicap ?? 0
+              }),
+              scores: eq.scores,
+            }))
+            const results = teams.map(t => calcularScramble(t, holeData, parTotal))
+            const sorted = ordenarEquiposScramble(results, ronda.formato_juego, ronda.modo_juego)
+
+            return (
+              <TeamLeaderboard
+                teams={sorted.map(r => ({
+                  teamId: r.teamId,
+                  teamNombre: r.teamNombre,
+                  totalGross: r.totalGross,
+                  totalNeto: r.totalNeto,
+                  totalStableford: r.totalStableford,
+                  overUnderGross: r.overUnderGross,
+                  overUnderNeto: r.overUnderNeto,
+                  holesPlayed: r.holesPlayed,
+                  jugadores: equipos.find(e => e.id === r.teamId)?.jugadorIds
+                    .map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid)?.nombre || '')
+                    .filter(Boolean) || [],
+                  teamHandicap: r.teamHandicap,
+                }))}
+                modoJuego={ronda.modo_juego}
+                formatoJuego={ronda.formato_juego}
+                totalHoles={ronda.holes}
+                formato="scramble"
               />
             )
           })()}
