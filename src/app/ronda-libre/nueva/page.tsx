@@ -301,18 +301,11 @@ export default function NuevaRondaLibrePage() {
 
     setLoading(true)
 
-    const supabase = createClient()
-    const codigo = Math.random().toString(36).substring(2, 8).toUpperCase()
-
     const isMultiLoop = courseLoops.length >= 2
     const holes = isMultiLoop && selectedLoops.length > 0
       ? selectedLoops.reduce((sum, r) => sum + (courseLoops.find(l => l.recorrido === r)?.holes ?? 9), 0)
       : totalHolesChoice
 
-    // hoyo_inicio:
-    // - Multi-loop: 1 (los loops ya determinan los hoyos), salvo partida simultánea.
-    // - Single-loop 18 hoyos: 1 o hoyoInicio si partida simultánea.
-    // - Single-loop 9 hoyos: Front=1, Back=10 (ignora partida simultánea para mantener simpleza).
     let finalHoyoInicio = 1
     if (isMultiLoop) {
       finalHoyoInicio = partidaSimultanea ? hoyoInicio : 1
@@ -322,163 +315,55 @@ export default function NuevaRondaLibrePage() {
       finalHoyoInicio = partidaSimultanea ? hoyoInicio : 1
     }
 
-    const baseData: Record<string, unknown> = {
-      codigo,
-      creador_id: userId,
-      course_id: courseId || null,
-      course_name: cancha,
-      tees,
-      holes,
-      fecha: fechaStr,
-      estado: 'en_curso',
-      hoyo_inicio: finalHoyoInicio,
-    }
-
-    // Multi-loop courses: store selected recorridos
-    if (courseLoops.length > 0 && selectedLoops.length > 0) {
-      baseData.recorridos = selectedLoops
-    }
-
-    // Admin mode columns
-    if (adminMode) {
-      baseData.admin_mode = true
-      baseData.admin_user_id = userId
-    }
-
-    // Match Play siempre es neto (cultura golf Chile — con handicap).
-    // Stableford ahora permite gross (sin handicap) y neto (con handicap).
+    // Match Play siempre neto
     const modoJuego = formato === 'match_play' ? 'neto' : modo
-    const formatoJuego = formato
-    const { data: d1, error: e1 } = await supabase
-      .from('rondas_libres')
-      .insert({ ...baseData, modo_juego: modoJuego, formato_juego: formatoJuego })
-      .select('id')
-      .single()
 
-    let ronda = d1
-    if (e1) {
-      if (
-        e1.message?.includes('formato_juego') ||
-        e1.message?.includes('schema cache') ||
-        e1.code === '42703'
-      ) {
-        // Fallback: formato_juego no existe aún en BD → insertar sin él pero CON modo_juego
-        const { data: d2, error: e2 } = await supabase
-          .from('rondas_libres')
-          .insert({ ...baseData, modo_juego: modoJuego })
-          .select('id')
-          .single()
+    // Build player list for API
+    const jugadoresAPI = jugadoresValidos.map((nombre, i) => ({
+      nombre,
+      user_id: i === 0 ? userId : null,
+      handicap: i === 0 ? creatorHandicap : (adminMode && i > 0 ? adminPlayers[i - 1]?.handicap ?? null : null),
+      tees: i === 0 ? tees : (adminMode && i > 0 ? (adminPlayers[i - 1]?.tees ?? tees) : tees),
+      is_guest: adminMode && i > 0 ? adminPlayers[i - 1]?.tipo === 'invitado' : false,
+      telefono_invitado: adminMode && i > 0 && adminPlayers[i - 1]?.tipo === 'invitado' ? adminPlayers[i - 1]?.telefono || undefined : undefined,
+      nombre_invitado: adminMode && i > 0 && adminPlayers[i - 1]?.tipo === 'invitado' ? adminPlayers[i - 1]?.nombre || undefined : undefined,
+    }))
 
-        if (e2 || !d2) {
-          setLoading(false)
-          if (e2?.message?.includes("'public.rondas_libres'") || e2?.message?.includes('relation') || e2?.code === '42P01') {
-            showError('Error de configuracion', 'La base de datos no esta configurada. Contacta al administrador.')
-          } else {
-            showError('Error al crear la ronda', e2?.message || 'Algo salio mal. Intenta nuevamente.')
-          }
-          return
-        }
-        ronda = d2
-      } else if (e1.message?.includes("'public.rondas_libres'") || e1.message?.includes('relation') || e1.code === '42P01') {
-        setLoading(false)
-        showError('Error de configuracion', 'La base de datos no esta configurada. Contacta al administrador.')
-        return
-      } else {
-        setLoading(false)
-        showError('Error al crear la ronda', e1.message || 'Algo salio mal. Intenta nuevamente.')
-        return
-      }
-    }
+    // Build equipos for team formats
+    const equiposAPI = isTeamFormat ? equipos.map(eq => ({
+      nombre: eq.nombre,
+      jugadorIndices: eq.jugadorIndices,
+    })) : undefined
 
-    if (!ronda) {
+    // API route handles atomic insert + validation + code generation
+    const res = await fetch('/api/ronda-libre/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        course_id: courseId || null,
+        course_name: cancha,
+        tees,
+        holes,
+        fecha: fechaStr,
+        hoyo_inicio: finalHoyoInicio,
+        formato_juego: formato,
+        modo_juego: modoJuego,
+        admin_mode: adminMode,
+        recorridos: courseLoops.length > 0 && selectedLoops.length > 0 ? selectedLoops : undefined,
+        jugadores: jugadoresAPI,
+        equipos: equiposAPI,
+      }),
+    })
+
+    const result = await res.json()
+    if (!res.ok || !result.ok) {
       setLoading(false)
-      showError('Error al crear la ronda', 'Algo salio mal. Intenta nuevamente.')
+      showError('Error al crear la ronda', result.error || 'Algo salió mal. Intenta nuevamente.')
       return
     }
 
-    for (let i = 0; i < jugadoresValidos.length; i++) {
-      const playerData: Record<string, unknown> = {
-        ronda_id: ronda.id,
-        nombre: jugadoresValidos[i],
-        user_id: i === 0 ? userId : null,
-        scores: {},
-        handicap: i === 0 ? creatorHandicap : (adminMode && i > 0 ? adminPlayers[i - 1]?.handicap ?? null : null),
-        // Tee por jugador: creador usa el tee global, admin players pueden tener el suyo
-        tees: i === 0 ? tees : (adminMode && i > 0 ? (adminPlayers[i - 1]?.tees ?? tees) : tees),
-      }
-      // In admin mode, mark non-creator players as guests with phone
-      if (adminMode && i > 0) {
-        const ap = adminPlayers[i - 1]
-        if (ap) {
-          playerData.is_guest = ap.tipo === 'invitado'
-          if (ap.tipo === 'invitado' && ap.telefono) {
-            playerData.telefono_invitado = ap.telefono
-          }
-          if (ap.tipo === 'invitado') {
-            playerData.nombre_invitado = ap.nombre
-          }
-        }
-      }
-      await supabase.from('ronda_libre_jugadores').insert(playerData)
-    }
-
-    // Persistir equipos para formatos team-aware
-    if (isTeamFormat && ronda?.id) {
-      const { data: insertedJugadores } = await supabase
-        .from('ronda_libre_jugadores')
-        .select('id, nombre')
-        .eq('ronda_id', ronda.id)
-        .order('created_at', { ascending: true })
-
-      if (insertedJugadores) {
-        for (const equipo of equipos) {
-          const jugadoresEquipo = equipo.jugadorIndices.map(idx => ({
-            dbRecord: insertedJugadores[idx],
-            handicap: idx === 0
-              ? (creatorHandicap ?? 0)
-              : (adminPlayers[idx - 1]?.handicap ?? 0),
-          }))
-          const handicaps = jugadoresEquipo.map(j => j.handicap)
-          let handicapEquipo: number | null = null
-          if (formato === 'scramble') {
-            const { calcularHandicapScramble } = await import('@/golf/formats/scramble')
-            handicapEquipo = calcularHandicapScramble(handicaps)
-          } else if (formato === 'foursome') {
-            const { calcularHandicapFoursome } = await import('@/golf/formats/foursome')
-            handicapEquipo = calcularHandicapFoursome(handicaps[0], handicaps[1])
-          }
-
-          const { data: equipoDB } = await supabase
-            .from('ronda_equipos')
-            .insert({
-              ronda_id: ronda.id,
-              nombre: equipo.nombre,
-              handicap_equipo: handicapEquipo,
-              scores: {},
-            })
-            .select('id')
-            .single()
-
-          if (equipoDB) {
-            const members = jugadoresEquipo.map((j, idx) => ({
-              equipo_id: equipoDB.id,
-              jugador_id: j.dbRecord.id,
-              orden: idx,
-            }))
-            await supabase.from('ronda_equipo_jugadores').insert(members)
-          }
-        }
-      }
-    }
-
-    // Snapshot de cancha para scoring inmutable
-    if (courseId && ronda?.id) {
-      try {
-        const { saveCourseSnapshot } = await import('@/lib/save-course-snapshot')
-        await saveCourseSnapshot(supabase, 'rondas_libres', ronda.id, courseId, null, tees)
-      } catch { /* non-blocking */ }
-    }
-
+    const codigo = result.codigo
+    const supabase = createClient()
     await trackEvent(supabase, userId, 'ronda_creada', { codigo, cancha, holes })
 
     setRoundCode(codigo)
@@ -487,7 +372,7 @@ export default function NuevaRondaLibrePage() {
   }
 
   const handleShareWhatsApp = (type: 'jugar' | 'seguir') => {
-    const baseUrl = 'https://golfersplus.vercel.app'
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
     const link = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
@@ -498,7 +383,7 @@ export default function NuevaRondaLibrePage() {
   }
 
   const handleCopyLink = (type: 'jugar' | 'seguir') => {
-    const baseUrl = 'https://golfersplus.vercel.app'
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
     const link = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
