@@ -146,6 +146,8 @@ export async function POST(request: NextRequest) {
       course_rating?: number | null
       slope_rating?: number | null
       diferencial?: number | null
+      formato_juego?: string
+      modo_juego?: string
     }
 
     const rowsToInsert: InsertRow[] = []
@@ -190,6 +192,8 @@ export async function POST(request: NextRequest) {
           diferencial: (round.course_rating != null && round.slope_rating != null)
             ? calcularDiferencial(round.total_gross, round.course_rating, round.slope_rating)
             : null,
+          formato_juego: 'stroke_play',
+          modo_juego: 'gross',
         })
         garminUpsertTempIds.push(round.tempId)
         continue
@@ -214,6 +218,8 @@ export async function POST(request: NextRequest) {
         import_confidence: round.import_confidence ?? 0.5,
         import_source: importSource,
         privacy: 'private',
+        formato_juego: 'stroke_play',
+        modo_juego: 'gross',
       }
 
       // Always include metadata if present (photo rounds: reconstruction_method, ambiguous_holes, etc.)

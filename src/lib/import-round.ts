@@ -166,6 +166,8 @@ export async function importRound(
       privacy: input.privacy || 'private',
       source: input.source,
       metadata: input.metadata || {},
+      formato_juego: 'stroke_play',
+      modo_juego: 'gross',
     })
     .select('id')
     .single()
