@@ -160,109 +160,40 @@ export default function NuevoTorneoForm({ userId, courses }: Props) {
 
     setLoading(true)
 
-    const supabase = createClient()
+    // API route handles: validation, slug, code, insert, category, snapshot
+    const res = await fetch('/api/torneos/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name.trim(),
+        course_id: selectedCourse!.id,
+        format,
+        modo,
+        hole_count: holeCount,
+        tees,
+        use_handicap: useHandicap,
+        date_start: dateISO,
+        cover_image_url: coverUrl.trim() || null,
+        custom_si: Object.keys(customSI).length > 0 ? customSI : undefined,
+        suggest_si: suggestSI,
+      }),
+    })
 
-    const slug =
-      name
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .slice(0, 50) +
-      '-' +
-      Date.now().toString(36)
-
-    await supabase.from('profiles').update({ role: 'organizer' }).eq('id', userId)
-
-    const codigo = Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('')
-
-    const tournamentBase = {
-      name:                 name.trim(),
-      slug,
-      organizer_id:         userId,
-      course_id:            selectedCourse!.id,
-      format,
-      hole_count:           holeCount,
-      tees,
-      use_handicap:         useHandicap,
-      afecta_estadisticas:  true,
-      codigo,
-      cover_image_url:      coverUrl.trim() || null,
-      status:               'draft',
-      date_start:           dateISO,
-      total_rounds:         1,
-    }
-
-    let tError: { message?: string; code?: string } | null = null
-    let tournament: Record<string, unknown> | null = null
-
-    const { data: t1, error: te1 } = await supabase
-      .from('tournaments')
-      .insert({
-        ...tournamentBase,
-        // Match Play y Stableford oficiales requieren neto. Cualquier otra selección
-        // del usuario se ignora para evitar formatos técnicamente inválidos.
-        modo_juego: (format === 'match_play' || format === 'stableford') ? 'neto' : modo,
-        formato_juego: format,
-      })
-      .select()
-      .single()
-
-    if (!te1) {
-      tournament = t1
-    } else {
-      tError = te1
-    }
-
-    if (tError || !tournament) {
-      // ── Server error translation ─────────────────────────
-      const msg = (tError?.message || '').toLowerCase()
-
-      if (msg.includes('tees')) {
-        showError('Tee no válido', 'El tee seleccionado no está disponible. Elige Campeonato, Azul, Blanco o Rojo.')
-        setFieldError('tees', 'Selecciona un tee válido')
-      } else if (msg.includes('course')) {
-        showError('Cancha requerida', 'Debes seleccionar una cancha para continuar.')
-        setFieldError('course', 'Campo obligatorio')
-      } else if (msg.includes('slug') || msg.includes('unique') || msg.includes('duplicate')) {
-        showError('Nombre duplicado', 'Ya existe un torneo con ese nombre. Agrega el año o un identificador único.')
+    const result = await res.json()
+    if (!res.ok || !result.ok) {
+      const errMsg = result.error || 'Error inesperado'
+      if (errMsg.includes('nombre') || res.status === 409) {
         setFieldError('name', 'Este nombre ya está en uso')
-      } else if (msg.includes('date_start')) {
-        showError('Fecha requerida', 'Debes ingresar la fecha del torneo.')
-        setFieldError('date', 'Campo obligatorio')
-      } else {
-        showError('Error inesperado', 'No pudimos crear el torneo. Por favor intenta nuevamente.')
       }
+      showError('Error al crear torneo', errMsg)
       setLoading(false)
       return
     }
 
-    // Snapshot de cancha: guardar par, SI, yardaje inmutable para scoring
-    try {
-      const { saveCourseSnapshot } = await import('@/lib/save-course-snapshot')
-      const siOverride = Object.keys(customSI).length > 0 ? customSI : null
-      await saveCourseSnapshot(supabase, 'tournaments', tournament.id as string, selectedCourse!.id, siOverride, tees)
+    const supabase = createClient()
+    await trackEvent(supabase, userId, 'torneo_creado', { name: name.trim(), slug: result.slug })
 
-      // Contribución comunitaria: proponer SI para la cancha
-      if (suggestSI && siOverride && selectedCourse) {
-        await supabase.from('course_si_proposals').insert({
-          course_id: selectedCourse.id,
-          proposed_by: userId,
-          stroke_index: siOverride,
-        })
-      }
-    } catch { /* non-blocking */ }
-
-    await trackEvent(supabase, userId, 'torneo_creado', { name: name.trim(), slug })
-
-    const { error: catErr } = await supabase.from('categories').insert([
-      { tournament_id: tournament.id, name: 'General', handicap_min: 0, handicap_max: 54 },
-    ])
-    if (catErr) console.warn('[categories]', catErr.message)
-
-    router.push(`/organizador/${slug}/jugadores`)
+    router.push(`/organizador/${result.slug}/jugadores`)
   }
 
   return (
