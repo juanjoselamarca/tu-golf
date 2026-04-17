@@ -1001,7 +1001,7 @@ export default function NuevaRondaLibrePage() {
                   // Team formats: motores listos, UI de equipos pendiente
                   { value: 'best_ball' as const, label: 'Best Ball', desc: 'Equipos: cuenta la mejor bola', icon: '\uD83C\uDFC6' },
                   { value: 'scramble' as const, label: 'Scramble', desc: 'Equipos: eligen el mejor tiro', icon: '\uD83E\uDD1D' },
-                  // { value: 'foursome' as const, label: 'Foursome', desc: 'Equipos de 2: tiros alternados', icon: '\uD83D\uDD04' },
+                  { value: 'foursome' as const, label: 'Foursome', desc: 'Equipos de 2: tiros alternados', icon: '\uD83D\uDD04' },
                 ]).map(f => {
                   const active = formato === f.value
                   return (

@@ -13,8 +13,8 @@ import { setActiveRondaSession, clearActiveRondaSession } from '@/components/Liv
 import { compartirLeaderboard } from '@/lib/share-card'
 import type { LeaderboardShareData } from '@/lib/share-card'
 import { addToast } from '@/hooks/useToast'
-import { calcularBestBall, ordenarEquiposBestBall, calcularScramble, ordenarEquiposScramble } from '@/golf/formats'
-import type { BestBallPlayer, ScrambleTeam } from '@/golf/formats'
+import { calcularBestBall, ordenarEquiposBestBall, calcularScramble, ordenarEquiposScramble, calcularFoursome, ordenarEquiposFoursome } from '@/golf/formats'
+import type { BestBallPlayer, ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import TeamLeaderboard from '@/components/TeamLeaderboard'
 
 function NotifBanner({ onEnable }: { onEnable: () => void }) {
@@ -1673,6 +1673,52 @@ function RondaLibrePageContent() {
                 formatoJuego={ronda.formato_juego}
                 totalHoles={ronda.holes}
                 formato="scramble"
+              />
+            )
+          })()}
+
+          {/* Team Leaderboard — Foursome */}
+          {ronda.formato_juego === 'foursome' && equipos.length > 0 && Object.keys(parMap).length > 0 && (() => {
+            const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
+              numero: i + 1,
+              par: parMap[i + 1] ?? 4,
+              stroke_index: siMap[i + 1] ?? (i + 1),
+            }))
+            const parTotal = holeData.reduce((s, h) => s + h.par, 0)
+
+            const teams: FoursomeTeam[] = equipos.map(eq => {
+              const members = eq.jugadorIds.map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid))
+              return {
+                id: eq.id,
+                nombre: eq.nombre,
+                handicapA: members[0]?.handicap ?? 0,
+                handicapB: members[1]?.handicap ?? 0,
+                nombreA: members[0]?.nombre ?? '?',
+                nombreB: members[1]?.nombre ?? '?',
+                scores: eq.scores,
+              }
+            })
+            const results = teams.map(t => calcularFoursome(t, holeData, parTotal))
+            const sorted = ordenarEquiposFoursome(results, ronda.formato_juego, ronda.modo_juego)
+
+            return (
+              <TeamLeaderboard
+                teams={sorted.map(r => ({
+                  teamId: r.teamId,
+                  teamNombre: r.teamNombre,
+                  totalGross: r.totalGross,
+                  totalNeto: r.totalNeto,
+                  totalStableford: r.totalStableford,
+                  overUnderGross: r.overUnderGross,
+                  overUnderNeto: r.overUnderNeto,
+                  holesPlayed: r.holesPlayed,
+                  jugadores: [r.nombreA, r.nombreB],
+                  teamHandicap: r.teamHandicap,
+                }))}
+                modoJuego={ronda.modo_juego}
+                formatoJuego={ronda.formato_juego}
+                totalHoles={ronda.holes}
+                formato="foursome"
               />
             )
           })()}
