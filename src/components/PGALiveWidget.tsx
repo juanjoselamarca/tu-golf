@@ -10,8 +10,11 @@ interface Player {
   thru:     string
   flag:     string
   country:  string
+  countryCode: string
   roundNum: number
 }
+
+const LATAM_CODES = new Set(['cl','ar','co','mx','br','ve','py','pr','pe','uy','ec','bo','cr','do','gt','hn','ni','pa','sv','cu'])
 
 interface NextEvent { name: string; start: string; end: string; venue: string }
 
@@ -166,12 +169,13 @@ export default function PGALiveWidget() {
 
       {/* Column headers */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '32px 1fr 44px 36px',
+        display: 'grid', gridTemplateColumns: '32px 1fr 44px 40px 36px',
         padding: '8px 16px', background: 'rgba(255,255,255,0.02)',
       }}>
         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase' }}>#</span>
         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase' }}>Jugador</span>
         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase', textAlign: 'right' }}>Tot</span>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase', textAlign: 'right' }}>Hoy</span>
         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase', textAlign: 'right' }}>Thru</span>
       </div>
 
@@ -179,10 +183,11 @@ export default function PGALiveWidget() {
       {visiblePlayers.map((p, i) => {
         const isLeader = i === 0
         const justChanged = changedPlayers.has(p.nameFull)
+        const isLatam = LATAM_CODES.has(p.countryCode)
 
         return (
-          <div key={p.nameFull || i} style={{
-            display: 'grid', gridTemplateColumns: '32px 1fr 44px 36px',
+          <div key={p.nameFull || i} className="pga-row" style={{
+            display: 'grid', gridTemplateColumns: '32px 1fr 44px 40px 36px',
             padding: '9px 16px', alignItems: 'center',
             borderTop: '1px solid rgba(255,255,255,0.04)',
             background: justChanged
@@ -190,8 +195,8 @@ export default function PGALiveWidget() {
               : isLeader
                 ? 'linear-gradient(90deg, rgba(196,153,42,0.08), rgba(196,153,42,0.02))'
                 : 'transparent',
-            borderLeft: isLeader ? '3px solid #c4992a' : '3px solid transparent',
-            transition: 'background 0.6s ease',
+            borderLeft: isLatam ? '3px solid #c4992a' : isLeader ? '3px solid #c4992a' : '3px solid transparent',
+            transition: 'background 0.3s ease',
           }}>
             <span style={{
               fontSize: '12px', fontFamily: M, fontWeight: isLeader ? 700 : 400,
@@ -212,9 +217,17 @@ export default function PGALiveWidget() {
                 <span style={{ width: '18px', height: '13px', borderRadius: '2px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
               )}
               <span style={{
-                fontSize: '13px', fontWeight: isLeader ? 600 : 400, color: '#edeae4',
+                fontSize: '13px', fontWeight: isLeader || isLatam ? 600 : 400,
+                color: isLatam ? '#f3d37a' : '#edeae4',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>{p.name}</span>
+              {isLatam && (
+                <span style={{
+                  fontSize: '8px', fontWeight: 700, color: '#c4992a',
+                  background: 'rgba(196,153,42,0.15)', padding: '1px 5px',
+                  borderRadius: '3px', letterSpacing: '0.05em', flexShrink: 0,
+                }}>LATAM</span>
+              )}
             </div>
 
             <span style={{
@@ -222,6 +235,12 @@ export default function PGALiveWidget() {
               color: scoreColor(p.score), textAlign: 'right',
               fontVariantNumeric: 'tabular-nums',
             }}>{p.score}</span>
+
+            <span style={{
+              fontSize: '12px', fontFamily: M, fontWeight: 500,
+              color: scoreColor(p.today), textAlign: 'right',
+              fontVariantNumeric: 'tabular-nums',
+            }}>{p.today}</span>
 
             <span style={{
               fontSize: '11px', fontFamily: M,
@@ -261,6 +280,18 @@ export default function PGALiveWidget() {
           pgatour.com →
         </a>
       </div>
+
+      <style>{`
+        .pga-row:hover { background: rgba(196,153,42,0.06) !important; }
+        @keyframes liveGlow {
+          0%, 100% { box-shadow: 0 0 4px rgba(204,0,0,0.4); }
+          50% { box-shadow: 0 0 10px rgba(204,0,0,0.7); }
+        }
+        @keyframes livePulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
     </div>
   )
 }

@@ -156,11 +156,11 @@ export async function GET() {
         }
       }
 
-      // Posicion con ties
-      const prevScore = index > 0 ? parseFloat(sorted[index - 1]?.score ?? '0') : null
+      // Posición con ties reales: todos los empatados comparten el número más bajo
       const myScore = parseFloat(c.score ?? '0')
-      const pos = prevScore !== null && !isNaN(prevScore) && !isNaN(myScore) && prevScore === myScore
-        ? `T${index + 1}` : String(index + 1)
+      const firstWithSameScore = sorted.findIndex(s => parseFloat(s.score ?? '0') === myScore)
+      const hasTie = sorted.filter(s => parseFloat(s.score ?? '0') === myScore).length > 1
+      const pos = hasTie ? `T${firstWithSameScore + 1}` : String(index + 1)
 
       // Country → flag image URL (flagcdn.com)
       const country = c.athlete?.flag?.alt ?? ''
@@ -178,6 +178,7 @@ export async function GET() {
         thru,
         flag: flagUrl,
         country,
+        countryCode,
         roundNum: tournamentRoundNum,
       }
     })
