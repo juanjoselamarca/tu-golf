@@ -1081,6 +1081,56 @@ function RondaLibrePageContent() {
                           }
                         }
 
+                        // Team formats: calcular ranking de equipos para la share card
+                        if (['best_ball', 'scramble', 'foursome'].includes(ronda.formato_juego) && equipos.length > 0 && Object.keys(parMap).length > 0) {
+                          const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
+                            numero: i + 1, par: parMap[i + 1] ?? 4, stroke_index: siMap[i + 1] ?? (i + 1),
+                          }))
+                          const parTotal = holeData.reduce((s, h) => s + h.par, 0)
+                          const fmt = ronda.formato_juego
+
+                          const teamResults = equipos.map(eq => {
+                            if (fmt === 'best_ball') {
+                              const players = eq.jugadorIds.map(jid => {
+                                const j = ronda.ronda_libre_jugadores.find(jj => jj.id === jid)
+                                return j ? { id: j.id, nombre: j.nombre, handicapIndex: j.handicap ?? 0, scores: j.scores || {} } : null
+                              }).filter(Boolean) as Array<{ id: string; nombre: string; handicapIndex: number; scores: Record<string, number> }>
+                              return calcularBestBall({ id: eq.id, nombre: eq.nombre, jugadores: players }, holeData, parTotal)
+                            } else if (fmt === 'scramble') {
+                              const handicaps = eq.jugadorIds.map(jid => {
+                                const j = ronda.ronda_libre_jugadores.find(jj => jj.id === jid)
+                                return j?.handicap ?? 0
+                              })
+                              return calcularScramble({ id: eq.id, nombre: eq.nombre, handicaps, scores: eq.scores }, holeData, parTotal)
+                            } else {
+                              const members = eq.jugadorIds.map(jid => {
+                                const j = ronda.ronda_libre_jugadores.find(jj => jj.id === jid)
+                                return { nombre: j?.nombre ?? '', handicap: j?.handicap ?? 0 }
+                              })
+                              return calcularFoursome({
+                                id: eq.id, nombre: eq.nombre,
+                                nombreA: members[0]?.nombre ?? '', nombreB: members[1]?.nombre ?? '',
+                                handicapA: members[0]?.handicap ?? 0, handicapB: members[1]?.handicap ?? 0,
+                                scores: eq.scores,
+                              }, holeData, parTotal)
+                            }
+                          })
+
+                          const isStab = ronda.modo_juego === 'neto' || fmt === 'stableford'
+                          const sorted = [...teamResults].sort((a, b) => isStab
+                            ? (b.totalStableford ?? 0) - (a.totalStableford ?? 0)
+                            : (a.totalGross ?? 999) - (b.totalGross ?? 999)
+                          )
+
+                          shareData.teams = sorted.map(r => ({
+                            nombre: r.teamNombre,
+                            jugadores: equipos.find(e => e.id === r.teamId)?.jugadorIds
+                              .map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid)?.nombre || '').filter(Boolean) || [],
+                            score: ronda.modo_juego === 'neto' ? (r.totalNeto ?? r.totalGross) : r.totalGross,
+                            diff: ronda.modo_juego === 'neto' ? (r.overUnderNeto ?? 0) : (r.overUnderGross ?? 0),
+                          }))
+                        }
+
                         await compartirLeaderboard(shareData)
                       }}
                       style={{
@@ -1941,6 +1991,56 @@ function RondaLibrePageContent() {
                     shareData.matchResult = mr.display
                     shareData.matchWinner = mr.winner === 'a' ? jug[0].nombre : mr.winner === 'b' ? jug[1].nombre : undefined
                   }
+                }
+
+                // Team formats: calcular ranking de equipos para la share card
+                if (['best_ball', 'scramble', 'foursome'].includes(ronda.formato_juego) && equipos.length > 0 && Object.keys(parMap).length > 0) {
+                  const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
+                    numero: i + 1, par: parMap[i + 1] ?? 4, stroke_index: siMap[i + 1] ?? (i + 1),
+                  }))
+                  const parTotal = holeData.reduce((s, h) => s + h.par, 0)
+                  const fmt = ronda.formato_juego
+
+                  const teamResults = equipos.map(eq => {
+                    if (fmt === 'best_ball') {
+                      const players = eq.jugadorIds.map(jid => {
+                        const j = ronda.ronda_libre_jugadores.find(jj => jj.id === jid)
+                        return j ? { id: j.id, nombre: j.nombre, handicapIndex: j.handicap ?? 0, scores: j.scores || {} } : null
+                      }).filter(Boolean) as Array<{ id: string; nombre: string; handicapIndex: number; scores: Record<string, number> }>
+                      return calcularBestBall({ id: eq.id, nombre: eq.nombre, jugadores: players }, holeData, parTotal)
+                    } else if (fmt === 'scramble') {
+                      const handicaps = eq.jugadorIds.map(jid => {
+                        const j = ronda.ronda_libre_jugadores.find(jj => jj.id === jid)
+                        return j?.handicap ?? 0
+                      })
+                      return calcularScramble({ id: eq.id, nombre: eq.nombre, handicaps, scores: eq.scores }, holeData, parTotal)
+                    } else {
+                      const members = eq.jugadorIds.map(jid => {
+                        const j = ronda.ronda_libre_jugadores.find(jj => jj.id === jid)
+                        return { nombre: j?.nombre ?? '', handicap: j?.handicap ?? 0 }
+                      })
+                      return calcularFoursome({
+                        id: eq.id, nombre: eq.nombre,
+                        nombreA: members[0]?.nombre ?? '', nombreB: members[1]?.nombre ?? '',
+                        handicapA: members[0]?.handicap ?? 0, handicapB: members[1]?.handicap ?? 0,
+                        scores: eq.scores,
+                      }, holeData, parTotal)
+                    }
+                  })
+
+                  const isStab = ronda.modo_juego === 'neto' || fmt === 'stableford'
+                  const sorted = [...teamResults].sort((a, b) => isStab
+                    ? (b.totalStableford ?? 0) - (a.totalStableford ?? 0)
+                    : (a.totalGross ?? 999) - (b.totalGross ?? 999)
+                  )
+
+                  shareData.teams = sorted.map(r => ({
+                    nombre: r.teamNombre,
+                    jugadores: equipos.find(e => e.id === r.teamId)?.jugadorIds
+                      .map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid)?.nombre || '').filter(Boolean) || [],
+                    score: ronda.modo_juego === 'neto' ? (r.totalNeto ?? r.totalGross) : r.totalGross,
+                    diff: ronda.modo_juego === 'neto' ? (r.overUnderNeto ?? 0) : (r.overUnderGross ?? 0),
+                  }))
                 }
 
                 await compartirLeaderboard(shareData)

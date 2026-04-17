@@ -72,6 +72,13 @@ export interface LeaderboardShareData {
   /** Match Play: nombre del ganador (si no es empate). Si matchResult indica
    *  "All Square" o similar, este campo se ignora. */
   matchWinner?: string
+  /** Team formats: ranking de equipos para la share card */
+  teams?: Array<{
+    nombre: string
+    jugadores: string[]
+    score: number
+    diff: number
+  }>
 }
 
 // ── Helpers internos ──────────────────────────────────────────────
@@ -548,6 +555,33 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
       formato_juego: data.formato_juego,
       modo_juego: data.modo_juego,
       matchResult: data.matchResult,
+    }
+    return compartirResultado(cardData)
+  }
+
+  // Team formats: show team ranking
+  const isTeamFormat = ['best_ball', 'scramble', 'foursome'].includes(data.formato_juego as string)
+  if (isTeamFormat && data.teams && data.teams.length > 0) {
+    const winTeam = data.teams[0]
+    const isTie = data.teams.length > 1 && data.teams[1].score === winTeam.score
+    const cardData: ShareCardRondaLibre = {
+      tipo: 'ronda_libre',
+      ganador: winTeam.nombre,
+      esEmpate: isTie,
+      jugadores: isTie ? data.teams.filter(t => t.score === winTeam.score).map(t => t.nombre) : undefined,
+      scoreGross: winTeam.score,
+      scoreDiff: winTeam.diff,
+      courseName: data.courseName,
+      fecha: data.fecha,
+      birdies: 0, eagles: 0,
+      scoresByHole: {}, parsByHole: {},
+      holesPlayed: winner.totalHoles,
+      formato_juego: data.formato_juego,
+      modo_juego: data.modo_juego,
+      teamNombre: winTeam.nombre,
+      teamJugadores: winTeam.jugadores,
+      teamFormato: data.formato_juego as 'best_ball' | 'scramble' | 'foursome',
+      ranking: data.teams.map(t => ({ nombre: t.nombre, score: t.score, diff: t.diff })),
     }
     return compartirResultado(cardData)
   }
