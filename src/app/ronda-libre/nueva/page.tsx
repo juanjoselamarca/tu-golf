@@ -544,7 +544,7 @@ export default function NuevaRondaLibrePage() {
   // ─── Step indicator ───
   const StepIndicator = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '28px' }}>
-      {[1, 2, 3].map(s => (
+      {[1, 2, 3, 4].map(s => (
         <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{
             width: '28px', height: '28px', borderRadius: '50%',
@@ -554,9 +554,9 @@ export default function NuevaRondaLibrePage() {
             color: s === step ? '#ffffff' : s < step ? colors.gold : colors.textLabel,
             transition: 'all 0.2s',
           }}>
-            {s < step ? '\u2713' : s}
+            {s < step ? '\u2713' : s === 4 ? '✓' : s}
           </div>
-          {s < 3 && (
+          {s < 4 && (
             <div style={{
               width: '32px', height: '2px',
               background: s < step ? colors.gold : '#e5e7eb',
@@ -582,7 +582,7 @@ export default function NuevaRondaLibrePage() {
           Nueva Ronda
         </h1>
         <p style={{ fontSize: '14px', color: colors.textSecondary, marginTop: 0, marginBottom: '20px' }}>
-          {step === 1 ? 'Como quieres jugar?' : step === 2 ? 'Donde juegas?' : 'Con quien juegas?'}
+          {step === 1 ? 'Como quieres jugar?' : step === 2 ? 'Donde juegas?' : step === 3 ? 'Con quien juegas?' : 'Confirmar ronda'}
         </p>
 
         <StepIndicator />
@@ -1890,6 +1890,111 @@ export default function NuevaRondaLibrePage() {
               </button>
               <button
                 type="button"
+                onClick={() => setStep(4)}
+                style={{
+                  flex: 2, padding: '14px',
+                  background: colors.gold,
+                  color: colors.activeBtnText,
+                  border: 'none', borderRadius: '12px',
+                  fontSize: '16px', fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(196,153,42,0.3)',
+                  transition: 'all 0.15s',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                Revisar →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ STEP 4: Resumen y confirmación ═══ */}
+        {step === 4 && (
+          <div>
+            <div style={{
+              background: colors.card, border: `1px solid ${colors.cardBorder}`,
+              borderRadius: '16px', padding: '20px', marginBottom: '16px',
+            }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: colors.textPrimary, marginBottom: '16px' }}>
+                Confirmar ronda
+              </div>
+
+              {/* Cancha */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.cardBorder}` }}>
+                <span style={{ fontSize: '13px', color: colors.textSecondary }}>Cancha</span>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary, textAlign: 'right', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cancha}</span>
+              </div>
+
+              {/* Hoyos */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.cardBorder}` }}>
+                <span style={{ fontSize: '13px', color: colors.textSecondary }}>Hoyos</span>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary }}>
+                  {totalHolesChoice === 9 ? `9 (${nineChoice === 'front' ? 'Front' : 'Back'})` : '18'}
+                </span>
+              </div>
+
+              {/* Formato */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.cardBorder}` }}>
+                <span style={{ fontSize: '13px', color: colors.textSecondary }}>Formato</span>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary }}>
+                  {{ stroke_play: 'Stroke Play', stableford: 'Stableford', match_play: 'Match Play', best_ball: 'Best Ball', scramble: 'Scramble', foursome: 'Foursome' }[formato]}
+                  {' '}{modo === 'neto' ? '(Neto)' : '(Gross)'}
+                </span>
+              </div>
+
+              {/* Tees */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.cardBorder}` }}>
+                <span style={{ fontSize: '13px', color: colors.textSecondary }}>Tees</span>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary, textTransform: 'capitalize' }}>{tees}</span>
+              </div>
+
+              {/* Fecha */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.cardBorder}` }}>
+                <span style={{ fontSize: '13px', color: colors.textSecondary }}>Fecha</span>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary }}>
+                  {new Date(fechaStr + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+
+              {/* Jugadores */}
+              <div style={{ padding: '10px 0' }}>
+                <span style={{ fontSize: '13px', color: colors.textSecondary, display: 'block', marginBottom: '8px' }}>
+                  Jugadores ({(adminMode ? adminPlayers.filter(p => p.nombre.trim()).length : 0) + 1})
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  <span style={{
+                    padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 500,
+                    background: 'rgba(196,153,42,0.12)', color: colors.gold,
+                  }}>
+                    {creatorName} {creatorHandicap != null ? `(${creatorHandicap})` : ''}
+                  </span>
+                  {adminMode && adminPlayers.filter(p => p.nombre.trim()).map((p, i) => (
+                    <span key={i} style={{
+                      padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 500,
+                      background: 'rgba(196,153,42,0.06)', color: colors.textPrimary,
+                    }}>
+                      {p.nombre} {p.handicap != null ? `(${p.handicap})` : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                style={{
+                  flex: 1, padding: '14px', background: 'transparent',
+                  border: `1px solid ${colors.cardBorder}`, color: colors.textSecondary,
+                  borderRadius: '12px', fontSize: '14px', fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                ← Editar
+              </button>
+              <button
+                type="button"
                 disabled={loading}
                 onClick={handleSubmit}
                 style={{
@@ -1903,7 +2008,7 @@ export default function NuevaRondaLibrePage() {
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
-                {loading ? 'Creando ronda...' : 'Crear ronda \u2192'}
+                {loading ? 'Creando ronda...' : 'Crear ronda ✓'}
               </button>
             </div>
           </div>
