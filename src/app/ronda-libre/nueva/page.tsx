@@ -66,6 +66,19 @@ export default function NuevaRondaLibrePage() {
   // Single-loop: elección 18 vs 9 hoyos, y qué mitad (front/back)
   const [totalHolesChoice, setTotalHolesChoice] = useState<9 | 18>(18)
   const [nineChoice, setNineChoice] = useState<'front' | 'back'>('front')
+
+  // G1: Rondas recientes para "jugar como la última vez"
+  interface RecentRound {
+    course_name: string
+    course_id: string | null
+    tees: string
+    holes: number
+    formato_juego: string | null
+    modo_juego: string | null
+    fecha: string
+    jugadores: string[]
+  }
+  const [recentRounds, setRecentRounds] = useState<RecentRound[]>([])
   const [adminMode, setAdminMode] = useState(false)
 
   // Admin mode: player slots
@@ -149,6 +162,28 @@ export default function NuevaRondaLibrePage() {
           if (id && nombre) { setCourseId(id); setCancha(nombre) }
         }
       } catch {}
+
+      // G1: Cargar últimas 3 rondas para "jugar como la última vez"
+      const { data: recientes } = await supabase
+        .from('rondas_libres')
+        .select('course_name, course_id, tees, holes, formato_juego, modo_juego, fecha, ronda_libre_jugadores(nombre)')
+        .eq('creador_id', user.id)
+        .eq('estado', 'finalizada')
+        .order('fecha', { ascending: false })
+        .limit(3)
+
+      if (recientes && recientes.length > 0) {
+        setRecentRounds(recientes.map(r => ({
+          course_name: r.course_name,
+          course_id: r.course_id,
+          tees: r.tees,
+          holes: r.holes,
+          formato_juego: r.formato_juego,
+          modo_juego: r.modo_juego,
+          fecha: r.fecha,
+          jugadores: (r.ronda_libre_jugadores as Array<{ nombre: string }>).map(j => j.nombre),
+        })))
+      }
     }
     check()
   }, [router])
@@ -555,6 +590,61 @@ export default function NuevaRondaLibrePage() {
         {/* ═══ STEP 1: Como quieres jugar? ═══ */}
         {step === 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+            {/* G1: Rondas recientes — "jugar como la última vez" */}
+            {recentRounds.length > 0 && (
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ fontSize: '13px', color: colors.textSecondary, fontWeight: 500, marginBottom: '10px' }}>
+                  Tus últimas rondas
+                </div>
+                {recentRounds.map((r, i) => {
+                  const formatLabel = { stroke_play: 'Stroke', stableford: 'Stableford', match_play: 'Match Play' }[r.formato_juego || 'stroke_play'] || 'Stroke'
+                  const dateLabel = new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        // Pre-fill todo desde la ronda anterior
+                        setCancha(r.course_name)
+                        setCourseId(r.course_id)
+                        setTees(r.tees)
+                        setTotalHolesChoice(r.holes === 9 ? 9 : 18)
+                        if (r.formato_juego) setFormato(r.formato_juego as typeof formato)
+                        if (r.modo_juego) setModo(r.modo_juego as 'gross' | 'neto')
+                        // Pre-fill jugadores (admin mode con los mismos)
+                        if (r.jugadores.length > 1) {
+                          setAdminMode(true)
+                          setAdminPlayers(r.jugadores.slice(1).map(name => ({
+                            tipo: 'invitado' as const, nombre: name, telefono: '', handicap: null, tees: null,
+                          })))
+                        }
+                        setStep(2)
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        width: '100%', padding: '14px 16px', marginBottom: '8px',
+                        background: colors.card, border: `1px solid ${colors.cardBorder}`,
+                        borderRadius: '12px', cursor: 'pointer', textAlign: 'left',
+                        transition: 'border-color 0.15s',
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {r.course_name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '2px' }}>
+                          {dateLabel} · {formatLabel} · {r.holes}H · {r.jugadores.length} jugadores
+                        </div>
+                      </div>
+                      <span style={{ color: colors.gold, fontSize: '13px', fontWeight: 600, flexShrink: 0 }}>Repetir</span>
+                    </button>
+                  )
+                })}
+                <div style={{ borderBottom: `1px solid ${colors.cardBorder}`, margin: '4px 0 12px' }} />
+              </div>
+            )}
+
             {/* Card: Cada uno marca */}
             <button
               type="button"
@@ -1590,18 +1680,53 @@ export default function NuevaRondaLibrePage() {
 
                   {/* Add player button — match play only allows 1 rival */}
                   {adminPlayers.length < (formato === 'match_play' ? 1 : isTeamFormat ? 7 : 3) && (
-                    <button
-                      type="button"
-                      onClick={addAdminPlayer}
-                      style={{
-                        width: '100%', background: 'transparent',
-                        border: `1px dashed ${colors.gold}`, color: colors.gold,
-                        borderRadius: '10px', padding: '12px', cursor: 'pointer',
-                        fontSize: '14px', fontWeight: 500, textAlign: 'center', minHeight: '44px',
-                      }}
-                    >
-                      + Agregar jugador
-                    </button>
+                    <>
+                      {/* G4: Jugadores frecuentes — chips rápidos */}
+                      {(() => {
+                        const currentNames = new Set([creatorName.toLowerCase(), ...adminPlayers.map(p => p.nombre.toLowerCase())])
+                        const frequent = Array.from(new Set(recentRounds.flatMap(r => r.jugadores)))
+                          .filter(name => !currentNames.has(name.toLowerCase()))
+                          .slice(0, 4)
+                        if (frequent.length === 0) return null
+                        return (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '12px', color: colors.textSecondary, width: '100%' }}>Jugadores recientes:</span>
+                            {frequent.map(name => (
+                              <button
+                                key={name}
+                                type="button"
+                                onClick={() => {
+                                  const maxPlayers = isTeamFormat ? 7 : formato === 'match_play' ? 1 : 3
+                                  if (adminPlayers.length < maxPlayers) {
+                                    setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: name, telefono: '', handicap: null, tees: null }])
+                                  }
+                                }}
+                                style={{
+                                  padding: '8px 14px', borderRadius: '20px',
+                                  background: 'rgba(196,153,42,0.08)', border: `1px solid rgba(196,153,42,0.3)`,
+                                  color: colors.gold, fontSize: '13px', fontWeight: 500,
+                                  cursor: 'pointer', minHeight: '36px',
+                                }}
+                              >
+                                + {name}
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      })()}
+                      <button
+                        type="button"
+                        onClick={addAdminPlayer}
+                        style={{
+                          width: '100%', background: 'transparent',
+                          border: `1px dashed ${colors.gold}`, color: colors.gold,
+                          borderRadius: '10px', padding: '12px', cursor: 'pointer',
+                          fontSize: '14px', fontWeight: 500, textAlign: 'center', minHeight: '44px',
+                        }}
+                      >
+                        + Agregar jugador
+                      </button>
+                    </>
                   )}
                 </>
               )}
