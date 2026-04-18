@@ -68,10 +68,6 @@ export async function POST(req: NextRequest) {
     const body = parsed.data
 
     // B5: Server-side validation of format/mode rules
-    if (body.formato_juego === 'match_play' && body.modo_juego !== 'neto') {
-      return NextResponse.json({ error: 'Match Play debe ser neto (con handicap)' }, { status: 400 })
-    }
-
     if (body.formato_juego === 'match_play' && body.jugadores.length !== 2) {
       return NextResponse.json({ error: 'Match Play requiere exactamente 2 jugadores' }, { status: 400 })
     }

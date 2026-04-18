@@ -140,6 +140,15 @@ export default function NuevaRondaLibrePage() {
       setCreatorHandicap(profile?.indice ?? null)
       const name = profile?.name || user.user_metadata?.name || user.email?.split('@')[0] || 'Jugador'
       setCreatorName(name)
+
+      // U11: Pre-fill última cancha usada
+      try {
+        const last = localStorage.getItem('gp_last_course')
+        if (last) {
+          const { id, nombre } = JSON.parse(last)
+          if (id && nombre) { setCourseId(id); setCancha(nombre) }
+        }
+      } catch {}
     }
     check()
   }, [router])
@@ -285,16 +294,18 @@ export default function NuevaRondaLibrePage() {
       }
     }
 
-    // Modalidades que exigen índice WHS para todos los jugadores con nombre.
-    // Stableford Gross NO requiere HCP (los puntos se calculan sobre bruto vs par).
-    const requiereHCP =
-      formato === 'match_play' ||
-      (modo === 'neto' && (formato === 'stroke_play' || formato === 'stableford' || formato === 'best_ball' || formato === 'scramble' || formato === 'foursome'))
-    if (requiereHCP) {
-      const filledAdmin = adminMode ? adminPlayers.filter(p => p.nombre.trim()) : []
-      const missingHCP = filledAdmin.some(p => p.handicap == null)
-      if (creatorHandicap == null || missingHCP) {
-        showError('Índice requerido', 'Esta modalidad requiere el índice WHS de todos los jugadores para calcular el handicap de cancha.')
+    // Modo neto requiere índice WHS para todos los jugadores.
+    // Gross (cualquier formato, incluido Match Play) NO requiere HCP.
+    if (modo === 'neto') {
+      const sinHCP: string[] = []
+      if (creatorHandicap == null) sinHCP.push(creatorName || 'Tú')
+      if (adminMode) {
+        for (const p of adminPlayers) {
+          if (p.nombre.trim() && p.handicap == null) sinHCP.push(p.nombre.trim())
+        }
+      }
+      if (sinHCP.length > 0) {
+        showError('Índice requerido', `Falta el índice WHS de: ${sinHCP.join(', ')}. Modo neto requiere handicap para todos.`)
         return
       }
     }
@@ -316,7 +327,7 @@ export default function NuevaRondaLibrePage() {
     }
 
     // Match Play siempre neto
-    const modoJuego = formato === 'match_play' ? 'neto' : modo
+    const modoJuego = modo
 
     // Build player list for API
     const jugadoresAPI = jugadoresValidos.map((nombre, i) => ({
@@ -619,6 +630,7 @@ export default function NuevaRondaLibrePage() {
                     onSelect={(course) => {
                       setCancha(course.nombre)
                       setCourseId(course.id)
+                      try { localStorage.setItem('gp_last_course', JSON.stringify({ id: course.id, nombre: course.nombre })) } catch {}
                     }}
                   />
                 ) : (
@@ -895,8 +907,6 @@ export default function NuevaRondaLibrePage() {
                       type="button"
                       onClick={() => {
                         setFormato(f.value)
-                        // Match Play siempre neto (cultura golf Chile)
-                        if (f.value === 'match_play') setModo('neto')
                         // Match play fuerza admin mode con 1 rival
                         if (f.value === 'match_play' && !adminMode) {
                           setAdminMode(true)
@@ -1259,6 +1269,8 @@ export default function NuevaRondaLibrePage() {
                 <input
                   type="date"
                   value={fechaStr}
+                  min={(() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0] })()}
+                  max={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0] })()}
                   onChange={(e) => setFechaStr(e.target.value)}
                   style={{
                     background: colors.inputBg,
@@ -1468,12 +1480,12 @@ export default function NuevaRondaLibrePage() {
                             type="button"
                             onClick={() => updateAdminPlayer(idx, 'tipo', tipo)}
                             style={{
-                              flex: 1, padding: '6px 10px', borderRadius: '8px',
-                              fontSize: '12px', fontWeight: player.tipo === tipo ? 600 : 400,
+                              flex: 1, padding: '10px 12px', borderRadius: '8px',
+                              fontSize: '13px', fontWeight: player.tipo === tipo ? 600 : 400,
                               background: player.tipo === tipo ? 'rgba(196,153,42,0.15)' : 'transparent',
                               color: player.tipo === tipo ? colors.gold : colors.textSecondary,
                               border: `1px solid ${player.tipo === tipo ? colors.gold : colors.cardBorder}`,
-                              cursor: 'pointer', minHeight: '32px',
+                              cursor: 'pointer', minHeight: '44px',
                             }}
                           >
                             {tipo === 'cuenta' ? 'Con cuenta' : 'Invitado'}
@@ -1689,8 +1701,8 @@ export default function NuevaRondaLibrePage() {
                               setEquipos(updated)
                             }}
                             style={{
-                              display: 'block', width: '100%', padding: '8px 12px',
-                              marginBottom: '4px', borderRadius: '8px',
+                              display: 'block', width: '100%', padding: '12px 14px',
+                              marginBottom: '4px', borderRadius: '8px', minHeight: '44px',
                               border: isInThisTeam ? `2px solid ${colors.gold}` : '1px solid #e5e7eb',
                               background: isInThisTeam ? 'rgba(196,153,42,0.06)' : isInOtherTeam ? '#f3f4f6' : '#ffffff',
                               opacity: isInOtherTeam ? 0.4 : 1,
