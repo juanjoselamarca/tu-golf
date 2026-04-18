@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
 
-const FORMATOS = ['stroke_play', 'stableford', 'match_play'] as const
+const FORMATOS = ['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome'] as const
 const MODOS = ['gross', 'neto'] as const
 
 const createSchema = z.object({
