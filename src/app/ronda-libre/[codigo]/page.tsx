@@ -1116,18 +1116,21 @@ function RondaLibrePageContent() {
                             }
                           })
 
-                          const isStab = ronda.modo_juego === 'neto' || fmt === 'stableford'
+                          const isStab = fmt === 'stableford'
+                          const isNeto = ronda.modo_juego === 'neto'
                           const sorted = [...teamResults].sort((a, b) => isStab
                             ? (b.totalStableford ?? 0) - (a.totalStableford ?? 0)
-                            : (a.totalGross ?? 999) - (b.totalGross ?? 999)
+                            : isNeto
+                              ? (a.overUnderNeto ?? 999) - (b.overUnderNeto ?? 999)
+                              : (a.totalGross ?? 999) - (b.totalGross ?? 999)
                           )
 
                           shareData.teams = sorted.map(r => ({
                             nombre: r.teamNombre,
                             jugadores: equipos.find(e => e.id === r.teamId)?.jugadorIds
                               .map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid)?.nombre || '').filter(Boolean) || [],
-                            score: ronda.modo_juego === 'neto' ? (r.totalNeto ?? r.totalGross) : r.totalGross,
-                            diff: ronda.modo_juego === 'neto' ? (r.overUnderNeto ?? 0) : (r.overUnderGross ?? 0),
+                            score: isStab ? (r.totalStableford ?? 0) : isNeto ? (r.totalNeto ?? r.totalGross) : r.totalGross,
+                            diff: isStab ? 0 : isNeto ? (r.overUnderNeto ?? 0) : (r.overUnderGross ?? 0),
                           }))
                         }
 
@@ -2028,18 +2031,21 @@ function RondaLibrePageContent() {
                     }
                   })
 
-                  const isStab = ronda.modo_juego === 'neto' || fmt === 'stableford'
+                  const isStab = fmt === 'stableford'
+                  const isNeto = ronda.modo_juego === 'neto'
                   const sorted = [...teamResults].sort((a, b) => isStab
                     ? (b.totalStableford ?? 0) - (a.totalStableford ?? 0)
-                    : (a.totalGross ?? 999) - (b.totalGross ?? 999)
+                    : isNeto
+                      ? (a.overUnderNeto ?? 999) - (b.overUnderNeto ?? 999)
+                      : (a.totalGross ?? 999) - (b.totalGross ?? 999)
                   )
 
                   shareData.teams = sorted.map(r => ({
                     nombre: r.teamNombre,
                     jugadores: equipos.find(e => e.id === r.teamId)?.jugadorIds
                       .map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid)?.nombre || '').filter(Boolean) || [],
-                    score: ronda.modo_juego === 'neto' ? (r.totalNeto ?? r.totalGross) : r.totalGross,
-                    diff: ronda.modo_juego === 'neto' ? (r.overUnderNeto ?? 0) : (r.overUnderGross ?? 0),
+                    score: isStab ? (r.totalStableford ?? 0) : isNeto ? (r.totalNeto ?? r.totalGross) : r.totalGross,
+                    diff: isStab ? 0 : isNeto ? (r.overUnderNeto ?? 0) : (r.overUnderGross ?? 0),
                   }))
                 }
 

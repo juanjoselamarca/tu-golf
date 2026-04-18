@@ -262,6 +262,12 @@ function ScorePageContent() {
       const r = data as unknown as RondaLibre
       // If ronda was closed (by admin or player), redirect to detail view (read-only)
       if (r.estado === 'finalizada') { router.replace(`/ronda-libre/${codigo}`); return }
+      // Team formats must use score-grupo (individual scoring doesn't support teams)
+      const teamFormats = ['best_ball', 'scramble', 'foursome']
+      if (teamFormats.includes(r.formato_juego)) {
+        router.replace(`/ronda-libre/${codigo}/score-grupo`)
+        return
+      }
       // Admin mode: non-admin members cannot use individual scoring
       if (r.admin_mode) {
         const { data: { user: authUser } } = await supabase.auth.getUser()

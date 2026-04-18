@@ -760,7 +760,23 @@ export default function ScoreGrupoPage() {
                   {teamPlayed > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>{teamGross}</span>
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: getVsParColor(teamVsPar) }}>{getVsParLabel(teamVsPar)}</span>
+                      {formatoJuego === 'stableford' ? (
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#c4992a' }}>
+                          {(() => {
+                            let pts = 0
+                            for (let h = 1; h <= totalHoles; h++) {
+                              const s = equipo.scores[String(h)]
+                              if (s != null) {
+                                const hd = holeDataMap[h]
+                                pts += puntosStablefordHoyo(s, hd?.par ?? 4, equipo.handicap_equipo ?? 0, hd?.stroke_index ?? h)
+                              }
+                            }
+                            return `${pts} pts`
+                          })()}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: getVsParColor(teamVsPar) }}>{getVsParLabel(teamVsPar)}</span>
+                      )}
                     </div>
                   )}
                 </div>
