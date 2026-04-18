@@ -65,7 +65,7 @@ export async function GET(
       .eq('tournament_id', t.id)
 
     if (!rawPlayers || rawPlayers.length === 0) {
-      return NextResponse.json({ inputs: [], totalHoyos, modoJuego: modo })
+      return NextResponse.json({ inputs: [], totalHoyos, modoJuego: modo, formatoJuego: formato })
     }
 
     const typedPlayers = rawPlayers as unknown as {
@@ -173,7 +173,7 @@ export async function GET(
       }
     })
 
-    return NextResponse.json({ inputs, totalHoyos, modoJuego: modo, parTotal })
+    return NextResponse.json({ inputs, totalHoyos, modoJuego: modo, formatoJuego: formato, parTotal })
   } catch (err) {
     console.error('[GWI/torneo] Error interno:', err)
     return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })

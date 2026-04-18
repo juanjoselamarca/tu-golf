@@ -189,7 +189,7 @@ export async function GET(
       }
     })
 
-    return NextResponse.json({ inputs, totalHoyos, modoJuego: modo })
+    return NextResponse.json({ inputs, totalHoyos, modoJuego: modo, formatoJuego: formato })
   } catch {
     return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
