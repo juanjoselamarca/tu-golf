@@ -45,7 +45,7 @@ Dos tabs en la parte superior del viewport, estilo minimalista:
 - **Underline animado** bajo el tab activo (no pills, no cards, sin fondo de color).
 - **Badge dot `•`** junto al texto "Identidad" cuando hay un insight nuevo de tAIger no visto, o cuando el índice cambió desde la última visita. Fuerza descubrimiento de la segunda pestaña.
 - **Default**: Competencia.
-- **Persistencia**: el tab activo se recuerda en `localStorage` (key: `miGolfTab`), pero resetea a Competencia si pasan más de 24h sin visita.
+- **Sin persistencia**: al abrir Mi Golf siempre aterriza en Competencia. Decisión CTO — el usuario en campo espera consistencia, no sorpresas. Smart default contextual queda fuera de alcance (se puede agregar después sobre base estable).
 
 ### Componente route
 
@@ -117,7 +117,7 @@ Separado visualmente:
 - Cards con nombre + estado + menú contextual (`TournamentCardMenu` reutilizado)
 - Último torneo finalizado como organizador: compacto con resultado
 
-Link al final: **"Ver todos mis torneos"** → `/perfil/historial?tab=torneos`. Crear ruta dedicada `/perfil/torneos` queda fuera de alcance de este spec.
+Link al final: **"Ver todos mis torneos"** → `/perfil/historial`. Durante la implementación se valida si esa página ya filtra/secciona por torneos; si no, se agrega un tab/sección de "Torneos" dentro de `/perfil/historial` (cambio menor y contenido, no ruta nueva). Crear ruta dedicada `/perfil/torneos` queda fuera de alcance — se justificará cuando haya features propios (filtros por año, exports, rankings).
 
 ### Últimas rondas — feed curado
 
@@ -173,7 +173,9 @@ Este card dispara el **badge dot** en el tab "Identidad" cuando hay una `taiger_
 
 ### Insight rotativo del día
 
-Slot único que cambia por día (key: hash de fecha + user_id para estabilidad diaria).
+Slot único **determinístico por día** — mismo insight durante toda la jornada (hash de `userId + YYYY-MM-DD` en hora Chile). Se renueva a las 00:00.
+
+Justificación: crea ritual de retorno diario (patrón Duolingo / Strava), reduce queries y costo de tokens LLM (1x/día vs N-por-sesión), permite cachear server-side. Si cambiara por visita se sentiría aleatorio y pierde el valor de "mi insight del día".
 
 Fuentes de insight, en orden de preferencia:
 
