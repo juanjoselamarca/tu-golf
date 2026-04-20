@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Flag, CheckCircle, Bell, ClipboardList, Trophy, Handshake, PersonStanding } from '@/components/icons'
+import { Flag, ClipboardList, Trophy, Handshake, PersonStanding } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult, type MatchHoleDetail } from '@/golf/formats/match-play'
@@ -16,53 +16,9 @@ import { addToast } from '@/hooks/useToast'
 import { calcularBestBall, ordenarEquiposBestBall, calcularScramble, ordenarEquiposScramble, calcularFoursome, ordenarEquiposFoursome } from '@/golf/formats'
 import type { BestBallPlayer, ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import TeamLeaderboard from '@/components/TeamLeaderboard'
+import { NotifBanner } from '@/components/ronda/NotifBanner'
 
-function NotifBanner({ onEnable }: { onEnable: () => void }) {
-  const [dismissed, setDismissed] = useState(false)
-  const [activated, setActivated] = useState(false)
-
-  const handleActivate = async () => {
-    await onEnable()
-    setActivated(true)
-    setTimeout(() => setDismissed(true), 2000)
-  }
-
-  if (dismissed) return null
-
-  return (
-    <div style={{
-      background: activated ? 'rgba(22,163,74,0.08)' : '#ffffff',
-      border: activated ? '1px solid rgba(22,163,74,0.2)' : '1px solid #e5e7eb',
-      borderRadius: '12px', padding: '14px 16px', marginBottom: '12px',
-      display: 'flex', alignItems: 'center', gap: '12px',
-      transition: 'all 0.3s',
-    }}>
-      <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>{activated ? <CheckCircle size={20} /> : <Bell size={20} />}</span>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: activated ? '#16a34a' : '#111827' }}>
-          {activated ? 'Alertas activadas' : 'Sigue la ronda en vivo'}
-        </div>
-        <div style={{ fontSize: '11px', color: '#6b7280' }}>
-          {activated ? 'Te avisaremos de birdies y cambios' : 'Recibe alertas de birdies y cambios de posición'}
-        </div>
-      </div>
-      {!activated && (
-        <>
-          <button onClick={handleActivate} style={{
-            background: '#c4992a', color: '#1a1a2e', border: 'none', borderRadius: '8px',
-            padding: '10px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', flexShrink: 0,
-            minHeight: '44px',
-          }}>Activar</button>
-          <button onClick={() => setDismissed(true)} style={{
-            background: 'none', border: 'none', color: '#d1d5db', fontSize: '18px', cursor: 'pointer',
-            padding: '4px 8px', flexShrink: 0, minHeight: '44px', minWidth: '44px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>×</button>
-        </>
-      )}
-    </div>
-  )
-}
+// NotifBanner movido a src/components/ronda/NotifBanner.tsx — import más abajo.
 import Scorecard from '@/components/Scorecard'
 import type { ScorecardProps } from '@/components/Scorecard'
 import GWILeaderboard from '@/components/GWILeaderboard'
