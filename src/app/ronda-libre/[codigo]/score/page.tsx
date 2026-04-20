@@ -60,11 +60,7 @@ function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; onClose: 
 /* ── Tee → yardage column mapping ──────────────────────────────────── */
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 // Helpers puros movidos a src/lib/ronda/helpers.ts — import más abajo.
-
-function lsKey(c: string, j: string) { return `ronda_${c}_${j}` }
-function lsSave(c: string, j: string, s: Record<number, number>) { try { localStorage.setItem(lsKey(c, j), JSON.stringify(s)) } catch {} }
-function lsLoad(c: string, j: string): Record<number, number> { try { return JSON.parse(localStorage.getItem(lsKey(c, j)) ?? '{}') } catch { return {} } }
-function lsClear(c: string, j: string) { try { localStorage.removeItem(lsKey(c, j)) } catch {} }
+// Wrapper localStorage movido a src/lib/ronda/score-storage.ts — import más abajo.
 
 // Chip colors from centralized score-colors system
 import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult, getHoleBoxStyle, getScoreNumberStyle } from '@/golf/core/colors'
@@ -81,6 +77,7 @@ import {
   getChipStyle,
   getChipLabel,
 } from '@/lib/ronda/helpers'
+import { saveScores as lsSave, loadScores as lsLoad, clearScores as lsClear } from '@/lib/ronda/score-storage'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {

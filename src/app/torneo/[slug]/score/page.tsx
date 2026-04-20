@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { SCORE_STYLES, getScoreResult } from '@/golf/core/colors'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
+import { useScoreSync } from '@/hooks/useScoreSync'
 import { formatLabel } from '@/golf/core/rules'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
@@ -32,6 +33,14 @@ export default function PlayerScoringPage() {
   const [saveError,     setSaveError]     = useState<string | null>(null)
   const [loading,       setLoading]       = useState(true)
   const [savedHoles,    setSavedHoles]    = useState<Set<number>>(new Set())
+  const [isOnline,      setIsOnline]      = useState(true)
+  type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error'
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const retryCountRef = useRef(0)
+
+  const selectedPlayerEarly = players.find(p => p.id === selectedId)
+  const roundIdForSync = selectedPlayerEarly?.rounds?.[0]?.id ?? null
+  const scoreSync = useScoreSync(slug, roundIdForSync)
 
   useEffect(() => {
     const load = async () => {
@@ -65,10 +74,47 @@ export default function PlayerScoringPage() {
     const { data } = await supabase.from('hole_scores').select('hole_number, gross_score').eq('round_id', roundId).not('gross_score', 'is', null)
     const map: Record<number, number> = {}
     ;(data || []).forEach((s: { hole_number: number; gross_score: number | null }) => { if (s.gross_score != null) map[s.hole_number] = s.gross_score })
+    // Merge pending local scores (offline/failed saves) so no input is lost on reload
+    try {
+      const raw = localStorage.getItem(`golfers_score_${slug}_${roundId}`)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && parsed.sincronizado === false && parsed.scores) {
+          Object.entries(parsed.scores as Record<string, number>).forEach(([h, g]) => { map[Number(h)] = Number(g) })
+          setSaveStatus(typeof navigator !== 'undefined' && navigator.onLine ? 'error' : 'offline')
+        }
+      }
+    } catch { /* silent */ }
     setCurrentScores(map)
-  }, [players])
+  }, [players, slug])
 
   useEffect(() => { if (selectedId) loadScores(selectedId) }, [selectedId, loadScores])
+
+  const submitHoleScore = useCallback(async (
+    tourneyId: string,
+    roundId: string,
+    holeNumber: number,
+    gross: number,
+    par: number,
+    netScore: number,
+    points: number,
+  ): Promise<boolean> => {
+    let attempts = 0
+    while (attempts < 3) {
+      try {
+        const res = await fetch('/api/game', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'upsert_score', tournament_id: tourneyId, round_id: roundId, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }),
+        })
+        if (res.ok) return true
+      } catch {
+        // network error — retry
+      }
+      attempts++
+      if (attempts < 3) await new Promise(r => setTimeout(r, 400 * attempts))
+    }
+    return false
+  }, [])
 
   const handleScoreChange = async (holeNumber: number, value: string) => {
     const gross = parseInt(value)
@@ -87,25 +133,81 @@ export default function PlayerScoringPage() {
     if (tournament.formato_juego === 'stableford') {
       points = puntosStablefordHoyo(gross, par, handicapIndex, si, holeCount)
     }
-    setCurrentScores(prev => ({ ...prev, [holeNumber]: gross }))
+
+    const nextScores = { ...currentScores, [holeNumber]: gross }
+    setCurrentScores(nextScores)
+    // Backup local SIEMPRE primero (funciona sin internet)
+    scoreSync.guardarLocal(nextScores)
+    retryCountRef.current = 0
+
+    if (!isOnline) {
+      setSaveStatus('offline')
+      return
+    }
+
     setSaving(true)
+    setSaveStatus('saving')
     setSaveError(null)
-    try {
-      const res = await fetch('/api/game', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upsert_score', tournament_id: tournament.id, round_id: round.id, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }),
-      })
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.error || `Error ${res.status}`)
-      }
+    const ok = await submitHoleScore(tournament.id, round.id, holeNumber, gross, par, netScore, points)
+    if (ok) {
       setSavedHoles(prev => new Set(prev).add(holeNumber))
-    } catch (err) {
-      addToast({ type: 'error', title: `Error hoyo ${holeNumber}`, message: 'No se pudo guardar. Toca para reintentar.', duration: 6000 })
-      setSaveError(`Error guardando hoyo ${holeNumber}. Toca para reintentar.`)
+      setSaveStatus('saved')
+      scoreSync.marcarSincronizado()
+    } else {
+      setSaveStatus('error')
+      addToast({ type: 'error', title: `Error hoyo ${holeNumber}`, message: 'Score guardado localmente. Se sincronizará al recuperar la conexión.', duration: 6000 })
+      setSaveError(`Error guardando hoyo ${holeNumber}. Reintentando al reconectar.`)
     }
     setSaving(false)
   }
+
+  /* ── Online/offline + auto-sync al reconectar ── */
+  useEffect(() => {
+    const up = () => {
+      setIsOnline(true)
+      if (!tournament || !roundIdForSync || !selectedPlayerEarly) return
+      if (!scoreSync.tienePendientes() || scoreSync.syncInProgressRef.current) return
+      scoreSync.syncInProgressRef.current = true
+      const pending = scoreSync.obtenerLocal()
+      ;(async () => {
+        try {
+          if (!pending) return
+          const holeCount = tournament.hole_count || 18
+          const handicapIndex = selectedPlayerEarly.handicap_at_registration ?? 0
+          let failed = 0
+          for (const [h, g] of Object.entries(pending)) {
+            const holeNumber = Number(h)
+            const hole = courseHoles.find(ch => ch.numero === holeNumber)
+            const par = hole?.par ?? 4
+            const si = hole?.stroke_index ?? holeNumber
+            const strokes = strokesOnHole(handicapIndex, si)
+            const netScore = g - strokes
+            let points = 0
+            if (tournament.formato_juego === 'stableford') {
+              points = puntosStablefordHoyo(g, par, handicapIndex, si, holeCount)
+            }
+            const ok = await submitHoleScore(tournament.id, roundIdForSync, holeNumber, g, par, netScore, points)
+            if (!ok) failed++
+            else setSavedHoles(prev => new Set(prev).add(holeNumber))
+          }
+          if (failed === 0) {
+            scoreSync.marcarSincronizado()
+            setSaveStatus('saved')
+            addToast({ type: 'success', title: 'Sincronizado', message: `${Object.keys(pending).length} hoyos guardados`, duration: 3000 })
+          } else {
+            setSaveStatus('error')
+          }
+        } finally {
+          scoreSync.syncInProgressRef.current = false
+        }
+      })()
+    }
+    const down = () => { setIsOnline(false); setSaveStatus('offline') }
+    setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true)
+    window.addEventListener('online', up)
+    window.addEventListener('offline', down)
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
+  }, [tournament, roundIdForSync, selectedPlayerEarly, courseHoles, scoreSync, submitHoleScore])
 
   if (loading) return <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0' }}>Cargando...</div>
   if (!tournament) return <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fca5a5' }}>Torneo no encontrado.</div>
@@ -120,9 +222,25 @@ export default function PlayerScoringPage() {
       <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '16px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
           <Link href={`/torneo/${tournament.slug}`} style={{ color: '#94a8c0', fontSize: '12px', textDecoration: 'none' }}>← Leaderboard</Link>
-          {saving && <span style={{ fontSize: '12px', color: '#94a8c0' }}>Guardando...</span>}
+          {saveStatus !== 'idle' && (() => {
+            const pending = !isOnline || saveStatus === 'error' ? scoreSync.obtenerLocal() : null
+            const pendingCount = pending ? Object.keys(pending).length : 0
+            const colors = {
+              saving:  { bg: 'rgba(196,153,42,0.15)', fg: '#c4992a', label: 'Guardando...' },
+              saved:   { bg: 'rgba(0,230,118,0.15)',  fg: '#00e676', label: '✓ Guardado' },
+              offline: { bg: 'rgba(252,211,77,0.15)', fg: '#fcd34d', label: pendingCount > 0 ? `Offline — ${pendingCount} en cola` : 'Sin conexión' },
+              error:   { bg: 'rgba(239,68,68,0.15)',  fg: '#fca5a5', label: pendingCount > 0 ? `Reintentando (${pendingCount})` : 'Error' },
+              idle:    { bg: 'transparent', fg: 'transparent', label: '' },
+            } as const
+            const s = colors[saveStatus]
+            return (
+              <span style={{ fontSize: '12px', color: s.fg, background: s.bg, padding: '4px 10px', borderRadius: '8px', fontWeight: 600 }}>
+                {s.label}
+              </span>
+            )
+          })()}
           {saveError && (
-            <button onClick={() => setSaveError(null)} style={{ fontSize: '12px', color: '#fca5a5', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer' }}>
+            <button onClick={() => setSaveError(null)} style={{ fontSize: '12px', color: '#fca5a5', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer', marginLeft: '8px' }}>
               {saveError}
             </button>
           )}

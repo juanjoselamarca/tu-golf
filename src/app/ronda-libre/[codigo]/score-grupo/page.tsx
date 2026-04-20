@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { addToast } from '@/hooks/useToast'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
@@ -264,18 +265,29 @@ export default function ScoreGrupoPage() {
   const saveAllScores = useCallback(async (overrideScores?: Record<string, Record<number, number>>) => {
     if (!ronda) return
     const toSave = overrideScores ?? scores
-    setSaveStatus('saving')
+    // Backup local SIEMPRE primero — sobrevive offline y reload
     lsSave(codigo, toSave)
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setSaveStatus('error')
+      return
+    }
+
+    setSaveStatus('saving')
     const supabase = createClient()
-    let allOk = true
-    const savePromises = ronda.ronda_libre_jugadores.map(j => {
-      const scoresObj: Record<string, number> = {}
-      for (const [k, v] of Object.entries(toSave[j.id] ?? {})) scoresObj[String(k)] = v  // Explicit string keys for JSONB
-      return supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
-    })
-    const results = await Promise.all(savePromises)
-    if (results.some(r => r.error)) allOk = false
+    let allOk = false
+    let attempts = 0
+    while (!allOk && attempts < 3) {
+      const savePromises = ronda.ronda_libre_jugadores.map(j => {
+        const scoresObj: Record<string, number> = {}
+        for (const [k, v] of Object.entries(toSave[j.id] ?? {})) scoresObj[String(k)] = v
+        return supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
+      })
+      const results = await Promise.all(savePromises)
+      allOk = !results.some(r => r.error)
+      attempts++
+      if (!allOk && attempts < 3) await new Promise(r => setTimeout(r, 400 * attempts))
+    }
 
     if (allOk) {
       setSaveStatus('saved')
@@ -284,7 +296,12 @@ export default function ScoreGrupoPage() {
       setTimeout(() => setSaveStatus('idle'), 1500)
     } else {
       setSaveStatus('error')
-      setTimeout(() => setSaveStatus('idle'), 2000)
+      addToast({
+        type: 'error',
+        title: 'No se pudieron guardar los scores',
+        message: 'Quedaron respaldados localmente. Se reintentará al recuperar la conexión.',
+        duration: 6000,
+      })
     }
   }, [ronda, scores, codigo])
 
@@ -312,9 +329,33 @@ export default function ScoreGrupoPage() {
       const base = current ?? (parMap[hole] ?? 4)
       const newScore = Math.max(1, Math.min(19, base + delta))
       const newScores = { ...eq.scores, [key]: newScore }
-      // Persist to DB
-      const supabase = createClient()
-      supabase.from('ronda_equipos').update({ scores: newScores }).eq('id', equipoId).then(() => {})
+      // Persist to DB with retry and visible status (no more silent failures)
+      setSaveStatus('saving')
+      ;(async () => {
+        const supabase = createClient()
+        let ok = false
+        let attempts = 0
+        while (!ok && attempts < 3) {
+          const { error } = await supabase.from('ronda_equipos').update({ scores: newScores }).eq('id', equipoId)
+          if (!error) ok = true
+          else {
+            attempts++
+            if (attempts < 3) await new Promise(r => setTimeout(r, 400 * attempts))
+          }
+        }
+        if (ok) {
+          setSaveStatus('saved')
+          setTimeout(() => setSaveStatus('idle'), 1500)
+        } else {
+          setSaveStatus('error')
+          addToast({
+            type: 'error',
+            title: `Error guardando equipo en hoyo ${hole}`,
+            message: 'Tu cambio quedó en la pantalla pero no pudo guardarse. Revisa tu conexión.',
+            duration: 6000,
+          })
+        }
+      })()
       setHasUnsaved(true)
       haptic(10)
       return { ...eq, scores: newScores }
