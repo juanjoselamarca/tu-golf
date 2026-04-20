@@ -101,6 +101,19 @@ historial arreglados. Quedan items de la auditoría del 13-abr y del bug sweep d
 19. **Admin finaliza a mitad de ronda.** Si el organizador aprieta "finalizar"
     con hoyos sin scorear, probablemente guarda `total_gross` erróneo y rompe
     el índice de los jugadores. Validar y prevenir.
+    _Auditoría 2026-04-20: NO es hueco — 3 gates activos (`canFinalize ≥ 9`,
+    `.filter(s != null)` en totales, `calcularDiferencial` retorna null si
+    `holesPlayed < 9`). Cerrado sin cambios._
+
+20. **Ranking real (rebuild completo).** Hoy `/leaderboard` es una simulación
+    demo ("Copa Golfers+ Demo 2026") con datos falsos, tema mixto dark/light,
+    formato y lógica fuera de línea con la app. El item "Ranking" se removió
+    del nav de visitantes (commit dbf51c1, 2026-04-20). Diseñar proper Ranking:
+    top 50 índices Golfers+ (handicap ranking global), torneos activos
+    destacados, integración con CPI/stats intelligence. Tema blanco consistente.
+
+21. **Demo rebuild completo.** `/demo` no tiene sentido funcional actualmente,
+    reconstrucción completa pendiente. Reportado por Juanjo 2026-04-20.
 
 ---
 
