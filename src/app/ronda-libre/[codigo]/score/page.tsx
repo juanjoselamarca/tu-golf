@@ -535,23 +535,6 @@ function ScorePageContent() {
     haptic(30)
     // Guardar scores tal como están — hoyos sin marcar quedan como null
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
-
-    // Anti-race: no permitir finalizar si quedaron scores sin sincronizar al servidor.
-    // Sin esta guarda, la ronda quedaría marcada como 'finalizada' pero con scores
-    // solo en localStorage — corrompería el índice WHS al no tener data completa.
-    if (scoreSync.tienePendientes()) {
-      setConfirmFinalize(true)
-      addToast({
-        type: 'warning',
-        title: 'Scores sin sincronizar',
-        message: isOnline
-          ? 'Reintenta en unos segundos. Tus scores están guardados localmente.'
-          : 'Recupera conexión para finalizar sin perder data. Tus scores están seguros localmente.',
-        duration: 8000,
-      })
-      return
-    }
-
     const supabase = createClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
     await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
