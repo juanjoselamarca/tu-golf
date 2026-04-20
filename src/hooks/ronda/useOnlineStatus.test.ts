@@ -7,6 +7,8 @@ describe('useOnlineStatus', () => {
 
   beforeEach(() => {
     originalOnLine = navigator.onLine
+    // Fuerza estado inicial determinístico — algunos entornos CI reportan offline
+    Object.defineProperty(navigator, 'onLine', { value: true, configurable: true, writable: true })
   })
 
   afterEach(() => {

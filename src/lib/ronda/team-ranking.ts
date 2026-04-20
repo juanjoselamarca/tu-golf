@@ -79,9 +79,11 @@ export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
     }
   })
 
-  // Bug fix Apr-18: isStab SOLO por formato. Stableford no es formato de equipo,
-  // pero dejamos el flag por consistencia arquitectónica y defensa en profundidad.
-  const isStab = (formato as string) === 'stableford'
+  // Bug fix Apr-18: isStab SOLO por formato (nunca por modo_juego).
+  // stableford no es formato de equipo según la guarda inicial (línea ~47),
+  // por lo que este flag será siempre false en práctica — se mantiene para
+  // simetría estructural con el ranking individual y defensa en profundidad.
+  const isStab: boolean = formato === 'stableford'
   const isNeto = modo === 'neto'
 
   const sorted = [...teamResults].sort((a, b) => isStab
