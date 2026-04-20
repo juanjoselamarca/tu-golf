@@ -58,30 +58,13 @@ function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; onClose: 
 }
 
 /* ── Tee → yardage column mapping ──────────────────────────────────── */
-function getTeeYardageColumn(tee: string): string {
-  const t = tee.toLowerCase()
-  if (t === 'black' || t === 'campeonato' || t === 'negro') return 'yardaje_campeonato'
-  if (t === 'blue' || t === 'azul') return 'yardaje_azul'
-  if (t === 'white' || t === 'blanco') return 'yardaje_blanco'
-  if (t === 'red' || t === 'rojo') return 'yardaje_rojo'
-  return 'yardaje_azul' // default
-}
-
 /* ── Helpers ─────────────────────────────────────────────────────────── */
-/** Genera orden circular de hoyos. hoyoInicio=4, holes=18 → [4,5,...,18,1,2,3] */
-function generarOrdenHoyos(hoyoInicio: number, totalHoles: number): number[] {
-  const orden: number[] = []
-  for (let i = 0; i < totalHoles; i++) {
-    orden.push(((hoyoInicio - 1 + i) % totalHoles) + 1)
-  }
-  return orden
-}
+// Helpers puros movidos a src/lib/ronda/helpers.ts — import más abajo.
 
 function lsKey(c: string, j: string) { return `ronda_${c}_${j}` }
 function lsSave(c: string, j: string, s: Record<number, number>) { try { localStorage.setItem(lsKey(c, j), JSON.stringify(s)) } catch {} }
 function lsLoad(c: string, j: string): Record<number, number> { try { return JSON.parse(localStorage.getItem(lsKey(c, j)) ?? '{}') } catch { return {} } }
 function lsClear(c: string, j: string) { try { localStorage.removeItem(lsKey(c, j)) } catch {} }
-function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(p) }
 
 // Chip colors from centralized score-colors system
 import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult, getHoleBoxStyle, getScoreNumberStyle } from '@/golf/core/colors'
@@ -91,22 +74,13 @@ import { calcularGWI } from '@/golf/stats/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
 import { compartirResultado } from '@/lib/share-card'
 import type { ShareCardData } from '@/lib/share-card'
-
-function getChipStyle(gross: number, par: number, isDark: boolean): React.CSSProperties {
-  const result = getScoreResult(gross, par)
-  const styles = isDark ? SCORE_STYLES : SCORE_STYLES_LIGHT
-  const s = styles[result]
-  return { background: s.bg, color: s.textColor, border: `${s.borderWidth} solid ${s.border}` }
-}
-function getChipLabel(gross: number, par: number): string {
-  const d = gross - par
-  if (d <= -2) return `Eagle  ${d}`
-  if (d === -1) return 'Birdie  −1'
-  if (d === 0) return 'Par'
-  if (d === 1) return 'Bogey  +1'
-  if (d === 2) return 'Doble  +2'
-  return `+${d}`
-}
+import {
+  getTeeYardageColumn,
+  generarOrdenHoyos,
+  haptic,
+  getChipStyle,
+  getChipLabel,
+} from '@/lib/ronda/helpers'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {
@@ -561,6 +535,23 @@ function ScorePageContent() {
     haptic(30)
     // Guardar scores tal como están — hoyos sin marcar quedan como null
     await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
+
+    // Anti-race: no permitir finalizar si quedaron scores sin sincronizar al servidor.
+    // Sin esta guarda, la ronda quedaría marcada como 'finalizada' pero con scores
+    // solo en localStorage — corrompería el índice WHS al no tener data completa.
+    if (scoreSync.tienePendientes()) {
+      setConfirmFinalize(true)
+      addToast({
+        type: 'warning',
+        title: 'Scores sin sincronizar',
+        message: isOnline
+          ? 'Reintenta en unos segundos. Tus scores están guardados localmente.'
+          : 'Recupera conexión para finalizar sin perder data. Tus scores están seguros localmente.',
+        duration: 8000,
+      })
+      return
+    }
+
     const supabase = createClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
     await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })

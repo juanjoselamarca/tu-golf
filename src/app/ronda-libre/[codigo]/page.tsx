@@ -70,66 +70,20 @@ import { calcularGWI } from '@/golf/stats/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
 import type { ModoJuego, FormatoJuego, Jugador, CourseHole, RondaLibre, Role, TimelineEvent } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
-import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
-import { calcularScoreRonda, parTotalEstandar } from '@/golf/core/round-score'
+import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import { parTotalEstandar } from '@/golf/core/round-score'
 import { Suspense } from 'react'
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
 const SS_KEY = (codigo: string) => `ronda-${codigo}-role`
 
-function getVsPar(scores: Record<string, number>, holes: number, parMap: Record<number, number>): number {
-  // Delegado al helper centralizado (fuente única de verdad)
-  return calcularScoreRonda({ scores, roundHoles: holes, parMap }).vsPar
-}
-
-/** Calcula vs par NETO aplicando strokes del course handicap por stroke index */
-function getVsParNeto(
-  scores: Record<string, number>,
-  holes: number,
-  parMap: Record<number, number>,
-  siMap: Record<number, number>,
-  courseHandicap: number,
-): number {
-  let total = 0
-  for (let h = 1; h <= holes; h++) {
-    const s = scores[String(h)] ?? scores[h]
-    if (s == null) continue
-    const si = siMap[h] ?? h
-    const strokes = strokesRecibidosEnHoyo(courseHandicap, si, holes)
-    const neto = s - strokes
-    total += neto - (parMap[h] ?? 4)
-  }
-  return total
-}
-
-function getHolesPlayed(scores: Record<string, number>, holes: number): number {
-  let count = 0
-  for (let h = 1; h <= holes; h++) {
-    if ((scores[String(h)] ?? scores[h]) != null) count++
-  }
-  return count
-}
-
-function buildTimelineEvents(
-  jugadores: Jugador[],
-  holes: number,
-  parMap: Record<number, number>
-): TimelineEvent[] {
-  return jugadores
-    .map((jugador) => {
-      for (let h = holes; h >= 1; h--) {
-        const score = jugador.scores[String(h)] ?? jugador.scores[h]
-        if (score != null) {
-          const par = parMap[h] ?? 4
-          return { jugador: jugador.nombre, hole: h, score, diff: score - par }
-        }
-      }
-      return null
-    })
-    .filter((event): event is TimelineEvent => event !== null)
-    .sort((a, b) => b.hole - a.hole)
-    .slice(0, 4)
-}
+// Helpers puros movidos a src/lib/ronda/helpers.ts
+import {
+  getVsPar,
+  getVsParNeto,
+  getHolesPlayed,
+  buildTimelineEvents,
+} from '@/lib/ronda/helpers'
 
 /* ── Auth Modal Component ──────────────────────────────────────────────── */
 function AuthModal({ action, codigo, onClose }: { action: string; codigo: string; onClose: () => void }) {
