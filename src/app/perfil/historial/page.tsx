@@ -60,18 +60,6 @@ interface BestRound {
   vsPar: number
 }
 
-interface BestNine {
-  score: number
-  course: string
-  date: string
-}
-
-interface RecentScore {
-  date: string
-  score: number
-  vsPar: number
-}
-
 interface HistorialStats {
   totalRounds: number
   totalRounds18: number
@@ -85,9 +73,6 @@ interface HistorialStats {
   totalDoubles: number
   bestRound18: BestRound | null
   bestRound9: BestRound | null
-  bestFront9: BestNine | null
-  bestBack9: BestNine | null
-  recentScores18: RecentScore[]
   courseBreakdown: Array<{ courseName: string; roundCount: number; avgScore: number; bestScore: number }>
   roundsByMonth: Array<{ month: string; label: string; rounds: unknown[] }>
 }
@@ -173,45 +158,6 @@ function scoreColor(vsPar: number | null): string {
 const TEE_COLORS: Record<string, string> = {
   Blanco: '#ffffff', Amarillo: '#fbbf24', Azul: '#3b82f6', Rojo: '#ef4444',
   Dorado: '#c4992a', Negro: '#111827', Verde: '#22c55e', Naranja: '#f97316',
-}
-
-/* ─── Sparkline ───────────────────────────────────────── */
-function Sparkline({ data }: { data: RecentScore[] }) {
-  if (data.length < 2) return null
-  const scores = data.map(d => d.score)
-  const min = Math.min(...scores) - 2
-  const max = Math.max(...scores) + 2
-  const range = max - min || 1
-  const w = 100
-  const h = 100
-  const pad = 10
-
-  const points = scores.map((s, i) => {
-    const x = pad + (i / (scores.length - 1)) * (w - 2 * pad)
-    const y = pad + ((max - s) / range) * (h - 2 * pad)
-    return { x, y }
-  })
-
-  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '100px' }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#c4992a" stopOpacity="0.2" />
-          <stop offset="100%" stopColor="#c4992a" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path
-        d={`${pathD} L ${points[points.length - 1].x} ${h - pad} L ${points[0].x} ${h - pad} Z`}
-        fill="url(#sparkFill)"
-      />
-      <path d={pathD} fill="none" stroke="#c4992a" strokeWidth="1.5" strokeLinejoin="round" />
-      {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="2" fill="#c4992a" />
-      ))}
-    </svg>
-  )
 }
 
 /* ─── Estilos base ─────────────────────────────────────── */
@@ -601,25 +547,9 @@ function HistorialContent() {
       <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px 16px 100px' }}>
 
         {/* ══════════════════════════════════════════════════════ */}
-        {/* SECTION 2 — Sparkline                                */}
+        {/* SECTION 2 — Personal Records (solo 18h y 9h)         */}
         {/* ══════════════════════════════════════════════════════ */}
-        {apiStats && apiStats.recentScores18 && apiStats.recentScores18.length >= 2 && (
-          <div style={{ ...cardStyle, padding: '16px 20px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
-              Tendencia (18 hoyos)
-            </div>
-            <Sparkline data={apiStats.recentScores18} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#9ca3af', marginTop: '4px' }}>
-              <span>{apiStats.recentScores18[0]?.date ? formatDateShort(apiStats.recentScores18[0].date) : ''}</span>
-              <span>{apiStats.recentScores18[apiStats.recentScores18.length - 1]?.date ? formatDateShort(apiStats.recentScores18[apiStats.recentScores18.length - 1].date) : ''}</span>
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════ */}
-        {/* SECTION 3 — Records (2x2 grid)                       */}
-        {/* ══════════════════════════════════════════════════════ */}
-        {apiStats && (apiStats.bestRound18 || apiStats.bestRound9 || apiStats.bestFront9 || apiStats.bestBack9) && (
+        {apiStats && (apiStats.bestRound18 || apiStats.bestRound9) && (
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)',
@@ -627,10 +557,8 @@ function HistorialContent() {
             marginBottom: '16px',
           }}>
             {([
-              { label: 'Mejor 18h', data: apiStats.bestRound18, showVsPar: true },
-              { label: 'Mejor 9h', data: apiStats.bestRound9, showVsPar: true },
-              { label: 'Mejor Front 9', data: apiStats.bestFront9, showVsPar: false },
-              { label: 'Mejor Back 9', data: apiStats.bestBack9, showVsPar: false },
+              { label: 'Personal Record 18 hoyos', data: apiStats.bestRound18, showVsPar: true },
+              { label: 'Personal Record 9 hoyos', data: apiStats.bestRound9, showVsPar: true },
             ] as const).map(rec => {
               if (!rec.data) return null
               const d = rec.data

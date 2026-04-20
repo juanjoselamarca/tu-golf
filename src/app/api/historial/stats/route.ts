@@ -25,18 +25,6 @@ interface BestRound {
   vsPar: number
 }
 
-interface BestNine {
-  score: number
-  course: string
-  date: string
-}
-
-interface RecentScore {
-  date: string
-  score: number
-  vsPar: number
-}
-
 interface CourseBreakdownItem {
   courseName: string
   roundCount: number
@@ -63,9 +51,6 @@ interface HistorialStats {
   totalDoubles: number
   bestRound18: BestRound | null
   bestRound9: BestRound | null
-  bestFront9: BestNine | null
-  bestBack9: BestNine | null
-  recentScores18: RecentScore[]
   courseBreakdown: CourseBreakdownItem[]
   roundsByMonth: RoundsByMonth[]
 }
@@ -289,32 +274,6 @@ export async function GET() {
     }
   }
 
-  // Best front 9 / back 9 (from 18-hole rounds only)
-  let bestFront9: BestNine | null = null
-  let bestBack9: BestNine | null = null
-  for (const { round } of rounds18) {
-    if (round.scores.length >= 18) {
-      const front = round.scores.slice(0, 9).reduce((a, b) => a + b, 0)
-      const back = round.scores.slice(9, 18).reduce((a, b) => a + b, 0)
-      if (!bestFront9 || front < bestFront9.score) {
-        bestFront9 = { score: front, course: round.course_name, date: round.played_at }
-      }
-      if (!bestBack9 || back < bestBack9.score) {
-        bestBack9 = { score: back, course: round.course_name, date: round.played_at }
-      }
-    }
-  }
-
-  // Recent 18-hole scores (last 20, oldest first for sparkline)
-  const recentScores18: RecentScore[] = rounds18
-    .slice(0, 20)
-    .reverse()
-    .map(({ round }) => ({
-      date: round.played_at,
-      score: round.total_gross,
-      vsPar: round.vsPar ?? 0,
-    }))
-
   // Course breakdown (top 5 most played)
   const courseBreakdown: CourseBreakdownItem[] = Array.from(courseStats.entries())
     .sort((a, b) => b[1].count - a[1].count)
@@ -360,9 +319,6 @@ export async function GET() {
     totalDoubles,
     bestRound18,
     bestRound9,
-    bestFront9,
-    bestBack9,
-    recentScores18,
     courseBreakdown,
     roundsByMonth,
   }
