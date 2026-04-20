@@ -40,12 +40,12 @@ export function calcularStatsForma(
   }
   let canchaFavorita: StatsForma['canchaFavorita'] = null
   let max = 0
-  for (const [nombre, count] of contador) {
+  contador.forEach((count, nombre) => {
     if (count > max) {
       max = count
       canchaFavorita = { nombre, vecesJugada: count }
     }
-  }
+  })
 
   return {
     promedioUltimas5,
