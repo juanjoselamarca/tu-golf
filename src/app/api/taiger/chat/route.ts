@@ -142,6 +142,21 @@ export async function POST(req: NextRequest) {
     }
 
     const ctx = await ctxRes.json()
+
+    const MIN_ROUNDS_FOR_COACH = 3
+    const totalRounds = ctx?.player?.total_rounds ?? 0
+    if (totalRounds < MIN_ROUNDS_FOR_COACH) {
+      return NextResponse.json(
+        {
+          error: `Necesitas al menos ${MIN_ROUNDS_FOR_COACH} rondas registradas para usar tAIger+. Subí tus tarjetas o juega rondas libres para desbloquear tu coach.`,
+          code: 'insufficient_rounds',
+          rounds: totalRounds,
+          required: MIN_ROUNDS_FOR_COACH,
+        },
+        { status: 403 }
+      )
+    }
+
     const contextString = buildContextString(ctx)
 
     // Build system prompt with player context and session starter

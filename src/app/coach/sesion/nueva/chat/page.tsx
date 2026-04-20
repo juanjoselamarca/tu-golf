@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Calendar } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
+import { createClient } from '@/lib/supabase'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -16,6 +17,26 @@ function ChatContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const tipo = searchParams.get('tipo') || 'free'
+
+  // Gate: coach requires 3+ historical rounds. Defense-in-depth for direct URL access.
+  useEffect(() => {
+    const verifyGate = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.replace('/login?next=/coach')
+        return
+      }
+      const { count } = await supabase
+        .from('historical_rounds')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+      if ((count ?? 0) < 3) {
+        router.replace('/coach')
+      }
+    }
+    verifyGate()
+  }, [router])
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')

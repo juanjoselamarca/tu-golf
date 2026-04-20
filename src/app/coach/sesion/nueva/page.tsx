@@ -28,6 +28,16 @@ export default function NuevaSesionPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // Gate: coach requires 3+ historical rounds. Defense-in-depth for direct URL access.
+      const { count: historicalCount } = await supabase
+        .from('historical_rounds')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+      if ((historicalCount ?? 0) < 3) {
+        router.replace('/coach')
+        return
+      }
+
       // Try join query first
       const { data: rondasJoin, error: joinErr } = await supabase
         .from('ronda_libre_jugadores')

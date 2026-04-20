@@ -86,17 +86,17 @@ export default function CoachDashboard() {
       </div>
 
       {/* Data requirement notice */}
-      {stats.rounds === 0 && (
+      {stats.rounds < 3 && (
         <div style={{
           background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.2)',
           borderRadius: '14px', padding: '20px', marginBottom: '16px', textAlign: 'center',
         }}>
           <div style={{ marginBottom: '8px' }}></div>
           <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4', marginBottom: '6px' }}>
-            tAIger+ necesita datos para analizar tu juego
+            {`${stats.rounds} de 3 rondas para desbloquear tAIger+`}
           </div>
           <div style={{ fontSize: '13px', color: '#94a8c0', lineHeight: 1.6, marginBottom: '14px', maxWidth: '340px', marginLeft: 'auto', marginRight: 'auto' }}>
-            Registra rondas en tu historial o juega rondas libres. Con 3+ rondas, tAIger+ detecta patrones y arma planes personalizados.
+            tAIger+ es tu coach. Para darte consejo real necesita conocer tu juego. Registra {3 - stats.rounds === 1 ? '1 ronda más' : `${3 - stats.rounds} rondas más`} y desbloqueás análisis de patrones, plan semanal y consulta libre.
           </div>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/ronda-libre/nueva" style={{
@@ -117,37 +117,40 @@ export default function CoachDashboard() {
         </div>
       )}
 
-      {/* New session CTA */}
-      <Link href="/coach/sesion/nueva" style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-        background: '#c4992a', color: '#070d18', borderRadius: '14px',
-        padding: '16px', fontSize: '16px', fontWeight: 700,
-        textDecoration: 'none', marginBottom: '24px',
-        minHeight: '52px',
-      }}>
-        Nueva sesión con tAIger+
-      </Link>
+      {/* New session CTA + Quick actions — gated: requires 3+ rounds */}
+      {stats.rounds >= 3 && (
+        <>
+          <Link href="/coach/sesion/nueva" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+            background: '#c4992a', color: '#070d18', borderRadius: '14px',
+            padding: '16px', fontSize: '16px', fontWeight: 700,
+            textDecoration: 'none', marginBottom: '24px',
+            minHeight: '52px',
+          }}>
+            Nueva sesión con tAIger+
+          </Link>
 
-      {/* Quick actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
-        <Link href="/coach/sesion/nueva/chat?tipo=weekly_plan" style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-          background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
-          padding: '16px 12px', textDecoration: 'none', textAlign: 'center',
-        }}>
-          <span style={{ color: '#c4992a' }}><Calendar size={24} /></span>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4' }}>Plan semanal</span>
-          <span style={{ fontSize: '11px', color: '#94a8c0' }}>Qué practicar esta semana</span>
-        </Link>
-        <Link href="/coach/sesion/nueva/chat?tipo=free" style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-          background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
-          padding: '16px 12px', textDecoration: 'none', textAlign: 'center',
-        }}>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4' }}>Consulta libre</span>
-          <span style={{ fontSize: '11px', color: '#94a8c0' }}>Pregunta lo que quieras</span>
-        </Link>
-      </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
+            <Link href="/coach/sesion/nueva/chat?tipo=weekly_plan" style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+              background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
+              padding: '16px 12px', textDecoration: 'none', textAlign: 'center',
+            }}>
+              <span style={{ color: '#c4992a' }}><Calendar size={24} /></span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4' }}>Plan semanal</span>
+              <span style={{ fontSize: '11px', color: '#94a8c0' }}>Qué practicar esta semana</span>
+            </Link>
+            <Link href="/coach/sesion/nueva/chat?tipo=free" style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+              background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
+              padding: '16px 12px', textDecoration: 'none', textAlign: 'center',
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4' }}>Consulta libre</span>
+              <span style={{ fontSize: '11px', color: '#94a8c0' }}>Pregunta lo que quieras</span>
+            </Link>
+          </div>
+        </>
+      )}
 
       {/* Session history */}
       {sessions.length > 0 ? (
