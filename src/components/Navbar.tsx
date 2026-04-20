@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import NotificationHub from '@/components/NotificationHub'
-import { Home, Trophy, Radio, TrendingUp, ClipboardList, Upload, Zap, Play, Bell } from '@/components/icons'
+import { Home, Radio, TrendingUp, ClipboardList, Upload, Zap, Play, Bell } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { useTheme } from '@/contexts/ThemeContext'
 import { getNavTheme } from './nav/nav-theme'
@@ -103,7 +103,6 @@ export default function Navbar() {
 
   const navItemsGuest = [
     { href: '/', icon: <Home size={18} />, label: 'Inicio' },
-    { href: '/leaderboard', icon: <Trophy size={18} />, label: 'Ranking' },
     { href: '/demo', icon: <Play size={18} />, label: 'Demo' },
     { href: '/indices', icon: <Zap size={18} />, label: 'Intelligence' },
   ]
