@@ -8,7 +8,7 @@ import { trackEvent } from '@/lib/analytics'
 import { PersonStanding, Eye, Flame } from '@/components/icons'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
-import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
+import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
@@ -56,11 +56,6 @@ function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; onClose: 
     </div>
   )
 }
-
-/* ── Types ──────────────────────────────────────────────────────────── */
-interface Jugador { id: string; nombre: string; user_id: string | null; scores: Record<string, number>; handicap?: number | null; tees?: string | null }
-interface RondaLibre { id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number; fecha: string; estado: string; modo_juego: ModoJuego; formato_juego: FormatoJuego; hoyo_inicio?: number | null; admin_mode?: boolean; admin_user_id?: string; recorridos?: string[] | null; ronda_libre_jugadores: Jugador[] }
-interface HoleData { numero: number; par: number; stroke_index: number; yardaje: number | null }
 
 /* ── Tee → yardage column mapping ──────────────────────────────────── */
 function getTeeYardageColumn(tee: string): string {

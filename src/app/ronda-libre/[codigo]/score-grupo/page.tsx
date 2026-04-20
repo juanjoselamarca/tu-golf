@@ -5,48 +5,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
-import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
+import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { calcularScramble, calcularFoursome, teePlayerEnHoyo } from '@/golf/formats'
 import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import TeamLeaderboard from '@/components/TeamLeaderboard'
-
-/* ── Types ── */
-interface Jugador {
-  id: string
-  nombre: string
-  user_id: string | null
-  scores: Record<string, number>
-  handicap?: number | null
-  tees?: string | null
-}
-
-interface RondaLibre {
-  id: string
-  codigo: string
-  course_name: string
-  course_id: string | null
-  tees: string
-  holes: number
-  fecha: string
-  estado: string
-  modo_juego: ModoJuego
-  formato_juego: FormatoJuego
-  admin_mode?: boolean
-  admin_user_id?: string
-  hoyo_inicio?: number | null
-  recorridos?: string[] | null
-  ronda_libre_jugadores: Jugador[]
-}
-
-interface HoleData {
-  numero: number
-  par: number
-  stroke_index: number
-  yardaje: number | null
-}
 
 /* ── Helpers ── */
 function getTeeYardageColumn(tee: string): string {

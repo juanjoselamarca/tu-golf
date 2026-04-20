@@ -68,55 +68,11 @@ import type { ScorecardProps } from '@/components/Scorecard'
 import GWILeaderboard from '@/components/GWILeaderboard'
 import { calcularGWI } from '@/golf/stats/gwi'
 import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
-import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
+import type { ModoJuego, FormatoJuego, Jugador, CourseHole, RondaLibre, Role, TimelineEvent } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { calcularScoreRonda, parTotalEstandar } from '@/golf/core/round-score'
 import { Suspense } from 'react'
-
-/* ── Types ──────────────────────────────────────────────────────────────── */
-interface Jugador {
-  id: string
-  nombre: string
-  user_id: string | null
-  scores: Record<string, number>
-  handicap?: number | null
-  tees?: string | null
-}
-
-interface CourseHole {
-  numero: number
-  par: number
-  stroke_index: number
-}
-
-interface RondaLibre {
-  id:                    string
-  codigo:                string
-  course_name:           string
-  course_id:             string | null
-  tees:                  string
-  holes:                 number
-  fecha:                 string
-  estado:                string
-  modo_juego:            ModoJuego
-  formato_juego:         FormatoJuego
-  hoyo_inicio?:          number | null
-  admin_mode?:           boolean
-  admin_user_id?:        string
-  creador_id:            string
-  recorridos?:           string[] | null
-  ronda_libre_jugadores: Jugador[]
-}
-
-type Role = 'espectador' | null
-type TimelineEvent = {
-  jugador: string
-  hole: number
-  score: number
-  diff: number
-  timestamp?: number // epoch ms approximation for relative time
-}
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
 const SS_KEY = (codigo: string) => `ronda-${codigo}-role`
