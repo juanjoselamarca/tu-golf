@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useReducer } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Flag, ClipboardList, Trophy, Handshake, PersonStanding } from '@/components/icons'
@@ -19,6 +19,7 @@ import TeamLeaderboard from '@/components/TeamLeaderboard'
 import { NotifBanner } from '@/components/ronda/NotifBanner'
 import { AuthModal } from '@/components/ronda/AuthModal'
 import { rankTeams } from '@/lib/ronda/team-ranking'
+import { useCountdown } from '@/hooks/ronda/useCountdown'
 
 // NotifBanner movido a src/components/ronda/NotifBanner.tsx — import más abajo.
 import Scorecard from '@/components/Scorecard'
@@ -65,7 +66,7 @@ function RondaLibrePageContent() {
   const [expanded,    setExpanded]    = useState<string | null>(null)
   const prevLeaderRef = useRef<string | null>(null)
   const prevScoresRef = useRef<Record<string, number>>({})
-  const [countdown,   setCountdown]   = useState(15)
+  const [, forceRender] = useReducer((x: number) => x + 1, 0)
   const [copied,      setCopied]      = useState(false)
   const [gwiInputs,   setGwiInputs]   = useState<JugadorGWIInput[]>([])
   const [_gwiResults, setGwiResults]  = useState<GWIResult[]>([])
@@ -276,24 +277,22 @@ function RondaLibrePageContent() {
     }
   }, [ronda, parMap, siMap, courseHcpMap, codigo])
 
+  // Fetch GWI inmediato al pasar a rol espectador
   useEffect(() => {
     if (role !== 'espectador') return
     fetchGWI()
-    const interval = setInterval(() => {
-      fetchRonda().then(() => checkScoreEvents())
-      fetchGWI()
-      setCountdown(15)
-    }, 15000)
-    return () => clearInterval(interval)
-  }, [fetchRonda, fetchGWI, role, checkScoreEvents])
+  }, [role, fetchGWI])
 
-  // Countdown tick + time since update (counter-based, no client clock dependency)
+  // Polling cada 15s + countdown visible (un solo setInterval interno al hook)
+  const countdown = useCountdown(15, useCallback(() => {
+    fetchRonda().then(() => checkScoreEvents())
+    fetchGWI()
+  }, [fetchRonda, fetchGWI, checkScoreEvents]), role === 'espectador')
+
+  // secSinceUpdate sube 1 por segundo mientras seamos espectadores
   useEffect(() => {
     if (role !== 'espectador') return
-    const tick = setInterval(() => {
-      setCountdown(c => c <= 1 ? 15 : c - 1)
-      setSecSinceUpdate(s => s + 1)
-    }, 1000)
+    const tick = setInterval(() => setSecSinceUpdate(s => s + 1), 1000)
     return () => clearInterval(tick)
   }, [role])
 
@@ -919,19 +918,19 @@ function RondaLibrePageContent() {
               if (!isPushSupported()) {
                 // Fallback: still save preference, notifications just won't show
                 setNotifPrefs({ spectator: true })
-                setCountdown(c => c)
+                forceRender()
                 return
               }
               try {
                 const granted = await requestPermission()
                 if (granted) {
                   setNotifPrefs({ spectator: true })
-                  setCountdown(c => c)
+                  forceRender()
                 }
               } catch {
                 // Permission request failed — save pref anyway for polling-based alerts
                 setNotifPrefs({ spectator: true })
-                setCountdown(c => c)
+                forceRender()
               }
             }} />
           )}
