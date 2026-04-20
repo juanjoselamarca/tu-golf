@@ -45,6 +45,7 @@ import {
 } from '@/lib/ronda/helpers'
 import { saveScores as lsSave, loadScores as lsLoad, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { ShareMenu } from '@/components/ronda/ShareMenu'
+import { useOnlineStatus } from '@/hooks/ronda/useOnlineStatus'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {
@@ -65,7 +66,7 @@ function ScorePageContent() {
 
   type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error'
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
-  const [isOnline, setIsOnline] = useState(true)
+  const isOnline = useOnlineStatus()
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [scoreAnimating, setScoreAnimating] = useState(false)
   const [_showMiniCard, _setShowMiniCard] = useState(true) // kept for compat, mini scorecard always visible now
@@ -138,40 +139,35 @@ function ScorePageContent() {
     return () => document.body.removeAttribute('data-page')
   }, [])
 
-  /* ── Online/offline + auto-sync al reconectar ── */
+  /* ── Auto-sync al reconectar (dispara cuando isOnline pasa a true) ── */
   useEffect(() => {
-    const up = () => {
-      setIsOnline(true)
-      // Sincronizar scores pendientes al reconectar
-      if (activeJugadorId && scoreSync.tienePendientes() && !scoreSync.syncInProgressRef.current) {
-        scoreSync.syncInProgressRef.current = true
-        const pendingScores = scoreSync.obtenerLocal()
-        if (pendingScores) {
-          const supabase = createClient()
-          const scoresObj: Record<string, number> = {}
-          for (const [k, v] of Object.entries(pendingScores)) scoresObj[k] = v
-          supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', activeJugadorId)
-            .then(({ error }) => {
-              if (!error) {
-                scoreSync.marcarSincronizado()
-                setSaveStatus('saved')
-                setSaveCheckVisible(true)
-                haptic(20)
-                setTimeout(() => setSaveCheckVisible(false), 1000)
-                setTimeout(() => setSaveStatus('idle'), 1500)
-              }
-              scoreSync.syncInProgressRef.current = false
-            })
-        } else {
+    if (!isOnline) return
+    if (!activeJugadorId) return
+    if (!scoreSync.tienePendientes()) return
+    if (scoreSync.syncInProgressRef.current) return
+
+    scoreSync.syncInProgressRef.current = true
+    const pendingScores = scoreSync.obtenerLocal()
+    if (pendingScores) {
+      const supabase = createClient()
+      const scoresObj: Record<string, number> = {}
+      for (const [k, v] of Object.entries(pendingScores)) scoresObj[k] = v
+      supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', activeJugadorId)
+        .then(({ error }) => {
+          if (!error) {
+            scoreSync.marcarSincronizado()
+            setSaveStatus('saved')
+            setSaveCheckVisible(true)
+            haptic(20)
+            setTimeout(() => setSaveCheckVisible(false), 1000)
+            setTimeout(() => setSaveStatus('idle'), 1500)
+          }
           scoreSync.syncInProgressRef.current = false
-        }
-      }
+        })
+    } else {
+      scoreSync.syncInProgressRef.current = false
     }
-    const down = () => setIsOnline(false)
-    window.addEventListener('online', up)
-    window.addEventListener('offline', down)
-    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
-  }, [activeJugadorId, scoreSync])
+  }, [isOnline, activeJugadorId, scoreSync])
 
   /* ── Prevent accidental nav ── */
   useEffect(() => {
