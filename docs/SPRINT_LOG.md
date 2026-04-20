@@ -4,6 +4,67 @@
 
 ---
 
+## Sesión 20 Abr 2026 — Rediseño "Mi Golf" con 2 sub-pestañas (Competencia + Identidad)
+
+**Fecha:** 20 Abr 2026
+**Estado:** COMPLETO — 10 tareas TDD, 11 commits en main
+**Tests:** 965 → 1019 (+54 tests nuevos)
+
+### Problema
+La pestaña "Mi Golf" (`/dashboard`) era una única vista con fondo oscuro de 527 líneas que mezclaba lo transaccional (crear ronda, torneos) con lo reflexivo (índice, stats). Inconsistente visualmente con el resto de la app (Rondas tiene fondo blanco) y sin separación clara de intenciones.
+
+### Solución
+Separación en dos sub-pestañas con **fondo blanco** y tabs minimalistas estilo Apple (underline + badge dot):
+
+- **Competencia** — "el golf que estoy jugando"
+  - Hero contextual priorizado: `ronda_activa > torneo_hoy > torneo_7d > empty_state`
+  - Acciones rápidas (3 píldoras): Nueva ronda · Organizar torneo · Unirme
+  - Mis torneos separados por rol (Jugando / Organizando / Finalizados)
+  - Últimas 3 rondas con link a pestaña Rondas (NO duplica `/perfil/historial`)
+  - En Vivo de la comunidad
+  - Empty state curado para usuarios nuevos (3 pasos onboarding)
+
+- **Identidad** — "el golfista que soy"
+  - Hero XL con Índice Golfers+ + flecha de tendencia 30d (`▲ 0.3`)
+  - tAIger Coach card protagonista
+  - Insight rotativo determinístico por día (hash `userId + fecha`, refresca a las 00:00 Chile)
+  - Grid 2x2 stats: promedio últimas 5, mejor score, rondas jugadas, cancha más jugada
+  - Progreso hacia próximos hitos con barra
+
+### Archivos nuevos (10)
+- `src/lib/mi-golf/types.ts` — tipos compartidos
+- `src/lib/mi-golf/tendencia.ts` + test — tendencia 30d con umbral flat 0.2
+- `src/lib/mi-golf/stats.ts` + test — promedio/mejor/cancha
+- `src/lib/mi-golf/insights.ts` + test — selector determinístico con 5 generadores
+- `src/components/mi-golf/MiGolfTabs.tsx` + test — Client Component switcher
+- `src/components/mi-golf/EmptyStateOnboarding.tsx` — onboarding 3 pasos
+- `src/components/mi-golf/CompetenciaTab.tsx` — Server Component
+- `src/components/mi-golf/IdentidadTab.tsx` — Server Component
+
+### Archivo modificado
+- `src/app/dashboard/page.tsx` — 527 → 110 líneas (−417). Orchestrator con un único `Promise.all` que alimenta ambos tabs simultáneamente (data eager para instant-switch en campo con mala conexión).
+
+### Fix colateral
+`fix(mi-golf): stats.ts Map iteration` — Task 3 commiteó con `for...of` sobre Map que falla tsc (TS2802). Reparado con `forEach` sin activar `downlevelIteration`.
+
+### Decisiones CTO (spec)
+1. **Sin persistencia del tab activo** — consistencia en campo > smart default.
+2. **Link torneos** a `/perfil/historial` existente, no crear ruta nueva (YAGNI).
+3. **Insight determinístico por día** — crea ritual, reduce costo tokens, permite caché.
+4. **Data eager con `Promise.all`** — desviación explícita del spec original (lazy-load) en favor de instant-switch en campo (3G/señal intermitente).
+
+### Documentos
+- Spec: `docs/superpowers/specs/2026-04-20-mi-golf-redesign-design.md`
+- Plan: `docs/superpowers/plans/2026-04-20-mi-golf-redesign.md`
+
+### Verificación
+- tsc: 0 errores
+- Tests: 1019/1019 (49 archivos)
+- Build: exitoso, `/dashboard` marcado como `ƒ (Dynamic)` correctamente
+- Sin warnings DYNAMIC_SERVER_USAGE
+
+---
+
 ## Sesion 31 Mar – 1 Apr 2026 — Arquitectura de Torneos + Testing Exhaustivo
 
 **Fecha:** 31 Mar – 1 Apr 2026
