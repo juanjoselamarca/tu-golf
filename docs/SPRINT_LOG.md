@@ -4,6 +4,42 @@
 
 ---
 
+## Sesión 21 Abr 2026 (madrugada) — Sprint 3 E completo (A1+A2+A3 en score-grupo)
+
+**Fecha:** 21 Abr 2026 (00:00–01:00 CL)
+**Estado:** ✅ DESPLEGADO en producción
+**Alcance:** 3 mejoras UX del audit de score-grupo, cada una en commit separado.
+
+### A1 — Anti-toque accidental (commit `f27ef03`, parte 1)
+Captura inicial (hoyo vacío): 1 tap sin fricción. Cambio sobre un score ya existente: primer tap muestra "Tocá otra vez para cambiar el score" + haptic doble + botones +/− en estado dorado pulsante (reutiliza keyframe `livePulse`). Segundo tap dentro de 2s commitea; después de 2s se auto-resetea. Al cambiar de hoyo se limpia el pending. Evita que un toque con guante en pleno sol destruya silenciosamente un score ya guardado.
+
+### A2 — Save inmediato por jugador con debounce (commit `f27ef03`, parte 2)
+`saveSinglePlayer(jugadorId, scores)` con 3 retries + backoff 400/800/1200ms. Cada `handleScoreChange` agenda un save 500ms después del último tap (los spam de +/− colapsan en 1 sola llamada al final). `saveStatus` refleja saving → saved → idle con el indicador de 3px ya existente. `hasUnsaved` se limpia al completarse el save. `goToNextHole` conserva `saveAllScores` como safety net. Cleanup de timers al desmontar.
+
+### A3 — Edit window de 3s (commit `67ce877`)
+Tras un cambio confirmado, abre una ventana de 3s sobre ese mismo jugador/hoyo donde taps sucesivos commitean directamente sin re-pedir confirmación. Cada nuevo tap dentro del window renueva el timer. Pasados 3s sin taps, la siguiente modificación vuelve a exigir 2-tap. Resultado: correcciones iterativas (9 → 4) requieren 2 taps + 3 taps de ajuste (5 total), en lugar de 4 pares de confirmar+commit (8 total). Zero nuevas UI — solo refs internos.
+
+### Foursome stableford — NO es un bug
+El audit del 20-abr mencionó "foursome stableford con `handicap_equipo` null usa 0 strokes". Investigado: el bloque de render de equipos en score-grupo solo aplica a scramble/foursome (línea 857), y el check `formatoJuego === 'stableford'` dentro de ese bloque es dead code defensivo — stableford nunca coincide con un formato de equipo. En el CREATION flow, `scramble` calcula handicap vía fórmula USGA (35% lower + 15% higher) y `foursome` lo calcula como promedio; nunca quedan null. Best_ball es el único que deja null, pero no usa `handicap_equipo` (usa handicaps individuales). No hay bug que arreglar.
+
+### Pendiente para futuras sesiones
+- **A4** — concurrent realtime en score-grupo (2 anotadores simultáneos en mismo grupo). Requiere merge de state remoto con local + manejo de localStorage + tests de conflicto. Scope ~1-2h. Low urgency (edge case raro).
+- **Sprint 4 F** — Mis rondas (timeline, filtros por formato/cancha, búsqueda, export PDF/imagen). Feature nueva — merece brainstorming dedicado antes de implementar.
+
+### Verificación
+- `tsc --noEmit` → 0 errores en cada commit.
+- `npm run test -- --run` → 1045/1045 tests.
+- `npm run build` → producción compila en cada commit.
+- Cero archivos protegidos tocados.
+
+### Commits en producción
+```
+67ce877 feat(score-grupo): edit window de 3s para correcciones iterativas (S3E A3)
+f27ef03 feat(score-grupo): anti-toque accidental + save inmediato por jugador (S3E A1+A2)
+```
+
+---
+
 ## Sesión 20 Abr 2026 (PM) — Históricas cleanup + Realtime espectador + Anotador visible
 
 **Fecha:** 20 Abr 2026 (tarde/noche)
