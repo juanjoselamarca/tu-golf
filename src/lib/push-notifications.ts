@@ -12,11 +12,59 @@ if (typeof window === 'undefined' && !VAPID_PUBLIC_KEY) {
 
 // ── Support checks ──────────────────────────────────────────────
 
+export function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    // iPadOS 13+ reports as "Mac" — detect via touch support
+    || (navigator.userAgent.includes('Mac') && 'ontouchend' in document)
+}
+
+export function getIOSVersion(): number | null {
+  if (typeof navigator === 'undefined') return null
+  const match = navigator.userAgent.match(/OS (\d+)_(\d+)/)
+  if (!match) return null
+  return parseFloat(`${match[1]}.${match[2]}`)
+}
+
+export function isStandalonePWA(): boolean {
+  if (typeof window === 'undefined') return false
+  // iOS Safari: navigator.standalone. Modern browsers: matchMedia display-mode.
+  const navStandalone = (window.navigator as { standalone?: boolean }).standalone === true
+  const mqStandalone = typeof window.matchMedia === 'function'
+    ? window.matchMedia('(display-mode: standalone)').matches
+    : false
+  return navStandalone || mqStandalone
+}
+
+/**
+ * Status detallado de soporte de push. iOS tiene requisitos extra:
+ * 16.4+ obligatorio + app debe estar instalada como PWA (add to home screen).
+ */
+export type PushSupportStatus =
+  | { supported: true }
+  | { supported: false; reason: 'no_browser_api' | 'ios_too_old' | 'ios_not_pwa'; minIOSVersion?: number }
+
+export function getPushSupportStatus(): PushSupportStatus {
+  if (typeof window === 'undefined'
+      || !('serviceWorker' in navigator)
+      || !('PushManager' in window)
+      || !('Notification' in window)) {
+    return { supported: false, reason: 'no_browser_api' }
+  }
+  if (isIOS()) {
+    const v = getIOSVersion()
+    if (v != null && v < 16.4) {
+      return { supported: false, reason: 'ios_too_old', minIOSVersion: 16.4 }
+    }
+    if (!isStandalonePWA()) {
+      return { supported: false, reason: 'ios_not_pwa' }
+    }
+  }
+  return { supported: true }
+}
+
 export function isPushSupported(): boolean {
-  return typeof window !== 'undefined'
-    && 'serviceWorker' in navigator
-    && 'PushManager' in window
-    && 'Notification' in window
+  return getPushSupportStatus().supported
 }
 
 export function getPermissionState(): NotificationPermission | 'unsupported' {

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import {
   isPushSupported,
+  getPushSupportStatus,
+  type PushSupportStatus,
   getPermissionState,
   setupPushNotifications,
   unsubscribePush,
@@ -38,6 +40,7 @@ const PREF_ITEMS: { key: keyof NotifPrefs; label: string; desc: string }[] = [
 
 export default function NotificationHub({ onClose }: { onClose: () => void }) {
   const [supported, setSupported] = useState(true)
+  const [supportStatus, setSupportStatus] = useState<PushSupportStatus>({ supported: true })
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default')
   const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -45,7 +48,9 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
   const [savingPrefs, setSavingPrefs] = useState(false)
 
   useEffect(() => {
-    setSupported(isPushSupported())
+    const status = getPushSupportStatus()
+    setSupportStatus(status)
+    setSupported(status.supported)
     setPermission(getPermissionState())
     isSubscribedToPush().then(setSubscribed)
 
@@ -126,14 +131,23 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
 
         {/* Main toggle */}
         <div style={{ padding: '20px' }}>
-          {!supported ? (
-            <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#92400e', marginBottom: '4px' }}>Navegador no compatible</div>
-              <div style={{ fontSize: '12px', color: '#b45309' }}>
-                Instala Golfers+ como app desde tu navegador para recibir notificaciones
+          {!supported ? (() => {
+            // Mensaje específico según el motivo — crítico para iOS donde hay 3 razones distintas.
+            const title = supportStatus.supported ? '' :
+              supportStatus.reason === 'ios_too_old' ? 'iOS 16.4 o superior requerido' :
+              supportStatus.reason === 'ios_not_pwa' ? 'Instala Golfers+ como app' :
+              'Navegador no compatible'
+            const body = supportStatus.supported ? '' :
+              supportStatus.reason === 'ios_too_old' ? 'Actualiza tu iPhone desde Ajustes → General → Actualización de software. Luego vuelve a esta pantalla.' :
+              supportStatus.reason === 'ios_not_pwa' ? 'En Safari, toca el botón Compartir y selecciona "Añadir a pantalla de inicio". Abre Golfers+ desde el ícono y activa las notificaciones desde ahí.' :
+              'Instala Golfers+ como app desde tu navegador para recibir notificaciones'
+            return (
+              <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#92400e', marginBottom: '4px' }}>{title}</div>
+                <div style={{ fontSize: '12px', color: '#b45309', lineHeight: 1.5 }}>{body}</div>
               </div>
-            </div>
-          ) : permission === 'denied' ? (
+            )
+          })() : permission === 'denied' ? (
             <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
               <div style={{ fontSize: '14px', fontWeight: 600, color: '#991b1b', marginBottom: '4px' }}>Notificaciones bloqueadas</div>
               <div style={{ fontSize: '12px', color: '#b91c1c' }}>
