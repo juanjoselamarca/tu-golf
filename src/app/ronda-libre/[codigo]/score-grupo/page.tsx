@@ -85,6 +85,12 @@ export default function ScoreGrupoPage() {
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [discarding, setDiscarding] = useState(false)
   const [anotadorNombre, setAnotadorNombre] = useState<string>('')
+  // A1 anti-toque: pedir 2 taps para cambiar un score ya existente.
+  const [pendingScoreConfirm, setPendingScoreConfirm] = useState<{ jugadorId: string; hole: number } | null>(null)
+  const pendingScoreConfirmRef = useRef<{ jugadorId: string; hole: number } | null>(null)
+  const pendingConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // A2 save debounce: un save-por-jugador 500ms después del último tap.
+  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const discardRound = async () => {
     if (!ronda || discarding) return
@@ -270,6 +276,14 @@ export default function ScoreGrupoPage() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [hasUnsaved])
 
+  /* ── Cleanup de timers al desmontar (A1 pending + A2 save debounce) ── */
+  useEffect(() => {
+    return () => {
+      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
+      if (pendingConfirmTimeoutRef.current) clearTimeout(pendingConfirmTimeoutRef.current)
+    }
+  }, [])
+
   /* ── Save all players ── */
   const saveAllScores = useCallback(async (overrideScores?: Record<string, Record<number, number>>) => {
     if (!ronda) return
@@ -314,20 +328,88 @@ export default function ScoreGrupoPage() {
     }
   }, [ronda, scores, codigo])
 
+  /* ── A2: debounced single-player save a DB con 3 retries ── */
+  const saveSinglePlayer = useCallback(async (jugadorId: string, playerScores: Record<number, number>) => {
+    setSaveStatus('saving')
+    const supabase = createClient()
+    const scoresObj: Record<string, number> = {}
+    for (const [k, v] of Object.entries(playerScores)) scoresObj[k] = v
+    let ok = false
+    let attempts = 0
+    while (!ok && attempts < 3) {
+      const { error } = await supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', jugadorId)
+      if (!error) ok = true
+      else {
+        attempts++
+        if (attempts < 3) await new Promise(r => setTimeout(r, 400 * attempts))
+      }
+    }
+    if (ok) {
+      setSaveStatus('saved')
+      setHasUnsaved(false)
+      setTimeout(() => setSaveStatus('idle'), 1200)
+    } else {
+      setSaveStatus('error')
+      addToast({
+        type: 'error',
+        title: 'No se pudo guardar el score',
+        message: 'Está guardado localmente — se reintentará al volver la conexión.',
+        duration: 5000,
+      })
+    }
+  }, [])
+
   /* ── Score change ── */
   const handleScoreChange = useCallback((jugadorId: string, hole: number, delta: number) => {
     setScores(prev => {
-      const currentScore = prev[jugadorId]?.[hole]
+      const existingScore = prev[jugadorId]?.[hole]
+      const hasExisting = existingScore != null && existingScore > 0
+
+      // A1 anti-toque: si ya hay un score, exigir un 2º tap para cambiarlo.
+      if (hasExisting) {
+        const ref = pendingScoreConfirmRef.current
+        const isConfirmed = ref?.jugadorId === jugadorId && ref?.hole === hole
+        if (!isConfirmed) {
+          // 1er tap → mostrar confirmación, NO cambiar nada
+          const pending = { jugadorId, hole }
+          setPendingScoreConfirm(pending)
+          pendingScoreConfirmRef.current = pending
+          haptic([15, 40, 15])
+          if (pendingConfirmTimeoutRef.current) clearTimeout(pendingConfirmTimeoutRef.current)
+          pendingConfirmTimeoutRef.current = setTimeout(() => {
+            setPendingScoreConfirm(null)
+            pendingScoreConfirmRef.current = null
+          }, 2000)
+          return prev
+        }
+        // 2º tap → limpiar pending y proceder
+        setPendingScoreConfirm(null)
+        pendingScoreConfirmRef.current = null
+        if (pendingConfirmTimeoutRef.current) {
+          clearTimeout(pendingConfirmTimeoutRef.current)
+          pendingConfirmTimeoutRef.current = null
+        }
+      }
+
+      // Aplicar el cambio
       const par = parMap[hole] ?? 4
-      const base = currentScore ?? par
+      const base = existingScore ?? par
       const newScore = Math.max(1, Math.min(19, base + delta))
       const next = { ...prev, [jugadorId]: { ...(prev[jugadorId] ?? {}), [hole]: newScore } }
       setHasUnsaved(true)
       lsSave(codigo, next)
       haptic(10)
+
+      // A2: agendar save debounced (500ms) — rebatable por taps sucesivos
+      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
+      const scoresSnapshot = next[jugadorId]
+      saveDebounceRef.current = setTimeout(() => {
+        saveSinglePlayer(jugadorId, scoresSnapshot)
+      }, 500)
+
       return next
     })
-  }, [parMap, codigo])
+  }, [parMap, codigo, saveSinglePlayer])
 
   /* ── Team score change ── */
   const handleTeamScoreChange = useCallback((equipoId: string, hole: number, delta: number) => {
@@ -393,11 +475,15 @@ export default function ScoreGrupoPage() {
     }
   }, [currentHole])
 
-  /* ── Reset confirmation when changing holes ── */
+  /* ── Reset confirmations when changing holes ── */
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     setConfirmFinalize(false)
     if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
+    // También limpiar pending score confirm al cambiar de hoyo
+    setPendingScoreConfirm(null)
+    pendingScoreConfirmRef.current = null
+    if (pendingConfirmTimeoutRef.current) { clearTimeout(pendingConfirmTimeoutRef.current); pendingConfirmTimeoutRef.current = null }
   }, [currentHole])
 
   /* ── Finalize ── */
@@ -918,6 +1004,20 @@ export default function ScoreGrupoPage() {
                   </div>
                 </div>
 
+                {/* A1 anti-toque: aviso cuando hay pending confirm para este jugador/hoyo */}
+                {pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole && (
+                  <div style={{
+                    textAlign: 'center', marginBottom: '8px',
+                    fontSize: '11px', fontWeight: 600, color: '#c4992a',
+                    background: 'rgba(196,153,42,0.12)',
+                    border: '1px solid rgba(196,153,42,0.35)',
+                    borderRadius: '8px', padding: '6px 10px',
+                    animation: 'livePulse 1.2s ease-in-out infinite',
+                  }}>
+                    Tocá otra vez para cambiar el score
+                  </div>
+                )}
+
                 {/* Score + controls */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
                   {/* Minus button */}
@@ -927,11 +1027,15 @@ export default function ScoreGrupoPage() {
                     style={{
                       width: '52px', height: '52px', borderRadius: '14px',
                       fontSize: '24px', fontWeight: 300,
-                      background: '#f3f4f6', color: '#374151',
-                      border: '1px solid #e2e8f0',
+                      background: pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole
+                        ? 'rgba(196,153,42,0.2)' : '#f3f4f6',
+                      color: '#374151',
+                      border: pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole
+                        ? '1px solid rgba(196,153,42,0.55)' : '1px solid #e2e8f0',
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       touchAction: 'manipulation', userSelect: 'none',
                       opacity: playerScore != null && playerScore <= 1 ? 0.3 : 1,
+                      transition: 'background 0.2s, border 0.2s',
                     }}
                   >
                     {'\u2212'}
@@ -995,10 +1099,15 @@ export default function ScoreGrupoPage() {
                     style={{
                       width: '52px', height: '52px', borderRadius: '14px',
                       fontSize: '24px', fontWeight: 600,
-                      background: theme.gold, color: '#ffffff', border: 'none',
+                      background: pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole
+                        ? '#d4a843' : theme.gold,
+                      color: '#ffffff',
+                      border: pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole
+                        ? '2px solid rgba(255,255,255,0.6)' : 'none',
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       touchAction: 'manipulation', userSelect: 'none',
                       opacity: playerScore != null && playerScore >= 15 ? 0.3 : 1,
+                      transition: 'background 0.2s, border 0.2s',
                     }}
                   >
                     +
