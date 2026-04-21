@@ -84,6 +84,7 @@ export default function ScoreGrupoPage() {
   const [confirmFinalize, setConfirmFinalize] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [discarding, setDiscarding] = useState(false)
+  const [anotadorNombre, setAnotadorNombre] = useState<string>('')
 
   const discardRound = async () => {
     if (!ronda || discarding) return
@@ -140,6 +141,14 @@ export default function ScoreGrupoPage() {
       }
 
       setRonda(r)
+
+      // Identidad del anotador: primer intento es encontrarse en la lista
+      // de jugadores de la ronda; fallback al email del usuario autenticado.
+      const matchingPlayer = r.ronda_libre_jugadores.find(j => j.user_id === user.id)
+      const derivedName = matchingPlayer?.nombre
+        || (user.email ? user.email.split('@')[0] : '')
+        || 'Anotador'
+      setAnotadorNombre(derivedName)
 
       // Initialize scores from DB + localStorage backup
       const cached = lsLoad(codigo)
@@ -652,7 +661,17 @@ export default function ScoreGrupoPage() {
               {modoLabel}
             </span>
           </div>
-          <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>{ronda.course_name}</div>
+          <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>
+            {ronda.course_name}
+            {anotadorNombre && (
+              <>
+                {' \u00B7 '}
+                <span style={{ color: theme.gold, fontWeight: 600 }} aria-label="Anotador de la ronda">
+                  {'\u270F\uFE0F '}{anotadorNombre}
+                </span>
+              </>
+            )}
+          </div>
         </div>
         <div style={{ textAlign: 'right', minWidth: '60px' }}>
           <div style={{ fontSize: '10px', color: theme.textFaint, letterSpacing: '0.04em' }}>THRU</div>
