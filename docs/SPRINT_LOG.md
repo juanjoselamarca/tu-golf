@@ -4,6 +4,68 @@
 
 ---
 
+## Sesión 21 Abr 2026 — Mi Golf v2 (swap limpio)
+
+**Fecha:** 21 Abr 2026
+**Estado:** COMPLETO — swap limpio v1 → v2 en producción
+**Commits:** 9 en main + spec/plan docs
+
+### Problema
+La v1 del rediseño (shippeada 2026-04-20) tenía problema de jerarquía según feedback de Juanjo: "mucha información sin orden". Los tabs Competencia/Identidad funcionan conceptualmente pero el contenido y formato eran densos y desordenados.
+
+### Solución (spec `2026-04-21-mi-golf-v2-design.md`)
+**Competencia:**
+- Hero contextual con 3 estados explícitos (en juego · próximo compromiso · sin actividad)
+- HCP siempre visible en el greeting (no hay que ir a Identidad para verlo)
+- Acciones renombradas: `Nueva ronda · Organizar torneo · Unirme con código` (sin ambigüedad)
+- Sin emojis chillones (🏆 fuera)
+- Torneos separados por rol con sub-labels: `Jugando en` · `Organizando` · `Finalizados recientes`
+- Rondas recientes con fechas contextuales (`Hoy · Ayer · Martes · Domingo pasado`)
+- Sin rojo castigador: solo verde `↑ Tu mejor del mes` para resaltar mejoras, resto neutro
+
+**Identidad:**
+- Hero limpio: número gigante del índice + nivel + distancia al siguiente (sin arc gauge redundante)
+- Barra de 5 niveles (Novato → Amateur → Intermedio → Avanzado → Scratch) como medidor visual único
+- Solo 2 barras de progreso a metas REALES (calibración del índice, desbloqueo tAIger+)
+- "Tu juego": 4 stats de identidad (mejor score, cancha favorita, rondas jugadas, promedio últimas 5) en lista sobria estilo membresía
+- tAIger Coach: línea contextual derivada de fuentes priorizadas (tendencia > cerca de nivel > uso > fallback)
+
+### Swap limpio
+Sin feature flags, sin `-v2` en nombres. Reescritura en-sitio de los 4 archivos del rediseño + page. Los tests de `tendencia.ts` y `stats.ts` se mantienen sin cambios.
+
+**Archivos nuevos (con tests TDD):**
+- `src/lib/mi-golf/niveles.ts` — sistema de 5 niveles + `getNivel()` + `NIVELES_ORDEN`
+- `src/lib/mi-golf/mejor-del-mes.ts` — `esMejorDelMes()` para resaltar en verde
+- `src/lib/mi-golf/taiger-line.ts` — `getTaigerLine()` con fuentes priorizadas
+
+**Archivos reescritos completamente:**
+- `src/components/mi-golf/CompetenciaTab.tsx` — 480 líneas
+- `src/components/mi-golf/IdentidadTab.tsx` — 203 líneas
+- `src/app/dashboard/page.tsx`
+
+**Archivos eliminados:**
+- `src/lib/mi-golf/insights.ts` + test (reemplazado por `taiger-line.ts` más simple y real)
+- `src/components/mi-golf/EmptyStateOnboarding.tsx` (absorbido por hero vacío)
+
+### Decisiones CTO fijadas en el spec
+1. **Rangos de niveles** (USGA adaptado chileno): Scratch 0-3, Avanzado 3-10, Intermedio 10-18, Amateur 18-28, Novato 28+.
+2. **Radar chart FUERA** de v2 — no hay data real por dimensión (drive, putting, etc.). Se agrega cuando el scorer capture esa data.
+3. **Sin métricas inventadas**: "62% mejor que golfistas de tu nivel" y similares están prohibidas.
+4. **Solo verde** para destacar mejoras. El rojo castigador eliminado.
+5. **Sin localStorage para persistencia de tab** — siempre abre Competencia.
+
+### Verificación
+- tsc: 0 errores
+- Tests: 1105 passing (se borraron los 5 de insights, se agregaron 21 nuevos: 9 niveles + 4 mejor-del-mes + 8 taiger-line)
+- Build: exitoso, `/dashboard` marcado como `ƒ (Dynamic)` (10.6 kB)
+- Pre-push hook: OK
+
+### Documentos
+- Spec: `docs/superpowers/specs/2026-04-21-mi-golf-v2-design.md`
+- Plan: `docs/superpowers/plans/2026-04-21-mi-golf-v2-swap.md`
+
+---
+
 ## Sesión 21 Abr 2026 (madrugada) — Sprint 3 E completo (A1+A2+A3 en score-grupo)
 
 **Fecha:** 21 Abr 2026 (00:00–01:00 CL)
