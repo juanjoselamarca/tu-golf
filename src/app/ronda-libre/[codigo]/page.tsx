@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Flag, ClipboardList, Trophy, Handshake, PersonStanding } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
+import { getScoreColorLight } from '@/golf/core/colors'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult, type MatchHoleDetail } from '@/golf/formats/match-play'
 import { calcularGWIMatch } from '@/golf/stats/gwi-match'
 import { notifyScoreEvent, getNotifPrefs, setNotifPrefs, isPushSupported, requestPermission } from '@/lib/push-notifications'
@@ -564,12 +565,10 @@ function RondaLibrePageContent() {
     : null
 
   if (role === 'espectador') {
-    // White theme score colors
+    // White theme score colors — paleta Garmin canónica (light variant).
     const whiteThemeScoreColor = (vsPar: number, played: number) => {
       if (played === 0) return '#9ca3af'
-      if (vsPar < 0) return '#16a34a'
-      if (vsPar === 0) return '#374151'
-      return '#dc2626'
+      return getScoreColorLight(vsPar)
     }
 
     return (
@@ -779,7 +778,7 @@ function RondaLibrePageContent() {
               ? leaderboard[0].stablefordPts === leaderboard[1].stablefordPts
               : leaderboard[0].vsPar === leaderboard[1].vsPar)
             const winnerScore = leaderboard[0].vsPar
-            const scoreColor = isStab ? '#c4992a' : winnerScore < 0 ? '#16a34a' : winnerScore === 0 ? '#374151' : '#dc2626'
+            const scoreColor = isStab ? '#c4992a' : getScoreColorLight(winnerScore)
             const playedPlayers = leaderboard.filter(j => j.holesPlayed > 0)
             return (
               <div style={{ marginBottom: '16px' }}>
@@ -816,7 +815,7 @@ function RondaLibrePageContent() {
                           const posLabel = idx === 0 ? '1°' : idx === 1 ? '2°' : idx === 2 ? '3°' : `${idx + 1}°`
                           const posColor = idx === 0 ? '#c4992a' : idx === 1 ? '#94a8c0' : idx === 2 ? '#b87333' : '#9ca3af'
                           const isWinner = idx === 0
-                          const jScoreColor = isStab ? '#c4992a' : j.vsPar < 0 ? '#16a34a' : j.vsPar === 0 ? '#374151' : '#dc2626'
+                          const jScoreColor = isStab ? '#c4992a' : getScoreColorLight(j.vsPar)
                           return (
                             <div key={j.id} style={{
                               display: 'flex', alignItems: 'center', gap: '12px',
@@ -1315,7 +1314,7 @@ function RondaLibrePageContent() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {timelineEvents.map((event, idx) => {
                   const label = event.diff <= -2 ? 'Eagle' : event.diff === -1 ? 'Birdie' : event.diff === 0 ? 'Par' : event.diff === 1 ? 'Bogey' : `+${event.diff}`
-                  const color = event.diff <= -2 ? '#c8a55a' : event.diff === -1 ? '#16a34a' : event.diff === 0 ? '#6b7280' : '#dc2626'
+                  const color = getScoreColorLight(event.diff)
                   const bgColor = event.diff <= -2 ? 'rgba(200,165,90,0.08)' : event.diff === -1 ? 'rgba(22,163,74,0.06)' : event.diff >= 2 ? 'rgba(220,38,38,0.04)' : 'transparent'
                   const approxMinAgo = idx === 0 ? 0 : idx
                   const timeLabel = approxMinAgo === 0 ? 'ahora' : approxMinAgo === 1 ? 'hace 1 min' : `hace ${approxMinAgo} min`

@@ -152,6 +152,30 @@ export function getHoleBarColor(grossScore: number | null | undefined, par: numb
   return SCORE_STYLES[result].textColor
 }
 
+/**
+ * Canonical Garmin score color for a vs-par differential (round total or hole).
+ * Reemplaza patrones tipo `diff < 0 ? '#16a34a' : diff > 0 ? '#dc2626' : muted`
+ * que perdían la distinción eagle/birdie/bogey/double de Garmin.
+ *
+ * Para UI sobre fondo blanco usa `getScoreColorLight`.
+ */
+export function getScoreColor(diff: number): string {
+  if (diff <= -2) return SCORE_STYLES.eagle_or_better.textColor  // #0B6BA6
+  if (diff === -1) return SCORE_STYLES.birdie.textColor          // #14B3D9
+  if (diff === 0)  return SCORE_STYLES.par.textColor             // rgba muted white
+  if (diff === 1)  return SCORE_STYLES.bogey.textColor           // #D4A442
+  return SCORE_STYLES.double_or_worse.textColor                  // #dc2626
+}
+
+/** Versión para fondos claros — usa SCORE_STYLES_LIGHT. */
+export function getScoreColorLight(diff: number): string {
+  if (diff <= -2) return SCORE_STYLES_LIGHT.eagle_or_better.textColor  // #0B6BA6
+  if (diff === -1) return SCORE_STYLES_LIGHT.birdie.textColor          // #0e8a9e (deeper cyan)
+  if (diff === 0)  return SCORE_STYLES_LIGHT.par.textColor             // #6b7280
+  if (diff === 1)  return SCORE_STYLES_LIGHT.bogey.textColor           // #92700e
+  return SCORE_STYLES_LIGHT.double_or_worse.textColor                  // #991b1b
+}
+
 // ═══════════════════════════════════════════════════════════
 // GARMIN GOLF COLOR SYSTEM
 // Verificado contra capturas reales 24 Mar 2026.

@@ -9,6 +9,7 @@
 
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { formatOverUnder } from '@/golf/core/rules'
+import { getScoreColor } from '@/golf/core/colors'
 
 interface TeamEntry {
   teamId: string
@@ -138,7 +139,10 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
             <div style={{ textAlign: 'center' }}>
               <span style={{
                 fontSize: '16px', fontWeight: 700, fontFamily: '"DM Mono", monospace',
-                color: isEven ? '#6b7280' : isGood ? '#16a34a' : '#dc2626',
+                // Stableford: pts altos = bueno → mapear a birdie color; stroke: score IS el diff.
+                color: isStableford
+                  ? (score > 0 ? getScoreColor(-1) : score === 0 ? getScoreColor(0) : getScoreColor(1))
+                  : getScoreColor(score),
               }}>
                 {displayScore(team, modoJuego, formatoJuego, hasCourse)}
               </span>

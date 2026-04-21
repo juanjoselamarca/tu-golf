@@ -11,10 +11,10 @@ function fmtScore(v: number): string {
   return v === 0 ? 'E' : v > 0 ? `+${v}` : `${v}`
 }
 
+// Score vs par color — paleta Garmin canónica (eagle/birdie/par/bogey/double).
+// Esta tarjeta está sobre fondo claro → usar variante light.
 function scoreClr(v: number): string {
-  if (v < 0) return '#16a34a'
-  if (v === 0) return '#111827'
-  return '#dc2626'
+  return getScoreColorLight(v)
 }
 
 // GWI color based on value relative to field position (not absolute)
@@ -34,7 +34,7 @@ function gwiDeltaClr(delta: number): string {
 }
 
 // Score colors from centralized system
-import { SCORE_STYLES_LIGHT, getScoreResult } from '@/golf/core/colors'
+import { SCORE_STYLES_LIGHT, getScoreResult, getScoreColorLight } from '@/golf/core/colors'
 
 function holeCellStyle(s: number | null, par: number) {
   const result = getScoreResult(s, par)
