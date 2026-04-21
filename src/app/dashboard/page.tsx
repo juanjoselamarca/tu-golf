@@ -93,6 +93,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const nivel = indiceGolfers != null ? getNivel(indiceGolfers) : null
   const stats = calcularStatsForma(historico)
   const tendencia = calcularTendencia(indiceGolfers, historico)
+  const ultimasGross = historico
+    .slice(0, 5)
+    .map((r) => r.total_gross)
+    .filter((g): g is number => g != null)
+    .reverse()
+
   const taigerLine = getTaigerLine({
     tendencia,
     golpesHastaSiguienteNivel: nivel?.golpes_hasta_siguiente ?? null,
@@ -143,6 +149,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             taigerSessionCount={taigerSessionCount ?? 0}
             stats={stats}
             taigerLine={taigerLine}
+            ultimasGross={ultimasGross}
           />
         }
       />
