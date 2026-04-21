@@ -4,6 +4,61 @@
 
 ---
 
+## Sesión 20 Abr 2026 (PM) — Históricas cleanup + Realtime espectador + Anotador visible
+
+**Fecha:** 20 Abr 2026 (tarde/noche)
+**Estado:** ✅ DESPLEGADO en producción
+**Alcance:** 3 entregas secuenciales tras cerrar Sprint 1
+
+### 1) Rondas Históricas — simplificación (commit `6a52e88`)
+Solicitud del PM: eliminar el Sparkline de tendencia y dejar solo los cuadros de Personal Record 18h y 9h.
+
+- Frontend `src/app/perfil/historial/page.tsx`: elimina función `Sparkline` (37 LOC de SVG), SECTION 2 completa, tipos `RecentScore` y `BestNine`. Reduce la grilla de Records de 4 a 2 tarjetas con labels "Personal Record 18 hoyos" y "Personal Record 9 hoyos".
+- API `src/app/api/historial/stats/route.ts`: deja de computar `recentScores18`, `bestFront9` y `bestBack9` (menos trabajo por request, payload más chico).
+- Neto: −120 LOC, +4 LOC.
+
+### 2) Sprint 2 C — Supabase Realtime en espectador (commit `8aedf67`)
+Reemplaza el polling de 15s del leaderboard en vivo por una suscripción Realtime a `ronda_libre_jugadores`. El polling queda como **fallback** solo cuando Realtime está desconectado.
+
+- Nuevo hook `src/hooks/ronda/useRondaRealtime.ts` + 7 tests con mock del cliente Supabase. Ref interna evita reiniciar suscripción en cada render.
+- Integrado en `[codigo]/page.tsx`: `useCountdown.enabled` ahora depende de `!isRealtimeConnected` — deja de tickear cuando hay tiempo real.
+- UI: "● En vivo" (verde, pulso con keyframe `livePulse` existente) cuando `isConnected=true`; barra de countdown solo visible en modo fallback. Copy "Tiempo real" vs "Auto-refresh" explicita el modo al usuario.
+- Patrón ya probado en `MiniLeaderboard.tsx` desde sprint en-vivo; este commit extiende la suscripción al espectador principal.
+- **Decisión CTO:** Sprint 2 B (offline queue IndexedDB) fue **omitido** — el commit `2dcc4b0` ya resolvió el problema con localStorage + 3 retries + auto-sync al reconectar + toast. Reescribir a IndexedDB sería over-engineering sobre un patrón validado en producción.
+
+### 3) Sprint 3 E parcial — Identidad del anotador en score-grupo (commit `8c0436b`)
+Audit UX detectó que en modo admin (anotador único scoreando a todo un grupo), la UI no indica **quién** es el anotador. Si el teléfono rota entre jugadores sin cerrar sesión, los demás no saben que están operando con la cuenta del otro.
+
+- `src/app/ronda-libre/[codigo]/score-grupo/page.tsx`: nuevo state `anotadorNombre` derivado en el load sin query extra — busca al usuario autenticado en `r.ronda_libre_jugadores` por `user_id`, fallback al prefix del email, fallback final "Anotador".
+- Header ahora muestra "Los Leones · ✏️ Juan" junto al nombre de cancha.
+- Commit scopeado solo al archivo tocado.
+
+### Resto del audit UX pendiente para futuros sprints
+Del audit a `score-grupo`:
+- **HIGH:** sin undo / sin "volver a hoyo anterior para corregir" (se puede swipear atrás pero no hay edición directa).
+- **MED:** `handleScoreChange` sin confirmación (toque accidental con guante).
+- **MED:** `saveStatus` no se actualiza inmediatamente tras `handleScoreChange` (lag visible hasta `goToNextHole`).
+- **MED:** no hay sync realtime entre anotadores concurrentes en el mismo grupo.
+- **LOW:** foursome stableford con `handicap_equipo` null usa 0 strokes (bug en CREATION flow, no en display).
+
+### Sprint 4 F (Mis rondas timeline + filtros + export) — diferido
+Feature nueva (no refactor). Requiere brainstorming dedicado para scope de timeline, filtros, búsqueda y formato de export. Se abordará en una sesión siguiente.
+
+### Verificación
+- `tsc --noEmit` → 0 errores en cada commit.
+- `npm run test -- --run` → 1045/1045 tests (+14 nuevos: 7 `useRondaRealtime`, 7 `useCountdown`).
+- `npm run build` → producción compila en cada commit.
+- Cero archivos protegidos tocados (Navbar, layout, middleware, supabase.ts).
+
+### Commits en producción
+```
+8c0436b feat(score-grupo): mostrar identidad del anotador en header
+8aedf67 feat(ronda): Supabase Realtime en espectador (Sprint 2 C)
+6a52e88 feat(historial): simplificar a solo Personal Record 18h y 9h
+```
+
+---
+
 ## Sesión 20 Abr 2026 — Rondas Refactor Sprint 1 (extracción pura)
 
 **Fecha:** 20 Abr 2026
