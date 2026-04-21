@@ -3,17 +3,24 @@ import { describe, it, expect } from 'vitest'
 import { calcularStatsForma } from './stats'
 import type { HistoricalRound } from './types'
 
-const mk = (id: string, gross: number, course: string, daysAgo = 1): HistoricalRound => ({
+const mk = (
+  id: string,
+  gross: number,
+  course: string,
+  daysAgo = 1,
+  holes = 18
+): HistoricalRound => ({
   id,
   total_gross: gross,
   course_name: course,
   played_at: new Date(Date.now() - daysAgo * 86400000).toISOString().split('T')[0],
   diferencial: null,
+  holes_played: holes,
 })
 
 describe('calcularStatsForma', () => {
   it('devuelve valores null/0 cuando no hay rondas', () => {
-    const s = calcularStatsForma([], 72)
+    const s = calcularStatsForma([])
     expect(s.promedioUltimas5).toBeNull()
     expect(s.mejorScore).toBeNull()
     expect(s.rondasJugadas).toBe(0)
@@ -29,13 +36,22 @@ describe('calcularStatsForma', () => {
       mk('5', 82, 'B', 5),
       mk('6', 100, 'C', 10),
     ]
-    const s = calcularStatsForma(rondas, 72)
+    const s = calcularStatsForma(rondas)
     expect(s.promedioUltimas5).toBe(83)
   })
 
-  it('calcula mejor score vs par usando el par pasado', () => {
-    const rondas = [mk('1', 85, 'A'), mk('2', 75, 'B')]
-    const s = calcularStatsForma(rondas, 72)
+  it('mejor score usa vsPar, no gross absoluto', () => {
+    // Ronda 9 hoyos con 38 gross → +2 vs par (36)
+    // Ronda 18 hoyos con 75 gross → +3 vs par (72)
+    // La de 38 es MEJOR performance aunque el gross sea menor.
+    const rondas = [mk('1', 38, 'A', 1, 9), mk('2', 75, 'B', 2, 18)]
+    const s = calcularStatsForma(rondas)
+    expect(s.mejorScore).toEqual({ gross: 38, vsPar: 2 })
+  })
+
+  it('mejor score entre 2 rondas de 18 hoyos usa el gross menor', () => {
+    const rondas = [mk('1', 85, 'A', 1, 18), mk('2', 75, 'B', 2, 18)]
+    const s = calcularStatsForma(rondas)
     expect(s.mejorScore).toEqual({ gross: 75, vsPar: 3 })
   })
 
@@ -45,16 +61,38 @@ describe('calcularStatsForma', () => {
       mk('2', 80, 'Sport Francés'),
       mk('3', 90, 'Los Leones'),
     ]
-    const s = calcularStatsForma(rondas, 72)
+    const s = calcularStatsForma(rondas)
     expect(s.canchaFavorita).toEqual({ nombre: 'Sport Francés', vecesJugada: 2 })
   })
 
   it('ignora rondas sin total_gross para mejor score', () => {
-    const rondas = [
-      { id: '1', total_gross: null, course_name: 'A', played_at: '2026-04-01', diferencial: null },
+    const rondas: HistoricalRound[] = [
+      {
+        id: '1',
+        total_gross: null,
+        course_name: 'A',
+        played_at: '2026-04-01',
+        diferencial: null,
+        holes_played: 18,
+      },
       mk('2', 80, 'A'),
     ]
-    const s = calcularStatsForma(rondas, 72)
+    const s = calcularStatsForma(rondas)
+    expect(s.mejorScore).toEqual({ gross: 80, vsPar: 8 })
+  })
+
+  it('fallback a par 72 cuando holes_played es null', () => {
+    const rondas: HistoricalRound[] = [
+      {
+        id: '1',
+        total_gross: 80,
+        course_name: 'A',
+        played_at: '2026-04-01',
+        diferencial: null,
+        holes_played: null,
+      },
+    ]
+    const s = calcularStatsForma(rondas)
     expect(s.mejorScore).toEqual({ gross: 80, vsPar: 8 })
   })
 })

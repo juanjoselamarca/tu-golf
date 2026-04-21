@@ -9,6 +9,7 @@ const mkRound = (id: string, daysAgo: number, diferencial: number): HistoricalRo
   course_name: 'Test',
   played_at: new Date(Date.now() - daysAgo * 86400000).toISOString().split('T')[0],
   diferencial,
+  holes_played: 18,
 })
 
 describe('calcularTendencia', () => {

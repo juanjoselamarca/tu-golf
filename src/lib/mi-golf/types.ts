@@ -45,6 +45,7 @@ export type HistoricalRound = {
   course_name: string | null
   played_at: string | null
   diferencial: number | null
+  holes_played: number | null
 }
 
 export type NivelNombre = 'Novato' | 'Amateur' | 'Intermedio' | 'Avanzado' | 'Scratch'

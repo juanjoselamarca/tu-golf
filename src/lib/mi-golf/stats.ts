@@ -1,12 +1,8 @@
 // src/lib/mi-golf/stats.ts
 import type { HistoricalRound, StatsForma } from './types'
+import { getVsPar } from './par'
 
-const PAR_DEFAULT = 72
-
-export function calcularStatsForma(
-  rondas: HistoricalRound[],
-  parReferencia: number = PAR_DEFAULT
-): StatsForma {
+export function calcularStatsForma(rondas: HistoricalRound[]): StatsForma {
   if (rondas.length === 0) {
     return {
       promedioUltimas5: null,
@@ -28,10 +24,18 @@ export function calcularStatsForma(
       ? ultimas5.reduce((s, r) => s + (r.total_gross ?? 0), 0) / ultimas5.length
       : null
 
+  // Mejor score = el que tiene MENOR vsPar (mejor performance), no el menor gross.
+  // Esto compara 9 hoyos con 18 hoyos correctamente.
   const conGross = rondas.filter((r) => r.total_gross != null)
-  const mejorGross = conGross.length > 0 ? Math.min(...conGross.map((r) => r.total_gross!)) : null
-  const mejorScore =
-    mejorGross != null ? { gross: mejorGross, vsPar: mejorGross - parReferencia } : null
+  let mejorScore: StatsForma['mejorScore'] = null
+  let mejorVsPar = Infinity
+  for (const r of conGross) {
+    const vsPar = getVsPar(r.total_gross, r.holes_played)
+    if (vsPar != null && vsPar < mejorVsPar) {
+      mejorVsPar = vsPar
+      mejorScore = { gross: r.total_gross!, vsPar }
+    }
+  }
 
   const contador = new Map<string, number>()
   for (const r of rondas) {

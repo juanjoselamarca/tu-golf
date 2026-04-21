@@ -10,6 +10,7 @@ import { calcularTendencia } from '@/lib/mi-golf/tendencia'
 import { calcularStatsForma } from '@/lib/mi-golf/stats'
 import { getNivel } from '@/lib/mi-golf/niveles'
 import { getTaigerLine } from '@/lib/mi-golf/taiger-line'
+import { getVsPar } from '@/lib/mi-golf/par'
 import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '@/lib/mi-golf/types'
 
 export const dynamic = 'force-dynamic'
@@ -44,7 +45,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', user.id).not('diferencial', 'is', null),
     supabase.from('profiles').select('indice, indice_golfers').eq('id', user.id).single(),
     supabase.from('taiger_sessions').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-    supabase.from('historical_rounds').select('id, total_gross, course_name, played_at, diferencial').eq('user_id', user.id).order('played_at', { ascending: false }).limit(50),
+    supabase.from('historical_rounds').select('id, total_gross, course_name, played_at, diferencial, holes_played').eq('user_id', user.id).order('played_at', { ascending: false }).limit(50),
   ])
 
   const myOrganizedTournaments = (myTournamentsRaw as unknown as Tournament[]) || []
@@ -61,7 +62,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return {
       ...r,
       total_gross: match?.total_gross ?? null,
-      vsPar: match?.total_gross != null ? match.total_gross - 72 : null,
+      vsPar: match ? getVsPar(match.total_gross, match.holes_played) : null,
     }
   })
 
