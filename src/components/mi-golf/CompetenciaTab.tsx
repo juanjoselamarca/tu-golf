@@ -1,5 +1,6 @@
 // src/components/mi-golf/CompetenciaTab.tsx
 import Link from 'next/link'
+import { Flag, Trophy, Check } from '@/components/icons'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
 import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '@/lib/mi-golf/types'
 import { esMejorDelMes } from '@/lib/mi-golf/mejor-del-mes'
@@ -70,12 +71,9 @@ export function CompetenciaTab(props: Props) {
         <HeroVacio />
       )}
 
-      {/* ACCIONES */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '28px' }}>
-        <Pill href="/ronda-libre/nueva" primary>Nueva ronda</Pill>
-        <Pill href="/torneo/nuevo">Organizar torneo</Pill>
-        <Pill href="/torneo/unirme">Unirme con código</Pill>
-      </div>
+      {/* ACCIONES — jerarquía 80/20 */}
+      <Acciones />
+
 
       {/* TORNEOS */}
       {(playingInTournaments.length > 0 ||
@@ -121,8 +119,30 @@ function HeroActiva({
       }}
     >
       <div>
-        <div style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700, opacity: 0.85, marginBottom: '6px' }}>
-          En juego
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+          <span
+            style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: '#22c55e',
+              boxShadow: '0 0 8px rgba(34,197,94,0.7)',
+              animation: 'livePulse 2s ease-in-out infinite',
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              fontFamily: 'var(--font-dm-mono)',
+              fontSize: '10px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+              fontWeight: 700,
+              color: '#fff',
+            }}
+          >
+            En vivo
+          </span>
         </div>
         <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{ronda.course_name}</div>
         {summary && (
@@ -211,33 +231,65 @@ function HeroVacio() {
   )
 }
 
-function Pill({ href, primary, children }: { href: string; primary?: boolean; children: React.ReactNode }) {
-  const base: React.CSSProperties = {
-    flex: 1,
-    padding: '11px 10px',
-    borderRadius: '22px',
-    fontSize: '11.5px',
-    fontWeight: primary ? 700 : 600,
-    textAlign: 'center',
-    textDecoration: 'none',
-    whiteSpace: 'nowrap',
-    minHeight: '44px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }
+function Acciones() {
   return (
-    <Link
-      href={href}
-      style={{
-        ...base,
-        background: primary ? TEXT : '#fff',
-        color: primary ? '#fff' : TEXT,
-        border: primary ? `1px solid ${TEXT}` : `1px solid ${BORDER}`,
-      }}
-    >
-      {children}
-    </Link>
+    <div style={{ marginBottom: '28px' }}>
+      <Link
+        href="/ronda-libre/nueva"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '10px',
+          background: TEXT,
+          color: '#fff',
+          borderRadius: '14px',
+          padding: '16px 20px',
+          fontSize: '15px',
+          fontWeight: 700,
+          textDecoration: 'none',
+          minHeight: '56px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          marginBottom: '12px',
+        }}
+      >
+        <span style={{ fontSize: '20px', fontWeight: 300, lineHeight: 1 }}>+</span>
+        Nueva ronda
+      </Link>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '20px',
+          fontSize: '12px',
+        }}
+      >
+        <Link
+          href="/torneo/nuevo"
+          style={{
+            color: TEXT_2,
+            fontWeight: 500,
+            textDecoration: 'none',
+            borderBottom: `1px solid ${BORDER}`,
+            paddingBottom: '2px',
+          }}
+        >
+          Organizar torneo
+        </Link>
+        <Link
+          href="/torneo/unirme"
+          style={{
+            color: TEXT_2,
+            fontWeight: 500,
+            textDecoration: 'none',
+            borderBottom: `1px solid ${BORDER}`,
+            paddingBottom: '2px',
+          }}
+        >
+          Unirme con código
+        </Link>
+      </div>
+    </div>
   )
 }
 
@@ -255,28 +307,40 @@ function Torneos({
       <SectionLabel label="Torneos" linkText="Ver todos →" linkHref="/perfil/historial" />
 
       {playing.length > 0 && (
-        <>
-          <SubLabel>Jugando en</SubLabel>
+        <SubGroup
+          icon={<Flag size={14} />}
+          label="Jugando en"
+          accent={GOLD}
+          accentBorder
+        >
           {playing.map((t) => (
             <TorneoRowPlaying key={t.id} t={t} />
           ))}
-        </>
+        </SubGroup>
       )}
       {organizing.length > 0 && (
-        <>
-          <SubLabel>Organizando</SubLabel>
+        <SubGroup
+          icon={<Trophy size={14} />}
+          label="Organizando"
+          accent={TEXT_2}
+          accentBorder
+        >
           {organizing.map((t) => (
             <TorneoRowOrganizing key={t.id} t={t} />
           ))}
-        </>
+        </SubGroup>
       )}
       {finished.length > 0 && (
-        <>
-          <SubLabel>Finalizados recientes</SubLabel>
+        <SubGroup
+          icon={<Check size={14} />}
+          label="Finalizados recientes"
+          accent={TEXT_3}
+          muted
+        >
           {finished.map((t) => (
             <TorneoRowFinished key={t.id} t={t} />
           ))}
-        </>
+        </SubGroup>
       )}
     </div>
   )
@@ -555,19 +619,48 @@ function SectionLabel({ label, linkText, linkHref }: { label: string; linkText: 
   )
 }
 
-function SubLabel({ children }: { children: React.ReactNode }) {
+function SubGroup({
+  icon,
+  label,
+  accent,
+  accentBorder,
+  muted,
+  children,
+}: {
+  icon: React.ReactNode
+  label: string
+  accent: string
+  accentBorder?: boolean
+  muted?: boolean
+  children: React.ReactNode
+}) {
   return (
     <div
       style={{
-        fontSize: '9px',
-        fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-        color: TEXT_3,
-        fontWeight: 700,
-        margin: '14px 0 8px',
+        marginBottom: '20px',
+        paddingLeft: accentBorder ? '12px' : '0',
+        borderLeft: accentBorder ? `2px solid ${accent}` : 'none',
+        opacity: muted ? 0.75 : 1,
       }}
     >
-      {children}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '9px',
+          fontFamily: 'var(--font-dm-mono)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          color: accent,
+          fontWeight: 700,
+          marginBottom: '8px',
+        }}
+      >
+        {icon}
+        <span>{label}</span>
+      </div>
+      <div>{children}</div>
     </div>
   )
 }
