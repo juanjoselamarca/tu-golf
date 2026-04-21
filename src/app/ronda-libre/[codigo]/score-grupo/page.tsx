@@ -89,6 +89,9 @@ export default function ScoreGrupoPage() {
   const [pendingScoreConfirm, setPendingScoreConfirm] = useState<{ jugadorId: string; hole: number } | null>(null)
   const pendingScoreConfirmRef = useRef<{ jugadorId: string; hole: number } | null>(null)
   const pendingConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // A3 edit window: tras una confirmación, dejar 3s de ediciones libres sobre el mismo jugador/hoyo.
+  const editWindowRef = useRef<{ jugadorId: string; hole: number } | null>(null)
+  const editWindowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // A2 save debounce: un save-por-jugador 500ms después del último tap.
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -276,11 +279,12 @@ export default function ScoreGrupoPage() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [hasUnsaved])
 
-  /* ── Cleanup de timers al desmontar (A1 pending + A2 save debounce) ── */
+  /* ── Cleanup de timers al desmontar (A1 pending + A2 save debounce + A3 edit window) ── */
   useEffect(() => {
     return () => {
       if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
       if (pendingConfirmTimeoutRef.current) clearTimeout(pendingConfirmTimeoutRef.current)
+      if (editWindowTimeoutRef.current) clearTimeout(editWindowTimeoutRef.current)
     }
   }, [])
 
@@ -365,8 +369,14 @@ export default function ScoreGrupoPage() {
       const existingScore = prev[jugadorId]?.[hole]
       const hasExisting = existingScore != null && existingScore > 0
 
-      // A1 anti-toque: si ya hay un score, exigir un 2º tap para cambiarlo.
-      if (hasExisting) {
+      // A3 edit window: si acabamos de confirmar un cambio en este mismo
+      // jugador/hoyo y estamos dentro de los 3s, saltamos la confirmación
+      // — permite correcciones iterativas (9→4) sin re-confirmar cada paso.
+      const editWin = editWindowRef.current
+      const inEditWindow = editWin?.jugadorId === jugadorId && editWin?.hole === hole
+
+      // A1 anti-toque: si ya hay un score y NO estamos en edit window, exigir 2º tap.
+      if (hasExisting && !inEditWindow) {
         const ref = pendingScoreConfirmRef.current
         const isConfirmed = ref?.jugadorId === jugadorId && ref?.hole === hole
         if (!isConfirmed) {
@@ -390,6 +400,13 @@ export default function ScoreGrupoPage() {
           pendingConfirmTimeoutRef.current = null
         }
       }
+
+      // A3: abrir/renovar edit window de 3s tras cada cambio commiteado.
+      editWindowRef.current = { jugadorId, hole }
+      if (editWindowTimeoutRef.current) clearTimeout(editWindowTimeoutRef.current)
+      editWindowTimeoutRef.current = setTimeout(() => {
+        editWindowRef.current = null
+      }, 3000)
 
       // Aplicar el cambio
       const par = parMap[hole] ?? 4
@@ -480,10 +497,12 @@ export default function ScoreGrupoPage() {
   useEffect(() => {
     setConfirmFinalize(false)
     if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
-    // También limpiar pending score confirm al cambiar de hoyo
+    // También limpiar pending score confirm + edit window al cambiar de hoyo
     setPendingScoreConfirm(null)
     pendingScoreConfirmRef.current = null
     if (pendingConfirmTimeoutRef.current) { clearTimeout(pendingConfirmTimeoutRef.current); pendingConfirmTimeoutRef.current = null }
+    editWindowRef.current = null
+    if (editWindowTimeoutRef.current) { clearTimeout(editWindowTimeoutRef.current); editWindowTimeoutRef.current = null }
   }, [currentHole])
 
   /* ── Finalize ── */
