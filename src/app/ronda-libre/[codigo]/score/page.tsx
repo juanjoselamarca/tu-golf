@@ -9,6 +9,7 @@ import { Flame } from '@/components/icons'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
+import { getYardajeForTee } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
@@ -249,7 +250,13 @@ function ScorePageContent() {
               numero: num,
               par: h.par,
               stroke_index: h.stroke_index,
-              yardaje: (h as Record<string, unknown>)[teeCol] as number | null || h.yardaje_azul || h.yardaje_blanco || null
+              yardaje: (h as Record<string, unknown>)[teeCol] as number | null || h.yardaje_azul || h.yardaje_blanco || null,
+              yardajes: {
+                campeonato: (h as Record<string, unknown>).yardaje_campeonato as number | null ?? null,
+                azul: h.yardaje_azul ?? null,
+                blanco: h.yardaje_blanco ?? null,
+                rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
+              },
             }
             holeNum++
           }
@@ -1075,7 +1082,7 @@ function ScorePageContent() {
         {[
           { label: 'PAR', value: String(par) },
           { label: 'SI', value: String(holeData.stroke_index) },
-          { label: 'YDS', value: holeData.yardaje ? String(holeData.yardaje) : '—' },
+          { label: 'YDS', value: (() => { const y = getYardajeForTee(holeData, activePlayer?.tees || ronda.tees); return y ? String(y) : '—' })() },
           ...((showNet || showStableford) ? [{ label: 'GOLPES', value: strokesOnHole > 0 ? `+${strokesOnHole}` : '0' }] : []),
         ].map((col, i) => (
           <div key={col.label} style={{

@@ -7,6 +7,7 @@ import { addToast } from '@/hooks/useToast'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
+import { getYardajeForTee } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
@@ -201,6 +202,12 @@ export default function ScoreGrupoPage() {
               par: h.par,
               stroke_index: h.stroke_index,
               yardaje: (h as Record<string, unknown>)[teeCol] as number | null || h.yardaje_azul || h.yardaje_blanco || null,
+              yardajes: {
+                campeonato: (h as Record<string, unknown>).yardaje_campeonato as number | null ?? null,
+                azul: h.yardaje_azul ?? null,
+                blanco: h.yardaje_blanco ?? null,
+                rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
+              },
             }
             holeNum++
           }
@@ -824,7 +831,14 @@ export default function ScoreGrupoPage() {
         {[
           { label: 'PAR', value: String(par) },
           { label: 'SI', value: String(holeData.stroke_index) },
-          { label: 'YDS', value: holeData.yardaje ? String(holeData.yardaje) : '\u2014' },
+          { label: 'YDS', value: (() => {
+            // Admin es quien opera la UI. Si admin es jugador de la ronda, usar su tee.
+            // Sino fallback al tee default de la ronda (r.tees).
+            const adminPlayer = ronda.ronda_libre_jugadores?.find(p => p.user_id === ronda.admin_user_id)
+            const refTee = adminPlayer?.tees || ronda.tees
+            const y = getYardajeForTee(holeData, refTee)
+            return y ? String(y) : '\u2014'
+          })() },
         ].map((col, i, arr) => (
           <div key={col.label} style={{
             flex: 1, textAlign: 'center', padding: '6px 2px',

@@ -35,7 +35,32 @@ export interface HoleData {
   numero: number
   par: number
   stroke_index: number
+  /** Yardaje legacy — fallback cuando no hay yardajes por tee. */
   yardaje: number | null
+  /** Yardajes por color de tee — permite que cada jugador vea la distancia de SU tee en canchas multi-loop. */
+  yardajes?: {
+    campeonato?: number | null
+    azul?: number | null
+    blanco?: number | null
+    rojo?: number | null
+  }
+}
+
+/**
+ * Selecciona el yardaje correcto según el tee del jugador.
+ * Fallback: yardaje del tee específico → legacy yardaje → cascade (azul/blanco).
+ */
+export function getYardajeForTee(hole: HoleData | undefined | null, tee: string | null | undefined): number | null {
+  if (!hole) return null
+  if (!hole.yardajes) return hole.yardaje
+  const t = (tee || '').toLowerCase()
+  let key: keyof NonNullable<HoleData['yardajes']> | null = null
+  if (t === 'black' || t === 'campeonato' || t === 'negro') key = 'campeonato'
+  else if (t === 'blue' || t === 'azul') key = 'azul'
+  else if (t === 'white' || t === 'blanco') key = 'blanco'
+  else if (t === 'red' || t === 'rojo') key = 'rojo'
+  const specific = key ? hole.yardajes[key] : null
+  return specific ?? hole.yardaje ?? hole.yardajes.azul ?? hole.yardajes.blanco ?? null
 }
 
 /** Ronda libre (union superset entre [codigo], score y score-grupo). */
