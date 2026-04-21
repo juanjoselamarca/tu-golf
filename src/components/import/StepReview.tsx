@@ -85,6 +85,15 @@ export default function StepReview({
   })
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({})
   const [confirming, setConfirming] = useState(false)
+  // Formato/modo aplicados a todas las rondas de este import.
+  // Default: stroke_play + gross (compatible con flujo previo).
+  type Formato = 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
+  type Modo = 'gross' | 'neto'
+  const [formato, setFormato] = useState<Formato>('stroke_play')
+  const [modo, setModo] = useState<Modo>('gross')
+  // Stableford y Match Play fuerzan neto (regla R&A/USGA).
+  const modoForced = formato === 'stableford' || formato === 'match_play'
+  const effectiveModo: Modo = modoForced ? 'neto' : modo
 
   const getPar = (round: ImportRoundData, h: number) => round.par_per_hole?.[String(h)] ?? 4
   const hasPars = (round: ImportRoundData) => round.par_per_hole != null && Object.keys(round.par_per_hole).length > 0
@@ -140,7 +149,9 @@ export default function StepReview({
   const handleConfirm = async () => {
     setConfirming(true)
     try {
-      const acceptedRounds = rounds.filter(r => decisions[r.tempId] === 'accepted')
+      const acceptedRounds = rounds
+        .filter(r => decisions[r.tempId] === 'accepted')
+        .map(r => ({ ...r, formato_juego: formato, modo_juego: effectiveModo }))
       const res = await fetch('/api/import/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -551,6 +562,52 @@ export default function StepReview({
           paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
           background: 'linear-gradient(to top, #070d18 60%, transparent)',
         }}>
+          {/* Format + mode selectors — se aplican a todas las rondas aceptadas */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px',
+            marginBottom: '12px',
+            background: 'rgba(14,28,47,0.95)',
+            border: '1px solid rgba(196,153,42,0.2)',
+            borderRadius: '10px', padding: '10px 12px',
+          }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '10px', color: '#94a8c0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Formato</span>
+              <select
+                value={formato}
+                onChange={e => setFormato(e.target.value as Formato)}
+                style={{
+                  background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.25)',
+                  color: '#edeae4', fontSize: '13px', padding: '8px 10px',
+                  borderRadius: '8px', outline: 'none', cursor: 'pointer',
+                }}
+              >
+                <option value="stroke_play">Stroke Play</option>
+                <option value="stableford">Stableford</option>
+                <option value="match_play">Match Play</option>
+                <option value="best_ball">Best Ball</option>
+                <option value="scramble">Scramble</option>
+                <option value="foursome">Foursome</option>
+              </select>
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '10px', color: '#94a8c0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Modo</span>
+              <select
+                value={effectiveModo}
+                onChange={e => setModo(e.target.value as Modo)}
+                disabled={modoForced}
+                title={modoForced ? 'Stableford y Match Play usan neto por regla R&A/USGA' : undefined}
+                style={{
+                  background: modoForced ? 'rgba(14,28,47,0.5)' : '#0e1c2f',
+                  border: '1px solid rgba(196,153,42,0.25)',
+                  color: modoForced ? '#94a8c0' : '#edeae4', fontSize: '13px', padding: '8px 10px',
+                  borderRadius: '8px', outline: 'none', cursor: modoForced ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <option value="gross">Gross</option>
+                <option value="neto">Neto</option>
+              </select>
+            </label>
+          </div>
           <button
             onClick={handleConfirm}
             disabled={confirming}
