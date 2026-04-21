@@ -257,6 +257,29 @@ no se hace.
 **Por qué:** Golfers+ se usa en torneos reales. Un parche temporal que se rompe
 durante un campeonato es irreparable reputacionalmente.
 
+### 10. Coordinación entre sesiones paralelas
+El repo puede tener múltiples agentes/sesiones trabajando al mismo tiempo
+(Juanjo + Claude en una terminal, Claude en otra, hooks automáticos, etc).
+Disciplina mínima obligatoria:
+
+- **`git fetch origin main` al arrancar cualquier tarea no trivial.** No asumas
+  que tu `main` local refleja lo que está en GitHub.
+- **Re-fetch antes de commitear.** Si pasaron >15 min desde el fetch anterior o
+  si el commit toca más de un archivo, repetir.
+- **Antes de "arreglar" algo observado (test rojo, bug reportado):** correr
+  `git log -20 --oneline` y buscar si alguien ya lo tocó en los últimos commits.
+  Si el mensaje reciente menciona el archivo o el síntoma, investigar ANTES
+  de modificar — probablemente ya esté resuelto o en curso.
+- **Si pre-push bloquea por tests de código ajeno:** NO usar `--no-verify`.
+  Fetch + pull --rebase primero. Si aún falla, reportar al usuario antes de
+  tomar acción correctiva sobre código que no escribiste.
+
+**Por qué:** el 2026-04-21 dos sesiones paralelas trabajaron sobre `main`
+simultáneamente — una regenerando docs, otra agregando tests de cobertura.
+No hubo colisión por suerte. Si hubieran tocado el mismo archivo, habría
+habido trabajo perdido o conflicto de merge. Esta regla protege contra la
+próxima vez que la suerte no alcance.
+
 ---
 
 ## SOBRE ONEDRIVE Y .next
