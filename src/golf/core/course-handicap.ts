@@ -38,18 +38,74 @@ export function resolverCourseHandicap(
  * @param tees - nombre del tee (ej: "azul", "blanco")
  * @param holes - cantidad de hoyos (9 o 18)
  * @param parTotal - par total real calculado desde course_holes (más preciso que BD)
+ * @param recorridos - lista de loop_nombre a combinar (canchas 27h/36h). Si length>=1
+ *                    y la cancha tiene children matching, combina sus ratings.
  */
 export async function cargarCourseData(
   courseId: string | null,
   tees: string,
   holes: number,
-  parTotal?: number
+  parTotal?: number,
+  recorridos?: string[] | null
 ): Promise<CourseData | null> {
   if (!courseId) return null
 
   // Dynamic import para evitar que el módulo se evalúe en contextos no-browser
   const { createClient } = await import('@/lib/supabase')
   const supabase = createClient()
+
+  // 0. Multi-recorrido: si hay loops seleccionados, combinar ratings de los
+  //    child courses correspondientes (ej: Brisas 27h = parent + 3 children).
+  //    Cada child (9h) aporta su CR (aditivo) y slope (promediado).
+  if (recorridos && recorridos.length >= 1) {
+    const { data: children } = await supabase
+      .from('courses')
+      .select('id, loop_nombre, course_rating, slope_rating, par_total')
+      .eq('parent_id', courseId)
+      .in('loop_nombre', recorridos)
+
+    if (children && children.length === recorridos.length) {
+      // Sumar CR/par across loops; promediar slope ponderado por hoyos.
+      // Asumimos que cada child es 9h (o 18h si tipo_recorrido lo define).
+      const crSum = children.reduce((s, c) => s + (c.course_rating ?? 0), 0)
+      const parSum = children.reduce((s, c) => s + (c.par_total ?? 36), 0)
+      const slopeAvg = children.length > 0
+        ? Math.round(children.reduce((s, c) => s + (c.slope_rating ?? 113), 0) / children.length)
+        : 113
+      const allHaveRatings = children.every(c => c.course_rating && c.slope_rating)
+      if (allHaveRatings) {
+        return {
+          slope: slopeAvg,
+          courseRating: crSum,
+          par: parTotal ?? parSum,
+          is9Hole: recorridos.length === 1,
+        }
+      }
+      // Fallback a tee-specific lookup sobre children individualmente.
+      const teeNorm2 = tees.toLowerCase()
+      const childIds = children.map(c => c.id)
+      const { data: teeRows } = await supabase
+        .from('course_tees')
+        .select('course_id, rating, slope, front_course_rating, front_slope_rating')
+        .in('course_id', childIds)
+        .ilike('nombre', `${teeNorm2}%`)
+      if (teeRows && teeRows.length === children.length) {
+        const crSumTee = teeRows.reduce((s, t) => s + (t.front_course_rating ?? t.rating ?? 0), 0)
+        const slopeAvgTee = Math.round(
+          teeRows.reduce((s, t) => s + (t.front_slope_rating ?? t.slope ?? 113), 0) / teeRows.length
+        )
+        if (crSumTee > 0 && slopeAvgTee > 0) {
+          return {
+            slope: slopeAvgTee,
+            courseRating: crSumTee,
+            par: parTotal ?? parSum,
+            is9Hole: recorridos.length === 1,
+          }
+        }
+      }
+      // Si data insuficiente en children → caer al flujo single-course.
+    }
+  }
 
   // 1. Intentar CR/Slope específico del tee (más preciso)
   const teeNorm = tees.toLowerCase()

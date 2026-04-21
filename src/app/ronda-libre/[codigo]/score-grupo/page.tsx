@@ -224,7 +224,7 @@ export default function ScoreGrupoPage() {
         else { index = 0 }
         const playerTee = (j.tees || r.tees || 'azul').toLowerCase()
         if (!courseDataByTee[playerTee]) {
-          courseDataByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, r.holes, finalParTotal)
+          courseDataByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, r.holes, finalParTotal, (r.recorridos as string[] | null) ?? null)
         }
         hcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee])
       }

@@ -115,6 +115,15 @@ historial arreglados. Quedan items de la auditoría del 13-abr y del bug sweep d
 21. **Demo rebuild completo.** `/demo` no tiene sentido funcional actualmente,
     reconstrucción completa pendiente. Reportado por Juanjo 2026-04-20.
 
+22. **Yardage per-player tee en multi-loop.** `score/page.tsx:242` y
+    `score-grupo/page.tsx:194` usan `getTeeYardageColumn(r.tees || 'azul')`
+    con el tee GLOBAL de la ronda en lugar del tee de cada jugador. Resultado:
+    en una ronda con 4 jugadores en tees distintos, todos ven la misma
+    yardage. El bug es solo visual (no afecta cálculos de score/WHS), pero
+    degrada la UX mobile. Fix: extender `HoleData` con map de yardajes por
+    color de tee y seleccionar en render según tee del jugador activo.
+    Auditado 2026-04-21 (#16 P2).
+
 ---
 
 ## Secuencia propuesta

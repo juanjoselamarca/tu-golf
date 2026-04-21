@@ -166,7 +166,7 @@ function RondaLibrePageContent() {
           }
           const playerTee = (j.tees || r.tees || 'azul').toLowerCase()
           if (!courseDataByTee[playerTee]) {
-            courseDataByTee[playerTee] = await cargarCourseData(r.course_id, playerTee, r.holes, finalParTotal)
+            courseDataByTee[playerTee] = await cargarCourseData(r.course_id, playerTee, r.holes, finalParTotal, (r.recorridos as string[] | null) ?? null)
           }
           chMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee])
         }
