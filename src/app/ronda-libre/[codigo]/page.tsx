@@ -20,6 +20,7 @@ import { NotifBanner } from '@/components/ronda/NotifBanner'
 import { AuthModal } from '@/components/ronda/AuthModal'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { useCountdown } from '@/hooks/ronda/useCountdown'
+import { useRondaRealtime } from '@/hooks/ronda/useRondaRealtime'
 
 // NotifBanner movido a src/components/ronda/NotifBanner.tsx — import más abajo.
 import Scorecard from '@/components/Scorecard'
@@ -283,11 +284,25 @@ function RondaLibrePageContent() {
     fetchGWI()
   }, [role, fetchGWI])
 
-  // Polling cada 15s + countdown visible (un solo setInterval interno al hook)
-  const countdown = useCountdown(15, useCallback(() => {
+  // Callback de refresh compartido por realtime y polling fallback
+  const refreshSpectator = useCallback(() => {
     fetchRonda().then(() => checkScoreEvents())
     fetchGWI()
-  }, [fetchRonda, fetchGWI, checkScoreEvents]), role === 'espectador')
+  }, [fetchRonda, fetchGWI, checkScoreEvents])
+
+  // Primary: Supabase Realtime — dispara refresh en cualquier cambio de ronda_libre_jugadores
+  const { isConnected: isRealtimeConnected } = useRondaRealtime(
+    codigo,
+    refreshSpectator,
+    role === 'espectador'
+  )
+
+  // Fallback: polling cada 15s solo cuando Realtime no está conectado
+  const countdown = useCountdown(
+    15,
+    refreshSpectator,
+    role === 'espectador' && !isRealtimeConnected
+  )
 
   // secSinceUpdate sube 1 por segundo mientras seamos espectadores
   useEffect(() => {
@@ -1657,28 +1672,45 @@ function RondaLibrePageContent() {
             })}
           </div>
 
-          {/* Countdown progress bar — only if not finished */}
+          {/* Realtime status / polling fallback countdown — only if not finished */}
           {!isFinished && (
             <div style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ color: '#6b7280', fontSize: '13px', fontWeight: 600 }}>
-                  Actualiza en {countdown}s
+                <span style={{
+                  color: isRealtimeConnected ? '#16a34a' : '#6b7280',
+                  fontSize: '13px', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                }}>
+                  {isRealtimeConnected ? (
+                    <>
+                      <span style={{
+                        width: '8px', height: '8px', borderRadius: '50%',
+                        background: '#16a34a', display: 'inline-block',
+                        animation: 'livePulse 1.8s ease-in-out infinite',
+                      }} />
+                      En vivo
+                    </>
+                  ) : `Actualiza en ${countdown}s`}
                 </span>
-                <span style={{ color: '#c4992a', fontSize: '11px' }}>Auto-refresh</span>
+                <span style={{ color: '#c4992a', fontSize: '11px' }}>
+                  {isRealtimeConnected ? 'Tiempo real' : 'Auto-refresh'}
+                </span>
               </div>
-              <div style={{
-                width: '100%', height: '4px',
-                background: '#e5e7eb',
-                borderRadius: '2px', overflow: 'hidden',
-              }}>
+              {!isRealtimeConnected && (
                 <div style={{
-                  width: `${(countdown / 15) * 100}%`,
-                  height: '100%',
-                  background: countdown <= 3 ? '#16a34a' : '#c4992a',
-                  borderRadius: '2px',
-                  transition: 'width 1s linear, background 0.3s',
-                }} />
-              </div>
+                  width: '100%', height: '4px',
+                  background: '#e5e7eb',
+                  borderRadius: '2px', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${(countdown / 15) * 100}%`,
+                    height: '100%',
+                    background: countdown <= 3 ? '#16a34a' : '#c4992a',
+                    borderRadius: '2px',
+                    transition: 'width 1s linear, background 0.3s',
+                  }} />
+                </div>
+              )}
             </div>
           )}
 
