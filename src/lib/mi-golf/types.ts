@@ -46,3 +46,34 @@ export type HistoricalRound = {
   played_at: string | null
   diferencial: number | null
 }
+
+export type NivelNombre = 'Novato' | 'Amateur' | 'Intermedio' | 'Avanzado' | 'Scratch'
+
+export type Nivel = {
+  nombre: NivelNombre
+  indice_min: number
+  indice_max: number
+  posicion_en_banda: number
+  golpes_hasta_siguiente: number | null
+  nombre_siguiente: NivelNombre | null
+}
+
+export type TaigerLineSource =
+  | 'tendencia_mejora'
+  | 'tendencia_empeora'
+  | 'cerca_nivel'
+  | 'taiger_usado'
+  | 'taiger_listo'
+  | 'fallback'
+
+export type TaigerLine = {
+  source: TaigerLineSource
+  texto: string
+  cta_texto: string
+  cta_href: string
+}
+
+export type ComunidadMensaje = {
+  texto: string
+  href: string
+} | null
