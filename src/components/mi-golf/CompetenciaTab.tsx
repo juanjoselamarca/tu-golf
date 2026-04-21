@@ -48,13 +48,13 @@ export function CompetenciaTab(props: Props) {
     <main style={{ padding: '24px 24px 32px', maxWidth: '640px', margin: '0 auto' }}>
       {/* GREETING */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '20px' }}>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: TEXT, fontWeight: 600 }}>
+        <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '22px', color: TEXT, fontWeight: 600 }}>
           Hola, {userName}
         </div>
         {hcpDisplay && (
           <div style={{ fontSize: '12px', color: TEXT_2, fontWeight: 500 }}>
             HCP{' '}
-            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '14px' }}>
+            <span style={{ fontFamily: 'var(--font-playfair)', fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '14px' }}>
               {hcpDisplay}
             </span>
           </div>
@@ -121,7 +121,7 @@ function HeroActiva({
       }}
     >
       <div>
-        <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700, opacity: 0.85, marginBottom: '6px' }}>
+        <div style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700, opacity: 0.85, marginBottom: '6px' }}>
           En juego
         </div>
         <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{ronda.course_name}</div>
@@ -133,10 +133,10 @@ function HeroActiva({
       </div>
       {summary?.scoreParcial != null && (
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '32px', fontWeight: 700, lineHeight: 1 }}>
+          <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '32px', fontWeight: 700, lineHeight: 1 }}>
             {summary.scoreParcial >= 0 ? '+' : ''}{summary.scoreParcial}
           </div>
-          <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, opacity: 0.85 }}>
+          <div style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, opacity: 0.85 }}>
             vs par
           </div>
         </div>
@@ -174,17 +174,17 @@ function HeroProximo({
       }}
     >
       <div>
-        <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700, color: GOLD, marginBottom: '6px' }}>
+        <div style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700, color: GOLD, marginBottom: '6px' }}>
           Próximo compromiso
         </div>
         <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{torneo.name}</div>
         <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>{sub}</div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '32px', fontWeight: 700, lineHeight: 1, color: GOLD }}>
+        <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '32px', fontWeight: 700, lineHeight: 1, color: GOLD }}>
           {countdown}
         </div>
-        <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, color: TEXT_2 }}>
+        <div style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px', fontWeight: 600, color: TEXT_2 }}>
           restantes
         </div>
       </div>
@@ -392,7 +392,7 @@ function TorneoRowFinished({
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         {t.posicionFinal && (
           <>
-            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', fontWeight: 700, color: GOLD }}>
+            <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '16px', fontWeight: 700, color: GOLD }}>
               {t.posicionFinal}
             </div>
             {t.totalJugadores && (
@@ -421,7 +421,7 @@ function Chip({ variant, children }: { variant: 'live' | 'upcoming' | 'finished'
         padding: '2px 8px',
         borderRadius: '10px',
         fontSize: '9px',
-        textTransform: 'uppercase',
+        fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase',
         letterSpacing: '0.06em',
         fontWeight: 700,
         ...styles[variant],
@@ -472,7 +472,7 @@ function Rondas({
             <div style={{ textAlign: 'right' }}>
               {r.total_gross != null && (
                 <>
-                  <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', fontWeight: 700, color: TEXT }}>
+                  <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '16px', fontWeight: 700, color: TEXT }}>
                     {r.total_gross}
                   </div>
                   {esMejor ? (
@@ -537,7 +537,7 @@ function SectionLabel({ label, linkText, linkHref }: { label: string; linkText: 
     <div
       style={{
         fontSize: '10px',
-        textTransform: 'uppercase',
+        fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase',
         letterSpacing: '0.1em',
         color: TEXT_3,
         fontWeight: 700,
@@ -560,7 +560,7 @@ function SubLabel({ children }: { children: React.ReactNode }) {
     <div
       style={{
         fontSize: '9px',
-        textTransform: 'uppercase',
+        fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase',
         letterSpacing: '0.08em',
         color: TEXT_3,
         fontWeight: 700,

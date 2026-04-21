@@ -73,13 +73,13 @@ function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null })
   if (indice == null || !nivel) {
     return (
       <div style={{ textAlign: 'center', marginBottom: '36px' }}>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '72px', fontWeight: 700, color: TEXT_3, lineHeight: 1, letterSpacing: '-0.02em' }}>
+        <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '72px', fontWeight: 700, color: TEXT_3, lineHeight: 1, letterSpacing: '-0.02em' }}>
           —
         </div>
-        <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_2, fontWeight: 600, marginTop: '8px' }}>
+        <div style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_2, fontWeight: 600, marginTop: '8px' }}>
           Índice Golfers+
         </div>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: TEXT, fontWeight: 600, marginTop: '20px' }}>
+        <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '20px', color: TEXT, fontWeight: 600, marginTop: '20px' }}>
           Sin calibrar
         </div>
         <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>
@@ -91,13 +91,13 @@ function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null })
 
   return (
     <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-      <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '72px', fontWeight: 700, color: GOLD, lineHeight: 1, letterSpacing: '-0.02em' }}>
+      <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '72px', fontWeight: 700, color: GOLD, lineHeight: 1, letterSpacing: '-0.02em' }}>
         {indice.toFixed(1)}
       </div>
-      <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_2, fontWeight: 600, marginTop: '8px' }}>
+      <div style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_2, fontWeight: 600, marginTop: '8px' }}>
         Índice Golfers+
       </div>
-      <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: TEXT, fontWeight: 600, marginTop: '20px' }}>
+      <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '20px', color: TEXT, fontWeight: 600, marginTop: '20px' }}>
         {nivel.nombre}
       </div>
       {nivel.nombre_siguiente && nivel.golpes_hasta_siguiente != null && (
@@ -148,7 +148,7 @@ function LevelsBar({ nivel }: { nivel: Nivel }) {
           )
         })}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '3px', fontSize: '8.5px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, textAlign: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '3px', fontSize: '8.5px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, textAlign: 'center' }}>
         {NIVELES_ORDEN.map((n) => (
           <div
             key={n}
@@ -168,7 +168,7 @@ function Progreso({ label, actual, total }: { label: string; actual: number; tot
     <div style={{ marginBottom: '18px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
         <span style={{ fontSize: '13px', color: TEXT, fontWeight: 500 }}>{label}</span>
-        <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '14px', fontWeight: 700, color: GOLD }}>{pct}%</span>
+        <span style={{ fontFamily: 'var(--font-playfair)', fontSize: '14px', fontWeight: 700, color: GOLD }}>{pct}%</span>
       </div>
       <div style={{ height: '3px', background: BORDER, borderRadius: '2px', overflow: 'hidden' }}>
         <div style={{ height: '100%', background: GOLD, width: `${pct}%`, borderRadius: '2px' }} />
@@ -225,7 +225,7 @@ function TuJuego({ stats }: { stats: StatsForma }) {
 function TaigerCard({ line }: { line: TaigerLine }) {
   return (
     <div style={{ marginTop: '28px', padding: '14px 16px', background: BG_SOFT, borderRadius: '10px', borderLeft: `2px solid ${GOLD}` }}>
-      <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: GOLD, fontWeight: 700, marginBottom: '6px' }}>
+      <div style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', color: GOLD, fontWeight: 700, marginBottom: '6px' }}>
         tAIger Coach
       </div>
       <div style={{ fontSize: '13px', color: TEXT, fontWeight: 500, lineHeight: 1.45, marginBottom: '8px' }}>{line.texto}</div>
@@ -241,7 +241,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <div
       style={{
         fontSize: '10px',
-        textTransform: 'uppercase',
+        fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase',
         letterSpacing: '0.1em',
         color: TEXT_3,
         fontWeight: 700,
