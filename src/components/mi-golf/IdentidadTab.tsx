@@ -1,367 +1,254 @@
 // src/components/mi-golf/IdentidadTab.tsx
 import Link from 'next/link'
-import type { Insight, StatsForma, Tendencia } from '@/lib/mi-golf/types'
+import type { Nivel, StatsForma, TaigerLine } from '@/lib/mi-golf/types'
+import { NIVELES_ORDEN } from '@/lib/mi-golf/niveles'
 
 type Props = {
   userName: string
   indiceGolfers: number | null
+  nivel: Nivel | null
   rondasConDiferencial: number
   totalRounds: number
   taigerSessionCount: number
-  tendencia: Tendencia
   stats: StatsForma
-  insight: Insight
-  cpiScore: number | null
-  cpiStatus: string | null
+  taigerLine: TaigerLine
 }
 
-const cardStyle: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e5e5e5',
-  borderRadius: '12px',
-  padding: '16px',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-}
+const GOLD = '#c4992a'
+const TEXT = '#1a1a1a'
+const TEXT_2 = '#666'
+const TEXT_3 = '#999'
+const BORDER = '#e8e8e8'
+const BG_SOFT = '#fafafa'
 
 export function IdentidadTab(props: Props) {
-  const { userName, indiceGolfers, rondasConDiferencial, totalRounds, taigerSessionCount, tendencia, stats, insight, cpiScore, cpiStatus } = props
+  const { userName, indiceGolfers, nivel, rondasConDiferencial, totalRounds, taigerSessionCount, stats, taigerLine } = props
+  void userName
+
+  const mostrarBarraCalibracion = rondasConDiferencial < 3
+  const mostrarBarraTaiger = totalRounds < 5 || taigerSessionCount === 0
+  const mostrarSeccionProgresos = mostrarBarraCalibracion || mostrarBarraTaiger
+
+  const mostrarSeccionTuJuego =
+    stats.mejorScore != null ||
+    stats.canchaFavorita != null ||
+    stats.rondasJugadas > 0 ||
+    stats.promedioUltimas5 != null
 
   return (
-    <main style={{ padding: '16px 16px 80px', maxWidth: '640px', margin: '0 auto' }}>
-      <HeroIdentidad
-        userName={userName}
-        indiceGolfers={indiceGolfers}
-        rondasConDiferencial={rondasConDiferencial}
-        tendencia={tendencia}
-      />
-      <TaigerCoachCard taigerSessionCount={taigerSessionCount} />
-      <InsightDelDia insight={insight} />
-      {totalRounds > 0 && <StatsGrid stats={stats} />}
-      <ProgresoHitos
-        totalRounds={totalRounds}
-        rondasConDiferencial={rondasConDiferencial}
-        taigerSessionCount={taigerSessionCount}
-        cpiScore={cpiScore}
-        cpiStatus={cpiStatus}
-      />
-      <Link
-        href="/perfil/historial"
-        style={{
-          display: 'block',
-          textAlign: 'center',
-          padding: '14px',
-          marginTop: '20px',
-          background: '#ffffff',
-          border: '1px solid #e5e5e5',
-          borderRadius: '12px',
-          color: '#1a1a1a',
-          fontSize: '14px',
-          fontWeight: 600,
-          textDecoration: 'none',
-        }}
-      >
-        Ver mi historial completo →
-      </Link>
+    <main style={{ padding: '32px 24px 32px', maxWidth: '640px', margin: '0 auto' }}>
+      {/* HERO */}
+      <Hero indice={indiceGolfers} nivel={nivel} />
+
+      {/* LEVELS BAR */}
+      {nivel && <LevelsBar nivel={nivel} />}
+
+      {/* PROGRESOS */}
+      {mostrarSeccionProgresos && (
+        <div style={{ margin: '40px 0 0' }}>
+          <SectionLabel>Progresos</SectionLabel>
+          {mostrarBarraCalibracion && (
+            <Progreso
+              label="Calibración del índice"
+              actual={rondasConDiferencial}
+              total={3}
+            />
+          )}
+          {mostrarBarraTaiger && (
+            <Progreso label="Desbloqueo tAIger+" actual={Math.min(totalRounds, 5)} total={5} />
+          )}
+        </div>
+      )}
+
+      {/* TU JUEGO */}
+      {mostrarSeccionTuJuego && <TuJuego stats={stats} />}
+
+      {/* TAIGER LINE */}
+      <TaigerCard line={taigerLine} />
     </main>
   )
 }
 
-function HeroIdentidad({
-  userName,
-  indiceGolfers,
-  rondasConDiferencial,
-  tendencia,
-}: {
-  userName: string
-  indiceGolfers: number | null
-  rondasConDiferencial: number
-  tendencia: Tendencia
-}) {
-  return (
-    <section style={{ marginBottom: '16px', ...cardStyle, padding: '20px' }}>
-      <div
-        style={{
-          fontFamily: '"Playfair Display", serif',
-          fontSize: '24px',
-          color: '#1a1a1a',
-          marginBottom: '12px',
-        }}
-      >
-        {userName}
+function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null }) {
+  if (indice == null || !nivel) {
+    return (
+      <div style={{ textAlign: 'center', marginBottom: '36px' }}>
+        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '72px', fontWeight: 700, color: TEXT_3, lineHeight: 1, letterSpacing: '-0.02em' }}>
+          —
+        </div>
+        <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_2, fontWeight: 600, marginTop: '8px' }}>
+          Índice Golfers+
+        </div>
+        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: TEXT, fontWeight: 600, marginTop: '20px' }}>
+          Sin calibrar
+        </div>
+        <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>
+          Jugá 3 rondas en canchas con slope/rating para desbloquear
+        </div>
       </div>
+    )
+  }
 
-      {indiceGolfers != null ? (
-        <>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-            <span
-              style={{
-                fontFamily: '"Playfair Display", serif',
-                fontSize: '56px',
-                color: '#c4992a',
-                fontWeight: 700,
-                lineHeight: 1,
-              }}
-            >
-              {indiceGolfers.toFixed(1)}
-            </span>
-            <span style={{ fontSize: '13px', color: '#666' }}>Índice Golfers+</span>
-          </div>
-          {tendencia && (
-            <div
-              style={{
-                marginTop: '8px',
-                fontSize: '13px',
-                color: tendencia.direccion === 'up' ? '#2d7a3e' : tendencia.direccion === 'down' ? '#c44040' : '#666',
-                fontWeight: 600,
-              }}
-            >
-              {tendencia.direccion === 'up' && `▲ Mejoró ${tendencia.delta.toFixed(1)} en ${tendencia.dias} días`}
-              {tendencia.direccion === 'down' && `▼ Subió ${tendencia.delta.toFixed(1)} en ${tendencia.dias} días`}
-              {tendencia.direccion === 'flat' && `— Estable en ${tendencia.dias} días`}
-            </div>
-          )}
-          <div
-            style={{
-              marginTop: '12px',
-              display: 'inline-block',
-              background: '#f0f5f0',
-              color: '#2d7a3e',
-              padding: '3px 10px',
-              borderRadius: '20px',
-              fontSize: '11px',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            Activo
-          </div>
-        </>
-      ) : rondasConDiferencial > 0 ? (
-        <>
-          <div style={{ fontSize: '14px', color: '#1a1a1a', fontWeight: 600, marginBottom: '8px' }}>
-            Calibrando {rondasConDiferencial} de 3 rondas
-          </div>
-          <div style={{ background: '#f0f0f0', borderRadius: '6px', height: '6px', overflow: 'hidden' }}>
-            <div style={{ background: '#c4992a', height: '100%', width: `${(rondasConDiferencial / 3) * 100}%` }} />
-          </div>
-          <div style={{ fontSize: '12px', color: '#666', marginTop: '6px' }}>
-            Juega {3 - rondasConDiferencial} ronda{3 - rondasConDiferencial !== 1 ? 's' : ''} más en canchas con slope/rating
-          </div>
-        </>
-      ) : (
-        <div style={{ fontSize: '14px', color: '#666' }}>
-          Juega 3 rondas en canchas con slope/rating para desbloquear tu Índice Golfers+
+  return (
+    <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+      <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '72px', fontWeight: 700, color: GOLD, lineHeight: 1, letterSpacing: '-0.02em' }}>
+        {indice.toFixed(1)}
+      </div>
+      <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_2, fontWeight: 600, marginTop: '8px' }}>
+        Índice Golfers+
+      </div>
+      <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: TEXT, fontWeight: 600, marginTop: '20px' }}>
+        {nivel.nombre}
+      </div>
+      {nivel.nombre_siguiente && nivel.golpes_hasta_siguiente != null && (
+        <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>
+          {nivel.golpes_hasta_siguiente.toFixed(1)} golpes para pasar a {nivel.nombre_siguiente}
         </div>
       )}
-    </section>
+    </div>
   )
 }
 
-function TaigerCoachCard({ taigerSessionCount }: { taigerSessionCount: number }) {
-  const hasUsed = taigerSessionCount > 0
+function LevelsBar({ nivel }: { nivel: Nivel }) {
+  const currentIdx = NIVELES_ORDEN.indexOf(nivel.nombre)
   return (
-    <section style={{ marginBottom: '16px', ...cardStyle, borderLeft: '3px solid #c4992a' }}>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        tAIger Coach
-      </div>
-      {hasUsed ? (
-        <>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a', marginTop: '6px' }}>
-            Último análisis completado
-          </div>
-          <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
-            Revisa los patrones detectados en tu juego reciente.
-          </div>
-          <Link
-            href="/coach"
-            style={{
-              display: 'inline-block',
-              marginTop: '10px',
-              fontSize: '13px',
-              fontWeight: 600,
-              color: '#c4992a',
-              textDecoration: 'none',
-            }}
-          >
-            Ver sesión →
-          </Link>
-        </>
-      ) : (
-        <>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a', marginTop: '6px' }}>
-            Tu coach con IA está listo
-          </div>
-          <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
-            Analiza tus últimas rondas y encuentra patrones para mejorar.
-          </div>
-          <Link
-            href="/coach"
-            style={{
-              display: 'inline-block',
-              marginTop: '12px',
-              padding: '8px 16px',
-              background: '#c4992a',
-              color: '#ffffff',
-              borderRadius: '20px',
-              fontSize: '13px',
-              fontWeight: 700,
-              textDecoration: 'none',
-            }}
-          >
-            Hablar con tAIger
-          </Link>
-        </>
-      )}
-    </section>
-  )
-}
-
-function InsightDelDia({ insight }: { insight: Insight }) {
-  return (
-    <section style={{ marginBottom: '16px', ...cardStyle, background: '#fafafa' }}>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Insight del día
-      </div>
-      <div style={{ fontSize: '15px', color: '#1a1a1a', fontWeight: 500, marginTop: '6px' }}>
-        {insight.titulo}
-      </div>
-      {insight.detalle && (
-        <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>{insight.detalle}</div>
-      )}
-      {insight.href && (
-        <Link
-          href={insight.href}
-          style={{
-            display: 'inline-block',
-            marginTop: '8px',
-            fontSize: '13px',
-            fontWeight: 600,
-            color: '#c4992a',
-            textDecoration: 'none',
-          }}
-        >
-          Ver más →
-        </Link>
-      )}
-    </section>
-  )
-}
-
-function StatsGrid({ stats }: { stats: StatsForma }) {
-  const cells: Array<{ label: string; value: string; sub?: string }> = [
-    {
-      label: 'Promedio últimas 5',
-      value: stats.promedioUltimas5 != null ? stats.promedioUltimas5.toFixed(1) : '—',
-      sub: 'golpes',
-    },
-    {
-      label: 'Mejor score',
-      value: stats.mejorScore ? String(stats.mejorScore.gross) : '—',
-      sub: stats.mejorScore ? `${stats.mejorScore.vsPar >= 0 ? '+' : ''}${stats.mejorScore.vsPar} vs par` : undefined,
-    },
-    { label: 'Rondas jugadas', value: String(stats.rondasJugadas) },
-    {
-      label: 'Cancha más jugada',
-      value: stats.canchaFavorita?.nombre ?? '—',
-      sub: stats.canchaFavorita ? `${stats.canchaFavorita.vecesJugada} veces` : undefined,
-    },
-  ]
-
-  return (
-    <section style={{ marginBottom: '16px' }}>
-      <div
-        style={{
-          fontSize: '11px',
-          fontWeight: 700,
-          color: '#888',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          marginBottom: '8px',
-          paddingLeft: '4px',
-        }}
-      >
-        Forma
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-        {cells.map((c) => (
-          <div key={c.label} style={{ ...cardStyle, padding: '14px' }}>
-            <div style={{ fontSize: '11px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-              {c.label}
+    <div style={{ margin: '24px 0 0' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '3px', marginBottom: '8px' }}>
+        {NIVELES_ORDEN.map((n, i) => {
+          const isPast = i < currentIdx
+          const isCurrent = i === currentIdx
+          const pct = Math.round(nivel.posicion_en_banda * 100)
+          const style: React.CSSProperties = {
+            height: '4px',
+            borderRadius: '2px',
+            position: 'relative',
+            background: isPast
+              ? GOLD
+              : isCurrent
+              ? `linear-gradient(to right, ${GOLD} ${pct}%, ${BORDER} ${pct}%)`
+              : BORDER,
+          }
+          return (
+            <div key={n} style={style}>
+              {isCurrent && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-11px',
+                    left: `${pct}%`,
+                    transform: 'translateX(-50%)',
+                    color: GOLD,
+                    fontSize: '7px',
+                  }}
+                >
+                  ▼
+                </span>
+              )}
             </div>
-            <div
-              style={{
-                fontSize: c.label === 'Cancha más jugada' ? '14px' : '22px',
-                fontWeight: 700,
-                color: '#1a1a1a',
-                marginTop: '4px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {c.value}
-            </div>
-            {c.sub && <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>{c.sub}</div>}
+          )
+        })}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '3px', fontSize: '8.5px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, textAlign: 'center' }}>
+        {NIVELES_ORDEN.map((n) => (
+          <div
+            key={n}
+            style={{ color: n === nivel.nombre ? GOLD : TEXT_3, fontWeight: n === nivel.nombre ? 700 : 600 }}
+          >
+            {n}
           </div>
         ))}
       </div>
-    </section>
+    </div>
   )
 }
 
-function ProgresoHitos({
-  totalRounds,
-  rondasConDiferencial,
-  taigerSessionCount,
-  cpiScore,
-  cpiStatus,
-}: {
-  totalRounds: number
-  rondasConDiferencial: number
-  taigerSessionCount: number
-  cpiScore: number | null
-  cpiStatus: string | null
-}) {
-  let hito: { texto: string; progreso: number } | null = null
+function Progreso({ label, actual, total }: { label: string; actual: number; total: number }) {
+  const pct = Math.max(0, Math.min(100, Math.round((actual / total) * 100)))
+  return (
+    <div style={{ marginBottom: '18px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+        <span style={{ fontSize: '13px', color: TEXT, fontWeight: 500 }}>{label}</span>
+        <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '14px', fontWeight: 700, color: GOLD }}>{pct}%</span>
+      </div>
+      <div style={{ height: '3px', background: BORDER, borderRadius: '2px', overflow: 'hidden' }}>
+        <div style={{ height: '100%', background: GOLD, width: `${pct}%`, borderRadius: '2px' }} />
+      </div>
+    </div>
+  )
+}
 
-  if (rondasConDiferencial < 3) {
-    hito = {
-      texto: `${3 - rondasConDiferencial} ronda${3 - rondasConDiferencial !== 1 ? 's' : ''} más para tu índice oficial`,
-      progreso: rondasConDiferencial / 3,
-    }
-  } else if (totalRounds < 5) {
-    hito = {
-      texto: `${5 - totalRounds} ronda${5 - totalRounds !== 1 ? 's' : ''} más para activar tAIger+`,
-      progreso: totalRounds / 5,
-    }
-  } else if (taigerSessionCount === 0) {
-    hito = {
-      texto: 'Probá tu primera sesión con tAIger+',
-      progreso: 0,
-    }
+function TuJuego({ stats }: { stats: StatsForma }) {
+  const rows: Array<{ key: string; value: string; sub?: string }> = []
+  if (stats.mejorScore != null) {
+    rows.push({
+      key: 'Mejor score',
+      value: String(stats.mejorScore.gross),
+      sub: `${stats.mejorScore.vsPar >= 0 ? '+' : ''}${stats.mejorScore.vsPar} vs par`,
+    })
   }
-
-  if (!hito && cpiScore == null) return null
+  if (stats.canchaFavorita) {
+    rows.push({ key: 'Cancha favorita', value: stats.canchaFavorita.nombre, sub: `· ${stats.canchaFavorita.vecesJugada} veces` })
+  }
+  if (stats.rondasJugadas > 0) {
+    rows.push({ key: 'Rondas jugadas', value: String(stats.rondasJugadas) })
+  }
+  if (stats.promedioUltimas5 != null) {
+    rows.push({ key: 'Promedio últimas 5', value: stats.promedioUltimas5.toFixed(1), sub: 'golpes' })
+  }
+  if (rows.length === 0) return null
 
   return (
-    <section style={{ marginBottom: '16px', ...cardStyle }}>
-      {hito && (
-        <>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px' }}>
-            {hito.texto}
-          </div>
-          <div style={{ background: '#f0f0f0', borderRadius: '6px', height: '6px', overflow: 'hidden' }}>
-            <div style={{ background: '#c4992a', height: '100%', width: `${hito.progreso * 100}%` }} />
-          </div>
-        </>
-      )}
-      {cpiScore != null && (
-        <div style={{ marginTop: hito ? '12px' : 0, fontSize: '12px', color: '#666' }}>
-          CPI: <span style={{ color: '#1a1a1a', fontWeight: 600 }}>{cpiScore}</span>
-          {cpiStatus && <span style={{ marginLeft: '8px' }}>({cpiStatus})</span>}
+    <div style={{ marginTop: '36px', paddingTop: '24px', borderTop: `1px solid ${BORDER}` }}>
+      <SectionLabel>Tu juego</SectionLabel>
+      {rows.map((r, i) => (
+        <div
+          key={r.key}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            padding: '10px 0',
+            borderBottom: i === rows.length - 1 ? 'none' : `1px solid ${BORDER}`,
+          }}
+        >
+          <span style={{ fontSize: '13px', color: TEXT_2 }}>{r.key}</span>
+          <span style={{ fontSize: '14px', color: TEXT, fontWeight: 600 }}>
+            {r.value}
+            {r.sub && <span style={{ fontWeight: 400, color: TEXT_3, marginLeft: '4px', fontSize: '12px' }}>{r.sub}</span>}
+          </span>
         </div>
-      )}
-    </section>
+      ))}
+    </div>
+  )
+}
+
+function TaigerCard({ line }: { line: TaigerLine }) {
+  return (
+    <div style={{ marginTop: '28px', padding: '14px 16px', background: BG_SOFT, borderRadius: '10px', borderLeft: `2px solid ${GOLD}` }}>
+      <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: GOLD, fontWeight: 700, marginBottom: '6px' }}>
+        tAIger Coach
+      </div>
+      <div style={{ fontSize: '13px', color: TEXT, fontWeight: 500, lineHeight: 1.45, marginBottom: '8px' }}>{line.texto}</div>
+      <Link href={line.cta_href} style={{ fontSize: '12px', color: GOLD, fontWeight: 600, textDecoration: 'none' }}>
+        {line.cta_texto}
+      </Link>
+    </div>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: '10px',
+        textTransform: 'uppercase',
+        letterSpacing: '0.1em',
+        color: TEXT_3,
+        fontWeight: 700,
+        marginBottom: '16px',
+      }}
+    >
+      {children}
+    </div>
   )
 }
