@@ -4,6 +4,8 @@ Live scoring para torneos amateur de golf · https://golfersplus.vercel.app
 
 Next.js 14 · TypeScript · Tailwind · Supabase · Vercel
 
+> **¿Primer día en el proyecto?** Empezá por [docs/ONBOARDING.md](docs/ONBOARDING.md) — ruta de lectura ordenada, ~45 min para estar operativo.
+
 ---
 
 ## Documentación
@@ -12,7 +14,8 @@ Este README es solo el punto de entrada. La documentación viva está en `docs/`
 
 | Documento | Para qué sirve |
 |-----------|----------------|
-| [docs/ESTADO_ACTUAL.md](docs/ESTADO_ACTUAL.md) | Snapshot del último deploy (auto-generado). **Empezar aquí.** |
+| [docs/ONBOARDING.md](docs/ONBOARDING.md) | Ruta de lectura para devs nuevos (45 min). **Si es tu primer día, empezá aquí.** |
+| [docs/ESTADO_ACTUAL.md](docs/ESTADO_ACTUAL.md) | Snapshot del último deploy (auto-generado). |
 | [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | Stack, schema BD completo, motor `src/golf/`, design system |
 | [docs/ROADMAP_COMPLETO.md](docs/ROADMAP_COMPLETO.md) | Qué viene después |
 | [docs/SPRINT_LOG.md](docs/SPRINT_LOG.md) | Historial de sprints (entrada nueva al inicio) |
