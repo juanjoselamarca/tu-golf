@@ -174,6 +174,91 @@ Hay un git hook en .git/hooks/pre-push que bloquea push si:
 - Build falla
 Este hook NO se puede desactivar sin aprobación explícita del usuario.
 
+## CONVENCIONES DE TRABAJO — escalables y portables
+
+Estas reglas valen para cualquier dev/CTO que entre al proyecto. No son preferencias
+personales: son invariantes que protegen la calidad y la continuidad.
+
+### 1. Commits puros — un scope por commit
+Un commit = una intención. Nunca mezclar `refactor` con `feature` ni con `fix`.
+Si un cambio requiere las dos cosas, hacer dos commits separados.
+
+**Por qué:** si algo rompe, querés poder revertir un solo scope sin perder el resto.
+Además, el historial se vuelve legible como narrativa.
+
+**Ejemplo real (violación):** commit `2dcc4b0` bundled offline resilience + refactor
+`score-storage`. Causó un deploy fail de Vercel porque el import del nuevo módulo
+llegó a main antes del archivo. Ver nota en `docs/SPRINT_LOG.md`.
+
+### 2. Staging cuidadoso — `git diff` antes de `git add`
+Siempre inspeccionar el diff antes de stagear. Nunca `git add .` ni `git add -A`
+si hay WIP ajeno en el tree (Juanjo trabaja en paralelo y puede tener módulos
+untracked que aún no compilan).
+
+**Por qué:** `tsc` local puede pasar con un módulo untracked que referencia otro
+también untracked; al pushear solo uno, la build de Vercel falla con módulo
+faltante. Incidente real el 2026-04-20.
+
+### 3. WIP > 48h — branch o delete
+Cambios sin comitear que llevan más de 48h en el tree deben:
+- moverse a una branch (`git stash` o `git switch -c wip/nombre`), o
+- descartarse si ya no son relevantes.
+
+**Por qué:** WIP viejo en el tree se convierte en deuda silenciosa. Nadie se
+anima a tocar `src/app/foo/page.tsx` si tiene modificaciones de hace 3 semanas
+de origen desconocido.
+
+### 4. Archivo de docs por trimestre
+Docs one-off (auditorías, informes, planes de período cerrado) se mueven a
+`docs/archive/YYYY-QN/` con `git mv` para preservar historial. Criterio completo
+en [docs/archive/README.md](docs/archive/README.md).
+
+**Por qué:** `docs/` raíz debe contener solo docs vivos. Un nuevo dev que entra
+no tiene que adivinar qué es estado actual y qué es arqueología.
+
+### 5. SPRINT_LOG — nueva entrada AL INICIO
+Cada sprint agrega entrada arriba del archivo, nunca abajo. Formato consistente:
+`## Sesión DD Mes AAAA — Título`, con subsecciones Problema / Solución /
+Archivos tocados / Verificación / Commits.
+
+**Por qué:** el lector que abre SPRINT_LOG quiere ver lo último primero.
+
+### 6. Español LatAm neutro para strings de usuario
+Usar `tú`, nunca `vos`. Spanglish golf OK (bogey, birdie, handicap). Los strings
+que ve el jugador en cancha deben ser naturales en Chile, México, Argentina y
+España sin sonar forzados.
+
+**Por qué:** clubes chilenos son el lanzamiento inicial, pero la base de usuarios
+es regional.
+
+### 7. Conceptos de golf — verificar, nunca asumir
+Antes de implementar cualquier lógica de golf (handicap, stableford, match play,
+countback, WHS), validar contra reglas reales (USGA, R&A, Chile Golf). Nunca
+asumir que "suena lógico".
+
+**Por qué:** error real previo confundiendo `handicap` con `índice`. Los
+jugadores notan un cálculo mal hecho en segundos y no vuelven. Motor centralizado
+en `src/golf/` justamente para que haya una sola fuente verificada.
+
+### 8. Testing funcional con datos reales
+Para cambios que tocan BD: no basta con `curl` validando status 200. Hacer
+INSERTs reales contra la BD de staging/dev y verificar que `CHECK constraints`
+y `RLS` se respetan.
+
+**Por qué:** `curl` no detecta constraints violations. Incidente real en
+inscripción de jugadores donde el endpoint respondía 200 pero la fila nunca
+llegaba por constraint.
+
+### 9. Pensar a futuro en cada decisión
+Toda decisión técnica se evalúa por escalabilidad. No hay "arreglo rápido que
+después mejoramos" — el después nunca llega. Si no hay tiempo para hacerlo bien,
+no se hace.
+
+**Por qué:** Golfers+ se usa en torneos reales. Un parche temporal que se rompe
+durante un campeonato es irreparable reputacionalmente.
+
+---
+
 ## SOBRE ONEDRIVE Y .next
 
 OneDrive puede corromper la carpeta .next por sincronización.
