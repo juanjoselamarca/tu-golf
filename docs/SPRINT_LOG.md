@@ -4,6 +4,72 @@
 
 ---
 
+## Sesión 20 Abr 2026 — Rondas Refactor Sprint 1 (extracción pura)
+
+**Fecha:** 20 Abr 2026
+**Estado:** EN CURSO — Sprint 1 avanzado, múltiples commits en `main`
+**Plan:** [docs/superpowers/plans/2026-04-20-rondas-refactor-sprint-1.md](superpowers/plans/2026-04-20-rondas-refactor-sprint-1.md)
+
+### Problema
+Los 4 client components de `src/app/ronda-libre/` (nueva, `[codigo]`, score, score-grupo) sumaban 7384 LOC con lógica pura, hooks, UI y storage mezclados. Bloqueaba Sprints 2-4 (offline queue con IndexedDB, realtime, UX scorer grupo, históricas).
+
+### Solución
+Extracción pura sin cambio de comportamiento. Cada task = un commit independiente que pasa `tsc` + `test` + `build`. Si algo falla, se revierte ese commit y punto. Zero behavior drift = zero field risk.
+
+### Commits cerrados (8)
+| Commit | Qué extrae | Destino |
+|--------|-----------|---------|
+| `852a305` | Helpers puros (`generarOrdenHoyos`, `getVsPar`, `haptic`, `getChipStyle`, `buildTimelineEvents`, etc.) | `src/lib/ronda/helpers.ts` + tests |
+| `3e08876` | `lsKey/lsSave/lsLoad/lsClear` — prepara queue IndexedDB para Sprint 2 | `src/lib/ronda/score-storage.ts` + tests |
+| `41ac2df` | `ShareMenu` (bottom sheet con Web Share API + fallback WhatsApp) | `src/components/ronda/ShareMenu.tsx` |
+| `37673fb` | `NotifBanner` | `src/components/ronda/NotifBanner.tsx` |
+| `ad76188` | `AuthModal` | `src/components/ronda/AuthModal.tsx` |
+| `8de5609` | `rankTeams()` — deduplicado del bloque duplicado en `[codigo]/page.tsx` | `src/lib/ronda/team-ranking.ts` + tests (3 formatos × 2 modos) |
+| `7b797bf` | Hook `useOnlineStatus` | `src/hooks/ronda/useOnlineStatus.ts` |
+| `c381d0a` | Hook `useCountdown` (prep Sprint 2 realtime swap) | `src/hooks/ronda/useCountdown.ts` |
+
+### Regla de commits puros (violada y revertida)
+`6d50b9a` — revert de un bloque anti-race que se coló en el commit T2. Violaba el scope de "refactor puro". Se revirtió en el mismo día. Regla: **un scope por commit, refactor NO se mezcla con fix/feature**.
+
+### Archivos protegidos respetados
+Ningún commit toca `src/components/Navbar.tsx`, `src/app/layout.tsx`, `src/middleware.ts`, `src/lib/supabase.ts`.
+
+### Pendiente del sprint
+Extracciones restantes (useRondaData, scoring hooks, data fetching) para cerrar Sprint 1 antes de arrancar Sprint 2 (offline queue con IndexedDB).
+
+---
+
+## Sesión 20 Abr 2026 — Resiliencia offline en flujos de scoring
+
+**Fecha:** 20 Abr 2026
+**Estado:** COMPLETO — commit `2dcc4b0` en `main`
+**Impacto:** P0 — scoring de torneo sobrevive conectividad intermitente en cancha
+
+### Problema
+Los flujos de scoring (torneo individual, score-grupo/equipo, finalizar ronda) no manejaban pérdida de conexión de forma resiliente. Un jugador en cancha con 3G débil podía perder el score ingresado si la request fallaba.
+
+### Solución
+- Banner offline visible cuando `navigator.onLine === false`
+- Persistencia local inmediata (localStorage) antes del POST a Supabase
+- Reintento al recuperar conectividad
+- Visual claro del estado (guardado local vs sincronizado)
+
+### Archivos tocados
+- `src/app/ronda-libre/[codigo]/score/page.tsx`
+- `src/app/ronda-libre/[codigo]/score-grupo/page.tsx`
+- `src/app/ronda-libre/[codigo]/finalizar/page.tsx`
+- `src/components/OfflineBanner.tsx`
+
+### Verificación
+- tsc: 0 errores
+- Tests: 1019/1019 (49 archivos)
+- Build: exitoso tras `rm -rf .next` (workaround OneDrive/Windows EINVAL)
+
+### Nota de deploy
+Commit `2dcc4b0` bundled offline resilience **y** la extracción T3 (`score-storage.ts`). Violación suave de "commits puros" que causó fricción posterior: el deploy de Vercel falló por el módulo `@/lib/ronda/score-storage` faltante hasta que `3e08876` resolvió el import. Lección: aunque sean del mismo día, separar feature de refactor incluso cuando "es conveniente".
+
+---
+
 ## Sesión 20 Abr 2026 — Rediseño "Mi Golf" con 2 sub-pestañas (Competencia + Identidad)
 
 **Fecha:** 20 Abr 2026
