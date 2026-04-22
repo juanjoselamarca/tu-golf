@@ -1,824 +1,262 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { GWIDisplay } from '@/components/GWIDisplay'
 
-interface DemoProfile {
-  player: { name: string; pais: string; indice: number; categoria: string; member_since: string }
-  gwi: number; gwi_delta: number; gwi_level: string; gwi_series: number[]
-  cpi: { score: number; trend: number; status: string }
-  stats: {
-    avg_score: number; best_score: number; worst_score: number; total_rounds: number
-    avg_putts: number; gir_pct: number; fairways_pct: number
-    front9_avg: number; back9_avg: number
-    par3_avg: number; par4_avg: number; par5_avg: number
-    scoring_trend: number[]
-    birdies_total: number; eagles_total: number; bogeys_total: number; pars_total: number; doubles_total: number
-  }
-  patterns: Array<{ type: string; active: boolean; color: string; title: string; description: string }>
-  historial: Array<{
-    index: number; date: string; course: string; gross: number; neto: number
-    score_vs_par: number; front9: number; back9: number; scores: number[]
-    gir: number; putts: number; fairways: number
-  }>
+/* ── Theme tokens (coherente con signup + ranking + torneo form) ───── */
+const theme = {
+  bg: '#ffffff',
+  card: '#ffffff',
+  text: '#1a1a2e',
+  textMuted: '#4a5568',
+  textFaint: '#94a3b8',
+  border: '#e2e8f0',
+  borderSoft: '#edf1f5',
+  gold: '#c4992a',
+} as const
+
+interface DemoCard {
+  href: string
+  title: string
+  description: string
+  eyebrow: string
+  accent: 'gold' | 'blue' | 'green' | 'violet'
+  liveBadge?: boolean
 }
 
-const TABS = ['Resumen', 'Estadísticas', 'Análisis', 'Historial']
-const GOLD = '#c4992a'
-const BG = '#070d18'
-const CARD = 'rgba(255,255,255,0.03)'
-const CARD_BORDER = 'rgba(255,255,255,0.06)'
-const GREEN = '#00e676'
-const RED = '#ff1744'
-const MUTED = 'rgba(255,255,255,0.55)'
-const MONO = 'var(--font-dm-mono), monospace'
-const SERIF = 'var(--font-cormorant), serif'
+const CARDS: DemoCard[] = [
+  {
+    href: '/ronda-libre/DEMO01',
+    title: 'Ronda amistosa',
+    description: 'Seguí 8 jugadores scoreando en tiempo real en Los Leones. Leaderboard, stableford, neto — todo funcionando.',
+    eyebrow: 'Espectador en vivo',
+    accent: 'gold',
+    liveBadge: true,
+  },
+  {
+    href: '/torneo/demo-copa-chile-2026',
+    title: 'Copa Golfers+ Chile',
+    description: 'Torneo de exhibición con el formato completo: leaderboard oficial, handicap, formato Stroke Play.',
+    eyebrow: 'Torneo demo',
+    accent: 'blue',
+  },
+  {
+    href: '/ranking',
+    title: 'Ranking Chile',
+    description: 'Top 50 jugadores por Índice Golfers+ — el cálculo propio de la app basado en los mejores diferenciales.',
+    eyebrow: 'Ranking nacional',
+    accent: 'violet',
+  },
+  {
+    href: '/indices',
+    title: 'Intelligence',
+    description: 'Laboratorio de fórmulas: cómo calculamos el Índice Golfers+, el CPI, y las métricas de coaching.',
+    eyebrow: 'Bajo el capó',
+    accent: 'green',
+  },
+]
 
-const cpiLevelLabel = (score: number) => {
-  if (score >= 75) return 'Forma excepcional'
-  if (score >= 60) return 'En forma'
-  if (score >= 40) return 'Estable'
-  if (score >= 25) return 'Bajo su nivel'
-  return 'Fuera de forma'
-}
-
-const cpiLevelColor = (score: number) => {
-  if (score >= 75) return GREEN
-  if (score >= 60) return GOLD
-  if (score >= 40) return 'rgba(255,255,255,0.6)'
-  if (score >= 25) return '#ffab40'
-  return RED
+const ACCENT_STYLES: Record<DemoCard['accent'], { border: string; shadow: string; eyebrow: string }> = {
+  gold:   { border: '#c4992a', shadow: '0 4px 20px rgba(196,153,42,0.10)',  eyebrow: '#c4992a' },
+  blue:   { border: '#2563eb', shadow: '0 4px 20px rgba(37,99,235,0.08)',   eyebrow: '#2563eb' },
+  green:  { border: '#16a34a', shadow: '0 4px 20px rgba(22,163,74,0.08)',   eyebrow: '#16a34a' },
+  violet: { border: '#7c3aed', shadow: '0 4px 20px rgba(124,58,237,0.08)',  eyebrow: '#7c3aed' },
 }
 
 export default function DemoPage() {
-  const [data, setData] = useState<DemoProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState(0)
-  const [courseFilter, setCourseFilter] = useState('Todo')
-  const [showAll, setShowAll] = useState(false)
-  const [showCpiInfo, setShowCpiInfo] = useState(false)
-  const [expandedRonda, setExpandedRonda] = useState<number | null>(null)
-
-  useEffect(() => {
-    fetch('/api/demo/profile')
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [])
-
-  if (loading) return (
-    <div style={{ background: BG, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: MUTED, fontFamily: MONO, fontSize: '13px' }}>Cargando perfil demo...</div>
-    </div>
-  )
-
-  if (!data) return (
-    <div style={{ background: BG, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: RED, fontFamily: MONO, fontSize: '13px' }}>Error al cargar datos demo</div>
-    </div>
-  )
-
-  const { player, stats, patterns, historial } = data
-
-  const filteredHistorial = courseFilter === 'Todo' ? historial : historial.filter(h => h.course.includes(courseFilter))
-  const visibleHistorial = showAll ? filteredHistorial : filteredHistorial.slice(0, 10)
-
-  const bestGross = Math.min(...historial.map(r => r.gross))
-
-  const vsParColor = (v: number) => v < 0 ? GREEN : v > 0 ? RED : 'rgba(255,255,255,0.6)'
-  const vsParBg = (v: number) => v < 0 ? 'rgba(0,230,118,0.12)' : v > 0 ? 'rgba(255,23,68,0.12)' : 'rgba(255,255,255,0.06)'
-  const vsParText = (v: number) => v < 0 ? String(v) : v > 0 ? `+${v}` : 'E'
-  const borderColor = (v: number) => v < 0 ? GREEN : v > 0 ? RED : 'rgba(255,255,255,0.12)'
-
-  const shortCourse = (name: string) => name.replace(/^Club de Golf\s+/, '').replace(/\s+Country Club$/, '')
-
-  const fmtDate = (iso: string) => {
-    const d = new Date(iso + 'T12:00:00')
-    return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
-  }
-
-  const patternLabel = (type: string) => {
-    if (type.includes('specialist') || type.includes('par')) return 'FORTALEZA'
-    if (type.includes('back9') || type.includes('analysis')) return 'PATRON'
-    if (type.includes('improv') || type.includes('trend')) return 'TENDENCIA'
-    return 'INSIGHT'
-  }
-
-  const patternBorderColor = (color: string) => color === 'green' ? GREEN : color === 'yellow' ? '#ffab40' : RED
-
-  // SVG scoring trend with par 72 reference
-  const renderTrendSVG = () => {
-    const vals = stats.scoring_trend.slice(-10)
-    if (vals.length < 2) return null
-    const allVals = [...vals, 72]
-    const min = Math.min(...allVals) - 2
-    const max = Math.max(...allVals) + 2
-    const w = 300, h = 160, padX = 30, padY = 20
-    const chartW = w - padX * 2, chartH = h - padY * 2
-
-    const toX = (i: number) => padX + (i / (vals.length - 1)) * chartW
-    const toY = (v: number) => padY + chartH - ((v - min) / (max - min)) * chartH
-
-    const parY = toY(72)
-    const points = vals.map((v, i) => `${toX(i)},${toY(v)}`).join(' ')
-
-    return (
-      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '160px' }} preserveAspectRatio="xMidYMid meet">
-        {/* Par 72 reference line */}
-        <line x1={padX} y1={parY} x2={w - padX} y2={parY} stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4,4" />
-        <text x={w - padX + 4} y={parY + 3} fill={MUTED} fontSize="9" fontFamily={MONO}>72</text>
-
-        {/* Grid lines */}
-        {[min, min + (max - min) / 2, max].map((v, i) => (
-          <text key={i} x={padX - 4} y={toY(v) + 3} fill="rgba(255,255,255,0.3)" fontSize="8" fontFamily={MONO} textAnchor="end">
-            {Math.round(v)}
-          </text>
-        ))}
-
-        {/* Area fill */}
-        <polygon
-          points={`${toX(0)},${toY(vals[0])} ${points} ${toX(vals.length - 1)},${h - padY} ${toX(0)},${h - padY}`}
-          fill={`url(#trendGrad)`} opacity="0.3"
-        />
-        <defs>
-          <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={GOLD} stopOpacity="0.4" />
-            <stop offset="100%" stopColor={GOLD} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
-        {/* Line */}
-        <polyline points={points} fill="none" stroke={GOLD} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-
-        {/* Dots */}
-        {vals.map((v, i) => (
-          <g key={i}>
-            <circle cx={toX(i)} cy={toY(v)} r="3.5" fill={BG} stroke={GOLD} strokeWidth="1.5" />
-            <text x={toX(i)} y={toY(v) - 8} fill="rgba(255,255,255,0.5)" fontSize="8" fontFamily={MONO} textAnchor="middle">
-              {v}
-            </text>
-          </g>
-        ))}
-      </svg>
-    )
-  }
-
-  const cpiPct = Math.min(100, Math.max(0, data.cpi.score))
-
   return (
-    <div style={{ background: BG, minHeight: '100vh', color: '#fff', paddingBottom: '80px' }}>
-
-      {/* === BANNER === */}
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 40,
-        background: 'linear-gradient(90deg, rgba(196,153,42,0.12), rgba(196,153,42,0.04))',
-        borderBottom: '1px solid rgba(196,153,42,0.25)',
-        padding: '10px 16px',
-        display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
-      }}>
-        <span style={{ fontSize: '13px', fontWeight: 600, color: GOLD, fontFamily: MONO, letterSpacing: '0.05em' }}>
-          PERFIL DEMO
-        </span>
-        <Link href="/register" style={{
-          border: `1px solid ${GOLD}`, background: `linear-gradient(135deg, ${GOLD}, #a8821e)`,
-          color: '#fff', padding: '8px 20px', borderRadius: '10px',
-          fontSize: '14px', fontWeight: 700, textDecoration: 'none',
-          boxShadow: '0 2px 12px rgba(196,153,42,0.25)',
-        }}>
-          Crear mi cuenta gratis
-        </Link>
-      </div>
-
-      {/* === HEADER — premium card with CPI™ === */}
-      <div style={{
-        margin: '16px', padding: '20px',
-        background: `linear-gradient(135deg, rgba(196,153,42,0.06) 0%, rgba(196,153,42,0.02) 50%, ${CARD} 100%)`,
-        border: `1px solid ${CARD_BORDER}`, borderRadius: '16px',
-      }}>
-        {/* Top: avatar + name + info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
-          {/* Avatar */}
+    <div style={{ minHeight: '100vh', background: theme.bg, padding: '32px 16px 80px' }}>
+      <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+        {/* Hero */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{
-            width: '52px', height: '52px', borderRadius: '50%', flexShrink: 0,
-            background: `linear-gradient(135deg, ${GOLD}, #8a6d1b)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '18px', fontWeight: 700, color: '#fff', fontFamily: SERIF,
-          }}>CM</div>
-
-          {/* Info */}
-          <div>
-            <div style={{ fontSize: '20px', fontWeight: 600, fontFamily: SERIF }}>
-              {player.name}
-            </div>
-            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO, marginTop: '2px' }}>
-              Indice {player.indice} · Cat {player.categoria} · {stats.total_rounds} rondas
-            </div>
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 -4px 20px' }} />
-
-        {/* CPI™ — full width */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-            <span style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em' }}>CPI&trade; — Current Performance Index</span>
-            <button
-              onClick={() => setShowCpiInfo(true)}
-              style={{
-                width: '18px', height: '18px', borderRadius: '50%',
-                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                color: MUTED, fontSize: '11px', fontFamily: MONO, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 0, lineHeight: 1,
-              }}
-              aria-label="Información sobre CPI"
-            >i</button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-            <span style={{ fontSize: '36px', fontWeight: 300, color: cpiLevelColor(data.cpi.score), fontFamily: SERIF, lineHeight: 1 }}>
-              {data.cpi.score.toFixed(1)}
-            </span>
-            <span style={{
-              padding: '3px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
-              background: `${cpiLevelColor(data.cpi.score)}18`, color: cpiLevelColor(data.cpi.score),
-              fontFamily: MONO,
-            }}>{cpiLevelLabel(data.cpi.score)}</span>
-            <span style={{
-              fontSize: '13px', fontFamily: MONO, fontWeight: 600,
-              color: data.cpi.trend > 0 ? GREEN : data.cpi.trend < 0 ? RED : MUTED,
-            }}>
-              {data.cpi.trend > 0 ? '\u25B2' : data.cpi.trend < 0 ? '\u25BC' : ''}{data.cpi.trend > 0 ? '+' : ''}{data.cpi.trend.toFixed(1)}
-            </span>
-          </div>
-          <div style={{
-            marginTop: '12px', height: '6px', background: 'rgba(255,255,255,0.06)',
-            borderRadius: '3px', overflow: 'hidden',
+            fontSize: '11px',
+            color: theme.textMuted,
+            fontFamily: '"DM Mono", ui-monospace, monospace',
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase' as const,
+            marginBottom: '8px',
           }}>
-            <div style={{
-              height: '100%', width: `${cpiPct}%`,
-              background: `linear-gradient(90deg, ${cpiLevelColor(data.cpi.score)}cc, ${cpiLevelColor(data.cpi.score)})`,
-              borderRadius: '3px',
-            }} />
+            Explora Golfers+
           </div>
-          <div style={{ fontSize: '11px', color: MUTED, marginTop: '6px' }}>
-            Basado en 30 rondas · Ventana 90 días
-          </div>
+          <h1 style={{
+            fontFamily: '"Playfair Display", serif',
+            fontSize: 'clamp(32px, 7vw, 44px)',
+            color: theme.text,
+            margin: '0 0 10px',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.08,
+            fontWeight: 600,
+          }}>
+            Un vistazo real,<br />sin cuenta.
+          </h1>
+          <p style={{
+            fontSize: '15px',
+            color: theme.textMuted,
+            margin: '0 auto',
+            lineHeight: 1.6,
+            maxWidth: '500px',
+          }}>
+            Las pantallas que vas a ver son las que usa un jugador real. Cambia solo que los datos son de
+            ejemplo — así explorás sin fricción antes de registrarte.
+          </p>
         </div>
-      </div>
 
-      {/* === TAB BAR === */}
-      <div style={{ position: 'relative', borderBottom: `1px solid ${CARD_BORDER}` }}>
-        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <div style={{ display: 'flex', minWidth: 'max-content', padding: '0 16px' }}>
-          {TABS.map((tab, i) => (
-            <button key={tab} onClick={() => setActiveTab(i)} style={{
-              padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
-              color: activeTab === i ? GOLD : 'rgba(255,255,255,0.6)',
-              fontSize: '14px', fontWeight: activeTab === i ? 700 : 400,
-              borderBottom: activeTab === i ? `3px solid ${GOLD}` : '3px solid transparent',
-              fontFamily: MONO, whiteSpace: 'nowrap',
-            }}>{tab}</button>
-          ))}
-        </div>
-        </div>
-        {/* Scroll fade indicator */}
+        {/* Cards grid */}
         <div style={{
-          position: 'absolute', right: 0, top: 0, bottom: 0, width: '40px',
-          background: `linear-gradient(to right, transparent, ${BG})`,
-          pointerEvents: 'none',
-        }} />
-      </div>
-
-      {/* === TAB CONTENT === */}
-      <div style={{ padding: '20px 16px' }}>
-
-        {/* --- TAB RESUMEN --- */}
-        {activeTab === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-            {/* Recent rounds */}
-            <div>
-              <div>
-                <div style={{ fontSize: '12px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em', fontWeight: 700 }}>ULTIMAS 5 RONDAS</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {historial.slice(0, 5).map((r, i) => (
-                    <div key={i} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      background: CARD, borderRadius: '10px', padding: '10px 14px',
-                      borderLeft: `3px solid ${borderColor(r.score_vs_par)}`,
-                    }}>
-                      <div>
-                        <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>{shortCourse(r.course)}</div>
-                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO }}>{fmtDate(r.date)}</div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontFamily: MONO }}>{r.gross}</span>
-                        <span style={{
-                          padding: '2px 8px', borderRadius: '8px', fontSize: '12px', fontFamily: MONO, fontWeight: 500,
-                          background: vsParBg(r.score_vs_par), color: vsParColor(r.score_vs_par),
-                        }}>{vsParText(r.score_vs_par)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Stats row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-              {[
-                { label: 'Promedio', value: stats.avg_score.toFixed(1) },
-                { label: 'Mejor', value: String(stats.best_score) },
-                { label: 'GIR%', value: `${stats.gir_pct}%` },
-                { label: 'Putts avg', value: stats.avg_putts.toFixed(1) },
-              ].map((s, i) => (
-                <div key={i} style={{
-                  background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '10px', padding: '12px 8px', textAlign: 'center',
-                }}>
-                  <div style={{ fontSize: '32px', fontWeight: 600, color: GOLD, fontFamily: SERIF, lineHeight: 1.1 }}>{s.value}</div>
-                  <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, marginTop: '6px', letterSpacing: '0.05em' }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* --- TAB ESTADISTICAS --- */}
-        {activeTab === 1 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-            {/* Scoring trend SVG */}
-            <div>
-              <div style={{ fontSize: '12px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em', fontWeight: 700 }}>TENDENCIA DE SCORING</div>
-              <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px' }}>
-                {renderTrendSVG()}
-              </div>
-            </div>
-
-            {/* Par performance — dual bars */}
-            <div>
-              <div style={{ fontSize: '12px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em', fontWeight: 700 }}>RENDIMIENTO POR PAR</div>
-              <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {[
-                  { label: 'Par 3', avg: stats.par3_avg, par: 3 },
-                  { label: 'Par 4', avg: stats.par4_avg, par: 4 },
-                  { label: 'Par 5', avg: stats.par5_avg, par: 5 },
-                ].map((p, i) => {
-                  const maxVal = p.par + 1.5
-                  const parPct = ((p.par - (p.par - 0.5)) / (maxVal - (p.par - 0.5))) * 100
-                  const avgPct = ((p.avg - (p.par - 0.5)) / (maxVal - (p.par - 0.5))) * 100
-                  const color = p.avg <= p.par ? GREEN : p.avg <= p.par + 0.5 ? GOLD : RED
-                  return (
-                    <div key={i}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontFamily: MONO }}>{p.label}</span>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                          <span style={{ fontSize: '12px', color: MUTED, fontFamily: MONO }}>par {p.par}</span>
-                          <span style={{ fontSize: '12px', color, fontFamily: MONO, fontWeight: 600 }}>{p.avg.toFixed(2)}</span>
-                        </div>
-                      </div>
-                      {/* Dual bar track */}
-                      <div style={{ position: 'relative', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px' }}>
-                        {/* Par reference mark */}
-                        <div style={{
-                          position: 'absolute', left: `${Math.min(100, Math.max(0, parPct))}%`, top: '-2px',
-                          width: '1px', height: '12px', background: 'rgba(255,255,255,0.2)',
-                        }} />
-                        {/* Avg fill */}
-                        <div style={{
-                          height: '100%', width: `${Math.min(100, Math.max(4, avgPct))}%`,
-                          background: color, borderRadius: '4px', transition: 'width 0.6s ease',
-                        }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Front 9 vs Back 9 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              {[
-                { label: 'Front 9', value: stats.front9_avg.toFixed(1) },
-                { label: 'Back 9', value: stats.back9_avg.toFixed(1) },
-              ].map((s, i) => (
-                <div key={i} style={{
-                  background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px', textAlign: 'center',
-                }}>
-                  <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.1em', marginBottom: '6px' }}>{s.label}</div>
-                  <div style={{ fontSize: '32px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Score distribution — proportional colored bars + percentages */}
-            <div>
-              <div style={{ fontSize: '12px', color: MUTED, fontFamily: MONO, marginBottom: '10px', letterSpacing: '0.08em', fontWeight: 700 }}>DISTRIBUCION DE SCORES</div>
-              <div style={{ background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px' }}>
-                {(() => {
-                  const items = [
-                    { label: 'Eagles', count: stats.eagles_total, color: '#00e676' },
-                    { label: 'Birdies', count: stats.birdies_total, color: '#4caf50' },
-                    { label: 'Pars', count: stats.pars_total, color: GOLD },
-                    { label: 'Bogeys', count: stats.bogeys_total, color: '#ffab40' },
-                    { label: 'Dobles+', count: stats.doubles_total, color: '#ff4444' },
-                  ]
-                  const total = items.reduce((a, d) => a + d.count, 0) || 1
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {items.map((d, i) => {
-                        const pct = (d.count / total) * 100
-                        return (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ width: '52px', fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO, textAlign: 'right' }}>{d.label}</span>
-                            <div style={{ flex: 1, height: '14px', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${Math.max(2, pct)}%`, background: d.color, borderRadius: '4px', transition: 'width 0.5s ease' }} />
-                            </div>
-                            <span style={{ width: '28px', fontSize: '11px', color: d.color, fontFamily: MONO, fontWeight: 600, textAlign: 'right' }}>{d.count}</span>
-                            <span style={{ width: '36px', fontSize: '10px', color: MUTED, fontFamily: MONO }}>{pct.toFixed(0)}%</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })()}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- TAB HISTORIAL --- */}
-        {activeTab === 2 && (
-          <div>
-            {/* Summary header */}
-            <div style={{
-              display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap',
-              background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '14px 16px',
-            }}>
-              {[
-                { label: 'Rondas', value: String(filteredHistorial.length) },
-                { label: 'Promedio', value: filteredHistorial.length > 0 ? (filteredHistorial.reduce((a, r) => a + r.gross, 0) / filteredHistorial.length).toFixed(1) : '--' },
-                { label: 'Mejor', value: filteredHistorial.length > 0 ? String(Math.min(...filteredHistorial.map(r => r.gross))) : '--' },
-                { label: 'Peor', value: filteredHistorial.length > 0 ? String(Math.max(...filteredHistorial.map(r => r.gross))) : '--' },
-              ].map((s, i) => (
-                <div key={i} style={{ textAlign: 'center', flex: 1, minWidth: '50px' }}>
-                  <div style={{ fontSize: '20px', fontWeight: 600, color: GOLD, fontFamily: SERIF }}>{s.value}</div>
-                  <div style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, letterSpacing: '0.05em' }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Course filter */}
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              {['Todo', 'Los Leones', 'Prince of Wales', 'La Dehesa'].map(c => (
-                <button key={c} onClick={() => { setCourseFilter(c); setShowAll(false) }} style={{
-                  padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                  background: courseFilter === c ? GOLD : 'rgba(255,255,255,0.06)',
-                  color: courseFilter === c ? '#111' : 'rgba(255,255,255,0.5)',
-                  fontSize: '12px', fontWeight: courseFilter === c ? 700 : 400, fontFamily: MONO,
-                }}>{c}</button>
-              ))}
-            </div>
-
-            {/* Round cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {visibleHistorial.map((r, i) => {
-                const isBest = r.gross === bestGross
-                const isOpen = expandedRonda === i
-                return (
-                  <div key={i} onClick={() => setExpandedRonda(isOpen ? null : i)} style={{
-                    background: CARD, borderRadius: '10px', cursor: 'pointer',
-                    borderLeft: `3px solid ${borderColor(r.score_vs_par)}`,
-                    border: isBest ? `1px solid rgba(196,153,42,0.3)` : `1px solid ${CARD_BORDER}`,
-                    borderLeftWidth: '3px', borderLeftStyle: 'solid', borderLeftColor: borderColor(r.score_vs_par),
-                    overflow: 'hidden',
-                  }}>
-                    {/* Header row */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontFamily: MONO, minWidth: '20px' }}>#{r.index}</span>
-                        <div>
-                          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
-                            {shortCourse(r.course)}{isBest ? ' \u2605' : ''}
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO }}>{fmtDate(r.date)}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', fontFamily: MONO }}>{r.gross}</span>
-                        <span style={{
-                          padding: '2px 8px', borderRadius: '8px', fontSize: '11px', fontFamily: MONO, fontWeight: 500,
-                          background: vsParBg(r.score_vs_par), color: vsParColor(r.score_vs_par),
-                        }}>{vsParText(r.score_vs_par)}</span>
-                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
-                      </div>
-                    </div>
-                    {/* Expanded scorecard */}
-                    {isOpen && r.scores && r.scores.length > 0 && (() => {
-                      const sc = r.scores
-                      const front9 = sc.slice(0, 9).reduce((a, b) => a + b, 0)
-                      const back9 = sc.slice(9).reduce((a, b) => a + b, 0)
-                      const scoreSymbol = (s: number, par: number) => {
-                        const d = s - par
-                        const color = 'rgba(255,255,255,0.85)'
-                        if (d <= -2) return (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', border: '1.5px solid #c4992a', position: 'relative' }}>
-                            <span style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', border: '1px solid #c4992a' }} />
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: s === 1 ? '#c4992a' : color, lineHeight: 1 }}>{s}</span>
-                          </span>
-                        )
-                        if (d === -1) return (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', border: '1.5px solid #c4992a' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                          </span>
-                        )
-                        if (d === 0) return <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                        if (d === 1) return (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 3px', borderRadius: '2px', border: '1.5px solid #EF4444' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                          </span>
-                        )
-                        return (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '1px 3px', borderRadius: '2px', border: '1.5px solid #EF4444', position: 'relative' }}>
-                            <span style={{ position: 'absolute', inset: '-4px', borderRadius: '3px', border: '1px solid #EF4444' }} />
-                            <span style={{ fontSize: '11px', fontWeight: 600, color, lineHeight: 1 }}>{s}</span>
-                          </span>
-                        )
-                      }
-                      const renderHalf = (start: number, label: string, total: number) => (
-                        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '8px' }}>
-                          <div style={{ flex: 1, display: 'flex' }}>
-                            {Array.from({ length: 9 }, (_, idx) => {
-                              const holeNum = start + idx
-                              const s = sc[holeNum - 1]
-                              return (
-                                <div key={idx} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-                                  <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>{holeNum}</div>
-                                  <div style={{ minHeight: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {s != null ? scoreSymbol(s, 4) : <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '11px' }}>·</span>}
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '4px', marginLeft: '4px' }}>
-                            <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' as const }}>{label}</div>
-                            <div style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{total}</div>
-                          </div>
-                        </div>
-                      )
-                      return (
-                        <div style={{ padding: '0 10px 10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                          {renderHalf(1, 'OUT', front9)}
-                          {sc.length > 9 && renderHalf(10, 'IN', back9)}
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px' }}>
-                              <div style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' as const }}>TOT</div>
-                              <div style={{ fontSize: '14px', fontWeight: 800, color: 'rgba(255,255,255,0.85)' }}>{r.gross}</div>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })()}
-                  </div>
-                )
-              })}
-            </div>
-
-            {!showAll && filteredHistorial.length > 10 && (
-              <button onClick={() => setShowAll(true)} style={{
-                width: '100%', padding: '12px', marginTop: '12px', background: 'rgba(255,255,255,0.04)',
-                border: `1px solid ${CARD_BORDER}`, borderRadius: '10px', cursor: 'pointer',
-                color: GOLD, fontSize: '13px', fontFamily: MONO,
-              }}>Ver mas ({filteredHistorial.length - 10} rondas)</button>
-            )}
-          </div>
-        )}
-
-        {/* --- TAB ANALISIS --- */}
-        {activeTab === 3 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {patterns.map((p, i) => {
-              const bc = patternBorderColor(p.color)
-              const label = patternLabel(p.type)
-              return (
-                <div key={i} style={{
-                  background: CARD, border: `1px solid ${CARD_BORDER}`, borderRadius: '12px', padding: '16px',
-                  borderLeft: `3px solid ${bc}`,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <span style={{
-                      padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 700,
-                      background: `${bc}18`, color: bc, fontFamily: MONO, letterSpacing: '0.08em',
-                    }}>{label}</span>
-                    <span style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{p.title}</span>
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, marginBottom: '12px' }}>{p.description}</div>
-
-                  {/* Inline comparison bar */}
-                  {p.type === 'back9_analysis' && (
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <span style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, width: '40px' }}>F9</span>
-                      <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px' }}>
-                        <div style={{ height: '100%', width: `${(stats.front9_avg / 50) * 100}%`, background: GREEN, borderRadius: '3px' }} />
-                      </div>
-                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO, width: '28px' }}>{stats.front9_avg}</span>
-                    </div>
-                  )}
-                  {p.type === 'back9_analysis' && (
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
-                      <span style={{ fontSize: '10px', color: MUTED, fontFamily: MONO, width: '40px' }}>B9</span>
-                      <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px' }}>
-                        <div style={{ height: '100%', width: `${(stats.back9_avg / 50) * 100}%`, background: '#ffab40', borderRadius: '3px' }} />
-                      </div>
-                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontFamily: MONO, width: '28px' }}>{stats.back9_avg}</span>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-
-            {/* Premium CTA */}
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(196,153,42,0.08), rgba(196,153,42,0.02))',
-              border: '1px solid rgba(196,153,42,0.2)', borderRadius: '14px', padding: '24px', textAlign: 'center', marginTop: '10px',
-            }}>
-              <div style={{ fontSize: '16px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginBottom: '8px' }}>
-                Analisis personalizado con IA
-              </div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginBottom: '16px', lineHeight: 1.5 }}>
-                Registra tus rondas y descubre patrones, predicciones y recomendaciones basadas en tu juego real.
-              </div>
-              <Link href="/register" style={{
-                display: 'inline-block', border: `1px solid ${GOLD}`, background: 'rgba(196,153,42,0.1)',
-                color: GOLD, padding: '10px 24px', borderRadius: '10px', fontSize: '14px', fontWeight: 700, textDecoration: 'none',
-              }}>
-                Registrarme gratis
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* CPI Info Bottom Sheet */}
-      {showCpiInfo && (
-        <>
-          {/* Backdrop */}
-          <div
-            onClick={() => setShowCpiInfo(false)}
-            style={{
-              position: 'fixed', inset: 0, zIndex: 60,
-              background: 'rgba(0,0,0,0.6)',
-              animation: 'fadeIn 0.2s ease',
-            }}
-          />
-          {/* Bottom Sheet */}
-          <div style={{
-            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 70,
-            background: '#0e1c2f',
-            borderRadius: '20px 20px 0 0',
-            padding: '24px 20px 40px',
-            maxHeight: '85vh', overflowY: 'auto',
-            animation: 'slideUp 0.3s ease',
-            boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
-          }}>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <span style={{ fontSize: '16px', fontWeight: 700, color: GOLD, fontFamily: MONO }}>
-                CPI&trade; &mdash; Current Performance Index
-              </span>
-              <button
-                onClick={() => setShowCpiInfo(false)}
-                style={{
-                  width: '28px', height: '28px', borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.08)', border: 'none',
-                  color: 'rgba(255,255,255,0.6)', fontSize: '16px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >&times;</button>
-            </div>
-
-            {/* Intro */}
-            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, marginBottom: '20px' }}>
-              Tu indice de rendimiento actual basado en tus ultimas rondas.
-            </p>
-
-            {/* How it's calculated */}
-            <div style={{ fontSize: '13px', fontWeight: 700, color: GOLD, fontFamily: MONO, marginBottom: '16px', letterSpacing: '0.05em' }}>
-              Como se calcula?
-            </div>
-
-            {[
-              {
-                num: '1',
-                title: 'Score Differential',
-                formula: '(Gross - CR) x (113 / Slope)',
-                desc: 'Normaliza tu score segun la dificultad de la cancha.',
-              },
-              {
-                num: '2',
-                title: 'Ponderacion temporal',
-                formula: null,
-                desc: 'Las rondas recientes pesan mas. Una ronda de hace 45 dias pesa 50%.',
-              },
-              {
-                num: '3',
-                title: 'Tendencia',
-                formula: null,
-                desc: 'Detecta si estas mejorando o empeorando con regresion lineal.',
-              },
-              {
-                num: '4',
-                title: 'Consistencia',
-                formula: null,
-                desc: 'Menos variacion = mejor CPI.',
-              },
-            ].map((item) => (
-              <div key={item.num} style={{ marginBottom: '16px', paddingLeft: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{
-                    width: '22px', height: '22px', borderRadius: '50%',
-                    background: 'rgba(196,153,42,0.15)', color: GOLD,
-                    fontSize: '12px', fontWeight: 700, fontFamily: MONO,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>{item.num}</span>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>{item.title}</span>
-                </div>
-                {item.formula && (
-                  <div style={{
-                    fontFamily: MONO, fontSize: '12px', color: GOLD,
-                    background: 'rgba(196,153,42,0.08)', padding: '6px 10px',
-                    borderRadius: '6px', marginBottom: '4px', marginLeft: '30px',
-                  }}>{item.formula}</div>
-                )}
-                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, marginLeft: '30px' }}>
-                  {item.desc}
-                </div>
-              </div>
-            ))}
-
-            {/* Scale info */}
-            <div style={{
-              marginTop: '20px', padding: '16px',
-              background: 'rgba(255,255,255,0.03)', borderRadius: '12px',
-              border: '1px solid rgba(255,255,255,0.06)',
-            }}>
-              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '8px', letterSpacing: '0.08em' }}>
-                ESCALA: 0-100 (mayor = mejor)
-              </div>
-              <div style={{ fontSize: '11px', color: MUTED, fontFamily: MONO, marginBottom: '12px' }}>
-                Ventana: ultimos 90 dias · Minimo: 3 rondas
-              </div>
-              {[
-                { range: '75+', label: 'Forma excepcional', color: GREEN },
-                { range: '60+', label: 'En forma', color: GOLD },
-                { range: '40+', label: 'Estable', color: 'rgba(255,255,255,0.6)' },
-                { range: '25+', label: 'Bajo su nivel', color: '#ffab40' },
-                { range: '<25', label: 'Fuera de forma', color: RED },
-              ].map((level) => (
-                <div key={level.range} style={{
-                  display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px',
-                }}>
-                  <span style={{ width: '36px', fontSize: '12px', fontFamily: MONO, fontWeight: 600, color: level.color, textAlign: 'right' }}>{level.range}</span>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: level.color }} />
-                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{level.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* CSS animations */}
-          <style>{`
-            @keyframes fadeIn {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
-            @keyframes slideUp {
-              from { transform: translateY(100%); }
-              to { transform: translateY(0); }
-            }
-          `}</style>
-        </>
-      )}
-
-      {/* Mobile CTA fixed bottom */}
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-        padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
-        background: 'linear-gradient(to top, #070d18 70%, transparent)',
-      }}
-        className="block md:hidden"
-      >
-        <Link href="/register" style={{
-          display: 'block', width: '100%', textAlign: 'center',
-          background: `linear-gradient(135deg, ${GOLD}, #a8821e)`, color: '#fff',
-          padding: '14px', borderRadius: '12px',
-          fontSize: '15px', fontWeight: 700, textDecoration: 'none',
-          boxShadow: '0 4px 20px rgba(196,153,42,0.3)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '14px',
+          marginBottom: '36px',
         }}>
-          Crear mi cuenta gratis
-        </Link>
+          {CARDS.map(card => {
+            const style = ACCENT_STYLES[card.accent]
+            return (
+              <Link
+                key={card.href}
+                href={card.href}
+                style={{
+                  display: 'block',
+                  background: theme.card,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '16px',
+                  padding: '20px',
+                  textDecoration: 'none',
+                  transition: 'border-color 180ms, box-shadow 180ms, transform 180ms',
+                  minHeight: '148px',
+                  position: 'relative',
+                }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLAnchorElement
+                  el.style.borderColor = style.border
+                  el.style.boxShadow = style.shadow
+                  el.style.transform = 'translateY(-2px)'
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLAnchorElement
+                  el.style.borderColor = theme.border
+                  el.style.boxShadow = 'none'
+                  el.style.transform = 'none'
+                }}
+              >
+                {/* Eyebrow + live badge */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: style.eyebrow,
+                    fontFamily: '"DM Mono", ui-monospace, monospace',
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase' as const,
+                  }}>
+                    {card.eyebrow}
+                  </span>
+                  {card.liveBadge && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: 'rgba(22,163,74,0.10)',
+                      color: '#15803d',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      fontFamily: '"DM Mono", ui-monospace, monospace',
+                      letterSpacing: '0.1em',
+                      padding: '3px 8px',
+                      borderRadius: '999px',
+                    }}>
+                      <span style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: '#16a34a',
+                        animation: 'livePulse 1.8s ease infinite',
+                      }} />
+                      EN VIVO
+                    </span>
+                  )}
+                </div>
+
+                {/* Title */}
+                <div style={{
+                  fontFamily: '"Playfair Display", serif',
+                  fontSize: '20px',
+                  fontWeight: 600,
+                  color: theme.text,
+                  marginBottom: '6px',
+                  letterSpacing: '-0.01em',
+                }}>
+                  {card.title}
+                </div>
+
+                {/* Description */}
+                <p style={{
+                  fontSize: '13px',
+                  color: theme.textMuted,
+                  lineHeight: 1.5,
+                  margin: 0,
+                }}>
+                  {card.description}
+                </p>
+
+                {/* Arrow hint */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '18px',
+                  right: '20px',
+                  fontSize: '18px',
+                  color: theme.textFaint,
+                  transition: 'color 180ms, transform 180ms',
+                }}>
+                  →
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+
+        {/* Footer CTA */}
+        <div style={{
+          background: theme.card,
+          border: `1px solid ${theme.borderSoft}`,
+          borderRadius: '16px',
+          padding: '24px',
+          textAlign: 'center',
+        }}>
+          <div style={{
+            fontFamily: '"Playfair Display", serif',
+            fontSize: '20px',
+            fontWeight: 600,
+            color: theme.text,
+            marginBottom: '6px',
+            letterSpacing: '-0.01em',
+          }}>
+            ¿Listo para scorear lo tuyo?
+          </div>
+          <p style={{ fontSize: '13px', color: theme.textMuted, margin: '0 0 16px', lineHeight: 1.5 }}>
+            Creá cuenta gratis y empezá a trackear tus rondas. Sin tarjeta, sin spam.
+          </p>
+          <Link href="/register" style={{
+            display: 'inline-block',
+            background: theme.gold,
+            color: '#ffffff',
+            fontSize: '14px',
+            fontWeight: 600,
+            padding: '12px 28px',
+            borderRadius: '10px',
+            textDecoration: 'none',
+            boxShadow: '0 2px 10px rgba(196,153,42,0.25)',
+          }}>
+            Crear cuenta gratis →
+          </Link>
+        </div>
       </div>
+
+      <style>{`
+        @keyframes livePulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.15); }
+        }
+      `}</style>
     </div>
   )
 }

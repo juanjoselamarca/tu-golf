@@ -112,8 +112,13 @@ historial arreglados. Quedan items de la auditoría del 13-abr y del bug sweep d
     top 50 índices Golfers+ (handicap ranking global), torneos activos
     destacados, integración con CPI/stats intelligence. Tema blanco consistente.
 
-21. **Demo rebuild completo.** `/demo` no tiene sentido funcional actualmente,
-    reconstrucción completa pendiente. Reportado por Juanjo 2026-04-20.
+21. ~~**Demo rebuild completo.**~~ ✅ RESUELTO 2026-04-21.
+    Arquitectura: reciclar la app real + data sembrada + guards. El hub
+    `/demo` linkea a `/ronda-libre/DEMO01`, `/torneo/demo-copa-chile-2026`,
+    `/ranking` y `/indices` — cada URL es la pantalla real con flag
+    `es_demo=true`. RLS bloquea escrituras (migration 028). Guards en
+    client redirigen /score y /score-grupo a spectator para rondas/torneos
+    demo. Seed SQL pendiente de aplicar manualmente (`scripts/seed-demo-data.sql`).
 
 22. ~~**Yardage per-player tee en multi-loop.**~~ ✅ RESUELTO 2026-04-21.
     `HoleData` extendido con `yardajes: { campeonato, azul, blanco, rojo }`
