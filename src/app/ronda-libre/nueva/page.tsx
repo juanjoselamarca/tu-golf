@@ -585,6 +585,12 @@ export default function NuevaRondaLibrePage() {
   }
 
   // ─── Step indicator ───
+  // TODO(foundation): reemplazar por <Stepper steps={4} current={step}
+  //   labels={['Formato', 'Cancha', 'Jugadores', 'Confirmar']} /> cuando Foundation
+  //   publique el componente (P13). Requisitos: sticky por defecto, 3 estados
+  //   (done / current / pending), accesible con aria-current.
+  // Fix inline ahora: antes el step 4 mostraba siempre "✓" aunque no estuviera
+  // completado; ahora muestra "4" hasta que se complete.
   const StepIndicator = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '28px' }}>
       {[1, 2, 3, 4].map(s => (
@@ -597,7 +603,7 @@ export default function NuevaRondaLibrePage() {
             color: s === step ? '#ffffff' : s < step ? colors.gold : colors.textLabel,
             transition: 'all 0.2s',
           }}>
-            {s < step ? '\u2713' : s === 4 ? '✓' : s}
+            {s < step ? '\u2713' : s}
           </div>
           {s < 4 && (
             <div style={{
