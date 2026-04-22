@@ -192,6 +192,9 @@ function ScorePageContent() {
       const r = data as unknown as RondaLibre
       // If ronda was closed (by admin or player), redirect to detail view (read-only)
       if (r.estado === 'finalizada') { router.replace(`/ronda-libre/${codigo}`); return }
+      // Demo rondas son spectator-only: cualquier usuario es redirigido al leaderboard.
+      // El scoring usa la UI real en /score, no queremos que toquen demo data.
+      if (r.es_demo) { router.replace(`/ronda-libre/${codigo}`); return }
       // Team formats must use score-grupo (individual scoring doesn't support teams)
       const teamFormats = ['best_ball', 'scramble', 'foursome']
       if (teamFormats.includes(r.formato_juego)) {

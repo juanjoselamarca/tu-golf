@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { SCORE_STYLES, getScoreResult } from '@/golf/core/colors'
 import { createClient } from '@/lib/supabase'
@@ -14,7 +14,7 @@ import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 interface CourseHole { numero: number; par: number; stroke_index: number }
 interface Round { id: string; status: string }
 interface Player { id: string; handicap_at_registration: number | null; profiles: { name: string }; rounds: Round[] }
-interface Tournament { id: string; name: string; slug: string; format: string; hole_count: number; formato_juego: FormatoJuego | null; modo_juego: ModoJuego | null }
+interface Tournament { id: string; name: string; slug: string; format: string; hole_count: number; formato_juego: FormatoJuego | null; modo_juego: ModoJuego | null; es_demo?: boolean }
 
 function strokesOnHole(courseHandicap: number, strokeIndex: number) {
   const base      = Math.floor(courseHandicap / 18)
@@ -24,6 +24,7 @@ function strokesOnHole(courseHandicap: number, strokeIndex: number) {
 
 export default function PlayerScoringPage() {
   const { slug } = useParams() as { slug: string }
+  const router = useRouter()
   const [tournament,    setTournament]    = useState<Tournament | null>(null)
   const [players,       setPlayers]       = useState<Player[]>([])
   const [courseHoles,   setCourseHoles]   = useState<CourseHole[]>([])
@@ -47,9 +48,14 @@ export default function PlayerScoringPage() {
       const supabase = createClient()
       const { data: t } = await supabase
         .from('tournaments')
-        .select('id, name, slug, format, hole_count, formato_juego, modo_juego, courses(id)')
+        .select('id, name, slug, format, hole_count, formato_juego, modo_juego, es_demo, courses(id)')
         .eq('slug', slug).single()
       if (!t) { setLoading(false); return }
+      // Demo torneos son spectator-only — redirigir al leaderboard público.
+      if ((t as { es_demo?: boolean }).es_demo) {
+        router.replace(`/torneo/${slug}`)
+        return
+      }
       setTournament(t as unknown as Tournament)
       const { data: p } = await supabase
         .from('players')

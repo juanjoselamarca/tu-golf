@@ -78,6 +78,7 @@ export interface RondaLibre {
   hoyo_inicio?:          number | null
   admin_mode?:           boolean
   admin_user_id?:        string
+  es_demo?:              boolean
   creador_id?:           string
   recorridos?:           string[] | null
   ronda_libre_jugadores: Jugador[]

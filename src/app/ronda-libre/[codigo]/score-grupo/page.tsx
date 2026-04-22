@@ -132,7 +132,7 @@ export default function ScoreGrupoPage() {
 
       const { data } = await supabase
         .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, hoyo_inicio, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
+        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, hoyo_inicio, recorridos, es_demo, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
         .eq('codigo', codigo)
         .single()
 
@@ -142,6 +142,12 @@ export default function ScoreGrupoPage() {
       // Only admin can access this page
       if (!r.admin_mode || r.admin_user_id !== user.id) {
         router.replace(`/ronda-libre/${codigo}/score`)
+        return
+      }
+
+      // Demo rondas son spectator-only (misma regla que /score)
+      if (r.es_demo) {
+        router.replace(`/ronda-libre/${codigo}`)
         return
       }
 
