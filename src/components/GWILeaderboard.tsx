@@ -155,7 +155,7 @@ export default function GWILeaderboard({
                     {r.winProbability}%
                   </div>
                   {r.winProbability > 80 && (
-                    <div style={{ fontSize: '9px', color: '#c4992a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>DOMINANDO</div>
+                    <div style={{ fontSize: '9px', color: '#c4992a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>FAVORITO</div>
                   )}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
