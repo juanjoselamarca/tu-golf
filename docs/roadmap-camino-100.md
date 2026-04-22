@@ -50,7 +50,15 @@ historial arreglados. Quedan items de la auditoría del 13-abr y del bug sweep d
    Foursome. Motor en `src/golf/formats/` existe pero UI de creación comentada y
    scoring/espectador sin flujo. ~1 semana.
 
-8. **WD/DQ en torneos (C-F3).** Retiro/descalificación sin implementar. Hoy
+8. ~~**WD/DQ en torneos (C-F3).**~~ ✅ RESUELTO 2026-04-21.
+    Schema existía (migration 025), API + organizer UI implementados en
+    sesión previa. El gap real era transparencia: jugadores WD/DQ se
+    ocultaban totalmente del leaderboard público. Fix: query paralela que
+    los trae y render en sección "No compiten por posición" al pie de
+    /torneo/[slug] (spectator) y /torneo/[slug]/tv (TV mode) con badges
+    WD/DQ estilo USGA. Scores preservados, no afectan posiciones.
+
+8b. ~~Legacy descripción obsoleta~~ — WD/DQ en torneos (C-F3). Retiro/descalificación sin implementar. Hoy
    retirar un jugador cascade-deletea sus scores (destrucción de data).
    Necesita status `withdrawn`/`disqualified` y UI.
 

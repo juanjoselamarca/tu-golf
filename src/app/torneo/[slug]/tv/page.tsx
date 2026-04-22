@@ -77,6 +77,7 @@ export default function TVPage() {
   const [tournament, setTournament] = useState<TournamentInfo | null>(null)
   const [loading,    setLoading]    = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+  const [withdrawn,  setWithdrawn]  = useState<Array<{ name: string; status: 'withdrawn' | 'disqualified'; reason: string | null }>>([])
 
   const fetchData = useCallback(async () => {
     const supabase = createClient()
@@ -123,6 +124,18 @@ export default function TVPage() {
       `)
       .eq('tournament_id', tournamentId)
       .in('status', ['pending', 'approved', 'waitlist'])
+
+    // WD/DQ en paralelo — footer del TV con badge
+    const { data: rawWithdrawn } = await supabase
+      .from('players')
+      .select('status, status_reason, profiles(name)')
+      .eq('tournament_id', tournamentId)
+      .in('status', ['withdrawn', 'disqualified'])
+    setWithdrawn(
+      ((rawWithdrawn as unknown) as Array<{ status: 'withdrawn' | 'disqualified'; status_reason: string | null; profiles: { name: string } | null }> | null)
+        ?.filter(p => p.profiles?.name)
+        .map(p => ({ name: p.profiles!.name, status: p.status, reason: p.status_reason })) || []
+    )
 
     const dbPlayers = (rawPlayers as unknown as DBPlayerRaw[]) || []
 
@@ -307,6 +320,48 @@ export default function TVPage() {
             })
           )}
         </div>
+
+        {/* WD/DQ section — transparencia USGA en TV mode */}
+        {withdrawn.length > 0 && (
+          <div style={{
+            marginTop: '32px',
+            background: 'rgba(30,41,59,0.5)',
+            border: '1px solid rgba(148,163,184,0.2)',
+            borderRadius: '16px',
+            padding: '20px 28px',
+          }}>
+            <div style={{
+              fontSize: '14px',
+              color: '#94a3b8',
+              fontFamily: '"DM Mono", ui-monospace, monospace',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase' as const,
+              fontWeight: 700,
+              marginBottom: '14px',
+            }}>
+              No compiten por posición
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexWrap: 'wrap', gap: '12px 24px' }}>
+              {withdrawn.map((wp, i) => (
+                <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '18px' }}>
+                  <span style={{
+                    background: wp.status === 'disqualified' ? 'rgba(239,68,68,0.2)' : 'rgba(148,163,184,0.2)',
+                    color: wp.status === 'disqualified' ? '#fca5a5' : '#cbd5e1',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    fontFamily: '"DM Mono", ui-monospace, monospace',
+                    letterSpacing: '0.1em',
+                    padding: '4px 10px',
+                    borderRadius: '999px',
+                  }}>
+                    {wp.status === 'disqualified' ? 'DQ' : 'WD'}
+                  </span>
+                  <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{wp.name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Footer */}
         <div style={{ marginTop: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#94a8c0', fontSize: '14px' }}>

@@ -152,6 +152,9 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   // Fetch real players if tournament found
   let players: Player[]                = []
   let gwiInputs: JugadorGWIInput[]     = []
+  // Jugadores WD/DQ — visibles en footer del leaderboard por transparencia USGA.
+  // Mantienen sus scores en BD pero no compiten por posición.
+  let withdrawnPlayers: { name: string; status: 'withdrawn' | 'disqualified'; reason: string | null }[] = []
   let tournamentName                   = 'TPC Sawgrass Amateur 2025'
   let parTotal                         = 72
   let modoJuego: ModoJuego             = 'gross'
@@ -368,6 +371,18 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         )
         .eq('tournament_id', tournament.id)
         .in('status', ['pending', 'approved', 'waitlist'])
+
+      // WD/DQ en paralelo — se renderizan en footer del leaderboard con badge.
+      const { data: rawWithdrawn } = await supabase
+        .from('players')
+        .select('status, status_reason, profiles(name)')
+        .eq('tournament_id', tournament.id)
+        .in('status', ['withdrawn', 'disqualified'])
+      ;(rawWithdrawn as unknown as Array<{ status: 'withdrawn' | 'disqualified'; status_reason: string | null; profiles: { name: string } | null }> | null)?.forEach(p => {
+        if (p.profiles?.name) {
+          withdrawnPlayers.push({ name: p.profiles.name, status: p.status, reason: p.status_reason })
+        }
+      })
 
       const dbPlayers = (rawPlayers as unknown as DBPlayer[]) || []
       const tournamentTotalRounds = tournament.total_rounds ?? 1
@@ -807,6 +822,55 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           </div>
         </div>
       </footer>
+
+      {/* Retirados / Descalificados — transparencia USGA (scores preservados) */}
+      {withdrawnPlayers.length > 0 && (
+        <section style={{ maxWidth: '1080px', margin: '20px auto 0', padding: '0 20px' }}>
+          <div style={{
+            background: '#f8f9fa',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '16px 20px',
+          }}>
+            <div style={{
+              fontSize: '11px',
+              color: '#4a5568',
+              fontFamily: '"DM Mono", ui-monospace, monospace',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase' as const,
+              fontWeight: 700,
+              marginBottom: '10px',
+            }}>
+              No compiten por posición
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {withdrawnPlayers.map((wp, i) => (
+                <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                  <span style={{
+                    background: wp.status === 'disqualified' ? 'rgba(220,38,38,0.10)' : 'rgba(156,163,175,0.15)',
+                    color: wp.status === 'disqualified' ? '#991b1b' : '#4a5568',
+                    fontSize: '9px',
+                    fontWeight: 700,
+                    fontFamily: '"DM Mono", ui-monospace, monospace',
+                    letterSpacing: '0.08em',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    flexShrink: 0,
+                  }}>
+                    {wp.status === 'disqualified' ? 'DQ' : 'WD'}
+                  </span>
+                  <span style={{ color: '#1a1a2e', fontWeight: 500 }}>{wp.name}</span>
+                  {wp.reason && (
+                    <span style={{ color: '#94a3b8', fontSize: '12px', marginLeft: 'auto', fontStyle: 'italic' }}>
+                      {wp.reason}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {tournament && <TournamentBottomSheet slug={tournament.slug} isLive={isLive} />}
     </div>
