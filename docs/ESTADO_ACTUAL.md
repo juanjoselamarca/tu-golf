@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-04-22 | Commit: `0574af2`
+> Auto-generado: 2026-04-22 | Commit: `3d7c2df`
 
 ## Último deploy
 
-- **Commit:** `0574af2` — docs(plan): Última Ronda Express — plan de implementación task-by-task
-- **Fecha:** 2026-04-21
-- **Branch:** main (602 commits total)
+- **Commit:** `3d7c2df` — feat(ronda): RoundHighlights en espectador finalizado
+- **Fecha:** 2026-04-22
+- **Branch:** main (605 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (44 páginas)
@@ -75,25 +75,25 @@
 
 ---
 
-## Sesión 21-22 Abr 2026 — Cierre técnico del roadmap pre-lanzamiento
+## Sesión 22 Abr 2026 (AM) — Sprint 4 F · Última Ronda Express
 
-**Fecha:** 21-22 Abr 2026 (sesión nocturna paralela a Mi Golf v2 de Juanjo)
-**Estado:** COMPLETO — roadmap técnico cerrado salvo 2 acciones manuales pendientes de Juanjo
-**Commits:** 20 en main (+ seed aplicado en prod vía Management API)
+**Fecha:** 22 Abr 2026, mañana
+**Estado:** ✅ DESPLEGADO en producción
+**Alcance:** Brainstorm completo + spec + mockup V6 + implementación + push. 2 commits puros.
 
 ### Problema
-El roadmap `docs/roadmap-camino-100.md` tenía 22 items P0/P1/P2/P3. A la mañana del 21-abr quedaban ~13 sin resolver cubriendo coach gate, offline resilience, visual consistency, imports, multi-loop correctness, iOS push, ranking real, y demo rebuild.
+Feedback real de golfistas sobre el flujo post-ronda: "quiero ver la ronda de hoy ULTRA rápido cuando estoy en el restaurant del club con amigos, el teléfono va de mano en mano". La vista `/perfil/historial` existía pero exigía navegación; no había entry point 0-click desde el dashboard.
 
-### Shipped (por categoría)
+### Solución
+**UltimaRondaHero** (4º estado del hero contextual en Mi Golf) + **RoundHighlights** (bloque de resumen en el espectador finalizado). Cero rutas nuevas — se insertan en superficies que ya existen.
 
-**P0/P1 funcionalidad core:**
-- **Coach IA gate (3 rondas mínimo)** — `api/taiger/chat` 403 si <3 rondas; UI redirige con mensaje "Subí tus tarjetas". Defense-in-depth en 4 capas.
-- **Offline resilience** (4 gaps cerrados) — patrón ronda-libre portado a `/torneo/score` + `/score-grupo`: localStorage backup + 3 retries + auto-sync on reconnect. Anti-race en finalizar: bloquea si `scoreSync.tienePendientes()`. OfflineBanner global con contador "N hoyos en cola".
-- **Signup white theme + pro typography** — palette blanca coherente con NuevoTorneoForm. Playfair 30px, DM Mono labels uppercase, inputs con focus ring dorado.
-- **Navbar ranking fix** — quitar link a `/leaderboard` demo; después re-linkearlo a nueva `/ranking` real.
-- **Garmin palette unificada** (P1 #10) — +`getScoreColor` / `getScoreColorLight` helpers canónicos. Fix en `constants/golf.ts` SCORE_COLORS (4 de 5 valores estaban mal). Reemplazos en TeamLeaderboard, MobileLeaderboard, ronda-libre spectator.
-- **Imports formato/modo** (P2 #13) — `ImportRoundData` acepta `formato_juego` y `modo_juego` opcionales. UI en StepReview con 2 selectores aplicados al batch. Stableford/Match Play fuerzan neto (regla R&A).
-- **Multi-loop × per-player tees** (P2 #16) — 5 bugs identificados, 3 must-fix + 1 visual cerrados:
+### Proceso
+1. Brainstorming con el PM: 4 jobs priorizados (revisar rápido · ver desempeño · tarjeta Fedegolf · compartir). Descarte explícito de timeline/filtros/búsqueda/export PDF.
+2. Spec V6 con decisiones de diseño: Playfair Display + DM Mono + gold. Patrón HeroProximo replicado. Paleta Garmin Formato 2 en activity bar.
+3. Mockup V6 interactivo (`docs/demos/ultima-ronda-express-mockup.html`) — iteración visual antes de código, auditoría matemática stamp visible, responsive mobile + phone frame real.
+4. Plan TDD 12-task (`docs/superpowers/plans/2026-04-21-ultima-ronda-express-plan.md`) con código exacto.
+5. Ejecución inline con `executing-plans`.
+
 
 ---
 

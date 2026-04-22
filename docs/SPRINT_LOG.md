@@ -4,6 +4,71 @@
 
 ---
 
+## Sesión 22 Abr 2026 (AM) — Sprint 4 F · Última Ronda Express
+
+**Fecha:** 22 Abr 2026, mañana
+**Estado:** ✅ DESPLEGADO en producción
+**Alcance:** Brainstorm completo + spec + mockup V6 + implementación + push. 2 commits puros.
+
+### Problema
+Feedback real de golfistas sobre el flujo post-ronda: "quiero ver la ronda de hoy ULTRA rápido cuando estoy en el restaurant del club con amigos, el teléfono va de mano en mano". La vista `/perfil/historial` existía pero exigía navegación; no había entry point 0-click desde el dashboard.
+
+### Solución
+**UltimaRondaHero** (4º estado del hero contextual en Mi Golf) + **RoundHighlights** (bloque de resumen en el espectador finalizado). Cero rutas nuevas — se insertan en superficies que ya existen.
+
+### Proceso
+1. Brainstorming con el PM: 4 jobs priorizados (revisar rápido · ver desempeño · tarjeta Fedegolf · compartir). Descarte explícito de timeline/filtros/búsqueda/export PDF.
+2. Spec V6 con decisiones de diseño: Playfair Display + DM Mono + gold. Patrón HeroProximo replicado. Paleta Garmin Formato 2 en activity bar.
+3. Mockup V6 interactivo (`docs/demos/ultima-ronda-express-mockup.html`) — iteración visual antes de código, auditoría matemática stamp visible, responsive mobile + phone frame real.
+4. Plan TDD 12-task (`docs/superpowers/plans/2026-04-21-ultima-ronda-express-plan.md`) con código exacto.
+5. Ejecución inline con `executing-plans`.
+
+### Commits en producción
+```
+3d7c2df feat(ronda): RoundHighlights en espectador finalizado
+9d48233 feat(mi-golf): UltimaRondaHero — 4º estado del hero contextual
+```
+
+**UltimaRondaHero (commit `9d48233`, 6 archivos, +302/−7 LOC):**
+- `src/lib/mi-golf/types.ts` — `HistoricalRound` gana `scores?` y `parPerHole?` (opcionales, no rompe fixtures).
+- `src/app/dashboard/page.tsx` — SELECT amplía a `par_per_hole, scores`. Normalize snake→camel. Enrichment de `finishedRondas`.
+- `src/components/mi-golf/CompetenciaTab.tsx` — Props actualizado + 4º estado en hero ternary.
+- `src/lib/mi-golf/ultima-ronda.ts` + test — `getUltimaRondaReciente(rondas, fechaHoy)` helper puro. 5 tests: vacío, ninguna hoy, una hoy, múltiples, comparación ISO estricta.
+- `src/components/mi-golf/UltimaRondaHero.tsx` — React component. Activity bar degrada silenciosamente si no hay scores.
+
+**RoundHighlights (commit `3d7c2df`, 4 archivos, +591 LOC):**
+- `src/lib/ronda/round-highlights.ts` + test — `computeHighlights(scores, parMap, totalHoles)` helper puro. 7 tests incluyendo invariante matemática (fixture del mockup V6 con 2 birdies + 7 pars + 6 bogeys + 3 dobles = +10 exacto).
+- `src/components/ronda/RoundHighlights.tsx` — Big bar Ida/Vuelta, Mejor/Peor con tag italic, breakdown 5 columnas.
+- `src/app/ronda-libre/[codigo]/page.tsx` — render condicional arriba del winner card cuando `isFinished && currentUserId && myPlayer`.
+
+### Granularidad V1 (documentada en el spec)
+- UltimaRondaHero se activa con `fecha === fechaHoy` (Santiago TZ), no ventana horaria precisa. `rondas_libres` no tiene `finalized_at` timestamp. V2 puede refinar con migración si data de uso lo pide.
+
+### Prohibiciones del design system (validadas en V6)
+- ❌ Sin stars/pulse dots/icon badges con tints/dot-bullets decorativos/gradientes radiales.
+- ✅ Playfair Display solo para números hero y tags italic.
+- ✅ DM Mono para labels/metadata.
+- ✅ Gold #c4992a como brand accent medido.
+- ✅ Paleta Garmin Formato 2 exclusivamente para data vsPar.
+
+### Verificación
+- `tsc --noEmit` → 0 errores.
+- `npx vitest run` → **1131 passed** (+12 vs baseline: 5 ultima-ronda + 7 round-highlights).
+- `npm run build` → exitoso.
+- Smoke test HTTP `/dashboard` → 307 Temporary Redirect (middleware activo, auth redirect correcto).
+- Cero archivos protegidos tocados (Navbar, layout, middleware, supabase.ts).
+
+### Documentos
+- Spec: `docs/superpowers/specs/2026-04-21-ultima-ronda-express-design.md`
+- Plan: `docs/superpowers/plans/2026-04-21-ultima-ronda-express-plan.md`
+- Mockup: `docs/demos/ultima-ronda-express-mockup.html`
+
+### Observaciones para sesiones futuras
+- Trigger stale `trig_016xV5NqVEh83TJSEpx1pmbe` creado temprano (cron `0 7 22 4 *`) pero next_run quedó en 2027 porque ya era pasado. Disable manual en https://claude.ai/code/scheduled/trig_016xV5NqVEh83TJSEpx1pmbe.
+- Feedback persistente guardado en memoria `feedback_usuario_premium.md`: "golfistas exigentes de clubes chilenos · cero ornament infantil · auditoría matemática de cada número · coherencia con sistema shippeado".
+
+---
+
 ## Sesión 21-22 Abr 2026 — Cierre técnico del roadmap pre-lanzamiento
 
 **Fecha:** 21-22 Abr 2026 (sesión nocturna paralela a Mi Golf v2 de Juanjo)
