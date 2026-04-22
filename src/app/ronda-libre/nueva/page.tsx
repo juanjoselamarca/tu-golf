@@ -680,7 +680,18 @@ export default function NuevaRondaLibrePage() {
                           {dateLabel} · {formatLabel} · {r.holes}H · {r.jugadores.length} jugadores
                         </div>
                       </div>
-                      <span style={{ color: colors.gold, fontSize: '13px', fontWeight: 600, flexShrink: 0 }}>Repetir</span>
+                      {/* H18: "Repetir" competía con el tap del card completo. El card
+                          entero ya es un <button> → el texto "Repetir" generaba duda sobre
+                          qué tappar. Reemplazado por chevron-right que comunica afordance
+                          sin competir por el gesto. */}
+                      <span
+                        aria-hidden="true"
+                        style={{ color: colors.gold, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </span>
                     </button>
                   )
                 })}
