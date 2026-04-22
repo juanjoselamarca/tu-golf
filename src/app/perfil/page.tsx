@@ -177,10 +177,10 @@ export default function PerfilPage() {
                 </span>
               </div>
 
-              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: '0 0 6px', lineHeight: 1.1 }}>
+              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.1 }}>
                 {profile.name || 'Golfista'}
               </h1>
-              <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 8px' }}>{profile.email}</p>
+              {/* H16 cerrado: email movido a sección Cuenta (evita PII en screenshots del header) */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                 {profile.indice != null ? (
                   <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 700 }}>
@@ -232,7 +232,7 @@ export default function PerfilPage() {
           </div>
         )}
 
-        {/* Dual Index Cards */}
+        {/* Dual Index Cards — P18: storytelling explícito de qué es cada índice */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
           {/* Índice Federación */}
           <div style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
@@ -242,8 +242,8 @@ export default function PerfilPage() {
             <p style={{ fontSize: '38px', fontWeight: 700, color: '#1a1a2e', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
               {profile.indice != null ? profile.indice.toFixed(1) : '—'}
             </p>
-            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>
-              Oficial · Manual
+            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
+              Oficial USGA · torneos federados
             </p>
           </div>
 
@@ -257,19 +257,31 @@ export default function PerfilPage() {
                 <p style={{ fontSize: '38px', fontWeight: 700, color: '#c4992a', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
                   {profile.indice_golfers.toFixed(1)}
                 </p>
-                <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0 }}>
-                  Historial real
+                <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
+                  Rendimiento real · coaching y amistosos
                 </p>
               </>
             ) : (
               <>
                 <p style={{ fontSize: '28px', color: '#94a3b8', lineHeight: 1, margin: '0 0 4px' }}>—</p>
-                <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0, lineHeight: 1.4 }}>
+                <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
                   3+ rondas para activar
                 </p>
               </>
             )}
           </div>
+        </div>
+
+        {/* P18: link explicativo — "¿Cuándo uso cuál?" */}
+        <div style={{ marginBottom: '12px', textAlign: 'center' }}>
+          <Link href="/indices" style={{
+            fontSize: '12px', color: '#c4992a', textDecoration: 'none',
+            fontFamily: '"DM Sans", system-ui, sans-serif', fontWeight: 600,
+            padding: '6px 10px', borderRadius: '8px',
+            display: 'inline-flex', alignItems: 'center', gap: '4px',
+          }}>
+            ¿Cuándo uso cuál? →
+          </Link>
         </div>
 
         {/* Gap note — when difference >= 1.5 between indices */}
