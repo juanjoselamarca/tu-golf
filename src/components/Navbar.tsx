@@ -447,14 +447,9 @@ export default function Navbar() {
                       <svg width="21" height="21" viewBox="0 0 24 24" fill={active ? 'rgba(196,153,42,0.15)' : 'none'} stroke={clr} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />
                       </svg>
-                      {/* Live pulse dot — shows the app is alive */}
-                      <div style={{
-                        position: 'absolute', top: '-2px', right: '-3px',
-                        width: '6px', height: '6px', borderRadius: '50%',
-                        background: '#16a34a',
-                        boxShadow: '0 0 6px rgba(22,163,74,0.6)',
-                        animation: 'livePulse 2s ease-in-out infinite',
-                      }} />
+                      {/* TODO(mi-golf): reintroducir dot solo cuando useMiGolfHasNew()
+                          retorne true (hay insight nuevo no leído). Audit P10:
+                          dot siempre ON crea fatiga de notificación; estado inicial = OFF. */}
                     </div>
                     <span style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono), monospace', color: clr, fontWeight: active ? 600 : 400, letterSpacing: '0.02em' }}>Mi Golf</span>
                   </Link>
