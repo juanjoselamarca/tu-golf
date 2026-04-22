@@ -984,7 +984,7 @@ export default function NuevaRondaLibrePage() {
                 {([
                   { value: 'stroke_play' as const, label: 'Stroke Play', desc: 'Gana el de menos golpes', icon: '' },
                   { value: 'stableford' as const, label: 'Stableford', desc: 'Puntos por hoyo — gana el de más puntos', icon: '' },
-                  { value: 'match_play' as const, label: 'Match Play', desc: 'Hoyo a hoyo, 1 vs 1', icon: '' },
+                  { value: 'match_play' as const, label: 'Match Play', desc: 'Hoyo a hoyo, 1 vs 1 · Requiere exactamente 2 jugadores', icon: '' },
                   // Team formats: motores listos, UI de equipos pendiente
                   { value: 'best_ball' as const, label: 'Best Ball', desc: 'Equipos: cuenta la mejor bola', icon: '\uD83C\uDFC6' },
                   { value: 'scramble' as const, label: 'Scramble', desc: 'Equipos: eligen el mejor tiro', icon: '\uD83E\uDD1D' },
@@ -1894,22 +1894,52 @@ export default function NuevaRondaLibrePage() {
               >
                 {'\u2190'} Atras
               </button>
-              <button
-                type="button"
-                onClick={() => setStep(4)}
-                style={{
-                  flex: 2, padding: '14px',
-                  background: colors.gold,
-                  color: colors.activeBtnText,
-                  border: 'none', borderRadius: '12px',
-                  fontSize: '16px', fontWeight: 700, cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(196,153,42,0.3)',
-                  transition: 'all 0.15s',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                Revisar →
-              </button>
+              {(() => {
+                // H06: Match Play requiere EXACTAMENTE 2 jugadores.
+                // En admin mode: creador + 1 rival (adminPlayers.length === 1 con nombre no vacío).
+                // Si no se cumple, disabled el botón + helper text.
+                const matchPlayerCount = adminMode
+                  ? 1 + adminPlayers.filter(p => p.nombre.trim()).length
+                  : 1
+                const matchPlayBlocked = formato === 'match_play' && matchPlayerCount !== 2
+                const reason = matchPlayBlocked
+                  ? matchPlayerCount < 2
+                    ? 'Agrega un rival para continuar'
+                    : 'Match Play es 1 vs 1 — quita jugadores extra'
+                  : null
+                return (
+                  <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <button
+                      type="button"
+                      disabled={matchPlayBlocked}
+                      onClick={() => setStep(4)}
+                      style={{
+                        width: '100%', padding: '14px',
+                        background: matchPlayBlocked ? '#e5e7eb' : colors.gold,
+                        color: matchPlayBlocked ? '#9ca3af' : colors.activeBtnText,
+                        border: 'none', borderRadius: '12px',
+                        fontSize: '16px', fontWeight: 700,
+                        cursor: matchPlayBlocked ? 'not-allowed' : 'pointer',
+                        boxShadow: matchPlayBlocked ? 'none' : '0 2px 8px rgba(196,153,42,0.3)',
+                        transition: 'all 0.15s',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
+                      Revisar →
+                    </button>
+                    {reason && (
+                      <div style={{
+                        fontSize: '11px',
+                        color: '#d97706',
+                        textAlign: 'center',
+                        lineHeight: 1.3,
+                      }}>
+                        {reason}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )}
