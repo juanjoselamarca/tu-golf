@@ -45,14 +45,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', user.id).not('diferencial', 'is', null),
     supabase.from('profiles').select('indice, indice_golfers').eq('id', user.id).single(),
     supabase.from('taiger_sessions').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-    supabase.from('historical_rounds').select('id, total_gross, course_name, played_at, diferencial, holes_played').eq('user_id', user.id).order('played_at', { ascending: false }).limit(50),
+    supabase.from('historical_rounds').select('id, total_gross, course_name, played_at, diferencial, holes_played, scores, par_per_hole').eq('user_id', user.id).order('played_at', { ascending: false }).limit(50),
   ])
 
   const myOrganizedTournaments = (myTournamentsRaw as unknown as Tournament[]) || []
   const playedTournaments = ((playedRaw || []).map((p) => (p as unknown as { tournaments: Tournament | null }).tournaments).filter(Boolean)) as Tournament[]
   const rondasLibres = (rondasRaw as RondaLibre[]) || []
   const activeTournaments = ((activePlayerTournamentsRaw || []).map((p) => (p as unknown as ActivePlayerTournament).tournaments).filter(Boolean)) as Tournament[]
-  const historico = (historicoRaw as HistoricalRound[]) || []
+  const historico: HistoricalRound[] = ((historicoRaw as unknown as Array<Record<string, unknown>>) || []).map(row => ({
+    id: row.id as string,
+    total_gross: (row.total_gross as number | null) ?? null,
+    course_name: (row.course_name as string | null) ?? null,
+    played_at: (row.played_at as string | null) ?? null,
+    diferencial: (row.diferencial as number | null) ?? null,
+    holes_played: (row.holes_played as number | null) ?? null,
+    scores: (row.scores as number[] | null) ?? null,
+    parPerHole: (row.par_per_hole as number[] | null) ?? null,
+  }))
 
   const activeRonda = rondasLibres.find((r) => r.estado === 'en_curso') ?? null
   const finishedRondasRaw = rondasLibres.filter((r) => r.estado !== 'en_curso')
@@ -63,6 +72,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       ...r,
       total_gross: match?.total_gross ?? null,
       vsPar: match ? getVsPar(match.total_gross, match.holes_played) : null,
+      scores: match?.scores ?? null,
+      parPerHole: match?.parPerHole ?? null,
     }
   })
 

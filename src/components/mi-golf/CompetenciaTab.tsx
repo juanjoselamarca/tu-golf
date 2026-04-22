@@ -4,6 +4,8 @@ import { Flag, Trophy, Check } from '@/components/icons'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
 import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '@/lib/mi-golf/types'
 import { esMejorDelMes } from '@/lib/mi-golf/mejor-del-mes'
+import { UltimaRondaHero } from '@/components/mi-golf/UltimaRondaHero'
+import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
 
 type Props = {
   userName: string
@@ -14,7 +16,12 @@ type Props = {
   playingInTournaments: (Tournament & { horaSalida: string | null; diasRestantes: number })[]
   organizingTournaments: (Tournament & { inscritos: number; hoyoActual: number | null })[]
   recentFinishedTournaments: (Tournament & { posicionFinal: string | null; totalJugadores: number | null })[]
-  finishedRondas: (RondaLibre & { total_gross: number | null; vsPar: number | null })[]
+  finishedRondas: (RondaLibre & {
+    total_gross: number | null
+    vsPar: number | null
+    scores: number[] | null
+    parPerHole: number[] | null
+  })[]
   historico: HistoricalRound[]
   comunidad: ComunidadMensaje
   fechaHoy: string
@@ -62,14 +69,15 @@ export function CompetenciaTab(props: Props) {
         )}
       </div>
 
-      {/* HERO 3 ESTADOS */}
+      {/* HERO CONTEXTUAL (4 estados, prioridad descendente) */}
       {activeRonda ? (
         <HeroActiva ronda={activeRonda} summary={activeRondaSummary} />
       ) : torneoInminente ? (
         <HeroProximo torneo={torneoInminente} />
-      ) : (
-        <HeroVacio />
-      )}
+      ) : (() => {
+        const ultima = getUltimaRondaReciente(finishedRondas, fechaHoy)
+        return ultima ? <UltimaRondaHero ronda={ultima} /> : <HeroVacio />
+      })()}
 
       {/* ACCIONES — jerarquía 80/20 */}
       <Acciones />

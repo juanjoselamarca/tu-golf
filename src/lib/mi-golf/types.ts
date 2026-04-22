@@ -46,6 +46,10 @@ export type HistoricalRound = {
   played_at: string | null
   diferencial: number | null
   holes_played: number | null
+  // v6 Última Ronda Express: alimentan UltimaRondaHero.tsx (activity bar).
+  // Opcionales para no romper fixtures existentes de mejor-del-mes/stats/tendencia.
+  scores?: number[] | null
+  parPerHole?: number[] | null
 }
 
 export type NivelNombre = 'Novato' | 'Amateur' | 'Intermedio' | 'Avanzado' | 'Scratch'
