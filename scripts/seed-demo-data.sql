@@ -16,9 +16,12 @@
 
 -- ─── 1. Torneo demo ─────────────────────────────────────────────────────
 
+-- organizer_id requerido: usamos el profile del creador de la app (Juanjo).
+-- Los records demo son read-only por RLS, así que el organizer_id es solo
+-- una referencia FK válida, no un "owner" funcional.
 INSERT INTO tournaments (
   id, slug, name, format, formato_juego, modo_juego,
-  hole_count, tees, created_by, date_start, es_demo
+  hole_count, tees, organizer_id, date_start, status, es_demo
 )
 VALUES (
   '00000000-0000-0000-0000-000000000001'::uuid,
@@ -29,8 +32,9 @@ VALUES (
   'gross',
   18,
   'blanco',
-  NULL,  -- sin creator real
-  CURRENT_DATE,  -- fecha de hoy para que se vea "activo"
+  '98c5cb7a-1c0b-4a64-a773-8bd013a92317'::uuid,
+  CURRENT_DATE,
+  'in_progress',
   true
 )
 ON CONFLICT (slug) DO NOTHING;
