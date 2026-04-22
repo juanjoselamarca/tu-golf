@@ -1416,8 +1416,10 @@ export default function NuevaRondaLibrePage() {
                   }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 500, color: colors.textPrimary }}>Partida simultanea</div>
-                  <div style={{ fontSize: '11px', color: colors.textSecondary }}>Empieza en un hoyo distinto al 1</div>
+                  <div style={{ fontSize: '14px', fontWeight: 500, color: colors.textPrimary }}>Partida shotgun</div>
+                  <div style={{ fontSize: '11px', color: colors.textSecondary, lineHeight: 1.4 }}>
+                    Cada grupo empieza en un hoyo distinto. Útil cuando son muchos jugadores o tienes tiempo limitado.
+                  </div>
                 </div>
               </div>
 
