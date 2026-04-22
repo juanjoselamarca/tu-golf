@@ -432,7 +432,10 @@ function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: 
         ))}
       </div>
 
-      {/* Front vs Back — mejora #2 */}
+      {/* Front vs Back — mejora #2
+          En golf, score menor = mejor. Si diff (back vs par - front vs par) < 0,
+          el back fue más bajo que el front → el score BAJÓ → mejoró.
+          Flecha sigue la dirección del score; etiqueta, el resultado deportivo. */}
       {hasBoth && (
         <div style={{
           display: 'flex', justifyContent: 'center', gap: wide ? 20 : 12,
@@ -443,7 +446,7 @@ function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: 
           <span>Back: {bt!.g} ({fmtOu(bOu)})</span>
           {diff !== 0 && (
             <span style={{ color: diff < 0 ? GARMIN_COLORS.birdie : GARMIN_COLORS.double, fontWeight: 600 }}>
-              {diff < 0 ? `↑ Mejoró ${Math.abs(diff)}` : `↓ Subió ${diff}`}
+              {diff < 0 ? `↓ Mejoró ${Math.abs(diff)}` : `↑ Subió ${diff}`}
             </span>
           )}
         </div>
