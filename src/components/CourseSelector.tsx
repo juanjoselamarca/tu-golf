@@ -719,6 +719,16 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
           >
             <StarIcon filled={fav} size={16} />
           </button>
+          {/* H04: chevron-right consistente en todo item clickeable. Señala
+              que el card completo es tappable (ir al siguiente paso del wizard). */}
+          <span
+            aria-hidden="true"
+            style={{ display: 'flex', alignItems: 'center', color: C.tertiary, flexShrink: 0 }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </span>
         </div>
         {/* Row 2: Club + Par + loops badge + V/D toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -826,19 +836,23 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
               </div>
             )}
           </div>
-          {count > 1 && (
-            <span
-              style={{
-                fontSize: 16,
-                color: expanded ? C.gold : C.tertiary,
-                transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                transition: 'transform 0.2s ease',
-                flexShrink: 0,
-              }}
-            >
-              {'\u203A'}
-            </span>
-          )}
+          {/* H04: chevron consistente en todo item clickeable.
+              Solo un recorrido: chevron-right apunta al siguiente paso.
+              Multi-recorrido: chevron rota 90deg cuando esta expandido. */}
+          <span
+            aria-hidden="true"
+            style={{
+              display: 'flex', alignItems: 'center',
+              color: expanded ? C.gold : C.tertiary,
+              transform: expanded && count > 1 ? 'rotate(90deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease, color 0.2s ease',
+              flexShrink: 0,
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </span>
         </div>
         {expanded && count > 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 12 }}>
