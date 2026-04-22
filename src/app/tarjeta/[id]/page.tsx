@@ -13,7 +13,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import Scorecard, { type ScorecardHole } from '@/components/Scorecard'
-import { ArrowLeft, Share2 } from 'lucide-react'
+import { ArrowLeft, Share2, Flag } from 'lucide-react'
 
 interface RoundData {
   id: string
@@ -123,7 +123,7 @@ export default function TarjetaPublicaPage() {
   if (notFound || !round) {
     return (
       <div style={{ minHeight: '100vh', background: '#f7f7f8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif', padding: 24 }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>⛳</div>
+        <div style={{ marginBottom: 16, color: '#c4992a' }}><Flag size={48} strokeWidth={1.5} /></div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 24, color: '#1a1a2e', marginBottom: 8 }}>Tarjeta no encontrada</h1>
         <p style={{ color: '#6b7280', fontSize: 14, textAlign: 'center', maxWidth: 300 }}>
           Esta tarjeta no existe o fue eliminada.
