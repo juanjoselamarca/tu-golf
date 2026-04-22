@@ -410,12 +410,18 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
 
 function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: boolean }) {
   const c = countRes(st)
-  const items: { l: string; n: number; c: string }[] = []
-  if (c.e > 0) items.push({ l: 'Eagles', n: c.e, c: GARMIN_COLORS.eagle })
-  if (c.b > 0) items.push({ l: 'Birdies', n: c.b, c: GARMIN_COLORS.birdie })
-  items.push({ l: 'Pares', n: c.p, c: K.ts })
-  if (c.bo > 0) items.push({ l: 'Bogeys', n: c.bo, c: GARMIN_COLORS.bogey })
-  if (c.d > 0) items.push({ l: 'Doble+', n: c.d, c: GARMIN_COLORS.double })
+  // H09: mostrar SIEMPRE Eagles + Birdies aunque sean 0, como referencia de
+  // la ronda. Antes solo se mostraban los "malos" (bogeys, dobles) cuando
+  // había 0 birdies/eagles → el scorecard se veía sesgado a negativo.
+  // Eagles queda oculto solo si el jugador es 18+ handicap (eagles raros en
+  // amateur) — pero mantenerlo visible es más honesto: 0 también es info.
+  const items: { l: string; n: number; c: string }[] = [
+    { l: 'Eagles', n: c.e, c: c.e > 0 ? GARMIN_COLORS.eagle : K.tm },
+    { l: 'Birdies', n: c.b, c: c.b > 0 ? GARMIN_COLORS.birdie : K.tm },
+    { l: 'Pares', n: c.p, c: K.ts },
+    { l: 'Bogeys', n: c.bo, c: c.bo > 0 ? GARMIN_COLORS.bogey : K.tm },
+    { l: 'Doble+', n: c.d, c: c.d > 0 ? GARMIN_COLORS.double : K.tm },
+  ]
 
   // Mejora #2: front vs back comparison
   const hasBoth = bt != null && ft.g > 0 && bt.g > 0
