@@ -2051,22 +2051,54 @@ export default function NuevaRondaLibrePage() {
                 <span style={{ fontSize: '13px', color: colors.textSecondary, display: 'block', marginBottom: '8px' }}>
                   Jugadores ({(adminMode ? adminPlayers.filter(p => p.nombre.trim()).length : 0) + 1})
                 </span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  <span style={{
-                    padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 500,
-                    background: 'rgba(196,153,42,0.12)', color: colors.gold,
-                  }}>
-                    {creatorName} {creatorHandicap != null ? `(${creatorHandicap})` : ''}
-                  </span>
-                  {adminMode && adminPlayers.filter(p => p.nombre.trim()).map((p, i) => (
-                    <span key={i} style={{
-                      padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 500,
-                      background: 'rgba(196,153,42,0.06)', color: colors.textPrimary,
-                    }}>
-                      {p.nombre} {p.handicap != null ? `(${p.handicap})` : ''}
-                    </span>
-                  ))}
-                </div>
+                {/* H02: si la cancha tiene múltiples tees, mostrar el tee por jugador.
+                    Cada jugador puede tener su propio tee (override en step 3). Así el
+                    resumen de confirmación es transparente sobre qué scope de slope/CR
+                    se va a usar para cada uno. */}
+                {(() => {
+                  const playerList: Array<{ nombre: string; handicap: number | null; tees: string | null; isCreator: boolean }> = [
+                    { nombre: creatorName, handicap: creatorHandicap, tees, isCreator: true },
+                    ...(adminMode
+                      ? adminPlayers
+                          .filter(p => p.nombre.trim())
+                          .map(p => ({ nombre: p.nombre.trim(), handicap: p.handicap, tees: p.tees ?? tees, isCreator: false }))
+                      : []),
+                  ]
+                  // Mostrar tee solo si la cancha tiene > 1 tee disponible (caso contrario no aporta info).
+                  const showTeePerPlayer = courseTees.length > 1
+                  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {playerList.map((p, i) => (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
+                          padding: '8px 12px', borderRadius: '10px',
+                          background: p.isCreator ? 'rgba(196,153,42,0.12)' : 'rgba(196,153,42,0.05)',
+                          border: p.isCreator ? '1px solid rgba(196,153,42,0.25)' : '1px solid transparent',
+                        }}>
+                          <span style={{
+                            fontSize: '13px', fontWeight: 500,
+                            color: p.isCreator ? colors.gold : colors.textPrimary,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {p.nombre}
+                            {p.handicap != null ? ` · idx ${p.handicap}` : ''}
+                          </span>
+                          {showTeePerPlayer && p.tees && (
+                            <span style={{
+                              fontSize: '11px', color: colors.textSecondary, flexShrink: 0,
+                              padding: '2px 8px', borderRadius: '8px',
+                              background: '#ffffff', border: `1px solid ${colors.cardBorder}`,
+                              fontFamily: '"DM Mono", monospace',
+                            }}>
+                              Tee {capitalize(p.tees)}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
