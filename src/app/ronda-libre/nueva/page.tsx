@@ -1312,9 +1312,13 @@ export default function NuevaRondaLibrePage() {
                           >
                             <div style={{ fontSize: '14px', fontWeight: 600 }}>{displayName}</div>
                             <div style={{ fontSize: '11px', color: active ? 'rgba(7,13,24,0.7)' : '#6b7280', marginTop: '2px' }}>
-                              {t.yardaje_total?.toLocaleString()} yds
-                              {t.rating ? ` \u00b7 CR ${t.rating}` : ''}
-                              {t.slope ? ` \u00b7 Slope ${t.slope}` : ''}
+                              {/* P5: yardaje puede venir null desde FedeGolf (357/481 tees = 74%).
+                                  Ocultar token si no hay numero. Orden premium: yardaje primero. */}
+                              {[
+                                t.yardaje_total ? `${t.yardaje_total.toLocaleString()} yds` : null,
+                                t.rating ? `CR ${t.rating}` : null,
+                                t.slope ? `Slope ${t.slope}` : null,
+                              ].filter(Boolean).join(' \u00b7 ')}
                             </div>
                           </button>
                         )
