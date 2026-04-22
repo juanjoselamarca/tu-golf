@@ -81,8 +81,13 @@ export async function GET() {
     return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
   }
 
-  // Fetch rounds + courses + course_holes in parallel
-  const [roundsRes, coursesRes, holesRes] = await Promise.all([
+  // Fetch rounds + courses in parallel. course_holes se pagina (Supabase limita a
+  // 1000 rows por request) — sin paginar, canchas con id alto quedaban fuera del
+  // map y la query reportaba "0 birdies" aunque hubiera muchas rondas matcheadas.
+  // Ver bug P12 (auditoría 22-abr-2026): 104 rondas → 0 birdies era artefacto
+  // del límite default, no ausencia de birdies reales.
+  const PAGE_SIZE = 1000
+  const [roundsRes, coursesRes] = await Promise.all([
     supabase
       .from('historical_rounds')
       .select('id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, garmin_scorecard_id, metadata')
@@ -91,13 +96,24 @@ export async function GET() {
     supabase
       .from('courses')
       .select('id, nombre'),
-    supabase
-      .from('course_holes')
-      .select('course_id, numero, par')
-      .order('numero'),
   ])
 
-  if (roundsRes.error) {
+  // Paginar course_holes
+  const allHolesAcc: Array<{ course_id: string; numero: number; par: number }> = []
+  let holesError: unknown = null
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('course_holes')
+      .select('course_id, numero, par')
+      .order('numero')
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (error) { holesError = error; break }
+    if (!data || data.length === 0) break
+    allHolesAcc.push(...(data as Array<{ course_id: string; numero: number; par: number }>))
+    if (data.length < PAGE_SIZE) break
+  }
+
+  if (roundsRes.error || holesError) {
     return NextResponse.json({ error: 'No pudimos cargar tu historial. Intenta de nuevo.' }, { status: 500 })
   }
 
@@ -115,7 +131,7 @@ export async function GET() {
   }>
 
   const allCourses = (coursesRes.data ?? []) as Array<{ id: string; nombre: string }>
-  const allHoles = (holesRes.data ?? []) as Array<{ course_id: string; numero: number; par: number }>
+  const allHoles = allHolesAcc
 
   // Build course_id -> pars map (sorted by numero)
   const courseParMap = new Map<string, number[]>()
