@@ -4,6 +4,75 @@
 
 ---
 
+## Sesión 21-22 Abr 2026 — Cierre técnico del roadmap pre-lanzamiento
+
+**Fecha:** 21-22 Abr 2026 (sesión nocturna paralela a Mi Golf v2 de Juanjo)
+**Estado:** COMPLETO — roadmap técnico cerrado salvo 2 acciones manuales pendientes de Juanjo
+**Commits:** 20 en main (+ seed aplicado en prod vía Management API)
+
+### Problema
+El roadmap `docs/roadmap-camino-100.md` tenía 22 items P0/P1/P2/P3. A la mañana del 21-abr quedaban ~13 sin resolver cubriendo coach gate, offline resilience, visual consistency, imports, multi-loop correctness, iOS push, ranking real, y demo rebuild.
+
+### Shipped (por categoría)
+
+**P0/P1 funcionalidad core:**
+- **Coach IA gate (3 rondas mínimo)** — `api/taiger/chat` 403 si <3 rondas; UI redirige con mensaje "Subí tus tarjetas". Defense-in-depth en 4 capas.
+- **Offline resilience** (4 gaps cerrados) — patrón ronda-libre portado a `/torneo/score` + `/score-grupo`: localStorage backup + 3 retries + auto-sync on reconnect. Anti-race en finalizar: bloquea si `scoreSync.tienePendientes()`. OfflineBanner global con contador "N hoyos en cola".
+- **Signup white theme + pro typography** — palette blanca coherente con NuevoTorneoForm. Playfair 30px, DM Mono labels uppercase, inputs con focus ring dorado.
+- **Navbar ranking fix** — quitar link a `/leaderboard` demo; después re-linkearlo a nueva `/ranking` real.
+- **Garmin palette unificada** (P1 #10) — +`getScoreColor` / `getScoreColorLight` helpers canónicos. Fix en `constants/golf.ts` SCORE_COLORS (4 de 5 valores estaban mal). Reemplazos en TeamLeaderboard, MobileLeaderboard, ronda-libre spectator.
+- **Imports formato/modo** (P2 #13) — `ImportRoundData` acepta `formato_juego` y `modo_juego` opcionales. UI en StepReview con 2 selectores aplicados al batch. Stableford/Match Play fuerzan neto (regla R&A).
+- **Multi-loop × per-player tees** (P2 #16) — 5 bugs identificados, 3 must-fix + 1 visual cerrados:
+  - BUG #5: `cargarCourseData` combina CR/Slope de children por `recorridos[]`
+  - BUG #1: migration 027 (`rondas_libres.recorridos` schema drift)
+  - BUG #2: `HoleData.yardajes` map + `getYardajeForTee` helper
+- **Push iOS Safari** (P2 #14) — `getPushSupportStatus()` distingue `ios_too_old` vs `ios_not_pwa`. UI muestra instrucciones Safari → Compartir → Añadir a pantalla de inicio.
+- **WD/DQ transparencia USGA** (P1 #8) — query paralela WD/DQ + sección "No compiten por posición" al pie de `/torneo/[slug]` spectator y `/tv` con badges.
+
+**P3 rebuilds visuales:**
+- **Ranking real** (P3 #20) — nueva `/ranking` con top 50 por `indice_golfers` / `indice` federación, nivel badges (Rookie → Golfer+ con colores progresivos), podio top 3 con borde dorado.
+- **Demo rebuild completo** (P3 #21) — arquitectura elite: reciclar la app real. Migration `028_es_demo_column.sql` + RLS anti-escritura + seed SQL con 1 torneo + 1 ronda + 8 jugadores fake. Guards redirigen `/score` a spectator para records demo. Nuevo `/demo/page.tsx` hub con 4 cards a URLs reales.
+
+**Infra + testing:**
+- **45 tests regresión** — cobertura para `getScoreColor/Light`, `getYardajeForTee`, `getPushSupportStatus` (mocking user-agent + matchMedia).
+- **Seed aplicado en prod** vía Supabase Management API (HTTP 201). DEMO01 linkeado a Los Leones (VARONES) `course_id`. RLS verificada bloqueando PATCH anon.
+
+### Commits principales
+- `49fe728` test(core): cobertura para Garmin + yardaje + iOS push
+- `96c2d96` fix(colors): unificar paleta Garmin en leaderboards y spectator
+- `e028f3f` feat(imports): user elige formato+modo al importar rondas históricas
+- `0027f75` fix(multi-loop): combinar CR/Slope per-recorrido + schema drift
+- `41defec` fix(multi-loop): yardage per-player tee — BUG #2 #16 P2
+- `fe3af49` feat(push): soporte iOS Safari — detección de versión + gate PWA
+- `012f76d` feat(ranking): nueva página /ranking — top 50 Golfers+ real
+- `1652f4f` feat(demo): schema es_demo + seed SQL — infraestructura
+- `0e70a94` feat(demo): guards redirigen score pages a spectator
+- `b912bbd` feat(demo): nueva /demo hub con 4 cards a pantallas reales
+- `29e99a6` fix(demo): linkear DEMO01 a Los Leones course_id
+- `bbaa67c` feat(torneos): mostrar jugadores WD/DQ en leaderboard público
+
+### Validación
+- `npx tsc --noEmit`: 0 errores
+- `npm test`: 1119/1119 verdes
+- `npm run build`: OK
+- Pre-push hook passed en todos los pushes
+- 20+ deploys Vercel Ready
+
+### Pendientes al cierre
+**Técnico menor**:
+- Torneo demo sin jugadores (opción B fake auth users o A shell — decisión abierta)
+
+**Acción manual Juanjo**:
+- #3 `GEMINI_API_KEY` en Vercel (OCR silenciado desde 9 abr)
+- #18 Secrets rotation (Security audit abril)
+
+### Qué aprendimos
+- Recolectar los gaps críticos en auditorías por archivo antes de tocar código evita re-trabajo — 5 bugs en multi-loop se cerraron en un solo commit gracias a audit previo.
+- Demo que recicla componentes reales + seed data + guards es estrategia escalable; evita paralelismo entre demo UI y real que divergen con el tiempo.
+- Management API (sbp_* PAT token) permite aplicar migrations y seeds contra prod sin CLI login, útil para operaciones de CTO remoto.
+
+---
+
 ## Sesión 21 Abr 2026 — Mi Golf v2 (swap limpio)
 
 **Fecha:** 21 Abr 2026
