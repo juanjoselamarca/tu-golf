@@ -5,7 +5,7 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import { ToastContainer } from '@/hooks/useToast'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
-import { LiveRoundIndicator } from '@/components/LiveRoundIndicator'
+import { LiveBadge } from '@/components/ui/LiveBadge'
 import { SystemStatusBanner } from '@/components/SystemStatusBanner'
 import { PostHogProvider } from '@/components/PostHogProvider'
 import { OfflineBanner } from '@/components/OfflineBanner'
@@ -90,7 +90,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Navbar />
         <ToastContainer />
         <PWAInstallBanner />
-        <LiveRoundIndicator />
+        {/* LiveBadge: pill inline bajo la topbar — NO renderiza si no hay ronda
+            activa. Reemplaza LiveRoundIndicator (floating que pisaba 14 pantallas).
+            Audit P1. */}
+        <div className="live-bar flex justify-end px-3 pt-1" style={{ minHeight: 0 }}>
+          <LiveBadge />
+        </div>
         <FedegolfSync />
         <main className="min-h-screen">{children}</main>
 
