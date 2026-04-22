@@ -174,10 +174,11 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P11 · Dropdown arrow `▼` ambiguo en leaderboard — `[ ]`
+### P11 · Dropdown arrow `▼` ambiguo en leaderboard — `[x]`
 **Evidencia:** foto 30.
 **Fix:** reemplazar `▼` por `chevron-right` y el tap de la fila completa abre detalle.
 **Prioridad:** **P2**. **Owner:** Agente D.
+**Resolución (22-abr, Agente D):** `TournamentTabs.tsx` — el ▼ de texto era ambiguo; ahora usa lucide `ChevronDown` con rotación 180° al expandir (mantiene el affordance de "colapsado/expandido" del Scorecard inline). `chevron-right` plano no servía porque el tap expande en la misma fila (no navega). La rotación del ChevronDown es el patrón consistente con el icon system del resto de la app y consume P7 en pasada. Commit `d720b92`.
 
 ---
 
@@ -238,13 +239,14 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P18 · Perfil — Federación vs Golfers+ sin storytelling — `[ ]`
+### P18 · Perfil — Federación vs Golfers+ sin storytelling — `[x]`
 **Evidencia:** foto 34.
 **Fix:**
 - Card Federación: "Oficial USGA · lo usas en torneos de Federación"
 - Card Golfers+: "Rendimiento real · lo usamos para coaching y torneos amistosos"
 - Tooltip/link "¿Cuándo uso cuál?"
 **Prioridad:** **P1** (toca propuesta de valor core). **Owner:** Agente D.
+**Resolución (22-abr, Agente D):** `perfil/page.tsx` — subtítulos nuevos: Federación → "Oficial USGA · torneos federados"; Golfers+ → "Rendimiento real · coaching y amistosos". Link sutil "¿Cuándo uso cuál? →" debajo de las cards que lleva a `/indices` (página Educación WHS existente). Commit `0d27895`.
 
 ---
 
@@ -262,6 +264,13 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 2. Mantener "Hoyo 12 · 3 golpes" solo en subtítulo.
 3. Badge "Birdie" como único destacado.
 **Prioridad:** **P2**. **Owner:** Agente D.
+**Nota cross-partición (22-abr, Agente D):** el componente "Momentos recientes" vive en `src/app/ronda-libre/[codigo]/page.tsx` (líneas 1331–1414), NO en la partición de Agente D — pertenece a Agente A (Wizard Crear Ronda + página post-creación). Dejo el hallazgo ABIERTO con spec accionable:
+- Reemplazar el `<div>` con `event.hole` gigante por un círculo de 36×36 con **iniciales del jugador** (`event.jugador.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()`). Background color: paleta Garmin según diff (birdie celeste, par neutral, bogey dorado). Si se decide avatar real en el futuro → reemplazar por componente `<Avatar>` cuando Foundation lo cree.
+- Dejar `Hoyo {event.hole} · {event.score} golpes` solo en subtítulo (ya está así).
+- Badge "Birdie"/"Par"/"Bogey" como único destacado (ya existe a la derecha).
+- `TODO(foundation): <Avatar name={event.jugador} size={36} />` cuando Foundation publique el componente shared.
+
+**Acción sugerida:** coordinar con Agente A para cerrarlo en su próxima pasada o reasignar si el plan cambia.
 
 ---
 
@@ -282,9 +291,9 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 | H11 | Mi Historial | Match Play mostrado como `+5` cuando debería ser en hoyos ganados | P1 | Agente B | `[ ]` |
 | H12 | Mi Historial | NETO pill azul/cian fuera de paleta | P2 | Agente B | `[ ]` |
 | H13 | Ronda creada | Código sin botón copy visible (asumo tap-to-copy no evidente) | P1 | Agente A | `[ ]` |
-| H14 | GWI | "DOMINANDO" label dramatic, revisar si cuadra con target | P2 | Agente D | `[ ]` |
-| H15 | En Vivo listado | "Los Leones" duplicado, considerar group header con rondas nested | P2 | Agente D | `[ ]` |
-| H16 | Perfil header | Email PII visible en screenshot, revisar intencionalidad | P1 | Agente D | `[ ]` |
+| H14 | GWI | "DOMINANDO" label dramatic, revisar si cuadra con target | P2 | Agente D | `[x]` (9838ed2 · "DOMINANDO"→"FAVORITO") |
+| H15 | En Vivo listado | "Los Leones" duplicado, considerar group header con rondas nested | P2 | Agente D | `[x]` (faa5c3f · group-by-course header si ≥2 rondas) |
+| H16 | Perfil header | Email PII visible en screenshot, revisar intencionalidad | P1 | Agente D | `[x]` (b0bdb3e · email fuera del header, queda en sección Cuenta) |
 | H17 | Landing footer | Tag "Diseñado para el golf amateur en LatAm" ilegible por opacidad baja | P2 | Agente C | `[ ]` |
 | H18 | Wizard paso 1 | "Repetir" compite con tap del card de ronda previa | P2 | Agente A | `[ ]` |
 
@@ -400,5 +409,5 @@ Un hallazgo se marca `[x]` solo si:
 
 ---
 
-**Última actualización:** 22-abr-2026 — inicial
-**Estado global:** 0 / 38 items cerrados
+**Última actualización:** 22-abr-2026 — Agente D cerró 5/6 (P11, P18, H14, H15, H16). P20 dejado con spec accionable (fuera de partición D).
+**Estado global:** 5 / 38 items cerrados
