@@ -30,19 +30,16 @@ const FEATURES = [
 
 const STEPS = [
   {
-    num:   '01',
     icon:  <Trophy size={24} />,
     title: 'Crea la competencia',
     desc:  'Nombre, cancha, categorías y jugadores. Sin papel ni complicaciones.',
   },
   {
-    num:   '02',
     icon:  <Smartphone size={24} />,
     title: 'Cada jugador marca en su celular',
     desc:  'Score hoyo a hoyo desde cualquier celular. Sin descargar nada.',
   },
   {
-    num:   '03',
     icon:  <TrendingUp size={24} />,
     title: 'Ranking en vivo para todos',
     desc:  'Posiciones en tiempo real. Comparte el link y todos siguen el torneo.',
@@ -116,7 +113,7 @@ export default function Home() {
           <div
             className="hidden md:block absolute"
             style={{
-              top:        '44px',
+              top:        '28px',
               left:       '12%',
               right:      '12%',
               height:     '1px',
@@ -125,19 +122,19 @@ export default function Home() {
           />
 
           {STEPS.map((s) => (
-            <div key={s.num} className="relative flex flex-col">
+            <div key={s.title} className="relative flex flex-col">
 
-              {/* Watermark number + icon */}
-              <div className="relative mb-5 h-14 md:h-20 flex items-start">
+              {/* Icon only — the vertical order of the cards already communicates sequence */}
+              <div className="relative mb-5 flex items-center">
                 <span
-                  className="font-display font-black text-[60px] md:text-[90px] leading-none select-none"
-                  style={{ color: 'rgba(196,153,42,0.14)', lineHeight: 1 }}
-                >
-                  {s.num}
-                </span>
-                <span
-                  className="absolute top-1 left-1 flex items-center text-gold"
-                  style={{ filter: 'drop-shadow(0 0 6px rgba(196,153,42,0.5))' }}
+                  className="flex items-center justify-center text-gold rounded-full"
+                  style={{
+                    width:      '56px',
+                    height:     '56px',
+                    background: 'rgba(14,28,47,0.9)',
+                    border:     '1px solid rgba(196,153,42,0.35)',
+                    filter:     'drop-shadow(0 0 6px rgba(196,153,42,0.3))',
+                  }}
                 >
                   {s.icon}
                 </span>
