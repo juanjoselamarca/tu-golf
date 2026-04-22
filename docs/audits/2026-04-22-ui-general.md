@@ -181,7 +181,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P12 · `104 rondas, 0 birdies` — dato agregado sospechoso — `[ ]`
+### P12 · `104 rondas, 0 birdies` — dato agregado sospechoso — `[x]`
 **Evidencia:** foto 38.
 **Fix:**
 1. Auditar query agregadora de birdies.
@@ -275,12 +275,12 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 | H04 | Selector Cancha | Chevron `>` inconsistente entre cards | P2 | Agente A | `[ ]` |
 | H05 | Selector Cancha | Nombres truncados "C.G. Las Brisas De Santo D…" — 2 líneas | P2 | Agente A | `[ ]` |
 | H06 | Formato juego | Match Play no disabled si ≠ 2 jugadores | P1 | Agente A | `[ ]` |
-| H07 | Scorecard Lomas | `↓ Subió 1` — direccionalidad de flecha invertida | P0 si bug de golf/, P1 si solo flecha | Agente B | `[ ]` |
-| H08 | Scorecard | Recuadros hoyos se ven clickables sin serlo | P2 | Agente B | `[ ]` |
-| H09 | Scorecard | Desglose inferior solo muestra "malos": faltan Birdies/Eagles | P2 | Agente B | `[ ]` |
-| H10 | Mi Historial | Barras colores comprimidas, 9 vs 18 hoyos del mismo largo | P2 | Agente B | `[ ]` |
-| H11 | Mi Historial | Match Play mostrado como `+5` cuando debería ser en hoyos ganados | P1 | Agente B | `[ ]` |
-| H12 | Mi Historial | NETO pill azul/cian fuera de paleta | P2 | Agente B | `[ ]` |
+| H07 | Scorecard Lomas | `↓ Subió 1` — direccionalidad de flecha invertida | P0 si bug de golf/, P1 si solo flecha | Agente B | `[x]` |
+| H08 | Scorecard | Recuadros hoyos se ven clickables sin serlo | P2 | Agente B | `[x]` |
+| H09 | Scorecard | Desglose inferior solo muestra "malos": faltan Birdies/Eagles | P2 | Agente B | `[x]` |
+| H10 | Mi Historial | Barras colores comprimidas, 9 vs 18 hoyos del mismo largo | P2 | Agente B | `[x]` |
+| H11 | Mi Historial | Match Play mostrado como `+5` cuando debería ser en hoyos ganados | P1 | Agente B | `[x]` |
+| H12 | Mi Historial | NETO pill azul/cian fuera de paleta | P2 | Agente B | `[x]` |
 | H13 | Ronda creada | Código sin botón copy visible (asumo tap-to-copy no evidente) | P1 | Agente A | `[ ]` |
 | H14 | GWI | "DOMINANDO" label dramatic, revisar si cuadra con target | P2 | Agente D | `[ ]` |
 | H15 | En Vivo listado | "Los Leones" duplicado, considerar group header con rondas nested | P2 | Agente D | `[ ]` |
@@ -400,5 +400,5 @@ Un hallazgo se marca `[x]` solo si:
 
 ---
 
-**Última actualización:** 22-abr-2026 — inicial
-**Estado global:** 0 / 38 items cerrados
+**Última actualización:** 22-abr-2026 — Agente B (Scorecard + Historial) cerró P12 + H07-H12 + consumo P7
+**Estado global:** 7 / 38 items cerrados (Agente B: P12, H07, H08, H09, H10, H11, H12)
