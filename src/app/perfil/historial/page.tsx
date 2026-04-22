@@ -901,8 +901,11 @@ function HistorialContent() {
                                   display: 'inline-block',
                                   padding: '2px 6px',
                                   borderRadius: '6px',
-                                  background: 'rgba(59,130,246,0.10)',
-                                  color: '#1e40af',
+                                  // Paleta de marca: dorado outline para badges de modo.
+                                  // El azul/cian (#1e40af) estaba fuera del design system.
+                                  background: 'rgba(196,153,42,0.08)',
+                                  color: '#92400e',
+                                  border: '1px solid rgba(196,153,42,0.25)',
                                   fontSize: '10px',
                                   fontWeight: 600,
                                   fontFamily: '"DM Mono", monospace',
