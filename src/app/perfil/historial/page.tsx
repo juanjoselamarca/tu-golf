@@ -217,7 +217,9 @@ function HistorialContent() {
   const formStats  = computeStats(scores)
   const totalGross = formStats?.total ?? null
 
-  /* ── Aggregate header stats (fallback from local rounds if API hasn't loaded) ── */
+  /* ── Aggregate header stats (fallback from local rounds if API hasn't loaded) ──
+         Match Play se mide en hoyos ganados, no en strokes vs par; excluir
+         esas rondas del promedio y del best-round para no ensuciar la estadística. */
   let aggBirdies = 0, aggEagles = 0
   let ovSum = 0, ovCount = 0
   for (const r of rounds) {
@@ -225,7 +227,7 @@ function HistorialContent() {
     if (!s) continue
     aggBirdies += s.birdies
     aggEagles  += s.eagles
-    if (r.total_gross != null) {
+    if (r.total_gross != null && r.formato_juego !== 'match_play') {
       // Usar par según hoyos jugados en vez de hardcodear 72
       const holesPlayed = r.scores?.filter((s: number | null) => s != null).length ?? 18
       const parEstimado = holesPlayed <= 9 ? 36 : 72
@@ -235,9 +237,10 @@ function HistorialContent() {
   }
   const avgOv = ovCount > 0 ? Math.round(ovSum / ovCount * 10) / 10 : null
 
-  /* ── Personal Record — por vsPar, no por gross absoluto ── */
+  /* ── Personal Record — por vsPar, no por gross absoluto (excluye match play) ── */
   const bestRound = rounds.reduce<{ score: number; course: string; vsPar: number } | null>((best, r) => {
     if (r.total_gross == null) return best
+    if (r.formato_juego === 'match_play') return best
     const holesPlayed = r.scores?.filter((s: number | null) => s != null).length ?? 18
     const parEstimado = holesPlayed <= 9 ? 36 : 72
     const rVsPar = r.total_gross - parEstimado
@@ -829,7 +832,10 @@ function HistorialContent() {
                     const dateStr = formatDateShort(r.played_at)
                     const holes   = r.holes_played ?? r.scores?.filter(Boolean).length ?? 18
                     const par     = stats?.holePars ? stats.holePars.reduce((a: number, b: number) => a + b, 0) : (holes <= 9 ? 36 : 72)
-                    const ov      = r.total_gross != null ? r.total_gross - par : null
+                    // Match Play no se mide por strokes vs par — se mide por hoyos
+                    // ganados/perdidos. No mostramos +N sobre el par total en la row.
+                    const isMatchPlay = r.formato_juego === 'match_play'
+                    const ov      = (r.total_gross != null && !isMatchPlay) ? r.total_gross - par : null
                     const isOpen  = expanded.has(r.id)
                     const teeHex  = r.tee_color ? TEE_COLORS[r.tee_color] || '#9ca3af' : null
 
