@@ -530,9 +530,13 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
                 fontSize: 16,
                 fontWeight: 600,
                 color: C.ivory,
+                // H05: 2 lineas con ellipsis en vez de truncado agresivo single-line.
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical' as const,
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                lineHeight: 1.3,
+                wordBreak: 'break-word',
               }}
             >
               {selectedCourse.displayName}
@@ -687,9 +691,14 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
               fontSize: 15,
               fontWeight: 600,
               color: C.ivory,
+              // H05: permitir 2 lineas para evitar truncados agresivos tipo
+              // "C.G. Las Brisas De Santo D…". Clamp a 2 lineas con ellipsis.
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical' as const,
               overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
             }}
           >
             {course.displayName}
