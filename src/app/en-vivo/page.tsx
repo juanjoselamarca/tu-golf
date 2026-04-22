@@ -197,9 +197,41 @@ export default function EnVivoPage() {
             )}
           </div>
         ) : (
-          /* Rondas activas */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {rondas.map(ronda => (
+          /* Rondas activas — agrupadas por cancha (H15: evita duplicación del header de club) */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {(() => {
+              // Agrupa rondas manteniendo orden del feed (rondas ya vienen ordenadas por recencia)
+              const orderedCourses: string[] = []
+              const byCourse = new Map<string, RondaEnVivo[]>()
+              rondas.forEach(r => {
+                const key = r.course_name
+                if (!byCourse.has(key)) {
+                  byCourse.set(key, [])
+                  orderedCourses.push(key)
+                }
+                byCourse.get(key)!.push(r)
+              })
+              return orderedCourses.map(courseName => {
+                const grupo = byCourse.get(courseName)!
+                const showHeader = grupo.length > 1
+                return (
+                  <div key={courseName} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {showHeader && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        gap: '10px', padding: '0 2px',
+                      }}>
+                        <h2 style={{
+                          fontFamily: 'var(--font-playfair)', fontSize: '16px', fontWeight: 700,
+                          color: 'var(--ivory)', margin: 0, letterSpacing: '-0.01em',
+                        }}>{courseName}</h2>
+                        <span style={{
+                          fontSize: '10px', fontWeight: 600, fontFamily: 'DM Mono, monospace',
+                          color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase',
+                        }}>{grupo.length} rondas</span>
+                      </div>
+                    )}
+                    {grupo.map(ronda => (
               <Link
                 key={ronda.id}
                 href={`/ronda-libre/${ronda.codigo}`}
@@ -215,10 +247,13 @@ export default function EnVivoPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <div style={{
-                          fontSize: '15px', fontWeight: 700, color: 'var(--ivory)',
-                          fontFamily: 'var(--font-dm-sans)',
-                        }}>{ronda.course_name}</div>
+                        {/* Si el grupo tiene header, omitimos el course_name para evitar duplicación (H15) */}
+                        {!showHeader && (
+                          <div style={{
+                            fontSize: '15px', fontWeight: 700, color: 'var(--ivory)',
+                            fontFamily: 'var(--font-dm-sans)',
+                          }}>{ronda.course_name}</div>
+                        )}
                         {/* Badge defensivo "9/18 HOYOS" — nunca confundir rondas de 9 con 18 */}
                         <span style={{
                           display: 'inline-block',
@@ -333,7 +368,11 @@ export default function EnVivoPage() {
                   </div>
                 </div>
               </Link>
-            ))}
+                    ))}
+                  </div>
+                )
+              })
+            })()}
           </div>
         )}
 
