@@ -417,23 +417,39 @@ export default function NuevaRondaLibrePage() {
     setLoading(false)
   }
 
-  const handleShareWhatsApp = (type: 'jugar' | 'seguir') => {
+  // P15 consume: handler de share unificado. Usa native share API cuando está
+  // disponible (iOS Safari, Android Chrome) y cae a WhatsApp cuando no. Copiar
+  // link queda como acción secundaria explícita, no botón dominante.
+  // TODO(foundation): reemplazar por <ShareSheet
+  //   url={...} title={...} text={...} onShare={...} /> cuando Foundation
+  //   publique el componente. Debe mantener prioridad: navigator.share > WA > copy.
+  const handleShare = async (type: 'jugar' | 'seguir') => {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
-    const link = type === 'jugar'
+    const url = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
-    const message = type === 'jugar'
-      ? `Unete a mi ronda en Golfers+! ${link}`
-      : `Sigue mi ronda en vivo en Golfers+! ${link}`
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
+    const text = type === 'jugar'
+      ? `Únete a mi ronda en Golfers+`
+      : `Sigue mi ronda en vivo en Golfers+`
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: 'Golfers+', text, url })
+        return
+      } catch {
+        // usuario canceló → no hacer nada
+        return
+      }
+    }
+    // Fallback: WhatsApp
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`, '_blank')
   }
 
-  const handleCopyLink = (type: 'jugar' | 'seguir') => {
+  const handleCopyLink = async (type: 'jugar' | 'seguir') => {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
     const link = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
-    navigator.clipboard.writeText(link)
+    try { await navigator.clipboard.writeText(link) } catch {}
   }
 
   // ─── Share screen after round creation ───
@@ -517,14 +533,14 @@ export default function NuevaRondaLibrePage() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => handleShareWhatsApp('jugar')}
+                  onClick={() => handleShare('jugar')}
                   style={{
-                    flex: 1, background: '#25D366', color: '#ffffff', fontWeight: 700, fontSize: '15px',
+                    flex: 1, background: colors.gold, color: colors.activeBtnText, fontWeight: 700, fontSize: '15px',
                     padding: '14px 16px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                     WebkitTapHighlightColor: 'transparent',
                   }}
                 >
-                  WhatsApp
+                  Compartir
                 </button>
                 <button
                   onClick={() => handleCopyLink('jugar')}
@@ -546,14 +562,14 @@ export default function NuevaRondaLibrePage() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => handleShareWhatsApp('seguir')}
+                  onClick={() => handleShare('seguir')}
                   style={{
-                    flex: 1, background: '#25D366', color: '#ffffff', fontWeight: 700, fontSize: '15px',
+                    flex: 1, background: colors.gold, color: colors.activeBtnText, fontWeight: 700, fontSize: '15px',
                     padding: '14px 16px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                     WebkitTapHighlightColor: 'transparent',
                   }}
                 >
-                  WhatsApp
+                  Compartir
                 </button>
                 <button
                   onClick={() => handleCopyLink('seguir')}
