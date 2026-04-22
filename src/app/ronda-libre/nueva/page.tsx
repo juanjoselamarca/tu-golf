@@ -693,7 +693,7 @@ export default function NuevaRondaLibrePage() {
                 Yo llevo el score del grupo
               </div>
               <div style={{ fontSize: '13px', color: colors.textSecondary }}>
-                Tu marcas el score de todos
+                Tú marcas el score de todos
               </div>
             </button>
           </div>
@@ -1509,7 +1509,7 @@ export default function NuevaRondaLibrePage() {
                     fontSize: '11px', color: colors.gold,
                     background: 'rgba(196,153,42,0.1)', padding: '3px 10px', borderRadius: '10px', fontWeight: 600,
                   }}>
-                    Tu
+                    Tú
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
