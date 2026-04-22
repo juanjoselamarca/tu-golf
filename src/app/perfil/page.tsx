@@ -177,10 +177,10 @@ export default function PerfilPage() {
                 </span>
               </div>
 
-              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: '0 0 6px', lineHeight: 1.1 }}>
+              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.1 }}>
                 {profile.name || 'Golfista'}
               </h1>
-              <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 8px' }}>{profile.email}</p>
+              {/* H16 cerrado: email movido a sección Cuenta (evita PII en screenshots del header) */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                 {profile.indice != null ? (
                   <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 700 }}>
