@@ -452,15 +452,58 @@ export default function NuevaRondaLibrePage() {
               Ronda creada
             </div>
 
-            <div style={{
-              fontFamily: '"Playfair Display", serif',
-              fontSize: '48px',
-              fontWeight: 700,
-              color: colors.gold,
-              letterSpacing: '0.15em',
-              marginBottom: '8px',
-            }}>
-              {roundCode}
+            {/* H13 + P3 (consumo): código tappable para copiar con feedback visual.
+                TODO(foundation): reemplazar por <RoundCode code={roundCode} onCopy={...} />
+                cuando Foundation publique el componente (mono + separador cada 3 + anti-ambiguos).
+                Por ahora: botón tap-to-copy con fuente JetBrains Mono fallback y toast. */}
+            {(() => {
+              // Insertar separador cada 3 chars para legibilidad (ABC · D4F)
+              const formatted = roundCode.length === 6
+                ? `${roundCode.slice(0, 3)} ${roundCode.slice(3)}`
+                : roundCode
+              return (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(roundCode)
+                      const el = document.getElementById('round-code-button')
+                      if (el) {
+                        const prevBg = el.style.background
+                        el.style.background = 'rgba(22,163,74,0.12)'
+                        setTimeout(() => { el.style.background = prevBg }, 900)
+                      }
+                    } catch {}
+                  }}
+                  id="round-code-button"
+                  aria-label={`Copiar código ${roundCode}`}
+                  title="Tap para copiar"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    fontFamily: '"JetBrains Mono", "DM Mono", ui-monospace, monospace',
+                    fontSize: '40px',
+                    fontWeight: 700,
+                    color: colors.gold,
+                    letterSpacing: '0.15em',
+                    marginBottom: '8px',
+                    background: 'transparent',
+                    border: '1px dashed rgba(196,153,42,0.35)',
+                    borderRadius: '12px',
+                    padding: '16px 12px',
+                    cursor: 'pointer',
+                    textAlign: 'center' as const,
+                    WebkitTapHighlightColor: 'transparent',
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  {formatted}
+                </button>
+              )
+            })()}
+
+            <div style={{ fontSize: '12px', color: colors.textLabel, marginBottom: '8px', letterSpacing: '0.05em' }}>
+              Tap para copiar
             </div>
 
             <div style={{ fontSize: '14px', color: colors.textSecondary, marginBottom: '32px' }}>
