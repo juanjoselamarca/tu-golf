@@ -147,14 +147,14 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P8 · Numeración `01 02 03` fantasma en landing — `[ ]`
+### P8 · Numeración `01 02 03` fantasma en landing — `[x]`
 **Evidencia:** fotos 17, 18.
 **Fix:** eliminar los números. El orden vertical de los cards ya comunica la secuencia.
 **Prioridad:** **P2**. **Owner:** Agente C.
 
 ---
 
-### P9 · Embed PGA TOUR con placeholders `E / E / E / E / E` — `[ ]`
+### P9 · Embed PGA TOUR con placeholders `E / E / E / E / E` — `[x]`
 **Evidencia:** foto 22.
 **Decisión de producto (Juanjo 22-abr):** MANTENER el embed, pero arreglar estado "no empezó aún".
 **Fix:**
@@ -218,7 +218,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P16 · Jerarquía tipográfica rota en landing de métricas — `[ ]`
+### P16 · Jerarquía tipográfica rota en landing de métricas — `[x]`
 **Evidencia:** foto 21.
 **Decisión de producto (Juanjo 22-abr):** métrica héroe = **"47+ canchas chilenas con rating oficial"** con diseño cuidado.
 **Fix:**
@@ -285,7 +285,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 | H14 | GWI | "DOMINANDO" label dramatic, revisar si cuadra con target | P2 | Agente D | `[ ]` |
 | H15 | En Vivo listado | "Los Leones" duplicado, considerar group header con rondas nested | P2 | Agente D | `[ ]` |
 | H16 | Perfil header | Email PII visible en screenshot, revisar intencionalidad | P1 | Agente D | `[ ]` |
-| H17 | Landing footer | Tag "Diseñado para el golf amateur en LatAm" ilegible por opacidad baja | P2 | Agente C | `[ ]` |
+| H17 | Landing footer | Tag "Diseñado para el golf amateur en LatAm" ilegible por opacidad baja | P2 | Agente C | `[ ]` BLOQUEADO: el string vive en `src/app/layout.tsx` (archivo protegido). Delegado a Foundation. |
 | H18 | Wizard paso 1 | "Repetir" compite con tap del card de ronda previa | P2 | Agente A | `[ ]` |
 
 ---
@@ -400,5 +400,5 @@ Un hallazgo se marca `[x]` solo si:
 
 ---
 
-**Última actualización:** 22-abr-2026 — inicial
-**Estado global:** 0 / 38 items cerrados
+**Última actualización:** 22-abr-2026 — Agente C cerró P8, P9, P16 (H17 bloqueado por archivo protegido)
+**Estado global:** 3 / 38 items cerrados
