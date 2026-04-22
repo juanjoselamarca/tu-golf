@@ -41,6 +41,8 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- ─── 2. Ronda libre demo ────────────────────────────────────────────────
 
+-- course_id linkeado a Los Leones (VARONES) 18h para mostrar pares/SIs/yardajes
+-- reales en la UI. Si la cancha cambia de id en el futuro, actualizar acá.
 INSERT INTO rondas_libres (
   id, codigo, course_name, course_id, tees, holes, fecha,
   estado, modo_juego, formato_juego, admin_mode, hoyo_inicio, es_demo
@@ -48,8 +50,8 @@ INSERT INTO rondas_libres (
 VALUES (
   '00000000-0000-0000-0000-000000000002'::uuid,
   'DEMO01',
-  'Club de Golf Los Leones',
-  NULL,  -- sin course_id real (safe; la UI maneja course_name solo)
+  'C.G. Los Leones',
+  'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'::uuid,
   'blanco',
   18,
   CURRENT_DATE,
@@ -61,6 +63,13 @@ VALUES (
   true
 )
 ON CONFLICT (codigo) DO NOTHING;
+
+-- Si el record ya existía sin course_id (por un seed previo), actualizarlo.
+-- Usamos el service_role/management_api que bypasea RLS para este fix idempotente.
+UPDATE rondas_libres
+SET course_id = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'::uuid,
+    course_name = 'C.G. Los Leones'
+WHERE codigo = 'DEMO01' AND (course_id IS NULL OR course_name != 'C.G. Los Leones');
 
 -- ─── 3. Jugadores demo con scores parciales realistas ──────────────────
 -- 8 jugadores, scores variados, 12/18 hoyos completos (para mostrar "en vivo")
