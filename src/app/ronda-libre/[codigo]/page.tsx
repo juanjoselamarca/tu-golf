@@ -20,6 +20,8 @@ import TeamLeaderboard from '@/components/TeamLeaderboard'
 import { NotifBanner } from '@/components/ronda/NotifBanner'
 import { AuthModal } from '@/components/ronda/AuthModal'
 import { rankTeams } from '@/lib/ronda/team-ranking'
+import { computeHighlights } from '@/lib/ronda/round-highlights'
+import { RoundHighlights } from '@/components/ronda/RoundHighlights'
 import { useCountdown } from '@/hooks/ronda/useCountdown'
 import { useRondaRealtime } from '@/hooks/ronda/useRondaRealtime'
 
@@ -768,6 +770,29 @@ function RondaLibrePageContent() {
                   </div>
                 </div>
               </div>
+            )
+          })()}
+
+          {/* ── RoundHighlights (Sprint 4 F · V6) — solo para el jugador autenticado ── */}
+          {isFinished && currentUserId && (() => {
+            const myPlayer = ronda.ronda_libre_jugadores.find(j => j.user_id === currentUserId)
+            if (!myPlayer) return null
+            const myScores: Record<number, number> = {}
+            if (myPlayer.scores) {
+              for (const [k, v] of Object.entries(myPlayer.scores)) {
+                const n = typeof v === 'number' ? v : Number(v)
+                if (n > 0) myScores[parseInt(k)] = n
+              }
+            }
+            const hData = computeHighlights(myScores, parMap, ronda.holes)
+            if (hData.holesPlayed === 0) return null
+            return (
+              <RoundHighlights
+                data={hData}
+                scores={myScores}
+                parMap={parMap}
+                totalHoles={ronda.holes}
+              />
             )
           })()}
 
