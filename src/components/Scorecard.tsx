@@ -121,7 +121,10 @@ const K = {
   gold: '#c4992a',
   dotColor: '#5a6370',
   dotSize: 4,
-  hoverBg: 'rgba(196,153,42,0.08)', // mejora #8: hover 8%
+  // H08: hover de columna muy sutil. Antes era dorado 8% y sugería que
+  // la celda era clickable (no lo es). Ahora gris 3%: guía visual al
+  // leer una columna sin parecer botón.
+  hoverBg: 'rgba(15,23,42,0.03)',
 } as const
 
 // ═══════════════════════════════════════════════════════════
