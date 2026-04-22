@@ -7,6 +7,7 @@ import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
 import Scorecard from '@/components/Scorecard'
 import type { ScorecardHole } from '@/components/Scorecard'
+import { ChevronDown } from '@/components/icons'
 
 /* ── Types ────────────────────────────────────────────────── */
 export interface GroupData {
@@ -286,15 +287,20 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
                         {p.holes > 0 ? formatScore(p.total) : '-'}
                       </span>
                       {hasScores && (
-                        <span style={{
-                          fontSize: '9px',
-                          color: T.faint,
-                          lineHeight: 1,
-                          marginTop: '2px',
-                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                          transition: 'transform 200ms ease',
-                          display: 'inline-block',
-                        }}>▼</span>
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            color: T.faint,
+                            lineHeight: 1,
+                            marginTop: '2px',
+                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 200ms ease',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <ChevronDown size={12} strokeWidth={2} />
+                        </span>
                       )}
                     </div>
                   </div>
