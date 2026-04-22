@@ -9,7 +9,7 @@ import { formatLabel } from '@/golf/core/rules'
 import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components/Scorecard'
 import HoleBar from '@/components/HoleBar'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
-import { Radio, ClipboardList } from '@/components/icons'
+import { Radio, ClipboardList, Trophy, ChevronDown, AlertTriangle } from '@/components/icons'
 
 /* ─── Datos ────────────────────────────────────────────── */
 const CANCHAS_CHILE = [
@@ -468,7 +468,7 @@ function HistorialContent() {
 
   if (loadError && rounds.length === 0) return (
     <div style={{ background: '#f8f9fa', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '20px' }}>
-      <div style={{ fontSize: '48px' }}>&#9888;&#65039;</div>
+      <div style={{ color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><AlertTriangle size={48} strokeWidth={1.5} /></div>
       <p style={{ color: '#111827', fontSize: '16px', textAlign: 'center', margin: 0 }}>
         No se pudieron cargar las tarjetas
       </p>
@@ -532,6 +532,7 @@ function HistorialContent() {
           {/* tAIger progress bar */}
           <div style={{ marginTop: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+              {/* TODO(foundation): reemplazar &#128047; por <TaigerIcon /> cuando el icon system migre emojis — P7 */}
               <span style={{ fontSize: '11px', color: '#9ca3af' }}>&#128047; {taigerMessage(rounds.length)}</span>
               <span style={{ fontSize: '11px', color: '#9ca3af' }}>{rounds.length}</span>
             </div>
@@ -568,7 +569,7 @@ function HistorialContent() {
               return (
                 <div key={rec.label} style={{ ...cardStyle, padding: '14px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '14px' }}>&#127942;</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', color: '#c4992a' }}><Trophy size={14} strokeWidth={1.75} /></span>
                     <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{rec.label}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
@@ -937,7 +938,7 @@ function HistorialContent() {
                               transition: 'transform 0.2s',
                               transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
                               display: 'inline-block',
-                            }}>&#9660;</span>
+                            }} aria-hidden><ChevronDown size={14} strokeWidth={2} /></span>
                           </div>
                         </div>
 
