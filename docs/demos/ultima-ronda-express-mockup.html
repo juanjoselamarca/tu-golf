@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Última Ronda Express — Mockup v4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  /* ═══════════════════════════════════════════════════════════════ */
+  /*  Tokens — copiados 1:1 del design system real de la app        */
+  /*  (ver src/components/mi-golf/CompetenciaTab.tsx líneas 23-30)   */
+  /* ═══════════════════════════════════════════════════════════════ */
+  :root {
+    --gold:       #c4992a;
+    --text:       #1a1a1a;
+    --text-2:     #666;
+    --text-3:     #999;
+    --border:     #e8e8e8;
+    --border-soft:#f2f2f2;
+    --bg-soft:    #fafafa;
+    --green:      #2d7a3e;
+    --white:      #ffffff;
+
+    /* Garmin palette Formato 2 — activity bar (ya en src/golf/core/colors.ts) */
+    --g-eagle:  #0B6BA6;
+    --g-birdie: #14B3D9;
+    --g-par:    #22c55e;
+    --g-bogey:  #D4A442;
+    --g-double: #dc2626;
+
+    /* Fonts */
+    --font-sans:     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-playfair: 'Playfair Display', Georgia, serif;
+    --font-dm-mono:  'DM Mono', ui-monospace, 'SF Mono', monospace;
+
+    --livePulse: livePulse 2s ease-in-out infinite;
+  }
+
+  @keyframes livePulse {
+    0%, 100% { transform: scale(1);    opacity: 1;   }
+    50%      { transform: scale(1.25); opacity: 0.55; }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg-soft); }
+  body {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.5;
+    padding: 48px 24px 96px;
+    max-width: 1200px;
+    margin: 0 auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  /* ─── Page frame ─── */
+  .page-title {
+    font-family: var(--font-playfair);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+    color: var(--text);
+  }
+  .page-sub {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-top: 6px;
+    margin-bottom: 40px;
+  }
+
+  /* ─── Section ─── */
+  section.block { margin-top: 48px; }
+  .block-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .block-title {
+    font-family: var(--font-playfair);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.012em;
+    color: var(--text);
+  }
+  .block-desc {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-top: 4px;
+    max-width: 620px;
+  }
+  .eyebrow {
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .variant-label {
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 28px 0 12px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════ */
+  /*  UltimaRondaHero — copia el patrón de HeroProximo              */
+  /*  (blanco, border-left dorado, eyebrow DM Mono, Playfair score)  */
+  /* ═══════════════════════════════════════════════════════════════ */
+  .hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    background: var(--white);
+    color: var(--text);
+    border: 1px solid var(--gold);
+    border-left: 4px solid var(--gold);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    cursor: pointer;
+    transition: box-shadow 150ms ease, transform 100ms ease;
+  }
+  .hero:hover { box-shadow: 0 1px 12px rgba(196,153,42,0.18); }
+  .hero:active { transform: scale(0.997); }
+
+  .hero-body {
+    min-width: 0;
+    flex: 1;
+  }
+  .hero-eyebrow {
+    font-family: var(--font-dm-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .hero-course {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text);
+    letter-spacing: -0.005em;
+  }
+  .hero-sub {
+    font-size: 12px;
+    color: var(--text-2);
+    margin-top: 4px;
+    font-family: var(--font-dm-mono);
+    letter-spacing: -0.005em;
+  }
+  .hero-bar {
+    display: flex;
+    gap: 2px;
+    height: 5px;
+    margin-top: 10px;
+  }
+  .hero-bar .seg { flex: 1; border-radius: 1px; }
+  .hero-bar .seg.eagle  { background: var(--g-eagle); }
+  .hero-bar .seg.birdie { background: var(--g-birdie); }
+  .hero-bar .seg.par    { background: var(--g-par); }
+  .hero-bar .seg.bogey  { background: var(--g-bogey); }
+  .hero-bar .seg.double { background: var(--g-double); }
+
+  .hero-score {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .hero-score .val {
+    font-family: var(--font-playfair);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text);
+    letter-spacing: -0.015em;
+  }
+  .hero-score .diff {
+    font-family: var(--font-dm-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-top: 4px;
+    color: var(--text-2);
+  }
+  .hero-score .diff.good    { color: var(--g-par); }
+  .hero-score .diff.neutral { color: var(--text-2); }
+  .hero-score .diff.bad     { color: var(--g-double); }
+
+  /* ═══════════════════════════════════════════════════════════════ */
+  /*  RoundHighlights — espectador, estilo Playfair+DM Mono         */
+  /* ═══════════════════════════════════════════════════════════════ */
+  .highlights {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .h-eyebrow {
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* Big activity bar 2 rows */
+  .big-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .big-row { display: flex; flex-direction: column; gap: 6px; }
+  .big-row-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    font-weight: 500;
+  }
+  .big-row-head .half-total {
+    color: var(--text);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    text-transform: none;
+    font-size: 12px;
+  }
+  .big-row-head .half-diff {
+    color: var(--text-2);
+    margin-left: 8px;
+    letter-spacing: 0.02em;
+  }
+  .big-segs {
+    display: flex;
+    gap: 3px;
+    height: 9px;
+  }
+  .big-segs .seg { flex: 1; border-radius: 1px; }
+  .big-segs .seg.eagle  { background: var(--g-eagle); }
+  .big-segs .seg.birdie { background: var(--g-birdie); }
+  .big-segs .seg.par    { background: var(--g-par); }
+  .big-segs .seg.bogey  { background: var(--g-bogey); }
+  .big-segs .seg.double { background: var(--g-double); }
+
+  .big-nums { display: flex; gap: 3px; }
+  .big-nums .n {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-3);
+  }
+  .big-nums .n.mark { color: var(--text); font-weight: 700; position: relative; }
+  .big-nums .n.mark.best  { color: var(--g-birdie); }
+  .big-nums .n.mark.worst { color: var(--g-double); }
+  .big-nums .n.mark::after {
+    content: '';
+    position: absolute;
+    bottom: -4px; left: 50%;
+    width: 4px; height: 2px;
+    background: currentColor;
+    transform: translateX(-50%);
+    border-radius: 1px;
+  }
+
+  /* Mejor/Peor rows */
+  .data-rows {
+    border-top: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .data-row {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    align-items: baseline;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .data-row:last-child { border-bottom: none; }
+  .data-row .k {
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .data-row .v {
+    font-size: 14px;
+    color: var(--text);
+    letter-spacing: -0.005em;
+  }
+  .data-row .v .hole {
+    font-family: var(--font-dm-mono);
+    font-weight: 600;
+    color: var(--text);
+    margin-right: 2px;
+  }
+  .data-row .v .info {
+    color: var(--text-2);
+    font-size: 13px;
+  }
+  .data-row .v .tag {
+    font-family: var(--font-playfair);
+    font-style: italic;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    margin-left: 8px;
+  }
+  .data-row .v .tag.eagle  { color: var(--g-eagle); }
+  .data-row .v .tag.birdie { color: var(--g-birdie); }
+  .data-row .v .tag.par    { color: var(--g-par); }
+  .data-row .v .tag.bogey  { color: var(--g-bogey); }
+  .data-row .v .tag.double { color: var(--g-double); }
+  .data-row .ref {
+    font-family: var(--font-dm-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-3);
+  }
+
+  /* Breakdown grid 5 columnas */
+  .breakdown {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .bd-cell {
+    padding: 4px 8px 4px 0;
+    border-right: 1px solid var(--border-soft);
+  }
+  .bd-cell:last-child { border-right: none; padding-right: 0; }
+  .bd-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .bd-tick { width: 14px; height: 2px; }
+  .bd-tick.eagle  { background: var(--g-eagle); }
+  .bd-tick.birdie { background: var(--g-birdie); }
+  .bd-tick.par    { background: var(--g-par); }
+  .bd-tick.bogey  { background: var(--g-bogey); }
+  .bd-tick.double { background: var(--g-double); }
+  .bd-label {
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .bd-value {
+    font-family: var(--font-playfair);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .bd-value.zero { color: var(--text-3); font-weight: 400; }
+
+  /* ═══════════════════════════════════════════════════════════════ */
+  /*  Device frames                                                  */
+  /* ═══════════════════════════════════════════════════════════════ */
+  .device {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    max-width: 420px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+
+  .dash-top {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dash-greet {
+    font-size: 14px;
+    color: var(--text-2);
+  }
+  .dash-greet b { color: var(--text); font-weight: 700; }
+  .dash-hcp {
+    font-family: var(--font-dm-mono);
+    font-size: 11px;
+    color: var(--gold);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .dash-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .dash-tab {
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-3);
+    letter-spacing: -0.005em;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .dash-tab.active {
+    color: var(--text);
+    border-bottom-color: var(--gold);
+  }
+  .dash-body { padding: 20px 16px; }
+
+  /* Espectador frame */
+  .esp-top {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+  }
+  .esp-course {
+    font-family: var(--font-playfair);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .esp-sub {
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    color: var(--text-3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+  .esp-status {
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--green);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .esp-body {
+    padding: 16px;
+    background: var(--bg-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .esp-placeholder {
+    background: var(--white);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-3);
+    letter-spacing: -0.005em;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════ */
+  /*  Decisions block                                                */
+  /* ═══════════════════════════════════════════════════════════════ */
+  .decisions {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    max-width: 660px;
+  }
+  .decisions dl {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 12px 24px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .decisions dt {
+    font-family: var(--font-dm-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding-top: 2px;
+  }
+  .decisions dd {
+    color: var(--text);
+  }
+  .decisions dd em {
+    font-family: var(--font-playfair);
+    font-style: italic;
+    color: var(--text-2);
+  }
+
+  /* Palette */
+  .palette {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .palette-item {
+    padding: 16px;
+    border-right: 1px solid var(--border);
+    background: var(--white);
+  }
+  .palette-item:last-child { border-right: none; }
+  .palette-swatch {
+    width: 100%; height: 6px;
+    margin-bottom: 12px;
+    border-radius: 1px;
+  }
+  .palette-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.005em;
+  }
+  .palette-hex {
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    color: var(--text-3);
+    margin-top: 4px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════ */
+  /*  Phone preview — real mobile context (390px iPhone-like)        */
+  /* ═══════════════════════════════════════════════════════════════ */
+  .phone-deck {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 390px));
+    gap: 32px;
+    margin-top: 16px;
+  }
+  .phone {
+    width: 390px;
+    max-width: 100%;
+    border: 12px solid #0f1115;
+    border-radius: 42px;
+    background: var(--bg-soft);
+    overflow: hidden;
+    box-shadow: 0 24px 48px rgba(15,17,21,0.12), 0 1px 0 rgba(255,255,255,0.06) inset;
+    position: relative;
+  }
+  .phone::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 120px; height: 26px;
+    background: #0f1115;
+    border-radius: 0 0 18px 18px;
+    z-index: 10;
+  }
+  .phone-inner {
+    height: 820px;
+    overflow-y: auto;
+    padding-top: 30px;
+    background: var(--bg-soft);
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-3) transparent;
+  }
+  .phone-inner::-webkit-scrollbar { width: 4px; }
+  .phone-inner::-webkit-scrollbar-thumb { background: var(--text-3); border-radius: 2px; }
+  .phone-label {
+    font-family: var(--font-dm-mono);
+    font-size: 10px;
+    color: var(--text-3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+  .phone-column {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Cuando el device está dentro del phone, ocupa full width sin max-width */
+  .phone .device { max-width: none; border: none; border-radius: 0; box-shadow: none; }
+
+  /* ═══════════════════════════════════════════════════════════════ */
+  /*  Mobile breakpoints — ≤ 480px                                   */
+  /* ═══════════════════════════════════════════════════════════════ */
+  @media (max-width: 480px) {
+    body { padding: 20px 12px 48px; }
+    .page-title { font-size: 26px; }
+    section.block { margin-top: 32px; }
+    .block-header { padding-bottom: 10px; margin-bottom: 18px; }
+    .block-title { font-size: 20px; }
+    .block-desc { font-size: 12px; }
+    .variant-label { margin: 20px 0 10px; font-size: 9px; }
+
+    /* Hero card adjustments */
+    .hero { padding: 14px 16px; gap: 10px; border-radius: 10px; }
+    .hero-course { font-size: 16px; }
+    .hero-sub { font-size: 11px; }
+    .hero-score .val { font-size: 28px; }
+    .hero-score .diff { font-size: 10px; }
+
+    /* Highlights */
+    .highlights { padding: 18px; gap: 18px; border-radius: 12px; }
+    .big-bar { gap: 14px; }
+    .big-row-head { font-size: 9px; }
+    .big-row-head .half-total { font-size: 11px; }
+    .big-segs { height: 8px; }
+    .big-nums .n { font-size: 9px; }
+
+    /* Data rows → collapse to stacked on mobile */
+    .data-row {
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
+      row-gap: 4px;
+      padding: 12px 0;
+    }
+    .data-row .k {
+      grid-column: 1 / -1;
+      font-size: 9px;
+    }
+    .data-row .v {
+      grid-column: 1;
+      font-size: 13px;
+    }
+    .data-row .ref {
+      grid-column: 2;
+      grid-row: 2;
+      font-size: 11px;
+    }
+
+    /* Breakdown: smaller numbers, tighter cells */
+    .bd-cell { padding: 2px 4px 2px 0; }
+    .bd-top { gap: 4px; margin-bottom: 6px; }
+    .bd-label { font-size: 9px; letter-spacing: 0.06em; }
+    .bd-value { font-size: 20px; }
+    .bd-tick { width: 10px; }
+
+    /* Decisions */
+    .decisions dl { grid-template-columns: 1fr; gap: 4px 0; }
+    .decisions dt { padding-top: 8px; font-size: 10px; }
+    .decisions dd { padding-bottom: 8px; border-bottom: 1px solid var(--border-soft); }
+
+    /* Palette: 2 columns */
+    .palette { grid-template-columns: repeat(2, 1fr); }
+    .palette-item:nth-child(odd) { border-right: 1px solid var(--border); }
+    .palette-item:nth-child(2n) { border-right: none; }
+    .palette-item { border-bottom: 1px solid var(--border); }
+    .palette-item:nth-last-child(-n+1) { border-bottom: none; }
+
+    /* Phone preview: fit to screen */
+    .phone-deck { grid-template-columns: 1fr; gap: 24px; }
+    .phone { width: 100%; border-width: 8px; border-radius: 32px; }
+    .phone::before { width: 100px; height: 20px; }
+    .phone-inner { height: 680px; padding-top: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<h1 class="page-title">Última Ronda Express</h1>
+<p class="page-sub">Mockup v6 · alineado al design system real de la app (Playfair Display + DM Mono + gold #c4992a) · optimizado mobile + desktop.</p>
+
+<div style="background: var(--white); border: 1px solid var(--border); border-left: 4px solid var(--green); border-radius: 10px; padding: 16px 20px; margin-bottom: 32px;">
+  <div style="font-family: var(--font-dm-mono); font-size: 10px; font-weight: 700; color: var(--green); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px;">
+    Auditoría matemática + mobile — v6
+  </div>
+  <div style="font-size: 13px; color: var(--text); line-height: 1.6;">
+    Cada número del mockup fue verificado contra la lógica de golf:
+  </div>
+  <dl style="display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin-top: 10px; font-family: var(--font-dm-mono); font-size: 11px; line-height: 1.5;">
+    <dt style="color: var(--text-2); font-weight: 500;">01.a</dt>
+    <dd style="color: var(--text);">82 +10 · par bog bog bir bog par dbl par bog · bir par bog par dbl par bog dbl par = +5 + +5 = <span style="color: var(--green); font-weight: 700;">+10 ✓</span></dd>
+    <dt style="color: var(--text-2); font-weight: 500;">01.b</dt>
+    <dd style="color: var(--text);">38 pts · 1 eagle (4) + 3 birdies (9) + 11 pares (22) + 3 bogeys (3) = <span style="color: var(--green); font-weight: 700;">38 ✓</span></dd>
+    <dt style="color: var(--text-2); font-weight: 500;">01.c</dt>
+    <dd style="color: var(--text);">97 +25 · 2 pars (0) + 7 bogeys (+7) + 9 dobles (+18) = <span style="color: var(--green); font-weight: 700;">+25 ✓</span></dd>
+    <dt style="color: var(--text-2); font-weight: 500;">02</dt>
+    <dd style="color: var(--text);">Highlights idéntico a 01.a · Mejor H4 birdie (−1) · Peor H7 doble (+2) · Desglose 0·(−2)+2·(−1)+7·0+6·1+3·2 = <span style="color: var(--green); font-weight: 700;">+10 ✓</span></dd>
+  </dl>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- BLOQUE 1 — UltimaRondaHero                                     -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section class="block">
+  <div class="block-header">
+    <div>
+      <div class="eyebrow">Bloque 01 · Mi Golf · Competencia</div>
+      <h2 class="block-title">UltimaRondaHero</h2>
+      <p class="block-desc">4º estado del hero contextual en <code>CompetenciaTab</code>. Mismo patrón visual que <code>HeroProximo</code>: fondo blanco, border-left dorado, eyebrow DM Mono, Playfair Display en el score. Toda la card es un Link al espectador.</p>
+    </div>
+  </div>
+
+  <div class="variant-label">01.a · Ronda mixta</div>
+  <div class="device">
+    <div class="dash-top">
+      <div class="dash-greet">Hola, <b>Juanjo</b></div>
+      <div class="dash-hcp">HCP 15.4</div>
+    </div>
+    <div class="dash-tabs">
+      <div class="dash-tab active">Competencia</div>
+      <div class="dash-tab">Identidad</div>
+    </div>
+    <div class="dash-body">
+      <a href="#" class="hero">
+        <div class="hero-body">
+          <div class="hero-eyebrow">Última ronda</div>
+          <div class="hero-course">Club de Golf Los Leones</div>
+          <div class="hero-sub">Stroke Play · Gross · 16:42</div>
+          <div class="hero-bar" aria-label="Actividad por hoyo: 0 eagles, 2 birdies, 7 pares, 6 bogeys, 3 dobles — total +10">
+            <!-- Ida (+5): par bog bog bir bog par dbl par bog -->
+            <div class="seg par"></div>
+            <div class="seg bogey"></div>
+            <div class="seg bogey"></div>
+            <div class="seg birdie"></div>
+            <div class="seg bogey"></div>
+            <div class="seg par"></div>
+            <div class="seg double"></div>
+            <div class="seg par"></div>
+            <div class="seg bogey"></div>
+            <!-- Vuelta (+5): bir par bog par dbl par bog dbl par -->
+            <div class="seg birdie"></div>
+            <div class="seg par"></div>
+            <div class="seg bogey"></div>
+            <div class="seg par"></div>
+            <div class="seg double"></div>
+            <div class="seg par"></div>
+            <div class="seg bogey"></div>
+            <div class="seg double"></div>
+            <div class="seg par"></div>
+          </div>
+        </div>
+        <div class="hero-score">
+          <div class="val">82</div>
+          <div class="diff bad">+10 vs par</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="variant-label">01.b · Stableford con eagle</div>
+  <div class="device">
+    <div class="dash-top">
+      <div class="dash-greet">Hola, <b>Juanjo</b></div>
+      <div class="dash-hcp">HCP 15.4</div>
+    </div>
+    <div class="dash-tabs">
+      <div class="dash-tab active">Competencia</div>
+      <div class="dash-tab">Identidad</div>
+    </div>
+    <div class="dash-body">
+      <a href="#" class="hero">
+        <div class="hero-body">
+          <div class="hero-eyebrow">Última ronda</div>
+          <div class="hero-course">Las Brisas de Santo Domingo</div>
+          <div class="hero-sub">Stableford · Sur-Este · 17:20</div>
+          <div class="hero-bar" aria-label="Actividad por hoyo: 1 eagle (4pt), 3 birdies (3pt), 11 pares (2pt), 3 bogeys (1pt) — total 38 pts">
+            <!-- Ida 18pt: par bir par par bog par bir par bog -->
+            <div class="seg par"></div>
+            <div class="seg birdie"></div>
+            <div class="seg par"></div>
+            <div class="seg par"></div>
+            <div class="seg bogey"></div>
+            <div class="seg par"></div>
+            <div class="seg birdie"></div>
+            <div class="seg par"></div>
+            <div class="seg bogey"></div>
+            <!-- Vuelta 20pt: par par eag par bir par bog par par -->
+            <div class="seg par"></div>
+            <div class="seg par"></div>
+            <div class="seg eagle"></div>
+            <div class="seg par"></div>
+            <div class="seg birdie"></div>
+            <div class="seg par"></div>
+            <div class="seg bogey"></div>
+            <div class="seg par"></div>
+            <div class="seg par"></div>
+          </div>
+        </div>
+        <div class="hero-score">
+          <div class="val">38</div>
+          <div class="diff good">pts</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="variant-label">01.c · Día duro</div>
+  <div class="device">
+    <div class="dash-top">
+      <div class="dash-greet">Hola, <b>Juanjo</b></div>
+      <div class="dash-hcp">HCP 15.4</div>
+    </div>
+    <div class="dash-tabs">
+      <div class="dash-tab active">Competencia</div>
+      <div class="dash-tab">Identidad</div>
+    </div>
+    <div class="dash-body">
+      <a href="#" class="hero">
+        <div class="hero-body">
+          <div class="hero-eyebrow">Última ronda</div>
+          <div class="hero-course">Club Golf Lomas de la Dehesa</div>
+          <div class="hero-sub">Stroke Play · Neto · 15:55</div>
+          <div class="hero-bar" aria-label="Actividad por hoyo: 0 eagles, 0 birdies, 2 pares, 7 bogeys, 9 dobles — total +25">
+            <!-- Ida (+12): bog dbl bog par dbl bog dbl dbl bog -->
+            <div class="seg bogey"></div>
+            <div class="seg double"></div>
+            <div class="seg bogey"></div>
+            <div class="seg par"></div>
+            <div class="seg double"></div>
+            <div class="seg bogey"></div>
+            <div class="seg double"></div>
+            <div class="seg double"></div>
+            <div class="seg bogey"></div>
+            <!-- Vuelta (+13): bog dbl dbl dbl par dbl dbl bog bog -->
+            <div class="seg bogey"></div>
+            <div class="seg double"></div>
+            <div class="seg double"></div>
+            <div class="seg double"></div>
+            <div class="seg par"></div>
+            <div class="seg double"></div>
+            <div class="seg double"></div>
+            <div class="seg bogey"></div>
+            <div class="seg bogey"></div>
+          </div>
+        </div>
+        <div class="hero-score">
+          <div class="val">97</div>
+          <div class="diff bad">+25 vs par</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="decisions">
+    <dl>
+      <dt>Tipografía</dt>
+      <dd>Playfair Display 32px/700 para el score, <em>como HeroActiva y HeroProximo</em>. DM Mono para eyebrow, sub-info y diff. Inter para el course name 17px/700. Cero fuentes externas al sistema.</dd>
+
+      <dt>Layout</dt>
+      <dd>Blanco + <code>border: 1px solid gold</code> + <code>border-left: 4px solid gold</code>. <em>Idéntico al patrón de HeroProximo</em> — coherencia visual garantizada con los otros estados del hero contextual.</dd>
+
+      <dt>Eyebrow</dt>
+      <dd>"Última ronda" en DM Mono 11px uppercase 0.12em tracking, color gold. Mismo formato que "Próximo compromiso" en HeroProximo.</dd>
+
+      <dt>Activity bar</dt>
+      <dd>18 segmentos de 5px de alto, 2px de gap, border-radius 1px. Colores de <code>src/golf/core/colors.ts</code> (Formato 2 Garmin). Único elemento coloreado además del accent gold.</dd>
+
+      <dt>Toda la card link</dt>
+      <dd>Mismo patrón que HeroActiva y HeroProximo — Link wrapper. Hover: sombra dorada sutil. No hay botón "Compartir" en el hero; Compartir vive en el espectador (ya existe).</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- BLOQUE 2 — RoundHighlights                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section class="block">
+  <div class="block-header">
+    <div>
+      <div class="eyebrow">Bloque 02 · Ronda libre · Espectador</div>
+      <h2 class="block-title">RoundHighlights</h2>
+      <p class="block-desc">Card nueva sobre el leaderboard en <code>/ronda-libre/[codigo]</code> cuando está finalizada. Playfair para número hero, DM Mono para labels, pills afuera — todo alineado al resto del espectador.</p>
+    </div>
+  </div>
+
+  <div class="device" style="max-width: 480px;">
+    <div class="esp-top">
+      <div>
+        <div class="esp-course">Club de Golf Los Leones</div>
+        <div class="esp-sub">Stroke Play Gross · 21 Abr 2026</div>
+      </div>
+      <div class="esp-status">Finalizada</div>
+    </div>
+    <div class="esp-body">
+      <div class="highlights">
+        <div class="h-eyebrow">Resumen de tu ronda</div>
+
+        <div class="big-bar">
+          <div class="big-row">
+            <div class="big-row-head">
+              <span>Ida · 1–9</span>
+              <span>
+                <span class="half-total">41</span>
+                <span class="half-diff">+5</span>
+              </span>
+            </div>
+            <!-- Ida: par bog bog bir(H4) bog par dbl(H7) par bog = +5 -->
+            <div class="big-segs">
+              <div class="seg par"></div>
+              <div class="seg bogey"></div>
+              <div class="seg bogey"></div>
+              <div class="seg birdie"></div>
+              <div class="seg bogey"></div>
+              <div class="seg par"></div>
+              <div class="seg double"></div>
+              <div class="seg par"></div>
+              <div class="seg bogey"></div>
+            </div>
+            <div class="big-nums">
+              <div class="n">1</div>
+              <div class="n">2</div>
+              <div class="n">3</div>
+              <div class="n mark best">4</div>
+              <div class="n">5</div>
+              <div class="n">6</div>
+              <div class="n mark worst">7</div>
+              <div class="n">8</div>
+              <div class="n">9</div>
+            </div>
+          </div>
+          <div class="big-row">
+            <div class="big-row-head">
+              <span>Vuelta · 10–18</span>
+              <span>
+                <span class="half-total">41</span>
+                <span class="half-diff">+5</span>
+              </span>
+            </div>
+            <!-- Vuelta: bir par bog par dbl par bog dbl par = +5 -->
+            <div class="big-segs">
+              <div class="seg birdie"></div>
+              <div class="seg par"></div>
+              <div class="seg bogey"></div>
+              <div class="seg par"></div>
+              <div class="seg double"></div>
+              <div class="seg par"></div>
+              <div class="seg bogey"></div>
+              <div class="seg double"></div>
+              <div class="seg par"></div>
+            </div>
+            <div class="big-nums">
+              <div class="n">10</div>
+              <div class="n">11</div>
+              <div class="n">12</div>
+              <div class="n">13</div>
+              <div class="n">14</div>
+              <div class="n">15</div>
+              <div class="n">16</div>
+              <div class="n">17</div>
+              <div class="n">18</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="data-rows">
+          <div class="data-row">
+            <span class="k">Mejor</span>
+            <span class="v">
+              <span class="hole">Hoyo 4</span>
+              <span class="info">· Par 4 · Score 3</span>
+              <span class="tag birdie">Birdie</span>
+            </span>
+            <span class="ref">−1</span>
+          </div>
+          <div class="data-row">
+            <span class="k">Peor</span>
+            <span class="v">
+              <span class="hole">Hoyo 7</span>
+              <span class="info">· Par 3 · Score 5</span>
+              <span class="tag double">Doble</span>
+            </span>
+            <span class="ref">+2</span>
+          </div>
+        </div>
+
+        <div class="breakdown" aria-label="Desglose: 0 eagles, 2 birdies, 7 pares, 6 bogeys, 3 dobles+. Suma vsPar = +10.">
+          <div class="bd-cell">
+            <div class="bd-top">
+              <span class="bd-tick eagle"></span>
+              <span class="bd-label">Eagle</span>
+            </div>
+            <div class="bd-value zero">0</div>
+          </div>
+          <div class="bd-cell">
+            <div class="bd-top">
+              <span class="bd-tick birdie"></span>
+              <span class="bd-label">Birdie</span>
+            </div>
+            <div class="bd-value">2</div>
+          </div>
+          <div class="bd-cell">
+            <div class="bd-top">
+              <span class="bd-tick par"></span>
+              <span class="bd-label">Par</span>
+            </div>
+            <div class="bd-value">7</div>
+          </div>
+          <div class="bd-cell">
+            <div class="bd-top">
+              <span class="bd-tick bogey"></span>
+              <span class="bd-label">Bogey</span>
+            </div>
+            <div class="bd-value">6</div>
+          </div>
+          <div class="bd-cell">
+            <div class="bd-top">
+              <span class="bd-tick double"></span>
+              <span class="bd-label">Doble+</span>
+            </div>
+            <div class="bd-value">3</div>
+          </div>
+        </div>
+        <div style="font-family: var(--font-dm-mono); font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; text-align: right; margin-top: -8px;">
+          0·(−2) + 2·(−1) + 7·0 + 6·1 + 3·2 = <span style="color: var(--text); font-weight: 600;">+10</span>
+        </div>
+      </div>
+      <div class="esp-placeholder">Leaderboard y Scorecard existentes siguen debajo</div>
+    </div>
+  </div>
+
+  <div class="decisions">
+    <dl>
+      <dt>Tipografía</dt>
+      <dd>Playfair Display para los 5 números del desglose (22px/700) y para los tags Birdie/Doble (15px italic). DM Mono para labels, tracking 0.12em. Exactamente como el Scorecard existente y las celebraciones.</dd>
+
+      <dt>Ida / Vuelta</dt>
+      <dd>Dos mitades con subtotal en DM Mono (<code>41</code>) y diff (<code>+5</code>) al costado. Los números de hoyo mejor/peor se resaltan en negro bold sin necesidad de icono ni color.</dd>
+
+      <dt>Mejor / Peor</dt>
+      <dd>Filas de tabla con label DM Mono uppercase, detalle en Inter, tag coloreado en Playfair italic. Diff a la derecha en DM Mono gris. Cero estrellas ni exclamaciones — la jerarquía la da la tipografía.</dd>
+
+      <dt>Desglose</dt>
+      <dd>Grilla de 5 columnas. Cada celda: tick 14×2px del color Garmin + label DM Mono + número Playfair grande. Eagles = 0 queda visible pero en gris claro, para que entre rondas la grilla sea visualmente comparable.</dd>
+
+      <dt>Consistencia</dt>
+      <dd>Font stack y color palette son exactamente los que ya usa el espectador: Playfair 20-28px en hero, DM Mono en labels, <em>sin introducir nuevas familias ni pesos</em>.</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PALETA                                                          -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section class="block">
+  <div class="block-header">
+    <div>
+      <div class="eyebrow">Bloque 03 · Referencia</div>
+      <h2 class="block-title">Paleta Garmin</h2>
+      <p class="block-desc">Colores del activity bar. Verificados contra Garmin real el 24-Mar, viven en <code>src/golf/core/colors.ts</code>. No usarlos para nada que no sea datos de score vs par.</p>
+    </div>
+  </div>
+  <div class="palette">
+    <div class="palette-item">
+      <div class="palette-swatch" style="background: var(--g-eagle);"></div>
+      <div class="palette-name">Eagle +</div>
+      <div class="palette-hex">0B6BA6</div>
+    </div>
+    <div class="palette-item">
+      <div class="palette-swatch" style="background: var(--g-birdie);"></div>
+      <div class="palette-name">Birdie</div>
+      <div class="palette-hex">14B3D9</div>
+    </div>
+    <div class="palette-item">
+      <div class="palette-swatch" style="background: var(--g-par);"></div>
+      <div class="palette-name">Par</div>
+      <div class="palette-hex">22C55E</div>
+    </div>
+    <div class="palette-item">
+      <div class="palette-swatch" style="background: var(--g-bogey);"></div>
+      <div class="palette-name">Bogey</div>
+      <div class="palette-hex">D4A442</div>
+    </div>
+    <div class="palette-item">
+      <div class="palette-swatch" style="background: var(--g-double);"></div>
+      <div class="palette-name">Doble +</div>
+      <div class="palette-hex">DC2626</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- BLOQUE 4 — PHONE PREVIEW (contexto mobile real)                 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section class="block">
+  <div class="block-header">
+    <div>
+      <div class="eyebrow">Bloque 04 · Mobile real</div>
+      <h2 class="block-title">En un iPhone real</h2>
+      <p class="block-desc">Mismos componentes dentro de un frame de 390px (ancho real de iPhone 14/15). Scroll interno real — tocá y arrastrá dentro del phone para ver cómo se sienten en el dispositivo donde viven.</p>
+    </div>
+  </div>
+
+  <div class="phone-deck">
+    <div class="phone-column">
+      <div class="phone-label">Mobile · Dashboard con UltimaRondaHero</div>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="device">
+            <div class="dash-top">
+              <div class="dash-greet">Hola, <b>Juanjo</b></div>
+              <div class="dash-hcp">HCP 15.4</div>
+            </div>
+            <div class="dash-tabs">
+              <div class="dash-tab active">Competencia</div>
+              <div class="dash-tab">Identidad</div>
+            </div>
+            <div class="dash-body">
+              <a href="#" class="hero">
+                <div class="hero-body">
+                  <div class="hero-eyebrow">Última ronda</div>
+                  <div class="hero-course">Club de Golf Los Leones</div>
+                  <div class="hero-sub">Stroke Play · Gross · 16:42</div>
+                  <div class="hero-bar" aria-label="Actividad por hoyo: 0 eagles, 2 birdies, 7 pares, 6 bogeys, 3 dobles — total +10">
+                    <div class="seg par"></div>
+                    <div class="seg bogey"></div>
+                    <div class="seg bogey"></div>
+                    <div class="seg birdie"></div>
+                    <div class="seg bogey"></div>
+                    <div class="seg par"></div>
+                    <div class="seg double"></div>
+                    <div class="seg par"></div>
+                    <div class="seg bogey"></div>
+                    <div class="seg birdie"></div>
+                    <div class="seg par"></div>
+                    <div class="seg bogey"></div>
+                    <div class="seg par"></div>
+                    <div class="seg double"></div>
+                    <div class="seg par"></div>
+                    <div class="seg bogey"></div>
+                    <div class="seg double"></div>
+                    <div class="seg par"></div>
+                  </div>
+                </div>
+                <div class="hero-score">
+                  <div class="val">82</div>
+                  <div class="diff bad">+10 vs par</div>
+                </div>
+              </a>
+              <div style="margin-top: 20px; padding: 16px; background: var(--bg-soft); border-radius: 10px; text-align: center; font-size: 12px; color: var(--text-3); font-family: var(--font-dm-mono); letter-spacing: 0.04em;">
+                Resto del dashboard continúa abajo
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-column">
+      <div class="phone-label">Mobile · Espectador finalizado con RoundHighlights</div>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="device">
+            <div class="esp-top">
+              <div>
+                <div class="esp-course">Club de Golf Los Leones</div>
+                <div class="esp-sub">Stroke Play Gross · 21 Abr 2026</div>
+              </div>
+              <div class="esp-status">Finalizada</div>
+            </div>
+            <div class="esp-body">
+              <div class="highlights">
+                <div class="h-eyebrow">Resumen de tu ronda</div>
+                <div class="big-bar">
+                  <div class="big-row">
+                    <div class="big-row-head">
+                      <span>Ida · 1–9</span>
+                      <span>
+                        <span class="half-total">41</span>
+                        <span class="half-diff">+5</span>
+                      </span>
+                    </div>
+                    <div class="big-segs">
+                      <div class="seg par"></div>
+                      <div class="seg bogey"></div>
+                      <div class="seg bogey"></div>
+                      <div class="seg birdie"></div>
+                      <div class="seg bogey"></div>
+                      <div class="seg par"></div>
+                      <div class="seg double"></div>
+                      <div class="seg par"></div>
+                      <div class="seg bogey"></div>
+                    </div>
+                    <div class="big-nums">
+                      <div class="n">1</div>
+                      <div class="n">2</div>
+                      <div class="n">3</div>
+                      <div class="n mark best">4</div>
+                      <div class="n">5</div>
+                      <div class="n">6</div>
+                      <div class="n mark worst">7</div>
+                      <div class="n">8</div>
+                      <div class="n">9</div>
+                    </div>
+                  </div>
+                  <div class="big-row">
+                    <div class="big-row-head">
+                      <span>Vuelta · 10–18</span>
+                      <span>
+                        <span class="half-total">41</span>
+                        <span class="half-diff">+5</span>
+                      </span>
+                    </div>
+                    <div class="big-segs">
+                      <div class="seg birdie"></div>
+                      <div class="seg par"></div>
+                      <div class="seg bogey"></div>
+                      <div class="seg par"></div>
+                      <div class="seg double"></div>
+                      <div class="seg par"></div>
+                      <div class="seg bogey"></div>
+                      <div class="seg double"></div>
+                      <div class="seg par"></div>
+                    </div>
+                    <div class="big-nums">
+                      <div class="n">10</div>
+                      <div class="n">11</div>
+                      <div class="n">12</div>
+                      <div class="n">13</div>
+                      <div class="n">14</div>
+                      <div class="n">15</div>
+                      <div class="n">16</div>
+                      <div class="n">17</div>
+                      <div class="n">18</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="data-rows">
+                  <div class="data-row">
+                    <span class="k">Mejor</span>
+                    <span class="v">
+                      <span class="hole">Hoyo 4</span>
+                      <span class="info">· Par 4 · Score 3</span>
+                      <span class="tag birdie">Birdie</span>
+                    </span>
+                    <span class="ref">−1</span>
+                  </div>
+                  <div class="data-row">
+                    <span class="k">Peor</span>
+                    <span class="v">
+                      <span class="hole">Hoyo 7</span>
+                      <span class="info">· Par 3 · Score 5</span>
+                      <span class="tag double">Doble</span>
+                    </span>
+                    <span class="ref">+2</span>
+                  </div>
+                </div>
+                <div class="breakdown" aria-label="Desglose: 0 eagles, 2 birdies, 7 pares, 6 bogeys, 3 dobles+. Suma vsPar = +10.">
+                  <div class="bd-cell">
+                    <div class="bd-top"><span class="bd-tick eagle"></span><span class="bd-label">Eagle</span></div>
+                    <div class="bd-value zero">0</div>
+                  </div>
+                  <div class="bd-cell">
+                    <div class="bd-top"><span class="bd-tick birdie"></span><span class="bd-label">Birdie</span></div>
+                    <div class="bd-value">2</div>
+                  </div>
+                  <div class="bd-cell">
+                    <div class="bd-top"><span class="bd-tick par"></span><span class="bd-label">Par</span></div>
+                    <div class="bd-value">7</div>
+                  </div>
+                  <div class="bd-cell">
+                    <div class="bd-top"><span class="bd-tick bogey"></span><span class="bd-label">Bogey</span></div>
+                    <div class="bd-value">6</div>
+                  </div>
+                  <div class="bd-cell">
+                    <div class="bd-top"><span class="bd-tick double"></span><span class="bd-label">Doble+</span></div>
+                    <div class="bd-value">3</div>
+                  </div>
+                </div>
+              </div>
+              <div class="esp-placeholder">Leaderboard + Scorecard existentes siguen debajo</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="decisions">
+    <dl>
+      <dt>Breakpoint</dt>
+      <dd>Media query <code>@media (max-width: 480px)</code> que reduce paddings (20 → 12px horizontal), ajusta tipografías (score 32 → 28px, Playfair breakdown 24 → 20px), colapsa decisions dl a 1 columna y paleta a 2 columnas.</dd>
+      <dt>Data-row stacked</dt>
+      <dd>En mobile, las filas "Mejor / Peor" se colapsan a 2 filas: label DM Mono uppercase arriba, detalle + tag debajo, diff a la derecha. Evita truncamiento de "Hoyo 7 · Par 3 · Score 5 · Doble" en cards estrechas.</dd>
+      <dt>Phone frame real</dt>
+      <dd>Frame de 390×820 con notch y scroll real. Permite scrollear adentro para sentir cómo se ve con el resto del dashboard debajo del hero. El wrapper <code>.phone .device</code> anula bordes y sombras del device frame ya que el phone mismo encapsula el look.</dd>
+      <dt>Touch targets</dt>
+      <dd>Toda la card hero es tappable (Link wrapper). No hay botones pequeños — el ergonomic 44×44 no aplica acá porque el área total del hero es mucho mayor a eso.</dd>
+      <dt>Activity bar en mobile</dt>
+      <dd>18 segmentos × 2px gap × 5px alto. En un iPhone 14 de 390px menos padding = ~330px útiles → cada segmento ≈ 16px de ancho. Legible sin zoom, sin competir con el score.</dd>
+    </dl>
+  </div>
+</section>
+
+</body>
+</html>

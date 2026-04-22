@@ -2,7 +2,9 @@
 
 **Fecha:** 21 Abr 2026
 **Autor:** Head of UX/UI + CTO (Claude)
-**Estado:** Spec aprobado por Juanjo (PM) — pendiente implementación vía `writing-plans`.
+**Estado:** Spec + mockup V6 aprobados por Juanjo (PM) — pendiente implementación vía `writing-plans`.
+
+**Mockup visual de referencia:** `docs/demos/ultima-ronda-express-mockup.html` (V6 · incluye 3 variantes del hero + phone preview mobile real + auditoría matemática stamp).
 
 ## Goal (1 línea)
 
@@ -207,9 +209,79 @@ interface Props {
 
 **No requiere tests E2E en V1.** La lógica está en `computeHighlights` testeado aparte.
 
+## Design system (validado en mockup V6)
+
+Los dos componentes DEBEN usar el sistema visual ya shippeado en la app. **Cualquier ornament nuevo (emoji, icon badge, dot-bullet, gradient radial, pulse animado fuera de "En vivo" real) queda prohibido** — se rechazó en iteración del brainstorming como "infantil" para un target premium.
+
+### Tokens obligatorios
+
+Copiar 1:1 de `src/components/mi-golf/CompetenciaTab.tsx` (líneas 23–30):
+```ts
+const GOLD        = '#c4992a'
+const TEXT        = '#1a1a1a'
+const TEXT_2      = '#666'
+const TEXT_3      = '#999'
+const BORDER      = '#e8e8e8'
+const BORDER_SOFT = '#f2f2f2'
+const BG_SOFT     = '#fafafa'
+const GREEN       = '#2d7a3e'
+```
+
+Activity bar usa paleta Garmin Formato 2 (`src/golf/core/colors.ts`):
+- Eagle o mejor: `#0B6BA6`
+- Birdie: `#14B3D9`
+- Par: `#22c55e`
+- Bogey: `#D4A442`
+- Doble+: `#dc2626`
+
+### Tipografía
+
+- Hero score (UltimaRondaHero + Highlights breakdown numbers): **Playfair Display 700** — 32px hero / 24px breakdown / 20px mobile
+- Labels, subtítulos, data metadata: **DM Mono** — 10–11px uppercase, letter-spacing 0.12em, font-weight 500–700
+- Body, course names: **Inter** — 17px course name / 13px body
+- Tags de resultado (Birdie, Doble, Par, Eagle): **Playfair Display italic** 15px, color = paleta Garmin correspondiente
+
+### Patrón de card
+
+UltimaRondaHero copia **exactamente** el patrón de `HeroProximo` (CompetenciaTab.tsx líneas 168–215):
+- `background: #fff`
+- `border: 1px solid var(--gold)` con `border-left: 4px solid var(--gold)`
+- `border-radius: 12px`
+- Eyebrow en DM Mono gold uppercase
+- Course name Inter 17px/700
+- Score a la derecha en Playfair 32px TEXT
+- Activity bar (18 segmentos) debajo del course name
+- Toda la card es un `<Link>` al espectador
+
+RoundHighlights usa border neutro (`1px solid var(--border)`), fondo blanco, radius 14px, padding 24px — sigue el patrón de las cards de detalles existentes en el espectador.
+
+### Responsive
+
+Breakpoint único en `@media (max-width: 480px)`:
+- Hero card padding 20px/20px → 14px/16px, score 32px → 28px
+- Highlights padding 24px → 18px, breakdown values 24px → 20px
+- Data rows colapsan a layout stacked (label arriba, detalle + tag abajo, diff a la derecha) para evitar truncamiento en narrow screens
+- Breakdown grid 5 cols sigue siendo 5 cols (probado: a 330px interno, cada celda ~62px — Playfair 20px + DM Mono label cabe)
+
+### Prohibiciones explícitas (lecciones del brainstorming)
+
+- ❌ Emoji decorativos (⛳, ⭐, ⚠️, pulse dots fuera de contexto, etc.)
+- ❌ Icon badges circulares con tints (bg verde-claro + ★ para "mejor" → rechazado como reward-sticker)
+- ❌ Pills con dots de colores (reemplazado por grilla de 5 columnas con tick horizontal)
+- ❌ Dot-bullets en listas informativas
+- ❌ Gradientes radiales decorativos (el gradiente gold-soft del dashboard header es aceptable si ya existe, no agregar nuevos)
+- ❌ Mix de serif ornamental + sans en cards pequeñas (mantener Playfair solo para números hero y tags de resultado)
+
+### Integridad matemática — requisito de test
+
+Los tests de los helpers puros (`computeHighlights`, `getUltimaRondaReciente`) DEBEN verificar que:
+- `sum(diff por hoyo) === score - parTotal` para cada ronda de ejemplo (stroke/stableford).
+- `breakdown.eagles + birdies + pares + bogeys + doublesPlus === holesPlayed`.
+- `breakdown.eagles * (-2) + birdies * (-1) + pares * 0 + bogeys * 1 + doublesPlus * 2 === overUnderGross` (tolerance ±0 porque `doublesPlus` puede tener score > par+2 → el test usa fixture controlada sin triples para asertar igualdad exacta, y una fixture separada con triples para probar que el flag "doublesPlus" captura correctamente).
+
 ## UI / Visual spec
 
-Ver wireframes textuales en `docs/superpowers/specs/2026-04-21-ultima-ronda-express-design.md` sección "Wireframes" (más abajo).
+Ver mockup interactivo `docs/demos/ultima-ronda-express-mockup.html` para wireframes finales. Wireframes textuales abajo son guía rápida — el mockup manda cuando hay discrepancia.
 
 ### UltimaRondaHero layout
 
