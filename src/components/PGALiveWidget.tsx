@@ -24,6 +24,38 @@ interface PGAData {
   players?: Player[]; next_event?: NextEvent
 }
 
+/**
+ * True when the tournament exists on ESPN (active: true) but no player
+ * has teed off yet for the current round. In that state ESPN returns
+ * scores as 'E' and `thru` holding tee times (e.g. "7:30a") or '—'.
+ * Rendering a table of `E / E / E / E / E` looks like a broken placeholder
+ * (audit P9 / foto 22). We prefer a single "starts at…" card instead.
+ */
+function isPreStart(d: PGAData): boolean {
+  if (!d.active) return false
+  if (d.live || d.complete) return false
+  const players = d.players || []
+  if (players.length === 0) return true
+  // Every player at E total, every player at E today, and nobody has played a hole.
+  return players.every(p => {
+    const onCourse = /^\d+$/.test(p.thru) || p.thru === 'F'
+    return p.score === 'E' && p.today === 'E' && !onCourse
+  })
+}
+
+/**
+ * Format an ISO date + time guess into a LatAm-friendly start label.
+ * The next_event schedule only carries dates, so we use "12:00 AM EDT"
+ * as the PGA Tour's standard opening pre-announcement. Kept as a static
+ * tail so visual hierarchy stays consistent.
+ */
+function formatStartLabel(startDate: string): string {
+  const [y, m, day] = startDate.split('-').map(Number)
+  const d = new Date(y, m - 1, day)
+  const dayStr = d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
+  return `Empieza el ${dayStr} · 12:00 AM EDT`
+}
+
 function scoreColor(s: string): string {
   if (!s || s === 'E') return 'rgba(255,255,255,0.6)'
   return s.startsWith('-') ? '#00e676' : '#ff1744'
@@ -120,6 +152,48 @@ export default function PGALiveWidget() {
             </div>
           </div>
         )}
+      </div>
+    )
+  }
+
+  // Pre-start state: torneo confirmado pero aún no tee-off. Evita renderizar
+  // una grilla de 'E / E / E / E / E' que parece placeholder roto (P9).
+  if (isPreStart(data)) {
+    const venue = data.course || data.next_event?.venue || ''
+    const startLine = data.next_event?.start
+      ? formatStartLabel(data.next_event.start)
+      : 'Comienza pronto'
+    return (
+      <div style={{ background: '#0e1c2f', borderRadius: '14px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ background: '#0066cc', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.08em' }}>PGA TOUR</span>
+          <span style={{ background: 'rgba(196,153,42,0.15)', color: '#c4992a', fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.08em' }}>PRÓXIMO</span>
+        </div>
+        <div style={{ padding: '20px 16px' }}>
+          <div style={{ fontSize: '17px', fontWeight: 700, color: '#c4992a', marginBottom: '8px', lineHeight: 1.25 }}>
+            {data.tournament || data.next_event?.name || 'Próximo torneo'}
+          </div>
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', fontFamily: M, lineHeight: 1.6 }}>
+            {startLine}
+          </div>
+          {venue && (
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', fontFamily: M, lineHeight: 1.6 }}>
+              {venue}
+            </div>
+          )}
+        </div>
+        <div style={{
+          padding: '8px 16px', borderTop: '1px solid rgba(255,255,255,0.04)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', fontFamily: M }}>
+            ESPN
+          </span>
+          <a href="https://www.pgatour.com" target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', textDecoration: 'none', fontFamily: M }}>
+            pgatour.com →
+          </a>
+        </div>
       </div>
     )
   }
