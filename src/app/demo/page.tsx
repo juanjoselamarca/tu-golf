@@ -40,10 +40,10 @@ const CARDS: DemoCard[] = [
     accent: 'blue',
   },
   {
-    href: '/ranking',
-    title: 'Ranking Chile',
-    description: 'Top 50 jugadores por Índice Golfers+ — el cálculo propio de la app basado en los mejores diferenciales.',
-    eyebrow: 'Ranking nacional',
+    href: '/demo/taiger',
+    title: 'tAIger+',
+    description: 'Tu Coach IA lee tu historial, detecta patrones y arma un plan de trabajo semanal. Demo interactivo con un jugador real.',
+    eyebrow: 'Coach IA',
     accent: 'violet',
   },
   {
