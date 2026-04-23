@@ -50,13 +50,22 @@ export default function HeroSection() {
           </div>
         ))}
 
-        {/* Gradient overlay — fundido a bg al pie para blend sin costura con
-            el contenido en mobile y legibilidad del texto superpuesto en desktop. */}
+        {/* Gradient overlay — DESKTOP (md+): full overlay para que el texto
+            superpuesto sea legible sobre la imagen. MOBILE: el texto vive
+            debajo del banner, así que solo aplicamos un fade suave en el
+            borde inferior para blend con la sección de contenido. */}
         <div
-          className="absolute inset-0 z-10"
+          className="absolute inset-0 z-10 hidden md:block"
           style={{
             background:
               'linear-gradient(to bottom, rgba(7,13,24,0.25) 0%, rgba(7,13,24,0.65) 55%, rgba(7,13,24,0.95) 88%, rgba(7,13,24,1) 100%)',
+          }}
+        />
+        <div
+          className="absolute inset-x-0 bottom-0 h-24 z-10 md:hidden pointer-events-none"
+          style={{
+            background:
+              'linear-gradient(to bottom, rgba(7,13,24,0) 0%, rgba(7,13,24,0.6) 60%, rgba(7,13,24,1) 100%)',
           }}
         />
 
