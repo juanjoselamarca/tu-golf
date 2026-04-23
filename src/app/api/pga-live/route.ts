@@ -100,6 +100,9 @@ export async function GET() {
     interface EspnCompetitor {
       score?: string
       athlete?: { displayName?: string; flag?: { alt?: string }; [k: string]: unknown }
+      // Team events (e.g. Zurich Classic) return `team` instead of `athlete`.
+      // displayName ya viene con formato "Apellido1/Apellido2".
+      team?: { displayName?: string; shortDisplayName?: string; [k: string]: unknown }
       status?: { type?: { state?: string; completed?: boolean }; teeTime?: string; startDate?: string; [k: string]: unknown }
       linescores?: EspnLineScore[]
       [k: string]: unknown
@@ -162,8 +165,17 @@ export async function GET() {
       const hasTie = sorted.filter(s => parseFloat(s.score ?? '0') === myScore).length > 1
       const pos = hasTie ? `T${firstWithSameScore + 1}` : String(index + 1)
 
-      // Country → flag image URL (flagcdn.com)
-      const country = c.athlete?.flag?.alt ?? ''
+      // Team events (Zurich Classic) traen `team.displayName` en formato
+      // "Apellido1/Apellido2" y no tienen un único country/flag. Individuales
+      // traen `athlete.displayName` y `athlete.flag.alt`.
+      const isTeam = !c.athlete && !!c.team
+      const fullDisplay = c.athlete?.displayName || c.team?.displayName || ''
+      const shortDisplay = isTeam
+        ? (c.team?.shortDisplayName || c.team?.displayName || '')
+        : nombreCorto(c.athlete?.displayName || '')
+
+      // Country → flag image URL (flagcdn.com). Team events: sin bandera.
+      const country = isTeam ? '' : (c.athlete?.flag?.alt ?? '')
       const countryCode = COUNTRY_ISO[country] || ''
       const flagUrl = countryCode
         ? `https://flagcdn.com/w40/${countryCode}.png`
@@ -171,8 +183,8 @@ export async function GET() {
 
       return {
         position: pos,
-        name: nombreCorto(c.athlete?.displayName || ''),
-        nameFull: c.athlete?.displayName || '',
+        name: shortDisplay,
+        nameFull: fullDisplay,
         score,
         today: todayScore,
         thru,
