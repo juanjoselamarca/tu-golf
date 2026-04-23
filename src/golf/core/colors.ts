@@ -3,7 +3,15 @@
  * Merge de score-colors.ts + garmin-colors.ts en una sola fuente de verdad.
  */
 
-import type { CSSProperties } from 'react'
+/**
+ * Estilo inline-CSS emitido por el motor de golf. Compatible con React.CSSProperties
+ * pero declarado localmente para mantener `src/golf/` puro (sin dependencias UI).
+ */
+export interface GolfStyle {
+  border?: string
+  background?: string
+  color?: string
+}
 
 // ═══════════════════════════════════════════════════════════
 // SCORE RESULT COLORS (dark & light themes)
@@ -128,21 +136,21 @@ export const SCORE_STYLES_LIGHT: Record<ScoreResult, ScoreStyle> = {
   },
 }
 
-export function getHoleBoxStyle(grossScore: number | null | undefined, par: number | null | undefined): CSSProperties {
+export function getHoleBoxStyle(grossScore: number | null | undefined, par: number | null | undefined): GolfStyle {
   const s = SCORE_STYLES[getScoreResult(grossScore, par)]
   return { border: `${s.borderWidth} solid ${s.border}`, background: s.bg }
 }
 
-export function getScoreNumberStyle(grossScore: number | null | undefined, par: number | null | undefined): CSSProperties {
+export function getScoreNumberStyle(grossScore: number | null | undefined, par: number | null | undefined): GolfStyle {
   return { color: SCORE_STYLES[getScoreResult(grossScore, par)].textColor }
 }
 
-export function getHoleBoxStyleLight(grossScore: number | null | undefined, par: number | null | undefined): CSSProperties {
+export function getHoleBoxStyleLight(grossScore: number | null | undefined, par: number | null | undefined): GolfStyle {
   const s = SCORE_STYLES_LIGHT[getScoreResult(grossScore, par)]
   return { background: s.bg, border: `${s.borderWidth} solid ${s.border}` }
 }
 
-export function getScoreNumberStyleLight(grossScore: number | null | undefined, par: number | null | undefined): CSSProperties {
+export function getScoreNumberStyleLight(grossScore: number | null | undefined, par: number | null | undefined): GolfStyle {
   return { color: SCORE_STYLES_LIGHT[getScoreResult(grossScore, par)].textColor }
 }
 
