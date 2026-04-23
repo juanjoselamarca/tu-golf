@@ -7,7 +7,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    pool: 'vmThreads',
+    // vmThreads solo es necesario en dev local Windows/OneDrive (paths con
+    // espacios). En CI Linux, forks (default vitest 4) es más estable y
+    // rápido. Ver memoria feedback_vitest_onedrive para el motivo histórico.
+    pool: process.env.CI ? 'forks' : 'vmThreads',
     testTimeout: 30000,
     exclude: ['**/node_modules/**', '**/e2e/**'],
     coverage: {
