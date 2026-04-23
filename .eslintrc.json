@@ -1,3 +1,32 @@
 {
-  "extends": ["next/core-web-vitals"]
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "no-console": ["warn", { "allow": ["error"] }],
+    "react-hooks/exhaustive-deps": "warn",
+    "@next/next/no-img-element": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["src/__tests__/**/*", "**/*.test.{ts,tsx}", "src/lib/logger.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["src/golf/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["react", "react/*", "next", "next/*"],
+                "message": "src/golf/ debe ser TypeScript puro sin dependencias React/Next. Ver docs/ADRs/ADR-004."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
