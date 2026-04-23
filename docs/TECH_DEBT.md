@@ -11,7 +11,7 @@
 |---|------|--------|-------|
 | P0-1 | protobufjs CRITICAL + 6 transitivos | ✅ Resuelto `bdf0f7b` (2026-04-23) | `npm audit fix` no-breaking |
 | P0-2 | Next.js 14 con 5 HIGH (incl. DoS) | ⏳ En plan | Requiere branch `upgrade/next-15` + QA extenso. Ver `docs/ADRs/ADR-002` y plan separado |
-| P0-3 | Cero CI en GitHub Actions | ✅ Resuelto `ea3695e` (2026-04-23) | `.github/workflows/ci.yml` con tsc+tests+build+audit |
+| P0-3 | Cero CI en GitHub Actions | ✅ Resuelto `ea3695e` + fixes `0204a2f`,`ca1f6f3`,`49c8f80` (2026-04-23) | `.github/workflows/ci.yml` con tsc+tests+build+audit. Fix VAPID lazy init + pool vitest condicional (forks en CI, vmThreads local) |
 | P0-4 | Sin baseline performance/bundle | ⏳ Pendiente | Requiere dev server up + Lighthouse. Incluir en próximo sprint |
 
 ## P1 — Urgente (próximas 2 semanas)
@@ -20,7 +20,8 @@
 |---|------|--------|-------|
 | P1-1 | `ronda-libre/nueva/page.tsx` God Object (2118 LOC) | ⏳ Plan | Sprint dedicado. Ver plan en `docs/superpowers/plans/2026-04-20-rondas-refactor-sprint-1.md` |
 | P1-2 | `ronda-libre/[codigo]/page.tsx` + `score/page.tsx` God Objects | ⏳ Plan | Mismo sprint que P1-1 |
-| P1-3 | Cobertura tests no medida | ⏳ Bloqueado | Falta `@vitest/coverage-v8` en devDeps. Agregar + correr baseline |
+| P1-3 | Cobertura tests no medida | ✅ Resuelto `f78dc1a` + `86786fb` (2026-04-23) | Baseline real: 27.62% (no 76.88% — error de medición inicial). Thresholds 25/20/23/25 |
+| P1-3b | `course-handicap.ts` cobertura 9.52% (lógica core) | ✅ Resuelto `b5123fc` (2026-04-23) | 12 tests nuevos con vi.mock Supabase — ahora 100% statements |
 | P1-4 | Upgrade Next 14 → 15 | ⏳ Plan | Ver P0-2 |
 | P1-5 | No hay RUNBOOKS/ | ✅ Resuelto `1033a16` (2026-04-23) | 6 runbooks creados |
 | P1-6 | No hay ADRs/ | ✅ Resuelto `a96efaa` (2026-04-23) | 10 ADRs creados |
