@@ -192,8 +192,13 @@ export async function GET() {
         country,
         countryCode,
         roundNum: tournamentRoundNum,
+        isTeam,
       }
     })
+
+    // Bandera global del torneo — si todos los competidores son equipos,
+    // es un team event (Zurich Classic, Hero World Challenge, etc.).
+    const isTeamEvent = sorted.length > 0 && sorted.every(c => !c.athlete && !!c.team)
 
     const isLive = status?.type?.state === 'in'
     const isComplete = status?.type?.state === 'post'
@@ -212,6 +217,7 @@ export async function GET() {
       course,
       players: top10,
       next_event,
+      isTeamEvent,
     })
   } catch {
     return NextResponse.json({ active: false, players: [] })

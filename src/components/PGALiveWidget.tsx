@@ -12,6 +12,7 @@ interface Player {
   country:  string
   countryCode: string
   roundNum: number
+  isTeam?:  boolean
 }
 
 const LATAM_CODES = new Set(['cl','ar','co','mx','br','ve','py','pr','pe','uy','ec','bo','cr','do','gt','hn','ni','pa','sv','cu'])
@@ -22,6 +23,7 @@ interface PGAData {
   active: boolean; live?: boolean; complete?: boolean
   tournament?: string; round?: string; course?: string
   players?: Player[]; next_event?: NextEvent
+  isTeamEvent?: boolean
 }
 
 /**
@@ -247,7 +249,7 @@ export default function PGALiveWidget() {
         padding: '8px 16px', background: 'rgba(255,255,255,0.02)',
       }}>
         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase' }}>#</span>
-        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase' }}>Jugador</span>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase' }}>{data.isTeamEvent ? 'Equipo' : 'Jugador'}</span>
         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase', textAlign: 'right' }}>Tot</span>
         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase', textAlign: 'right' }}>Hoy</span>
         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', fontFamily: M, textTransform: 'uppercase', textAlign: 'right' }}>Thru</span>
@@ -278,7 +280,9 @@ export default function PGALiveWidget() {
             }}>{p.position}</span>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-              {p.flag ? (
+              {/* Team events (Zurich Classic, etc.) no tienen un único país:
+                  omitimos el slot de bandera por completo, no un placeholder gris. */}
+              {!p.isTeam && (p.flag ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={p.flag}
@@ -289,7 +293,7 @@ export default function PGALiveWidget() {
                 />
               ) : (
                 <span style={{ width: '18px', height: '13px', borderRadius: '2px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
-              )}
+              ))}
               <span style={{
                 fontSize: '13px', fontWeight: isLeader || isLatam ? 600 : 400,
                 color: isLatam ? '#f3d37a' : '#edeae4',
