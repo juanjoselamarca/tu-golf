@@ -2,17 +2,19 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-export function TournamentBottomSheet({ slug, isLive }: { slug: string; isLive: boolean }) {
+export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: string; isLive: boolean; isDemo?: boolean }) {
   const router = useRouter()
   const [sheet, setSheet] = useState<'hidden' | 'visible' | 'gone'>('hidden')
 
   useEffect(() => {
     if (!isLive) return
+    // En demo no se muestra el selector de rol: nadie se inscribe a un demo.
+    if (isDemo) return
     const key = `gf_sheet_${slug}`
     if (localStorage.getItem(key)) return
     const t = setTimeout(() => setSheet('visible'), 3000)
     return () => clearTimeout(t)
-  }, [slug, isLive])
+  }, [slug, isLive, isDemo])
 
   const dismiss = (tipo: 'jugador' | 'espectador') => {
     localStorage.setItem(`gf_sheet_${slug}`, tipo)

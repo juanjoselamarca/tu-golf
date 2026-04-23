@@ -44,6 +44,7 @@ interface DBTournament {
   status: string
   codigo: string | null
   afecta_estadisticas: boolean | null
+  es_demo: boolean | null
   courses: { id: string; nombre: string; ciudad: string; par_total: number; slope_rating: number; course_rating: number } | null
 }
 
@@ -144,7 +145,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   // Try to fetch real tournament
   const { data: rawTournament } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, date_start, status, codigo, afecta_estadisticas, courses(id, nombre, ciudad, par_total, slope_rating, course_rating)')
+    .select('id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, date_start, status, codigo, afecta_estadisticas, es_demo, courses(id, nombre, ciudad, par_total, slope_rating, course_rating)')
     .eq('slug', params.slug)
     .single()
 
@@ -874,7 +875,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         </section>
       )}
 
-      {tournament && <TournamentBottomSheet slug={tournament.slug} isLive={isLive} />}
+      {tournament && <TournamentBottomSheet slug={tournament.slug} isLive={isLive} isDemo={!!tournament.es_demo} />}
     </div>
   )
 }
