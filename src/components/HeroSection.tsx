@@ -23,55 +23,64 @@ export default function HeroSection() {
   }, [])
 
   return (
-    <section className="relative min-h-[85vh] md:min-h-screen flex items-center overflow-hidden">
+    <section className="relative md:min-h-screen md:flex md:items-center overflow-hidden">
 
-      {/* ── Slideshow background ─────────────────────────── */}
-      {IMAGES.map((src, i) => (
-        <div
-          key={src}
-          className="absolute inset-0 transition-opacity duration-2000 ease-in-out"
-          style={{ opacity: i === current ? 1 : 0 }}
-        >
-          <img
-            src={src}
-            alt=""
-            className="w-full h-full object-cover"
-            loading={i === 0 ? 'eager' : 'lazy'}
-            fetchPriority={i === 0 ? 'high' : 'auto'}
-            decoding="async"
-          />
-        </div>
-      ))}
-
-      {/* ── Gradient overlay ─────────────────────────────── */}
-      <div
-        className="absolute inset-0 z-10"
-        style={{
-          background:
-            'linear-gradient(to bottom, rgba(7,13,24,0.25) 0%, rgba(7,13,24,0.65) 50%, rgba(7,13,24,0.95) 85%, rgba(7,13,24,1) 100%)',
-        }}
-      />
-
-      {/* ── Dot indicators ───────────────────────────────── */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-        {IMAGES.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrent(i)}
-            className="transition-all duration-300"
-            style={{
-              width:           i === current ? '24px' : '6px',
-              height:          '6px',
-              borderRadius:    '3px',
-              background:      i === current ? '#c4992a' : 'rgba(196,153,42,0.35)',
-            }}
-            aria-label={`Imagen ${i + 1}`}
-          />
+      {/*
+        ── Slideshow ──────────────────────────────────────
+        Mobile: banner superior con aspect fijo 4/3 → la imagen se ve completa,
+          sin el "zoom extremo" que generaba `object-cover` + min-h-[85vh]
+          (contenido alto del hero apilado estiraba el fondo verticalmente).
+        Desktop (md+): fondo full-bleed absolute detrás del contenido, como antes.
+      */}
+      <div className="relative w-full aspect-[4/3] md:absolute md:inset-0 md:aspect-auto md:h-full md:w-full">
+        {IMAGES.map((src, i) => (
+          <div
+            key={src}
+            className="absolute inset-0 transition-opacity duration-2000 ease-in-out"
+            style={{ opacity: i === current ? 1 : 0 }}
+          >
+            <img
+              src={src}
+              alt=""
+              className="w-full h-full object-cover"
+              loading={i === 0 ? 'eager' : 'lazy'}
+              fetchPriority={i === 0 ? 'high' : 'auto'}
+              decoding="async"
+            />
+          </div>
         ))}
+
+        {/* Gradient overlay — fundido a bg al pie para blend sin costura con
+            el contenido en mobile y legibilidad del texto superpuesto en desktop. */}
+        <div
+          className="absolute inset-0 z-10"
+          style={{
+            background:
+              'linear-gradient(to bottom, rgba(7,13,24,0.25) 0%, rgba(7,13,24,0.65) 55%, rgba(7,13,24,0.95) 88%, rgba(7,13,24,1) 100%)',
+          }}
+        />
+
+        {/* Dot indicators — al pie del banner en mobile, al pie de la sección en desktop. */}
+        <div className="absolute bottom-3 md:bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+          {IMAGES.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrent(i)}
+              className="transition-all duration-300"
+              style={{
+                width:           i === current ? '24px' : '6px',
+                height:          '6px',
+                borderRadius:    '3px',
+                background:      i === current ? '#c4992a' : 'rgba(196,153,42,0.35)',
+              }}
+              aria-label={`Imagen ${i + 1}`}
+            />
+          ))}
+        </div>
       </div>
 
       {/* ── Content ──────────────────────────────────────── */}
-      <div className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32">
+      <div className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-24 lg:py-32">
         <div className="flex flex-col lg:grid lg:grid-cols-5 gap-12 lg:gap-16 items-center">
 
           {/* Left — text + CTAs ─────────────────────────── */}
