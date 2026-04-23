@@ -136,15 +136,31 @@ function sortPlayers(players: SimPlayer[]): SimPlayer[] {
 }
 
 export function useDemoSimulation() {
-  const [seed, setSeed] = useState(() => Date.now())
+  // Seed determinístico inicial para que SSR y CSR rendericen EXACTAMENTE lo
+  // mismo en el primer render. Sin esto, Date.now() difiere entre server y
+  // client y React tira hydration mismatch (errors #418/#423/#425).
+  // Ver TECH_DEBT P1-11 (descubierto vía e2e smoke 2026-04-23).
+  const INITIAL_SEED = 0
+  const [seed, setSeed] = useState(INITIAL_SEED)
   const [players, setPlayers] = useState<SimPlayer[]>(() => {
-    const init = initPlayers(Date.now())
+    const init = initPlayers(INITIAL_SEED)
     const sorted = sortPlayers(init)
     redistributeGWI(sorted)
     return sorted
   })
   const [lastEvent, setLastEvent] = useState('')
   const [roundNumber, setRoundNumber] = useState(1)
+
+  // Re-seed con Date.now() solo client-side, después de hidratar.
+  // Esto da aleatoriedad real sin romper la hidratación.
+  useEffect(() => {
+    const realSeed = Date.now()
+    setSeed(realSeed)
+    const init = initPlayers(realSeed)
+    const sorted = sortPlayers(init)
+    redistributeGWI(sorted)
+    setPlayers(sorted)
+  }, [])
 
   const advanceBatch = useCallback(() => {
     setPlayers(prev => {
