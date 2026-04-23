@@ -25,14 +25,19 @@ export default defineConfig({
         'src/scripts/**',
         'src/types/**',
       ],
-      // Baseline 2026-04-23: 76.88% statements, 72.41% branches, 83.32% functions, 78.64% lines.
-      // Thresholds fijados conservadoramente debajo del baseline — bloquean regresión.
-      // Subir gradualmente a medida que se agregan tests.
+      // Baseline 2026-04-23 (recalibrado): el primer baseline medía 77% pero
+      // subestimaba — no recogía archivos sin tests. Con vi.mock de supabase
+      // el coverage-v8 descubrió todo el árbol src/ real. Baseline real:
+      //   Statements: 27.62%  Branches: 21.83%  Functions: 25.78%  Lines: 27.07%
+      // Thresholds 2 puntos debajo del baseline — bloquean regresión sin
+      // forzar fixes inmediatos. Política: subir 2 puntos cada vez que se
+      // agregue cobertura a un archivo al 0%. Ver docs/audits/2026-04-23-
+      // coverage-baseline.md (actualizado con números reales).
       thresholds: {
-        statements: 70,
-        branches: 65,
-        functions: 75,
-        lines: 70,
+        statements: 25,
+        branches: 20,
+        functions: 23,
+        lines: 25,
       },
     },
   },

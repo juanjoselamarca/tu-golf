@@ -1,81 +1,102 @@
-# Baseline de cobertura de tests — 2026-04-23
+# Baseline de cobertura de tests — 2026-04-23 (v2 recalibrado)
 
-**Comando**: `npx vitest run --coverage`
-**Tests**: 5.662 en 306 archivos. 100% passing.
-**Duración**: ~60s con coverage.
+**Última actualización**: 2026-04-23 14:30 — **baseline recalibrado tras descubrir que la primera medición subestimaba**.
 
-## Resumen global
+## Qué pasó con el baseline inicial
 
-| Métrica | Cobertura |
-|---|---|
-| **Statements** | **76.88%** (5941/7727) |
-| **Branches** | **72.41%** (4257/5879) |
-| **Functions** | **83.32%** (1094/1313) |
-| **Lines** | **78.64%** (4780/6078) |
+La primera ejecución de `npx vitest run --coverage` (mañana del 2026-04-23) reportó:
+- Statements 76.88%, Branches 72.41%, Functions 83.32%, Lines 78.64%
 
-## Thresholds configurados en `vitest.config.ts`
+Esos números **eran engañosos**. Coverage-v8 sólo contaba archivos cargados durante la suite de tests. Muchos archivos sin tests (ej: `src/hooks/useScoreSync.ts`, `src/lib/analytics.ts`, `src/golf/notifications/engine.ts`) no aparecían en el reporte — parecía que el árbol era más pequeño de lo que es.
 
-Conservadores, debajo del baseline para bloquear regresión sin forzar fixes inmediatos:
+Al mediodía del 2026-04-23 se agregaron tests de `cargarCourseData()` que usan `vi.mock('@/lib/supabase')`. El mock carga el barrel de Supabase, y eso trajo a la suite de coverage todos los archivos del árbol `src/` que el barrel toca indirectamente. Resultado: **el total de statements pasó de 7.727 → 21.378** — el repo siempre fue más grande, simplemente no se medía.
+
+## Baseline real (v2)
+
+| Métrica | Valor real | Valor inicial (engañoso) |
+|---|---|---|
+| **Statements** | **27.62%** (5.906/21.378) | 76.88% |
+| **Branches** | **21.83%** (4.156/19.032) | 72.41% |
+| **Functions** | **25.78%** (1.097/4.255) | 83.32% |
+| **Lines** | **27.07%** (4.766/17.600) | 78.64% |
+
+## Thresholds ajustados (vitest.config.ts)
+
+Reducidos al baseline real menos 2 puntos de margen:
 
 ```ts
 thresholds: {
-  statements: 70,   // baseline 76.88% → margen 6.88%
-  branches: 65,     // baseline 72.41% → margen 7.41%
-  functions: 75,    // baseline 83.32% → margen 8.32%
-  lines: 70,        // baseline 78.64% → margen 8.64%
+  statements: 25,
+  branches: 20,
+  functions: 23,
+  lines: 25,
 }
 ```
 
-**Política**: subir los thresholds cada vez que un sprint agregue cobertura. El CI los enforce automáticamente.
+**Política de mejora**: cada vez que se eleva la cobertura de un archivo al 0%, subir los thresholds 2 puntos. El CI los enforce.
 
-## Por módulo — áreas fuertes (≥90%)
+## Áreas fuertes (100% o casi)
 
 | Módulo | Statements |
 |---|---|
-| `src/golf/formats/` | 92.96% |
-| `src/golf/stats/` | 93.93% |
-| `src/lib/mi-golf/` | 95.76% |
-| `src/lib/ronda/` | 95.52% |
-| `src/hooks/ronda/` | 100% |
+| `src/golf/core/course-handicap.ts` | **100%** (nuevo 2026-04-23, antes 9.52%) |
+| `src/golf/core/countback.ts` | 100% |
+| `src/golf/core/match-play-state.ts` | 100% |
+| `src/golf/formats/foursome.ts` | 94.87% |
+| `src/golf/formats/scramble.ts` | 97.87% |
+| `src/golf/stats/gwi.ts` | 93.49% |
+| `src/lib/mi-golf/*` | 95.76% |
+| `src/lib/ronda/helpers.ts` | 90.16% |
+| `src/hooks/ronda/*` | 100% |
 
-Formatos de juego (stroke-play, stableford, match-play, best-ball, foursome, scramble) están sobradamente testeados. Stats (GWI, CPI) también.
+## Áreas débiles (<10%) — candidatas a P1
 
-## Por módulo — áreas débiles (<50%)
+Archivos con 0% cobertura que deberían tener tests (en orden de prioridad):
 
-| Módulo | Statements | Prioridad |
+| Archivo | Prioridad | Por qué |
 |---|---|---|
-| `src/lib/share-card.ts` | 5.02% | P2 (complejo, canvas manipulation) |
-| `src/golf/core/course-handicap.ts` | 9.52% | **P1 — es lógica core** |
-| `src/lib/import-round.ts` | 20.25% | P2 |
-| `src/lib/push-notifications.ts` | 21.15% | P2 |
-| `src/lib/admin.ts` | 42.85% | P2 |
-| `src/utils/logger.ts` | 54.23% | P3 (infra propia) |
+| `src/golf/core/stroke-index.ts` | 🔴 P1 | Lógica core golf — asignación de golpes |
+| `src/golf/stats/personal.ts` | 🔴 P1 | Stats mostradas al usuario |
+| `src/golf/courses/data.ts` | 🟡 P2 | Queries BD — mockeable pero laborioso |
+| `src/golf/notifications/engine.ts` | 🟡 P2 | Motor notificaciones push |
+| `src/hooks/useScoreSync.ts` | 🔴 P1 | Sync scoring offline — crítico en cancha |
+| `src/lib/import-round.ts` (20%) | 🟡 P2 | Import Garmin/CSV |
+| `src/lib/push-notifications.ts` (21%) | 🟡 P2 | Push subscriptions |
+| `src/lib/share-card.ts` (5%) | 🟢 P3 | Canvas — difícil de testear unitariamente |
 
-### Acción inmediata: `course-handicap.ts` con 9.52%
+## Progreso 2026-04-23
 
-Es **lógica central del motor de golf** (cálculo de handicap por cancha/tee). Solo 11.11% de líneas testeadas. Esto debe subir a >80% en el próximo sprint — un bug acá genera scores incorrectos para todos los jugadores con handicap.
+1. ✅ `src/golf/core/course-handicap.ts`: 9.52% → **100%** (12 tests nuevos en `cargar-course-data.test.ts`)
+
+## Roadmap sugerido
+
+**Semana 1** — atacar P1:
+- `stroke-index.ts`: 0% → ≥80% (similar a `resolverCourseHandicap` — fórmula pura)
+- `personal.ts` (golf/stats): 0% → ≥70%
+- `useScoreSync.ts`: 0% → ≥60% (requiere mock de Supabase + localStorage)
+
+Objetivo fin de semana 1: Statements 27% → 35%, subir thresholds a 33.
+
+**Semana 2** — P2 laboriosos:
+- `courses/data.ts`: mock Supabase
+- `notifications/engine.ts`
+
+**Continuo** — cada PR que modifique un archivo <80% debería agregar al menos 2 tests.
 
 ## Cómo correr el coverage
 
 ```bash
-# Completo con reporte HTML
 npx vitest run --coverage
-
-# Luego abrir el reporte visual
-# Windows: start coverage/index.html
-# Mac:     open coverage/index.html
-# Linux:   xdg-open coverage/index.html
 ```
 
-Los thresholds fallan el comando si algún número baja. Es lo que el CI va a enforce cuando se agregue el step coverage.
+El reporte visual queda en `coverage/index.html`.
 
-## Próximos pasos
+## Thresholds bloquean regresión
 
-1. **Semana 1**: subir `course-handicap.ts` de 9.52% → >80%
-2. **Semana 2**: evaluar si `share-card.ts` necesita refactor antes que tests (canvas + html2canvas difíciles de testear unitariamente — considerar tests de integración con snapshot)
-3. **Semana 3**: agregar step `npx vitest run --coverage` al CI workflow
-4. **Continuo**: subir thresholds 2 puntos cada vez que se mejore cobertura
+Si un PR baja el coverage debajo del threshold, el CI (cuando se agregue el step coverage) lo rechaza. Hoy el job `Verificación` corre `vitest run` sin coverage — coverage es un step aparte que se puede agregar cuando las áreas P1 suban.
 
-## Deuda técnica registrada
+## Nota sobre la subestimación inicial
 
-Ver `docs/TECH_DEBT.md` entrada P1-3 — marcar como ✅ resuelto con este baseline.
+El baseline inicial midió 76.88% porque la suite de tests no importaba muchas partes del código. Fue un error de medición, no una regresión. No hay cobertura perdida.
+
+Corrección documentada aquí y en `docs/TECH_DEBT.md`.
