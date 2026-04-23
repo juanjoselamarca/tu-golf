@@ -44,6 +44,7 @@ const fmtVsPar = (n: number): string => {
 interface DBPlayerRaw {
   id: string
   handicap_at_registration: number | null
+  player_name: string | null
   profiles: { name: string } | null
   categories: { name: string } | null
   rounds: {
@@ -117,7 +118,7 @@ export default function TVPage() {
     const { data: rawPlayers } = await supabase
       .from('players')
       .select(`
-        id, handicap_at_registration,
+        id, handicap_at_registration, player_name,
         profiles(name),
         categories(name),
         rounds(total_net, total_gross, hole_scores(hole_number, gross_score))
@@ -128,13 +129,13 @@ export default function TVPage() {
     // WD/DQ en paralelo — footer del TV con badge
     const { data: rawWithdrawn } = await supabase
       .from('players')
-      .select('status, status_reason, profiles(name)')
+      .select('status, status_reason, player_name, profiles(name)')
       .eq('tournament_id', tournamentId)
       .in('status', ['withdrawn', 'disqualified'])
     setWithdrawn(
-      ((rawWithdrawn as unknown) as Array<{ status: 'withdrawn' | 'disqualified'; status_reason: string | null; profiles: { name: string } | null }> | null)
-        ?.filter(p => p.profiles?.name)
-        .map(p => ({ name: p.profiles!.name, status: p.status, reason: p.status_reason })) || []
+      ((rawWithdrawn as unknown) as Array<{ status: 'withdrawn' | 'disqualified'; status_reason: string | null; player_name: string | null; profiles: { name: string } | null }> | null)
+        ?.map(p => ({ name: p.profiles?.name ?? p.player_name ?? '', status: p.status, reason: p.status_reason }))
+        .filter(p => p.name) || []
     )
 
     const dbPlayers = (rawPlayers as unknown as DBPlayerRaw[]) || []
@@ -154,7 +155,7 @@ export default function TVPage() {
 
         return {
           id:          p.id,
-          name:        p.profiles?.name || 'Jugador',
+          name:        p.profiles?.name ?? p.player_name ?? 'Jugador',
           handicap:    p.handicap_at_registration ?? 0,
           total_net:   totalNet,
           total_gross: totalGross,

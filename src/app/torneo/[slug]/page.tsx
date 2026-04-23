@@ -17,6 +17,7 @@ import type { CountbackPlayer, CountbackMode, CountbackResult } from '@/golf/cor
 interface DBPlayer {
   id: string
   handicap_at_registration: number | null
+  player_name: string | null
   profiles: { name: string; indice: number | null } | null
   categories: { name: string } | null
   rounds: {
@@ -363,7 +364,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       const { data: rawPlayers } = await supabase
         .from('players')
         .select(
-          `id, handicap_at_registration,
+          `id, handicap_at_registration, player_name,
            profiles(name, indice),
            categories(name),
            rounds(id, status, total_gross, total_net, total_points, round_number,
@@ -375,12 +376,13 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       // WD/DQ en paralelo — se renderizan en footer del leaderboard con badge.
       const { data: rawWithdrawn } = await supabase
         .from('players')
-        .select('status, status_reason, profiles(name)')
+        .select('status, status_reason, player_name, profiles(name)')
         .eq('tournament_id', tournament.id)
         .in('status', ['withdrawn', 'disqualified'])
-      ;(rawWithdrawn as unknown as Array<{ status: 'withdrawn' | 'disqualified'; status_reason: string | null; profiles: { name: string } | null }> | null)?.forEach(p => {
-        if (p.profiles?.name) {
-          withdrawnPlayers.push({ name: p.profiles.name, status: p.status, reason: p.status_reason })
+      ;(rawWithdrawn as unknown as Array<{ status: 'withdrawn' | 'disqualified'; status_reason: string | null; player_name: string | null; profiles: { name: string } | null }> | null)?.forEach(p => {
+        const displayName = p.profiles?.name ?? p.player_name
+        if (displayName) {
+          withdrawnPlayers.push({ name: displayName, status: p.status, reason: p.status_reason })
         }
       })
 
@@ -505,7 +507,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           const playerIdx = players.length
           players.push({
             pos:     withRounds.length + i + 1,
-            name:    p.profiles?.name || 'Jugador',
+            name:    p.profiles?.name ?? p.player_name ?? 'Jugador',
             country: 'CL',
             cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
             hcp:     p.handicap_at_registration ?? 0,
@@ -543,7 +545,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
             return {
               id:                   p.id,
-              nombre:               p.profiles?.name ?? 'Jugador',
+              nombre:               p.profiles?.name ?? p.player_name ?? 'Jugador',
               handicapIndex:        hcp,
               currentScore,
               hoyosCompletados:     hoyosComp,
