@@ -57,20 +57,24 @@ export function LiveBadge() {
   const isScoring = pathname?.includes('/score')
   if (isInRonda || isScoring) return null
 
+  // Wrapper incluido aquí (no en layout.tsx) para que, cuando no hay ronda
+  // activa, no quede una franja vacía bajo la navbar.
   return (
-    <Link
-      href={`/ronda-libre/${active.codigo}`}
-      className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors"
-      aria-label={`Volver a ronda en ${active.courseName}`}
-      style={{ fontFamily: 'var(--font-dm-mono), ui-monospace, monospace' }}
-    >
-      <span className="relative inline-flex">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-        <span className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping opacity-75" />
-      </span>
-      <span className="text-[10px] font-bold text-emerald-500 tracking-wider">EN VIVO</span>
-      <Radio className="w-3 h-3 text-emerald-500 sr-only" aria-hidden />
-    </Link>
+    <div className="flex justify-end px-3 pt-1">
+      <Link
+        href={`/ronda-libre/${active.codigo}`}
+        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors"
+        aria-label={`Volver a ronda en ${active.courseName}`}
+        style={{ fontFamily: 'var(--font-dm-mono), ui-monospace, monospace' }}
+      >
+        <span className="relative inline-flex">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping opacity-75" />
+        </span>
+        <span className="text-[10px] font-bold text-emerald-500 tracking-wider">EN VIVO</span>
+        <Radio className="w-3 h-3 text-emerald-500 sr-only" aria-hidden />
+      </Link>
+    </div>
   )
 }
 
