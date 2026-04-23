@@ -8,5 +8,6 @@ export {
   User, Copy, Share2, X,
   ArrowUpRight, ArrowDownRight, ArrowUpCircle, ArrowDownCircle,
   Search, MessageCircle, Repeat, Clock,
+  Sun, Moon, Settings,
   Link as LinkIcon,
 } from 'lucide-react'

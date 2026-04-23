@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import NotificationHub from '@/components/NotificationHub'
-import { Home, Radio, TrendingUp, ClipboardList, Upload, Zap, Play, Bell, Trophy } from '@/components/icons'
+import { Home, Radio, TrendingUp, ClipboardList, Upload, Zap, Play, Bell, Trophy, Settings, Sun, Moon } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { useTheme } from '@/contexts/ThemeContext'
 import { getNavTheme } from './nav/nav-theme'
@@ -195,7 +195,7 @@ export default function Navbar() {
                         color: t.menuText, fontSize: '14px', textDecoration: 'none', borderRadius: '8px',
                         minHeight: '44px',
                       }}>
-                        <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>⚙️</span>Administración
+                        <span style={{ width: '20px', display: 'inline-flex', justifyContent: 'center' }}><Settings size={16} strokeWidth={1.5} /></span>Administración
                       </Link>
                     )}
                     <div style={{ height: '1px', background: t.menuDivider, margin: '4px 0' }} />
@@ -366,8 +366,8 @@ export default function Navbar() {
                 transition: 'background 0.15s',
               }}
             >
-              <span style={{ fontSize: '18px', width: '24px', textAlign: 'center', flexShrink: 0 }}>
-                {isDark ? '☀️' : '🌙'}
+              <span style={{ width: '24px', display: 'inline-flex', justifyContent: 'center', flexShrink: 0 }}>
+                {isDark ? <Sun size={18} strokeWidth={1.5} /> : <Moon size={18} strokeWidth={1.5} />}
               </span>
               <span>{isDark ? 'Modo claro' : 'Modo oscuro'}</span>
             </button>
