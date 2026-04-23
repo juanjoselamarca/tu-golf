@@ -96,7 +96,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P3 · Código de ronda `1E3I58` — ambigüedad tipográfica — `[ ]`
+### P3 · Código de ronda `1E3I58` — ambigüedad tipográfica — `[x]` (15d4c1b · Foundation + migración wizard completa)
 **Evidencia:** foto 02.
 **Fix:**
 1. Alfabeto restringido: excluir `I, O, L, 0, 1, B, 8` (Crockford base32).
@@ -130,7 +130,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P6 · Toggles con dos colores "ON" — `[ ]`
+### P6 · Toggles con dos colores "ON" — `[x]` (5552903 · ExperienceSetup migrado a dorado brand)
 **Evidencia:** foto 32 (verde + dorado).
 **Fix:** un solo color activo = dorado de marca. Verde solo para "en vivo/éxito".
 **Prioridad:** **P2**. **Owner:** Foundation (componente Toggle).
@@ -192,7 +192,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P13 · Stepper Nueva Ronda — 4 checks y 3 números — `[ ]`
+### P13 · Stepper Nueva Ronda — 4 checks y 3 números — `[x]` (15d4c1b · wizard usa &lt;Stepper&gt; Foundation)
 **Evidencia:** fotos 03, 04, 05, 06, 11, 14.
 **Fix:**
 1. Stepper = 4 steps numerados (1 Formato, 2 Cancha, 3 Jugadores, 4 Confirmar).
@@ -257,7 +257,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P20 · Momentos recientes — "12" gigante duplicado — `[ ]`
+### P20 · Momentos recientes — "12" gigante duplicado — `[x]` (da85bcc · &lt;Avatar&gt; Foundation reemplaza círculo con número)
 **Evidencia:** fotos 28, 29.
 **Fix:**
 1. Círculo grande con número hoyo → reemplazar por avatar del jugador (iniciales).
@@ -278,7 +278,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 | # | Pantalla | Hallazgo | Prioridad | Owner | Estado |
 |---|----------|----------|-----------|-------|--------|
-| H01 | Error genérico | Sin código de error ni acción "reportar" — imposible diagnosticar | P1 | Foundation | `[ ]` |
+| H01 | Error genérico | Sin código de error ni acción "reportar" — imposible diagnosticar | P1 | Foundation | `[x]` (2391f18 · &lt;ErrorScreen&gt; + src/app/error.tsx migrado) |
 | H02 | Confirmar ronda | No hay resumen de tee por jugador cuando hay múltiples | P1 | Agente A | `[x]` (d083487) |
 | H03 | Jugadores | "Tu" → "Tú" (acento) o icono claro | P2 | Agente A | `[x]` (bbe70f6) |
 | H04 | Selector Cancha | Chevron `>` inconsistente entre cards | P2 | Agente A | `[x]` (131edc9) |
@@ -409,9 +409,11 @@ Un hallazgo se marca `[x]` solo si:
 
 ---
 
-**Última actualización:** 22-abr-2026 20:20 GMT-4
+**Última actualización:** 22-abr-2026 21:45 GMT-4
 
-**Estado global:** 28 / 38 items cerrados
+**Estado global:** 33 / 38 items cerrados (87%)
+
+Sesión 2 (CTO solo, post sesión multi-agente): P3 UI, P13 UI, P20 Avatar, H01 ErrorScreen, P6 toggle.
 
 - **Foundation (CTO):** P1 pill inline, P10 dot Mi Golf, H17 tag footer · 7 commits puros (DESIGN.md, utilities, icons, 7 shared components)
 - **Agente A:** P5, P17, P19, H02, H03, H04, H05, H06, H13, H18 · consumos P3/P13/P15 con TODO(foundation)

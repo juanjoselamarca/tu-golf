@@ -43,6 +43,25 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 // ─── Tipos de resultado ──────────────────────────────────────────────
 
+/**
+ * LIMITACIÓN CONOCIDA (audit 22-abr-2026, P5):
+ *
+ * El endpoint `get_info_cancha` de FedeGolf devuelve SOLO {color, label,
+ * rating, slope, active} por tee — NO incluye yardaje_total. Esto resulta
+ * en 357/481 filas (74%) de course_tees con yardaje_total = NULL en prod.
+ *
+ * El fix UI ya está aplicado: el selector de tees oculta el token "yds"
+ * cuando el valor es null (commit 3afc544 de Agente A).
+ *
+ * Para resolver el gap de datos se requiere una de estas acciones
+ * (fuera del scope de este script):
+ *  1. Scrapear otra página de FedeGolf con detalle por hoyo
+ *  2. Carga manual de CSV verificado contra scorecards oficiales
+ *  3. Contactar soporte FedeGolf para exponer yardajes via API
+ *
+ * La interface FedegolfTeeInfo (src/lib/fedegolf/types.ts) está pronta
+ * para agregar `yardaje?: number` cuando haya fuente.
+ */
 interface SyncStats {
   nuevas: number
   actualizadas: number
