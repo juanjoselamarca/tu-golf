@@ -121,7 +121,10 @@ const K = {
   gold: '#c4992a',
   dotColor: '#5a6370',
   dotSize: 4,
-  hoverBg: 'rgba(196,153,42,0.08)', // mejora #8: hover 8%
+  // H08: hover de columna muy sutil. Antes era dorado 8% y sugería que
+  // la celda era clickable (no lo es). Ahora gris 3%: guía visual al
+  // leer una columna sin parecer botón.
+  hoverBg: 'rgba(15,23,42,0.03)',
 } as const
 
 // ═══════════════════════════════════════════════════════════
@@ -407,12 +410,18 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
 
 function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: boolean }) {
   const c = countRes(st)
-  const items: { l: string; n: number; c: string }[] = []
-  if (c.e > 0) items.push({ l: 'Eagles', n: c.e, c: GARMIN_COLORS.eagle })
-  if (c.b > 0) items.push({ l: 'Birdies', n: c.b, c: GARMIN_COLORS.birdie })
-  items.push({ l: 'Pares', n: c.p, c: K.ts })
-  if (c.bo > 0) items.push({ l: 'Bogeys', n: c.bo, c: GARMIN_COLORS.bogey })
-  if (c.d > 0) items.push({ l: 'Doble+', n: c.d, c: GARMIN_COLORS.double })
+  // H09: mostrar SIEMPRE Eagles + Birdies aunque sean 0, como referencia de
+  // la ronda. Antes solo se mostraban los "malos" (bogeys, dobles) cuando
+  // había 0 birdies/eagles → el scorecard se veía sesgado a negativo.
+  // Eagles queda oculto solo si el jugador es 18+ handicap (eagles raros en
+  // amateur) — pero mantenerlo visible es más honesto: 0 también es info.
+  const items: { l: string; n: number; c: string }[] = [
+    { l: 'Eagles', n: c.e, c: c.e > 0 ? GARMIN_COLORS.eagle : K.tm },
+    { l: 'Birdies', n: c.b, c: c.b > 0 ? GARMIN_COLORS.birdie : K.tm },
+    { l: 'Pares', n: c.p, c: K.ts },
+    { l: 'Bogeys', n: c.bo, c: c.bo > 0 ? GARMIN_COLORS.bogey : K.tm },
+    { l: 'Doble+', n: c.d, c: c.d > 0 ? GARMIN_COLORS.double : K.tm },
+  ]
 
   // Mejora #2: front vs back comparison
   const hasBoth = bt != null && ft.g > 0 && bt.g > 0
@@ -432,7 +441,10 @@ function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: 
         ))}
       </div>
 
-      {/* Front vs Back — mejora #2 */}
+      {/* Front vs Back — mejora #2
+          En golf, score menor = mejor. Si diff (back vs par - front vs par) < 0,
+          el back fue más bajo que el front → el score BAJÓ → mejoró.
+          Flecha sigue la dirección del score; etiqueta, el resultado deportivo. */}
       {hasBoth && (
         <div style={{
           display: 'flex', justifyContent: 'center', gap: wide ? 20 : 12,
@@ -443,7 +455,7 @@ function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: 
           <span>Back: {bt!.g} ({fmtOu(bOu)})</span>
           {diff !== 0 && (
             <span style={{ color: diff < 0 ? GARMIN_COLORS.birdie : GARMIN_COLORS.double, fontWeight: 600 }}>
-              {diff < 0 ? `↑ Mejoró ${Math.abs(diff)}` : `↓ Subió ${diff}`}
+              {diff < 0 ? `↓ Mejoró ${Math.abs(diff)}` : `↑ Subió ${diff}`}
             </span>
           )}
         </div>

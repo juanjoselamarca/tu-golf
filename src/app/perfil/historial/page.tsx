@@ -9,7 +9,7 @@ import { formatLabel } from '@/golf/core/rules'
 import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components/Scorecard'
 import HoleBar from '@/components/HoleBar'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
-import { Radio, ClipboardList } from '@/components/icons'
+import { Radio, ClipboardList, Trophy, ChevronDown, AlertTriangle } from '@/components/icons'
 
 /* ─── Datos ────────────────────────────────────────────── */
 const CANCHAS_CHILE = [
@@ -217,7 +217,9 @@ function HistorialContent() {
   const formStats  = computeStats(scores)
   const totalGross = formStats?.total ?? null
 
-  /* ── Aggregate header stats (fallback from local rounds if API hasn't loaded) ── */
+  /* ── Aggregate header stats (fallback from local rounds if API hasn't loaded) ──
+         Match Play se mide en hoyos ganados, no en strokes vs par; excluir
+         esas rondas del promedio y del best-round para no ensuciar la estadística. */
   let aggBirdies = 0, aggEagles = 0
   let ovSum = 0, ovCount = 0
   for (const r of rounds) {
@@ -225,7 +227,7 @@ function HistorialContent() {
     if (!s) continue
     aggBirdies += s.birdies
     aggEagles  += s.eagles
-    if (r.total_gross != null) {
+    if (r.total_gross != null && r.formato_juego !== 'match_play') {
       // Usar par según hoyos jugados en vez de hardcodear 72
       const holesPlayed = r.scores?.filter((s: number | null) => s != null).length ?? 18
       const parEstimado = holesPlayed <= 9 ? 36 : 72
@@ -235,9 +237,10 @@ function HistorialContent() {
   }
   const avgOv = ovCount > 0 ? Math.round(ovSum / ovCount * 10) / 10 : null
 
-  /* ── Personal Record — por vsPar, no por gross absoluto ── */
+  /* ── Personal Record — por vsPar, no por gross absoluto (excluye match play) ── */
   const bestRound = rounds.reduce<{ score: number; course: string; vsPar: number } | null>((best, r) => {
     if (r.total_gross == null) return best
+    if (r.formato_juego === 'match_play') return best
     const holesPlayed = r.scores?.filter((s: number | null) => s != null).length ?? 18
     const parEstimado = holesPlayed <= 9 ? 36 : 72
     const rVsPar = r.total_gross - parEstimado
@@ -465,7 +468,7 @@ function HistorialContent() {
 
   if (loadError && rounds.length === 0) return (
     <div style={{ background: '#f8f9fa', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '20px' }}>
-      <div style={{ fontSize: '48px' }}>&#9888;&#65039;</div>
+      <div style={{ color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><AlertTriangle size={48} strokeWidth={1.5} /></div>
       <p style={{ color: '#111827', fontSize: '16px', textAlign: 'center', margin: 0 }}>
         No se pudieron cargar las tarjetas
       </p>
@@ -529,6 +532,7 @@ function HistorialContent() {
           {/* tAIger progress bar */}
           <div style={{ marginTop: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+              {/* TODO(foundation): reemplazar &#128047; por <TaigerIcon /> cuando el icon system migre emojis — P7 */}
               <span style={{ fontSize: '11px', color: '#9ca3af' }}>&#128047; {taigerMessage(rounds.length)}</span>
               <span style={{ fontSize: '11px', color: '#9ca3af' }}>{rounds.length}</span>
             </div>
@@ -565,7 +569,7 @@ function HistorialContent() {
               return (
                 <div key={rec.label} style={{ ...cardStyle, padding: '14px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '14px' }}>&#127942;</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', color: '#c4992a' }}><Trophy size={14} strokeWidth={1.75} /></span>
                     <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{rec.label}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
@@ -829,7 +833,10 @@ function HistorialContent() {
                     const dateStr = formatDateShort(r.played_at)
                     const holes   = r.holes_played ?? r.scores?.filter(Boolean).length ?? 18
                     const par     = stats?.holePars ? stats.holePars.reduce((a: number, b: number) => a + b, 0) : (holes <= 9 ? 36 : 72)
-                    const ov      = r.total_gross != null ? r.total_gross - par : null
+                    // Match Play no se mide por strokes vs par — se mide por hoyos
+                    // ganados/perdidos. No mostramos +N sobre el par total en la row.
+                    const isMatchPlay = r.formato_juego === 'match_play'
+                    const ov      = (r.total_gross != null && !isMatchPlay) ? r.total_gross - par : null
                     const isOpen  = expanded.has(r.id)
                     const teeHex  = r.tee_color ? TEE_COLORS[r.tee_color] || '#9ca3af' : null
 
@@ -895,8 +902,11 @@ function HistorialContent() {
                                   display: 'inline-block',
                                   padding: '2px 6px',
                                   borderRadius: '6px',
-                                  background: 'rgba(59,130,246,0.10)',
-                                  color: '#1e40af',
+                                  // Paleta de marca: dorado outline para badges de modo.
+                                  // El azul/cian (#1e40af) estaba fuera del design system.
+                                  background: 'rgba(196,153,42,0.08)',
+                                  color: '#92400e',
+                                  border: '1px solid rgba(196,153,42,0.25)',
                                   fontSize: '10px',
                                   fontWeight: 600,
                                   fontFamily: '"DM Mono", monospace',
@@ -928,7 +938,7 @@ function HistorialContent() {
                               transition: 'transform 0.2s',
                               transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
                               display: 'inline-block',
-                            }}>&#9660;</span>
+                            }} aria-hidden><ChevronDown size={14} strokeWidth={2} /></span>
                           </div>
                         </div>
 

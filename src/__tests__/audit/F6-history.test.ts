@@ -282,17 +282,26 @@ describe('F6 | Stats (peso 2)', () => {
   })
 
   it('[ST-4] Stats route uses in-memory aggregation (no N+1 queries in loops)', () => {
-    // Verified in observation #500: all loops iterate in-memory arrays
-    // Check that no .from() or supabase calls exist inside for loops
+    // Verified in observation #500: all loops iterate in-memory arrays.
+    // Permitimos UN loop que contenga supabase: el de paginación con
+    // .range(...) que recorre course_holes de a PAGE_SIZE filas (fix P12,
+    // auditoría 22-abr). Ese loop NO es N+1 — itera chunks de la misma
+    // tabla, no entidades. El guard real es "ninguna query usa una
+    // variable iteradora sobre entidades" (p.ej. .eq('id', round.id)).
     const forLoops = statsSource.matchAll(/for\s*\([^)]+\)\s*\{([\s\S]*?)\n  \}/g)
-    let foundDbInLoop = false
+    let foundBadDbInLoop = false
     for (const match of forLoops) {
-      if (match[1]?.includes('.from(') || match[1]?.includes('supabase')) {
-        foundDbInLoop = true
+      const body = match[1] ?? ''
+      const hasDbCall = body.includes('.from(') || body.includes('supabase')
+      if (!hasDbCall) continue
+      // Acepta patrón de paginación: .range(offset, offset + PAGE_SIZE - 1)
+      const isPagination = body.includes('.range(') && body.includes('PAGE_SIZE')
+      if (!isPagination) {
+        foundBadDbInLoop = true
         break
       }
     }
-    expect(foundDbInLoop).toBe(false)
+    expect(foundBadDbInLoop).toBe(false)
   })
 
   it('[ST-5] Stats route separates 9-hole and 18-hole averages (does not mix them)', () => {

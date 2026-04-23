@@ -182,7 +182,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P12 · `104 rondas, 0 birdies` — dato agregado sospechoso — `[ ]`
+### P12 · `104 rondas, 0 birdies` — dato agregado sospechoso — `[x]`
 **Evidencia:** foto 38.
 **Fix:**
 1. Auditar query agregadora de birdies.
@@ -279,23 +279,23 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 | # | Pantalla | Hallazgo | Prioridad | Owner | Estado |
 |---|----------|----------|-----------|-------|--------|
 | H01 | Error genérico | Sin código de error ni acción "reportar" — imposible diagnosticar | P1 | Foundation | `[ ]` |
-| H02 | Confirmar ronda | No hay resumen de tee por jugador cuando hay múltiples | P1 | Agente A | `[x]` |
-| H03 | Jugadores | "Tu" → "Tú" (acento) o icono claro | P2 | Agente A | `[x]` |
-| H04 | Selector Cancha | Chevron `>` inconsistente entre cards | P2 | Agente A | `[x]` |
-| H05 | Selector Cancha | Nombres truncados "C.G. Las Brisas De Santo D…" — 2 líneas | P2 | Agente A | `[x]` |
-| H06 | Formato juego | Match Play no disabled si ≠ 2 jugadores | P1 | Agente A | `[x]` |
-| H07 | Scorecard Lomas | `↓ Subió 1` — direccionalidad de flecha invertida | P0 si bug de golf/, P1 si solo flecha | Agente B | `[ ]` |
-| H08 | Scorecard | Recuadros hoyos se ven clickables sin serlo | P2 | Agente B | `[ ]` |
-| H09 | Scorecard | Desglose inferior solo muestra "malos": faltan Birdies/Eagles | P2 | Agente B | `[ ]` |
-| H10 | Mi Historial | Barras colores comprimidas, 9 vs 18 hoyos del mismo largo | P2 | Agente B | `[ ]` |
-| H11 | Mi Historial | Match Play mostrado como `+5` cuando debería ser en hoyos ganados | P1 | Agente B | `[ ]` |
-| H12 | Mi Historial | NETO pill azul/cian fuera de paleta | P2 | Agente B | `[ ]` |
-| H13 | Ronda creada | Código sin botón copy visible (asumo tap-to-copy no evidente) | P1 | Agente A | `[x]` (f55fe85 · tap-to-copy visible + separador + mono) |
-| H14 | GWI | "DOMINANDO" label dramatic, revisar si cuadra con target | P2 | Agente D | `[x]` (9838ed2 · "DOMINANDO"→"FAVORITO") |
-| H15 | En Vivo listado | "Los Leones" duplicado, considerar group header con rondas nested | P2 | Agente D | `[x]` (faa5c3f · group-by-course header si ≥2 rondas) |
-| H16 | Perfil header | Email PII visible en screenshot, revisar intencionalidad | P1 | Agente D | `[x]` (b0bdb3e · email fuera del header, queda en sección Cuenta) |
-| H17 | Landing footer | Tag "Diseñado para el golf amateur en LatAm" ilegible por opacidad baja | P2 | Agente C → Foundation | `[x]` (84158f9 · color rgba(255,255,255,0.72) — contrast ≥ 4.5:1) |
-| H18 | Wizard paso 1 | "Repetir" compite con tap del card de ronda previa | P2 | Agente A | `[x]` (5daad6e · chevron-right en cards recientes) |
+| H02 | Confirmar ronda | No hay resumen de tee por jugador cuando hay múltiples | P1 | Agente A | `[x]` (d083487) |
+| H03 | Jugadores | "Tu" → "Tú" (acento) o icono claro | P2 | Agente A | `[x]` (bbe70f6) |
+| H04 | Selector Cancha | Chevron `>` inconsistente entre cards | P2 | Agente A | `[x]` (131edc9) |
+| H05 | Selector Cancha | Nombres truncados "C.G. Las Brisas De Santo D…" — 2 líneas | P2 | Agente A | `[x]` (5de8031) |
+| H06 | Formato juego | Match Play no disabled si ≠ 2 jugadores | P1 | Agente A | `[x]` (38f372a) |
+| H07 | Scorecard Lomas | `↓ Subió 1` — direccionalidad de flecha invertida | P0 si bug de golf/, P1 si solo flecha | Agente B | `[x]` (34ed4a5) |
+| H08 | Scorecard | Recuadros hoyos se ven clickables sin serlo | P2 | Agente B | `[x]` (470d191) |
+| H09 | Scorecard | Desglose inferior solo muestra "malos": faltan Birdies/Eagles | P2 | Agente B | `[x]` (b1e943f) |
+| H10 | Mi Historial | Barras colores comprimidas, 9 vs 18 hoyos del mismo largo | P2 | Agente B | `[x]` (86e6a78) |
+| H11 | Mi Historial | Match Play mostrado como `+5` cuando debería ser en hoyos ganados | P1 | Agente B | `[x]` (93daf15) |
+| H12 | Mi Historial | NETO pill azul/cian fuera de paleta | P2 | Agente B | `[x]` (35b132e) |
+| H13 | Ronda creada | Código sin botón copy visible (asumo tap-to-copy no evidente) | P1 | Agente A | `[x]` (f55fe85) |
+| H14 | GWI | "DOMINANDO" label dramatic, revisar si cuadra con target | P2 | Agente D | `[x]` (9838ed2) |
+| H15 | En Vivo listado | "Los Leones" duplicado, considerar group header con rondas nested | P2 | Agente D | `[x]` (faa5c3f) |
+| H16 | Perfil header | Email PII visible en screenshot, revisar intencionalidad | P1 | Agente D | `[x]` (b0bdb3e) |
+| H17 | Landing footer | Tag "Diseñado para el golf amateur en LatAm" ilegible por opacidad baja | P2 | Agente C → Foundation | `[x]` (84158f9) |
+| H18 | Wizard paso 1 | "Repetir" compite con tap del card de ronda previa | P2 | Agente A | `[x]` (5daad6e) |
 
 ---
 
