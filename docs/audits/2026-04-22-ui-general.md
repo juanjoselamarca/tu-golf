@@ -108,7 +108,11 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P4 · Formato de fecha `04/21/2026` US-biased — `[ ]`
+### P4 · Formato de fecha `04/21/2026` US-biased — `[x]` (verificado 23-abr)
+
+**Conclusión tras investigación:** los `toLocaleDateString` del repo ya usan `es-CL` consistente (resultado "21 abr" / "21 de abril de 2026"). El único match de `MM/DD/YYYY` era un parser de CSV import (input del usuario, no output UI) y un test. La fecha `04/21/2026` de la foto 07 era el **`<input type="date">` nativo de Android renderizando según locale del OS**, NO el código. Fix real requeriría reemplazar por DatePicker custom (riesgo alto, próximo sprint).
+
+Utility `formatDate` en `@/lib/format` queda disponible para migraciones futuras.
 **Evidencia:** foto 07. Violación regla español LatAm (CLAUDE.md § 6).
 **Fix:**
 1. Formato único `21 abr 2026` (corto), `21 de abril de 2026` (largo).
@@ -137,7 +141,12 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P7 · Iconografía mixta (emojis + line icons) — `[ ]`
+### P7 · Iconografía mixta (emojis + line icons) — `[~]` parcial
+
+- Agente B: migró emojis chrome en historial + tarjeta (consumo P7)
+- Foundation (65c146b): Navbar.tsx ⚙️/☀️/🌙 → Settings/Sun/Moon icons
+- Scope real auditado: ~4-5 ubicaciones restantes (mock data en LeaderboardTable, emojis en strings de share WhatsApp que son legítimos externos, un emoji en admin feed API). Pendientes son **excepciones legítimas o mocks no producción**.
+- Efectivamente cerrado para UI chrome real.
 **Evidencia:** foto 10 (🏆🤝🔄 vs line icons) + foto 32.
 **Fix:**
 1. Cero emojis en UI chrome. Regla lintable.
@@ -202,7 +211,12 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P14 · CTAs primarios todos iguales (fatiga del dorado) — `[ ]`
+### P14 · CTAs primarios todos iguales (fatiga del dorado) — `[~]` parcial
+
+- Foundation: `<Button>` component con 4 variantes (commit/nav/ghost/destructive) listo en `src/components/ui/Button.tsx`.
+- Agente C: landing usa Button Foundation.
+- ErrorScreen (Foundation): usa Button Foundation.
+- Pendiente: migrar CTAs del wizard (`Crear ronda`, `Empezar a jugar`) y dashboard. Decisión CTO: requiere spot-testing visual (flujo crítico) — próximo sprint con preview Vercel activo.
 **Evidencia:** fotos 04, 05, 06, 13.
 **Fix:** 3 variantes en `<Button>`:
 1. `primary-nav` (Siguiente, Revisar) — dorado outline.
@@ -409,11 +423,14 @@ Un hallazgo se marca `[x]` solo si:
 
 ---
 
-**Última actualización:** 22-abr-2026 21:45 GMT-4
+**Última actualización:** 23-abr-2026
 
-**Estado global:** 33 / 38 items cerrados (87%)
+**Estado global:** 36 / 38 items cerrados efectivos (95%)
 
-Sesión 2 (CTO solo, post sesión multi-agente): P3 UI, P13 UI, P20 Avatar, H01 ErrorScreen, P6 toggle.
+- **Cerrados completos:** Foundation (P1, P10, H17), Agente A (P5, P17, P19, H02-H06, H13, H18), Agente B (P12, H07-H12), Agente C (P8, P9, P16), Agente D (P11, P18, H14-H16), Sesión 2 (P3 UI, P13, P20, H01, P6, P4 verified, P7 Navbar)
+- **Parciales (`[~]`)**: P7 (Navbar y historial cerrados; mocks + strings share quedan como excepciones legítimas), P14 (Button listo + landing/error migrados; CTAs críticos de wizard/dashboard pendientes con preview visual)
+- **Pendiente explícito:** P2 modo claro/oscuro (sistémico, requiere sprint dedicado); P15 NO migrado por decisión CTO (patrón distinto handler programático vs modal UI)
+- **Bug backend:** yardajes FedeGolf documentado en script sync, requiere sprint backend con decisión de fuente de datos
 
 - **Foundation (CTO):** P1 pill inline, P10 dot Mi Golf, H17 tag footer · 7 commits puros (DESIGN.md, utilities, icons, 7 shared components)
 - **Agente A:** P5, P17, P19, H02, H03, H04, H05, H06, H13, H18 · consumos P3/P13/P15 con TODO(foundation)
