@@ -44,9 +44,17 @@ describe('voice-guide — guardrails de voz (ADR-007)', () => {
   })
 
   it('ningún string contiene emoji (rango Unicode)', () => {
-    const emojiPattern = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u
+    // codePointAt evita el flag /u que requiere target ES6+ en tsconfig
+    function hasEmoji(s: string): boolean {
+      for (let i = 0; i < s.length; i++) {
+        const cp = s.codePointAt(i)
+        if (cp === undefined) continue
+        if ((cp >= 0x1F300 && cp <= 0x1FAFF) || (cp >= 0x2600 && cp <= 0x27BF)) return true
+      }
+      return false
+    }
     for (const s of allStrings) {
-      expect(s, `"${s}" contiene emoji`).not.toMatch(emojiPattern)
+      expect(hasEmoji(s), `"${s}" contiene emoji`).toBe(false)
     }
   })
 
