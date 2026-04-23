@@ -63,17 +63,70 @@ interface ApiCourse {
 }
 
 // ─── Normalize nombres para matching ────────────────────────────────────
+// Remover tildes/acentos para matching (usar rango unicode explícito)
+function stripAccents(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
 function normalize(name: string): string {
-  const cleaned = name
+  const cleaned = stripAccents(name)
     .toLowerCase()
     .replace(/\([^)]*\)/g, '') // remove (VARONES), (DAMAS), etc
-    .replace(/[^a-záéíóúñ ]/gi, ' ')
-    .replace(/\b(c\s*g|c\s*c|s\s*c|s\s*a|cc|cg|club de golf|club de|golf club|country club|club|golf|c\s*g\s*p|damas|varones|caballeros|masculino|femenino|de|la|el|los|las|y)\b/gi, '')
+    .replace(/[^a-z ]/g, ' ')
+    .replace(/\b(c\s*g|c\s*c|s\s*c|s\s*a|cc|cg|club de golf|club de|golf club|country club|club|golf|c\s*g\s*p|damas|varones|caballeros|masculino|femenino|de|la|el|los|las|y|cancha|antigua|nueva|oficial|verde)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim()
-  // Remove duplicate tokens
-  const tokens = cleaned.split(' ')
+  const tokens = cleaned.split(' ').filter(t => t.length > 0)
   return Array.from(new Set(tokens)).join(' ')
+}
+
+/**
+ * Extrae el "nombre del club" — la parte principal antes de cualquier guión
+ * o paréntesis. Ej: "C.G. Cachagua - Cachagua (VARONES)" → "Cachagua"
+ */
+function extractClubName(name: string): string {
+  // Separar por " - " y tomar primera parte significativa
+  const withoutParens = name.replace(/\([^)]*\)/g, '').trim()
+  const parts = withoutParens.split(/\s*-\s*/)
+  // Primera parte significativa (no solo "C.G." o "Club de Golf")
+  for (const p of parts) {
+    const norm = normalize(p)
+    if (norm.length > 2) return p.trim()
+  }
+  return parts[0] || name
+}
+
+/**
+ * Genera queries alternativas en cascada para una cancha.
+ * De más específico a más genérico.
+ */
+function generateQueries(courseName: string): string[] {
+  const queries = new Set<string>()
+
+  // Strategy 1: nombre normalizado completo
+  const full = normalize(courseName)
+  if (full) queries.add(full)
+
+  // Strategy 2: primeras 3 palabras
+  const words = full.split(' ').filter(Boolean)
+  if (words.length > 3) queries.add(words.slice(0, 3).join(' '))
+  if (words.length > 2) queries.add(words.slice(0, 2).join(' '))
+
+  // Strategy 3: solo nombre de club (antes de "-")
+  const clubName = normalize(extractClubName(courseName))
+  if (clubName && clubName !== full) queries.add(clubName)
+
+  // Strategy 4: primera palabra (nombre distintivo)
+  if (words.length > 0 && words[0].length >= 4) queries.add(words[0])
+
+  // Strategy 5: segunda palabra si la primera es genérica
+  const genericFirst = ['hacienda', 'marina', 'country', 'nuevo', 'nueva']
+  if (words.length > 1 && genericFirst.includes(words[0])) {
+    queries.add(words.slice(0, 2).join(' '))
+    queries.add(words[1])
+  }
+
+  return Array.from(queries).filter(q => q.length >= 3)
 }
 
 // ─── Similarity score simple (Jaccard sobre tokens) ─────────────────────
@@ -116,16 +169,37 @@ function matchTees(bdTees: { id: string; nombre: string }[], apiTee: ApiTee): st
 }
 
 // ─── API calls ─────────────────────────────────────────────────────────
+let rateLimitedUntil = 0
+
 async function apiSearch(query: string): Promise<{ id: number; name: string }[]> {
+  // Respeto de rate limit
+  if (Date.now() < rateLimitedUntil) {
+    const wait = rateLimitedUntil - Date.now()
+    console.log(`  ⏳ rate limit activo, esperando ${Math.round(wait/1000)}s...`)
+    await new Promise(r => setTimeout(r, wait))
+  }
+
   const res = await fetch(`${API_BASE}/search?search_query=${encodeURIComponent(query)}`, {
     headers: { 'Authorization': `Key ${API_KEY}` },
   })
+
+  const text = await res.text()
+  if (text.includes('rate limit')) {
+    // Backoff: esperar 60s y reintentar
+    rateLimitedUntil = Date.now() + 60000
+    console.log(`  ⚠ rate limit detectado, backoff 60s`)
+    await new Promise(r => setTimeout(r, 60000))
+    return apiSearch(query) // retry
+  }
+
   if (!res.ok) return []
-  const data = await res.json()
-  return (data.courses || []).map((c: { id: number; club_name?: string; course_name?: string }) => ({
-    id: c.id,
-    name: c.course_name || c.club_name || '',
-  }))
+  try {
+    const data = JSON.parse(text)
+    return (data.courses || []).map((c: { id: number; club_name?: string; course_name?: string }) => ({
+      id: c.id,
+      name: c.course_name || c.club_name || '',
+    }))
+  } catch { return [] }
 }
 
 async function apiFetchCourse(id: number): Promise<ApiCourse | null> {
@@ -199,23 +273,26 @@ async function processCourse(bd: BdCourse): Promise<'skipped' | 'no-match' | 'lo
     return 'skipped'
   }
 
-  // Buscar en API — usar nombre normalizado para query más amplia
-  const queryName = normalize(bd.nombre).split(' ').slice(0, 3).join(' ') // primeras 3 palabras clave
-  let searchResults = await apiSearch(queryName)
-  if (searchResults.length === 0 && queryName.split(' ').length > 1) {
-    // Fallback: intentar con las primeras 2 palabras
-    searchResults = await apiSearch(normalize(bd.nombre).split(' ').slice(0, 2).join(' '))
-  }
-  if (searchResults.length === 0) { stats.noMatch++; console.log(`  ✗ sin match: ${bd.nombre} (query "${queryName}")`); return 'no-match' }
+  // Buscar en API con estrategia cascada: probar múltiples queries hasta encontrar match
+  const queries = generateQueries(bd.nombre)
+  let best: { id: number; name: string } | null = null
+  let bestScore = 0
+  let usedQuery = ''
 
-  let best = searchResults[0]
-  let bestScore = similarity(bd.nombre, best.name)
-  for (const r of searchResults.slice(1)) {
-    const s = similarity(bd.nombre, r.name)
-    if (s > bestScore) { best = r; bestScore = s }
+  // Máximo 2 queries por cancha para no agotar rate limit
+  for (const q of queries.slice(0, 2)) {
+    const results = await apiSearch(q)
+    if (results.length === 0) continue
+    for (const r of results) {
+      const s = similarity(bd.nombre, r.name)
+      if (s > bestScore) { best = r; bestScore = s; usedQuery = q }
+    }
+    if (bestScore >= 0.6) break
+    await new Promise(r => setTimeout(r, 800)) // throttle entre queries
   }
 
-  if (bestScore < 0.4) { stats.matchLow++; console.log(`  ~ match bajo (${bestScore.toFixed(2)}): "${bd.nombre}" vs API "${best.name}"`); return 'low-match' }
+  if (!best) { stats.noMatch++; console.log(`  ✗ sin match tras ${queries.length} queries: ${bd.nombre}`); return 'no-match' }
+  if (bestScore < 0.35) { stats.matchLow++; console.log(`  ~ match bajo (${bestScore.toFixed(2)}): "${bd.nombre}" vs API "${best.name}" (query="${usedQuery}")`); return 'low-match' }
   stats.matchOk++
 
   // Fetch full course
@@ -368,7 +445,7 @@ async function main() {
       stats.errors++
     }
     // Rate limit gentle
-    await new Promise(r => setTimeout(r, 400))
+    await new Promise(r => setTimeout(r, 1200))
   }
 
   console.log('\n═══════════════════════════════════════════════════════════════')
