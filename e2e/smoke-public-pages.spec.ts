@@ -82,14 +82,8 @@ test.describe('Páginas públicas (sin auth) cargan limpio', () => {
     await assertCleanLoad(page, '/en-vivo')
   })
 
-  test('/leaderboard carga (con hydration mismatch conocido)', async ({ page }) => {
-    // Bug conocido: useDemoSimulation genera hydration mismatch en SSR vs CSR.
-    // Errors React: #418 (invalid state update during render), #423 (recovered
-    // hydration error), #425 (text content mismatch). Ver TECH_DEBT P1-leaderboard-hydration.
-    // El test sigue detectando errores nuevos — solo tolera los documentados.
-    await assertCleanLoad(page, '/leaderboard', {
-      allowedReactErrors: [418, 423, 425],
-    })
+  test('/leaderboard carga', async ({ page }) => {
+    await assertCleanLoad(page, '/leaderboard')
   })
 
   test('/indices carga (directorio de canchas)', async ({ page }) => {

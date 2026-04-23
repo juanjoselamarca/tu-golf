@@ -29,7 +29,7 @@
 | P1-8 | No hay catálogo deuda | ✅ Resuelto (este archivo) | |
 | P1-9 | 268 console.* sin logger estructurado | ⏳ Pendiente | Crear `src/lib/logger.ts` + migración gradual |
 | P1-10 | 4 clientes Supabase dispersos | ⏳ Pendiente | Migrar imports al barrel `@/lib/supabase`, borrar archivos originales |
-| P1-11 | `/leaderboard` hydration mismatch SSR↔CSR | ⏳ Pendiente | Descubierto por e2e smoke 2026-04-23. React errors #418/#423/#425 en cada carga. Causa probable: `useDemoSimulation` hook inicializa estado con valor distinto en server vs client. Fix: mover initialización a useEffect con flag `mounted`. Test en `e2e/smoke-public-pages.spec.ts` tolera estos 3 IDs hasta que se arregle |
+| P1-11 | `/leaderboard` hydration mismatch SSR↔CSR | ✅ Resuelto `c77373e` (2026-04-23) | Descubierto por e2e smoke. Errors #418/#423/#425 causados por `Date.now()` como seed inicial en `useDemoSimulation`. Fix: seed determinístico (INITIAL_SEED=0) + useEffect que re-siembra client-side. Verificado en prod: 0 errors React. Ciclo descubrir-fixear-verificar en una sesión. |
 
 ## P2 — Importante (próximo mes)
 
