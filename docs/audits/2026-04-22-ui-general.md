@@ -119,7 +119,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P5 · Yardajes vacíos en selector de tees — `[ ]`
+### P5 · Yardajes vacíos en selector de tees — `[x]`
 **Evidencia:** fotos 07, 09. `"yds · CR 73.3 · Slope 136"` sin número antes de `yds`.
 **Fix:**
 1. Investigar por qué FedeGolf devuelve yardaje null.
@@ -229,7 +229,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P17 · "Partida simultánea" sin explicación — `[ ]`
+### P17 · "Partida simultánea" sin explicación — `[x]`
 **Evidencia:** foto 07.
 **Fix:**
 - Título: "Partida shotgun"
@@ -250,7 +250,7 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 
 ---
 
-### P19 · Input "Buscar cancha…" contraste muy bajo — `[ ]`
+### P19 · Input "Buscar cancha…" contraste muy bajo — `[x]` (Agente A — consume; Foundation mantendrá ownership del `<Input>` base)
 **Evidencia:** foto 08. WCAG AA probablemente fallado.
 **Fix:** placeholder contrast ratio ≥ 4.5:1, borde más definido, icon de lupa visible.
 **Prioridad:** **P1** (a11y + uso en sol). **Owner:** Foundation (componente Input base) + Agente A.
@@ -279,23 +279,23 @@ Tres problemas estructurales explican ~60% de los hallazgos:
 | # | Pantalla | Hallazgo | Prioridad | Owner | Estado |
 |---|----------|----------|-----------|-------|--------|
 | H01 | Error genérico | Sin código de error ni acción "reportar" — imposible diagnosticar | P1 | Foundation | `[ ]` |
-| H02 | Confirmar ronda | No hay resumen de tee por jugador cuando hay múltiples | P1 | Agente A | `[ ]` |
-| H03 | Jugadores | "Tu" → "Tú" (acento) o icono claro | P2 | Agente A | `[ ]` |
-| H04 | Selector Cancha | Chevron `>` inconsistente entre cards | P2 | Agente A | `[ ]` |
-| H05 | Selector Cancha | Nombres truncados "C.G. Las Brisas De Santo D…" — 2 líneas | P2 | Agente A | `[ ]` |
-| H06 | Formato juego | Match Play no disabled si ≠ 2 jugadores | P1 | Agente A | `[ ]` |
+| H02 | Confirmar ronda | No hay resumen de tee por jugador cuando hay múltiples | P1 | Agente A | `[x]` |
+| H03 | Jugadores | "Tu" → "Tú" (acento) o icono claro | P2 | Agente A | `[x]` |
+| H04 | Selector Cancha | Chevron `>` inconsistente entre cards | P2 | Agente A | `[x]` |
+| H05 | Selector Cancha | Nombres truncados "C.G. Las Brisas De Santo D…" — 2 líneas | P2 | Agente A | `[x]` |
+| H06 | Formato juego | Match Play no disabled si ≠ 2 jugadores | P1 | Agente A | `[x]` |
 | H07 | Scorecard Lomas | `↓ Subió 1` — direccionalidad de flecha invertida | P0 si bug de golf/, P1 si solo flecha | Agente B | `[ ]` |
 | H08 | Scorecard | Recuadros hoyos se ven clickables sin serlo | P2 | Agente B | `[ ]` |
 | H09 | Scorecard | Desglose inferior solo muestra "malos": faltan Birdies/Eagles | P2 | Agente B | `[ ]` |
 | H10 | Mi Historial | Barras colores comprimidas, 9 vs 18 hoyos del mismo largo | P2 | Agente B | `[ ]` |
 | H11 | Mi Historial | Match Play mostrado como `+5` cuando debería ser en hoyos ganados | P1 | Agente B | `[ ]` |
 | H12 | Mi Historial | NETO pill azul/cian fuera de paleta | P2 | Agente B | `[ ]` |
-| H13 | Ronda creada | Código sin botón copy visible (asumo tap-to-copy no evidente) | P1 | Agente A | `[ ]` |
+| H13 | Ronda creada | Código sin botón copy visible (asumo tap-to-copy no evidente) | P1 | Agente A | `[x]` (f55fe85 · tap-to-copy visible + separador + mono) |
 | H14 | GWI | "DOMINANDO" label dramatic, revisar si cuadra con target | P2 | Agente D | `[x]` (9838ed2 · "DOMINANDO"→"FAVORITO") |
 | H15 | En Vivo listado | "Los Leones" duplicado, considerar group header con rondas nested | P2 | Agente D | `[x]` (faa5c3f · group-by-course header si ≥2 rondas) |
 | H16 | Perfil header | Email PII visible en screenshot, revisar intencionalidad | P1 | Agente D | `[x]` (b0bdb3e · email fuera del header, queda en sección Cuenta) |
 | H17 | Landing footer | Tag "Diseñado para el golf amateur en LatAm" ilegible por opacidad baja | P2 | Agente C → Foundation | `[x]` (84158f9 · color rgba(255,255,255,0.72) — contrast ≥ 4.5:1) |
-| H18 | Wizard paso 1 | "Repetir" compite con tap del card de ronda previa | P2 | Agente A | `[ ]` |
+| H18 | Wizard paso 1 | "Repetir" compite con tap del card de ronda previa | P2 | Agente A | `[x]` (5daad6e · chevron-right en cards recientes) |
 
 ---
 
@@ -409,12 +409,12 @@ Un hallazgo se marca `[x]` solo si:
 
 ---
 
-**Última actualización:** 22-abr-2026 16:35 GMT-4
+**Última actualización:** 22-abr-2026 20:20 GMT-4
 
-**Estado global:** 11 / 38 items cerrados
+**Estado global:** 28 / 38 items cerrados
 
 - **Foundation (CTO):** P1 pill inline, P10 dot Mi Golf, H17 tag footer · 7 commits puros (DESIGN.md, utilities, icons, 7 shared components)
+- **Agente A:** P5, P17, P19, H02, H03, H04, H05, H06, H13, H18 · consumos P3/P13/P15 con TODO(foundation)
+- **Agente B:** P12, H07, H08, H09, H10, H11, H12 · consumo P7
 - **Agente C:** P8, P9, P16
 - **Agente D:** P11, P18, H14, H15, H16 · P20 delegado a Agente A (cross-partition)
-- **Agente A:** corriendo — Wizard (P5, P17, H02-H06, H13, H18, P20 heredado de D)
-- **Agente B:** corriendo — Scorecard + Historial (P12, H07-H12)

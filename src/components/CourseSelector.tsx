@@ -530,9 +530,13 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
                 fontSize: 16,
                 fontWeight: 600,
                 color: C.ivory,
+                // H05: 2 lineas con ellipsis en vez de truncado agresivo single-line.
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical' as const,
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                lineHeight: 1.3,
+                wordBreak: 'break-word',
               }}
             >
               {selectedCourse.displayName}
@@ -687,9 +691,14 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
               fontSize: 15,
               fontWeight: 600,
               color: C.ivory,
+              // H05: permitir 2 lineas para evitar truncados agresivos tipo
+              // "C.G. Las Brisas De Santo D…". Clamp a 2 lineas con ellipsis.
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical' as const,
               overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
             }}
           >
             {course.displayName}
@@ -710,6 +719,16 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
           >
             <StarIcon filled={fav} size={16} />
           </button>
+          {/* H04: chevron-right consistente en todo item clickeable. Señala
+              que el card completo es tappable (ir al siguiente paso del wizard). */}
+          <span
+            aria-hidden="true"
+            style={{ display: 'flex', alignItems: 'center', color: C.tertiary, flexShrink: 0 }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </span>
         </div>
         {/* Row 2: Club + Par + loops badge + V/D toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -817,19 +836,23 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
               </div>
             )}
           </div>
-          {count > 1 && (
-            <span
-              style={{
-                fontSize: 16,
-                color: expanded ? C.gold : C.tertiary,
-                transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                transition: 'transform 0.2s ease',
-                flexShrink: 0,
-              }}
-            >
-              {'\u203A'}
-            </span>
-          )}
+          {/* H04: chevron consistente en todo item clickeable.
+              Solo un recorrido: chevron-right apunta al siguiente paso.
+              Multi-recorrido: chevron rota 90deg cuando esta expandido. */}
+          <span
+            aria-hidden="true"
+            style={{
+              display: 'flex', alignItems: 'center',
+              color: expanded ? C.gold : C.tertiary,
+              transform: expanded && count > 1 ? 'rotate(90deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease, color 0.2s ease',
+              flexShrink: 0,
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </span>
         </div>
         {expanded && count > 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 12 }}>
@@ -855,19 +878,48 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
       }}
     >
       {/* ── Search bar (TOP) ── */}
+      {/* P19: contraste WCAG AA placeholder, borde definido, icon lupa visible.
+          TODO(foundation): reemplazar por <Input variant="search" /> cuando Foundation
+          publique el componente. Por ahora usamos tokens inline con el icon inline. */}
       <div style={{ padding: '12px 12px 8px', borderBottom: `1px solid ${C.goldFaint}`, background: C.card }}>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchInput(e.target.value)}
-          placeholder="Buscar cancha..."
-          style={{
-            width: '100%', padding: '10px 14px', fontSize: 14,
-            color: C.ivory, background: C.inputBg,
-            border: `1px solid ${C.goldDim}`, borderRadius: 10,
-            outline: 'none', minHeight: 44,
-          }}
-        />
+        <div style={{ position: 'relative' }}>
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+              display: 'flex', alignItems: 'center', pointerEvents: 'none',
+              color: '#6b7280',
+            }}
+          >
+            {/* Lupa line icon — coherente con sistema line (no emojis, no cartoon). */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchInput(e.target.value)}
+            placeholder="Buscar cancha..."
+            aria-label="Buscar cancha"
+            style={{
+              width: '100%',
+              padding: '12px 14px 12px 40px',
+              fontSize: 15,
+              color: C.ivory,
+              background: C.inputBg,
+              border: `2px solid #9ca3af`,
+              borderRadius: 10,
+              outline: 'none',
+              minHeight: 48,
+              boxSizing: 'border-box',
+              transition: 'border-color 0.15s',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = C.gold }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#9ca3af' }}
+          />
+        </div>
       </div>
       <div
         style={{

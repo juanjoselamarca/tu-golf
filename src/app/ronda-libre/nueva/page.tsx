@@ -417,23 +417,39 @@ export default function NuevaRondaLibrePage() {
     setLoading(false)
   }
 
-  const handleShareWhatsApp = (type: 'jugar' | 'seguir') => {
+  // P15 consume: handler de share unificado. Usa native share API cuando está
+  // disponible (iOS Safari, Android Chrome) y cae a WhatsApp cuando no. Copiar
+  // link queda como acción secundaria explícita, no botón dominante.
+  // TODO(foundation): reemplazar por <ShareSheet
+  //   url={...} title={...} text={...} onShare={...} /> cuando Foundation
+  //   publique el componente. Debe mantener prioridad: navigator.share > WA > copy.
+  const handleShare = async (type: 'jugar' | 'seguir') => {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
-    const link = type === 'jugar'
+    const url = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
-    const message = type === 'jugar'
-      ? `Unete a mi ronda en Golfers+! ${link}`
-      : `Sigue mi ronda en vivo en Golfers+! ${link}`
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
+    const text = type === 'jugar'
+      ? `Únete a mi ronda en Golfers+`
+      : `Sigue mi ronda en vivo en Golfers+`
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: 'Golfers+', text, url })
+        return
+      } catch {
+        // usuario canceló → no hacer nada
+        return
+      }
+    }
+    // Fallback: WhatsApp
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`, '_blank')
   }
 
-  const handleCopyLink = (type: 'jugar' | 'seguir') => {
+  const handleCopyLink = async (type: 'jugar' | 'seguir') => {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
     const link = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
-    navigator.clipboard.writeText(link)
+    try { await navigator.clipboard.writeText(link) } catch {}
   }
 
   // ─── Share screen after round creation ───
@@ -452,15 +468,58 @@ export default function NuevaRondaLibrePage() {
               Ronda creada
             </div>
 
-            <div style={{
-              fontFamily: '"Playfair Display", serif',
-              fontSize: '48px',
-              fontWeight: 700,
-              color: colors.gold,
-              letterSpacing: '0.15em',
-              marginBottom: '8px',
-            }}>
-              {roundCode}
+            {/* H13 + P3 (consumo): código tappable para copiar con feedback visual.
+                TODO(foundation): reemplazar por <RoundCode code={roundCode} onCopy={...} />
+                cuando Foundation publique el componente (mono + separador cada 3 + anti-ambiguos).
+                Por ahora: botón tap-to-copy con fuente JetBrains Mono fallback y toast. */}
+            {(() => {
+              // Insertar separador cada 3 chars para legibilidad (ABC · D4F)
+              const formatted = roundCode.length === 6
+                ? `${roundCode.slice(0, 3)} ${roundCode.slice(3)}`
+                : roundCode
+              return (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(roundCode)
+                      const el = document.getElementById('round-code-button')
+                      if (el) {
+                        const prevBg = el.style.background
+                        el.style.background = 'rgba(22,163,74,0.12)'
+                        setTimeout(() => { el.style.background = prevBg }, 900)
+                      }
+                    } catch {}
+                  }}
+                  id="round-code-button"
+                  aria-label={`Copiar código ${roundCode}`}
+                  title="Tap para copiar"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    fontFamily: '"JetBrains Mono", "DM Mono", ui-monospace, monospace',
+                    fontSize: '40px',
+                    fontWeight: 700,
+                    color: colors.gold,
+                    letterSpacing: '0.15em',
+                    marginBottom: '8px',
+                    background: 'transparent',
+                    border: '1px dashed rgba(196,153,42,0.35)',
+                    borderRadius: '12px',
+                    padding: '16px 12px',
+                    cursor: 'pointer',
+                    textAlign: 'center' as const,
+                    WebkitTapHighlightColor: 'transparent',
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  {formatted}
+                </button>
+              )
+            })()}
+
+            <div style={{ fontSize: '12px', color: colors.textLabel, marginBottom: '8px', letterSpacing: '0.05em' }}>
+              Tap para copiar
             </div>
 
             <div style={{ fontSize: '14px', color: colors.textSecondary, marginBottom: '32px' }}>
@@ -474,14 +533,14 @@ export default function NuevaRondaLibrePage() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => handleShareWhatsApp('jugar')}
+                  onClick={() => handleShare('jugar')}
                   style={{
-                    flex: 1, background: '#25D366', color: '#ffffff', fontWeight: 700, fontSize: '15px',
+                    flex: 1, background: colors.gold, color: colors.activeBtnText, fontWeight: 700, fontSize: '15px',
                     padding: '14px 16px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                     WebkitTapHighlightColor: 'transparent',
                   }}
                 >
-                  WhatsApp
+                  Compartir
                 </button>
                 <button
                   onClick={() => handleCopyLink('jugar')}
@@ -503,14 +562,14 @@ export default function NuevaRondaLibrePage() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => handleShareWhatsApp('seguir')}
+                  onClick={() => handleShare('seguir')}
                   style={{
-                    flex: 1, background: '#25D366', color: '#ffffff', fontWeight: 700, fontSize: '15px',
+                    flex: 1, background: colors.gold, color: colors.activeBtnText, fontWeight: 700, fontSize: '15px',
                     padding: '14px 16px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                     WebkitTapHighlightColor: 'transparent',
                   }}
                 >
-                  WhatsApp
+                  Compartir
                 </button>
                 <button
                   onClick={() => handleCopyLink('seguir')}
@@ -542,6 +601,12 @@ export default function NuevaRondaLibrePage() {
   }
 
   // ─── Step indicator ───
+  // TODO(foundation): reemplazar por <Stepper steps={4} current={step}
+  //   labels={['Formato', 'Cancha', 'Jugadores', 'Confirmar']} /> cuando Foundation
+  //   publique el componente (P13). Requisitos: sticky por defecto, 3 estados
+  //   (done / current / pending), accesible con aria-current.
+  // Fix inline ahora: antes el step 4 mostraba siempre "✓" aunque no estuviera
+  // completado; ahora muestra "4" hasta que se complete.
   const StepIndicator = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '28px' }}>
       {[1, 2, 3, 4].map(s => (
@@ -554,7 +619,7 @@ export default function NuevaRondaLibrePage() {
             color: s === step ? '#ffffff' : s < step ? colors.gold : colors.textLabel,
             transition: 'all 0.2s',
           }}>
-            {s < step ? '\u2713' : s === 4 ? '✓' : s}
+            {s < step ? '\u2713' : s}
           </div>
           {s < 4 && (
             <div style={{
@@ -637,7 +702,18 @@ export default function NuevaRondaLibrePage() {
                           {dateLabel} · {formatLabel} · {r.holes}H · {r.jugadores.length} jugadores
                         </div>
                       </div>
-                      <span style={{ color: colors.gold, fontSize: '13px', fontWeight: 600, flexShrink: 0 }}>Repetir</span>
+                      {/* H18: "Repetir" competía con el tap del card completo. El card
+                          entero ya es un <button> → el texto "Repetir" generaba duda sobre
+                          qué tappar. Reemplazado por chevron-right que comunica afordance
+                          sin competir por el gesto. */}
+                      <span
+                        aria-hidden="true"
+                        style={{ color: colors.gold, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </span>
                     </button>
                   )
                 })}
@@ -693,7 +769,7 @@ export default function NuevaRondaLibrePage() {
                 Yo llevo el score del grupo
               </div>
               <div style={{ fontSize: '13px', color: colors.textSecondary }}>
-                Tu marcas el score de todos
+                Tú marcas el score de todos
               </div>
             </button>
           </div>
@@ -984,7 +1060,7 @@ export default function NuevaRondaLibrePage() {
                 {([
                   { value: 'stroke_play' as const, label: 'Stroke Play', desc: 'Gana el de menos golpes', icon: '' },
                   { value: 'stableford' as const, label: 'Stableford', desc: 'Puntos por hoyo — gana el de más puntos', icon: '' },
-                  { value: 'match_play' as const, label: 'Match Play', desc: 'Hoyo a hoyo, 1 vs 1', icon: '' },
+                  { value: 'match_play' as const, label: 'Match Play', desc: 'Hoyo a hoyo, 1 vs 1 · Requiere exactamente 2 jugadores', icon: '' },
                   // Team formats: motores listos, UI de equipos pendiente
                   { value: 'best_ball' as const, label: 'Best Ball', desc: 'Equipos: cuenta la mejor bola', icon: '\uD83C\uDFC6' },
                   { value: 'scramble' as const, label: 'Scramble', desc: 'Equipos: eligen el mejor tiro', icon: '\uD83E\uDD1D' },
@@ -1312,9 +1388,13 @@ export default function NuevaRondaLibrePage() {
                           >
                             <div style={{ fontSize: '14px', fontWeight: 600 }}>{displayName}</div>
                             <div style={{ fontSize: '11px', color: active ? 'rgba(7,13,24,0.7)' : '#6b7280', marginTop: '2px' }}>
-                              {t.yardaje_total?.toLocaleString()} yds
-                              {t.rating ? ` \u00b7 CR ${t.rating}` : ''}
-                              {t.slope ? ` \u00b7 Slope ${t.slope}` : ''}
+                              {/* P5: yardaje puede venir null desde FedeGolf (357/481 tees = 74%).
+                                  Ocultar token si no hay numero. Orden premium: yardaje primero. */}
+                              {[
+                                t.yardaje_total ? `${t.yardaje_total.toLocaleString()} yds` : null,
+                                t.rating ? `CR ${t.rating}` : null,
+                                t.slope ? `Slope ${t.slope}` : null,
+                              ].filter(Boolean).join(' \u00b7 ')}
                             </div>
                           </button>
                         )
@@ -1412,8 +1492,10 @@ export default function NuevaRondaLibrePage() {
                   }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 500, color: colors.textPrimary }}>Partida simultanea</div>
-                  <div style={{ fontSize: '11px', color: colors.textSecondary }}>Empieza en un hoyo distinto al 1</div>
+                  <div style={{ fontSize: '14px', fontWeight: 500, color: colors.textPrimary }}>Partida shotgun</div>
+                  <div style={{ fontSize: '11px', color: colors.textSecondary, lineHeight: 1.4 }}>
+                    Cada grupo empieza en un hoyo distinto. Útil cuando son muchos jugadores o tienes tiempo limitado.
+                  </div>
                 </div>
               </div>
 
@@ -1505,7 +1587,7 @@ export default function NuevaRondaLibrePage() {
                     fontSize: '11px', color: colors.gold,
                     background: 'rgba(196,153,42,0.1)', padding: '3px 10px', borderRadius: '10px', fontWeight: 600,
                   }}>
-                    Tu
+                    Tú
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1888,22 +1970,52 @@ export default function NuevaRondaLibrePage() {
               >
                 {'\u2190'} Atras
               </button>
-              <button
-                type="button"
-                onClick={() => setStep(4)}
-                style={{
-                  flex: 2, padding: '14px',
-                  background: colors.gold,
-                  color: colors.activeBtnText,
-                  border: 'none', borderRadius: '12px',
-                  fontSize: '16px', fontWeight: 700, cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(196,153,42,0.3)',
-                  transition: 'all 0.15s',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                Revisar →
-              </button>
+              {(() => {
+                // H06: Match Play requiere EXACTAMENTE 2 jugadores.
+                // En admin mode: creador + 1 rival (adminPlayers.length === 1 con nombre no vacío).
+                // Si no se cumple, disabled el botón + helper text.
+                const matchPlayerCount = adminMode
+                  ? 1 + adminPlayers.filter(p => p.nombre.trim()).length
+                  : 1
+                const matchPlayBlocked = formato === 'match_play' && matchPlayerCount !== 2
+                const reason = matchPlayBlocked
+                  ? matchPlayerCount < 2
+                    ? 'Agrega un rival para continuar'
+                    : 'Match Play es 1 vs 1 — quita jugadores extra'
+                  : null
+                return (
+                  <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <button
+                      type="button"
+                      disabled={matchPlayBlocked}
+                      onClick={() => setStep(4)}
+                      style={{
+                        width: '100%', padding: '14px',
+                        background: matchPlayBlocked ? '#e5e7eb' : colors.gold,
+                        color: matchPlayBlocked ? '#9ca3af' : colors.activeBtnText,
+                        border: 'none', borderRadius: '12px',
+                        fontSize: '16px', fontWeight: 700,
+                        cursor: matchPlayBlocked ? 'not-allowed' : 'pointer',
+                        boxShadow: matchPlayBlocked ? 'none' : '0 2px 8px rgba(196,153,42,0.3)',
+                        transition: 'all 0.15s',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
+                      Revisar →
+                    </button>
+                    {reason && (
+                      <div style={{
+                        fontSize: '11px',
+                        color: '#d97706',
+                        textAlign: 'center',
+                        lineHeight: 1.3,
+                      }}>
+                        {reason}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )}
@@ -1961,22 +2073,54 @@ export default function NuevaRondaLibrePage() {
                 <span style={{ fontSize: '13px', color: colors.textSecondary, display: 'block', marginBottom: '8px' }}>
                   Jugadores ({(adminMode ? adminPlayers.filter(p => p.nombre.trim()).length : 0) + 1})
                 </span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  <span style={{
-                    padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 500,
-                    background: 'rgba(196,153,42,0.12)', color: colors.gold,
-                  }}>
-                    {creatorName} {creatorHandicap != null ? `(${creatorHandicap})` : ''}
-                  </span>
-                  {adminMode && adminPlayers.filter(p => p.nombre.trim()).map((p, i) => (
-                    <span key={i} style={{
-                      padding: '6px 12px', borderRadius: '16px', fontSize: '13px', fontWeight: 500,
-                      background: 'rgba(196,153,42,0.06)', color: colors.textPrimary,
-                    }}>
-                      {p.nombre} {p.handicap != null ? `(${p.handicap})` : ''}
-                    </span>
-                  ))}
-                </div>
+                {/* H02: si la cancha tiene múltiples tees, mostrar el tee por jugador.
+                    Cada jugador puede tener su propio tee (override en step 3). Así el
+                    resumen de confirmación es transparente sobre qué scope de slope/CR
+                    se va a usar para cada uno. */}
+                {(() => {
+                  const playerList: Array<{ nombre: string; handicap: number | null; tees: string | null; isCreator: boolean }> = [
+                    { nombre: creatorName, handicap: creatorHandicap, tees, isCreator: true },
+                    ...(adminMode
+                      ? adminPlayers
+                          .filter(p => p.nombre.trim())
+                          .map(p => ({ nombre: p.nombre.trim(), handicap: p.handicap, tees: p.tees ?? tees, isCreator: false }))
+                      : []),
+                  ]
+                  // Mostrar tee solo si la cancha tiene > 1 tee disponible (caso contrario no aporta info).
+                  const showTeePerPlayer = courseTees.length > 1
+                  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {playerList.map((p, i) => (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
+                          padding: '8px 12px', borderRadius: '10px',
+                          background: p.isCreator ? 'rgba(196,153,42,0.12)' : 'rgba(196,153,42,0.05)',
+                          border: p.isCreator ? '1px solid rgba(196,153,42,0.25)' : '1px solid transparent',
+                        }}>
+                          <span style={{
+                            fontSize: '13px', fontWeight: 500,
+                            color: p.isCreator ? colors.gold : colors.textPrimary,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {p.nombre}
+                            {p.handicap != null ? ` · idx ${p.handicap}` : ''}
+                          </span>
+                          {showTeePerPlayer && p.tees && (
+                            <span style={{
+                              fontSize: '11px', color: colors.textSecondary, flexShrink: 0,
+                              padding: '2px 8px', borderRadius: '8px',
+                              background: '#ffffff', border: `1px solid ${colors.cardBorder}`,
+                              fontFamily: '"DM Mono", monospace',
+                            }}>
+                              Tee {capitalize(p.tees)}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
