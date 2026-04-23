@@ -4,6 +4,53 @@
 
 ---
 
+## Sesión 23 Abr 2026 — Players pending_user_id + torneo demo completo (Opción G)
+
+**Fecha:** 23 Abr 2026
+**Estado:** ✅ DESPLEGADO — torneo demo muestra 8 jugadores reales en leaderboard
+**Alcance:** Migration 029 + seed + queries. 2 commits puros.
+
+### Problema
+Roadmap #23 (torneo demo vacío): el `/torneo/demo-copa-chile-2026` quedaba como shell sin jugadores porque `players.user_id` era NOT NULL con FK a profiles. Crear 8 fake auth users (Opción B) ensuciaba auth.users permanentemente. Schema custom (Opción C) duplicaba lógica.
+
+### Solución (Opción G — recomendación CTO)
+Extender el patrón `pending_user_id` de `ronda_libre_jugadores` a `players`. Unifica arquitectura, cero polución de auth, desbloquea feature "invitado en torneo de club" (caso real chileno pendiente).
+
+### Cambios
+**Migration 029 (aplicada en prod vía Management API, HTTP 201):**
+- `players.user_id` nullable
+- `+pending_user_id UUID`, `+player_name TEXT`
+- CHECK constraint `players_identity_check`: XOR user_id / pending_user_id
+- Index parcial + UNIQUE parcial (tournament_id, pending_user_id)
+
+**Seed demo torneo (8 jugadores):**
+- `scripts/seed-demo-torneo-players.sql`
+- Mismos nombres/HCPs/tees que DEMO01 ronda libre (coherencia visual)
+- 8 rounds in_progress + 96 hole_scores (12 hoyos por jugador)
+- Scores realistas 44-63 totales, ranking por skill
+- Idempotente con ON CONFLICT DO NOTHING
+
+**Queries torneo (spectator + TV):**
+- DBPlayer / DBPlayerRaw interfaces `+player_name: string | null`
+- SELECTs agregan player_name al query
+- Render cascade: `profiles?.name ?? player_name ?? 'Jugador'`
+- WD/DQ section también resuelve via cascade
+
+### Commits
+- `4cd1edc` feat(players): schema pending_user_id — unifica patrón invitado con ronda libre
+- `5ef5931` fix(torneos): render player_name cuando user_id es NULL (invitados)
+
+### Verificación
+- tsc 0 · 5655 tests pass · build OK
+- Smoke test /torneo/demo-copa-chile-2026 → HTTP 200 tras deploy
+- DB: 8 players + 8 rounds + 96 hole_scores en torneo demo
+
+### Observaciones
+- La decisión entre Opciones A/B/C/G tomó un round de discusión con PM. Opción G ganó porque evita deuda técnica y desbloquea feature futura del roadmap (invitados en torneo de club).
+- Re-usar el patrón existente (pending_user_id) en lugar de inventar uno nuevo es la jugada arquitectónica elite por consistency + DRY.
+
+---
+
 ## Sesión 22 Abr 2026 (AM) — Sprint 4 F · Última Ronda Express
 
 **Fecha:** 22 Abr 2026, mañana

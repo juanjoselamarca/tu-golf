@@ -134,6 +134,19 @@ historial arreglados. Quedan items de la auditoría del 13-abr y del bug sweep d
     jugador activo; score-grupo usa el tee del admin (o ronda default si
     admin no es jugador). Auditado + fixeado en mismo sprint #16.
 
+23. ~~**Torneo demo sin jugadores.**~~ ✅ RESUELTO 2026-04-23.
+    Migration 029 extendió `pending_user_id` + `player_name` a la tabla
+    `players` (torneos), unificando el patrón invitado con ronda libre.
+    CHECK constraint garantiza identidad (user_id XOR pending_user_id).
+    Seed generó 8 jugadores con rounds + 96 hole_scores coherentes.
+    Torneo spectator + TV resuelven nombre via COALESCE(profiles.name,
+    player_name). Arquitectura ready para invitados reales en torneos
+    de club (caso de uso chileno pendiente).
+    `HoleData` extendido con `yardajes: { campeonato, azul, blanco, rojo }`
+    y helper `getYardajeForTee(hole, tee)`. score/page.tsx usa el tee del
+    jugador activo; score-grupo usa el tee del admin (o ronda default si
+    admin no es jugador). Auditado + fixeado en mismo sprint #16.
+
 ---
 
 ## Secuencia propuesta
