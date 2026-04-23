@@ -64,9 +64,27 @@ Archivos con 0% cobertura que deberían tener tests (en orden de prioridad):
 | `src/lib/push-notifications.ts` (21%) | 🟡 P2 | Push subscriptions |
 | `src/lib/share-card.ts` (5%) | 🟢 P3 | Canvas — difícil de testear unitariamente |
 
-## Progreso 2026-04-23
+## Progreso 2026-04-23 — sesión de saneamiento
 
-1. ✅ `src/golf/core/course-handicap.ts`: 9.52% → **100%** (12 tests nuevos en `cargar-course-data.test.ts`)
+Global: **27.62% → 28.66% statements** (+1.04pts · +237 stmts cubiertos).
+
+Archivos nuevos con cobertura ≥90% (antes 0% o muy bajo):
+
+| Archivo | Antes | Después | Tests |
+|---|---|---|---|
+| `src/golf/core/course-handicap.ts` | 9.52% | **100%** | +12 |
+| `src/golf/core/stroke-index.ts` | 0% | **~95%** | +32 |
+| `src/golf/stats/personal.ts` | 0% | **~95%** | +13 |
+| `src/hooks/useScoreSync.ts` | 0% | **~95%** | +22 |
+| `src/lib/rate-limit.ts` | 0% | **~90%** | +8 |
+| `src/lib/format.ts` | 0% | **~95%** | +23 |
+| `src/lib/api-response.ts` | 0% | **~95%** | +14 |
+| `src/lib/round-code.ts` | 0% | **~95%** | +20 |
+| `src/golf/notifications/preferences.ts` | 0% | **~95%** | +24 |
+| **Total** | — | — | **+168 tests** |
+
+Política: thresholds (25/20/23/25) se mantienen — próxima vez que pase
+30% global, subirlos a 28.
 
 ## Roadmap sugerido
 
