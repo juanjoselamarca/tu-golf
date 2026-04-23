@@ -55,6 +55,9 @@ export interface ResumenRonda {
   totalStableford: number
   overUnderGross:  number
   overUnderNeto:   number
+  parJugado:       number
+  parTotalRonda:   number
+  holesPlayed:     number
   hoyos:           ResultadoHoyo[]
   albatros:        number
   eagles:          number
@@ -66,20 +69,35 @@ export interface ResumenRonda {
 }
 
 // ─── Resumen completo de una ronda ───
+/**
+ * Calcula el resumen completo de una ronda.
+ *
+ * `overUnderGross` y `overUnderNeto` se calculan SOLO sobre hoyos jugados.
+ * Ejemplo: si el jugador hizo par en el hoyo 1 y no jugó el resto,
+ * `overUnderGross = 0` (E), NUNCA -71.
+ *
+ * El parámetro `parTotal` se mantiene por compatibilidad pero ya no
+ * se usa para el diferencial: el resumen expone `parJugado` (par de
+ * hoyos con score) y `parTotalRonda` (par de toda la ronda, 1..holeCount)
+ * por separado para los consumidores que necesiten cada valor.
+ */
 export function calcularResumenRonda(
   scores: Record<string, number>,
   holes: Array<{ numero: number; par: number; stroke_index: number }>,
   handicapIndex: number,
-  parTotal: number,
+  _parTotal: number,
   holeCount?: number
 ): ResumenRonda {
+  void _parTotal
   const totalHoles = holeCount ?? holes.length
   let totalGross = 0, totalNeto = 0, totalStableford = 0
+  let parJugado = 0, parTotalRonda = 0
   let albatros = 0, eagles = 0, birdiesGross = 0, birdiesNeto = 0
   let pares = 0, bogiesGross = 0, dobles = 0
 
   const hoyos: ResultadoHoyo[] = holes
     .map(h => {
+      parTotalRonda += h.par
       const gross = scores[String(h.numero)]
       if (!gross || gross === 0) return null
       const strokes    = strokesRecibidosEnHoyo(handicapIndex, h.stroke_index, totalHoles)
@@ -91,6 +109,7 @@ export function calcularResumenRonda(
       totalGross      += gross
       totalNeto       += neto
       totalStableford += stableford
+      parJugado       += h.par
 
       if (ouGross <= -3)       albatros++
       else if (ouGross === -2) eagles++
@@ -118,8 +137,11 @@ export function calcularResumenRonda(
 
   return {
     totalGross, totalNeto, totalStableford,
-    overUnderGross: totalGross - parTotal,
-    overUnderNeto:  totalNeto  - parTotal,
+    overUnderGross: totalGross - parJugado,
+    overUnderNeto:  totalNeto  - parJugado,
+    parJugado,
+    parTotalRonda,
+    holesPlayed: hoyos.length,
     hoyos, albatros, eagles, birdiesGross, birdiesNeto, pares, bogiesGross, dobles,
   }
 }

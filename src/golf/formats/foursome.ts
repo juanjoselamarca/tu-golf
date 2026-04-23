@@ -122,6 +122,7 @@ export function calcularFoursome(
   let totalNeto = 0
   let totalStableford = 0
   let holesPlayed = 0
+  let parJugado = 0
 
   const holeDetails: FoursomeHoleDetail[] = sortedHoles.map((hole) => {
     const key = String(hole.numero)
@@ -145,6 +146,7 @@ export function calcularFoursome(
     }
 
     holesPlayed++
+    parJugado += hole.par
     const neto = gross - strokes
     const stableford = puntosStablefordHoyo(gross, hole.par, teamHandicap, hole.stroke_index)
 
@@ -176,8 +178,8 @@ export function calcularFoursome(
     totalGross,
     totalNeto,
     totalStableford,
-    overUnderGross: holesPlayed > 0 ? totalGross - parTotal : 0,
-    overUnderNeto: holesPlayed > 0 ? totalNeto - parTotal : 0,
+    overUnderGross: totalGross - parJugado,
+    overUnderNeto: totalNeto - parJugado,
     holesPlayed,
   }
 }
