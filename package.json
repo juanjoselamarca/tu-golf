@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:smoke": "playwright test e2e/smoke.spec.ts e2e/smoke-public-pages.spec.ts",
     "audit": "tsx scripts/run-audit.ts",
     "audit:all": "tsx scripts/run-audit.ts all"
   },

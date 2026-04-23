@@ -1,0 +1,66 @@
+# E2E Tests — Golfers+
+
+Playwright tests que ejercitan la app como usuario real (con browser) contra una URL configurable.
+
+## Cómo correr
+
+```bash
+# Smoke tests contra producción (default, read-only — no modifica BD)
+npm run test:e2e:smoke
+
+# Full suite (incluye tests que escriben en BD — usar con cuidado)
+npm run test:e2e
+
+# UI mode interactivo
+npm run test:e2e:ui
+
+# Contra otro entorno
+PLAYWRIGHT_BASE_URL=https://your-preview.vercel.app npm run test:e2e:smoke
+```
+
+## Suites
+
+### `smoke.spec.ts` (3 tests)
+
+Smoke básico post-refactor. Verifica que páginas críticas cargan sin 500. Heredado de un sprint previo.
+
+### `smoke-public-pages.spec.ts` (25 tests)
+
+Smoke extendido. Cubre:
+
+- **11 páginas públicas** (sin auth): login, register, legal, en-vivo, leaderboard, indices, ranking, demo, recuperar
+- **9 rutas protegidas** → verifica redirect a `/login`
+- **3 rutas con params inexistentes** → no-crash
+- **2 tests de navegación** (CTAs, navbar)
+
+Read-only. Seguro correr contra producción.
+
+Helper `assertCleanLoad` soporta `allowedReactErrors` para whitelist de bugs conocidos (ver TECH_DEBT.md). Si aparece un error NUEVO no-whitelisted, el test falla.
+
+### `rondas-existentes.spec.ts`
+
+Tests que crean rondas vía Supabase Management API, verifican vista espectador, y limpian al final. **Modifica BD** — requiere `SUPABASE_ACCESS_TOKEN` en `.env.local`.
+
+### `http-smoke.ts`
+
+Smoke HTTP puro (sin browser) como fallback si Playwright está bloqueado. Verifica respuestas SSR con fetch + grep de HTML.
+
+## Política
+
+- **Smoke (read-only)** puede correr contra producción sin riesgo
+- **Tests con write** solo contra preview o con cleanup estricto garantizado
+- **Flujos autenticados** (login UI, wizard completo) pendientes — requieren test user programático. Ver TECH_DEBT P-siguiente-sprint.
+
+## Agregar un test nuevo
+
+1. Si es read-only → extender `smoke-public-pages.spec.ts`
+2. Si modifica BD → archivo separado, con `afterAll` de cleanup obligatorio
+3. Usar `PLAYWRIGHT_BASE_URL` para no hardcodear URL
+4. Mobile-first viewport (ya configurado: Pixel 5)
+
+## Troubleshooting
+
+- **Tests fallan con timeout**: el entorno puede estar lento. Ajustar `timeout` en `playwright.config.ts`.
+- **Browsers no instalados**: `npx playwright install chromium`
+- **En CI**: setear `CI=true` y `PLAYWRIGHT_BASE_URL` a la URL del preview.
+- **Ver trace de fallo**: `npx playwright show-trace test-results/.../trace.zip`
