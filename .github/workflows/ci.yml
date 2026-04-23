@@ -34,22 +34,25 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Valores dummy para que el build no falle por env vars faltantes.
-          # El build real en Vercel usa los secrets configurados allá.
+          # Valores dummy sintácticamente válidos. No son los secrets reales
+          # (Vercel usa los configurados en su dashboard). Son solo para que
+          # el build colecione page data sin crashear en validaciones
+          # módulo-level (web-push valida URL en setVapidDetails, etc.).
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
           SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           ANTHROPIC_API_KEY: placeholder
-          NEXT_PUBLIC_VAPID_PUBLIC_KEY: placeholder
-          VAPID_PRIVATE_KEY: placeholder
-          VAPID_CONTACT_EMAIL: placeholder@example.com
+          # VAPID keys de prueba para CI. web-push valida formato P-256 base64url.
+          # No encriptan nada real — producción usa keys distintas en Vercel.
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: BA24XsfwtZKyxQuWltINW-0e22ovEqfVNhqRxPSaFHIORQ3S1nn2mR9PCVAwcIVrLS3cpLFINX-UbICRU6VZu2w
+          VAPID_PRIVATE_KEY: wsmrzpbRZZsztEIQimkkBc2jy-ZoaXvqyf49TZs6iUs
+          VAPID_CONTACT_EMAIL: mailto:placeholder@example.com
 
   audit:
     name: Auditoría de dependencias
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    continue-on-error: true
 
     steps:
       - name: Checkout
@@ -64,5 +67,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: npm audit (alto y crítico)
-        run: npm audit --audit-level=high
+      - name: npm audit (informativo — no bloquea)
+        # Reporta HIGH/CRITICAL pero retorna siempre 0. Las vulnerabilidades
+        # vivas se trackean en docs/TECH_DEBT.md. Este job es señal, no gate.
+        # El gate real es que CRITICAL en runtime debe ser resuelto antes de push.
+        run: |
+          if npm audit --audit-level=critical; then
+            echo "::notice::No hay vulnerabilidades CRITICAL"
+          else
+            echo "::error::Hay vulnerabilidades CRITICAL — ver npm audit y TECH_DEBT.md"
+            exit 1
+          fi
+          npm audit --audit-level=high || echo "::warning::Hay vulnerabilidades HIGH sin parchar — ver docs/TECH_DEBT.md"
