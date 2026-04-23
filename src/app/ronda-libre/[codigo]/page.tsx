@@ -11,6 +11,7 @@ import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchR
 import { calcularGWIMatch } from '@/golf/stats/gwi-match'
 import { notifyScoreEvent, getNotifPrefs, setNotifPrefs, isPushSupported, requestPermission } from '@/lib/push-notifications'
 import { setActiveRondaSession, clearActiveRondaSession } from '@/components/LiveRoundIndicator'
+import { Avatar } from '@/components/ui/Avatar'
 import { compartirLeaderboard } from '@/lib/share-card'
 import type { LeaderboardShareData } from '@/lib/share-card'
 import { addToast } from '@/hooks/useToast'
@@ -1382,13 +1383,7 @@ function RondaLibrePageContent() {
                       padding: '8px 10px', borderRadius: '8px',
                       background: bgColor,
                     }}>
-                      <div style={{
-                        width: '36px', height: '36px', borderRadius: '50%',
-                        background: '#f3f4f6', border: '1px solid #e5e7eb',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                      }}>
-                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#374151' }}>{event.hole}</span>
-                      </div>
+                      <Avatar name={event.jugador} size="md" />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '14px', color: '#111827', fontWeight: 700 }}>{event.jugador}</div>
                         <div style={{ fontSize: '12px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '6px' }}>
