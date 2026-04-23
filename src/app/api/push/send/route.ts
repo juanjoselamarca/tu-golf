@@ -5,12 +5,21 @@ import { isAdmin } from '@/lib/admin'
 import webpush from 'web-push'
 export const dynamic = 'force-dynamic'
 
-// Configure web-push with VAPID keys
-webpush.setVapidDetails(
-  process.env.VAPID_CONTACT_EMAIL || 'mailto:juanjoselamarca@gmail.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+// VAPID init lazy — se ejecuta al primer request, NO a module-load.
+// Causa raíz del fail del primer run del CI (2026-04-23 01:26am):
+// web-push valida las VAPID keys dentro de setVapidDetails(). Next
+// durante 'collect page data' ejecuta el top-level del módulo. Si las
+// env vars son placeholder o faltan, falla el build entero.
+let vapidInitialized = false
+function ensureVapidInitialized() {
+  if (vapidInitialized) return
+  webpush.setVapidDetails(
+    process.env.VAPID_CONTACT_EMAIL || 'mailto:juanjoselamarca@gmail.com',
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!
+  )
+  vapidInitialized = true
+}
 
 interface PushPayload {
   title: string
@@ -32,6 +41,7 @@ interface PushPayload {
  */
 export async function POST(request: Request) {
   try {
+    ensureVapidInitialized()
     // Admin authentication check
     const supabaseAuth = await createClient()
     const { data: { user } } = await supabaseAuth.auth.getUser()
