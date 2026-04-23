@@ -154,7 +154,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
         }}>
           <div style={{
             width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
-            background: prefs.spectator ? 'rgba(22,163,74,0.1)' : 'rgba(156,163,175,0.1)',
+            background: prefs.spectator ? 'rgba(196,153,42,0.1)' : 'rgba(156,163,175,0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '22px',
           }}><Eye size={22} strokeWidth={1.5} /></div>
@@ -169,7 +169,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
             disabled={!supported || permState === 'denied'}
             style={{
               width: '52px', height: '28px', borderRadius: '14px', flexShrink: 0,
-              background: prefs.spectator ? '#16a34a' : '#d1d5db',
+              background: prefs.spectator ? '#c4992a' : '#d1d5db',
               border: 'none', cursor: supported ? 'pointer' : 'not-allowed',
               position: 'relative', transition: 'background 0.2s',
             }}
