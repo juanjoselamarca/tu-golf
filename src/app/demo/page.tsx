@@ -27,7 +27,7 @@ const CARDS: DemoCard[] = [
   {
     href: '/ronda-libre/DEMO01',
     title: 'Ronda amistosa',
-    description: 'Seguí 8 jugadores scoreando en tiempo real en Los Leones. Leaderboard, stableford, neto — todo funcionando.',
+    description: 'Seguí 4 jugadores scoreando en tiempo real en Los Leones. Leaderboard, stableford, neto — todo funcionando.',
     eyebrow: 'Espectador en vivo',
     accent: 'gold',
     liveBadge: true,

@@ -1329,90 +1329,6 @@ function RondaLibrePageContent() {
             </div>
           </div>
 
-          {timelineEvents.length > 0 && (
-            <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px 16px', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
-                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>Momentos recientes</span>
-                {!isFinished && timeSinceUpdate && (
-                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>{timeSinceUpdate}</span>
-                )}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {timelineEvents.map((event, idx) => {
-                  const label = event.diff <= -2 ? 'Eagle' : event.diff === -1 ? 'Birdie' : event.diff === 0 ? 'Par' : event.diff === 1 ? 'Bogey' : `+${event.diff}`
-                  const color = getScoreColorLight(event.diff)
-                  const bgColor = event.diff <= -2 ? 'rgba(200,165,90,0.08)' : event.diff === -1 ? 'rgba(22,163,74,0.06)' : event.diff >= 2 ? 'rgba(220,38,38,0.04)' : 'transparent'
-                  const approxMinAgo = idx === 0 ? 0 : idx
-                  const timeLabel = approxMinAgo === 0 ? 'ahora' : approxMinAgo === 1 ? 'hace 1 min' : `hace ${approxMinAgo} min`
-
-                  // Match play context: find the match hole detail for this event
-                  let matchContext: string | null = null
-                  if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2) {
-                    const jugMP = ronda.ronda_libre_jugadores
-                    const holesArr = Object.entries(parMap).map(([num, par]) => ({
-                      numero: Number(num), par, stroke_index: siMap[Number(num)] ?? Number(num),
-                    }))
-                    if (holesArr.length > 0) {
-                      const scA: Record<string, number> = {}
-                      const scB: Record<string, number> = {}
-                      for (const [k, v] of Object.entries(jugMP[0].scores)) { if (v > 0) scA[k] = v }
-                      for (const [k, v] of Object.entries(jugMP[1].scores)) { if (v > 0) scB[k] = v }
-                      const mrTL = calcularMatchPlay(scA, scB, holesArr, {
-                        courseHandicapA: courseHcpMap[jugMP[0].id] ?? 0,
-                        courseHandicapB: courseHcpMap[jugMP[1].id] ?? 0,
-                        totalHoles: ronda.holes,
-                        modo: ronda.modo_juego,
-                      }, { nombreA: jugMP[0].nombre, nombreB: jugMP[1].nombre })
-                      const holeDetail = mrTL.holes.find(h => h.numero === event.hole)
-                      if (holeDetail && holeDetail.result !== 'not_played') {
-                        const winnerName = (holeDetail.result === 'won_a' || holeDetail.result === 'conceded_b') ? jugMP[0].nombre
-                          : (holeDetail.result === 'won_b' || holeDetail.result === 'conceded_a') ? jugMP[1].nombre : null
-                        const stateText = holeDetail.matchState === 0 ? 'All Square'
-                          : holeDetail.matchState > 0 ? `${jugMP[0].nombre.split(' ')[0]} ${holeDetail.matchState} UP`
-                          : `${jugMP[1].nombre.split(' ')[0]} ${Math.abs(holeDetail.matchState)} UP`
-                        matchContext = winnerName
-                          ? `${winnerName.split(' ')[0]} gana hoyo → ${stateText}`
-                          : `Empate → ${stateText}`
-                      }
-                    }
-                  }
-
-                  return (
-                    <div key={`${event.jugador}-${event.hole}`} style={{
-                      display: 'flex', alignItems: 'center', gap: '12px',
-                      padding: '8px 10px', borderRadius: '8px',
-                      background: bgColor,
-                    }}>
-                      <Avatar name={event.jugador} size="md" />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '14px', color: '#111827', fontWeight: 700 }}>{event.jugador}</div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span>Hoyo {event.hole} · {event.score} golpes</span>
-                          <span style={{ color: '#d1d5db' }}>·</span>
-                          <span style={{ fontStyle: 'italic' }}>{timeLabel}</span>
-                        </div>
-                        {/* Match play context line */}
-                        {matchContext && (
-                          <div style={{ fontSize: '11px', color: '#c4992a', fontWeight: 600, marginTop: '2px' }}>
-                            {matchContext}
-                          </div>
-                        )}
-                      </div>
-                      <span style={{
-                        color, fontSize: '13px', fontWeight: 700,
-                        padding: '2px 8px', borderRadius: '6px',
-                        background: event.diff <= -1 ? `${color}12` : event.diff >= 1 ? `${color}12` : 'transparent',
-                        flexShrink: 0,
-                      }}>
-                        {label}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Team Leaderboard — Best Ball */}
           {ronda.formato_juego === 'best_ball' && equipos.length > 0 && Object.keys(parMap).length > 0 && (() => {
             const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
@@ -1555,28 +1471,6 @@ function RondaLibrePageContent() {
             )
           })()}
 
-          {/* GWI — solo para formatos individuales (stroke/stableford), NO match play ni equipos */}
-          {ronda.formato_juego !== 'match_play' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
-            <div style={{ padding: '8px 12px', marginBottom: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
-                <span style={{ fontSize: '11px', color: '#4a5568' }}>Probabilidad de ganar en tiempo real</span>
-                <a href="/indices" style={{ fontSize: '10px', color: 'rgba(196,153,42,0.6)', textDecoration: 'none', marginLeft: 'auto' }}>Saber m&aacute;s</a>
-              </div>
-              <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px', lineHeight: 1.4 }}>
-                El Golf Win Index calcula la probabilidad de victoria de cada jugador usando su score actual, historial y patrones de juego. Se actualiza hoyo a hoyo.
-              </div>
-            </div>
-          )}
-          {ronda.formato_juego !== 'match_play' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
-            <GWILeaderboard
-              jugadores={gwiInputs}
-              hoyosRestantes={ronda.holes - Math.max(...gwiInputs.map(j => j.hoyosCompletados), 0)}
-              totalHoyos={ronda.holes}
-              modoJuego={ronda.modo_juego || 'gross'}
-            />
-          )}
-
           {/* Leaderboard — white theme (hidden for match play, shown for stroke/stableford) */}
           <div style={{
             background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px',
@@ -1690,6 +1584,112 @@ function RondaLibrePageContent() {
               )
             })}
           </div>
+
+          {/* GWI — solo para formatos individuales (stroke/stableford), NO match play ni equipos */}
+          {ronda.formato_juego !== 'match_play' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+            <div style={{ padding: '8px 12px', marginBottom: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
+                <span style={{ fontSize: '11px', color: '#4a5568' }}>Probabilidad de ganar en tiempo real</span>
+                <a href="/indices" style={{ fontSize: '10px', color: 'rgba(196,153,42,0.6)', textDecoration: 'none', marginLeft: 'auto' }}>Saber m&aacute;s</a>
+              </div>
+              <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px', lineHeight: 1.4 }}>
+                El Golf Win Index calcula la probabilidad de victoria de cada jugador usando su score actual, historial y patrones de juego. Se actualiza hoyo a hoyo.
+              </div>
+            </div>
+          )}
+          {ronda.formato_juego !== 'match_play' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+            <GWILeaderboard
+              jugadores={gwiInputs}
+              hoyosRestantes={ronda.holes - Math.max(...gwiInputs.map(j => j.hoyosCompletados), 0)}
+              totalHoyos={ronda.holes}
+              modoJuego={ronda.modo_juego || 'gross'}
+            />
+          )}
+
+          {timelineEvents.length > 0 && (
+            <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px 16px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>Momentos recientes</span>
+                {!isFinished && timeSinceUpdate && (
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>{timeSinceUpdate}</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {timelineEvents.map((event, idx) => {
+                  const label = event.diff <= -2 ? 'Eagle' : event.diff === -1 ? 'Birdie' : event.diff === 0 ? 'Par' : event.diff === 1 ? 'Bogey' : `+${event.diff}`
+                  const color = getScoreColorLight(event.diff)
+                  const bgColor = event.diff <= -2 ? 'rgba(200,165,90,0.08)' : event.diff === -1 ? 'rgba(22,163,74,0.06)' : event.diff >= 2 ? 'rgba(220,38,38,0.04)' : 'transparent'
+                  const approxMinAgo = idx === 0 ? 0 : idx
+                  const timeLabel = approxMinAgo === 0 ? 'ahora' : approxMinAgo === 1 ? 'hace 1 min' : `hace ${approxMinAgo} min`
+
+                  // Match play context: find the match hole detail for this event
+                  let matchContext: string | null = null
+                  if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2) {
+                    const jugMP = ronda.ronda_libre_jugadores
+                    const holesArr = Object.entries(parMap).map(([num, par]) => ({
+                      numero: Number(num), par, stroke_index: siMap[Number(num)] ?? Number(num),
+                    }))
+                    if (holesArr.length > 0) {
+                      const scA: Record<string, number> = {}
+                      const scB: Record<string, number> = {}
+                      for (const [k, v] of Object.entries(jugMP[0].scores)) { if (v > 0) scA[k] = v }
+                      for (const [k, v] of Object.entries(jugMP[1].scores)) { if (v > 0) scB[k] = v }
+                      const mrTL = calcularMatchPlay(scA, scB, holesArr, {
+                        courseHandicapA: courseHcpMap[jugMP[0].id] ?? 0,
+                        courseHandicapB: courseHcpMap[jugMP[1].id] ?? 0,
+                        totalHoles: ronda.holes,
+                        modo: ronda.modo_juego,
+                      }, { nombreA: jugMP[0].nombre, nombreB: jugMP[1].nombre })
+                      const holeDetail = mrTL.holes.find(h => h.numero === event.hole)
+                      if (holeDetail && holeDetail.result !== 'not_played') {
+                        const winnerName = (holeDetail.result === 'won_a' || holeDetail.result === 'conceded_b') ? jugMP[0].nombre
+                          : (holeDetail.result === 'won_b' || holeDetail.result === 'conceded_a') ? jugMP[1].nombre : null
+                        const stateText = holeDetail.matchState === 0 ? 'All Square'
+                          : holeDetail.matchState > 0 ? `${jugMP[0].nombre.split(' ')[0]} ${holeDetail.matchState} UP`
+                          : `${jugMP[1].nombre.split(' ')[0]} ${Math.abs(holeDetail.matchState)} UP`
+                        matchContext = winnerName
+                          ? `${winnerName.split(' ')[0]} gana hoyo → ${stateText}`
+                          : `Empate → ${stateText}`
+                      }
+                    }
+                  }
+
+                  return (
+                    <div key={`${event.jugador}-${event.hole}`} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      padding: '8px 10px', borderRadius: '8px',
+                      background: bgColor,
+                    }}>
+                      <Avatar name={event.jugador} size="md" />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '14px', color: '#111827', fontWeight: 700 }}>{event.jugador}</div>
+                        <div style={{ fontSize: '12px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>Hoyo {event.hole} · {event.score} golpes</span>
+                          <span style={{ color: '#d1d5db' }}>·</span>
+                          <span style={{ fontStyle: 'italic' }}>{timeLabel}</span>
+                        </div>
+                        {/* Match play context line */}
+                        {matchContext && (
+                          <div style={{ fontSize: '11px', color: '#c4992a', fontWeight: 600, marginTop: '2px' }}>
+                            {matchContext}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{
+                        color, fontSize: '13px', fontWeight: 700,
+                        padding: '2px 8px', borderRadius: '6px',
+                        background: event.diff <= -1 ? `${color}12` : event.diff >= 1 ? `${color}12` : 'transparent',
+                        flexShrink: 0,
+                      }}>
+                        {label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Realtime status / polling fallback countdown — only if not finished */}
           {!isFinished && (

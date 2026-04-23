@@ -33,7 +33,7 @@ const createSchema = z.object({
   modo_juego: z.enum(MODOS),
   admin_mode: z.boolean(),
   recorridos: z.array(z.string()).optional(),
-  jugadores: z.array(playerSchema).min(1).max(8),
+  jugadores: z.array(playerSchema).min(1).max(4),
   equipos: z.array(equipoSchema).optional(),
 })
 

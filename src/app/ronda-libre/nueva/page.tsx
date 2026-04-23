@@ -103,7 +103,7 @@ export default function NuevaRondaLibrePage() {
     setAdminPlayers(prev => prev.filter((_, i) => i !== idx))
   }
   const addAdminPlayer = () => {
-    const maxPlayers = isTeamFormat ? 7 : 3
+    const maxPlayers = 3
     if (adminPlayers.length < maxPlayers) {
       setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null }])
     }
@@ -1733,7 +1733,7 @@ export default function NuevaRondaLibrePage() {
                                 key={name}
                                 type="button"
                                 onClick={() => {
-                                  const maxPlayers = isTeamFormat ? 7 : formato === 'match_play' ? 1 : 3
+                                  const maxPlayers = formato === 'match_play' ? 1 : 3
                                   if (adminPlayers.length < maxPlayers) {
                                     setAdminPlayers(prev => [...prev, { tipo: 'invitado', nombre: name, telefono: '', handicap: null, tees: null }])
                                   }
