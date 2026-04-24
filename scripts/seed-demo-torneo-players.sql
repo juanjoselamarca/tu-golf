@@ -125,7 +125,8 @@ BEGIN
       ELSE              8  + ((i * 3) % 5)
     END;
 
-    v_status := CASE WHEN v_thru = 18 THEN 'completed' ELSE 'in_progress' END;
+    -- rounds_status_check: IN ('in_progress','closed','official')
+    v_status := CASE WHEN v_thru = 18 THEN 'closed' ELSE 'in_progress' END;
 
     -- Rango de score por categoría (sobre el par del hoyo)
     IF v_hcp <= 10 THEN
@@ -224,7 +225,7 @@ BEGIN
     WHERE tg.tournament_id = '00000000-0000-0000-0000-000000000001'::uuid;
   SELECT COUNT(*) INTO v_finished FROM rounds
     WHERE tournament_id = '00000000-0000-0000-0000-000000000001'::uuid
-      AND status = 'completed';
+      AND status = 'closed';
   SELECT COUNT(*) INTO v_in_progress FROM rounds
     WHERE tournament_id = '00000000-0000-0000-0000-000000000001'::uuid
       AND status = 'in_progress';
