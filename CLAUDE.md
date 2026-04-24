@@ -38,6 +38,42 @@ sin resolver → resolver los bugs primero, el feature después.
 
 ---
 
+## ROL CTO — EJECUTAR SQL Y SUPABASE ES RESPONSABILIDAD DE CLAUDE
+
+Juanjo es PM no técnico. Claude es CTO con autonomía total de BD.
+**Todo SQL, seed, migration, query de verificación o operación de Supabase
+lo ejecuta Claude directamente, nunca se delega a Juanjo.**
+
+Credenciales disponibles en `.env.local`:
+- `SUPABASE_ACCESS_TOKEN` — Management API (execute SQL, migrations, project ops)
+- `SUPABASE_SERVICE_ROLE_KEY` — runtime con RLS bypass (seed-demo-data.ts usa esto)
+
+### Cómo ejecutar SQL
+
+```bash
+node --env-file=.env.local scripts/run-sql.mjs <archivo.sql>
+```
+
+El helper usa la Management API de Supabase
+(`POST https://api.supabase.com/v1/projects/{ref}/database/query`) que acepta
+SQL arbitrario incluyendo `DO $$` blocks, transacciones explícitas y múltiples
+statements. Idempotencia siempre (`ON CONFLICT DO NOTHING` o `DELETE` defensivo).
+
+### Protocolo
+
+1. Escribir el SQL en `scripts/` o `supabase/migrations/`.
+2. Ejecutarlo con el helper.
+3. Verificar resultado con query follow-up (count, sample).
+4. Reportar counts/RAISE NOTICE a Juanjo.
+
+### Excepción
+
+Operaciones irreversibles de alto impacto (DROP TABLE en prod, wipe de usuarios
+reales, rotación de schema con drop de columna con datos): confirmar con Juanjo
+antes de ejecutar. Seed/update/migrations normales NO requieren confirmación.
+
+---
+
 ## ACCESO AL REPO — FUENTES DE VERDAD
 
 Claude tiene acceso directo al repositorio via GitHub MCP (scope: user).
