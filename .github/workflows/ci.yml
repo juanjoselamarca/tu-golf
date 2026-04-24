@@ -79,3 +79,48 @@ jobs:
             exit 1
           fi
           npm audit --audit-level=high || echo "::warning::Hay vulnerabilidades HIGH sin parchar — ver docs/TECH_DEBT.md"
+
+  e2e-smoke:
+    # Smoke e2e contra producción. Solo en push a main (post-deploy Vercel).
+    # Detecta regresiones de runtime que tsc+tests unit no pueden capturar:
+    # hydration mismatch, 5xx, crashes en rutas públicas, redirects de auth.
+    name: E2E smoke (producción)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'push'
+    needs: verify
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for Vercel deploy (30s)
+        # Vercel deploya en paralelo con este CI. Pausa corta para que el
+        # deploy nuevo alcance. 30s es suficiente para builds normales.
+        run: sleep 30
+
+      - name: Run smoke e2e
+        run: npm run test:e2e:smoke
+        env:
+          PLAYWRIGHT_BASE_URL: https://golfersplus.vercel.app
+          CI: 'true'
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
