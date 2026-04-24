@@ -60,6 +60,31 @@ guarda cookies en `e2e/.auth/user.json` (gitignored). Los tests cargan
 el storageState desde el project `mobile-chromium-auth` en
 `playwright.config.ts`. El storageState se refresca después de 1h.
 
+### `ronda-flow.spec.ts` (4 tests — FLOW COMPLETO con write + cleanup)
+
+Tests del happy path crítico de Ronda Libre. Usa un **fixture**: crea una
+ronda real en Supabase via admin (bypassando el wizard de 2118 LOC), abre
+la UI con sesión autenticada, verifica que carga sin crashear, y **borra
+la ronda completa** (scores + jugadores + ronda) al final.
+
+Casos cubiertos:
+- Ronda stroke_play gross 18h → abrir página → abrir scoring
+- Ronda stableford 18h → scoring
+- Ronda de 9 hoyos → página principal
+- Ronda aparece desde dashboard del creador
+
+Usa los helpers en `helpers/ronda-fixture.ts`:
+- `createRondaFixture({creadorUserId, ...})` — insert directo admin
+- `cleanupRondaFixture(id)` — cascade delete (scores → jugadores → ronda)
+- `cleanupAllE2ERondas(userId)` — safety net en afterAll
+
+**Modifica BD de producción**. Cleanup en afterEach + afterAll — verificado
+que deja 0 rondas residuales del test user.
+
+```bash
+npm run test:e2e:ronda
+```
+
 ### `rondas-existentes.spec.ts`
 
 Tests que crean rondas vía Supabase Management API, verifican vista espectador, y limpian al final. **Modifica BD** — requiere `SUPABASE_ACCESS_TOKEN` en `.env.local`.
