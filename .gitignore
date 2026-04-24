@@ -55,3 +55,7 @@ supabase/.temp/
 # bug report photo assets (not code)
 Ejemplos fotos errores/
 
+
+# E2E Playwright auth state (cookies reales — nunca commitear)
+e2e/.auth/
+

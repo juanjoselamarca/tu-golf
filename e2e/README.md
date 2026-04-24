@@ -37,6 +37,29 @@ Read-only. Seguro correr contra producción.
 
 Helper `assertCleanLoad` soporta `allowedReactErrors` para whitelist de bugs conocidos (ver TECH_DEBT.md). Si aparece un error NUEVO no-whitelisted, el test falla.
 
+### `authenticated-flow.spec.ts` (10 tests)
+
+Tests de rutas autenticadas con sesión real inyectada via storageState.
+
+**Setup**:
+```bash
+# 1. Crear test user en Supabase (idempotente)
+npm run test:e2e:setup-user
+# Copiar las credenciales que imprime a .env.local
+
+# 2. Correr tests (el global-setup hace login automático)
+npm run test:e2e:auth
+```
+
+Cubre `/dashboard`, `/perfil`, `/perfil/historial`, `/perfil/stats`,
+`/ronda-libre/nueva`, `/coach`, `/importar`, `/organizador/nuevo`, + estado
+de sesión (navbar, redirect /login → /dashboard si autenticado).
+
+**Cómo funciona**: `e2e/global-setup.ts` hace login real vía UI una vez,
+guarda cookies en `e2e/.auth/user.json` (gitignored). Los tests cargan
+el storageState desde el project `mobile-chromium-auth` en
+`playwright.config.ts`. El storageState se refresca después de 1h.
+
 ### `rondas-existentes.spec.ts`
 
 Tests que crean rondas vía Supabase Management API, verifican vista espectador, y limpian al final. **Modifica BD** — requiere `SUPABASE_ACCESS_TOKEN` en `.env.local`.
