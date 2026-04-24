@@ -37,7 +37,7 @@ export default defineConfig({
     // Proyecto autenticado — carga storageState del global-setup.
     {
       name: 'mobile-chromium-auth',
-      testMatch: ['authenticated-flow.spec.ts', 'ronda-flow.spec.ts'],
+      testMatch: ['authenticated-flow.spec.ts', 'ronda-flow.spec.ts', 'ronda-scoring.spec.ts'],
       use: {
         ...devices['Pixel 5'],
         storageState: 'e2e/.auth/user.json',

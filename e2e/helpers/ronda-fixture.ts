@@ -49,6 +49,50 @@ export interface CreateRondaOptions {
   creadorName?: string
 }
 
+/** Genera un course_snapshot mínimo viable desde course_holes + course_tees. */
+async function buildSnapshot(courseId: string, tees: string) {
+  const admin = adminClient()
+  const { data: course } = await admin
+    .from('courses')
+    .select('par_total, slope_rating, course_rating, si_verificado')
+    .eq('id', courseId)
+    .single()
+  const { data: holes } = await admin
+    .from('course_holes')
+    .select('numero, par, stroke_index, yardaje_blanco, yardaje_azul, yardaje_campeonato, yardaje_rojo')
+    .eq('course_id', courseId)
+    .order('numero')
+  const { data: teeData } = await admin
+    .from('course_tees')
+    .select('rating, slope, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating')
+    .eq('course_id', courseId)
+    .ilike('nombre', `${tees}%`)
+    .limit(1)
+    .maybeSingle()
+  if (!course || !holes || holes.length === 0) {
+    throw new Error(`No se pudo cargar course/holes para ${courseId}`)
+  }
+  return {
+    holes: holes.map(h => ({
+      numero: h.numero,
+      par: h.par,
+      stroke_index: h.stroke_index,
+      yardaje_blanco: h.yardaje_blanco,
+      yardaje_azul: h.yardaje_azul,
+      yardaje_campeonato: h.yardaje_campeonato,
+      yardaje_rojo: h.yardaje_rojo,
+    })),
+    par_total: course.par_total,
+    si_source: course.si_verificado ? 'verified' : 'estimated',
+    course_rating: teeData?.rating ?? course.course_rating,
+    slope_rating: teeData?.slope ?? course.slope_rating,
+    front_course_rating: teeData?.front_course_rating ?? null,
+    front_slope_rating: teeData?.front_slope_rating ?? null,
+    back_course_rating: teeData?.back_course_rating ?? null,
+    back_slope_rating: teeData?.back_slope_rating ?? null,
+  }
+}
+
 export async function createRondaFixture(opts: CreateRondaOptions): Promise<RondaFixture> {
   const admin = adminClient()
   const codigo = opts.codigo ?? generateCode()
@@ -56,6 +100,9 @@ export async function createRondaFixture(opts: CreateRondaOptions): Promise<Rond
   const modo_juego = opts.modo_juego ?? 'gross'
   const holes = opts.holes ?? 18
   const name = opts.creadorName ?? 'E2E Test'
+
+  // Generar course_snapshot inmutable (replica lo que hace el wizard real)
+  const course_snapshot = await buildSnapshot(DEFAULT_COURSE_ID, 'blanco')
 
   // 1. Insert ronda — schema real según create/route.ts
   const { data: ronda, error: rondaErr } = await admin
@@ -73,6 +120,7 @@ export async function createRondaFixture(opts: CreateRondaOptions): Promise<Rond
       admin_mode: false,
       estado: 'en_curso',
       creador_id: opts.creadorUserId,
+      course_snapshot,
     })
     .select('id, codigo, course_id, creador_id')
     .single()
