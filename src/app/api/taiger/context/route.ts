@@ -100,20 +100,38 @@ export async function GET() {
     }
 
     const recentRounds = validRounds.slice(0, 5).map((r, idx) => {
-      const holes = r.holes_played ?? (Array.isArray(r.scores) ? r.scores.filter(Boolean).length : 18)
+      const scoresArr = Array.isArray(r.scores) ? (r.scores as (number | null)[]) : []
+      const playedScores = scoresArr.filter(s => s != null && s > 0).length
+      const expectedHoles = r.holes_played ?? (scoresArr.length || 18)
+      const playedHoles = playedScores > 0 ? playedScores : expectedHoles
+      const coursePars = r.course_id ? courseParsMap[r.course_id] : null
       const coursePar = (r as { courses?: { par_total?: number | null } | null })?.courses?.par_total ?? null
-      const par = holes <= 9
-        ? (coursePar ? Math.round(coursePar / 2) : 36)
-        : (coursePar ?? 72)
+
+      // Regla del golf: vsPar = gross - par REAL de hoyos jugados.
+      // Prioridad: pars hoyo a hoyo > escalado proporcional > 4 por hoyo.
+      let parPlayed: number
+      if (coursePars && scoresArr.length > 0) {
+        let sum = 0
+        for (let i = 0; i < scoresArr.length; i++) {
+          const s = scoresArr[i]
+          if (s != null && s > 0) sum += coursePars[i + 1] ?? 4
+        }
+        parPlayed = sum > 0 ? sum : playedHoles * 4
+      } else if (coursePar && expectedHoles > 0) {
+        parPlayed = Math.round((coursePar * playedHoles) / expectedHoles)
+      } else {
+        parPlayed = playedHoles * 4
+      }
+
       return {
         course_name: r.course_name,
         course_id:   r.course_id,
         played_at:   r.played_at,
         total_gross: r.total_gross,
-        holes_played: holes,
-        over_under:  r.total_gross - par,
-        scores: idx < 3 ? (r.scores as (number | null)[] ?? null) : undefined,
-        course_pars: idx < 3 && r.course_id ? (courseParsMap[r.course_id] ?? null) : undefined,
+        holes_played: playedHoles,
+        over_under:  r.total_gross - parPlayed,
+        scores: idx < 3 ? scoresArr : undefined,
+        course_pars: idx < 3 && r.course_id ? (coursePars ?? null) : undefined,
       }
     })
 

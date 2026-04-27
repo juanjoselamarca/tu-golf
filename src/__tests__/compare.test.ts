@@ -18,6 +18,22 @@ describe('vsPar', () => {
     expect(vsPar({ total_gross: 90, vsPar: 5 })).toBe(5)
   })
 
+  it('REGRESIÓN: usa par_played si caller lo pasa (ronda parcial, no -71)', () => {
+    // Jugador que hizo par en hoyo 1 y no jugó el resto.
+    // Sin par_played, el helper asumiría 18 hoyos completos y daría -68 vs par 72.
+    // Con par_played=4, debe dar 0 (E).
+    expect(vsPar({ total_gross: 4, par_played: 4 })).toBe(0)
+    // 13 hoyos par exactos: total 52, par_played 52 → E (no -20 vs 72)
+    expect(vsPar({ total_gross: 52, par_played: 52 })).toBe(0)
+    // 13 hoyos con 3 birdies sobre par 4 → 49 - 52 = -3 (no -23)
+    expect(vsPar({ total_gross: 49, par_played: 52 })).toBe(-3)
+  })
+
+  it('par_played tiene prioridad sobre par_total (rondas parciales)', () => {
+    // Caller pasa los dos: par_played manda (regla del golf: cuenta el real).
+    expect(vsPar({ total_gross: 49, par_played: 52, par_total: 72 })).toBe(-3)
+  })
+
   it('calculates from gross for 18 holes (par 72)', () => {
     expect(vsPar(makeRound(72))).toBe(0)
     expect(vsPar(makeRound(80))).toBe(8)

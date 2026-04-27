@@ -19,8 +19,17 @@ export function analyzeRound(scores: number[], holeParsInput?: number[]): RoundA
     return { summary: '', strengths: [], weaknesses: [], recommendations: [], keyHoles: [] }
   }
 
-  const total = scores.reduce((a, b) => a + b, 0)
-  const parTotal = holePars.reduce((a, b) => a + b, 0)
+  // Solo cuentan los hoyos efectivamente jugados (score > 0).
+  // Regla del golf: vsPar se mide contra el par de los hoyos jugados,
+  // no contra el par total del recorrido si la ronda fue parcial.
+  let total = 0
+  let parTotal = 0
+  for (let i = 0; i < scores.length; i++) {
+    if (scores[i] > 0) {
+      total += scores[i]
+      parTotal += holePars[i] ?? 4
+    }
+  }
   const vsPar = total - parTotal
 
   let birdies = 0, parCount = 0, bogeys = 0, doubles = 0

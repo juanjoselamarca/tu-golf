@@ -228,22 +228,31 @@ function HistorialContent() {
     aggBirdies += s.birdies
     aggEagles  += s.eagles
     if (r.total_gross != null && r.formato_juego !== 'match_play') {
-      // Usar par según hoyos jugados en vez de hardcodear 72
-      const holesPlayed = r.scores?.filter((s: number | null) => s != null).length ?? 18
-      const parEstimado = holesPlayed <= 9 ? 36 : 72
-      ovSum += r.total_gross - parEstimado
-      ovCount++
+      // Regla de golf: vsPar solo se mide sobre hoyos jugados. El promedio
+      // del historial solo tiene sentido con rondas COMPLETAS — incluir
+      // rondas parciales (ej. 13 de 18 hoyos) compara total_gross parcial
+      // contra par 72 y produce números absurdos tipo "-28".
+      const expectedHoles = r.holes_played ?? r.scores?.length ?? 18
+      const playedHoles = r.scores?.filter((s: number | null) => s != null).length ?? 0
+      const isComplete = playedHoles >= expectedHoles && playedHoles > 0
+      if (isComplete) {
+        const parRonda = expectedHoles <= 9 ? 36 : 72
+        ovSum += r.total_gross - parRonda
+        ovCount++
+      }
     }
   }
   const avgOv = ovCount > 0 ? Math.round(ovSum / ovCount * 10) / 10 : null
 
-  /* ── Personal Record — por vsPar, no por gross absoluto (excluye match play) ── */
+  /* ── Personal Record — por vsPar, solo rondas COMPLETAS (excluye match play) ── */
   const bestRound = rounds.reduce<{ score: number; course: string; vsPar: number } | null>((best, r) => {
     if (r.total_gross == null) return best
     if (r.formato_juego === 'match_play') return best
-    const holesPlayed = r.scores?.filter((s: number | null) => s != null).length ?? 18
-    const parEstimado = holesPlayed <= 9 ? 36 : 72
-    const rVsPar = r.total_gross - parEstimado
+    const expectedHoles = r.holes_played ?? r.scores?.length ?? 18
+    const playedHoles = r.scores?.filter((s: number | null) => s != null).length ?? 0
+    if (playedHoles < expectedHoles || playedHoles === 0) return best
+    const parRonda = expectedHoles <= 9 ? 36 : 72
+    const rVsPar = r.total_gross - parRonda
     if (!best || rVsPar < best.vsPar) return { score: r.total_gross, course: r.course_name, vsPar: rVsPar }
     return best
   }, null)
@@ -836,7 +845,13 @@ function HistorialContent() {
                     // Match Play no se mide por strokes vs par — se mide por hoyos
                     // ganados/perdidos. No mostramos +N sobre el par total en la row.
                     const isMatchPlay = r.formato_juego === 'match_play'
-                    const ov      = (r.total_gross != null && !isMatchPlay) ? r.total_gross - par : null
+                    // vsPar solo es válido sobre rondas COMPLETAS. Si la ronda es
+                    // parcial y no tenemos pars hoyo a hoyo, no podemos calcular
+                    // contra el par jugado real → mostrar "—" en lugar de un
+                    // número absurdo tipo "-28".
+                    const playedScores = r.scores?.filter((s: number | null) => s != null).length ?? 0
+                    const isCompleteRound = playedScores >= holes && playedScores > 0
+                    const ov      = (r.total_gross != null && !isMatchPlay && isCompleteRound) ? r.total_gross - par : null
                     const isOpen  = expanded.has(r.id)
                     const teeHex  = r.tee_color ? TEE_COLORS[r.tee_color] || '#9ca3af' : null
 

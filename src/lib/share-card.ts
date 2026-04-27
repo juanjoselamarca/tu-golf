@@ -616,12 +616,22 @@ export function buildShareCardRondaLibre(params: {
   courseName: string
 }): ShareCardRondaLibre {
   const { jugadores, holesData, courseName } = params
-  const parTotal = holesData.length > 0 ? holesData.reduce((a, h) => a + h.par, 0) : 72
   const parsByHole: Record<number, number> = {}; holesData.forEach(h => { parsByHole[h.numero] = h.par })
 
-  const conScore = jugadores.map(j => ({
-    ...j, grossTotal: Object.values(j.scores ?? {}).reduce((a, b) => a + Number(b), 0),
-  })).filter(j => j.grossTotal > 0).sort((a, b) => a.grossTotal - b.grossTotal)
+  // Calcular grossTotal y parPlayed (par REAL de hoyos con score) por jugador.
+  // Regla del golf: vsPar = gross - par_jugado, NUNCA gross - par_total fijo.
+  const conScore = jugadores.map(j => {
+    let grossTotal = 0
+    let parPlayed = 0
+    for (const [hNum, s] of Object.entries(j.scores ?? {})) {
+      const gross = Number(s)
+      if (gross > 0) {
+        grossTotal += gross
+        parPlayed += parsByHole[parseInt(hNum)] ?? 4
+      }
+    }
+    return { ...j, grossTotal, parPlayed }
+  }).filter(j => j.grossTotal > 0).sort((a, b) => a.grossTotal - b.grossTotal)
 
   if (conScore.length === 0) {
     return { tipo: 'ronda_libre', ganador: jugadores[0]?.nombre ?? 'Jugador', esEmpate: false, scoreGross: 0, scoreDiff: 0, courseName, fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }), birdies: 0, eagles: 0, scoresByHole: {}, parsByHole, holesPlayed: holesData.length }
@@ -636,9 +646,9 @@ export function buildShareCardRondaLibre(params: {
   return {
     tipo: 'ronda_libre', ganador: g.nombre, esEmpate,
     jugadores: esEmpate ? ganadores.map(x => x.nombre) : undefined,
-    scoreGross: g.grossTotal, scoreDiff: g.grossTotal - parTotal, courseName,
+    scoreGross: g.grossTotal, scoreDiff: g.grossTotal - g.parPlayed, courseName,
     fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }),
     birdies, eagles, scoresByHole: g.scores ?? {}, parsByHole, holesPlayed: holesData.length,
-    ranking: conScore.map(j => ({ nombre: j.nombre, score: j.grossTotal, diff: j.grossTotal - parTotal })),
+    ranking: conScore.map(j => ({ nombre: j.nombre, score: j.grossTotal, diff: j.grossTotal - j.parPlayed })),
   }
 }

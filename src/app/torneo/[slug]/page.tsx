@@ -97,14 +97,25 @@ function computeStats(dbPlayers: DBPlayer[], courseHoles: DBCourseHole[], parTot
   const parMap = new Map<number, number>()
   courseHoles.forEach((h) => parMap.set(h.numero, h.par))
 
-  // Best card
-  const bySortedNet = [...withScores].sort((a, b) => (a.rounds[0].total_net ?? 999) - (b.rounds[0].total_net ?? 999))
+  // Las stats agregadas vs par (best card, avg neto) SOLO se calculan
+  // sobre rondas terminadas. Una ronda parcial tiene total_gross y total_net
+  // parciales, y compararlos contra parTotal completo da números absurdos
+  // del tipo "líder a -28" cuando en realidad nadie terminó. Las stats por
+  // hoyo (eagles, birdies, hole difficulty) sí usan rondas parciales porque
+  // se calculan hoyo a hoyo.
+  const totalHoles = courseHoles.length || 18
+  const finished = withScores.filter((p) =>
+    (p.rounds[0].hole_scores?.length ?? 0) >= totalHoles
+    && p.rounds[0].total_net != null
+  )
+
+  // Best card (solo rondas terminadas)
+  const bySortedNet = [...finished].sort((a, b) => (a.rounds[0].total_net ?? 999) - (b.rounds[0].total_net ?? 999))
   const bestName    = bySortedNet[0]?.profiles?.name ?? '—'
   const bestNet     = bySortedNet[0]?.rounds[0].total_net ?? 0
 
-  // Avg net vs par
-  const netVals = withScores.filter((p) => p.rounds[0].total_net != null)
-    .map((p) => p.rounds[0].total_net - parTotal)
+  // Avg net vs par (solo rondas terminadas)
+  const netVals = finished.map((p) => (p.rounds[0].total_net ?? 0) - parTotal)
   const avgNet  = netVals.length > 0 ? netVals.reduce((s, v) => s + v, 0) / netVals.length : 0
 
   // Eagles, birdies, hole difficulty

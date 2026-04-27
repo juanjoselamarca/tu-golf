@@ -6,18 +6,27 @@
 export interface RoundForCompare {
   total_gross: number
   holes_played?: number | null
-  par_total?: number | null
+  par_total?: number | null   // par del recorrido completo (referencia del curso)
+  par_played?: number | null  // par REAL de los hoyos con score (autoridad si es parcial)
   scores?: (number | null)[] | null
   vsPar?: number | null
 }
 
 /**
  * Calcula score vs par de una ronda.
- * Si la ronda ya tiene vsPar calculado, lo usa.
- * Si no, infiere el par según la cantidad de hoyos.
+ *
+ * Prioridad de cálculo (regla del golf: vsPar SOLO sobre hoyos jugados):
+ *   1. round.vsPar — si viene precalculado (autoridad).
+ *   2. round.par_played — si el caller lo provee (real de hoyos jugados).
+ *   3. Fallback: round.par_total o estimado por holes_played. Asume ronda
+ *      completa; si es parcial y no se pasó par_played, el resultado puede
+ *      ser incorrecto.
+ *
+ * Para rondas parciales, el caller DEBE pasar par_played o vsPar precalculado.
  */
 export function vsPar(round: RoundForCompare): number {
   if (round.vsPar != null) return round.vsPar
+  if (round.par_played != null) return round.total_gross - round.par_played
   const holes = round.holes_played ?? (round.scores?.length ?? 18)
   const par = round.par_total ?? (holes <= 9 ? 36 : 72)
   return round.total_gross - par
