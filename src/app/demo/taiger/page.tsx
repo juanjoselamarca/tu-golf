@@ -606,16 +606,51 @@ export default function TaigerDemoPage() {
 
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '24px 16px 96px' }}>
 
-        {/* Back link */}
-        <div style={{ marginBottom: '18px' }}>
-          <Link href="/demo" style={{
-            fontSize: '12px',
-            color: theme.textFaint,
-            fontFamily: '"DM Mono", ui-monospace, monospace',
-            textDecoration: 'none',
-            letterSpacing: '0.05em',
-          }}>
-            ← /demo
+        {/* Back link — pill coherente con las cards del hub */}
+        <div style={{ marginBottom: '20px' }}>
+          <Link
+            href="/demo"
+            aria-label="Volver al demo de Golfers+"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 14px',
+              background: theme.card,
+              border: `1px solid ${theme.border}`,
+              borderRadius: '999px',
+              fontSize: '11px',
+              color: theme.textMuted,
+              fontFamily: '"DM Mono", ui-monospace, monospace',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase' as const,
+              textDecoration: 'none',
+              fontWeight: 700,
+              transition: 'border-color 180ms, color 180ms, transform 180ms',
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLAnchorElement
+              el.style.borderColor = theme.gold
+              el.style.color = theme.gold
+              const arrow = el.querySelector('[data-arrow]') as HTMLElement | null
+              if (arrow) arrow.style.transform = 'translateX(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLAnchorElement
+              el.style.borderColor = theme.border
+              el.style.color = theme.textMuted
+              const arrow = el.querySelector('[data-arrow]') as HTMLElement | null
+              if (arrow) arrow.style.transform = 'translateX(0)'
+            }}
+          >
+            <span
+              data-arrow
+              aria-hidden="true"
+              style={{ fontSize: '14px', lineHeight: 1, transition: 'transform 180ms' }}
+            >
+              ←
+            </span>
+            <span>Volver al demo</span>
           </Link>
         </div>
 
