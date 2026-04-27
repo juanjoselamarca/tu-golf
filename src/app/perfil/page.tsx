@@ -155,8 +155,8 @@ export default function PerfilPage() {
 
         <div
           style={{
-            background: 'linear-gradient(135deg, rgba(23,49,41,0.96) 0%, rgba(14,28,47,0.94) 100%)',
-            border: '1px solid rgba(196,153,42,0.18)',
+            background: '#ffffff',
+            border: '1px solid rgba(196,153,42,0.22)',
             borderRadius: '14px',
             padding: '20px',
             marginBottom: '18px',
@@ -169,7 +169,7 @@ export default function PerfilPage() {
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.24)', color: '#c8a55a', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                <span style={{ background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.28)', color: '#c4992a', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                   Perfil de jugador
                 </span>
                 <span style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', color: '#4a5568', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
@@ -177,7 +177,7 @@ export default function PerfilPage() {
                 </span>
               </div>
 
-              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.1 }}>
+              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#1a1a2e', margin: '0 0 8px', lineHeight: 1.1 }}>
                 {profile.name || 'Golfista'}
               </h1>
               {/* H16 cerrado: email movido a sección Cuenta (evita PII en screenshots del header) */}
@@ -197,7 +197,7 @@ export default function PerfilPage() {
                     + Agregar índice →
                   </button>
                 )}
-                <span style={{ fontSize: '13px', color: '#9fb4aa' }}>
+                <span style={{ fontSize: '13px', color: '#4a5568' }}>
                   Torneos: {tourneysPlayed}
                 </span>
               </div>
@@ -311,15 +311,15 @@ export default function PerfilPage() {
         {/* CPI Section */}
         {cpiData && cpiData.status === 'ok' && (
           <div style={{
-            background: 'linear-gradient(135deg, rgba(14,28,47,0.96) 0%, rgba(23,49,41,0.94) 100%)',
+            background: '#ffffff',
             border: '1px solid rgba(196,153,42,0.22)',
             borderRadius: '14px',
             padding: '20px',
             marginBottom: '18px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>CPI&trade;</span>
-              <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+              <span style={{ fontSize: '12px', color: '#c4992a', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>CPI&trade;</span>
+              <span style={{ fontSize: '12px', color: '#4a5568' }}>
                 {nivelCPI(cpiData.score)}
               </span>
             </div>
@@ -350,12 +350,12 @@ export default function PerfilPage() {
               <div style={{ flex: 1, height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
                 <div style={{ width: `${Math.min(100, Math.max(0, cpiData.score))}%`, height: '100%', background: `linear-gradient(90deg, ${getCpiColor(cpiData.score)}cc, ${getCpiColor(cpiData.score)})`, borderRadius: '3px', transition: 'width 0.6s ease' }} />
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '12px', color: '#4a5568', whiteSpace: 'nowrap' }}>
                 {cpiData.roundsInWindow} rondas
               </span>
             </div>
 
-            <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
+            <div style={{ fontSize: '13px', color: '#4a5568' }}>
               Fed: {profile.indice ?? '—'} · G+: {profile.indice_golfers?.toFixed(1) ?? '—'} · Rondas: {cpiData.roundsTotal}
             </div>
 
@@ -393,14 +393,14 @@ export default function PerfilPage() {
 
         {cpiData && cpiData.status === 'momentum_paused' && (
           <div style={{
-            background: 'linear-gradient(135deg, rgba(14,28,47,0.96) 0%, rgba(23,49,41,0.94) 100%)',
-            border: '1px solid rgba(217,119,6,0.3)',
+            background: 'rgba(217,119,6,0.04)',
+            border: '1px solid rgba(217,119,6,0.28)',
             borderRadius: '14px',
             padding: '20px',
             marginBottom: '18px',
           }}>
-            <div style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>CPI&trade;</div>
-            <p style={{ fontSize: '14px', color: '#d97706', margin: '0 0 10px', fontWeight: 600 }}>
+            <div style={{ fontSize: '12px', color: '#d97706', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>CPI&trade;</div>
+            <p style={{ fontSize: '14px', color: '#4a5568', margin: '0 0 10px', fontWeight: 600 }}>
               Juega una ronda reciente para reactivar tu CPI&trade;
             </p>
             <Link href="/ronda-libre/nueva" style={{ fontSize: '13px', color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>
