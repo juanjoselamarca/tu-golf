@@ -42,7 +42,7 @@ export async function saveCourseSnapshot(
   // Fetch holes with all yardage columns (pick the right one in JS)
   const { data: holes } = await supabase
     .from('course_holes')
-    .select('numero, par, stroke_index, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo')
+    .select('numero, par, stroke_index, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo, yardaje_verificado_at')
     .eq('course_id', courseId)
     .order('numero')
 
@@ -72,7 +72,10 @@ export async function saveCourseSnapshot(
       numero: h.numero,
       par: h.par,
       stroke_index: h.stroke_index,
-      yardaje: (h as Record<string, unknown>)[yardCol] as number | null ?? h.yardaje_blanco,
+      // Snapshot solo persiste yardajes auditados contra fuente primaria.
+      yardaje: (h as Record<string, unknown>).yardaje_verificado_at
+        ? ((h as Record<string, unknown>)[yardCol] as number | null) ?? null
+        : null,
     })),
     {
       par_total: course.par_total,

@@ -185,7 +185,7 @@ export default function ScoreGrupoPage() {
 
       if (r.course_id) {
         let query = supabase.from('course_holes')
-          .select('numero, par, stroke_index, recorrido, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo')
+          .select('numero, par, stroke_index, recorrido, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo, yardaje_verificado_at')
           .eq('course_id', r.course_id)
         // Multi-loop: filter by selected recorridos
         const recorridos = r.recorridos as string[] | null
@@ -207,13 +207,16 @@ export default function ScoreGrupoPage() {
               numero: num,
               par: h.par,
               stroke_index: h.stroke_index,
-              yardaje: (h as Record<string, unknown>)[teeCol] as number | null || h.yardaje_azul || h.yardaje_blanco || null,
-              yardajes: {
+              // Solo exponer yardajes auditados contra fuente primaria.
+              yardaje: (h as Record<string, unknown>).yardaje_verificado_at
+                ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
+                : null,
+              yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {
                 campeonato: (h as Record<string, unknown>).yardaje_campeonato as number | null ?? null,
                 azul: h.yardaje_azul ?? null,
                 blanco: h.yardaje_blanco ?? null,
                 rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
-              },
+              } : undefined,
             }
             holeNum++
           }

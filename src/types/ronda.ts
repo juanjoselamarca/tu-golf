@@ -48,19 +48,19 @@ export interface HoleData {
 
 /**
  * Selecciona el yardaje correcto según el tee del jugador.
- * Fallback: yardaje del tee específico → legacy yardaje → cascade (azul/blanco).
+ * Devuelve solo el yardaje del tee del jugador. Sin fallback a otros tees:
+ * mostrar el yardaje de varones a una jugadora desde rojo es información errónea.
  */
 export function getYardajeForTee(hole: HoleData | undefined | null, tee: string | null | undefined): number | null {
   if (!hole) return null
-  if (!hole.yardajes) return hole.yardaje
+  if (!hole.yardajes) return null
   const t = (tee || '').toLowerCase()
   let key: keyof NonNullable<HoleData['yardajes']> | null = null
   if (t === 'black' || t === 'campeonato' || t === 'negro') key = 'campeonato'
   else if (t === 'blue' || t === 'azul') key = 'azul'
   else if (t === 'white' || t === 'blanco') key = 'blanco'
   else if (t === 'red' || t === 'rojo') key = 'rojo'
-  const specific = key ? hole.yardajes[key] : null
-  return specific ?? hole.yardaje ?? hole.yardajes.azul ?? hole.yardajes.blanco ?? null
+  return key ? (hole.yardajes[key] ?? null) : null
 }
 
 /** Ronda libre (union superset entre [codigo], score y score-grupo). */

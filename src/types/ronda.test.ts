@@ -47,32 +47,33 @@ describe('getYardajeForTee — yardage per-player tee (BUG #2 #16)', () => {
     expect(getYardajeForTee(hole, 'Blanco')).toBe(350)
   })
 
-  it('fallback a legacy yardaje si el tee específico es null', () => {
+  it('sin fallback: tee del jugador con dato null → null', () => {
+    // Mostrar yardaje de OTRO tee a una jugadora desde rojo es información errónea.
+    // Mejor mostrar "—" en UI que un metro equivocado.
     const hole: HoleData = {
       ...holeBase,
       yardaje: 999,
       yardajes: { campeonato: null, azul: null, blanco: null, rojo: null },
     }
-    expect(getYardajeForTee(hole, 'azul')).toBe(999)
+    expect(getYardajeForTee(hole, 'azul')).toBe(null)
   })
 
-  it('fallback cascade azul → blanco cuando no hay nada más', () => {
+  it('sin cascade: tee desconocido → null aunque haya datos en otros tees', () => {
     const hole: HoleData = {
       ...holeBase,
       yardaje: null,
       yardajes: { azul: 300, blanco: 280 },
     }
-    // Tee desconocido → sin match específico → cascade
-    expect(getYardajeForTee(hole, 'naranja')).toBe(300)
-    // Si ni siquiera azul está
+    // Tee desconocido → sin match específico → null (no cascade)
+    expect(getYardajeForTee(hole, 'naranja')).toBe(null)
     const hole2: HoleData = { ...holeBase, yardaje: null, yardajes: { blanco: 280 } }
-    expect(getYardajeForTee(hole2, 'naranja')).toBe(280)
+    expect(getYardajeForTee(hole2, 'naranja')).toBe(null)
   })
 
-  it('compat: retorna legacy yardaje si no hay yardajes map', () => {
+  it('sin yardajes map: retorna null (legacy yardaje ignorado)', () => {
     const hole: HoleData = { ...holeBase, yardaje: 400 }
-    expect(getYardajeForTee(hole, 'azul')).toBe(400)
-    expect(getYardajeForTee(hole, null)).toBe(400)
+    expect(getYardajeForTee(hole, 'azul')).toBe(null)
+    expect(getYardajeForTee(hole, null)).toBe(null)
   })
 
   it('retorna null para hole undefined/null', () => {
@@ -89,14 +90,14 @@ describe('getYardajeForTee — yardage per-player tee (BUG #2 #16)', () => {
     expect(getYardajeForTee(hole, 'azul')).toBe(null)
   })
 
-  it('tee null/undefined usa cascade de fallbacks', () => {
+  it('tee null/undefined → null (sin cascade)', () => {
     const hole: HoleData = {
       ...holeBase,
       yardaje: 300,
       yardajes: { azul: 350, blanco: 340 },
     }
-    // No hay key para mapear → usa yardaje legacy
-    expect(getYardajeForTee(hole, null)).toBe(300)
-    expect(getYardajeForTee(hole, undefined)).toBe(300)
+    // No hay key para mapear → null (no cascade a yardaje legacy ni a otros tees)
+    expect(getYardajeForTee(hole, null)).toBe(null)
+    expect(getYardajeForTee(hole, undefined)).toBe(null)
   })
 })
