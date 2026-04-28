@@ -9,6 +9,7 @@ import { nivelCPI } from '@/golf/stats/cpi'
 import { addToast } from '@/hooks/useToast'
 import { NIVEL_LABELS, NIVEL_DESCRIPCION, rondasParaActivar } from '@/lib/indice-golfers'
 import { PersonStanding } from '@/components/icons'
+import { Button } from '@/components/ui/Button'
 
 interface Profile {
   id: string
@@ -187,15 +188,13 @@ export default function PerfilPage() {
                     Índice: {profile.indice}
                   </span>
                 ) : (
-                  <button onClick={() => { setEditing(true); setTimeout(() => document.getElementById('edit-form')?.scrollIntoView({ behavior: 'smooth' }), 100) }} style={{
-                    fontSize: '14px', color: '#c4992a', fontWeight: 700,
-                    background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.3)',
-                    borderRadius: '10px', padding: '12px 20px', cursor: 'pointer',
-                    minHeight: '44px', minWidth: '44px',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}>
+                  <Button
+                    variant="nav"
+                    size="sm"
+                    onClick={() => { setEditing(true); setTimeout(() => document.getElementById('edit-form')?.scrollIntoView({ behavior: 'smooth' }), 100) }}
+                  >
                     + Agregar índice →
-                  </button>
+                  </Button>
                 )}
                 <span style={{ fontSize: '13px', color: '#4a5568' }}>
                   Torneos: {tourneysPlayed}
@@ -429,12 +428,9 @@ export default function PerfilPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {saved && <span style={{ fontSize: '13px', color: '#22c55e' }}>✓ Guardado</span>}
               {!editing && (
-                <button
-                  onClick={() => setEditing(true)}
-                  style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '8px 16px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
-                >
+                <Button variant="nav" size="sm" onClick={() => setEditing(true)}>
                   Editar perfil
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -475,19 +471,16 @@ export default function PerfilPage() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '2px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  style={{ background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
-                >
+                <Button variant="commit" size="md" onClick={handleSave} loading={saving} disabled={saving}>
                   {saving ? 'Guardando...' : 'Guardar cambios'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={() => { setEditing(false); setEditName(profile.name || ''); setEditIndice(profile.indice != null ? String(profile.indice) : '') }}
-                  style={{ background: 'transparent', border: '1px solid rgba(122,143,168,0.3)', color: 'var(--text-2)', fontSize: '14px', padding: '11px 18px', borderRadius: '10px', cursor: 'pointer' }}
                 >
                   Cancelar
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
@@ -525,24 +518,19 @@ export default function PerfilPage() {
             Se eliminarán todos tus datos: perfil, rondas, historial, estadísticas y sesiones de coaching. Esta acción no se puede deshacer.
           </p>
           {deleteStep === 0 && (
-            <button
-              onClick={() => setDeleteStep(1)}
-              style={{
-                background: '#dc2626', color: 'white', border: 'none', borderRadius: '10px',
-                padding: '12px 24px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
-                minHeight: '44px',
-              }}
-            >
+            <Button variant="destructive" size="md" onClick={() => setDeleteStep(1)}>
               Eliminar mi cuenta permanentemente
-            </button>
+            </Button>
           )}
           {deleteStep === 1 && (
             <div style={{ background: '#fef2f2', borderRadius: '12px', padding: '16px', border: '1px solid #fca5a5' }}>
               <p style={{ fontSize: '14px', fontWeight: 600, color: '#991b1b', marginBottom: '12px' }}>
                 ¿Estás seguro? Se borrarán TODOS tus datos y no podrás recuperarlos.
               </p>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <Button
+                  variant="destructive"
+                  size="sm"
                   onClick={async () => {
                     setDeleteStep(2)
                     try {
@@ -560,24 +548,12 @@ export default function PerfilPage() {
                       setDeleteStep(0)
                     }
                   }}
-                  style={{
-                    background: '#991b1b', color: 'white', border: 'none', borderRadius: '8px',
-                    padding: '10px 20px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                    minHeight: '44px',
-                  }}
                 >
                   Sí, eliminar todo
-                </button>
-                <button
-                  onClick={() => setDeleteStep(0)}
-                  style={{
-                    background: 'white', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '8px',
-                    padding: '10px 20px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                    minHeight: '44px',
-                  }}
-                >
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setDeleteStep(0)}>
                   Cancelar
-                </button>
+                </Button>
               </div>
             </div>
           )}

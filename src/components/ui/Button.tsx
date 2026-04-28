@@ -40,9 +40,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   },
   ref,
 ) {
+  // Nota: el token de Tailwind config se llama `gold` (no `brand`).
+  // El alias semántico `brand` existe solo en CSS vars (--brand).
   const base =
     'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors ' +
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 ' +
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:ring-offset-2 ' +
     'disabled:opacity-50 disabled:cursor-not-allowed select-none'
 
   const sizes: Record<Size, string> = {
@@ -53,12 +55,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 
   const variants: Record<Variant, string> = {
     commit:
-      'bg-brand text-black hover:bg-brand/90 active:bg-brand/80 ' +
-      'shadow-sm',
+      'bg-gold text-[#1a1a2e] hover:bg-gold/90 active:bg-gold/80 shadow-sm',
     nav:
-      'bg-transparent text-brand border border-brand/60 hover:bg-brand/10 active:bg-brand/20',
+      'bg-transparent text-gold border border-gold/60 hover:bg-gold/10 active:bg-gold/20',
     ghost:
-      'bg-transparent text-brand hover:bg-brand/10 active:bg-brand/20',
+      'bg-transparent text-gold hover:bg-gold/10 active:bg-gold/20',
     destructive:
       'bg-red-600 text-white hover:bg-red-700 active:bg-red-800',
   }
