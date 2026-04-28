@@ -29,9 +29,9 @@ interface Profile {
 }
 
 const inputStyle: React.CSSProperties = {
-  background: 'var(--input-bg)',
-  border: '1px solid var(--input-border)',
-  color: 'var(--text)',
+  background: '#ffffff',
+  border: '1px solid rgba(122,143,168,0.3)',
+  color: '#1a1a2e',
   borderRadius: '8px',
   padding: '10px 12px',
   fontSize: '16px',
@@ -134,7 +134,7 @@ export default function PerfilPage() {
 
   if (loading) {
     return (
-      <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>
+      <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a5568' }}>
         Cargando perfil...
       </div>
     )
@@ -145,9 +145,9 @@ export default function PerfilPage() {
   const playerTier = getPlayerTier(profile.indice)
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '16px 16px 80px' }}>
+    <div style={{ background: '#ffffff', minHeight: '100vh', padding: '16px 16px 80px' }}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '16px' }}>
+        <Link href="/dashboard" style={{ color: '#4a5568', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '16px' }}>
           ← Dashboard
         </Link>
 
@@ -371,7 +371,7 @@ export default function PerfilPage() {
             <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#c4992a', fontWeight: 700, marginBottom: '8px' }}>
               Activa tu CPI&trade;
             </div>
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 14px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '14px', color: '#4a5568', margin: '0 0 14px', lineHeight: 1.5 }}>
               Necesitas 5+ rondas para activar tu CPI&trade;. Importa tus rondas hist&oacute;ricas para calcular tu &iacute;ndice de rendimiento.
             </p>
             <Link href="/importar" style={{
@@ -435,7 +435,7 @@ export default function PerfilPage() {
           {editing ? (
             <div id="edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#4a5568', marginBottom: '6px' }}>Nombre</label>
                 <input
                   type="text"
                   value={editName}
@@ -446,7 +446,7 @@ export default function PerfilPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice Federación</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#4a5568', marginBottom: '6px' }}>Índice Federación</label>
                 <input
                   type="text"
                   inputMode="decimal"
