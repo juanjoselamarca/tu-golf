@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatLabel } from '@/golf/core/rules'
@@ -43,17 +43,27 @@ export default function EnVivoPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [fetchError, setFetchError] = useState(false)
 
+  // Ref espejo de busqueda para que cargarFeed sea estable.
+  // Sin esto, cada keystroke recreaba el callback y destruía/creaba
+  // la suscripción Supabase realtime (WebSocket churn en mobile).
+  const busquedaRef = useRef('')
+  useEffect(() => { busquedaRef.current = busqueda }, [busqueda])
+
   const cargarFeed = useCallback(async () => {
     try {
-      const params = busqueda.trim().length >= 2 ? `?cancha=${encodeURIComponent(busqueda.trim())}` : ''
+      const busq = busquedaRef.current
+      const params = busq.trim().length >= 2 ? `?cancha=${encodeURIComponent(busq.trim())}` : ''
       const res = await fetch(`/api/en-vivo${params}`)
-      if (res.ok) {
-        const json = await res.json()
-        setRondas(json.rondas ?? [])
-      }
-    } catch { setFetchError(true) }
-    setLoading(false)
-  }, [busqueda])
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      setRondas(json.rondas ?? [])
+      setFetchError(false)
+    } catch {
+      setFetchError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   // Check auth
   useEffect(() => {
@@ -61,7 +71,7 @@ export default function EnVivoPage() {
     supabase.auth.getSession().then(({ data }) => setIsLoggedIn(!!data.session))
   }, [])
 
-  // Load + Realtime + polling fallback
+  // Load + Realtime + polling fallback (montaje único, no se recrea con búsqueda)
   useEffect(() => {
     cargarFeed()
 
@@ -79,8 +89,13 @@ export default function EnVivoPage() {
     }
   }, [cargarFeed])
 
-  // Debounce search
+  // Debounce search — skip first run para evitar doble fetch en montaje
+  const isFirstSearchRef = useRef(true)
   useEffect(() => {
+    if (isFirstSearchRef.current) {
+      isFirstSearchRef.current = false
+      return
+    }
     const t = setTimeout(cargarFeed, 400)
     return () => clearTimeout(t)
   }, [busqueda, cargarFeed])
