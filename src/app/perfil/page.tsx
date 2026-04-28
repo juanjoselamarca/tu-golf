@@ -151,7 +151,7 @@ export default function PerfilPage() {
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '16px 16px 80px' }}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '18px' }}>
+        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '16px' }}>
           ← Dashboard
         </Link>
 
@@ -159,12 +159,12 @@ export default function PerfilPage() {
           style={{
             background: '#ffffff',
             border: '1px solid rgba(196,153,42,0.22)',
-            borderRadius: '14px',
+            borderRadius: '16px',
             padding: '20px',
-            marginBottom: '18px',
+            marginBottom: '16px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
             <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {initials}
             </div>
@@ -208,7 +208,7 @@ export default function PerfilPage() {
         {/* Dual Index Cards — P18: storytelling explícito de qué es cada índice */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
           {/* Índice Federación */}
-          <div style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
+          <div style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
             <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', fontFamily: '"DM Mono", monospace', marginBottom: '8px', margin: '0 0 8px' }}>
               Federación
             </p>
@@ -221,7 +221,7 @@ export default function PerfilPage() {
           </div>
 
           {/* Índice Golfers+ */}
-          <div style={{ background: '#f8f9fa', border: `1px solid ${profile.indice_golfers != null ? 'rgba(196,153,42,0.35)' : '#e2e8f0'}`, borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
+          <div style={{ background: '#f8f9fa', border: `1px solid ${profile.indice_golfers != null ? 'rgba(196,153,42,0.35)' : '#e2e8f0'}`, borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
             <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c4992a', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
               Golfers+
             </p>
@@ -267,7 +267,7 @@ export default function PerfilPage() {
             marginBottom: '12px',
             display: 'flex',
             alignItems: 'center',
-            gap: '14px',
+            gap: '16px',
             flexWrap: 'wrap',
           }}>
             <div style={{ flex: 1, minWidth: '220px' }}>
@@ -314,9 +314,9 @@ export default function PerfilPage() {
           <div style={{
             background: '#ffffff',
             border: '1px solid rgba(196,153,42,0.22)',
-            borderRadius: '14px',
+            borderRadius: '16px',
             padding: '20px',
-            marginBottom: '18px',
+            marginBottom: '16px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
               <span style={{ fontSize: '12px', color: '#c4992a', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>CPI&trade;</span>
@@ -325,8 +325,8 @@ export default function PerfilPage() {
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginBottom: '10px' }}>
-              <span style={{ fontFamily: '"Cormorant Garamond", "Playfair Display", serif', fontSize: '36px', fontWeight: 700, color: getCpiColor(cpiData.score), lineHeight: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', marginBottom: '10px' }}>
+              <span style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '36px', fontWeight: 700, color: getCpiColor(cpiData.score), lineHeight: 1 }}>
                 {cpiData.score.toFixed(1)}
               </span>
               <span style={{
@@ -362,9 +362,9 @@ export default function PerfilPage() {
           <div style={{
             background: 'linear-gradient(135deg, rgba(196,153,42,0.08) 0%, rgba(196,153,42,0.04) 100%)',
             border: '1px solid rgba(196,153,42,0.3)',
-            borderRadius: '14px',
+            borderRadius: '16px',
             padding: '20px',
-            marginBottom: '18px',
+            marginBottom: '16px',
           }}>
             <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#c4992a', fontWeight: 700, marginBottom: '8px' }}>
               Activa tu CPI&trade;
@@ -375,7 +375,7 @@ export default function PerfilPage() {
             <Link href="/importar" style={{
               display: 'inline-flex', alignItems: 'center',
               background: '#c4992a', color: '#1a1a2e',
-              padding: '10px 20px', borderRadius: '10px',
+              padding: '10px 20px', borderRadius: '12px',
               fontSize: '14px', fontWeight: 700,
               textDecoration: 'none',
             }}>
@@ -388,9 +388,9 @@ export default function PerfilPage() {
           <div style={{
             background: 'rgba(217,119,6,0.04)',
             border: '1px solid rgba(217,119,6,0.28)',
-            borderRadius: '14px',
+            borderRadius: '16px',
             padding: '20px',
-            marginBottom: '18px',
+            marginBottom: '16px',
           }}>
             <div style={{ fontSize: '12px', color: '#d97706', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>CPI&trade;</div>
             <p style={{ fontSize: '14px', color: '#4a5568', margin: '0 0 10px', fontWeight: 600 }}>
@@ -411,8 +411,8 @@ export default function PerfilPage() {
           return <LevelsBar nivel={nivelSkill} />
         })()}
 
-        <div style={{ background: '#ffffff', border: '1px solid rgba(196,153,42,0.18)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '18px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
+        <div style={{ background: '#ffffff', border: '1px solid rgba(196,153,42,0.18)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
             <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#1a1a2e', margin: 0 }}>
               Cuenta
             </h2>
@@ -427,7 +427,7 @@ export default function PerfilPage() {
           </div>
 
           {editing ? (
-            <div id="edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div id="edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre</label>
                 <input
@@ -493,9 +493,9 @@ export default function PerfilPage() {
         <div style={{
           background: '#ffffff',
           border: '1px solid #e2e8f0',
-          borderRadius: '14px',
+          borderRadius: '16px',
           padding: '16px 18px',
-          marginBottom: '18px',
+          marginBottom: '16px',
         }}>
           <div style={{
             fontSize: '10px', fontWeight: 700, color: '#94a3b8',
@@ -521,7 +521,7 @@ export default function PerfilPage() {
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               minHeight: '40px', padding: '0 18px',
               background: 'transparent', border: '1px solid rgba(196,153,42,0.6)',
-              color: '#c4992a', borderRadius: '10px',
+              color: '#c4992a', borderRadius: '12px',
               fontSize: '13px', fontWeight: 600, textDecoration: 'none',
             }}
           >
@@ -530,7 +530,7 @@ export default function PerfilPage() {
         </div>
 
         {/* Notification settings */}
-        <div style={{ marginTop: '16px', background: '#ffffff', borderRadius: '16px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ marginTop: '16px', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
           <ExperiencePanel />
         </div>
 
