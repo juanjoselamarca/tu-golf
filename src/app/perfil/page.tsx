@@ -13,6 +13,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { LevelsBar } from '@/components/perfil/LevelsBar'
 import { getNivel } from '@/lib/mi-golf/niveles'
 import { Check, ChevronUp, ChevronDown } from '@/components/icons'
+import { formatRelativeTime } from '@/lib/format'
 
 interface Profile {
   id: string
@@ -227,6 +228,11 @@ export default function PerfilPage() {
                 <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
                   Rendimiento real · coaching y amistosos
                 </p>
+                {profile.indice_golfers_updated_at && (
+                  <p style={{ fontSize: '9px', color: '#94a3b8', margin: '6px 0 0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.04em', fontStyle: 'italic' }}>
+                    Actualizado {formatRelativeTime(profile.indice_golfers_updated_at)}
+                  </p>
+                )}
               </>
             ) : (
               <>
