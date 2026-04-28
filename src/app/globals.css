@@ -22,25 +22,28 @@
   --brand-dark:  #070D18;
   --brand-light: #FDF6E3;
 
-  /* ── Dark theme tokens (unified) ── */
-  --bg:          #070d18;
-  --bg-surface:  #0e1c2f;
-  --bg-card-light: #0e1c2f;
+  /* ── Light theme tokens (estándar Golfers+) ──
+     Regla de design system 2026-04-27: TODA la app es light.
+     La única superficie con dark estándar es tAIger+, que hardcodea
+     sus propios tokens en /demo/taiger sin depender de estas vars. */
+  --bg:          #ffffff;
+  --bg-surface:  #f8f9fa;
+  --bg-card-light: #ffffff;
 
-  --text:        #edeae4;
-  --text-2:      #94a8c0;
-  --text-3:      #5a6a7a;
+  --text:        #1a1a2e;
+  --text-2:      #4a5568;
+  --text-3:      #94a3b8;
 
-  --border:      rgba(196,153,42,0.12);
-  --border-md:   rgba(196,153,42,0.2);
+  --border:      rgba(196,153,42,0.18);
+  --border-md:   rgba(196,153,42,0.28);
 
-  --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);
-  --shadow-md:   0 4px 12px rgba(0,0,0,0.4);
-  --shadow-lg:   0 8px 24px rgba(0,0,0,0.5);
-  --shadow-card: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-sm:   0 1px 2px rgba(15,23,42,0.05);
+  --shadow-md:   0 4px 12px rgba(15,23,42,0.08);
+  --shadow-lg:   0 8px 24px rgba(15,23,42,0.10);
+  --shadow-card: 0 2px 8px rgba(15,23,42,0.06);
 
-  --input-bg:     rgba(255,255,255,0.04);
-  --input-border: rgba(196,153,42,0.2);
+  --input-bg:     #ffffff;
+  --input-border: rgba(196,153,42,0.3);
   --input-focus:  #C4992A;
 
   --eagle:  #3B82F6;
@@ -57,11 +60,8 @@
   }
 
   body {
-    background:
-      radial-gradient(circle at top, rgba(200, 165, 90, 0.10), transparent 30%),
-      radial-gradient(circle at bottom right, rgba(30, 70, 55, 0.35), transparent 28%),
-      linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-deep-2) 100%);
-    color: var(--ivory);
+    background: var(--bg);
+    color: var(--text);
     font-family: var(--font-dm-sans);
     min-width: 320px;
   }
@@ -87,14 +87,14 @@
     );
   }
 
-  /* Glassmorphism card */
+  /* Glassmorphism card — light theme */
   .glass-card {
     background:
-      linear-gradient(180deg, rgba(20, 39, 33, 0.92) 0%, rgba(12, 24, 20, 0.88) 100%);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 249, 250, 0.92) 100%);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--line);
-    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.34);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
   }
 
   /* Leader row (leaderboard) */
