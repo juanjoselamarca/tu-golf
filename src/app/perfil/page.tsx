@@ -8,7 +8,6 @@ import { ExperiencePanel } from '@/components/ExperienceSetup'
 import { nivelCPI } from '@/golf/stats/cpi'
 import { addToast } from '@/hooks/useToast'
 import { NIVEL_LABELS, NIVEL_DESCRIPCION, rondasParaActivar } from '@/lib/indice-golfers'
-import { PersonStanding } from '@/components/icons'
 import { Button } from '@/components/ui/Button'
 
 interface Profile {
@@ -204,33 +203,6 @@ export default function PerfilPage() {
           </div>
         </div>
 
-        {/* Completa tu perfil — only show if no índice */}
-        {!profile.indice && (
-          <div style={{
-            background: 'var(--brand-light)', border: '1px solid rgba(196,153,42,0.2)',
-            borderRadius: '14px', padding: '16px', marginBottom: '18px',
-          }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginBottom: '12px' }}>
-              Completa tu perfil
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: 'var(--brand)', fontWeight: 600 }}>✓</span>
-                <span style={{ color: 'var(--brand)', fontWeight: 600, fontSize: '14px' }}>Cuenta creada</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: 'var(--text-3)' }}>○</span>
-                <span style={{ color: 'var(--text-3)', fontSize: '14px' }}>
-                  Agregar índice
-                </span>
-                <button onClick={() => setEditing(true)} style={{ color: 'var(--brand)', fontSize: '13px', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, marginLeft: 'auto' }}>
-                  Completar →
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Dual Index Cards — P18: storytelling explícito de qué es cada índice */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
           {/* Índice Federación */}
@@ -353,14 +325,6 @@ export default function PerfilPage() {
                 {cpiData.roundsInWindow} rondas
               </span>
             </div>
-
-            <div style={{ fontSize: '13px', color: '#4a5568' }}>
-              Fed: {profile.indice ?? '—'} · G+: {profile.indice_golfers?.toFixed(1) ?? '—'} · Rondas: {cpiData.roundsTotal}
-            </div>
-
-            <Link href="/importar" style={{ fontSize: '13px', color: '#c4992a', textDecoration: 'none', fontWeight: 600, display: 'inline-block', marginTop: '8px' }}>
-              + Importar más rondas
-            </Link>
           </div>
         )}
 
@@ -408,22 +372,12 @@ export default function PerfilPage() {
           </div>
         )}
 
-        {profile.indice != null && (
-          <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '14px', padding: '18px 16px', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}><PersonStanding size={24} strokeWidth={1.5} /></div>
-            <div>
-              <div style={{ fontSize: '26px', color: '#c8a55a', fontWeight: 700, lineHeight: 1.1, fontFamily: '"Playfair Display", serif' }}>
-                {profile.indice}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>Índice</div>
-            </div>
-          </div>
-        )}
+        {/* Niveles Golfers+ por skill (handicap) — Sprint E: LevelsBar premium */}
 
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.14)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '18px' }}>
+        <div style={{ background: '#ffffff', border: '1px solid rgba(196,153,42,0.18)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
-            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: 0 }}>
-              Mis datos
+            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#1a1a2e', margin: 0 }}>
+              Cuenta
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {saved && <span style={{ fontSize: '13px', color: '#22c55e' }}>✓ Guardado</span>}
@@ -488,23 +442,55 @@ export default function PerfilPage() {
               {[
                 ['Nombre', profile.name || '—'],
                 ['Email', profile.email],
-                ['Índice Federación', profile.indice != null ? profile.indice : '—'],
-              ].map(([label, value]) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: label !== 'Índice Federación' ? '1px solid rgba(122,143,168,0.1)' : 'none', gap: '12px' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{label}</span>
-                  <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
+              ].map(([label, value], idx, arr) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: idx < arr.length - 1 ? '1px solid #f1f5f9' : 'none', gap: '12px' }}>
+                  <span style={{ fontSize: '13px', color: '#4a5568' }}>{label}</span>
+                  <span style={{ fontSize: '14px', color: '#1a1a2e', fontWeight: 600, textAlign: 'right' }}>{value}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <Link
-          href="/importar"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '48px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', borderRadius: '12px', fontSize: '14px', textDecoration: 'none', fontWeight: 600 }}
-        >
-          + Importar historial de rondas →
-        </Link>
+        {/* Sincroniza tu historial — bloque editorial, no Link huérfano */}
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '14px',
+          padding: '16px 18px',
+          marginBottom: '18px',
+        }}>
+          <div style={{
+            fontSize: '10px', fontWeight: 700, color: '#94a3b8',
+            fontFamily: '"DM Mono", monospace',
+            letterSpacing: '0.12em', textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            Sincronización
+          </div>
+          <div style={{
+            fontFamily: '"Playfair Display", serif',
+            fontSize: '17px', color: '#1a1a2e', fontWeight: 600,
+            marginBottom: '4px', letterSpacing: '-0.01em',
+          }}>
+            Trae tu historial completo
+          </div>
+          <p style={{ fontSize: '13px', color: '#4a5568', margin: '0 0 14px', lineHeight: 1.5 }}>
+            Importa tus rondas desde FedeGolf, Garmin Connect o un CSV — el Índice Golfers+ y CPI™ se recalculan automáticamente.
+          </p>
+          <Link
+            href="/importar"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              minHeight: '40px', padding: '0 18px',
+              background: 'transparent', border: '1px solid rgba(196,153,42,0.6)',
+              color: '#c4992a', borderRadius: '10px',
+              fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+            }}
+          >
+            Importar historial →
+          </Link>
+        </div>
 
         {/* Notification settings */}
         <div style={{ marginTop: '16px', background: '#ffffff', borderRadius: '16px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
