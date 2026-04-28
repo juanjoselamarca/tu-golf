@@ -255,12 +255,40 @@ export default function PerfilPage() {
           </Link>
         </div>
 
-        {/* Gap note — when difference >= 1.5 between indices */}
+        {/* Gap note — momento editorial cuando hay desalineación >= 1.5 entre índices */}
         {profile.indice != null && profile.indice_golfers != null && Math.abs(profile.indice - profile.indice_golfers) >= 1.5 && (
-          <div style={{ padding: '10px 14px', background: 'rgba(196,153,42,0.07)', border: '1px solid #e2e8f0', borderRadius: '10px', marginBottom: '12px' }}>
-            <p style={{ fontSize: '12px', color: '#4a5568', margin: 0, lineHeight: 1.5 }}>
-              <strong style={{ color: '#c4992a' }}>{Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos</strong> de diferencia entre tu índice oficial y tu rendimiento reciente. tAIger+ puede analizar esto.
-            </p>
+          <div style={{
+            padding: '14px 16px',
+            background: 'rgba(196,153,42,0.06)',
+            border: '1px solid rgba(196,153,42,0.28)',
+            borderRadius: '12px',
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            flexWrap: 'wrap',
+          }}>
+            <div style={{ flex: 1, minWidth: '220px' }}>
+              <div style={{
+                fontSize: '9px',
+                fontFamily: '"DM Mono", monospace',
+                fontWeight: 700,
+                color: '#c4992a',
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                marginBottom: '4px',
+              }}>
+                Recomendación tAIger+
+              </div>
+              <p style={{ fontSize: '13px', color: '#1a1a2e', margin: 0, lineHeight: 1.5 }}>
+                <strong style={{ color: '#c4992a' }}>{Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos</strong> de diferencia entre tu índice oficial y tu rendimiento reciente.
+              </p>
+            </div>
+            <Link href="/coach" style={{ textDecoration: 'none', flexShrink: 0 }}>
+              <Button variant="commit" size="sm">
+                Analizar con tAIger+ →
+              </Button>
+            </Link>
           </div>
         )}
 
