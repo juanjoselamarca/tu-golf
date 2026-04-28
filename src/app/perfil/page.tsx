@@ -9,6 +9,8 @@ import { nivelCPI } from '@/golf/stats/cpi'
 import { addToast } from '@/hooks/useToast'
 import { NIVEL_LABELS, NIVEL_DESCRIPCION, rondasParaActivar } from '@/lib/indice-golfers'
 import { Button } from '@/components/ui/Button'
+import { LevelsBar } from '@/components/perfil/LevelsBar'
+import { getNivel } from '@/lib/mi-golf/niveles'
 
 interface Profile {
   id: string
@@ -400,7 +402,14 @@ export default function PerfilPage() {
           </div>
         )}
 
-        {/* Niveles Golfers+ por skill (handicap) — Sprint E: LevelsBar premium */}
+        {/* Niveles Golfers+ por skill (handicap). Prioriza Índice Golfers+
+            si está calculado (rendimiento real); fallback a Federación. */}
+        {(() => {
+          const indiceParaNivel = profile.indice_golfers ?? profile.indice
+          if (indiceParaNivel == null) return null
+          const nivelSkill = getNivel(indiceParaNivel)
+          return <LevelsBar nivel={nivelSkill} />
+        })()}
 
         <div style={{ background: '#ffffff', border: '1px solid rgba(196,153,42,0.18)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
