@@ -10,7 +10,7 @@ import CourseSelector from '@/components/CourseSelector'
 import { RoundCode } from '@/components/ui/RoundCode'
 import { Stepper } from '@/components/ui/Stepper'
 
-const TEES_OPTIONS = ['Campeonato', 'Azul', 'Blanco', 'Rojo']
+const TEES_OPTIONS = ['Negras', 'Azul', 'Blanco', 'Rojo']
 
 interface CourseLoop {
   recorrido: string

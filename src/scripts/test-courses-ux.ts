@@ -36,14 +36,14 @@ async function test() {
     const { data: course } = await sb.from('courses').select('id, nombre, par_total, slope_rating, course_rating').eq('nombre', name).single()
     if (!course) { console.log('❌ ' + name + ': NO ENCONTRADO'); dataIssues++; continue }
 
-    const { data: holes } = await sb.from('course_holes').select('numero, par, stroke_index, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo').eq('course_id', course.id).order('numero')
+    const { data: holes } = await sb.from('course_holes').select('numero, par, stroke_index, yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo').eq('course_id', course.id).order('numero')
     const { data: tees } = await sb.from('course_tees').select('nombre, yardaje_total, rating, slope').eq('course_id', course.id)
 
     const holeCount = holes?.length || 0
     const parSum = holes?.reduce((s, h) => s + h.par, 0) || 0
     const siValues = holes?.map(h => h.stroke_index).filter(v => v != null).sort((a, b) => (a as number) - (b as number)) as number[]
     const siComplete = siValues.length === 18 && siValues[0] === 1 && siValues[17] === 18
-    const hasYardajes = holes?.every(h => h.yardaje_azul != null || h.yardaje_campeonato != null) || false
+    const hasYardajes = holes?.every(h => h.yardaje_azul != null || h.yardaje_negras != null) || false
     const parOk = parSum === course.par_total
 
     if (holeCount !== 18 || !parOk || !siComplete || !hasYardajes) dataIssues++
@@ -149,14 +149,14 @@ async function test() {
     if (!course) continue
 
     const { data: holes } = await sb.from('course_holes')
-      .select('numero, par, stroke_index, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo')
+      .select('numero, par, stroke_index, yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo')
       .eq('course_id', course.id).order('numero')
 
     const issues: string[] = []
     for (const h of holes || []) {
       if (h.par == null) issues.push(`H${h.numero}: sin par`)
       if (h.stroke_index == null) issues.push(`H${h.numero}: sin HDCP`)
-      if (!h.yardaje_azul && !h.yardaje_blanco && !h.yardaje_campeonato) issues.push(`H${h.numero}: sin yardaje`)
+      if (!h.yardaje_azul && !h.yardaje_blanco && !h.yardaje_negras) issues.push(`H${h.numero}: sin yardaje`)
     }
 
     if (issues.length > 0) uiIssues++

@@ -39,7 +39,7 @@ export interface HoleData {
   yardaje: number | null
   /** Yardajes por color de tee — permite que cada jugador vea la distancia de SU tee en canchas multi-loop. */
   yardajes?: {
-    campeonato?: number | null
+    negras?: number | null
     azul?: number | null
     blanco?: number | null
     rojo?: number | null
@@ -56,7 +56,8 @@ export function getYardajeForTee(hole: HoleData | undefined | null, tee: string 
   if (!hole.yardajes) return null
   const t = (tee || '').toLowerCase()
   let key: keyof NonNullable<HoleData['yardajes']> | null = null
-  if (t === 'black' || t === 'campeonato' || t === 'negro') key = 'campeonato'
+  // Aliases defensivos para datos externos / snapshots viejos.
+  if (t === 'negras' || t === 'black' || t === 'campeonato' || t === 'negro') key = 'negras'
   else if (t === 'blue' || t === 'azul') key = 'azul'
   else if (t === 'white' || t === 'blanco') key = 'blanco'
   else if (t === 'red' || t === 'rojo') key = 'rojo'

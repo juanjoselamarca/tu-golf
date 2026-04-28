@@ -9,8 +9,11 @@ import { buildCourseSnapshot } from '@/golf/core/stroke-index'
 /** Map tee name → column for hole yardage */
 function getTeeYardageColumn(tee: string): string {
   const map: Record<string, string> = {
-    campeonato: 'yardaje_campeonato',
-    negro: 'yardaje_campeonato',
+    negras: 'yardaje_negras',
+    // Aliases defensivos para datos externos / snapshots viejos.
+    campeonato: 'yardaje_negras',
+    negro: 'yardaje_negras',
+    black: 'yardaje_negras',
     azul: 'yardaje_azul',
     blanco: 'yardaje_blanco',
     amarillo: 'yardaje_blanco',
@@ -42,7 +45,7 @@ export async function saveCourseSnapshot(
   // Fetch holes with all yardage columns (pick the right one in JS)
   const { data: holes } = await supabase
     .from('course_holes')
-    .select('numero, par, stroke_index, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo, yardaje_verificado_at')
+    .select('numero, par, stroke_index, yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo, yardaje_verificado_at')
     .eq('course_id', courseId)
     .order('numero')
 

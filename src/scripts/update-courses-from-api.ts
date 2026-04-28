@@ -165,7 +165,7 @@ function estimateStrokeIndex(holes: { par: number; yardage: number }[]): number[
 // ─── TEE NAME MAPPING ───────────────────────────────────────────────────
 function mapTeeName(apiName: string): string {
   const lower = apiName.toLowerCase()
-  if (lower === 'negro' || lower === 'negra' || lower === 'black' || lower === 'championship') return 'campeonato'
+  if (lower === 'negras' || lower === 'negro' || lower === 'negra' || lower === 'black' || lower === 'championship' || lower === 'campeonato') return 'negras'
   if (lower === 'azul' || lower === 'blue') return 'azul'
   if (lower === 'blanco' || lower === 'blanca' || lower === 'white') return 'blanco'
   if (lower === 'rojo' || lower === 'roja' || lower === 'red') return 'rojo'
@@ -176,7 +176,7 @@ function mapTeeName(apiName: string): string {
 // Map API tee to our yardage column name
 function teeToYardageCol(teeName: string): string | null {
   const mapped = mapTeeName(teeName)
-  if (mapped === 'campeonato') return 'yardaje_campeonato'
+  if (mapped === 'negras') return 'yardaje_negras'
   if (mapped === 'azul') return 'yardaje_azul'
   if (mapped === 'blanco') return 'yardaje_blanco'
   if (mapped === 'rojo') return 'yardaje_rojo'

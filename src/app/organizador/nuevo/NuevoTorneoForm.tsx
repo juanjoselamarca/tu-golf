@@ -33,7 +33,7 @@ const FORMATS = [
 ]
 
 const TEES = [
-  { value: 'campeonato', label: 'Campeonato' },
+  { value: 'negras', label: 'Negras' },
   { value: 'azul',       label: 'Azul' },
   { value: 'blanco',     label: 'Blanco' },
   { value: 'rojo',       label: 'Rojo' },

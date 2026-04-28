@@ -140,10 +140,10 @@ function similarity(a: string, b: string): number {
 }
 
 // ─── Tee name mapping: API → BD column ──────────────────────────────────
-// La BD solo tiene: yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo
-function mapTeeToBdColumn(apiTeeName: string): 'yardaje_campeonato' | 'yardaje_azul' | 'yardaje_blanco' | 'yardaje_rojo' | null {
+// La BD solo tiene: yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo
+function mapTeeToBdColumn(apiTeeName: string): 'yardaje_negras' | 'yardaje_azul' | 'yardaje_blanco' | 'yardaje_rojo' | null {
   const n = apiTeeName.toLowerCase()
-  if (n.includes('champ') || n.includes('tiger') || n.includes('black') || n.includes('negr') || n.includes('campe')) return 'yardaje_campeonato'
+  if (n.includes('champ') || n.includes('tiger') || n.includes('black') || n.includes('negr') || n.includes('campe')) return 'yardaje_negras'
   if (n.includes('blue') || n.includes('azul')) return 'yardaje_azul'
   if (n.includes('white') || n.includes('blanco') || n.includes('yellow') || n.includes('amarillo') || n.includes('gold') || n.includes('dorado')) return 'yardaje_blanco'
   if (n.includes('red') || n.includes('rojo') || n.includes('ladies')) return 'yardaje_rojo'
@@ -256,7 +256,7 @@ async function processCourse(bd: BdCourse): Promise<'skipped' | 'no-match' | 'lo
   // Obtener tees y holes actuales
   const [{ data: bdTees }, { data: bdHoles }] = await Promise.all([
     supabase.from('course_tees').select('id, nombre, rating, slope, yardaje_total, par_total, genero, bogey_rating, front_course_rating, front_slope_rating, front_bogey_rating, back_course_rating, back_slope_rating, back_bogey_rating, total_yards, total_meters').eq('course_id', bd.id),
-    supabase.from('course_holes').select('id, numero, par, stroke_index, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo').eq('course_id', bd.id).order('numero'),
+    supabase.from('course_holes').select('id, numero, par, stroke_index, yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo').eq('course_id', bd.id).order('numero'),
   ])
 
   // ¿Ya está 100% completa? skip
@@ -265,7 +265,7 @@ async function processCourse(bd: BdCourse): Promise<'skipped' | 'no-match' | 'lo
   const teesComplete = tees.length > 0 && tees.every(t => t.rating != null && t.slope != null && t.yardaje_total != null)
   const holesComplete = holes.length === 18 && holes.every(h =>
     h.par != null && h.stroke_index != null &&
-    (h.yardaje_campeonato != null || h.yardaje_azul != null || h.yardaje_blanco != null || h.yardaje_rojo != null)
+    (h.yardaje_negras != null || h.yardaje_azul != null || h.yardaje_blanco != null || h.yardaje_rojo != null)
   )
   const courseComplete = bd.course_rating != null && bd.slope_rating != null && bd.par_total != null
   if (teesComplete && holesComplete && courseComplete) {

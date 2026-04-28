@@ -8,9 +8,10 @@ describe('getYardajeForTee — yardage per-player tee (BUG #2 #16)', () => {
     const hole: HoleData = {
       ...holeBase,
       yardaje: 350,
-      yardajes: { campeonato: 420, azul: 390, blanco: 350, rojo: 310 },
+      yardajes: { negras: 420, azul: 390, blanco: 350, rojo: 310 },
     }
-    expect(getYardajeForTee(hole, 'campeonato')).toBe(420)
+    expect(getYardajeForTee(hole, 'negras')).toBe(420)
+    expect(getYardajeForTee(hole, 'campeonato')).toBe(420) // alias defensivo
     expect(getYardajeForTee(hole, 'azul')).toBe(390)
     expect(getYardajeForTee(hole, 'blanco')).toBe(350)
     expect(getYardajeForTee(hole, 'rojo')).toBe(310)
@@ -20,7 +21,7 @@ describe('getYardajeForTee — yardage per-player tee (BUG #2 #16)', () => {
     const hole: HoleData = {
       ...holeBase,
       yardaje: null,
-      yardajes: { campeonato: 420, azul: 390, blanco: 350, rojo: 310 },
+      yardajes: { negras: 420, azul: 390, blanco: 350, rojo: 310 },
     }
     expect(getYardajeForTee(hole, 'black')).toBe(420)
     expect(getYardajeForTee(hole, 'blue')).toBe(390)
@@ -28,11 +29,11 @@ describe('getYardajeForTee — yardage per-player tee (BUG #2 #16)', () => {
     expect(getYardajeForTee(hole, 'red')).toBe(310)
   })
 
-  it('negro (sinónimo chileno) mapea a campeonato', () => {
+  it('negro (alias defensivo) mapea a negras', () => {
     const hole: HoleData = {
       ...holeBase,
       yardaje: null,
-      yardajes: { campeonato: 420, azul: 390, blanco: 350, rojo: 310 },
+      yardajes: { negras: 420, azul: 390, blanco: 350, rojo: 310 },
     }
     expect(getYardajeForTee(hole, 'negro')).toBe(420)
   })
@@ -41,7 +42,7 @@ describe('getYardajeForTee — yardage per-player tee (BUG #2 #16)', () => {
     const hole: HoleData = {
       ...holeBase,
       yardaje: null,
-      yardajes: { campeonato: 420, azul: 390, blanco: 350, rojo: 310 },
+      yardajes: { negras: 420, azul: 390, blanco: 350, rojo: 310 },
     }
     expect(getYardajeForTee(hole, 'AZUL')).toBe(390)
     expect(getYardajeForTee(hole, 'Blanco')).toBe(350)
@@ -53,7 +54,7 @@ describe('getYardajeForTee — yardage per-player tee (BUG #2 #16)', () => {
     const hole: HoleData = {
       ...holeBase,
       yardaje: 999,
-      yardajes: { campeonato: null, azul: null, blanco: null, rojo: null },
+      yardajes: { negras: null, azul: null, blanco: null, rojo: null },
     }
     expect(getYardajeForTee(hole, 'azul')).toBe(null)
   })

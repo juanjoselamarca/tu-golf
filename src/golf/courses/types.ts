@@ -1,6 +1,6 @@
 // Tipos basados en el schema real verificado de Supabase
 // Nombres de columna: slope_rating (no slope), course_rating (no rating),
-// yardaje_campeonato/azul/blanco/rojo, stroke_index (no hdcp), numero (no hole_number)
+// yardaje_negras/azul/blanco/rojo, stroke_index (no hdcp), numero (no hole_number)
 
 export type TipoRecorrido = '9h' | '18h' | '27h' | '36h'
 export type TeeGenero = 'M' | 'F' | 'U'
@@ -35,7 +35,7 @@ export interface CourseHole {
   numero: number                       // NO hole_number
   par: number
   stroke_index: number | null          // NO hdcp
-  yardaje_campeonato: number | null
+  yardaje_negras: number | null
   yardaje_azul: number | null
   yardaje_blanco: number | null
   yardaje_rojo: number | null

@@ -35,7 +35,7 @@ async function main() {
 
   const { data: holes } = await supabase
     .from('course_holes')
-    .select('course_id, numero, par, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo')
+    .select('course_id, numero, par, yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo')
 
   if (!courses || !tees || !holes) { console.error('Error leyendo tablas'); return }
 
@@ -52,8 +52,8 @@ async function main() {
     'azul': 'yardaje_azul',
     'blanco': 'yardaje_blanco',
     'rojo': 'yardaje_rojo',
-    'campeonato': 'yardaje_campeonato',
-    'negro': 'yardaje_campeonato',
+    'campeonato': 'yardaje_negras',
+    'negro': 'yardaje_negras',
     'dorado': 'yardaje_blanco',
   }
 
@@ -141,7 +141,7 @@ async function main() {
     const courseTees = tees.filter(t => t.course_id === c.id)
     const courseHolesArr = holesByCourse.get(c.id) || []
     const teesOK = courseTees.filter(t => t.yardaje_total != null).length
-    const holesWithYardage = courseHolesArr.filter(h => h.yardaje_azul != null || h.yardaje_campeonato != null).length
+    const holesWithYardage = courseHolesArr.filter(h => h.yardaje_azul != null || h.yardaje_negras != null).length
     const status = (teesOK === courseTees.length && holesWithYardage >= 18) ? '✅' : '⚠️'
     console.log(`  ${status} ${c.nombre.padEnd(40)} tees c/yardaje: ${teesOK}/${courseTees.length}  hoyos c/yardaje: ${holesWithYardage}`)
   }

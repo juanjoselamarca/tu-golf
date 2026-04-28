@@ -23,7 +23,9 @@ import type { Jugador, TimelineEvent } from '@/types/ronda'
 
 export function getTeeYardageColumn(tee: string): string {
   const t = tee.toLowerCase()
-  if (t === 'black' || t === 'campeonato' || t === 'negro') return 'yardaje_campeonato'
+  // Aliases defensivos: 'campeonato', 'black', 'negro' siguen aceptados para
+  // datos externos (mScorecard, golfcourseapi, snapshots viejos no migrados).
+  if (t === 'negras' || t === 'black' || t === 'campeonato' || t === 'negro') return 'yardaje_negras'
   if (t === 'blue' || t === 'azul') return 'yardaje_azul'
   if (t === 'white' || t === 'blanco') return 'yardaje_blanco'
   if (t === 'red' || t === 'rojo') return 'yardaje_rojo'

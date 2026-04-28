@@ -90,18 +90,18 @@ async function main() {
 
   const { data: holes, error: hErr } = await supabase
     .from('course_holes')
-    .select('course_id, numero, par, stroke_index, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo, recorrido')
+    .select('course_id, numero, par, stroke_index, yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo, recorrido')
   if (hErr || !holes) return console.error('course_holes:', hErr?.message)
 
   console.log(`COURSE_HOLES (filas totales: ${holes.length}):`)
   console.log(`  con par:            ${holes.filter(h => h.par != null).length}  (${pct(holes.filter(h => h.par != null).length, holes.length)})`)
   console.log(`  con stroke_index:   ${holes.filter(h => h.stroke_index != null).length}  (${pct(holes.filter(h => h.stroke_index != null).length, holes.length)})`)
   const hasAnyYard = holes.filter(h =>
-    h.yardaje_campeonato != null || h.yardaje_azul != null ||
+    h.yardaje_negras != null || h.yardaje_azul != null ||
     h.yardaje_blanco != null || h.yardaje_rojo != null
   ).length
   console.log(`  con algún yardaje:  ${hasAnyYard}  (${pct(hasAnyYard, holes.length)})`)
-  console.log(`    yardaje_campeonato: ${holes.filter(h => h.yardaje_campeonato != null).length}  (${pct(holes.filter(h => h.yardaje_campeonato != null).length, holes.length)})`)
+  console.log(`    yardaje_negras: ${holes.filter(h => h.yardaje_negras != null).length}  (${pct(holes.filter(h => h.yardaje_negras != null).length, holes.length)})`)
   console.log(`    yardaje_azul:       ${holes.filter(h => h.yardaje_azul != null).length}  (${pct(holes.filter(h => h.yardaje_azul != null).length, holes.length)})`)
   console.log(`    yardaje_blanco:     ${holes.filter(h => h.yardaje_blanco != null).length}  (${pct(holes.filter(h => h.yardaje_blanco != null).length, holes.length)})`)
   console.log(`    yardaje_rojo:       ${holes.filter(h => h.yardaje_rojo != null).length}  (${pct(holes.filter(h => h.yardaje_rojo != null).length, holes.length)})`)
@@ -141,7 +141,7 @@ async function main() {
     s.hoyos++
     if (h.par != null) s.hoyosConPar++
     if (h.stroke_index != null) s.hoyosConSI++
-    if (h.yardaje_campeonato != null || h.yardaje_azul != null || h.yardaje_blanco != null || h.yardaje_rojo != null) s.hoyosConYardaje++
+    if (h.yardaje_negras != null || h.yardaje_azul != null || h.yardaje_blanco != null || h.yardaje_rojo != null) s.hoyosConYardaje++
   }
   for (const t of tees) {
     const s = stats.get(t.course_id); if (!s) continue

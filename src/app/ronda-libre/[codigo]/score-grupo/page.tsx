@@ -18,7 +18,8 @@ import TeamLeaderboard from '@/components/TeamLeaderboard'
 /* ── Helpers ── */
 function getTeeYardageColumn(tee: string): string {
   const t = tee.toLowerCase()
-  if (t === 'black' || t === 'campeonato' || t === 'negro') return 'yardaje_campeonato'
+  // Aliases defensivos para datos externos / snapshots viejos.
+  if (t === 'negras' || t === 'black' || t === 'campeonato' || t === 'negro') return 'yardaje_negras'
   if (t === 'blue' || t === 'azul') return 'yardaje_azul'
   if (t === 'white' || t === 'blanco') return 'yardaje_blanco'
   if (t === 'red' || t === 'rojo') return 'yardaje_rojo'
@@ -185,7 +186,7 @@ export default function ScoreGrupoPage() {
 
       if (r.course_id) {
         let query = supabase.from('course_holes')
-          .select('numero, par, stroke_index, recorrido, yardaje_campeonato, yardaje_azul, yardaje_blanco, yardaje_rojo, yardaje_verificado_at')
+          .select('numero, par, stroke_index, recorrido, yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo, yardaje_verificado_at')
           .eq('course_id', r.course_id)
         // Multi-loop: filter by selected recorridos
         const recorridos = r.recorridos as string[] | null
@@ -212,7 +213,7 @@ export default function ScoreGrupoPage() {
                 ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
                 : null,
               yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {
-                campeonato: (h as Record<string, unknown>).yardaje_campeonato as number | null ?? null,
+                negras: (h as Record<string, unknown>).yardaje_negras as number | null ?? null,
                 azul: h.yardaje_azul ?? null,
                 blanco: h.yardaje_blanco ?? null,
                 rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,

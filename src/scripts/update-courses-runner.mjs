@@ -33,7 +33,7 @@ function estimateSI(holes) {
 
 function mapTee(name) {
   const l = name.toLowerCase()
-  if (['negro','negra','black','championship'].includes(l)) return 'campeonato'
+  if (['negras','negro','negra','black','championship','campeonato'].includes(l)) return 'negras'
   if (['azul','blue'].includes(l)) return 'azul'
   if (['blanco','blanca','white'].includes(l)) return 'blanco'
   if (['rojo','roja','red'].includes(l)) return 'rojo'
@@ -116,7 +116,7 @@ async function processStandard(name, apiId) {
     const yards = {}
     for (const t of allTees) {
       const m = mapTee(t.tee_name)
-      const col = m === 'campeonato' ? 'yardaje_campeonato' : m === 'azul' ? 'yardaje_azul' : m === 'blanco' ? 'yardaje_blanco' : m === 'rojo' ? 'yardaje_rojo' : null
+      const col = m === 'negras' ? 'yardaje_negras' : m === 'azul' ? 'yardaje_azul' : m === 'blanco' ? 'yardaje_blanco' : m === 'rojo' ? 'yardaje_rojo' : null
       if (col && t.holes[i]) yards[col] = t.holes[i].yardage
     }
     await upsertHole(courseId, i + 1, primary.holes[i].par, si[i], yards)

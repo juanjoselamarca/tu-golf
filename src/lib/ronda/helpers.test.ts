@@ -26,10 +26,11 @@ describe('generarOrdenHoyos', () => {
 })
 
 describe('getTeeYardageColumn', () => {
-  it('mapea tees negros/campeonato → yardaje_campeonato', () => {
-    expect(getTeeYardageColumn('black')).toBe('yardaje_campeonato')
-    expect(getTeeYardageColumn('campeonato')).toBe('yardaje_campeonato')
-    expect(getTeeYardageColumn('negro')).toBe('yardaje_campeonato')
+  it('mapea tees negras + aliases (campeonato/black/negro) → yardaje_negras', () => {
+    expect(getTeeYardageColumn('negras')).toBe('yardaje_negras')
+    expect(getTeeYardageColumn('black')).toBe('yardaje_negras')
+    expect(getTeeYardageColumn('campeonato')).toBe('yardaje_negras')
+    expect(getTeeYardageColumn('negro')).toBe('yardaje_negras')
   })
   it('mapea tees azules → yardaje_azul', () => {
     expect(getTeeYardageColumn('blue')).toBe('yardaje_azul')

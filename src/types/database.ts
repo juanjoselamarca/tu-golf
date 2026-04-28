@@ -27,7 +27,7 @@ export interface CourseHole {
   stroke_index:         number
   yardaje_blanco:       number
   yardaje_azul:         number
-  yardaje_campeonato:   number
+  yardaje_negras:   number
   yardaje_rojo?:        number
 }
 
@@ -107,7 +107,7 @@ export interface RondaLibre {
   creador_id:     string
   course_id:      string | null
   course_name:    string
-  tees:           'blanco' | 'azul' | 'campeonato' | 'rojo'
+  tees:           'blanco' | 'azul' | 'negras' | 'rojo'
   holes:          number
   fecha:          string
   estado:         'en_curso' | 'finalizada'
