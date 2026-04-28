@@ -533,56 +533,109 @@ export default function PerfilPage() {
           <ExperiencePanel />
         </div>
 
-        {/* Eliminar cuenta */}
-        <div style={{ marginTop: '32px', padding: '20px', background: '#fff5f5', borderRadius: '16px', border: '1px solid #fecaca' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#991b1b', marginBottom: '8px' }}>Eliminar mi cuenta</h3>
-          <p style={{ fontSize: '13px', color: '#b91c1c', marginBottom: '16px', lineHeight: 1.5 }}>
-            Se eliminarán todos tus datos: perfil, rondas, historial, estadísticas y sesiones de coaching. Esta acción no se puede deshacer.
-          </p>
-          {deleteStep === 0 && (
-            <Button variant="destructive" size="md" onClick={() => setDeleteStep(1)}>
-              Eliminar mi cuenta permanentemente
-            </Button>
-          )}
-          {deleteStep === 1 && (
-            <div style={{ background: '#fef2f2', borderRadius: '12px', padding: '16px', border: '1px solid #fca5a5' }}>
-              <p style={{ fontSize: '14px', fontWeight: 600, color: '#991b1b', marginBottom: '12px' }}>
-                ¿Estás seguro? Se borrarán TODOS tus datos y no podrás recuperarlos.
+        {/* Eliminar cuenta — link discreto al final + modal de confirmación.
+            Premium: la zona peligro NO es protagonista visual. */}
+        <div style={{ marginTop: '32px', textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setDeleteStep(1)}
+            style={{
+              background: 'transparent', border: 'none', padding: '8px 12px',
+              fontSize: '12px', color: '#94a3b8', cursor: 'pointer',
+              textDecoration: 'underline', textUnderlineOffset: '3px',
+              fontFamily: '"DM Sans", system-ui, sans-serif',
+            }}
+          >
+            Eliminar mi cuenta
+          </button>
+        </div>
+
+        {/* Modal de confirmación — solo render cuando deleteStep > 0 */}
+        {deleteStep > 0 && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-title"
+            onClick={() => deleteStep === 1 && setDeleteStep(0)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 1000,
+              background: 'rgba(7,13,24,0.55)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '24px',
+              animation: 'modalOverlayIn 200ms ease-out both',
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: '#ffffff', borderRadius: '16px',
+                padding: '28px', maxWidth: '420px', width: '100%',
+                border: '1px solid rgba(220,38,38,0.18)',
+                boxShadow: '0 24px 48px rgba(7,13,24,0.18)',
+                animation: 'modalCardIn 320ms ease-out both',
+              }}
+            >
+              <h3
+                id="delete-account-title"
+                style={{
+                  fontFamily: '"Playfair Display", serif',
+                  fontSize: '20px', fontWeight: 600,
+                  color: '#1a1a2e', margin: '0 0 8px',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                ¿Eliminar tu cuenta?
+              </h3>
+              <p style={{ fontSize: '13px', color: '#4a5568', margin: '0 0 20px', lineHeight: 1.55 }}>
+                Se borrarán todos tus datos: perfil, rondas, historial, estadísticas y sesiones de coaching.
+                <br />
+                <strong style={{ color: '#991b1b' }}>Esta acción no se puede deshacer.</strong>
               </p>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={async () => {
-                    setDeleteStep(2)
-                    try {
-                      const res = await fetch('/api/profile/delete-account', { method: 'DELETE' })
-                      if (res.ok) {
-                        addToast({ title: 'Cuenta eliminada', message: 'Tu cuenta y todos tus datos fueron eliminados.', type: 'success' })
-                        setTimeout(() => { window.location.href = '/' }, 1500)
-                      } else {
-                        const data = await res.json().catch(() => ({}))
-                        addToast({ title: 'No se pudo eliminar', message: data.error || 'Ocurrió un error. Intenta de nuevo o contacta soporte.', type: 'error' })
+              {deleteStep === 1 && (
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <Button variant="ghost" size="sm" onClick={() => setDeleteStep(0)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async () => {
+                      setDeleteStep(2)
+                      try {
+                        const res = await fetch('/api/profile/delete-account', { method: 'DELETE' })
+                        if (res.ok) {
+                          addToast({ title: 'Cuenta eliminada', message: 'Tu cuenta y todos tus datos fueron eliminados.', type: 'success' })
+                          setTimeout(() => { window.location.href = '/' }, 1500)
+                        } else {
+                          const data = await res.json().catch(() => ({}))
+                          addToast({ title: 'No se pudo eliminar', message: data.error || 'Ocurrió un error. Intenta de nuevo o contacta soporte.', type: 'error' })
+                          setDeleteStep(0)
+                        }
+                      } catch {
+                        addToast({ title: 'Sin conexión', message: 'No pudimos conectar con el servidor. Verifica tu internet e intenta de nuevo.', type: 'error' })
                         setDeleteStep(0)
                       }
-                    } catch {
-                      addToast({ title: 'Sin conexión', message: 'No pudimos conectar con el servidor. Verifica tu internet e intenta de nuevo.', type: 'error' })
-                      setDeleteStep(0)
-                    }
-                  }}
-                >
-                  Sí, eliminar todo
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setDeleteStep(0)}>
-                  Cancelar
-                </Button>
-              </div>
+                    }}
+                  >
+                    Sí, eliminar todo
+                  </Button>
+                </div>
+              )}
+              {deleteStep === 2 && (
+                <p style={{ fontSize: '14px', color: '#991b1b', fontWeight: 500, margin: 0 }}>
+                  Eliminando tu cuenta...
+                </p>
+              )}
             </div>
-          )}
-          {deleteStep === 2 && (
-            <p style={{ fontSize: '14px', color: '#991b1b', fontWeight: 500 }}>Eliminando tu cuenta...</p>
-          )}
-        </div>
+            <style>{`
+              @keyframes modalOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+              @keyframes modalCardIn {
+                from { opacity: 0; transform: translateY(8px) scale(0.97); }
+                to { opacity: 1; transform: translateY(0) scale(1); }
+              }
+            `}</style>
+          </div>
+        )}
       </div>
     </div>
   )
