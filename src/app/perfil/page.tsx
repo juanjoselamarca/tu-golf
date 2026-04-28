@@ -9,8 +9,10 @@ import { nivelCPI } from '@/golf/stats/cpi'
 import { addToast } from '@/hooks/useToast'
 import { NIVEL_LABELS, NIVEL_DESCRIPCION, rondasParaActivar } from '@/lib/indice-golfers'
 import { Button } from '@/components/ui/Button'
+import { Avatar } from '@/components/ui/Avatar'
 import { LevelsBar } from '@/components/perfil/LevelsBar'
 import { getNivel } from '@/lib/mi-golf/niveles'
+import { Check, ChevronUp, ChevronDown } from '@/components/icons'
 
 interface Profile {
   id: string
@@ -139,13 +141,6 @@ export default function PerfilPage() {
 
   if (!profile) return null
 
-  const initials = (profile.name || 'G')
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-
   const playerTier = getPlayerTier(profile.indice)
 
   return (
@@ -165,9 +160,8 @@ export default function PerfilPage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {initials}
-            </div>
+            <Avatar name={profile.name || 'Golfista'} size="xl" />
+
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
@@ -300,7 +294,7 @@ export default function PerfilPage() {
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#c4992a', flexShrink: 0 }} />
             <div>
               <p style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a2e', margin: 0 }}>
-                {NIVEL_LABELS[profile.nivel] ?? 'Rookie'}
+                {NIVEL_LABELS[profile.nivel] ?? 'Sin nivel'}
               </p>
               <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>
                 {NIVEL_DESCRIPCION[profile.nivel] ?? ''}
@@ -340,8 +334,9 @@ export default function PerfilPage() {
                 {getCpiLabel(cpiData.score)}
               </span>
               {cpiData.trend !== 0 && (
-                <span style={{ fontSize: '14px', fontWeight: 600, color: cpiData.trend > 0 ? '#16a34a' : '#dc2626' }}>
-                  {cpiData.trend > 0 ? '▲' : '▼'} {cpiData.trend > 0 ? '+' : ''}{cpiData.trend.toFixed(1)}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '14px', fontWeight: 600, color: cpiData.trend > 0 ? '#16a34a' : '#dc2626' }}>
+                  {cpiData.trend > 0 ? <ChevronUp size={16} strokeWidth={2.5} /> : <ChevronDown size={16} strokeWidth={2.5} />}
+                  {cpiData.trend > 0 ? '+' : ''}{cpiData.trend.toFixed(1)}
                 </span>
               )}
             </div>
@@ -417,7 +412,11 @@ export default function PerfilPage() {
               Cuenta
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {saved && <span style={{ fontSize: '13px', color: '#22c55e' }}>✓ Guardado</span>}
+              {saved && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#16a34a' }}>
+                  <Check size={14} strokeWidth={2.5} /> Guardado
+                </span>
+              )}
               {!editing && (
                 <Button variant="nav" size="sm" onClick={() => setEditing(true)}>
                   Editar perfil
