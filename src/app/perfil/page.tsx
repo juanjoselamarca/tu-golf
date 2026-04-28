@@ -158,6 +158,7 @@ export default function PerfilPage() {
             borderRadius: '16px',
             padding: '20px',
             marginBottom: '16px',
+            animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
@@ -201,7 +202,7 @@ export default function PerfilPage() {
         </div>
 
         {/* Dual Index Cards — P18: storytelling explícito de qué es cada índice */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '100ms' }}>
           {/* Índice Federación */}
           <div style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
             <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', fontFamily: '"DM Mono", monospace', marginBottom: '8px', margin: '0 0 8px' }}>
@@ -246,7 +247,7 @@ export default function PerfilPage() {
         </div>
 
         {/* P18: link explicativo — "¿Cuándo uso cuál?" */}
-        <div style={{ marginBottom: '12px', textAlign: 'center' }}>
+        <div style={{ marginBottom: '12px', textAlign: 'center', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '180ms' }}>
           <Link href="/indices" style={{
             fontSize: '12px', color: '#c4992a', textDecoration: 'none',
             fontFamily: '"DM Sans", system-ui, sans-serif', fontWeight: 600,
@@ -643,6 +644,13 @@ export default function PerfilPage() {
           </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes profileIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }
