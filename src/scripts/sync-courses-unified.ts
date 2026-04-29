@@ -151,8 +151,20 @@ function mapTeeToBdColumn(apiTeeName: string): 'yardaje_negras' | 'yardaje_azul'
 }
 
 // ─── Match tee BD by nombre against API tee_name ────────────────────────
+// Mapea cualquier alias al nombre canónico Chilean Spanish que se persiste en
+// course_tees.nombre tras la migración 030. Si el caller ya normalizó (tras
+// migración 030 el BD tiene 'negras'/'azul'/'blanco'/'rojo'/'dorado'), esta
+// función es idempotente. Para nombres compuestos (multi-loop manual) o
+// desconocidos devuelve el lowercase tal cual para que el match por substring
+// siga funcionando.
 function normTeeName(s: string): string {
-  return s.toLowerCase().trim().replace(/s$/, '') // singular
+  const lower = s.toLowerCase().trim()
+  if (['negras','negro','negra','black','championship','campeonato'].includes(lower)) return 'negras'
+  if (['azul','azules','blue'].includes(lower)) return 'azul'
+  if (['blanco','blanca','blancas','white'].includes(lower)) return 'blanco'
+  if (['rojo','roja','rojas','red','ladies'].includes(lower)) return 'rojo'
+  if (['dorado','dorada','gold','yellow','amarillo'].includes(lower)) return 'dorado'
+  return lower
 }
 function matchTees(bdTees: { id: string; nombre: string }[], apiTee: ApiTee): string | null {
   const apiN = normTeeName(apiTee.tee_name)

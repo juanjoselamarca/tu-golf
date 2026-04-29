@@ -4,6 +4,68 @@
 
 ---
 
+## Sesión 28 Abr 2026 — Cross-validation canchas + fix slope FedeGolf
+
+**Problema**: tras la migración 026 que renombró `course_holes.yardaje_campeonato → yardaje_negras` y normalizó tees por género, quedó pendiente `course_tees.nombre`. El sync `sync-courses-unified.ts` seguía guardando los tees como singular masculino (`'negro'`), mientras la UI envía plural Chilean Spanish (`'negras'`) post-026. Resultado: la función `cargarCourseData()` hacía `ILIKE 'negras%'` que NO matcheaba con `'negro'` en BD, caía al fallback `courses.slope_rating` (que para FedeGolf es placeholder universal `113`), produciendo course handicaps subestimados (~−4 strokes) para jugadores con tee Negras en cancha FedeGolf. Impacto histórico medido: 3 jugadores con tee `negras` en rondas libres FedeGolf calcularon HCP con slope falso. 0 torneos afectados (no había torneos sobre canchas FedeGolf todavía).
+
+**Causa raíz adicional**: `course_tees.nombre` tenía 4 capas de inconsistencias:
+1. FedeGolf con `'negro'` singular vs UI `'negras'` plural
+2. Manual con aliases en inglés (`'Blue'`, `'White'`, `'Red'`, `'Black'`) duplicando filas en español del mismo color (4 canchas, 11 filas duplicadas: Lomas de La Dehesa, Los Leones, Prince of Wales, Sport Francés)
+3. Manual con sinónimos inconsistentes (`'campeonato'`, `'blancas'`, `'azules'`)
+4. FedeGolf con capitalize inicial (`'Rojo'`, `'Blanco'`, `'Azul'`, `'Dorado'`) vs manual lowercase
+
+**Solución**:
+
+### Migración 030 (`supabase/migrations/030_normalize_course_tees_nombres.sql`)
+- DEDUP: borra filas que tras normalizar colisionarían en `(course_id, nombre)` UNIQUE — 11 filas borradas
+- RENAME simples: 5 mapeos canónicos en una pasada (case-insensitive)
+  - `negro|negra|black|championship|campeonato → negras`
+  - `blue|azules → azul`
+  - `blanca|blancas|white → blanco`
+  - `roja|rojas|red|ladies → rojo`
+  - `dorada|gold|yellow|amarillo → dorado`
+- RENAME compuestos (con underscore): preserva el sufijo loop con REGEXP_REPLACE en prefijo
+  - `negro_sur_este → negras_sur_este` etc.
+- LOWERCASE final: forzar minúscula en los 5 simples para eliminar capitalize residual
+- Idempotente: re-ejecutar no produce cambios
+
+### Fix sync (`src/scripts/sync-courses-unified.ts:154-167`)
+Reemplazado `normTeeName()` que hacía `replace(/s$/, '')` (singular hack) por mapping canónico explícito alineado con migración 030. El sync no inserta tees nuevos (solo UPDATE), así que el riesgo de regresión era bajo, pero el fix previene desincronización futura si la lógica de matching cambia.
+
+### Doc canónico (`docs/ARQUITECTURA.md`)
+Sección nueva "Modelo de canchas — FUENTE DE VERDAD" con jerarquía Club → Recorrido → Hoyo → Tee, asignación de tees por categoría WHS (Negras/Azul/Blanco/Dorado/Rojo por HCP/edad/género), mapeo conceptual ↔ BD actual con la deuda de duplicación DAMAS/VARONES, 7 reglas de validación y target del refactor futuro (tabla `clubs` + `recorridos` + `tees` con CR/slope por género en una fila).
+
+**Archivos tocados**:
+- `supabase/migrations/030_normalize_course_tees_nombres.sql` (nuevo)
+- `src/scripts/sync-courses-unified.ts` (normTeeName)
+- `docs/ARQUITECTURA.md` (sección Modelo de canchas)
+- `docs/SPRINT_LOG.md` (esta entrada)
+- `.claude/projects/.../memory/reference_modelo_canchas.md` (nuevo)
+- `.claude/projects/.../memory/feedback_canchas_damas_varones.md` (nuevo)
+
+**Verificación end-to-end**:
+- `npx tsc --noEmit`: 0 errores
+- `npm run test`: 5904/5904 pass (321 archivos)
+- `npm run build`: OK
+- Auditoría funcional `cargarCourseData` lookup contra BD producción:
+  - tee=negras: antes 0/137 canchas FedeGolf matcheaban, ahora **25/137** ✅
+  - tee=rojo: 135/137 (sin cambio)
+  - tee=azul: 77/137 (sin cambio)
+  - tee=blanco: 80/137 (sin cambio)
+  - tee=dorado: 40/137 (sin cambio)
+- Tees totales post-migración: fedegolf 357 (sin pérdidas) + manual 113 (124 − 11 dedup) = 470
+- Distribución canónica: rojo 153 + azul 98 + blanco 98 + dorado 45 + negras 32 = 426 simples + 44 compuestos manual
+
+**Pendientes / Brechas detectadas (NO bloqueantes para este sprint)**:
+- 7 canchas FedeGolf con `par_total ≠ SUM(course_holes.par)` — incluyendo C.G. 7 Rios (par=0, fila legacy a borrar) y 2 canchas con 36 hoyos cargados (Bahia Coique DAMAS, Santa Martina Verde DAMAS — duplicados a deduplicar)
+- 19 canchas manual con SI duplicado (regla R3 falla — calidad de carga manual)
+- 51 canchas FedeGolf sin course_rating
+- 0 fotos / 0 coordenadas en las 137 FedeGolf
+- `courses.slope_rating = 113` placeholder para todas las FedeGolf — funciona como fallback intencional cuando lookup de tee falla; documentado en `docs/ARQUITECTURA.md`
+- Modelado redundante DAMAS/VARONES — 137 filas FedeGolf representan ~68 canchas físicas reales
+
+---
+
 ## Sesión 23 Abr 2026 — Saneamiento pre-handoff + fixes CI
 
 **Problema**: tras el audit UI/UX cerrado el día anterior, el proyecto no tenía CI, baseline de cobertura, runbooks ni ADRs — falta handoff pack para CTO humano. En paralelo, primer run del CI creado falló por dos issues ortogonales (side effects a module-load y pool de vitest).

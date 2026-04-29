@@ -68,6 +68,105 @@ COACHING:  player_patterns, taiger_sessions, player_psych_profile
 TRACKING:  handicap_history
 LIBRE:     rondas_libres, ronda_libre_jugadores
 
+## Modelo de canchas — FUENTE DE VERDAD
+
+Este es el modelo conceptual real del golf. La BD actual lo aproxima de forma
+flat (ver "Mapeo a la BD actual" abajo) pero toda lógica de negocio debe
+razonar sobre el modelo conceptual, no sobre el flat.
+
+### Jerarquía conceptual
+
+```
+Club de Golf
+  └─ Recorrido (loop físico de 9 hoyos: "Norte", "Sur", "Este", etc.)
+       └─ Hoyo (par + stroke_index propios del recorrido — físicos, no por género)
+
+Cancha jugable = combinación de 1 o 2+ recorridos
+  ├─  9 hoyos  → 1 recorrido (ej. "Norte")
+  ├─ 18 hoyos  → 2 recorridos (ej. "Norte–Este")
+  ├─ 27 hoyos  → 3 recorridos
+  └─ 36 hoyos  → 4 recorridos (ej. Las Brisas Santo Domingo: Norte/Sur/Este/Oeste combinables)
+```
+
+Cada hoyo de la cancha jugable tiene N tees (salidas), de más lejos a más
+cerca del green:
+
+| Tee     | Color   | Asignación de jugador por defecto                         |
+|---------|---------|-----------------------------------------------------------|
+| Negras  | Negro   | HCP < 5 (jugadores bajo)                                  |
+| Azules  | Azul    | Varones HCP < 18 y edad < 55                              |
+| Blancas | Blanco  | Senior: HCP ≥ 18 o edad ≥ 55                              |
+| Doradas | Dorado  | Super Senior: edad ≥ 70                                   |
+| Rojas   | Rojo    | Damas (default)                                           |
+
+**Cada tee tiene su propio yardaje, slope_rating y course_rating.** Lo común
+es que difieran tee a tee; pueden coincidir en casos puntuales pero no es lo
+habitual.
+
+### Por qué slope/CR varían por género
+
+Las reglas WHS (USGA/R&A) calculan course rating contra un "scratch player"
+estándar — uno definido para hombres, otro para damas. La misma cancha física
+con el mismo tee tiene **dos ratings oficiales distintos** según el género del
+jugador. El yardaje es físico (no cambia), el rating sí.
+
+### Mapeo a la BD actual (deuda conocida)
+
+| Nivel conceptual              | En la BD                                      | Brecha                                        |
+|-------------------------------|-----------------------------------------------|-----------------------------------------------|
+| Club                          | implícito en `courses.nombre` (prefijo)       | sin tabla `clubs` propia                      |
+| Recorrido (9 hoyos físicos)   | NO existe como entidad                        | los recorridos viven solo dentro del nombre   |
+| Cancha jugable                | una fila en `courses` por género              | duplicada como `(DAMAS)` y `(VARONES)`        |
+| Hoyo                          | `course_holes` con `course_id` por género     | duplicados — el mismo hoyo físico cargado 2x  |
+| Tee                           | `course_tees` con un solo slope/CR por fila   | sin slope/CR cruzado por género en una fila   |
+
+**Consecuencias prácticas:**
+- 137 filas FedeGolf en `courses` representan ~68 canchas físicas reales.
+- Yardajes de hoyos aparecen duplicados en la fila DAMAS y la fila VARONES del
+  mismo loop físico.
+- Una cancha como "Brisas Santo Domingo - Norte–Este (VARONES)" y
+  "Brisas Santo Domingo - Norte–Este (DAMAS)" son la **misma cancha jugable**
+  con ratings distintos.
+
+### Reglas de validación de datos
+
+Para que una fila en `courses` se considere íntegra:
+
+1. **par_total = SUM(course_holes.par)** sobre los hoyos cargados de esa cancha.
+2. **COUNT(course_holes) ∈ {9, 18, 27, 36}** — no múltiplos extraños.
+3. **stroke_index únicos por cancha**, valores 1..N donde N = num_hoyos.
+4. **Jerarquía de yardajes por hoyo**: `negras ≥ azul ≥ blanco ≥ rojo` (con
+   tolerancia ±2 yds por carga manual).
+5. **Yardajes > 0** y dentro de rango razonable por par (par 3: 80–260 yds,
+   par 4: 250–500 yds, par 5: 430–650 yds — solo orientativo, no excluyente).
+6. **Coherencia DAMAS↔VARONES**: para el mismo `(club, recorrido)`, el par y
+   el stroke_index de cada hoyo deben coincidir entre las filas DAMAS y VARONES.
+7. **Yardajes por género esperado**: una fila DAMAS típicamente solo carga
+   yardaje de Rojas (y a veces Doradas); cargar Negras en una fila DAMAS es
+   ruido salvo que haya ratings damas para esos tees.
+
+### Refactor futuro (no urgente)
+
+Cuando el modelo flat actual cause más fricción que beneficio, el target es:
+
+```sql
+clubs           (id, nombre, ciudad, pais, foto_url, lat, lng, sitio_web)
+recorridos      (id, club_id, nombre, num_hoyos)
+recorrido_holes (id, recorrido_id, numero, par, stroke_index)
+canchas_jugables(id, club_id, nombre, tipo)         -- "Norte-Este", etc
+cancha_recorridos(cancha_id, recorrido_id, orden)   -- 1=primeros 9, 2=segundos 9
+tees            (id, cancha_id, color, yardaje_total,
+                 cr_varones, slope_varones, cr_damas, slope_damas)
+tee_holes       (tee_id, recorrido_hole_id, yardaje)
+```
+
+Trade-off: elimina la duplicación DAMAS/VARONES, permite combinar recorridos
+sin re-cargar hoyos, y soporta CR/slope por género en una sola fila. Costo:
+migración no trivial + reescritura de queries de scoring.
+
+**Decisión actual:** mantener el modelo flat hasta que un caso real lo rompa.
+Documentado como deuda visible en TECH_DEBT.md.
+
 ## Sistema de Diseño
 bg-deep: #070d18 | bg-card: #0e1c2f
 gold/brand: #c4992a | gold-light: #c8a55a

@@ -1,15 +1,15 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-04-22 | Commit: `3d7c2df`
+> Auto-generado: 2026-04-29 | Commit: `9136fa2`
 
 ## Último deploy
 
-- **Commit:** `3d7c2df` — feat(ronda): RoundHighlights en espectador finalizado
-- **Fecha:** 2026-04-22
-- **Branch:** main (605 commits total)
+- **Commit:** `9136fa2` — feat(theme): tri-state toggle Auto/Claro/Oscuro en Navbar dropdown
+- **Fecha:** 2026-04-28
+- **Branch:** main (743 commits total)
 - **URL:** https://golfersplus.vercel.app
 
-## Páginas en producción (44 páginas)
+## Páginas en producción (45 páginas)
 
 - `/admin/analytics`
 - `/admin/finanzas`
@@ -26,6 +26,7 @@
 - `/coach/sesion/[id]`
 - `/dashboard`
 - `/demo`
+- `/demo/taiger`
 - `/en-vivo`
 - `/importar`
 - `/indices`
@@ -75,25 +76,25 @@
 
 ---
 
-## Sesión 22 Abr 2026 (AM) — Sprint 4 F · Última Ronda Express
+## Sesión 28 Abr 2026 — Cross-validation canchas + fix slope FedeGolf
 
-**Fecha:** 22 Abr 2026, mañana
-**Estado:** ✅ DESPLEGADO en producción
-**Alcance:** Brainstorm completo + spec + mockup V6 + implementación + push. 2 commits puros.
+**Problema**: tras la migración 026 que renombró `course_holes.yardaje_campeonato → yardaje_negras` y normalizó tees por género, quedó pendiente `course_tees.nombre`. El sync `sync-courses-unified.ts` seguía guardando los tees como singular masculino (`'negro'`), mientras la UI envía plural Chilean Spanish (`'negras'`) post-026. Resultado: la función `cargarCourseData()` hacía `ILIKE 'negras%'` que NO matcheaba con `'negro'` en BD, caía al fallback `courses.slope_rating` (que para FedeGolf es placeholder universal `113`), produciendo course handicaps subestimados (~−4 strokes) para jugadores con tee Negras en cancha FedeGolf. Impacto histórico medido: 3 jugadores con tee `negras` en rondas libres FedeGolf calcularon HCP con slope falso. 0 torneos afectados (no había torneos sobre canchas FedeGolf todavía).
 
-### Problema
-Feedback real de golfistas sobre el flujo post-ronda: "quiero ver la ronda de hoy ULTRA rápido cuando estoy en el restaurant del club con amigos, el teléfono va de mano en mano". La vista `/perfil/historial` existía pero exigía navegación; no había entry point 0-click desde el dashboard.
+**Causa raíz adicional**: `course_tees.nombre` tenía 4 capas de inconsistencias:
+1. FedeGolf con `'negro'` singular vs UI `'negras'` plural
+2. Manual con aliases en inglés (`'Blue'`, `'White'`, `'Red'`, `'Black'`) duplicando filas en español del mismo color (4 canchas, 11 filas duplicadas: Lomas de La Dehesa, Los Leones, Prince of Wales, Sport Francés)
+3. Manual con sinónimos inconsistentes (`'campeonato'`, `'blancas'`, `'azules'`)
+4. FedeGolf con capitalize inicial (`'Rojo'`, `'Blanco'`, `'Azul'`, `'Dorado'`) vs manual lowercase
 
-### Solución
-**UltimaRondaHero** (4º estado del hero contextual en Mi Golf) + **RoundHighlights** (bloque de resumen en el espectador finalizado). Cero rutas nuevas — se insertan en superficies que ya existen.
+**Solución**:
 
-### Proceso
-1. Brainstorming con el PM: 4 jobs priorizados (revisar rápido · ver desempeño · tarjeta Fedegolf · compartir). Descarte explícito de timeline/filtros/búsqueda/export PDF.
-2. Spec V6 con decisiones de diseño: Playfair Display + DM Mono + gold. Patrón HeroProximo replicado. Paleta Garmin Formato 2 en activity bar.
-3. Mockup V6 interactivo (`docs/demos/ultima-ronda-express-mockup.html`) — iteración visual antes de código, auditoría matemática stamp visible, responsive mobile + phone frame real.
-4. Plan TDD 12-task (`docs/superpowers/plans/2026-04-21-ultima-ronda-express-plan.md`) con código exacto.
-5. Ejecución inline con `executing-plans`.
-
+### Migración 030 (`supabase/migrations/030_normalize_course_tees_nombres.sql`)
+- DEDUP: borra filas que tras normalizar colisionarían en `(course_id, nombre)` UNIQUE — 11 filas borradas
+- RENAME simples: 5 mapeos canónicos en una pasada (case-insensitive)
+  - `negro|negra|black|championship|campeonato → negras`
+  - `blue|azules → azul`
+  - `blanca|blancas|white → blanco`
+  - `roja|rojas|red|ladies → rojo`
 
 ---
 
