@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import NotificationHub from '@/components/NotificationHub'
-import { Home, Radio, TrendingUp, ClipboardList, Upload, Zap, Play, Bell, Trophy, Settings, Sun, Moon } from '@/components/icons'
+import { Home, Radio, TrendingUp, ClipboardList, Upload, Zap, Play, Bell, Trophy, Settings } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { useTheme } from '@/contexts/ThemeContext'
 import { getNavTheme } from './nav/nav-theme'
@@ -27,8 +27,8 @@ export default function Navbar() {
   const [playSheetOpen, setPlaySheetOpen] = useState(false)
   const [notifHubOpen, setNotifHubOpen] = useState(false)
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
-  const { theme, toggleTheme } = useTheme()
-  const isDark = theme === 'dark'
+  const { mode, resolved, setMode } = useTheme()
+  const isDark = resolved === 'dark'
   const t = getNavTheme(isDark)
 
   useEffect(() => {
@@ -351,26 +351,50 @@ export default function Navbar() {
             })
           )}
 
-          {/* Dark mode toggle */}
+          {/* Theme toggle — tri-state segmented control */}
           <div style={{ padding: '4px 8px', marginTop: '8px' }}>
             <hr style={{ border: 'none', borderTop: `1px solid ${t.sidebarBorder}`, margin: '0 0 12px' }} />
-            <button
-              onClick={toggleTheme}
+            <div style={{ padding: '0 4px 8px', fontSize: '11px', color: t.menuMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Tema
+            </div>
+            <div
+              role="group"
+              aria-label="Tema"
               style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '10px 8px', minHeight: '44px',
-                borderRadius: '8px', width: '100%',
-                background: 'none', border: 'none',
-                cursor: 'pointer', fontSize: '14px',
-                color: t.menuMuted,
-                transition: 'background 0.15s',
+                display: 'flex',
+                gap: '4px',
+                padding: '4px',
+                background: t.itemActiveBg,
+                borderRadius: '10px',
               }}
             >
-              <span style={{ width: '24px', display: 'inline-flex', justifyContent: 'center', flexShrink: 0 }}>
-                {isDark ? <Sun size={18} strokeWidth={1.5} /> : <Moon size={18} strokeWidth={1.5} />}
-              </span>
-              <span>{isDark ? 'Modo claro' : 'Modo oscuro'}</span>
-            </button>
+              {(['auto', 'light', 'dark'] as const).map(option => {
+                const active = mode === option
+                const label = option === 'auto' ? 'Auto' : option === 'light' ? 'Claro' : 'Oscuro'
+                return (
+                  <button
+                    key={option}
+                    onClick={() => setMode(option)}
+                    style={{
+                      flex: 1,
+                      padding: '8px 10px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      fontFamily: 'var(--font-dm-sans)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      background: active ? '#C4992A' : 'transparent',
+                      color: active ? '#070D18' : t.menuMuted,
+                      transition: 'background 150ms ease, color 150ms ease',
+                    }}
+                    aria-pressed={active}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 
