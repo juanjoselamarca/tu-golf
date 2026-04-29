@@ -273,7 +273,7 @@ function ChatContent() {
                 padding: '12px 16px',
                 borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
                 background: msg.role === 'user' ? 'rgba(196,153,42,0.12)' : '#0e1c2f',
-                color: '#edeae4',
+                color: 'var(--text)',
                 fontSize: 14,
                 lineHeight: 1.6,
                 whiteSpace: msg.role === 'user' ? 'pre-wrap' : 'normal',
@@ -362,7 +362,7 @@ function ChatContent() {
             marginTop: 20,
             padding: 16,
           }}>
-            <p style={{ color: '#94a8c0', fontSize: 14, marginBottom: 12 }}>
+            <p style={{ color: 'var(--text-2)', fontSize: 14, marginBottom: 12 }}>
               Sesión completada
             </p>
             {sessionId && (
@@ -393,7 +393,7 @@ function ChatContent() {
         bottom: 0,
         left: 0,
         right: 0,
-        background: '#0e1c2f',
+        background: 'var(--bg-surface)',
         borderTop: '1px solid rgba(196,153,42,0.2)',
         padding: '12px 16px',
         paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
@@ -411,11 +411,11 @@ function ChatContent() {
           style={{
             flex: 1,
             height: 48,
-            background: '#070d18',
+            background: 'var(--brand-dark)',
             border: '1px solid rgba(196,153,42,0.3)',
             borderRadius: 10,
             padding: '0 16px',
-            color: '#edeae4',
+            color: 'var(--text)',
             fontSize: 14,
             outline: 'none',
             opacity: inputDisabled ? 0.5 : 1,
@@ -430,7 +430,7 @@ function ChatContent() {
             borderRadius: 10,
             background: inputDisabled || !input.trim() ? 'rgba(196,153,42,0.15)' : '#c4992a',
             border: 'none',
-            color: inputDisabled || !input.trim() ? '#94a8c0' : '#070d18',
+            color: inputDisabled || !input.trim() ? '#94a8c0' : 'var(--brand-dark)',
             fontSize: 18,
             cursor: inputDisabled ? 'not-allowed' : 'pointer',
             display: 'flex',
@@ -489,7 +489,7 @@ export default function ChatPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#94a8c0',
+        color: 'var(--text-2)',
       }}>
         Cargando...
       </div>

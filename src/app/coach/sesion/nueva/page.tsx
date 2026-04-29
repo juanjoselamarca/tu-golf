@@ -120,7 +120,7 @@ export default function NuevaSesionPage() {
   }
 
   const cardStyle: React.CSSProperties = {
-    background: '#0e1c2f',
+    background: 'var(--bg-surface)',
     border: '1px solid rgba(196,153,42,0.2)',
     borderRadius: 14,
     padding: 24,
@@ -166,14 +166,14 @@ export default function NuevaSesionPage() {
   return (
     <div style={{ padding: '24px 20px', maxWidth: 600, margin: '0 auto' }}>
       <Link href="/coach" style={{
-        color: '#94a8c0', fontSize: '13px', textDecoration: 'none',
+        color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none',
         display: 'inline-flex', alignItems: 'center', gap: '4px',
         marginBottom: '16px', minHeight: '44px',
       }}>
         ← Coach
       </Link>
       <h1 style={{
-        color: '#edeae4',
+        color: 'var(--text)',
         fontSize: 22,
         fontWeight: 700,
         marginBottom: 8,
@@ -181,7 +181,7 @@ export default function NuevaSesionPage() {
       }}>
         Nueva sesión
       </h1>
-      <p style={{ color: '#94a8c0', fontSize: 14, marginBottom: 24 }}>
+      <p style={{ color: 'var(--text-2)', fontSize: 14, marginBottom: 24 }}>
         ¿Qué quieres trabajar hoy?
       </p>
 
@@ -224,10 +224,10 @@ export default function NuevaSesionPage() {
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(196,153,42,0.2)')}
         >
           <div style={{ marginBottom: 10, color: '#c4992a' }}><PersonStanding size={28} /></div>
-          <h2 style={{ color: '#edeae4', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
+          <h2 style={{ color: 'var(--text)', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
             Análisis post-ronda
           </h2>
-          <p style={{ color: '#94a8c0', fontSize: 13, margin: 0 }}>
+          <p style={{ color: 'var(--text-2)', fontSize: 13, margin: 0 }}>
             Revisamos hole a hole qué pasó, qué área te costó más y qué hacer esta semana para corregirlo.
           </p>
 
@@ -237,23 +237,23 @@ export default function NuevaSesionPage() {
               onClick={e => e.stopPropagation()}
             >
               {rondas.length === 0 ? (
-                <p style={{ color: '#94a8c0', fontSize: 13 }}>
+                <p style={{ color: 'var(--text-2)', fontSize: 13 }}>
                   No tienes rondas registradas aún.
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ color: '#94a8c0', fontSize: 12, marginBottom: 4 }}>
+                  <label style={{ color: 'var(--text-2)', fontSize: 12, marginBottom: 4 }}>
                     Selecciona una ronda:
                   </label>
                   <select
                     value={selectedRonda || ''}
                     onChange={e => setSelectedRonda(e.target.value)}
                     style={{
-                      background: '#070d18',
+                      background: 'var(--bg)',
                       border: '1px solid rgba(196,153,42,0.3)',
                       borderRadius: 8,
                       padding: '10px 12px',
-                      color: '#edeae4',
+                      color: 'var(--text)',
                       fontSize: 14,
                       cursor: 'pointer',
                       width: '100%',
@@ -271,7 +271,7 @@ export default function NuevaSesionPage() {
                       onClick={() => handleAnalyzeRound(selectedRonda)}
                       style={{
                         background: '#c4992a',
-                        color: '#070d18',
+                        color: 'var(--brand-dark)',
                         border: 'none',
                         borderRadius: 8,
                         padding: '10px 20px',
@@ -298,10 +298,10 @@ export default function NuevaSesionPage() {
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(196,153,42,0.2)')}
         >
           <div style={{ marginBottom: 10, color: '#c4992a' }}><Calendar size={28} /></div>
-          <h2 style={{ color: '#edeae4', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
+          <h2 style={{ color: 'var(--text)', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
             Plan semanal
           </h2>
-          <p style={{ color: '#94a8c0', fontSize: 13, margin: 0 }}>
+          <p style={{ color: 'var(--text-2)', fontSize: 13, margin: 0 }}>
             Recibe un plan de práctica personalizado para la semana
           </p>
         </div>
@@ -314,10 +314,10 @@ export default function NuevaSesionPage() {
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(196,153,42,0.2)')}
         >
           <div style={{ marginBottom: 10 }}></div>
-          <h2 style={{ color: '#edeae4', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
+          <h2 style={{ color: 'var(--text)', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
             Consulta libre
           </h2>
-          <p style={{ color: '#94a8c0', fontSize: 13, margin: 0 }}>
+          <p style={{ color: 'var(--text-2)', fontSize: 13, margin: 0 }}>
             Pregúntale lo que quieras a tAIger+ sobre tu juego
           </p>
         </div>

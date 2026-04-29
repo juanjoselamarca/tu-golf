@@ -230,7 +230,7 @@ export default function SesionDetailPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#94a8c0',
+        color: 'var(--text-2)',
       }}>
         Cargando sesión...
       </div>
@@ -248,7 +248,7 @@ export default function SesionDetailPage() {
         gap: 16,
         padding: 20,
       }}>
-        <p style={{ color: '#edeae4', fontSize: 16 }}>Sesión no encontrada</p>
+        <p style={{ color: 'var(--text)', fontSize: 16 }}>Sesión no encontrada</p>
         <button
           onClick={() => router.push('/coach')}
           style={{
@@ -283,7 +283,7 @@ export default function SesionDetailPage() {
       }}>
         {/* Back link */}
         <Link href="/coach" style={{
-          color: '#94a8c0', fontSize: '13px', textDecoration: 'none',
+          color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none',
           display: 'inline-flex', alignItems: 'center', gap: '4px',
           marginBottom: '16px', minHeight: '44px',
         }}>
@@ -306,7 +306,7 @@ export default function SesionDetailPage() {
               {SESSION_TYPE_LABELS[session?.session_type || ''] || session?.session_type}
             </span>
           </span>
-          <span style={{ color: '#94a8c0', fontSize: 12 }}>
+          <span style={{ color: 'var(--text-2)', fontSize: 12 }}>
             {sessionDate}
           </span>
         </div>
@@ -342,7 +342,7 @@ export default function SesionDetailPage() {
               padding: '12px 16px',
               borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
               background: msg.role === 'user' ? 'rgba(196,153,42,0.12)' : '#0e1c2f',
-              color: '#edeae4',
+              color: 'var(--text)',
               fontSize: 14,
               lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
@@ -403,7 +403,7 @@ export default function SesionDetailPage() {
             marginTop: 20,
             padding: 16,
           }}>
-            <p style={{ color: '#94a8c0', fontSize: 14 }}>
+            <p style={{ color: 'var(--text-2)', fontSize: 14 }}>
               Sesión completada
             </p>
           </div>
@@ -424,7 +424,7 @@ export default function SesionDetailPage() {
               </p>
             ) : (
               <>
-                <p style={{ color: '#94a8c0', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
+                <p style={{ color: 'var(--text-2)', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
                   Califica esta sesion con tAIger+
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
@@ -462,11 +462,11 @@ export default function SesionDetailPage() {
                   style={{
                     width: '100%',
                     height: 40,
-                    background: '#070d18',
+                    background: 'var(--bg)',
                     border: '1px solid rgba(196,153,42,0.2)',
                     borderRadius: 8,
                     padding: '0 12px',
-                    color: '#edeae4',
+                    color: 'var(--text)',
                     fontSize: 13,
                     outline: 'none',
                     marginBottom: 12,
@@ -505,7 +505,7 @@ export default function SesionDetailPage() {
         bottom: 0,
         left: 0,
         right: 0,
-        background: '#0e1c2f',
+        background: 'var(--bg-surface)',
         borderTop: '1px solid rgba(196,153,42,0.2)',
         padding: '12px 16px',
         paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
@@ -523,11 +523,11 @@ export default function SesionDetailPage() {
           style={{
             flex: 1,
             height: 48,
-            background: '#070d18',
+            background: 'var(--bg)',
             border: '1px solid rgba(196,153,42,0.3)',
             borderRadius: 10,
             padding: '0 16px',
-            color: '#edeae4',
+            color: 'var(--text)',
             fontSize: 14,
             outline: 'none',
             opacity: inputDisabled ? 0.5 : 1,

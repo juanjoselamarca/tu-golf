@@ -78,7 +78,7 @@ export default function CoachDashboard() {
           { label: 'PATRONES', value: String(stats.patterns), color: stats.patterns > 0 ? '#c4992a' : '#94a8c0' },
           { label: 'CPI', value: stats.cpi != null ? stats.cpi.toFixed(0) : '—', color: stats.cpi != null ? '#c4992a' : '#94a8c0' },
         ].map(s => (
-          <div key={s.label} style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', padding: '14px 8px', textAlign: 'center' }}>
+          <div key={s.label} style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', padding: '14px 8px', textAlign: 'center' }}>
             <div style={{ fontSize: '22px', fontWeight: 700, color: s.color, fontFamily: '"Cormorant Garamond", serif' }}>{s.value}</div>
             <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginTop: '4px' }}>{s.label}</div>
           </div>
@@ -92,15 +92,15 @@ export default function CoachDashboard() {
           borderRadius: '14px', padding: '20px', marginBottom: '16px', textAlign: 'center',
         }}>
           <div style={{ marginBottom: '8px' }}></div>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4', marginBottom: '6px' }}>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px' }}>
             {`${stats.rounds} de 3 rondas para desbloquear tAIger+`}
           </div>
-          <div style={{ fontSize: '13px', color: '#94a8c0', lineHeight: 1.6, marginBottom: '14px', maxWidth: '340px', marginLeft: 'auto', marginRight: 'auto' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.6, marginBottom: '14px', maxWidth: '340px', marginLeft: 'auto', marginRight: 'auto' }}>
             tAIger+ es tu coach. Para darte consejo real necesita conocer tu juego. Registra {3 - stats.rounds === 1 ? '1 ronda más' : `${3 - stats.rounds} rondas más`} y desbloqueás análisis de patrones, plan semanal y consulta libre.
           </div>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/ronda-libre/nueva" style={{
-              display: 'inline-block', background: '#c4992a', color: '#070d18',
+              display: 'inline-block', background: '#c4992a', color: 'var(--brand-dark)',
               fontWeight: 700, fontSize: '13px', padding: '10px 20px', borderRadius: '10px',
               textDecoration: 'none',
             }}>
@@ -122,7 +122,7 @@ export default function CoachDashboard() {
         <>
           <Link href="/coach/sesion/nueva" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-            background: '#c4992a', color: '#070d18', borderRadius: '14px',
+            background: '#c4992a', color: 'var(--brand-dark)', borderRadius: '14px',
             padding: '16px', fontSize: '16px', fontWeight: 700,
             textDecoration: 'none', marginBottom: '24px',
             minHeight: '52px',
@@ -133,20 +133,20 @@ export default function CoachDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
             <Link href="/coach/sesion/nueva/chat?tipo=weekly_plan" style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-              background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
+              background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
               padding: '16px 12px', textDecoration: 'none', textAlign: 'center',
             }}>
               <span style={{ color: '#c4992a' }}><Calendar size={24} /></span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4' }}>Plan semanal</span>
-              <span style={{ fontSize: '11px', color: '#94a8c0' }}>Qué practicar esta semana</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>Plan semanal</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>Qué practicar esta semana</span>
             </Link>
             <Link href="/coach/sesion/nueva/chat?tipo=free" style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-              background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
+              background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
               padding: '16px 12px', textDecoration: 'none', textAlign: 'center',
             }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#edeae4' }}>Consulta libre</span>
-              <span style={{ fontSize: '11px', color: '#94a8c0' }}>Pregunta lo que quieras</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>Consulta libre</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>Pregunta lo que quieras</span>
             </Link>
           </div>
         </>
@@ -162,15 +162,15 @@ export default function CoachDashboard() {
             {sessions.map(s => (
               <Link key={s.id} href={`/coach/sesion/${s.id}`} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.08)', borderRadius: '12px',
+                background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.08)', borderRadius: '12px',
                 padding: '14px 16px', textDecoration: 'none',
               }}>
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#edeae4' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
                     {SESSION_LABELS[s.session_type] ?? s.session_type}
                   </div>
                   {s.next_focus && (
-                    <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '2px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>
                       Foco: {s.next_focus}
                     </div>
                   )}
@@ -183,8 +183,8 @@ export default function CoachDashboard() {
           </div>
         </div>
       ) : (
-        <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '14px', padding: '24px', textAlign: 'center' }}>
-          <div style={{ fontSize: '13px', color: '#94a8c0', lineHeight: 1.6 }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '14px', padding: '24px', textAlign: 'center' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.6 }}>
             Aún no tienes sesiones. Inicia tu primera conversación con tAIger+ y descubre lo que la inteligencia artificial ve en tu juego.
           </div>
         </div>

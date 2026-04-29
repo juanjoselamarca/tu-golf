@@ -264,12 +264,12 @@ export default function CoachOnboarding() {
   /* ── Styles ── */
 
   const colors = {
-    bg: '#070d18',
+    bg: 'var(--bg)',
     gold: '#C4992A',
-    ivory: '#edeae4',
-    gray: '#94a8c0',
-    card: '#0e1c2f',
-    border: 'rgba(196,153,42,0.2)',
+    ivory: 'var(--text)',
+    gray: 'var(--text-2)',
+    card: 'var(--bg-surface)',
+    border: 'var(--border-md)',
   }
 
   const pillStyle: React.CSSProperties = {
