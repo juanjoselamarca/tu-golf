@@ -16,15 +16,15 @@ import {
 
 /* ── Design tokens ── */
 const C = {
-  bg: '#080d0a',
-  card: 'rgba(255,255,255,0.03)',
-  cardBorder: 'rgba(255,255,255,0.07)',
+  bg: 'var(--bg)',
+  card: 'var(--bg-surface)',
+  cardBorder: 'var(--border)',
   green: '#1a9e6e',
   greenDim: 'rgba(26,158,110,0.15)',
   gold: '#c4992a',
   red: '#e05a4e',
-  ivory: 'rgba(240,235,224,0.85)',
-  muted: 'rgba(240,235,224,0.35)',
+  ivory: 'var(--text)',
+  muted: 'var(--text-2)',
 }
 
 const cardStyle: React.CSSProperties = {
@@ -271,7 +271,7 @@ export default function StatsPage() {
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/ronda-libre/nueva" style={{
-                display: 'inline-block', background: '#c4992a', color: '#070d18',
+                display: 'inline-block', background: '#c4992a', color: 'var(--brand-dark)',
                 fontWeight: 700, fontSize: 14, padding: '12px 24px', borderRadius: 10,
                 textDecoration: 'none',
               }}>
@@ -301,7 +301,7 @@ export default function StatsPage() {
               Con 3+ rondas se activan tendencias, promedios y tu Indice Golfers+.
             </p>
             <Link href="/ronda-libre/nueva" style={{
-              display: 'inline-block', background: '#c4992a', color: '#070d18',
+              display: 'inline-block', background: '#c4992a', color: 'var(--brand-dark)',
               fontWeight: 700, fontSize: 13, padding: '10px 20px', borderRadius: 10,
               textDecoration: 'none',
             }}>
@@ -438,7 +438,7 @@ export default function StatsPage() {
                     domain={['dataMin - 5', 'dataMax + 5']}
                   />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: 8 }}
+                    contentStyle={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
                     labelStyle={{ color: C.ivory }}
                     itemStyle={{ color: C.ivory }}
                   />
@@ -490,7 +490,7 @@ export default function StatsPage() {
                     domain={['dataMin - 5', 'dataMax + 5']}
                   />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: 8 }}
+                    contentStyle={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
                     labelStyle={{ color: C.ivory }}
                     itemStyle={{ color: C.ivory }}
                   />
