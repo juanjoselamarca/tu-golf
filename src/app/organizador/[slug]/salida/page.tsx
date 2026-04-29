@@ -107,17 +107,17 @@ export default function HojaSalidaPage() {
     }
   }
 
-  if (loading) return <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0' }}>Cargando...</div>
-  if (!tournament) return <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0' }}>Torneo no encontrado</div>
+  if (loading) return <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>Cargando...</div>
+  if (!tournament) return <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>Torneo no encontrado</div>
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 100px' }}>
-      <Link href={`/organizador/${slug}/jugadores`} style={{ color: '#94a8c0', fontSize: '13px', textDecoration: 'none', marginBottom: '16px', display: 'inline-block' }}>&larr; Volver</Link>
+      <Link href={`/organizador/${slug}/jugadores`} style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', marginBottom: '16px', display: 'inline-block' }}>&larr; Volver</Link>
 
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: '#edeae4', margin: '0 0 4px' }}>{tournament.name}</h1>
-        <p style={{ fontSize: '13px', color: '#94a8c0', margin: 0 }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>{tournament.name}</h1>
+        <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: 0 }}>
           {tournament.course_name} &middot; {tournament.hole_count}H &middot; Tees {tournament.tees}
         </p>
         {tournament.date_start && (
@@ -138,7 +138,7 @@ export default function HojaSalidaPage() {
         </button>
         <button onClick={handleShare} style={{
           flex: 1, padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', border: 'none',
-          background: '#c4992a', color: '#070d18',
+          background: '#c4992a', color: 'var(--brand-dark)',
         }}>
           Compartir
         </button>
@@ -146,9 +146,9 @@ export default function HojaSalidaPage() {
 
       {/* Groups */}
       {groups.map((g, i) => (
-        <div key={i} style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '14px', padding: '16px', marginBottom: '12px' }}>
+        <div key={i} style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '14px', padding: '16px', marginBottom: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>{g.name}</span>
+            <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{g.name}</span>
             {g.tee_time && (
               <span style={{ fontSize: '13px', color: '#c4992a', fontFamily: '"DM Mono", monospace' }}>
                 {new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
@@ -157,8 +157,8 @@ export default function HojaSalidaPage() {
           </div>
           {g.players.map((p, j) => (
             <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: j > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-              <span style={{ fontSize: '14px', color: '#edeae4' }}>{p.name}</span>
-              <span style={{ fontSize: '13px', color: '#94a8c0', fontFamily: '"DM Mono", monospace' }}>
+              <span style={{ fontSize: '14px', color: 'var(--text)' }}>{p.name}</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
                 {p.handicap != null ? p.handicap.toFixed(1) : '—'}
               </span>
             </div>
@@ -167,7 +167,7 @@ export default function HojaSalidaPage() {
       ))}
 
       {groups.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '32px', color: '#94a8c0' }}>
+        <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-2)' }}>
           No hay grupos armados aún. Crea grupos desde la gestión de jugadores.
         </div>
       )}

@@ -320,15 +320,15 @@ export default function ScoringPage() {
 
   if (loading) {
     return (
-      <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#4a5568' }}>Cargando torneo...</div>
+      <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: 'var(--text-2)' }}>Cargando torneo...</div>
       </div>
     )
   }
 
   if (!tournament) {
     return (
-      <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: '#fca5a5' }}>Torneo no encontrado.</div>
       </div>
     )
@@ -336,18 +336,18 @@ export default function ScoringPage() {
 
   if (players.length === 0) {
     return (
-      <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', padding: '40px 20px' }}>
           <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}><PersonStanding size={56} strokeWidth={1.5} /></div>
-          <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#1a1a2e', marginBottom: '10px' }}>
+          <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '10px' }}>
             Sin jugadores inscritos
           </h3>
-          <p style={{ color: '#4a5568', marginBottom: '24px', fontSize: '15px' }}>
+          <p style={{ color: 'var(--text-2)', marginBottom: '24px', fontSize: '15px' }}>
             Inscribe jugadores antes de ingresar scores
           </p>
           <button
             onClick={() => window.location.href = `/organizador/${slug}/jugadores`}
-            style={{ background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '15px', padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: 'pointer' }}
+            style={{ background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: 'pointer' }}
           >
             Inscribir jugadores →
           </button>
@@ -426,12 +426,12 @@ export default function ScoringPage() {
   }, 0)
 
   return (
-    <div style={{ background: '#ffffff', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg-surface)', minHeight: '100vh' }}>
 
       {/* Header */}
       <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#1a1a2e', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: 'var(--text)', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             {tournament.name}
             <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: 'rgba(22,163,74,0.15)', color: '#4ade80', border: '1px solid rgba(22,163,74,0.4)', padding: '3px 10px', borderRadius: '20px', animation: 'pulse 2s infinite' }}>
               ● EN VIVO
@@ -441,7 +441,7 @@ export default function ScoringPage() {
                 R{activeRoundNum}/{totalRounds}
               </span>
             )}
-            {saving && <span style={{ fontSize: '12px', color: '#4a5568', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
+            {saving && <span style={{ fontSize: '12px', color: 'var(--text-2)', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
             {lastAction && !saving && (
               <button
                 onClick={async () => {
@@ -473,7 +473,7 @@ export default function ScoringPage() {
               </button>
             )}
           </h1>
-          <Link href="/dashboard" style={{ color: '#4a5568', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
+          <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
         </div>
         <Link
           href={`/torneo/${tournament.slug}`}
@@ -546,7 +546,7 @@ export default function ScoringPage() {
                   fontWeight: 700,
                   border: '2px solid #c4992a',
                   background: '#c4992a',
-                  color: '#1a1a2e',
+                  color: 'var(--text)',
                   cursor: startingNextRound ? 'not-allowed' : 'pointer',
                   opacity: startingNextRound ? 0.7 : 1,
                   marginLeft: 'auto',
@@ -583,9 +583,9 @@ export default function ScoringPage() {
 
                 return cards.map((c) => (
                   <div key={c.label} style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '11px', color: '#4a5568', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
-                    <div style={{ fontSize: '24px', fontWeight: 700, color: '#1a1a2e', fontFamily: '"Playfair Display", serif' }}>{c.value}</div>
-                    {c.sub && <div style={{ fontSize: '12px', color: '#4a5568', marginTop: '4px' }}>{c.sub}</div>}
+                    <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
+                    <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif' }}>{c.value}</div>
+                    {c.sub && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>{c.sub}</div>}
                   </div>
                 ))
               })()}
@@ -594,15 +594,15 @@ export default function ScoringPage() {
             {/* Player table with editable handicap */}
             <div style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', overflow: 'hidden' }}>
               <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(196,153,42,0.1)' }}>
-                <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: '#1a1a2e' }}>Jugadores</span>
-                <span style={{ fontSize: '12px', color: '#4a5568', marginLeft: '8px' }}>Toca el handicap para editar</span>
+                <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: 'var(--text)' }}>Jugadores</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-2)', marginLeft: '8px' }}>Toca el handicap para editar</span>
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(122,143,168,0.15)' }}>
                       {['Jugador', 'HCP', 'Gross', 'Neto', 'Pts', 'Estado'].map((h) => (
-                        <th key={h} style={{ color: '#4a5568', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '10px 12px', textAlign: h === 'Jugador' ? 'left' : 'center' }}>{h}</th>
+                        <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '10px 12px', textAlign: h === 'Jugador' ? 'left' : 'center' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -613,7 +613,7 @@ export default function ScoringPage() {
                       const isEditingThis = editingHcp === p.id
                       return (
                         <tr key={p.id} style={{ borderBottom: '1px solid rgba(122,143,168,0.06)' }}>
-                          <td style={{ padding: '10px 12px', color: '#1a1a2e', fontWeight: 500 }}>{p.profiles?.name || '--'}</td>
+                          <td style={{ padding: '10px 12px', color: 'var(--text)', fontWeight: 500 }}>{p.profiles?.name || '--'}</td>
                           <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                             {isEditingThis ? (
                               <input
@@ -626,7 +626,7 @@ export default function ScoringPage() {
                                 onChange={(e) => setEditHcpValue(e.target.value)}
                                 onBlur={() => handleHcpSave(p.id)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleHcpSave(p.id); if (e.key === 'Escape') setEditingHcp(null) }}
-                                style={{ width: '56px', background: '#f8f9fa', border: '1px solid #c4992a', borderRadius: '4px', color: '#1a1a2e', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none' }}
+                                style={{ width: '56px', background: 'var(--bg)', border: '1px solid #c4992a', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none' }}
                               />
                             ) : (
                               <button
@@ -638,9 +638,9 @@ export default function ScoringPage() {
                               </button>
                             )}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center', color: '#1a1a2e', fontWeight: 600 }}>{round?.total_gross || '--'}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center', color: '#1a1a2e' }}>{round?.total_net || '--'}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center', color: '#1a1a2e' }}>{round?.total_points || '--'}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)', fontWeight: 600 }}>{round?.total_gross || '--'}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)' }}>{round?.total_net || '--'}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)' }}>{round?.total_points || '--'}</td>
                           <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                             <span style={{
                               fontSize: '11px',
@@ -693,10 +693,10 @@ export default function ScoringPage() {
                     flexShrink: 0,
                   }}
                 >
-                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? '#c4992a' : '#e2e8f0', color: isSelected ? '#1a1a2e' : '#4a5568', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', margin: '0 auto 8px' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? '#c4992a' : '#e2e8f0', color: isSelected ? 'var(--brand-dark)' : 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', margin: '0 auto 8px' }}>
                     {getInitials(p.profiles?.name || '?')}
                   </div>
-                  <div style={{ color: '#1a1a2e', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, marginBottom: '4px' }}>
+                  <div style={{ color: 'var(--text)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, marginBottom: '4px' }}>
                     {p.profiles?.name?.split(' ')[0] || '—'}
                   </div>
                   <div style={{ fontSize: '11px', color: isDone ? '#4ade80' : '#4a5568' }}>
@@ -713,28 +713,28 @@ export default function ScoringPage() {
           <div style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '14px', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(196,153,42,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <div>
-                <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#1a1a2e' }}>{selectedPlayer.profiles?.name}</span>
-                <span style={{ color: '#4a5568', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
+                <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)' }}>{selectedPlayer.profiles?.name}</span>
+                <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
               </div>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
                 {holeCount === 18 && grossTotal > 0 && (
-                  <div style={{ fontSize: '11px', color: '#4a5568', fontFamily: '"DM Mono", monospace', alignSelf: 'center' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', alignSelf: 'center' }}>
                     {outGross}+{inGross}
                   </div>
                 )}
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: '#4a5568', marginBottom: '2px' }}>GROSS</div>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a2e' }}>{grossTotal || '—'}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>GROSS</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)' }}>{grossTotal || '—'}</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: '#4a5568', marginBottom: '2px' }}>NET</div>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: netTotal < 0 ? '#4ade80' : netTotal > 0 ? '#f87171' : '#1a1a2e' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>NET</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: netTotal < 0 ? '#4ade80' : netTotal > 0 ? '#f87171' : 'var(--text)' }}>
                     {grossTotal ? (netTotal <= 0 ? netTotal : `+${netTotal}`) : '—'}
                   </div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: '#4a5568', marginBottom: '2px' }}>vs PAR</div>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: '#4a5568' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>vs PAR</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-2)' }}>
                     {grossTotal ? (() => {
                       const vp = grossTotal - parJugado
                       return vp <= 0 ? String(vp) : `+${vp}`
@@ -765,8 +765,8 @@ export default function ScoringPage() {
                       animation: hasErr ? 'pulse 1s ease-in-out 3' : 'none',
                     }}
                   >
-                    <div style={{ fontSize: '10px', color: '#4a5568', marginBottom: '2px' }}>H{holeNum}</div>
-                    <div style={{ fontSize: '10px', color: '#4a5568', marginBottom: '4px' }}>P{par}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '2px' }}>H{holeNum}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '4px' }}>P{par}</div>
                     <input
                       type="number"
                       min={1}
@@ -780,7 +780,7 @@ export default function ScoringPage() {
                         background: 'transparent',
                         border: 'none',
                         outline: 'none',
-                        color: '#1a1a2e',
+                        color: 'var(--text)',
                         textAlign: 'center',
                         fontSize: '18px',
                         fontWeight: 700,
@@ -811,7 +811,7 @@ export default function ScoringPage() {
               <button
                 type="button"
                 onClick={() => setShowStats(!showStats)}
-                style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#4a5568', fontSize: '13px' }}
+                style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-2)', fontSize: '13px' }}
               >
                 <span style={{ transition: 'transform 200ms', transform: showStats ? 'rotate(90deg)' : 'rotate(0)', display: 'inline-block' }}>▶</span>
                 Estadísticas adicionales — Putts · Fairway · GIR (opcional)
@@ -823,7 +823,7 @@ export default function ScoringPage() {
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(122,143,168,0.15)' }}>
                         {['Hoyo', 'Gross', 'Putts (0-6)', 'Fairway hit', 'GIR'].map((h) => (
-                          <th key={h} style={{ color: '#4a5568', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
+                          <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -837,8 +837,8 @@ export default function ScoringPage() {
 
                         return (
                           <tr key={h} style={{ borderBottom: '1px solid rgba(122,143,168,0.06)', opacity: disabled ? 0.4 : 1 }}>
-                            <td style={{ textAlign: 'center', color: '#4a5568', padding: '6px 8px', fontSize: '12px' }}>H{h} P{par}</td>
-                            <td style={{ textAlign: 'center', color: '#1a1a2e', padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}>{gross ?? '—'}</td>
+                            <td style={{ textAlign: 'center', color: 'var(--text-2)', padding: '6px 8px', fontSize: '12px' }}>H{h} P{par}</td>
+                            <td style={{ textAlign: 'center', color: 'var(--text)', padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}>{gross ?? '—'}</td>
 
                             {/* Putts */}
                             <td style={{ textAlign: 'center', padding: '4px 6px' }}>
@@ -861,7 +861,7 @@ export default function ScoringPage() {
                                     putts: holePutts[h] ?? null,
                                   })})
                                 }}
-                                style={{ width: '48px', background: '#f8f9fa', border: '1px solid rgba(122,143,168,0.2)', borderRadius: '4px', color: '#1a1a2e', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
+                                style={{ width: '48px', background: 'var(--bg)', border: '1px solid rgba(122,143,168,0.2)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
                                 placeholder="—"
                               />
                             </td>
@@ -887,7 +887,7 @@ export default function ScoringPage() {
                                       style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                                         background:  holeFairway[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
                                         borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#4a5568') : 'rgba(122,143,168,0.2)',
-                                        color:       holeFairway[h] === v ? '#1a1a2e' : '#4a5568',
+                                        color:       holeFairway[h] === v ? 'var(--text)' : 'var(--text-2)',
                                       }}>
                                       {v === true ? 'Sí' : v === false ? 'No' : '—'}
                                     </button>
@@ -918,7 +918,7 @@ export default function ScoringPage() {
                                     style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                                       background:  holeGir[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
                                       borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#4a5568') : 'rgba(122,143,168,0.2)',
-                                      color:       holeGir[h] === v ? '#1a1a2e' : '#4a5568',
+                                      color:       holeGir[h] === v ? 'var(--text)' : 'var(--text-2)',
                                     }}>
                                     {v === true ? 'Sí' : v === false ? 'No' : '—'}
                                   </button>
@@ -942,7 +942,7 @@ export default function ScoringPage() {
                   disabled={saving}
                   style={{
                     background: '#c4992a',
-                    color: '#1a1a2e',
+                    color: 'var(--text)',
                     fontWeight: 700,
                     fontSize: '15px',
                     padding: '12px 28px',
@@ -964,9 +964,9 @@ export default function ScoringPage() {
             )}
           </div>
         ) : (
-          <div style={{ background: 'rgba(14,28,47,0.7)', border: '1px solid rgba(122,143,168,0.15)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: '#4a5568' }}>
+          <div style={{ background: 'rgba(14,28,47,0.7)', border: '1px solid rgba(122,143,168,0.15)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
             <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Flag size={36} strokeWidth={1.5} /></div>
-            <div style={{ fontSize: '16px', color: '#1a1a2e', marginBottom: '6px' }}>Selecciona un jugador arriba</div>
+            <div style={{ fontSize: '16px', color: 'var(--text)', marginBottom: '6px' }}>Selecciona un jugador arriba</div>
             <div style={{ fontSize: '13px' }}>Luego ingresa los scores hoyo a hoyo.</div>
           </div>
         )}
