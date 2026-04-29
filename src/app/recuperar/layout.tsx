@@ -6,5 +6,5 @@ export const metadata: Metadata = {
 }
 
 export default function RecuperarLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return <div data-theme="light">{children}</div>
 }

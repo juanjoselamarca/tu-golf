@@ -72,6 +72,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={`${playfair.variable} ${dmSans.variable} ${dmMono.variable} ${cormorant.variable}`}>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem('golfers-theme');var r;if(s==='light'||s==='dark'){r=s;}else{r=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',r);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`,
+          }}
+        />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -106,7 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span style={{ color: 'var(--text)' }}>Golfers</span>
               <span style={{ color: '#c4992a' }}>+</span>
             </p>
-            <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '14px' }}>
+            <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>
               © {new Date().getFullYear()} Golfers+ · Diseñado para el golf amateur en Latinoamérica
             </p>
             <nav style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
