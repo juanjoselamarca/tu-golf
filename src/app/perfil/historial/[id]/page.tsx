@@ -126,7 +126,7 @@ export default function HistorialDetallePage() {
     return (
       <div style={{
         minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: '#f7f7f8',
+        background: 'var(--bg)',
       }}>
         <div style={{
           width: '32px', height: '32px', border: '3px solid #e5e7eb',
@@ -144,9 +144,9 @@ export default function HistorialDetallePage() {
       <div style={{
         minHeight: '60vh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: '24px', textAlign: 'center', background: '#f7f7f8',
+        padding: '24px', textAlign: 'center', background: 'var(--bg)',
       }}>
-        <p style={{ fontSize: '16px', color: '#64748b', marginBottom: '16px' }}>
+        <p style={{ fontSize: '16px', color: 'var(--text-2)', marginBottom: '16px' }}>
           {error ?? 'Ronda no encontrada'}
         </p>
         <Link
@@ -192,7 +192,7 @@ export default function HistorialDetallePage() {
   /* ─── Render ────────────────────────────────────────── */
   return (
     <div style={{
-      minHeight: '100vh', background: '#f7f7f8',
+      minHeight: '100vh', background: 'var(--bg)',
       padding: '0 0 40px',
     }}>
       {/* Header */}
@@ -217,28 +217,28 @@ export default function HistorialDetallePage() {
         <div style={{ marginBottom: '20px' }}>
           <h1 style={{
             fontFamily: '"Playfair Display", serif',
-            fontSize: '22px', fontWeight: 700, color: '#1a1a1a',
+            fontSize: '22px', fontWeight: 700, color: 'var(--text)',
             margin: '0 0 6px',
             lineHeight: 1.3,
           }}>
             {round.course_name}
           </h1>
           <p style={{
-            fontSize: '14px', color: '#64748b', margin: 0,
+            fontSize: '14px', color: 'var(--text-2)', margin: 0,
             display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
           }}>
             <span>{dateStr}</span>
-            <span style={{ color: '#cbd5e1' }}>&middot;</span>
+            <span style={{ color: 'var(--text-3)' }}>&middot;</span>
             <span>{fmtLabel}</span>
             {round.tee_color && (
               <>
-                <span style={{ color: '#cbd5e1' }}>&middot;</span>
+                <span style={{ color: 'var(--text-3)' }}>&middot;</span>
                 <span>Tee {round.tee_color}</span>
               </>
             )}
             {round.holes_played && (
               <>
-                <span style={{ color: '#cbd5e1' }}>&middot;</span>
+                <span style={{ color: 'var(--text-3)' }}>&middot;</span>
                 <span>{round.holes_played} hoyos</span>
               </>
             )}
@@ -252,7 +252,7 @@ export default function HistorialDetallePage() {
         padding: '0 16px',
       }}>
         <div style={{
-          background: '#ffffff',
+          background: 'var(--bg-surface)',
           borderRadius: '14px',
           overflow: 'hidden',
           boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
@@ -274,17 +274,17 @@ export default function HistorialDetallePage() {
         {round.notes && (
           <div style={{
             marginTop: '16px', padding: '14px 16px',
-            background: '#ffffff', borderRadius: '12px',
+            background: 'var(--bg-surface)', borderRadius: '12px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
           }}>
             <p style={{
-              fontSize: '12px', fontWeight: 600, color: '#94a3b8',
+              fontSize: '12px', fontWeight: 600, color: 'var(--text-3)',
               margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.5px',
             }}>
               Notas
             </p>
             <p style={{
-              fontSize: '14px', color: '#475569', margin: 0,
+              fontSize: '14px', color: 'var(--text-2)', margin: 0,
               lineHeight: 1.5, whiteSpace: 'pre-wrap',
             }}>
               {round.notes}

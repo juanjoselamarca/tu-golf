@@ -173,7 +173,7 @@ const inputBase: React.CSSProperties = {
 }
 
 const cardStyle: React.CSSProperties = {
-  background: '#ffffff',
+  background: 'var(--bg-surface)',
   borderRadius: '14px',
   boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
   overflow: 'hidden',
@@ -466,9 +466,9 @@ function HistorialContent() {
   const statEagles = apiStats?.totalEagles ?? aggEagles
 
   if (loading) return (
-    <div style={{ background: '#f8f9fa', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)' }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ width: '32px', height: '32px', border: '3px solid #e5e7eb', borderTopColor: '#c4992a', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+        <div style={{ width: '32px', height: '32px', border: '3px solid var(--border)', borderTopColor: '#c4992a', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
         <div style={{ fontSize: '14px' }}>Cargando historial...</div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
@@ -476,25 +476,25 @@ function HistorialContent() {
   )
 
   if (loadError && rounds.length === 0) return (
-    <div style={{ background: '#f8f9fa', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '20px' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '20px' }}>
       <div style={{ color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><AlertTriangle size={48} strokeWidth={1.5} /></div>
-      <p style={{ color: '#111827', fontSize: '16px', textAlign: 'center', margin: 0 }}>
+      <p style={{ color: 'var(--text)', fontSize: '16px', textAlign: 'center', margin: 0 }}>
         No se pudieron cargar las tarjetas
       </p>
-      <p style={{ color: '#9ca3af', fontSize: '13px', textAlign: 'center', margin: 0 }}>
+      <p style={{ color: 'var(--text-3)', fontSize: '13px', textAlign: 'center', margin: 0 }}>
         Revisa tu conexión e intenta de nuevo
       </p>
       <button
         onClick={() => { setLoadError(false); setLoading(true); }}
         style={{
-          background: '#c4992a', color: '#1a1a2e', fontWeight: 700,
+          background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700,
           fontSize: '14px', padding: '12px 28px', borderRadius: '10px',
           border: 'none', cursor: 'pointer', marginTop: '8px',
         }}
       >
         Reintentar
       </button>
-      <Link href="/dashboard" style={{ color: '#9ca3af', fontSize: '13px', textDecoration: 'none', marginTop: '4px' }}>
+      <Link href="/dashboard" style={{ color: 'var(--text-3)', fontSize: '13px', textDecoration: 'none', marginTop: '4px' }}>
         &#8592; Volver al dashboard
       </Link>
     </div>
@@ -503,18 +503,18 @@ function HistorialContent() {
   const progress = Math.min(rounds.length / Math.max(rounds.length, 1), 1)
 
   return (
-    <div style={{ background: '#f8f9fa', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
 
       {/* ══════════════════════════════════════════════════════ */}
       {/* SECTION 1 — Header Stats                             */}
       {/* ══════════════════════════════════════════════════════ */}
-      <div style={{ background: '#ffffff', borderBottom: '1px solid #e5e7eb', padding: '20px 16px 16px' }}>
+      <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '20px 16px 16px' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           {/* Back + Title */}
-          <Link href="/perfil" style={{ color: '#9ca3af', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', minHeight: '44px' }}>
+          <Link href="/perfil" style={{ color: 'var(--text-3)', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', minHeight: '44px' }}>
             &#8592; Mi Perfil
           </Link>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#111827', margin: '0 0 16px 0', fontWeight: 700 }}>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: 'var(--text)', margin: '0 0 16px 0', fontWeight: 700 }}>
             Mi Historial
           </h1>
 
@@ -527,13 +527,13 @@ function HistorialContent() {
               { label: 'Eagles',  value: String(statEagles) },
             ].map(pill => (
               <div key={pill.label} style={{
-                background: '#f9fafb', border: '1px solid #e5e7eb',
+                background: 'var(--bg)', border: '1px solid var(--border)',
                 borderRadius: '20px', padding: '6px 16px',
                 display: 'flex', gap: '6px', alignItems: 'center',
                 flexShrink: 0,
               }}>
-                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>{pill.label}</span>
-                <span style={{ fontSize: '15px', color: '#111827', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{pill.value}</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>{pill.label}</span>
+                <span style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{pill.value}</span>
               </div>
             ))}
           </div>
@@ -542,8 +542,8 @@ function HistorialContent() {
           <div style={{ marginTop: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
               {/* TODO(foundation): reemplazar &#128047; por <TaigerIcon /> cuando el icon system migre emojis — P7 */}
-              <span style={{ fontSize: '11px', color: '#9ca3af' }}>&#128047; {taigerMessage(rounds.length)}</span>
-              <span style={{ fontSize: '11px', color: '#9ca3af' }}>{rounds.length}</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>&#128047; {taigerMessage(rounds.length)}</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{rounds.length}</span>
             </div>
             <div style={{ height: '4px', background: 'rgba(196,153,42,0.15)', borderRadius: '2px', overflow: 'hidden' }}>
               <div style={{
@@ -579,7 +579,7 @@ function HistorialContent() {
                 <div key={rec.label} style={{ ...cardStyle, padding: '14px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', color: '#c4992a' }}><Trophy size={14} strokeWidth={1.75} /></span>
-                    <span style={{ fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{rec.label}</span>
+                    <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{rec.label}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                     <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', fontWeight: 700, color: '#c4992a', lineHeight: 1 }}>
@@ -591,7 +591,7 @@ function HistorialContent() {
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {d.course}
                   </div>
                   <div style={{ fontSize: '10px', color: '#d1d5db', marginTop: '2px' }}>
@@ -749,7 +749,7 @@ function HistorialContent() {
               <button type="submit" disabled={saving || !courseName} style={{
                 width: '100%', height: '54px',
                 background: saving || !courseName ? 'rgba(196,153,42,0.4)' : '#c4992a',
-                color: '#1a1a2e', fontWeight: 700, fontSize: '16px',
+                color: 'var(--brand-dark)', fontWeight: 700, fontSize: '16px',
                 borderRadius: '10px', border: 'none',
                 cursor: saving || !courseName ? 'not-allowed' : 'pointer',
               }}>
@@ -768,16 +768,16 @@ function HistorialContent() {
             {loadError ? (
               <>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><Radio size={56} strokeWidth={1.5} /></div>
-                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: '#111827', marginBottom: '8px' }}>
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '8px' }}>
                   La carga tardó más de lo esperado
                 </div>
-                <div style={{ fontSize: '14px', color: '#9ca3af', marginBottom: '28px', maxWidth: '320px', margin: '0 auto 28px' }}>
+                <div style={{ fontSize: '14px', color: 'var(--text-3)', marginBottom: '28px', maxWidth: '320px', margin: '0 auto 28px' }}>
                   Puede ser tu conexión a internet. Intenta recargar la página.
                 </div>
                 <button
                   onClick={() => window.location.reload()}
                   style={{
-                    background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px',
+                    background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '14px',
                     padding: '12px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer',
                   }}
                 >
@@ -797,7 +797,7 @@ function HistorialContent() {
                   <button
                     onClick={() => setShowForm(true)}
                     style={{
-                      background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px',
+                      background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '14px',
                       padding: '12px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer',
                     }}
                   >
@@ -830,7 +830,7 @@ function HistorialContent() {
                 {/* Month header */}
                 <h2 style={{
                   fontFamily: '"Playfair Display", serif',
-                  fontSize: '18px', fontWeight: 700, color: '#111827',
+                  fontSize: '18px', fontWeight: 700, color: 'var(--text)',
                   margin: '0 0 10px 4px',
                 }}>
                   {group.label}
@@ -887,12 +887,12 @@ function HistorialContent() {
                           </div>
 
                           {/* Divider */}
-                          <div style={{ width: '1px', height: '36px', background: '#f0f0f0', flexShrink: 0 }} />
+                          <div style={{ width: '1px', height: '36px', background: 'var(--border)', flexShrink: 0 }} />
 
                           {/* Info */}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {r.course_name}
                               </span>
                               {r.formato_juego && r.formato_juego !== 'stroke_play' && (
@@ -934,7 +934,7 @@ function HistorialContent() {
                               )}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-                              <span style={{ fontSize: '12px', color: '#9ca3af' }}>{dateStr}</span>
+                              <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>{dateStr}</span>
                               {teeHex && (
                                 <span style={{
                                   width: '8px', height: '8px', borderRadius: '50%',
@@ -1004,7 +1004,7 @@ function HistorialContent() {
                                   <button
                                     onClick={(e) => { e.stopPropagation(); startEdit(r) }}
                                     style={{
-                                      background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px',
+                                      background: 'none', border: '1px solid var(--border)', borderRadius: '8px',
                                       padding: '6px 14px', fontSize: '12px', color: '#c4992a', fontWeight: 600,
                                       cursor: 'pointer',
                                     }}
@@ -1032,12 +1032,12 @@ function HistorialContent() {
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '6px' }}>
                                     {Array.from({ length: 9 }, (_, i) => (
                                       <div key={i} style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '8px', color: '#9ca3af', marginBottom: '2px' }}>{i + 1}</div>
+                                        <div style={{ fontSize: '8px', color: 'var(--text-3)', marginBottom: '2px' }}>{i + 1}</div>
                                         <input
                                           type="text" inputMode="numeric" pattern="[0-9]*"
                                           value={editScores[i] ?? ''}
                                           onChange={(e) => handleEditScore(i, e.target.value)}
-                                          style={{ width: '100%', textAlign: 'center', fontSize: '14px', fontWeight: 600, padding: '6px 0', border: '1px solid #e5e7eb', borderRadius: '6px', outline: 'none', background: '#ffffff', color: '#374151', boxSizing: 'border-box' }}
+                                          style={{ width: '100%', textAlign: 'center', fontSize: '14px', fontWeight: 600, padding: '6px 0', border: '1px solid var(--border)', borderRadius: '6px', outline: 'none', background: 'var(--bg-surface)', color: '#374151', boxSizing: 'border-box' }}
                                           onFocus={(e) => { e.target.style.borderColor = '#c4992a'; e.target.select() }}
                                           onBlur={(e) => { e.target.style.borderColor = '#e5e7eb' }}
                                         />
@@ -1047,12 +1047,12 @@ function HistorialContent() {
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '3px', marginBottom: '10px' }}>
                                     {Array.from({ length: 9 }, (_, i) => (
                                       <div key={i + 9} style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '8px', color: '#9ca3af', marginBottom: '2px' }}>{i + 10}</div>
+                                        <div style={{ fontSize: '8px', color: 'var(--text-3)', marginBottom: '2px' }}>{i + 10}</div>
                                         <input
                                           type="text" inputMode="numeric" pattern="[0-9]*"
                                           value={editScores[i + 9] ?? ''}
                                           onChange={(e) => handleEditScore(i + 9, e.target.value)}
-                                          style={{ width: '100%', textAlign: 'center', fontSize: '14px', fontWeight: 600, padding: '6px 0', border: '1px solid #e5e7eb', borderRadius: '6px', outline: 'none', background: '#ffffff', color: '#374151', boxSizing: 'border-box' }}
+                                          style={{ width: '100%', textAlign: 'center', fontSize: '14px', fontWeight: 600, padding: '6px 0', border: '1px solid var(--border)', borderRadius: '6px', outline: 'none', background: 'var(--bg-surface)', color: '#374151', boxSizing: 'border-box' }}
                                           onFocus={(e) => { e.target.style.borderColor = '#c4992a'; e.target.select() }}
                                           onBlur={(e) => { e.target.style.borderColor = '#e5e7eb' }}
                                         />
@@ -1063,13 +1063,13 @@ function HistorialContent() {
                                     <button
                                       onClick={(e) => { e.stopPropagation(); saveEdit(r.id) }}
                                       disabled={savingEdit}
-                                      style={{ flex: 1, padding: '10px', background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                                      style={{ flex: 1, padding: '10px', background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
                                     >
                                       {savingEdit ? 'Guardando...' : 'Guardar cambios'}
                                     </button>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); setEditingId(null) }}
-                                      style={{ padding: '10px 16px', background: 'none', border: '1px solid #e5e7eb', color: '#6b7280', fontSize: '14px', borderRadius: '8px', cursor: 'pointer' }}
+                                      style={{ padding: '10px 16px', background: 'none', border: '1px solid var(--border)', color: '#6b7280', fontSize: '14px', borderRadius: '8px', cursor: 'pointer' }}
                                     >
                                       Cancelar
                                     </button>
@@ -1085,7 +1085,7 @@ function HistorialContent() {
                 </div>
               </div>
             ))}
-            <p style={{ textAlign: 'center', fontSize: '12px', color: '#9ca3af', marginTop: '20px' }}>
+            <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-3)', marginTop: '20px' }}>
               {rounds.length} tarjetas guardadas
             </p>
           </>
@@ -1119,7 +1119,7 @@ function HistorialContent() {
 
 export default function HistorialPage() {
   return (
-    <Suspense fallback={<div style={{ background: '#f8f9fa', minHeight: '100vh' }} />}>
+    <Suspense fallback={<div style={{ background: 'var(--bg)', minHeight: '100vh' }} />}>
       <HistorialContent />
     </Suspense>
   )
