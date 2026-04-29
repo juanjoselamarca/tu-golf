@@ -29,33 +29,31 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   ref,
 ) {
   const width = fullWidth ? 'w-full' : ''
-  const borderColor = error
-    ? 'border-red-500 focus-within:border-red-600'
-    : 'border-gray-300 dark:border-white/20 focus-within:border-brand'
 
   return (
     <div
       className={
-        'inline-flex items-center gap-2 h-12 px-3.5 rounded-xl border-2 bg-white dark:bg-white/5 ' +
+        'inline-flex items-center gap-2 h-12 px-3.5 rounded-xl border-2 ' +
         'transition-colors focus-within:ring-2 focus-within:ring-brand/30 ' +
-        borderColor +
-        ' ' + width + ' ' + className
+        (error ? 'border-red-500 focus-within:border-red-600 ' : 'focus-within:border-brand ') +
+        width + ' ' + className
       }
+      style={{
+        background: 'var(--input-bg)',
+        borderColor: error ? undefined : 'var(--input-border)',
+      }}
     >
       {leftIcon && (
-        <span className="text-gray-500 dark:text-white/50 flex-shrink-0">{leftIcon}</span>
+        <span style={{ color: 'var(--text-3)', flexShrink: 0 }}>{leftIcon}</span>
       )}
       <input
         ref={ref}
-        className={
-          'flex-1 bg-transparent outline-none text-base text-gray-900 dark:text-white ' +
-          'placeholder:text-gray-600 dark:placeholder:text-white/55 ' +
-          'disabled:opacity-50'
-        }
+        className="flex-1 bg-transparent outline-none text-base disabled:opacity-50"
+        style={{ color: 'var(--text)' }}
         {...rest}
       />
       {rightIcon && (
-        <span className="text-gray-500 dark:text-white/50 flex-shrink-0">{rightIcon}</span>
+        <span style={{ color: 'var(--text-3)', flexShrink: 0 }}>{rightIcon}</span>
       )}
     </div>
   )

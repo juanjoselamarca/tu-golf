@@ -74,17 +74,18 @@ export function ShareSheet({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md bg-white dark:bg-[#0e1c2f] rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 pb-8 sm:pb-5 animate-[slideUp_240ms_ease-out]"
+        className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 pb-8 sm:pb-5 animate-[slideUp_240ms_ease-out]"
+        style={{ background: 'var(--bg-surface)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{title}</h3>
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
+            className="hover-surface w-10 h-10 flex items-center justify-center rounded-full transition-colors"
           >
-            <X className="w-5 h-5 text-gray-500 dark:text-white/70" />
+            <X className="w-5 h-5" style={{ color: 'var(--text-2)' }} />
           </button>
         </div>
 
@@ -93,36 +94,39 @@ export function ShareSheet({
             href={waUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 h-14 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+            className="hover-surface flex items-center gap-3 h-14 px-4 rounded-xl transition-colors"
+            style={{ background: 'rgba(16, 185, 129, 0.08)' }}
           >
             <span className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xl font-bold">W</span>
-            <span className="text-gray-900 dark:text-white font-medium">WhatsApp</span>
+            <span className="font-medium" style={{ color: 'var(--text)' }}>WhatsApp</span>
           </a>
 
           <button
             onClick={handleCopy}
-            className="w-full flex items-center gap-3 h-14 px-4 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors text-left"
+            className="hover-surface w-full flex items-center gap-3 h-14 px-4 rounded-xl transition-colors text-left"
+            style={{ background: 'var(--border)' }}
           >
-            <span className="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center">
-              <Copy className="w-5 h-5 text-gray-700 dark:text-white/80" />
+            <span className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--border-md)' }}>
+              <Copy className="w-5 h-5" style={{ color: 'var(--text-2)' }} />
             </span>
-            <span className="text-gray-900 dark:text-white font-medium">{copyLabel}</span>
+            <span className="font-medium" style={{ color: 'var(--text)' }}>{copyLabel}</span>
           </button>
 
           {typeof navigator !== 'undefined' && 'share' in navigator && (
             <button
               onClick={handleNative}
-              className="w-full flex items-center gap-3 h-14 px-4 rounded-xl bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors text-left"
+              className="hover-surface w-full flex items-center gap-3 h-14 px-4 rounded-xl transition-colors text-left"
+              style={{ background: 'var(--border)' }}
             >
-              <span className="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center">
-                <Share2 className="w-5 h-5 text-gray-700 dark:text-white/80" />
+              <span className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--border-md)' }}>
+                <Share2 className="w-5 h-5" style={{ color: 'var(--text-2)' }} />
               </span>
-              <span className="text-gray-900 dark:text-white font-medium">Más opciones</span>
+              <span className="font-medium" style={{ color: 'var(--text)' }}>Más opciones</span>
             </button>
           )}
         </div>
 
-        <p className="mt-4 text-xs text-center text-gray-500 dark:text-white/50 break-all">
+        <p className="mt-4 text-xs text-center break-all" style={{ color: 'var(--text-3)' }}>
           <LinkIcon className="w-3 h-3 inline-block mr-1 -mt-0.5" />
           {shareUrl}
         </p>

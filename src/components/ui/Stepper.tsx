@@ -46,7 +46,12 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
                     ? 'bg-brand text-black shadow-sm'
                     : isDone
                     ? 'bg-brand/15 text-brand'
-                    : 'bg-gray-200 dark:bg-white/10 text-gray-500 dark:text-white/40')
+                    : '')
+                }
+                style={
+                  !isActive && !isDone
+                    ? { background: 'var(--border)', color: 'var(--text-3)' }
+                    : undefined
                 }
                 aria-current={isActive ? 'step' : undefined}
               >
@@ -56,11 +61,12 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
                 <span
                   className={
                     'text-[10px] uppercase tracking-wider font-medium ' +
-                    (isActive
-                      ? 'text-brand'
-                      : isDone
-                      ? 'text-gray-600 dark:text-white/60'
-                      : 'text-gray-400 dark:text-white/30')
+                    (isActive ? 'text-brand' : '')
+                  }
+                  style={
+                    !isActive
+                      ? { color: isDone ? 'var(--text-2)' : 'var(--text-3)' }
+                      : undefined
                   }
                 >
                   {label}
@@ -71,8 +77,9 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
               <div
                 className={
                   'flex-1 h-px mx-2 transition-colors ' +
-                  (isDone ? 'bg-brand/50' : 'bg-gray-300 dark:bg-white/10')
+                  (isDone ? 'bg-brand/50' : '')
                 }
+                style={!isDone ? { background: 'var(--border-md)' } : undefined}
               />
             )}
           </div>

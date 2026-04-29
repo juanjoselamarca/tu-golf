@@ -120,6 +120,17 @@
     opacity: 1;
   }
 
+  /* Hover helper para surfaces — respeta data-theme */
+  .hover-surface {
+    transition: background-color 150ms ease;
+  }
+  [data-theme="light"] .hover-surface:hover {
+    background-color: rgba(26, 29, 36, 0.05) !important;
+  }
+  [data-theme="dark"] .hover-surface:hover {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+  }
+
   h1 { font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
   h2 { font-size: 17px; font-weight: 600; color: var(--text); letter-spacing: -0.2px; }
   h3 { font-size: 14px; font-weight: 500; color: var(--text-2); }

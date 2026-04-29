@@ -48,13 +48,13 @@ export function ErrorScreen({
         </div>
 
         <h1
-          className="text-2xl sm:text-3xl font-bold mb-3 text-gray-900 dark:text-white"
-          style={{ fontFamily: 'var(--font-playfair), serif' }}
+          className="text-2xl sm:text-3xl font-bold mb-3"
+          style={{ fontFamily: 'var(--font-playfair), serif', color: 'var(--text)' }}
         >
           {title}
         </h1>
 
-        <p className="text-base text-gray-600 dark:text-white/70 mb-6 leading-relaxed">
+        <p className="text-base mb-6 leading-relaxed" style={{ color: 'var(--text-2)' }}>
           {description}
         </p>
 
@@ -74,15 +74,15 @@ export function ErrorScreen({
 
         {errorCode && (
           <p
-            className="text-xs text-gray-500 dark:text-white/50 mt-6"
-            style={{ fontFamily: 'var(--font-dm-mono), monospace' }}
+            className="text-xs mt-6"
+            style={{ fontFamily: 'var(--font-dm-mono), monospace', color: 'var(--text-3)' }}
           >
             Código: {errorCode}
           </p>
         )}
 
         {reportable && (
-          <p className="text-xs text-gray-500 dark:text-white/50 mt-3">
+          <p className="text-xs mt-3" style={{ color: 'var(--text-3)' }}>
             <a href={mailto} className="text-brand hover:underline">
               Reportar este error
             </a>

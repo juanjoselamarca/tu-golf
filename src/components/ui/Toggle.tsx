@@ -36,9 +36,10 @@ export function Toggle({
         'relative inline-flex items-center h-7 w-12 rounded-full transition-colors ' +
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 ' +
         'disabled:opacity-50 disabled:cursor-not-allowed ' +
-        (checked ? 'bg-brand' : 'bg-gray-300 dark:bg-white/15') +
+        (checked ? 'bg-brand' : '') +
         ' ' + className
       }
+      style={!checked ? { background: 'var(--border-md)' } : undefined}
       {...rest}
     >
       <span
