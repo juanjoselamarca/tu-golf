@@ -29,9 +29,9 @@ interface Profile {
 }
 
 const inputStyle: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid rgba(122,143,168,0.3)',
-  color: '#1a1a2e',
+  background: 'var(--bg-surface)',
+  border: '1px solid var(--input-border)',
+  color: 'var(--text)',
   borderRadius: '8px',
   padding: '10px 12px',
   fontSize: '16px',
@@ -134,7 +134,7 @@ export default function PerfilPage() {
 
   if (loading) {
     return (
-      <div style={{ background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a5568' }}>
+      <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>
         Cargando perfil...
       </div>
     )
@@ -145,15 +145,15 @@ export default function PerfilPage() {
   const playerTier = getPlayerTier(profile.indice)
 
   return (
-    <div style={{ background: '#ffffff', minHeight: '100vh', padding: '16px 16px 80px' }}>
+    <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', padding: '16px 16px 80px' }}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-        <Link href="/dashboard" style={{ color: '#4a5568', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '16px' }}>
+        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '16px' }}>
           ← Dashboard
         </Link>
 
         <div
           style={{
-            background: '#ffffff',
+            background: 'var(--bg-surface)',
             border: '1px solid rgba(196,153,42,0.22)',
             borderRadius: '16px',
             padding: '20px',
@@ -170,12 +170,12 @@ export default function PerfilPage() {
                 <span style={{ background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.28)', color: '#c4992a', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                   Perfil de jugador
                 </span>
-                <span style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', color: '#4a5568', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
+                <span style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-2)', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
                   {playerTier}
                 </span>
               </div>
 
-              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#1a1a2e', margin: '0 0 8px', lineHeight: 1.1 }}>
+              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.1 }}>
                 {profile.name || 'Golfista'}
               </h1>
               {/* H16 cerrado: email movido a sección Cuenta (evita PII en screenshots del header) */}
@@ -193,7 +193,7 @@ export default function PerfilPage() {
                     + Agregar índice →
                   </Button>
                 )}
-                <span style={{ fontSize: '13px', color: '#4a5568' }}>
+                <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>
                   Torneos: {tourneysPlayed}
                 </span>
               </div>
@@ -204,20 +204,20 @@ export default function PerfilPage() {
         {/* Dual Index Cards — P18: storytelling explícito de qué es cada índice */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '100ms' }}>
           {/* Índice Federación */}
-          <div style={{ background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
-            <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#94a3b8', fontFamily: '"DM Mono", monospace', marginBottom: '8px', margin: '0 0 8px' }}>
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
+            <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', marginBottom: '8px', margin: '0 0 8px' }}>
               Federación
             </p>
-            <p style={{ fontSize: '38px', fontWeight: 700, color: '#1a1a2e', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
+            <p style={{ fontSize: '38px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
               {profile.indice != null ? profile.indice.toFixed(1) : '—'}
             </p>
-            <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
               Oficial USGA · torneos federados
             </p>
           </div>
 
           {/* Índice Golfers+ */}
-          <div style={{ background: '#f8f9fa', border: `1px solid ${profile.indice_golfers != null ? 'rgba(196,153,42,0.35)' : '#e2e8f0'}`, borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg)', border: `1px solid ${profile.indice_golfers != null ? 'rgba(196,153,42,0.35)' : 'var(--border)'}`, borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
             <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c4992a', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
               Golfers+
             </p>
@@ -226,19 +226,19 @@ export default function PerfilPage() {
                 <p style={{ fontSize: '38px', fontWeight: 700, color: '#c4992a', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
                   {profile.indice_golfers.toFixed(1)}
                 </p>
-                <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
+                <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
                   Rendimiento real · coaching y amistosos
                 </p>
                 {profile.indice_golfers_updated_at && (
-                  <p style={{ fontSize: '9px', color: '#94a3b8', margin: '6px 0 0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.04em', fontStyle: 'italic' }}>
+                  <p style={{ fontSize: '9px', color: 'var(--text-3)', margin: '6px 0 0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.04em', fontStyle: 'italic' }}>
                     Actualizado {formatRelativeTime(profile.indice_golfers_updated_at)}
                   </p>
                 )}
               </>
             ) : (
               <>
-                <p style={{ fontSize: '28px', color: '#94a3b8', lineHeight: 1, margin: '0 0 4px' }}>—</p>
-                <p style={{ fontSize: '10px', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
+                <p style={{ fontSize: '28px', color: 'var(--text-3)', lineHeight: 1, margin: '0 0 4px' }}>—</p>
+                <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
                   3+ rondas para activar
                 </p>
               </>
@@ -283,7 +283,7 @@ export default function PerfilPage() {
               }}>
                 Recomendación tAIger+
               </div>
-              <p style={{ fontSize: '13px', color: '#1a1a2e', margin: 0, lineHeight: 1.5 }}>
+              <p style={{ fontSize: '13px', color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
                 <strong style={{ color: '#c4992a' }}>{Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos</strong> de diferencia entre tu índice oficial y tu rendimiento reciente.
               </p>
             </div>
@@ -297,13 +297,13 @@ export default function PerfilPage() {
 
         {/* Nivel badge */}
         {profile.nivel != null && profile.nivel > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '12px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', marginBottom: '16px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#c4992a', flexShrink: 0 }} />
             <div>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a2e', margin: 0 }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', margin: 0 }}>
                 {NIVEL_LABELS[profile.nivel] ?? 'Sin nivel'}
               </p>
-              <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>
+              <p style={{ fontSize: '11px', color: 'var(--text-2)', margin: 0 }}>
                 {NIVEL_DESCRIPCION[profile.nivel] ?? ''}
               </p>
             </div>
@@ -313,7 +313,7 @@ export default function PerfilPage() {
         {/* CPI Section */}
         {cpiData && cpiData.status === 'ok' && (
           <div style={{
-            background: '#ffffff',
+            background: 'var(--bg-surface)',
             border: '1px solid rgba(196,153,42,0.22)',
             borderRadius: '16px',
             padding: '20px',
@@ -321,7 +321,7 @@ export default function PerfilPage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
               <span style={{ fontSize: '12px', color: '#c4992a', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>CPI&trade;</span>
-              <span style={{ fontSize: '12px', color: '#4a5568' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
                 {nivelCPI(cpiData.score)}
               </span>
             </div>
@@ -350,10 +350,10 @@ export default function PerfilPage() {
 
             {/* Progress bar */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ flex: 1, height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ flex: 1, height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
                 <div style={{ width: `${Math.min(100, Math.max(0, cpiData.score))}%`, height: '100%', background: `linear-gradient(90deg, ${getCpiColor(cpiData.score)}cc, ${getCpiColor(cpiData.score)})`, borderRadius: '3px', transition: 'width 0.6s ease' }} />
               </div>
-              <span style={{ fontSize: '12px', color: '#4a5568', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
                 {cpiData.roundsInWindow} rondas
               </span>
             </div>
@@ -371,12 +371,12 @@ export default function PerfilPage() {
             <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#c4992a', fontWeight: 700, marginBottom: '8px' }}>
               Activa tu CPI&trade;
             </div>
-            <p style={{ fontSize: '14px', color: '#4a5568', margin: '0 0 14px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 14px', lineHeight: 1.5 }}>
               Necesitas 5+ rondas para activar tu CPI&trade;. Importa tus rondas hist&oacute;ricas para calcular tu &iacute;ndice de rendimiento.
             </p>
             <Link href="/importar" style={{
               display: 'inline-flex', alignItems: 'center',
-              background: '#c4992a', color: '#1a1a2e',
+              background: '#c4992a', color: 'var(--brand-dark)',
               padding: '10px 20px', borderRadius: '12px',
               fontSize: '14px', fontWeight: 700,
               textDecoration: 'none',
@@ -395,7 +395,7 @@ export default function PerfilPage() {
             marginBottom: '16px',
           }}>
             <div style={{ fontSize: '12px', color: '#d97706', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>CPI&trade;</div>
-            <p style={{ fontSize: '14px', color: '#4a5568', margin: '0 0 10px', fontWeight: 600 }}>
+            <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 10px', fontWeight: 600 }}>
               Juega una ronda reciente para reactivar tu CPI&trade;
             </p>
             <Link href="/ronda-libre/nueva" style={{ fontSize: '13px', color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>
@@ -413,9 +413,9 @@ export default function PerfilPage() {
           return <LevelsBar nivel={nivelSkill} />
         })()}
 
-        <div style={{ background: '#ffffff', border: '1px solid rgba(196,153,42,0.18)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '16px' }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.18)', borderRadius: '16px', padding: '18px 18px 20px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#1a1a2e', margin: 0 }}>
+            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: 0 }}>
               Cuenta
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -435,7 +435,7 @@ export default function PerfilPage() {
           {editing ? (
             <div id="edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#4a5568', marginBottom: '6px' }}>Nombre</label>
+                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre</label>
                 <input
                   type="text"
                   value={editName}
@@ -446,7 +446,7 @@ export default function PerfilPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#4a5568', marginBottom: '6px' }}>Índice Federación</label>
+                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Índice Federación</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -463,7 +463,7 @@ export default function PerfilPage() {
                     if (!isNaN(n) && n >= 0 && n <= 54) setEditIndice(String(n))
                   }}
                 />
-                <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px', margin: '4px 0 0' }}>
+                <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '4px', margin: '4px 0 0' }}>
                   Golfers+ calcula su propio índice automáticamente basado en tus rondas.
                 </p>
               </div>
@@ -487,8 +487,8 @@ export default function PerfilPage() {
                 ['Email', profile.email],
               ].map(([label, value], idx, arr) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: idx < arr.length - 1 ? '1px solid #f1f5f9' : 'none', gap: '12px' }}>
-                  <span style={{ fontSize: '13px', color: '#4a5568' }}>{label}</span>
-                  <span style={{ fontSize: '14px', color: '#1a1a2e', fontWeight: 600, textAlign: 'right' }}>{value}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{label}</span>
+                  <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
                 </div>
               ))}
             </div>
@@ -497,14 +497,14 @@ export default function PerfilPage() {
 
         {/* Sincroniza tu historial — bloque editorial, no Link huérfano */}
         <div style={{
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
           borderRadius: '16px',
           padding: '16px 18px',
           marginBottom: '16px',
         }}>
           <div style={{
-            fontSize: '10px', fontWeight: 700, color: '#94a3b8',
+            fontSize: '10px', fontWeight: 700, color: 'var(--text-3)',
             fontFamily: '"DM Mono", monospace',
             letterSpacing: '0.12em', textTransform: 'uppercase',
             marginBottom: '6px',
@@ -513,12 +513,12 @@ export default function PerfilPage() {
           </div>
           <div style={{
             fontFamily: '"Playfair Display", serif',
-            fontSize: '17px', color: '#1a1a2e', fontWeight: 600,
+            fontSize: '17px', color: 'var(--text)', fontWeight: 600,
             marginBottom: '4px', letterSpacing: '-0.01em',
           }}>
             Trae tu historial completo
           </div>
-          <p style={{ fontSize: '13px', color: '#4a5568', margin: '0 0 14px', lineHeight: 1.5 }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 14px', lineHeight: 1.5 }}>
             Importa tus rondas desde FedeGolf, Garmin Connect o un CSV — el Índice Golfers+ y CPI™ se recalculan automáticamente.
           </p>
           <Link
@@ -536,7 +536,7 @@ export default function PerfilPage() {
         </div>
 
         {/* Notification settings */}
-        <div style={{ marginTop: '16px', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+        <div style={{ marginTop: '16px', background: 'var(--bg-surface)', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden' }}>
           <ExperiencePanel />
         </div>
 
@@ -548,7 +548,7 @@ export default function PerfilPage() {
             onClick={() => setDeleteStep(1)}
             style={{
               background: 'transparent', border: 'none', padding: '8px 12px',
-              fontSize: '12px', color: '#94a3b8', cursor: 'pointer',
+              fontSize: '12px', color: 'var(--text-3)', cursor: 'pointer',
               textDecoration: 'underline', textUnderlineOffset: '3px',
               fontFamily: '"DM Sans", system-ui, sans-serif',
             }}
@@ -575,7 +575,7 @@ export default function PerfilPage() {
             <div
               onClick={(e) => e.stopPropagation()}
               style={{
-                background: '#ffffff', borderRadius: '16px',
+                background: 'var(--bg-surface)', borderRadius: '16px',
                 padding: '28px', maxWidth: '420px', width: '100%',
                 border: '1px solid rgba(220,38,38,0.18)',
                 boxShadow: '0 24px 48px rgba(7,13,24,0.18)',
@@ -587,13 +587,13 @@ export default function PerfilPage() {
                 style={{
                   fontFamily: '"Playfair Display", serif',
                   fontSize: '20px', fontWeight: 600,
-                  color: '#1a1a2e', margin: '0 0 8px',
+                  color: 'var(--text)', margin: '0 0 8px',
                   letterSpacing: '-0.01em',
                 }}
               >
                 ¿Eliminar tu cuenta?
               </h3>
-              <p style={{ fontSize: '13px', color: '#4a5568', margin: '0 0 20px', lineHeight: 1.55 }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 20px', lineHeight: 1.55 }}>
                 Se borrarán todos tus datos: perfil, rondas, historial, estadísticas y sesiones de coaching.
                 <br />
                 <strong style={{ color: '#991b1b' }}>Esta acción no se puede deshacer.</strong>
