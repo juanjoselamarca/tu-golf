@@ -129,20 +129,20 @@ export default function LeaderboardPage() {
             <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: '#16a34a', fontWeight: 700, letterSpacing: '0.1em' }}>EN VIVO</span>
           </div>
           <span style={{
-            fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: '#9ca3af',
-            background: '#f3f4f6', padding: '4px 10px', borderRadius: '20px',
+            fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: 'var(--text-3)',
+            background: 'var(--bg)', padding: '4px 10px', borderRadius: '20px',
           }}>R{roundNumber}</span>
         </div>
 
         {/* Tournament name */}
         <div style={{
           fontFamily: '"Playfair Display", serif', fontSize: '24px', fontWeight: 700,
-          color: '#111827', marginBottom: '4px', lineHeight: 1.15,
+          color: 'var(--text)', marginBottom: '4px', lineHeight: 1.15,
         }}>
           Copa Golfers+ Demo
         </div>
         <div style={{
-          fontSize: '13px', color: '#6b7280', marginBottom: '14px',
+          fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px',
           fontFamily: 'var(--font-dm-mono), monospace',
         }}>
           Los Leones Golf Club · Par 72
@@ -156,8 +156,8 @@ export default function LeaderboardPage() {
             { value: String(leaderScore === 0 ? 'E' : leaderScore > 0 ? '+' + leaderScore : leaderScore), label: 'Líder' },
           ].map(s => (
             <div key={s.label} style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-              <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 700, color: '#111827' }}>{s.value}</span>
-              <span style={{ fontSize: '10px', color: '#9ca3af' }}>{s.label}</span>
+              <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>{s.value}</span>
+              <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{s.label}</span>
             </div>
           ))}
         </div>
@@ -166,7 +166,7 @@ export default function LeaderboardPage() {
       {/* ── Ticker — event feed ───────────────────────── */}
       {lastEvent && (
         <div key={lastEvent} className="ticker-event md:hidden" style={{
-          background: '#ffffff', borderBottom: '1px solid #f3f4f6',
+          background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)',
           padding: '10px 16px',
           fontFamily: 'var(--font-dm-mono), monospace', fontSize: '12px', color: '#374151',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -189,7 +189,7 @@ export default function LeaderboardPage() {
       <div className="gold-divider hidden md:block" />
 
       {/* ── Category tabs — light on mobile, dark on desktop ── */}
-      <div className="md:hidden" style={{ padding: '10px 16px', display: 'flex', gap: '8px', background: '#ffffff', borderBottom: '1px solid #e5e7eb' }}>
+      <div className="md:hidden" style={{ padding: '10px 16px', display: 'flex', gap: '8px', background: 'var(--bg-surface)', borderBottom: '1px solid #e5e7eb' }}>
         {['General', 'Scratch', 'Senior Scratch', 'Categoría A'].map(tab => (
           <button key={tab} onClick={() => setCategory(tab)} style={{
             padding: '8px 16px', borderRadius: '20px', whiteSpace: 'nowrap',
@@ -395,17 +395,17 @@ export default function LeaderboardPage() {
           width: '100%', padding: '8px', background: 'transparent',
           border: 'none', cursor: 'pointer',
         }}>
-          <span style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'var(--font-dm-mono), monospace' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-3)', fontFamily: 'var(--font-dm-mono), monospace' }}>
             GWI™ = probabilidad de ganar vs el field
           </span>
-          <span style={{ fontSize: '10px', color: '#9ca3af' }}>{showGwiInfo ? '▲' : '▼'}</span>
+          <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{showGwiInfo ? '▲' : '▼'}</span>
         </button>
         {showGwiInfo && (
           <div style={{
-            background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '10px',
-            padding: '14px', marginBottom: '10px', fontSize: '12px', color: '#6b7280', lineHeight: 1.6,
+            background: 'var(--bg-surface)', border: '1px solid #e5e7eb', borderRadius: '10px',
+            padding: '14px', marginBottom: '10px', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.6,
           }}>
-            <div style={{ fontWeight: 700, color: '#111827', marginBottom: '6px', fontSize: '13px' }}>
+            <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: '6px', fontSize: '13px' }}>
               GWI™ — Golf Win Index
             </div>
             <p style={{ margin: '0 0 8px' }}>
@@ -414,7 +414,7 @@ export default function LeaderboardPage() {
             <p style={{ margin: '0 0 8px' }}>
               Se basa en: score actual vs par, hándicap del jugador, consistencia histórica y dificultad de los hoyos restantes.
             </p>
-            <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af' }}>
+            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-3)' }}>
               ▲ verde = subiendo · ▼ rojo = bajando · Actualiza hoyo a hoyo
             </p>
           </div>

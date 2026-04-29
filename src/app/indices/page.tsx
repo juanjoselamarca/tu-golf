@@ -6,9 +6,9 @@ import { Flag } from '@/components/icons'
 
 /* ── Design tokens ──────────────────────────────────── */
 const gold = '#C4992A'
-const ivory = '#edeae4'
-const bg = '#070d18'
-const card = '#0e1c2f'
+const ivory = 'var(--text)'
+const bg = 'var(--bg)'
+const card = 'var(--bg-surface)'
 const textMuted = 'rgba(255,255,255,0.55)'
 const textFaint = 'rgba(255,255,255,0.35)'
 const border = 'rgba(196,153,42,0.12)'

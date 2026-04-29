@@ -114,7 +114,7 @@ export default function EnVivoPage() {
       {/* Header sticky */}
       <div style={{
         position: 'sticky', top: 56, zIndex: 40,
-        background: 'rgba(7,13,24,0.95)', backdropFilter: 'blur(12px)',
+        background: 'var(--bg-surface)', backdropFilter: 'blur(12px)',
         padding: '16px 16px 12px',
         borderBottom: '1px solid rgba(196,153,42,0.12)',
       }}>
@@ -122,7 +122,7 @@ export default function EnVivoPage() {
           {/* Dot pulsante */}
           <div style={{
             width: '8px', height: '8px', borderRadius: '50%',
-            background: rondas.length > 0 ? '#4ade80' : 'rgba(255,255,255,0.15)',
+            background: rondas.length > 0 ? '#4ade80' : 'var(--border-md)',
             boxShadow: rondas.length > 0 ? '0 0 8px rgba(74,222,128,0.6)' : 'none',
             animation: rondas.length > 0 ? 'livePulse 2s ease-in-out infinite' : 'none',
             flexShrink: 0,
@@ -253,7 +253,7 @@ export default function EnVivoPage() {
                 style={{ textDecoration: 'none' }}
               >
                 <div style={{
-                  background: 'rgba(255,255,255,0.04)',
+                  background: 'var(--bg-surface)',
                   border: '1px solid var(--border)',
                   borderRadius: '16px', padding: '16px',
                   transition: 'background 0.15s',

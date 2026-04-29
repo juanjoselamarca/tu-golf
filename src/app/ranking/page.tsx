@@ -7,13 +7,13 @@ import { NIVEL_LABELS } from '@/lib/indice-golfers'
 
 /* ── Theme tokens (coherente con signup + score-grupo v2 white) ────── */
 const theme = {
-  bg: '#ffffff',
-  card: '#ffffff',
-  text: '#1a1a2e',
-  textMuted: '#4a5568',
-  textFaint: '#94a3b8',
-  border: '#e2e8f0',
-  borderSoft: '#edf1f5',
+  bg: 'var(--bg)',
+  card: 'var(--bg-surface)',
+  text: 'var(--text)',
+  textMuted: 'var(--text-2)',
+  textFaint: 'var(--text-3)',
+  border: 'var(--border)',
+  borderSoft: 'var(--border)',
   gold: '#c4992a',
 } as const
 
@@ -103,8 +103,8 @@ export default function RankingPage() {
                 key={t.v}
                 onClick={() => setSource(t.v)}
                 style={{
-                  background: active ? theme.text : '#ffffff',
-                  color: active ? '#ffffff' : theme.text,
+                  background: active ? theme.text : 'var(--bg-surface)',
+                  color: active ? 'var(--bg-surface)' : theme.text,
                   border: `1px solid ${active ? theme.text : theme.border}`,
                   borderRadius: '999px',
                   padding: '8px 18px',
