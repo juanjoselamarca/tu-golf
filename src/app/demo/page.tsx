@@ -4,13 +4,13 @@ import Link from 'next/link'
 
 /* ── Theme tokens (coherente con signup + ranking + torneo form) ───── */
 const theme = {
-  bg: '#ffffff',
-  card: '#ffffff',
-  text: '#1a1a2e',
-  textMuted: '#4a5568',
-  textFaint: '#94a3b8',
-  border: '#e2e8f0',
-  borderSoft: '#edf1f5',
+  bg: 'var(--bg)',
+  card: 'var(--bg-surface)',
+  text: 'var(--text)',
+  textMuted: 'var(--text-2)',
+  textFaint: 'var(--text-3)',
+  border: 'var(--border)',
+  borderSoft: 'var(--border)',
   gold: '#c4992a',
 } as const
 

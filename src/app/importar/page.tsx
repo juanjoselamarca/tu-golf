@@ -17,7 +17,7 @@ export default function ImportarPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#94a8c0',
+            color: 'var(--text-2)',
           }}
         >
           Cargando importador...

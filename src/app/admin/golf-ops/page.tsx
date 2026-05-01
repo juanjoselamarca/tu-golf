@@ -62,7 +62,7 @@ const inputStyle: React.CSSProperties = {
 const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer' }
 
 const btnPrimary: React.CSSProperties = {
-  background: adminColors.gold, color: '#000', border: 'none', borderRadius: '8px',
+  background: adminColors.gold, color: 'var(--brand-dark)', border: 'none', borderRadius: '8px',
   padding: '10px 20px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
   fontWeight: 600, cursor: 'pointer',
 }

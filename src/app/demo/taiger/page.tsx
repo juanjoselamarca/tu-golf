@@ -6,13 +6,13 @@ import { GWISparkline } from '@/components/GWISparkline'
 
 /* ── Theme (coherente con /demo hub y el resto de Golfers+) ─────────── */
 const theme = {
-  bg: '#ffffff',
-  card: '#ffffff',
-  text: '#1a1a2e',
-  textMuted: '#4a5568',
-  textFaint: '#94a3b8',
-  border: '#e2e8f0',
-  borderSoft: '#edf1f5',
+  bg: 'var(--bg)',
+  card: 'var(--bg-surface)',
+  text: 'var(--text)',
+  textMuted: 'var(--text-2)',
+  textFaint: 'var(--text-3)',
+  border: 'var(--border)',
+  borderSoft: 'var(--border)',
   gold: '#c4992a',
   navy: '#070d18',
   emerald: '#16a34a',
@@ -371,7 +371,7 @@ function InsightCard({ insight, index }: { insight: Insight; index: number }) {
             <div style={{
               marginTop: '12px',
               padding: '12px 14px',
-              background: '#fafafa',
+              background: 'var(--bg)',
               border: `1px dashed ${theme.border}`,
               borderRadius: '10px',
               animation: 'fadeUp 220ms ease both',
@@ -452,7 +452,7 @@ function PlanDayCard({ day, index }: { day: PlanDay; index: number }) {
     range:   { label: 'Práctica · Range',    bg: 'rgba(37,99,235,0.06)',   color: '#2563eb' },
     putting: { label: 'Práctica · Putting',  bg: 'rgba(124,58,237,0.06)',  color: '#7c3aed' },
     round:   { label: 'Ronda',                bg: 'rgba(196,153,42,0.08)', color: theme.gold },
-    rest:    { label: 'Descanso',             bg: '#f5f5f5',                color: theme.textMuted },
+    rest:    { label: 'Descanso',             bg: 'var(--border)',                color: theme.textMuted },
   }[day.kind]
 
   return (
@@ -469,7 +469,7 @@ function PlanDayCard({ day, index }: { day: PlanDay; index: number }) {
         aria-expanded={open}
         style={{
           width: '100%',
-          background: '#ffffff',
+          background: 'var(--bg-surface)',
           border: 'none',
           padding: '14px 18px',
           display: 'flex',
