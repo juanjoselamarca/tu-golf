@@ -41,12 +41,12 @@ function haptic(p: number | number[]) { if (typeof navigator !== 'undefined' && 
 
 /* ── Theme ── */
 const theme = {
-  bg: '#ffffff',
-  card: '#f8f9fa',
-  text: '#1a1a2e',
-  textMuted: '#4a5568',
-  textFaint: '#94a3b8',
-  border: '#e2e8f0',
+  bg: 'var(--bg)',
+  card: 'var(--bg-surface)',
+  text: 'var(--text)',
+  textMuted: 'var(--text-2)',
+  textFaint: 'var(--text-3)',
+  border: 'var(--border)',
   gold: '#C4992A',
   navBg: 'rgba(255,255,255,0.97)',
   headerBg: 'rgba(255,255,255,0.97)',
@@ -802,7 +802,7 @@ export default function ScoreGrupoPage() {
       </header>
 
       {/* Progress bar */}
-      <div style={{ height: '3px', background: '#e2e8f0', flexShrink: 0 }}>
+      <div style={{ height: '3px', background: 'var(--border)', flexShrink: 0 }}>
         <div style={{ height: '3px', background: theme.gold, width: `${(maxThru / totalHoles) * 100}%`, transition: 'width 0.3s ease' }} />
       </div>
 
@@ -820,7 +820,7 @@ export default function ScoreGrupoPage() {
                 <div style={{ fontSize: '8px', color: isActive ? theme.gold : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
                 <div style={{
                   width: '22px', height: '22px', borderRadius: '3px',
-                  background: allHaveScore ? 'rgba(196,153,42,0.12)' : isActive ? 'rgba(196,153,42,0.08)' : '#f3f4f6',
+                  background: allHaveScore ? 'rgba(196,153,42,0.12)' : isActive ? 'rgba(196,153,42,0.08)' : 'var(--bg)',
                   border: isActive ? '1.5px solid #C4992A' : allHaveScore ? '1px solid rgba(196,153,42,0.3)' : '1px solid #e2e8f0',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '9px', color: allHaveScore ? theme.gold : 'transparent', fontWeight: 600,
@@ -837,7 +837,7 @@ export default function ScoreGrupoPage() {
       </div>
 
       {/* Hole info row */}
-      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: '#f8f9fa', flexShrink: 0 }}>
+      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'var(--bg-surface)', flexShrink: 0 }}>
         {[
           { label: 'PAR', value: String(par) },
           { label: 'SI', value: String(holeData.stroke_index) },
@@ -940,7 +940,7 @@ export default function ScoreGrupoPage() {
                     disabled={teamScore != null && teamScore <= 1}
                     style={{
                       width: '52px', height: '52px', borderRadius: '14px', fontSize: '24px', fontWeight: 300,
-                      background: '#f3f4f6', color: '#374151', border: '1px solid #e2e8f0',
+                      background: 'var(--bg)', color: '#374151', border: '1px solid #e2e8f0',
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       touchAction: 'manipulation', userSelect: 'none',
                       opacity: teamScore != null && teamScore <= 1 ? 0.3 : 1,
@@ -1071,7 +1071,7 @@ export default function ScoreGrupoPage() {
                       width: '52px', height: '52px', borderRadius: '14px',
                       fontSize: '24px', fontWeight: 300,
                       background: pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole
-                        ? 'rgba(196,153,42,0.2)' : '#f3f4f6',
+                        ? 'rgba(196,153,42,0.2)' : 'var(--bg)',
                       color: '#374151',
                       border: pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole
                         ? '1px solid rgba(196,153,42,0.55)' : '1px solid #e2e8f0',

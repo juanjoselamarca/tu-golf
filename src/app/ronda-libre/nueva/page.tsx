@@ -34,18 +34,18 @@ interface CourseTee {
 
 // White theme colors
 const colors = {
-  bg: '#ffffff',
-  card: '#f9fafb',
-  cardBorder: '#e5e7eb',
-  textPrimary: '#111827',
-  textSecondary: '#6b7280',
-  textLabel: '#9ca3af',
+  bg: 'var(--bg)',
+  card: 'var(--bg-surface)',
+  cardBorder: 'var(--border)',
+  textPrimary: 'var(--text)',
+  textSecondary: 'var(--text-2)',
+  textLabel: 'var(--text-3)',
   activeBtn: '#c4992a',
-  activeBtnText: '#070d18',
-  inactiveBtn: '#f9fafb',
-  inactiveBtnText: '#6b7280',
-  inputBg: '#ffffff',
-  inputBorder: '#d1d5db',
+  activeBtnText: 'var(--brand-dark)',
+  inactiveBtn: 'var(--bg)',
+  inactiveBtnText: 'var(--text-2)',
+  inputBg: 'var(--input-bg)',
+  inputBorder: 'var(--input-border)',
   inputFocus: '#c4992a',
   gold: '#c4992a',
 }
@@ -568,7 +568,7 @@ export default function NuevaRondaLibrePage() {
             width: '28px', height: '28px', borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '13px', fontWeight: 600,
-            background: s === step ? colors.gold : s < step ? 'rgba(196,153,42,0.15)' : '#f3f4f6',
+            background: s === step ? colors.gold : s < step ? 'rgba(196,153,42,0.15)' : 'var(--bg)',
             color: s === step ? '#ffffff' : s < step ? colors.gold : colors.textLabel,
             transition: 'all 0.2s',
           }}>
@@ -577,7 +577,7 @@ export default function NuevaRondaLibrePage() {
           {s < 4 && (
             <div style={{
               width: '32px', height: '2px',
-              background: s < step ? colors.gold : '#e5e7eb',
+              background: s < step ? colors.gold : 'var(--border)',
               transition: 'background 0.2s',
             }} />
           )}
@@ -801,7 +801,7 @@ export default function NuevaRondaLibrePage() {
                   background: courseDetails.has_holes ? 'rgba(196,153,42,0.08)' : 'rgba(217,119,6,0.08)',
                   borderRadius: '10px',
                   fontSize: '13px',
-                  color: '#374151',
+                  color: 'var(--text)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
@@ -868,7 +868,7 @@ export default function NuevaRondaLibrePage() {
                               width: '100%', padding: '16px 20px', borderRadius: '14px',
                               border: isActive ? `2px solid ${colors.gold}` : '1px solid #e5e7eb',
                               cursor: 'pointer', textAlign: 'left',
-                              background: isActive ? 'rgba(196,153,42,0.06)' : '#ffffff',
+                              background: isActive ? 'rgba(196,153,42,0.06)' : 'var(--bg-surface)',
                               transition: 'all 0.15s',
                               WebkitTapHighlightColor: 'transparent',
                             }}
@@ -878,14 +878,14 @@ export default function NuevaRondaLibrePage() {
                                 <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', fontWeight: 600, color: isActive ? colors.gold : colors.textPrimary }}>
                                   {combo.loops.join(' + ')}
                                 </div>
-                                <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '12px', color: '#6b7280', marginTop: '3px' }}>
+                                <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '12px', color: 'var(--text-2)', marginTop: '3px' }}>
                                   18 hoyos &middot; Par {combo.par}
                                   {blancoTee ? ` \u00b7 ${blancoTee.yardaje_total?.toLocaleString()} yds` : ''}
                                 </div>
                               </div>
                               <div style={{ textAlign: 'right' }}>
                                 {blancoTee ? (
-                                  <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '11px', color: '#9ca3af' }}>
+                                  <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '11px', color: 'var(--text-3)' }}>
                                     <div>CR {blancoTee.rating}</div>
                                     <div>Slope {blancoTee.slope}</div>
                                   </div>
@@ -937,7 +937,7 @@ export default function NuevaRondaLibrePage() {
                         style={{
                           flex: 1, padding: '14px 16px', borderRadius: '12px',
                           border: active ? `2px solid ${colors.gold}` : `1px solid ${colors.cardBorder}`,
-                          background: active ? 'rgba(196,153,42,0.06)' : '#ffffff',
+                          background: active ? 'rgba(196,153,42,0.06)' : 'var(--bg-surface)',
                           cursor: 'pointer', textAlign: 'center',
                           transition: 'all 0.15s',
                           WebkitTapHighlightColor: 'transparent',
@@ -976,7 +976,7 @@ export default function NuevaRondaLibrePage() {
                           style={{
                             flex: 1, padding: '12px 14px', borderRadius: '10px',
                             border: active ? `2px solid ${colors.gold}` : `1px solid ${colors.cardBorder}`,
-                            background: active ? 'rgba(196,153,42,0.06)' : '#ffffff',
+                            background: active ? 'rgba(196,153,42,0.06)' : 'var(--bg-surface)',
                             cursor: 'pointer', textAlign: 'center',
                             transition: 'all 0.15s',
                             WebkitTapHighlightColor: 'transparent',
@@ -1052,7 +1052,7 @@ export default function NuevaRondaLibrePage() {
                       style={{
                         width: '100%', padding: '14px 16px', borderRadius: '12px',
                         border: active ? `2px solid ${colors.gold}` : `1px solid ${colors.cardBorder}`,
-                        background: active ? 'rgba(196,153,42,0.06)' : '#ffffff',
+                        background: active ? 'rgba(196,153,42,0.06)' : 'var(--bg-surface)',
                         cursor: 'pointer', textAlign: 'left',
                         transition: 'all 0.15s',
                         WebkitTapHighlightColor: 'transparent',
@@ -1111,7 +1111,7 @@ export default function NuevaRondaLibrePage() {
                         fontSize: '11px',
                         fontFamily: '"DM Mono", monospace',
                         color: colors.textSecondary,
-                        background: '#ffffff',
+                        background: 'var(--bg-surface)',
                         border: '1px solid rgba(196,153,42,0.2)',
                         borderRadius: '6px',
                         padding: '3px 7px',
@@ -1155,7 +1155,7 @@ export default function NuevaRondaLibrePage() {
                             padding: '16px',
                             borderRadius: '12px',
                             border: active ? `2px solid ${colors.gold}` : `1px solid ${colors.cardBorder}`,
-                            background: active ? 'rgba(196,153,42,0.06)' : '#ffffff',
+                            background: active ? 'rgba(196,153,42,0.06)' : 'var(--bg-surface)',
                             cursor: 'pointer',
                             textAlign: 'left',
                             transition: 'all 0.15s',
@@ -1217,7 +1217,7 @@ export default function NuevaRondaLibrePage() {
                         fontSize: '11px',
                         fontFamily: '"DM Mono", monospace',
                         color: colors.textSecondary,
-                        background: '#ffffff',
+                        background: 'var(--bg-surface)',
                         border: '1px solid rgba(196,153,42,0.2)',
                         borderRadius: '6px',
                         padding: '3px 7px',
@@ -1272,7 +1272,7 @@ export default function NuevaRondaLibrePage() {
                         fontSize: '11px',
                         fontFamily: '"DM Mono", monospace',
                         color: colors.textSecondary,
-                        background: '#ffffff',
+                        background: 'var(--bg-surface)',
                         border: '1px solid rgba(196,153,42,0.2)',
                         borderRadius: '6px',
                         padding: '3px 7px',
@@ -1335,7 +1335,7 @@ export default function NuevaRondaLibrePage() {
                               cursor: 'pointer', textAlign: 'left',
                               fontWeight: active ? 600 : 400,
                               background: active ? colors.activeBtn : '#f9fafb',
-                              borderColor: active ? colors.activeBtn : '#e5e7eb',
+                              borderColor: active ? colors.activeBtn : 'var(--border)',
                               color: active ? colors.activeBtnText : '#374151',
                               transition: 'all 0.15s',
                               WebkitTapHighlightColor: 'transparent',
@@ -1440,7 +1440,7 @@ export default function NuevaRondaLibrePage() {
                   position: 'relative', transition: 'background 0.2s', flexShrink: 0,
                 }}>
                   <div style={{
-                    width: '18px', height: '18px', borderRadius: '50%', background: '#ffffff',
+                    width: '18px', height: '18px', borderRadius: '50%', background: 'var(--bg-surface)',
                     position: 'absolute', top: '3px',
                     left: partidaSimultanea ? '19px' : '3px',
                     transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
@@ -1466,7 +1466,7 @@ export default function NuevaRondaLibrePage() {
                         style={{
                           width: '38px', height: '38px', borderRadius: '10px',
                           fontSize: '14px', fontWeight: hoyoInicio === h ? 700 : 400,
-                          background: hoyoInicio === h ? colors.gold : '#f3f4f6',
+                          background: hoyoInicio === h ? colors.gold : 'var(--bg)',
                           color: hoyoInicio === h ? '#ffffff' : colors.textSecondary,
                           border: `1px solid ${hoyoInicio === h ? colors.gold : colors.cardBorder}`,
                           cursor: 'pointer', transition: 'all 0.15s',
@@ -1866,10 +1866,10 @@ export default function NuevaRondaLibrePage() {
                               display: 'block', width: '100%', padding: '12px 14px',
                               marginBottom: '4px', borderRadius: '8px', minHeight: '44px',
                               border: isInThisTeam ? `2px solid ${colors.gold}` : '1px solid #e5e7eb',
-                              background: isInThisTeam ? 'rgba(196,153,42,0.06)' : isInOtherTeam ? '#f3f4f6' : '#ffffff',
+                              background: isInThisTeam ? 'rgba(196,153,42,0.06)' : isInOtherTeam ? '#f3f4f6' : 'var(--bg-surface)',
                               opacity: isInOtherTeam ? 0.4 : 1,
                               cursor: isInOtherTeam ? 'not-allowed' : 'pointer',
-                              fontSize: '13px', color: '#374151', textAlign: 'left' as const,
+                              fontSize: '13px', color: 'var(--text)', textAlign: 'left' as const,
                               fontFamily: '"DM Sans", sans-serif',
                               WebkitTapHighlightColor: 'transparent',
                             }}
@@ -1887,7 +1887,7 @@ export default function NuevaRondaLibrePage() {
                       style={{
                         width: '100%', padding: '10px', borderRadius: '8px',
                         border: '1px dashed #d1d5db', background: 'transparent',
-                        fontSize: '13px', color: '#9ca3af', cursor: 'pointer',
+                        fontSize: '13px', color: 'var(--text-3)', cursor: 'pointer',
                         WebkitTapHighlightColor: 'transparent',
                       }}
                     >
@@ -2065,7 +2065,7 @@ export default function NuevaRondaLibrePage() {
                             <span style={{
                               fontSize: '11px', color: colors.textSecondary, flexShrink: 0,
                               padding: '2px 8px', borderRadius: '8px',
-                              background: '#ffffff', border: `1px solid ${colors.cardBorder}`,
+                              background: 'var(--bg-surface)', border: `1px solid ${colors.cardBorder}`,
                               fontFamily: '"DM Mono", monospace',
                             }}>
                               Tee {capitalize(p.tees)}

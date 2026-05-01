@@ -112,20 +112,20 @@ function ScorePageContent() {
 
   // Dark theme permanent — consistent with all other scoring pages
   const theme = {
-    bg: '#ffffff',
-    card: '#f8f9fa',
-    text: '#1a1a2e',
-    textMuted: '#4a5568',
-    textFaint: '#94a3b8',
-    border: '#e2e8f0',
-    badgeBg: '#f3f4f6',
-    badgeBorder: '#e2e8f0',
-    badgeText: '#374151',
-    scoreText: '#1a1a2e',
-    scoreDimmed: '#d1d5db',
-    buttonBg: '#f3f4f6',
-    buttonBorder: '#e2e8f0',
-    buttonText: '#374151',
+    bg: 'var(--bg)',
+    card: 'var(--bg-surface)',
+    text: 'var(--text)',
+    textMuted: 'var(--text-2)',
+    textFaint: 'var(--text-3)',
+    border: 'var(--border)',
+    badgeBg: 'var(--bg)',
+    badgeBorder: 'var(--border)',
+    badgeText: 'var(--text-2)',
+    scoreText: 'var(--text)',
+    scoreDimmed: 'var(--text-3)',
+    buttonBg: 'var(--bg)',
+    buttonBorder: 'var(--border)',
+    buttonText: 'var(--text-2)',
     navBg: 'rgba(255,255,255,0.97)',
     headerBg: 'rgba(255,255,255,0.97)',
   }
@@ -737,8 +737,8 @@ function ScorePageContent() {
 
   /* ── Render ── */
   if (adminRedirectMsg) return (
-    <div style={{ minHeight: '100dvh', background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
-      <div style={{ fontSize: '14px', color: '#4a5568' }}>{adminRedirectMsg}</div>
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
+      <div style={{ fontSize: '14px', color: 'var(--text-2)' }}>{adminRedirectMsg}</div>
     </div>
   )
   if (loading) return <div style={{ background: theme.bg, minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textFaint }}>Cargando ronda...</div>
@@ -752,11 +752,11 @@ function ScorePageContent() {
   /* ── Player selection screen (multi-player, no auto-match) ── */
   if (!selectedPlayer && jugadores.length > 1) {
     return (
-      <div style={{ minHeight: '100dvh', background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: '#1a1a2e', marginBottom: '8px' }}>
+      <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
           Quien eres?
         </h1>
-        <p style={{ fontSize: '14px', color: '#4a5568', marginBottom: '24px' }}>
+        <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '24px' }}>
           Selecciona tu nombre para marcar tu score
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '360px' }}>
@@ -772,13 +772,13 @@ function ScorePageContent() {
               else setCurrentHole(orden[0])
             }} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '16px 20px', background: '#f8f9fa', border: '1px solid #e2e8f0',
+              padding: '16px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border)',
               borderRadius: '12px', cursor: 'pointer', width: '100%', textAlign: 'left',
             }}>
               <div>
-                <div style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a2e' }}>{j.nombre}</div>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{j.nombre}</div>
                 {playerHcp[j.id] != null && (
-                  <div style={{ fontSize: '13px', color: '#94a3b8' }}>HCP {playerHcp[j.id]}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>HCP {playerHcp[j.id]}</div>
                 )}
               </div>
               <span style={{ color: '#c4992a', fontSize: '20px' }}>{'\u2192'}</span>
@@ -1073,7 +1073,7 @@ function ScorePageContent() {
           <div style={{ width: '1px', background: theme.border, margin: '2px 1px', flexShrink: 0 }} />
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '36px', padding: '0 4px', flexShrink: 0 }}>
             <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginBottom: '2px' }}>GROSS</div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a2e' }}>{totalGross > 0 ? totalGross : '—'}</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>{totalGross > 0 ? totalGross : '—'}</div>
             {showNet && totalGross > 0 && (
               <>
                 <div style={{ fontSize: '7px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginTop: '3px' }}>NET</div>
@@ -1085,7 +1085,7 @@ function ScorePageContent() {
       </div>
 
       {/* ── Hole info: 3-4 columns + share ── */}
-      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: '#f8f9fa', flexShrink: 0 }}>
+      <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'var(--bg-surface)', flexShrink: 0 }}>
         {[
           { label: 'PAR', value: String(par) },
           { label: 'SI', value: String(holeData.stroke_index) },
@@ -1411,13 +1411,13 @@ function ScorePageContent() {
             /* ── Match Play: show match state bar ── */
             <div style={{
               padding: '12px 16px',
-              background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '12px',
+              background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a2e' }}>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
                   {ronda!.ronda_libre_jugadores[0]?.nombre}
                 </span>
-                <span style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a2e' }}>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
                   {ronda!.ronda_libre_jugadores[1]?.nombre}
                 </span>
               </div>
@@ -1428,7 +1428,7 @@ function ScorePageContent() {
               }}>
                 {matchResult.display}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-3)' }}>
                 <span>{matchResult.holesWonA} ganados</span>
                 <span>{matchResult.holesHalved} empates</span>
                 <span>{matchResult.holesWonB} ganados</span>
@@ -1450,18 +1450,18 @@ function ScorePageContent() {
                 onClick={() => setShowRanking(!showRanking)}
                 style={{
                   width: '100%', padding: '8px 12px',
-                  background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '10px',
+                  background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '10px',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#4a5568',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--text-2)',
                 }}
               >
                 <span>Ranking</span>
-                <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>
                   {showRanking ? '\u25B2' : '\u25BC'}
                 </span>
               </button>
               {showRanking && (
-                <div style={{ marginTop: '4px', background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                <div style={{ marginTop: '4px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
                   {ranking.map((r, idx) => {
                     const isMe = r.id === activeJugadorId
                     const vsParStr = r.vsPar > 0 ? `+${r.vsPar}` : r.vsPar === 0 ? 'E' : String(r.vsPar)
@@ -1473,7 +1473,7 @@ function ScorePageContent() {
                         borderBottom: idx < ranking.length - 1 ? '1px solid #e2e8f0' : 'none',
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', width: '20px' }}>{idx + 1}</span>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', width: '20px' }}>{idx + 1}</span>
                           <span style={{ fontSize: '14px', fontWeight: isMe ? 700 : 500, color: isMe ? '#c4992a' : '#1a1a2e' }}>
                             {r.nombre}{isMe ? ' \u2190' : ''}
                           </span>
@@ -1482,7 +1482,7 @@ function ScorePageContent() {
                           <span style={{ fontSize: '14px', fontWeight: 600, color: r.vsPar < 0 ? '#16a34a' : r.vsPar > 0 ? '#dc2626' : '#1a1a2e' }}>
                             {vsParStr}
                           </span>
-                          <span style={{ fontSize: '11px', color: '#94a3b8' }}>({r.holesPlayed}h)</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>({r.holesPlayed}h)</span>
                         </div>
                       </div>
                     )
@@ -1576,7 +1576,7 @@ function ScorePageContent() {
       {taigerStatus === 'analyzing' && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90, background: 'rgba(255,255,255,0.97)', borderTop: '1px solid #e2e8f0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', textAlign: 'center' }}>
           <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>tAIger+ esta analizando tu ronda...</div>
-          <div style={{ color: '#94a3b8', fontSize: '13px' }}>Esto toma unos segundos</div>
+          <div style={{ color: 'var(--text-3)', fontSize: '13px' }}>Esto toma unos segundos</div>
         </div>
       )}
       {taigerStatus === 'ready' && (
@@ -1765,15 +1765,15 @@ function ScorePageContent() {
                   return '#f87171'
                 }
                 return (
-                  <div style={{ width: '100%', background: '#f8f9fa', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px', marginBottom: '20px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <div style={{ width: '100%', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '10px', marginBottom: '20px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     <table style={{ width: '100%', minWidth: '300px', borderCollapse: 'collapse' }}>
                       <tbody>
                         {/* Front 9 */}
                         <tr>
                           {holeNums.slice(0, 9).map(h => (
-                            <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: '#94a3b8' }}>{h}</td>
+                            <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: 'var(--text-3)' }}>{h}</td>
                           ))}
-                          <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: '#4a5568', fontWeight: 700, borderLeft: '1px solid #e2e8f0' }}>OUT</td>
+                          <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'var(--text-2)', fontWeight: 700, borderLeft: '1px solid #e2e8f0' }}>OUT</td>
                         </tr>
                         <tr>
                           {holeNums.slice(0, 9).map(h => (
@@ -1781,7 +1781,7 @@ function ScorePageContent() {
                               <span style={{ fontSize: '13px', fontWeight: 700, color: cColor(h) }}>{playerScores[h] ?? '·'}</span>
                             </td>
                           ))}
-                          <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: '#1a1a2e', borderLeft: '1px solid #e2e8f0' }}>{front9}</td>
+                          <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--text)', borderLeft: '1px solid #e2e8f0' }}>{front9}</td>
                         </tr>
                         {/* Back 9 */}
                         {totalHoles > 9 && (
@@ -1789,9 +1789,9 @@ function ScorePageContent() {
                             <tr><td colSpan={10} style={{ padding: '3px' }} /></tr>
                             <tr>
                               {holeNums.slice(9, 18).map(h => (
-                                <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: '#94a3b8' }}>{h}</td>
+                                <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: 'var(--text-3)' }}>{h}</td>
                               ))}
-                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: '#4a5568', fontWeight: 700, borderLeft: '1px solid #e2e8f0' }}>IN</td>
+                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'var(--text-2)', fontWeight: 700, borderLeft: '1px solid #e2e8f0' }}>IN</td>
                             </tr>
                             <tr>
                               {holeNums.slice(9, 18).map(h => (
@@ -1799,12 +1799,12 @@ function ScorePageContent() {
                                   <span style={{ fontSize: '13px', fontWeight: 700, color: cColor(h) }}>{playerScores[h] ?? '·'}</span>
                                 </td>
                               ))}
-                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: '#1a1a2e', borderLeft: '1px solid #e2e8f0' }}>{back9}</td>
+                              <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--text)', borderLeft: '1px solid #e2e8f0' }}>{back9}</td>
                             </tr>
                             {/* Total */}
                             <tr>
                               <td colSpan={9} style={{ borderTop: '1px solid #e2e8f0', padding: '4px 0 0' }} />
-                              <td style={{ borderTop: '1px solid #e2e8f0', padding: '4px 3px 0', textAlign: 'center', fontSize: '15px', fontWeight: 900, color: '#1a1a2e' }}>{finalScore.gross}</td>
+                              <td style={{ borderTop: '1px solid #e2e8f0', padding: '4px 3px 0', textAlign: 'center', fontSize: '15px', fontWeight: 900, color: 'var(--text)' }}>{finalScore.gross}</td>
                             </tr>
                           </>
                         )}
@@ -1831,7 +1831,7 @@ function ScorePageContent() {
                         </Link>
                         <button onClick={handleShareCard} style={{
                           width: '100%', padding: '14px', background: '#f3f4f6',
-                          border: '1px solid #e2e8f0', color: '#1a1a2e',
+                          border: '1px solid var(--border)', color: 'var(--text)',
                           fontWeight: 600, fontSize: '14px', borderRadius: '12px', cursor: 'pointer',
                         }}>
                           Compartir mi score
@@ -1859,7 +1859,7 @@ function ScorePageContent() {
                       style={{
                         width: '100%', padding: '12px',
                         background: 'none', border: 'none',
-                        color: '#94a3b8', fontSize: '14px',
+                        color: 'var(--text-3)', fontSize: '14px',
                         cursor: 'pointer',
                       }}
                     >
@@ -1944,7 +1944,7 @@ function ScorePageContent() {
 
 export default function ScorePage() {
   return (
-    <Suspense fallback={<div style={{ background: '#ffffff', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>Cargando...</div>}>
+    <Suspense fallback={<div style={{ background: 'var(--bg-surface)', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>Cargando...</div>}>
       <ScorePageContent />
     </Suspense>
   )
