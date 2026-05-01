@@ -189,3 +189,56 @@ ronda completada → patterns_need_recalc = TRUE
 ## Regla de oro del scoring
 Siempre guardar gross_score + net_score + points en BD.
 El modo_juego solo afecta QUÉ SE MUESTRA, no qué se guarda.
+
+---
+
+## Theming — Sistema Light/Dark/Auto sistémico
+
+Implementado 2026-04-30. Sprint cerrado.
+
+### Modelo
+Sistema híbrido tri-state: identidad fija por pantalla + utility con toggle del usuario.
+
+### Resolución del tema
+1. ThemeContext lee `localStorage['golfers-theme']` → `'light' | 'dark' | 'auto'`. Default `auto`.
+2. Si `auto`, resuelve via `matchMedia('(prefers-color-scheme: dark)')`.
+3. Resolved theme se escribe a `document.documentElement.setAttribute('data-theme', ...)`.
+4. Layouts override pueden envolver subtrees con `<div data-theme="dark|light">` para forzar identidad fija.
+
+### Anti-FOUC
+Script inline en `<head>` de `src/app/layout.tsx` resuelve el tema sync antes del primer paint, antes de que React hidrate. Sin flash blanco al cargar.
+
+### Tokens
+Definidos en `src/app/globals.css`:
+- `:root` — brand colors, fonts, score colors, legacy palette aliases (mismo en ambos modos) + paleta light como **fallback** para JS-disabled.
+- `[data-theme="light"]` — paleta light premium (off-white `#fafaf7`, carbón `#1a1d24`, sombras editoriales).
+- `[data-theme="dark"]` — paleta dark (navy `#070d18`, ivory `#edeae4`, gold accent en bordes).
+
+### Identidad fija
+Pantallas que NO respetan el toggle (override por layout):
+- `/dashboard/*` — siempre **dark** (identidad club house).
+- `/login`, `/register`, `/recuperar` — siempre **light** (auth = confianza).
+
+### Tailwind
+`darkMode: ['selector', '[data-theme="dark"]']` en `tailwind.config.ts`.
+Las clases `dark:` activan cuando `[data-theme="dark"]` está en el árbol — coherente con los tokens, NO por preferencia del OS. Cero `dark:` residual al cierre del sprint.
+
+### Toggle UI
+Segmented control de 3 pastillas en el dropdown del Navbar avatar (sección "Tema"). Estado activo: fondo `--brand`, texto `--brand-dark`. Persiste en `localStorage`. Listener a `matchMedia` mantiene sync con OS cuando modo `auto`.
+
+### Convenciones para nuevas pantallas
+- Usar tokens (`var(--bg)`, `var(--text)`, `var(--text-2)`, `var(--text-3)`, `var(--bg-surface)`, `var(--border)`, etc.) — responde al toggle automáticamente.
+- Para forzar identidad fija: envolver el layout en `<div data-theme="dark">` o `"light"`.
+- NUNCA hardcodear colores hex que cambien según modo.
+- Brand-fixed (gold `#c4992a`, score colors `--eagle/--birdie/--par/--bogey/--double`) iguales en ambos modos.
+- Para CTAs gold (`background: '#c4992a'`), texto siempre `var(--brand-dark)`.
+
+### Out of scope (sprints futuros)
+- Sincronización theme preference con BD del usuario (multi-device).
+- Animaciones de transición entre modos.
+- Modo "tournament" alto contraste para uso bajo sol.
+- Auditoría WCAG AA en ambos modos.
+
+### Spec y plan
+- Spec: `docs/superpowers/specs/2026-04-28-toggle-light-dark-auto-design.md`
+- Plan: `docs/superpowers/plans/2026-04-28-toggle-light-dark-auto.md`

@@ -4,6 +4,73 @@
 
 ---
 
+## Sesión 28-30 Abr 2026 — Toggle Light/Dark/Auto sistémico
+
+### Problema
+El toggle del Navbar funcionaba pero solo afectaba al Navbar. Las pantallas tenían hardcodes ad-hoc (`/perfil` light, resto dark). No había forma sistémica de cambiar el tema globalmente. P2 pendiente del Audit UI/UX Abr 2026.
+
+### Solución
+Sistema híbrido tri-state:
+- `<html data-theme="light|dark">` controlado por ThemeContext + script anti-FOUC inline en `<head>`.
+- Tokens duales en `globals.css` (`[data-theme="light"]` y `[data-theme="dark"]` con paletas completas).
+- Override por layout: `/dashboard` dark fijo, `/login`+`/register`+`/recuperar` light fijo. Resto respeta toggle.
+- Toggle UI tri-state en Navbar dropdown (Auto · Claro · Oscuro).
+- Tailwind `darkMode: ['selector', '[data-theme="dark"]']` para alinear `dark:` clases con tokens.
+- Default mode = `Auto` (sigue `prefers-color-scheme` del OS).
+
+Paleta light premium estilo Linear/Arc/Vercel/Apple — off-white #fafaf7 cálido, carbón #1a1d24, sombras editoriales — NO blanco utilitario.
+
+### Archivos tocados
+- `tailwind.config.ts` — darkMode selector.
+- `src/app/globals.css` — tokens duales, body conditional gradient, helpers.
+- `src/contexts/ThemeContext.tsx` — API tri-state {mode, resolved, setMode} con aliases legacy.
+- `src/contexts/__tests__/ThemeContext.test.tsx` — 10 tests nuevos.
+- `src/components/Navbar.tsx` — segmented control 3 pastillas (commit aislado por protocolo).
+- `src/components/ui/{Input,ErrorScreen,ShareSheet,Stepper,Toggle}.tsx` — eliminado Tailwind `dark:`.
+- `src/app/layout.tsx` — script anti-FOUC + footer migration.
+- `src/app/dashboard/layout.tsx` — nuevo (identidad dark fija).
+- `src/app/{login,register,recuperar}/layout.tsx` — identidad light fija.
+- `src/app/perfil/**`, `src/app/coach/**`, `src/app/{leaderboard,ranking,en-vivo,indices}/page.tsx`, `src/app/organizador/**`, `src/app/ronda-libre/**`, `src/app/{demo,importar}/**`, `src/app/admin/golf-ops/page.tsx` — hardcodes hex a tokens.
+- `docs/ARQUITECTURA.md` — sección Theming.
+
+### Verificación
+- 17 commits, cada uno revertible. STOP explícito tras Navbar (commit 7) por protocolo PROTECCION ANTI-CAIDA.
+- Tests: ThemeContext suite 10/10 nueva. Suite completa 5904/5904 verde end-to-end.
+- TS 0 errores en cada paso.
+- Build exitoso en cada paso.
+- `grep "dark:" src` → 0 matches al cierre.
+- Pre-push hook verde en cada push.
+
+### Commits
+1. `ab6db56` docs(theme): spec del toggle
+2. `1c681ed` docs(theme): plan de implementación
+3. `248b08c` refactor(theme): tokens duales + Tailwind darkMode
+4. `e4418bd` refactor(ui): tokens en componentes shared, eliminar dark:
+5. `12dfa36` test(theme): tests del ThemeContext (TDD red)
+6. `f88fdfa` feat(theme): ThemeContext tri-state + aliases legacy
+7. `9136fa2` feat(theme): tri-state toggle en Navbar dropdown
+8. `ff5c40c` feat(theme): script anti-FOUC + identidad fija dashboard/auth
+9. `d5e2f4f` refactor(perfil): tokens en /perfil
+10. `54868da` refactor(perfil): tokens en historial
+11. `ee719bf` refactor(perfil): tokens en stats
+12. `1bdc2ff` refactor(coach): tokens en /coach
+13. `0b2a0df` refactor(theme): tokens en pantallas de competencia
+14. `aa0b619` refactor(organizador): tokens en organizador
+15. `2529873` refactor(ronda-libre): tokens en scoring (4 archivos)
+16. `ecaceec` refactor(theme): tokens en demo, importar, admin
+17. `dce7157` refactor(theme): :root fallback light en vez de dark
+
+### Decisiones cerradas
+Ver `docs/superpowers/specs/2026-04-28-toggle-light-dark-auto-design.md` §9 y plan en `docs/superpowers/plans/2026-04-28-toggle-light-dark-auto.md`.
+
+### Out of scope (sprints futuros)
+- Sincronizar theme preference con BD del usuario (multi-device).
+- Animar transiciones entre modos.
+- Modo "tournament" alto contraste para uso bajo sol.
+- Auditoría WCAG AA en ambos modos.
+
+---
+
 ## Sesión 28 Abr 2026 — Cross-validation canchas + fix slope FedeGolf
 
 **Problema**: tras la migración 026 que renombró `course_holes.yardaje_campeonato → yardaje_negras` y normalizó tees por género, quedó pendiente `course_tees.nombre`. El sync `sync-courses-unified.ts` seguía guardando los tees como singular masculino (`'negro'`), mientras la UI envía plural Chilean Spanish (`'negras'`) post-026. Resultado: la función `cargarCourseData()` hacía `ILIKE 'negras%'` que NO matcheaba con `'negro'` en BD, caía al fallback `courses.slope_rating` (que para FedeGolf es placeholder universal `113`), produciendo course handicaps subestimados (~−4 strokes) para jugadores con tee Negras en cancha FedeGolf. Impacto histórico medido: 3 jugadores con tee `negras` en rondas libres FedeGolf calcularon HCP con slope falso. 0 torneos afectados (no había torneos sobre canchas FedeGolf todavía).
