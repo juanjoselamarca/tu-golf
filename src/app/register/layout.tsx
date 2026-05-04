@@ -13,5 +13,5 @@ export const metadata: Metadata = {
 }
 
 export default function RegisterLayout({ children }: { children: React.ReactNode }) {
-  return <div data-theme="light">{children}</div>
+  return <>{children}</>
 }
