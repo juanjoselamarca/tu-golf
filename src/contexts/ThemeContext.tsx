@@ -27,7 +27,7 @@ function readStoredTheme(): Theme {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored === 'light' || stored === 'dark') return stored
     // Migración silenciosa: 'auto' o cualquier otro valor legacy → light
-  } catch {}
+  } catch { /* storage disabled (Safari private, quota): caer al default */ }
   return DEFAULT_THEME
 }
 
@@ -40,13 +40,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setThemeState(initial)
     document.documentElement.setAttribute('data-theme', initial)
     // Migrar valor legacy si lo había:
-    try { localStorage.setItem(STORAGE_KEY, initial) } catch {}
+    try { localStorage.setItem(STORAGE_KEY, initial) } catch { /* storage disabled: state en memoria sigue correcto */ }
     setHydrated(true)
   }, [])
 
   useEffect(() => {
     if (!hydrated) return
-    try { localStorage.setItem(STORAGE_KEY, theme) } catch {}
+    try { localStorage.setItem(STORAGE_KEY, theme) } catch { /* storage disabled: state en memoria sigue correcto */ }
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme, hydrated])
 

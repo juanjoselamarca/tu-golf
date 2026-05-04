@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import { ThemeProvider, useTheme } from '../ThemeContext'
 
@@ -40,6 +40,13 @@ describe('ThemeContext (binario light/dark)', () => {
 
   it('migrates legacy "auto" value to light on mount', () => {
     localStorage.setItem(STORAGE_KEY, 'auto')
+    render(<ThemeProvider><TestConsumer /></ThemeProvider>)
+    expect(screen.getByTestId('theme').textContent).toBe('light')
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('light')
+  })
+
+  it('falls back to default for unknown stored values', () => {
+    localStorage.setItem(STORAGE_KEY, 'sepia')
     render(<ThemeProvider><TestConsumer /></ThemeProvider>)
     expect(screen.getByTestId('theme').textContent).toBe('light')
     expect(localStorage.getItem(STORAGE_KEY)).toBe('light')
