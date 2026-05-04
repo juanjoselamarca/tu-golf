@@ -27,8 +27,8 @@ export default function Navbar() {
   const [playSheetOpen, setPlaySheetOpen] = useState(false)
   const [notifHubOpen, setNotifHubOpen] = useState(false)
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
-  const { mode, resolved, setMode } = useTheme()
-  const isDark = resolved === 'dark'
+  const { theme, setTheme } = useTheme()
+  const isDark = theme === 'dark'
   const t = getNavTheme(isDark)
 
   useEffect(() => {
@@ -351,7 +351,7 @@ export default function Navbar() {
             })
           )}
 
-          {/* Theme toggle — tri-state segmented control */}
+          {/* Theme toggle — binario sol/luna */}
           <div style={{ padding: '4px 8px', marginTop: '8px' }}>
             <hr style={{ border: 'none', borderTop: `1px solid ${t.sidebarBorder}`, margin: '0 0 12px' }} />
             <div style={{ padding: '0 4px 8px', fontSize: '11px', color: t.menuMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -368,17 +368,22 @@ export default function Navbar() {
                 borderRadius: '10px',
               }}
             >
-              {(['auto', 'light', 'dark'] as const).map(option => {
-                const active = mode === option
-                const label = option === 'auto' ? 'Auto' : option === 'light' ? 'Claro' : 'Oscuro'
+              {(['light', 'dark'] as const).map(option => {
+                const active = theme === option
+                const label = option === 'light' ? 'Claro' : 'Oscuro'
+                const icon = option === 'light' ? '☀' : '☾'
                 return (
                   <button
                     key={option}
-                    onClick={() => setMode(option)}
+                    onClick={() => setTheme(option)}
                     style={{
                       flex: 1,
-                      padding: '8px 10px',
-                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '10px 12px',
+                      fontSize: '14px',
                       fontWeight: 500,
                       fontFamily: 'var(--font-dm-sans)',
                       border: 'none',
@@ -387,9 +392,11 @@ export default function Navbar() {
                       background: active ? '#C4992A' : 'transparent',
                       color: active ? '#070D18' : t.menuMuted,
                       transition: 'background 150ms ease, color 150ms ease',
+                      minHeight: '44px',
                     }}
                     aria-pressed={active}
                   >
+                    <span aria-hidden="true" style={{ fontSize: '16px' }}>{icon}</span>
                     {label}
                   </button>
                 )
