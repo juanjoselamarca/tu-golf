@@ -36,7 +36,7 @@ export async function buildPlayerContext(
   const profile = profileRes.data
   const handicapRange = getHandicapRange(profile?.indice ?? null)
 
-  const [roundsRes, patternsRes, sessionsRes, recommendationsRes, insightsRes] = await Promise.all([
+  const [roundsRes, patternsRes, sessionsRes, recommendationsRes, insightsRes, activePlanRes, recentOutcomesRes, planHistoryRes] = await Promise.all([
     // 100% de las rondas — el bug previo de .limit(50) capeaba stats agregados.
     supabase.from('historical_rounds')
       .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, courses(par_total)')
@@ -62,6 +62,23 @@ export async function buildPlayerContext(
       .eq('handicap_range', handicapRange)
       .order('computed_at', { ascending: false })
       .limit(5),
+    // Cerebro v2 §5.6 — memoria longitudinal sobre plan activo
+    supabase.from('coach_plans')
+      .select('id, pattern_id, hypothesis, rule, metric, target_value, target_op, baseline_value, duration_days, created_at')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle(),
+    supabase.from('plan_outcomes')
+      .select('played_at, metric_value, delta_vs_baseline, target_reached, compliance, plan_id')
+      .eq('user_id', userId)
+      .order('played_at', { ascending: false })
+      .limit(5),
+    supabase.from('coach_plans')
+      .select('pattern_id, resolution_reason, created_at, resolved_at')
+      .eq('user_id', userId)
+      .in('status', ['resolved', 'expired', 'superseded', 'cancelled'])
+      .order('resolved_at', { ascending: false })
+      .limit(3),
   ])
 
   const rounds = roundsRes.data || []
@@ -69,6 +86,43 @@ export async function buildPlayerContext(
   const sessions = sessionsRes.data || []
   const recommendations = recommendationsRes.data || []
   const collectiveInsights = insightsRes.data || []
+  const activePlan = activePlanRes.data ?? null
+  const recentOutcomesRaw = recentOutcomesRes.data ?? []
+  const planHistoryRaw = (planHistoryRes.data ?? []) as Array<{
+    pattern_id: string
+    resolution_reason: string | null
+    created_at: string
+    resolved_at: string | null
+  }>
+
+  const activePlanId = (activePlan as { id?: string } | null)?.id ?? null
+  const recentOutcomes = activePlanId
+    ? (recentOutcomesRaw as Array<{
+        played_at: string
+        metric_value: number
+        delta_vs_baseline: number | null
+        target_reached: boolean
+        compliance: 'full' | 'partial' | 'none' | 'unknown'
+        plan_id: string
+      }>)
+        .filter(o => o.plan_id === activePlanId)
+        .map(o => ({
+          played_at: o.played_at,
+          metric_value: o.metric_value,
+          delta_vs_baseline: o.delta_vs_baseline,
+          target_reached: o.target_reached,
+          compliance: o.compliance,
+        }))
+    : []
+
+  const planHistory = planHistoryRaw.map(p => ({
+    pattern_id: p.pattern_id,
+    resolution_reason: p.resolution_reason,
+    created_at: p.created_at,
+    resolved_at: p.resolved_at,
+    total_outcomes: 0,
+    full_compliance_count: 0,
+  }))
 
   const validRounds = rounds.filter(r => r.total_gross != null)
   const totalRounds = validRounds.length
@@ -180,5 +234,8 @@ export async function buildPlayerContext(
     recent_sessions: sessions as PlayerContext['recent_sessions'],
     active_recommendations: recommendations as PlayerContext['active_recommendations'],
     collective_insights: collectiveInsights as PlayerContext['collective_insights'],
+    active_plan: activePlan as PlayerContext['active_plan'],
+    recent_outcomes: recentOutcomes,
+    plan_history: planHistory,
   }
 }

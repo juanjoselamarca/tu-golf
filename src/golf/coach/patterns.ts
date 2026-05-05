@@ -260,6 +260,56 @@ export const PATTERNS: GolfPattern[] = [
       }
     },
   },
+  {
+    id: 'pressure_deterioration',
+    name: 'Deterioro bajo presion (cierre)',
+    description: 'Score promedio en ultimos 4 hoyos > resto + 1.5 strokes/hoyo, sobre rondas de 18',
+    requires18Holes: true,
+    severity: 'warning',
+    recommendation: 'Trabajar rutina pre-shot extendida en los ultimos 4 hoyos. Respiracion cuadrada antes del 15.',
+    detect(rounds) {
+      const eligible = rounds.filter(r => Array.isArray(r.scores) && r.scores.filter(s => s != null).length === 18)
+      if (eligible.length < 5) return { detected: false, confidence: 0 }
+      let triggers = 0
+      for (const r of eligible) {
+        const scores = r.scores as number[]
+        const last4 = scores.slice(14, 18)
+        const rest = scores.slice(0, 14)
+        const avgLast = last4.reduce((a, b) => a + b, 0) / 4
+        const avgRest = rest.reduce((a, b) => a + b, 0) / 14
+        if (avgLast - avgRest > 1.5) triggers++
+      }
+      const ratio = triggers / eligible.length
+      if (ratio < 0.4) return { detected: false, confidence: ratio }
+      return {
+        detected: true,
+        confidence: Math.min(0.95, 0.5 + ratio),
+        metadata: { triggers, eligible_rounds: eligible.length, ratio: Math.round(ratio * 100) / 100 },
+      }
+    },
+  },
+  {
+    id: 'driving_inconsistency',
+    name: 'Alta dispersion total',
+    description: 'Coeficiente de variacion de total_gross > 0.06 sobre ultimas 10 rondas',
+    requires18Holes: false,
+    severity: 'info',
+    recommendation: 'Jornada de range con foco en consistencia de driver — 60 bolas a un solo objetivo, contar fairways.',
+    detect(rounds) {
+      const last10 = rounds.slice(-10).filter(r => typeof r.total_gross === 'number' && r.total_gross > 0)
+      if (last10.length < 5) return { detected: false, confidence: 0 }
+      const mean = last10.reduce((a, b) => a + b.total_gross, 0) / last10.length
+      const variance = last10.reduce((a, b) => a + Math.pow(b.total_gross - mean, 2), 0) / last10.length
+      const std = Math.sqrt(variance)
+      const cv = mean > 0 ? std / mean : 0
+      if (cv < 0.06) return { detected: false, confidence: Math.round(cv * 10 * 100) / 100 }
+      return {
+        detected: true,
+        confidence: Math.min(0.95, Math.round(cv * 10 * 100) / 100),
+        metadata: { cv: Math.round(cv * 1000) / 1000, mean: Math.round(mean), std: Math.round(std * 10) / 10, sample: last10.length },
+      }
+    },
+  },
 ]
 
 export function detectPatterns(rounds: PatternRound[]): Array<{ pattern: GolfPattern; confidence: number; metadata?: Record<string, unknown> }> {
