@@ -4,6 +4,45 @@
 
 ---
 
+## Sesión 05 May 2026 (PM 12:30–13:00) — Limpieza canchas pendientes
+
+### Contexto
+Cierre del backlog del sprint multi-agente AM (`docs/DATA_FIXES_2026-05-05.md`). 3 categorías
+pendientes detectadas por `audit-handicap-calc.mjs`: C.G. 7 Ríos sin tees, 4 tees Olivos
+con `back_*=NULL`, 5 tees con nombres no-canónicos.
+
+### Cambios
+
+1. **C.G. 7 Ríos padre (`6a3ba422-…`) desactivada**
+   - Stub FedeGolf sin tees ni rondas. Las DAMAS/VARONES son las productivas.
+   - `activa=false`, `datos_verificados=false`. No se borra para no romper sync.
+
+2. **Olivos: 4 tees con `back_* := front_*`**
+   - Convención WHS para 9h jugado 18h (mismo loop dos veces).
+   - Tees azul/blanco/dorado/rojo ahora simétricos.
+
+3. **Tees no-canónicos: refactor estructural pospuesto**
+   - 2 Hurlingham (sufijo género en nombre) + 3 Nordelta (`green`, `gris`).
+   - Hurlingham requiere split del course en DAMAS/VARONES; Nordelta requiere decisión
+     de producto sobre extender el set canónico.
+   - Documentado en `DATA_FIXES_2026-05-05.md` como follow-up con plan.
+
+4. **Bug fix audit script**
+   - `fedegolf_courses_without_valid_tees` ahora filtra por `activa=true`.
+
+### Verificación
+- `audit-handicap-calc.mjs` post-fix: **0 P0** (era 1).
+- 3 warnings restantes son conocidos (placeholder slope=113, 5 tees no-canónicos pendientes,
+  2 rondas históricas at-risk pre-existentes).
+
+### Archivos
+- `scripts/audit-canchas-pendientes.sql` — auditoría unificada (bundle JSON).
+- `scripts/fix-canchas-pendientes.sql` — fixes 1+3 transaccionales con verificación.
+- `scripts/audit-handicap-calc.mjs` — filtro `activa=true` agregado.
+- `docs/DATA_FIXES_2026-05-05.md` — sección "Sesión PM" con diagnóstico y deuda.
+
+---
+
 ## Sesión 05 May 2026 — Reset tAIger: sesión continua, streaming, motor de élite
 
 ### Contexto

@@ -1,15 +1,15 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-04-29 | Commit: `9136fa2`
+> Auto-generado: 2026-05-05 | Commit: `a65ab6d`
 
 ## Último deploy
 
-- **Commit:** `9136fa2` — feat(theme): tri-state toggle Auto/Claro/Oscuro en Navbar dropdown
-- **Fecha:** 2026-04-28
-- **Branch:** main (743 commits total)
+- **Commit:** `a65ab6d` — docs(cerebro-v2): FASE 0 audit + 20-trap regression set
+- **Fecha:** 2026-05-05
+- **Branch:** feat/cerebro-v2 (784 commits total)
 - **URL:** https://golfersplus.vercel.app
 
-## Páginas en producción (45 páginas)
+## Páginas en producción (42 páginas)
 
 - `/admin/analytics`
 - `/admin/finanzas`
@@ -19,10 +19,7 @@
 - `/admin/usuarios`
 - `/admin/usuarios/[id]`
 - `/auth/auth-code-error`
-- `/coach/onboarding`
 - `/coach`
-- `/coach/sesion/nueva/chat`
-- `/coach/sesion/nueva`
 - `/coach/sesion/[id]`
 - `/dashboard`
 - `/demo`
@@ -76,25 +73,25 @@
 
 ---
 
-## Sesión 28 Abr 2026 — Cross-validation canchas + fix slope FedeGolf
+## Sesión 05 May 2026 (PM 12:30–13:00) — Limpieza canchas pendientes
 
-**Problema**: tras la migración 026 que renombró `course_holes.yardaje_campeonato → yardaje_negras` y normalizó tees por género, quedó pendiente `course_tees.nombre`. El sync `sync-courses-unified.ts` seguía guardando los tees como singular masculino (`'negro'`), mientras la UI envía plural Chilean Spanish (`'negras'`) post-026. Resultado: la función `cargarCourseData()` hacía `ILIKE 'negras%'` que NO matcheaba con `'negro'` en BD, caía al fallback `courses.slope_rating` (que para FedeGolf es placeholder universal `113`), produciendo course handicaps subestimados (~−4 strokes) para jugadores con tee Negras en cancha FedeGolf. Impacto histórico medido: 3 jugadores con tee `negras` en rondas libres FedeGolf calcularon HCP con slope falso. 0 torneos afectados (no había torneos sobre canchas FedeGolf todavía).
+### Contexto
+Cierre del backlog del sprint multi-agente AM (`docs/DATA_FIXES_2026-05-05.md`). 3 categorías
+pendientes detectadas por `audit-handicap-calc.mjs`: C.G. 7 Ríos sin tees, 4 tees Olivos
+con `back_*=NULL`, 5 tees con nombres no-canónicos.
 
-**Causa raíz adicional**: `course_tees.nombre` tenía 4 capas de inconsistencias:
-1. FedeGolf con `'negro'` singular vs UI `'negras'` plural
-2. Manual con aliases en inglés (`'Blue'`, `'White'`, `'Red'`, `'Black'`) duplicando filas en español del mismo color (4 canchas, 11 filas duplicadas: Lomas de La Dehesa, Los Leones, Prince of Wales, Sport Francés)
-3. Manual con sinónimos inconsistentes (`'campeonato'`, `'blancas'`, `'azules'`)
-4. FedeGolf con capitalize inicial (`'Rojo'`, `'Blanco'`, `'Azul'`, `'Dorado'`) vs manual lowercase
+### Cambios
 
-**Solución**:
+1. **C.G. 7 Ríos padre (`6a3ba422-…`) desactivada**
+   - Stub FedeGolf sin tees ni rondas. Las DAMAS/VARONES son las productivas.
+   - `activa=false`, `datos_verificados=false`. No se borra para no romper sync.
 
-### Migración 030 (`supabase/migrations/030_normalize_course_tees_nombres.sql`)
-- DEDUP: borra filas que tras normalizar colisionarían en `(course_id, nombre)` UNIQUE — 11 filas borradas
-- RENAME simples: 5 mapeos canónicos en una pasada (case-insensitive)
-  - `negro|negra|black|championship|campeonato → negras`
-  - `blue|azules → azul`
-  - `blanca|blancas|white → blanco`
-  - `roja|rojas|red|ladies → rojo`
+2. **Olivos: 4 tees con `back_* := front_*`**
+   - Convención WHS para 9h jugado 18h (mismo loop dos veces).
+   - Tees azul/blanco/dorado/rojo ahora simétricos.
+
+3. **Tees no-canónicos: refactor estructural pospuesto**
+   - 2 Hurlingham (sufijo género en nombre) + 3 Nordelta (`green`, `gris`).
 
 ---
 

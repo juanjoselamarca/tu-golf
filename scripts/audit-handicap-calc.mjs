@@ -185,11 +185,12 @@ const QUERIES = [
   {
     id: 'fedegolf_courses_without_valid_tees',
     severity: 'p0',
-    description: 'Canchas FedeGolf con CERO tees válidos — toda ronda en estas canchas calcula HCP placeholder',
+    description: 'Canchas FedeGolf ACTIVAS con CERO tees válidos — toda ronda en estas canchas calcula HCP placeholder',
     sql: `
-      SELECT c.id, c.nombre, c.ciudad, c.fedegolf_club_id, c.slope_rating, c.course_rating
+      SELECT c.id, c.nombre, c.ciudad, c.fedegolf_club_id, c.slope_rating, c.course_rating, c.activa
       FROM courses c
       WHERE c.fedegolf_club_id IS NOT NULL
+        AND c.activa = true
         AND NOT EXISTS (
           SELECT 1 FROM course_tees t
           WHERE t.course_id = c.id

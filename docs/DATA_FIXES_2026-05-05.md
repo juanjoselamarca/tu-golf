@@ -171,9 +171,98 @@ Bugs reales sigue detectando:
 
 ## Próximos pasos sugeridos (no en este sprint)
 
-1. Resolver `C.G. 7 Ríos` — completar sync de tees o desactivar (`activa=false`).
+1. ~~Resolver `C.G. 7 Ríos`~~ → ✅ resuelto en sesión PM (ver "Sesión PM" abajo).
 2. Investigar duplicados de courses (Marbella, Rocas, Brisas tienen 3 IDs cada una). Probable bug del sync de `golfcourseapi`.
 3. Hardening migration 034: agregar `NOT NULL` en `course_tees.rating` y `slope` para tees activos (después de un mes de operación con migration 033).
 4. Borrar 18 hoyos de Olivos (mantener solo front 9) — solo si no rompe rondas históricas.
-5. Investigar 5 tees con nombres no-canónicos (residuos migration 030).
-6. Investigar 4 tees con front/back ratings asimétricos (todos de Olivos — el fix 9h dejó back_*=NULL, ¿debería rellenar?).
+5. Investigar 5 tees con nombres no-canónicos (residuos migration 030) → parcialmente analizado, deuda estructural documentada en "Sesión PM".
+6. ~~Investigar 4 tees con front/back ratings asimétricos~~ → ✅ resuelto en sesión PM.
+
+---
+
+## Sesión PM (12:30–13:00) — limpieza pendientes
+
+CTO: Claude Opus 4.7 (1M ctx). Trigger: opción "limpieza canchas pendientes" del backlog 05-may.
+
+### Resumen ejecutivo
+
+| Fix | Acción | Status |
+|---|---|---|
+| C.G. 7 Ríos padre (id `6a3ba422-…`) | `activa=false`, `datos_verificados=false` | ✅ |
+| Olivos: 4 tees con `back_*=NULL` | `back_* := front_*` (convención WHS 9h jugado 18h) | ✅ |
+| 5 tees no-canónicos (Hurlingham + Nordelta) | postergado — deuda estructural | ⚠️ documentado |
+| Audit script `fedegolf_courses_without_valid_tees` no filtraba por `activa` | filtro agregado | ✅ |
+
+Re-run `audit-handicap-calc.mjs` post-fix: **0 P0 (era 1)**. Warnings restantes son conocidos.
+
+### Fix 1: C.G. 7 Ríos padre desactivada
+
+**Diagnóstico:** Hay 3 canchas para el club FedeGolf id=51:
+- `6a3ba422-…` "C.G. 7 Rios" (padre): 0 tees, 0 rondas, 0 torneos, slope=113 placeholder, course_rating=NULL.
+- `15eaf708-…` "C.G. 7 Rios - C.G. 7 Rios (DAMAS)": 1 tee, válida.
+- `29caa4d6-…` "C.G. 7 Rios - C.G. 7 Rios (VARONES)": 3 tees, válida.
+
+La padre es un stub que el sync FedeGolf creó antes de descubrir los géneros. Las DAMAS/VARONES son las productivas. No se borra para no romper futuros syncs (que la recrearían), pero se desactiva para sacarla de la UI.
+
+**Fix aplicado** (`scripts/fix-canchas-pendientes.sql`):
+
+```sql
+UPDATE courses SET activa=false, datos_verificados=false
+WHERE id='6a3ba422-d1ed-429c-914b-73583474344d'
+  AND (SELECT COUNT(*) FROM course_tees
+       WHERE course_id='6a3ba422-d1ed-429c-914b-73583474344d') = 0;
+```
+
+### Fix 3: Olivos — back_* = front_*
+
+**Diagnóstico:** El fix sistémico AM dejó los 4 tees de Olivos con `back_course_rating=NULL`, `back_slope_rating=NULL`. La cancha es `tipo_recorrido='9h'` jugada como 18h (mismo loop dos veces). Por convención WHS, en este caso `back rating = front rating`. Dejar back=NULL puede romper joins futuros que asuman ambos campos.
+
+**Fix aplicado:**
+
+```sql
+UPDATE course_tees
+SET back_course_rating = front_course_rating,
+    back_slope_rating  = front_slope_rating,
+    back_bogey_rating  = front_bogey_rating
+WHERE course_id = '98318206-7adc-4963-91bb-e1fc46a554f3'
+  AND back_course_rating IS NULL
+  AND front_course_rating IS NOT NULL;
+```
+
+**Estado post-fix:** 4 tees (azul/blanco/dorado/rojo) con `simetrico=true`.
+
+### Fix 2 (postergado): tees no-canónicos requieren refactor estructural
+
+Los 5 tees detectados se dividen en dos sub-categorías que NO se pudieron resolver con un rename simple:
+
+**Hurlingham Club (`7176d747-…`)** — 2 tees:
+- `amarillo - damas` (gen=F, slope 129, rating 75.3)
+- `rojo - caballeros` (gen=M, slope 110, rating 65.9)
+
+Diagnóstico: el course mezcla `genero='M'` y `genero='F'` (5 tees: azul-M, dorado-M, rojo-F, amarillo-damas-F, rojo-caballeros-M). Esto **viola el modelo de canchas** (DAMAS y VARONES deben ser courses distintos con sufijos en `course.nombre`). El UNIQUE `(course_id, nombre)` impide renombrar `amarillo - damas` → `dorado` porque ya existe `dorado` (M).
+
+Fix correcto = sprint propio:
+1. Crear `Hurlingham Club (DAMAS)` y `Hurlingham Club (VARONES)` como nuevos courses.
+2. Migrar tees `genero='F'` al course DAMAS y `genero='M'` al VARONES.
+3. Migrar rondas históricas según género del jugador.
+4. Renombrar tees a canónicos (sin colisión, ya separados).
+5. Borrar / inactivar el course `Hurlingham Club` original.
+
+**Nordelta Golf Club (`580204bb-…`)** — 3 tees:
+- `green` (gen=M, slope 128, rating 69.1)
+- `green - damas` (gen=F, slope 130, rating 74.9)
+- `gris` (gen=M, slope 140, rating 74.2)
+
+Diagnóstico: nombres reales del club argentino, no son residuos. Requieren **decisión de producto**: extender el set canónico (`negras, azul, blanco, rojo, dorado, verde, gris`) vs mapear arbitrariamente (riesgo de confundir usuarios). Cualquier mapeo automático es un parche.
+
+**Decisión CTO:** ambos casos quedan documentados como follow-up. No se aplica fix parche. El audit warning `tees_nombre_non_canonical=5` queda como deuda visible.
+
+### Fix bonus: audit script bug
+
+`scripts/audit-handicap-calc.mjs` — el check P0 `fedegolf_courses_without_valid_tees` no filtraba por `activa=true`. Una cancha inactiva no genera rondas, no debería disparar P0. Agregado filtro `AND c.activa = true`.
+
+### Próximos pasos (post-PM)
+
+1. Sprint dedicado: split de Hurlingham en courses DAMAS/VARONES + migración de rondas + renombrar tees (estimado: 1 sesión con tests).
+2. Decisión de producto: ¿extender set canónico de tees con `verde`/`gris` para clubes argentinos? Si sí, agregar a la lista de la migration 030 y normalizar Nordelta.
+3. Aplicar el mismo split DAMAS/VARONES al course duplicado de Marbella/Rocas/Brisas (relacionado con item #2 de "próximos pasos AM").
