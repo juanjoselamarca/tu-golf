@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from '@/golf/coach/prompts'
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
+import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -46,8 +47,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Input inválido', details: parsed.error.issues[0]?.message }, { status: 400 })
     }
     const body = parsed.data
-    const { session_id } = body
-    const isFollowUp = typeof session_id === 'string' && session_id.length > 0
 
     // Build conversation history para multi-turn.
     // Acepta 'messages' (array completo, ideal) o 'message' (string suelto, legacy).
@@ -72,8 +71,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Periodo de prueba interno: sin cuotas mensuales, sin gates, sin bypass admin.
-    // session_type queda como 'continuous' literal (Commit 2 normaliza con migration 017).
-    const session_type = 'continuous'
+    // La sesion siempre es la primaria del usuario (helper getOrCreateActiveSession).
 
     // Fetch context from /api/taiger/context forwarding cookies
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3003'
@@ -172,25 +170,23 @@ export async function POST(req: NextRequest) {
             await new Promise((r) => setTimeout(r, 15))
           }
 
-          // En follow-up el cliente mantiene la sesión — no insertamos duplicado.
-          // En sesión nueva, insertamos el registro inicial con todo el historial.
+          // Sesion continua: SIEMPRE usamos la primaria del usuario (migracion 017).
+          // El parametro session_id del cliente es opcional y solo informa cual sesion
+          // esta abierta en UI; el backend siempre append a la primaria.
+          const active = await getOrCreateActiveSession(supabase, user.id)
           const fullHistory: ChatMsg[] = [
             ...conversation,
             { role: 'assistant', content: fullResponse },
           ]
-          let savedSession: { id: string } | null = null
-          if (isFollowUp) {
-            savedSession = { id: session_id! }
-          } else {
-            const { data } = await supabase.from('taiger_sessions').insert({
-              user_id: user.id,
-              session_type,
+          await supabase
+            .from('taiger_sessions')
+            .update({
               messages: fullHistory,
-              techniques_assigned: [],
+              updated_at: new Date().toISOString(),
               next_focus: fullResponse.substring(0, 200),
-            }).select('id').single()
-            savedSession = data
-          }
+            })
+            .eq('id', active.id)
+          const savedSession: { id: string } = { id: active.id }
 
           // Extract and save recommendations from the response
           if (savedSession?.id) {
