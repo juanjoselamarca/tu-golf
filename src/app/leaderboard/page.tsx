@@ -37,7 +37,7 @@ function gwiDeltaColor(delta: number): string {
 function PosBadge({ pos, positionDelta }: { pos: number; positionDelta: number }) {
   const isTop3 = pos <= 3
   const bg = pos === 1 ? '#c4992a' : pos === 2 ? '#9ca3af' : pos === 3 ? '#b45309' : 'transparent'
-  const color = isTop3 ? (pos === 3 ? '#ffffff' : 'var(--brand-dark)') : 'var(--text-2)'
+  const color = isTop3 ? (pos === 3 ? '#ffffff' : 'var(--brand-dark)') : '#94a8c0'
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
