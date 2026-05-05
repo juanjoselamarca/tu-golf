@@ -15,9 +15,9 @@ function formatTot(vspar: number): string {
 }
 
 function totColor(vspar: number): string {
-  if (vspar < 0) return '#c4992a'
-  if (vspar === 0) return 'rgba(255,255,255,0.6)'
-  return '#ff1744'
+  if (vspar < 0) return '#f0c674'
+  if (vspar === 0) return 'rgba(255,255,255,0.75)'
+  return '#ff6b6b'
 }
 
 function gwiColor(gwi: number): string {
@@ -37,7 +37,7 @@ function gwiDeltaColor(delta: number): string {
 function PosBadge({ pos, positionDelta }: { pos: number; positionDelta: number }) {
   const isTop3 = pos <= 3
   const bg = pos === 1 ? '#c4992a' : pos === 2 ? '#9ca3af' : pos === 3 ? '#b45309' : 'transparent'
-  const color = isTop3 ? (pos === 3 ? '#ffffff' : 'var(--brand-dark)') : 'var(--text-2)'
+  const color = isTop3 ? (pos === 3 ? '#ffffff' : 'var(--brand-dark)') : '#94a8c0'
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
@@ -115,7 +115,8 @@ export default function LeaderboardPage() {
 
       {/* ── Hero — mobile premium ──────────────────────── */}
       <div className="md:hidden" style={{
-        background: 'linear-gradient(180deg, #ffffff 0%, #f9fafb 100%)',
+        backgroundColor: '#ffffff',
+        backgroundImage: 'linear-gradient(180deg, #ffffff 0%, #f9fafb 100%)',
         padding: '20px 16px 16px',
         borderBottom: '1px solid #e5e7eb',
       }}>
@@ -129,20 +130,20 @@ export default function LeaderboardPage() {
             <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: '#16a34a', fontWeight: 700, letterSpacing: '0.1em' }}>EN VIVO</span>
           </div>
           <span style={{
-            fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: 'var(--text-3)',
-            background: 'var(--bg)', padding: '4px 10px', borderRadius: '20px',
+            fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: '#6b7280',
+            backgroundColor: '#f1f5f9', padding: '4px 10px', borderRadius: '20px',
           }}>R{roundNumber}</span>
         </div>
 
         {/* Tournament name */}
         <div style={{
           fontFamily: '"Playfair Display", serif', fontSize: '24px', fontWeight: 700,
-          color: 'var(--text)', marginBottom: '4px', lineHeight: 1.15,
+          color: '#1a1d24', marginBottom: '4px', lineHeight: 1.15,
         }}>
           Copa Golfers+ Demo
         </div>
         <div style={{
-          fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px',
+          fontSize: '13px', color: '#5a6573', marginBottom: '14px',
           fontFamily: 'var(--font-dm-mono), monospace',
         }}>
           Los Leones Golf Club · Par 72
@@ -156,8 +157,8 @@ export default function LeaderboardPage() {
             { value: String(leaderScore === 0 ? 'E' : leaderScore > 0 ? '+' + leaderScore : leaderScore), label: 'Líder' },
           ].map(s => (
             <div key={s.label} style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-              <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>{s.value}</span>
-              <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{s.label}</span>
+              <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '16px', fontWeight: 700, color: '#1a1d24' }}>{s.value}</span>
+              <span style={{ fontSize: '10px', color: '#6b7280' }}>{s.label}</span>
             </div>
           ))}
         </div>
@@ -216,7 +217,7 @@ export default function LeaderboardPage() {
 
       {/* ── Desktop Table — PGA Tour style ─────────────── */}
       <div className="hidden md:block max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid rgba(196,153,42,0.13)', background: 'var(--bg)' }}>
+        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid rgba(196,153,42,0.18)', backgroundColor: '#0e1c2f' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(196,153,42,0.08)', borderBottom: '1px solid rgba(196,153,42,0.28)' }}>
@@ -232,7 +233,7 @@ export default function LeaderboardPage() {
                     key={col.label}
                     style={{
                       padding: '12px 16px',
-                      fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-2)',
+                      fontSize: 11, letterSpacing: '0.12em', color: '#94a8c0',
                       textTransform: 'uppercase', fontWeight: 600,
                       textAlign: col.align,
                       width: col.w,
@@ -256,9 +257,9 @@ export default function LeaderboardPage() {
                     <tr
                       className={player.justScored ? 'flash-row' : ''}
                       style={{
-                        background: isLeader ? 'rgba(196,153,42,0.05)' : 'var(--bg)',
+                        backgroundColor: isLeader ? 'rgba(196,153,42,0.08)' : 'transparent',
                         borderLeft: isLeader ? '3px solid #c4992a' : '3px solid transparent',
-                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        borderBottom: '1px solid rgba(255,255,255,0.06)',
                         transition: 'background 300ms ease',
                       }}
                     >
@@ -273,7 +274,8 @@ export default function LeaderboardPage() {
                           <div
                             style={{
                               width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                              background: 'linear-gradient(135deg, #1a4fd6 0%, #c4992a 100%)',
+                              backgroundColor: '#1a4fd6',
+                              backgroundImage: 'linear-gradient(135deg, #1a4fd6 0%, #c4992a 100%)',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               color: 'white', fontSize: 13, fontWeight: 700,
                             }}
@@ -281,10 +283,10 @@ export default function LeaderboardPage() {
                             {player.initials}
                           </div>
                           <div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: '#edeae4' }}>
                               {player.pais} {player.name}
                             </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>
+                            <div style={{ fontSize: 11, color: '#94a8c0', marginTop: 2 }}>
                               <span style={{
                                 display: 'inline-block', padding: '1px 6px', borderRadius: 3,
                                 background: player.categoria === 'A' ? 'rgba(0,230,118,0.12)' : 'rgba(196,153,42,0.12)',
@@ -320,7 +322,7 @@ export default function LeaderboardPage() {
                           )}
                           <span style={{
                             fontSize: 14, fontWeight: 600,
-                            color: player.status === 'finished' ? 'var(--text-2)' : '#c4992a',
+                            color: player.status === 'finished' ? '#94a8c0' : '#f0c674',
                             fontFamily: 'var(--font-dm-mono), monospace',
                           }}>
                             {thru}
@@ -369,7 +371,7 @@ export default function LeaderboardPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: '56px 16px', textAlign: 'center', color: 'var(--text-2)', fontSize: 14 }}>
+                  <td colSpan={6} style={{ padding: '56px 16px', textAlign: 'center', color: '#94a8c0', fontSize: 14 }}>
                     No hay jugadores en esta categoría.
                   </td>
                 </tr>
@@ -379,8 +381,10 @@ export default function LeaderboardPage() {
 
           {/* Footer hint */}
           <div style={{
-            padding: '8px 16px', fontSize: 11, color: 'var(--text-2)', textAlign: 'right',
-            background: 'rgba(196,153,42,0.04)', borderTop: '1px solid rgba(196,153,42,0.08)',
+            padding: '8px 16px', fontSize: 11, color: '#94a8c0', textAlign: 'right',
+            backgroundColor: '#0e1c2f',
+            backgroundImage: 'linear-gradient(rgba(196,153,42,0.06), rgba(196,153,42,0.06))',
+            borderTop: '1px solid rgba(196,153,42,0.16)',
             fontFamily: 'var(--font-dm-mono), monospace',
           }}>
             Actualiza cada 20s &middot; {playingCount > 0 ? `${playingCount} en cancha` : 'Ronda cerrada — nueva ronda en 8s'}
@@ -389,23 +393,23 @@ export default function LeaderboardPage() {
       </div>
 
       {/* ── GWI info banner (mobile) ─────────────────── */}
-      <div className="md:hidden" style={{ padding: '0 16px', background: '#f9fafb' }}>
+      <div className="md:hidden" style={{ padding: '0 16px', backgroundColor: '#f9fafb' }}>
         <button onClick={() => setShowGwiInfo(!showGwiInfo)} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
           width: '100%', padding: '8px', background: 'transparent',
           border: 'none', cursor: 'pointer',
         }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-3)', fontFamily: 'var(--font-dm-mono), monospace' }}>
+          <span style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'var(--font-dm-mono), monospace' }}>
             GWI™ = probabilidad de ganar vs el field
           </span>
-          <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{showGwiInfo ? '▲' : '▼'}</span>
+          <span style={{ fontSize: '10px', color: '#6b7280' }}>{showGwiInfo ? '▲' : '▼'}</span>
         </button>
         {showGwiInfo && (
           <div style={{
-            background: 'var(--bg-surface)', border: '1px solid #e5e7eb', borderRadius: '10px',
-            padding: '14px', marginBottom: '10px', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.6,
+            backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '10px',
+            padding: '14px', marginBottom: '10px', fontSize: '12px', color: '#5a6573', lineHeight: 1.6,
           }}>
-            <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: '6px', fontSize: '13px' }}>
+            <div style={{ fontWeight: 700, color: '#1a1d24', marginBottom: '6px', fontSize: '13px' }}>
               GWI™ — Golf Win Index
             </div>
             <p style={{ margin: '0 0 8px' }}>
@@ -414,7 +418,7 @@ export default function LeaderboardPage() {
             <p style={{ margin: '0 0 8px' }}>
               Se basa en: score actual vs par, hándicap del jugador, consistencia histórica y dificultad de los hoyos restantes.
             </p>
-            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-3)' }}>
+            <p style={{ margin: 0, fontSize: '11px', color: '#6b7280' }}>
               ▲ verde = subiendo · ▼ rojo = bajando · Actualiza hoyo a hoyo
             </p>
           </div>

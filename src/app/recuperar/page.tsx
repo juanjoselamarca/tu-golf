@@ -64,7 +64,7 @@ export default function RecuperarPage() {
       >
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: 'var(--text)', fontWeight: 700 }}>
-            Golfers<span style={{ color: '#c4992a' }}>+</span>
+            Golfers<span style={{ color: '#8A6A16' }}>+</span>
           </span>
         </div>
 

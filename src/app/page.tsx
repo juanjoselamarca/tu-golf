@@ -72,8 +72,9 @@ export default function Home() {
               key={f.title}
               className="group relative rounded-2xl p-6 md:p-8 transition-all duration-300 hover:scale-[1.02]"
               style={{
-                background: 'rgba(14,28,47,0.7)',
-                border: '1px solid rgba(196,153,42,0.12)',
+                backgroundColor: '#0e1c2f',
+                backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.02), rgba(0,0,0,0.05))',
+                border: '1px solid rgba(196,153,42,0.18)',
               }}
             >
               <span className="mb-4 flex items-center text-gold">{f.icon}</span>
@@ -157,8 +158,9 @@ export default function Home() {
           href="/indices"
           className="block rounded-2xl p-6 md:p-10 transition-all duration-300 hover:scale-[1.01]"
           style={{
-            background: 'linear-gradient(135deg, rgba(14,28,47,0.8), rgba(14,28,47,0.5))',
-            border: '1px solid rgba(196,153,42,0.2)',
+            backgroundColor: '#0e1c2f',
+            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.06))',
+            border: '1px solid rgba(196,153,42,0.25)',
           }}
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">

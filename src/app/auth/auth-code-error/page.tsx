@@ -5,7 +5,7 @@ export default function AuthCodeErrorPage() {
       justifyContent: 'center', minHeight: '100vh',
       background: 'var(--bg)', color: 'var(--text)', fontFamily: 'sans-serif'
     }}>
-      <h1 style={{ color: '#c4992a', fontSize: '2rem', marginBottom: '1rem' }}>
+      <h1 style={{ color: '#8A6A16', fontSize: '2rem', marginBottom: '1rem' }}>
         Error de autenticación
       </h1>
       <p style={{ marginBottom: '2rem', color: 'var(--text-2)' }}>

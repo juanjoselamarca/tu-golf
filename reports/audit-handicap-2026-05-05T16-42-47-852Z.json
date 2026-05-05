@@ -1,0 +1,522 @@
+{
+  "project": "hoswfwhvcgqlqdmzpnce",
+  "ranAt": "2026-05-05T16:42:47.852Z",
+  "ranges": {
+    "rating": {
+      "offset": 8,
+      "absoluteMin": 50,
+      "absoluteMax": 85
+    },
+    "slope": {
+      "min": 55,
+      "max": 155
+    }
+  },
+  "canonical_tee_names": [
+    "negras",
+    "azul",
+    "blanco",
+    "rojo",
+    "dorado"
+  ],
+  "summary": {
+    "total_categories": 11,
+    "p0_with_findings": 0,
+    "warnings_with_findings": 3
+  },
+  "results": [
+    {
+      "id": "tees_missing_ratings",
+      "severity": "p0",
+      "description": "Tees con rating o slope NULL — el cálculo cae al fallback round(index)",
+      "count": 0,
+      "ms": 1518,
+      "sample": [],
+      "truncated": false
+    },
+    {
+      "id": "tees_out_of_range",
+      "severity": "p0",
+      "description": "Tees con rating fuera de [par_eff±8] clamp [50, 85], o slope fuera de [55, 155]",
+      "count": 0,
+      "ms": 1322,
+      "sample": [],
+      "truncated": false
+    },
+    {
+      "id": "tees_partial_9h_ratings",
+      "severity": "warning",
+      "description": "Tees con front/back ratings asimétricos (uno poblado, otro NULL) — bloquea cálculo correcto en rondas 9h",
+      "count": 0,
+      "ms": 1371,
+      "sample": [],
+      "truncated": false
+    },
+    {
+      "id": "courses_placeholder_slope_113",
+      "severity": "warning",
+      "description": "Canchas con courses.slope_rating=113 (placeholder universal FedeGolf) — fallback inconsistente cuando el tee tampoco tiene rating",
+      "count": 141,
+      "ms": 2002,
+      "sample": [
+        {
+          "id": "84be1fc3-21a7-4f8b-965a-a7f2c755553a",
+          "nombre": "A.A. Antofagasta - Autoclub (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": null,
+          "par_total": 60,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "1dcee78a-55bd-423c-9efa-abf7736eaf81",
+          "nombre": "A.A. Antofagasta - Autoclub (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": null,
+          "par_total": 60,
+          "tee_count": 3,
+          "tee_valid_count": 3
+        },
+        {
+          "id": "af21d8a9-9182-4c75-818d-2f6ad4187406",
+          "nombre": "C.C. Bellavista - Bellavista (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "74.9",
+          "par_total": 68,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "4c3b145b-7abe-48b0-8104-2ae69c524e4b",
+          "nombre": "C.C. Bellavista - Bellavista (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "74.9",
+          "par_total": 68,
+          "tee_count": 3,
+          "tee_valid_count": 3
+        },
+        {
+          "id": "cda6d69f-6bb0-414c-986b-e2439317dce8",
+          "nombre": "C.C. Coya - Coya (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "70.2",
+          "par_total": 72,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "8485e0e5-5f72-4add-9a44-95dd064e141f",
+          "nombre": "C.C. Coya - Coya (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "70.2",
+          "par_total": 72,
+          "tee_count": 3,
+          "tee_valid_count": 3
+        },
+        {
+          "id": "0bb7fbc9-0f58-4d1b-a8fa-e6ce554aae84",
+          "nombre": "C.C. Granadilla - Granadilla (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "72.2",
+          "par_total": 72,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "99224eaf-7e2d-4104-91d5-0ba4f50eb155",
+          "nombre": "C.C. Granadilla - Granadilla (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "72.2",
+          "par_total": 72,
+          "tee_count": 5,
+          "tee_valid_count": 5
+        },
+        {
+          "id": "14b42a83-70fe-4861-ab3c-eb30b6314d48",
+          "nombre": "C.C. La Posada - La Posada (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "72.4",
+          "par_total": 72,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "4593a877-6b42-491d-8624-54a29e706d78",
+          "nombre": "C.C. La Posada - La Posada (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "72.4",
+          "par_total": 72,
+          "tee_count": 5,
+          "tee_valid_count": 5
+        },
+        {
+          "id": "09e39171-6782-4add-9cb1-2c84debdd998",
+          "nombre": "C.C. Osorno - Osorno (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": null,
+          "par_total": 72,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "fd2d35ea-cda7-4e48-a661-0666b9792d2a",
+          "nombre": "C.C. Osorno - Osorno (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": null,
+          "par_total": 72,
+          "tee_count": 3,
+          "tee_valid_count": 3
+        },
+        {
+          "id": "1eca576e-4c51-4237-9094-7c060ec0bd0e",
+          "nombre": "C.C. Pan De Azucar - Pan De Azucar (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "70.8",
+          "par_total": 72,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "f0624df4-17ed-4763-9590-8d65430d14e2",
+          "nombre": "C.C. Pan De Azucar - Pan De Azucar (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "70.8",
+          "par_total": 72,
+          "tee_count": 3,
+          "tee_valid_count": 3
+        },
+        {
+          "id": "6a3ba422-d1ed-429c-914b-73583474344d",
+          "nombre": "C.G. 7 Rios",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": null,
+          "par_total": 72,
+          "tee_count": 0,
+          "tee_valid_count": 0
+        },
+        {
+          "id": "15eaf708-46c1-4e2d-bfa4-aacb1c5c541c",
+          "nombre": "C.G. 7 Rios - C.G. 7 Rios (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": null,
+          "par_total": 72,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "29caa4d6-c8e8-4fd8-952a-d84dd1048e8d",
+          "nombre": "C.G. 7 Rios - C.G. 7 Rios (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": null,
+          "par_total": 72,
+          "tee_count": 3,
+          "tee_valid_count": 3
+        },
+        {
+          "id": "b8366dd1-561c-4d05-abcd-867cd9e98a55",
+          "nombre": "C.G. Angostura - Angostura (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "71.2",
+          "par_total": 72,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "35e9fcf0-bd81-4bc5-9857-a84d9c6d75a0",
+          "nombre": "C.G. Angostura - Angostura (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "71.2",
+          "par_total": 72,
+          "tee_count": 4,
+          "tee_valid_count": 4
+        },
+        {
+          "id": "a537d4a4-ac63-467e-9950-d4739ebdc994",
+          "nombre": "C.G. Bahia Coique - Bahía Coique (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "75.0",
+          "par_total": 72,
+          "tee_count": 4,
+          "tee_valid_count": 4
+        },
+        {
+          "id": "9538b10e-d0d4-4547-bcfa-acc903b3e21f",
+          "nombre": "C.G. Bahia Coique - Bahía Coique (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "75.0",
+          "par_total": 72,
+          "tee_count": 4,
+          "tee_valid_count": 4
+        },
+        {
+          "id": "8dabefec-87b4-4e98-a092-3c3ff3f1d44b",
+          "nombre": "C.G. Barquito Chanaral - Barquito Chanaral (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": null,
+          "par_total": 72,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "3c297b4b-2d06-4f9b-a8d9-1b286a2fdb07",
+          "nombre": "C.G. Barquito Chanaral - Barquito Chanaral (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": null,
+          "par_total": 72,
+          "tee_count": 3,
+          "tee_valid_count": 3
+        },
+        {
+          "id": "219122d0-f1d4-4462-8661-6ec9255cfeae",
+          "nombre": "C.G. Cachagua - Cachagua (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "70.1",
+          "par_total": 72,
+          "tee_count": 2,
+          "tee_valid_count": 2
+        },
+        {
+          "id": "0de90e89-7d56-42cc-b9b9-ca308686c619",
+          "nombre": "C.G. Cachagua - Cachagua (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "70.1",
+          "par_total": 72,
+          "tee_count": 5,
+          "tee_valid_count": 5
+        },
+        {
+          "id": "c0cd5dd3-90ab-4ba8-b93f-2e8a8ed8d3af",
+          "nombre": "C.G. Costa Cachagua - Costa Cachagua (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "70.2",
+          "par_total": 72,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "7d38aadf-d103-489b-8b79-66a4f481a9a4",
+          "nombre": "C.G. Costa Cachagua - Costa Cachagua (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "70.2",
+          "par_total": 72,
+          "tee_count": 3,
+          "tee_valid_count": 3
+        },
+        {
+          "id": "0449870d-49d7-4e13-8e1c-730577736334",
+          "nombre": "C.G. El Alba - El Alba (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "64.7",
+          "par_total": 70,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        },
+        {
+          "id": "d0f5616c-9479-4edd-affe-0da12c7af852",
+          "nombre": "C.G. El Alba - El Alba (VARONES)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": "64.7",
+          "par_total": 70,
+          "tee_count": 3,
+          "tee_valid_count": 3
+        },
+        {
+          "id": "9e423677-3fff-4980-b89b-64f88d3f76b4",
+          "nombre": "C.G. Huinganal - Huinganal (DAMAS)",
+          "ciudad": "",
+          "slope_rating": 113,
+          "course_rating": null,
+          "par_total": 72,
+          "tee_count": 1,
+          "tee_valid_count": 1
+        }
+      ],
+      "truncated": true
+    },
+    {
+      "id": "fedegolf_courses_without_valid_tees",
+      "severity": "p0",
+      "description": "Canchas FedeGolf ACTIVAS con CERO tees válidos — toda ronda en estas canchas calcula HCP placeholder",
+      "count": 0,
+      "ms": 1170,
+      "sample": [],
+      "truncated": false
+    },
+    {
+      "id": "tees_duplicated_post_normalization",
+      "severity": "p0",
+      "description": "Tees con mismo (course_id, LOWER(nombre), genero) duplicados — la migración 030 dejó residuos o el sync introduce nuevos",
+      "count": 0,
+      "ms": 3265,
+      "sample": [],
+      "truncated": false
+    },
+    {
+      "id": "tees_nombre_non_canonical",
+      "severity": "warning",
+      "description": "Tees con nombre no-canónico (la migración 030 normalizó a 5 valores: negras|azul|blanco|rojo|dorado, plus loops compuestos)",
+      "count": 5,
+      "ms": 1543,
+      "sample": [
+        {
+          "id": "96c74a90-c975-4968-8d71-394c2861269d",
+          "course_id": "7176d747-515f-49de-802f-929258f97b48",
+          "course": "Hurlingham Club",
+          "tee": "amarillo - damas",
+          "genero": "F"
+        },
+        {
+          "id": "35f30d57-a032-43f7-b999-86351ea7234b",
+          "course_id": "7176d747-515f-49de-802f-929258f97b48",
+          "course": "Hurlingham Club",
+          "tee": "rojo - caballeros",
+          "genero": "M"
+        },
+        {
+          "id": "50961437-cccb-4e4a-a11e-ddb8ae72680a",
+          "course_id": "580204bb-e0c7-40f6-b233-30a43bf5909f",
+          "course": "Nordelta Golf Club",
+          "tee": "green",
+          "genero": "M"
+        },
+        {
+          "id": "d5061a86-d930-46a4-85c7-17008ca32805",
+          "course_id": "580204bb-e0c7-40f6-b233-30a43bf5909f",
+          "course": "Nordelta Golf Club",
+          "tee": "green - damas",
+          "genero": "F"
+        },
+        {
+          "id": "2356f55f-4fc1-4c25-95f2-fc791946dce4",
+          "course_id": "580204bb-e0c7-40f6-b233-30a43bf5909f",
+          "course": "Nordelta Golf Club",
+          "tee": "gris",
+          "genero": "M"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "rounds_without_course_id",
+      "severity": "info",
+      "description": "Rondas finalizadas sin course_id — cálculo cae a Math.round(index) sin ajuste por slope/CR",
+      "count": 2,
+      "ms": 2160,
+      "sample": [
+        {
+          "tabla": "historical_rounds",
+          "total": 157,
+          "recientes_90d": 37
+        },
+        {
+          "tabla": "rondas_libres",
+          "total": 12,
+          "recientes_90d": 12
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "ratings_distribution_by_gender",
+      "severity": "info",
+      "description": "Distribución de rating/slope por género (sanity check — varones >> damas en general)",
+      "count": 2,
+      "ms": 1612,
+      "sample": [
+        {
+          "genero": "F",
+          "tees": 123,
+          "cr_min": "55.0",
+          "cr_max": "78.6",
+          "cr_avg": "71.2",
+          "slope_min": 103,
+          "slope_max": 142,
+          "slope_avg": "122"
+        },
+        {
+          "genero": "M",
+          "tees": 347,
+          "cr_min": "55.0",
+          "cr_max": "76.8",
+          "cr_avg": "70.5",
+          "slope_min": 103,
+          "slope_max": 145,
+          "slope_avg": "124"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "multi_recorrido_children_missing_ratings",
+      "severity": "warning",
+      "description": "Canchas multi-recorrido (parent_id NOT NULL) cuyos children no tienen ratings — bloquea modalidades 27h/36h",
+      "count": 0,
+      "ms": 1307,
+      "sample": [],
+      "truncated": false
+    },
+    {
+      "id": "recent_finished_rounds_at_risk",
+      "severity": "warning",
+      "description": "Rondas libres recientes (últimos 30d) en canchas/tees con datos cuestionables",
+      "count": 2,
+      "ms": 2054,
+      "sample": [
+        {
+          "ronda_id": "1de2638f-6bab-4410-b7b0-dd14095d1923",
+          "codigo": "MPTPL6D5",
+          "fecha": "2026-04-09",
+          "tees": "blanco",
+          "holes": 18,
+          "cancha": null,
+          "tee_rating": null,
+          "tee_slope": null,
+          "course_cr": null,
+          "course_slope": null
+        },
+        {
+          "ronda_id": "3d2ebc0c-95c6-41f8-b4ff-fc66896e4199",
+          "codigo": "BNCKMW",
+          "fecha": "2026-04-07",
+          "tees": "azul",
+          "holes": 18,
+          "cancha": null,
+          "tee_rating": null,
+          "tee_slope": null,
+          "course_cr": null,
+          "course_slope": null
+        }
+      ],
+      "truncated": false
+    }
+  ]
+}
