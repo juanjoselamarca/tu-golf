@@ -14,6 +14,9 @@ export interface GolfPattern {
   id: string
   name: string
   description: string
+  /** Si true, solo procesa rondas de 18 hoyos (ej. comparar front vs back).
+   * Si false, acepta rondas de 9 tambien (ej. par_3_weakness, post_bogey_spiral). */
+  requires18Holes: boolean
   detect: (rounds: PatternRound[]) => { detected: boolean; confidence: number; metadata?: Record<string, unknown> }
   severity: 'info' | 'warning' | 'critical'
   recommendation: string
@@ -45,6 +48,7 @@ export const PATTERNS: GolfPattern[] = [
     id: 'back_nine_collapse',
     name: 'Caída en back nine',
     description: 'Back 9 promedio > front 9 en más de 2.5 strokes',
+    requires18Holes: true,
     severity: 'warning',
     recommendation: 'Gestión de energía: hidratación, snack en hoyo 10, reset_4_pasos antes del back nine',
     detect(rounds) {
@@ -74,6 +78,7 @@ export const PATTERNS: GolfPattern[] = [
     id: 'front_nine_struggles',
     name: 'Arranque lento',
     description: 'Front 9 promedio > back 9 en más de 2.5 strokes',
+    requires18Holes: true,
     severity: 'warning',
     recommendation: 'Rutina pre-ronda: 15 min putting green + breathing_4_4_6 antes del primer tee',
     detect(rounds) {
@@ -103,6 +108,7 @@ export const PATTERNS: GolfPattern[] = [
     id: 'first_hole_anxiety',
     name: 'Ansiedad en hoyo 1',
     description: 'Score promedio en hoyo 1 > 1.3x el promedio del resto',
+    requires18Holes: false,
     severity: 'warning',
     recommendation: 'identity_anchor + think_box antes del primer tee. El hoyo 1 no define tu ronda.',
     detect(rounds) {
@@ -134,6 +140,7 @@ export const PATTERNS: GolfPattern[] = [
     id: 'par_3_weakness',
     name: 'Debilidad en par 3',
     description: 'Promedio sobre par en hoyos par 3 > 1.2 y peor que el resto',
+    requires18Holes: false,
     severity: 'info',
     recommendation: 'Práctica deliberada con hierros largos. Foco en distancia de carry, no en resultado.',
     detect(rounds) {
@@ -164,6 +171,7 @@ export const PATTERNS: GolfPattern[] = [
     id: 'short_game_weakness',
     name: 'Juego corto débil',
     description: 'Promedio sobre par en par 4 notablemente peor que en par 5',
+    requires18Holes: false,
     severity: 'info',
     recommendation: 'Dedicar 60% de práctica a chipping y approach. Menos driver, más wedges.',
     detect(rounds) {
@@ -193,6 +201,7 @@ export const PATTERNS: GolfPattern[] = [
     id: 'post_bogey_spiral',
     name: 'Espiral post-bogey',
     description: '>40% de bogeys seguidos por otro bogey o peor',
+    requires18Holes: false,
     severity: 'critical',
     recommendation: 'reset_4_pasos obligatorio después de cada bogey. next_shot_mentality — el hoyo anterior no existe.',
     detect(rounds) {
@@ -225,6 +234,7 @@ export const PATTERNS: GolfPattern[] = [
     id: 'three_putt_frequency',
     name: 'Frecuencia de three-putts',
     description: '>15% de greens con 3+ putts',
+    requires18Holes: false,
     severity: 'warning',
     recommendation: 'Práctica de lag putting — distancia antes que dirección. Objetivo: 0 three-putts por ronda.',
     detect(rounds) {
@@ -255,7 +265,14 @@ export const PATTERNS: GolfPattern[] = [
 export function detectPatterns(rounds: PatternRound[]): Array<{ pattern: GolfPattern; confidence: number; metadata?: Record<string, unknown> }> {
   const results: Array<{ pattern: GolfPattern; confidence: number; metadata?: Record<string, unknown> }> = []
   for (const p of PATTERNS) {
-    const result = p.detect(rounds)
+    // Filtrar rondas elegibles segun el flag del patron.
+    // requires18Holes: true → solo rondas con >=18 scores no nulos.
+    // requires18Holes: false → todas las rondas (incluye 9 hoyos).
+    const eligible = p.requires18Holes
+      ? rounds.filter(r => Array.isArray(r.scores) && r.scores.filter(s => s != null).length >= 18)
+      : rounds
+    if (eligible.length === 0) continue
+    const result = p.detect(eligible)
     if (result.detected) {
       results.push({ pattern: p, confidence: result.confidence, metadata: result.metadata })
     }

@@ -130,7 +130,16 @@ ESTÁNDARES DE RESPUESTA:
 {PLAYER_CONTEXT}`
 
 export interface TaigerContext {
-  player: { name: string; handicap: number | null; indice?: number | null; total_rounds: number }
+  player: {
+    name: string
+    handicap: number | null
+    indice?: number | null
+    total_rounds: number
+    // Campos opcionales emitidos por buildPlayerContext (no consumidos por buildContextString)
+    indice_golfers?: number | null
+    nivel?: number
+    indice_nota?: string | null
+  }
   stats: {
     avg_score: number | null
     best_score: number | null

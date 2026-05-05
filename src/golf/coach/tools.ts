@@ -52,6 +52,29 @@ export const TAIGER_TOOLS = [
       required: ['course_id'],
     },
   },
+  {
+    name: 'get_round_by_date',
+    description:
+      'Busca una ronda histórica del jugador por fecha (YYYY-MM-DD). Útil cuando el jugador menciona "la ronda del 15 de marzo", "el sábado pasado", etc. Si hubo varias rondas el mismo día, opcionalmente filtra por nombre de cancha.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        date: { type: 'string', description: 'Fecha en formato YYYY-MM-DD' },
+        course_name: { type: 'string', description: 'Opcional: nombre parcial de la cancha si hubo varias rondas el mismo día' },
+      },
+      required: ['date'],
+    },
+  },
+  {
+    name: 'get_all_rounds_summary',
+    description:
+      'Resumen estadístico agregado del 100% de las rondas históricas del jugador: totales, promedio, mejor y peor score, distribución por cancha, tendencia últimas 10 vs total. Úsala cuando el jugador pregunte sobre evolución, tendencias generales, o comparaciones a largo plazo.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
 ] as const
 
 // ---------- Executor ----------
@@ -88,6 +111,14 @@ export async function executeTool(
         if (!id) return { ok: false, error: 'Falta course_id' }
         return await getCourseDetails(ctx, id)
       }
+      case 'get_round_by_date': {
+        const date = typeof input.date === 'string' ? input.date : null
+        const courseName = typeof input.course_name === 'string' ? input.course_name : null
+        if (!date) return { ok: false, error: 'Falta date (YYYY-MM-DD)' }
+        return await getRoundByDate(ctx, date, courseName)
+      }
+      case 'get_all_rounds_summary':
+        return await getAllRoundsSummary(ctx)
       default:
         return { ok: false, error: `Tool desconocida: ${name}` }
     }
@@ -236,6 +267,119 @@ async function getRecentRounds(ctx: ToolExecutionContext, limit: number): Promis
     .slice(0, limit)
 
   return { ok: true, data: { rondas } }
+}
+
+async function getRoundByDate(
+  ctx: ToolExecutionContext,
+  date: string,
+  courseName: string | null,
+): Promise<ToolResult> {
+  const { supabase, userId } = ctx
+  let query = supabase
+    .from('historical_rounds')
+    .select('id, course_id, course_name, played_at, scores, total_gross, holes_played')
+    .eq('user_id', userId)
+    .gte('played_at', `${date}T00:00:00`)
+    .lt('played_at', `${date}T23:59:59`)
+    .order('played_at', { ascending: false })
+
+  if (courseName) {
+    query = query.ilike('course_name', `%${courseName}%`)
+  }
+
+  const { data, error } = await query
+  if (error) return { ok: false, error: error.message }
+  if (!data || data.length === 0) {
+    return { ok: false, error: `No hay rondas del jugador en la fecha ${date}${courseName ? ` en ${courseName}` : ''}` }
+  }
+
+  // Cargar pares hoyo por hoyo de las canchas de las rondas encontradas
+  const courseIds = Array.from(new Set(data.map(r => r.course_id).filter((x): x is string => !!x)))
+  const parsByCourse: Record<string, Record<number, number>> = {}
+  if (courseIds.length > 0) {
+    const { data: holes } = await supabase
+      .from('course_holes')
+      .select('course_id, numero, par')
+      .in('course_id', courseIds)
+    for (const h of (holes ?? []) as Array<{ course_id: string; numero: number; par: number }>) {
+      if (!parsByCourse[h.course_id]) parsByCourse[h.course_id] = {}
+      parsByCourse[h.course_id][h.numero] = h.par
+    }
+  }
+
+  const rounds = data.map(r => {
+    const scores = Array.isArray(r.scores) ? (r.scores as (number | null)[]) : []
+    const pars = r.course_id ? parsByCourse[r.course_id] : null
+    const hoyos = scores.map((s, idx) => {
+      const holeNum = idx + 1
+      const par = pars?.[holeNum] ?? null
+      return {
+        hoyo: holeNum,
+        par,
+        strokes: s,
+        vs_par: par != null && s != null && s > 0 ? s - par : null,
+      }
+    }).filter(h => h.strokes != null && h.strokes > 0)
+    return {
+      id: r.id,
+      fecha: r.played_at,
+      cancha: r.course_name,
+      total_strokes: r.total_gross,
+      holes_played: r.holes_played,
+      hoyos,
+    }
+  })
+
+  return { ok: true, data: { count: rounds.length, rounds } }
+}
+
+async function getAllRoundsSummary(ctx: ToolExecutionContext): Promise<ToolResult> {
+  const { supabase, userId } = ctx
+  const { data, error } = await supabase
+    .from('historical_rounds')
+    .select('total_gross, course_name, played_at, holes_played')
+    .eq('user_id', userId)
+    .not('total_gross', 'is', null)
+    .order('played_at', { ascending: false })
+
+  if (error) return { ok: false, error: error.message }
+  const rounds = (data ?? []) as Array<{ total_gross: number; course_name: string; played_at: string; holes_played: number | null }>
+  if (rounds.length === 0) return { ok: true, data: { total: 0 } }
+
+  const totals = rounds.map(r => r.total_gross)
+  const avg = totals.reduce((a, b) => a + b, 0) / totals.length
+  const best = Math.min(...totals)
+  const worst = Math.max(...totals)
+  const last10 = totals.slice(0, 10)
+  const last10Avg = last10.length > 0 ? last10.reduce((a, b) => a + b, 0) / last10.length : null
+
+  // Distribucion por cancha (top 5)
+  const byCourse: Record<string, { count: number; sum: number }> = {}
+  for (const r of rounds) {
+    const key = r.course_name || 'Sin cancha'
+    if (!byCourse[key]) byCourse[key] = { count: 0, sum: 0 }
+    byCourse[key].count++
+    byCourse[key].sum += r.total_gross
+  }
+  const topCourses = Object.entries(byCourse)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 5)
+    .map(([cancha, v]) => ({ cancha, rondas: v.count, avg_score: Math.round((v.sum / v.count) * 10) / 10 }))
+
+  return {
+    ok: true,
+    data: {
+      total: rounds.length,
+      avg_score: Math.round(avg * 10) / 10,
+      best_score: best,
+      worst_score: worst,
+      last10_avg: last10Avg != null ? Math.round(last10Avg * 10) / 10 : null,
+      tendencia_ultimas_10_vs_total: last10Avg != null ? Math.round((last10Avg - avg) * 10) / 10 : null,
+      primera_ronda: rounds[rounds.length - 1].played_at,
+      ultima_ronda: rounds[0].played_at,
+      top_canchas: topCourses,
+    },
+  }
 }
 
 async function getCourseDetails(ctx: ToolExecutionContext, courseId: string): Promise<ToolResult> {

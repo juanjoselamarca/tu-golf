@@ -4,8 +4,10 @@ import { createClient } from '@/utils/supabase/server'
 import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from '@/golf/coach/prompts'
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
+import { buildPlayerContext } from '@/golf/coach/context'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -17,8 +19,8 @@ const chatInputSchema = z.object({
     role: z.string(),
     content: z.string().max(2000),
   })).max(50).optional(),
-  // session_id sigue siendo válido para compat con el cliente actual mientras
-  // Commit 2 introduce la sesión continua por usuario.
+  // session_id queda como informacion del cliente — el backend siempre append
+  // a la sesion primaria del usuario (migration 017).
   session_id: z.string().uuid().optional(),
 })
 
@@ -60,9 +62,8 @@ export async function POST(req: NextRequest) {
       conversation = [{ role: 'user', content: body.message }]
     }
 
-    // Claude requiere que el primer mensaje sea del usuario
+    // Claude requiere que el primer mensaje sea del usuario y el ultimo tambien.
     while (conversation.length > 0 && conversation[0].role !== 'user') conversation.shift()
-    // Y que el último mensaje sea del usuario
     while (conversation.length > 0 && conversation[conversation.length - 1].role !== 'user') conversation.pop()
 
     const userMessage = conversation[conversation.length - 1]?.content ?? ''
@@ -70,104 +71,103 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 })
     }
 
-    // Periodo de prueba interno: sin cuotas mensuales, sin gates, sin bypass admin.
-    // La sesion siempre es la primaria del usuario (helper getOrCreateActiveSession).
-
-    // Fetch context from /api/taiger/context forwarding cookies
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3003'
-    const cookieHeader = req.headers.get('cookie') || ''
-    let ctxRes: Response
-    try {
-      ctxRes = await fetch(`${baseUrl}/api/taiger/context`, {
-        headers: { cookie: cookieHeader },
-      })
-    } catch (fetchErr) {
-      console.error('[tAIger/chat] Error fetching context:', fetchErr)
-      return NextResponse.json({ error: 'No se pudo conectar con el servicio de contexto' }, { status: 502 })
-    }
-
-    if (!ctxRes.ok) {
-      return NextResponse.json({ error: 'No se pudo obtener contexto del jugador' }, { status: 502 })
-    }
-
-    const ctx = await ctxRes.json()
+    // Contexto del jugador: fetch directo (sin HTTP server-to-server, sin .limit).
+    const ctx = await buildPlayerContext(supabase, user.id)
     const contextString = buildContextString(ctx)
 
-    // Build system prompt with player context and session starter
-    const systemWithContext = TAIGER_SYSTEM_PROMPT.replace(
-      '{PLAYER_CONTEXT}',
-      contextString
-    )
+    // System prompt final con contexto + starter + tools.
+    const systemWithContext = TAIGER_SYSTEM_PROMPT.replace('{PLAYER_CONTEXT}', contextString)
     const sessionStarter = TAIGER_SESSION_STARTER
-    const toolsInstruction = `\n\nHERRAMIENTAS DISPONIBLES:\nTienes acceso a tools para consultar datos reales del jugador:\n- get_latest_round: detalle hoyo-por-hoyo de su última ronda finalizada (con pares y strokes vs par)\n- get_round_by_id: detalle de una ronda específica\n- get_recent_rounds: resumen de últimas N rondas (totales, cancha, fecha)\n- get_course_details: pares y stroke index por hoyo de una cancha\n\nREGLA CRÍTICA: Cuando el jugador haga referencia a una ronda específica, cancha, o score concreto — SIEMPRE llama la tool apropiada antes de responder. NUNCA inventes scores, pares, ni asumas configuraciones de hoyos. Si la data no está en tus tools ni en el contexto, dilo honestamente.`
+    const toolsInstruction = `\n\nHERRAMIENTAS DISPONIBLES:\nTienes acceso a tools para consultar datos reales del jugador:\n- get_latest_round: detalle hoyo-por-hoyo de su última ronda finalizada\n- get_round_by_id: detalle de una ronda específica por UUID\n- get_round_by_date: ronda por fecha (YYYY-MM-DD), opcional cancha\n- get_recent_rounds: resumen de últimas N rondas\n- get_all_rounds_summary: agregados sobre el 100% del histórico\n- get_course_details: pares y stroke index por hoyo de una cancha\n\nREGLA CRÍTICA: Cuando el jugador haga referencia a una ronda específica, cancha, fecha o score concreto — SIEMPRE llama la tool apropiada antes de responder. NUNCA inventes scores, pares ni configuraciones de hoyos. Si la data no está en tools ni en el contexto inyectado, dilo honestamente.`
 
-    const anthropic = new Anthropic({ apiKey })
     const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}`
+    const anthropic = new Anthropic({ apiKey })
 
-    // Contexto para ejecución de tools
+    // Contexto para ejecucion de tools
     const toolCtx = {
       supabase,
       userId: user.id,
       defaultRondaId: null,
     }
 
-    // Loop de tool use: máx 5 iteraciones para proteger costos/latencia
-    type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
-    const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
-    let fullResponse = ''
-    const MAX_TOOL_ITERS = 5
-    let done = false
-
-    for (let iter = 0; iter < MAX_TOOL_ITERS && !done; iter++) {
-      const resp = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2048,
-        system: systemFinal,
-        tools: TAIGER_TOOLS as unknown as Anthropic.Tool[],
-        messages: loopMessages as unknown as Anthropic.MessageParam[],
-      })
-
-      if (resp.stop_reason === 'tool_use') {
-        loopMessages.push({ role: 'assistant', content: resp.content })
-        const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
-        for (const block of resp.content) {
-          if (block.type === 'tool_use') {
-            const result = await executeTool(block.name, block.input as Record<string, unknown>, toolCtx)
-            toolResults.push({
-              type: 'tool_result',
-              tool_use_id: block.id,
-              content: JSON.stringify(result),
-            })
-          }
-        }
-        loopMessages.push({ role: 'user', content: toolResults })
-        continue
-      }
-
-      // end_turn o max_tokens — recolectar texto final
-      for (const block of resp.content) {
-        if (block.type === 'text') fullResponse += block.text
-      }
-      done = true
-    }
-
-    if (!fullResponse.trim()) {
-      fullResponse = 'Se me acabaron los pasos de análisis. ¿Puedes reformular tu pregunta?'
-    }
-
     const encoder = new TextEncoder()
 
-    // Emitir el texto final como SSE en chunks para preservar la UX de typing.
+    // Stream completo: forward de deltas reales de Anthropic + tool loop server-side.
+    // El cliente recibe text deltas en tiempo real (first token ~1-2s vs 10-30s antes).
     const readable = new ReadableStream({
       async start(controller) {
         try {
-          // Chunkear por palabra (~30 chars) para efecto streaming rápido
-          const CHUNK_SIZE = 30
-          for (let i = 0; i < fullResponse.length; i += CHUNK_SIZE) {
-            const text = fullResponse.slice(i, i + CHUNK_SIZE)
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
-            // Pequeño delay para que se vea el efecto
-            await new Promise((r) => setTimeout(r, 15))
+          type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
+          const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
+          let fullResponse = ''
+          const MAX_TOOL_ITERS = 5
+          let lastUsage: Anthropic.Messages.Usage | null = null
+
+          for (let iter = 0; iter < MAX_TOOL_ITERS; iter++) {
+            // System como array con cache_control ephemeral. Cachea el system prompt
+            // (~5K tokens estables) — en follow-ups dentro de 5min el coste de input
+            // baja ~80% via cache_read_input_tokens.
+            const stream = anthropic.messages.stream({
+              model: 'claude-sonnet-4-6',
+              max_tokens: 2048,
+              system: [
+                {
+                  type: 'text',
+                  text: systemFinal,
+                  cache_control: { type: 'ephemeral' },
+                },
+              ],
+              tools: TAIGER_TOOLS as unknown as Anthropic.Tool[],
+              messages: loopMessages as unknown as Anthropic.MessageParam[],
+            })
+
+            // Forward text deltas al cliente conforme llegan.
+            for await (const event of stream) {
+              if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+                const text = event.delta.text
+                fullResponse += text
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+              }
+            }
+
+            const resp = await stream.finalMessage()
+            lastUsage = resp.usage
+
+            if (resp.stop_reason === 'tool_use') {
+              // Ejecutar tools, agregar al loop, continuar.
+              loopMessages.push({ role: 'assistant', content: resp.content })
+              const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
+              for (const block of resp.content) {
+                if (block.type === 'tool_use') {
+                  const result = await executeTool(block.name, block.input as Record<string, unknown>, toolCtx)
+                  toolResults.push({
+                    type: 'tool_result',
+                    tool_use_id: block.id,
+                    content: JSON.stringify(result),
+                  })
+                }
+              }
+              loopMessages.push({ role: 'user', content: toolResults })
+              continue
+            }
+
+            // end_turn o max_tokens — ya recolectamos texto via deltas.
+            break
+          }
+
+          if (!fullResponse.trim()) {
+            fullResponse = 'Se me acabaron los pasos de análisis. ¿Puedes reformular tu pregunta?'
+          }
+
+          if (lastUsage) {
+            const cacheRead = (lastUsage as { cache_read_input_tokens?: number }).cache_read_input_tokens ?? 0
+            const cacheCreate = (lastUsage as { cache_creation_input_tokens?: number }).cache_creation_input_tokens ?? 0
+            console.log('[tAIger/chat] usage:', {
+              input: lastUsage.input_tokens,
+              output: lastUsage.output_tokens,
+              cache_read: cacheRead,
+              cache_create: cacheCreate,
+            })
           }
 
           // Sesion continua: SIEMPRE usamos la primaria del usuario (migracion 017).
@@ -186,25 +186,24 @@ export async function POST(req: NextRequest) {
               next_focus: fullResponse.substring(0, 200),
             })
             .eq('id', active.id)
-          const savedSession: { id: string } = { id: active.id }
 
-          // Extract and save recommendations from the response
-          if (savedSession?.id) {
-            try {
-              await extractAndSaveRecommendations(
-                supabase, user.id, savedSession.id, fullResponse, ctx?.stats?.avg_score ?? null
-              )
-            } catch (recErr) {
-              console.error('[tAIger/chat] Error extracting recommendations:', recErr)
-            }
+          // Extract and save recommendations from the response.
+          // Deuda flagged: el extractor regex es fragil — Sprint 2 lo migra a tool calling.
+          try {
+            await extractAndSaveRecommendations(
+              supabase, user.id, active.id, fullResponse, ctx?.stats?.avg_score ?? null,
+            )
+          } catch (recErr) {
+            console.error('[tAIger/chat] Error extracting recommendations:', recErr)
           }
 
-          controller.enqueue(new TextEncoder().encode(
-            `data: ${JSON.stringify({ done: true, session_id: savedSession?.id ?? null })}\n\n`
+          controller.enqueue(encoder.encode(
+            `data: ${JSON.stringify({ done: true, session_id: active.id })}\n\n`,
           ))
           controller.close()
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Error desconocido'
+          console.error('[tAIger/chat] Stream error:', msg)
           if (msg.includes('rate_limit') || msg.includes('429')) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'tAIger+ está descansando. Intenta en unos minutos.' })}\n\n`))
           } else {
@@ -229,10 +228,8 @@ export async function POST(req: NextRequest) {
 }
 
 // --- Recommendation Extraction ---
-
-// Supabase client type for recommendation extraction
-// eslint-disable-next-line
-type SupabaseClientLike = any
+// Extractor regex frágil — flagged como deuda en plan reset Self-Review.
+// Sprint 2 lo migra a tool calling estructurado (`save_plan` con schema).
 
 const RECOMMENDATION_TRIGGERS = [
   'te recomiendo',
@@ -288,7 +285,7 @@ function inferCategory(text: string): string {
 }
 
 async function extractAndSaveRecommendations(
-  supabase: SupabaseClientLike,
+  supabase: SupabaseClient,
   userId: string,
   sessionId: string,
   responseText: string,
@@ -302,13 +299,11 @@ async function extractAndSaveRecommendations(
 
     const lower = line.toLowerCase()
 
-    // Check numbered items (1., 2., 3.) or bullet points
     const isNumbered = /^\d+[\.\)]\s/.test(line)
     const isBullet = /^[-*•]\s/.test(line)
     const hasTrigger = RECOMMENDATION_TRIGGERS.some(t => lower.includes(t))
 
     if ((isNumbered || isBullet || hasTrigger) && line.length > 20 && line.length < 500) {
-      // Clean the line
       const cleaned = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[-*•]\s*/, '').trim()
       if (cleaned.length > 15) {
         recommendations.push(cleaned)
