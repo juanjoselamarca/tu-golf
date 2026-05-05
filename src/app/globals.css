@@ -13,6 +13,10 @@
   --brand-hover: #A67D1E;
   --brand-dark:  #070D18;
   --brand-light: #FDF6E3;
+  /* --brand-text: oro accesible para uso COMO TEXTO sobre fondos claros.
+     #c4992a tiene 2.65:1 sobre #fff (FAIL WCAG AA). #8a6a16 da ~5.0:1.
+     Usar siempre que el oro sea texto, no superficie ni borde. */
+  --brand-text:  #8A6A16;
 
   /* Score colors — paleta Garmin Golf verificada (mismo en ambos modos) */
   --eagle:  #3B82F6;
@@ -40,7 +44,10 @@
   --bg-card-light: #ffffff;
   --text:        #1a1d24;
   --text-2:      #5a6573;
-  --text-3:      #9099a8;
+  --text-3:      #6B7280;
+  --text-2-rgb:  90, 101, 115;
+  --text-3-rgb:  107, 114, 128;
+  --brand-on-bg: #8A6A16;
   --border:      rgba(26, 29, 36, 0.08);
   --border-md:   rgba(26, 29, 36, 0.12);
   --shadow-sm:   0 1px 2px rgba(20, 25, 35, 0.04);
@@ -58,7 +65,10 @@
   --bg-card-light: #ffffff;
   --text:        #1a1d24;
   --text-2:      #5a6573;
-  --text-3:      #9099a8;
+  --text-3:      #6B7280;
+  --text-2-rgb:  90, 101, 115;
+  --text-3-rgb:  107, 114, 128;
+  --brand-on-bg: #8A6A16;
   --border:      rgba(26, 29, 36, 0.08);
   --border-md:   rgba(26, 29, 36, 0.12);
   --shadow-sm:   0 1px 2px rgba(20, 25, 35, 0.04);
@@ -76,7 +86,10 @@
   --bg-card-light: #0e1c2f;
   --text:        #edeae4;
   --text-2:      #94a8c0;
-  --text-3:      #5a6a7a;
+  --text-3:      #8895a8;
+  --text-2-rgb:  148, 168, 192;
+  --text-3-rgb:  136, 149, 168;
+  --brand-on-bg: #C4992A;
   --border:      rgba(196,153,42,0.12);
   --border-md:   rgba(196,153,42,0.2);
   --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);
@@ -137,6 +150,21 @@
   h2 { font-size: 17px; font-weight: 600; color: var(--text); letter-spacing: -0.2px; }
   h3 { font-size: 14px; font-weight: 500; color: var(--text-2); }
 }
+
+/* WCAG accessibility — utilities theme-aware ───────────────────────────
+   El oro (#c4992a) usado COMO TEXTO no cumple AA en light (2.65:1).
+   --brand-on-bg es la versión accesible (#8A6A16, 5:1 sobre #fff).
+   En dark mantiene #c4992a (7.35:1 sobre navy). Aplicar a links/CTAs:
+     <span className="text-gold-text">
+   Para fondos/bordes/iconos seguir usando 'gold' (#c4992a) sin restricción. */
+.text-gold-text                       { color: var(--brand-on-bg); }
+[data-theme="light"] .text-gold-text  { color: var(--brand-on-bg) !important; }
+
+/* SECTIONS LIGHT-CARD: en pantallas con fondo blanco/light, los componentes
+   compartidos que originalmente eran dark (bg-bg-card .text-ivory) NO se
+   tocan — siguen siendo cards oscuras con texto claro. La home tenía un
+   bug visual donde texto-ivory sobre --bg light daba ratio 1.15. Esto se
+   arregla en el componente, no aquí (HeroSection ya forza fondo dark). */
 
 /* ── Component classes ─────────────────────────────────── */
 @layer components {
