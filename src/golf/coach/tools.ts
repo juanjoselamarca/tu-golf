@@ -1,9 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { savePlan, PATTERN_IDS, PLAN_METRICS, type SavePlanInput } from './plan-engine'
 
 /**
  * Definiciones de tools que tAIger+ puede llamar durante una conversación.
  * Formato Anthropic tool use. Resuelven el problema de que el coach no tenía
  * acceso al detalle hoyo-por-hoyo ni a los pares de la cancha.
+ *
+ * `save_plan` es la ÚNICA forma de comprometer un plan estructurado al jugador
+ * (Cerebro v2 §5.4). El extractor regex en chat/route.ts está siendo retirado
+ * en shadow mode 7 días.
  */
 export const TAIGER_TOOLS = [
   {
@@ -75,6 +80,81 @@ export const TAIGER_TOOLS = [
       required: [],
     },
   },
+  {
+    name: 'save_plan',
+    description:
+      'Asigna o actualiza un plan estructurado al jugador. ÚNICA forma de comprometer un plan — NUNCA escribir el plan en prosa sin llamar esta tool. Si la llamás, el sistema persiste el plan, marca cualquier plan activo previo como superseded, y el cerebro empieza a medir adherencia automáticamente. Llamala SOLO cuando tengas: (1) un patrón confirmado del jugador con datos reales, (2) hipótesis clara, (3) métrica medible, (4) target numérico realista para 2-12 semanas.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        pattern_id: {
+          type: 'string',
+          enum: [...PATTERN_IDS],
+          description: 'ID del patrón detectado (debe coincidir con player_patterns).',
+        },
+        observation_data: {
+          type: 'object',
+          properties: {
+            data_points: {
+              type: 'integer',
+              minimum: 1,
+              description: 'Cantidad de rondas/eventos en los que se observó el patrón.',
+            },
+            metric_value: {
+              type: 'number',
+              description: 'Valor actual de la métrica (será el baseline_value del plan).',
+            },
+            confidence: {
+              type: 'number',
+              minimum: 0,
+              maximum: 1,
+              description: 'Confianza 0-1 en la detección del patrón.',
+            },
+          },
+          required: ['data_points', 'metric_value', 'confidence'],
+        },
+        hypothesis: {
+          type: 'string',
+          minLength: 20,
+          maxLength: 500,
+          description: 'Por qué creés que pasa esto. Una frase clara, no genérica.',
+        },
+        plan: {
+          type: 'object',
+          properties: {
+            rule: {
+              type: 'string',
+              minLength: 10,
+              maxLength: 800,
+              description: 'Qué tiene que hacer el jugador. Concreto, accionable.',
+            },
+            metric: {
+              type: 'string',
+              enum: [...PLAN_METRICS],
+              description: 'Qué se va a medir cada ronda.',
+            },
+            target_value: {
+              type: 'number',
+              description: 'Número objetivo para cumplir la meta.',
+            },
+            target_op: {
+              type: 'string',
+              enum: ['lte', 'gte', 'eq'],
+              description: 'Cómo comparar metric_value vs target_value.',
+            },
+            duration_days: {
+              type: 'integer',
+              minimum: 7,
+              maximum: 90,
+              description: 'Días que dura el plan antes de declararse expired (default 21).',
+            },
+          },
+          required: ['rule', 'metric', 'target_value', 'target_op', 'duration_days'],
+        },
+      },
+      required: ['pattern_id', 'observation_data', 'hypothesis', 'plan'],
+    },
+  },
 ] as const
 
 // ---------- Executor ----------
@@ -83,6 +163,7 @@ export type ToolExecutionContext = {
   supabase: SupabaseClient
   userId: string
   defaultRondaId?: string | null
+  sessionId?: string | null
 }
 
 type ToolResult = { ok: true; data: unknown } | { ok: false; error: string }
@@ -119,6 +200,8 @@ export async function executeTool(
       }
       case 'get_all_rounds_summary':
         return await getAllRoundsSummary(ctx)
+      case 'save_plan':
+        return await dispatchSavePlan(ctx, input)
       default:
         return { ok: false, error: `Tool desconocida: ${name}` }
     }
@@ -407,4 +490,107 @@ async function getCourseDetails(ctx: ToolExecutionContext, courseId: string): Pr
       })),
     },
   }
+}
+
+// ---------- save_plan dispatcher ----------
+
+/**
+ * Valida la entrada de la tool save_plan y delega al plan-engine.
+ * El schema del tool ya garantiza enums + minLength/maxLength desde el LLM,
+ * pero validamos defensivamente para fallar rápido si llega data malformada.
+ */
+async function dispatchSavePlan(
+  ctx: ToolExecutionContext,
+  input: Record<string, unknown>,
+): Promise<ToolResult> {
+  const parsed = parseSavePlanInput(input)
+  if (!parsed.ok) return { ok: false, error: parsed.error }
+
+  const result = await savePlan(
+    { supabase: ctx.supabase, userId: ctx.userId, sessionId: ctx.sessionId ?? null },
+    parsed.value,
+  )
+
+  if (!result.ok) return { ok: false, error: result.error }
+  return {
+    ok: true,
+    data: {
+      plan_id: result.plan_id,
+      superseded_plan_id: result.superseded_plan_id,
+      summary: result.summary,
+    },
+  }
+}
+
+function parseSavePlanInput(
+  raw: Record<string, unknown>,
+): { ok: true; value: SavePlanInput } | { ok: false; error: string } {
+  const patternId = raw.pattern_id
+  if (typeof patternId !== 'string' || !(PATTERN_IDS as readonly string[]).includes(patternId)) {
+    return { ok: false, error: 'pattern_id inválido' }
+  }
+
+  const obs = raw.observation_data
+  if (!isObj(obs)) return { ok: false, error: 'observation_data faltante' }
+  const dataPoints = obs.data_points
+  const metricValue = obs.metric_value
+  const confidence = obs.confidence
+  if (typeof dataPoints !== 'number' || !Number.isInteger(dataPoints) || dataPoints < 1) {
+    return { ok: false, error: 'observation_data.data_points debe ser entero >=1' }
+  }
+  if (typeof metricValue !== 'number' || !Number.isFinite(metricValue)) {
+    return { ok: false, error: 'observation_data.metric_value debe ser número finito' }
+  }
+  if (typeof confidence !== 'number' || confidence < 0 || confidence > 1) {
+    return { ok: false, error: 'observation_data.confidence debe estar entre 0 y 1' }
+  }
+
+  const hypothesis = raw.hypothesis
+  if (typeof hypothesis !== 'string' || hypothesis.length < 20 || hypothesis.length > 500) {
+    return { ok: false, error: 'hypothesis debe ser string 20-500 chars' }
+  }
+
+  const plan = raw.plan
+  if (!isObj(plan)) return { ok: false, error: 'plan faltante' }
+  const rule = plan.rule
+  const metric = plan.metric
+  const targetValue = plan.target_value
+  const targetOp = plan.target_op
+  const durationDays = plan.duration_days
+
+  if (typeof rule !== 'string' || rule.length < 10 || rule.length > 800) {
+    return { ok: false, error: 'plan.rule debe ser string 10-800 chars' }
+  }
+  if (typeof metric !== 'string' || !(PLAN_METRICS as readonly string[]).includes(metric)) {
+    return { ok: false, error: 'plan.metric inválido' }
+  }
+  if (typeof targetValue !== 'number' || !Number.isFinite(targetValue)) {
+    return { ok: false, error: 'plan.target_value debe ser número finito' }
+  }
+  if (targetOp !== 'lte' && targetOp !== 'gte' && targetOp !== 'eq') {
+    return { ok: false, error: 'plan.target_op debe ser lte|gte|eq' }
+  }
+  if (typeof durationDays !== 'number' || !Number.isInteger(durationDays) || durationDays < 7 || durationDays > 90) {
+    return { ok: false, error: 'plan.duration_days debe ser entero 7-90' }
+  }
+
+  return {
+    ok: true,
+    value: {
+      pattern_id: patternId as SavePlanInput['pattern_id'],
+      observation_data: { data_points: dataPoints, metric_value: metricValue, confidence },
+      hypothesis,
+      plan: {
+        rule,
+        metric: metric as SavePlanInput['plan']['metric'],
+        target_value: targetValue,
+        target_op: targetOp,
+        duration_days: durationDays,
+      },
+    },
+  }
+}
+
+function isObj(x: unknown): x is Record<string, unknown> {
+  return typeof x === 'object' && x !== null && !Array.isArray(x)
 }

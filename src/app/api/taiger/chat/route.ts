@@ -1,13 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from '@/golf/coach/prompts'
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
-import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -78,16 +78,22 @@ export async function POST(req: NextRequest) {
     // System prompt final con contexto + starter + tools.
     const systemWithContext = TAIGER_SYSTEM_PROMPT.replace('{PLAYER_CONTEXT}', contextString)
     const sessionStarter = TAIGER_SESSION_STARTER
-    const toolsInstruction = `\n\nHERRAMIENTAS DISPONIBLES:\nTienes acceso a tools para consultar datos reales del jugador:\n- get_latest_round: detalle hoyo-por-hoyo de su última ronda finalizada\n- get_round_by_id: detalle de una ronda específica por UUID\n- get_round_by_date: ronda por fecha (YYYY-MM-DD), opcional cancha\n- get_recent_rounds: resumen de últimas N rondas\n- get_all_rounds_summary: agregados sobre el 100% del histórico\n- get_course_details: pares y stroke index por hoyo de una cancha\n\nREGLA CRÍTICA: Cuando el jugador haga referencia a una ronda específica, cancha, fecha o score concreto — SIEMPRE llama la tool apropiada antes de responder. NUNCA inventes scores, pares ni configuraciones de hoyos. Si la data no está en tools ni en el contexto inyectado, dilo honestamente.`
+    const toolsInstruction = `\n\nHERRAMIENTAS DISPONIBLES:\nTienes acceso a tools para consultar datos reales del jugador y para asignar planes estructurados:\n- get_latest_round: detalle hoyo-por-hoyo de su última ronda finalizada\n- get_round_by_id: detalle de una ronda específica por UUID\n- get_round_by_date: ronda por fecha (YYYY-MM-DD), opcional cancha\n- get_recent_rounds: resumen de últimas N rondas\n- get_all_rounds_summary: agregados sobre el 100% del histórico\n- get_course_details: pares y stroke index por hoyo de una cancha\n- save_plan: ASIGNA un plan estructurado al jugador (patrón + hipótesis + métrica + target). Es la ÚNICA forma de comprometer un plan.\n\nREGLA CRÍTICA — DATOS: Cuando el jugador haga referencia a una ronda específica, cancha, fecha o score concreto — SIEMPRE llama la tool apropiada antes de responder. NUNCA inventes scores, pares ni configuraciones de hoyos. Si la data no está en tools ni en el contexto inyectado, dilo honestamente.\n\nREGLA CRÍTICA — PLANES: Si vas a comprometer un plan ("trabaja esto", "tu tarea de la semana", "te recomiendo enfocarte en…"), DEBES llamar la tool save_plan con el schema completo. NO escribas planes en prosa sin guardar. Si no tenés datos suficientes para llenar el schema (data_points >= 5, metric_value real, hipótesis concreta), pedí más datos al jugador en lugar de inventar.`
 
     const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}`
     const anthropic = new Anthropic({ apiKey })
+
+    // Sesion activa pre-fetched: necesario para que save_plan pueda referenciar
+    // session_id en coach_plans + coach_events. Backend siempre append a la
+    // primaria del usuario (migracion 017).
+    const active = await getOrCreateActiveSession(supabase, user.id)
 
     // Contexto para ejecucion de tools
     const toolCtx = {
       supabase,
       userId: user.id,
       defaultRondaId: null,
+      sessionId: active.id,
     }
 
     const encoder = new TextEncoder()
@@ -170,10 +176,7 @@ export async function POST(req: NextRequest) {
             })
           }
 
-          // Sesion continua: SIEMPRE usamos la primaria del usuario (migracion 017).
-          // El parametro session_id del cliente es opcional y solo informa cual sesion
-          // esta abierta en UI; el backend siempre append a la primaria.
-          const active = await getOrCreateActiveSession(supabase, user.id)
+          // Sesion continua: pre-fetched arriba como `active` (migracion 017).
           const fullHistory: ChatMsg[] = [
             ...conversation,
             { role: 'assistant', content: fullResponse },
@@ -187,14 +190,17 @@ export async function POST(req: NextRequest) {
             })
             .eq('id', active.id)
 
-          // Extract and save recommendations from the response.
-          // Deuda flagged: el extractor regex es fragil — Sprint 2 lo migra a tool calling.
+          // SHADOW EXTRACTOR (D3) — el regex extractor ya NO escribe a taiger_recommendations
+          // ni a coach_plans. Solo registra a coach_events('extractor_shadow', ...) por 7 dias
+          // para comparar contra lo que la tool save_plan capturo. Despues del dia 7, si la
+          // divergencia es <5%, esta funcion entera se borra.
+          // Spec: docs/superpowers/plans/2026-05-05-cerebro-v2.md §5.4.3 (D3).
           try {
-            await extractAndSaveRecommendations(
-              supabase, user.id, active.id, fullResponse, ctx?.stats?.avg_score ?? null,
+            await extractRecommendationsShadow(
+              user.id, active.id, fullResponse,
             )
           } catch (recErr) {
-            console.error('[tAIger/chat] Error extracting recommendations:', recErr)
+            console.error('[tAIger/chat] extractor shadow error:', recErr)
           }
 
           controller.enqueue(encoder.encode(
@@ -227,9 +233,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// --- Recommendation Extraction ---
-// Extractor regex frágil — flagged como deuda en plan reset Self-Review.
-// Sprint 2 lo migra a tool calling estructurado (`save_plan` con schema).
+// --- Shadow extractor (D3) ---
+// El extractor regex ya NO escribe planes. Por 7 dias corre en sombra y solo
+// registra a coach_events('extractor_shadow', { regex_extracted, ... }) lo que
+// el regex hubiera capturado, para comparar con la tool save_plan. Si la
+// divergencia es <5% al dia 7, esta funcion entera se borra.
+//
+// Spec: docs/superpowers/plans/2026-05-05-cerebro-v2.md §5.4.3 (D3).
 
 const RECOMMENDATION_TRIGGERS = [
   'te recomiendo',
@@ -246,50 +256,10 @@ const RECOMMENDATION_TRIGGERS = [
   'ejercicio',
 ]
 
-const FOCUS_AREA_KEYWORDS: Record<string, string[]> = {
-  putting: ['putt', 'green', '3-putt', 'tres putts', 'gate drill', 'clock drill'],
-  driving: ['driver', 'tee shot', 'salida', 'drive', 'tee'],
-  short_game: ['chip', 'pitch', 'bunker', 'up and down', 'juego corto', 'wedge', 'lob'],
-  approach: ['approach', 'hierro', 'iron', 'gir', 'green en regulación', 'dispersion'],
-  mental: ['mental', 'rutina', 'pre-shot', 'confianza', 'presión', 'concentra', 'respira', 'visuali', 'foco', 'mantra'],
-  course_management: ['course management', 'estrategia', 'gestión', 'riesgo', 'conservador', 'miss buena'],
-}
-
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  technique: ['técnica', 'grip', 'stance', 'swing', 'postura', 'alineación'],
-  mental: ['mental', 'confianza', 'presión', 'rutina', 'concentra', 'respira', 'visuali', 'mantra', 'foco'],
-  practice: ['practica', 'drill', 'ejercicio', 'repet', 'sesión de', 'entren'],
-  strategy: ['estrategia', 'gestión', 'plan', 'course management', 'riesgo', 'conservador'],
-}
-
-function inferFocusArea(text: string): string {
-  const lower = text.toLowerCase()
-  let bestArea = 'mental'
-  let bestCount = 0
-  for (const [area, keywords] of Object.entries(FOCUS_AREA_KEYWORDS)) {
-    const count = keywords.filter(kw => lower.includes(kw)).length
-    if (count > bestCount) { bestCount = count; bestArea = area }
-  }
-  return bestArea
-}
-
-function inferCategory(text: string): string {
-  const lower = text.toLowerCase()
-  let bestCat = 'practice'
-  let bestCount = 0
-  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    const count = keywords.filter(kw => lower.includes(kw)).length
-    if (count > bestCount) { bestCount = count; bestCat = cat }
-  }
-  return bestCat
-}
-
-async function extractAndSaveRecommendations(
-  supabase: SupabaseClient,
+async function extractRecommendationsShadow(
   userId: string,
   sessionId: string,
   responseText: string,
-  avgScore: number | null,
 ) {
   const lines = responseText.split('\n').map(l => l.trim()).filter(Boolean)
   const recommendations: string[] = []
@@ -311,17 +281,17 @@ async function extractAndSaveRecommendations(
     }
   }
 
-  if (recommendations.length === 0) return
-
-  const inserts = recommendations.map(rec => ({
+  // Registramos SIEMPRE el resultado del shadow extractor (incluso vacio) para
+  // poder comparar dia a dia: cuando save_plan se llamo, el shadow ¿extrajo o no?
+  const admin = createAdminClient()
+  await admin.from('coach_events').insert({
     user_id: userId,
-    session_id: sessionId,
-    recommendation: rec,
-    category: inferCategory(rec),
-    focus_area: inferFocusArea(rec),
-    status: 'active',
-    score_before: avgScore,
-  }))
-
-  await supabase.from('taiger_recommendations').insert(inserts).select('id').then(() => {})
+    type: 'extractor_shadow',
+    payload: {
+      regex_extracted: recommendations,
+      regex_extracted_count: recommendations.length,
+      response_length: responseText.length,
+    },
+    related_session_id: sessionId,
+  })
 }
