@@ -166,7 +166,7 @@ export default function UnirsePage() {
       <div
         style={{
           minHeight: '100vh',
-          background: '#070d18',
+          background: 'var(--bg)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -181,7 +181,7 @@ export default function UnirsePage() {
           style={{
             fontFamily: '"Playfair Display", serif',
             fontSize: '24px',
-            color: '#edeae4',
+            color: 'var(--text)',
             fontWeight: 700,
             textAlign: 'center',
             marginBottom: '8px',
@@ -189,7 +189,7 @@ export default function UnirsePage() {
         >
           ¡Inscripción exitosa!
         </div>
-        <div style={{ fontSize: '14px', color: '#94a8c0', textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{ fontSize: '14px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '24px' }}>
           Estás inscrito en {tournament.name}
         </div>
 
@@ -204,7 +204,7 @@ export default function UnirsePage() {
               marginBottom: '24px',
             }}
           >
-            <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
               Código del torneo
             </div>
             <div style={{ fontFamily: 'monospace', fontSize: '32px', fontWeight: 700, color: '#c4992a', letterSpacing: '0.15em' }}>
@@ -217,7 +217,7 @@ export default function UnirsePage() {
           href={`/torneo/${slug}`}
           style={{
             background: '#c4992a',
-            color: '#070d18',
+            color: 'var(--brand-dark)',
             fontWeight: 700,
             fontSize: '15px',
             padding: '14px 32px',
@@ -239,11 +239,11 @@ export default function UnirsePage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#070d18', padding: '0' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '0' }}>
 
       {/* Header */}
       <div style={{ padding: '24px 20px 0' }}>
-        <Link href={`/torneo/${slug}`} style={{ color: '#94a8c0', fontSize: '13px', textDecoration: 'none' }}>
+        <Link href={`/torneo/${slug}`} style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none' }}>
           ← Volver al torneo
         </Link>
       </div>
@@ -254,7 +254,7 @@ export default function UnirsePage() {
           style={{
             fontFamily: '"Playfair Display", serif',
             fontSize: '26px',
-            color: '#edeae4',
+            color: 'var(--text)',
             fontWeight: 700,
             margin: '0 0 24px',
           }}
@@ -281,7 +281,7 @@ export default function UnirsePage() {
 
         {/* Loading */}
         {loading && (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a8c0', fontSize: '14px' }}>
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-2)', fontSize: '14px' }}>
             Cargando...
           </div>
         )}
@@ -298,10 +298,10 @@ export default function UnirsePage() {
                 marginBottom: '20px',
               }}
             >
-              <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
                 Torneo
               </div>
-              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#edeae4', fontWeight: 700, marginBottom: '16px' }}>
+              <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', fontWeight: 700, marginBottom: '16px' }}>
                 {tournament.name}
               </div>
 
@@ -309,7 +309,7 @@ export default function UnirsePage() {
                 {(tournament.courses?.nombre || tournament.course_name) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Flag size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} />
-                    <span style={{ fontSize: '14px', color: '#94a8c0' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--text-2)' }}>
                       {tournament.courses?.nombre || tournament.course_name}
                       {tournament.courses?.ciudad && `, ${tournament.courses.ciudad}`}
                     </span>
@@ -318,13 +318,13 @@ export default function UnirsePage() {
                 {tournament.date_start && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Calendar size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />
-                    <span style={{ fontSize: '14px', color: '#94a8c0' }}>{formatDate(tournament.date_start)}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text-2)' }}>{formatDate(tournament.date_start)}</span>
                   </div>
                 )}
                 {tournament.format && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <PersonStanding size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} />
-                    <span style={{ fontSize: '14px', color: '#94a8c0' }}>{formatLabel(tournament.format)}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text-2)' }}>{formatLabel(tournament.format)}</span>
                   </div>
                 )}
               </div>
@@ -341,7 +341,7 @@ export default function UnirsePage() {
                   marginBottom: '24px',
                 }}
               >
-                <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
                   Tu perfil
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -363,8 +363,8 @@ export default function UnirsePage() {
                     {profile.name?.charAt(0)?.toUpperCase() || '?'}
                   </div>
                   <div>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#edeae4' }}>{profile.name}</div>
-                    <div style={{ fontSize: '13px', color: '#94a8c0' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{profile.name}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
                       {profile.indice != null
                         ? `Índice: ${Number(profile.indice).toFixed(1)}`
                         : 'Sin índice registrado'}
@@ -391,7 +391,7 @@ export default function UnirsePage() {
                 </div>
                 <Link
                   href={`/torneo/${slug}`}
-                  style={{ fontSize: '13px', color: '#94a8c0', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                  style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '3px' }}
                 >
                   Ver leaderboard →
                 </Link>
@@ -404,7 +404,7 @@ export default function UnirsePage() {
                 style={{
                   width: '100%',
                   background: '#c4992a',
-                  color: '#070d18',
+                  color: 'var(--brand-dark)',
                   fontWeight: 700,
                   fontSize: '16px',
                   padding: '16px',

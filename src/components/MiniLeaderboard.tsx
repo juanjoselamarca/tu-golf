@@ -134,7 +134,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
                 <div>
                   <div style={{
                     fontSize: '13px', fontWeight: isLeading ? 600 : 400, lineHeight: 1.2,
-                    color: isLeading ? '#edeae4' : 'rgba(255,255,255,0.55)',
+                    color: isLeading ? 'var(--text)' : 'rgba(255,255,255,0.55)',
                   }}>
                     {j.nombre}
                     {esYo && <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', marginLeft: '6px' }}>tu</span>}

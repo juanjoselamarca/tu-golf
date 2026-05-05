@@ -79,7 +79,7 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
 
           {/* Text */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: '#edeae4', fontSize: '14px', fontWeight: 600, lineHeight: 1.3, marginBottom: message ? '4px' : 0 }}>
+            <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, lineHeight: 1.3, marginBottom: message ? '4px' : 0 }}>
               {title}
             </div>
             {message && (
@@ -104,8 +104,8 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
               lineHeight:  1,
               transition:  'color 150ms',
             }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#edeae4')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,234,228,0.45)')}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text)')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)')}
           >
             ×
           </button>

@@ -201,7 +201,7 @@ export default function Home() {
             <Link
               href="/register"
               className="inline-flex items-center gap-2 font-sans font-bold text-lg px-12 py-4 transition-all duration-200 hover:brightness-110 active:scale-95 shadow-lg"
-              style={{ background: '#c4992a', color: '#070d18', borderRadius: '10px' }}
+              style={{ background: '#c4992a', color: 'var(--brand-dark)', borderRadius: '10px' }}
             >
               Crear cuenta gratis
             </Link>

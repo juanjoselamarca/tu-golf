@@ -162,7 +162,7 @@ export default function StepCelebration({
       style={{
         position: 'fixed',
         inset: 0,
-        background: '#070d18',
+        background: 'var(--bg)',
         zIndex: 100,
         overflowY: 'auto',
         WebkitOverflowScrolling: 'touch',
@@ -201,7 +201,7 @@ export default function StepCelebration({
           <div
             style={{
               fontSize: '13px',
-              color: '#94a8c0',
+              color: 'var(--text-2)',
               marginTop: '4px',
               letterSpacing: '2px',
               textTransform: 'uppercase',
@@ -229,7 +229,7 @@ export default function StepCelebration({
         <div
           style={{
             width: '100%',
-            background: '#0e1c2f',
+            background: 'var(--bg-surface)',
             border: '1px solid rgba(196,153,42,0.15)',
             borderRadius: '16px',
             padding: '24px 20px',
@@ -264,7 +264,7 @@ export default function StepCelebration({
               <div
                 style={{
                   fontSize: '11px',
-                  color: '#94a8c0',
+                  color: 'var(--text-2)',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
                   marginBottom: '8px',
@@ -277,7 +277,7 @@ export default function StepCelebration({
                 style={{
                   fontSize: '16px',
                   fontWeight: 700,
-                  color: '#edeae4',
+                  color: 'var(--text)',
                   fontFamily: '"DM Sans", sans-serif',
                 }}
               >
@@ -290,7 +290,7 @@ export default function StepCelebration({
               <div
                 style={{
                   fontSize: '11px',
-                  color: '#94a8c0',
+                  color: 'var(--text-2)',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
                   marginBottom: '8px',
@@ -312,7 +312,7 @@ export default function StepCelebration({
                   style={{
                     fontSize: '16px',
                     fontWeight: 700,
-                    color: '#edeae4',
+                    color: 'var(--text)',
                     fontFamily: '"DM Sans", sans-serif',
                   }}
                 >
@@ -326,7 +326,7 @@ export default function StepCelebration({
               <div
                 style={{
                   fontSize: '11px',
-                  color: '#94a8c0',
+                  color: 'var(--text-2)',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
                   marginBottom: '8px',
@@ -339,7 +339,7 @@ export default function StepCelebration({
                 style={{
                   fontSize: '16px',
                   fontWeight: 700,
-                  color: '#edeae4',
+                  color: 'var(--text)',
                   fontFamily: '"DM Sans", sans-serif',
                 }}
               >
@@ -363,7 +363,7 @@ export default function StepCelebration({
             style={{
               fontSize: '15px',
               lineHeight: 1.7,
-              color: '#94a8c0',
+              color: 'var(--text-2)',
               margin: 0,
               fontFamily: '"DM Sans", sans-serif',
             }}
@@ -394,7 +394,7 @@ export default function StepCelebration({
               fontSize: '16px',
               fontWeight: 700,
               background: 'linear-gradient(135deg, #c4992a 0%, #d4a94a 100%)',
-              color: '#070d18',
+              color: 'var(--brand-dark)',
               border: 'none',
               cursor: 'pointer',
               minHeight: '52px',
@@ -431,7 +431,7 @@ export default function StepCelebration({
               fontSize: '14px',
               fontWeight: 500,
               background: 'transparent',
-              color: '#94a8c0',
+              color: 'var(--text-2)',
               border: 'none',
               cursor: 'pointer',
               minHeight: '44px',

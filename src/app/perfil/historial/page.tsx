@@ -609,7 +609,7 @@ function HistorialContent() {
         {showForm && (
           <form onSubmit={handleSave} style={{
             ...cardStyle,
-            background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.2)',
+            background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.2)',
             padding: '28px 20px', marginBottom: '24px',
           }}>
 

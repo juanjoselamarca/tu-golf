@@ -42,7 +42,7 @@ export default function StepGarminInstructions({
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '12px',
-            color: '#94a8c0',
+            color: 'var(--text-2)',
             fontSize: '18px',
             cursor: 'pointer',
             flexShrink: 0,
@@ -55,7 +55,7 @@ export default function StepGarminInstructions({
             style={{
               fontSize: '20px',
               fontWeight: 700,
-              color: '#edeae4',
+              color: 'var(--text)',
               margin: 0,
             }}
           >
@@ -101,7 +101,7 @@ export default function StepGarminInstructions({
             </div>
             <p
               style={{
-                color: '#edeae4',
+                color: 'var(--text)',
                 fontSize: '14px',
                 lineHeight: 1.5,
                 margin: 0,
@@ -135,7 +135,7 @@ export default function StepGarminInstructions({
         >
           Proximamente
         </p>
-        <p style={{ color: '#94a8c0', fontSize: '13px', margin: 0 }}>
+        <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: 0 }}>
           La importacion directa desde archivos Garmin FIT esta en desarrollo.
           Mientras tanto, exporta tus datos como CSV desde Garmin Connect.
         </p>

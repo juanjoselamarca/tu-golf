@@ -94,7 +94,7 @@ export default function StepCsvInstructions({
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '12px',
-            color: '#94a8c0',
+            color: 'var(--text-2)',
             fontSize: '18px',
             cursor: 'pointer',
             flexShrink: 0,
@@ -107,7 +107,7 @@ export default function StepCsvInstructions({
             style={{
               fontSize: '20px',
               fontWeight: 700,
-              color: '#edeae4',
+              color: 'var(--text)',
               margin: 0,
             }}
           >
@@ -130,7 +130,7 @@ export default function StepCsvInstructions({
           style={{
             fontWeight: 600,
             fontSize: '14px',
-            color: '#edeae4',
+            color: 'var(--text)',
             marginBottom: '12px',
           }}
         >
@@ -194,7 +194,7 @@ export default function StepCsvInstructions({
           </p>
           <p
             style={{
-              color: '#94a8c0',
+              color: 'var(--text-2)',
               fontSize: '13px',
               marginBottom: '12px',
             }}
@@ -216,7 +216,7 @@ export default function StepCsvInstructions({
                   padding: '4px 10px',
                   borderRadius: '6px',
                   background: 'rgba(255,255,255,0.05)',
-                  color: '#94a8c0',
+                  color: 'var(--text-2)',
                   fontSize: '12px',
                   fontFamily: 'monospace',
                 }}
@@ -279,7 +279,7 @@ export default function StepCsvInstructions({
                 animation: 'spin 1s linear infinite',
               }}
             />
-            <span style={{ color: '#94a8c0', fontSize: '14px' }}>
+            <span style={{ color: 'var(--text-2)', fontSize: '14px' }}>
               Procesando archivo...
             </span>
           </>

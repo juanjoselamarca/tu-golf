@@ -139,8 +139,8 @@ function Scorecard({
               className="flex flex-col items-center justify-between flex-shrink-0"
               style={{ width: 50, height: 62, padding: '5px 3px' }}
             >
-              <span style={{ fontSize: 9, color: '#94a8c0', lineHeight: 1 }}>H.{hNum}</span>
-              <span style={{ fontSize: 9, color: '#94a8c0', lineHeight: 1 }}>par {par}</span>
+              <span style={{ fontSize: 9, color: 'var(--text-2)', lineHeight: 1 }}>H.{hNum}</span>
+              <span style={{ fontSize: 9, color: 'var(--text-2)', lineHeight: 1 }}>par {par}</span>
               <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                 {isDouble && (isCircle || isSquare) && (
                   <div style={{
@@ -177,14 +177,14 @@ function Scorecard({
         <div style={{ minWidth: 520 }}>
 
           <div className="mb-3">
-            <p className="font-sans mb-2" style={{ fontSize: 10, letterSpacing: '0.08em', color: '#94a8c0', textTransform: 'uppercase' }}>
+            <p className="font-sans mb-2" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-2)', textTransform: 'uppercase' }}>
               Front 9 — par 35
             </p>
             {renderGroup(front, 0)}
           </div>
 
           <div className="mb-4">
-            <p className="font-sans mb-2" style={{ fontSize: 10, letterSpacing: '0.08em', color: '#94a8c0', textTransform: 'uppercase' }}>
+            <p className="font-sans mb-2" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-2)', textTransform: 'uppercase' }}>
               Back 9 — par 37
             </p>
             {renderGroup(back, 9)}
@@ -202,7 +202,7 @@ function Scorecard({
                 { label: 'Total',   stats: { score: frontStats.score + backStats.score, vsPar: player.today, anyPlayed: true } },
               ].map(({ label, stats }) => stats.anyPlayed && (
                 <span key={label}>
-                  <span style={{ color: '#94a8c0' }}>{label}: </span>
+                  <span style={{ color: 'var(--text-2)' }}>{label}: </span>
                   <span style={{ color: scoreColor(stats.vsPar), fontWeight: 700 }}>
                     {stats.score} ({formatScore(stats.vsPar)})
                   </span>
@@ -326,7 +326,7 @@ function ShareCard({
                 borderRadius: 3, ...hs,
               }}
             >
-              <span style={{ fontSize: 8, color: '#94a8c0', lineHeight: 1 }}>H{i + 1}</span>
+              <span style={{ fontSize: 8, color: 'var(--text-2)', lineHeight: 1 }}>H{i + 1}</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: played ? scoreColor(score! - par) : '#3a4a5a', lineHeight: 1.3 }}>
                 {played ? score : '—'}
               </span>
@@ -578,7 +578,7 @@ export default function LeaderboardTable({ players, modoJuego, formatoJuego }: {
                 {liveCount > 0 ? `${liveCount} en cancha` : 'Ronda cerrada'}
               </span>
               {leader && (
-                <span className="font-sans text-sm" style={{ color: '#f3efe6' }}>
+                <span className="font-sans text-sm" style={{ color: 'var(--text)' }}>
                   Lider: <strong style={{ color: '#c8a55a' }}>{leader.name}</strong> {formatScore(leader.total)}
                 </span>
               )}
@@ -602,7 +602,7 @@ export default function LeaderboardTable({ players, modoJuego, formatoJuego }: {
               className="font-sans text-sm px-4 py-2 transition-all duration-200"
               style={{
                 background:   active ? '#c4992a' : 'transparent',
-                color:        active ? '#070d18' : '#94a8c0',
+                color:        active ? 'var(--brand-dark)' : 'var(--text-2)',
                 border:       active ? 'none'    : '1px solid rgba(196,153,42,0.4)',
                 fontWeight:   active ? 600 : 400,
                 borderRadius: '4px',
@@ -636,7 +636,7 @@ export default function LeaderboardTable({ players, modoJuego, formatoJuego }: {
                     style={{
                       fontSize:      11,
                       letterSpacing: '0.1em',
-                      color:         '#94a8c0',
+                      color:         'var(--text-2)',
                       textTransform: 'uppercase',
                       fontWeight:    600,
                       textAlign:     col.align as 'center' | 'left',
@@ -652,7 +652,7 @@ export default function LeaderboardTable({ players, modoJuego, formatoJuego }: {
               {filtered.map(player => {
                 const isLeader   = player.pos === 1
                 const isExpanded = expandedId === player.pos
-                const rowBg      = isLeader ? 'rgba(196,153,42,0.05)' : '#070d18'
+                const rowBg      = isLeader ? 'rgba(196,153,42,0.05)' : 'var(--bg)'
                 const currentHoleLabel = player.status === 'F' ? 'F' : `${player.holes}/18`
                 const parState = player.today === 0 ? 'E' : player.today > 0 ? `+${player.today}` : `${player.today}`
 
@@ -685,7 +685,7 @@ export default function LeaderboardTable({ players, modoJuego, formatoJuego }: {
                           </div>
                           <div>
                             <div className="font-sans font-semibold text-ivory" style={{ fontSize: 15 }}>{player.name}</div>
-                            <div className="font-sans mt-0.5" style={{ fontSize: 12, color: '#94a8c0' }}>
+                            <div className="font-sans mt-0.5" style={{ fontSize: 12, color: 'var(--text-2)' }}>
                               {FLAG[player.country]} {player.cat}
                             </div>
                           </div>

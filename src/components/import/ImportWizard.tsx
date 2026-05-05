@@ -317,7 +317,7 @@ export default function ImportWizard() {
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '12px',
-            color: '#94a8c0',
+            color: 'var(--text-2)',
             fontSize: '20px',
             cursor: 'pointer',
             zIndex: 40,

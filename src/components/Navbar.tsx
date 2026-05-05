@@ -585,7 +585,7 @@ export default function Navbar() {
               <h3 style={{
                 fontFamily: '"Playfair Display", serif',
                 fontSize: '20px', fontWeight: 700,
-                color: '#edeae4', margin: 0,
+                color: 'var(--text)', margin: 0,
               }}>
                 ¿Cómo quieres jugar?
               </h3>
@@ -615,8 +615,8 @@ export default function Navbar() {
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>Ronda Libre</div>
-                  <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '2px' }}>Juega con amigos, score en vivo</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Ronda Libre</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>Juega con amigos, score en vivo</div>
                 </div>
               </Link>
 
@@ -636,7 +636,7 @@ export default function Navbar() {
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
               >
                 <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a8c0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M6 9H4.5a2.5 2.5 0 010-5C7 4 7 7 7 7" />
                     <path d="M18 9h1.5a2.5 2.5 0 000-5C17 4 17 7 17 7" />
                     <path d="M4 22h16" />
@@ -646,8 +646,8 @@ export default function Navbar() {
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>Organizar Torneo</div>
-                  <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '2px' }}>Crea tu campeonato</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Organizar Torneo</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>Crea tu campeonato</div>
                 </div>
               </Link>
 
@@ -660,15 +660,15 @@ export default function Navbar() {
                 minHeight: '64px', opacity: 0.4, cursor: 'default',
               }}>
                 <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a8c0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 15l-2 5h4l-2-5z" />
                     <circle cx="12" cy="8" r="6" />
                     <path d="M9 8h6" />
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#edeae4' }}>Liga de Golf</div>
-                  <div style={{ fontSize: '12px', color: '#94a8c0', marginTop: '2px' }}>Próximamente</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Liga de Golf</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>Próximamente</div>
                 </div>
               </div>
             </div>

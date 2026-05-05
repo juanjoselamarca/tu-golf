@@ -209,7 +209,7 @@ export default function StepReview({
                         <div style={{
                           width: '22px', height: '22px',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '13px', fontWeight: 700, color: '#edeae4',
+                          fontSize: '13px', fontWeight: 700, color: 'var(--text)',
                         }}>{score}</div>
                       )
                     ) : (
@@ -256,7 +256,7 @@ export default function StepReview({
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 100,
-      background: '#070d18',
+      background: 'var(--bg)',
       display: 'flex', flexDirection: 'column',
       fontFamily: "'DM Sans', sans-serif",
     }}>
@@ -281,14 +281,14 @@ export default function StepReview({
           <button onClick={onBack} style={{
             width: '40px', height: '40px', borderRadius: '50%',
             background: 'rgba(255,255,255,0.08)', border: 'none',
-            color: '#edeae4', fontSize: '18px', cursor: 'pointer',
+            color: 'var(--text)', fontSize: '18px', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
           }}>{'←'}</button>
           <div style={{ flex: 1 }}>
             <h2 style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: '20px', fontWeight: 700, color: '#edeae4',
+              fontSize: '20px', fontWeight: 700, color: 'var(--text)',
               margin: 0, lineHeight: 1.2,
             }}>
               {`Revisar ${rounds.length} rondas`}
@@ -365,7 +365,7 @@ export default function StepReview({
               <div
                 key={round.tempId}
                 style={{
-                  background: isRejected ? 'rgba(255,255,255,0.02)' : '#0e1c2f',
+                  background: isRejected ? 'rgba(255,255,255,0.02)' : 'var(--bg-surface)',
                   border: isRejected ? '1px solid rgba(255,255,255,0.06)' : getCardBorder(level, status),
                   borderRadius: '16px',
                   padding: '20px',
@@ -403,14 +403,14 @@ export default function StepReview({
                 <h3 style={{
                   fontFamily: "'Playfair Display', serif",
                   fontSize: '18px', fontWeight: 700,
-                  color: isRejected ? '#5a7494' : '#edeae4',
+                  color: isRejected ? '#5a7494' : 'var(--text)',
                   margin: '0 0 4px', lineHeight: 1.2,
                 }}>
                   <Flag size={14} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> {round.course_name || 'Campo desconocido'}
                 </h3>
 
                 {/* Date + holes */}
-                <div style={{ fontSize: '13px', color: '#94a8c0', marginBottom: '16px' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '16px' }}>
                   {round.played_at} {'·'} {round.holes_played} hoyos
                 </div>
 
@@ -428,7 +428,7 @@ export default function StepReview({
                     }}>
                       {round.total_gross}
                     </span>
-                    <span style={{ fontSize: '14px', color: '#94a8c0', fontWeight: 500 }}>
+                    <span style={{ fontSize: '14px', color: 'var(--text-2)', fontWeight: 500 }}>
                       golpes
                     </span>
                   </div>
@@ -441,7 +441,7 @@ export default function StepReview({
                     style={{
                       display: 'flex', alignItems: 'center', gap: '6px',
                       background: 'none', border: 'none', cursor: 'pointer',
-                      color: '#94a8c0', fontSize: '13px', fontWeight: 500,
+                      color: 'var(--text-2)', fontSize: '13px', fontWeight: 500,
                       padding: '6px 0', marginBottom: isExpanded ? '12px' : '16px',
                       minHeight: '44px',
                     }}
@@ -479,7 +479,7 @@ export default function StepReview({
                         paddingTop: '10px',
                         borderTop: '1px solid rgba(255,255,255,0.06)',
                         fontSize: '12px',
-                        color: '#94a8c0',
+                        color: 'var(--text-2)',
                         textAlign: 'center',
                         fontWeight: 500,
                       }}>
@@ -560,7 +560,7 @@ export default function StepReview({
           position: 'sticky', bottom: 0, left: 0, right: 0,
           padding: '16px',
           paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
-          background: 'linear-gradient(to top, #070d18 60%, transparent)',
+          background: 'linear-gradient(to top, var(--bg) 60%, transparent)',
         }}>
           {/* Format + mode selectors — se aplican a todas las rondas aceptadas */}
           <div style={{
@@ -571,13 +571,13 @@ export default function StepReview({
             borderRadius: '10px', padding: '10px 12px',
           }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '10px', color: '#94a8c0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Formato</span>
+              <span style={{ fontSize: '10px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Formato</span>
               <select
                 value={formato}
                 onChange={e => setFormato(e.target.value as Formato)}
                 style={{
-                  background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.25)',
-                  color: '#edeae4', fontSize: '13px', padding: '8px 10px',
+                  background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.25)',
+                  color: 'var(--text)', fontSize: '13px', padding: '8px 10px',
                   borderRadius: '8px', outline: 'none', cursor: 'pointer',
                 }}
               >
@@ -590,16 +590,16 @@ export default function StepReview({
               </select>
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '10px', color: '#94a8c0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Modo</span>
+              <span style={{ fontSize: '10px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Modo</span>
               <select
                 value={effectiveModo}
                 onChange={e => setModo(e.target.value as Modo)}
                 disabled={modoForced}
                 title={modoForced ? 'Stableford y Match Play usan neto por regla R&A/USGA' : undefined}
                 style={{
-                  background: modoForced ? 'rgba(14,28,47,0.5)' : '#0e1c2f',
+                  background: modoForced ? 'rgba(14,28,47,0.5)' : 'var(--bg-surface)',
                   border: '1px solid rgba(196,153,42,0.25)',
-                  color: modoForced ? '#94a8c0' : '#edeae4', fontSize: '13px', padding: '8px 10px',
+                  color: modoForced ? 'var(--text-2)' : 'var(--text)', fontSize: '13px', padding: '8px 10px',
                   borderRadius: '8px', outline: 'none', cursor: modoForced ? 'not-allowed' : 'pointer',
                 }}
               >
@@ -614,7 +614,7 @@ export default function StepReview({
             style={{
               width: '100%', padding: '16px', borderRadius: '14px',
               background: confirming ? 'rgba(196,153,42,0.4)' : 'linear-gradient(135deg, #c4992a, #e8c06a)',
-              color: '#070d18', fontSize: '16px', fontWeight: 700,
+              color: 'var(--brand-dark)', fontSize: '16px', fontWeight: 700,
               border: 'none',
               cursor: confirming ? 'wait' : 'pointer',
               minHeight: '52px',

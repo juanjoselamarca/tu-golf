@@ -48,11 +48,11 @@ export default function QRModal({ slug }: { slug: string }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '10px' }}>
               <div style={{ textAlign: 'left' }}>
                 <div style={{ fontSize: '11px', color: '#9fb4aa', textTransform: 'uppercase', letterSpacing: '0.14em' }}>Compartir torneo</div>
-                <div style={{ color: '#edeae4', fontSize: '18px', fontWeight: 700, marginTop: '4px' }}>Escanea y sigue en vivo</div>
+                <div style={{ color: 'var(--text)', fontSize: '18px', fontWeight: 700, marginTop: '4px' }}>Escanea y sigue en vivo</div>
               </div>
               <button
                 onClick={() => setOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: '#94a8c0', cursor: 'pointer', fontSize: '20px', lineHeight: 1 }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: '20px', lineHeight: 1 }}
               >
                 ×
               </button>
@@ -62,14 +62,14 @@ export default function QRModal({ slug }: { slug: string }) {
               <QRCodeSVG value={url} size={200} />
             </div>
 
-            <p style={{ color: '#94a8c0', fontSize: '13px', margin: '0 0 14px' }}>
+            <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 14px' }}>
               Usa este QR para abrir el leaderboard del torneo desde cualquier celular.
             </p>
             <p style={{ color: '#9fb4aa', fontSize: '11px', margin: '0 0 16px', wordBreak: 'break-all' }}>{url}</p>
 
             <button
               onClick={() => setOpen(false)}
-              style={{ background: '#c4992a', color: '#070d18', border: 'none', borderRadius: '10px', padding: '10px 24px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', width: '100%' }}
+              style={{ background: '#c4992a', color: 'var(--brand-dark)', border: 'none', borderRadius: '10px', padding: '10px 24px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', width: '100%' }}
             >
               Cerrar
             </button>

@@ -114,7 +114,7 @@ export function PWAInstallBanner() {
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={handleInstall} style={{
                 flex: 1, padding: '10px 16px', borderRadius: '10px',
-                background: '#c4992a', color: '#070d18', border: 'none',
+                background: '#c4992a', color: 'var(--brand-dark)', border: 'none',
                 fontSize: '14px', fontWeight: 700, cursor: 'pointer',
               }}>
                 Instalar Golfers+

@@ -32,9 +32,9 @@ export default function CopyLinkButton({ slug }: { slug: string }) {
       <button
         onClick={handleCopy}
         style={{
-          background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(14,28,47,0.8)',
+          background: copied ? 'rgba(34,197,94,0.15)' : 'var(--bg-surface)',
           border: `1px solid ${copied ? 'rgba(34,197,94,0.4)' : 'rgba(196,153,42,0.25)'}`,
-          color: copied ? '#86efac' : '#94a8c0',
+          color: copied ? '#86efac' : 'var(--text-2)',
           padding: '12px 20px',
           minHeight: '44px',
           minWidth: '44px',
@@ -57,8 +57,8 @@ export default function CopyLinkButton({ slug }: { slug: string }) {
         onMouseLeave={(e) => {
           if (!copied) {
             ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(196,153,42,0.25)'
-            ;(e.currentTarget as HTMLButtonElement).style.color = '#94a8c0'
-            ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(14,28,47,0.8)'
+            ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)'
+            ;(e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-surface)'
           }
         }}
       >

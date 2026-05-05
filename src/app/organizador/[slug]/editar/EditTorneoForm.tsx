@@ -79,11 +79,11 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     : ''
 
   const inputStyle = (field: string): React.CSSProperties => ({
-    background: 'rgba(7,13,24,0.6)', border: `1px solid ${fieldError(field) ? '#dc2626' : 'rgba(122,143,168,0.3)'}`,
-    color: '#edeae4', borderRadius: '8px', padding: '12px', width: '100%',
+    background: 'var(--input-bg)', border: `1px solid ${fieldError(field) ? '#dc2626' : 'var(--input-border)'}`,
+    color: 'var(--text)', borderRadius: '8px', padding: '12px', width: '100%',
     fontSize: '15px', outline: 'none', transition: 'border-color 200ms', boxSizing: 'border-box' as const,
   })
-  const labelStyle: React.CSSProperties = { display: 'block', fontSize: '12px', color: '#94a8c0', marginBottom: '6px' }
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -122,10 +122,10 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', backgroundImage: 'url(https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1920&q=80)', backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', padding: '40px 16px' }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(7,13,24,0.85)' }} />
       <div style={{ position: 'relative', zIndex: 10, background: 'rgba(14,28,47,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '16px', padding: '40px', maxWidth: '600px', width: '100%' }}>
-        <Link href="/dashboard" style={{ color: '#94a8c0', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>← Volver al dashboard</Link>
+        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>← Volver al dashboard</Link>
         <div style={{ marginBottom: '28px' }}>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>Golfers+</div>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: '#edeae4', margin: 0 }}>Editar torneo</h1>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: 0 }}>Editar torneo</h1>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -149,14 +149,14 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             {selectedCourse && <div style={{ fontSize: '12px', color: '#c4992a', marginTop: '4px' }}>✓ {selectedCourse.nombre}</div>}
             <FieldErr msg={fieldError('course')} />
             {showCourses && filteredCourses.length > 0 && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 50 }}>
+              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-surface)', border: '1px solid var(--border-md)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 50 }}>
                 {filteredCourses.slice(0, 15).map((c) => (
                   <button key={c.id} type="button"
                     onClick={() => { setSelectedCourse(c); setCourseSearch(c.nombre); setShowCourses(false); clearAll() }}
-                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#edeae4', fontSize: '14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', fontSize: '14px', borderBottom: '1px solid var(--border)' }}
                     onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)')}
                     onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}>
-                    {c.nombre}{c.ciudad && <span style={{ color: '#94a8c0', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
+                    {c.nombre}{c.ciudad && <span style={{ color: 'var(--text-2)', fontSize: '12px', marginLeft: '8px' }}>— {c.ciudad}</span>}
                   </button>
                 ))}
               </div>
@@ -170,8 +170,8 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               {FORMATS.map((f) => (
                 <button key={f.value} type="button" onClick={() => setFormat(f.value)} disabled={tournament.has_scores}
                   style={{ flex: 1, padding: '14px', border: format === f.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', background: format === f.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', cursor: tournament.has_scores ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 200ms', opacity: tournament.has_scores ? 0.5 : 1 }}>
-                  <div style={{ color: '#edeae4', fontWeight: 600, fontSize: '14px' }}>{f.label}</div>
-                  <div style={{ color: '#94a8c0', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
+                  <div style={{ color: 'var(--text)', fontWeight: 600, fontSize: '14px' }}>{f.label}</div>
+                  <div style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
                 </button>
               ))}
             </div>
@@ -187,7 +187,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               <div style={{ display: 'flex', gap: '10px' }}>
                 {[18, 9].map((n) => (
                   <button key={n} type="button" onClick={() => setHoleCount(n)} disabled={tournament.has_scores}
-                    style={{ flex: 1, padding: '10px', border: holeCount === n ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', color: holeCount === n ? '#edeae4' : '#94a8c0', cursor: tournament.has_scores ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400, opacity: tournament.has_scores ? 0.5 : 1 }}>
+                    style={{ flex: 1, padding: '10px', border: holeCount === n ? '2px solid #c4992a' : '1px solid var(--border)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: holeCount === n ? 'var(--text)' : 'var(--text-2)', cursor: tournament.has_scores ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400, opacity: tournament.has_scores ? 0.5 : 1 }}>
                     {n} hoyos
                   </button>
                 ))}
@@ -201,7 +201,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {TEES.map((t) => (
                   <button key={t.value} type="button" onClick={() => setTees(t.value)}
-                    style={{ padding: '8px 12px', border: tees === t.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', color: tees === t.value ? '#edeae4' : '#94a8c0', cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
+                    style={{ padding: '8px 12px', border: tees === t.value ? '2px solid #c4992a' : '1px solid var(--border)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: tees === t.value ? 'var(--text)' : 'var(--text-2)', cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
                     {t.label}
                   </button>
                 ))}
@@ -212,8 +212,8 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
           {/* Handicap */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'rgba(7,13,24,0.4)', borderRadius: '10px', border: '1px solid rgba(122,143,168,0.15)' }}>
             <div>
-              <div style={{ color: '#edeae4', fontSize: '14px', fontWeight: 500 }}>Aplicar hándicap WHS</div>
-              <div style={{ color: '#94a8c0', fontSize: '12px', marginTop: '2px' }}>Ajusta los scores según el índice de cada jugador</div>
+              <div style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>Aplicar hándicap WHS</div>
+              <div style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '2px' }}>Ajusta los scores según el índice de cada jugador</div>
             </div>
             <button type="button" onClick={() => setUseHandicap(!useHandicap)}
               style={{ width: '48px', height: '26px', borderRadius: '13px', background: useHandicap ? '#c4992a' : 'rgba(122,143,168,0.3)', position: 'relative', transition: 'background 200ms', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
@@ -254,7 +254,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
           <div>
             <label style={labelStyle}>Foto de portada (opcional)</label>
             <input type="url" placeholder="URL de imagen" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)}
-              style={{ background: 'rgba(7,13,24,0.6)', border: '1px solid rgba(122,143,168,0.3)', color: '#edeae4', borderRadius: '8px', padding: '12px', width: '100%', fontSize: '15px', outline: 'none', boxSizing: 'border-box' }}
+              style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--text)', borderRadius: '8px', padding: '12px', width: '100%', fontSize: '15px', outline: 'none', boxSizing: 'border-box' }}
               onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
               onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')} />
           </div>
@@ -262,11 +262,11 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
           {/* Buttons */}
           <div style={{ display: 'flex', gap: '12px' }}>
             <Link href="/dashboard"
-              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '13px', borderRadius: '8px', border: '1px solid rgba(122,143,168,0.3)', color: '#94a8c0', fontSize: '15px', textDecoration: 'none', fontWeight: 500, textAlign: 'center' }}>
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '13px', borderRadius: '8px', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: '15px', textDecoration: 'none', fontWeight: 500, textAlign: 'center' }}>
               Cancelar
             </Link>
             <button type="submit" disabled={loading}
-              style={{ flex: 2, background: '#c4992a', color: '#070d18', fontWeight: 700, fontSize: '15px', borderRadius: '8px', padding: '13px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
+              style={{ flex: 2, background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', borderRadius: '8px', padding: '13px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
               onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.08)' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)' }}>
               {loading ? 'Guardando...' : 'Guardar cambios →'}

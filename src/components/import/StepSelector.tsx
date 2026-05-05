@@ -109,7 +109,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
               onClick={() => onSelect('photos')}
               style={{
                 display: 'flex', alignItems: 'stretch',
-                background: 'var(--bg-surface, #0e1c2f)',
+                background: 'var(--bg-surface)',
                 border: isPhotosRecommended ? '1px solid rgba(196,153,42,0.5)' : '1px solid rgba(196,153,42,0.25)',
                 borderRadius: '16px', cursor: 'pointer',
                 textAlign: 'left', color: 'var(--text)',
@@ -188,7 +188,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
               onClick={() => onSelect('garmin_zip')}
               style={{
                 display: 'flex', alignItems: 'stretch',
-                background: 'var(--bg-surface, #0e1c2f)',
+                background: 'var(--bg-surface)',
                 border: '1px solid rgba(196,153,42,0.5)',
                 borderRadius: '16px', cursor: 'pointer',
                 textAlign: 'left', color: 'var(--text)',
@@ -270,7 +270,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
             onClick={() => onSelect('photos')}
             style={{
               display: 'flex', alignItems: 'stretch',
-              background: 'var(--bg-surface, #0e1c2f)',
+              background: 'var(--bg-surface)',
               border: '1px solid rgba(196,153,42,0.25)',
               borderRadius: '16px', cursor: 'pointer',
               textAlign: 'left', color: 'var(--text)',
@@ -338,7 +338,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
             onClick={() => onSelect('garmin_zip')}
             style={{
               display: 'flex', alignItems: 'stretch',
-              background: 'var(--bg-surface, #0e1c2f)',
+              background: 'var(--bg-surface)',
               border: '1px solid rgba(34,197,94,0.2)',
               borderRadius: '16px', cursor: 'pointer',
               textAlign: 'left', color: 'var(--text)',

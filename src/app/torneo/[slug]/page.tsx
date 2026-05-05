@@ -736,7 +736,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       {/* ── Results — compact premium layout (closed tournaments) ── */}
       {resultados && (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div style={{ borderTop: '1px solid rgba(196,153,42,0.12)', marginBottom: '24px' }} />
+          <div style={{ borderTop: '1px solid var(--border)', marginBottom: '24px' }} />
 
           {/* 1st place row — side by side */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
