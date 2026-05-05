@@ -119,7 +119,8 @@ export default function RankingPage() {
                 <span style={{
                   marginLeft: '6px',
                   fontSize: '10px',
-                  color: active ? 'rgba(255,255,255,0.7)' : theme.textFaint,
+                  opacity: active ? 0.7 : 1,
+                  color: active ? undefined : theme.textFaint,
                   fontWeight: 500,
                 }}>
                   {t.hint}
