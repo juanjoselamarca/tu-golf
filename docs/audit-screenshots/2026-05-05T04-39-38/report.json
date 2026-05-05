@@ -1,0 +1,1967 @@
+[
+  {
+    "page": "home",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/",
+    "finalPath": "/",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/home-desktop-light.png",
+    "failsCount": 22,
+    "warningsCount": 2,
+    "fails": [
+      {
+        "tag": "A",
+        "text": "Entrar",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgba(255, 255, 255, 0.97)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Inicio",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 15,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Tema",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Oscuro",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Golfers+ · El golf amateur en español · Chile y LatAm",
+        "fg": "rgb(232, 192, 106)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 14,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "Tu mejor golf,",
+        "fg": "rgb(237, 234, 228)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 72,
+        "fontWeight": 900,
+        "isLarge": true,
+        "ratio": 1.15,
+        "threshold": 3
+      },
+      {
+        "tag": "SPAN",
+        "text": "empieza con los datos",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 72,
+        "fontWeight": 900,
+        "isLarge": true,
+        "ratio": 2.53,
+        "threshold": 3
+      },
+      {
+        "tag": "P",
+        "text": "Scoring en vivo, análisis con IA y coaching mental — todo lo",
+        "fg": "rgba(237, 234, 227, 0.75)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 18,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.15,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Ver demo",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 16,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.53,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "Sin tarjeta · Sin descarga · En español",
+        "fg": "rgba(237, 234, 227, 0.45)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.15,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "+4",
+        "fg": "rgb(255, 23, 68)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 3.85,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "Tres herramientas diseñadas para el golfista amateur que qui",
+        "fg": "rgb(122, 143, 168)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 18,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.18,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "login",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/login",
+    "finalPath": "/login",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/login-desktop-light.png",
+    "failsCount": 3,
+    "warningsCount": 0,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "o continúa con email",
+        "fg": "rgba(196, 153, 42, 0.6)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Regístrate gratis →",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": []
+  },
+  {
+    "page": "register",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/register",
+    "finalPath": "/register",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/register-desktop-light.png",
+    "failsCount": 5,
+    "warningsCount": 0,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "o con email",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Crear mi cuenta →",
+        "fg": "rgb(255, 255, 255)",
+        "bg": "rgb(196, 153, 42)",
+        "fontSize": 15,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "GRATIS  · SIN TARJETA  · SIN SPAM",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": []
+  },
+  {
+    "page": "recuperar",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/recuperar",
+    "finalPath": "/recuperar",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/recuperar-desktop-light.png",
+    "failsCount": 5,
+    "warningsCount": 0,
+    "fails": [
+      {
+        "tag": "A",
+        "text": "Entrar",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgba(255, 255, 255, 0.97)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Tema",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Oscuro",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "← Volver al login",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": []
+  },
+  {
+    "page": "leaderboard",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/leaderboard",
+    "finalPath": "/leaderboard",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/leaderboard-desktop-light.png",
+    "failsCount": 8,
+    "warningsCount": 2,
+    "fails": [
+      {
+        "tag": "A",
+        "text": "Entrar",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgba(255, 255, 255, 0.97)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Tema",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Oscuro",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "MP",
+        "fg": "rgb(255, 255, 255)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 13,
+        "fontWeight": 700,
+        "isLarge": false,
+        "ratio": 1.05,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "CAT B",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 10,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.53,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "CAT A",
+        "fg": "rgb(0, 230, 118)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 10,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 1.6,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "13",
+        "fg": "rgba(255, 255, 255, 0.6)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 14,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.05,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "BUTTON",
+        "text": "Scratch",
+        "fg": "rgb(90, 101, 115)",
+        "bg": "rgb(7, 13, 24)",
+        "fontSize": 13,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.28,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "32.0",
+        "fg": "rgb(255, 82, 82)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 3.05,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "ranking",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/ranking",
+    "finalPath": "/ranking",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/ranking-desktop-light.png",
+    "failsCount": 7,
+    "warningsCount": 0,
+    "fails": [
+      {
+        "tag": "A",
+        "text": "Entrar",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgba(255, 255, 255, 0.97)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Ranking",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 15,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Tema",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Oscuro",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "Índice FedeGolf",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 10,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "01",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 20,
+        "fontWeight": 700,
+        "isLarge": true,
+        "ratio": 2.65,
+        "threshold": 3
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": []
+  },
+  {
+    "page": "dashboard",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/dashboard",
+    "finalPath": "/login",
+    "redirected": true,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/dashboard-desktop-light.png",
+    "failsCount": 3,
+    "warningsCount": 0,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "o continúa con email",
+        "fg": "rgba(196, 153, 42, 0.6)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Regístrate gratis →",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": []
+  },
+  {
+    "page": "home",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/",
+    "finalPath": "/",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/home-desktop-dark.png",
+    "failsCount": 8,
+    "warningsCount": 3,
+    "fails": [
+      {
+        "tag": "DIV",
+        "text": "Golfers+ · El golf amateur en español · Chile y LatAm",
+        "fg": "rgb(232, 192, 106)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 14,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.72,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "Tu mejor golf,",
+        "fg": "rgb(237, 234, 228)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 72,
+        "fontWeight": 900,
+        "isLarge": true,
+        "ratio": 1.2,
+        "threshold": 3
+      },
+      {
+        "tag": "SPAN",
+        "text": "empieza con los datos",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 72,
+        "fontWeight": 900,
+        "isLarge": true,
+        "ratio": 2.65,
+        "threshold": 3
+      },
+      {
+        "tag": "P",
+        "text": "Scoring en vivo, análisis con IA y coaching mental — todo lo",
+        "fg": "rgba(237, 234, 227, 0.75)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 18,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.2,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Ver demo",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 16,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "Sin tarjeta · Sin descarga · En español",
+        "fg": "rgba(237, 234, 227, 0.45)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.2,
+        "threshold": 4.5
+      },
+      {
+        "tag": "H2",
+        "text": "Todo para mejorar tu juego",
+        "fg": "rgb(237, 234, 228)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 48,
+        "fontWeight": 700,
+        "isLarge": true,
+        "ratio": 1.2,
+        "threshold": 3
+      },
+      {
+        "tag": "H3",
+        "text": "Crea la competencia",
+        "fg": "rgb(237, 234, 228)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 20,
+        "fontWeight": 700,
+        "isLarge": true,
+        "ratio": 1.2,
+        "threshold": 3
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "+4",
+        "fg": "rgb(255, 23, 68)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 4.45,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "Tres herramientas diseñadas para el golfista amateur que qui",
+        "fg": "rgb(122, 143, 168)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 18,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.32,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "login",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/login",
+    "finalPath": "/login",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/login-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 1,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "register",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/register",
+    "finalPath": "/register",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/register-desktop-dark.png",
+    "failsCount": 4,
+    "warningsCount": 1,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "o con email",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Crear mi cuenta →",
+        "fg": "rgb(255, 255, 255)",
+        "bg": "rgb(196, 153, 42)",
+        "fontSize": 15,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "GRATIS  · SIN TARJETA  · SIN SPAM",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "recuperar",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/recuperar",
+    "finalPath": "/recuperar",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/recuperar-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 1,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "leaderboard",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/leaderboard",
+    "finalPath": "/leaderboard",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/leaderboard-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 2,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "BUTTON",
+        "text": "Scratch",
+        "fg": "rgb(107, 114, 128)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 13,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.54,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "ranking",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/ranking",
+    "finalPath": "/ranking",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/ranking-desktop-dark.png",
+    "failsCount": 1,
+    "warningsCount": 2,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "Cálculo propio",
+        "fg": "rgba(255, 255, 255, 0.7)",
+        "bg": "rgb(237, 234, 228)",
+        "fontSize": 10,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 1.2,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "Índice FedeGolf",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 10,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "dashboard",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/dashboard",
+    "finalPath": "/login",
+    "redirected": true,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/dashboard-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 1,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "home",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/",
+    "finalPath": "/",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/home-mobile-light.png",
+    "failsCount": 22,
+    "warningsCount": 2,
+    "fails": [
+      {
+        "tag": "A",
+        "text": "Entrar",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgba(255, 255, 255, 0.97)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Inicio",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 15,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Tema",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Oscuro",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Golfers+ · El golf amateur en español · Chile y LatAm",
+        "fg": "rgb(232, 192, 106)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 14,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "Tu mejor golf,",
+        "fg": "rgb(237, 234, 228)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 36,
+        "fontWeight": 900,
+        "isLarge": true,
+        "ratio": 1.15,
+        "threshold": 3
+      },
+      {
+        "tag": "SPAN",
+        "text": "empieza con los datos",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 36,
+        "fontWeight": 900,
+        "isLarge": true,
+        "ratio": 2.53,
+        "threshold": 3
+      },
+      {
+        "tag": "P",
+        "text": "Scoring en vivo, análisis con IA y coaching mental — todo lo",
+        "fg": "rgba(237, 234, 227, 0.75)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 18,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.15,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Ver demo",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 16,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.53,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "Sin tarjeta · Sin descarga · En español",
+        "fg": "rgba(237, 234, 227, 0.45)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.15,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "+4",
+        "fg": "rgb(255, 23, 68)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 3.85,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "Tres herramientas diseñadas para el golfista amateur que qui",
+        "fg": "rgb(122, 143, 168)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.18,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "login",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/login",
+    "finalPath": "/login",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/login-mobile-light.png",
+    "failsCount": 3,
+    "warningsCount": 0,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "o continúa con email",
+        "fg": "rgba(196, 153, 42, 0.6)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Regístrate gratis →",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": []
+  },
+  {
+    "page": "register",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/register",
+    "finalPath": "/register",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/register-mobile-light.png",
+    "failsCount": 5,
+    "warningsCount": 0,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "o con email",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Crear mi cuenta →",
+        "fg": "rgb(255, 255, 255)",
+        "bg": "rgb(196, 153, 42)",
+        "fontSize": 15,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "GRATIS  · SIN TARJETA  · SIN SPAM",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": []
+  },
+  {
+    "page": "recuperar",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/recuperar",
+    "finalPath": "/recuperar",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/recuperar-mobile-light.png",
+    "failsCount": 5,
+    "warningsCount": 0,
+    "fails": [
+      {
+        "tag": "A",
+        "text": "Entrar",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgba(255, 255, 255, 0.97)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Tema",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Oscuro",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "← Volver al login",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": []
+  },
+  {
+    "page": "leaderboard",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/leaderboard",
+    "finalPath": "/leaderboard",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/leaderboard-mobile-light.png",
+    "failsCount": 9,
+    "warningsCount": 1,
+    "fails": [
+      {
+        "tag": "A",
+        "text": "Entrar",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgba(255, 255, 255, 0.97)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Tema",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Oscuro",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "R 1",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(250, 250, 247)",
+        "fontSize": 10,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.75,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Copa Golfers+ Demo",
+        "fg": "rgb(26, 29, 36)",
+        "bg": "rgb(7, 13, 24)",
+        "fontSize": 24,
+        "fontWeight": 700,
+        "isLarge": true,
+        "ratio": 1.15,
+        "threshold": 3
+      },
+      {
+        "tag": "SPAN",
+        "text": "10",
+        "fg": "rgb(26, 29, 36)",
+        "bg": "rgb(7, 13, 24)",
+        "fontSize": 16,
+        "fontWeight": 700,
+        "isLarge": false,
+        "ratio": 1.15,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "GWI™ = probabilidad de ganar vs el field",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(249, 250, 251)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.75,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "POS",
+        "fg": "rgb(156, 163, 175)",
+        "bg": "rgb(249, 250, 251)",
+        "fontSize": 10,
+        "fontWeight": 700,
+        "isLarge": false,
+        "ratio": 2.43,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "DIV",
+        "text": "Los Leones Golf Club · Par 72",
+        "fg": "rgb(90, 101, 115)",
+        "bg": "rgb(7, 13, 24)",
+        "fontSize": 13,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.28,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "ranking",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/ranking",
+    "finalPath": "/ranking",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/ranking-mobile-light.png",
+    "failsCount": 7,
+    "warningsCount": 0,
+    "fails": [
+      {
+        "tag": "A",
+        "text": "Entrar",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgba(255, 255, 255, 0.97)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Ranking",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 15,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "Tema",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Oscuro",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "Índice FedeGolf",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 10,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      },
+      {
+        "tag": "DIV",
+        "text": "01",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 20,
+        "fontWeight": 700,
+        "isLarge": true,
+        "ratio": 2.65,
+        "threshold": 3
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": []
+  },
+  {
+    "page": "dashboard",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/dashboard",
+    "finalPath": "/login",
+    "redirected": true,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/dashboard-mobile-light.png",
+    "failsCount": 3,
+    "warningsCount": 0,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "o continúa con email",
+        "fg": "rgba(196, 153, 42, 0.6)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Regístrate gratis →",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(144, 153, 168)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.87,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": []
+  },
+  {
+    "page": "home",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/",
+    "finalPath": "/",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/home-mobile-dark.png",
+    "failsCount": 8,
+    "warningsCount": 3,
+    "fails": [
+      {
+        "tag": "DIV",
+        "text": "Golfers+ · El golf amateur en español · Chile y LatAm",
+        "fg": "rgb(232, 192, 106)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 14,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.72,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "Tu mejor golf,",
+        "fg": "rgb(237, 234, 228)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 36,
+        "fontWeight": 900,
+        "isLarge": true,
+        "ratio": 1.2,
+        "threshold": 3
+      },
+      {
+        "tag": "SPAN",
+        "text": "empieza con los datos",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 36,
+        "fontWeight": 900,
+        "isLarge": true,
+        "ratio": 2.65,
+        "threshold": 3
+      },
+      {
+        "tag": "P",
+        "text": "Scoring en vivo, análisis con IA y coaching mental — todo lo",
+        "fg": "rgba(237, 234, 227, 0.75)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 18,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.2,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Ver demo",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 16,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "Sin tarjeta · Sin descarga · En español",
+        "fg": "rgba(237, 234, 227, 0.45)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 1.2,
+        "threshold": 4.5
+      },
+      {
+        "tag": "H2",
+        "text": "Todo para mejorar tu juego",
+        "fg": "rgb(237, 234, 228)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 30,
+        "fontWeight": 700,
+        "isLarge": true,
+        "ratio": 1.2,
+        "threshold": 3
+      },
+      {
+        "tag": "H3",
+        "text": "Crea la competencia",
+        "fg": "rgb(237, 234, 228)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 20,
+        "fontWeight": 700,
+        "isLarge": true,
+        "ratio": 1.2,
+        "threshold": 3
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "+4",
+        "fg": "rgb(255, 23, 68)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 4.45,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "Tres herramientas diseñadas para el golfista amateur que qui",
+        "fg": "rgb(122, 143, 168)",
+        "bg": "rgb(255,255,255)",
+        "fontSize": 16,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.32,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "login",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/login",
+    "finalPath": "/login",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/login-mobile-dark.png",
+    "failsCount": 0,
+    "warningsCount": 1,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "register",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/register",
+    "finalPath": "/register",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/register-mobile-dark.png",
+    "failsCount": 4,
+    "warningsCount": 1,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "o con email",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos",
+        "fg": "rgb(196, 153, 42)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 12,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Crear mi cuenta →",
+        "fg": "rgb(255, 255, 255)",
+        "bg": "rgb(196, 153, 42)",
+        "fontSize": 15,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 2.65,
+        "threshold": 4.5
+      },
+      {
+        "tag": "P",
+        "text": "GRATIS  · SIN TARJETA  · SIN SPAM",
+        "fg": "rgb(148, 163, 184)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 11,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 2.56,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "recuperar",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/recuperar",
+    "finalPath": "/recuperar",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/recuperar-mobile-dark.png",
+    "failsCount": 0,
+    "warningsCount": 1,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "leaderboard",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/leaderboard",
+    "finalPath": "/leaderboard",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/leaderboard-mobile-dark.png",
+    "failsCount": 1,
+    "warningsCount": 5,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "POS",
+        "fg": "rgb(156, 163, 175)",
+        "bg": "rgb(249, 250, 251)",
+        "fontSize": 10,
+        "fontWeight": 700,
+        "isLarge": false,
+        "ratio": 2.43,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "R 1",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(7, 13, 24)",
+        "fontSize": 10,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.5,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Scratch",
+        "fg": "rgb(107, 114, 128)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 13,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.54,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "-1",
+        "fg": "rgb(14, 138, 158)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 18,
+        "fontWeight": 700,
+        "isLarge": false,
+        "ratio": 4.08,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "+1",
+        "fg": "rgb(146, 112, 14)",
+        "bg": "rgb(250, 252, 255)",
+        "fontSize": 18,
+        "fontWeight": 700,
+        "isLarge": false,
+        "ratio": 4.49,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "ranking",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/ranking",
+    "finalPath": "/ranking",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/ranking-mobile-dark.png",
+    "failsCount": 1,
+    "warningsCount": 2,
+    "fails": [
+      {
+        "tag": "SPAN",
+        "text": "Cálculo propio",
+        "fg": "rgba(255, 255, 255, 0.7)",
+        "bg": "rgb(237, 234, 228)",
+        "fontSize": 10,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 1.2,
+        "threshold": 4.5
+      }
+    ],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "Índice FedeGolf",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 10,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "dashboard",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/dashboard",
+    "finalPath": "/login",
+    "redirected": true,
+    "screenshot": "docs/audit-screenshots/2026-05-05T04-39-38/dashboard-mobile-dark.png",
+    "failsCount": 0,
+    "warningsCount": 1,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "A",
+        "text": "Términos y Condiciones",
+        "fg": "rgb(90, 106, 122)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.08,
+        "threshold": 4.5
+      }
+    ]
+  }
+]
