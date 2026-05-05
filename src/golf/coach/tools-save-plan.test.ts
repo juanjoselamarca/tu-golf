@@ -5,10 +5,17 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-let adminInsertSpy: ReturnType<typeof vi.fn>
+type InsertSpy = (payload: unknown) => void
+let adminInsertSpy: InsertSpy
+
 vi.mock('@/lib/supabaseAdmin', () => ({
   createAdminClient: () => ({
-    from: () => ({ insert: (...a: unknown[]) => { adminInsertSpy(...a); return Promise.resolve({ data: null, error: null }) } }),
+    from: () => ({
+      insert: (payload: unknown) => {
+        adminInsertSpy(payload)
+        return Promise.resolve({ data: null, error: null })
+      },
+    }),
   }),
 }))
 
@@ -16,7 +23,7 @@ vi.mock('@/lib/supabaseAdmin', () => ({
 import { executeTool, type ToolExecutionContext } from './tools'
 
 beforeEach(() => {
-  adminInsertSpy = vi.fn()
+  adminInsertSpy = vi.fn() as unknown as InsertSpy
 })
 
 function fakeSupabase() {

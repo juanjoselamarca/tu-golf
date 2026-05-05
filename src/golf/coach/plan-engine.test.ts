@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Stub createAdminClient antes de importar plan-engine para evitar
 // que el insert a coach_events corra contra prod en tests.
-let adminInsertSpy: ReturnType<typeof vi.fn>
+type InsertSpy = (payload: unknown) => void
+let adminInsertSpy: InsertSpy & { mock: { calls: unknown[][] } }
+
 vi.mock('@/lib/supabaseAdmin', () => ({
   createAdminClient: () => ({
     from: () => ({
-      insert: (...args: unknown[]) => {
-        adminInsertSpy(...args)
+      insert: (payload: unknown) => {
+        adminInsertSpy(payload)
         return Promise.resolve({ data: null, error: null })
       },
     }),
@@ -18,7 +20,7 @@ vi.mock('@/lib/supabaseAdmin', () => ({
 import { savePlan, type SavePlanInput, PATTERN_IDS, PLAN_METRICS } from './plan-engine'
 
 beforeEach(() => {
-  adminInsertSpy = vi.fn()
+  adminInsertSpy = vi.fn() as unknown as InsertSpy & { mock: { calls: unknown[][] } }
 })
 
 const baseInput: SavePlanInput = {
@@ -104,14 +106,14 @@ describe('savePlan', () => {
     expect(update).not.toHaveBeenCalled()
     expect(insert).toHaveBeenCalledTimes(1)
     // baseline_value debe igualar observation_data.metric_value
-    const insertedRow = (insert.mock.calls[0]?.[0] ?? {}) as Record<string, unknown>
+    const insertedRow = ((insert as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0] ?? {}) as Record<string, unknown>
     expect(insertedRow.baseline_value).toBe(2.4)
     expect(insertedRow.assigned_by).toBe('tAIger')
     expect(insertedRow.session_id).toBe('sess-1')
 
     // Un solo evento (plan_assigned) cuando no hay supersede
-    expect(adminInsertSpy).toHaveBeenCalledTimes(1)
-    const evt = (adminInsertSpy.mock.calls[0]?.[0] ?? {}) as Record<string, unknown>
+    expect(adminInsertSpy as unknown as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1)
+    const evt = ((adminInsertSpy as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0] as unknown ?? {}) as Record<string, unknown>
     expect(evt.type).toBe('plan_assigned')
   })
 
@@ -131,8 +133,8 @@ describe('savePlan', () => {
     expect(insert).toHaveBeenCalledTimes(1)
 
     // Dos eventos: plan_assigned + plan_superseded
-    expect(adminInsertSpy).toHaveBeenCalledTimes(2)
-    const types = adminInsertSpy.mock.calls.map(call => (call[0] as { type: string }).type)
+    expect(adminInsertSpy as unknown as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(2)
+    const types = (adminInsertSpy as unknown as { mock: { calls: unknown[][] } }).mock.calls.map(call => (call[0] as { type: string }).type)
     expect(types).toContain('plan_assigned')
     expect(types).toContain('plan_superseded')
   })
@@ -144,7 +146,7 @@ describe('savePlan', () => {
     const result = await savePlan({ supabase, userId: 'user-1' }, baseInput)
     expect(result.ok).toBe(true)
     expect(update).toHaveBeenCalledTimes(1)
-    const updatedFields = (update.mock.calls[0]?.[0] ?? {}) as Record<string, unknown>
+    const updatedFields = ((update as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0] ?? {}) as Record<string, unknown>
     expect(updatedFields.resolution_reason).toBe('pattern_refined')
     expect(updatedFields.status).toBe('superseded')
   })
