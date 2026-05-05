@@ -191,10 +191,37 @@ export interface TaigerContext {
     sample_size: number
     confidence: number
   }>
+  active_plan?: {
+    id: string
+    pattern_id: string
+    hypothesis: string
+    rule: string
+    metric: string
+    target_value: number
+    target_op: 'lte' | 'gte' | 'eq'
+    baseline_value: number | null
+    duration_days: number
+    created_at: string
+  } | null
+  recent_outcomes?: Array<{
+    played_at: string
+    metric_value: number
+    delta_vs_baseline: number | null
+    target_reached: boolean
+    compliance: 'full' | 'partial' | 'none' | 'unknown'
+  }>
+  plan_history?: Array<{
+    pattern_id: string
+    resolution_reason: string | null
+    created_at: string
+    resolved_at: string | null
+    total_outcomes: number
+    full_compliance_count: number
+  }>
 }
 
 export function buildContextString(context: TaigerContext): string {
-  const { player, stats, patterns, recent_rounds, last_session, recent_sessions, active_recommendations, collective_insights } = context
+  const { player, stats, patterns, recent_rounds, last_session, recent_sessions, active_recommendations, collective_insights, active_plan, recent_outcomes, plan_history } = context
   const indice = player.indice ?? player.handicap ?? null
 
   const indexLevel = !indice ? 'sin índice registrado' :
@@ -300,6 +327,32 @@ ${recsText}
 
 === DATOS COLECTIVOS (jugadores de nivel similar) ===
 ${insightsText}
+
+=== PLAN ACTIVO DEL CEREBRO ===
+${active_plan
+  ? `Patrón: ${active_plan.pattern_id}
+Hipótesis: ${active_plan.hypothesis}
+Regla: ${active_plan.rule}
+Métrica: ${active_plan.metric} ${active_plan.target_op} ${active_plan.target_value}${active_plan.baseline_value != null ? ` (baseline ${active_plan.baseline_value})` : ''}
+Duración: ${active_plan.duration_days} días desde ${new Date(active_plan.created_at).toLocaleDateString('es-CL')}`
+  : 'Sin plan activo. Si el jugador necesita uno, llamá la tool save_plan con datos reales.'}
+
+=== ÚLTIMOS OUTCOMES DEL PLAN ===
+${(recent_outcomes ?? []).length > 0
+  ? (recent_outcomes ?? []).map(o =>
+      `- ${new Date(o.played_at).toLocaleDateString('es-CL')}: métrica=${o.metric_value} | ${o.target_reached ? '✓ target alcanzado' : '✗ fuera de target'} | compliance=${o.compliance}${o.delta_vs_baseline != null ? ` | Δ baseline=${o.delta_vs_baseline >= 0 ? '+' : ''}${o.delta_vs_baseline.toFixed(2)}` : ''}`
+    ).join('\n')
+  : active_plan ? 'Aún sin rondas medidas contra este plan' : 'N/A'}
+
+=== HISTORIAL DE PLANES PREVIOS ===
+${(plan_history ?? []).length > 0
+  ? (plan_history ?? []).map(p => {
+      const start = new Date(p.created_at).toLocaleDateString('es-CL')
+      const end = p.resolved_at ? new Date(p.resolved_at).toLocaleDateString('es-CL') : '?'
+      const ratio = p.total_outcomes > 0 ? `${p.full_compliance_count}/${p.total_outcomes} cumplidas` : 'sin outcomes'
+      return `- ${p.pattern_id} (${start} → ${end}): ${p.resolution_reason ?? 'resuelto'} | ${ratio}`
+    }).join('\n')
+  : 'Sin planes previos'}
 
 === ÚLTIMAS 3 RONDAS (DETALLE HOYO POR HOYO) ===
 ${(recent_rounds ?? []).slice(0, 3).map((r, i) => {
