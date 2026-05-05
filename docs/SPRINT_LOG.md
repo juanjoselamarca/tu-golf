@@ -4,6 +4,74 @@
 
 ---
 
+## Sesión 05 May 2026 — Reset tAIger: sesión continua, streaming, motor de élite
+
+### Contexto
+tAIger (el coach IA) tenía 3 cards y onboarding fragmentado, sin streaming real,
+sin cache, con un bug `.limit(50)` en detección de patrones que capeaba la
+confidence artificialmente para usuarios con >50 rondas. Auditoría pre-merge
+completa en `docs/AUDIT_PRE_MERGE_RESET.md` — veredicto: MERGEABLE.
+
+### Commits del sprint (rama `feat/taiger-reset` → `main`)
+
+1. `c9f9975` refactor(taiger): eliminar 3 cards y onboarding, consolidar a sesión única
+   - Borradas páginas `/coach/onboarding`, `/coach/sesion/nueva`, `/coach/sesion/nueva/chat`
+   - Borrado endpoint `/api/taiger/analyze-round` (consolidado en `/api/taiger/chat`)
+   - `/coach` → entry point único hacia sesión continua
+
+2. `badb5b5` feat(taiger): sesión continua por usuario con markdown consistente
+   - `golf/coach/session.ts` + `session.test.ts`: persistencia de sesión por user_id
+   - Migración `017_taiger_primary_session.sql` (renombrada a 031 en este sprint)
+   - Markdown server-rendered consistente en `/coach/sesion/[id]`
+
+3. `4719cf0` feat(taiger): motor de élite — 100% de rondas, streaming real, cache
+   - **Bug fix crítico:** removido `.limit(50)` en `detect-and-save-patterns.ts` →
+     ahora procesa el 100% de las rondas históricas (era confidence capeada)
+   - Streaming SSE real en `/api/taiger/chat`
+   - Cache de contexto en `golf/coach/context.ts`
+   - Tools system: `golf/coach/tools.ts`
+   - `recalculate-all-patterns.ts` para reprocesar usuarios existentes
+
+4. `18dfdc1` chore(migrations): renombrar 017_taiger → 031 para evitar colisión
+   - Colisión de numeración con `017_game_formats_and_course_data.sql` (ya en BD)
+   - Solo rename de archivo local; la migración ya estaba aplicada en prod
+
+### Merge
+- Merge commit: `2d80907` (`merge: reset tAIger - sesión continua, streaming, motor de élite`)
+- Pre-push hook: TS 0 errores, 80 test files / 1413 tests passed, build OK
+- Sin conflictos en merge
+
+### Side-effects out-of-plan (auditoría pre-merge sección 2)
+Cinco cambios fuera del plan original, todos validados como seguros:
+
+1. **`src/components/Navbar.tsx`** — 1 línea modificada (cambio mínimo).
+   - 🚩 BANDERA: el cambio fue seguro (sin async, sin onAuthStateChange) pero se
+     commiteó junto con otros archivos en lugar de aislado, contraviniendo el
+     protocolo de archivos protegidos. NO bloqueante. Flageado para futuras tareas.
+2. **`src/components/mi-golf/IdentidadTab.tsx`** — 1 línea (consistencia visual).
+3. **`src/lib/taiger-prompt.ts`** — shim de compatibilidad para imports legacy.
+4. **`src/app/ronda-libre/[codigo]/score/page.tsx`** — banner `taiger+` borrado
+   (consolidación tras eliminación de onboarding).
+5. **`vitest.config.ts`** — excluye worktrees zombis en `.claude/worktrees/`
+   (causaban falsos negativos por paths con espacios + OneDrive).
+
+### Post-merge: recalcular patrones
+Ejecutado `npx tsx --env-file=.env.local scripts/recalculate-all-patterns.ts`:
+- 31 usuarios encontrados, 16 con rondas históricas
+- 6 patrones detectados (total) — sin el cap de 50 rondas
+- 0 errores
+- Confidences pueden haber cambiado vs. valores previos: eso es CORRECCIÓN del
+  bug, no regresión.
+
+### Resultado
+- ✅ tAIger consolidado en sesión continua única por usuario
+- ✅ Streaming SSE real en `/api/taiger/chat`
+- ✅ Motor de patrones procesa 100% de rondas (bug `.limit(50)` resuelto)
+- ✅ Migración renombrada para evitar colisión
+- ✅ Merge clean a main, sin regresiones (1413 tests passed)
+
+---
+
 ## Sesión 04 May 2026 — Theme binario light-default (cierre del bug estructural)
 
 ### Problema
