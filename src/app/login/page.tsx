@@ -155,7 +155,7 @@ function LoginContent() {
         {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '24px 0' }}>
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(196,153,42,0.3))' }} />
-          <span style={{ fontSize: '11px', color: 'rgba(196,153,42,0.6)', whiteSpace: 'nowrap', letterSpacing: '0.05em', fontWeight: 500, textTransform: 'uppercase' }}>o continúa con email</span>
+          <span style={{ fontSize: '11px', color: '#8A6A16', whiteSpace: 'nowrap', letterSpacing: '0.05em', fontWeight: 500, textTransform: 'uppercase' }}>o continúa con email</span>
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.3), transparent)' }} />
         </div>
 
@@ -211,7 +211,7 @@ function LoginContent() {
 
         <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
           ¿No tienes cuenta?{' '}
-          <Link href={`/register${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>
+          <Link href={`/register${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: '#8A6A16', textDecoration: 'none', fontWeight: 600 }}>
             Regístrate gratis →
           </Link>
         </p>

@@ -86,7 +86,7 @@ export default function RecuperarPage() {
               href="/login"
               style={{
                 display:      'inline-block',
-                color:        '#c4992a',
+                color:        '#8A6A16',
                 fontSize:     '14px',
                 textDecoration: 'none',
                 fontWeight:   600,
@@ -141,7 +141,7 @@ export default function RecuperarPage() {
             </form>
 
             <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
-              <Link href="/login" style={{ color: '#c4992a', textDecoration: 'none', fontWeight: 600 }}>
+              <Link href="/login" style={{ color: '#8A6A16', textDecoration: 'none', fontWeight: 600 }}>
                 ← Volver al login
               </Link>
             </p>

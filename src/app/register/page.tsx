@@ -34,10 +34,11 @@ const theme = {
   card:       '#ffffff',
   text:       '#1a1a2e',
   textMuted:  '#4a5568',
-  textFaint:  '#94a3b8',
+  textFaint:  '#6B7280', /* WCAG AA: 4.83:1 sobre #fff (antes #94a3b8 = 2.56:1) */
   border:     '#e2e8f0',
   borderSoft: '#edf1f5',
   gold:       '#c4992a',
+  goldText:   '#8A6A16', /* WCAG AA: 5:1 sobre #fff. Usar SOLO como texto. Para fondos/bordes usar gold. */
   danger:     '#dc2626',
 }
 
@@ -413,10 +414,10 @@ function RegisterContent() {
                 fontSize: '12px', color: theme.textMuted, lineHeight: 1.5, cursor: 'pointer',
               }}>
                 Acepto los{' '}
-                <a href="/terminos" target="_blank" rel="noopener" style={{ color: theme.gold, textDecoration: 'underline', fontWeight: 500 }}>
+                <a href="/terminos" target="_blank" rel="noopener" style={{ color: theme.goldText, textDecoration: 'underline', fontWeight: 500 }}>
                   Términos
                 </a>{' '}y la{' '}
-                <a href="/privacidad" target="_blank" rel="noopener" style={{ color: theme.gold, textDecoration: 'underline', fontWeight: 500 }}>
+                <a href="/privacidad" target="_blank" rel="noopener" style={{ color: theme.goldText, textDecoration: 'underline', fontWeight: 500 }}>
                   Política de Privacidad
                 </a>
               </label>
@@ -426,7 +427,7 @@ function RegisterContent() {
             <button
               type="submit"
               disabled={loading}
-              style={{ background: theme.gold, color: '#ffffff', fontWeight: 600, fontSize: '15px', width: '100%', borderRadius: '12px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms, box-shadow 200ms', marginTop: '6px', boxShadow: '0 2px 10px rgba(196,153,42,0.25)' }}
+              style={{ background: theme.gold, color: '#070d18', fontWeight: 700, fontSize: '15px', width: '100%', borderRadius: '12px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms, box-shadow 200ms', marginTop: '6px', boxShadow: '0 2px 10px rgba(196,153,42,0.25)' }}
               onMouseEnter={(e) => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.05)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(196,153,42,0.35)' } }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 10px rgba(196,153,42,0.25)' }}
             >
@@ -441,7 +442,7 @@ function RegisterContent() {
 
         <p style={{ textAlign: 'center', fontSize: '14px', color: theme.textMuted, marginTop: '28px' }}>
           ¿Ya tienes cuenta?{' '}
-          <Link href={`/login${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: theme.gold, textDecoration: 'none', fontWeight: 600 }}>Inicia sesión →</Link>
+          <Link href={`/login${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: theme.goldText, textDecoration: 'none', fontWeight: 600 }}>Inicia sesión →</Link>
         </p>
       </div>
     </div>

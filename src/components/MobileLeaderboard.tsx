@@ -64,7 +64,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
 
   if (filtered.length === 0) {
     return (
-      <div style={{ padding: '48px 16px', textAlign: 'center', color: '#9ca3af', fontSize: '14px', background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+      <div style={{ padding: '48px 16px', textAlign: 'center', color: '#6B7280', fontSize: '14px', background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
         No hay jugadores en esta categoría.
       </div>
     )
@@ -82,10 +82,10 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
         padding: '10px 14px', alignItems: 'center',
         background: '#f9fafb', borderBottom: '1px solid #e5e7eb',
       }}>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>POS</span>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>JUGADOR</span>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>THRU</span>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>TOT</span>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>POS</span>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>JUGADOR</span>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>THRU</span>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>TOT</span>
       </div>
 
       {/* Player rows */}
@@ -204,7 +204,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                 }}>
                   {/* GWI Bloomberg */}
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', fontFamily: M, color: '#9ca3af', letterSpacing: '0.05em' }}>GWI</span>
+                    <span style={{ fontSize: '10px', fontFamily: M, color: '#6B7280', letterSpacing: '0.05em' }}>GWI</span>
                     <span style={{ fontFamily: M, fontSize: '18px', fontWeight: 700, color: gwiClr(player.gwi, filtered.length) }}>
                       {player.gwi.toFixed(1)}
                     </span>

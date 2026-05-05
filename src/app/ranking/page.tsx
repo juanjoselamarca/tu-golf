@@ -15,6 +15,7 @@ const theme = {
   border: 'var(--border)',
   borderSoft: 'var(--border)',
   gold: '#c4992a',
+  goldText: '#8A6A16', /* WCAG AA: 5:1 sobre #fff. Usar para text/links, NO para bordes/fondos. */
 } as const
 
 /* ── Nivel colors (progresivo) ────────────────────────────────────── */
@@ -180,7 +181,7 @@ export default function RankingPage() {
                     fontFamily: '"DM Mono", ui-monospace, monospace',
                     fontSize: isPodium ? '20px' : '16px',
                     fontWeight: 700,
-                    color: isPodium ? theme.gold : theme.textMuted,
+                    color: isPodium ? theme.goldText : theme.textMuted,
                     width: '36px',
                     textAlign: 'center',
                     letterSpacing: '-0.02em',
