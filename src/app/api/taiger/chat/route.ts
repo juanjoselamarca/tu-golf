@@ -1,13 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { TAIGER_SYSTEM_PROMPT, buildContextString, SESSION_STARTERS } from '@/golf/coach/prompts'
+import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from '@/golf/coach/prompts'
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { TAIGER_FREE_MONTHLY_LIMIT, WHATSAPP_TAIGER_PREMIUM_URL } from '@/lib/constants'
-export const dynamic = 'force-dynamic'
 
+export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
@@ -17,10 +16,8 @@ const chatInputSchema = z.object({
     role: z.string(),
     content: z.string().max(2000),
   })).max(50).optional(),
-  session_type: z.string().max(100).optional(),
-  ronda_libre_id: z.string().uuid().optional(),
-  // Si viene session_id, es un follow-up: el cliente mantiene la sesión y actualiza
-  // messages directamente. El API NO debe insertar una fila nueva ni consumir cuota.
+  // session_id sigue siendo válido para compat con el cliente actual mientras
+  // Commit 2 introduce la sesión continua por usuario.
   session_id: z.string().uuid().optional(),
 })
 
@@ -49,7 +46,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Input inválido', details: parsed.error.issues[0]?.message }, { status: 400 })
     }
     const body = parsed.data
-    const { ronda_libre_id, session_id } = body
+    const { session_id } = body
     const isFollowUp = typeof session_id === 'string' && session_id.length > 0
 
     // Build conversation history para multi-turn.
@@ -74,55 +71,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 })
     }
 
-    // Normalize session_type to valid DB values
-    const validTypes = ['post_round', 'weekly_plan', 'pre_tournament', 'onboarding', 'free']
-    const rawType = body.session_type || 'free'
-    const session_type = validTypes.includes(rawType) ? rawType : 'free'
-
-    // Prevent duplicate sessions for same ronda_libre_id (solo en sesión nueva)
-    if (ronda_libre_id && !isFollowUp) {
-      const { data: existing } = await supabase
-        .from('taiger_sessions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('ronda_libre_id', ronda_libre_id)
-        .maybeSingle()
-
-      if (existing) {
-        return NextResponse.json(
-          { error: 'Ya existe una sesión para esta ronda' },
-          { status: 409 }
-        )
-      }
-    }
-
-    // Freemium limit (exclude onboarding) — bypass para admins
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle()
-    const isAdmin = profile?.role === 'admin'
-
-    if (!isAdmin && !isFollowUp) {
-      const startOfMonth = new Date()
-      startOfMonth.setDate(1)
-      startOfMonth.setHours(0, 0, 0, 0)
-
-      const { count } = await supabase
-        .from('taiger_sessions')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .neq('session_type', 'onboarding')
-        .gte('created_at', startOfMonth.toISOString())
-
-      if ((count ?? 0) >= TAIGER_FREE_MONTHLY_LIMIT) {
-        return NextResponse.json(
-          { error: `Llegaste al límite de ${TAIGER_FREE_MONTHLY_LIMIT} sesiones este mes. Escríbenos por WhatsApp para acceso ilimitado.`, code: 'limit_reached', whatsapp: WHATSAPP_TAIGER_PREMIUM_URL },
-          { status: 429 }
-        )
-      }
-    }
+    // Periodo de prueba interno: sin cuotas mensuales, sin gates, sin bypass admin.
+    // session_type queda como 'continuous' literal (Commit 2 normaliza con migration 017).
+    const session_type = 'continuous'
 
     // Fetch context from /api/taiger/context forwarding cookies
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3003'
@@ -142,21 +93,6 @@ export async function POST(req: NextRequest) {
     }
 
     const ctx = await ctxRes.json()
-
-    const MIN_ROUNDS_FOR_COACH = 3
-    const totalRounds = ctx?.player?.total_rounds ?? 0
-    if (totalRounds < MIN_ROUNDS_FOR_COACH) {
-      return NextResponse.json(
-        {
-          error: `Necesitas al menos ${MIN_ROUNDS_FOR_COACH} rondas registradas para usar tAIger+. Subí tus tarjetas o juega rondas libres para desbloquear tu coach.`,
-          code: 'insufficient_rounds',
-          rounds: totalRounds,
-          required: MIN_ROUNDS_FOR_COACH,
-        },
-        { status: 403 }
-      )
-    }
-
     const contextString = buildContextString(ctx)
 
     // Build system prompt with player context and session starter
@@ -164,7 +100,7 @@ export async function POST(req: NextRequest) {
       '{PLAYER_CONTEXT}',
       contextString
     )
-    const sessionStarter = SESSION_STARTERS[session_type] ?? SESSION_STARTERS.free
+    const sessionStarter = TAIGER_SESSION_STARTER
     const toolsInstruction = `\n\nHERRAMIENTAS DISPONIBLES:\nTienes acceso a tools para consultar datos reales del jugador:\n- get_latest_round: detalle hoyo-por-hoyo de su última ronda finalizada (con pares y strokes vs par)\n- get_round_by_id: detalle de una ronda específica\n- get_recent_rounds: resumen de últimas N rondas (totales, cancha, fecha)\n- get_course_details: pares y stroke index por hoyo de una cancha\n\nREGLA CRÍTICA: Cuando el jugador haga referencia a una ronda específica, cancha, o score concreto — SIEMPRE llama la tool apropiada antes de responder. NUNCA inventes scores, pares, ni asumas configuraciones de hoyos. Si la data no está en tus tools ni en el contexto, dilo honestamente.`
 
     const anthropic = new Anthropic({ apiKey })
@@ -174,7 +110,7 @@ export async function POST(req: NextRequest) {
     const toolCtx = {
       supabase,
       userId: user.id,
-      defaultRondaId: ronda_libre_id ?? null,
+      defaultRondaId: null,
     }
 
     // Loop de tool use: máx 5 iteraciones para proteger costos/latencia
@@ -249,7 +185,6 @@ export async function POST(req: NextRequest) {
             const { data } = await supabase.from('taiger_sessions').insert({
               user_id: user.id,
               session_type,
-              ronda_libre_id: ronda_libre_id || null,
               messages: fullHistory,
               techniques_assigned: [],
               next_focus: fullResponse.substring(0, 200),

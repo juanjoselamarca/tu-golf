@@ -117,40 +117,7 @@ export default function CoachDashboard() {
         </div>
       )}
 
-      {/* New session CTA + Quick actions — gated: requires 3+ rounds */}
-      {stats.rounds >= 3 && (
-        <>
-          <Link href="/coach/sesion/nueva" style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-            background: '#c4992a', color: 'var(--brand-dark)', borderRadius: '14px',
-            padding: '16px', fontSize: '16px', fontWeight: 700,
-            textDecoration: 'none', marginBottom: '24px',
-            minHeight: '52px',
-          }}>
-            Nueva sesión con tAIger+
-          </Link>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
-            <Link href="/coach/sesion/nueva/chat?tipo=weekly_plan" style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-              background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
-              padding: '16px 12px', textDecoration: 'none', textAlign: 'center',
-            }}>
-              <span style={{ color: '#c4992a' }}><Calendar size={24} /></span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>Plan semanal</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>Qué practicar esta semana</span>
-            </Link>
-            <Link href="/coach/sesion/nueva/chat?tipo=free" style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-              background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px',
-              padding: '16px 12px', textDecoration: 'none', textAlign: 'center',
-            }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>Consulta libre</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>Pregunta lo que quieras</span>
-            </Link>
-          </div>
-        </>
-      )}
+      {/* TODO commit 2: CTA único de sesión continua */}
 
       {/* Session history */}
       {sessions.length > 0 ? (
@@ -190,15 +157,6 @@ export default function CoachDashboard() {
         </div>
       )}
 
-      {/* Onboarding CTA — only if no sessions */}
-      {sessions.length === 0 && (
-        <Link href="/coach/onboarding" style={{
-          display: 'block', textAlign: 'center', marginTop: '16px',
-          fontSize: '13px', color: '#c4992a', textDecoration: 'none', fontWeight: 600,
-        }}>
-          Completar perfil psicológico (opcional)
-        </Link>
-      )}
     </div>
   )
 }

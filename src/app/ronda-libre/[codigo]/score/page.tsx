@@ -71,9 +71,7 @@ function ScorePageContent() {
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [scoreAnimating, setScoreAnimating] = useState(false)
   const [_showMiniCard, _setShowMiniCard] = useState(true) // kept for compat, mini scorecard always visible now
-  const [taigerStatus, setTaigerStatus] = useState<'idle' | 'analyzing' | 'ready' | 'error'>('idle')
   const [historicalRoundId, setHistoricalRoundId] = useState<string | null>(null)
-  const [taigerSessionId, setTaigerSessionId] = useState<string | null>(null)
   const [saveCheckVisible, setSaveCheckVisible] = useState(false) // FIX #8: save feedback toast
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [adminRedirectMsg, setAdminRedirectMsg] = useState<string | null>(null)
@@ -661,12 +659,6 @@ function ScorePageContent() {
     setFinalScore({ gross: finalGross, totalPar: finalTotalPar })
     setRoundDone(true)
     setHasUnsaved(false)
-
-    // Fire tAIger analysis in background (don't redirect)
-    setTaigerStatus('analyzing')
-    fetch('/api/taiger/analyze-round', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ronda_libre_id: codigo }) })
-      .then(r => r.json()).then(data => { if (data.session_id) { setTaigerStatus('ready'); setTaigerSessionId(data.session_id) } })
-      .catch(() => { /* silently fail, modal handles navigation */ })
   }
 
   /* ── Scroll progress row to current hole ── */
@@ -1566,22 +1558,6 @@ function ScorePageContent() {
         >{discarding ? 'Descartando…' : confirmDiscard ? 'Toca otra vez para borrar todo' : 'Descartar ronda'}</button>
       </div>
 
-      {/* ── tAIger banners ── */}
-      {taigerStatus === 'analyzing' && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90, background: 'rgba(255,255,255,0.97)', borderTop: '1px solid #e2e8f0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', textAlign: 'center' }}>
-          <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>tAIger+ esta analizando tu ronda...</div>
-          <div style={{ color: 'var(--text-3)', fontSize: '13px' }}>Esto toma unos segundos</div>
-        </div>
-      )}
-      {taigerStatus === 'ready' && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90, background: 'rgba(255,255,255,0.97)', borderTop: '1px solid #e2e8f0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', textAlign: 'center' }}>
-          <div style={{ color: '#c4992a', fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Tu analisis esta listo</div>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{ background: '#c4992a', color: '#ffffff', padding: '12px 24px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}>Ver analisis {'\u2192'}</Link>
-            <Link href={`/ronda-libre/${codigo}?finished=true`} style={{ background: 'transparent', border: '1px solid rgba(196,153,42,0.3)', color: '#c4992a', padding: '12px 24px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>Ver scorecard</Link>
-          </div>
-        </div>
-      )}
 
       {/* ── Post-round celebration modal ── */}
       {roundDone && (() => {
@@ -1840,7 +1816,7 @@ function ScorePageContent() {
                         Compartir resultado
                       </button>
                     )}
-                    <Link href={taigerSessionId ? `/coach/sesion/${taigerSessionId}` : '/coach'} style={{
+                    <Link href="/coach" style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.3)',
                       color: '#c9a84c', fontWeight: 600, fontSize: '14px',
