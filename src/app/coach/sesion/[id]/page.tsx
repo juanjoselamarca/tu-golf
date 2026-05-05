@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { createClient } from '@/lib/supabase'
 import { Calendar, PersonStanding } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
@@ -23,12 +25,14 @@ interface TaigerSession {
 }
 
 const SESSION_TYPE_LABELS: Record<string, string> = {
+  continuous: 'Conversación continua',
   post_round: 'Analisis post-ronda',
   weekly_plan: 'Plan semanal',
   free: 'Consulta libre',
 }
 
 const SESSION_TYPE_ICONS: Record<string, React.ReactNode> = {
+  continuous: <TaigerIcon size={14} />,
   post_round: <PersonStanding size={14} />,
   weekly_plan: <Calendar size={14} />,
 }
@@ -45,17 +49,12 @@ export default function SesionDetailPage() {
   const [streaming, setStreaming] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [limitReached, setLimitReached] = useState(false)
   const [rating, setRating] = useState<number>(0)
   const [ratingHover, setRatingHover] = useState<number>(0)
   const [ratingComment, setRatingComment] = useState('')
   const [ratingSubmitted, setRatingSubmitted] = useState(false)
   const [ratingSubmitting, setRatingSubmitting] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // Límite de intercambios por sesión. Un coach real no corta a las 3 preguntas.
-  // 20 mensajes = ~10 turnos de ida y vuelta, suficiente para conversación real.
-  const MAX_TOTAL_MESSAGES = 20
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -70,6 +69,21 @@ export default function SesionDetailPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login?redirect=/coach'); return }
+
+      // 'nueva' es un placeholder cliente: la sesion primaria real se crea en el
+      // primer POST a /api/taiger/chat via getOrCreateActiveSession (migration 017).
+      if (sessionId === 'nueva') {
+        setSession({
+          id: 'nueva',
+          user_id: user.id,
+          session_type: 'continuous',
+          messages: [],
+          created_at: new Date().toISOString(),
+        })
+        setMessages([])
+        setLoadingSession(false)
+        return
+      }
 
       const { data: sessionData, error: sessionError } = await supabase
         .from('taiger_sessions')
@@ -103,25 +117,16 @@ export default function SesionDetailPage() {
     setError(null)
 
     try {
+      // El backend siempre append a la sesion primaria del usuario (migration 017).
+      // session_id es opcional ahora — solo informa al backend cual sesion esta abierta en UI.
       const res = await fetch('/api/taiger/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: allMessages,
-          session_type: session.session_type,
-          session_id: sessionId, // follow-up: evita INSERT duplicado y consumo de cuota
+          ...(sessionId !== 'nueva' ? { session_id: sessionId } : {}),
         }),
       })
-
-      if (res.status === 429) {
-        const data = await res.json()
-        if (data.code === 'limit_reached') {
-          setLimitReached(true)
-          setError('Has alcanzado el límite de sesiones de tu plan gratuito.')
-          setStreaming(false)
-          return
-        }
-      }
 
       if (!res.ok) {
         const data = await res.json()
@@ -133,6 +138,7 @@ export default function SesionDetailPage() {
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let assistantContent = ''
+      let realSessionId: string | null = null
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }])
 
@@ -159,6 +165,10 @@ export default function SesionDetailPage() {
               })
             }
 
+            if (data.done && data.session_id) {
+              realSessionId = data.session_id
+            }
+
             if (data.error) {
               setError(data.error)
             }
@@ -168,27 +178,21 @@ export default function SesionDetailPage() {
         }
       }
 
-      // Update session in DB with new messages
-      const supabase = createClient()
-      setMessages(prev => {
-        const finalMessages = [...prev]
-        supabase
-          .from('taiger_sessions')
-          .update({ messages: finalMessages, updated_at: new Date().toISOString() })
-          .eq('id', sessionId)
-          .then()
-        return finalMessages
-      })
+      // El backend (helper getOrCreateActiveSession) ya hizo el update sobre la sesion
+      // primaria. Si veniamos como 'nueva', redirigimos al UUID real para que la URL
+      // refleje la sesion persistente.
+      if (sessionId === 'nueva' && realSessionId) {
+        router.replace(`/coach/sesion/${realSessionId}`)
+      }
     } catch {
       setError('Error de conexión. Inténtalo de nuevo.')
     } finally {
       setStreaming(false)
     }
-  }, [session, sessionId])
+  }, [session, sessionId, router])
 
   const handleSend = () => {
     if (!input.trim() || streaming) return
-    if (messages.length >= MAX_TOTAL_MESSAGES) return
 
     const userMessage: ChatMessage = { role: 'user', content: input.trim() }
     const newMessages = [...messages, userMessage]
@@ -267,7 +271,7 @@ export default function SesionDetailPage() {
     )
   }
 
-  const inputDisabled = streaming || messages.length >= MAX_TOTAL_MESSAGES || limitReached
+  const inputDisabled = streaming
   const sessionDate = session?.created_at ? new Date(session.created_at).toLocaleDateString('es-AR', {
     day: 'numeric', month: 'long', year: 'numeric',
   }) : ''
@@ -337,18 +341,25 @@ export default function SesionDetailPage() {
                 <TaigerIcon size={18} />
               </div>
             )}
-            <div style={{
-              maxWidth: '80%',
-              padding: '12px 16px',
-              borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-              background: msg.role === 'user' ? 'rgba(196,153,42,0.12)' : 'var(--bg-surface)',
-              color: 'var(--text)',
-              fontSize: 14,
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}>
-              {msg.content}
+            <div
+              className={msg.role === 'assistant' ? 'taiger-md' : undefined}
+              style={{
+                maxWidth: '80%',
+                padding: '12px 16px',
+                borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                background: msg.role === 'user' ? 'rgba(196,153,42,0.12)' : 'var(--bg-surface)',
+                color: 'var(--text)',
+                fontSize: 14,
+                lineHeight: 1.6,
+                whiteSpace: msg.role === 'user' ? 'pre-wrap' : 'normal',
+                wordBreak: 'break-word',
+              }}
+            >
+              {msg.role === 'assistant' && msg.content ? (
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              ) : (
+                msg.content
+              )}
             </div>
           </div>
         ))}
@@ -376,36 +387,6 @@ export default function SesionDetailPage() {
             fontSize: 14,
           }}>
             {error}
-            {limitReached && (
-              <button
-                onClick={() => router.push('/coach')}
-                style={{
-                  display: 'block',
-                  marginTop: 12,
-                  background: 'rgba(196,153,42,0.15)',
-                  border: '1px solid rgba(196,153,42,0.3)',
-                  borderRadius: 8,
-                  padding: '8px 16px',
-                  color: '#c4992a',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                }}
-              >
-                Entendido
-              </button>
-            )}
-          </div>
-        )}
-
-        {messages.length >= MAX_TOTAL_MESSAGES && !streaming && (
-          <div style={{
-            textAlign: 'center',
-            marginTop: 20,
-            padding: 16,
-          }}>
-            <p style={{ color: 'var(--text-2)', fontSize: 14 }}>
-              Sesión completada
-            </p>
           </div>
         )}
 
@@ -518,7 +499,7 @@ export default function SesionDetailPage() {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSend()}
-          placeholder={inputDisabled ? 'Sesión completada' : 'Escribe tu mensaje...'}
+          placeholder={streaming ? 'tAIger+ está escribiendo...' : 'Escribe tu mensaje...'}
           disabled={inputDisabled}
           style={{
             flex: 1,
@@ -560,6 +541,24 @@ export default function SesionDetailPage() {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
         }
+        .taiger-md > *:first-child { margin-top: 0; }
+        .taiger-md > *:last-child { margin-bottom: 0; }
+        .taiger-md p { margin: 0 0 10px 0; }
+        .taiger-md strong { color: #f3d37a; font-weight: 600; }
+        .taiger-md em { color: #c4d8ee; }
+        .taiger-md ul, .taiger-md ol { margin: 6px 0 10px 0; padding-left: 20px; }
+        .taiger-md li { margin: 2px 0; }
+        .taiger-md h1, .taiger-md h2, .taiger-md h3 {
+          margin: 12px 0 6px 0; font-size: 15px; color: #f3d37a; font-weight: 600;
+        }
+        .taiger-md code {
+          background: rgba(255,255,255,0.08); padding: 1px 6px;
+          border-radius: 4px; font-size: 13px;
+        }
+        .taiger-md hr {
+          border: none; border-top: 1px solid rgba(196,153,42,0.25); margin: 12px 0;
+        }
+        .taiger-md a { color: #c4992a; }
       `}</style>
     </div>
   )

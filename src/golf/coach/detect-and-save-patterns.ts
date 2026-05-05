@@ -20,12 +20,15 @@ export async function detectAndSavePatterns(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<DetectResult> {
+  // Sin .limit(): el motor de patrones procesa el 100% de las rondas del usuario.
+  // confidence depende de data_points = rounds.length, capear distorsiona la
+  // calidad de la deteccion. Si en el futuro un usuario tiene >5000 rondas,
+  // agregar paginacion. Hoy es prematuro.
   const { data: rounds } = await supabase
     .from('historical_rounds')
     .select('scores, total_gross, holes_played, metadata, course_id, courses(par_total)')
     .eq('user_id', userId)
     .not('scores', 'is', null)
-    .limit(50)
 
   if (!rounds || rounds.length < 5) {
     return { detected: 0, total_rounds: rounds?.length ?? 0, patterns: [] }
@@ -50,25 +53,21 @@ export async function detectAndSavePatterns(
     }
   }
 
-  // Map DB rows to PatternRound interface (solo rondas de 18 hoyos para patrones)
-  const patternRounds: PatternRound[] = rounds
-    .filter(r => {
-      const holes = (r as Record<string, unknown>).holes_played as number | null
-      return !holes || holes >= 18
-    })
-    .map(r => {
-      const courseId = (r as { course_id?: string | null }).course_id ?? null
-      const holePars = courseId ? holeParsByCourse[courseId] : undefined
-      return {
-        scores: r.scores as (number | null)[],
-        total_gross: r.total_gross,
-        par_total: ((r as Record<string, unknown>).courses as { par_total?: number } | null)?.par_total ?? 72,
-        course_name: '',
-        played_at: '',
-        hole_pars: holePars && holePars.length >= 18 ? holePars : undefined,
-        metadata: r.metadata as Record<string, unknown> | null,
-      }
-    })
+  // Map DB rows to PatternRound interface — pasamos TODAS las rondas (incluye 9 hoyos).
+  // El filtro por requires18Holes lo aplica detectPatterns por patron.
+  const patternRounds: PatternRound[] = rounds.map(r => {
+    const courseId = (r as { course_id?: string | null }).course_id ?? null
+    const holePars = courseId ? holeParsByCourse[courseId] : undefined
+    return {
+      scores: r.scores as (number | null)[],
+      total_gross: r.total_gross,
+      par_total: ((r as Record<string, unknown>).courses as { par_total?: number } | null)?.par_total ?? 72,
+      course_name: '',
+      played_at: '',
+      hole_pars: holePars && holePars.length >= 18 ? holePars : undefined,
+      metadata: r.metadata as Record<string, unknown> | null,
+    }
+  })
 
   const detected = detectPatterns(patternRounds)
 

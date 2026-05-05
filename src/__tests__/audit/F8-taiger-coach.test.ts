@@ -26,7 +26,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { TAIGER_SYSTEM_PROMPT, SESSION_STARTERS, buildContextString, type TaigerContext } from '@/golf/coach/prompts'
+import { TAIGER_SYSTEM_PROMPT, TAIGER_SESSION_STARTER, buildContextString, type TaigerContext } from '@/golf/coach/prompts'
 import { PATTERNS, detectPatterns, type PatternRound } from '@/golf/coach/patterns'
 import { analyzeRound } from '@/golf/coach/analysis'
 
@@ -259,32 +259,39 @@ describe('[peso:3] Contexto inyectado — datos del jugador disponibles para el 
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECCIÓN 3: SESSION STARTERS — PROTOCOLOS DIFERENCIADOS (peso 2)
+// SECCIÓN 3: SESSION STARTER ÚNICO — sesión continua (peso 2)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('[peso:2] Session starters — instrucciones diferenciadas por tipo de sesión', () => {
+describe('[peso:2] TAIGER_SESSION_STARTER — instrucción única para sesión continua', () => {
 
-  it('Existen starters para los 5 tipos de sesión', () => {
-    expect(SESSION_STARTERS).toHaveProperty('post_round')
-    expect(SESSION_STARTERS).toHaveProperty('weekly_plan')
-    expect(SESSION_STARTERS).toHaveProperty('pre_tournament')
-    expect(SESSION_STARTERS).toHaveProperty('onboarding')
-    expect(SESSION_STARTERS).toHaveProperty('free')
+  it('Existe un único starter para sesión continua (no más 5 tipos)', () => {
+    expect(typeof TAIGER_SESSION_STARTER).toBe('string')
+    expect(TAIGER_SESSION_STARTER.length).toBeGreaterThan(100)
   })
 
-  it('post_round instruye a usar tools para obtener detalle hoyo-por-hoyo', () => {
-    expect(SESSION_STARTERS.post_round).toContain('get_latest_round')
-    expect(SESSION_STARTERS.post_round).toContain('hoyo-por-hoyo')
+  it('El starter instruye al coach a detectar el modo automáticamente por el mensaje del jugador', () => {
+    expect(TAIGER_SESSION_STARTER).toContain('Detectá qué quiere')
+    expect(TAIGER_SESSION_STARTER).toContain('mi última ronda')
+    expect(TAIGER_SESSION_STARTER).toContain('plan de práctica')
   })
 
-  it('weekly_plan instruye a preguntar días disponibles antes de dar el plan', () => {
-    expect(SESSION_STARTERS.weekly_plan).toContain('días disponibles')
-    expect(SESSION_STARTERS.weekly_plan).toContain('solo cuando tengas esa información')
+  it('El starter referencia las tools de consulta de rondas', () => {
+    expect(TAIGER_SESSION_STARTER).toContain('get_latest_round')
+    expect(TAIGER_SESSION_STARTER).toContain('get_round_by_date')
   })
 
-  it('pre_tournament instruye a preguntar campo, formato y fecha', () => {
-    expect(SESSION_STARTERS.pre_tournament).toContain('campo, formato, fecha')
-    expect(SESSION_STARTERS.pre_tournament).toContain('course management')
+  it('El starter PROHIBE preguntar datos que ya están en el contexto', () => {
+    expect(TAIGER_SESSION_STARTER).toContain('NUNCA preguntes datos que ya tenés en el contexto')
+  })
+
+  it('El starter pide construir el perfil psicológico orgánicamente (no formulario)', () => {
+    expect(TAIGER_SESSION_STARTER).toContain('ACSI-28')
+    expect(TAIGER_SESSION_STARTER).toContain('orgánicamente')
+  })
+
+  it('El starter asume defaults razonables para plan semanal (no peloteo de datos)', () => {
+    expect(TAIGER_SESSION_STARTER).toContain('asumí 3-4 días')
+    expect(TAIGER_SESSION_STARTER).toContain('range + putting green')
   })
 })
 
