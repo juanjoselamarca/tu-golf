@@ -58,10 +58,10 @@ export default function Home() {
       {/* ── Feature highlights ────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
         <div className="text-center mb-10 md:mb-16">
-          <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-ivory mb-4">
+          <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl mb-4" style={{ color: 'var(--text)' }}>
             Todo para mejorar tu juego
           </h2>
-          <p className="font-sans text-gray-soft text-base md:text-lg max-w-2xl mx-auto">
+          <p className="font-sans text-base md:text-lg max-w-2xl mx-auto" style={{ color: 'var(--text-2)' }}>
             Tres herramientas diseñadas para el golfista amateur que quiere jugar mejor
           </p>
         </div>
@@ -99,10 +99,10 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-28">
 
         <div className="text-center mb-8 md:mb-20">
-          <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-ivory mb-4">
+          <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl mb-4" style={{ color: 'var(--text)' }}>
             Mucho más fácil que jugar golf
           </h2>
-          <p className="font-sans text-gray-soft text-base md:text-lg">
+          <p className="font-sans text-base md:text-lg" style={{ color: 'var(--text-2)' }}>
             Configura tu ronda y empieza a jugar en segundos
           </p>
         </div>
@@ -140,10 +140,10 @@ export default function Home() {
                 </span>
               </div>
 
-              <h3 className="font-display font-bold text-xl text-ivory mb-3">
+              <h3 className="font-display font-bold text-xl mb-3" style={{ color: 'var(--text)' }}>
                 {s.title}
               </h3>
-              <p className="font-sans text-sm text-gray-soft leading-relaxed">
+              <p className="font-sans text-sm leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 {s.desc}
               </p>
             </div>

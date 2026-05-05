@@ -23,7 +23,10 @@ export default function HeroSection() {
   }, [])
 
   return (
-    <section className="relative md:min-h-screen md:flex md:items-center overflow-hidden">
+    <section
+      className="relative md:min-h-screen md:flex md:items-center overflow-hidden"
+      style={{ background: '#070d18' }}
+    >
 
       {/*
         ── Slideshow ──────────────────────────────────────
@@ -107,14 +110,14 @@ export default function HeroSection() {
               Golfers+ · El golf amateur en español · Chile y LatAm
             </div>
 
-            {/* H1 */}
+            {/* H1 — colors fijos (sobre imagen oscura, NO afectado por theme) */}
             <h1 className="font-display font-black leading-[1.05] mb-6 text-[36px] sm:text-[42px] lg:text-[72px]">
-              <span className="text-ivory block">Tu mejor golf,</span>
-              <span className="text-gold">empieza con los datos</span>
+              <span className="block" style={{ color: '#edeae4' }}>Tu mejor golf,</span>
+              <span style={{ color: '#c4992a' }}>empieza con los datos</span>
             </h1>
 
-            {/* Subtitle */}
-            <p className="font-sans text-lg text-ivory/75 mb-10 leading-relaxed max-w-lg">
+            {/* Subtitle — color fijo sobre imagen oscura */}
+            <p className="font-sans text-lg mb-10 leading-relaxed max-w-lg" style={{ color: 'rgba(237,234,228,0.85)' }}>
               Scoring en vivo, análisis con IA y coaching mental — todo lo que necesitas para bajar tu índice, en español.
             </p>
 
@@ -136,8 +139,8 @@ export default function HeroSection() {
               </Link>
             </div>
 
-            {/* Trust badge */}
-            <p className="mt-5 font-sans text-xs text-ivory/45 tracking-wide">
+            {/* Trust badge — color fijo sobre imagen oscura */}
+            <p className="mt-5 font-sans text-xs tracking-wide" style={{ color: 'rgba(237,234,228,0.65)' }}>
               Sin tarjeta &middot; Sin descarga &middot; En español
             </p>
           </div>

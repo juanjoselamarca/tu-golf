@@ -132,7 +132,7 @@ export default function PGALiveWidget() {
   }, [data?.live])
 
   if (loading) return (
-    <div style={{ background: 'var(--bg-surface)', borderRadius: '14px', padding: '24px', maxWidth: '680px', margin: '0 auto' }}>
+    <div style={{ background: '#0e1c2f', borderRadius: '14px', padding: '24px', maxWidth: '680px', margin: '0 auto' }}>
       <div style={{ height: '14px', width: '50%', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', marginBottom: '10px' }} />
       <div style={{ height: '10px', width: '30%', background: 'rgba(255,255,255,0.04)', borderRadius: '4px' }} />
     </div>
@@ -140,7 +140,7 @@ export default function PGALiveWidget() {
 
   if (!data?.active) {
     return (
-      <div style={{ background: 'var(--bg-surface)', borderRadius: '14px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ background: '#0e1c2f', borderRadius: '14px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ background: '#0066cc', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.08em' }}>PGA TOUR</span>
           <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>Sin torneo activo</span>
@@ -166,7 +166,7 @@ export default function PGALiveWidget() {
       ? formatStartLabel(data.next_event.start)
       : 'Comienza pronto'
     return (
-      <div style={{ background: 'var(--bg-surface)', borderRadius: '14px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ background: '#0e1c2f', borderRadius: '14px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <span style={{ background: '#0066cc', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.08em' }}>PGA TOUR</span>
           <span style={{ background: 'rgba(196,153,42,0.15)', color: '#c4992a', fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.08em' }}>PRÓXIMO</span>
@@ -205,7 +205,7 @@ export default function PGALiveWidget() {
   const roundNum = allPlayers[0]?.roundNum || 1
 
   return (
-    <div style={{ background: 'var(--bg-surface)', borderRadius: '14px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto', border: '1px solid rgba(255,255,255,0.06)' }}>
+    <div style={{ background: '#0e1c2f', borderRadius: '14px', overflow: 'hidden', maxWidth: '680px', margin: '0 auto', border: '1px solid rgba(255,255,255,0.06)' }}>
 
       {/* Refresh countdown bar */}
       {data.live && (
