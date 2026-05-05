@@ -1,0 +1,574 @@
+[
+  {
+    "page": "home",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/",
+    "finalPath": "/",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/home-desktop-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "login",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/login",
+    "finalPath": "/login",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/login-desktop-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "register",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/register",
+    "finalPath": "/register",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/register-desktop-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "recuperar",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/recuperar",
+    "finalPath": "/recuperar",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/recuperar-desktop-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "leaderboard",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/leaderboard",
+    "finalPath": "/leaderboard",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/leaderboard-desktop-light.png",
+    "failsCount": 0,
+    "warningsCount": 1,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "BUTTON",
+        "text": "Scratch",
+        "fg": "rgb(90, 101, 115)",
+        "bg": "rgb(7, 13, 24)",
+        "fontSize": 13,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.28,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "ranking",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/ranking",
+    "finalPath": "/ranking",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/ranking-desktop-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "dashboard",
+    "viewport": "desktop",
+    "mode": "light",
+    "requestedPath": "/dashboard",
+    "finalPath": "/login",
+    "redirected": true,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/dashboard-desktop-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "home",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/",
+    "finalPath": "/",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/home-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "login",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/login",
+    "finalPath": "/login",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/login-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 2,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "o continúa con email",
+        "fg": "rgb(138, 106, 22)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 11,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 3.39,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Regístrate gratis →",
+        "fg": "rgb(138, 106, 22)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 3.39,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "register",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/register",
+    "finalPath": "/register",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/register-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "recuperar",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/recuperar",
+    "finalPath": "/recuperar",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/recuperar-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 1,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "A",
+        "text": "← Volver al login",
+        "fg": "rgb(138, 106, 22)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 3.39,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "leaderboard",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/leaderboard",
+    "finalPath": "/leaderboard",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/leaderboard-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 1,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "BUTTON",
+        "text": "Scratch",
+        "fg": "rgb(107, 114, 128)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 13,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.54,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "ranking",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/ranking",
+    "finalPath": "/ranking",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/ranking-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "dashboard",
+    "viewport": "desktop",
+    "mode": "dark",
+    "requestedPath": "/dashboard",
+    "finalPath": "/login",
+    "redirected": true,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/dashboard-desktop-dark.png",
+    "failsCount": 0,
+    "warningsCount": 2,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "o continúa con email",
+        "fg": "rgb(138, 106, 22)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 11,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 3.39,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Regístrate gratis →",
+        "fg": "rgb(138, 106, 22)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 3.39,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "home",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/",
+    "finalPath": "/",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/home-mobile-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "login",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/login",
+    "finalPath": "/login",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/login-mobile-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "register",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/register",
+    "finalPath": "/register",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/register-mobile-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "recuperar",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/recuperar",
+    "finalPath": "/recuperar",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/recuperar-mobile-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "leaderboard",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/leaderboard",
+    "finalPath": "/leaderboard",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/leaderboard-mobile-light.png",
+    "failsCount": 0,
+    "warningsCount": 3,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "EN VIVO",
+        "fg": "rgb(22, 163, 74)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 10,
+        "fontWeight": 700,
+        "isLarge": false,
+        "ratio": 3.3,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "R 1",
+        "fg": "rgb(107, 114, 128)",
+        "bg": "rgb(241, 245, 249)",
+        "fontSize": 10,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 4.41,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "+1",
+        "fg": "rgb(146, 112, 14)",
+        "bg": "rgb(250, 252, 255)",
+        "fontSize": 18,
+        "fontWeight": 700,
+        "isLarge": false,
+        "ratio": 4.49,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "ranking",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/ranking",
+    "finalPath": "/ranking",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/ranking-mobile-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "dashboard",
+    "viewport": "mobile",
+    "mode": "light",
+    "requestedPath": "/dashboard",
+    "finalPath": "/login",
+    "redirected": true,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/dashboard-mobile-light.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "home",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/",
+    "finalPath": "/",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/home-mobile-dark.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "login",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/login",
+    "finalPath": "/login",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/login-mobile-dark.png",
+    "failsCount": 0,
+    "warningsCount": 2,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "o continúa con email",
+        "fg": "rgb(138, 106, 22)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 11,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 3.39,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Regístrate gratis →",
+        "fg": "rgb(138, 106, 22)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 3.39,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "register",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/register",
+    "finalPath": "/register",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/register-mobile-dark.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "recuperar",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/recuperar",
+    "finalPath": "/recuperar",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/recuperar-mobile-dark.png",
+    "failsCount": 0,
+    "warningsCount": 1,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "A",
+        "text": "← Volver al login",
+        "fg": "rgb(138, 106, 22)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 3.39,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "leaderboard",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/leaderboard",
+    "finalPath": "/leaderboard",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/leaderboard-mobile-dark.png",
+    "failsCount": 0,
+    "warningsCount": 3,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "EN VIVO",
+        "fg": "rgb(22, 163, 74)",
+        "bg": "rgb(255, 255, 255)",
+        "fontSize": 10,
+        "fontWeight": 700,
+        "isLarge": false,
+        "ratio": 3.3,
+        "threshold": 4.5
+      },
+      {
+        "tag": "SPAN",
+        "text": "R 1",
+        "fg": "rgb(107, 114, 128)",
+        "bg": "rgb(241, 245, 249)",
+        "fontSize": 10,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 4.41,
+        "threshold": 4.5
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Scratch",
+        "fg": "rgb(107, 114, 128)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 13,
+        "fontWeight": 400,
+        "isLarge": false,
+        "ratio": 3.54,
+        "threshold": 4.5
+      }
+    ]
+  },
+  {
+    "page": "ranking",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/ranking",
+    "finalPath": "/ranking",
+    "redirected": false,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/ranking-mobile-dark.png",
+    "failsCount": 0,
+    "warningsCount": 0,
+    "fails": [],
+    "warnings": []
+  },
+  {
+    "page": "dashboard",
+    "viewport": "mobile",
+    "mode": "dark",
+    "requestedPath": "/dashboard",
+    "finalPath": "/login",
+    "redirected": true,
+    "screenshot": "docs/audit-screenshots/2026-05-05T17-08-00/dashboard-mobile-dark.png",
+    "failsCount": 0,
+    "warningsCount": 2,
+    "fails": [],
+    "warnings": [
+      {
+        "tag": "SPAN",
+        "text": "o continúa con email",
+        "fg": "rgb(138, 106, 22)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 11,
+        "fontWeight": 500,
+        "isLarge": false,
+        "ratio": 3.39,
+        "threshold": 4.5
+      },
+      {
+        "tag": "A",
+        "text": "Regístrate gratis →",
+        "fg": "rgb(138, 106, 22)",
+        "bg": "rgb(14, 28, 47)",
+        "fontSize": 14,
+        "fontWeight": 600,
+        "isLarge": false,
+        "ratio": 3.39,
+        "threshold": 4.5
+      }
+    ]
+  }
+]

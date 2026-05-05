@@ -59,3 +59,13 @@ Ejemplos fotos errores/
 # E2E Playwright auth state (cookies reales — nunca commitear)
 e2e/.auth/
 
+# Audit screenshots: report.md/json se commitean, los .png no
+docs/audit-screenshots/*/*.png
+
+# Audit outputs JSON (regenerables — handicap, etc.)
+reports/
+
+# Claude Code internal state
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+
