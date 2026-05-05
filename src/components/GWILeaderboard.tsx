@@ -27,7 +27,7 @@ const MEDALS = ['1.', '2.', '3.']
 function TendenciaIcon({ t }: { t: GWIResult['tendencia'] }) {
   if (t === 'up')   return <span style={{ color: '#22c55e', fontSize: '13px' }}>↑</span>
   if (t === 'down') return <span style={{ color: '#dc2626', fontSize: '13px' }}>↓</span>
-  return <span style={{ color: '#94a8c0', fontSize: '13px' }}>→</span>
+  return <span style={{ color: 'var(--text-2)', fontSize: '13px' }}>→</span>
 }
 
 function VolatilityBadge({ v }: { v: GWIResult['volatilidad'] }) {
@@ -58,12 +58,12 @@ export default function GWILeaderboard({
   // Not enough data
   if (hoyosJugados < 3) {
     return (
-      <div style={{ background: '#0e1c2f', borderRadius: '12px', padding: '20px', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.12)' }}>
+      <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '20px', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.12)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: '#edeae4' }}><Trophy size={15} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Probabilidades de Ganar</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: 'var(--text)' }}><Trophy size={15} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Probabilidades de Ganar</span>
           <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
-        <div style={{ textAlign: 'center', padding: '16px', color: '#94a8c0', fontSize: '13px' }}>
+        <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-2)', fontSize: '13px' }}>
           <BarChart3 size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Las probabilidades estarán disponibles a partir del hoyo 3
         </div>
         <div style={{ height: '4px', background: 'rgba(196,153,42,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -76,8 +76,8 @@ export default function GWILeaderboard({
   const results = calcularGWI(jugadores, totalHoyos)
   if (!results || results.length === 0) {
     return (
-      <div style={{ background: '#0e1c2f', borderRadius: '12px', padding: '20px', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.12)' }}>
-        <div style={{ textAlign: 'center', padding: '16px', color: '#94a8c0', fontSize: '13px' }}>
+      <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '20px', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.12)' }}>
+        <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-2)', fontSize: '13px' }}>
           Sin datos de jugadores para calcular probabilidades
         </div>
       </div>
@@ -90,15 +90,15 @@ export default function GWILeaderboard({
   const isFinale = hoyosRestantes > 0 && hoyosRestantes <= 3
 
   return (
-    <div style={{ background: '#0e1c2f', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.15)' }}>
+    <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.15)' }}>
 
       {/* Header */}
       <div style={{ background: 'rgba(196,153,42,0.06)', borderBottom: '1px solid rgba(196,153,42,0.12)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: '#edeae4', fontWeight: 700 }}><Trophy size={15} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Probabilidades de Ganar</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: 'var(--text)', fontWeight: 700 }}><Trophy size={15} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Probabilidades de Ganar</span>
           <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
-        <span style={{ fontSize: '11px', color: '#94a8c0' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>
           Hoyo {hoyosJugados}/{totalHoyos}
           {secondsAgo > 0 && ` · hace ${secondsAgo}s`}
         </span>
@@ -108,7 +108,7 @@ export default function GWILeaderboard({
       {isFinale && (
         <div style={{ margin: '12px', padding: '12px 16px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '10px' }}>
           <div style={{ fontSize: '13px', color: '#c4992a', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}><Zap size={13} /> RECTA FINAL</div>
-          <div style={{ fontSize: '12px', color: '#94a8c0' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>
             {sorted[0] && `${sorted[0].nombre} lidera con ${sorted[0].winProbability}% de probabilidad.`}
             {sorted[1] && sorted[1].winProbability > 20 && ` ${sorted[1].nombre} tiene ${sorted[1].winProbability}% — aún está en juego.`}
           </div>
@@ -119,9 +119,9 @@ export default function GWILeaderboard({
       <div style={{ padding: '4px 0 8px' }}>
         {/* Header row */}
         <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 70px 36px', padding: '6px 16px', borderBottom: '1px solid rgba(122,143,168,0.1)' }}>
-          <span style={{ fontSize: '10px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pos</span>
-          <span style={{ fontSize: '10px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Jugador</span>
-          <span style={{ fontSize: '10px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Win%</span>
+          <span style={{ fontSize: '10px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pos</span>
+          <span style={{ fontSize: '10px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Jugador</span>
+          <span style={{ fontSize: '10px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Win%</span>
           <span />
         </div>
 
@@ -142,7 +142,7 @@ export default function GWILeaderboard({
                 <span style={{ fontSize: '16px' }}>{MEDALS[i] ?? i + 1}</span>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: i === 0 ? 700 : 500, color: '#edeae4' }}>{r.nombre}</span>
+                    <span style={{ fontSize: '14px', fontWeight: i === 0 ? 700 : 500, color: 'var(--text)' }}>{r.nombre}</span>
                     <VolatilityBadge v={r.volatilidad} />
                   </div>
                   {/* Probability bar */}
@@ -151,7 +151,7 @@ export default function GWILeaderboard({
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.4rem', fontWeight: 700, color: i === 0 ? '#c4992a' : '#edeae4', lineHeight: 1 }}>
+                  <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.4rem', fontWeight: 700, color: i === 0 ? '#c4992a' : 'var(--text)', lineHeight: 1 }}>
                     {r.winProbability}%
                   </div>
                   {r.winProbability > 80 && (
@@ -197,7 +197,7 @@ export default function GWILeaderboard({
                     </div>
                   )}
                   {/* HCP info */}
-                  <div style={{ fontSize: '11px', color: '#94a8c0' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)' }}>
                     HCP {r.breakdown.handicapInfo.handicap}
                     {hoyosRestantes > 0 && ` · ±${r.breakdown.handicapInfo.sigma} strokes en ${hoyosRestantes} hoyos`}
                     {' · '}{r.breakdown.handicapInfo.label}
@@ -212,11 +212,11 @@ export default function GWILeaderboard({
       {/* Next hole probabilities */}
       {nextHole && holesInfo && hoyosRestantes > 0 && (
         <div style={{ borderTop: '1px solid rgba(122,143,168,0.1)', padding: '12px 16px' }}>
-          <div style={{ fontSize: '11px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
             <MapPin size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />PRÓXIMO HOYO: H{nextHole.numero} · Par {nextHole.par}
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ fontSize: '11px', color: '#94a8c0', borderCollapse: 'collapse', width: '100%' }}>
+            <table style={{ fontSize: '11px', color: 'var(--text-2)', borderCollapse: 'collapse', width: '100%' }}>
               <thead>
                 <tr>
                   <td style={{ paddingRight: '12px', paddingBottom: '4px' }} />
@@ -230,10 +230,10 @@ export default function GWILeaderboard({
                   const p = probResultadoHoyo(j.handicapIndex, nextHole.par)
                   return (
                     <tr key={j.id}>
-                      <td style={{ paddingRight: '12px', color: '#edeae4', fontWeight: 600, whiteSpace: 'nowrap' }}>{j.nombre}</td>
+                      <td style={{ paddingRight: '12px', color: 'var(--text)', fontWeight: 600, whiteSpace: 'nowrap' }}>{j.nombre}</td>
                       <td style={{ textAlign: 'center', color: '#93c5fd' }}>{p.eagle}%</td>
                       <td style={{ textAlign: 'center', color: '#86efac' }}>{p.birdie}%</td>
-                      <td style={{ textAlign: 'center', color: '#edeae4' }}>{p.par}%</td>
+                      <td style={{ textAlign: 'center', color: 'var(--text)' }}>{p.par}%</td>
                       <td style={{ textAlign: 'center', color: '#fcd34d' }}>{p.bogey}%</td>
                       <td style={{ textAlign: 'center', color: '#fca5a5' }}>{p.masDoble + p.doble}%</td>
                     </tr>

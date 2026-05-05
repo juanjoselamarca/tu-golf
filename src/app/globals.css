@@ -453,12 +453,6 @@ main {
   }
 }
 
-/* ── PR1: Scorecard dark context ── */
-body[data-page="scorecard"] {
-  background: #070D18;
-  color: #EDE9E4;
-}
-
 /* ── PR1: Score animations ── */
 .score-changing { animation: scoreChange 0.15s ease-out; }
 .score-animating { animation: scoreChange 0.15s ease-out; }

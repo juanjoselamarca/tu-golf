@@ -37,7 +37,7 @@ function gwiDeltaColor(delta: number): string {
 function PosBadge({ pos, positionDelta }: { pos: number; positionDelta: number }) {
   const isTop3 = pos <= 3
   const bg = pos === 1 ? '#c4992a' : pos === 2 ? '#9ca3af' : pos === 3 ? '#b45309' : 'transparent'
-  const color = isTop3 ? (pos === 3 ? '#ffffff' : '#070d18') : 'rgba(255,255,255,0.7)'
+  const color = isTop3 ? (pos === 3 ? '#ffffff' : 'var(--brand-dark)') : 'var(--text-2)'
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
@@ -179,7 +179,7 @@ export default function LeaderboardPage() {
       {lastEvent && (
         <div key={lastEvent + '-d'} className="hidden md:block ticker-event" style={{
           background: 'rgba(201,168,76,0.08)', borderBottom: '1px solid rgba(201,168,76,0.2)',
-          padding: '8px 16px', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: '#edeae4',
+          padding: '8px 16px', fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: 'var(--text)',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           \u25B6 {lastEvent}
@@ -207,7 +207,7 @@ export default function LeaderboardPage() {
             padding: '8px 16px', borderRadius: '6px', whiteSpace: 'nowrap',
             fontSize: '13px', fontWeight: category === tab ? 600 : 400,
             background: category === tab ? '#c4992a' : 'transparent',
-            color: category === tab ? '#070d18' : 'rgba(255,255,255,0.5)',
+            color: category === tab ? 'var(--brand-dark)' : 'var(--text-2)',
             border: category === tab ? 'none' : '1px solid rgba(196,153,42,0.3)',
             cursor: 'pointer', minHeight: '40px',
           }}>{tab}</button>
@@ -216,7 +216,7 @@ export default function LeaderboardPage() {
 
       {/* ── Desktop Table — PGA Tour style ─────────────── */}
       <div className="hidden md:block max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid rgba(196,153,42,0.13)', background: '#070d18' }}>
+        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid rgba(196,153,42,0.13)', background: 'var(--bg)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(196,153,42,0.08)', borderBottom: '1px solid rgba(196,153,42,0.28)' }}>
@@ -232,7 +232,7 @@ export default function LeaderboardPage() {
                     key={col.label}
                     style={{
                       padding: '12px 16px',
-                      fontSize: 11, letterSpacing: '0.12em', color: '#94a8c0',
+                      fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-2)',
                       textTransform: 'uppercase', fontWeight: 600,
                       textAlign: col.align,
                       width: col.w,
@@ -256,7 +256,7 @@ export default function LeaderboardPage() {
                     <tr
                       className={player.justScored ? 'flash-row' : ''}
                       style={{
-                        background: isLeader ? 'rgba(196,153,42,0.05)' : '#070d18',
+                        background: isLeader ? 'rgba(196,153,42,0.05)' : 'var(--bg)',
                         borderLeft: isLeader ? '3px solid #c4992a' : '3px solid transparent',
                         borderBottom: '1px solid rgba(255,255,255,0.04)',
                         transition: 'background 300ms ease',
@@ -281,10 +281,10 @@ export default function LeaderboardPage() {
                             {player.initials}
                           </div>
                           <div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: '#edeae4' }}>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
                               {player.pais} {player.name}
                             </div>
-                            <div style={{ fontSize: 11, color: '#94a8c0', marginTop: 2 }}>
+                            <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>
                               <span style={{
                                 display: 'inline-block', padding: '1px 6px', borderRadius: 3,
                                 background: player.categoria === 'A' ? 'rgba(0,230,118,0.12)' : 'rgba(196,153,42,0.12)',
@@ -320,7 +320,7 @@ export default function LeaderboardPage() {
                           )}
                           <span style={{
                             fontSize: 14, fontWeight: 600,
-                            color: player.status === 'finished' ? '#94a8c0' : '#c4992a',
+                            color: player.status === 'finished' ? 'var(--text-2)' : '#c4992a',
                             fontFamily: 'var(--font-dm-mono), monospace',
                           }}>
                             {thru}
@@ -369,7 +369,7 @@ export default function LeaderboardPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: '56px 16px', textAlign: 'center', color: '#94a8c0', fontSize: 14 }}>
+                  <td colSpan={6} style={{ padding: '56px 16px', textAlign: 'center', color: 'var(--text-2)', fontSize: 14 }}>
                     No hay jugadores en esta categoría.
                   </td>
                 </tr>
@@ -379,7 +379,7 @@ export default function LeaderboardPage() {
 
           {/* Footer hint */}
           <div style={{
-            padding: '8px 16px', fontSize: 11, color: '#94a8c0', textAlign: 'right',
+            padding: '8px 16px', fontSize: 11, color: 'var(--text-2)', textAlign: 'right',
             background: 'rgba(196,153,42,0.04)', borderTop: '1px solid rgba(196,153,42,0.08)',
             fontFamily: 'var(--font-dm-mono), monospace',
           }}>

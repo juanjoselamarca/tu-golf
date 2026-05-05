@@ -74,9 +74,9 @@ export default function CoachDashboard() {
       {/* Data summary */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '20px' }}>
         {[
-          { label: 'RONDAS', value: String(stats.rounds), color: stats.rounds >= 3 ? '#16a34a' : '#94a8c0' },
-          { label: 'PATRONES', value: String(stats.patterns), color: stats.patterns > 0 ? '#c4992a' : '#94a8c0' },
-          { label: 'CPI', value: stats.cpi != null ? stats.cpi.toFixed(0) : '—', color: stats.cpi != null ? '#c4992a' : '#94a8c0' },
+          { label: 'RONDAS', value: String(stats.rounds), color: stats.rounds >= 3 ? '#16a34a' : 'var(--text-2)' },
+          { label: 'PATRONES', value: String(stats.patterns), color: stats.patterns > 0 ? '#c4992a' : 'var(--text-2)' },
+          { label: 'CPI', value: stats.cpi != null ? stats.cpi.toFixed(0) : '—', color: stats.cpi != null ? '#c4992a' : 'var(--text-2)' },
         ].map(s => (
           <div key={s.label} style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', padding: '14px 8px', textAlign: 'center' }}>
             <div style={{ fontSize: '22px', fontWeight: 700, color: s.color, fontFamily: '"Cormorant Garamond", serif' }}>{s.value}</div>

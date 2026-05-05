@@ -49,7 +49,7 @@ export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: 
           left: 0,
           right: 0,
           zIndex: 200,
-          background: '#0e1c2f',
+          background: 'var(--bg-surface)',
           borderTop: '1px solid rgba(196,153,42,0.25)',
           borderRadius: '20px 20px 0 0',
           padding: '12px 20px 28px',
@@ -73,7 +73,7 @@ export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: 
           style={{
             fontSize: '16px',
             fontWeight: 700,
-            color: '#edeae4',
+            color: 'var(--text)',
             textAlign: 'center',
             marginBottom: '6px',
           }}
@@ -85,7 +85,7 @@ export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: 
         <div
           style={{
             fontSize: '14px',
-            color: '#94a8c0',
+            color: 'var(--text-2)',
             textAlign: 'center',
             marginBottom: '20px',
           }}
@@ -102,7 +102,7 @@ export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: 
               height: '52px',
               borderRadius: '12px',
               background: '#c4992a',
-              color: '#070d18',
+              color: 'var(--brand-dark)',
               fontSize: '15px',
               fontWeight: 700,
               border: 'none',
@@ -118,7 +118,7 @@ export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: 
               height: '52px',
               borderRadius: '12px',
               background: 'transparent',
-              color: '#edeae4',
+              color: 'var(--text)',
               fontSize: '15px',
               fontWeight: 600,
               border: '1px solid rgba(255,255,255,0.12)',

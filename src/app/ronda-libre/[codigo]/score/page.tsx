@@ -134,12 +134,6 @@ function ScorePageContent() {
   const swipeRef = useRef({ startX: 0, startY: 0 })
   const progressRowRef = useRef<HTMLDivElement>(null)
 
-  /* ── Mark body as scorecard ── */
-  useEffect(() => {
-    document.body.setAttribute('data-page', 'scorecard')
-    return () => document.body.removeAttribute('data-page')
-  }, [])
-
   /* ── Auto-sync al reconectar (dispara cuando isOnline pasa a true) ── */
   useEffect(() => {
     if (!isOnline) return

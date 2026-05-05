@@ -107,7 +107,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
         <div style={{
           fontSize: 18,
           fontWeight: 600,
-          color: '#edeae4',
+          color: 'var(--text)',
           animation: 'birdieText 0.4s ease-out 0.3s both',
         }}>
           {playerName}

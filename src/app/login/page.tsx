@@ -122,7 +122,7 @@ function LoginContent() {
       >
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: '#edeae4', fontWeight: 700 }}>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: 'var(--text)', fontWeight: 700 }}>
             Golfers<span style={{ color: '#c4992a' }}>+</span>
           </span>
         </div>
@@ -200,7 +200,7 @@ function LoginContent() {
           <button
             type="submit"
             disabled={loading}
-            style={{ background: '#c4992a', color: '#070d18', fontWeight: 600, width: '100%', borderRadius: '10px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
+            style={{ background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 600, width: '100%', borderRadius: '10px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
             onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)' }}
           >

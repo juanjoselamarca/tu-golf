@@ -215,19 +215,19 @@ export default function PlayerScoringPage() {
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
   }, [tournament, roundIdForSync, selectedPlayerEarly, courseHoles, scoreSync, submitHoleScore])
 
-  if (loading) return <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a8c0' }}>Cargando...</div>
-  if (!tournament) return <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fca5a5' }}>Torneo no encontrado.</div>
+  if (loading) return <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>Cargando...</div>
+  if (!tournament) return <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fca5a5' }}>Torneo no encontrado.</div>
 
   const selectedPlayer = players.find(p => p.id === selectedId)
   const holeCount = tournament.hole_count || 18
   const holes = Array.from({ length: holeCount }, (_, i) => i + 1)
 
   return (
-    <div style={{ background: '#070d18', minHeight: '100vh', paddingBottom: '40px' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '40px' }}>
       {/* Header */}
       <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '16px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <Link href={`/torneo/${tournament.slug}`} style={{ color: '#94a8c0', fontSize: '12px', textDecoration: 'none' }}>← Leaderboard</Link>
+          <Link href={`/torneo/${tournament.slug}`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Leaderboard</Link>
           {saveStatus !== 'idle' && (() => {
             const pending = !isOnline || saveStatus === 'error' ? scoreSync.obtenerLocal() : null
             const pendingCount = pending ? Object.keys(pending).length : 0
@@ -253,7 +253,7 @@ export default function PlayerScoringPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div>
-            <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', margin: '0 0 2px' }}>{tournament.name}</h1>
+            <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: '0 0 2px' }}>{tournament.name}</h1>
             {selectedPlayer && <p style={{ fontSize: '13px', color: '#c4992a', margin: 0 }}>{selectedPlayer.profiles?.name} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}
           </div>
           {tournament.formato_juego && (
@@ -279,15 +279,15 @@ export default function PlayerScoringPage() {
         {/* Player select */}
         {!selectedId && (
           <div style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '14px', padding: '24px', marginBottom: '24px' }}>
-            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#edeae4', margin: '0 0 16px' }}>¿Quién eres?</h2>
+            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: '0 0 16px' }}>¿Quién eres?</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {players.map(p => (
                 <button key={p.id} type="button" onClick={() => setSelectedId(p.id)}
-                  style={{ padding: '14px 16px', background: 'rgba(7,13,24,0.5)', border: '1px solid rgba(122,143,168,0.2)', borderRadius: '10px', color: '#edeae4', fontSize: '16px', fontWeight: 500, cursor: 'pointer', textAlign: 'left', transition: 'all 180ms' }}
+                  style={{ padding: '14px 16px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '10px', color: 'var(--text)', fontSize: '16px', fontWeight: 500, cursor: 'pointer', textAlign: 'left', transition: 'all 180ms' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#c4992a'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(122,143,168,0.2)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(7,13,24,0.5)' }}>
                   {p.profiles?.name}
-                  {p.handicap_at_registration != null && <span style={{ color: '#94a8c0', fontSize: '13px', marginLeft: '8px' }}>HCP {p.handicap_at_registration}</span>}
+                  {p.handicap_at_registration != null && <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '8px' }}>HCP {p.handicap_at_registration}</span>}
                 </button>
               ))}
             </div>
@@ -298,7 +298,7 @@ export default function PlayerScoringPage() {
         {selectedPlayer && (
           <>
             <button type="button" onClick={() => { setSelectedId(''); setCurrentScores({}); setSavedHoles(new Set()) }}
-              style={{ background: 'none', border: 'none', color: '#94a8c0', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
+              style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
               ← Cambiar jugador
             </button>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -325,8 +325,8 @@ export default function PlayerScoringPage() {
                 return (
                   <div key={holeNum} style={{ background: bg, border, borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 200ms' }}>
                     <div>
-                      <div style={{ color: '#94a8c0', fontSize: '12px', marginBottom: '2px' }}>Hoyo {holeNum}</div>
-                      <div style={{ color: '#edeae4', fontSize: '14px' }}>Par {par}{hole?.stroke_index ? ` · SI ${hole.stroke_index}` : ''}</div>
+                      <div style={{ color: 'var(--text-2)', fontSize: '12px', marginBottom: '2px' }}>Hoyo {holeNum}</div>
+                      <div style={{ color: 'var(--text)', fontSize: '14px' }}>Par {par}{hole?.stroke_index ? ` · SI ${hole.stroke_index}` : ''}</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
@@ -342,7 +342,7 @@ export default function PlayerScoringPage() {
                         defaultValue={gross ?? ''}
                         key={`${selectedId}-${holeNum}-${gross}`}
                         onBlur={(e) => handleScoreChange(holeNum, e.target.value)}
-                        style={{ width: '64px', height: '56px', background: 'rgba(7,13,24,0.5)', border: '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', color: '#edeae4', textAlign: 'center', fontSize: '24px', fontWeight: 700, outline: 'none', appearance: 'textfield' as React.CSSProperties['appearance'] }}
+                        style={{ width: '64px', height: '56px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '10px', color: 'var(--text)', textAlign: 'center', fontSize: '24px', fontWeight: 700, outline: 'none', appearance: 'textfield' as React.CSSProperties['appearance'] }}
                         placeholder="—"
                       />
                     </div>

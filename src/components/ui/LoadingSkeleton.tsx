@@ -14,7 +14,7 @@ export function LoadingSkeleton({ lines = 3 }: { lines?: number }) {
           key={i}
           style={{
             height:           '20px',
-            background:       'linear-gradient(90deg, #0e1c2f 25%, #132540 50%, #0e1c2f 75%)',
+            background:       'linear-gradient(90deg, var(--bg-surface) 25%, var(--border) 50%, var(--bg-surface) 75%)',
             backgroundSize:   '200% 100%',
             animation:        'shimmer 1.5s infinite',
             borderRadius:     '4px',

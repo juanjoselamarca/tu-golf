@@ -10,6 +10,7 @@ import { SystemStatusBanner } from '@/components/SystemStatusBanner'
 import { PostHogProvider } from '@/components/PostHogProvider'
 import { OfflineBanner } from '@/components/OfflineBanner'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { ThemeMetaColor } from '@/components/ThemeMetaColor'
 import dynamic from 'next/dynamic'
 const FedegolfSync = dynamic(() => import('@/components/FedegolfSync'), { ssr: false })
 
@@ -70,17 +71,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${playfair.variable} ${dmSans.variable} ${dmMono.variable} ${cormorant.variable}`}>
+    <html
+      lang="es"
+      className={`${playfair.variable} ${dmSans.variable} ${dmMono.variable} ${cormorant.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem('golfers-theme');var r;if(s==='light'||s==='dark'){r=s;}else{r=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',r);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`,
+            __html: `(function(){try{var s=localStorage.getItem('golfers-theme');var t=(s==='dark')?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`,
           }}
         />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="theme-color" content="#070d18" />
+        <meta name="theme-color" content="#fafaf7" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icon-192.svg" />
@@ -89,6 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeProvider>
+          <ThemeMetaColor />
         <PostHogProvider>
         <OfflineBanner />
         <SystemStatusBanner />

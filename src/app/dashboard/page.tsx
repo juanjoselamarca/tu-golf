@@ -1,4 +1,5 @@
 // src/app/dashboard/page.tsx
+import type { Metadata } from 'next'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { ExperiencePopupWrapper } from '@/components/ExperiencePopupWrapper'
@@ -12,6 +13,10 @@ import { getNivel } from '@/lib/mi-golf/niveles'
 import { getTaigerLine } from '@/lib/mi-golf/taiger-line'
 import { getVsPar } from '@/lib/mi-golf/par'
 import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '@/lib/mi-golf/types'
+
+export const metadata: Metadata = {
+  title: 'Inicio — Golfers+',
+}
 
 export const dynamic = 'force-dynamic'
 

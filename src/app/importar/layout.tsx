@@ -10,8 +10,8 @@ export default function ImportarLayout({ children }: { children: React.ReactNode
     <div
       style={{
         minHeight: '100vh',
-        background: '#070d18',
-        color: '#edeae4',
+        background: 'var(--bg)',
+        color: 'var(--text)',
       }}
     >
       {children}

@@ -157,7 +157,7 @@ function StepNumber({ n }: { n: number }) {
       width: 40, height: 40, minWidth: 40,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'linear-gradient(135deg, #c4992a, #e8c06a)',
-      color: '#070d18',
+      color: 'var(--brand-dark)',
       borderRadius: '50%',
       fontSize: 16, fontWeight: 700, flexShrink: 0,
       boxShadow: '0 2px 8px rgba(196,153,42,0.25)',
@@ -250,7 +250,7 @@ function DropZone({
           width: '100%', padding: 16, borderRadius: 14,
           fontSize: 16, fontWeight: 700,
           background: uploading ? 'rgba(196,153,42,0.3)' : 'linear-gradient(135deg, #c4992a, #e8c06a)',
-          color: uploading ? 'rgba(255,255,255,0.5)' : '#070d18',
+          color: uploading ? 'rgba(255,255,255,0.5)' : 'var(--brand-dark)',
           border: 'none',
           cursor: uploading ? 'not-allowed' : 'pointer',
           minHeight: 52, transition: 'all 0.2s ease',
@@ -603,7 +603,7 @@ function EnvelopeIllustration() {
           <path d="M2 10l20 12 20-12" stroke="rgba(196,153,42,0.5)" strokeWidth="2" fill="none" />
           {/* Notification dot */}
           <circle cx="36" cy="8" r="5" fill="#c4992a" opacity="0.8" />
-          <text x="36" y="11" textAnchor="middle" fill="#070d18" fontSize="7" fontWeight="700">1</text>
+          <text x="36" y="11" textAnchor="middle" fill="var(--brand-dark)" fontSize="7" fontWeight="700">1</text>
         </svg>
       </div>
     </div>
@@ -665,7 +665,7 @@ function PhotoGuide({
             key={i}
             style={{
               padding: '20px 18px',
-              background: '#0e1c2f',
+              background: 'var(--bg-surface)',
               border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: 16,
               opacity: stepsVisible[i] ? 1 : 0,
@@ -848,7 +848,7 @@ function GarminGuide({
               key={i}
               style={{
                 padding: '18px 16px',
-                background: '#0e1c2f',
+                background: 'var(--bg-surface)',
                 border: '1px solid rgba(255,255,255,0.06)',
                 borderRadius: 16,
                 opacity: stepsVisible[i] ? 1 : 0,
@@ -999,7 +999,7 @@ function CsvGuide({
             style={{
               display: 'flex', alignItems: 'center', gap: 14,
               padding: '16px 18px',
-              background: '#0e1c2f',
+              background: 'var(--bg-surface)',
               border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: 14,
               opacity: stepsVisible[i] ? 1 : 0,

@@ -116,7 +116,7 @@ export default function EnVivoPage() {
         position: 'sticky', top: 56, zIndex: 40,
         background: 'var(--bg-surface)', backdropFilter: 'blur(12px)',
         padding: '16px 16px 12px',
-        borderBottom: '1px solid rgba(196,153,42,0.12)',
+        borderBottom: '1px solid var(--border)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: rondas.length >= 3 ? '12px' : '0' }}>
           {/* Dot pulsante */}

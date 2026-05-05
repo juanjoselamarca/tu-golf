@@ -85,7 +85,7 @@ export default function StepPhotoInstructions({
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '12px',
-            color: '#94a8c0',
+            color: 'var(--text-2)',
             fontSize: '18px',
             cursor: 'pointer',
             flexShrink: 0,
@@ -98,7 +98,7 @@ export default function StepPhotoInstructions({
             style={{
               fontSize: '20px',
               fontWeight: 700,
-              color: '#edeae4',
+              color: 'var(--text)',
               margin: 0,
             }}
           >
@@ -121,7 +121,7 @@ export default function StepPhotoInstructions({
           style={{
             fontWeight: 600,
             fontSize: '14px',
-            color: '#edeae4',
+            color: 'var(--text)',
             marginBottom: '12px',
           }}
         >
@@ -155,7 +155,7 @@ export default function StepPhotoInstructions({
               </span>
               <p
                 style={{
-                  color: '#94a8c0',
+                  color: 'var(--text-2)',
                   fontSize: '13px',
                   lineHeight: 1.4,
                   margin: 0,
@@ -209,7 +209,7 @@ export default function StepPhotoInstructions({
                 animation: 'spin 1s linear infinite',
               }}
             />
-            <span style={{ color: '#94a8c0', fontSize: '14px' }}>
+            <span style={{ color: 'var(--text-2)', fontSize: '14px' }}>
               Subiendo fotos...
             </span>
           </>

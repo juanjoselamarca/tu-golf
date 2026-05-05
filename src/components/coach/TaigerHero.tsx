@@ -105,14 +105,14 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
           <h2 style={{
             fontFamily: "'Playfair Display', serif",
             fontSize: 28, fontWeight: 700, letterSpacing: '1px',
-            color: '#edeae4', margin: 0,
+            color: 'var(--text)', margin: 0,
             animation: mounted ? 'textUp 0.6s ease-out 0.4s both' : 'none',
           }}>
             tAIger+
           </h2>
           {subtitle && (
             <p style={{
-              color: '#94a8c0', fontSize: 13, margin: '6px 0 0',
+              color: 'var(--text-2)', fontSize: 13, margin: '6px 0 0',
               animation: mounted ? 'textUp 0.6s ease-out 0.6s both' : 'none',
             }}>
               {subtitle}

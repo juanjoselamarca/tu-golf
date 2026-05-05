@@ -48,7 +48,7 @@ const colors = {
   textSecondary: '#6b7280',
   textLabel: '#9ca3af',
   gold: '#c4992a',
-  activeBtnText: '#070d18',
+  activeBtnText: 'var(--brand-dark)',
   inputBg: '#ffffff',
   inputBorder: '#d1d5db',
 }

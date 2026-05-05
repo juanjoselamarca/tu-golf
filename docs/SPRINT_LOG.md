@@ -4,6 +4,76 @@
 
 ---
 
+## Sesión 04 May 2026 — Theme binario light-default (cierre del bug estructural)
+
+### Problema
+El sprint del toggle Light/Dark/Auto (28-30 abr) tenía un bug estructural: la
+"identidad fija" via `<div data-theme>` en layouts (`/dashboard` dark, auth light)
+no afectaba al body, footer ni status bar — solo al subtree del div. Resultado
+visible: cards dark navy flotando sobre body cream con footer cream en `/dashboard`
+cuando el sistema/storage estaba en light. Roto el mobile overscroll. Roto el
+toggle de iOS theme-color hardcodeado.
+
+### Decisión de producto (Juanjo, 04 May 2026)
+- Eliminar el modo `auto`. Sistema binario: light por default, dark si el usuario
+  lo elige.
+- Eliminar la "identidad fija" — TODA la app respeta el toggle.
+- Garantizar legibilidad WCAG AA en ambos modos.
+
+### Solución
+8 commits sobre feat/theme-binario-light-default, ejecutados via subagent-driven
+development con review de spec + code quality:
+
+1. `9c47bd6` refactor(theme): API binaria light/dark + toggle sol/luna
+   - ThemeContext: { theme, setTheme }, default light, migración silenciosa 'auto'→'light'
+   - Race condition fix via flag `hydrated` (segundo effect early-returns en first render)
+   - Navbar: 3 pastillas → toggle binario sol/luna (44px min-height para guante)
+2. `4a89237` test(theme): nits del code review (fallback test + comentarios catch)
+3. `57aa3ac` refactor(theme): script anti-FOUC simplificado + suppressHydrationWarning
+4. `f3b825a` refactor(theme): eliminar identidad fija de dashboard y auth
+5. `8e3e840` feat(theme): meta theme-color reactivo (status bar iOS/Android)
+6. `a57e997` refactor(theme): eliminar hardcode body[data-page=scorecard]
+7. `c893131` refactor(theme): hardcodes hex residuales → tokens (49 archivos, ~260 reemplazos)
+8. (este commit) docs: SPRINT_LOG + ARQUITECTURA del sprint
+
+### Archivos tocados
+- `src/contexts/ThemeContext.tsx` + tests (binario, hydrated flag)
+- `src/components/Navbar.tsx` (toggle binario + tokens en dropdown)
+- `src/components/ThemeMetaColor.tsx` (NUEVO — sincroniza meta theme-color)
+- `src/app/layout.tsx` (anti-FOUC simplificado, suppressHydrationWarning, meta inicial light)
+- `src/app/dashboard/layout.tsx` (eliminado, metadata movida a page.tsx)
+- `src/app/{login,register,recuperar}/layout.tsx` (passthrough — page.tsx son client components)
+- `src/app/globals.css` (regla body[data-page=scorecard] eliminada)
+- `src/app/ronda-libre/[codigo]/score/page.tsx` (useEffect data-page eliminado)
+- 49 archivos con hardcodes hex → tokens
+
+### Verificación
+- TypeScript: 0 errores
+- Tests: 5902/5902 passing (321 archivos)
+- Build local: OK
+- Cobertura ThemeContext: 8 tests cubren default, stored values, migración, race
+  condition, falla de storage tipo 'sepia' (defensivo)
+- Code review pasó (APPROVED_WITH_FIXES — 3 nits aplicados, 1 borderline saltado, 1
+  follow-up explícito: unicode → SVG icons en sprint posterior)
+
+### Migración de usuarios
+Cualquier usuario con `localStorage['golfers-theme'] = 'auto'` (o cualquier valor
+no canónico) se migra silenciosamente a `'light'` en el primer mount del
+ThemeProvider. Persistido para que la próxima visita ya tenga el valor canónico.
+
+### Pendiente
+- QA visual en browser (light + dark) sobre las 15 pantallas críticas — Juanjo
+  lo hace tras el push para verificar que no quedó ninguna inconsistencia visual
+  que el grep estático no detectó.
+
+### Out of scope (sprints futuros)
+- Sincronizar theme preference con BD del usuario (multi-device)
+- Animar transiciones entre modos
+- Modo "tournament" alto contraste para uso bajo sol fuerte
+- Migración de íconos sol/luna unicode → SVG Foundation (consistencia con resto del set)
+
+---
+
 ## Sesión 28-30 Abr 2026 — Toggle Light/Dark/Auto sistémico
 
 ### Problema

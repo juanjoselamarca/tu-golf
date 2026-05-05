@@ -177,7 +177,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
                   padding: '10px 20px', borderRadius: '10px', border: 'none', cursor: 'pointer',
                   fontSize: '14px', fontWeight: 600,
                   background: subscribed ? '#dc2626' : '#c4992a',
-                  color: subscribed ? '#ffffff' : '#070d18',
+                  color: subscribed ? '#ffffff' : 'var(--brand-dark)',
                   opacity: loading ? 0.6 : 1,
                 }}
               >

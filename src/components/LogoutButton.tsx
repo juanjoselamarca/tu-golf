@@ -16,14 +16,14 @@ export default function LogoutButton() {
         background: 'transparent',
         border: 'none',
         cursor: 'pointer',
-        color: '#94a8c0',
+        color: 'var(--text-2)',
         fontSize: '14px',
         padding: '6px 12px',
         borderRadius: '6px',
         transition: 'color 200ms',
       }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#edeae4')}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#94a8c0')}
+      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text)')}
+      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)')}
     >
       Salir
     </button>

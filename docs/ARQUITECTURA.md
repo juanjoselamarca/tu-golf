@@ -192,53 +192,56 @@ El modo_juego solo afecta QUÉ SE MUESTRA, no qué se guarda.
 
 ---
 
-## Theming — Sistema Light/Dark/Auto sistémico
-
-Implementado 2026-04-30. Sprint cerrado.
+## Theming
 
 ### Modelo
-Sistema híbrido tri-state: identidad fija por pantalla + utility con toggle del usuario.
+Sistema binario light/dark. **Light es el default**. Dark es opt-in via toggle del
+Navbar. Sin `auto`. Sin identidad fija por ruta — TODA la app respeta el toggle.
 
-### Resolución del tema
-1. ThemeContext lee `localStorage['golfers-theme']` → `'light' | 'dark' | 'auto'`. Default `auto`.
-2. Si `auto`, resuelve via `matchMedia('(prefers-color-scheme: dark)')`.
-3. Resolved theme se escribe a `document.documentElement.setAttribute('data-theme', ...)`.
-4. Layouts override pueden envolver subtrees con `<div data-theme="dark|light">` para forzar identidad fija.
+### Flujo
+1. ThemeContext lee `localStorage['golfers-theme']` → `'light' | 'dark'`. Default `light`.
+   Cualquier valor legacy (incluyendo `'auto'`) migra silenciosamente a `'light'`.
+2. Resolved theme se escribe a `document.documentElement.setAttribute('data-theme', ...)`.
+3. `<meta name="theme-color">` se actualiza dinámicamente vía `<ThemeMetaColor />`.
 
 ### Anti-FOUC
-Script inline en `<head>` de `src/app/layout.tsx` resuelve el tema sync antes del primer paint, antes de que React hidrate. Sin flash blanco al cargar.
+Script inline en `<head>` lee storage y setea `data-theme` en `<html>` antes del
+primer paint. `suppressHydrationWarning` en `<html>` para tolerar la mutación
+pre-hidratación.
 
 ### Tokens
-Definidos en `src/app/globals.css`:
-- `:root` — brand colors, fonts, score colors, legacy palette aliases (mismo en ambos modos) + paleta light como **fallback** para JS-disabled.
-- `[data-theme="light"]` — paleta light premium (off-white `#fafaf7`, carbón `#1a1d24`, sombras editoriales).
-- `[data-theme="dark"]` — paleta dark (navy `#070d18`, ivory `#edeae4`, gold accent en bordes).
+- `:root` — brand colors, fonts, score colors, legacy palette aliases (mismo en
+  ambos modos) + paleta light como **fallback** para JS-disabled.
+- `[data-theme="light"]` — paleta light premium (off-white `#fafaf7`, carbón
+  `#1a1d24`, sombras editoriales).
+- `[data-theme="dark"]` — paleta dark (navy `#070d18`, ivory `#edeae4`, gold
+  accent en bordes).
 
-### Identidad fija
-Pantallas que NO respetan el toggle (override por layout):
-- `/dashboard/*` — siempre **dark** (identidad club house).
-- `/login`, `/register`, `/recuperar` — siempre **light** (auth = confianza).
-
-### Tailwind
+### Tailwind dark mode
 `darkMode: ['selector', '[data-theme="dark"]']` en `tailwind.config.ts`.
-Las clases `dark:` activan cuando `[data-theme="dark"]` está en el árbol — coherente con los tokens, NO por preferencia del OS. Cero `dark:` residual al cierre del sprint.
+Las clases `dark:` activan cuando `[data-theme="dark"]` está en el árbol —
+coherente con los tokens, NO por preferencia del OS.
 
 ### Toggle UI
-Segmented control de 3 pastillas en el dropdown del Navbar avatar (sección "Tema"). Estado activo: fondo `--brand`, texto `--brand-dark`. Persiste en `localStorage`. Listener a `matchMedia` mantiene sync con OS cuando modo `auto`.
+Toggle binario sol/luna en el dropdown del Navbar avatar. Estado activo: fondo
+`--brand`, texto `--brand-dark`. Persiste en `localStorage`. `min-height: 44px`
+en cada botón (Apple HIG).
 
-### Convenciones para nuevas pantallas
-- Usar tokens (`var(--bg)`, `var(--text)`, `var(--text-2)`, `var(--text-3)`, `var(--bg-surface)`, `var(--border)`, etc.) — responde al toggle automáticamente.
-- Para forzar identidad fija: envolver el layout en `<div data-theme="dark">` o `"light"`.
-- NUNCA hardcodear colores hex que cambien según modo.
-- Brand-fixed (gold `#c4992a`, score colors `--eagle/--birdie/--par/--bogey/--double`) iguales en ambos modos.
+### Convenciones
+- Para definir tema en componentes nuevos: usar tokens (`var(--bg)`, `var(--text)`).
+- NUNCA hardcodear hex de paleta neutra (cream, navy, ivory). Sí OK hardcodear
+  brand colors (gold `#c4992a`) y score colors (Garmin verified) ya que son
+  iguales en ambos modos.
 - Para CTAs gold (`background: '#c4992a'`), texto siempre `var(--brand-dark)`.
 
 ### Out of scope (sprints futuros)
 - Sincronización theme preference con BD del usuario (multi-device).
-- Animaciones de transición entre modos.
+- Animar transiciones entre modos.
 - Modo "tournament" alto contraste para uso bajo sol.
-- Auditoría WCAG AA en ambos modos.
 
-### Spec y plan
-- Spec: `docs/superpowers/specs/2026-04-28-toggle-light-dark-auto-design.md`
-- Plan: `docs/superpowers/plans/2026-04-28-toggle-light-dark-auto.md`
+### Histórico
+- 28-30 abr: tri-state Auto/Light/Dark con identidad fija. Bug estructural detectado.
+- 04 may: corrección — sistema binario light-default sin identidad fija.
+
+Spec/plan:
+- `docs/superpowers/plans/2026-05-04-theme-binario-light-default.md`

@@ -61,7 +61,7 @@ export function ExperiencePopup({ onSetup }: { onSetup: () => void }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <button onClick={handleSetup} style={{
             width: '100%', padding: '14px', borderRadius: '12px',
-            background: '#c4992a', color: '#070d18', border: 'none',
+            background: '#c4992a', color: 'var(--brand-dark)', border: 'none',
             fontSize: '16px', fontWeight: 700, cursor: 'pointer',
           }}>
             Personalizar ahora

@@ -25,7 +25,7 @@ export default function TournamentCardMenu({ slug, isActive }: Props) {
   return (
     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
       <Link href={`/torneo/${slug}`} style={{
-        background: 'var(--brand)', color: '#070D18', borderRadius: '10px',
+        background: 'var(--brand)', color: 'var(--brand-dark)', borderRadius: '10px',
         padding: '10px 18px', fontWeight: 600, fontSize: '14px',
         textDecoration: 'none', whiteSpace: 'nowrap',
       }}>
