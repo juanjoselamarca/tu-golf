@@ -129,7 +129,7 @@ export default function EnVivoPage() {
           }} />
           <h1 style={{
             fontFamily: 'var(--font-playfair)', fontSize: '22px', fontWeight: 700,
-            color: 'var(--ivory)', margin: 0, flex: 1,
+            color: 'var(--text)', margin: 0, flex: 1,
           }}>En Vivo</h1>
           {rondas.length > 0 && (
             <span style={{
@@ -168,7 +168,7 @@ export default function EnVivoPage() {
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><Radio size={56} strokeWidth={1.5} /></div>
             <h2 style={{
               fontFamily: 'var(--font-playfair)', fontSize: '22px', fontWeight: 700,
-              color: 'var(--ivory)', marginBottom: '8px',
+              color: 'var(--text)', marginBottom: '8px',
             }}>Sin conexión</h2>
             <p style={{
               fontFamily: 'var(--font-dm-sans)', fontSize: '14px',
@@ -187,7 +187,7 @@ export default function EnVivoPage() {
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}><Flag size={56} strokeWidth={1.5} /></div>
             <h2 style={{
               fontFamily: 'var(--font-playfair)', fontSize: '22px', fontWeight: 700,
-              color: 'var(--ivory)', marginBottom: '8px',
+              color: 'var(--text)', marginBottom: '8px',
             }}>Nadie jugando ahora</h2>
             <p style={{
               fontFamily: 'var(--font-dm-sans)', fontSize: '14px',
@@ -238,7 +238,7 @@ export default function EnVivoPage() {
                       }}>
                         <h2 style={{
                           fontFamily: 'var(--font-playfair)', fontSize: '16px', fontWeight: 700,
-                          color: 'var(--ivory)', margin: 0, letterSpacing: '-0.01em',
+                          color: 'var(--text)', margin: 0, letterSpacing: '-0.01em',
                         }}>{courseName}</h2>
                         <span style={{
                           fontSize: '10px', fontWeight: 600, fontFamily: 'DM Mono, monospace',
@@ -265,7 +265,7 @@ export default function EnVivoPage() {
                         {/* Si el grupo tiene header, omitimos el course_name para evitar duplicación (H15) */}
                         {!showHeader && (
                           <div style={{
-                            fontSize: '15px', fontWeight: 700, color: 'var(--ivory)',
+                            fontSize: '15px', fontWeight: 700, color: 'var(--text)',
                             fontFamily: 'var(--font-dm-sans)',
                           }}>{ronda.course_name}</div>
                         )}
@@ -274,7 +274,7 @@ export default function EnVivoPage() {
                           display: 'inline-block',
                           padding: '3px 9px',
                           background: ronda.holes <= 9 ? 'rgba(196,153,42,0.22)' : 'rgba(196,153,42,0.12)',
-                          color: '#c4992a',
+                          color: '#8A6A16',
                           border: ronda.holes <= 9 ? '1px solid rgba(196,153,42,0.55)' : '1px solid rgba(196,153,42,0.28)',
                           borderRadius: '999px',
                           fontSize: '10px',
@@ -290,7 +290,7 @@ export default function EnVivoPage() {
                             display: 'inline-block',
                             padding: '3px 9px',
                             background: 'rgba(196,153,42,0.15)',
-                            color: '#c4992a',
+                            color: '#8A6A16',
                             border: '1px solid rgba(196,153,42,0.32)',
                             borderRadius: '999px',
                             fontSize: '10px',
@@ -349,7 +349,7 @@ export default function EnVivoPage() {
                               color: 'var(--text-2)',
                               display: 'flex', alignItems: 'baseline', gap: '6px',
                             }}>
-                              <span style={{ color: 'var(--ivory)' }}>
+                              <span style={{ color: 'var(--text)' }}>
                                 {isStab ? `${j.stablefordPts} pts` : formatVsPar(j.vsPar)}
                               </span>
                               {j.holesCompleted < j.totalHoles ? (
@@ -398,7 +398,7 @@ export default function EnVivoPage() {
             background: 'var(--gold-soft)', border: '1px solid var(--border-md)',
             borderRadius: '14px', textAlign: 'center',
           }}>
-            <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ivory)', margin: '0 0 8px' }}>
+            <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', margin: '0 0 8px' }}>
               Regístrate para ver scores completos
             </p>
             <Link href="/register" style={{

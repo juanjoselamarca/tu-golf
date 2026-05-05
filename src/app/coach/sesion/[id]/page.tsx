@@ -260,7 +260,7 @@ export default function SesionDetailPage() {
             border: '1px solid rgba(196,153,42,0.3)',
             borderRadius: 8,
             padding: '8px 20px',
-            color: '#c4992a',
+            color: '#8A6A16',
             cursor: 'pointer',
             fontSize: 14,
           }}
@@ -301,7 +301,7 @@ export default function SesionDetailPage() {
             border: '1px solid rgba(196,153,42,0.25)',
             borderRadius: 20,
             padding: '4px 14px',
-            color: '#c4992a',
+            color: '#8A6A16',
             fontSize: 12,
             fontWeight: 500,
           }}>
@@ -366,7 +366,7 @@ export default function SesionDetailPage() {
 
         {streaming && messages.length > 0 && !messages[messages.length - 1]?.content && (
           <div style={{
-            color: '#c4992a',
+            color: '#8A6A16',
             fontSize: 14,
             fontWeight: 500,
             padding: '8px 0',
@@ -400,7 +400,7 @@ export default function SesionDetailPage() {
             borderRadius: 12,
           }}>
             {ratingSubmitted ? (
-              <p style={{ color: '#c4992a', fontSize: 14, textAlign: 'center', margin: 0 }}>
+              <p style={{ color: '#8A6A16', fontSize: 14, textAlign: 'center', margin: 0, fontWeight: 600 }}>
                 Gracias por tu feedback
               </p>
             ) : (

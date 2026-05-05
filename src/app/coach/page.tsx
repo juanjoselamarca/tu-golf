@@ -61,7 +61,7 @@ export default function CoachDashboard() {
       <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ marginBottom: '12px', animation: 'tpulse 1.5s ease infinite', color: '#c4992a' }}><TaigerIcon size={48} /></div>
-          <div style={{ color: '#c4992a', fontSize: '14px' }}>Cargando tAIger+...</div>
+          <div style={{ color: '#8A6A16', fontSize: '14px', fontWeight: 600 }}>Cargando tAIger+...</div>
           <style>{`@keyframes tpulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }`}</style>
         </div>
       </div>
@@ -78,12 +78,12 @@ export default function CoachDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '20px' }}>
         {[
           { label: 'RONDAS', value: String(stats.rounds), color: stats.rounds >= 1 ? '#16a34a' : 'var(--text-2)' },
-          { label: 'PATRONES', value: String(stats.patterns), color: stats.patterns > 0 ? '#c4992a' : 'var(--text-2)' },
-          { label: 'CPI', value: stats.cpi != null ? stats.cpi.toFixed(0) : '—', color: stats.cpi != null ? '#c4992a' : 'var(--text-2)' },
+          { label: 'PATRONES', value: String(stats.patterns), color: stats.patterns > 0 ? '#8A6A16' : 'var(--text-2)'},
+          { label: 'CPI', value: stats.cpi != null ? stats.cpi.toFixed(0) : '—', color: stats.cpi != null ? '#8A6A16' : 'var(--text-2)'},
         ].map(s => (
           <div key={s.label} style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '12px', padding: '14px 8px', textAlign: 'center' }}>
             <div style={{ fontSize: '22px', fontWeight: 700, color: s.color, fontFamily: '"Cormorant Garamond", serif' }}>{s.value}</div>
-            <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginTop: '4px' }}>{s.label}</div>
+            <div style={{ fontSize: '9px', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginTop: '4px' }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -110,9 +110,9 @@ export default function CoachDashboard() {
               Nueva ronda
             </Link>
             <Link href="/perfil/historial" style={{
-              display: 'inline-block', background: 'transparent', color: '#c4992a',
+              display: 'inline-block', background: 'transparent', color: '#8A6A16',
               fontWeight: 600, fontSize: '13px', padding: '10px 20px', borderRadius: '10px',
-              textDecoration: 'none', border: '1px solid rgba(196,153,42,0.4)',
+              textDecoration: 'none', border: '1px solid rgba(196,153,42,0.55)',
             }}>
               Importar historial
             </Link>
@@ -136,7 +136,7 @@ export default function CoachDashboard() {
       {/* Session history (excluye la primaria — ya tiene su CTA arriba) */}
       {sessions.filter(s => s.id !== primarySessionId).length > 0 ? (
         <div>
-          <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '12px' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '12px' }}>
             Sesiones anteriores
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -156,7 +156,7 @@ export default function CoachDashboard() {
                     </div>
                   )}
                 </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
                   {new Date(s.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                 </div>
               </Link>
