@@ -6,6 +6,7 @@ import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
+import { validateResponse } from '@/golf/coach/hallucination-validator'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -108,6 +109,9 @@ export async function POST(req: NextRequest) {
           let fullResponse = ''
           const MAX_TOOL_ITERS = 5
           let lastUsage: Anthropic.Messages.Usage | null = null
+          // Acumulado de results de tool calls en TODAS las iters del loop —
+          // alimenta al validador anti-alucinacion (D6) al final del stream.
+          const allToolResultStrings: string[] = []
 
           for (let iter = 0; iter < MAX_TOOL_ITERS; iter++) {
             // System como array con cache_control ephemeral. Cachea el system prompt
@@ -146,10 +150,12 @@ export async function POST(req: NextRequest) {
               for (const block of resp.content) {
                 if (block.type === 'tool_use') {
                   const result = await executeTool(block.name, block.input as Record<string, unknown>, toolCtx)
+                  const serialized = JSON.stringify(result)
+                  allToolResultStrings.push(serialized)
                   toolResults.push({
                     type: 'tool_result',
                     tool_use_id: block.id,
-                    content: JSON.stringify(result),
+                    content: serialized,
                   })
                 }
               }
@@ -201,6 +207,39 @@ export async function POST(req: NextRequest) {
             )
           } catch (recErr) {
             console.error('[tAIger/chat] extractor shadow error:', recErr)
+          }
+
+          // VALIDADOR ANTI-ALUCINACION (D6 — shadow 7 dias). NO degrada respuesta.
+          // Logea coach_events('hallucination_check', { flagged, warnings }) y
+          // listo. Despues del dia 7, si false_positive_rate < 5%, se promueve
+          // a enforcement (degradacion + retry forzando tool call).
+          // Spec: docs/superpowers/plans/2026-05-05-cerebro-v2.md §5.8 (D6).
+          try {
+            const knownCourseNames = (ctx.recent_rounds ?? [])
+              .map(r => r.course_name)
+              .filter((s): s is string => typeof s === 'string' && s.length > 0)
+            const validation = validateResponse({
+              response: fullResponse,
+              contextString,
+              toolResultsConcat: allToolResultStrings.join('\n'),
+              knownCourseNames,
+            })
+            const admin = createAdminClient()
+            await admin.from('coach_events').insert({
+              user_id: user.id,
+              type: 'hallucination_check',
+              payload: {
+                flagged: validation.flagged,
+                warnings: validation.warnings,
+                total_numbers_checked: validation.total_numbers_checked,
+                total_courses_checked: validation.total_courses_checked,
+                response_length: fullResponse.length,
+                tool_calls_in_session: allToolResultStrings.length,
+              },
+              related_session_id: active.id,
+            })
+          } catch (vErr) {
+            console.error('[tAIger/chat] hallucination validator error:', vErr)
           }
 
           controller.enqueue(encoder.encode(
