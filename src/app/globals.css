@@ -161,6 +161,57 @@
 .text-gold-text                       { color: var(--brand-on-bg); }
 [data-theme="light"] .text-gold-text  { color: var(--brand-on-bg) !important; }
 
+/* ── Golf Intelligence Labs card (theme-aware) ──────── */
+.labs-card { border: 1px solid; }
+[data-theme="light"] .labs-card {
+  background-color: #ffffff;
+  background-image:
+    radial-gradient(circle at 88% 22%, rgba(196,153,42,0.10), transparent 55%);
+  border-color: rgba(196,153,42,0.32);
+  box-shadow: 0 4px 32px -12px rgba(196,153,42,0.20);
+}
+[data-theme="dark"] .labs-card {
+  background-color: #122140;
+  background-image:
+    radial-gradient(circle at 85% 25%, rgba(196,153,42,0.20), transparent 55%),
+    linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.10));
+  border-color: rgba(196,153,42,0.34);
+  box-shadow: 0 0 80px -28px rgba(196,153,42,0.35);
+}
+
+.labs-pill {
+  background-color: rgba(196,153,42,0.12);
+  border: 1px solid rgba(196,153,42,0.45);
+}
+[data-theme="light"] .labs-pill     { color: #8A6A16; }
+[data-theme="dark"]  .labs-pill     { color: #f0c674; }
+.labs-pill-dot                       { background: #c4992a; }
+[data-theme="dark"]  .labs-pill-dot { background: #f0c674; box-shadow: 0 0 8px rgba(240,198,116,0.7); }
+
+[data-theme="light"] .labs-strong { color: #8A6A16; }
+[data-theme="dark"]  .labs-strong { color: #f0c674; }
+
+.labs-viz { border: 1px solid; }
+[data-theme="light"] .labs-viz {
+  background-color: rgba(196,153,42,0.05);
+  border-color: rgba(196,153,42,0.20);
+}
+[data-theme="dark"]  .labs-viz {
+  background-color: rgba(0,0,0,0.28);
+  border-color: rgba(196,153,42,0.18);
+}
+
+[data-theme="light"] .labs-bar-track    { background-color: rgba(26,29,36,0.08); }
+[data-theme="dark"]  .labs-bar-track    { background-color: rgba(255,255,255,0.08); }
+.labs-bar-official                       { background-color: #94a8c0; }
+
+[data-theme="light"] .labs-delta { color: #15803d; }
+[data-theme="dark"]  .labs-delta { color: #7ed957; }
+
+.labs-caption { border-top: 1px solid; }
+[data-theme="light"] .labs-caption { border-top-color: rgba(0,0,0,0.06); }
+[data-theme="dark"]  .labs-caption { border-top-color: rgba(255,255,255,0.06); }
+
 /* SECTIONS LIGHT-CARD: en pantallas con fondo blanco/light, los componentes
    compartidos que originalmente eran dark (bg-bg-card .text-ivory) NO se
    tocan — siguen siendo cards oscuras con texto claro. La home tenía un

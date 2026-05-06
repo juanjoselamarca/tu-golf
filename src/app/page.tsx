@@ -152,39 +152,142 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Golf Intelligence Labs ────────────────────── */}
+      {/* ── Golf Intelligence Labs (theme-aware) ──────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
         <Link
           href="/indices"
-          className="block rounded-2xl p-6 md:p-10 transition-all duration-300 hover:scale-[1.01]"
-          style={{
-            backgroundColor: '#0e1c2f',
-            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.06))',
-            border: '1px solid rgba(196,153,42,0.25)',
-          }}
+          className="labs-card block rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.005] group"
         >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div>
+          <div className="grid md:grid-cols-5 gap-8 md:gap-10 p-8 md:p-12 items-center">
+            {/* ── Left: copy + CTA ──────────────────── */}
+            <div className="md:col-span-3 flex flex-col">
               <span
-                className="inline-flex items-center gap-2 px-3 py-1 mb-4 text-[10px] font-mono font-bold uppercase tracking-widest rounded-full"
-                style={{ background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a' }}
+                className="labs-pill inline-flex items-center gap-2 px-3.5 py-1.5 mb-5 self-start text-[11px] font-mono font-bold uppercase tracking-[0.22em] rounded-full"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
-                LABS
+                <span className="w-2 h-2 rounded-full live-dot labs-pill-dot" />
+                Golfers+ Labs
               </span>
-              <h2 className="font-display font-bold text-2xl md:text-3xl text-ivory mb-2">
+              <h2
+                className="font-display font-bold text-3xl md:text-4xl mb-4"
+                style={{ color: 'var(--text)', lineHeight: 1.1 }}
+              >
                 La ciencia detrás de tu juego
               </h2>
-              <p className="font-sans text-sm md:text-base text-gray-soft max-w-lg">
-                Descubre cómo funciona el Índice Dual de Golfers+ y por qué es más útil que el hándicap tradicional para mejorar.
+              <p
+                className="font-sans text-base md:text-lg mb-7 max-w-xl"
+                style={{ color: 'var(--text-2)', lineHeight: 1.55 }}
+              >
+                Tu hándicap oficial cuenta una historia.{' '}
+                <strong className="labs-strong">El Índice Dual</strong>{' '}
+                revela cuántos strokes están ocultos en tu juego real — y cuáles son.
               </p>
+              <span
+                className="inline-flex items-center gap-2 self-start px-6 py-3 font-sans font-bold text-sm md:text-base rounded-lg transition-all duration-200 group-hover:gap-3.5 shadow-lg"
+                style={{ backgroundColor: '#c4992a', color: '#0e1c2f' }}
+              >
+                Explorar el laboratorio
+                <span style={{ fontSize: '1.05em' }}>→</span>
+              </span>
             </div>
-            <span
-              className="font-sans font-semibold text-sm md:text-base whitespace-nowrap"
-              style={{ color: '#c4992a' }}
-            >
-              Explorar &rarr;
-            </span>
+
+            {/* ── Right: Indice Dual viz ──────────── */}
+            <div className="md:col-span-2">
+              <div className="labs-viz relative rounded-xl p-5 md:p-6">
+                {/* Sparkline header */}
+                <div className="flex items-end justify-between mb-5">
+                  <span
+                    className="text-[10px] font-mono uppercase tracking-[0.18em]"
+                    style={{ color: 'var(--text-2)' }}
+                  >
+                    Evolución · 8 rondas
+                  </span>
+                  <svg width="84" height="22" viewBox="0 0 84 22" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="labsSpark" x1="0" x2="1">
+                        <stop offset="0%" stopColor="var(--text-3)" stopOpacity="0.7" />
+                        <stop offset="100%" stopColor="#c4992a" />
+                      </linearGradient>
+                    </defs>
+                    <polyline
+                      points="0,16 12,14 24,17 36,11 48,12 60,7 72,5 82,3"
+                      fill="none"
+                      stroke="url(#labsSpark)"
+                      strokeWidth="1.8"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="82" cy="3" r="2.4" fill="#c4992a" />
+                  </svg>
+                </div>
+
+                {/* Indice oficial */}
+                <div className="mb-4">
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <span
+                      className="text-[10px] font-mono uppercase tracking-[0.18em]"
+                      style={{ color: 'var(--text-2)' }}
+                    >
+                      Índice oficial
+                    </span>
+                    <span
+                      className="font-mono text-xl font-bold"
+                      style={{ color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      14.5
+                    </span>
+                  </div>
+                  <div className="labs-bar-track h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="labs-bar-official h-full rounded-full"
+                      style={{ width: '72%' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Indice Golfers+ Dual */}
+                <div className="mb-4">
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <span
+                      className="text-[10px] font-mono uppercase tracking-[0.18em] labs-strong"
+                    >
+                      Índice Dual
+                    </span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span
+                        className="font-mono text-xl font-bold labs-strong"
+                        style={{ fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        12.8
+                      </span>
+                      <span
+                        className="font-mono text-[10px] font-semibold labs-delta"
+                        style={{ fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        −1.7
+                      </span>
+                    </div>
+                  </div>
+                  <div className="labs-bar-track h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: '64%',
+                        background: 'linear-gradient(90deg, #c4992a 0%, #e8b94a 100%)',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Caption */}
+                <p
+                  className="labs-caption text-[11px] font-sans pt-3"
+                  style={{ color: 'var(--text-2)', lineHeight: 1.5 }}
+                >
+                  <span className="labs-strong" style={{ fontWeight: 600 }}>1.7 strokes</span>{' '}
+                  que el sistema oficial no ve.
+                </p>
+              </div>
+            </div>
           </div>
         </Link>
       </section>
