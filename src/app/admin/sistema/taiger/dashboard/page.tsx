@@ -52,56 +52,59 @@ export default function EffectivenessDashboard() {
   return (
     <div style={pageStyle}>
       <h1 style={{ ...adminFonts.sectionTitle, fontSize: '1.5rem', marginBottom: 8 }}>
-        Cerebro tAIger+ — Efectividad
+        ¿Funcionan los planes que asigna el coach?
       </h1>
       <div style={{ color: adminColors.gray, fontSize: 12, marginBottom: 20 }}>
         Generado {new Date(data.generated_at).toLocaleString('es-CL')}
       </div>
 
       <div style={kpiGrid}>
-        <KpiCard label="Usuarios con plan" value={data.total_users_with_plan} />
-        <KpiCard label="Total planes" value={data.total_plans} />
-        <KpiCard label="Activos" value={data.active_plans} accent="green" />
-        <KpiCard label="Resueltos" value={data.resolved_plans} accent="gold" />
-        <KpiCard label="Expirados" value={data.expired_plans} accent="yellow" />
-        <KpiCard label="Reemplazados" value={data.superseded_plans} accent="gray" />
+        <KpiCard label="Jugadores con plan" value={data.total_users_with_plan} />
+        <KpiCard label="Planes asignados (todos)" value={data.total_plans} />
+        <KpiCard label="En curso" value={data.active_plans} accent="green" />
+        <KpiCard label="Completados con éxito" value={data.resolved_plans} accent="gold" />
+        <KpiCard label="Vencidos sin lograr meta" value={data.expired_plans} accent="yellow" />
+        <KpiCard label="Cambiados por otro" value={data.superseded_plans} accent="gray" />
       </div>
 
-      <Section title="Resolución por target alcanzado">
+      <Section title="¿Qué % de planes que terminaron lograron la meta?">
         <div style={{ fontSize: 28, color: adminColors.gold, fontFamily: "'Playfair Display', serif", fontWeight: 700 }}>
           {data.resolved_by_target_rate != null
             ? `${Math.round(data.resolved_by_target_rate * 100)}%`
             : '—'}
         </div>
         <div style={{ color: adminColors.gray, fontSize: 13 }}>
-          De los planes resueltos, este % fue por target_reached_3_consecutive (vs cancelled/expired/etc).
+          Un plan se considera logrado cuando el jugador llegó a la meta 3 rondas seguidas. Si esto está alto, los planes funcionan.
         </div>
       </Section>
 
-      <Section title={`Distribución de adherence (n=${adhTotal} outcomes)`}>
+      <Section title={`¿Cómo cumplen los jugadores cuando juegan? (${adhTotal} rondas medidas)`}>
         <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
-          <Adh label="full" count={data.adherence_distribution.full} pct={adhPct(data.adherence_distribution.full)} color={adminColors.green} />
-          <Adh label="partial" count={data.adherence_distribution.partial} pct={adhPct(data.adherence_distribution.partial)} color={adminColors.yellow} />
-          <Adh label="none" count={data.adherence_distribution.none} pct={adhPct(data.adherence_distribution.none)} color={adminColors.red} />
-          <Adh label="unknown" count={data.adherence_distribution.unknown} pct={adhPct(data.adherence_distribution.unknown)} color={adminColors.gray} />
+          <Adh label="cumplió la meta" count={data.adherence_distribution.full} pct={adhPct(data.adherence_distribution.full)} color={adminColors.green} />
+          <Adh label="mejoró sin llegar" count={data.adherence_distribution.partial} pct={adhPct(data.adherence_distribution.partial)} color={adminColors.yellow} />
+          <Adh label="no mejoró" count={data.adherence_distribution.none} pct={adhPct(data.adherence_distribution.none)} color={adminColors.red} />
+          <Adh label="no se pudo medir" count={data.adherence_distribution.unknown} pct={adhPct(data.adherence_distribution.unknown)} color={adminColors.gray} />
         </div>
       </Section>
 
-      <Section title="Tiempo medio a resolución">
+      <Section title="¿Cuánto tarda un plan en cumplirse?">
         <div style={{ fontSize: 28, color: adminColors.gold, fontFamily: "'Playfair Display', serif", fontWeight: 700 }}>
           {data.avg_days_to_resolution != null
-            ? `${data.avg_days_to_resolution.toFixed(1)} días`
+            ? `${data.avg_days_to_resolution.toFixed(1)} días en promedio`
             : '—'}
+        </div>
+        <div style={{ color: adminColors.gray, fontSize: 13, marginTop: 4 }}>
+          Desde que el coach asigna el plan hasta que el jugador llega a la meta o el plan se cierra.
         </div>
       </Section>
 
-      <Section title={`Por patrón (${data.per_pattern.length} patrones)`}>
+      <Section title={`¿Qué problemas del juego responden mejor al coaching? (${data.per_pattern.length} tipos)`}>
         {data.per_pattern.length === 0 ? (
           <div style={{ color: adminColors.gray, fontSize: 13, fontStyle: 'italic' }}>Sin datos aún</div>
         ) : (
           <table style={tableStyle}>
             <thead><tr>
-              <Th>Patrón</Th><Th>Planes</Th><Th>Resueltos</Th><Th>Por target</Th><Th>Tasa target</Th><Th>Días medios</Th>
+              <Th>Tipo de problema</Th><Th>Planes</Th><Th>Cerrados</Th><Th>Lograron meta</Th><Th>Tasa éxito</Th><Th>Días medios</Th>
             </tr></thead>
             <tbody>
               {data.per_pattern.map(p => (

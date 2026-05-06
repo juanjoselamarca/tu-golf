@@ -264,6 +264,19 @@ export default function SistemaPage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
           gap: '12px',
         }}>
+          <a href="/admin/sistema/taiger/live" style={{
+            ...adminCard,
+            textDecoration: 'none',
+            display: 'block',
+            transition: 'border-color 200ms',
+            borderColor: adminColors.green,
+          }}>
+            <div style={{ ...adminFonts.label, marginBottom: '6px', color: adminColors.green }}>● En vivo</div>
+            <div style={{ ...adminFonts.body, fontSize: '13px', color: adminColors.ivory, marginBottom: '8px', lineHeight: 1.4 }}>
+              Mirá el flujo del coach mientras conversa con jugadores. Cada respuesta, cada consulta, cada plan asignado.
+            </div>
+            <div style={{ fontSize: '11px', color: adminColors.green, fontWeight: 600 }}>Ver flujo en tiempo real →</div>
+          </a>
           <a href="/admin/sistema/taiger" style={{
             ...adminCard,
             textDecoration: 'none',
@@ -271,29 +284,29 @@ export default function SistemaPage() {
             transition: 'border-color 200ms',
             borderColor: adminColors.gold,
           }}>
-            <div style={{ ...adminFonts.label, marginBottom: '6px' }}>Vista del agente</div>
+            <div style={{ ...adminFonts.label, marginBottom: '6px' }}>Resumen del agente</div>
             <div style={{ ...adminFonts.body, fontSize: '13px', color: adminColors.ivory, marginBottom: '8px', lineHeight: 1.4 }}>
-              Alucinaciones, tool usage, divergencias save_plan vs shadow.
+              ¿Cuántas veces inventó datos? ¿Cuántas consultó antes de responder? ¿Cuántos planes asignó vs habló sin guardar?
             </div>
-            <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Auditar fallas/aciertos →</div>
+            <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Ver resumen agregado →</div>
           </a>
           <a href="/admin/sistema/taiger/dashboard" style={{
             ...adminCard, textDecoration: 'none', display: 'block',
           }}>
-            <div style={{ ...adminFonts.label, marginBottom: '6px' }}>Efectividad de planes</div>
+            <div style={{ ...adminFonts.label, marginBottom: '6px' }}>¿Funcionan los planes?</div>
             <div style={{ ...adminFonts.body, fontSize: '13px', color: adminColors.ivory, marginBottom: '8px', lineHeight: 1.4 }}>
-              KPIs agregados: target reached, adherence, días a resolución, por patrón.
+              Tasa de éxito de los planes asignados. Cuántos jugadores cumplen, cuánto tardan, qué tipo de problema responde mejor al coaching.
             </div>
-            <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Ver KPIs →</div>
+            <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Ver efectividad →</div>
           </a>
           <a href="/admin/usuarios" style={{
             ...adminCard, textDecoration: 'none', display: 'block',
           }}>
-            <div style={{ ...adminFonts.label, marginBottom: '6px' }}>Drill por usuario</div>
+            <div style={{ ...adminFonts.label, marginBottom: '6px' }}>Cerebro por jugador</div>
             <div style={{ ...adminFonts.body, fontSize: '13px', color: adminColors.ivory, marginBottom: '8px', lineHeight: 1.4 }}>
-              Elegir un usuario en /admin/usuarios y luego abrir su cerebro en /admin/sistema/taiger/[id].
+              Ver cómo el coach trata a un jugador específico: su plan activo, los patrones que detectó, su historial.
             </div>
-            <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Elegir usuario →</div>
+            <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Elegir jugador →</div>
           </a>
         </div>
       </section>

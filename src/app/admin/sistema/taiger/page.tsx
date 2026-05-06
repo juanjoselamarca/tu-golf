@@ -201,24 +201,24 @@ export default function CerebroAgentePage() {
 
       {/* KPI grid con sparklines */}
       <div style={kpiGrid}>
-        <KpiSpark label="Respuestas" value={data.totals.total_responses} series={respSparks} />
-        <Kpi label="% con tool" value={pct(data.totals.response_with_tool_rate)} />
-        <Kpi label="Tool calls/resp" value={data.totals.avg_tool_calls_per_response.toFixed(2)} />
+        <KpiSpark label="Respuestas del coach" value={data.totals.total_responses} series={respSparks} />
+        <Kpi label="Consultó datos antes" value={pct(data.totals.response_with_tool_rate)} />
+        <Kpi label="Consultas por respuesta" value={data.totals.avg_tool_calls_per_response.toFixed(2)} />
         <KpiSpark
-          label="Alucinaciones flagged"
+          label="Posibles inventos"
           value={`${data.hallucination.flagged} (${pct(data.hallucination.flagged_rate)})`}
           accent={data.hallucination.flagged_rate > 0.05 ? 'red' : 'gold'}
           series={halluSparks}
         />
-        <KpiSpark label="Save_plan" value={data.plan_engagement.save_plan_calls} accent="green" series={planSparks} />
+        <KpiSpark label="Planes asignados" value={data.plan_engagement.save_plan_calls} accent="green" series={planSparks} />
         <Kpi
-          label="Sesiones divergentes"
+          label="Habló de plan sin guardar"
           value={`${data.plan_engagement.divergent_sessions} (${pct(data.plan_engagement.divergence_rate)})`}
           accent="yellow"
         />
-        <KpiSpark label="Tool calls" value={data.tool_usage.total_calls} accent="gray" series={toolSparks} />
+        <KpiSpark label="Consultas a datos" value={data.tool_usage.total_calls} accent="gray" series={toolSparks} />
         <Kpi
-          label="FP rate validador"
+          label="Falsas alarmas"
           value={data.hallucination.reviews.false_positive_rate != null
             ? pct(data.hallucination.reviews.false_positive_rate)
             : `— (${data.hallucination.reviews.total_reviewed} rev)`}
@@ -227,16 +227,16 @@ export default function CerebroAgentePage() {
       </div>
 
       {/* Hallucinations */}
-      <Section title="Alucinaciones detectadas (modo shadow)">
-        <Sub>Cada flagged se revisa manualmente. Cuando false_positive_rate &lt; 5%, el validador se promueve a enforcement (degrada respuestas que mencionan datos no verificables).</Sub>
+      <Section title="¿El coach inventó datos?">
+        <Sub>Cada respuesta se chequea automáticamente: si el coach menciona un número de score o nombre de cancha que no aparece en los datos del jugador, se marca acá. Vos revisás cada caso. Cuando la tasa de falsas alarmas baje del 5%, el sistema empieza a corregir al coach en vivo.</Sub>
 
         <div style={{ display: 'flex', gap: 24, marginTop: 12, flexWrap: 'wrap' }}>
-          <Stat label="Checks" value={data.hallucination.total_checks} />
-          <Stat label="Flagged" value={data.hallucination.flagged} />
-          <Stat label="Tasa flagged" value={pct(data.hallucination.flagged_rate)} />
-          <Stat label="Revisados" value={data.hallucination.reviews.total_reviewed} />
-          <Stat label="FP" value={data.hallucination.reviews.false_positive} />
-          <Stat label="Real" value={data.hallucination.reviews.real} />
+          <Stat label="Respuestas chequeadas" value={data.hallucination.total_checks} />
+          <Stat label="Marcadas" value={data.hallucination.flagged} />
+          <Stat label="Tasa marcadas" value={pct(data.hallucination.flagged_rate)} />
+          <Stat label="Que ya revisaste" value={data.hallucination.reviews.total_reviewed} />
+          <Stat label="Falsas alarmas" value={data.hallucination.reviews.false_positive} />
+          <Stat label="Inventos reales" value={data.hallucination.reviews.real} />
         </div>
 
         <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
@@ -254,7 +254,7 @@ export default function CerebroAgentePage() {
           ))}
         </div>
 
-        <h3 style={{ ...adminFonts.label, marginTop: 16, marginBottom: 8 }}>{filteredFlagged.length} flagged en vista — clic para drill-down</h3>
+        <h3 style={{ ...adminFonts.label, marginTop: 16, marginBottom: 8 }}>{filteredFlagged.length} casos en vista — clic para abrir y dar veredicto</h3>
         {filteredFlagged.length === 0 ? <Empty>Sin alucinaciones que coincidan con el filtro</Empty> : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {filteredFlagged.map(f => (
@@ -281,35 +281,35 @@ export default function CerebroAgentePage() {
       </Section>
 
       {/* Tool usage bar chart */}
-      <Section title={`Tool usage (${data.tool_usage.total_calls} llamadas)`}>
-        <Sub>Si el coach habla de datos sin tool call, sospecha alucinación. Si una tool falla mucho, hay bug.</Sub>
+      <Section title={`¿Cuándo el coach consultó datos? (${data.tool_usage.total_calls} consultas)`}>
+        <Sub>Antes de responder, el coach puede consultar la última ronda, el historial, etc. Si habla de números sin haber consultado primero, sospecha invento. Si una consulta falla mucho, hay un bug a arreglar.</Sub>
         {data.tool_usage.by_tool.length === 0 ? <Empty>Sin tool calls registradas</Empty> : (
           <ToolBarChart tools={data.tool_usage.by_tool} />
         )}
       </Section>
 
       {/* Plan engagement */}
-      <Section title="Compromiso de planes (save_plan vs shadow extractor)">
-        <Sub>Sesiones divergentes = el shadow detectó lenguaje de plan pero save_plan NO se llamó. El coach habló de plan en prosa sin comprometerse — eso debe bajar con el tiempo.</Sub>
+      <Section title="¿El coach comprometió planes formales o solo habló?">
+        <Sub>El coach tiene una herramienta para asignar planes formales (con métrica medible y plazo). A veces &ldquo;habla de plan&rdquo; en prosa sin usar la herramienta — el sistema lo detecta. Esto debería bajar con el tiempo: si el coach asigna planes formales, podemos medir si funcionan.</Sub>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, marginTop: 12 }}>
-          <Stat label="save_plan" value={data.plan_engagement.save_plan_calls} />
-          <Stat label="superseded" value={data.plan_engagement.planes_superseded} />
-          <Stat label="resolved" value={data.plan_engagement.planes_resolved} />
-          <Stat label="shadow runs" value={data.plan_engagement.shadow_total_runs} />
-          <Stat label="shadow detected" value={data.plan_engagement.shadow_detections} />
-          <Stat label="ses. save_plan" value={data.plan_engagement.sessions_with_save_plan} />
-          <Stat label="ses. shadow only" value={Math.max(0, data.plan_engagement.sessions_with_shadow - data.plan_engagement.sessions_with_save_plan)} />
-          <Stat label="divergencia" value={pct(data.plan_engagement.divergence_rate)} />
+          <Stat label="Planes asignados" value={data.plan_engagement.save_plan_calls} />
+          <Stat label="Planes reemplazados" value={data.plan_engagement.planes_superseded} />
+          <Stat label="Planes completados" value={data.plan_engagement.planes_resolved} />
+          <Stat label="Respuestas analizadas" value={data.plan_engagement.shadow_total_runs} />
+          <Stat label="Habló de plan en prosa" value={data.plan_engagement.shadow_detections} />
+          <Stat label="Conversaciones c/ plan formal" value={data.plan_engagement.sessions_with_save_plan} />
+          <Stat label="Habló sin guardar" value={Math.max(0, data.plan_engagement.sessions_with_shadow - data.plan_engagement.sessions_with_save_plan)} />
+          <Stat label="% sin compromiso" value={pct(data.plan_engagement.divergence_rate)} />
         </div>
       </Section>
 
       {/* Metric gaps */}
-      <Section title="Métricas que el cerebro no puede computar">
-        <Sub>compliance=&apos;unknown&apos;: el plan tenía métrica que requiere datos no rastreados (ej. putts por hoyo). Idealmente baja a 0%.</Sub>
+      <Section title="Mediciones que la app todavía no puede hacer">
+        <Sub>El coach asignó planes con métricas como &quot;3-putts por ronda&quot; o &quot;tiros de juego corto&quot;, pero la app todavía no captura esos datos hoyo por hoyo. Cuando agreguemos esa captura, baja a 0.</Sub>
         <div style={{ display: 'flex', gap: 24, marginTop: 12 }}>
-          <Stat label="Outcomes unknown" value={data.metric_gaps.unknown_outcomes} />
-          <Stat label="Total outcomes" value={data.metric_gaps.total_outcomes} />
-          <Stat label="Tasa unknown" value={pct(data.metric_gaps.unknown_rate)} />
+          <Stat label="Mediciones sin evaluar" value={data.metric_gaps.unknown_outcomes} />
+          <Stat label="Mediciones totales" value={data.metric_gaps.total_outcomes} />
+          <Stat label="% sin evaluar" value={pct(data.metric_gaps.unknown_rate)} />
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
           {Object.entries(data.metric_gaps.unknown_by_metric).map(([metric, count]) => (
@@ -323,7 +323,8 @@ export default function CerebroAgentePage() {
         </div>
       </Section>
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 24, fontSize: 13, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 16, marginTop: 24, fontSize: 13, flexWrap: 'wrap' }}>
+        <Link href="/admin/sistema/taiger/live" style={navLink}>● Ver flujo en vivo</Link>
         <Link href="/admin/sistema/taiger/dashboard" style={navLink}>→ Efectividad de planes</Link>
         <Link href="/admin/sistema/taiger/playground" style={navLink}>→ Playground sandbox</Link>
       </div>
