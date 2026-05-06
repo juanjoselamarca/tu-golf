@@ -1,32 +1,27 @@
--- Verificar impacto del fix en indice de Juanjo + impacto global
+-- Pre-flight: ver el panorama de las 2 rondas de prueba antes de borrarlas
 SELECT jsonb_pretty(jsonb_build_object(
-  'juanjo_post_fix', (
-    SELECT jsonb_build_object(
-      'indice_golfers', indice_golfers,
-      'indice_golfers_updated_at', indice_golfers_updated_at,
-      'nivel', nivel
-    )
-    FROM profiles WHERE id = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
-  ),
-  'juanjo_diferenciales_que_cuentan_ahora', (
+  'rondas', (
     SELECT jsonb_agg(jsonb_build_object(
-      'fecha', played_at, 'gross', total_gross, 'holes', holes_played,
-      'diferencial', diferencial
-    ) ORDER BY diferencial ASC)
+      'id', r.id, 'codigo', r.codigo, 'fecha', r.fecha, 'estado', r.estado,
+      'jugadores', (
+        SELECT jsonb_agg(jsonb_build_object(
+          'id', j.id, 'nombre', j.nombre, 'user_id', j.user_id,
+          'es_juanjo', j.user_id = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
+        ))
+        FROM ronda_libre_jugadores j WHERE j.ronda_id = r.id
+      )
+    ))
+    FROM rondas_libres r
+    WHERE r.codigo IN ('1A5722', '3Q3H41')
+  ),
+  'historical_rounds_asociados_juanjo', (
+    SELECT jsonb_agg(jsonb_build_object(
+      'id', id, 'played_at', played_at, 'total_gross', total_gross,
+      'holes_played', holes_played, 'diferencial', diferencial,
+      'course_name', course_name
+    ))
     FROM historical_rounds
     WHERE user_id = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
-      AND diferencial IS NOT NULL
-      AND slope_rating IS NOT NULL
-      AND course_rating IS NOT NULL
-    LIMIT 20
-  ),
-  'usuarios_con_indice_que_cambio', (
-    SELECT COUNT(*)
-    FROM profiles
-    WHERE indice_golfers_updated_at >= NOW() - INTERVAL '5 minutes'
-  ),
-  'rondas_9h_recuperadas_globales', (
-    SELECT COUNT(*) FROM historical_rounds
-    WHERE diferencial IS NOT NULL AND total_gross < 60
+      AND played_at = '2026-05-01'
   )
-)) AS data;
+)) AS preflight;
