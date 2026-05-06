@@ -54,6 +54,8 @@ export default function SesionDetailPage() {
   const [ratingComment, setRatingComment] = useState('')
   const [ratingSubmitted, setRatingSubmitted] = useState(false)
   const [ratingSubmitting, setRatingSubmitting] = useState(false)
+  const [opener, setOpener] = useState<string | null>(null)
+  const [openerLoading, setOpenerLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -63,6 +65,21 @@ export default function SesionDetailPage() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Opener proactivo: cuando la sesion esta vacia, traer un saludo personalizado.
+  // No persiste en BD — si el usuario responde, se materializa como primer turno
+  // dentro de handleSend (ver materializacion del opener al armar newMessages).
+  useEffect(() => {
+    if (loadingSession) return
+    if (messages.length > 0) return
+    if (opener || openerLoading) return
+    setOpenerLoading(true)
+    fetch('/api/taiger/intro', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.opener) setOpener(d.opener) })
+      .catch(() => { /* fallback silencioso: queda el espacio vacio */ })
+      .finally(() => setOpenerLoading(false))
+  }, [loadingSession, messages.length, opener, openerLoading])
 
   useEffect(() => {
     const loadSession = async () => {
@@ -195,8 +212,15 @@ export default function SesionDetailPage() {
     if (!input.trim() || streaming) return
 
     const userMessage: ChatMessage = { role: 'user', content: input.trim() }
-    const newMessages = [...messages, userMessage]
+    // Si hay opener y es el primer turno, materializarlo como mensaje del coach
+    // antes del mensaje del usuario. Asi el LLM ve el contexto completo y la
+    // sesion persiste el flow natural.
+    const baseMessages: ChatMessage[] = (messages.length === 0 && opener)
+      ? [{ role: 'assistant', content: opener }]
+      : messages
+    const newMessages = [...baseMessages, userMessage]
     setMessages(newMessages)
+    setOpener(null)
     setInput('')
     sendFollowUp(newMessages)
   }
@@ -314,6 +338,48 @@ export default function SesionDetailPage() {
             {sessionDate}
           </span>
         </div>
+
+        {messages.length === 0 && opener && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-start',
+              marginBottom: 16,
+              gap: 8,
+            }}
+          >
+            <div style={{
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              background: 'rgba(196,153,42,0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 18,
+              flexShrink: 0,
+              marginTop: 2,
+            }}>
+              <TaigerIcon size={18} />
+            </div>
+            <div
+              className="taiger-md"
+              style={{
+                maxWidth: '80%',
+                padding: '12px 16px',
+                borderRadius: '14px 14px 14px 4px',
+                background: 'var(--bg-surface)',
+                color: 'var(--text)',
+                fontSize: 14,
+                lineHeight: 1.6,
+                wordBreak: 'break-word',
+              }}
+              data-testid="taiger-opener"
+            >
+              {opener}
+            </div>
+          </div>
+        )}
 
         {messages.map((msg, i) => (
           <div
