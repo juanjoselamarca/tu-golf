@@ -10,7 +10,7 @@
  * tAIger para ver sus fallas y aciertos".
  */
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
@@ -18,17 +18,28 @@ import { isAdmin } from '@/lib/admin'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const WINDOW_DAYS = 30
+const WINDOW_HOURS: Record<string, number> = {
+  '24h': 24,
+  '7d': 24 * 7,
+  '30d': 24 * 30,
+  '90d': 24 * 90,
+}
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!(await isAdmin(user?.id, supabase))) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 
+  const winParam = req.nextUrl.searchParams.get('window') ?? '30d'
+  const hours = WINDOW_HOURS[winParam] ?? WINDOW_HOURS['30d']
+  const isHourly = hours <= 24
+  const bucketSizeMs = isHourly ? 3600 * 1000 : 24 * 3600 * 1000
+  const bucketCount = isHourly ? 24 : Math.ceil(hours / 24)
+
   const admin = createAdminClient()
-  const since = new Date(Date.now() - WINDOW_DAYS * 24 * 3600 * 1000).toISOString()
+  const since = new Date(Date.now() - hours * 3600 * 1000).toISOString()
 
   // Pull todos los eventos en la ventana (max 5000 para no saturar; si crece,
   // pasar a vistas materializadas).
@@ -141,8 +152,61 @@ export async function GET() {
     ? toolEvts.length / totalResponses
     : 0
 
+  // -------- Time series (buckets por hora si window=24h, por dia si más) --------
+  const buckets: Array<{ start: number; hallu: number; tools: number; saveplan: number; shadowDetected: number }> = []
+  const now = Date.now()
+  for (let i = bucketCount - 1; i >= 0; i--) {
+    buckets.push({
+      start: now - (i + 1) * bucketSizeMs,
+      hallu: 0,
+      tools: 0,
+      saveplan: 0,
+      shadowDetected: 0,
+    })
+  }
+  function bucketIdx(ts: string): number {
+    const t = new Date(ts).getTime()
+    const offsetMs = now - t
+    const idx = bucketCount - 1 - Math.floor(offsetMs / bucketSizeMs)
+    return idx >= 0 && idx < bucketCount ? idx : -1
+  }
+  for (const e of evs) {
+    const idx = bucketIdx(e.created_at)
+    if (idx < 0) continue
+    if (e.type === 'hallucination_check' && e.payload?.flagged) buckets[idx].hallu++
+    if (e.type === 'tool_called') buckets[idx].tools++
+    if (e.type === 'plan_assigned') buckets[idx].saveplan++
+    if (e.type === 'extractor_shadow' && ((e.payload?.regex_extracted_count as number) ?? 0) > 0) buckets[idx].shadowDetected++
+  }
+  const timeseries = buckets.map(b => ({
+    label: isHourly
+      ? new Date(b.start).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+      : new Date(b.start).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' }),
+    hallu: b.hallu,
+    tools: b.tools,
+    saveplan: b.saveplan,
+    shadowDetected: b.shadowDetected,
+  }))
+
+  // -------- Reviews supervisados (false_positive_rate del validador D6) --------
+  const reviewEvts = evs.filter(e => e.type === 'hallucination_review')
+  const reviewedFP = reviewEvts.filter(e => e.payload?.verdict === 'false_positive').length
+  const reviewedReal = reviewEvts.filter(e => e.payload?.verdict === 'real').length
+  const reviewedSet = new Set(reviewEvts.map(e => (e.payload?.target_event_id as number) ?? -1))
+
+  // marcar cada recent flagged si ya fue revisado
+  const recentFlaggedAnnotated = recentFlagged.map(f => ({
+    ...f,
+    review: reviewedSet.has(f.id)
+      ? (reviewEvts.find(r => (r.payload?.target_event_id as number) === f.id)?.payload?.verdict as string)
+      : null,
+  }))
+
   return NextResponse.json({
-    window_days: WINDOW_DAYS,
+    window: winParam,
+    window_hours: hours,
+    bucket_size_hours: bucketSizeMs / (3600 * 1000),
+    timeseries,
     generated_at: new Date().toISOString(),
     totals: {
       events_in_window: evs.length,
@@ -156,7 +220,13 @@ export async function GET() {
       flagged: halluFlagged.length,
       flagged_rate: halluRate,
       flagged_by_kind: flaggedByKind,
-      recent_flagged: recentFlagged,
+      recent_flagged: recentFlaggedAnnotated,
+      reviews: {
+        total_reviewed: reviewEvts.length,
+        false_positive: reviewedFP,
+        real: reviewedReal,
+        false_positive_rate: reviewEvts.length > 0 ? reviewedFP / reviewEvts.length : null,
+      },
     },
     tool_usage: {
       total_calls: totalToolCalls,
