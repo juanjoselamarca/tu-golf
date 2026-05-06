@@ -7,6 +7,8 @@ import {
   getVsParNeto,
   getHolesPlayed,
   buildTimelineEvents,
+  getMissingHoles,
+  fillMissingHolesWithPar,
 } from './helpers'
 import type { Jugador } from '@/types/ronda'
 
@@ -156,5 +158,76 @@ describe('buildTimelineEvents', () => {
     expect(events[0].hole).toBeGreaterThanOrEqual(events[1].hole)
     expect(events[1].hole).toBeGreaterThanOrEqual(events[2].hole)
     expect(events[2].hole).toBeGreaterThanOrEqual(events[3].hole)
+  })
+})
+
+/* ── getMissingHoles ─────────────────────────────────────────────────── */
+describe('getMissingHoles', () => {
+  it('retorna [] cuando todos los hoyos tienen score', () => {
+    const scores = { 1: 4, 2: 5, 3: 4, 4: 5, 5: 5, 6: 3, 7: 3, 8: 4, 9: 5 }
+    expect(getMissingHoles(scores, 9)).toEqual([])
+  })
+
+  // Regression: bug del 30-abr-2026 que reportó Juanjo.
+  // Score=par en último hoyo de 9 → goToNextHole no rellena (no hay siguiente)
+  // → finalizar guarda 8/9 y el handicap calc descarta la ronda.
+  it('detecta el último hoyo faltante (regresión bug 30-abr Juanjo)', () => {
+    const scores = { 1: 4, 2: 5, 3: 4, 4: 5, 5: 5, 6: 3, 7: 3, 8: 4 }
+    expect(getMissingHoles(scores, 9)).toEqual([9])
+  })
+
+  it('detecta múltiples hoyos faltantes', () => {
+    const scores = { 1: 4, 5: 5, 9: 4 }
+    expect(getMissingHoles(scores, 9)).toEqual([2, 3, 4, 6, 7, 8])
+  })
+
+  it('soporta ronda 18h con varios huecos', () => {
+    const scores = { 1: 4, 18: 5 }
+    expect(getMissingHoles(scores, 18)).toHaveLength(16)
+  })
+
+  it('tolera keys string y number', () => {
+    const scores = { 1: 4, '2': 5, 3: 4 } as Record<string | number, number>
+    expect(getMissingHoles(scores, 3)).toEqual([])
+  })
+
+  it('retorna 1..N para objeto vacío', () => {
+    expect(getMissingHoles({}, 9)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+  })
+
+  it('cuenta score=0 como presente (no missing)', () => {
+    // 0 es valor válido en algunos formatos (Match Play "Pickup"), no es null
+    expect(getMissingHoles({ 1: 0, 2: 4 }, 2)).toEqual([])
+  })
+})
+
+/* ── fillMissingHolesWithPar ─────────────────────────────────────────── */
+describe('fillMissingHolesWithPar', () => {
+  it('rellena los hoyos faltantes con el par del parMap', () => {
+    const scores = { 1: 4, 2: 5 }
+    const parMap = { 1: 4, 2: 5, 3: 4, 4: 5 }
+    expect(fillMissingHolesWithPar(scores, [3, 4], parMap)).toEqual({ 1: 4, 2: 5, 3: 4, 4: 5 })
+  })
+
+  it('default a par 4 si parMap no tiene el hoyo', () => {
+    expect(fillMissingHolesWithPar({}, [5], {})).toEqual({ 5: 4 })
+  })
+
+  it('no muta el input', () => {
+    const scores = { 1: 4 }
+    const next = fillMissingHolesWithPar(scores, [2], { 2: 3 })
+    expect(scores).toEqual({ 1: 4 })
+    expect(next).toEqual({ 1: 4, 2: 3 })
+  })
+
+  it('preserva scores existentes', () => {
+    const scores = { 1: 4, 2: 6, 3: 3 }
+    const parMap = { 1: 4, 2: 4, 3: 4, 4: 5 }
+    expect(fillMissingHolesWithPar(scores, [4], parMap)).toEqual({ 1: 4, 2: 6, 3: 3, 4: 5 })
+  })
+
+  it('lista vacía de missing → mismo objeto efectivo', () => {
+    const scores = { 1: 4 }
+    expect(fillMissingHolesWithPar(scores, [], { 1: 4 })).toEqual({ 1: 4 })
   })
 })

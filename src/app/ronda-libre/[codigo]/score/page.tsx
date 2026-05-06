@@ -43,6 +43,8 @@ import {
   haptic,
   getChipStyle,
   getChipLabel,
+  getMissingHoles,
+  fillMissingHolesWithPar,
 } from '@/lib/ronda/helpers'
 import { saveScores as lsSave, loadScores as lsLoad, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { ShareMenu } from '@/components/ronda/ShareMenu'
@@ -499,14 +501,26 @@ function ScorePageContent() {
     }
     setConfirmFinalize(false)
     haptic(30)
-    // Guardar scores tal como están — hoyos sin marcar quedan como null
-    await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
+    // Bug fix 30-abr-2026: el último hoyo en par no se persistía. La UI mostraba
+    // par como placeholder visual (sensación de registrado), pero el state era
+    // undefined porque sin tap +/- nunca se disparaba handleScoreChange. Y como
+    // goToNextHole no corre en el último hoyo, el auto-fill no aplicaba.
+    // Detectar todos los hoyos sin marcar y rellenarlos con par antes de guardar.
+    const currentScores = scores[activeJugadorId] ?? {}
+    const missing = getMissingHoles(currentScores, ronda.holes ?? 18)
+    const playerScores = missing.length > 0
+      ? fillMissingHolesWithPar(currentScores, missing, parMap)
+      : currentScores
+    if (missing.length > 0) {
+      setScores(prev => ({ ...prev, [activeJugadorId]: playerScores }))
+      lsSave(codigo, activeJugadorId, playerScores)
+    }
+    await saveScores(activeJugadorId, playerScores)
     const supabase = createClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
     await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
 
     // Save to historical_rounds — array de scores en orden de hoyo (1..N)
-    const playerScores = scores[activeJugadorId] ?? {}
     const totalHolesForSave = ronda.holes ?? 18
     const scoresArray: (number | null)[] = Array.from({ length: totalHolesForSave }, (_, i) => {
       const h = i + 1
@@ -790,6 +804,12 @@ function ScorePageContent() {
   const totalOverUnder = totalGross - totalParPlayed
   const holesPlayed = Object.keys(scores[activeJugadorId] ?? {}).length
   const canFinalize = holesPlayed >= 9 || currentHoleIdx >= totalHoles - 1
+  // Hoyos del rango 1..totalHoles que aún no tienen score. El finalize hará
+  // auto-fill con par; el botón anuncia cuántos son para evitar el bug del
+  // último hoyo en par (Juanjo 30-abr-2026).
+  const missingCount = activeJugadorId
+    ? getMissingHoles(scores[activeJugadorId] ?? {}, totalHoles).length
+    : 0
 
   // FIX #6: Front 9 / Back 9 totals
   let f9Gross = 0, f9Par = 0, f9Count = 0
@@ -1533,7 +1553,13 @@ function ScorePageContent() {
               touchAction: 'manipulation', letterSpacing: '0.01em',
               transition: 'background 0.3s ease',
             }}
-          >{confirmFinalize ? (holesPlayed < totalHoles ? `\u00bfGuardar ronda parcial (${holesPlayed}/${totalHoles} hoyos)?` : 'Confirmar finalizacion') : 'Finalizar ronda \u2713'}</button>
+          >{confirmFinalize
+              ? missingCount > 0
+                ? `\u00bfMarcar ${missingCount} hoyo${missingCount > 1 ? 's' : ''} como par y finalizar?`
+                : holesPlayed < totalHoles
+                  ? `\u00bfGuardar ronda parcial (${holesPlayed}/${totalHoles} hoyos)?`
+                  : 'Confirmar finalizacion'
+              : 'Finalizar ronda \u2713'}</button>
         )}
       </div>
 

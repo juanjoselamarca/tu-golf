@@ -101,6 +101,43 @@ export function getHolesPlayed(scores: Record<string, number>, holes: number): n
   return count
 }
 
+/**
+ * Devuelve los hoyos 1..totalHoles que NO tienen score registrado.
+ * Tolera keys string y number en el objeto scores.
+ *
+ * Existe porque el flujo de scoring rellena con par implícito al pasar de hoyo
+ * (`goToNextHole` auto-fill), pero en el ÚLTIMO hoyo no hay "siguiente", así
+ * que si el usuario hace par y no toca +/-, el último hoyo nunca se persiste.
+ * Usar antes de finalizar para detectar y rellenar los hoyos pendientes.
+ */
+export function getMissingHoles(
+  scores: Record<string | number, number>,
+  totalHoles: number,
+): number[] {
+  const missing: number[] = []
+  for (let h = 1; h <= totalHoles; h++) {
+    const v = scores[h] ?? scores[String(h)]
+    if (v == null) missing.push(h)
+  }
+  return missing
+}
+
+/**
+ * Devuelve un nuevo objeto de scores con los hoyos faltantes rellenados con
+ * su par (default 4 si parMap no tiene la entrada). No muta el input.
+ */
+export function fillMissingHolesWithPar(
+  scores: Record<number, number>,
+  missingHoles: number[],
+  parMap: Record<number, number>,
+): Record<number, number> {
+  const next: Record<number, number> = { ...scores }
+  for (const h of missingHoles) {
+    next[h] = parMap[h] ?? 4
+  }
+  return next
+}
+
 export function buildTimelineEvents(
   jugadores: Jugador[],
   holes: number,

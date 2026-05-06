@@ -13,6 +13,7 @@ import { parTotalEstandar } from '@/golf/core/round-score'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { calcularScramble, calcularFoursome, teePlayerEnHoyo } from '@/golf/formats'
 import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
+import { getMissingHoles, fillMissingHolesWithPar } from '@/lib/ronda/helpers'
 import TeamLeaderboard from '@/components/TeamLeaderboard'
 
 /* ── Helpers ── */
@@ -536,11 +537,24 @@ export default function ScoreGrupoPage() {
     if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
     setFinalizing(true)
     haptic(30)
-    // Guardar scores tal como están — hoyos sin marcar quedan como null/vacío
+    // Bug fix 30-abr-2026: si el último hoyo se jugó en par y el usuario no
+    // tap +/-, el state queda undefined (la UI mostraba par como placeholder
+    // visual, dándole sensación de registrado). goToNextHole sí auto-rellena
+    // con par, pero en el último hoyo no hay siguiente. Detectar todos los
+    // hoyos sin marcar y completarlos con par antes de persistir.
+    const filledScores: typeof scores = { ...scores }
+    for (const j of ronda.ronda_libre_jugadores) {
+      const missing = getMissingHoles(filledScores[j.id] ?? {}, ronda.holes)
+      if (missing.length > 0) {
+        filledScores[j.id] = fillMissingHolesWithPar(filledScores[j.id] ?? {}, missing, parMap)
+      }
+    }
+    setScores(filledScores)
+    lsSave(codigo, filledScores)
     const supabase = createClient()
     const savePromises = ronda.ronda_libre_jugadores.map(j => {
       const scoresObj: Record<string, number> = {}
-      for (const [k, v] of Object.entries(scores[j.id] ?? {})) {
+      for (const [k, v] of Object.entries(filledScores[j.id] ?? {})) {
         if (v != null) scoresObj[String(k)] = v
       }
       return supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
@@ -556,7 +570,7 @@ export default function ScoreGrupoPage() {
       try {
         // Para Scramble/Foursome: usar score del equipo (es el score real de la ronda)
         const isTeamSharedScore = ['scramble', 'foursome'].includes(ronda.formato_juego)
-        let playerScores: Record<string | number, number> = scores[j.id] ?? {}
+        let playerScores: Record<string | number, number> = filledScores[j.id] ?? {}
         if (isTeamSharedScore) {
           const equipoDelJugador = teamEquipos.find(eq => eq.jugadorIds.includes(j.id))
           if (equipoDelJugador) playerScores = equipoDelJugador.scores
@@ -681,6 +695,11 @@ export default function ScoreGrupoPage() {
   }
   const maxThru = Math.max(...jugadores.map(j => holesWithScores(j.id)), 0)
   const canFinalize = maxThru >= 9 || currentHoleIdx >= totalHoles - 1
+  // Total de hoyos sin marcar entre TODOS los jugadores (no solo el peor caso).
+  // Si hay > 0, el botón de finalizar pide confirmar el auto-fill con par.
+  const totalMissingScores = jugadores.reduce(
+    (sum, j) => sum + getMissingHoles(scores[j.id] ?? {}, totalHoles).length, 0
+  )
 
   // Player totals with OUT/IN breakdown
   const getPlayerTotal = (jId: string) => {
@@ -1218,7 +1237,13 @@ export default function ScoreGrupoPage() {
           >
             {finalizing
               ? 'Finalizando...'
-              : confirmFinalize ? (maxThru < totalHoles ? `\u00bfGuardar ronda parcial (${maxThru}/${totalHoles} hoyos)?` : '\u00bfFinalizar ronda?') : 'Finalizar ronda \u2713'}
+              : confirmFinalize ? (
+                  totalMissingScores > 0
+                    ? `\u00bfMarcar ${totalMissingScores} hoyo${totalMissingScores > 1 ? 's' : ''} como par y finalizar?`
+                    : maxThru < totalHoles
+                      ? `\u00bfGuardar ronda parcial (${maxThru}/${totalHoles} hoyos)?`
+                      : '\u00bfFinalizar ronda?'
+                ) : 'Finalizar ronda \u2713'}
           </button>
         )}
       </div>
