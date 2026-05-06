@@ -149,7 +149,9 @@ export async function POST(req: NextRequest) {
               const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
               for (const block of resp.content) {
                 if (block.type === 'tool_use') {
+                  const t0 = Date.now()
                   const result = await executeTool(block.name, block.input as Record<string, unknown>, toolCtx)
+                  const ms = Date.now() - t0
                   const serialized = JSON.stringify(result)
                   allToolResultStrings.push(serialized)
                   toolResults.push({
@@ -157,6 +159,25 @@ export async function POST(req: NextRequest) {
                     tool_use_id: block.id,
                     content: serialized,
                   })
+                  // Instrumentacion: emit tool_called para el cerebro del agente
+                  // (sin bloquear el flow si falla la auditoria).
+                  try {
+                    const adminEvt = createAdminClient()
+                    await adminEvt.from('coach_events').insert({
+                      user_id: user.id,
+                      type: 'tool_called',
+                      payload: {
+                        tool_name: block.name,
+                        ok: result.ok,
+                        error: result.ok ? null : result.error,
+                        ms,
+                        input_keys: Object.keys((block.input as Record<string, unknown>) ?? {}),
+                      },
+                      related_session_id: active.id,
+                    })
+                  } catch (e) {
+                    console.error('[tAIger/chat] tool_called event error:', e)
+                  }
                 }
               }
               loopMessages.push({ role: 'user', content: toolResults })
