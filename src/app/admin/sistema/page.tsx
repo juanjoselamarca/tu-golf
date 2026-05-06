@@ -251,6 +251,53 @@ export default function SistemaPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      {/* Section: Cerebro tAIger+ — entrada visible al observability del agente */}
+      <section>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h2 style={{ ...sectionTitle, marginBottom: 0 }}>Cerebro de tAIger+</h2>
+          <span style={{ ...adminFonts.mono, fontSize: '11px', color: adminColors.gray }}>
+            Auditoría del agente
+          </span>
+        </div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gap: '12px',
+        }}>
+          <a href="/admin/sistema/taiger" style={{
+            ...adminCard,
+            textDecoration: 'none',
+            display: 'block',
+            transition: 'border-color 200ms',
+            borderColor: adminColors.gold,
+          }}>
+            <div style={{ ...adminFonts.label, marginBottom: '6px' }}>Vista del agente</div>
+            <div style={{ ...adminFonts.body, fontSize: '13px', color: adminColors.ivory, marginBottom: '8px', lineHeight: 1.4 }}>
+              Alucinaciones, tool usage, divergencias save_plan vs shadow.
+            </div>
+            <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Auditar fallas/aciertos →</div>
+          </a>
+          <a href="/admin/sistema/taiger/dashboard" style={{
+            ...adminCard, textDecoration: 'none', display: 'block',
+          }}>
+            <div style={{ ...adminFonts.label, marginBottom: '6px' }}>Efectividad de planes</div>
+            <div style={{ ...adminFonts.body, fontSize: '13px', color: adminColors.ivory, marginBottom: '8px', lineHeight: 1.4 }}>
+              KPIs agregados: target reached, adherence, días a resolución, por patrón.
+            </div>
+            <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Ver KPIs →</div>
+          </a>
+          <a href="/admin/usuarios" style={{
+            ...adminCard, textDecoration: 'none', display: 'block',
+          }}>
+            <div style={{ ...adminFonts.label, marginBottom: '6px' }}>Drill por usuario</div>
+            <div style={{ ...adminFonts.body, fontSize: '13px', color: adminColors.ivory, marginBottom: '8px', lineHeight: 1.4 }}>
+              Elegir un usuario en /admin/usuarios y luego abrir su cerebro en /admin/sistema/taiger/[id].
+            </div>
+            <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Elegir usuario →</div>
+          </a>
+        </div>
+      </section>
+
       {/* Section: Health Check Suite */}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
