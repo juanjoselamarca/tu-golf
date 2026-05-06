@@ -323,8 +323,9 @@ export default function CerebroAgentePage() {
         </div>
       </Section>
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 24, fontSize: 13 }}>
+      <div style={{ display: 'flex', gap: 12, marginTop: 24, fontSize: 13, flexWrap: 'wrap' }}>
         <Link href="/admin/sistema/taiger/dashboard" style={navLink}>→ Efectividad de planes</Link>
+        <Link href="/admin/sistema/taiger/playground" style={navLink}>→ Playground sandbox</Link>
       </div>
 
       {/* Drill panel */}
