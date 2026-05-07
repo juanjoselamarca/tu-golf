@@ -1,0 +1,142 @@
+name: E2E Trigger (admin)
+
+# Workflow disparado desde /admin/e2e via GitHub API workflow_dispatch.
+# El run_id viene del row insertado en la tabla `e2e_runs` de Supabase.
+# Al terminar (o fallar), POSTea resultados de vuelta a
+# /api/admin/e2e/runs/[id]/callback con header x-e2e-callback-secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'UUID del row en e2e_runs'
+        required: true
+        type: string
+      base_url:
+        description: 'URL contra la que correr Playwright'
+        required: false
+        type: string
+        default: 'https://golfersplus.vercel.app'
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      RUN_ID: ${{ inputs.run_id }}
+      BASE_URL: ${{ inputs.base_url }}
+      CALLBACK_URL: ${{ vars.E2E_CALLBACK_URL || 'https://golfersplus.vercel.app' }}/api/admin/e2e/runs/${{ inputs.run_id }}/callback
+      CALLBACK_SECRET: ${{ secrets.E2E_CALLBACK_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Notificar inicio (running)
+        run: |
+          curl -fsS -X POST "$CALLBACK_URL" \
+            -H "x-e2e-callback-secret: $CALLBACK_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"status\":\"running\",\"github_run_id\":${{ github.run_id }},\"github_run_url\":\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",\"commit_sha\":\"${{ github.sha }}\"}" \
+            || echo "Callback inicio falló (no fatal — la corrida sigue)"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        id: playwright
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ env.BASE_URL }}
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+        run: |
+          npx playwright test --reporter=json > playwright-output.json 2> playwright-stderr.log || true
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Parse results y armar payload
+        id: parse
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+
+          let raw;
+          try {
+            raw = JSON.parse(fs.readFileSync('playwright-output.json', 'utf8'));
+          } catch (err) {
+            // Output corrupto → marcar como error.
+            const stderr = (() => { try { return fs.readFileSync('playwright-stderr.log', 'utf8'); } catch { return ''; } })();
+            const payload = {
+              status: 'error',
+              error_message: 'Playwright no produjo output JSON parseable.\n\n' + stderr.slice(0, 2000),
+            };
+            fs.writeFileSync('callback-payload.json', JSON.stringify(payload));
+            return;
+          }
+
+          const tests = [];
+          const walk = (suite, prefix = '') => {
+            for (const s of suite.suites ?? []) walk(s, prefix + (s.title ? s.title + ' › ' : ''));
+            for (const spec of suite.specs ?? []) {
+              for (const t of spec.tests ?? []) {
+                const result = t.results?.[0];
+                if (!result) continue;
+                tests.push({
+                  name: prefix + spec.title,
+                  status: result.status,
+                  duration_ms: result.duration,
+                  file: spec.file,
+                  error: result.errors?.[0]?.message?.slice(0, 2000),
+                });
+              }
+            }
+          };
+          for (const s of raw.suites ?? []) walk(s);
+
+          const summary = {
+            total: tests.length,
+            passed: tests.filter(t => t.status === 'passed').length,
+            failed: tests.filter(t => t.status === 'failed' || t.status === 'timedOut' || t.status === 'interrupted').length,
+            skipped: tests.filter(t => t.status === 'skipped').length,
+          };
+
+          const status = summary.failed > 0 ? 'failed' : 'passed';
+          const payload = { status, summary, results: tests };
+          fs.writeFileSync('callback-payload.json', JSON.stringify(payload));
+          console.log(`E2E: ${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.skipped} skipped`);
+          EOF
+
+      - name: Notificar resultado
+        if: always()
+        run: |
+          if [ ! -f callback-payload.json ]; then
+            curl -fsS -X POST "$CALLBACK_URL" \
+              -H "x-e2e-callback-secret: $CALLBACK_SECRET" \
+              -H "Content-Type: application/json" \
+              -d '{"status":"error","error_message":"Workflow crasheó antes de generar payload."}' \
+              || echo "Callback final también falló"
+          else
+            curl -fsS -X POST "$CALLBACK_URL" \
+              -H "x-e2e-callback-secret: $CALLBACK_SECRET" \
+              -H "Content-Type: application/json" \
+              --data @callback-payload.json
+          fi
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ inputs.run_id }}
+          path: playwright-report/
+          retention-days: 7
