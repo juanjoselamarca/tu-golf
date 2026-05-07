@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TaigerContext } from './prompts'
+import { parPerHoleArray, parPlayedFromRound } from '@/golf/core/compare'
 
 // PlayerContext es un alias de TaigerContext (definido en prompts.ts) para
 // que buildContextString pueda consumir directo el output de buildPlayerContext.
@@ -39,7 +40,7 @@ export async function buildPlayerContext(
   const [roundsRes, patternsRes, sessionsRes, recommendationsRes, insightsRes, activePlanRes, recentOutcomesRes, planHistoryRes] = await Promise.all([
     // 100% de las rondas — el bug previo de .limit(50) capeaba stats agregados.
     supabase.from('historical_rounds')
-      .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, courses(par_total)')
+      .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, par_per_hole, courses(par_total)')
       .eq('user_id', userId)
       .order('played_at', { ascending: false }),
     supabase.from('player_patterns')
@@ -134,11 +135,17 @@ export async function buildPlayerContext(
   for (const r of validRounds) {
     const scores = r.scores as (number | null)[]
     if (!Array.isArray(scores)) continue
+    // par_per_hole denormalizado en la ronda (parser lo guarda al importar).
+    // Sin esto, el conteo asumia par 4 → eagle en par 3 (score 2) contado como
+    // eagle, birdie en par 5 (score 4) contado como par. tAIger+ recibia sesgo.
+    const roundPars = (r as { par_per_hole?: Record<string, number> | null }).par_per_hole ?? null
     for (let i = 0; i < scores.length; i++) {
       const s = scores[i]
       if (s == null) continue
-      if (s <= 2) totalEagles++
-      if (s === 3) totalBirdies++
+      const par = (roundPars?.[String(i + 1)] ?? 4)
+      const diff = s - par
+      if (diff <= -2) totalEagles++
+      else if (diff === -1) totalBirdies++
       if (i < 9) { front9Sum += s; front9Count++ }
       else        { back9Sum  += s; back9Count++ }
     }
@@ -172,13 +179,21 @@ export async function buildPlayerContext(
     const playedScores = scoresArr.filter(s => s != null && s > 0).length
     const expectedHoles = r.holes_played ?? (scoresArr.length || 18)
     const playedHoles = playedScores > 0 ? playedScores : expectedHoles
+    const roundParPerHole = (r as { par_per_hole?: Record<string, number> | null }).par_per_hole ?? null
     const coursePars = r.course_id ? courseParsMap[r.course_id] : null
     const coursePar = (r as { courses?: { par_total?: number | null } | null })?.courses?.par_total ?? null
 
     // Regla del golf: vsPar = gross - par REAL de hoyos jugados.
-    // Prioridad: pars hoyo a hoyo > escalado proporcional > 4 por hoyo.
+    // Prioridad:
+    //   1) par_per_hole denormalizado en la ronda (parser lo guarda al importar — autoridad)
+    //   2) course_holes lookup (depende de course_id valido y matcheo)
+    //   3) escalado proporcional desde courses.par_total
+    //   4) playedHoles * 4 (ultimo recurso)
     let parPlayed: number
-    if (coursePars && scoresArr.length > 0) {
+    const fromRound = parPlayedFromRound(scoresArr, roundParPerHole)
+    if (fromRound != null) {
+      parPlayed = fromRound
+    } else if (coursePars && scoresArr.length > 0) {
       let sum = 0
       for (let i = 0; i < scoresArr.length; i++) {
         const s = scoresArr[i]
@@ -191,6 +206,19 @@ export async function buildPlayerContext(
       parPlayed = playedHoles * 4
     }
 
+    // Para el contexto del LLM, expone los pares hoyo a hoyo cuando hay datos
+    // (priorizando par_per_hole de la ronda; sino el lookup de course_holes).
+    let coursePartsForLLM: Record<number, number> | null = null
+    if (idx < 10) {
+      const arr = parPerHoleArray(roundParPerHole, scoresArr.length || expectedHoles)
+      if (arr) {
+        coursePartsForLLM = {}
+        for (let i = 0; i < arr.length; i++) coursePartsForLLM[i + 1] = arr[i]
+      } else if (coursePars) {
+        coursePartsForLLM = coursePars
+      }
+    }
+
     return {
       course_name: r.course_name,
       course_id: r.course_id,
@@ -199,7 +227,7 @@ export async function buildPlayerContext(
       holes_played: playedHoles,
       over_under: r.total_gross - parPlayed,
       scores: idx < 10 ? scoresArr : undefined,
-      course_pars: idx < 10 && r.course_id ? (coursePars ?? null) : undefined,
+      course_pars: coursePartsForLLM ?? undefined,
     }
   })
 
