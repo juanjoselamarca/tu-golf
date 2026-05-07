@@ -111,10 +111,13 @@ export async function decideForUser(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<DecisionOutput> {
+  // NOTE: player_patterns usa first_detected (no created_at). Lo aliamos
+  // como created_at para el decision engine, que ranea ties por antigüedad.
+  // coach_plans sí tiene created_at.
   const [patternsRes, planRes] = await Promise.all([
     supabase
       .from('player_patterns')
-      .select('id, pattern_type, confidence, data_points, status, created_at')
+      .select('id, pattern_type, confidence, data_points, status, first_detected')
       .eq('user_id', userId)
       .eq('status', 'active'),
     supabase
@@ -131,7 +134,7 @@ export async function decideForUser(
     confidence: number
     data_points: number
     status: string
-    created_at: string
+    first_detected: string
   }>
 
   const enriched: PatternRow[] = rawPatterns
@@ -145,7 +148,7 @@ export async function decideForUser(
         data_points: row.data_points,
         severity: def.severity,
         status: row.status,
-        created_at: row.created_at,
+        created_at: row.first_detected,
       } satisfies PatternRow
     })
     .filter((x): x is PatternRow => x !== null)
