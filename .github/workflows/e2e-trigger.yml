@@ -92,11 +92,19 @@ jobs:
         continue-on-error: true
         env:
           PLAYWRIGHT_BASE_URL: ${{ env.BASE_URL }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+          # global-setup.ts y los specs usan E2E_TEST_USER_EMAIL/PASSWORD —
+          # los GH secrets se llaman E2E_USER_EMAIL/PASSWORD para evitar
+          # confusión con E2E (end-to-end) en la naming convention. Mapeamos.
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
         run: |
           npx playwright test --reporter=json > playwright-output.json 2> playwright-stderr.log || true
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          PT_EXIT=$?
+          echo "exit_code=$PT_EXIT" >> "$GITHUB_OUTPUT"
+          echo "=== Playwright output (first 50 lines) ==="
+          head -50 playwright-output.json || echo "(empty)"
+          echo "=== Playwright stderr (first 50 lines) ==="
+          head -50 playwright-stderr.log || echo "(empty)"
 
       - name: Parse results y armar payload
         id: parse
