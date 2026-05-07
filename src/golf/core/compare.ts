@@ -69,6 +69,55 @@ export function splitByHoles<T extends RoundForCompare>(rounds: T[]): { rounds18
 }
 
 /**
+ * Convierte par_per_hole (JSONB indexado por número de hoyo como string)
+ * a array posicional. Devuelve undefined si la fuente está vacía o ausente.
+ *
+ * Caso: import-round / parser guarda { "1": 4, "2": 5, "3": 3, ... }.
+ * Las pantallas necesitan [4, 5, 3, ...] alineado con scores[].
+ */
+export function parPerHoleArray(
+  parPerHole: Record<string, number> | null | undefined,
+  length: number
+): number[] | undefined {
+  if (!parPerHole) return undefined
+  const arr: number[] = []
+  let hasAny = false
+  for (let i = 1; i <= length; i++) {
+    const v = parPerHole[String(i)]
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      arr.push(v); hasAny = true
+    } else {
+      arr.push(4) // fallback puntual por hoyo, mantiene alineación
+    }
+  }
+  return hasAny ? arr : undefined
+}
+
+/**
+ * Calcula el par jugado real de una ronda usando par_per_hole + scores.
+ * Suma SOLO los pares de hoyos con score (no null/0).
+ * Devuelve undefined si no hay par_per_hole disponible.
+ */
+export function parPlayedFromRound(
+  scores: (number | null)[] | null | undefined,
+  parPerHole: Record<string, number> | null | undefined
+): number | undefined {
+  if (!scores || !parPerHole) return undefined
+  let sum = 0; let hasAny = false
+  for (let i = 0; i < scores.length; i++) {
+    const s = scores[i]
+    if (s == null || s === 0) continue
+    const p = parPerHole[String(i + 1)]
+    if (typeof p === 'number' && Number.isFinite(p)) {
+      sum += p; hasAny = true
+    } else {
+      sum += 4 // fallback puntual
+    }
+  }
+  return hasAny ? sum : undefined
+}
+
+/**
  * Cuenta birdies, eagles, pars, bogeys y dobles usando par REAL por hoyo.
  * Reemplaza la lógica buggy que asumía par 4 para todos los hoyos.
  */

@@ -9,6 +9,7 @@ import { formatLabel } from '@/golf/core/rules'
 import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components/Scorecard'
 import HoleBar from '@/components/HoleBar'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+import { parPerHoleArray } from '@/golf/core/compare'
 import { Radio, ClipboardList, Trophy, ChevronDown, AlertTriangle } from '@/components/icons'
 
 /* ─── Datos ────────────────────────────────────────────── */
@@ -51,6 +52,7 @@ interface HistoricalRound {
   created_at:   string
   formato_juego?: string
   modo_juego?:    string
+  par_per_hole?:  Record<string, number> | null
 }
 
 interface BestRound {
@@ -223,7 +225,8 @@ function HistorialContent() {
   let aggBirdies = 0, aggEagles = 0
   let ovSum = 0, ovCount = 0
   for (const r of rounds) {
-    const s = computeStats(r.scores)
+    const holePars = parPerHoleArray(r.par_per_hole, r.scores?.length ?? 0)
+    const s = computeStats(r.scores, holePars)
     if (!s) continue
     aggBirdies += s.birdies
     aggEagles  += s.eagles
@@ -301,7 +304,7 @@ function HistorialContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('historical_rounds')
-        .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego')
+        .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego, par_per_hole')
         .order('played_at', { ascending: false })
         .limit(500)
       if (error) { setLoadError(true); return }
@@ -838,7 +841,8 @@ function HistorialContent() {
 
                 <div style={{ ...cardStyle }}>
                   {group.rounds.map((r, rIdx) => {
-                    const stats   = computeStats(r.scores)
+                    const holePars = parPerHoleArray(r.par_per_hole, r.scores?.length ?? 0)
+                    const stats   = computeStats(r.scores, holePars)
                     const dateStr = formatDateShort(r.played_at)
                     const holes   = r.holes_played ?? r.scores?.filter(Boolean).length ?? 18
                     const par     = stats?.holePars ? stats.holePars.reduce((a: number, b: number) => a + b, 0) : (holes <= 9 ? 36 : 72)

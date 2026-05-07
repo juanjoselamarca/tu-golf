@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { BarChart3 } from '@/components/icons'
-import { vsPar, sortRoundsByPerformance, countByResult, splitByHoles, bestRoundByVsPar } from '@/golf/core/compare'
+import { vsPar, sortRoundsByPerformance, countByResult, splitByHoles, bestRoundByVsPar, parPerHoleArray, parPlayedFromRound } from '@/golf/core/compare'
 import { formatOverUnder } from '@/golf/core/rules'
 import { SCORE_STYLES } from '@/golf/core/colors'
 import {
@@ -45,6 +45,9 @@ interface Round {
   notes: string | null
   privacy: string
   created_at: string
+  holes_played?: number | null
+  par_per_hole?: Record<string, number> | null
+  par_played?: number | null
 }
 
 interface ProfileIndex {
@@ -80,7 +83,7 @@ export default function StatsPage() {
     const [roundsRes, profileRes] = await Promise.all([
       supabase
         .from('historical_rounds')
-        .select('id, course_name, tee_color, played_at, scores, total_gross, notes, privacy, created_at')
+        .select('id, course_name, tee_color, played_at, scores, total_gross, notes, privacy, created_at, holes_played, par_per_hole')
         .order('played_at', { ascending: true }),
       supabase
         .from('profiles')
@@ -89,7 +92,15 @@ export default function StatsPage() {
         .single(),
     ])
 
-    setAllRounds((roundsRes.data as Round[]) || [])
+    // Enriquecer rondas con par_played derivado de par_per_hole.
+    // vsPar() de compare.ts usa par_played con prioridad sobre par_total,
+    // dando metricas correctas en pares mixtos (3/4/5) y rondas parciales.
+    const raw = (roundsRes.data as Round[]) || []
+    const enriched = raw.map(r => ({
+      ...r,
+      par_played: parPlayedFromRound(r.scores, r.par_per_hole) ?? null,
+    }))
+    setAllRounds(enriched)
     if (profileRes.data) {
       setProfileIndex(profileRes.data as ProfileIndex)
     }
@@ -119,7 +130,9 @@ export default function StatsPage() {
     let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0
     for (const r of rounds) {
       if (!r.scores || !Array.isArray(r.scores)) continue
-      const holePars = Array(r.scores.length).fill(4) // fallback: par 4 por hoyo
+      // par_per_hole real cuando viene del parser; fallback a par 4 solo si falta.
+      const holePars = parPerHoleArray(r.par_per_hole, r.scores.length)
+        ?? Array(r.scores.length).fill(4)
       const counts = countByResult(r.scores, holePars)
       eagles += counts.eagles
       birdies += counts.birdies

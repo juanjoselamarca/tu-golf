@@ -6,6 +6,8 @@ import {
   topRoundsByPerformance,
   splitByHoles,
   countByResult,
+  parPerHoleArray,
+  parPlayedFromRound,
   type RoundForCompare,
 } from '../golf/core/compare'
 
@@ -144,5 +146,70 @@ describe('countByResult', () => {
     const scores = [4]
     const result = countByResult(scores, [])
     expect(result.pars).toBe(1)
+  })
+})
+
+describe('parPerHoleArray', () => {
+  it('convierte JSONB { "1": 4, "2": 5, ... } a array posicional', () => {
+    const input = { '1': 4, '2': 5, '3': 3, '4': 4 }
+    expect(parPerHoleArray(input, 4)).toEqual([4, 5, 3, 4])
+  })
+
+  it('REGRESIÓN: par_per_hole real evita falso birdie en par 5 jugado en 5', () => {
+    // Bug audit: parser/pantallas asumian par 4 → par 5 jugado en 5 = "bogey".
+    // Con par_per_hole real, el resultado es correcto (par neutro).
+    const pars = parPerHoleArray({ '1': 5 }, 1)!
+    const result = countByResult([5], pars)
+    expect(result.pars).toBe(1)
+    expect(result.bogeys).toBe(0)
+  })
+
+  it('devuelve undefined si par_per_hole es null/undefined/vacio', () => {
+    expect(parPerHoleArray(null, 18)).toBeUndefined()
+    expect(parPerHoleArray(undefined, 18)).toBeUndefined()
+    expect(parPerHoleArray({}, 18)).toBeUndefined()
+  })
+
+  it('rellena con par 4 si faltan hoyos puntuales pero hay otros validos', () => {
+    // par_per_hole con gaps: hoyo 1 ok, hoyo 2 falta, hoyo 3 ok
+    const result = parPerHoleArray({ '1': 3, '3': 5 }, 3)
+    expect(result).toEqual([3, 4, 5]) // hoyo 2 -> fallback puntual
+  })
+
+  it('respeta length aunque par_per_hole tenga mas hoyos', () => {
+    const input = { '1': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 4, '7': 4, '8': 4, '9': 4 }
+    expect(parPerHoleArray(input, 5)).toEqual([4, 4, 4, 4, 4])
+  })
+})
+
+describe('parPlayedFromRound', () => {
+  it('suma SOLO pares de hoyos jugados (no null/0)', () => {
+    // Hoyos 1-3 jugados (pares 4,5,3 = 12), hoyos 4-5 sin jugar
+    const scores = [4, 5, 3, null, 0]
+    const parPerHole = { '1': 4, '2': 5, '3': 3, '4': 4, '5': 5 }
+    expect(parPlayedFromRound(scores, parPerHole)).toBe(12)
+  })
+
+  it('REGRESIÓN: ronda parcial 5/18 NO devuelve par 72 completo', () => {
+    // Bug del audit: vsPar mostraba -67 en rondas parciales por usar parTotal.
+    // Esta funcion debe dar el par REAL de los hoyos jugados, no el total.
+    const scores: (number | null)[] = [4, 4, 5, 3, 4, ...Array(13).fill(null)]
+    const parPerHole = { '1': 4, '2': 4, '3': 5, '4': 3, '5': 4 }
+    expect(parPlayedFromRound(scores, parPerHole)).toBe(20)
+  })
+
+  it('devuelve undefined si falta scores o par_per_hole', () => {
+    expect(parPlayedFromRound(null, { '1': 4 })).toBeUndefined()
+    expect(parPlayedFromRound([4], null)).toBeUndefined()
+  })
+
+  it('flujo end-to-end: parPerHoleArray + countByResult cuenta birdies correctos en pares mixtos', () => {
+    // Cancha con par 3, 4, 5 → birdies reales: 2 en par 3, 3 en par 4, 4 en par 5.
+    const parPerHole = { '1': 3, '2': 4, '3': 5 }
+    const scores = [2, 3, 4]
+    const pars = parPerHoleArray(parPerHole, 3)!
+    const result = countByResult(scores, pars)
+    expect(result.birdies).toBe(3)
+    expect(result.pars).toBe(0)
   })
 })
