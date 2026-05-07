@@ -1,0 +1,60 @@
+{
+  "_comment": "Mismatches schema-vs-code conocidos. Bugs reales que el hook ignora hasta que se arreglen. Regenerar: node --env-file=.env.local scripts/verify-db-schema.mjs --update-baseline",
+  "generated_at": "2026-05-07T04:22:36.931Z",
+  "known_mismatches": [
+    {
+      "table": "analytics_events",
+      "column": "metadata",
+      "file": "src\\app\\api\\admin\\feed\\route.ts",
+      "line": 24
+    },
+    {
+      "table": "historical_rounds",
+      "column": "hole_pars",
+      "file": "src\\golf\\coach\\compute-plan-outcome.ts",
+      "line": 372
+    },
+    {
+      "table": "historical_rounds",
+      "column": "par_total",
+      "file": "src\\golf\\coach\\compute-plan-outcome.ts",
+      "line": 372
+    },
+    {
+      "table": "historical_rounds",
+      "column": "source",
+      "file": "src\\app\\admin\\usuarios\\[id]\\page.tsx",
+      "line": 77
+    },
+    {
+      "table": "player_patterns",
+      "column": "created_at",
+      "file": "src\\golf\\coach\\decision-engine.ts",
+      "line": 116
+    },
+    {
+      "table": "profiles",
+      "column": "full_name",
+      "file": "src\\app\\auth\\callback\\route.ts",
+      "line": 15
+    },
+    {
+      "table": "profiles",
+      "column": "full_name",
+      "file": "src\\app\\perfil\\historial\\[id]\\page.tsx",
+      "line": 90
+    },
+    {
+      "table": "profiles",
+      "column": "nombre",
+      "file": "src\\app\\api\\import\\confirm\\route.ts",
+      "line": 31
+    },
+    {
+      "table": "taiger_sessions",
+      "column": "updated_at",
+      "file": "src\\app\\api\\admin\\taiger\\brain\\[userId]\\route.ts",
+      "line": 71
+    }
+  ]
+}
