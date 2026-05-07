@@ -42,6 +42,31 @@ jobs:
           echo "CALLBACK_SECRET sha256(first16): $SECRET_HASH"
           echo "(esperado para abc123testing: length=13, sha256(first16)=ef3f4a907015bce3)"
 
+      - name: Debug — probar callback con response body completo
+        run: |
+          echo "=== Hit callback con secret ==="
+          HTTP_CODE=$(curl -s -o /tmp/resp_body -w "%{http_code}" -X POST "$CALLBACK_URL" \
+            -H "x-e2e-callback-secret: $CALLBACK_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"status":"running"}')
+          echo "HTTP: $HTTP_CODE"
+          echo "Body:"
+          cat /tmp/resp_body
+          echo ""
+          echo ""
+          echo "=== Hit homepage (sin secret) — esperamos 200 ==="
+          HTTP_CODE2=$(curl -s -o /tmp/home_body -w "%{http_code}" "https://golfersplus.vercel.app/")
+          echo "HTTP: $HTTP_CODE2 size=$(wc -c < /tmp/home_body) bytes"
+          echo "First 100 chars:"
+          head -c 100 /tmp/home_body
+          echo ""
+          echo ""
+          echo "=== Hit /api/admin/e2e/runs (no auth) — esperamos 403 ==="
+          HTTP_CODE3=$(curl -s -o /tmp/list_body -w "%{http_code}" "https://golfersplus.vercel.app/api/admin/e2e/runs")
+          echo "HTTP: $HTTP_CODE3"
+          cat /tmp/list_body
+          echo ""
+
       - name: Notificar inicio (running)
         run: |
           curl -fsS -X POST "$CALLBACK_URL" \
