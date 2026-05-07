@@ -117,13 +117,19 @@ jobs:
           (() => {
             let raw;
             try {
-              raw = JSON.parse(fs.readFileSync('playwright-output.json', 'utf8'));
+              // Playwright JSON reporter escribe a stdout. global-setup hace
+              // console.log antes del JSON, contaminando el archivo. Buscamos
+              // el primer `{` y parseamos desde ahí.
+              const fullOutput = fs.readFileSync('playwright-output.json', 'utf8');
+              const jsonStart = fullOutput.indexOf('{');
+              if (jsonStart < 0) throw new Error('No se encontró `{` en stdout');
+              raw = JSON.parse(fullOutput.slice(jsonStart));
             } catch (err) {
-              // Output corrupto → marcar como error.
               const stderr = (() => { try { return fs.readFileSync('playwright-stderr.log', 'utf8'); } catch { return ''; } })();
+              const head = (() => { try { return fs.readFileSync('playwright-output.json', 'utf8').slice(0, 500); } catch { return ''; } })();
               const payload = {
                 status: 'error',
-                error_message: 'Playwright no produjo output JSON parseable.\n\n' + stderr.slice(0, 2000),
+                error_message: 'Playwright no produjo output JSON parseable.\n\nParseError: ' + (err.message ?? '') + '\n\nstderr(0-1000):\n' + stderr.slice(0, 1000) + '\n\nstdout(0-500):\n' + head,
               };
               fs.writeFileSync('callback-payload.json', JSON.stringify(payload));
               return;
