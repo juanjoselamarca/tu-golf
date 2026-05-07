@@ -34,6 +34,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Debug — verificar longitud del secret (no revela el valor)
+        run: |
+          SECRET_LEN=${#CALLBACK_SECRET}
+          SECRET_HASH=$(echo -n "$CALLBACK_SECRET" | sha256sum | cut -c1-16)
+          echo "CALLBACK_SECRET length: $SECRET_LEN"
+          echo "CALLBACK_SECRET sha256(first16): $SECRET_HASH"
+          echo "(esperado para abc123testing: length=13, sha256(first16)=ef3f4a907015bce3)"
+
       - name: Notificar inicio (running)
         run: |
           curl -fsS -X POST "$CALLBACK_URL" \
