@@ -47,8 +47,8 @@ El torneo se persiste como **borrador** en cuanto el usuario empieza, se autosav
 Estas son arquitectónicas. Se toman ahora para evitar refactor en producción más adelante.
 
 1. **Persistencia como borrador desde el primer cambio.** Tabla nueva `tournament_drafts`. Autosave debounceado a 500ms. El torneo "real" en `tournaments` solo se crea al hacer click en "Crear torneo" y validar invariantes.
-2. **JSON Patch (RFC 6902) como protocolo de cambios.** Cada edit (manual o IA) se expresa como un patch. El cliente aplica el patch al state local y lo persiste. La IA devuelve patches, no campos.
-3. **Audit log append-only desde el día 1.** Tabla `tournament_draft_events` con `(draft_id, actor_id, patches_json, source: 'manual'|'ai', created_at)`. Sin esto, retrofitearlo en producción con miles de torneos es caro.
+2. **Cambios como partial config + deep merge.** Cada edit (manual o IA) se expresa como un objeto parcial del schema (`Partial<TournamentConfig>`) que se hace deep merge al state. La IA devuelve partial config, no JSON Patches. Razón: JSON Patch RFC 6902 con paths a arrays (`/categories/0/name`) es frágil si reordenás categorías/rondas/premios. Validación con el mismo zod schema parcialmente aplicado.
+3. **Audit log append-only desde el día 1.** Tabla `tournament_draft_events` con `(draft_id, actor_id, config_partial, config_before, source: 'manual'|'ai', created_at, ai_cost_usd)`. Sin esto, retrofitearlo en producción con miles de torneos es caro.
 4. **Reglas de golf como datos, no código.** Cada formato tiene parámetros (`% handicap`, `min_drives`, `points_table`, `team_size_min/max`, etc.) que viven en el draft o en una tabla `format_rules`. La UI los expone editables; nunca están hardcoded en el componente.
 5. **Live polimórfico modular.** Componente raíz `<TournamentLiveView format={...}>` delega a sub-componentes:
    - `IndividualLeaderboard` (stroke play, stableford individual)
@@ -59,7 +59,10 @@ Estas son arquitectónicas. Se toman ahora para evitar refactor en producción m
 7. **Tee por jugador siempre presente en el modelo.** Campo `tee_assignment_mode: 'per_player' | 'per_category'` en cada ronda del draft. Nunca asumir un único tee por torneo. Memoria del proyecto: tee por jugador es transversal a todas las modalidades.
 8. **Tokens del design system, no hardcodes.** El componente nuevo usa los tokens (`--brand-gold`, `--brand-dark`, etc.) en lugar del objeto `colors = {...}` que tiene el form actual. Compatible con el toggle Auto/Light/Dark.
 9. **El chat IA está scoped al draft, separado del coach (tAIger+).** Endpoint distinto, system prompt distinto (extracción de torneos, no entrenamiento personal), sin acceso al historial de coaching. Un bug en el chat de torneos no afecta al coach.
-10. **Validación del schema con zod en cliente y servidor.** Cada patch pasa por validación zod antes de aplicarse. Reglas invariantes de golf (ej: scramble requiere `team_size`) se hardcoded en el validator, no se delegan a la IA.
+10. **Validación del schema con zod en cliente y servidor.** Cada cambio pasa por validación zod antes de aplicarse. Reglas invariantes de golf (ej: scramble requiere `team_size`) se hardcoded en el validator, no se delegan a la IA.
+11. **Schema versioning desde el día 1.** El `config` lleva `schema_version: number` literal. Función `upgradeConfig(config, fromVersion, toVersion)` testeada para futuras migraciones. Sin esto, el primer cambio breaking del schema invalida todos los drafts en producción.
+12. **Modo offline robusto desde el día 1.** Los torneos se arman en cancha con red móvil flaky. Optimistic UI: el cambio se aplica local inmediatamente, se encola en localStorage, se sincroniza con servidor en background con reintento exponencial. Indicador visual de estado de sync. Sin esto, el primer organizador que pierda red en mitad de una edición pierde trabajo. Inaceptable por CERO FALLOS.
+13. **Rate limiting y telemetría de costo del asistente IA.** Limit: 30 calls/hora por user_id. Detección de loops (mismo mensaje 5 veces seguidas → bloqueo temporal 10 min). Logging de costo por user. Alarma email a admin si gasto IA > $100/mes total. Sin esto, abuso o bug de cliente puede explotar la factura sin que nos enteremos.
 
 ---
 
@@ -102,12 +105,16 @@ Owner está en `tournament_drafts.owner_id` y también con role='owner' en esta 
 id              uuid pk
 draft_id        uuid fk tournament_drafts
 actor_id        uuid fk profiles
-patches         jsonb       (array de JSON Patches RFC 6902)
+config_partial  jsonb       (el partial config que se mergeó)
+config_before   jsonb       (snapshot del config antes del merge — para diff/undo)
 source          text        ('manual' | 'ai')
 ai_message      text null   (mensaje original del user al chat, si source='ai')
 ai_explanation  text null   (explicación que dio la IA al user, si source='ai')
+ai_cost_usd     numeric null (costo de la llamada IA en USD, si source='ai')
 created_at      timestamptz
 ```
+
+`config_partial` es lo que se aplicó. `config_before` permite reconstruir el estado o hacer diff/undo histórico. Para minimizar storage, `config_before` se guarda solo cada 10 cambios (los demás eventos solo guardan el partial; el before se reconstruye recorriendo eventos desde el último snapshot).
 
 Append-only. Nunca se modifica ni se borra. Permite auditoría completa, undo histórico (fase 2), analytics.
 
@@ -128,6 +135,9 @@ Sin UI pública en MVP. La estructura existe para que en fase 2 se exponga sin m
 
 ```typescript
 interface TournamentConfig {
+  // Versionado del schema (para futuras migraciones)
+  schema_version: 1                   // bump en cada breaking change
+
   // Que torneo
   name: string
   date_start: string                  // ISO date
@@ -206,8 +216,13 @@ interface TournamentConfig {
   is_practice: boolean                // true = no actualiza WHS, no afecta ranking del club, no aparece en leaderboard global
                                       // (default false: torneo oficial)
 
-  // Validación interna (computed)
-  required_fields_complete: boolean   // calculated, not stored
+  // Validación interna (computed, no stored)
+  required_fields_complete: boolean   // calculated each render
+
+  // Pendientes de confirmación (la IA o el sistema marcó como "no estoy seguro")
+  // Cada string es una keypath del config (ej. "categories", "team_config.handicap_pct").
+  // UI: badge amarillo "Confirmá" junto al campo. Click confirma y remueve de la lista.
+  pending_confirmations: string[]     // default []
 }
 ```
 
@@ -281,9 +296,11 @@ src/app/organizador/nuevo/
     DraftFooter.tsx                 (botones: Vista previa | Crear torneo)
     DraftPreviewModal.tsx           (vista previa del live)
   utils/
-    draft-store.ts                  (zustand store con autosave)
-    apply-patch.ts                  (aplica JSON Patch al state)
-    validate-config.ts              (zod schema + reglas de golf)
+    draft-store.ts                  (zustand store con autosave + offline queue)
+    deep-merge-config.ts            (merge profundo de partial config)
+    validate-config.ts              (zod schema + reglas de golf invariantes)
+    upgrade-config.ts               (migra schema_version vieja → nueva)
+    offline-queue.ts                (localStorage queue + reintento exponencial)
 ```
 
 ### Estado del draft (zustand)
@@ -295,21 +312,32 @@ interface DraftStore {
   version: number
   collaborators: Array<{ user_id, role, name }>
   presence: Array<{ user_id, name, lastSeen }>
-  pendingPatches: Patch[]      // queued for next autosave flush
+  pendingChanges: Array<{ partial: Partial<TournamentConfig>, source: 'manual'|'ai', timestamp: number }>
+  syncStatus: 'idle' | 'syncing' | 'offline' | 'conflict'
 
-  applyPatches(patches: Patch[], source: 'manual' | 'ai'): void
+  applyChange(partial: Partial<TournamentConfig>, source: 'manual' | 'ai'): void
   undoLastChange(): void        // for the 5-second toast
-  flush(): Promise<void>        // sends pending patches to server
+  flush(): Promise<void>        // sends pending changes to server (debounced)
+  rehydrateFromOfflineQueue(): void  // on mount, replay pending changes from localStorage
 }
 ```
 
+### Modo offline (decisión técnica #12)
+
+- **Optimistic UI:** `applyChange` aplica el partial al `config` local inmediatamente y agrega a `pendingChanges`.
+- **Persistencia local:** cada `pendingChanges` se persiste en `localStorage` bajo `draft:{id}:queue` antes de intentar sync.
+- **Sync:** debounceado a 500ms. Si falla por red → reintento exponencial (1s, 2s, 4s, 8s, max 30s). `syncStatus = 'offline'` después de 3 fallos consecutivos.
+- **Indicador UI:** chip en el header — `Sincronizado` (verde) / `Sincronizando...` (amarillo) / `Sin conexión · 3 cambios pendientes` (rojo).
+- **Recuperación:** al cargar el editor, si hay `pendingChanges` en localStorage, se replays antes del primer render. Si el server tiene una `version` mayor, conflict resolution con last-write-wins.
+- **Escenarios cubiertos:** pérdida de red corta (< 30s), pérdida prolongada, browser crash mid-edit, refresh con cambios pendientes.
+
 ### Autosave loop
 
-- Cada `applyPatches` agrega a `pendingPatches` y schedules un flush en 500ms.
-- Flush envía `POST /api/torneos/draft/{id}/patches` con `{ patches, version }`.
-- Server valida version, aplica patches al jsonb config, incrementa version, inserta evento en `tournament_draft_events`.
+- Cada `applyChange` agrega a `pendingChanges` y schedules un flush en 500ms.
+- Flush envía `PATCH /api/torneos/draft/{id}` con `{ config_partial, version }` (mergea todos los pending changes en uno solo).
+- Server valida version, hace deep merge al jsonb config, incrementa version, inserta evento en `tournament_draft_events` con `config_partial` y `config_before`.
 - Si server devuelve `409 Conflict` (otro admin editó), el cliente refresca config y muestra toast `Pedro cambió Categorías. Tus cambios fueron descartados, refrescá.`
-- Indicador visual: `Borrador guardado hace 3s` en el footer.
+- Indicador visual: chip en header — `Sincronizado` / `Sincronizando...` / `Sin conexión · 3 cambios pendientes`.
 
 ### Presence (multi-admin)
 
@@ -334,26 +362,26 @@ interface DraftStore {
 **Response:**
 ```json
 {
-  "patches": [
-    { "op": "replace", "path": "/format", "value": "scramble" },
-    { "op": "replace", "path": "/modo", "value": "neto" },
-    { "op": "replace", "path": "/team_config/size", "value": 2 },
-    { "op": "replace", "path": "/rounds/0/date", "value": "2026-07-12" }
-  ],
-  "explanation": "Actualice formato a scramble parejas, modo neto, fecha al 12/jul. Falta confirmar tees (los marque como 'per_player' por defecto) y categorias.",
-  "needs_confirmation": [
-    { "field": "tees_per_player", "reason": "no especificado" },
-    { "field": "categories", "reason": "no especificado, sugiero default 'General'" }
-  ]
+  "config_partial": {
+    "format": "scramble",
+    "modo": "neto",
+    "team_config": { "size": 2 },
+    "rounds": [{ "round_number": 1, "date": "2026-07-12" }]
+  },
+  "explanation": "Actualice formato a scramble parejas, modo neto, fecha al 12/jul. Falta confirmar tees y categorias.",
+  "needs_confirmation": ["team_config.handicap_pct", "categories", "rounds.0.tee_assignment_mode"],
+  "cost_usd": 0.0024
 }
 ```
+
+El `config_partial` se hace deep merge al config actual. Para arrays (rondas, categorias, premios) la regla del merge es: si el item tiene `id` o `round_number`, hace match por ese key; si no, replace completo del array. Esto evita el problema de paths frágiles de JSON Patch.
 
 ### System prompt (alto nivel)
 
 ```
 Sos un asistente especializado en armar torneos de golf en clubes chilenos.
-Tu única tarea es producir JSON Patches (RFC 6902) que modifiquen una configuración
-de torneo en base al mensaje del organizador.
+Tu única tarea es producir un objeto JSON `config_partial` que se mergee a una
+configuración de torneo, en base al mensaje del organizador.
 
 Reglas estrictas:
 1. Si NO te lo dijo explícitamente, NO inventes. Marca como "needs_confirmation".
@@ -370,12 +398,13 @@ Match play y stableford fuerzan modo neto.
 
 ### Validación server-side de la respuesta
 
-1. Schema zod de la respuesta JSON.
-2. Cada patch en `patches[]` se valida contra el schema del config.
-3. Si una regla de golf invariante se rompería (ej. scramble sin team_size), el patch se rechaza.
-4. Solo patches válidos se aplican y se persisten.
+1. Schema zod de la respuesta JSON (estructura general).
+2. El `config_partial` se valida contra el schema del config (parcialmente — solo los campos presentes).
+3. Si una regla de golf invariante se rompería (ej. scramble sin team_size), el partial se rechaza con error específico.
+4. Solo `config_partial` válidos se mergean y se persisten.
 5. La explicación se muestra al user en el chat.
-6. Los `needs_confirmation` se muestran como badges junto a los campos correspondientes.
+6. Los `needs_confirmation` se appendean a `config.pending_confirmations` (de-dup).
+7. El `cost_usd` se loggea en `tournament_draft_events.ai_cost_usd` para telemetría.
 
 ### Costos y latencia
 
@@ -384,6 +413,15 @@ Match play y stableford fuerzan modo neto.
 - Latencia objetivo: <3 segundos. Si supera 8s, fallback al modo manual con disclaimer.
 - Sin caching agresivo (cada draft es único).
 - **Sin streaming en MVP**: la respuesta es un objeto JSON estructurado, streaming no aporta UX y complica el parsing. Si latencia molesta en producción, se evalúa.
+
+### Rate limiting y telemetría (decisión técnica #13)
+
+- **Rate limit:** 30 calls/hora por `user_id` (sliding window). HTTP 429 con `Retry-After` header.
+- **Anti-loop:** si el mismo mensaje se envía 5 veces seguidas en <2 minutos, bloqueo temporal de 10 minutos para ese user con explicación.
+- **Telemetría:** cada call se registra en `tournament_draft_events` con `ai_cost_usd` y `ai_latency_ms`.
+- **Alarma:** cron diario suma costos del mes; si supera $100 USD envía email al admin del proyecto.
+- **Logging granular:** dashboard interno en `/admin/ia-costs` con costo por user y por día.
+- **Circuit breaker:** si Anthropic API tira >50% errors en 5 min, deshabilita el chat globalmente con disclaimer "Asistente IA temporalmente no disponible. Editá manualmente." durante 15 min.
 
 ### Comportamiento del cambio (UX del patch)
 
@@ -598,18 +636,41 @@ src/app/torneo/[slug]/en-vivo/
 ### B. Modo simulación del live
 
 - Botón "Vista previa" siempre disponible en footer.
-- Genera 4-8 jugadores fake (nombres "Demo 1", "Demo 2"...) con scores randómicos válidos.
-- Renderiza `LiveView` con esos datos (modo `is_simulation: true` que oculta partes que no aplican como "Cerrar tarjeta").
+- Endpoint `POST /api/torneos/draft/:id/preview` genera datos demo coherentes con el config actual.
+- Renderiza `LiveView` con esos datos (modo `is_simulation: true` que oculta acciones de operador como "Cerrar tarjeta").
 - El user navega el preview, valida visualmente.
-- Al cerrar, los datos demo se descartan.
+- Al cerrar, los datos demo se descartan (no persisten).
+
+#### Mock score generator polimórfico
+
+Decisión técnica: NO un generador único de "scores random". Cada formato tiene un sub-generador con tests propios. Sin esto, la simulación genera basura para algunos formatos y el organizador no detecta bugs reales.
+
+```
+src/golf/simulators/
+  index.ts                          (factory por formato)
+  individual-stroke.ts              (4-12 demo players, scores realistas por hoyo)
+  individual-stableford.ts          (puntos por hoyo según points_table del draft)
+  team-best-ball.ts                 (N equipos, mejor score por hoyo, suma equipo)
+  team-scramble.ts                  (N equipos, 1 score por hoyo con %handicap aplicado)
+  team-foursome.ts                  (N parejas, alternate shot, 1 score por hoyo)
+  match-play-bracket.ts             (genera bracket completo: cuartos→semis→final)
+  match-play-1v1.ts                 (pares enfrentados, resultado hoyo a hoyo con dormie/AS/MP)
+  __tests__/                        (un test por sub-generador, valida consistencia con motor golf/)
+```
+
+Cada sub-generador respeta las reglas del formato y produce datos que pasarían validación del motor `golf/` real. Si un sub-generador genera scores que el motor rechaza, hay un bug en la config (lo que el organizador necesita ver antes del torneo).
 
 ### C. Roles owner vs colaborador
 
-- `tournament_drafts.owner_id` = el creador. Puede borrar el draft, transferir ownership.
+- `tournament_drafts.owner_id` = el creador. Puede borrar el draft, transferir ownership, invitar y remover collaborators.
 - `tournament_draft_collaborators.role`:
   - `owner` (uno solo, simétrico con `owner_id`)
-  - `collaborator` (puede editar todo excepto borrar el draft)
-- En la UI: sección "Admins" del config. Owner ve botón `[+ Invitar admin]` con search de usuarios. Collaborators no ven ese botón.
+  - `collaborator` (puede editar todo el config; NO puede borrar el draft, invitar, remover otros, transferir ownership)
+- En la UI: sección "Admins" del config. Owner ve `[+ Invitar admin]` con dos modos:
+  - **Search por usuario registrado** (búsqueda fuzzy por nombre o email; respeta privacidad: solo retorna users que han jugado en algún torneo del organizador antes O están en su lista de jugadores frecuentes).
+  - **Generar link compartible** (token TTL 24h, un solo uso, copy-to-clipboard). Endpoint `POST /api/torneos/draft/:id/share-link` retorna URL `/organizador/draft/:id?join=:token`. El receptor entra → si está logueado se agrega como collaborator; si no, va a `/login?next=...&join=:token`.
+- Collaborators no ven el botón invitar.
+- **Transferir ownership:** `POST /api/torneos/draft/:id/transfer-ownership` con `{ new_owner_id }`. El nuevo owner debe estar ya como collaborator. Confirmación con modal explicando que pierde permisos.
 
 ### D. Auto-detección de conflicto fecha+cancha
 
@@ -662,12 +723,18 @@ Esto respeta la directiva CERO FALLOS: no se construyen features nuevas hasta qu
 - [ ] API endpoints:
   - `POST /api/torneos/draft` (crear draft)
   - `GET /api/torneos/draft/:id`
-  - `PATCH /api/torneos/draft/:id/patches` (apply patches)
-  - `POST /api/torneos/draft/:id/collaborators` (invitar)
-  - `DELETE /api/torneos/draft/:id/collaborators/:userId`
-  - `POST /api/torneos/draft/:id/assistant` (IA)
+  - `PATCH /api/torneos/draft/:id` (apply config_partial; recibe `{ config_partial, version }`)
+  - `POST /api/torneos/draft/:id/collaborators` (invitar por user_id directo, owner-only)
+  - `POST /api/torneos/draft/:id/share-link` (generar token de invitación, owner-only)
+  - `POST /api/torneos/draft/join?token=:t` (consumir token, agrega user al draft)
+  - `DELETE /api/torneos/draft/:id/collaborators/:userId` (owner-only)
+  - `POST /api/torneos/draft/:id/transfer-ownership` (cambiar owner, owner-only)
+  - `POST /api/torneos/draft/:id/assistant` (IA, con rate limit)
   - `POST /api/torneos/draft/:id/create-tournament` (crea el torneo real)
+  - `POST /api/torneos/draft/:id/preview` (genera datos demo para Mejora B)
   - `POST /api/torneos/draft/duplicate-from/:tournamentId` (Mejora A)
+  - `DELETE /api/torneos/draft/:id` (archivar, owner-only)
+- [ ] Cron diario: archivar drafts en `status='draft'` con `updated_at < NOW() - 30 days`. Implementación: Vercel Cron + endpoint `/api/cron/cleanup-drafts`.
 - [ ] Tests unitarios de cada endpoint.
 
 ### Fase 2 — Frontend del Editor
@@ -712,15 +779,56 @@ Esto respeta la directiva CERO FALLOS: no se construyen features nuevas hasta qu
 - [ ] Filtros (categoría, grupo, mi vista).
 - [ ] Polling/realtime de scores.
 
+### Fase 6.5 — Observabilidad
+
+Transversal: las trazas se agregan desde la Fase 1, pero esta fase consolida el dashboard y las alarmas.
+
+- [ ] PostHog events:
+  - `tournament_draft_created` (props: source, schema_version)
+  - `tournament_draft_updated` (props: section_changed, source: 'manual'|'ai')
+  - `tournament_draft_assistant_called` (props: cost_usd, latency_ms, needs_confirmation_count)
+  - `tournament_draft_abandoned` (props: time_to_abandon, sections_completed)
+  - `tournament_created_from_draft` (props: format, total_rounds, has_categories, was_duplicated, was_assisted_by_ai)
+  - `tournament_draft_collaborator_added` (props: via: 'search'|'share_link')
+  - `tournament_draft_preview_opened` (props: format)
+- [ ] Sentry contexts: cada error en el editor lleva `draft_id`, `actor_id`, `version`, `last_action`.
+- [ ] Dashboard interno `/admin/torneos-stats`:
+  - Drafts activos (status='draft', última edición <7d)
+  - Drafts abandonados (>30d)
+  - % drafts que se convierten en torneos
+  - % torneos creados con asistente IA vs manual
+  - Costo IA acumulado del mes
+  - Tiempo medio para crear un torneo (de draft creado a tournament_id seteado)
+  - Distribución por formato
+- [ ] Alarmas:
+  - Costo IA mensual > $100 USD → email
+  - Anthropic API errors > 50% en 5 min → email + circuit breaker activo
+  - Conflictos de versión > 5 por draft → log warning (posible bug)
+
 ### Fase 7 — QA y ship
 
-- [ ] Tests E2E con Playwright para los 5 flujos.
-- [ ] Tests anti-regresión canary.
+- [ ] **Tests E2E con Playwright** (test plan detallado abajo en sección 17).
+- [ ] Tests anti-regresión canary (ver patrón existente en `canary-stability.test.ts`).
 - [ ] Smoke test pre-torneo (`/pre-torneo`).
-- [ ] Deploy gradual con flag.
-- [ ] Migración de torneos existentes (no necesaria si el flow es solo para nuevos).
+- [ ] Deploy gradual con feature flag (LaunchDarkly o env var simple).
+- [ ] Coexistencia con flow legacy: ver sección 13.5 (Compatibilidad).
+- [ ] Documentación de uso para organizadores en `docs/usuario/organizar-campeonato.md`.
 
 ---
+
+## 13.5. Compatibilidad con torneos legacy
+
+Los torneos creados con el flow viejo (`NuevoTorneoForm.tsx`, schema `tournaments` directo sin `tournament_drafts`) van a seguir existiendo en producción cuando este flow nuevo se lance. Decisiones de compatibilidad:
+
+| Aspecto | Comportamiento |
+|---|---|
+| **Live polimórfico (`/torneo/:slug/en-vivo`)** | SÍ los renderiza. El motor `golf/` funciona igual con torneos viejos y nuevos. No hay migración requerida. |
+| **Edición de torneo legacy** | Sigue usando `/organizador/:slug/editar` (flow viejo, simplificado). NO se abre con el editor nuevo. |
+| **Inscripción / scoring / panel jugadores** | Sin cambios. Las pantallas `/organizador/:slug/jugadores`, `/scoring`, `/salida` siguen funcionando igual. |
+| **Dashboard del organizador** | Lista todos los torneos juntos (legacy y nuevos). Un badge pequeño `Legacy` solo en torneos viejos para distinguir. |
+| **Migración 1-shot de torneos legacy a drafts** | NO se hace. Los torneos legacy se "vencen" naturalmente cuando se cierran. Cero migración con riesgo. |
+| **Schema legacy del config en torneos viejos** | Algunos campos del flow nuevo (`team_config`, `match_play_config`, etc.) no existen en torneos legacy. El live polimórfico tiene fallbacks defensivos: si un campo no existe, usa default sensato. |
+| **Plazo de coexistencia** | Indefinido. No hay deprecation forzada del flow viejo en MVP. Se evalúa después de 6 meses si vale la pena migrar.
 
 ## 14. Gating con CERO FALLOS
 
@@ -760,3 +868,79 @@ Para saber si esto funciona bien después del lanzamiento:
 | Schema del config crece y deprecation duele | Media | Medio | Versionar config (`config.schema_version`) desde día 1 |
 | Validation gap entre cliente y servidor | Media | Alto | Mismo zod schema en ambos lados |
 | Live polimórfico explota con formato nuevo | Baja | Medio | Tests por formato + fallback a Individual si format desconocido |
+
+---
+
+## 17. Test plan detallado
+
+### 17.1 Tests unitarios (Vitest)
+
+- **Schema upgrade** (`upgrade-config.ts`):
+  - upgrade de v1→v1 (no-op)
+  - upgrade preserva campos no afectados
+  - rejection si la versión es desconocida o downgrade
+- **Deep merge** (`deep-merge-config.ts`):
+  - merge simple de campos primitivos
+  - merge de arrays con `id` (match por id)
+  - merge de arrays con `round_number` (match por round_number)
+  - merge de arrays sin key (replace completo)
+  - manejo de null vs undefined (null = remove, undefined = keep)
+- **Validador de reglas de golf** (`tournament-config-validator.ts`):
+  - scramble sin team_size → error con mensaje preciso
+  - stableford con `modo: 'gross'` → error (forzado a neto)
+  - match_play sin match_play_config → error
+  - rondas con `round_number` duplicado → error
+  - rondas sin date → error si la fecha del torneo ya pasó
+- **Mock score generator polimórfico**: 1 test por sub-generador validando que el motor `golf/` acepta el output
+- **Offline queue** (`offline-queue.ts`):
+  - encola changes
+  - persiste en localStorage
+  - replays al rehidratar
+  - reintento exponencial respetando max
+- **IA response validation**: rejection de partials inválidos (campos extra, tipos incorrectos, valores fuera de rango)
+
+### 17.2 Tests de integración (API routes)
+
+- POST draft + GET draft (round trip)
+- PATCH draft con version correcto / incorrecto (409)
+- POST assistant con rate limit (429 después de 30 calls/h)
+- POST assistant con loop detection (429 después de 5 mensajes iguales)
+- POST share-link + POST join (token válido / expirado / consumido)
+- POST transfer-ownership (owner / no-owner)
+- POST create-tournament con config válido / inválido / con conflicto fecha+cancha
+- DELETE draft con permisos correctos / incorrectos (RLS)
+- Cron cleanup de drafts viejos
+
+### 17.3 Tests E2E (Playwright) — mínimo 18 casos
+
+**Por formato (6 formatos × 2 modos = 12 casos básicos):**
+- Stroke play / Stableford / Best Ball / Scramble / Match Play / Foursome × Gross / Neto (donde aplica)
+- Cada caso: editar config, crear torneo, verificar que aparece en dashboard
+
+**Casos especiales (6 casos):**
+- Crear torneo desde duplicar (Mejora A)
+- Vista previa del live antes de crear (Mejora B) — todos los formatos básicos
+- Multi-admin: 2 sesiones del mismo draft, edición concurrente
+- Conflicto fecha+cancha: warning visible (Mejora D)
+- Pérdida de red durante autosave: cambios persisten en localStorage y se replay
+- Schema upgrade: cargar un draft con `schema_version: 0` (mock) y verificar que se actualiza
+
+**Casos de error:**
+- IA tira error → fallback a manual con disclaimer
+- Rate limit alcanzado → mensaje al usuario
+- Permission denied: collaborator intenta borrar el draft
+
+### 17.4 Tests anti-regresión canary
+
+Agregar a `canary-stability.test.ts`:
+- `tournament-draft-editor` route exists in app/
+- `useDraftStore` exports correctly
+- mock score generator factory has all 6 formats
+- IA endpoint has rate limit middleware
+- offline queue file exists
+
+### 17.5 Cobertura mínima
+
+- **Unit:** 90% en módulos puros (validators, deep-merge, upgrade, simulators).
+- **Integration:** 80% en API routes.
+- **E2E:** los 18+ casos pasan en CI.
