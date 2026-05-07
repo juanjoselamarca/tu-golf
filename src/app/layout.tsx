@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { Playfair_Display, DM_Sans, DM_Mono, Cormorant_Garamond } from 'next/font/google'
-import Link from 'next/link'
 import './globals.css'
 import Navbar from '@/components/Navbar'
+import GlobalFooter from '@/components/GlobalFooter'
 import { ToastContainer } from '@/hooks/useToast'
 import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { LiveBadge } from '@/components/ui/LiveBadge'
@@ -109,30 +109,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <FedegolfSync />
         <main className="min-h-screen">{children}</main>
 
-        {/* Footer */}
-        <footer style={{ background: 'var(--bg-surface)', paddingTop: '1px' }}>
-          <div style={{ height: '1px', background: 'var(--border)' }} />
-          <div className="py-10 text-center">
-            <p className="font-display text-xl mb-2">
-              <span style={{ color: 'var(--text)' }}>Golfers</span>
-              <span style={{ color: '#c4992a' }}>+</span>
-            </p>
-            <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>
-              © {new Date().getFullYear()} Golfers+ · Diseñado para el golf amateur en Latinoamérica
-            </p>
-            <nav style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-              <Link href="/terminos" style={{ color: 'var(--text-3)', fontSize: 12, textDecoration: 'none' }}>
-                Términos y Condiciones
-              </Link>
-              <Link href="/privacidad" style={{ color: 'var(--text-3)', fontSize: 12, textDecoration: 'none' }}>
-                Privacidad
-              </Link>
-              <Link href="/reembolsos" style={{ color: 'var(--text-3)', fontSize: 12, textDecoration: 'none' }}>
-                Reembolsos
-              </Link>
-            </nav>
-          </div>
-        </footer>
+        <GlobalFooter />
         </PostHogProvider>
         </ThemeProvider>
       </body>
