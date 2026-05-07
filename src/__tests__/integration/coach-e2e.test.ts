@@ -16,8 +16,8 @@
  * Skipea automáticamente si no hay SUPABASE_SERVICE_ROLE_KEY (no rompe CI).
  */
 
-import { describe, it, expect } from 'vitest'
-import { createClient } from '@supabase/supabase-js'
+import { describe, it, expect, beforeAll } from 'vitest'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { buildPlayerContext } from '@/golf/coach/context'
 import { buildContextString } from '@/golf/coach/prompts'
 import { executeTool } from '@/golf/coach/tools'
@@ -34,13 +34,17 @@ const TEST_EMAIL = process.env.COACH_E2E_EMAIL ?? 'juanjoselamarca@gmail.com'
 const skipIfNoEnv = !url || !serviceKey
 
 describe.skipIf(skipIfNoEnv)('Coach E2E — cerebro contra prod', () => {
-  // Lazy: el callback de describe se evalúa al cargar (incluso si skipIf=true).
-  // Sin .env.local, createClient(url!, ...) explota con "supabaseUrl is required".
-  // Defer con placeholders: si skipIf=true el cliente nunca se usa.
-  const admin = createClient(url ?? 'http://localhost', serviceKey ?? 'placeholder')
-
+  // El cuerpo de describe.skipIf se evalúa aunque skip=true, pero los hooks
+  // (beforeAll) y los it() solo corren si el describe NO está skipeado.
+  // Diferir createClient acá evita el crash "supabaseUrl is required" en CI
+  // sin necesidad de URLs placeholder.
+  let admin: SupabaseClient
   let userId: string
   let userName: string
+
+  beforeAll(() => {
+    admin = createClient(url!, serviceKey!)
+  })
 
   it('encuentra al usuario en profiles', async () => {
     const { data: profile } = await admin
