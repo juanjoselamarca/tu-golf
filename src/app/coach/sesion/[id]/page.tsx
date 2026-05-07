@@ -269,6 +269,18 @@ export default function SesionDetailPage() {
     sendFollowUp(newMessages)
   }
 
+  // Reintentar tras error de conexión: descarta el placeholder assistant
+  // que quedó vacío/parcial y rellama sendFollowUp con el último user turn.
+  const handleRetry = () => {
+    if (streaming) return
+    const last = messages[messages.length - 1]
+    const cleaned = last?.role === 'assistant'
+      ? messages.slice(0, -1)
+      : messages
+    setMessages(cleaned)
+    sendFollowUp(cleaned)
+  }
+
   const handleRatingSubmit = async () => {
     if (!session || rating === 0 || ratingSubmitting) return
     setRatingSubmitting(true)
@@ -523,8 +535,30 @@ export default function SesionDetailPage() {
             marginTop: 12,
             color: '#fca5a5',
             fontSize: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
           }}>
-            {error}
+            <span style={{ flex: 1 }}>{error}</span>
+            <button
+              onClick={handleRetry}
+              disabled={streaming}
+              style={{
+                flexShrink: 0,
+                background: streaming ? 'rgba(220,38,38,0.2)' : 'rgba(220,38,38,0.25)',
+                border: '1px solid rgba(220,38,38,0.5)',
+                color: '#fecaca',
+                fontSize: 13,
+                fontWeight: 600,
+                padding: '8px 14px',
+                borderRadius: 8,
+                cursor: streaming ? 'not-allowed' : 'pointer',
+                opacity: streaming ? 0.6 : 1,
+                minHeight: 36,
+              }}
+            >
+              {streaming ? 'Reintentando…' : 'Reintentar'}
+            </button>
           </div>
         )}
 
