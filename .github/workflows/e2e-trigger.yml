@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Notificar inicio (running)
         run: |
@@ -43,7 +43,7 @@ jobs:
             || echo "Callback inicio falló (no fatal — la corrida sigue)"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: 'npm'
@@ -71,50 +71,54 @@ jobs:
           node <<'EOF'
           const fs = require('fs');
 
-          let raw;
-          try {
-            raw = JSON.parse(fs.readFileSync('playwright-output.json', 'utf8'));
-          } catch (err) {
-            // Output corrupto → marcar como error.
-            const stderr = (() => { try { return fs.readFileSync('playwright-stderr.log', 'utf8'); } catch { return ''; } })();
-            const payload = {
-              status: 'error',
-              error_message: 'Playwright no produjo output JSON parseable.\n\n' + stderr.slice(0, 2000),
-            };
-            fs.writeFileSync('callback-payload.json', JSON.stringify(payload));
-            return;
-          }
-
-          const tests = [];
-          const walk = (suite, prefix = '') => {
-            for (const s of suite.suites ?? []) walk(s, prefix + (s.title ? s.title + ' › ' : ''));
-            for (const spec of suite.specs ?? []) {
-              for (const t of spec.tests ?? []) {
-                const result = t.results?.[0];
-                if (!result) continue;
-                tests.push({
-                  name: prefix + spec.title,
-                  status: result.status,
-                  duration_ms: result.duration,
-                  file: spec.file,
-                  error: result.errors?.[0]?.message?.slice(0, 2000),
-                });
-              }
+          // IIFE: Node ejecuta el script como módulo top-level donde `return` es ilegal.
+          // Envolver permite el early-return del catch sin SyntaxError.
+          (() => {
+            let raw;
+            try {
+              raw = JSON.parse(fs.readFileSync('playwright-output.json', 'utf8'));
+            } catch (err) {
+              // Output corrupto → marcar como error.
+              const stderr = (() => { try { return fs.readFileSync('playwright-stderr.log', 'utf8'); } catch { return ''; } })();
+              const payload = {
+                status: 'error',
+                error_message: 'Playwright no produjo output JSON parseable.\n\n' + stderr.slice(0, 2000),
+              };
+              fs.writeFileSync('callback-payload.json', JSON.stringify(payload));
+              return;
             }
-          };
-          for (const s of raw.suites ?? []) walk(s);
 
-          const summary = {
-            total: tests.length,
-            passed: tests.filter(t => t.status === 'passed').length,
-            failed: tests.filter(t => t.status === 'failed' || t.status === 'timedOut' || t.status === 'interrupted').length,
-            skipped: tests.filter(t => t.status === 'skipped').length,
-          };
+            const tests = [];
+            const walk = (suite, prefix = '') => {
+              for (const s of suite.suites ?? []) walk(s, prefix + (s.title ? s.title + ' › ' : ''));
+              for (const spec of suite.specs ?? []) {
+                for (const t of spec.tests ?? []) {
+                  const result = t.results?.[0];
+                  if (!result) continue;
+                  tests.push({
+                    name: prefix + spec.title,
+                    status: result.status,
+                    duration_ms: result.duration,
+                    file: spec.file,
+                    error: result.errors?.[0]?.message?.slice(0, 2000),
+                  });
+                }
+              }
+            };
+            for (const s of raw.suites ?? []) walk(s);
 
-          const status = summary.failed > 0 ? 'failed' : 'passed';
-          const payload = { status, summary, results: tests };
-          fs.writeFileSync('callback-payload.json', JSON.stringify(payload));
-          console.log(`E2E: ${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.skipped} skipped`);
+            const summary = {
+              total: tests.length,
+              passed: tests.filter(t => t.status === 'passed').length,
+              failed: tests.filter(t => t.status === 'failed' || t.status === 'timedOut' || t.status === 'interrupted').length,
+              skipped: tests.filter(t => t.status === 'skipped').length,
+            };
+
+            const status = summary.failed > 0 ? 'failed' : 'passed';
+            const payload = { status, summary, results: tests };
+            fs.writeFileSync('callback-payload.json', JSON.stringify(payload));
+            console.log(`E2E: ${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.skipped} skipped`);
+          })();
           EOF
 
       - name: Notificar resultado
@@ -135,7 +139,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-report-${{ inputs.run_id }}
           path: playwright-report/
