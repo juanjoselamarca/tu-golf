@@ -1037,9 +1037,9 @@ function HistorialContent() {
                                           type="text" inputMode="numeric" pattern="[0-9]*"
                                           value={editScores[i] ?? ''}
                                           onChange={(e) => handleEditScore(i, e.target.value)}
-                                          style={{ width: '100%', textAlign: 'center', fontSize: '14px', fontWeight: 600, padding: '6px 0', border: '1px solid var(--border)', borderRadius: '6px', outline: 'none', background: 'var(--bg-surface)', color: '#374151', boxSizing: 'border-box' }}
+                                          style={{ width: '100%', textAlign: 'center', fontSize: '14px', fontWeight: 600, padding: '6px 0', border: '1px solid var(--border)', borderRadius: '6px', outline: 'none', background: 'var(--bg-surface)', color: 'var(--text)', boxSizing: 'border-box' }}
                                           onFocus={(e) => { e.target.style.borderColor = '#c4992a'; e.target.select() }}
-                                          onBlur={(e) => { e.target.style.borderColor = '#e5e7eb' }}
+                                          onBlur={(e) => { e.target.style.borderColor = 'var(--border)' }}
                                         />
                                       </div>
                                     ))}
@@ -1052,9 +1052,9 @@ function HistorialContent() {
                                           type="text" inputMode="numeric" pattern="[0-9]*"
                                           value={editScores[i + 9] ?? ''}
                                           onChange={(e) => handleEditScore(i + 9, e.target.value)}
-                                          style={{ width: '100%', textAlign: 'center', fontSize: '14px', fontWeight: 600, padding: '6px 0', border: '1px solid var(--border)', borderRadius: '6px', outline: 'none', background: 'var(--bg-surface)', color: '#374151', boxSizing: 'border-box' }}
+                                          style={{ width: '100%', textAlign: 'center', fontSize: '14px', fontWeight: 600, padding: '6px 0', border: '1px solid var(--border)', borderRadius: '6px', outline: 'none', background: 'var(--bg-surface)', color: 'var(--text)', boxSizing: 'border-box' }}
                                           onFocus={(e) => { e.target.style.borderColor = '#c4992a'; e.target.select() }}
-                                          onBlur={(e) => { e.target.style.borderColor = '#e5e7eb' }}
+                                          onBlur={(e) => { e.target.style.borderColor = 'var(--border)' }}
                                         />
                                       </div>
                                     ))}
