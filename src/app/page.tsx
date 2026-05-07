@@ -293,20 +293,26 @@ export default function Home() {
       </section>
 
       {/* ── CTA ───────────────────────────────────────── */}
-      <section className="bg-bg-card">
+      <section style={{ background: 'var(--bg-surface)' }}>
         <div className="gold-divider" />
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-24 text-center">
-          <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl text-ivory mb-6">
+          <h2
+            className="font-display font-bold text-3xl md:text-4xl lg:text-5xl mb-6"
+            style={{ color: 'var(--text)' }}
+          >
             Empieza a jugar diferente
           </h2>
-          <p className="font-sans text-gray-soft text-base md:text-lg mb-8">
+          <p
+            className="font-sans text-base md:text-lg mb-8"
+            style={{ color: 'var(--text-2)' }}
+          >
             Únete gratis y empieza a entender tu juego hoy.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
             <Link
               href="/register"
               className="inline-flex items-center gap-2 font-sans font-bold text-lg px-12 py-4 transition-all duration-200 hover:brightness-110 active:scale-95 shadow-lg"
-              style={{ background: '#c4992a', color: 'var(--brand-dark)', borderRadius: '10px' }}
+              style={{ background: '#c4992a', color: '#0e1c2f', borderRadius: '10px' }}
             >
               Crear cuenta gratis
             </Link>
@@ -318,7 +324,10 @@ export default function Home() {
               Ver demo
             </Link>
           </div>
-          <p className="font-sans text-xs text-ivory/40 tracking-wide">
+          <p
+            className="font-sans text-xs tracking-wide"
+            style={{ color: 'var(--text-3)' }}
+          >
             Sin tarjeta &middot; Sin descarga &middot; En español
           </p>
         </div>
