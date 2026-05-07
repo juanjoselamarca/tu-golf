@@ -137,3 +137,62 @@ describe('Canario: Layout no importa componentes pesados que puedan bloquear', (
     expect(layout).not.toContain('fetch(')
   })
 })
+
+/**
+ * Canario post-incidente tAIger+ (2026-05-06): chat se cortaba a mitad de
+ * SSE, "Error de conexión" en mobile, footer global tapaba el input bar,
+ * pill "Gracias por tu feedback" persistía, no había botón Reintentar.
+ * Estos tests bloquean push si alguien revierte cualquiera de los 5 fixes.
+ */
+describe('Canario tAIger+: chat coach (fixes 2026-05-06)', () => {
+  it('route.ts del coach mantiene maxDuration en 300s', () => {
+    const route = readFile('app/api/taiger/chat/route.ts')
+    expect(
+      /export\s+const\s+maxDuration\s*=\s*300\b/.test(route),
+      'maxDuration debe ser 300s. Si lo bajan a 30s, el SSE se corta cuando ' +
+      'el coach hace tool-calling largo y el cliente cae en "Error de conexión".',
+    ).toBe(true)
+  })
+
+  it('route.ts del coach emite heartbeat SSE periódico', () => {
+    const route = readFile('app/api/taiger/chat/route.ts')
+    // Debe haber un comment frame `: keepalive\n\n` y un setInterval/clearInterval que lo dispare.
+    expect(
+      route.includes(': keepalive') && /setInterval\s*\(/.test(route) && /clearInterval\s*\(/.test(route),
+      'El stream del coach necesita heartbeat (`: keepalive`) cada N segundos ' +
+      'para evitar que proxies CDN/móvil cierren conexiones idle entre tool calls.',
+    ).toBe(true)
+  })
+
+  it('chat container usa 100dvh (no 100vh) para respetar teclado virtual', () => {
+    const page = readFile('app/coach/sesion/[id]/page.tsx')
+    expect(
+      page.includes('100dvh'),
+      'El shell del chat debe usar `100dvh`. Con `100vh` en mobile el input ' +
+      'queda detrás del teclado virtual o de la URL bar dinámica.',
+    ).toBe(true)
+    expect(
+      /height:\s*['"`]calc\(100vh\b/.test(page),
+      'No usar `calc(100vh - X)` en mobile — preferir `100dvh`.',
+    ).toBe(false)
+  })
+
+  it('GlobalFooter oculta el footer global en /coach/sesion/*', () => {
+    const footer = readFile('components/GlobalFooter.tsx')
+    expect(
+      footer.includes("'/coach/sesion'") || footer.includes('"/coach/sesion"'),
+      'GlobalFooter debe contener `/coach/sesion` en sus prefijos ocultos. ' +
+      'Sin esto el footer aparece debajo del input bar del chat en mobile ' +
+      '(barra de "Escribe tu mensaje" queda flotando incómoda).',
+    ).toBe(true)
+  })
+
+  it('chat coach renderiza botón Reintentar en errores de conexión', () => {
+    const page = readFile('app/coach/sesion/[id]/page.tsx')
+    expect(
+      page.includes('Reintentar') && /handleRetry/.test(page),
+      'El banner de error del chat debe tener botón "Reintentar" cableado ' +
+      'a un handler que rellame sendFollowUp con el último turno del usuario.',
+    ).toBe(true)
+  })
+})
