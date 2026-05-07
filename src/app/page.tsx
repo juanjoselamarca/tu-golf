@@ -171,15 +171,15 @@ export default function Home() {
                 className="font-display font-bold text-3xl md:text-4xl mb-4"
                 style={{ color: 'var(--text)', lineHeight: 1.1 }}
               >
-                La ciencia detrás de tu juego
+                El sistema oficial pierde 1.7 strokes de tu juego real.
               </h2>
               <p
                 className="font-sans text-base md:text-lg mb-7 max-w-xl"
                 style={{ color: 'var(--text-2)', lineHeight: 1.55 }}
               >
-                Tu hándicap oficial cuenta una historia.{' '}
+                Tu hándicap oficial cuenta una historia incompleta.{' '}
                 <strong className="labs-strong">El Índice Dual</strong>{' '}
-                revela cuántos strokes están ocultos en tu juego real — y cuáles son.
+                revela cuáles strokes están ocultos — y por qué importan.
               </p>
               <span
                 className="inline-flex items-center gap-2 self-start px-6 py-3 font-sans font-bold text-sm md:text-base rounded-lg transition-all duration-200 group-hover:gap-3.5 shadow-lg"
@@ -283,7 +283,7 @@ export default function Home() {
                   className="labs-caption text-[11px] font-sans pt-3"
                   style={{ color: 'var(--text-2)', lineHeight: 1.5 }}
                 >
-                  <span className="labs-strong" style={{ fontWeight: 600 }}>1.7 strokes</span>{' '}
+                  <span className="labs-strong" style={{ fontWeight: 600 }}>1.7 strokes en cada ronda</span>{' '}
                   que el sistema oficial no ve.
                 </p>
               </div>
