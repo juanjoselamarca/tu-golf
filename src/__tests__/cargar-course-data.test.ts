@@ -24,7 +24,11 @@ function makeChain(finalResult: { data: unknown }) {
   const methods = ['select', 'eq', 'ilike', 'in', 'limit']
   methods.forEach(m => { chain[m] = vi.fn(() => chain) })
   chain.single = vi.fn(() => Promise.resolve(finalResult))
-  // Supabase builder es thenable cuando NO se llama .single()
+  // maybeSingle: como single pero sin error si no hay rows. Usado en
+  // cargarCourseData para no emitir HTTP 406 cuando la cancha no tiene
+  // tee 'blanco' (caso real C1 audit 2026-05-04).
+  chain.maybeSingle = vi.fn(() => Promise.resolve(finalResult))
+  // Supabase builder es thenable cuando NO se llama .single()/.maybeSingle()
   chain.then = (resolve: (v: unknown) => void) => resolve(finalResult)
   return chain
 }

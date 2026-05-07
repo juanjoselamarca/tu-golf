@@ -115,7 +115,7 @@ export async function cargarCourseData(
     .eq('course_id', courseId)
     .ilike('nombre', `${teeNorm}%`)
     .limit(1)
-    .single()
+    .maybeSingle()
 
   if (teeData?.rating && teeData?.slope) {
     if (holes <= 9 && teeData.front_course_rating && teeData.front_slope_rating) {
@@ -138,7 +138,7 @@ export async function cargarCourseData(
     .from('courses')
     .select('slope_rating, course_rating, par_total')
     .eq('id', courseId)
-    .single()
+    .maybeSingle()
 
   if (course?.slope_rating && course?.course_rating) {
     return {
