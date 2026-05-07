@@ -107,6 +107,17 @@ export async function POST(req: NextRequest) {
     // El cliente recibe text deltas en tiempo real (first token ~1-2s vs 10-30s antes).
     const readable = new ReadableStream({
       async start(controller) {
+        // Heartbeat SSE: comment frame cada 15s para evitar que proxies de
+        // Vercel/CF/CDN o redes móviles inestables cierren la conexión idle
+        // entre tool calls largas. El cliente filtra por `data:` y los
+        // comentarios `:` son ignorados silenciosamente.
+        const heartbeat = setInterval(() => {
+          try {
+            controller.enqueue(encoder.encode(`: keepalive\n\n`))
+          } catch {
+            // controller cerrado — el clearInterval lo limpia abajo
+          }
+        }, 15000)
         try {
           type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
           const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
@@ -169,8 +180,34 @@ export async function POST(req: NextRequest) {
                     content: serialized,
                   })
 
+                  // Si la tool devolvió una ronda con scores+pares, mandamos
+                  // un summary compacto para que el cliente pueda renderizar
+                  // un mini bar chart inline cuando el coach mencione hoyos.
+                  let roundSummary: Record<string, unknown> | null = null
+                  if (
+                    result.ok &&
+                    (block.name === 'get_latest_round' || block.name === 'get_round_by_id' || block.name === 'get_round_by_date') &&
+                    typeof result.data === 'object' && result.data !== null
+                  ) {
+                    const d = result.data as Record<string, unknown>
+                    const detail = (d.detalle_hoyos ?? d.holes ?? d.hole_detail) as Array<Record<string, unknown>> | undefined
+                    if (Array.isArray(detail) && detail.length > 0) {
+                      const scores = detail.map(h => (typeof h.strokes === 'number' ? h.strokes : (typeof h.score === 'number' ? h.score : null)))
+                      const pars = detail.map(h => (typeof h.par === 'number' ? h.par : null))
+                      if (scores.some(s => s !== null)) {
+                        roundSummary = {
+                          course_name: d.course_name ?? d.cancha ?? null,
+                          played_at: d.played_at ?? d.fecha ?? null,
+                          total_gross: d.total_gross ?? d.total ?? scores.reduce<number>((a, b) => a + (b ?? 0), 0),
+                          scores,
+                          pars,
+                        }
+                      }
+                    }
+                  }
+
                   controller.enqueue(encoder.encode(
-                    `data: ${JSON.stringify({ event: 'tool_done', tool: block.name, ok: result.ok, ms })}\n\n`,
+                    `data: ${JSON.stringify({ event: 'tool_done', tool: block.name, ok: result.ok, ms, ...(roundSummary ? { round_summary: roundSummary } : {}) })}\n\n`,
                   ))
 
                   // Si fue save_plan exitoso, mandamos el plan completo al cliente
@@ -316,6 +353,8 @@ export async function POST(req: NextRequest) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Error de conexión con tAIger+. Intenta de nuevo.' })}\n\n`))
           }
           controller.close()
+        } finally {
+          clearInterval(heartbeat)
         }
       },
     })

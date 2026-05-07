@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { Calendar, PersonStanding } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { PlanAssignedCard, type AssignedPlan } from '@/components/coach/PlanAssignedCard'
+import { RoundMiniChart, type RoundSummary } from '@/components/coach/RoundMiniChart'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -23,6 +24,11 @@ interface TaigerSession {
   created_at: string
   updated_at?: string
   rating?: number | null
+}
+
+function shouldRenderChart(text: string): boolean {
+  if (!text || text.length < 30) return false
+  return /\bhoyos?\b|\bback nine\b|\bfront nine\b|\bh\d+\b|\bida\b|\bvuelta\b|primeros 9|últimos 9|ultimos 9/i.test(text)
 }
 
 const SESSION_TYPE_LABELS: Record<string, string> = {
@@ -63,6 +69,7 @@ export default function SesionDetailPage() {
   // save_plan durante un stream, el plan queda anclado al placeholder del
   // assistant correspondiente.
   const [plansByMsgIdx, setPlansByMsgIdx] = useState<Record<number, AssignedPlan>>({})
+  const [roundsByMsgIdx, setRoundsByMsgIdx] = useState<Record<number, RoundSummary>>({})
   const currentAssistantIdxRef = useRef<number>(-1)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -201,9 +208,14 @@ export default function SesionDetailPage() {
               setActivity(data.label ?? 'Pensando…')
             }
             if (data.event === 'tool_done') {
-              // Limpiamos el estado solo si no hay otro tool encolado;
-              // si hay otro tool_start después, se sobreescribe igual.
               setActivity(null)
+              if (data.round_summary) {
+                const summary = data.round_summary as RoundSummary
+                const idx = currentAssistantIdxRef.current
+                if (idx >= 0) {
+                  setRoundsByMsgIdx(prev => ({ ...prev, [idx]: summary }))
+                }
+              }
             }
             if (data.event === 'plan_assigned' && data.plan) {
               const plan = data.plan as AssignedPlan
@@ -458,6 +470,11 @@ export default function SesionDetailPage() {
                 msg.content
               )}
             </div>
+            {msg.role === 'assistant' && roundsByMsgIdx[i] && shouldRenderChart(msg.content) && (
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', paddingLeft: 40 }}>
+                <RoundMiniChart summary={roundsByMsgIdx[i]} />
+              </div>
+            )}
             {msg.role === 'assistant' && plansByMsgIdx[i] && (
               <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', paddingLeft: 40 }}>
                 <PlanAssignedCard
@@ -510,8 +527,8 @@ export default function SesionDetailPage() {
           </div>
         )}
 
-        {/* Session Rating */}
-        {showRating && (
+        {/* Session Rating — se oculta una vez enviada para no dejar pill ruidosa */}
+        {showRating && !ratingSubmitted && (
           <div style={{
             marginTop: 24,
             padding: 20,
@@ -519,11 +536,7 @@ export default function SesionDetailPage() {
             border: '1px solid rgba(196,153,42,0.15)',
             borderRadius: 12,
           }}>
-            {ratingSubmitted ? (
-              <p style={{ color: '#8A6A16', fontSize: 14, textAlign: 'center', margin: 0, fontWeight: 600 }}>
-                Gracias por tu feedback
-              </p>
-            ) : (
+            {(
               <>
                 <p style={{ color: 'var(--text-2)', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
                   Califica esta sesion con tAIger+

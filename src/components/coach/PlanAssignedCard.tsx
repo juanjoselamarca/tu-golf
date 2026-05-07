@@ -34,6 +34,29 @@ const OP_LABEL: Record<string, string> = { lte: '≤', gte: '≥', eq: '=' }
 
 export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
   const [accepted, setAccepted] = useState(false)
+  const [accepting, setAccepting] = useState(false)
+  const [acceptError, setAcceptError] = useState<string | null>(null)
+
+  async function handleAccept() {
+    if (accepted || accepting) return
+    setAccepting(true)
+    setAcceptError(null)
+    try {
+      const r = await fetch(`/api/taiger/plans/${plan.plan_id}/accept`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}))
+        throw new Error(j.error ?? `HTTP ${r.status}`)
+      }
+      setAccepted(true)
+    } catch (e) {
+      setAcceptError(e instanceof Error ? e.message : 'No se pudo registrar la aceptación')
+    } finally {
+      setAccepting(false)
+    }
+  }
 
   const targetText = `${plan.metric_name} ${OP_LABEL[plan.target_op] ?? plan.target_op} ${formatNum(plan.target_value)}`
   const baselineText = plan.baseline_value != null
@@ -120,7 +143,8 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
           <>
             <button
               type="button"
-              onClick={() => setAccepted(true)}
+              onClick={handleAccept}
+              disabled={accepting}
               style={{
                 flex: 1,
                 padding: '10px 14px',
@@ -130,17 +154,19 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
                 background: '#c4992a',
                 border: 'none',
                 borderRadius: 10,
-                cursor: 'pointer',
+                cursor: accepting ? 'wait' : 'pointer',
+                opacity: accepting ? 0.7 : 1,
                 transition: 'filter 200ms',
               }}
-              onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.08)')}
+              onMouseEnter={e => { if (!accepting) e.currentTarget.style.filter = 'brightness(1.08)' }}
               onMouseLeave={e => (e.currentTarget.style.filter = 'brightness(1)')}
             >
-              Aceptar plan
+              {accepting ? 'Aceptando…' : 'Aceptar plan'}
             </button>
             <button
               type="button"
               onClick={onChangeFocus}
+              disabled={accepting}
               style={{
                 padding: '10px 14px',
                 fontSize: 13,
@@ -157,6 +183,15 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
           </>
         )}
       </div>
+      {acceptError && (
+        <div style={{
+          marginTop: 10, padding: '6px 10px', fontSize: 12,
+          color: '#b91c1c', background: 'rgba(220,38,38,0.08)',
+          border: '1px solid rgba(220,38,38,0.20)', borderRadius: 8,
+        }}>
+          {acceptError}
+        </div>
+      )}
     </div>
   )
 }
