@@ -34,7 +34,10 @@ const TEST_EMAIL = process.env.COACH_E2E_EMAIL ?? 'juanjoselamarca@gmail.com'
 const skipIfNoEnv = !url || !serviceKey
 
 describe.skipIf(skipIfNoEnv)('Coach E2E — cerebro contra prod', () => {
-  const admin = createClient(url!, serviceKey!)
+  // Lazy: el callback de describe se evalúa al cargar (incluso si skipIf=true).
+  // Sin .env.local, createClient(url!, ...) explota con "supabaseUrl is required".
+  // Defer con placeholders: si skipIf=true el cliente nunca se usa.
+  const admin = createClient(url ?? 'http://localhost', serviceKey ?? 'placeholder')
 
   let userId: string
   let userName: string
