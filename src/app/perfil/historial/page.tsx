@@ -101,13 +101,13 @@ function computeStats(scores: (number | null)[], holePars?: number[]) {
 }
 
 function cellBg(score: number | null, par: number = 4): React.CSSProperties {
-  if (score == null) return { background: 'rgba(7,13,24,0.4)', color: '#3a4a5a' }
+  if (score == null) return { background: 'var(--score-empty-bg)',  color: 'var(--score-empty-fg)' }
   const diff = score - par
-  if (diff <= -2) return { background: 'rgba(11,107,166,0.30)',  color: '#93c5fd' }  // eagle+
-  if (diff === -1) return { background: 'rgba(20,179,217,0.25)', color: '#67e8f9' }  // birdie
-  if (diff === 0)  return { background: 'rgba(0,0,0,0.04)',      color: 'var(--text)' } // par
-  if (diff === 1)  return { background: 'rgba(196,153,42,0.25)', color: '#fcd34d' }  // bogey
-  return { background: 'rgba(220,59,46,0.30)', color: '#fca5a5' }                    // double+
+  if (diff <= -2)  return { background: 'var(--score-eagle-bg)',  color: 'var(--score-eagle-fg)' }
+  if (diff === -1) return { background: 'var(--score-birdie-bg)', color: 'var(--score-birdie-fg)' }
+  if (diff === 0)  return { background: 'rgba(0,0,0,0.04)',       color: 'var(--text)' } // par neutro en ambos modos
+  if (diff === 1)  return { background: 'var(--score-bogey-bg)',  color: 'var(--score-bogey-fg)' }
+  return { background: 'var(--score-double-bg)', color: 'var(--score-double-fg)' }
 }
 
 function formatOv(n: number) { return n > 0 ? `+${n}` : n === 0 ? 'E' : String(n) }

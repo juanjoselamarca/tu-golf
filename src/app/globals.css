@@ -78,6 +78,18 @@
   --input-bg:     #ffffff;
   --input-border: rgba(26, 29, 36, 0.12);
   --input-focus:  #C4992A;
+
+  /* Score chips — light mode (texto -700/-800 sobre fondo ~15-18% opacity) */
+  --score-empty-bg:  rgba(0,0,0,0.04);
+  --score-empty-fg:  #9ca3af;
+  --score-eagle-bg:  rgba(11,107,166,0.15);
+  --score-eagle-fg:  #1d4ed8;
+  --score-birdie-bg: rgba(20,179,217,0.15);
+  --score-birdie-fg: #0e7490;
+  --score-bogey-bg:  rgba(196,153,42,0.18);
+  --score-bogey-fg:  #92400e;
+  --score-double-bg: rgba(220,59,46,0.15);
+  --score-double-fg: #b91c1c;
 }
 
 [data-theme="dark"] {
@@ -99,6 +111,18 @@
   --input-bg:     rgba(255,255,255,0.04);
   --input-border: rgba(196,153,42,0.2);
   --input-focus:  #C4992A;
+
+  /* Score chips — dark mode (texto -300 sobre fondo ~25-30% opacity) */
+  --score-empty-bg:  rgba(7,13,24,0.4);
+  --score-empty-fg:  #3a4a5a;
+  --score-eagle-bg:  rgba(11,107,166,0.30);
+  --score-eagle-fg:  #93c5fd;
+  --score-birdie-bg: rgba(20,179,217,0.25);
+  --score-birdie-fg: #67e8f9;
+  --score-bogey-bg:  rgba(196,153,42,0.25);
+  --score-bogey-fg:  #fcd34d;
+  --score-double-bg: rgba(220,59,46,0.30);
+  --score-double-fg: #fca5a5;
 }
 
 /* ── Base styles ───────────────────────────────────────── */
