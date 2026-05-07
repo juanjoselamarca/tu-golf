@@ -10,6 +10,7 @@ import { Calendar, PersonStanding } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { PlanAssignedCard, type AssignedPlan } from '@/components/coach/PlanAssignedCard'
 import { RoundMiniChart, type RoundSummary } from '@/components/coach/RoundMiniChart'
+import { CitedMarkdown } from '@/components/coach/CitedMarkdown'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -465,7 +466,7 @@ export default function SesionDetailPage() {
               }}
             >
               {msg.role === 'assistant' && msg.content ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                <CitedMarkdown text={msg.content} round={roundsByMsgIdx[i]} />
               ) : (
                 msg.content
               )}
