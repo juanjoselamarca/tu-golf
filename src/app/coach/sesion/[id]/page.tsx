@@ -152,18 +152,35 @@ export default function SesionDetailPage() {
     try {
       // El backend siempre append a la sesion primaria del usuario (migration 017).
       // session_id es opcional ahora — solo informa al backend cual sesion esta abierta en UI.
+      // Sanitizamos el payload contra los límites del schema del backend:
+      //   - máximo 50 mensajes en el array (cap actual). Tomamos los últimos 30
+      //     para tener margen y que el backend pueda hacer su propio slice(-20).
+      //   - máximo 2000 chars por mensaje (truncamos defensivamente: respuestas
+      //     viejas largas del coach podrían exceder y romper el chat entero).
+      //   - filtramos vacíos para no mandar placeholder de assistant en blanco.
+      const safeMessages = allMessages
+        .filter(m => typeof m.content === 'string' && m.content.trim().length > 0)
+        .slice(-30)
+        .map(m => ({
+          role: m.role,
+          content: m.content.length > 2000 ? m.content.slice(0, 2000) : m.content,
+        }))
+
       const res = await fetch('/api/taiger/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: allMessages,
+          messages: safeMessages,
           ...(sessionId !== 'nueva' ? { session_id: sessionId } : {}),
         }),
       })
 
       if (!res.ok) {
         const data = await res.json()
-        setError(data.error || 'Error al conectar con tAIger+')
+        const friendly = data.error === 'Input inválido' && data.details
+          ? `Tu mensaje no pudo enviarse: ${data.details}. Intenta uno más corto.`
+          : data.error || 'Error al conectar con tAIger+'
+        setError(friendly)
         setStreaming(false)
         return
       }
