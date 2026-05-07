@@ -197,7 +197,8 @@
 [data-theme="dark"] .labs-card {
   background-color: #122140;
   background-image:
-    radial-gradient(circle at 85% 25%, rgba(196,153,42,0.20), transparent 55%),
+    radial-gradient(ellipse 70% 85% at 85% 30%, rgba(196,153,42,0.22), transparent 72%),
+    radial-gradient(ellipse 60% 70% at 12% 95%, rgba(11,107,166,0.14), transparent 65%),
     linear-gradient(135deg, rgba(255,255,255,0.04), rgba(0,0,0,0.10));
   border-color: rgba(196,153,42,0.34);
   box-shadow: 0 0 80px -28px rgba(196,153,42,0.35);
