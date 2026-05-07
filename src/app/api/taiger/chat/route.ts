@@ -7,6 +7,7 @@ import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
 import { validateResponse } from '@/golf/coach/hallucination-validator'
+import { toolActivityLabel, friendlyPatternName, friendlyMetricName } from '@/lib/coach-event-narrator'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -149,6 +150,11 @@ export async function POST(req: NextRequest) {
               const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
               for (const block of resp.content) {
                 if (block.type === 'tool_use') {
+                  // Estado en vivo: avisamos al cliente que el coach va a consultar.
+                  controller.enqueue(encoder.encode(
+                    `data: ${JSON.stringify({ event: 'tool_start', tool: block.name, label: toolActivityLabel(block.name) })}\n\n`,
+                  ))
+
                   const t0 = Date.now()
                   const result = await executeTool(block.name, block.input as Record<string, unknown>, toolCtx)
                   const ms = Date.now() - t0
@@ -159,6 +165,37 @@ export async function POST(req: NextRequest) {
                     tool_use_id: block.id,
                     content: serialized,
                   })
+
+                  controller.enqueue(encoder.encode(
+                    `data: ${JSON.stringify({ event: 'tool_done', tool: block.name, ok: result.ok, ms })}\n\n`,
+                  ))
+
+                  // Si fue save_plan exitoso, mandamos el plan completo al cliente
+                  // para que renderice una card en la conversación.
+                  if (block.name === 'save_plan' && result.ok) {
+                    const input = block.input as Record<string, unknown>
+                    const planObj = (input.plan ?? {}) as Record<string, unknown>
+                    const obs = (input.observation_data ?? {}) as Record<string, unknown>
+                    const data = (result.data ?? {}) as Record<string, unknown>
+                    controller.enqueue(encoder.encode(
+                      `data: ${JSON.stringify({
+                        event: 'plan_assigned',
+                        plan: {
+                          plan_id: data.plan_id,
+                          pattern_id: input.pattern_id,
+                          pattern_name: friendlyPatternName(String(input.pattern_id ?? '')),
+                          hypothesis: input.hypothesis,
+                          rule: planObj.rule,
+                          metric: planObj.metric,
+                          metric_name: friendlyMetricName(String(planObj.metric ?? '')),
+                          target_value: planObj.target_value,
+                          target_op: planObj.target_op,
+                          duration_days: planObj.duration_days,
+                          baseline_value: obs.metric_value,
+                        },
+                      })}\n\n`,
+                    ))
+                  }
                   // Instrumentacion: emit tool_called para el cerebro del agente
                   // (sin bloquear el flow si falla la auditoria).
                   try {

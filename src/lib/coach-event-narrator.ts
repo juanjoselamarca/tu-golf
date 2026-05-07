@@ -54,6 +54,36 @@ const TOOL_LABELS: Record<string, string> = {
   save_plan: 'asignar plan',
 }
 
+/**
+ * Frase corta en presente continuo para mostrar al usuario mientras el coach
+ * piensa. Usada por el chat (/coach/sesion/[id]) durante el streaming.
+ *
+ *   get_latest_round  → "Leyendo tu última ronda…"
+ *   save_plan         → "Asignando tu plan…"
+ */
+export function toolActivityLabel(toolName: string): string {
+  switch (toolName) {
+    case 'get_latest_round':       return 'Leyendo tu última ronda…'
+    case 'get_round_by_id':        return 'Buscando esa ronda…'
+    case 'get_round_by_date':      return 'Buscando la ronda de esa fecha…'
+    case 'get_recent_rounds':      return 'Comparando tus últimas rondas…'
+    case 'get_all_rounds_summary': return 'Repasando tu historial completo…'
+    case 'get_course_details':     return 'Mirando los pares de la cancha…'
+    case 'save_plan':              return 'Asignando tu plan…'
+    default:                       return 'Pensando…'
+  }
+}
+
+/** Nombre humano del patrón (mismo set que usa el narrator interno). */
+export function friendlyPatternName(patternId: string): string {
+  return PATTERN_LABELS[patternId] ?? patternId
+}
+
+/** Nombre humano de la métrica del plan. */
+export function friendlyMetricName(metric: string): string {
+  return METRIC_LABELS[metric] ?? metric
+}
+
 export function narrateEvent(event: {
   type: string
   payload: Record<string, unknown> | null

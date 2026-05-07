@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm'
 import { createClient } from '@/lib/supabase'
 import { Calendar, PersonStanding } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
+import { PlanAssignedCard, type AssignedPlan } from '@/components/coach/PlanAssignedCard'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -56,6 +57,13 @@ export default function SesionDetailPage() {
   const [ratingSubmitting, setRatingSubmitting] = useState(false)
   const [opener, setOpener] = useState<string | null>(null)
   const [openerLoading, setOpenerLoading] = useState(false)
+  const [activity, setActivity] = useState<string | null>(null)
+  // Plans asignados durante la conversación, indexados por el índice del
+  // mensaje assistant que los originó (messages[idx]). Cuando el LLM dispara
+  // save_plan durante un stream, el plan queda anclado al placeholder del
+  // assistant correspondiente.
+  const [plansByMsgIdx, setPlansByMsgIdx] = useState<Record<number, AssignedPlan>>({})
+  const currentAssistantIdxRef = useRef<number>(-1)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -157,7 +165,11 @@ export default function SesionDetailPage() {
       let assistantContent = ''
       let realSessionId: string | null = null
 
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+      setMessages(prev => {
+        const next = [...prev, { role: 'assistant' as const, content: '' }]
+        currentAssistantIdxRef.current = next.length - 1
+        return next
+      })
 
       while (true) {
         const { done, value } = await reader.read()
@@ -171,6 +183,8 @@ export default function SesionDetailPage() {
             const data = JSON.parse(line.slice(6))
 
             if (data.text) {
+              // En cuanto llega el primer texto, escondemos el "está consultando"
+              if (assistantContent === '') setActivity(null)
               assistantContent += data.text
               setMessages(prev => {
                 const updated = [...prev]
@@ -180,6 +194,23 @@ export default function SesionDetailPage() {
                 }
                 return updated
               })
+            }
+
+            // Meta-eventos del cerebro: estado en vivo y plan asignado.
+            if (data.event === 'tool_start') {
+              setActivity(data.label ?? 'Pensando…')
+            }
+            if (data.event === 'tool_done') {
+              // Limpiamos el estado solo si no hay otro tool encolado;
+              // si hay otro tool_start después, se sobreescribe igual.
+              setActivity(null)
+            }
+            if (data.event === 'plan_assigned' && data.plan) {
+              const plan = data.plan as AssignedPlan
+              const idx = currentAssistantIdxRef.current
+              if (idx >= 0) {
+                setPlansByMsgIdx(prev => ({ ...prev, [idx]: plan }))
+              }
             }
 
             if (data.done && data.session_id) {
@@ -427,18 +458,41 @@ export default function SesionDetailPage() {
                 msg.content
               )}
             </div>
+            {msg.role === 'assistant' && plansByMsgIdx[i] && (
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', paddingLeft: 40 }}>
+                <PlanAssignedCard
+                  plan={plansByMsgIdx[i]}
+                  onChangeFocus={() => {
+                    setInput('Ese plan no me convence, propone otro foco distinto basado en mis datos.')
+                  }}
+                />
+              </div>
+            )}
           </div>
         ))}
 
         {streaming && messages.length > 0 && !messages[messages.length - 1]?.content && (
           <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '10px 14px',
+            margin: '8px 0 8px 40px',
+            maxWidth: 'fit-content',
+            background: 'rgba(196,153,42,0.08)',
+            border: '1px solid rgba(196,153,42,0.20)',
+            borderRadius: 20,
+            fontSize: 13,
             color: '#8A6A16',
-            fontSize: 14,
             fontWeight: 500,
-            padding: '8px 0',
-            animation: 'pulse 1.5s ease-in-out infinite',
           }}>
-            tAIger+ está analizando...
+            <span className="taiger-spinner" style={{
+              width: 12, height: 12, borderRadius: 6,
+              background: '#c4992a',
+              animation: 'taigerPulse 1.2s ease-in-out infinite',
+              flexShrink: 0,
+            }} />
+            <span>{activity ?? 'tAIger+ está analizando…'}</span>
           </div>
         )}
 
@@ -606,6 +660,10 @@ export default function SesionDetailPage() {
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes taigerPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.4); opacity: 0.4; }
         }
         .taiger-md > *:first-child { margin-top: 0; }
         .taiger-md > *:last-child { margin-bottom: 0; }
