@@ -332,7 +332,7 @@ export default function SesionDetailPage() {
   }) : ''
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 60px)' }}>
       {/* Messages area */}
       <div style={{
         flex: 1,
@@ -613,6 +613,7 @@ export default function SesionDetailPage() {
         display: 'flex',
         gap: 10,
         alignItems: 'center',
+        zIndex: 50,
       }}>
         <input
           type="text"
