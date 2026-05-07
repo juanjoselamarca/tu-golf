@@ -13,7 +13,10 @@ import { checkRateLimit } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-export const maxDuration = 30
+// Coach hace tool-calling en loop (rondas, hoyos, comparaciones) + streaming Anthropic.
+// 30s mataba la función a mitad de SSE → cliente caía en "Error de conexión" o chat
+// se cortaba a mitad de oración. 300s es el default de plataforma Vercel desde 2025.
+export const maxDuration = 300
 
 const chatInputSchema = z.object({
   message: z.string().min(1).max(2000).optional(),
