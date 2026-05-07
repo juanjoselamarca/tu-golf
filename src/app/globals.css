@@ -237,6 +237,16 @@
 [data-theme="light"] .labs-caption { border-top-color: rgba(0,0,0,0.06); }
 [data-theme="dark"]  .labs-caption { border-top-color: rgba(255,255,255,0.06); }
 
+/* ── Scorecard "paper on table" — mantener interior blanco siempre.
+   En dark, enmarcar con anillo dorado tenue + sombra cálida para que se lea
+   como decisión skeumórfica (tarjeta física), no como bug de tema. */
+[data-theme="dark"] .scorecard-paper {
+  box-shadow:
+    0 0 0 1px rgba(196,153,42,0.18),
+    0 12px 36px rgba(0,0,0,0.55),
+    0 2px 8px rgba(0,0,0,0.40) !important;
+}
+
 /* SECTIONS LIGHT-CARD: en pantallas con fondo blanco/light, los componentes
    compartidos que originalmente eran dark (bg-bg-card .text-ivory) NO se
    tocan — siguen siendo cards oscuras con texto claro. La home tenía un

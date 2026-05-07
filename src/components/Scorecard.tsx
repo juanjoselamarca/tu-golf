@@ -485,7 +485,7 @@ export default function Scorecard({
   const played = all.filter(s => s.score != null).length
 
   return (
-    <div style={{
+    <div className="scorecard-paper" style={{
       background: '#fff', borderRadius: 8,
       boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
       overflow: 'hidden', fontFamily: SANS, maxWidth: wide ? 960 : '100%',
