@@ -233,26 +233,9 @@ async function checkRouteAndRoleIntegrity(admin: SupabaseClient): Promise<Catego
       }
     }),
 
-    // Recent role changes
-    safeCheck('Cambios de role recientes', async () => {
-      const { data } = await admin.rpc('exec_sql', {
-        query: `SELECT user_id, metadata, created_at
-                FROM analytics_events
-                WHERE event_type = 'role_changed'
-                AND created_at > NOW() - INTERVAL '24 hours'
-                ORDER BY created_at DESC
-                LIMIT 20`,
-      })
-      const rows = (data ?? []) as Array<{ user_id: string; metadata: unknown; created_at: string }>
-      return {
-        name: 'Cambios de role recientes',
-        status: rows.length > 0 ? 'warn' : 'pass',
-        message: rows.length > 0
-          ? `${rows.length} cambio(s) de rol en las ultimas 24h`
-          : 'Sin cambios de rol en 24h',
-        details: rows.length > 0 ? { changes: rows } : undefined,
-      }
-    }),
+    // Recent role changes — REMOVIDO en audit 2026-05-08: no es health, es audit
+    // trail. Generaba falso-positive warn cada vez que se tocaba permisos.
+    // Movido a un comando admin de auditoría aparte (TODO).
 
     // Critical tables accessible (proxy for critical routes)
     safeCheck('Rutas criticas accesibles', async () => {
@@ -285,21 +268,8 @@ async function checkRouteAndRoleIntegrity(admin: SupabaseClient): Promise<Catego
       }
     }),
 
-    // Navbar admin link visibility
-    safeCheck('Navbar admin link visible', async () => {
-      const { data } = await admin.rpc('exec_sql', {
-        query: `SELECT COUNT(*) as cnt FROM profiles WHERE role = 'admin'`,
-      })
-      const count = Number(data?.[0]?.cnt ?? 0)
-      return {
-        name: 'Navbar admin link visible',
-        status: count > 0 ? 'pass' : 'fail',
-        message: count > 0
-          ? `${count} usuario(s) pueden ver el link de admin`
-          : 'Nadie puede acceder al panel admin',
-        details: { admin_count: count },
-      }
-    }),
+    // Navbar admin link — REMOVIDO en audit 2026-05-08: duplicaba "Admin existe"
+    // arriba con la misma query (COUNT FROM profiles WHERE role='admin').
   ])
 
   return { name: 'Integridad de rutas y roles', checks }
@@ -462,29 +432,13 @@ async function checkFlows(admin: SupabaseClient): Promise<Category> {
   return { name: 'Validación de flujos', checks }
 }
 
-// ─── 5. Performance ────────────────────────────────────────────────────────
-
-async function checkPerformance(admin: SupabaseClient): Promise<Category> {
-  const tables = ['profiles', 'rondas_libres', 'analytics_events'] as const
-
-  const checks = await Promise.all(
-    tables.map((table) =>
-      safeCheck(`Tiempo query ${table}`, async () => {
-        const { ms } = await timed(async () =>
-          admin.from(table).select('*', { count: 'exact', head: true })
-        )
-        return {
-          name: `Tiempo query ${table}`,
-          status: ms < 2000 ? 'pass' : 'warn',
-          message: `${ms}ms`,
-          duration_ms: ms,
-        }
-      })
-    )
-  )
-
-  return { name: 'Performance', checks }
-}
+// ─── Performance — REMOVIDO en audit 2026-05-08 ────────────────────────────
+// Los 3 checks (Tiempo query profiles/rondas_libres/analytics_events) usaban
+// umbral de 2000ms que solo atrapa catástrofes ya tangibles. Una query lenta
+// real (200→600ms) nunca disparaba. Sin métrica de baseline o p95 histórico,
+// el check inflaba el conteo de "X passed" sin agregar señal accionable.
+// Para reintroducir: comparar contra baseline rolling de últimas 24h, no
+// contra threshold estático.
 
 // ─── Route Handler ──────────────────────────────────────────────────────────
 
@@ -501,14 +455,14 @@ export async function GET() {
   const admin = createAdminClient()
   const start = Date.now()
 
-  // Run all categories in parallel
+  // Run all categories in parallel.
+  // Performance category removida en audit 2026-05-08 (umbral teatro).
   const categories = await Promise.all([
     checkServices(admin),
     checkDataIntegrity(admin),
     checkRouteAndRoleIntegrity(admin),
     checkRLSPolicies(admin),
     checkFlows(admin),
-    checkPerformance(admin),
   ])
 
   const duration_ms = Date.now() - start
