@@ -32,11 +32,12 @@ const SUPABASE_TOKEN = process.env.SUPABASE_ACCESS_TOKEN
 const PROJECT_REF = 'hoswfwhvcgqlqdmzpnce'
 const COURSE_ID = 'dff847e1-34d9-4805-85a7-01ec3e554f65' // Lomas de la Dehesa
 
-if (!SUPABASE_TOKEN) {
-  throw new Error('SUPABASE_ACCESS_TOKEN no está en .env.local')
-}
+// El throw se mueve adentro del describe (test.skip) en vez de top-level: en CI
+// sin .env.local crasheaba el module-load, abortando el discovery de TODA la
+// suite. Ver e2e/coach-e2e.test.ts para el patrón equivalente con beforeAll.
 
 async function supabaseQuery(query: string): Promise<unknown[]> {
+  if (!SUPABASE_TOKEN) throw new Error('SUPABASE_ACCESS_TOKEN no está configurado')
   const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
     method: 'POST',
     headers: {
@@ -64,6 +65,9 @@ const TEST_RONDAS: TestRonda[] = [
 ]
 
 test.describe('E2E: Vista espectador por modalidad', () => {
+  // Skip todo el describe si no hay token (CI sin .env.local) sin matar discovery.
+  test.skip(!SUPABASE_TOKEN, 'SUPABASE_ACCESS_TOKEN no configurado — requiere .env.local con token de Supabase Management API para crear rondas de test')
+
   test.beforeAll(async () => {
     // Limpiar rondas de test previas si existen
     await supabaseQuery(
