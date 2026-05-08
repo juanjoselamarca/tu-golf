@@ -68,10 +68,30 @@ jobs:
           npx playwright test --reporter=json > playwright-output.json 2> playwright-stderr.log || true
           PT_EXIT=$?
           echo "exit_code=$PT_EXIT" >> "$GITHUB_OUTPUT"
-          echo "=== Playwright output (first 50 lines) ==="
-          head -50 playwright-output.json || echo "(empty)"
-          echo "=== Playwright stderr (first 50 lines) ==="
-          head -50 playwright-stderr.log || echo "(empty)"
+          echo "=== File sizes ==="
+          wc -c playwright-output.json playwright-stderr.log || true
+          echo "=== Playwright stderr (full) ==="
+          cat playwright-stderr.log || echo "(empty)"
+          echo "=== Playwright output stats/errors ==="
+          node -e "
+            const fs = require('fs');
+            const raw = fs.readFileSync('playwright-output.json', 'utf8');
+            const i = raw.indexOf('{');
+            if (i < 0) { console.log('NO JSON'); process.exit(0); }
+            try {
+              const j = JSON.parse(raw.slice(i));
+              console.log('top-level keys:', Object.keys(j));
+              console.log('stats:', JSON.stringify(j.stats));
+              console.log('errors:', JSON.stringify(j.errors));
+              console.log('suites count:', j.suites?.length ?? 'no suites key');
+              if (j.suites?.length) {
+                console.log('first suite:', JSON.stringify({title: j.suites[0].title, file: j.suites[0].file, specs: j.suites[0].specs?.length, suites: j.suites[0].suites?.length}));
+              }
+            } catch (e) {
+              console.log('parse error:', e.message);
+              console.log('first 300 chars:', raw.slice(i, i+300));
+            }
+          " || echo "(node debug failed)"
 
       - name: Parse results y armar payload
         id: parse
@@ -128,10 +148,24 @@ jobs:
               skipped: tests.filter(t => t.status === 'skipped').length,
             };
 
-            const status = summary.failed > 0 ? 'failed' : 'passed';
-            const payload = { status, summary, results: tests };
+            // Si no se ejecutaron tests (total=0), el run no es "passed" — es un error.
+            // Reportarlo con los `errors` del JSON de Playwright si existen.
+            let status, error_message;
+            if (summary.total === 0) {
+              status = 'error';
+              const pwErrors = Array.isArray(raw.errors) ? raw.errors : [];
+              const pwStats = raw.stats || {};
+              error_message = 'Playwright corrió pero no descubrió ni ejecutó tests.\n\n'
+                + 'errors: ' + JSON.stringify(pwErrors).slice(0, 1500) + '\n\n'
+                + 'stats: ' + JSON.stringify(pwStats).slice(0, 500);
+            } else {
+              status = summary.failed > 0 ? 'failed' : 'passed';
+            }
+            const payload = error_message
+              ? { status, summary, results: tests, error_message }
+              : { status, summary, results: tests };
             fs.writeFileSync('callback-payload.json', JSON.stringify(payload));
-            console.log(`E2E: ${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.skipped} skipped`);
+            console.log(`E2E: ${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.skipped} skipped (status=${status})`);
           })();
           EOF
 
