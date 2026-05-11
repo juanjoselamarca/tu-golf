@@ -29,7 +29,7 @@ export interface ValidationResult {
   isReadyToCreate: boolean
 }
 
-const TEAM_FORMATS: ReadonlySet<TournamentConfig['format']> = new Set([
+const TEAM_FORMATS: ReadonlySet<TournamentConfig['format']> = new Set<TournamentConfig['format']>([
   'best_ball',
   'scramble',
   'foursome',
