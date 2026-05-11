@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,28 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!(await isAdmin(user?.id, supabase))) {
     return NextResponse.json({ error: 'No tienes permisos' }, { status: 403 })
+  }
+
+  // Rate limit: 5 disparos por hora por admin. Sin esto, un admin (o cuenta
+  // comprometida) puede inundar GitHub Actions consumiendo los 2000 min/mes
+  // gratuitos en horas, y dejar la tabla e2e_runs creciendo sin freno.
+  const rl = checkRateLimit(`e2e-trigger:${user!.id}`, 5, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({
+      error: `Demasiadas corridas en la última hora (máx 5). Esperá ${Math.ceil((rl.resetAt - Date.now()) / 60000)} min.`,
+    }, { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } })
+  }
+
+  // Guard contra doble-click / doble-tab: si ya hay una corrida activa,
+  // rechazamos. Evita disparar dos workflows simultáneos por error humano.
+  const { count: activeCount } = await supabase
+    .from('e2e_runs')
+    .select('id', { count: 'exact', head: true })
+    .in('status', ['queued', 'running'])
+  if ((activeCount ?? 0) > 0) {
+    return NextResponse.json({
+      error: 'Ya hay una corrida activa. Esperá que termine antes de disparar otra.',
+    }, { status: 409 })
   }
 
   const pat = process.env.GITHUB_PAT

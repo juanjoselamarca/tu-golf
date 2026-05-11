@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -9,26 +10,41 @@ export const dynamic = 'force-dynamic'
 // Auth: header `x-e2e-callback-secret` debe matchear E2E_CALLBACK_SECRET.
 // No usa cookie de usuario porque GH Actions no las tiene.
 
+// Caps defensivos en el payload: previene workflow comprometido (CI poisoning)
+// o edge case (Playwright explota con 10K timeouts) que infle la tabla
+// e2e_runs sin control. `results` se trunca a 500 tests, cada error a 2000
+// chars, cada nombre/file a 500.
 const callbackSchema = z.object({
   status: z.enum(['running', 'passed', 'failed', 'error']),
   github_run_id: z.number().int().optional(),
-  github_run_url: z.string().url().optional(),
-  commit_sha: z.string().optional(),
+  github_run_url: z.string().url().max(500).optional(),
+  commit_sha: z.string().max(64).optional(),
   summary: z.object({
-    total: z.number().int(),
-    passed: z.number().int(),
-    failed: z.number().int(),
-    skipped: z.number().int(),
+    total: z.number().int().min(0).max(100000),
+    passed: z.number().int().min(0).max(100000),
+    failed: z.number().int().min(0).max(100000),
+    skipped: z.number().int().min(0).max(100000),
   }).optional(),
   results: z.array(z.object({
-    name: z.string(),
+    name: z.string().max(500),
     status: z.enum(['passed', 'failed', 'skipped', 'timedOut', 'interrupted']),
     duration_ms: z.number().optional(),
-    error: z.string().optional(),
-    file: z.string().optional(),
-  })).optional(),
-  error_message: z.string().optional(),
+    error: z.string().max(2000).optional(),
+    file: z.string().max(500).optional(),
+  })).max(500).optional(),
+  error_message: z.string().max(5000).optional(),
 })
+
+// Comparación de secrets en tiempo constante. `===` short-circuit en el
+// primer byte distinto, permitiendo timing attacks para inferir el secret
+// byte por byte. timingSafeEqual escanea ambos buffers completos siempre.
+function secretsMatch(provided: string | null, expected: string): boolean {
+  if (provided === null) return false
+  const a = Buffer.from(provided, 'utf8')
+  const b = Buffer.from(expected, 'utf8')
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
+}
 
 export async function POST(
   req: NextRequest,
@@ -41,8 +57,7 @@ export async function POST(
   if (!secret) {
     return NextResponse.json({ error: 'E2E_CALLBACK_SECRET no configurado' }, { status: 503 })
   }
-  const provided = req.headers.get('x-e2e-callback-secret')
-  if (provided !== secret) {
+  if (!secretsMatch(req.headers.get('x-e2e-callback-secret'), secret)) {
     return NextResponse.json({ error: 'Auth inválido' }, { status: 401 })
   }
 
