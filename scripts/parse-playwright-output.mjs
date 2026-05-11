@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Parsea el output JSON del Playwright reporter y produce el payload del
  * callback que se envía al endpoint /api/admin/e2e/runs/[id]/callback.
@@ -151,6 +150,7 @@ function main() {
   )
 }
 
-const isMainModule = import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`
-  || process.argv[1].endsWith('parse-playwright-output.mjs')
+const argv1 = process.argv[1] ?? ''
+const isMainModule = import.meta.url === `file://${argv1.replace(/\\/g, '/')}`
+  || argv1.endsWith('parse-playwright-output.mjs')
 if (isMainModule) main()
