@@ -12,7 +12,7 @@ interface RunSummary {
   base_url: string | null
   started_at: string | null
   finished_at: string | null
-  summary: { total: number; passed: number; failed: number; skipped: number }
+  summary: { total: number; passed: number; failed: number; skipped: number; truncated?: boolean }
   error_message: string | null
   created_at: string
 }
@@ -282,6 +282,16 @@ function RunDetailView({ run }: { run: RunDetail }) {
     )
   }
   if (!run.results || run.results.length === 0) {
+    // Caso típico: corrida pasó sin fallos. El parser dropea passed/skipped
+    // del payload (truncated=true) para evitar el límite de WAF de Vercel.
+    if (run.summary.truncated && run.summary.failed === 0) {
+      return (
+        <p style={{ color: adminColors.gray, fontSize: 13 }}>
+          Todos los tests pasaron o se skipearon — los detalles individuales
+          están en el run de GitHub Actions.
+        </p>
+      )
+    }
     return <p style={{ color: adminColors.gray, fontSize: 13 }}>Todavía no hay resultados de tests individuales.</p>
   }
   const failed = run.results.filter(r => r.status === 'failed' || r.status === 'timedOut' || r.status === 'interrupted')

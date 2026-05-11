@@ -32,6 +32,10 @@ const callbackSchema = z.object({
     error: z.string().max(2000).optional(),
     file: z.string().max(500).optional(),
   })).max(500).optional(),
+  // truncated=true cuando el parser dropea passed/skipped del payload para
+  // mantenerlo bajo el límite de WAF de Vercel (~100KB). El detalle completo
+  // queda en el run de GitHub Actions.
+  truncated: z.boolean().optional(),
   error_message: z.string().max(5000).optional(),
 })
 
@@ -83,7 +87,12 @@ export async function POST(
   if (data.github_run_id !== undefined) update.github_run_id = data.github_run_id
   if (data.github_run_url !== undefined) update.github_run_url = data.github_run_url
   if (data.commit_sha !== undefined) update.commit_sha = data.commit_sha
-  if (data.summary !== undefined) update.summary = data.summary
+  // Persistimos `truncated` dentro de summary (jsonb existente) en vez de
+  // crear una columna nueva. La UI lee summary.truncated para mostrar
+  // "ver detalle en GitHub" cuando results no es la lista completa.
+  if (data.summary !== undefined) {
+    update.summary = data.truncated ? { ...data.summary, truncated: true } : data.summary
+  }
   if (data.results !== undefined) update.results = data.results
   if (data.error_message !== undefined) update.error_message = data.error_message
   if (isTerminal) update.finished_at = new Date().toISOString()

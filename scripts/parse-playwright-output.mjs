@@ -113,5 +113,20 @@ export function parse({ outputContent, stderrContent }) {
   }
 
   const status = summary.failed > 0 ? 'failed' : 'passed'
-  return { status, summary, results: tests }
+
+  // Truncar `results` antes de mandarlo al callback: incluímos solo los
+  // tests que fallaron (más relevantes para diagnóstico inmediato desde
+  // el panel admin). Los pasados/skipped se omiten del payload — sus
+  // conteos viven en `summary`, y el detalle completo queda en el run de
+  // GitHub Actions (linkeado vía github_run_url).
+  //
+  // Razón: Vercel CDN devuelve 403 desde IPs de GitHub Actions cuando el
+  // body del callback es grande (>100KB con 56 tests × stacks de error).
+  // Sin truncar, el panel quedaba con status='running' indefinidamente.
+  // Con failed-only, el payload típico es <10KB y pasa siempre.
+  const failedResults = tests.filter(
+    (t) => t.status === 'failed' || t.status === 'timedOut' || t.status === 'interrupted',
+  )
+  const truncated = tests.length > failedResults.length
+  return { status, summary, results: failedResults, ...(truncated ? { truncated: true } : {}) }
 }
