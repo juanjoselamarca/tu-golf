@@ -45,8 +45,8 @@
 
 ### Components (composites)
 - Create: `src/components/coach/PlanAwareChatHeader.tsx`
-- Create: `src/components/coach/TodayCard.tsx`
-- Create: `src/components/coach/PlanCompletedCard.tsx`
+- ~~Create: `src/components/coach/TodayCard.tsx`~~ — superseded por PlanActiveCard del paralelo.
+- ~~Create: `src/components/coach/PlanCompletedCard.tsx`~~ — superseded; manejado por badge en PlanAwareChatHeader (chat lane) y status pill en PlanActiveCard (home lane del paralelo).
 - Create: `src/components/coach/PlanDetailDrawer.tsx`
 
 ### Hooks
@@ -58,7 +58,7 @@
 - Modify: `src/app/coach/sesion/[id]/page.tsx` — split en 4 sub-tasks (ver Phase 5).
 
 ### Tests
-- Create: `src/__tests__/components/{QuickReplies,ToolUseChip,DrillCard,VoiceInputButton,TodayCard,PlanCompletedCard,PlanAwareChatHeader,PlanDetailDrawer}.test.tsx`
+- Create: `src/__tests__/components/{QuickReplies,ToolUseChip,DrillCard,VoiceInputButton,PlanAwareChatHeader,PlanDetailDrawer}.test.tsx`
 - Create: `src/__tests__/lib/coach/active-plan.test.ts`
 - Create: `src/__tests__/lib/coach/practice-suggestions.test.ts`
 - Create: `src/__tests__/api/taiger/plans-active.test.ts`
@@ -1408,16 +1408,8 @@ describe('canary: tAIger+ plan + cumplimiento v2', () => {
   const fs = require('fs');
   const path = require('path');
 
-  it('TodayCard.tsx existe + exporta TodayCardData', () => {
-    const s = fs.readFileSync(path.join(process.cwd(), 'src/components/coach/TodayCard.tsx'), 'utf-8');
-    expect(s).toMatch(/export interface TodayCardData/);
-    expect(s).toMatch(/export function TodayCard/);
-  });
-
-  it('PlanCompletedCard.tsx existe', () => {
-    const s = fs.readFileSync(path.join(process.cwd(), 'src/components/coach/PlanCompletedCard.tsx'), 'utf-8');
-    expect(s).toMatch(/export function PlanCompletedCard/);
-  });
+  // TodayCard / PlanCompletedCard canaries removidos en v2.1 reconciliación —
+  // ahora viven en el paralelo coach-home-redesign (PlanActiveCard).
 
   it('PlanAwareChatHeader.tsx existe', () => {
     const s = fs.readFileSync(path.join(process.cwd(), 'src/components/coach/PlanAwareChatHeader.tsx'), 'utf-8');
@@ -1499,7 +1491,7 @@ describe('canary: tAIger+ plan + cumplimiento v2', () => {
 
 **Placeholder scan:** code blocks completos. Excepción: Task 5.5 sub-commits dan pseudo-diff sobre archivo 706-líneas; el engineer ejecutor debe leer el archivo primero y matchear las inserciones — esto es práctica común para modificaciones grandes y es preferible a inventar line numbers.
 
-**Type consistency:** `DrillCardData` en componente y SSE consumer (5.5b) tienen mismo shape. `PlanHeaderData` solo en PlanAwareChatHeader. `TodayCardData` solo en TodayCard. Sin retroactive edits.
+**Type consistency:** `DrillCardData` en componente y SSE consumer (5.5b) tienen mismo shape. `PlanHeaderData` solo en PlanAwareChatHeader. Sin retroactive edits. (`TodayCardData` borrado en v2.1.)
 
 **Scope (v2.1 reconciliado):** 10 tasks ejecutables (vs 12 en v2 standalone, vs 28 en v1). Tasks borrados por reconciliación: 4.1 (TodayCard), 5.4 (/coach/page rewrite). Task 4.2 simplificado (sin PlanCompletedCard). El paralelo agrega 18 tasks suyos sobre el home — total combinado ~28 tasks pero en lanes paralelas sin bloqueos.
 
