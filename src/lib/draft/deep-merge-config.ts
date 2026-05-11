@@ -42,19 +42,20 @@ export function deepMergeConfig(
     }
     if (Array.isArray(v) && k in ARRAY_KEY_BY_FIELD) {
       const matchKey = ARRAY_KEY_BY_FIELD[k]
+      const baseArr = base[k as keyof TournamentConfig]
       result[k] = mergeArrayByKey(
-        Array.isArray(base[k as keyof TournamentConfig]) ? (base[k as keyof TournamentConfig] as Record<string, unknown>[]) : [],
-        v as Record<string, unknown>[],
+        Array.isArray(baseArr) ? (baseArr as unknown as Record<string, unknown>[]) : [],
+        v as unknown as Record<string, unknown>[],
         matchKey,
       )
       continue
     }
     if (isPlainObject(v) && isPlainObject(result[k])) {
-      result[k] = { ...(result[k] as object), ...v }
+      result[k] = { ...(result[k] as Record<string, unknown>), ...(v as Record<string, unknown>) }
       continue
     }
     result[k] = v
   }
 
-  return result as TournamentConfig
+  return result as unknown as TournamentConfig
 }
