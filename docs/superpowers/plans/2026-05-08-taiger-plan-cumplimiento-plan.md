@@ -1,8 +1,15 @@
-# tAIger+ Plan Activo + Cumplimiento — Implementation Plan **v2**
+# tAIger+ Plan Activo + Cumplimiento — Implementation Plan **v2.1 (reconciliado)**
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Hacer el plan activo de tAIger+ visible y accionable en `/coach` (Today Card hero) y `/coach/sesion` (plan-aware header), con escape hatches en PlanDetailDrawer, voice-to-text en composer, y wiring para las piezas premium del chat (DrillCard, QuickReplies, ToolUseChip, Citation chips) detrás de feature flag pendiente de Cerebro v2.
+**Reconciliación con spec paralelo:** ver `2026-05-08-taiger-plan-cumplimiento-design.md` §0. La lane home (`/coach/page.tsx`) está cedida al plan `2026-05-11-taiger-coach-home-redesign.md`. Este plan cubre solo la **chat lane** (`/coach/sesion/[id]` + APIs + migration + componentes chat-embedded).
+
+**Tasks borrados respecto a v2 standalone (superseded por el paralelo):**
+- Task 4.1 `<TodayCard>` — reemplazado por `<PlanActiveCard>` del paralelo (Task 12 allá).
+- Task 4.2 `<PlanCompletedCard>` — manejado por status pill en PlanActiveCard del paralelo.
+- Task 5.4 `/coach/page.tsx` rewrite — propiedad del Task 14 del paralelo.
+
+**Goal:** Cerrar el loop coach → check-in → cumplimiento en `/coach/sesion`. Plan-aware chat header, drawer con escape hatches, drill cards inline, quick replies, tool transparency chips, citation chips, voice-to-text, todo behind feature flag para shippear sin Cerebro v2 listo. Backend: migration 040 (coach_events.type extend), 3 API routes nuevas.
 
 **Architecture:** Cero invención de schema — reusamos `coach_plans` (state machine ya existente: active/resolved/expired/superseded/cancelled), `plan_outcomes` (correlación ronda↔plan ya existente), `coach_events` (event log existente con 11 types — añadimos 5). Componentes nuevos son client-only; sin nueva tabla, sin nueva enum, sin nuevo lib path.
 
@@ -964,9 +971,15 @@ export function VoiceInputButton({ onTranscript, lang = 'es-CL' }: Props) {
 
 ---
 
-## Phase 4 — Composite UI components (3 tasks)
+## Phase 4 — Composite UI components (2 tasks tras reconciliación)
 
-### Task 4.1: `<TodayCard />` (dark-fijo)
+### ~~Task 4.1: `<TodayCard />`~~ — SUPERSEDED por paralelo
+
+**Decisión 2026-05-11:** este task queda cancelado. `<PlanActiveCard>` del plan paralelo `2026-05-11-taiger-coach-home-redesign.md` Task 12 cubre el caso con más información (anti-streak dots + correlación cuantificada + status pill por tone). El home del paralelo orquesta el render. Mi `practice-suggestions.ts` (Task 0.5) queda como interface ofrecida al paralelo si quieren mostrar próxima práctica sugerida en el subtitle.
+
+### ~~Task 4.1.bis (originalmente Task 4.1): `<TodayCard />` (dark-fijo)~~
+
+(Sección preservada solo como referencia histórica de v2 standalone. NO ejecutar.)
 
 ```tsx
 // src/components/coach/TodayCard.tsx
@@ -1036,7 +1049,11 @@ export function TodayCard({ data, onStart }: Props) {
 
 ---
 
-### Task 4.2: `<PlanCompletedCard />` + `<PlanAwareChatHeader />`
+### Task 4.2: `<PlanAwareChatHeader />` (PlanCompletedCard borrado)
+
+**Cambio reconciliación:** ya no se crea `<PlanCompletedCard>` standalone. El estado `resolved`/`expired` en la chat lane se muestra como **badge dentro del `<PlanAwareChatHeader>`** ("Plan completado · esperando siguiente") en vez de un card aparte. El paralelo maneja el caso resolved/expired en home con status pill en PlanActiveCard.
+
+`PlanCompletedCard.tsx` no se crea. Tests asociados se omiten. Si en futuro lane home y lane chat necesitan compartir un "completed banner", se extrae como helper compartido — out of scope ahora.
 
 ```tsx
 // src/components/coach/PlanCompletedCard.tsx
@@ -1262,7 +1279,11 @@ Documentar excepción en `src/app/coach/layout.tsx` con comentario:
 
 ---
 
-### Task 5.4: `/coach/page.tsx` — TodayCard / PlanCompletedCard / TaigerHero
+### ~~Task 5.4: `/coach/page.tsx` rewrite~~ — CEDIDO al paralelo
+
+**Decisión 2026-05-11:** `/coach/page.tsx` lo reescribe completo el plan paralelo `2026-05-11-taiger-coach-home-redesign.md` Task 14. Este task queda cancelado en mi plan.
+
+**Coordinación:** si la chat lane necesita un helper como `usePlanContext` que el paralelo no implementó, lo agregamos como hook compartido (`src/hooks/usePlanContext.ts` ya creado en mi Task 5.1) y el paralelo puede consumirlo (lo dejamos como upgrade opcional).
 
 (Refactor del page existente. Usar `usePlanContext`. Lógica de switch entre 3 surfaces.)
 
@@ -1458,30 +1479,29 @@ describe('canary: tAIger+ plan + cumplimiento v2', () => {
 
 ## Self-review v2
 
-**Spec coverage:** cada vista del spec v2 tiene tasks.
+**Spec coverage (v2.1 reconciliado):** cada vista del spec v2.1 tiene tasks.
 
 | Spec § | Tasks |
 |---|---|
-| Vista 1 TodayCard | 4.1, 5.4 |
-| Vista 1 PlanCompletedCard | 4.2, 5.4 |
+| Vista 1 home (CEDIDA) | paralelo Tasks 1-14 |
 | Vista 2 PlanAwareChatHeader | 4.2, 5.5a |
 | Vista 2 ToolUseChip | 3.2, 5.5b, 5.5c, 6.1 |
-| Vista 2 Citation chips | 5.2 |
+| Vista 2 Citation chips | 5.2 (chat lane lo activa; paralelo no toca CitedMarkdown) |
 | Vista 2 DrillCard | 3.3, 5.5b, 5.5c, 6.1 |
 | Vista 2 QuickReplies | 3.1, 5.5b, 5.5c, 6.1 |
 | Vista 2 Composer + Voice | 3.4, 5.5d |
 | Vista 3 PlanDetailDrawer | 4.3, 5.5a |
-| Vista 4 Check-in | 2.3 |
-| Vista 5 Lifecycle | sin task UI dedicado — emergente del switching en 5.4 |
+| Vista 4 Check-in flow | 2.3 |
+| Vista 5 Lifecycle UI | badge en PlanAwareChatHeader (Task 4.2) cuando status=resolved/expired |
 | §11 Voice tier 2 | 3.4, 5.5d |
 | §10 Feature flag | 6.1 |
-| §12 Acceptance 1-14 | 5.4 + 5.5 + 6.1 + 7.1 |
+| §12 Acceptance 1-16 | 5.5 + 6.1 + 7.1 + APIs (2.1-2.3) |
 
 **Placeholder scan:** code blocks completos. Excepción: Task 5.5 sub-commits dan pseudo-diff sobre archivo 706-líneas; el engineer ejecutor debe leer el archivo primero y matchear las inserciones — esto es práctica común para modificaciones grandes y es preferible a inventar line numbers.
 
 **Type consistency:** `DrillCardData` en componente y SSE consumer (5.5b) tienen mismo shape. `PlanHeaderData` solo en PlanAwareChatHeader. `TodayCardData` solo en TodayCard. Sin retroactive edits.
 
-**Scope:** 12 tasks (vs 28 de v1). Más simple porque reusamos coach_plans + plan_outcomes existentes.
+**Scope (v2.1 reconciliado):** 10 tasks ejecutables (vs 12 en v2 standalone, vs 28 en v1). Tasks borrados por reconciliación: 4.1 (TodayCard), 5.4 (/coach/page rewrite). Task 4.2 simplificado (sin PlanCompletedCard). El paralelo agrega 18 tasks suyos sobre el home — total combinado ~28 tasks pero en lanes paralelas sin bloqueos.
 
 **Risk acknowledgement:**
 - Migration 040 sigue dependiente de copiar la lista pre-existente real (Task 0.1 step 1). Sin esto se rompe el constraint. Hay test explícito.

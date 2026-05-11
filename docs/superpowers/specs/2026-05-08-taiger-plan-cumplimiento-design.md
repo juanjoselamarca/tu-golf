@@ -1,9 +1,34 @@
-# tAIger+ — Plan activo + cumplimiento (sub-proyecto A) — **v2**
+# tAIger+ — Plan activo + cumplimiento (sub-proyecto A) — **v2.1 (reconciliado)**
 
-**Status:** Re-spec post-review (3 agentes encontraron 7 bloqueantes en v1)
-**Date:** 2026-05-08 (v2 corregido 2026-05-11)
+**Status:** Re-spec post-review + reconciliación con spec paralelo
+**Date:** 2026-05-08 (v2 corregido 2026-05-11, v2.1 reconciliado 2026-05-11)
 **Author:** Claude (CTO) + Juanjo (PM)
 **Sub-proyecto:** A de 3 (B = onboarding, C = chat polish)
+
+## 0. Reconciliación con `2026-05-10-taiger-coach-home-redesign-design.md`
+
+Existe un spec paralelo (en adelante "coach-home-redesign") que cubre `/coach/page.tsx` con un dashboard psicológico-first (Mental Recovery Hero, Costo psicológico, Curva mental, Pattern tiles, PlanActiveCard, Sticky CTA). Ese spec excluye explícitamente la "chat lane" (su §File Structure → "Files NOT to touch": `/coach/sesion/[id]/page.tsx`, `CitedMarkdown.tsx`, `PlanAssignedCard.tsx`, `RoundMiniChart.tsx`, todos los `decision-engine` libs).
+
+**Lane separation acordada:**
+
+| Lane | Spec | Archivos |
+|---|---|---|
+| Home dashboard | coach-home-redesign | `/coach/page.tsx`, `globals.css` tokens, components `MentalRecoveryCard`, `HighlightCard`, `HighlightsCarousel`, `CostoPsicologicoCard`, `CurvaMentalCard`, `PatternTile`, **`PlanActiveCard`**, `ConversarStickyCTA` |
+| Chat + backend (este spec) | sub-proyecto A v2.1 | `/coach/sesion/[id]/page.tsx`, API routes (`/api/taiger/plans/active`, `/practice/[id]/log`, `/check-in`), migration 040, components `PlanAwareChatHeader`, `DrillCard`, `QuickReplies`, `ToolUseChip`, `VoiceInputButton`, `PlanDetailDrawer`, `CitedMarkdown` binding activation |
+
+**Componentes superseded de v2 → borrados de este spec v2.1:**
+- `<TodayCard>` → reemplazado por `<PlanActiveCard>` del paralelo (info-rich con anti-streak dots + correlación cuantificada).
+- `<PlanCompletedCard>` → status `resolved`/`expired` se maneja dentro de `<PlanActiveCard>` con status pill por tone.
+- Switching logic en `/coach/page.tsx` → cedido al paralelo (su Task 14 rewrite completo).
+
+**Lo que el paralelo puede consumir de este spec (interface compartida):**
+- `practice-suggestions.ts` con `derivePracticeAction(plan)` — útil como input al subtitle de PlanActiveCard si quieren mostrar próxima práctica sugerida. Opcional.
+- Migration 040 (coach_events.type extend) — extiende el constraint global, no rompe nada del paralelo.
+
+**Lo que este spec consume del paralelo:**
+- Design tokens semánticos en `globals.css` (Task 1 del paralelo) — `PlanAwareChatHeader` y otros componentes míos pueden reusar `var(--bg-surface)`, `var(--line)`, etc.
+
+**Orden de ejecución sugerido:** ambos en paralelo, sin dependencias bloqueantes. Si se ejecutan en secuencia, primero el paralelo (su Task 1 tokens habilita estilos compartidos).
 
 ## Cambios vs v1 (motivación de esta revisión)
 
@@ -52,37 +77,23 @@ tAIger+ propone planes (entidad `coach_plans`) pero el loop coach → ejecución
 
 | Surface | Sin plan activo | Con plan activo | Con plan recién completado (≤ 7 días) |
 |---|---|---|---|
-| `/coach` (home, **dark-fijo**) | TaigerHero original | **Today Card** action-first | **Plan Completed Card** ("Tu plan rindió X, pedí el siguiente") |
+| `/coach` (home) | **cedido al paralelo** (coach-home-redesign §5) | **cedido al paralelo** — `<PlanActiveCard>` | **cedido al paralelo** — status pill `resolved`/`expired` en PlanActiveCard |
 | `/coach/sesion/[id]` | Header genérico actual | **PlanAwareChatHeader** | Header con badge "Plan completado · esperando siguiente" |
 
 **"Plan activo" = `coach_plans.status = 'active'`** (enum existente, no inventamos).
 
-**Estados visibles para el usuario:**
-- `proposed` (futuro): plan sugerido en chat sin aceptar aún. **Out of scope v2** — los planes se crean ya en `active` por Cerebro v2 actual.
-- `active`: TodayCard visible.
-- `resolved` (cumplió target): Plan Completed Card durante 7 días → vuelve TaigerHero.
-- `expired` (vencido sin cumplir): mismo card pero con copy distinto.
-- `superseded` (reemplazado): no se muestra; el nuevo plan toma protagonismo.
-- `cancelled`: sin card.
+**Estados visibles en el chat (este spec):**
+- `active`: `PlanAwareChatHeader` muestra hypothesis + día X/N + actual/target + ring de progreso.
+- `resolved`/`expired` (últimos 7 días): header igual pero badge "Plan completado · esperando siguiente" reemplaza la línea de progreso. Tap → drawer con resumen final.
+- Sin plan: header genérico actual ("Conversación continua") — sin cambios.
 
 ## 6. Vistas
 
-### Vista 1 — `/coach` Today Card hero (dark-fijo)
+### Vista 1 — `/coach` home (CEDIDA al paralelo coach-home-redesign)
 
-**Estructura visible:**
-- Header label: `HOY · LUN 11 MAY` (uppercase, tracking wide, peso 600, opacidad 0.5)
-- Headline (font-weight 300, ~22px): **la acción concreta del día** = `derivePracticeAction(plan)` que devuelve un string corto basado en `plan.pattern_id` (mapping en `src/lib/coach/practice-suggestions.ts`).
-  - Ejemplos: `approach_100_150` → "Driving range — aproximaciones", `putts_1_2m` → "Putting green — putts cortos", `post_bogey_spiral` → "Mental: ronda con foco post-bogey".
-- Subtitle: duración sugerida + foco específico, ej. "25 min · hierros 8/9".
-- Ring 38px arriba derecha: **progreso de la métrica** (`(actual_value / target_value) * 100`, clampeado 0..100). Si `actual_value` falta (sin rondas evaluadas), ring vacío.
-- Footer (border-top sutil): `PLAN · DÍA X DE duration_days` + hypothesis truncada + delta strokes en verde si `actual_value` mejora vs `baseline_value`.
-- CTA primario "Empezar" gold → abre `/coach/sesion/[id]?context=daily_practice`.
+Toda la composición de `/coach/page.tsx` queda bajo el paralelo: Mental Recovery Hero, Highlights weekly, Costo psicológico card, Curva mental ronda, Pattern tiles grid, **PlanActiveCard** (reemplaza el TodayCard de la v2), Sesiones anteriores, ConversarStickyCTA. Ver `docs/superpowers/specs/2026-05-10-taiger-coach-home-redesign-design.md` §5.
 
-**Estado Plan Completed Card (resolved/expired en últimos 7 días):**
-- Mismo footprint que Today Card.
-- Header: `PLAN COMPLETADO · {resolved_at relativa}` (ej. "hace 2 días").
-- Headline: resultado final ("Cumpliste el target en 4 rondas" o "No alcanzaste, pero mejoraste X").
-- CTA primario "Pedí el próximo plan" → abre chat con prompt prefill "Quiero un nuevo plan".
+**Interface ofrecida al paralelo (opcional):** `derivePracticeAction(plan)` desde `src/lib/coach/practice-suggestions.ts` devuelve `{ headline, subtitle, duration_min }` mappeando `plan.pattern_id`. Si el paralelo quiere mostrar "próxima práctica sugerida" en el subtitle del PlanActiveCard, puede consumirlo. Si no, este spec lo expone igual porque lo usamos en el chat (Vista 2.c).
 
 ### Vista 2 — `/coach/sesion/[id]` chat premium plan-aware
 
@@ -159,19 +170,18 @@ Trigger: cuando se inserta una nueva fila en `plan_outcomes` (después de proces
 
 | Componente | Estado | Notas |
 |---|---|---|
-| `<TaigerHero>` | Existente | Sin cambios. Solo render si no hay plan activo ni recién completado. |
-| `<PlanAssignedCard>` | Existente | Sin cambios — sigue siendo lo que aparece cuando Cerebro propone plan en chat antes de aceptar. |
+| `<TaigerHero>` | Existente | Sin cambios. Posible render por el paralelo si no hay plan ni patterns. |
+| `<PlanAssignedCard>` | Existente | Sin cambios — propuesta de plan en chat. |
 | `<RoundMiniChart>` | Existente | Reusable en PlanDetailDrawer timeline. |
-| `<CitedMarkdown>` | Existente | Activar binding citation chip. |
-| `<TodayCard>` | **Nuevo** | Vista 1. Acepta data del hook `usePlanContext`. |
-| `<PlanCompletedCard>` | **Nuevo** | Vista 1 modo completado. |
-| `<PlanAwareChatHeader>` | **Nuevo** | Vista 2. |
-| `<DrillCard>` | **Nuevo** | Vista 2c. Behind feature flag. |
-| `<QuickReplies>` | **Nuevo** | Vista 2d. Behind feature flag. |
-| `<ToolUseChip>` | **Nuevo** | Vista 2a. Behind feature flag. |
-| `<PlanDetailDrawer>` | **Nuevo** | Vista 3. |
-| `<ComposerPlus>` | **Refactor** | Vista 2 composer. |
-| `<VoiceInputButton>` | **Nuevo (Tier 2)** | Web Speech API, oculto si no disponible. |
+| `<CitedMarkdown>` | Existente | Activar binding citation chip (este spec). |
+| `<PlanActiveCard>` | **Nuevo (cedido al paralelo)** | Vista del plan en home — no implementado aquí. |
+| `<PlanAwareChatHeader>` | **Nuevo (este spec)** | Vista 2 — chat header. |
+| `<DrillCard>` | **Nuevo (este spec)** | Vista 2c. Behind feature flag. |
+| `<QuickReplies>` | **Nuevo (este spec)** | Vista 2d. Behind feature flag. |
+| `<ToolUseChip>` | **Nuevo (este spec)** | Vista 2a. Behind feature flag. |
+| `<PlanDetailDrawer>` | **Nuevo (este spec)** | Vista 3 — drawer abierto desde header. |
+| `<ComposerPlus>` | **Refactor (este spec)** | Vista 2 composer. |
+| `<VoiceInputButton>` | **Nuevo (este spec, Tier 2)** | Web Speech API, oculto si no disponible. |
 
 ## 8. Data model — deltas necesarios
 
@@ -212,22 +222,24 @@ Memoria del producto: "golfistas en cancha, manos sucias entre hoyos". Voice no 
 
 **MVP scope:** Web Speech API en el composer. Tap micrófono → dictado → texto en el input. Sin streaming, sin Whisper, sin parsing de comandos. ~2 días.
 
-## 12. Acceptance criteria
+## 12. Acceptance criteria (post-reconciliación)
 
-1. Usuario con `coach_plans.status='active'` abre `/coach` → ve TodayCard con headline = practice action derivada (no plan name).
-2. Usuario sin plan activo → ve TaigerHero original.
-3. Usuario con plan `resolved` en últimos 7 días → ve PlanCompletedCard.
-4. Tap "Empezar" en TodayCard → abre `/coach/sesion/[id]?context=daily_practice` con mensaje inicial precargado (mediante query param que el chat reconoce).
-5. `/coach/sesion` muestra PlanAwareChatHeader con hypothesis truncada + día X/N + actual vs target + ring.
-6. Tap header → abre PlanDetailDrawer con timeline de `plan_outcomes`.
-7. PlanDetailDrawer tiene botón "Pedile a tAIger+ ajustar" funcional (prefill).
-8. Composer tiene botón `+` izquierdo (modal "Próximamente" para attach/voice extra).
-9. Composer tiene botón micrófono si Web Speech API está disponible.
-10. Feature flag `taigerCoachPremium=ON`: ToolUseChips, DrillCard, QuickReplies, Citation chips renderizan si Cerebro v2 emite los tool calls correspondientes.
-11. Feature flag OFF: ninguno de los anteriores renderiza, app funciona normal.
-12. Todos los 1512+ tests existentes pasan + ~25 tests nuevos.
-13. `/coach` es dark-fijo (light mode global no afecta esta página).
-14. Canary tests verifican: TodayCard existe, PlanAwareChatHeader existe, force-dynamic en rutas nuevas, dark-fijo marker.
+1. `/coach/sesion` con plan activo → muestra `PlanAwareChatHeader` con hypothesis + día X/N + actual/target + ring.
+2. `/coach/sesion` sin plan → header genérico actual ("Conversación continua") sin cambios.
+3. `/coach/sesion` con plan resolved/expired (≤7d) → header con badge "Plan completado · esperando siguiente".
+4. Tap header → abre `PlanDetailDrawer` con timeline de `plan_outcomes` (lectura).
+5. PlanDetailDrawer tiene botón "Pedile a tAIger+ ajustar" funcional (prefill mensaje en chat).
+6. PlanDetailDrawer tiene botón "Marcar completado" visible solo si `day_current ≥ duration_days × 0.8`.
+7. Composer del chat tiene botón `+` izquierdo (modal "Próximamente").
+8. Composer del chat tiene botón micrófono si Web Speech API está disponible (Web Speech API es opcional — oculto si no soportado).
+9. Feature flag `taigerCoachPremium=ON`: ToolUseChips, DrillCard, QuickReplies, Citation chips renderizan si Cerebro v2 emite los tool calls correspondientes.
+10. Feature flag OFF: ninguno de los anteriores renderiza, app funciona idéntico a hoy.
+11. POST `/api/taiger/check-in` con `choice: 'confirmed'` emite `plan_check_in_confirmed` event; con `dismissed` emite `plan_check_in_dismissed`. Ningún POST modifica `coach_plans.status` directamente.
+12. POST `/api/taiger/practice/[planId]/log` emite `practice_session_logged` event.
+13. GET `/api/taiger/plans/active` devuelve `{ activePlan, completedRecently, latestOutcome }` con ownership check.
+14. Migration 040 preserva los 11+ types pre-existentes de `coach_events.type` (lista capturada en Task 0.1 step 1 del plan).
+15. Todos los tests existentes pasan + ~20 tests nuevos (componentes chat lane + libs + APIs).
+16. Canary tests verifican: `PlanAwareChatHeader` existe, force-dynamic en rutas nuevas, feature flag flag exportado.
 
 ## 13. Riesgos y open questions
 
@@ -266,4 +278,4 @@ Memoria del producto: "golfistas en cancha, manos sucias entre hoyos". Voice no 
 - [ ] Juanjo aprueba v2 (este documento)
 - [ ] Aprobado → ejecutar plan en `2026-05-08-taiger-plan-cumplimiento-plan.md` (v2 también, ver hash post-actualización)
 
-**Mockups visuales:** `.superpowers/brainstorm/standalone/tu-golf-brainstorm.html` (sección "Premium completo"). Las refinaciones de v2 (delta strokes más visible, dark-fijo, plan-completed card) requieren mockup actualizado — diferido a Phase 0.5 del plan.
+**Mockups visuales:** `.superpowers/brainstorm/standalone/tu-golf-brainstorm.html` (sección "Premium completo") — solo refleja la chat lane. La home lane tiene mockups dentro del spec `2026-05-10-taiger-coach-home-redesign-design.md` (texto-descriptivo, sin HTML standalone).
