@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createInitialConfig } from '@/lib/draft/initial-config'
+import { trackDraftEvent, DRAFT_EVENTS } from '@/lib/draft/telemetry'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,13 @@ export async function POST(_req: NextRequest) {
       user_id: user.id,
       role: 'owner',
       added_by: user.id,
+    })
+
+    // Telemetria: draft creado desde cero (no duplicado).
+    await trackDraftEvent(supabase, user.id, DRAFT_EVENTS.CREATED, {
+      draft_id: draft.id,
+      schema_version: 1,
+      source: 'fresh',
     })
 
     return NextResponse.json({ ok: true, draft })
