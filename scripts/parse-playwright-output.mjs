@@ -1,19 +1,9 @@
-#!/usr/bin/env node
 /**
- * Parsea el output JSON del Playwright reporter y produce el payload del
- * callback que se envía al endpoint /api/admin/e2e/runs/[id]/callback.
+ * Parser puro del output del Playwright JSON reporter. Sin I/O ni side-effects.
+ * El CLI que invoca este parser desde el workflow vive en
+ * scripts/parse-playwright-output-cli.mjs.
  *
- * Por qué este script existe: el workflow e2e-trigger.yml tenía 50 líneas de
- * código Node embebido en un heredoc. Imposible de testear, frágil, ya rompió
- * dos veces (SyntaxError por `return` ilegal, y reportaba `passed` con 0 tests).
- *
- * Lee:
- *   playwright-output.json  — stdout del reporter JSON (puede tener console.log de
- *                              global-setup contaminando el inicio del archivo)
- *   playwright-stderr.log   — stderr (puede estar vacío incluso en errores)
- *
- * Escribe:
- *   callback-payload.json   — JSON que el step "Notificar resultado" envía al admin
+ * Tests: src/__tests__/parse-playwright-output.test.ts
  *
  * Semántica del status:
  *   - JSON malformado o ausente            → 'error'
@@ -22,23 +12,10 @@
  *   - failed > 0 (algún test falló)         → 'failed'
  *   - resto                                  → 'passed'
  */
-import fs from 'fs'
 
-const OUTPUT_FILE = process.env.PLAYWRIGHT_OUTPUT_FILE || 'playwright-output.json'
-const STDERR_FILE = process.env.PLAYWRIGHT_STDERR_FILE || 'playwright-stderr.log'
-const PAYLOAD_FILE = process.env.CALLBACK_PAYLOAD_FILE || 'callback-payload.json'
-
-const MAX_ERROR_CHARS = 500   // por test (antes 2000, baja para reducir PII en BD)
+const MAX_ERROR_CHARS = 500   // por test (baja de 2000 para reducir PII en BD)
 const MAX_STDERR_CHARS = 1000
 const MAX_PW_ERRORS_CHARS = 1500
-
-function readSafe(path) {
-  try {
-    return fs.readFileSync(path, 'utf8')
-  } catch {
-    return ''
-  }
-}
 
 function buildErrorPayload(reason, extras = {}) {
   return {
@@ -138,19 +115,3 @@ export function parse({ outputContent, stderrContent }) {
   const status = summary.failed > 0 ? 'failed' : 'passed'
   return { status, summary, results: tests }
 }
-
-function main() {
-  const outputContent = readSafe(OUTPUT_FILE)
-  const stderrContent = readSafe(STDERR_FILE)
-  const payload = parse({ outputContent, stderrContent })
-  fs.writeFileSync(PAYLOAD_FILE, JSON.stringify(payload))
-  console.log(
-    `E2E: ${payload.summary?.passed ?? 0}/${payload.summary?.total ?? 0} passed, ` +
-    `${payload.summary?.failed ?? 0} failed, ${payload.summary?.skipped ?? 0} skipped ` +
-    `(status=${payload.status})`,
-  )
-}
-
-const isMainModule = import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`
-  || process.argv[1].endsWith('parse-playwright-output.mjs')
-if (isMainModule) main()

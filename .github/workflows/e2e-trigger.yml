@@ -95,9 +95,9 @@ jobs:
 
       - name: Parse results y armar payload
         id: parse
-        # Lógica de parsing extraída a scripts/parse-playwright-output.mjs
-        # (testeada en src/__tests__/parse-playwright-output.test.ts).
-        run: node scripts/parse-playwright-output.mjs
+        # Lógica de parsing extraída a scripts/parse-playwright-output.mjs (lib
+        # pura, testeada). El CLI con I/O vive en parse-playwright-output-cli.mjs.
+        run: node scripts/parse-playwright-output-cli.mjs
 
       - name: Notificar resultado
         if: always()
