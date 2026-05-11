@@ -54,9 +54,66 @@ export interface StrokesEvitablesResult {
   instances: Array<{ round_id: string; holes: string[] }>
 }
 
-// Implementations siguen en tasks 3-5
-export function calcularMentalIndex(_input: MentalIndexInput): MentalIndexResult {
-  throw new Error('not implemented')
+export function calcularMentalIndex(input: MentalIndexInput): MentalIndexResult {
+  let score = 100
+  let patternPenalty = 0
+  let adherenceBonus = 0
+  let consistencyBonus = 0
+
+  // Penalizaciones por patrones psicológicos
+  for (const p of input.activePatterns) {
+    const penalty = MENTAL_PATTERN_PENALTIES[p.pattern_type]
+    if (penalty) {
+      const actual = penalty * p.confidence
+      score -= actual
+      patternPenalty += actual
+    }
+  }
+
+  // Bonus de adherencia
+  if (input.activePlan && input.outcomes.length > 0) {
+    const targetReachedRatio = input.outcomes.filter(o => o.target_reached).length / input.outcomes.length
+    const complianceFullRatio = input.outcomes.filter(o => o.compliance === 'full').length / input.outcomes.length
+    const tBonus = 10 * targetReachedRatio
+    const cBonus = 5 * complianceFullRatio
+    score += tBonus + cBonus
+    adherenceBonus = tBonus + cBonus
+  }
+
+  // Bonus de consistencia (de CPI)
+  if (input.cpi && input.cpi.status !== 'insufficient_data') {
+    const consistenciaNorm = input.cpi.breakdown.consistencia / 25
+    const cBonus = 5 * consistenciaNorm
+    score += cBonus
+    consistencyBonus = cBonus
+  }
+
+  // Cap
+  score = Math.max(0, Math.min(100, score))
+  const finalScore = Math.round(score)
+
+  const band: 'low' | 'mid' | 'high' =
+    finalScore >= 67 ? 'high' : finalScore >= 34 ? 'mid' : 'low'
+
+  const status: 'insufficient_data' | 'provisional' | 'established' =
+    input.totalRounds < 3 ? 'insufficient_data'
+      : input.totalRounds < 10 ? 'provisional'
+        : 'established'
+
+  const delta = input.previousScore != null ? finalScore - input.previousScore : null
+
+  return {
+    score: finalScore,
+    band,
+    status,
+    delta,
+    breakdown: {
+      base: 100,
+      patternPenalty: Math.round(patternPenalty * 10) / 10,
+      adherenceBonus: Math.round(adherenceBonus * 10) / 10,
+      consistencyBonus: Math.round(consistencyBonus * 10) / 10,
+    },
+  }
 }
 
 export function strokesEvitables(_rounds: RoundForAnalysis[]): StrokesEvitablesResult {
