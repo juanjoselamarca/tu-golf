@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   const { data: t } = await supabase
     .from('tournament_draft_share_tokens')
-    .select('draft_id, expires_at, consumed_at')
+    .select('draft_id, expires_at, consumed_at, created_by')
     .eq('token', token)
     .single()
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   const { error: cErr } = await supabase
     .from('tournament_draft_collaborators')
-    .insert({ draft_id: t.draft_id, user_id: user.id, role: 'collaborator', added_by: t.draft_id })
+    .insert({ draft_id: t.draft_id, user_id: user.id, role: 'collaborator', added_by: t.created_by })
 
   if (cErr && cErr.code !== '23505') {
     return NextResponse.json({ error: cErr.message }, { status: 500 })
