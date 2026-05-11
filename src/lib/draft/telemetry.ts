@@ -62,12 +62,16 @@ interface DraftSentryContext {
 /**
  * Adjunta contexto de Sentry para errores ocurridos en el flow.
  * Importacion dinamica: si Sentry no esta configurado en el runtime, se ignora.
+ *
+ * Async porque usamos `await import(...)` para no romper en entornos sin Sentry
+ * (tests, scripts) y para evitar dependencias hardcoded a `require`.
+ * Los callers pueden hacer fire-and-forget: `void setDraftSentryContext(...)`.
  */
-export function setDraftSentryContext(ctx: DraftSentryContext): void {
+export async function setDraftSentryContext(ctx: DraftSentryContext): Promise<void> {
   try {
-    // Importacion dinamica para no romper en entornos sin Sentry (tests, scripts).
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
-    const Sentry: any = require('@sentry/nextjs')
+    const Sentry = (await import('@sentry/nextjs')) as {
+      setContext?: (key: string, ctx: Record<string, unknown>) => void
+    }
     if (Sentry && typeof Sentry.setContext === 'function') {
       Sentry.setContext('tournament_draft', {
         draft_id: ctx.draftId,
