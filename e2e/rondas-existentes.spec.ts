@@ -68,6 +68,17 @@ test.describe('E2E: Vista espectador por modalidad', () => {
   // Skip todo el describe si no hay token (CI sin .env.local) sin matar discovery.
   test.skip(!SUPABASE_TOKEN, 'SUPABASE_ACCESS_TOKEN no configurado — requiere .env.local con token de Supabase Management API para crear rondas de test')
 
+  // Pre-flight: verifica que el token sea VÁLIDO antes de intentar crear rondas.
+  // Si el token está set pero revocado/expirado, queremos skipear con mensaje
+  // claro en vez de fallar 30s después en un INSERT con error confuso.
+  test.beforeAll(async () => {
+    if (!SUPABASE_TOKEN) return  // ya cubierto por test.skip de arriba
+    const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}`, {
+      headers: { Authorization: `Bearer ${SUPABASE_TOKEN}` },
+    })
+    test.skip(res.status === 401 || res.status === 403, `SUPABASE_ACCESS_TOKEN inválido o sin permisos (HTTP ${res.status})`)
+  })
+
   test.beforeAll(async () => {
     // Limpiar rondas de test previas si existen
     await supabaseQuery(
