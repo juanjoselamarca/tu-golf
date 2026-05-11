@@ -196,3 +196,105 @@ describe('Canario tAIger+: chat coach (fixes 2026-05-06)', () => {
     ).toBe(true)
   })
 })
+
+/**
+ * Canario: API endpoints + componentes del nuevo flow "Organizar Campeonato"
+ * (Waves 1-3 de feat/organizar-campeonato — 2026-05-11).
+ *
+ * Bloquea que alguien elimine por accidente cualquiera de los endpoints
+ * del editor de torneos, las simulaciones de formato, o el shell del live
+ * polimórfico. Si alguno desaparece, el flow entero se rompe en prod.
+ *
+ * Usamos paths relativos al root del proyecto (no a src/) — `ROOT` apunta
+ * a la raíz, no al directorio src/ que usa el `readFile()` de arriba.
+ */
+const ROOT = path.resolve(__dirname, '..', '..')
+
+function rootExists(relativePath: string): boolean {
+  return fs.existsSync(path.join(ROOT, relativePath))
+}
+
+function rootRead(relativePath: string): string {
+  return fs.readFileSync(path.join(ROOT, relativePath), 'utf-8')
+}
+
+describe('Canary: tournament drafts API + frontend (feat/organizar-campeonato)', () => {
+  it('endpoint create draft existe', () => {
+    expect(rootExists('src/app/api/torneos/draft/route.ts')).toBe(true)
+  })
+
+  it('endpoint [id] handlers existe', () => {
+    expect(rootExists('src/app/api/torneos/draft/[id]/route.ts')).toBe(true)
+  })
+
+  it('endpoint assistant existe', () => {
+    expect(rootExists('src/app/api/torneos/draft/[id]/assistant/route.ts')).toBe(true)
+  })
+
+  it('endpoint preview existe', () => {
+    expect(rootExists('src/app/api/torneos/draft/[id]/preview/route.ts')).toBe(true)
+  })
+
+  it('endpoint create-tournament existe', () => {
+    expect(rootExists('src/app/api/torneos/draft/[id]/create-tournament/route.ts')).toBe(true)
+  })
+
+  it('endpoint duplicate-from existe', () => {
+    expect(rootExists('src/app/api/torneos/draft/duplicate-from/[tournamentId]/route.ts')).toBe(true)
+  })
+
+  it('cron cleanup-drafts existe', () => {
+    expect(rootExists('src/app/api/cron/cleanup-drafts/route.ts')).toBe(true)
+  })
+
+  it('schema zod del config exporta tournamentConfigSchema y partial', () => {
+    const content = rootRead('src/lib/draft/schema.ts')
+    expect(content).toMatch(/export const tournamentConfigSchema/)
+    expect(content).toMatch(/export const tournamentConfigPartialSchema/)
+  })
+
+  it('upgrade-config define CURRENT_SCHEMA_VERSION', () => {
+    const content = rootRead('src/lib/draft/upgrade-config.ts')
+    expect(content).toMatch(/CURRENT_SCHEMA_VERSION/)
+  })
+
+  it('vercel.json tiene cron de cleanup', () => {
+    const content = rootRead('vercel.json')
+    expect(content).toMatch(/cleanup-drafts/)
+  })
+
+  it('TournamentDraftEditor componente raiz existe', () => {
+    expect(rootExists('src/app/organizador/nuevo/TournamentDraftEditor.tsx')).toBe(true)
+  })
+
+  it('NuevoTorneoForm legacy fue eliminado', () => {
+    expect(rootExists('src/app/organizador/nuevo/NuevoTorneoForm.tsx')).toBe(false)
+  })
+
+  it('AssistantPanel existe', () => {
+    expect(rootExists('src/components/tournament-draft/AssistantPanel.tsx')).toBe(true)
+  })
+
+  it('Live polimorfico existe (page + LiveView)', () => {
+    expect(rootExists('src/app/torneo/[slug]/en-vivo/page.tsx')).toBe(true)
+    expect(rootExists('src/app/torneo/[slug]/en-vivo/LiveView.tsx')).toBe(true)
+  })
+
+  it('Los 7 simuladores de formato existen', () => {
+    const sims = [
+      'individual-stroke',
+      'individual-stableford',
+      'team-best-ball',
+      'team-scramble',
+      'team-foursome',
+      'match-play-bracket',
+      'match-play-1v1',
+    ]
+    for (const s of sims) {
+      expect(
+        rootExists(`src/lib/draft/simulators/${s}.ts`),
+        `Simulador faltante: src/lib/draft/simulators/${s}.ts`,
+      ).toBe(true)
+    }
+  })
+})
