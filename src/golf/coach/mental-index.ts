@@ -116,8 +116,39 @@ export function calcularMentalIndex(input: MentalIndexInput): MentalIndexResult 
   }
 }
 
-export function strokesEvitables(_rounds: RoundForAnalysis[]): StrokesEvitablesResult {
-  throw new Error('not implemented')
+export function strokesEvitables(rounds: RoundForAnalysis[]): StrokesEvitablesResult {
+  let total = 0
+  const instances: Array<{ round_id: string; holes: string[] }> = []
+
+  for (const r of rounds) {
+    if (!Array.isArray(r.scores)) continue
+    const holes: string[] = []
+
+    for (let i = 0; i < r.scores.length - 1; i++) {
+      const s = r.scores[i]
+      const next = r.scores[i + 1]
+      if (s == null || next == null) continue
+
+      const par_i = parForHole(r, i)
+      const par_next = parForHole(r, i + 1)
+      const isPostBogey = s >= par_i + 1
+      const isFollowedByBogey = next >= par_next + 1
+
+      if (isPostBogey && isFollowedByBogey) {
+        const actualOver = next - par_next
+        const containedOver = 1
+        const evitable = Math.max(0, actualOver - containedOver)
+        if (evitable > 0) {
+          total += evitable
+          holes.push(`H${i + 1}→H${i + 2}`)
+        }
+      }
+    }
+
+    if (holes.length) instances.push({ round_id: r.id, holes })
+  }
+
+  return { total, instances }
 }
 
 export function clasificarHoyo(_round: RoundForAnalysis, _i: number): MentalState | null {

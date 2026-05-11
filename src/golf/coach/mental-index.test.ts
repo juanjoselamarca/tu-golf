@@ -81,8 +81,27 @@ describe('calcularMentalIndex', () => {
 })
 
 describe('strokesEvitables', () => {
-  it.todo('counts only bogey-followed-by-bogey, contained = bogey simple')
-  it.todo('skips null scores')
+  it('counts only bogey-followed-by-bogey, contained = bogey simple', () => {
+    const round = {
+      id: 'r1',
+      scores: [5, 6, 4, 4, 5, 4, 3, 4, 5, 6, 5, 3, 4, 7, 7, 3, 4, 5],
+      hole_pars: [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5],
+    }
+    const r = strokesEvitables([round])
+    expect(r.total).toBe(3)
+    expect(r.instances[0].round_id).toBe('r1')
+    expect(r.instances[0].holes).toEqual(['H1→H2', 'H14→H15'])
+  })
+
+  it('skips null scores', () => {
+    const round = {
+      id: 'r1',
+      scores: [5, null, 3, 6, 8, null, 3, 4, 5],
+      hole_pars: [4, 4, 3, 4, 5, 4, 3, 4, 5],
+    }
+    const r = strokesEvitables([round])
+    expect(r.total).toBe(2)
+  })
 })
 
 describe('clasificarHoyo', () => {
