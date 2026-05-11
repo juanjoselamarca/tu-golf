@@ -105,9 +105,43 @@ describe('strokesEvitables', () => {
 })
 
 describe('clasificarHoyo', () => {
-  it.todo('returns null for null score')
-  it.todo('returns tilt for double bogey or worse')
-  it.todo('returns tilt for bogey after bogey')
-  it.todo('returns tense for isolated bogey')
-  it.todo('returns calm for par or better')
+  it('returns null for null score', () => {
+    const round = { id: 'r1', scores: [null, 4, 3], hole_pars: [4, 4, 3] }
+    expect(clasificarHoyo(round, 0)).toBeNull()
+  })
+
+  it('returns tilt for double bogey or worse', () => {
+    const round = { id: 'r1', scores: [6, 5], hole_pars: [4, 4] }
+    expect(clasificarHoyo(round, 0)).toBe('tilt')
+  })
+
+  it('returns tilt for bogey after bogey', () => {
+    const round = { id: 'r1', scores: [5, 5], hole_pars: [4, 4] }
+    expect(clasificarHoyo(round, 1)).toBe('tilt')
+  })
+
+  it('returns tense for isolated bogey', () => {
+    const round = { id: 'r1', scores: [4, 5, 4], hole_pars: [4, 4, 3] }
+    expect(clasificarHoyo(round, 1)).toBe('tense')
+  })
+
+  it('returns calm for par or better', () => {
+    const round = { id: 'r1', scores: [4, 3, 4], hole_pars: [4, 4, 3] }
+    expect(clasificarHoyo(round, 0)).toBe('calm')
+    expect(clasificarHoyo(round, 1)).toBe('calm')  // birdie en par 4
+  })
+
+  it('classifies Los Leones 03-may correctly (3+ tilts expected)', () => {
+    // Datos reales screenshot del usuario: 03/05 Los Leones 100 (+28).
+    // Espirales conocidas: H1→H2, H11→H12, H14→H15.
+    const round = {
+      id: 'los-leones-2026-05-03',
+      // par:   4  4  3  4  5  4  3  4  5  4  4  3  4  5  4  3  4  5
+      scores: [5, 7, 3, 4, 5, 6, 3, 4, 5, 4, 5, 7, 4, 5, 7, 3, 4, 9],
+      hole_pars: [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5],
+    }
+    const states = round.scores.map((_, i) => clasificarHoyo(round, i))
+    const tiltCount = states.filter(s => s === 'tilt').length
+    expect(tiltCount).toBeGreaterThanOrEqual(3)
+  })
 })

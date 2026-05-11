@@ -151,8 +151,26 @@ export function strokesEvitables(rounds: RoundForAnalysis[]): StrokesEvitablesRe
   return { total, instances }
 }
 
-export function clasificarHoyo(_round: RoundForAnalysis, _i: number): MentalState | null {
-  throw new Error('not implemented')
+export function clasificarHoyo(round: RoundForAnalysis, i: number): MentalState | null {
+  const score = round.scores[i]
+  if (score == null) return null
+
+  const par = parForHole(round, i)
+  const prevScore = i > 0 ? round.scores[i - 1] : null
+  const prevPar = i > 0 ? parForHole(round, i - 1) : null
+
+  const overPar = score - par
+  const prevOverPar = prevScore != null && prevPar != null ? prevScore - prevPar : 0
+
+  // Tilt: doble bogey o peor, o cualquier ≥bogey tras un bogey anterior
+  if (overPar >= 2) return 'tilt'
+  if (overPar >= 1 && prevOverPar >= 1) return 'tilt'
+
+  // Tensión: bogey aislado
+  if (overPar === 1) return 'tense'
+
+  // Calma: par o mejor
+  return 'calm'
 }
 
 function parForHole(round: RoundForAnalysis, i: number): number {
