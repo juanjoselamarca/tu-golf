@@ -196,64 +196,88 @@ export default function SesionDetailPage() {
         return next
       })
 
+      // Buffer entre `reader.read()` para soportar frames SSE partidos
+      // entre chunks TCP. Sin esto:
+      //   - `decoder.decode(value)` (sin {stream:true}) corrompe acentos/emojis
+      //     cuando un byte multi-byte UTF-8 cae al final del chunk.
+      //   - Un frame `data: {...}\n\n` partido a mitad del JSON cae al catch
+      //     silencioso y el cliente pierde tokens (texto con huecos).
+      // Procesamos frames separados por `\n\n` (separador SSE real) y
+      // dejamos el último parcial en el buffer hasta el próximo read.
+      let buffer = ''
+      const handleSseLine = (line: string) => {
+        if (!line.startsWith('data: ')) return
+        try {
+          const data = JSON.parse(line.slice(6))
+
+          if (data.text) {
+            if (assistantContent === '') setActivity(null)
+            assistantContent += data.text
+            setMessages(prev => {
+              const updated = [...prev]
+              updated[updated.length - 1] = {
+                role: 'assistant',
+                content: assistantContent,
+              }
+              return updated
+            })
+          }
+
+          if (data.event === 'tool_start') {
+            setActivity(data.label ?? 'Pensando…')
+          }
+          if (data.event === 'tool_done') {
+            setActivity(null)
+            if (data.round_summary) {
+              const summary = data.round_summary as RoundSummary
+              const idx = currentAssistantIdxRef.current
+              if (idx >= 0) {
+                setRoundsByMsgIdx(prev => ({ ...prev, [idx]: summary }))
+              }
+            }
+          }
+          if (data.event === 'plan_assigned' && data.plan) {
+            const plan = data.plan as AssignedPlan
+            const idx = currentAssistantIdxRef.current
+            if (idx >= 0) {
+              setPlansByMsgIdx(prev => ({ ...prev, [idx]: plan }))
+            }
+          }
+
+          if (data.done && data.session_id) {
+            realSessionId = data.session_id
+          }
+
+          if (data.error) {
+            setError(data.error)
+          }
+        } catch {
+          // Línea malformada — saltar. Si vuelve a pasar consistentemente
+          // es señal de bug del server, no del buffer (acá ya está completo).
+        }
+      }
+
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const text = decoder.decode(value)
-        const lines = text.split('\n').filter(l => l.startsWith('data: '))
+        // {stream:true} acumula bytes multi-byte UTF-8 incompletos para el
+        // próximo decode. Sin esto, los acentos del coach se rompen al azar.
+        buffer += decoder.decode(value, { stream: true })
 
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line.slice(6))
-
-            if (data.text) {
-              // En cuanto llega el primer texto, escondemos el "está consultando"
-              if (assistantContent === '') setActivity(null)
-              assistantContent += data.text
-              setMessages(prev => {
-                const updated = [...prev]
-                updated[updated.length - 1] = {
-                  role: 'assistant',
-                  content: assistantContent,
-                }
-                return updated
-              })
-            }
-
-            // Meta-eventos del cerebro: estado en vivo y plan asignado.
-            if (data.event === 'tool_start') {
-              setActivity(data.label ?? 'Pensando…')
-            }
-            if (data.event === 'tool_done') {
-              setActivity(null)
-              if (data.round_summary) {
-                const summary = data.round_summary as RoundSummary
-                const idx = currentAssistantIdxRef.current
-                if (idx >= 0) {
-                  setRoundsByMsgIdx(prev => ({ ...prev, [idx]: summary }))
-                }
-              }
-            }
-            if (data.event === 'plan_assigned' && data.plan) {
-              const plan = data.plan as AssignedPlan
-              const idx = currentAssistantIdxRef.current
-              if (idx >= 0) {
-                setPlansByMsgIdx(prev => ({ ...prev, [idx]: plan }))
-              }
-            }
-
-            if (data.done && data.session_id) {
-              realSessionId = data.session_id
-            }
-
-            if (data.error) {
-              setError(data.error)
-            }
-          } catch {
-            // Skip malformed lines
-          }
+        // Procesamos frames completos; el último puede estar parcial y queda
+        // en el buffer para el próximo iteración.
+        const frames = buffer.split('\n\n')
+        buffer = frames.pop() ?? ''
+        for (const frame of frames) {
+          for (const line of frame.split('\n')) handleSseLine(line)
         }
+      }
+      // Flush final: aplica el resto del buffer + cualquier byte multi-byte
+      // pendiente del último read.
+      buffer += decoder.decode()
+      for (const frame of buffer.split('\n\n')) {
+        for (const line of frame.split('\n')) handleSseLine(line)
       }
 
       // El backend (helper getOrCreateActiveSession) ya hizo el update sobre la sesion

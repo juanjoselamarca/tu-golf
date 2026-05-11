@@ -195,4 +195,26 @@ describe('Canario tAIger+: chat coach (fixes 2026-05-06)', () => {
       'a un handler que rellame sendFollowUp con el último turno del usuario.',
     ).toBe(true)
   })
+
+  it('SSE reader del coach buffera chunks (multi-byte UTF-8 + frames partidos)', () => {
+    const page = readFile('app/coach/sesion/[id]/page.tsx')
+    // 1. decoder.decode debe usarse con {stream: true} para evitar romper
+    //    acentos/emojis cuando un byte multi-byte UTF-8 cae al final del chunk.
+    expect(
+      /decoder\.decode\(value,\s*\{\s*stream:\s*true\s*\}\)/.test(page),
+      'TextDecoder.decode debe llamarse con {stream:true} en el loop del SSE ' +
+      'para acumular bytes multi-byte UTF-8 incompletos entre reads. Sin esto, ' +
+      'acentos y emojis del coach se rompen al azar.',
+    ).toBe(true)
+
+    // 2. Debe haber un buffer string que se acumule entre reads y se parta por \n\n
+    //    (separador SSE real). Sin buffer, frames partidos entre chunks TCP caen
+    //    en el catch silencioso y el cliente pierde tokens.
+    expect(
+      /let\s+buffer\s*=\s*['"]['"]/i.test(page) && /buffer\s*\+=\s*decoder\.decode/.test(page),
+      'El loop del SSE debe acumular en un buffer string entre reads ' +
+      '(let buffer = ""; buffer += decoder.decode(...)). Sin esto un frame ' +
+      'partido a mitad de JSON falla parse silencioso y se pierde texto.',
+    ).toBe(true)
+  })
 })
