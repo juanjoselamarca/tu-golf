@@ -73,7 +73,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_all_rounds_summary',
     description:
-      'Resumen estadístico agregado del 100% de las rondas históricas del jugador: totales, promedio, mejor y peor score, distribución por cancha, tendencia últimas 10 vs total. Úsala cuando el jugador pregunte sobre evolución, tendencias generales, o comparaciones a largo plazo.',
+      'Resumen estadístico de las rondas históricas del jugador, SEPARADO entre rondas de 18 hoyos y de 9 hoyos. Devuelve `rondas_18`, `rondas_9` y `rondas_indeterminadas` (count only). NUNCA mezcles los promedios de 18h con los de 9h al razonar. Usá rondas_18 para tendencia general; rondas_9 para sub-segmento corto; indeterminadas son rondas viejas sin metadata suficiente — no inventes promedio para ellas. Para análisis ronda-por-ronda usá get_latest_round / get_round_by_date.',
     input_schema: {
       type: 'object',
       properties: {},
@@ -416,29 +416,40 @@ async function getRoundByDate(
   return { ok: true, data: { count: rounds.length, rounds } }
 }
 
-async function getAllRoundsSummary(ctx: ToolExecutionContext): Promise<ToolResult> {
-  const { supabase, userId } = ctx
-  const { data, error } = await supabase
-    .from('historical_rounds')
-    .select('total_gross, course_name, played_at, holes_played')
-    .eq('user_id', userId)
-    .not('total_gross', 'is', null)
-    .order('played_at', { ascending: false })
+type HistoricalRow = {
+  total_gross: number
+  course_name: string
+  played_at: string
+  holes_played: number | null
+  scores: number[] | Record<string, number> | null
+}
 
-  if (error) return { ok: false, error: error.message }
-  const rounds = (data ?? []) as Array<{ total_gross: number; course_name: string; played_at: string; holes_played: number | null }>
-  if (rounds.length === 0) return { ok: true, data: { total: 0 } }
+function inferHoles(r: Pick<HistoricalRow, 'holes_played' | 'scores'>): 9 | 18 | null {
+  if (r.holes_played === 9 || r.holes_played === 18) return r.holes_played
+  if (Array.isArray(r.scores)) {
+    if (r.scores.length === 9) return 9
+    if (r.scores.length === 18) return 18
+    return null
+  }
+  if (r.scores && typeof r.scores === 'object') {
+    const n = Object.keys(r.scores).length
+    if (n === 9) return 9
+    if (n === 18) return 18
+  }
+  return null
+}
 
-  const totals = rounds.map(r => r.total_gross)
+function summarizeBucket(arr: HistoricalRow[]) {
+  if (arr.length === 0) return null
+  const totals = arr.map(r => r.total_gross)
   const avg = totals.reduce((a, b) => a + b, 0) / totals.length
   const best = Math.min(...totals)
   const worst = Math.max(...totals)
   const last10 = totals.slice(0, 10)
   const last10Avg = last10.length > 0 ? last10.reduce((a, b) => a + b, 0) / last10.length : null
 
-  // Distribucion por cancha (top 5)
   const byCourse: Record<string, { count: number; sum: number }> = {}
-  for (const r of rounds) {
+  for (const r of arr) {
     const key = r.course_name || 'Sin cancha'
     if (!byCourse[key]) byCourse[key] = { count: 0, sum: 0 }
     byCourse[key].count++
@@ -450,17 +461,46 @@ async function getAllRoundsSummary(ctx: ToolExecutionContext): Promise<ToolResul
     .map(([cancha, v]) => ({ cancha, rondas: v.count, avg_score: Math.round((v.sum / v.count) * 10) / 10 }))
 
   return {
+    total: arr.length,
+    avg_score: Math.round(avg * 10) / 10,
+    best_score: best,
+    worst_score: worst,
+    last10_avg: last10Avg != null ? Math.round(last10Avg * 10) / 10 : null,
+    tendencia_ultimas_10_vs_total: last10Avg != null ? Math.round((last10Avg - avg) * 10) / 10 : null,
+    top_canchas: topCourses,
+  }
+}
+
+async function getAllRoundsSummary(ctx: ToolExecutionContext): Promise<ToolResult> {
+  const { supabase, userId } = ctx
+  const { data, error } = await supabase
+    .from('historical_rounds')
+    .select('total_gross, course_name, played_at, holes_played, scores')
+    .eq('user_id', userId)
+    .not('total_gross', 'is', null)
+    .order('played_at', { ascending: false })
+
+  if (error) return { ok: false, error: error.message }
+  const rounds = (data ?? []) as HistoricalRow[]
+  if (rounds.length === 0) return { ok: true, data: { total: 0 } }
+
+  const rounds18 = rounds.filter(r => inferHoles(r) === 18)
+  const rounds9 = rounds.filter(r => inferHoles(r) === 9)
+  const indeterminadas = rounds.filter(r => inferHoles(r) === null)
+
+  return {
     ok: true,
     data: {
       total: rounds.length,
-      avg_score: Math.round(avg * 10) / 10,
-      best_score: best,
-      worst_score: worst,
-      last10_avg: last10Avg != null ? Math.round(last10Avg * 10) / 10 : null,
-      tendencia_ultimas_10_vs_total: last10Avg != null ? Math.round((last10Avg - avg) * 10) / 10 : null,
       primera_ronda: rounds[rounds.length - 1].played_at,
       ultima_ronda: rounds[0].played_at,
-      top_canchas: topCourses,
+      rondas_18: summarizeBucket(rounds18),
+      rondas_9: summarizeBucket(rounds9),
+      rondas_indeterminadas: {
+        total: indeterminadas.length,
+        nota: 'Rondas viejas sin holes_played ni scores en formato reconocible. Excluidas de los promedios — no inventar score promedio para este grupo.',
+      },
+      nota_metodologia: 'Los buckets rondas_18 y rondas_9 están separados estrictamente por hole count (inferido desde holes_played o scores.length). NUNCA promediar entre buckets.',
     },
   }
 }
