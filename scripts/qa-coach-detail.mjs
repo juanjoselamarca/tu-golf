@@ -79,18 +79,21 @@ async function main() {
   const sections = await page.evaluate(() => {
     const result = {}
     // Look for known card text patterns
+    // innerText respeta text-transform:uppercase en Chromium → comparamos lower-case
+    // para evitar falsos negativos en labels stylados como uppercase.
     const allText = document.body.innerText
-    result.mentalIndexVisible = allText.includes('Mental Index')
-    result.recoveryScore = (allText.match(/Mental Index[\s\S]{0,200}/) || [])[0]?.slice(0, 200)
-    result.highlightsVisible = allText.toLowerCase().includes('highlights · esta semana')
-    result.highlightsLabel = (allText.match(/Highlights[\s\S]{0,150}/) || [])[0]?.slice(0, 150)
-    result.costoVisible = allText.toLowerCase().includes('costo psicol')
-    result.costoBlock = (allText.match(/Costo psicológico[\s\S]{0,300}/) || [])[0]?.slice(0, 300)
-    result.tuYoBlock = (allText.match(/Tu yo contenido[\s\S]{0,200}/) || [])[0]?.slice(0, 200)
-    result.curvaVisible = allText.includes('Curva mental')
-    result.patronesVisible = allText.includes('Patrones detectados')
-    result.planVisible = allText.includes('Bogey seguro tras error')
-    result.ctaVisible = allText.includes('Conversar con tAIger+')
+    const lowerText = allText.toLowerCase()
+    result.mentalIndexVisible = lowerText.includes('mental index')
+    result.recoveryScore = (allText.match(/Mental Index[\s\S]{0,200}/i) || [])[0]?.slice(0, 200)
+    result.highlightsVisible = lowerText.includes('highlights · esta semana')
+    result.highlightsLabel = (allText.match(/Highlights[\s\S]{0,150}/i) || [])[0]?.slice(0, 150)
+    result.costoVisible = lowerText.includes('costo psicol')
+    result.costoBlock = (allText.match(/Costo psicológico[\s\S]{0,300}/i) || [])[0]?.slice(0, 300)
+    result.tuYoBlock = (allText.match(/Tu yo contenido[\s\S]{0,200}/i) || [])[0]?.slice(0, 200)
+    result.curvaVisible = lowerText.includes('curva mental')
+    result.patronesVisible = lowerText.includes('patrones detectados')
+    result.planVisible = lowerText.includes('bogey seguro tras error')
+    result.ctaVisible = lowerText.includes('conversar con taiger+')
 
     // Total page text length (rough — should be a real dashboard)
     result.bodyTextLength = allText.length
