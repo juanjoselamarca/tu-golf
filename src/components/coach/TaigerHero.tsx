@@ -44,21 +44,27 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
           0%, 100% { box-shadow: 0 0 24px rgba(196,153,42,0.06); }
           50% { box-shadow: 0 0 48px rgba(196,153,42,0.14); }
         }
+        .taiger-hero-img { height: 240px; }
+        .taiger-hero-brand { margin-top: -56px; padding: 0 24px 20px; }
+        .taiger-hero-card { margin-bottom: 28px; }
+        @media (max-width: 640px) {
+          .taiger-hero-img { height: 130px; }
+          .taiger-hero-brand { margin-top: -38px; padding: 0 18px 14px; }
+          .taiger-hero-card { margin-bottom: 16px; }
+        }
       `}</style>
-      <div style={{
+      <div className="taiger-hero-card" style={{
         position: 'relative',
         borderRadius: 20,
         overflow: 'hidden',
         background: '#0a1219',
-        marginBottom: 28,
         border: '1px solid rgba(196,153,42,0.1)',
         animation: mounted ? 'glowBreath 6s ease-in-out infinite' : 'none',
       }}>
         {/* Image carousel — crossfade */}
-        <div style={{
+        <div className="taiger-hero-img" style={{
           position: 'relative',
           width: '100%',
-          height: 240,
           overflow: 'hidden',
           animation: mounted ? 'heroEntry 0.8s ease-out both' : 'none',
         }}>
@@ -96,10 +102,8 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
         </div>
 
         {/* Brand + dots */}
-        <div style={{
+        <div className="taiger-hero-brand" style={{
           position: 'relative',
-          marginTop: -56,
-          padding: '0 24px 20px',
           zIndex: 2,
         }}>
           <h2 style={{

@@ -2,16 +2,19 @@
 
 import type { CSSProperties } from 'react'
 
+interface PlanDot {
+  label: string
+  state: 'on' | 'miss'
+}
+
 interface Props {
   title: string
   description: string
   status: 'active' | 'resolved' | 'expired' | 'superseded' | 'cancelled'
-  weekDots: Array<'on' | 'miss'>
+  dots: PlanDot[]
   appliedRatio: number
   correlationLine: React.ReactNode
 }
-
-const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
 const STATUS_LABEL: Record<Props['status'], string> = {
   active: 'en curso',
@@ -29,7 +32,7 @@ const STATUS_TONE: Record<Props['status'], { fg: string; bg: string; border: str
   cancelled: { fg: 'var(--text-3)', bg: 'var(--bg-surface)', border: 'var(--line)' },
 }
 
-export function PlanActiveCard({ title, description, status, weekDots, correlationLine }: Props) {
+export function PlanActiveCard({ title, description, status, dots, correlationLine }: Props) {
   const cardStyle: CSSProperties = {
     background: 'var(--bg-surface)',
     border: '1px solid var(--line)',
@@ -64,20 +67,31 @@ export function PlanActiveCard({ title, description, status, weekDots, correlati
         }}>{STATUS_LABEL[status]}</span>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0 14px' }} role="list" aria-label="Adherencia semanal">
-        {weekDots.map((d, i) => (
-          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }} role="listitem">
-            <span style={{ fontSize: '9.5px', color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' as const }}>
-              {DAY_LABELS[i]}
-            </span>
-            {d === 'on' ? (
-              <span aria-label="aplicado" style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--coach-recovery-high)' }} />
-            ) : (
-              <span aria-label="no aplicado" style={{ width: '19px', height: '19px', borderRadius: '50%', background: 'var(--bg-surface)', border: '1.5px dashed var(--text-3)' }} />
-            )}
+      {dots.length > 0 ? (
+        <>
+          <div style={{ fontSize: '9.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '8px', fontFamily: '"DM Mono", monospace' }}>
+            Últimas {dots.length} rondas
           </div>
-        ))}
-      </div>
+          <div style={{ display: 'flex', justifyContent: dots.length >= 5 ? 'space-between' : 'flex-start', gap: dots.length >= 5 ? 0 : '14px', padding: '0 0 14px' }} role="list" aria-label="Adherencia por ronda">
+            {dots.map((d, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }} role="listitem">
+                <span style={{ fontSize: '9.5px', color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.05em', fontFamily: '"DM Mono", monospace' }}>
+                  {d.label}
+                </span>
+                {d.state === 'on' ? (
+                  <span aria-label="aplicado" style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--coach-recovery-high)' }} />
+                ) : (
+                  <span aria-label="no aplicado" style={{ width: '19px', height: '19px', borderRadius: '50%', background: 'var(--bg-surface)', border: '1.5px dashed var(--text-3)' }} />
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 0 14px', fontStyle: 'italic' }}>
+          Sin rondas registradas con plan activo aún.
+        </div>
+      )}
 
       <div style={{ fontSize: '12px', color: 'var(--text-2)', padding: '12px 14px', background: 'var(--bg)', borderRadius: '4px', lineHeight: 1.55 }}>
         {correlationLine}

@@ -339,11 +339,18 @@ export default function CoachDashboard() {
           title={state.plan.hypothesis}
           description={state.plan.rule}
           status={state.plan.status as 'active' | 'resolved' | 'expired' | 'superseded' | 'cancelled'}
-          weekDots={Array.from({ length: 7 }, (_, i) => state.outcomes[i]?.target_reached ? 'on' as const : 'miss' as const)}
+          dots={state.outcomes
+            .slice(0, 7)
+            .map(o => ({
+              label: String(new Date(o.played_at).getDate()).padStart(2, '0'),
+              state: o.target_reached ? 'on' as const : 'miss' as const,
+            }))
+            .reverse()
+          }
           appliedRatio={state.outcomes.length > 0 ? state.outcomes.filter(o => o.target_reached).length / state.outcomes.length : 0}
           correlationLine={
             <>
-              Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{state.outcomes.length > 0 ? Math.round(state.outcomes.filter(o => o.target_reached).length / state.outcomes.length * 100) : 0}%</span> de los outcomes registrados. <b style={{ color: 'var(--text)', fontWeight: 600 }}>El resto son las situaciones donde la cabeza paga el precio.</b>
+              Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{state.outcomes.length > 0 ? Math.round(state.outcomes.filter(o => o.target_reached).length / state.outcomes.length * 100) : 0}%</span> de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{state.outcomes.length}</b> rondas con plan activo. <b style={{ color: 'var(--text)', fontWeight: 600 }}>El resto son donde la cabeza paga el precio.</b>
             </>
           }
         />
