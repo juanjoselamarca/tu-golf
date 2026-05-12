@@ -12,7 +12,7 @@
 // - Assistant: borde gold a la izquierda (acento de marca).
 // - System: fondo según severity (info / warning / error).
 // - Sin emojis. Texto en DM Sans con line-height generoso.
-// - Indicador "tAIger+ está pensando..." cuando loading=true.
+// - Indicador "El asistente está pensando..." cuando loading=true.
 
 import { useEffect, useRef } from 'react'
 import type { AssistantMessage } from './types'
@@ -132,7 +132,7 @@ export default function AssistantMessages({ messages, loading }: AssistantMessag
           }}
           aria-live="polite"
         >
-          tAIger+ está pensando...
+          El asistente está pensando...
         </div>
       )}
       <div ref={endRef} />

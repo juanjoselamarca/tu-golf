@@ -78,7 +78,7 @@ export default function AssistantInput({
         placeholder={placeholder}
         disabled={disabled}
         rows={1}
-        aria-label="Mensaje para tAIger+"
+        aria-label="Mensaje para el asistente"
         style={{
           flex: 1,
           resize: 'none',

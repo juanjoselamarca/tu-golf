@@ -2,7 +2,10 @@
 
 // src/components/tournament-draft/AssistantPanel.tsx
 //
-// Orquestador del chat con tAIger+ en el editor de torneos.
+// Orquestador del chat con el asistente IA del editor de torneos.
+// NOTA: este NO es tAIger+ (el coach de golf). Es un servicio separado con su propio
+// endpoint (/api/torneos/draft/[id]/assistant), system prompt específico de extracción
+// de configuración de torneos, y sin acceso al historial del coach.
 // - Mantiene el historial local de mensajes (no se persiste server-side
 //   en este wave; cada sesión es un thread efímero).
 // - Hace POST a `/api/torneos/draft/[id]/assistant` con cada mensaje
@@ -47,8 +50,8 @@ function errorMessageForStatus(status: number, body: AssistantApiError | null): 
     }
     return 'Estás enviando muchos mensajes seguidos. Probá en unos minutos.'
   }
-  if (status === 502) return 'tAIger+ no pudo procesar eso, reformulá.'
-  if (status === 503) return 'tAIger+ no está disponible ahora. Editá manualmente.'
+  if (status === 502) return 'El asistente no pudo procesar eso, reformulá.'
+  if (status === 503) return 'El asistente no está disponible ahora. Editá manualmente.'
   if (status === 401) return 'Sesión expirada. Volvé a entrar.'
   if (status === 404) return 'No encuentro este borrador. Recargá la página.'
   if (status === 409) return 'Otro admin editó este borrador. Recargá la página.'
@@ -162,7 +165,7 @@ export default function AssistantPanel({
       // Toast solo si hay onUndo (si el editor no quiere undo, no lo
       // mostramos para no confundir).
       if (onUndo) {
-        setToast({ id: makeId('t'), message: 'tAIger+ aplicó cambios.' })
+        setToast({ id: makeId('t'), message: 'El asistente aplicó cambios.' })
       }
     } catch (err) {
       // Si llegó otra respuesta más nueva, descartamos esta.

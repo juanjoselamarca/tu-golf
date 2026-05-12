@@ -11,7 +11,7 @@ import type {
 /**
  * Rol del mensaje en el chat del asistente.
  * - 'user'      → el organizador
- * - 'assistant' → tAIger+ (IA)
+ * - 'assistant' → asistente IA del editor (NO es tAIger+, es un servicio separado)
  * - 'system'    → mensaje de sistema (errores, avisos)
  */
 export type MessageRole = 'user' | 'assistant' | 'system'
