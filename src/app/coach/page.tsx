@@ -59,9 +59,8 @@ interface RoundRow {
   id: string
   scores: (number | null)[] | null
   total_gross: number | null
-  par_total: number | null
   course_name: string | null
-  hole_pars: number[] | null
+  par_per_hole: number[] | null
   played_at: string
   course_rating: number | null
   slope_rating: number | null
@@ -138,7 +137,7 @@ export default function CoachDashboard() {
         const [sessionsRes, primaryRes, roundsRes, patternsRes, planRes, totalRes] = await Promise.all([
           supabase.from('taiger_sessions').select('id, session_type, created_at, next_focus').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
           supabase.from('taiger_sessions').select('id').eq('user_id', user.id).eq('is_primary', true).maybeSingle(),
-          supabase.from('historical_rounds').select('id, scores, total_gross, par_total, course_name, hole_pars, played_at, course_rating, slope_rating').eq('user_id', user.id).order('played_at', { ascending: false }).limit(10),
+          supabase.from('historical_rounds').select('id, scores, total_gross, course_name, par_per_hole, played_at, course_rating, slope_rating').eq('user_id', user.id).order('played_at', { ascending: false }).limit(10),
           supabase.from('player_patterns').select('id, pattern_type, confidence, data_points, status, first_detected').eq('user_id', user.id).in('status', ['active', 'monitoring']),
           supabase.from('coach_plans').select('id, pattern_id, hypothesis, rule, status, created_at, duration_days').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
           supabase.from('historical_rounds').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
@@ -233,7 +232,7 @@ export default function CoachDashboard() {
 
   const hasActiveSpiralPattern = state.patterns.some(p => p.pattern_type === 'post_bogey_spiral' && p.status === 'active')
   const evitables = hasActiveSpiralPattern
-    ? strokesEvitables(state.rounds.slice(0, 8).map(r => ({ id: r.id, scores: r.scores ?? [], hole_pars: r.hole_pars })))
+    ? strokesEvitables(state.rounds.slice(0, 8).map(r => ({ id: r.id, scores: r.scores ?? [], hole_pars: r.par_per_hole })))
     : null
 
   const recoveryTitle = mentalIndex.band === 'high' ? 'Tu cabeza está equilibrada' : mentalIndex.band === 'mid' ? 'Tu cabeza está bajo presión' : 'Tu cabeza necesita reset'
@@ -243,9 +242,10 @@ export default function CoachDashboard() {
   const ctaLabel = state.primarySessionId ? 'Conversar con tAIger+' : 'Iniciar conversación con tAIger+'
 
   const lastRound = state.rounds[0]
+  const lastRoundParTotal = lastRound?.par_per_hole?.reduce((a, b) => a + b, 0) ?? 72
   let curvaStates: Array<MentalState | null> = []
   if (lastRound && lastRound.scores) {
-    const roundForAnalysis = { id: lastRound.id, scores: lastRound.scores, hole_pars: lastRound.hole_pars }
+    const roundForAnalysis = { id: lastRound.id, scores: lastRound.scores, hole_pars: lastRound.par_per_hole }
     curvaStates = Array.from({ length: 18 }, (_, i) => clasificarHoyo(roundForAnalysis, i))
   }
   const tiltCount = curvaStates.filter(s => s === 'tilt').length
@@ -297,15 +297,15 @@ export default function CoachDashboard() {
         />
       )}
 
-      {lastRound && lastRound.scores && lastRound.hole_pars && (
+      {lastRound && lastRound.scores && lastRound.par_per_hole && (
         <CurvaMentalCard
           fecha={`Ronda ${new Date(lastRound.played_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}`}
           curso={lastRound.course_name ?? 'la cancha'}
           totalScore={lastRound.total_gross ?? 0}
-          overPar={(lastRound.total_gross ?? 0) - (lastRound.par_total ?? 72)}
+          overPar={(lastRound.total_gross ?? 0) - lastRoundParTotal}
           states={curvaStates}
           scores={lastRound.scores}
-          hole_pars={lastRound.hole_pars}
+          hole_pars={lastRound.par_per_hole}
           espirales={tiltCount}
         />
       )}
