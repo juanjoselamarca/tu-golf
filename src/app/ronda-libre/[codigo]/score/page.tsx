@@ -837,6 +837,12 @@ function ScorePageContent() {
   const jug = ronda?.ronda_libre_jugadores ?? []
   const rivalId = jug.length === 2 ? jug.find(j => j.id !== activeJugadorId)?.id : null
   const rivalHcp = rivalId ? (playerHcp[rivalId] ?? 0) : 0
+  // BUG (12-may-2026 Juanjo en cancha): hasStrokeAdvantage hace closure sobre
+  // modoJuego/formatoJuego. Si los const están más abajo, la llamada inmediata
+  // de hasStrokeAdvantage rompe por TDZ y el scorer queda en blanco. Mantener
+  // ESTAS dos declaraciones por encima del callback siempre.
+  const modoJuego = ronda.modo_juego ?? 'gross'
+  const formatoJuego = ronda.formato_juego ?? 'stroke_play'
   const hasStrokeAdvantage = (si: number): boolean => {
     if (modoJuego === 'gross' || jug.length !== 2) return strokesRecibidosEnHoyo(hcpForPlayer, si) > 0
     const myStrokes = strokesRecibidosEnHoyo(hcpForPlayer, si)
@@ -867,9 +873,7 @@ function ScorePageContent() {
   }
   const totalNetOverUnder = totalNet - totalNetPar
 
-  // What to display based on formato_juego + modo_juego
-  const modoJuego = ronda.modo_juego ?? 'gross'
-  const formatoJuego = ronda.formato_juego ?? 'stroke_play'
+  // What to display based on formato_juego + modo_juego (modoJuego/formatoJuego declarados arriba)
   const modoLabel = formatoJuego === 'match_play' ? 'Match Play Neto'
     : formatoJuego === 'stableford' ? 'Stableford'
     : modoJuego === 'neto' ? 'Stroke Play Neto'
