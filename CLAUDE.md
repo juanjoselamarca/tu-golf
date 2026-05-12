@@ -170,3 +170,14 @@ Si dos agentes paralelos editan secrets al mismo tiempo, hay carrera. Para evita
 - PM: Juan José Lamarca (juanjoselamarca@gmail.com)
 - CTO: Claude
 - Producción: https://golfersplus.vercel.app
+
+## graphify — mapa del codebase
+
+El repo tiene un knowledge graph en `graphify-out/` con god nodes, comunidades y relaciones cross-archivo (código + docs + ADRs).
+
+Reglas:
+- ANTES de leer fuentes, grep/glob o responder preguntas sobre el codebase: leer `graphify-out/GRAPH_REPORT.md`. Es el mapa primario.
+- Si existe `graphify-out/wiki/index.md`, navegarlo en vez de leer archivos crudos.
+- Para preguntas "cómo se relaciona X con Y" cross-módulo: preferir `graphify query "<pregunta>"`, `graphify path "<A>" "<B>"`, o `graphify explain "<concepto>"` sobre grep — atraviesan las aristas EXTRACTED + INFERRED del grafo en vez de escanear archivos.
+- Después de modificar código: `graphify update .` para mantener el grafo al día (AST local, sin costo de API).
+- Re-extracción semántica completa (docs + comunidades re-labeladas): `set -a && . ./.env.local && set +a && graphify extract . --backend gemini`. Cuesta ~$1 USD vía Gemini Flash. Sólo cuando cambian docs importantes.

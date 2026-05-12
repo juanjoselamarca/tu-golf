@@ -72,7 +72,13 @@ reports/
 .claude/scheduled_tasks.lock
 .claude/worktrees/
 
-
 # Coach visual review artifacts (worktree-local)
 screenshots-coach-visual/
 dev.log
+
+# graphify — knowledge graph del repo
+# graph.json + GRAPH_REPORT.md SÍ se commitean (mapa compartido del equipo)
+graphify-out/manifest.json
+graphify-out/cost.json
+graphify-out/cache/
+graphify-build.log
