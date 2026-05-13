@@ -21,13 +21,16 @@ const STATE_COLOR: Record<MentalState, string> = {
 }
 
 function renderHalf(label: string, overParHalf: number, states: Array<MentalState | null>, scores: Array<number | null>, pars: number[], startIdx: number) {
+  const n = scores.length
+  if (n === 0) return null
+  const gridCols: CSSProperties = { display: 'grid', gridTemplateColumns: `repeat(${n}, 1fr)`, gap: '2px' }
   return (
     <div style={{ marginBottom: '14px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9.5px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '6px', padding: '0 1px' }}>
         <span>{label}</span>
         <span style={{ color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', letterSpacing: 0 }}>{overParHalf >= 0 ? '+' : ''}{overParHalf}</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', height: '18px', alignItems: 'flex-end', marginBottom: '4px' }} aria-hidden>
+      <div style={{ ...gridCols, height: '18px', alignItems: 'flex-end', marginBottom: '4px' }} aria-hidden>
         {scores.map((s, i) => {
           const par = pars[i] ?? 4
           const over = s != null ? s - par : 0
@@ -35,13 +38,13 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
           return <div key={`s-${startIdx + i}`} style={{ height: `${h}%`, background: 'var(--text)' }} />
         })}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', height: '14px' }} aria-hidden>
+      <div style={{ ...gridCols, height: '14px' }} aria-hidden>
         {states.map((st, i) => (
           <div key={`m-${startIdx + i}`} style={{ background: st ? STATE_COLOR[st] : 'var(--line)' }} />
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '2px', marginTop: '4px' }}>
-        {Array.from({ length: 9 }, (_, i) => (
+      <div style={{ ...gridCols, marginTop: '4px' }}>
+        {Array.from({ length: n }, (_, i) => (
           <div key={`a-${startIdx + i}`} style={{ fontFamily: '"DM Mono", monospace', fontSize: '9.5px', color: 'var(--text-3)', textAlign: 'center' }}>{startIdx + i + 1}</div>
         ))}
       </div>

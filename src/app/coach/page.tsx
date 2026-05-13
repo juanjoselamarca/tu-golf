@@ -246,9 +246,26 @@ export default function CoachDashboard() {
   let curvaStates: Array<MentalState | null> = []
   if (lastRound && lastRound.scores) {
     const roundForAnalysis = { id: lastRound.id, scores: lastRound.scores, hole_pars: lastRound.par_per_hole }
-    curvaStates = Array.from({ length: 18 }, (_, i) => clasificarHoyo(roundForAnalysis, i))
+    // length real (9 o 18) — evita estados null falsos para hoyos no jugados.
+    curvaStates = Array.from({ length: lastRound.scores.length }, (_, i) => clasificarHoyo(roundForAnalysis, i))
   }
   const tiltCount = curvaStates.filter(s => s === 'tilt').length
+
+  // CostoPsicológicoCard: derivamos strokes ahorrados por ronda — denominador consistente
+  // (antes: evitables.total agregaba hasta 8 rondas, se dividía por 5 hardcodeado).
+  const fiveRounds = state.rounds.slice(0, 5)
+  const fiveRealAvg = fiveRounds.length > 0
+    ? fiveRounds.reduce((a, r) => a + (r.total_gross ?? 0), 0) / fiveRounds.length
+    : 0
+  const fiveSaved = evitables
+    ? fiveRounds.reduce((sum, r) => sum + (evitables.instances.find(i => i.round_id === r.id)?.strokes_saved ?? 0), 0)
+    : 0
+  const fiveContainedAvg = fiveRounds.length > 0
+    ? fiveRealAvg - fiveSaved / fiveRounds.length
+    : 0
+  const lastRoundInstance = evitables?.instances.find(i => i.round_id === lastRound?.id)
+  const lastRoundSaved = lastRoundInstance?.strokes_saved ?? 0
+  const lastRoundHoles = lastRoundInstance?.holes ?? []
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 0 0' }}>
@@ -267,7 +284,7 @@ export default function CoachDashboard() {
       )}
 
       {state.patterns.length > 0 && (
-        <HighlightsCarousel label="Highlights · esta semana" count={{ current: 1, total: Math.min(3, state.patterns.length) }}>
+        <HighlightsCarousel label="Highlights · esta semana">
           {state.patterns.slice(0, 3).map(p => (
             <HighlightCard
               key={p.id}
@@ -285,15 +302,15 @@ export default function CoachDashboard() {
         </HighlightsCarousel>
       )}
 
-      {evitables && evitables.total > 0 && lastRound && (
+      {evitables && evitables.total > 0 && lastRound && lastRoundHoles.length > 0 && (
         <CostoPsicologicoCard
           evitables={evitables.total}
-          promedioReal={state.rounds.slice(0, 5).reduce((a, r) => a + (r.total_gross ?? 0), 0) / Math.max(1, state.rounds.slice(0, 5).length)}
-          promedioContenido={state.rounds.slice(0, 5).reduce((a, r) => a + (r.total_gross ?? 0), 0) / Math.max(1, state.rounds.slice(0, 5).length) - (evitables.total / 5)}
+          promedioReal={fiveRealAvg}
+          promedioContenido={fiveContainedAvg}
           realScore={lastRound.total_gross ?? 0}
-          ghostScore={(lastRound.total_gross ?? 0) - (evitables.instances.find(i => i.round_id === lastRound.id)?.holes.length ?? 0)}
-          delta={evitables.instances.find(i => i.round_id === lastRound.id)?.holes.length ?? 0}
-          holesAffected={evitables.instances.find(i => i.round_id === lastRound.id)?.holes ?? []}
+          ghostScore={(lastRound.total_gross ?? 0) - lastRoundSaved}
+          delta={lastRoundSaved}
+          holesAffected={lastRoundHoles}
         />
       )}
 
