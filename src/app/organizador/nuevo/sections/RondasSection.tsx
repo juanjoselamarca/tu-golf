@@ -5,6 +5,7 @@
 // Sección "Rondas": lista editable de config.rounds.
 
 import { useMemo } from 'react'
+import CourseSelector from '@/components/CourseSelector'
 import type { TournamentConfig, RoundConfig } from '@/lib/draft/types'
 
 export interface CourseOption {
@@ -91,33 +92,13 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
                 </div>
 
                 <div style={fieldStyle}>
-                  <label style={labelStyle} htmlFor={`r-course-${idx}`}>Cancha</label>
-                  <input
-                    id={`r-course-${idx}`}
-                    type="text"
-                    list={`r-course-list-${idx}`}
-                    placeholder="Buscá por nombre o ciudad"
-                    style={inputStyle}
-                    defaultValue={selectedCourse ? selectedCourse.nombre : ''}
-                    onChange={(e) => {
-                      const v = e.target.value.toLowerCase()
-                      const exact = courses.find(
-                        (c) => c.nombre.toLowerCase() === v,
-                      )
-                      if (exact) {
-                        updateAt(idx, { course_id: exact.id })
-                      } else if (v === '') {
-                        updateAt(idx, { course_id: null })
-                      }
+                  <label style={labelStyle}>Cancha</label>
+                  <CourseSelector
+                    initialValue={selectedCourse?.nombre ?? ''}
+                    onSelect={(course) => {
+                      updateAt(idx, { course_id: course.id })
                     }}
                   />
-                  <datalist id={`r-course-list-${idx}`}>
-                    {courses.slice(0, 50).map((c) => (
-                      <option key={c.id} value={c.nombre}>
-                        {c.ciudad ?? ''}
-                      </option>
-                    ))}
-                  </datalist>
                 </div>
 
                 <div style={fieldStyle}>
@@ -132,23 +113,6 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
                   >
                     <option value={18}>18</option>
                     <option value={9}>9</option>
-                  </select>
-                </div>
-
-                <div style={fieldStyle}>
-                  <label style={labelStyle} htmlFor={`r-tee-${idx}`}>Asignación de tee</label>
-                  <select
-                    id={`r-tee-${idx}`}
-                    style={inputStyle}
-                    value={round.tee_assignment_mode}
-                    onChange={(e) =>
-                      updateAt(idx, {
-                        tee_assignment_mode: e.target.value as RoundConfig['tee_assignment_mode'],
-                      })
-                    }
-                  >
-                    <option value="per_player">Por jugador</option>
-                    <option value="per_category">Por categoría</option>
                   </select>
                 </div>
               </div>

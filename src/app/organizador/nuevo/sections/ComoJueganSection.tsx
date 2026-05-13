@@ -5,7 +5,8 @@
 // Sección "Cómo juegan":
 // - formato (chips)
 // - modo gross/neto (chips, forzado neto para stableford/match_play)
-// - hoyos 18/9 (chips, aplica a la primera ronda)
+//
+// Hoyos por ronda: única fuente es RondasSection (cada ronda define sus hoyos).
 
 import type { TournamentConfig, TournamentFormat, ScoringMode } from '@/lib/draft/types'
 
@@ -27,7 +28,6 @@ const NETO_FORCED: TournamentFormat[] = ['stableford', 'match_play']
 
 export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProps) {
   const netoForced = NETO_FORCED.includes(config.format)
-  const holeCount = config.rounds[0]?.hole_count ?? 18
 
   const setFormat = (format: TournamentFormat) => {
     const partial: Partial<TournamentConfig> = { format }
@@ -41,22 +41,6 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
   const setModo = (modo: ScoringMode) => {
     if (netoForced && modo === 'gross') return
     applyChange({ modo })
-  }
-
-  const setHoleCount = (count: 9 | 18) => {
-    const nextRounds = [...config.rounds]
-    if (nextRounds.length === 0) {
-      nextRounds.push({
-        round_number: 1,
-        date: config.date_start,
-        course_id: null,
-        hole_count: count,
-        tee_assignment_mode: 'per_player',
-      })
-    } else {
-      nextRounds[0] = { ...nextRounds[0], hole_count: count }
-    }
-    applyChange({ rounds: nextRounds })
   }
 
   return (
@@ -98,26 +82,6 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
             onClick={() => setModo('neto')}
           >
             Neto
-          </button>
-        </div>
-      </div>
-
-      <div style={groupStyle}>
-        <span style={labelStyle}>Hoyos (primera ronda)</span>
-        <div style={chipRowStyle}>
-          <button
-            type="button"
-            style={chipStyle(holeCount === 18, false)}
-            onClick={() => setHoleCount(18)}
-          >
-            18
-          </button>
-          <button
-            type="button"
-            style={chipStyle(holeCount === 9, false)}
-            onClick={() => setHoleCount(9)}
-          >
-            9
           </button>
         </div>
       </div>
