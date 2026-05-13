@@ -9,6 +9,7 @@ import { Flame } from '@/components/icons'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
+import type { SaveStatus } from './types'
 import { getYardajeForTee } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
@@ -67,7 +68,6 @@ function ScorePageContent() {
   const [holeDataMap, setHoleDataMap] = useState<Record<number, HoleData>>({})
   const [playerHcp, setPlayerHcp] = useState<Record<string, number>>({})
 
-  type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error'
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const isOnline = useOnlineStatus()
   const [hasUnsaved, setHasUnsaved] = useState(false)
