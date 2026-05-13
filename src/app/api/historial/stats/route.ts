@@ -236,17 +236,22 @@ export async function GET() {
       rounds9.push({ round: histRound, totalPar })
     }
 
-    // Course stats — usar vsPar para comparar rondas de distinto largo
-    const cName = raw.course_name
-    const roundVsPar = vsPar ?? (totalGross - (holesPlayed <= 9 ? 36 : 72))
-    const existing = courseStats.get(cName)
-    if (existing) {
-      existing.count++
-      existing.totalScore += totalGross
-      existing.bestScore = Math.min(existing.bestScore, totalGross)
-      existing.bestVsPar = Math.min(existing.bestVsPar, roundVsPar)
-    } else {
-      courseStats.set(cName, { count: 1, totalScore: totalGross, bestScore: totalGross, bestVsPar: roundVsPar })
+    // Course stats — solo acumular rondas de 18h. Mezclar 9h con 18h en
+    // el promedio total_gross por cancha contamina (un 45 de 9h con un 90
+    // de 18h NO promedian a 67.5). Para ver 9h, usar el endpoint separado
+    // o exponer un breakdown 9h específico (backlog).
+    if (holesPlayed === 18) {
+      const cName = raw.course_name
+      const roundVsPar = vsPar ?? (totalGross - 72)
+      const existing = courseStats.get(cName)
+      if (existing) {
+        existing.count++
+        existing.totalScore += totalGross
+        existing.bestScore = Math.min(existing.bestScore, totalGross)
+        existing.bestVsPar = Math.min(existing.bestVsPar, roundVsPar)
+      } else {
+        courseStats.set(cName, { count: 1, totalScore: totalGross, bestScore: totalGross, bestVsPar: roundVsPar })
+      }
     }
   }
 
