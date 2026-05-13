@@ -12,14 +12,15 @@
 
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import * as Sentry from '@sentry/nextjs'
+import { captureError } from '@/lib/error-tracking'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 
 function captureGameError(action: string, error: unknown, extra?: Record<string, unknown>) {
-  Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
-    tags: { action, component: 'game-engine' },
-    extra,
+  void captureError(error, {
+    context: `game-engine.${action}`,
+    level: 'error',
+    meta: extra,
   })
 }
 

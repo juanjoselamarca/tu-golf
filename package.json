@@ -24,7 +24,6 @@
     "@anthropic-ai/sdk": "^0.79.0",
     "@google/generative-ai": "^0.24.1",
     "@iconify-json/fluent-emoji-high-contrast": "^1.2.5",
-    "@sentry/nextjs": "^10.46.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.44.4",
     "dotenv": "^17.3.1",

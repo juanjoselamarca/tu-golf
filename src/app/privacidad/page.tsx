@@ -133,8 +133,7 @@ export default function PrivacidadPage() {
           <li><strong>Vercel Inc.</strong> (EE.UU.) &mdash; Hosting de la aplicaci&oacute;n.</li>
           <li><strong>Anthropic PBC</strong> (EE.UU.) &mdash; Motor de inteligencia artificial para tAIger+ (coach de golf). Tus datos de juego se env&iacute;an de forma an&oacute;nima para generar an&aacute;lisis.</li>
           <li><strong>Google</strong> (EE.UU.) &mdash; Inicio de sesi&oacute;n con Google (OAuth). Solo obtenemos nombre, email y foto de perfil.</li>
-          <li><strong>Sentry</strong> (EE.UU.) &mdash; Monitoreo de errores t&eacute;cnicos. Captura errores de la app para que podamos corregirlos r&aacute;pidamente. Datos personales (email, nombre) se eliminan antes de enviar a Sentry.</li>
-          <li><strong>PostHog</strong> (EE.UU.) &mdash; Anal&iacute;tica de uso. Registra p&aacute;ginas visitadas y acciones para mejorar la experiencia. Respeta la se&ntilde;al &ldquo;Do Not Track&rdquo; de tu navegador. No registra direcciones IP.</li>
+          <li><strong>PostHog</strong> (EE.UU.) &mdash; Anal&iacute;tica de uso y monitoreo de errores t&eacute;cnicos. Registra p&aacute;ginas visitadas, acciones y errores de la app para mejorar la experiencia y corregir bugs r&aacute;pidamente. Respeta la se&ntilde;al &ldquo;Do Not Track&rdquo; de tu navegador. No registra direcciones IP.</li>
         </ul>
         <p style={{ ...S.body, fontWeight: 600 }}>
           Golfers+ NO vende datos personales a anunciantes ni a terceros con fines comerciales.
