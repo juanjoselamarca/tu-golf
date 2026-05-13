@@ -388,6 +388,30 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
   const handleStartTournament = async () => {
     if (players.length < 1) return
+
+    // Validación previa: todos los jugadores aprobados deben estar en algún
+    // grupo. Si no, no se les crea ronda_libre_jugador y el leaderboard rompe
+    // (rounds existe pero no hay scoring path). Mostramos warning con la lista.
+    const groupedIds = new Set<string>()
+    for (const g of groups) {
+      for (const gp of g.players) groupedIds.add(gp.player_id)
+    }
+    const ungrouped = players.filter(
+      (p) => p.status === 'approved' && !groupedIds.has(p.id),
+    )
+    if (ungrouped.length > 0) {
+      const names = ungrouped
+        .map((p) => p.profiles?.name || 'Jugador')
+        .slice(0, 5)
+        .join(', ')
+      const extra = ungrouped.length > 5 ? ` y ${ungrouped.length - 5} más` : ''
+      showError(
+        'Jugadores sin grupo',
+        `Asigná a un grupo antes de iniciar: ${names}${extra}.`,
+      )
+      return
+    }
+
     if (!window.confirm(`Iniciar torneo con ${players.length} jugador${players.length !== 1 ? 'es' : ''}? Se crearán las rondas para todos.`)) return
     setStarting(true)
     const supabase = createClient()
