@@ -54,7 +54,21 @@ export async function loginViaUI(page: Page): Promise<void> {
   await page.locator('form button[type="submit"]').first().click()
 
   // Login exitoso = redirect a /dashboard (default del page.tsx)
-  await page.waitForURL(/\/dashboard/, { timeout: 15_000 })
+  // 45s timeout: en CI cold-start el primer request a Vercel + supabase-auth
+  // a veces supera los 15s. Local con browser cache es < 3s.
+  try {
+    await page.waitForURL(/\/dashboard/, { timeout: 45_000 })
+  } catch (err) {
+    // Debug-friendly failure: capturamos URL y posibles mensajes de error
+    // visibles en la página antes de re-throw.
+    const currentUrl = page.url()
+    const errorText = await page.locator('[role="alert"], .error, [class*="error"]').first().textContent().catch(() => null)
+    throw new Error(
+      `Login no redirigió a /dashboard tras 45s. URL actual: ${currentUrl}. ` +
+      `Error visible en página: ${errorText ?? '(ninguno)'}. ` +
+      `Original: ${err instanceof Error ? err.message : String(err)}`
+    )
+  }
 }
 
 /** Guarda el estado de auth del contexto al archivo. */
