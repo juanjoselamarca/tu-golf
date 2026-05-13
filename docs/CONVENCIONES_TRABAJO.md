@@ -74,3 +74,25 @@ El repo puede tener múltiples agentes/sesiones trabajando al mismo tiempo (Juan
 - **Si pre-push bloquea por tests de código ajeno:** NO usar `--no-verify`. Fetch + pull --rebase primero. Si aún falla, reportar al usuario antes de tomar acción correctiva sobre código que no escribiste.
 
 **Por qué:** el 2026-04-21 dos sesiones paralelas trabajaron sobre `main` simultáneamente — una regenerando docs, otra agregando tests de cobertura. No hubo colisión por suerte. Si hubieran tocado el mismo archivo, habría habido trabajo perdido o conflicto de merge. Esta regla protege contra la próxima vez que la suerte no alcance.
+
+## 11. Worktree propio para cada sesión con commits
+
+Cuando vas a producir commits en una sesión, crear worktree dedicado desde `origin/main`:
+
+```bash
+node scripts/setup-worktree.mjs <slug> [chore|feat|fix]
+```
+
+El script:
+- crea `.claude/worktrees/<slug>/` desde `origin/main`,
+- crea branch `<prefix>/<slug>-claude`,
+- **copia `.env.local`** (sin esto, `npm run build` del pre-push hook falla por VAPID),
+- imprime los próximos pasos.
+
+**Reglas operacionales:**
+
+- **NUNCA editar archivos en una rama compartida con otro agente activo.** Si `git worktree list` muestra >1 worktree, hay paralelización: crea el tuyo.
+- **Excepción:** cambio mínimo documental (un párrafo en `docs/`) y 1 solo worktree activo → podés editar directo.
+- **Al cerrar la sesión:** si el branch ya se mergeo a main, `git worktree remove <path>` + `git branch -D <branch>` para no acumular ramas viejas.
+
+**Por qué:** el 2026-05-12 una sesión modificó `CLAUDE.md` directamente en `chore/graphify-setup`, que estaba siendo trabajada por un agente paralelo en su worktree. El agente paralelo: (a) commiteó encima del trabajo de la primera sesión, (b) movió silenciosamente el commit de la primera sesión a una rama nueva, y (c) el push falló además porque el worktree paralelo no tenía `.env.local` propio. Resultado: ~20 min de fricción y 2 ramas para mergear donde debía haber 1. Esta regla + el script previenen ambas causas.
