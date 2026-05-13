@@ -77,7 +77,11 @@ screenshots-coach-visual/
 dev.log
 
 # graphify — knowledge graph del repo
-# graph.json + GRAPH_REPORT.md SÍ se commitean (mapa compartido del equipo)
+# Commited:  GRAPH_REPORT.md + .graphify_analysis.json + .graphify_labels.json (livianos, navegables)
+# Gitignored: graph.json + graph.html (2MB c/u, regenerables localmente con `graphify update .`)
+#             Esto evita que el .git infle 100MB+/año con deltas binarios del grafo.
+graphify-out/graph.json
+graphify-out/graph.html
 graphify-out/manifest.json
 graphify-out/cost.json
 graphify-out/cache/
