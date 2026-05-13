@@ -9,7 +9,7 @@
 // - Layout 2 columnas en desktop, tabs en mobile
 // - Wire-up del header/secciones/footer/preview modal/assistant panel
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useDraftStore, type CollaboratorInfo } from '@/lib/draft/store'
@@ -119,7 +119,6 @@ export default function TournamentDraftEditor({
   const [showStartModal, setShowStartModal] = useState<boolean>(!initialDraftId)
   const [creating, setCreating] = useState<boolean>(false)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'config' | 'assistant'>('config')
 
   const draftId = useDraftStore((s) => s.draftId)
   const config = useDraftStore((s) => s.config)
@@ -330,81 +329,53 @@ export default function TournamentDraftEditor({
     )
   }
 
-  const configPanel = (
-    <div style={configPanelStyle}>
-      <DraftHeader
-        draftId={draftId}
-        config={config}
-        applyChange={applyChangeManual}
-        syncStatus={syncStatus}
-        pendingCount={pendingChanges.length}
-        collaborators={collaborators}
-      />
-
-      <QueTorneoSection config={config} applyChange={applyChangeManual} courses={courses} />
-      <ComoJueganSection config={config} applyChange={applyChangeManual} />
-      <EquiposSection config={config} applyChange={applyChangeManual} />
-      <MatchPlaySection config={config} applyChange={applyChangeManual} />
-      <StablefordSection config={config} applyChange={applyChangeManual} />
-      <CategoriasSection config={config} applyChange={applyChangeManual} />
-      <RondasSection config={config} applyChange={applyChangeManual} courses={courses} />
-      <TeesSection config={config} applyChange={applyChangeManual} />
-      <InscripcionSection config={config} applyChange={applyChangeManual} />
-      <PremiosSection config={config} applyChange={applyChangeManual} />
-      <AdminsSection
-        config={config}
-        applyChange={applyChangeManual}
-        collaborators={adminCollaborators}
-      />
-
-      <DraftFooter
-        draftId={draftId}
-        config={config}
-        onPreview={handlePreview}
-        onCreate={handleCreate}
-      />
-    </div>
-  )
-
-  const assistantPanel = (
-    <div style={assistantPanelStyle}>
-      <AssistantPanel draftId={draftId} onChangeApplied={handleAssistantChange} />
-    </div>
-  )
-
   return (
     <div style={pageStyle}>
       <ResponsiveStyles />
-      {/* Mobile: tabs (ocultos en desktop vía CSS) */}
-      <div className="draft-editor-tabs" style={mobileTabsStyle}>
-        <button
-          type="button"
-          style={tabButtonStyle(activeTab === 'config')}
-          onClick={() => setActiveTab('config')}
-        >
-          Configuración
-        </button>
-        <button
-          type="button"
-          style={tabButtonStyle(activeTab === 'assistant')}
-          onClick={() => setActiveTab('assistant')}
-        >
-          Asistente
-        </button>
-      </div>
 
-      <div className="draft-editor-layout" style={layoutStyle}>
-        <div
-          className={`draft-editor-config-col ${activeTab === 'config' ? 'is-active' : ''}`}
-          style={configColumnStyle(activeTab === 'config')}
-        >
-          {configPanel}
-        </div>
-        <div
-          className={`draft-editor-assistant-col ${activeTab === 'assistant' ? 'is-active' : ''}`}
-          style={assistantColumnStyle(activeTab === 'assistant')}
-        >
-          {assistantPanel}
+      <div className="draft-editor-page" style={pageInnerStyle}>
+        {/* Header del borrador (nombre, autosave, colaboradores) */}
+        <DraftHeader
+          draftId={draftId}
+          config={config}
+          applyChange={applyChangeManual}
+          syncStatus={syncStatus}
+          pendingCount={pendingChanges.length}
+          collaborators={collaborators}
+        />
+
+        {/* Hero del asistente IA — entrada principal del flujo AI-first.
+            El chat lleva al organizador desde lenguaje natural a config viva. */}
+        <section style={heroAssistantStyle} aria-label="Asistente IA del torneo">
+          <AssistantErrorBoundary>
+            <AssistantPanel draftId={draftId} onChangeApplied={handleAssistantChange} />
+          </AssistantErrorBoundary>
+        </section>
+
+        {/* Secciones del formulario — fuente de verdad editable manualmente */}
+        <div className="draft-editor-form" style={formStackStyle}>
+          <QueTorneoSection config={config} applyChange={applyChangeManual} courses={courses} />
+          <ComoJueganSection config={config} applyChange={applyChangeManual} />
+          <EquiposSection config={config} applyChange={applyChangeManual} />
+          <MatchPlaySection config={config} applyChange={applyChangeManual} />
+          <StablefordSection config={config} applyChange={applyChangeManual} />
+          <CategoriasSection config={config} applyChange={applyChangeManual} />
+          <RondasSection config={config} applyChange={applyChangeManual} courses={courses} />
+          <TeesSection config={config} applyChange={applyChangeManual} />
+          <InscripcionSection config={config} applyChange={applyChangeManual} />
+          <PremiosSection config={config} applyChange={applyChangeManual} />
+          <AdminsSection
+            config={config}
+            applyChange={applyChangeManual}
+            collaborators={adminCollaborators}
+          />
+
+          <DraftFooter
+            draftId={draftId}
+            config={config}
+            onPreview={handlePreview}
+            onCreate={handleCreate}
+          />
         </div>
       </div>
 
@@ -413,19 +384,93 @@ export default function TournamentDraftEditor({
   )
 }
 
+// Aisla crashes del chat IA: si el panel del asistente lanza, el resto del
+// editor (formulario, footer, preview) sigue funcionando — y el organizador
+// ve un mensaje en vez de pantalla blanca.
+class AssistantErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  componentDidCatch(err: Error) {
+    // eslint-disable-next-line no-console
+    console.error('[AssistantErrorBoundary]', err)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            padding: 20,
+            fontSize: 13,
+            color: 'var(--text-secondary, #6b7280)',
+            fontFamily: '"DM Sans", sans-serif',
+          }}
+        >
+          <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary, #111827)' }}>
+            Asistente no disponible.
+          </p>
+          <p style={{ margin: '8px 0 0' }}>
+            Podés seguir editando manualmente. Recargá la página para reintentar.
+          </p>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 // CSS responsive injectado vía <style>. En desktop (>= 1024px) mostramos
 // ambas columnas en grid 60/40 y ocultamos los tabs de mobile.
 function ResponsiveStyles() {
+  // CSS global de las section cards (evita editar 11 archivos individualmente)
+  // y del hero del asistente (forzar fondo de canvas, no del Panel).
   const css = `
     @media (min-width: 1024px) {
-      .draft-editor-tabs { display: none !important; }
-      .draft-editor-layout {
-        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      .draft-editor-page {
+        padding: 28px 24px 96px !important;
       }
-      .draft-editor-config-col,
-      .draft-editor-assistant-col {
-        display: block !important;
+      .draft-editor-form {
+        gap: 18px !important;
       }
+    }
+
+    /* Cards de cada sección — polish premium global */
+    .draft-editor-form section {
+      border-radius: 16px !important;
+      background: var(--bg-surface, #ffffff) !important;
+      border: 1px solid var(--border, rgba(10, 20, 25, 0.06)) !important;
+      box-shadow: var(--shadow-card, 0 1px 2px rgba(10, 20, 25, 0.04), 0 4px 12px rgba(10, 20, 25, 0.03));
+      padding: 22px !important;
+      transition: box-shadow 200ms ease, border-color 200ms ease;
+    }
+    .draft-editor-form section:hover {
+      box-shadow: var(--shadow-md, 0 4px 16px rgba(10, 20, 25, 0.06));
+      border-color: var(--border-md, rgba(10, 20, 25, 0.1)) !important;
+    }
+    .draft-editor-form section h2 {
+      font-size: 17px !important;
+      font-weight: 600 !important;
+      letter-spacing: -0.01em;
+      color: var(--text, #111827) !important;
+    }
+    .draft-editor-form section label {
+      letter-spacing: 0.01em;
+    }
+    /* Inputs: focus state premium gold */
+    .draft-editor-form section input,
+    .draft-editor-form section select,
+    .draft-editor-form section textarea {
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .draft-editor-form section input:focus,
+    .draft-editor-form section select:focus,
+    .draft-editor-form section textarea:focus {
+      border-color: var(--brand-on-bg, #c4992a) !important;
+      box-shadow: 0 0 0 3px rgba(196, 153, 42, 0.15);
     }
   `
   return <style dangerouslySetInnerHTML={{ __html: css }} />
@@ -550,74 +595,35 @@ function formatRelativeDate(iso?: string | null): string {
 
 const pageStyle: React.CSSProperties = {
   minHeight: '100vh',
-  background: 'var(--page-bg, #ffffff)',
+  background: 'var(--bg, #fafaf7)',
   fontFamily: '"DM Sans", sans-serif',
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text, #111827)',
 }
 
-const layoutStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1fr)',
-  gap: 16,
-  padding: 16,
-  maxWidth: 1400,
+const pageInnerStyle: React.CSSProperties = {
+  maxWidth: 880,
   margin: '0 auto',
-}
-
-const configColumnStyle = (active: boolean): React.CSSProperties => ({
-  display: active ? 'block' : 'none',
-  minWidth: 0,
-})
-
-const assistantColumnStyle = (active: boolean): React.CSSProperties => ({
-  display: active ? 'block' : 'none',
-  minWidth: 0,
-})
-
-// Desktop overrides via media queries inline no se pueden con React style,
-// pero usamos CSS vars y truco con className global. Para mantenerlo simple,
-// usamos un container style + media query inyectado vía <style>.
-//
-// (Tailwind no está disponible directamente acá fuera de className; las secciones
-// existentes ya usan inline styles. Mantenemos el mismo enfoque.)
-
-const mobileTabsStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: 8,
-  padding: '12px 16px 0',
-  maxWidth: 1400,
-  margin: '0 auto',
-}
-
-const tabButtonStyle = (active: boolean): React.CSSProperties => ({
-  appearance: 'none',
-  fontFamily: 'inherit',
-  fontSize: 13,
-  fontWeight: 600,
-  padding: '8px 14px',
-  borderRadius: 999,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: active ? 'var(--brand-dark, #0a1419)' : '#ffffff',
-  color: active ? '#ffffff' : 'var(--text-secondary, #6b7280)',
-  cursor: 'pointer',
-})
-
-const configPanelStyle: React.CSSProperties = {
+  padding: '16px 16px 96px',
   display: 'flex',
   flexDirection: 'column',
-  gap: 16,
-  minWidth: 0,
+  gap: 14,
 }
 
-const assistantPanelStyle: React.CSSProperties = {
-  position: 'sticky',
-  top: 16,
-  alignSelf: 'flex-start',
-  borderRadius: 14,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
+// Hero del asistente — primera cosa que ve el organizador después del header.
+// Card prominente con gradient sutil + border gold para señalar IA.
+const heroAssistantStyle: React.CSSProperties = {
+  borderRadius: 18,
+  border: '1px solid var(--border-md, rgba(196, 153, 42, 0.18))',
+  background:
+    'linear-gradient(180deg, rgba(196, 153, 42, 0.04) 0%, var(--bg-surface, #ffffff) 60%)',
+  boxShadow: 'var(--shadow-card, 0 1px 2px rgba(10, 20, 25, 0.04), 0 12px 32px rgba(10, 20, 25, 0.06))',
   overflow: 'hidden',
-  maxHeight: 'calc(100vh - 32px)',
+}
+
+const formStackStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 14,
   minWidth: 0,
 }
 
