@@ -193,9 +193,9 @@ export default function AssistantPanel({
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        minHeight: '600px',
-        background: '#fff',
-        borderLeft: '1px solid var(--border, #e5e7eb)',
+        minHeight: 280,
+        maxHeight: 420,
+        background: 'transparent',
       }}
     >
       <div
