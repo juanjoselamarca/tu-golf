@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { inferHoles } from '@/golf/core/holes'
 import { createClient } from '@/lib/supabase'
 import { BarChart3 } from '@/components/icons'
 import { vsPar, sortRoundsByPerformance, countByResult, splitByHoles, bestRoundByVsPar, parPerHoleArray, parPlayedFromRound } from '@/golf/core/compare'
@@ -177,15 +178,25 @@ export default function StatsPage() {
     return [...rounds].sort((a, b) => vsPar(b) - vsPar(a))[0]
   }, [rounds])
 
-  // Scoring trend: last 5 vs previous 5 (usando vsPar para normalizar 9/18H)
+  // Scoring trend: last 5 vs previous 5. Filtrar a un solo bucket de hoyos
+  // antes de promediar (mezclar 9h con 18h contamina el promedio bruto).
+  // Preferir 18h; si no hay datos suficientes, fallback a 9h.
   const trendData = useMemo(() => {
     if (allRounds.length < 5) return null
-    const last5 = allRounds.slice(-5)
-    const prev5 = allRounds.slice(-10, -5)
+    const rondas18 = allRounds.filter((r) => inferHoles(r) === 18)
+    const rondas9 = allRounds.filter((r) => inferHoles(r) === 9)
+    const bucket = rondas18.length >= 10 ? rondas18
+      : rondas9.length >= 10 ? rondas9
+      : rondas18.length >= rondas9.length ? rondas18
+      : rondas9
+    if (bucket.length < 5) return null
+    const last5 = bucket.slice(-5)
+    const prev5 = bucket.slice(-10, -5)
     if (prev5.length === 0) return null
     const avgLastVsPar = last5.reduce((s, r) => s + vsPar(r), 0) / last5.length
     const avgPrevVsPar = prev5.reduce((s, r) => s + vsPar(r), 0) / prev5.length
     const diff = avgLastVsPar - avgPrevVsPar
+    const bucketHoles = bucket === rondas18 ? 18 : 9
     return {
       avgLast: (last5.reduce((s, r) => s + r.total_gross, 0) / last5.length).toFixed(1),
       avgPrev: (prev5.reduce((s, r) => s + r.total_gross, 0) / prev5.length).toFixed(1),
@@ -194,6 +205,7 @@ export default function StatsPage() {
       declining: diff > 0.5,
       stable: Math.abs(diff) <= 0.5,
       prevCount: prev5.length,
+      bucketHoles,
     }
   }, [allRounds])
 
@@ -578,7 +590,7 @@ export default function StatsPage() {
                   {trendData.improving ? 'Mejorando' : trendData.declining ? 'En declive' : 'Estable'}
                 </p>
                 <p style={{ color: C.muted, fontSize: 12, margin: 0 }}>
-                  Últimas 5: <strong style={{ color: C.ivory }}>{trendData.avgLast}</strong>
+                  Últimas 5 ({trendData.bucketHoles}h): <strong style={{ color: C.ivory }}>{trendData.avgLast}</strong>
                   {' · '}
                   Anteriores {trendData.prevCount}: <strong style={{ color: C.ivory }}>{trendData.avgPrev}</strong>
                   {' · '}
