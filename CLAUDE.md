@@ -123,7 +123,21 @@ Después del incidente del 25-mar-2026 (refactor del Navbar tumbó la app entera
 
 Cuando el pedido del usuario matchea un skill instalado, INVOCARLO con el tool `Skill` como primera acción. No responder directo, no usar otros tools primero.
 
-Routing principal:
+### DEFAULTS AUTOMÁTICOS (Claude invoca sin pedir permiso)
+
+Estos defaults se aplican SIEMPRE que el contexto matchee, sin que Juanjo deba mencionarlos. Razón: nuestro cuello de botella histórico es diseño con muchas iteraciones (ej. coach-home con 24 commits en v3) y flujo secuencial lento. Reversibles — si rinden mal en la práctica, se bajan.
+
+1. **Cualquier cambio visual/UI sustancial** → arrancar SIEMPRE con `design-shotgun` (genera 3-4 variantes en paralelo) antes de iterar sobre una sola opción. Después `frontend-design` para implementar la elegida, después `design-review` para QA visual con before/after. Aplica a: rediseños de páginas, nuevos componentes, refactors de layout. NO aplica a: tweaks menores (color puntual, spacing, copy).
+
+2. **2+ tareas independientes en la misma sesión** → disparar `dispatching-parallel-agents` con worktrees separados (skill `superpowers:using-git-worktrees`). Aplica a: bug + refactor sin overlap, frontend + backend sin overlap, exploración + implementación en módulos distintos. Branches: `feat/<scope>-<who>` por agente (ver memoria `feedback_branch_por_agente_paralelo.md`).
+
+3. **Feature/UI nueva desde cero** → `brainstorming` (superpowers) → `design-shotgun` → `plan-eng-review` → implementación → `design-review`. No saltearse pasos para "ir más rápido"; cada uno reduce iteraciones aguas abajo.
+
+4. **Plan de implementación complejo aprobado** → `executing-plans` (superpowers) o `do` (claude-mem) con subagents en fases, no ejecución secuencial manual.
+
+5. **Juanjo no recuerda qué skill usar** → indicarle que pregunte en lenguaje natural ("¿hay alguna skill para X?") y usar `find-skills` (Vercel Labs) si está instalado. Si no, recomendar desde la tabla de routing abajo.
+
+### Routing por frase del usuario:
 
 - "torneo real próximo", "antes del torneo" → `/pre-torneo`
 - "ship", "push", "deploy", "PR" → skill `ship` (gstack)
