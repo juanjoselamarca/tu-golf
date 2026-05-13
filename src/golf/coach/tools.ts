@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { savePlan, PATTERN_IDS, PLAN_METRICS, type SavePlanInput } from './plan-engine'
+import { inferHoles } from '@/golf/core/holes'
 
 /**
  * Definiciones de tools que tAIger+ puede llamar durante una conversación.
@@ -422,21 +423,6 @@ type HistoricalRow = {
   played_at: string
   holes_played: number | null
   scores: number[] | Record<string, number> | null
-}
-
-function inferHoles(r: Pick<HistoricalRow, 'holes_played' | 'scores'>): 9 | 18 | null {
-  if (r.holes_played === 9 || r.holes_played === 18) return r.holes_played
-  if (Array.isArray(r.scores)) {
-    if (r.scores.length === 9) return 9
-    if (r.scores.length === 18) return 18
-    return null
-  }
-  if (r.scores && typeof r.scores === 'object') {
-    const n = Object.keys(r.scores).length
-    if (n === 9) return 9
-    if (n === 18) return 18
-  }
-  return null
 }
 
 function summarizeBucket(arr: HistoricalRow[]) {
