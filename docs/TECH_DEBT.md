@@ -1,6 +1,6 @@
 # Catálogo de deuda técnica — Golfers+
 
-**Última actualización**: 2026-04-23
+**Última actualización**: 2026-05-12
 **Fuente**: `docs/audits/2026-04-23-revision-completa.md`
 
 > **Cómo usar este doc**: cada vez que un item se resuelve, marcarlo ✅ con link al commit. Cada vez que se descubre nueva deuda, agregarla al final con P0/P1/P2.

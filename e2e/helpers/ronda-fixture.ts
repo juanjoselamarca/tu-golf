@@ -13,10 +13,11 @@ import { createClient } from '@supabase/supabase-js'
  * - Cada test que crea un fixture DEBE llamar cleanup en afterAll, aún si falla.
  */
 
-// Course que sabemos existe en producción — estable, puede cambiar si se migra.
-// Usamos "La Dehesa" como default (Juanjo lo usa como ejemplo en docs).
-const DEFAULT_COURSE_ID = '8fb8c2ce-a8ec-4938-bc05-e77e2dcb2281'
-const DEFAULT_COURSE_NAME = 'Club de Golf La Dehesa'
+// Course que sabemos existe en producción CON course_holes pobladas.
+// Default: Los Leones — validado 12-may-2026 contra prod. El anterior default
+// ("La Dehesa", 8fb8c2ce-...) no tenía holes y rompía el fixture en CI.
+const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
+const DEFAULT_COURSE_NAME = 'Los Leones'
 
 export interface RondaFixture {
   id: string
@@ -59,7 +60,7 @@ async function buildSnapshot(courseId: string, tees: string) {
     .single()
   const { data: holes } = await admin
     .from('course_holes')
-    .select('numero, par, stroke_index, yardaje_blanco, yardaje_azul, yardaje_campeonato, yardaje_rojo')
+    .select('numero, par, stroke_index, yardaje_blanco, yardaje_azul, yardaje_negras, yardaje_rojo')
     .eq('course_id', courseId)
     .order('numero')
   const { data: teeData } = await admin
@@ -79,7 +80,7 @@ async function buildSnapshot(courseId: string, tees: string) {
       stroke_index: h.stroke_index,
       yardaje_blanco: h.yardaje_blanco,
       yardaje_azul: h.yardaje_azul,
-      yardaje_campeonato: h.yardaje_campeonato,
+      yardaje_negras: h.yardaje_negras,
       yardaje_rojo: h.yardaje_rojo,
     })),
     par_total: course.par_total,

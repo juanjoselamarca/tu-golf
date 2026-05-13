@@ -52,12 +52,8 @@ test.beforeEach(async () => {
   if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
     test.skip(true, 'E2E_TEST_USER_EMAIL/PASSWORD no configurados')
   }
-  // BLOQUEADO — P1 en TECH_DEBT: la página /score crashea con ReferenceError
-  // ("Cannot access 't$' before initialization") para rondas recién creadas
-  // desde admin fixture. Las rondas reales existentes NO tienen el bug.
-  // Hay un codepath específico en el bundle minificado de prod que rompe con
-  // ciertos estados iniciales. Los tests quedan listos para cuando se arregle.
-  test.skip(true, 'BLOQUEADO por bug de /score — ver TECH_DEBT P1-score-crash-fresh-ronda')
+  // Resuelto 2026-05-12 (commit b70c53b): el TDZ ReferenceError sobre
+  // modoJuego/formatoJuego ya no crashea el scorer. Ver docs/TECH_DEBT.md P1-12.
 })
 
 test.afterEach(async () => {

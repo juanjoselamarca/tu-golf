@@ -1,0 +1,97 @@
+name: Scorer Smoke
+
+# El test más importante de toda la CI. Razón de existir documentada en
+# e2e/scorer-smoke.spec.ts. TL;DR: 12-may-2026 Juanjo descubrió en cancha
+# que el scorer renderizaba pantalla blanca. Tardó 28 días en detectarse.
+# Este workflow cierra ese hueco.
+#
+# Triggers:
+#   - schedule: cada 2 horas → atrapa corrupción operacional post-deploy
+#     (Vercel deploy fallido silencioso, query lenta de Supabase, etc.).
+#   - push a main → atrapa el bug antes que cualquier usuario lo vea.
+#   - pull_request a main → cierra el círculo: PRs no se mergean si rompen
+#     la pantalla más crítica.
+#   - workflow_dispatch → manual desde GitHub UI.
+#
+# Si este workflow falla, GitHub te manda email automático (config en tu
+# perfil → Notifications → Actions). En el futuro podemos opcionalmente
+# abrir un Issue auto (gh issue create) — por ahora keepamos lean.
+
+on:
+  schedule:
+    # Cada 2 horas. ~12 runs/día × 30 = 360 runs/mes × ~1.5 min = ~540 min/mes
+    # (free tier GH Actions: 2000 min/mes — margen >3x).
+    - cron: '0 */2 * * *'
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'URL contra la que correr (default: golfersplus.vercel.app)'
+        required: false
+        type: string
+        default: 'https://golfersplus.vercel.app'
+
+# Sólo permitir un run a la vez por ref — evita pisarse en cron + push simultáneo.
+concurrency:
+  group: scorer-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Playwright scorer smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      PLAYWRIGHT_BASE_URL: ${{ inputs.base_url || 'https://golfersplus.vercel.app' }}
+      # E2E_TEST_USER_* mapeo desde GH secrets — mismo patrón que e2e-trigger.yml
+      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+      E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+      # Service role para crear/limpiar la ronda fixture vía supabase admin.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cached browser path)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run scorer smoke spec
+        run: npx playwright test scorer-smoke.spec.ts --project=mobile-chromium-auth
+
+      - name: Upload Playwright trace + screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
