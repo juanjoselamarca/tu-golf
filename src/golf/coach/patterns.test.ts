@@ -75,9 +75,12 @@ describe('pressure_deterioration', () => {
 describe('driving_inconsistency', () => {
   const pattern = PATTERNS.find(p => p.id === 'driving_inconsistency')!
 
-  it('exists with requires18Holes=false and severity=info', () => {
+  it('exists with requires18Holes=true and severity=info', () => {
+    // cv/variance sobre total_gross sólo es comparable entre rondas del
+    // mismo hole count. Mezclar 9h con 18h infla cv artificialmente y
+    // generaba falsos positivos del patrón.
     expect(pattern).toBeDefined()
-    expect(pattern.requires18Holes).toBe(false)
+    expect(pattern.requires18Holes).toBe(true)
     expect(pattern.severity).toBe('info')
   })
 

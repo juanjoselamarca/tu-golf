@@ -118,9 +118,16 @@ export default function StatsPage() {
   }, [allRounds, range])
 
   /* ── Derived stats ── */
-  const hasRounds = rounds.length > 0
+  // avgScore: filtrar a un solo bucket de hoyos. Mezclar 9h con 18h en un
+  // promedio bruto produce un número engañoso (un 45 de 9h con un 90 de
+  // 18h NO promedian a 67.5).
+  const rondas18 = rounds.filter((r) => inferHoles(r) === 18)
+  const rondas9 = rounds.filter((r) => inferHoles(r) === 9)
+  const bucketAvg = rondas18.length >= rondas9.length ? rondas18 : rondas9
+  const avgBucketHoles: 9 | 18 | null = bucketAvg.length === 0 ? null : (bucketAvg === rondas18 ? 18 : 9)
+  const hasRounds = bucketAvg.length > 0
   const avgScore = hasRounds
-    ? rounds.reduce((s, r) => s + r.total_gross, 0) / rounds.length
+    ? bucketAvg.reduce((s, r) => s + r.total_gross, 0) / bucketAvg.length
     : 0
   const bestRoundData = hasRounds ? bestRoundByVsPar(rounds) : null
   const bestRound = bestRoundData ? bestRoundData.total_gross : 0
@@ -551,7 +558,7 @@ export default function StatsPage() {
           marginBottom: 16,
         }}>
           {[
-            { label: 'Promedio', value: hasRounds ? avgScore.toFixed(1) : '--', color: C.ivory },
+            { label: avgBucketHoles ? `Promedio (${avgBucketHoles}h)` : 'Promedio', value: hasRounds ? avgScore.toFixed(1) : '--', color: C.ivory },
             { label: 'Mejor ronda', value: hasRounds ? `${bestRound} (${formatOverUnder(bestRoundVsPar)})` : '--', color: C.gold },
             { label: 'Birdies', value: hasRounds ? birdies : '--', color: C.green },
             { label: 'Eagles', value: hasRounds ? eagles : '--', color: C.gold },
