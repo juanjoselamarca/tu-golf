@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { adminColors, adminCard, adminFonts } from '@/components/admin/admin-tokens'
+import { inferHoles } from '@/golf/core/holes'
 
 interface UserProfile {
   id: string; name: string; email: string; role: string
@@ -75,7 +76,7 @@ export default function UserDetailPage() {
       const [profileRes, roundsRes, tourneysRes, sessionsRes, patternsRes, rondasRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase.from('historical_rounds')
-          .select('id, course_name, total_gross, diferencial, played_at, source')
+          .select('id, course_name, total_gross, diferencial, played_at, source, holes_played, scores')
           .eq('user_id', id).order('played_at', { ascending: false }).limit(50),
         supabase.from('players')
           .select('id, status, tournaments(name, slug, date_start), rounds(total_gross, total_net, status)')
@@ -119,8 +120,14 @@ export default function UserDetailPage() {
   }
 
   const totalRondas = rounds.length + rondas.length
-  const avgScore = rounds.length > 0 ? Math.round(rounds.reduce((s, r) => s + r.total_gross, 0) / rounds.length) : null
-  const bestScore = rounds.length > 0 ? Math.min(...rounds.map(r => r.total_gross)) : null
+  // avgScore/bestScore: filtrar a un bucket (18h preferido, fallback 9h)
+  // antes de promediar. Mezclar 9h con 18h contamina el promedio bruto.
+  const rondas18Admin = rounds.filter(r => inferHoles(r as { holes_played?: number | null; scores?: number[] | null }) === 18)
+  const rondas9Admin = rounds.filter(r => inferHoles(r as { holes_played?: number | null; scores?: number[] | null }) === 9)
+  const bucketAdmin = rondas18Admin.length >= rondas9Admin.length ? rondas18Admin : rondas9Admin
+  const avgScoreBucket: 9 | 18 | null = bucketAdmin.length === 0 ? null : (bucketAdmin === rondas18Admin ? 18 : 9)
+  const avgScore = bucketAdmin.length > 0 ? Math.round(bucketAdmin.reduce((s, r) => s + r.total_gross, 0) / bucketAdmin.length) : null
+  const bestScore = bucketAdmin.length > 0 ? Math.min(...bucketAdmin.map(r => r.total_gross)) : null
   const avgRating = sessions.filter(s => s.rating).length > 0
     ? (sessions.filter(s => s.rating).reduce((s, r) => s + (r.rating || 0), 0) / sessions.filter(s => s.rating).length).toFixed(1)
     : null
@@ -170,8 +177,8 @@ export default function UserDetailPage() {
           { label: 'Rondas', value: totalRondas },
           { label: 'Torneos', value: tournaments.length },
           { label: 'Sesiones IA', value: sessions.length },
-          { label: 'Promedio', value: avgScore ?? '—' },
-          { label: 'Mejor', value: bestScore ?? '—' },
+          { label: avgScoreBucket ? `Promedio (${avgScoreBucket}h)` : 'Promedio', value: avgScore ?? '—' },
+          { label: avgScoreBucket ? `Mejor (${avgScoreBucket}h)` : 'Mejor', value: bestScore ?? '—' },
         ].map(kpi => (
           <div key={kpi.label} style={{ ...adminCard, padding: '14px', textAlign: 'center' }}>
             <div style={{ ...adminFonts.kpiSmall, fontSize: '1.1rem' }}>{kpi.value}</div>

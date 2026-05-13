@@ -21,6 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import type { PlanMetric, TargetOp } from './plan-engine'
+import { inferHoles } from '@/golf/core/holes'
 
 const STANDARD_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
 const CONSECUTIVE_HITS_TO_RESOLVE = 3
@@ -312,19 +313,21 @@ async function computeTotalGrossCV(
   userId: string,
   round: RoundData,
 ): Promise<ComputedMetric> {
-  // Necesita las ultimas 10 rondas (incluyendo la actual). Como historical_rounds
-  // y rondas_libres son fuentes distintas, usamos historical_rounds (mas estable
-  // para el coach). Si el jugador tiene <5 rondas con total_gross numerico,
-  // metric=null.
+  // Necesita las ultimas 10 rondas de 18h (incluyendo la actual). Como
+  // historical_rounds y rondas_libres son fuentes distintas, usamos
+  // historical_rounds. CV/variance sólo es comparable entre rondas del
+  // mismo hole count — mezclar 9h con 18h infla cv artificialmente.
+  // Si <5 rondas 18h con total_gross numerico, metric=null.
   const { data, error } = await supabase
     .from('historical_rounds')
-    .select('total_gross, played_at')
+    .select('total_gross, played_at, holes_played, scores')
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
-    .limit(10)
+    .limit(20)
 
   if (error) return { value: null, reason: error.message }
-  const grosses = (data ?? [])
+  const only18h = (data ?? []).filter(r => inferHoles(r as { holes_played?: number | null; scores?: number[] | null }) === 18).slice(0, 10)
+  const grosses = only18h
     .map(r => (typeof r.total_gross === 'number' ? r.total_gross : null))
     .filter((x): x is number => x !== null)
 

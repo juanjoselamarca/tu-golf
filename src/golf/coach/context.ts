@@ -14,6 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TaigerContext } from './prompts'
 import { parPerHoleArray, parPlayedFromRound } from '@/golf/core/compare'
+import { inferHoles } from '@/golf/core/holes'
 
 // PlayerContext es un alias de TaigerContext (definido en prompts.ts) para
 // que buildContextString pueda consumir directo el output de buildPlayerContext.
@@ -127,6 +128,13 @@ export async function buildPlayerContext(
 
   const validRounds = rounds.filter(r => r.total_gross != null)
   const totalRounds = validRounds.length
+  // Separar rondas en buckets de hoyos para evitar mezclar 9h y 18h en
+  // agregados que van al LLM. avgScore/bestScore se computan sobre el
+  // bucket de 18h (o 9h si predomina) — NUNCA mezcla.
+  const validRounds18 = validRounds.filter(r => inferHoles(r) === 18)
+  const validRounds9 = validRounds.filter(r => inferHoles(r) === 9)
+  const bucketAgg = validRounds18.length >= validRounds9.length ? validRounds18 : validRounds9
+  const aggHoles: 9 | 18 | null = bucketAgg.length === 0 ? null : (bucketAgg === validRounds18 ? 18 : 9)
 
   let totalBirdies = 0, totalEagles = 0
   let front9Sum = 0, front9Count = 0
@@ -151,10 +159,10 @@ export async function buildPlayerContext(
     }
   }
 
-  const avgScore = totalRounds > 0
-    ? Math.round(validRounds.reduce((a, r) => a + r.total_gross, 0) / totalRounds * 10) / 10
+  const avgScore = bucketAgg.length > 0
+    ? Math.round(bucketAgg.reduce((a, r) => a + r.total_gross, 0) / bucketAgg.length * 10) / 10
     : null
-  const bestScore = totalRounds > 0 ? Math.min(...validRounds.map(r => r.total_gross)) : null
+  const bestScore = bucketAgg.length > 0 ? Math.min(...bucketAgg.map(r => r.total_gross)) : null
   const front9Avg = front9Count > 0 ? Math.round(front9Sum / front9Count * 9 * 10) / 10 : null
   const back9Avg = back9Count > 0 ? Math.round(back9Sum / back9Count * 9 * 10) / 10 : null
 
