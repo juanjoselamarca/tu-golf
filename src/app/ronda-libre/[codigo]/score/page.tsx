@@ -91,6 +91,9 @@ function ScorePageContent() {
   const [view, setView] = useState<'scorecard' | 'leaderboard'>('scorecard')
   const [gwiInputs, setGwiInputs] = useState<JugadorGWIInput[]>([])
   const [, setGwiResults] = useState<GWIResult[]>([])
+  const [confirmFinalize, setConfirmFinalize] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
 
   // Auto-return to scorecard after 10s + fetch GWI
   useEffect(() => {
@@ -465,9 +468,6 @@ function ScorePageContent() {
     const prevIdx = currentHoleIdx - 1
     if (prevIdx >= 0) setCurrentHole(ordenHoyos[prevIdx])
   }
-  const [confirmFinalize, setConfirmFinalize] = useState(false)
-  const [confirmDiscard, setConfirmDiscard] = useState(false)
-  const [discarding, setDiscarding] = useState(false)
 
   const discardRound = async () => {
     if (!ronda || discarding) return
