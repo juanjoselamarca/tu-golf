@@ -36,7 +36,7 @@ test.describe('Organizar Campeonato — asistente IA', () => {
     await entrarAlEditor(page)
 
     // El input del asistente tiene aria-label="Mensaje para tAIger+"
-    const input = page.getByLabel(/Mensaje para tAIger\+/i)
+    const input = page.getByLabel(/Mensaje para el asistente/i)
     await expect(input).toBeVisible({ timeout: 10_000 })
 
     // Escribir un prompt que típicamente cambia el formato a "scramble"
@@ -86,7 +86,7 @@ test.describe('Organizar Campeonato — asistente IA', () => {
     // No depende de ANTHROPIC_API_KEY — solo de que el input/render funcione.
     await entrarAlEditor(page)
 
-    const input = page.getByLabel(/Mensaje para tAIger\+/i)
+    const input = page.getByLabel(/Mensaje para el asistente/i)
     await expect(input).toBeVisible({ timeout: 10_000 })
 
     const prompt = 'Hola tAIger'

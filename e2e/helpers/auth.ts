@@ -53,8 +53,10 @@ export async function loginViaUI(page: Page): Promise<void> {
   // El botón de submit es un <button type="submit"> dentro del form
   await page.locator('form button[type="submit"]').first().click()
 
-  // Login exitoso = redirect a /dashboard (default del page.tsx)
-  await page.waitForURL(/\/dashboard/, { timeout: 15_000 })
+  // Login exitoso = redirect a /dashboard (default del page.tsx).
+  // 30s en lugar de 15s: el dev server Windows/OneDrive puede tardar
+  // 10-20s en compilar /dashboard fresh tras un cold start de .next/.
+  await page.waitForURL(/\/dashboard/, { timeout: 30_000 })
 }
 
 /** Guarda el estado de auth del contexto al archivo. */
