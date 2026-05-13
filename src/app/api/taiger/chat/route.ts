@@ -285,14 +285,21 @@ export async function POST(req: NextRequest) {
             ...conversation,
             { role: 'assistant', content: fullResponse },
           ]
-          await supabase
+          // El trigger BEFORE UPDATE de taiger_sessions setea updated_at = NOW()
+          // automáticamente (migration 20260513). No mandar updated_at desde el
+          // cliente — antes mandábamos uno y PostgREST devolvía 400 PGRST204
+          // porque la columna no existía, dejando messages/next_focus sin
+          // persistir desde 2026-05-05.
+          const { error: sessionUpdErr } = await supabase
             .from('taiger_sessions')
             .update({
               messages: fullHistory,
-              updated_at: new Date().toISOString(),
               next_focus: fullResponse.substring(0, 200),
             })
             .eq('id', active.id)
+          if (sessionUpdErr) {
+            console.error('[tAIger/chat] sesión update error:', sessionUpdErr)
+          }
 
           // SHADOW EXTRACTOR (D3) — el regex extractor ya NO escribe a taiger_recommendations
           // ni a coach_plans. Solo registra a coach_events('extractor_shadow', ...) por 7 dias
