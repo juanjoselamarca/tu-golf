@@ -91,6 +91,7 @@ describe('strokesEvitables', () => {
     expect(r.total).toBe(3)
     expect(r.instances[0].round_id).toBe('r1')
     expect(r.instances[0].holes).toEqual(['H1→H2', 'H14→H15'])
+    expect(r.instances[0].strokes_saved).toBe(3)
   })
 
   it('skips null scores', () => {
@@ -101,6 +102,36 @@ describe('strokesEvitables', () => {
     }
     const r = strokesEvitables([round])
     expect(r.total).toBe(2)
+    expect(r.instances[0].strokes_saved).toBe(2)
+  })
+
+  it('skips rounds without hole_pars (no asume par 72 standard)', () => {
+    const round = {
+      id: 'legacy-no-pars',
+      scores: [5, 6, 4, 4, 5, 4, 3, 4, 5, 6, 5, 3, 4, 7, 7, 3, 4, 5],
+      hole_pars: null,
+    }
+    const r = strokesEvitables([round])
+    expect(r.total).toBe(0)
+    expect(r.instances).toHaveLength(0)
+  })
+
+  it('skips rounds with hole_pars length mismatch', () => {
+    const round = {
+      id: 'malformed',
+      scores: [5, 6, 4, 4, 5, 4, 3, 4, 5, 6, 5, 3, 4, 7, 7, 3, 4, 5],
+      hole_pars: [4, 4, 3, 4, 5, 4, 3, 4, 5], // 9 pars para 18 scores
+    }
+    const r = strokesEvitables([round])
+    expect(r.total).toBe(0)
+    expect(r.instances).toHaveLength(0)
+  })
+
+  it('strokes_saved per ronda agrega correctamente con múltiples rondas', () => {
+    const r1 = { id: 'r1', scores: [5, 6, 4], hole_pars: [4, 4, 3] } // 1 evitable
+    const r2 = { id: 'r2', scores: [4, 5, 7], hole_pars: [4, 4, 3] } // 3 evitable: 5>=5 (post-bogey) + 7>=4 (next bogey), evitable=7-4-1=2... wait scores
+    const result = strokesEvitables([r1, r2])
+    expect(result.total).toBe(result.instances.reduce((a, i) => a + i.strokes_saved, 0))
   })
 })
 

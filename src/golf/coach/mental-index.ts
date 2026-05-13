@@ -51,7 +51,7 @@ export interface RoundForAnalysis {
 
 export interface StrokesEvitablesResult {
   total: number
-  instances: Array<{ round_id: string; holes: string[] }>
+  instances: Array<{ round_id: string; holes: string[]; strokes_saved: number }>
 }
 
 export function calcularMentalIndex(input: MentalIndexInput): MentalIndexResult {
@@ -82,7 +82,7 @@ export function calcularMentalIndex(input: MentalIndexInput): MentalIndexResult 
 
   // Bonus de consistencia (de CPI)
   if (input.cpi && input.cpi.status !== 'insufficient_data') {
-    const consistenciaNorm = input.cpi.breakdown.consistencia / 25
+    const consistenciaNorm = (input.cpi.breakdown?.consistencia ?? 0) / 25
     const cBonus = 5 * consistenciaNorm
     score += cBonus
     consistencyBonus = cBonus
@@ -118,11 +118,15 @@ export function calcularMentalIndex(input: MentalIndexInput): MentalIndexResult 
 
 export function strokesEvitables(rounds: RoundForAnalysis[]): StrokesEvitablesResult {
   let total = 0
-  const instances: Array<{ round_id: string; holes: string[] }> = []
+  const instances: Array<{ round_id: string; holes: string[]; strokes_saved: number }> = []
 
   for (const r of rounds) {
     if (!Array.isArray(r.scores)) continue
+    // Saltamos rondas sin hole_pars explícito o con length mismatch:
+    // STANDARD_PARS asume par 72 y miente en canchas chilenas par 71 (Los Leones, Sport Francés, PoW).
+    if (!Array.isArray(r.hole_pars) || r.hole_pars.length !== r.scores.length) continue
     const holes: string[] = []
+    let strokesSavedRound = 0
 
     for (let i = 0; i < r.scores.length - 1; i++) {
       const s = r.scores[i]
@@ -140,12 +144,13 @@ export function strokesEvitables(rounds: RoundForAnalysis[]): StrokesEvitablesRe
         const evitable = Math.max(0, actualOver - containedOver)
         if (evitable > 0) {
           total += evitable
+          strokesSavedRound += evitable
           holes.push(`H${i + 1}→H${i + 2}`)
         }
       }
     }
 
-    if (holes.length) instances.push({ round_id: r.id, holes })
+    if (holes.length) instances.push({ round_id: r.id, holes, strokes_saved: strokesSavedRound })
   }
 
   return { total, instances }
