@@ -49,6 +49,7 @@
 | P2-11 | `npm run lint` no se corre en pre-push | ⏳ Pendiente | Agregar al hook con modo warning |
 | P2-12 | `scripts/` sin README | ⏳ Pendiente | Documentar utilidades |
 | P2-13 | Scorer no auto-guarda en BD entre hoyos | ⏳ Pendiente | Tap "+/-" actualiza state + localStorage; sync a BD solo en "Siguiente hoyo"/Finalizar. Si usuario cierra app sin navegar y luego limpia localStorage, pierde score. Evaluar debounced auto-save (~500ms) en `useScoreSave` post-refactor del scorer (Task 5). |
+| P2-14 | `useRondaScoreData` sin abort flag | ⏳ Pendiente | Si `jugadorParam` cambia o el componente se desmonta antes de que termine el load (Supabase + course_holes + course_tees + handicap ratings), un fetch stale puede sobreescribir state fresh. Aplicar pattern `let cancelled = false; ...; return () => { cancelled = true }` en useEffect del hook. Aplica también a futuros hooks con load asíncrono. Original tenía mismo bug, refactor sólo lo expuso. |
 
 ## P3 — Nice-to-have
 
