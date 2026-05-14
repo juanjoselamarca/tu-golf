@@ -377,6 +377,43 @@ function ScorePageContent() {
     }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
   }, [isMatchPlay, ronda, scores, holeDataMap, playerHcp])
 
+  /* ── Pre-render data (null-safe defaults para rules-of-hooks) ── */
+  // useScoreboardCalc DEBE llamarse en cada render — no después de early returns.
+  // Usar defaults safe cuando ronda aún no cargó; outputs no se usan hasta
+  // después de los early returns que filtran loading/null state.
+  const totalHoles = ronda?.holes ?? 18
+  const hoyoInicio = ronda?.hoyo_inicio ?? 1
+  const jugadores = ronda?.ronda_libre_jugadores ?? []
+  const ordenHoyos = generarOrdenHoyos(hoyoInicio, totalHoles)
+  const currentHoleIdx = ordenHoyos.indexOf(currentHole)
+
+  const calc = useScoreboardCalc({
+    ronda: ronda ?? { holes: 18, modo_juego: 'gross', formato_juego: 'stroke_play', hoyo_inicio: 1 },
+    activeJugadorId: activeJugadorId ?? '',
+    jugadores, scores, parMap, holeDataMap, playerHcp, currentHole,
+    currentHoleIdx,
+  })
+  const {
+    modoJuego, formatoJuego, modoLabel, showNet, showStableford,
+    par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
+    totalGross, totalParPlayed, totalOverUnder, holesPlayed,
+    f9Gross, f9Par, f9Count, b9Gross, b9Par, b9Count,
+    totalNet, totalStableford, totalNetOverUnder,
+    currentNetScore, currentNetDiff, currentStablefordPts,
+    displayOverUnder, displayTotal,
+    missingCount, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning,
+    isLastHole,
+  } = calc
+
+  // Helper local: ventaja de strokes en un hoyo arbitrario (no es hook).
+  const hasStrokeAdvantage = (si: number): boolean => {
+    const jug = ronda?.ronda_libre_jugadores ?? []
+    if (modoJuego === 'gross' || jug.length !== 2) return strokesRecibidosEnHoyo(hcpForPlayer, si) > 0
+    const rivalId = jug.find(j => j.id !== activeJugadorId)?.id
+    const rivalHcp = rivalId ? (playerHcp[rivalId] ?? 0) : 0
+    return strokesRecibidosEnHoyo(hcpForPlayer, si) > strokesRecibidosEnHoyo(rivalHcp, si)
+  }
+
   /* ── Render ── */
   if (adminRedirectMsg) return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
@@ -385,11 +422,6 @@ function ScorePageContent() {
   )
   if (loading) return <div style={{ background: theme.bg, minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textFaint }}>Cargando ronda...</div>
   if (!ronda || !activeJugadorId) return null
-
-  const jugadores = ronda.ronda_libre_jugadores
-  const totalHoles = ronda.holes
-  const hoyoInicio = ronda.hoyo_inicio ?? 1
-  const ordenHoyos = generarOrdenHoyos(hoyoInicio, totalHoles)
 
   /* ── Player selection screen (multi-player, no auto-match) ── */
   if (!selectedPlayer && jugadores.length > 1) {
@@ -408,36 +440,7 @@ function ScorePageContent() {
       />
     )
   }
-  const currentHoleIdx = ordenHoyos.indexOf(currentHole)
   const activePlayer = jugadores.find(p => p.id === activeJugadorId)
-
-  const calc = useScoreboardCalc({
-    ronda, activeJugadorId, jugadores, scores, parMap, holeDataMap, playerHcp, currentHole,
-    currentHoleIdx,
-  })
-
-  // Re-exponer como variables locales para que el JSX existente siga compilando sin cambios:
-  const {
-    modoJuego, formatoJuego, modoLabel, showNet, showStableford,
-    par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
-    totalGross, totalParPlayed, totalOverUnder, holesPlayed,
-    f9Gross, f9Par, f9Count, b9Gross, b9Par, b9Count,
-    totalNet, totalStableford, totalNetOverUnder,
-    currentNetScore, currentNetDiff, currentStablefordPts,
-    displayOverUnder, displayTotal,
-    missingCount, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning,
-    isLastHole,
-  } = calc
-
-  // Helper local: determina si hay ventaja de strokes en un hoyo arbitrario.
-  // Usado por la mini scorecard para mostrar dots. Misma lógica que en el hook.
-  const hasStrokeAdvantage = (si: number): boolean => {
-    const jug = ronda?.ronda_libre_jugadores ?? []
-    if (modoJuego === 'gross' || jug.length !== 2) return strokesRecibidosEnHoyo(hcpForPlayer, si) > 0
-    const rivalId = jug.find(j => j.id !== activeJugadorId)?.id
-    const rivalHcp = rivalId ? (playerHcp[rivalId] ?? 0) : 0
-    return strokesRecibidosEnHoyo(hcpForPlayer, si) > strokesRecibidosEnHoyo(rivalHcp, si)
-  }
 
   return (
     <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
