@@ -1,8 +1,8 @@
 /**
  * Telemetria centralizada para el flow "Organizar Campeonato" (tournament_drafts).
  *
- * Wrappea `trackEvent` (PostHog/analytics_events) + setea contexto de Sentry
- * con un mapa fijo de nombres de evento. El objetivo es:
+ * Wrappea `trackEvent` (PostHog/analytics_events) con un mapa fijo de nombres
+ * de evento. El objetivo es:
  *  - Evitar typos / duplicacion de nombres ("draft_created" vs "tournament_draft_created")
  *  - Concentrar el shape de props por evento para que el dashboard /admin/torneos-stats
  *    pueda consumirlos sin sorpresas
@@ -52,35 +52,3 @@ export async function trackDraftEvent(
   }
 }
 
-interface DraftSentryContext {
-  draftId: string
-  version?: number
-  actorId?: string
-  lastAction?: string
-}
-
-/**
- * Adjunta contexto de Sentry para errores ocurridos en el flow.
- * Importacion dinamica: si Sentry no esta configurado en el runtime, se ignora.
- *
- * Async porque usamos `await import(...)` para no romper en entornos sin Sentry
- * (tests, scripts) y para evitar dependencias hardcoded a `require`.
- * Los callers pueden hacer fire-and-forget: `void setDraftSentryContext(...)`.
- */
-export async function setDraftSentryContext(ctx: DraftSentryContext): Promise<void> {
-  try {
-    const Sentry = (await import('@sentry/nextjs')) as {
-      setContext?: (key: string, ctx: Record<string, unknown>) => void
-    }
-    if (Sentry && typeof Sentry.setContext === 'function') {
-      Sentry.setContext('tournament_draft', {
-        draft_id: ctx.draftId,
-        version: ctx.version,
-        actor_id: ctx.actorId,
-        last_action: ctx.lastAction,
-      })
-    }
-  } catch {
-    // Sentry no disponible (entorno de test/CI sin instrumentacion) - silencioso.
-  }
-}
