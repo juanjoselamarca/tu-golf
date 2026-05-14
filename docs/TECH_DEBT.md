@@ -50,6 +50,8 @@
 | P2-12 | `scripts/` sin README | ⏳ Pendiente | Documentar utilidades |
 | P2-13 | Scorer no auto-guarda en BD entre hoyos | ⏳ Pendiente | Tap "+/-" actualiza state + localStorage; sync a BD solo en "Siguiente hoyo"/Finalizar. Si usuario cierra app sin navegar y luego limpia localStorage, pierde score. Evaluar debounced auto-save (~500ms) en `useScoreSave` post-refactor del scorer (Task 5). |
 | P2-14 | `useRondaScoreData` sin abort flag | ⏳ Pendiente | Si `jugadorParam` cambia o el componente se desmonta antes de que termine el load (Supabase + course_holes + course_tees + handicap ratings), un fetch stale puede sobreescribir state fresh. Aplicar pattern `let cancelled = false; ...; return () => { cancelled = true }` en useEffect del hook. Aplica también a futuros hooks con load asíncrono. Original tenía mismo bug, refactor sólo lo expuso. |
+| P2-15 | `useFinalizeRonda` test coverage gap | ⏳ Pendiente | Los 5 tests actuales cubren state machine + early-exit pero NO asertan el payload del `historical_rounds.insert` ni el dispatch de WHS rpc ni el `sendPushViaServer` en allDone branch. El Proxy mock silencia esos calls. Agregar test que reemplaza Proxy por `vi.fn()` y assert `insert` fue llamado con `{ user_id, course_name, holes_played, ... }` exacto. Hoy la única red de seguridad es regex audit en F6-history.test.ts. |
+| P2-16 | `finalizeRound`/`discardRound` no envueltos en useCallback | ⏳ Pendiente | Identidad cambia en cada render. Sin consumidor que las memoize hoy, pero será footgun si futuros componentes (PlayerSelectorScreen, FinishedRoundView) toman estas funciones como props. Envolver en useCallback con deps explícitas dentro del hook. |
 
 ## P3 — Nice-to-have
 

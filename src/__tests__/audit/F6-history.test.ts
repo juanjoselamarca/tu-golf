@@ -20,10 +20,11 @@ import * as path from 'path'
 // ─── Paths ────────────────────────────────────────────────────────────────────
 
 const ROOT = path.resolve(__dirname, '../../../')
-const HISTORIAL_PAGE   = path.join(ROOT, 'src/app/perfil/historial/page.tsx')
-const HISTORIAL_STATS  = path.join(ROOT, 'src/app/api/historial/stats/route.ts')
-const SCORE_PAGE       = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score/page.tsx')
-const GAME_ACTIONS     = path.join(ROOT, 'src/app/api/game/actions.ts')
+const HISTORIAL_PAGE       = path.join(ROOT, 'src/app/perfil/historial/page.tsx')
+const HISTORIAL_STATS      = path.join(ROOT, 'src/app/api/historial/stats/route.ts')
+const SCORE_PAGE           = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score/page.tsx')
+const FINALIZE_RONDA_HOOK  = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda.ts')
+const GAME_ACTIONS         = path.join(ROOT, 'src/app/api/game/actions.ts')
 
 function readSrc(filePath: string): string {
   return fs.readFileSync(filePath, 'utf-8')
@@ -321,7 +322,8 @@ describe('F6 | Finalization (peso 3)', () => {
   let gameActionsSource: string
 
   beforeAll(() => {
-    scorePageSource   = readSrc(SCORE_PAGE)
+    // Combine page.tsx + useFinalizeRonda hook so patterns match regardless of which file holds the insert
+    scorePageSource   = readSrc(SCORE_PAGE) + '\n' + readSrc(FINALIZE_RONDA_HOOK)
     gameActionsSource = readSrc(GAME_ACTIONS)
   })
 
