@@ -1,10 +1,10 @@
 # Eventos de Telemetria — Organizar Campeonato
 
-Documento canonico de los eventos PostHog y contextos Sentry emitidos por el flow
+Documento canonico de los eventos PostHog emitidos por el flow
 "Organizar Campeonato" (tabla `tournament_drafts`).
 
-Helper centralizado: `src/lib/draft/telemetry.ts` (export `trackDraftEvent`, `DRAFT_EVENTS`,
-`setDraftSentryContext`).
+Helper centralizado: `src/lib/draft/telemetry.ts` (export `trackDraftEvent`, `DRAFT_EVENTS`).
+Para errores: `captureError` en `src/lib/error-tracking.ts` (PostHog + Supabase `error_logs`).
 
 ## PostHog events
 
@@ -22,21 +22,28 @@ recibe el objeto "Props".
 | `tournament_draft_preview_opened` | POST /preview | `{ draft_id, format }` | TODO |
 | `tournament_created_from_draft` | POST /create-tournament (exito) | `{ tournament_id, format, total_rounds, has_categories, was_assisted_by_ai, was_duplicated }` | TODO |
 
-## Sentry contexts
+## Error capture
 
-Para errores ocurridos dentro del flow, attachamos un contexto `tournament_draft` con:
+Para errores ocurridos dentro del flow, usar `captureError` con contexto semántico:
 
 ```ts
-{
-  draft_id: string,
-  version?: number,
-  actor_id?: string,
-  last_action?: string,
+import { captureError } from '@/lib/error-tracking'
+
+try {
+  // ...
+} catch (err) {
+  captureError(err, {
+    context: 'tournament_draft.update',
+    meta: { draft_id, version, actor_id, last_action },
+  })
 }
 ```
 
-Esto permite reproducir el escenario exacto desde el dashboard de Sentry sin tener que
-correlacionar manualmente logs.
+PostHog recibe el evento (cliente) y `error_logs` (Supabase) lo persiste como backup.
+El campo `meta` queda como JSONB consultable desde admin.
+
+> Histórico: hasta el 12-may-2026 usábamos Sentry vía `setDraftSentryContext`. Se
+> retiró al expirar el trial gratis — el reemplazo `captureError` es vendor-neutral.
 
 ## Wire-up status
 
