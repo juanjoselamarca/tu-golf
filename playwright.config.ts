@@ -42,6 +42,7 @@ export default defineConfig({
         'ronda-flow.spec.ts',
         'ronda-scoring.spec.ts',
         'score-grupo-finalize-missing.spec.ts',
+        'scorer-smoke.spec.ts',
         'organizar-campeonato-flow.spec.ts',
         'organizar-campeonato-asistente.spec.ts',
         'organizar-campeonato-formato-cambia.spec.ts',

@@ -42,8 +42,14 @@ describe.skipIf(skipIfNoEnv)('Coach E2E — cerebro contra prod', () => {
   let userId: string
   let userName: string
 
-  beforeAll(() => {
+  beforeAll(async () => {
     admin = createClient(url!, serviceKey!)
+    // Pre-flight: si las creds son inválidas (revocadas, rotadas), fallar acá
+    // con mensaje claro en vez de en cada it() con error confuso de Supabase.
+    const { error } = await admin.from('profiles').select('id').limit(1)
+    if (error?.code === '401' || error?.message?.toLowerCase().includes('invalid')) {
+      throw new Error(`Supabase service role key inválido: ${error.message}`)
+    }
   })
 
   it('encuentra al usuario en profiles', async () => {

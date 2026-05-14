@@ -103,7 +103,7 @@ function makeSupabase(stub: UserSupabaseStub) {
             eq: (_col: string, _val: string) => ({
               order: () => ({
                 limit: () => Promise.resolve({
-                  data: (stub.historicalGrosses ?? []).map(g => ({ total_gross: g, played_at: '2026-04-01' })),
+                  data: (stub.historicalGrosses ?? []).map(g => ({ total_gross: g, played_at: '2026-04-01', holes_played: 18, scores: Array(18).fill(4) })),
                   error: null,
                 }),
               }),

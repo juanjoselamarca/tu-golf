@@ -598,7 +598,7 @@ export default function SistemaPage() {
               <span style={{ ...adminFonts.label, display: 'block', marginBottom: '8px' }}>tAIger Limits</span>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 <AdminBadge text="3 sesiones gratis/mes" variant="gold" />
-                <AdminBadge text="Admin via ADMIN_EMAILS" variant="neutral" />
+                <AdminBadge text="Admin via profiles.role" variant="neutral" />
               </div>
             </div>
           </div>

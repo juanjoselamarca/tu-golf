@@ -292,7 +292,9 @@ export const PATTERNS: GolfPattern[] = [
     id: 'driving_inconsistency',
     name: 'Alta dispersion total',
     description: 'Coeficiente de variacion de total_gross > 0.06 sobre ultimas 10 rondas',
-    requires18Holes: false,
+    // Requiere 18h porque variance/cv sobre total_gross sólo es comparable
+    // entre rondas del mismo hole count. Mezclar 9h con 18h infla cv artificialmente.
+    requires18Holes: true,
     severity: 'info',
     recommendation: 'Jornada de range con foco en consistencia de driver — 60 bolas a un solo objetivo, contar fairways.',
     detect(rounds) {

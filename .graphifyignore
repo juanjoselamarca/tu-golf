@@ -1,0 +1,41 @@
+# Build & deps
+node_modules/
+.next/
+.vercel/
+coverage/
+playwright-report/
+test-results/
+reports/
+tsconfig.tsbuildinfo
+
+# Claude / agente paralelo
+.claude/worktrees/
+.codex-next-dev.err.log
+.codex-next-dev.out.log
+.superpowers/
+.gstack/
+
+# Secrets / env (nunca indexar)
+.env
+.env.local
+.env.vercel
+.env.*.local
+
+# Output del propio graphify
+graphify-out/
+
+# Assets binarios pesados que no aportan al grafo
+Ejemplos fotos errores/
+public/**/*.png
+public/**/*.jpg
+public/**/*.jpeg
+public/**/*.webp
+public/**/*.mp4
+public/**/*.mov
+
+# Dumps SQL ad-hoc en raíz (ya migrados a supabase/migrations)
+ADMIN_SUPABASE.sql
+ADMIN_SUPABASE_V2.sql
+EJECUTAR_EN_SUPABASE.sql
+SPRINT9_SUPABASE.sql
+SPRINT9B_SUPABASE.sql

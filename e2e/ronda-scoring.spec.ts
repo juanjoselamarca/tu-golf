@@ -52,12 +52,8 @@ test.beforeEach(async () => {
   if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
     test.skip(true, 'E2E_TEST_USER_EMAIL/PASSWORD no configurados')
   }
-  // BLOQUEADO — P1 en TECH_DEBT: la página /score crashea con ReferenceError
-  // ("Cannot access 't$' before initialization") para rondas recién creadas
-  // desde admin fixture. Las rondas reales existentes NO tienen el bug.
-  // Hay un codepath específico en el bundle minificado de prod que rompe con
-  // ciertos estados iniciales. Los tests quedan listos para cuando se arregle.
-  test.skip(true, 'BLOQUEADO por bug de /score — ver TECH_DEBT P1-score-crash-fresh-ronda')
+  // Resuelto 2026-05-12 (commit b70c53b): el TDZ ReferenceError sobre
+  // modoJuego/formatoJuego ya no crashea el scorer. Ver docs/TECH_DEBT.md P1-12.
 })
 
 test.afterEach(async () => {
@@ -95,9 +91,12 @@ test('scoring: tap "+" registra score y se persiste en BD', async ({ page }) => 
   await expect(btnAumentar).toBeVisible({ timeout: 10_000 })
   await btnAumentar.click()
 
-  // 4. Esperar debounce de sync. La app usa optimistic UI + sync async a ~500ms.
-  // Damos margen generoso (3s) para evitar flakiness.
-  await page.waitForTimeout(3000)
+  // 4. Trigger save: el tap actualiza estado local + localStorage; saveScores()
+  // a BD se dispara al navegar entre hoyos o al finalizar (page.tsx línea 395/518).
+  const btnSiguiente = page.getByRole('button', { name: 'Siguiente hoyo' })
+  await expect(btnSiguiente).toBeVisible()
+  await btnSiguiente.click()
+  await page.waitForTimeout(2000)
 
   // 5. Verificar en BD
   const scores = await getPlayerScores(ronda.id)
@@ -130,8 +129,10 @@ test('scoring: tap "+" varias veces incrementa el score correctamente', async ({
   await page.waitForTimeout(200)
   await btnAumentar.click()
 
-  // Esperar sync
-  await page.waitForTimeout(3000)
+  // Trigger save: navegar al siguiente hoyo dispara saveScores() a BD
+  const btnSiguiente = page.getByRole('button', { name: 'Siguiente hoyo' })
+  await btnSiguiente.click()
+  await page.waitForTimeout(2000)
 
   const scores = await getPlayerScores(ronda.id)
   expect(scores).not.toBeNull()
@@ -160,7 +161,11 @@ test('scoring: tap "-" y "+" ajustan score bidireccional', async ({ page }) => {
   await btnAumentar.click()
   await page.waitForTimeout(200)
   await btnDisminuir.click()
-  await page.waitForTimeout(3000)
+
+  // Trigger save: navegar al siguiente hoyo dispara saveScores() a BD
+  const btnSiguiente = page.getByRole('button', { name: 'Siguiente hoyo' })
+  await btnSiguiente.click()
+  await page.waitForTimeout(2000)
 
   const scores = await getPlayerScores(ronda.id)
   expect(scores).not.toBeNull()
@@ -192,7 +197,11 @@ test('scoring: navegar "Siguiente hoyo" después de scorear, luego scorear otro'
 
   // Score hoyo 2
   await btnAumentar.click()
-  await page.waitForTimeout(3000)
+  await page.waitForTimeout(500)
+
+  // Segundo "Siguiente" dispara save de h1+h2 a BD
+  await btnSiguiente.click()
+  await page.waitForTimeout(2000)
 
   // Verificar que hay 2 hoyos scoreados
   const scores = await getPlayerScores(ronda.id)
@@ -207,12 +216,15 @@ test('scoring: scores persisten al recargar la página', async ({ page }) => {
   const ronda = await createRondaFixture({ creadorUserId: testUserId })
   createdRondas.push(ronda.id)
 
-  // Primera visita: tap + (par+1)
+  // Primera visita: tap + (par+1) + navegar para gatillar save a BD
   await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
   const btnAumentar = page.getByRole('button', { name: 'Aumentar score' })
   await expect(btnAumentar).toBeVisible({ timeout: 10_000 })
   await btnAumentar.click()
-  await page.waitForTimeout(3000)
+
+  const btnSiguiente = page.getByRole('button', { name: 'Siguiente hoyo' })
+  await btnSiguiente.click()
+  await page.waitForTimeout(2000)
 
   const scoresPrePullRefresh = await getPlayerScores(ronda.id)
   const holesScoredPre = Object.keys(scoresPrePullRefresh ?? {}).length

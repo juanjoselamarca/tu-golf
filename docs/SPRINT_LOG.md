@@ -4,6 +4,49 @@
 
 ---
 
+## 2026-05-11 · tAIger+ Coach Home rediseño psicológico-first
+
+**Branch:** `feat/coach-home-mobile-v3` (worktree aislada en `.claude/worktrees/coach-home-mobile/`)
+**Scope:** /coach (home), mobile-first. Lane del chat fuera de scope.
+
+**Shipped (14 commits):**
+- Mental Index 0-100 módulo nuevo (`src/golf/coach/mental-index.ts`)
+  - Penaliza patrones psicológicos activos (post_bogey_spiral -25, pressure_deterioration -15, first_hole_anxiety -10) × confidence
+  - Bonus por adherencia al plan (+10 target_reached, +5 compliance=full)
+  - Bonus por consistencia (de CPI breakdown)
+  - 12 tests TDD cubiertos (4 calcular + 2 strokesEvitables + 5 clasificarHoyo + 1 regression Los Leones)
+- Funciones puras `strokesEvitables` (asume contenido = bogey simple, disclaimer honesto) y `clasificarHoyo` (calm/tense/tilt determinístico)
+- 8 componentes nuevos en `src/components/coach/`:
+  - MentalRecoveryCard (WHOOP-style hero) + 2 tests
+  - HighlightCard + HighlightsCarousel (Apple Health Highlights, scroll-snap)
+  - CostoPsicologicoCard (Apple Health "12% más" + Apple Fitness ghost score combinado)
+  - CurvaMentalCard (Apple Fitness HR-zones, F9/B9 split, mobile-readable)
+  - PatternTile (WHOOP doorways vertical full-width)
+  - PlanActiveCard (Calm anti-streak 7 dots, no contador de racha)
+  - ConversarStickyCTA (Apple HIG tap target, sticky bottom)
+- Rewrite completo de `src/app/coach/page.tsx` (170 → 414 líneas) con estados explícitos (loading, error, new-user, no-plan, no-spiral) y 7 queries Supabase
+- Tokens semánticos del coach en globals.css (light + dark variants) — 22 tokens nuevos sin pisar existentes
+- CSS utility `.hide-scrollbar` para carousel horizontal
+
+**Tests:** 1539 pass / 10 skip (baseline +14 tests míos). Suite full verde.
+
+**Spec:** `docs/superpowers/specs/2026-05-10-taiger-coach-home-redesign-design.md`
+**Plan:** `docs/superpowers/plans/2026-05-11-taiger-coach-home-redesign.md`
+
+**Out of scope (lane del otro agente):**
+- `/coach/sesion/[id]`, `/coach/sesion/nueva/chat`
+- `CitedMarkdown`, `PlanAssignedCard`, `RoundMiniChart`
+- Tipos compartidos chat (AssistantPanel y sus deps)
+
+**Pendientes antes de merge a main:**
+- Verificación visual desktop + mobile en `npm run dev` (Task 15-16 del plan)
+- A11y audit con Lighthouse (Task 17)
+- Build limpio bloqueado por archivos del otro agente (`AssistantPanel.tsx` con imports faltantes) — coordinar antes de mergear
+
+---
+
+
+
 ## Sesión 05 May 2026 (PM 12:30–13:00) — Limpieza canchas pendientes
 
 ### Contexto

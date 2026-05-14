@@ -18,7 +18,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://images.unsplash.com https://flagcdn.com https://lh3.googleusercontent.com",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://site.api.espn.com https://*.sentry.io https://*.ingest.sentry.io https://us.i.posthog.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://site.api.espn.com https://us.i.posthog.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "worker-src 'self'",
       "manifest-src 'self'",
@@ -44,16 +44,4 @@ const nextConfig = {
   },
 }
 
-// Sentry wrapping — solo si hay DSN configurado, si no exporta config directo
-if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-  const { withSentryConfig } = require('@sentry/nextjs')
-  module.exports = withSentryConfig(nextConfig, {
-    org: process.env.SENTRY_ORG,
-    project: process.env.SENTRY_PROJECT,
-    silent: true,
-    widenClientFileUpload: true,
-    hideSourceMaps: true,
-  })
-} else {
-  module.exports = nextConfig
-}
+module.exports = nextConfig

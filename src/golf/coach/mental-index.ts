@@ -51,20 +51,131 @@ export interface RoundForAnalysis {
 
 export interface StrokesEvitablesResult {
   total: number
-  instances: Array<{ round_id: string; holes: string[] }>
+  instances: Array<{ round_id: string; holes: string[]; strokes_saved: number }>
 }
 
-// Implementations siguen en tasks 3-5
-export function calcularMentalIndex(_input: MentalIndexInput): MentalIndexResult {
-  throw new Error('not implemented')
+export function calcularMentalIndex(input: MentalIndexInput): MentalIndexResult {
+  let score = 100
+  let patternPenalty = 0
+  let adherenceBonus = 0
+  let consistencyBonus = 0
+
+  // Penalizaciones por patrones psicológicos
+  for (const p of input.activePatterns) {
+    const penalty = MENTAL_PATTERN_PENALTIES[p.pattern_type]
+    if (penalty) {
+      const actual = penalty * p.confidence
+      score -= actual
+      patternPenalty += actual
+    }
+  }
+
+  // Bonus de adherencia
+  if (input.activePlan && input.outcomes.length > 0) {
+    const targetReachedRatio = input.outcomes.filter(o => o.target_reached).length / input.outcomes.length
+    const complianceFullRatio = input.outcomes.filter(o => o.compliance === 'full').length / input.outcomes.length
+    const tBonus = 10 * targetReachedRatio
+    const cBonus = 5 * complianceFullRatio
+    score += tBonus + cBonus
+    adherenceBonus = tBonus + cBonus
+  }
+
+  // Bonus de consistencia (de CPI)
+  if (input.cpi && input.cpi.status !== 'insufficient_data') {
+    const consistenciaNorm = (input.cpi.breakdown?.consistencia ?? 0) / 25
+    const cBonus = 5 * consistenciaNorm
+    score += cBonus
+    consistencyBonus = cBonus
+  }
+
+  // Cap
+  score = Math.max(0, Math.min(100, score))
+  const finalScore = Math.round(score)
+
+  const band: 'low' | 'mid' | 'high' =
+    finalScore >= 67 ? 'high' : finalScore >= 34 ? 'mid' : 'low'
+
+  const status: 'insufficient_data' | 'provisional' | 'established' =
+    input.totalRounds < 3 ? 'insufficient_data'
+      : input.totalRounds < 10 ? 'provisional'
+        : 'established'
+
+  const delta = input.previousScore != null ? finalScore - input.previousScore : null
+
+  return {
+    score: finalScore,
+    band,
+    status,
+    delta,
+    breakdown: {
+      base: 100,
+      patternPenalty: Math.round(patternPenalty * 10) / 10,
+      adherenceBonus: Math.round(adherenceBonus * 10) / 10,
+      consistencyBonus: Math.round(consistencyBonus * 10) / 10,
+    },
+  }
 }
 
-export function strokesEvitables(_rounds: RoundForAnalysis[]): StrokesEvitablesResult {
-  throw new Error('not implemented')
+export function strokesEvitables(rounds: RoundForAnalysis[]): StrokesEvitablesResult {
+  let total = 0
+  const instances: Array<{ round_id: string; holes: string[]; strokes_saved: number }> = []
+
+  for (const r of rounds) {
+    if (!Array.isArray(r.scores)) continue
+    // Saltamos rondas sin hole_pars explícito o con length mismatch:
+    // STANDARD_PARS asume par 72 y miente en canchas chilenas par 71 (Los Leones, Sport Francés, PoW).
+    if (!Array.isArray(r.hole_pars) || r.hole_pars.length !== r.scores.length) continue
+    const holes: string[] = []
+    let strokesSavedRound = 0
+
+    for (let i = 0; i < r.scores.length - 1; i++) {
+      const s = r.scores[i]
+      const next = r.scores[i + 1]
+      if (s == null || next == null) continue
+
+      const par_i = parForHole(r, i)
+      const par_next = parForHole(r, i + 1)
+      const isPostBogey = s >= par_i + 1
+      const isFollowedByBogey = next >= par_next + 1
+
+      if (isPostBogey && isFollowedByBogey) {
+        const actualOver = next - par_next
+        const containedOver = 1
+        const evitable = Math.max(0, actualOver - containedOver)
+        if (evitable > 0) {
+          total += evitable
+          strokesSavedRound += evitable
+          holes.push(`H${i + 1}→H${i + 2}`)
+        }
+      }
+    }
+
+    if (holes.length) instances.push({ round_id: r.id, holes, strokes_saved: strokesSavedRound })
+  }
+
+  return { total, instances }
 }
 
-export function clasificarHoyo(_round: RoundForAnalysis, _i: number): MentalState | null {
-  throw new Error('not implemented')
+export function clasificarHoyo(round: RoundForAnalysis, i: number): MentalState | null {
+  const score = round.scores[i]
+  if (score == null) return null
+
+  const par = parForHole(round, i)
+  const prevScore = i > 0 ? round.scores[i - 1] : null
+  const prevPar = i > 0 ? parForHole(round, i - 1) : null
+
+  const overPar = score - par
+  const prevOverPar = prevScore != null && prevPar != null ? prevScore - prevPar : 0
+
+  // Tilt: doble bogey o peor, o cualquier ≥bogey tras un bogey anterior
+  if (overPar >= 2) return 'tilt'
+  if (overPar >= 1 && prevOverPar >= 1) return 'tilt'
+
+  // Tensión: bogey aislado
+  if (overPar === 1) return 'tense'
+
+  // Calma: par o mejor
+  return 'calm'
 }
 
 function parForHole(round: RoundForAnalysis, i: number): number {

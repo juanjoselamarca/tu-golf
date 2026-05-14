@@ -6,6 +6,7 @@ import {
 } from '@/golf/core/scoring'
 
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { inferHoles } from '@/golf/core/holes'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,7 +68,7 @@ export async function GET(
         .in('id', userIds.length > 0 ? userIds : ['']),
       supabase
         .from('historical_rounds')
-        .select('user_id, total_gross, course_name, holes_played')
+        .select('user_id, total_gross, course_name, holes_played, scores')
         .in('user_id', userIds.length > 0 ? userIds : [''])
         .not('total_gross', 'is', null)
         .order('played_at', { ascending: false }),
@@ -131,11 +132,14 @@ export async function GET(
       let courseRoundsCount = 0
 
       if (j.user_id) {
-        // Filtrar histórico al mismo tipo de ronda (9 o 18 hoyos)
+        // Filtrar histórico al mismo tipo de ronda (9 o 18 hoyos). Usa
+        // inferHoles para resolver holes_played NULL desde scores.length —
+        // mezclar 9h con 18h en el avg contamina el GWI.
+        const targetHoles = totalHoyos <= 9 ? 9 : 18
         const allRounds = histByUser.get(j.user_id)?.slice(0, 60) ?? []
         const rounds = allRounds.filter(r => {
-          const h = (r as Record<string, unknown>).holes_played as number | null
-          return !h || (totalHoyos <= 9 ? h <= 9 : h >= 18)
+          const inferred = inferHoles(r as { holes_played?: number | null; scores?: number[] | null })
+          return inferred === targetHoles
         }).slice(0, 30)
 
         if (rounds.length > 0) {

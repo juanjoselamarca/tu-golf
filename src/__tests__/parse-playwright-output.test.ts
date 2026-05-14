@@ -15,6 +15,7 @@ type ParseReturn = {
   status: 'passed' | 'failed' | 'error'
   summary: { total: number; passed: number; failed: number; skipped: number }
   results: Array<{ name: string; status: string; error?: string }>
+  truncated?: boolean
   error_message?: string
 }
 const parse = parseUntyped as (input: { outputContent: string; stderrContent: string }) => ParseReturn
@@ -104,6 +105,9 @@ describe('parse-playwright-output', () => {
 
   describe('walker recursivo', () => {
     it('aplana suites anidadas con prefijo del title', () => {
+      // El parser dropea passed/skipped del array `results` para mantener
+      // el payload bajo el límite de WAF de Vercel. Usamos un test failed
+      // para verificar el prefix del walker.
       const json = {
         ...baseSuite,
         suites: [{
@@ -112,7 +116,7 @@ describe('parse-playwright-output', () => {
           specs: [],
           suites: [{
             title: 'login flow',
-            specs: [buildSpec('redirect', 'passed')],
+            specs: [buildSpec('redirect', 'failed')],
             suites: [],
           }],
         }],
@@ -135,6 +139,48 @@ describe('parse-playwright-output', () => {
       }
       const out = parse({ outputContent: JSON.stringify(json), stderrContent: '' })
       expect(out.results[0].error!.length).toBeLessThanOrEqual(500)
+    })
+  })
+
+  describe('payload truncation (Vercel WAF guard)', () => {
+    it('dropea passed/skipped de results pero mantiene los counts en summary', () => {
+      const json = {
+        ...baseSuite,
+        suites: [{
+          title: 's',
+          file: 's.spec.ts',
+          specs: [
+            buildSpec('test-1', 'passed'),
+            buildSpec('test-2', 'passed'),
+            buildSpec('test-3', 'skipped'),
+            buildSpec('test-4', 'failed'),
+          ],
+          suites: [],
+        }],
+      }
+      const out = parse({ outputContent: JSON.stringify(json), stderrContent: '' })
+      // Summary tiene los counts completos
+      expect(out.summary).toEqual({ total: 4, passed: 2, failed: 1, skipped: 1 })
+      // Pero results solo contiene el failed
+      expect(out.results).toHaveLength(1)
+      expect(out.results[0].status).toBe('failed')
+      // Y marca truncated=true
+      expect(out.truncated).toBe(true)
+    })
+
+    it('no marca truncated si todos los tests fallaron', () => {
+      const json = {
+        ...baseSuite,
+        suites: [{
+          title: 's',
+          file: 's.spec.ts',
+          specs: [buildSpec('a', 'failed'), buildSpec('b', 'timedOut')],
+          suites: [],
+        }],
+      }
+      const out = parse({ outputContent: JSON.stringify(json), stderrContent: '' })
+      expect(out.results).toHaveLength(2)
+      expect(out.truncated).toBeUndefined()
     })
   })
 })

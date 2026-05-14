@@ -13,8 +13,3 @@ export async function isAdmin(
     .single()
   return data?.role === 'admin'
 }
-
-// Fallback sync para compatibilidad durante migración (usa env var, no email hardcodeado)
-export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').filter(Boolean)
-export const isAdminEmail = (email?: string | null) =>
-  !!email && ADMIN_EMAILS.includes(email)

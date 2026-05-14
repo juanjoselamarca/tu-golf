@@ -1,6 +1,6 @@
 # Catálogo de deuda técnica — Golfers+
 
-**Última actualización**: 2026-04-23
+**Última actualización**: 2026-05-12
 **Fuente**: `docs/audits/2026-04-23-revision-completa.md`
 
 > **Cómo usar este doc**: cada vez que un item se resuelve, marcarlo ✅ con link al commit. Cada vez que se descubre nueva deuda, agregarla al final con P0/P1/P2.
@@ -48,6 +48,7 @@
 | P2-10 | Docs viejos sin archivar en raíz | ⏳ Pendiente | Mover a `docs/archive/2026-Q2/` |
 | P2-11 | `npm run lint` no se corre en pre-push | ⏳ Pendiente | Agregar al hook con modo warning |
 | P2-12 | `scripts/` sin README | ⏳ Pendiente | Documentar utilidades |
+| P2-13 | Scorer no auto-guarda en BD entre hoyos | ⏳ Pendiente | Tap "+/-" actualiza state + localStorage; sync a BD solo en "Siguiente hoyo"/Finalizar. Si usuario cierra app sin navegar y luego limpia localStorage, pierde score. Evaluar debounced auto-save (~500ms) en `useScoreSave` post-refactor del scorer (Task 5). |
 
 ## P3 — Nice-to-have
 

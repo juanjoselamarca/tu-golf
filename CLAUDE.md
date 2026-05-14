@@ -40,10 +40,21 @@ Detalle expandido en `feedback_rol_cto.md` (memoria).
 Antes de cualquier acción, ejecutar en orden:
 
 1. `git remote -v` → DEBE ser `origin https://github.com/juanjoselamarca/tu-golf.git`. Si es otra URL, DETENER y avisar.
-2. `git branch --show-current` → DEBE ser `main`.
+2. `git branch --show-current` → idealmente `main`. Si es feature/chore branch, AVISAR a Juanjo (puede ser continuación de sesión previa) y NO commitear nada nuevo sin confirmar la rama.
 3. `git pull origin main`.
+4. `git worktree list` → contar worktrees activos. Si hay más de 1, asumir paralelización: otros agentes pueden estar editando archivos en branches compartidas.
 
-Confirmar con: `✅ Repositorio verificado: github.com/juanjoselamarca/tu-golf`
+Confirmar con: `✅ Repositorio verificado: github.com/juanjoselamarca/tu-golf — N worktrees activos`
+
+### Regla derivada — worktree propio para CADA sesión con commits nuevos
+
+Si la sesión va a producir commits:
+
+- **Crear worktree dedicado** con `node scripts/setup-worktree.mjs <slug> [chore|feat|fix]`. El script copia `.env.local`, crea branch `<prefix>/<slug>-claude` desde `origin/main`, y deja todo listo en `.claude/worktrees/<slug>/`.
+- **NUNCA editar archivos en una rama compartida con otro agente activo.** Choque inevitable — el agente paralelo te va a mover el commit o vas a tener que stashear cambios ajenos.
+- **Excepción aceptable:** cambio mínimo documental y `git worktree list` muestra 1 solo worktree. Entonces se puede trabajar directo en main + feature branch existente.
+
+Incidente real (12-may-2026): commit de defaults en CLAUDE.md fue movido silenciosamente por un agente paralelo a una rama nueva, y el push falló por `.env.local` faltante en el worktree paralelo. Detalle en `docs/CONVENCIONES_TRABAJO.md` §11.
 
 **Por qué verificar repo y no carpeta:** el proyecto puede vivir en cualquier carpeta. El repo GitHub es la identidad permanente.
 
@@ -123,7 +134,21 @@ Después del incidente del 25-mar-2026 (refactor del Navbar tumbó la app entera
 
 Cuando el pedido del usuario matchea un skill instalado, INVOCARLO con el tool `Skill` como primera acción. No responder directo, no usar otros tools primero.
 
-Routing principal:
+### DEFAULTS AUTOMÁTICOS (Claude invoca sin pedir permiso)
+
+Estos defaults se aplican SIEMPRE que el contexto matchee, sin que Juanjo deba mencionarlos. Razón: nuestro cuello de botella histórico es diseño con muchas iteraciones (ej. coach-home con 24 commits en v3) y flujo secuencial lento. Reversibles — si rinden mal en la práctica, se bajan.
+
+1. **Cualquier cambio visual/UI sustancial** → arrancar SIEMPRE con `design-shotgun` (genera 3-4 variantes en paralelo) antes de iterar sobre una sola opción. Después `frontend-design` para implementar la elegida, después `design-review` para QA visual con before/after. Aplica a: rediseños de páginas, nuevos componentes, refactors de layout. NO aplica a: tweaks menores (color puntual, spacing, copy).
+
+2. **2+ tareas independientes en la misma sesión** → disparar `dispatching-parallel-agents` con worktrees separados (skill `superpowers:using-git-worktrees`). Aplica a: bug + refactor sin overlap, frontend + backend sin overlap, exploración + implementación en módulos distintos. Branches: `feat/<scope>-<who>` por agente (ver memoria `feedback_branch_por_agente_paralelo.md`).
+
+3. **Feature/UI nueva desde cero** → `brainstorming` (superpowers) → `design-shotgun` → `plan-eng-review` → implementación → `design-review`. No saltearse pasos para "ir más rápido"; cada uno reduce iteraciones aguas abajo.
+
+4. **Plan de implementación complejo aprobado** → `executing-plans` (superpowers) o `do` (claude-mem) con subagents en fases, no ejecución secuencial manual.
+
+5. **Juanjo no recuerda qué skill usar** → indicarle que pregunte en lenguaje natural ("¿hay alguna skill para X?") y usar `find-skills` (Vercel Labs) si está instalado. Si no, recomendar desde la tabla de routing abajo.
+
+### Routing por frase del usuario:
 
 - "torneo real próximo", "antes del torneo" → `/pre-torneo`
 - "ship", "push", "deploy", "PR" → skill `ship` (gstack)
@@ -170,3 +195,39 @@ Si dos agentes paralelos editan secrets al mismo tiempo, hay carrera. Para evita
 - PM: Juan José Lamarca (juanjoselamarca@gmail.com)
 - CTO: Claude
 - Producción: https://golfersplus.vercel.app
+
+## graphify — mapa del codebase
+
+El repo tiene un knowledge graph en `graphify-out/` con god nodes, comunidades y relaciones cross-archivo (código + docs + ADRs).
+
+### Setup post-clone (cada dev, una sola vez)
+
+```bash
+# 1. Instalar la CLI (Python 3.10+)
+uv tool install graphifyy --with openai
+graphify install --platform windows  # o sin flag en Linux/Mac
+
+# 2. Generar graph.json + graph.html locales (gitignored — AST local, gratis, ~30s)
+graphify update .
+
+# 3. Wireo hooks git (post-commit auto-rebuild, post-checkout, merge driver)
+graphify hook install
+```
+
+A partir de ahí cualquier `git commit` rebuilds el grafo en background.
+
+### Reglas de uso (Claude)
+
+- ANTES de leer fuentes, grep/glob o responder preguntas sobre el codebase: leer `graphify-out/GRAPH_REPORT.md`. Es el mapa primario.
+- Si existe `graphify-out/wiki/index.md`, navegarlo en vez de leer archivos crudos.
+- Para "cómo se relaciona X con Y" cross-módulo: preferir `graphify query "<pregunta>"`, `graphify path "<A>" "<B>"`, o `graphify explain "<concepto>"` sobre grep — atraviesan las aristas EXTRACTED + INFERRED del grafo en vez de escanear archivos.
+- Si `graphify-out/graph.json` no existe (clon fresco antes del setup): correr `graphify update .` antes de usar las queries.
+
+### Mantenimiento
+
+- Tras cambios de código: `graphify update .` (gratis, AST local). Automático si corriste `graphify hook install`.
+- Re-extracción semántica completa (refresca nodos de docs + re-labela comunidades): `set -a && . ./.env.local && set +a && graphify extract . --backend gemini`. ~$1 USD vía Gemini Flash. Sólo cuando cambian docs importantes (CLAUDE.md, ARQUITECTURA.md, ADRs, etc.).
+
+### Por qué `graph.json` no se commitea
+
+Pesa ~2MB y se reescribe en cada cambio de código. Committearlo significa que `.git` infla 100MB+/año solo por el grafo. En su lugar committeamos los artefactos chicos (report + análisis + labels) y cada dev/agente regenera `graph.json` local con `graphify update .` (gratis).
