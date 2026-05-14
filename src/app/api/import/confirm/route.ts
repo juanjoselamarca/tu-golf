@@ -148,6 +148,7 @@ export async function POST(request: NextRequest) {
       course_rating?: number | null
       slope_rating?: number | null
       diferencial?: number | null
+      par_per_hole?: Record<string, number> | null
       formato_juego?: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
       modo_juego?: 'gross' | 'neto'
     }
@@ -191,6 +192,7 @@ export async function POST(request: NextRequest) {
           diferencial: (round.course_rating != null && round.slope_rating != null)
             ? calcularDiferencial(round.total_gross, round.course_rating, round.slope_rating)
             : null,
+          par_per_hole: round.par_per_hole ?? null,
           formato_juego: round.formato_juego ?? 'stroke_play',
           modo_juego: round.modo_juego ?? 'gross',
         })
@@ -249,6 +251,7 @@ export async function POST(request: NextRequest) {
             metadata: row.metadata,
             course_rating: row.course_rating,
             slope_rating: row.slope_rating,
+            par_per_hole: row.par_per_hole ?? null,
           })
           .eq('user_id', user.id)
           .eq('garmin_scorecard_id', row.garmin_scorecard_id!)
