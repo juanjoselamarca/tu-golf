@@ -9,7 +9,6 @@ import { Flame } from '@/components/icons'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
-import type { SaveStatus } from './types'
 import { getYardajeForTee } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
@@ -52,6 +51,7 @@ import { ShareMenu } from '@/components/ronda/ShareMenu'
 import { useOnlineStatus } from '@/hooks/ronda/useOnlineStatus'
 import { useScoreboardCalc } from './hooks/useScoreboardCalc'
 import { useRondaScoreData } from './hooks/useRondaScoreData'
+import { useScoreSave } from './hooks/useScoreSave'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {
@@ -66,9 +66,7 @@ function ScorePageContent() {
           activeJugadorId, setActiveJugadorId, selectedPlayer, setSelectedPlayer,
           currentHole, setCurrentHole, loading, adminRedirectMsg } = useRondaScoreData(codigo, jugadorParam)
 
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const isOnline = useOnlineStatus()
-  const [hasUnsaved, setHasUnsaved] = useState(false)
   const [scoreAnimating, setScoreAnimating] = useState(false)
   const [_showMiniCard, _setShowMiniCard] = useState(true) // kept for compat, mini scorecard always visible now
   const [historicalRoundId, setHistoricalRoundId] = useState<string | null>(null)
@@ -83,6 +81,26 @@ function ScorePageContent() {
 
   // Offline score sync — guarda localmente ANTES de enviar al servidor
   const scoreSync = useScoreSync(codigo, activeJugadorId)
+
+  // useCallback estabiliza las refs para que useScoreSave no recree saveScores
+  // en cada render (rompe el useCallback interno del hook).
+  const onSaveSuccess = useCallback(() => {
+    setSaveCheckVisible(true)
+    haptic(20)
+    setTimeout(() => setSaveCheckVisible(false), 1000)
+  }, [])
+  const onRondaFinalized = useCallback(() => {
+    router.replace(`/ronda-libre/${codigo}`)
+  }, [router, codigo])
+
+  const { saveScores, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
+    codigo,
+    isOnline,
+    scoreSync,
+    onSaveSuccess,
+    onRondaFinalized,
+  })
+
   const [showRanking, setShowRanking] = useState(false)
   const [view, setView] = useState<'scorecard' | 'leaderboard'>('scorecard')
   const [gwiInputs, setGwiInputs] = useState<JugadorGWIInput[]>([])
@@ -129,7 +147,6 @@ function ScorePageContent() {
     headerBg: 'rgba(255,255,255,0.97)',
   }
 
-  const retryCountRef = useRef(0)
   const swipeRef = useRef({ startX: 0, startY: 0 })
   const progressRowRef = useRef<HTMLDivElement>(null)
 
@@ -171,51 +188,6 @@ function ScorePageContent() {
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [hasUnsaved])
-
-  /* ── Save ── */
-  const saveScores = useCallback(async (jugadorId: string, holeScores: Record<number, number>) => {
-    setSaveStatus('saving')
-    // Guardar localmente SIEMPRE primero (funciona sin internet)
-    scoreSync.guardarLocal(holeScores)
-    lsSave(codigo, jugadorId, holeScores)
-
-    if (!isOnline) { setSaveStatus('offline'); return }
-
-    // Validate ronda is still en_curso before saving (admin may have closed/deleted it)
-    const supabaseCheck = createClient()
-    const { data: rondaCheck } = await supabaseCheck.from('rondas_libres').select('estado').eq('codigo', codigo).single()
-    if (!rondaCheck || rondaCheck.estado === 'finalizada') {
-      setSaveStatus('error')
-      addToast({ type: 'warning', title: 'Ronda finalizada', message: 'El administrador cerró esta ronda. Tus scores están guardados en tu dispositivo.', duration: 8000 })
-      router.replace(`/ronda-libre/${codigo}`)
-      return
-    }
-
-    const scoresObj: Record<string, number> = {}
-    for (const [k, v] of Object.entries(holeScores)) scoresObj[String(k)] = v  // Explicit string keys for JSONB
-
-    let success = false
-    retryCountRef.current = 0
-    while (!success && retryCountRef.current < 3) {
-      const supabase = createClient()
-      const { error } = await supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', jugadorId)
-      if (!error) { success = true; retryCountRef.current = 0 } else retryCountRef.current++
-    }
-
-    if (!success) {
-      setSaveStatus('error')
-      addToast({ type: 'error', title: 'Error al guardar', message: 'No se pudo conectar después de 3 intentos. Tus scores están guardados en tu dispositivo.', duration: 8000 })
-    }
-    else {
-      setSaveStatus('saved'); setHasUnsaved(false)
-      scoreSync.marcarSincronizado()
-      // FIX #8: show save check and haptic on success
-      setSaveCheckVisible(true)
-      haptic(20)
-      setTimeout(() => setSaveCheckVisible(false), 1000)
-      setTimeout(() => setSaveStatus('idle'), 1500)
-    }
-  }, [codigo, isOnline, scoreSync, router])
 
   const handleScoreChange = useCallback((hole: number, value: number) => {
     if (!activeJugadorId) return
