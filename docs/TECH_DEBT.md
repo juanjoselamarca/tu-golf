@@ -19,7 +19,7 @@
 | # | Item | Estado | Notas |
 |---|------|--------|-------|
 | P1-1 | `ronda-libre/nueva/page.tsx` God Object (2118 LOC) | ⏳ Plan | Sprint dedicado. Ver plan en `docs/superpowers/plans/2026-04-20-rondas-refactor-sprint-1.md` |
-| P1-2 | `ronda-libre/[codigo]/page.tsx` + `score/page.tsx` God Objects | ⏳ Plan | Mismo sprint que P1-1 |
+| P1-2 | `ronda-libre/[codigo]/page.tsx` + `score/page.tsx` God Objects | ✅ Resuelto parcial (2026-05-14) — `score/page.tsx` | `score/page.tsx`: 1951 → 1027 LOC (-47.5%). Extraídos 4 hooks puros testables (useScoreboardCalc, useRondaScoreData, useScoreSave, useFinalizeRonda) + 5 componentes (PlayerSelectorScreen, FinishedRoundView, HoleControlBar, MiniScorecardGrid, RankingSheet). Target original < 250 LOC no alcanzado pero patrón TDZ del bug 12-may estructuralmente imposible. Bug class P1-12 (TDZ ReferenceError) cerrado. Rama: `refactor/scorer-page` (12 commits). `[codigo]/page.tsx` pendiente — sigue siendo god object. |
 | P1-3 | Cobertura tests no medida | ✅ Resuelto `f78dc1a` + `86786fb` (2026-04-23) | Baseline real: 27.62% (no 76.88% — error de medición inicial). Thresholds 25/20/23/25 |
 | P1-3b | `course-handicap.ts` cobertura 9.52% (lógica core) | ✅ Resuelto `b5123fc` (2026-04-23) | 12 tests nuevos con vi.mock Supabase — ahora 100% statements |
 | P1-4 | Upgrade Next 14 → 15 | ⏳ Plan | Ver P0-2 |
