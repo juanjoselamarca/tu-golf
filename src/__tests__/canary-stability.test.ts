@@ -223,28 +223,32 @@ describe('Canario: Scorer ronda-libre — sin use-before-declaration en TDZ', ()
   // Bug 12-may-2026 (Juanjo en cancha): hasStrokeAdvantage hacía closure sobre
   // modoJuego/formatoJuego que estaban declarados MÁS ABAJO en la misma función.
   // Al invocarse sincrónicamente right después de su definición → TDZ
-  // ReferenceError → error boundary → pantalla blanca en cancha. Este canario
-  // garantiza que las dos declaraciones quedan SIEMPRE arriba.
-  const SCORER = 'app/ronda-libre/[codigo]/score/page.tsx'
+  // ReferenceError → error boundary → pantalla blanca en cancha.
+  //
+  // Fix estructural (13-may-2026, Task 3 scorer-refactor): los cálculos derivados
+  // se extrajeron a useScoreboardCalc. modoJuego/formatoJuego se declaran al TOP
+  // del hook, antes de hasStrokeAdvantage, garantizado por esta suite.
+  // El canario ahora verifica el HOOK (fuente de verdad) en vez de page.tsx.
+  const HOOK = 'app/ronda-libre/[codigo]/score/hooks/useScoreboardCalc.ts'
 
-  it('const modoJuego está declarado ANTES de hasStrokeAdvantage', () => {
-    const src = readFile(SCORER)
-    const decl = src.indexOf('const modoJuego = ronda.modo_juego')
+  it('const modoJuego está declarado ANTES de hasStrokeAdvantage en el hook', () => {
+    const src = readFile(HOOK)
+    const decl = src.indexOf('const modoJuego = ')
     const callback = src.indexOf('const hasStrokeAdvantage')
-    expect(decl, 'No encuentro `const modoJuego = ronda.modo_juego` en el scorer').toBeGreaterThan(-1)
-    expect(callback, 'No encuentro `const hasStrokeAdvantage` en el scorer').toBeGreaterThan(-1)
+    expect(decl, 'No encuentro `const modoJuego` en useScoreboardCalc').toBeGreaterThan(-1)
+    expect(callback, 'No encuentro `const hasStrokeAdvantage` en useScoreboardCalc').toBeGreaterThan(-1)
     expect(decl,
-      'TDZ: modoJuego debe declararse ANTES de hasStrokeAdvantage. Si lo mueves más abajo, el scorer crashea en cancha.'
+      'TDZ: modoJuego debe declararse ANTES de hasStrokeAdvantage en el hook. Fix estructural del bug 12-may.'
     ).toBeLessThan(callback)
   })
 
-  it('const formatoJuego está declarado ANTES de hasStrokeAdvantage', () => {
-    const src = readFile(SCORER)
-    const decl = src.indexOf('const formatoJuego = ronda.formato_juego')
+  it('const formatoJuego está declarado ANTES de hasStrokeAdvantage en el hook', () => {
+    const src = readFile(HOOK)
+    const decl = src.indexOf('const formatoJuego = ')
     const callback = src.indexOf('const hasStrokeAdvantage')
-    expect(decl, 'No encuentro `const formatoJuego = ronda.formato_juego` en el scorer').toBeGreaterThan(-1)
+    expect(decl, 'No encuentro `const formatoJuego` en useScoreboardCalc').toBeGreaterThan(-1)
     expect(decl,
-      'TDZ: formatoJuego debe declararse ANTES de hasStrokeAdvantage. Mismo patrón que el bug 12-may.'
+      'TDZ: formatoJuego debe declararse ANTES de hasStrokeAdvantage en el hook. Mismo patrón que el bug 12-may.'
     ).toBeLessThan(callback)
   })
 })

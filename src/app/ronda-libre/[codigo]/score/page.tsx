@@ -50,6 +50,7 @@ import {
 import { saveScores as lsSave, loadScores as lsLoad, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { ShareMenu } from '@/components/ronda/ShareMenu'
 import { useOnlineStatus } from '@/hooks/ronda/useOnlineStatus'
+import { useScoreboardCalc } from './hooks/useScoreboardCalc'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {
@@ -789,108 +790,35 @@ function ScorePageContent() {
     )
   }
   const currentHoleIdx = ordenHoyos.indexOf(currentHole)
-  const isLastHole = currentHoleIdx >= totalHoles - 1
-  const par = parMap[currentHole] ?? 4
-  const score = scores[activeJugadorId]?.[currentHole]
-  const holeData = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole, yardaje: null }
   const activePlayer = jugadores.find(p => p.id === activeJugadorId)
 
-  // Total score
-  let totalGross = 0, totalParPlayed = 0
-  for (let h = 1; h <= totalHoles; h++) {
-    const s = scores[activeJugadorId]?.[h]
-    if (s != null) { totalGross += s; totalParPlayed += parMap[h] ?? 4 }
-  }
-  const totalOverUnder = totalGross - totalParPlayed
-  const holesPlayed = Object.keys(scores[activeJugadorId] ?? {}).length
-  const canFinalize = holesPlayed >= 9 || currentHoleIdx >= totalHoles - 1
-  // Hoyos del rango 1..totalHoles que aún no tienen score. El finalize hará
-  // auto-fill con par; el botón anuncia cuántos son para evitar el bug del
-  // último hoyo en par (Juanjo 30-abr-2026).
-  const missingCount = activeJugadorId
-    ? getMissingHoles(scores[activeJugadorId] ?? {}, totalHoles).length
-    : 0
+  const calc = useScoreboardCalc({
+    ronda, activeJugadorId, jugadores, scores, parMap, holeDataMap, playerHcp, currentHole,
+    currentHoleIdx,
+  })
 
-  // FIX #6: Front 9 / Back 9 totals
-  let f9Gross = 0, f9Par = 0, f9Count = 0
-  let b9Gross = 0, b9Par = 0, b9Count = 0
-  for (let h = 1; h <= Math.min(9, totalHoles); h++) {
-    const s = scores[activeJugadorId]?.[h]
-    if (s != null) { f9Gross += s; f9Par += parMap[h] ?? 4; f9Count++ }
-  }
-  for (let h = 10; h <= totalHoles; h++) {
-    const s = scores[activeJugadorId]?.[h]
-    if (s != null) { b9Gross += s; b9Par += parMap[h] ?? 4; b9Count++ }
-  }
-  const formatNine = (gross: number, parN: number) => {
-    const d = gross - parN
-    return d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`
-  }
+  // Re-exponer como variables locales para que el JSX existente siga compilando sin cambios:
+  const {
+    modoJuego, formatoJuego, modoLabel, showNet, showStableford,
+    par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
+    totalGross, totalParPlayed, totalOverUnder, holesPlayed,
+    f9Gross, f9Par, f9Count, b9Gross, b9Par, b9Count,
+    totalNet, totalStableford, totalNetOverUnder,
+    currentNetScore, currentNetDiff, currentStablefordPts,
+    displayOverUnder, displayTotal,
+    missingCount, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning,
+    isLastHole,
+  } = calc
 
-  // Handicap strokes on this hole
-  const hcpForPlayer = playerHcp[activeJugadorId] ?? 0
-  const strokesOnHole = strokesRecibidosEnHoyo(hcpForPlayer, holeData.stroke_index)
-
-  // Diferencia de strokes vs rival (para dots: solo mostrar donde HAY ventaja)
-  // En match play o neto con 2 jugadores: dot solo donde jugador activo tiene
-  // más strokes que el rival (es decir, donde hay ventaja real)
-  const jug = ronda?.ronda_libre_jugadores ?? []
-  const rivalId = jug.length === 2 ? jug.find(j => j.id !== activeJugadorId)?.id : null
-  const rivalHcp = rivalId ? (playerHcp[rivalId] ?? 0) : 0
-  // BUG (12-may-2026 Juanjo en cancha): hasStrokeAdvantage hace closure sobre
-  // modoJuego/formatoJuego. Si los const están más abajo, la llamada inmediata
-  // de hasStrokeAdvantage rompe por TDZ y el scorer queda en blanco. Mantener
-  // ESTAS dos declaraciones por encima del callback siempre.
-  const modoJuego = ronda.modo_juego ?? 'gross'
-  const formatoJuego = ronda.formato_juego ?? 'stroke_play'
+  // Helper local: determina si hay ventaja de strokes en un hoyo arbitrario.
+  // Usado por la mini scorecard para mostrar dots. Misma lógica que en el hook.
   const hasStrokeAdvantage = (si: number): boolean => {
+    const jug = ronda?.ronda_libre_jugadores ?? []
     if (modoJuego === 'gross' || jug.length !== 2) return strokesRecibidosEnHoyo(hcpForPlayer, si) > 0
-    const myStrokes = strokesRecibidosEnHoyo(hcpForPlayer, si)
-    const theirStrokes = strokesRecibidosEnHoyo(rivalHcp, si)
-    return myStrokes > theirStrokes
+    const rivalId = jug.find(j => j.id !== activeJugadorId)?.id
+    const rivalHcp = rivalId ? (playerHcp[rivalId] ?? 0) : 0
+    return strokesRecibidosEnHoyo(hcpForPlayer, si) > strokesRecibidosEnHoyo(rivalHcp, si)
   }
-  const strokeAdvantageOnHole = hasStrokeAdvantage(holeData.stroke_index)
-
-  // Net score & Stableford for current hole
-  const currentNetScore = score != null ? score - strokesOnHole : null
-  const currentNetDiff = currentNetScore != null ? currentNetScore - par : null
-  const currentStablefordPts = score != null ? puntosStablefordHoyo(score, par, hcpForPlayer, holeData.stroke_index) : null
-
-  // Total net & stableford across all holes played
-  let totalNet = 0, totalNetPar = 0, totalStableford = 0
-  let missingStrokeIndex = false
-  for (let h = 1; h <= totalHoles; h++) {
-    const s = scores[activeJugadorId]?.[h]
-    if (s != null) {
-      const hd = holeDataMap[h]
-      if (!hd?.stroke_index && (ronda.modo_juego === 'neto' || ronda.formato_juego === 'stableford')) missingStrokeIndex = true
-      const si = hd?.stroke_index ?? h
-      const strk = strokesRecibidosEnHoyo(hcpForPlayer, si)
-      totalNet += s - strk
-      totalNetPar += parMap[h] ?? 4
-      totalStableford += puntosStablefordHoyo(s, parMap[h] ?? 4, hcpForPlayer, si)
-    }
-  }
-  const totalNetOverUnder = totalNet - totalNetPar
-
-  // What to display based on formato_juego + modo_juego (modoJuego/formatoJuego declarados arriba)
-  const modoLabel = formatoJuego === 'match_play' ? 'Match Play Neto'
-    : formatoJuego === 'stableford' ? 'Stableford'
-    : modoJuego === 'neto' ? 'Stroke Play Neto'
-    : 'Stroke Play'
-  const showNet = modoJuego === 'neto' && formatoJuego !== 'stableford'
-  const showStableford = formatoJuego === 'stableford'
-  const displayOverUnder = showNet ? totalNetOverUnder : totalOverUnder
-  const displayTotal = showStableford ? totalStableford : totalGross
-
-  // Warning if stroke index is missing for neto/stableford modes
-  const showStrokeIndexWarning = missingStrokeIndex && (showNet || showStableford)
-
-  // Double bogey warning
-  const isAboveDoubleBogey = score != null && score > par + 2
-
-  // Score styles for mini scorecard (theme-aware)
-  const currentScoreStyles = SCORE_STYLES
 
   return (
     <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
