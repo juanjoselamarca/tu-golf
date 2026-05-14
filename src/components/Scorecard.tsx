@@ -27,7 +27,7 @@ const SANS = '"DM Sans", system-ui, -apple-system, sans-serif'
 
 export interface ScorecardHole {
   numero: number
-  par: number
+  par: number | null
   stroke_index: number
   yardaje?: number | null
 }
@@ -81,24 +81,26 @@ function buildStats(h: ScorecardHole[], sc: Record<string, number>, ch: number, 
     const score = typeof raw === 'number' && raw > 0 ? raw : null
     const strokes = strokesRecibidosEnHoyo(ch, hole.stroke_index, tH)
     const neto = score != null ? score - strokes : null
-    const stabPts = score != null && fmt === 'stableford'
+    const stabPts = score != null && fmt === 'stableford' && hole.par != null
       ? puntosStablefordHoyo(score, hole.par, ch, hole.stroke_index, tH) : null
-    return { hole, score, strokes, neto, stabPts, diff: score != null ? score - hole.par : 0 }
+    return { hole, score, strokes, neto, stabPts, diff: score != null && hole.par != null ? score - hole.par : 0 }
   })
 }
 
-interface Tot { g: number; n: number; p: number; s: number }
+interface Tot { g: number; n: number; p: number; s: number; hasUnknownPar: boolean }
 function sumT(st: HS[]): Tot {
+  const hasUnknownPar = st.some(s => s.hole.par == null)
   return st.reduce<Tot>((a, s) => ({
     g: a.g + (s.score ?? 0), n: a.n + (s.neto ?? 0),
-    p: a.p + s.hole.par, s: a.s + (s.stabPts ?? 0),
-  }), { g: 0, n: 0, p: 0, s: 0 })
+    p: a.p + (s.hole.par ?? 0), s: a.s + (s.stabPts ?? 0),
+    hasUnknownPar,
+  }), { g: 0, n: 0, p: 0, s: 0, hasUnknownPar })
 }
 
 function countRes(st: HS[]) {
   let e = 0, b = 0, p = 0, bo = 0, d = 0
   for (const s of st) {
-    if (!s.score) continue
+    if (!s.score || s.hole.par == null) continue
     if (s.diff <= -2) e++; else if (s.diff === -1) b++
     else if (s.diff === 0) p++; else if (s.diff === 1) bo++; else d++
   }
@@ -150,12 +152,12 @@ function Cell({ children, style }: { children: React.ReactNode; style?: React.CS
   return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, height: '100%', fontFamily: MONO, ...style }}>{children}</div>
 }
 
-function TotCellVsPar({ gross, par, bg = K.bgH }: { gross: number; par: number; bg?: string }) {
+function TotCellVsPar({ gross, par, hasUnknownPar = false, bg = K.bgH }: { gross: number; par: number; hasUnknownPar?: boolean; bg?: string }) {
   const ou = gross - par
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, height: '100%', borderLeft: `1px solid ${K.line}`, background: bg }}>
       <span style={{ fontSize: 14, fontWeight: 700, color: K.tp }}>{gross > 0 ? gross : ''}</span>
-      {gross > 0 && <span style={{ fontSize: 9, color: K.ts, marginTop: -1 }}>{fmtOu(ou)}</span>}
+      {gross > 0 && !hasUnknownPar && <span style={{ fontSize: 9, color: K.ts, marginTop: -1 }}>{fmtOu(ou)}</span>}
     </div>
   )
 }
@@ -204,8 +206,8 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
 
       {/* PAR — separador grueso debajo */}
       <GR cols={cols} h={22} bg={K.bgH} bbColor={K.lineBold} bbW={2}>
-        {st.map(s => <Cell key={s.hole.numero}><TX t={String(s.hole.par)} sz={10} c={K.tm} w={500} /></Cell>)}
-        <TotCell><TX t={String(tot.p)} sz={10} c={K.tm} w={600} /></TotCell>
+        {st.map(s => <Cell key={s.hole.numero}><TX t={s.hole.par != null ? String(s.hole.par) : '—'} sz={10} c={K.tm} w={500} /></Cell>)}
+        <TotCell><TX t={tot.hasUnknownPar ? '—' : String(tot.p)} sz={10} c={K.tm} w={600} /></TotCell>
       </GR>
 
       {/* Extended: yardaje con total */}
@@ -230,7 +232,7 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
       {/* SCORE — sin border bottom (el separador front/back o stats lo marca) */}
       <GR cols={cols} h={38} bg={K.bgS} bb={false}>
         {st.map(s => <Cell key={s.hole.numero}><ScoreSymbol score={s.score} par={s.hole.par} size="sm" theme="light" /></Cell>)}
-        <TotCellVsPar gross={tot.g} par={tot.p} />
+        <TotCellVsPar gross={tot.g} par={tot.p} hasUnknownPar={tot.hasUnknownPar} />
       </GR>
 
       {/* DOTS */}
@@ -326,11 +328,11 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
       />
 
       <R lbl={L('PAR')} h={26} bg={K.bgH} bbColor={K.lineBold} bbW={2}
-        fCells={f.map(s => <TX key={s.hole.numero} t={String(s.hole.par)} sz={12} c={K.tm} w={500} />)}
-        fTot={<TX t={String(ft.p)} sz={12} c={K.tm} w={600} />}
-        bCells={b.map(s => <TX key={s.hole.numero} t={String(s.hole.par)} sz={12} c={K.tm} w={500} />)}
-        bTot={<TX t={String(bt.p)} sz={12} c={K.tm} w={600} />}
-        grand={<TX t={String(gt.p)} sz={12} c={K.tm} w={700} />}
+        fCells={f.map(s => <TX key={s.hole.numero} t={s.hole.par != null ? String(s.hole.par) : '—'} sz={12} c={K.tm} w={500} />)}
+        fTot={<TX t={ft.hasUnknownPar ? '—' : String(ft.p)} sz={12} c={K.tm} w={600} />}
+        bCells={b.map(s => <TX key={s.hole.numero} t={s.hole.par != null ? String(s.hole.par) : '—'} sz={12} c={K.tm} w={500} />)}
+        bTot={<TX t={bt.hasUnknownPar ? '—' : String(bt.p)} sz={12} c={K.tm} w={600} />}
+        grand={<TX t={gt.hasUnknownPar ? '—' : String(gt.p)} sz={12} c={K.tm} w={700} />}
       />
 
       {ext && (() => {
@@ -410,21 +412,25 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
 
 function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: boolean }) {
   const c = countRes(st)
+  const hasUnknownPar = st.some(s => s.hole.par == null)
+
   // H09: mostrar SIEMPRE Eagles + Birdies aunque sean 0, como referencia de
   // la ronda. Antes solo se mostraban los "malos" (bogeys, dobles) cuando
   // había 0 birdies/eagles → el scorecard se veía sesgado a negativo.
   // Eagles queda oculto solo si el jugador es 18+ handicap (eagles raros en
   // amateur) — pero mantenerlo visible es más honesto: 0 también es info.
+  // Cuando hay pares desconocidos, las stats son parciales → asterisco.
+  const asterisk = hasUnknownPar ? '*' : ''
   const items: { l: string; n: number; c: string }[] = [
-    { l: 'Eagles', n: c.e, c: c.e > 0 ? GARMIN_COLORS.eagle : K.tm },
-    { l: 'Birdies', n: c.b, c: c.b > 0 ? GARMIN_COLORS.birdie : K.tm },
-    { l: 'Pares', n: c.p, c: K.ts },
-    { l: 'Bogeys', n: c.bo, c: c.bo > 0 ? GARMIN_COLORS.bogey : K.tm },
-    { l: 'Doble+', n: c.d, c: c.d > 0 ? GARMIN_COLORS.double : K.tm },
+    { l: `Eagles${asterisk}`, n: c.e, c: c.e > 0 ? GARMIN_COLORS.eagle : K.tm },
+    { l: `Birdies${asterisk}`, n: c.b, c: c.b > 0 ? GARMIN_COLORS.birdie : K.tm },
+    { l: `Pares${asterisk}`, n: c.p, c: K.ts },
+    { l: `Bogeys${asterisk}`, n: c.bo, c: c.bo > 0 ? GARMIN_COLORS.bogey : K.tm },
+    { l: `Doble+${asterisk}`, n: c.d, c: c.d > 0 ? GARMIN_COLORS.double : K.tm },
   ]
 
-  // Mejora #2: front vs back comparison
-  const hasBoth = bt != null && ft.g > 0 && bt.g > 0
+  // Mejora #2: front vs back comparison (solo si pares conocidos)
+  const hasBoth = bt != null && ft.g > 0 && bt.g > 0 && !ft.hasUnknownPar && !bt.hasUnknownPar
   const fOu = ft.g - ft.p
   const bOu = bt ? bt.g - bt.p : 0
   const diff = hasBoth ? bOu - fOu : 0
@@ -460,6 +466,16 @@ function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: 
           )}
         </div>
       )}
+
+      {/* Nota honestidad: pares no confirmados */}
+      {hasUnknownPar && (
+        <div style={{
+          marginTop: 6, paddingTop: 6, borderTop: `1px solid ${K.line}`,
+          fontSize: wide ? 10 : 9, color: K.tm, textAlign: 'center', fontFamily: SANS,
+        }}>
+          * Pares por hoyo no confirmados. Editá la cancha para completar el análisis.
+        </div>
+      )}
     </div>
   )
 }
@@ -481,7 +497,7 @@ export default function Scorecard({
   const all = buildStats(holes, scores, courseHandicap, tH, formato)
   const f9 = all.slice(0, 9); const b9 = all.slice(9, 18); const hasB = b9.length > 0
   const ft = sumT(f9); const bt = hasB ? sumT(b9) : null
-  const gt: Tot = { g: ft.g + (bt?.g ?? 0), n: ft.n + (bt?.n ?? 0), p: ft.p + (bt?.p ?? 0), s: ft.s + (bt?.s ?? 0) }
+  const gt: Tot = { g: ft.g + (bt?.g ?? 0), n: ft.n + (bt?.n ?? 0), p: ft.p + (bt?.p ?? 0), s: ft.s + (bt?.s ?? 0), hasUnknownPar: ft.hasUnknownPar || (bt?.hasUnknownPar ?? false) }
   const played = all.filter(s => s.score != null).length
 
   return (
@@ -535,9 +551,9 @@ export default function Scorecard({
                     <div>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, justifyContent: 'flex-end' }}>
                         <span style={{ fontSize: wide ? 28 : 24, fontWeight: 700, color: K.tp, lineHeight: 1, fontFamily: MONO }}>{gt.g}</span>
-                        <span style={{ fontSize: wide ? 14 : 12, color: K.ts, fontWeight: 500, fontFamily: MONO }}>{fmtOu(gt.g - gt.p)}</span>
+                        {!gt.hasUnknownPar && <span style={{ fontSize: wide ? 14 : 12, color: K.ts, fontWeight: 500, fontFamily: MONO }}>{fmtOu(gt.g - gt.p)}</span>}
                       </div>
-                      {isN && courseHandicap !== 0 && (
+                      {isN && courseHandicap !== 0 && !gt.hasUnknownPar && (
                         <div style={{ fontSize: wide ? 11 : 10, color: K.tm, marginTop: 3, fontFamily: MONO, textAlign: 'right' }}>{gt.n} {fmtOu(gt.n - gt.p)} net</div>
                       )}
                     </div>
