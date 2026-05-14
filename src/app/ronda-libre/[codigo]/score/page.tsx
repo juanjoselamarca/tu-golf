@@ -55,6 +55,7 @@ import { useScoreSave } from './hooks/useScoreSave'
 import { useFinalizeRonda } from './hooks/useFinalizeRonda'
 import { PlayerSelectorScreen } from './components/PlayerSelectorScreen'
 import { FinishedRoundView } from './components/FinishedRoundView'
+import { HoleControlBar } from './components/HoleControlBar'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {
@@ -884,45 +885,14 @@ function ScorePageContent() {
         })()}
       </div>
 
-      {/* ── +/- Buttons (80px + padding) ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '8px 20px 12px', flexShrink: 0 }}>
-        <button
-          className="ctrl-btn"
-          onTouchStart={() => {}}
-          onClick={() => handleScoreChange(currentHole, (score ?? par) - 1)}
-          disabled={score != null && score <= 1}
-          aria-label="Disminuir score"
-          style={{
-            width: '80px', height: '80px', borderRadius: '20px',
-            fontSize: '32px', fontWeight: 300,
-            background: theme.buttonBg, color: theme.buttonText,
-            border: `1px solid ${theme.buttonBorder}`,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
-            userSelect: 'none', transition: 'transform 0.08s ease-out',
-            opacity: score != null && score <= 1 ? 0.3 : 1,
-            minHeight: 0, minWidth: 0,
-          }}
-        >{'\u2212'}</button>
-        <button
-          className="ctrl-btn"
-          onTouchStart={() => {}}
-          onClick={() => handleScoreChange(currentHole, (score ?? par) + 1)}
-          disabled={score != null && score >= 15}
-          aria-label="Aumentar score"
-          style={{
-            width: '80px', height: '80px', borderRadius: '20px',
-            fontSize: '32px', fontWeight: 600,
-            background: '#C4992A', color: '#ffffff', border: 'none',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
-            userSelect: 'none', transition: 'transform 0.08s ease-out',
-            opacity: score != null && score >= 15 ? 0.3 : 1,
-            minHeight: 0, minWidth: 0,
-          }}
-        >+</button>
-      </div>
-
+      <HoleControlBar
+        score={score}
+        onDecrement={() => handleScoreChange(currentHole, (score ?? par) - 1)}
+        onIncrement={() => handleScoreChange(currentHole, (score ?? par) + 1)}
+        decrementBg={theme.buttonBg}
+        decrementColor={theme.buttonText}
+        decrementBorder={theme.buttonBorder}
+      />
       </>}
 
       {/* ── LEADERBOARD VIEW ── */}
