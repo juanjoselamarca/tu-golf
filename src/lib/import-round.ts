@@ -27,6 +27,11 @@ export interface ImportRoundInput {
     penalties?: number[]         // penalties por hoyo
     [key: string]: unknown
   }
+  // Campos opcionales para importación vía confirm/route (anteriormente hardcoded)
+  formatoJuego?: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome' | string
+  modoJuego?: 'gross' | 'neto' | string
+  holesPlayed?: number
+  importConfidence?: number
 }
 
 export interface ImportRoundResult {
@@ -169,8 +174,10 @@ export async function importRound(
       privacy: input.privacy || 'private',
       source: input.source,
       metadata: input.metadata || {},
-      formato_juego: 'stroke_play',
-      modo_juego: 'gross',
+      formato_juego: (input.formatoJuego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') ?? 'stroke_play',
+      modo_juego: (input.modoJuego as 'gross' | 'neto') ?? 'gross',
+      holes_played: input.holesPlayed ?? input.scores.length,
+      import_confidence: input.importConfidence ?? null,
     })
     .select('id')
     .single()
