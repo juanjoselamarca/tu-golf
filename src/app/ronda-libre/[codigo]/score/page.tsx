@@ -53,6 +53,7 @@ import { useScoreboardCalc } from './hooks/useScoreboardCalc'
 import { useRondaScoreData } from './hooks/useRondaScoreData'
 import { useScoreSave } from './hooks/useScoreSave'
 import { useFinalizeRonda } from './hooks/useFinalizeRonda'
+import { PlayerSelectorScreen } from './components/PlayerSelectorScreen'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {
@@ -389,40 +390,18 @@ function ScorePageContent() {
   /* ── Player selection screen (multi-player, no auto-match) ── */
   if (!selectedPlayer && jugadores.length > 1) {
     return (
-      <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
-          Quien eres?
-        </h1>
-        <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '24px' }}>
-          Selecciona tu nombre para marcar tu score
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '360px' }}>
-          {jugadores.map(j => (
-            <button key={j.id} onClick={() => {
-              setSelectedPlayer(j.id)
-              setActiveJugadorId(j.id)
-              // Jump to first empty hole for this player
-              const ex = scores[j.id] ?? {}
-              const orden = generarOrdenHoyos(ronda.hoyo_inicio ?? 1, ronda.holes)
-              const firstEmpty = orden.find(h => ex[h] == null)
-              if (firstEmpty != null) setCurrentHole(firstEmpty)
-              else setCurrentHole(orden[0])
-            }} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '16px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border)',
-              borderRadius: '12px', cursor: 'pointer', width: '100%', textAlign: 'left',
-            }}>
-              <div>
-                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{j.nombre}</div>
-                {playerHcp[j.id] != null && (
-                  <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>HCP {playerHcp[j.id]}</div>
-                )}
-              </div>
-              <span style={{ color: '#c4992a', fontSize: '20px' }}>{'\u2192'}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <PlayerSelectorScreen
+        jugadores={jugadores}
+        playerHcp={playerHcp}
+        scores={scores}
+        hoyoInicio={ronda.hoyo_inicio ?? 1}
+        holes={ronda.holes}
+        onSelect={(jugadorId, firstEmptyHole) => {
+          setSelectedPlayer(jugadorId)
+          setActiveJugadorId(jugadorId)
+          setCurrentHole(firstEmptyHole)
+        }}
+      />
     )
   }
   const currentHoleIdx = ordenHoyos.indexOf(currentHole)
