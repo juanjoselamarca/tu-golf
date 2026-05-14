@@ -47,6 +47,7 @@ DECLARE
   v_new_course_id uuid;
   v_created boolean := false;
   v_populated boolean := false;
+  v_invalid_count int;
 BEGIN
   IF p_course_name IS NULL
      OR trim(p_course_name) = ''
@@ -59,7 +60,22 @@ BEGIN
     );
   END IF;
 
-  v_normalized := lower(public.unaccent(
+  -- C1: Validar que p_par_per_hole solo contenga enteros parseables (keys y values).
+  -- OCR puede devolver strings como "4.0", "null" o vacíos; sin esto, los ::int abortarían la transacción.
+  -- Estrategia de degradación: si hay valores inválidos, ignoramos los pares y continuamos (match-only).
+  IF p_par_per_hole IS NOT NULL THEN
+    SELECT COUNT(*) INTO v_invalid_count
+    FROM jsonb_each_text(p_par_per_hole) AS j(k, val)
+    WHERE k !~ '^[0-9]+$' OR val !~ '^[0-9]+$';
+
+    IF v_invalid_count > 0 THEN
+      -- No abortamos: degradamos a "ignorar pares" y seguimos con el flow normal (match-only).
+      p_par_per_hole := NULL;
+    END IF;
+  END IF;
+
+  -- I1: Usar unaccent_immutable() consistentemente (los índices también la usan).
+  v_normalized := lower(unaccent_immutable(
     trim(regexp_replace(p_course_name, '\s*\((damas|varones)\)\s*', '', 'gi'))
   ));
   v_normalized := regexp_replace(v_normalized, '\s+', ' ', 'g');
@@ -114,9 +130,13 @@ BEGIN
     v_created := true;
   EXCEPTION
     WHEN unique_violation THEN
+      -- I2: Null guard tras recovery SELECT — race condition donde la tx competidora hizo rollback.
       SELECT id INTO v_new_course_id FROM courses
       WHERE lower(nombre) = lower(p_course_name) AND fuente = 'user_added'
       LIMIT 1;
+      IF v_new_course_id IS NULL THEN
+        RAISE EXCEPTION 'resolve_and_link_course: race recovery failed for course %', p_course_name;
+      END IF;
       v_created := false;
   END;
 
