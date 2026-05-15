@@ -10,6 +10,7 @@ import { validateResponse } from '@/golf/coach/hallucination-validator'
 import { toolActivityLabel, friendlyPatternName, friendlyMetricName } from '@/lib/coach-event-narrator'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -354,10 +355,18 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Error desconocido'
           console.error('[tAIger/chat] Stream error:', msg)
+          // Captura a PostHog para investigación posterior (sin bloquear el response).
+          void captureError(err, {
+            context: 'taiger.chat.stream',
+            userId: user?.id ?? null,
+            meta: { sessionId: active?.id },
+          })
           if (msg.includes('rate_limit') || msg.includes('429')) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'tAIger+ está descansando. Intenta en unos minutos.' })}\n\n`))
+          } else if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('aborted')) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'La respuesta se demoró más de lo esperado. Intenta de nuevo — si vuelve a pasar, ya quedó registrado y lo investigamos.' })}\n\n`))
           } else {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Error de conexión con tAIger+. Intenta de nuevo.' })}\n\n`))
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Algo falló del lado del servidor. No es tu culpa — ya quedó registrado y lo investigamos. Probá de nuevo en unos segundos.' })}\n\n`))
           }
           controller.close()
         } finally {
@@ -375,6 +384,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (err) {
     console.error('[tAIger/chat] Error interno:', err)
+    void captureError(err, { context: 'taiger.chat.outer' })
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
