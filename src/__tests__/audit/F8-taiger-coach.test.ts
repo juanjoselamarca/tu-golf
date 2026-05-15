@@ -37,7 +37,7 @@ import { analyzeRound } from '@/golf/coach/analysis'
 function makeContext(overrides: Partial<TaigerContext> = {}): TaigerContext {
   return {
     player: { name: 'Juan', handicap: 15, indice: 15, total_rounds: 10 },
-    stats: { avg_score: 88, best_score: 84, total_birdies: 5, total_eagles: 0, front9_avg: 43, back9_avg: 45 },
+    stats: { avg_score: 88, best_score: 84, real_avg_18h: 88, real_avg_9h: null, rounds_18h: 10, rounds_9h: 0, mental_fatigue_delta: null, total_birdies: 5, total_eagles: 0, front9_avg: 43, back9_avg: 45 },
     patterns: [{ pattern_type: 'back_nine_collapse', confidence: 0.8, metadata: {}, status: 'active' }],
     recent_rounds: [
       { played_at: '2026-04-01', course_name: 'Club de Golf Los Leones', total_gross: 88, over_under: 16 },
@@ -568,7 +568,7 @@ describe('[peso:2] Learning curve — comportamiento con 0 y pocos datos', () =>
   it('El contexto sin rondas indica claramente "Sin rondas registradas"', () => {
     const ctx = makeContext({
       player: { name: 'Nuevo', handicap: null, indice: null, total_rounds: 0 },
-      stats: { avg_score: null, best_score: null, total_birdies: 0, total_eagles: 0, front9_avg: null, back9_avg: null },
+      stats: { avg_score: null, best_score: null, real_avg_18h: null, real_avg_9h: null, rounds_18h: 0, rounds_9h: 0, mental_fatigue_delta: null, total_birdies: 0, total_eagles: 0, front9_avg: null, back9_avg: null },
       recent_rounds: [],
       patterns: [],
     })
@@ -581,7 +581,7 @@ describe('[peso:2] Learning curve — comportamiento con 0 y pocos datos', () =>
   it('El contexto con 0 rondas muestra "sin índice registrado"', () => {
     const ctx = makeContext({
       player: { name: 'Nuevo', handicap: null, indice: null, total_rounds: 0 },
-      stats: { avg_score: null, best_score: null, total_birdies: 0, total_eagles: 0, front9_avg: null, back9_avg: null },
+      stats: { avg_score: null, best_score: null, real_avg_18h: null, real_avg_9h: null, rounds_18h: 0, rounds_9h: 0, mental_fatigue_delta: null, total_birdies: 0, total_eagles: 0, front9_avg: null, back9_avg: null },
       recent_rounds: [],
       patterns: [],
     })
