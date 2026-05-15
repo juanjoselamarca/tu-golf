@@ -143,20 +143,24 @@ async function downloadAndStore(
   supabase: ReturnType<typeof createAdminClient>,
   fileId: string,
   chatId: number,
+  fallbackMime: string,
 ): Promise<{ ok: true; path: string } | { ok: false; reason: 'too_large' | 'mime_blocked' | 'error' }> {
   const meta = await getFile(fileId);
   if (meta.fileSize > MAX_FILE_SIZE_BYTES) {
     await sendMessage(chatId, '❌ archivo muy grande (máx 10MB)');
     return { ok: false, reason: 'too_large' };
   }
-  const ext = extFromMime(meta.mimeType);
-  if (!ext || !meta.mimeType) {
+  // Telegram NO retorna mime_type en getFile para fotos (las normaliza a JPEG).
+  // Solo retorna mime para documents/audio. Usamos fallback explícito del caller.
+  const effectiveMime = meta.mimeType ?? fallbackMime;
+  const ext = extFromMime(effectiveMime);
+  if (!ext) {
     await sendMessage(chatId, '❌ tipo de archivo no soportado');
     return { ok: false, reason: 'mime_blocked' };
   }
   const buffer = await downloadFile(meta.filePath);
   const path = storagePathForUpload(ext);
-  const up = await uploadToBucket(supabase, path, buffer, meta.mimeType);
+  const up = await uploadToBucket(supabase, path, buffer, effectiveMime);
   if (!up.ok) {
     log('error', 'inbox upload failed', { error: up.error, path });
     return { ok: false, reason: 'error' };
@@ -337,7 +341,13 @@ async function processNonCommand(
 
   if (msg.photo && msg.photo.length > 0) {
     const largest = msg.photo[msg.photo.length - 1];
-    const result = await downloadAndStore(supabase, largest.file_id, msg.chat.id);
+    // Telegram comprime fotos a JPEG y no expone mime_type en getFile.
+    const result = await downloadAndStore(
+      supabase,
+      largest.file_id,
+      msg.chat.id,
+      'image/jpeg',
+    );
     if (!result.ok) {
       // El sendMessage de error ya se mandó dentro de downloadAndStore.
       // Marcamos status=error con un INSERT mínimo solo si no es álbum.
@@ -351,7 +361,15 @@ async function processNonCommand(
 
   const audioObj = msg.audio ?? msg.voice;
   if (audioObj) {
-    const result = await downloadAndStore(supabase, audioObj.file_id, msg.chat.id);
+    // Voice messages = audio/ogg, audio files = mime del payload o audio/mpeg.
+    const fallback =
+      audioObj.mime_type ?? (msg.voice ? 'audio/ogg' : 'audio/mpeg');
+    const result = await downloadAndStore(
+      supabase,
+      audioObj.file_id,
+      msg.chat.id,
+      fallback,
+    );
     if (!result.ok) {
       await insertOrUpdateReport(supabase, msg, photosPaths, null, 'error');
       return;
