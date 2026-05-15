@@ -128,13 +128,19 @@ export async function buildPlayerContext(
 
   const validRounds = rounds.filter(r => r.total_gross != null)
   const totalRounds = validRounds.length
-  // Separar rondas en buckets de hoyos para evitar mezclar 9h y 18h en
-  // agregados que van al LLM. avgScore/bestScore se computan sobre el
-  // bucket de 18h (o 9h si predomina) — NUNCA mezcla.
+
+  // Modelo híbrido (15-may-2026): normalizar cada ronda a equivalente 18h
+  // usando proyección lineal (alineado con WHS chileno: federación ingresa
+  // rondas 9h × 2 al historial). El avg primario que ve el LLM es sobre
+  // TODAS las rondas en esta escala unificada — coherente con el handicap
+  // que el user ya conoce desde su perfil.
+  //
+  // Mantenemos los avgs reales por bucket (no normalizados) como métricas
+  // secundarias para que el coach pueda calcular `mental_fatigue_delta` y
+  // comentar la diferencia entre lo que el user proyectaría desde sus 9h
+  // y lo que realmente hace en 18h reales (donde sí pega el cansancio).
   const validRounds18 = validRounds.filter(r => inferHoles(r) === 18)
   const validRounds9 = validRounds.filter(r => inferHoles(r) === 9)
-  const bucketAgg = validRounds18.length >= validRounds9.length ? validRounds18 : validRounds9
-  const aggHoles: 9 | 18 | null = bucketAgg.length === 0 ? null : (bucketAgg === validRounds18 ? 18 : 9)
 
   let totalBirdies = 0, totalEagles = 0
   let front9Sum = 0, front9Count = 0
@@ -159,10 +165,40 @@ export async function buildPlayerContext(
     }
   }
 
-  const avgScore = bucketAgg.length > 0
-    ? Math.round(bucketAgg.reduce((a, r) => a + r.total_gross, 0) / bucketAgg.length * 10) / 10
+  // Equivalente 18h por ronda: gross × (18 / holes_played).
+  // Si holes_played es inválido o desconocido para una ronda específica
+  // (no debería pasar tras migration 20260514, pero defensivo), la
+  // skipeamos del cálculo normalizado.
+  const equivScores18: number[] = []
+  for (const r of validRounds) {
+    const holes = inferHoles(r)
+    if (holes === 9 || holes === 18) {
+      equivScores18.push(r.total_gross * (18 / holes))
+    }
+  }
+  const avgScore = equivScores18.length > 0
+    ? Math.round(equivScores18.reduce((a, n) => a + n, 0) / equivScores18.length * 10) / 10
     : null
-  const bestScore = bucketAgg.length > 0 ? Math.min(...bucketAgg.map(r => r.total_gross)) : null
+  const bestScore = equivScores18.length > 0 ? Math.round(Math.min(...equivScores18) * 10) / 10 : null
+
+  // Métricas reales por bucket — NO normalizadas. Sirven para el delta de
+  // cansancio mental y para que el coach pueda hablar de "tu 18h real" o
+  // "tu 9h real" sin recurrir a proyecciones.
+  const realAvg18h = validRounds18.length > 0
+    ? Math.round(validRounds18.reduce((a, r) => a + r.total_gross, 0) / validRounds18.length * 10) / 10
+    : null
+  const realAvg9h = validRounds9.length > 0
+    ? Math.round(validRounds9.reduce((a, r) => a + r.total_gross, 0) / validRounds9.length * 10) / 10
+    : null
+
+  // Delta de cansancio mental: si el jugador proyectara linealmente su 9h
+  // a 18h, debería puntuar (realAvg9h × 2). Lo que realmente hace en 18h
+  // (realAvg18h) menos esa proyección es lo que pierde por cansancio mental
+  // / fatiga / pérdida de foco después del hoyo 9. Solo es estadísticamente
+  // útil con ≥3 rondas en cada bucket; sino, lo dejamos en null.
+  const mentalFatigueDelta = (realAvg18h != null && realAvg9h != null && validRounds18.length >= 3 && validRounds9.length >= 3)
+    ? Math.round((realAvg18h - realAvg9h * 2) * 10) / 10
+    : null
   const front9Avg = front9Count > 0 ? Math.round(front9Sum / front9Count * 9 * 10) / 10 : null
   const back9Avg = back9Count > 0 ? Math.round(back9Sum / back9Count * 9 * 10) / 10 : null
 
@@ -251,6 +287,11 @@ export async function buildPlayerContext(
     stats: {
       avg_score: avgScore,
       best_score: bestScore,
+      real_avg_18h: realAvg18h,
+      real_avg_9h: realAvg9h,
+      rounds_18h: validRounds18.length,
+      rounds_9h: validRounds9.length,
+      mental_fatigue_delta: mentalFatigueDelta,
       total_birdies: totalBirdies,
       total_eagles: totalEagles,
       front9_avg: front9Avg,

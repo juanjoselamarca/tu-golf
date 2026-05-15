@@ -159,8 +159,26 @@ export interface TaigerContext {
     indice_nota?: string | null
   }
   stats: {
+    // Modelo híbrido (15-may-2026):
+    // avg_score y best_score son SIEMPRE en escala "equivalente 18 hoyos":
+    // cada ronda se normaliza con gross × (18/holes_played) y el promedio
+    // se computa sobre todas las rondas. Alineado con WHS chileno (la
+    // federación proyecta 9h linealmente a 18h al ingresar al historial).
     avg_score: number | null
     best_score: number | null
+    // Métricas reales por bucket — NO normalizadas. Le permiten al coach
+    // hablar de 18h o 9h reales y calcular cansancio mental.
+    real_avg_18h: number | null
+    real_avg_9h: number | null
+    rounds_18h: number
+    rounds_9h: number
+    // Cansancio mental cuantificado:
+    //   mental_fatigue_delta = real_avg_18h − (real_avg_9h × 2)
+    // > 0 → el jugador pierde golpes en la segunda mitad (cansancio normal/alto).
+    // = 0 → mismo nivel proyectado vs real (disciplina mental sólida).
+    // < 0 → juega MEJOR en 18h reales que su proyección de 9h.
+    // null cuando no hay ≥3 rondas en cada bucket (no es estadísticamente útil).
+    mental_fatigue_delta: number | null
     total_birdies: number
     total_eagles: number
     front9_avg: number | null
@@ -277,9 +295,49 @@ export function buildContextString(context: TaigerContext): string {
       ).join('\n')
     : 'Sin patrones estadísticos aún (necesita más rondas)'
 
-  const sgText = stats.avg_score && indice
-    ? `Score promedio: ${stats.avg_score.toFixed(1)}\nÍndice actual: ${indice}`
-    : 'Sin suficientes datos estadísticos'
+  // Render del bloque de stats (modelo híbrido 15-may-2026):
+  //
+  // 1. Score primario = avg_score, SIEMPRE en escala equivalente 18 hoyos
+  //    (proyección lineal × 18/holes_played por ronda, alineado con WHS
+  //    chileno). Coincide con cómo la federación ve el handicap del
+  //    jugador, evitando que el user vea un avg "del coach" inconsistente
+  //    con su perfil.
+  //
+  // 2. Detalle por bucket (real_avg_18h / real_avg_9h) se cita solo si hay
+  //    rondas en ambos buckets — info granular para que el LLM la use si
+  //    el user pregunta específico, sin abrumar a quien juega una sola
+  //    modalidad.
+  //
+  // 3. Cansancio mental: si mental_fatigue_delta está computado, lo
+  //    exponemos al LLM con instrucción explícita de cuándo mencionarlo.
+  let sgText: string
+  if (!stats.avg_score || !indice) {
+    sgText = 'Sin suficientes datos estadísticos'
+  } else {
+    const lines: string[] = []
+    lines.push(`Score promedio (equivalente 18 hoyos): ${stats.avg_score.toFixed(1)}`)
+    lines.push(`Mejor vuelta (equivalente 18 hoyos): ${stats.best_score?.toFixed(1) ?? 'Sin datos'}`)
+    lines.push(`Índice actual: ${indice}`)
+    if (stats.rounds_18h > 0 && stats.rounds_9h > 0) {
+      lines.push(
+        `Detalle real por bucket — usar solo si el user pregunta específico:` +
+        ` 18h real ${stats.real_avg_18h?.toFixed(1) ?? '—'} (${stats.rounds_18h} rondas),` +
+        ` 9h real ${stats.real_avg_9h?.toFixed(1) ?? '—'} (${stats.rounds_9h} rondas).`,
+      )
+    }
+    if (stats.mental_fatigue_delta != null) {
+      const fd = stats.mental_fatigue_delta
+      const interpretation = fd > 3
+        ? `cansancio mental ALTO (+${fd.toFixed(1)} strokes que se pierden por fatiga después del hoyo 9). Insight relevante — comentarlo si la conversación lo amerita.`
+        : fd > 1
+          ? `cansancio mental NORMAL (+${fd.toFixed(1)} strokes). No es señal, no lo menciones espontáneamente.`
+          : fd < -1
+            ? `juega ${Math.abs(fd).toFixed(1)} strokes MEJOR en 18h reales que la proyección lineal de su 9h — calentamiento lento o foco creciente. Comentar si pertinente.`
+            : `cansancio mental NULO (${fd.toFixed(1)}). Disciplina mental sólida — felicitar si el user pregunta sobre su segunda vuelta.`
+      lines.push(`Cansancio mental: ${interpretation}`)
+    }
+    sgText = lines.join('\n')
+  }
 
   // Build session history section
   const sessionsText = (recent_sessions ?? []).length > 0
@@ -323,7 +381,6 @@ Tendencia actual: ${trend}
 
 === ESTADÍSTICAS ===
 ${sgText}
-Mejor vuelta: ${stats.best_score ?? 'Sin datos'}
 Promedio Front 9: ${stats.front9_avg?.toFixed(1) ?? 'Sin datos'}
 Promedio Back 9: ${stats.back9_avg?.toFixed(1) ?? 'Sin datos'}
 Total birdies: ${stats.total_birdies ?? 0}
