@@ -14,6 +14,7 @@ const importRoundSchema = z.object({
   notes: z.string().max(1000).optional(),
   privacy: z.enum(['public', 'private']).optional(),
   source: z.enum(['manual', 'ronda_libre', 'photo_scan', 'garmin', 'csv', 'import']).optional(),
+  parPerHole: z.record(z.string(), z.number().int().min(3).max(6)).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
       notes,
       privacy,
       source,
+      parPerHole,
       metadata,
     } = parsed.data
 
@@ -59,6 +61,7 @@ export async function POST(request: Request) {
       notes: notes || null,
       privacy: privacy || 'private',
       source: source || 'manual',
+      parPerHole: parPerHole ?? null,
       metadata: metadata || undefined,
     })
 

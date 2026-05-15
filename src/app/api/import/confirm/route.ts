@@ -4,6 +4,7 @@ import { calcularCPI } from '@/golf/stats/cpi'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportRoundData } from '@/lib/import-types'
+import { importRound, type ImportSource } from '@/lib/import-round'
 export const dynamic = 'force-dynamic'
 
 // ── Generate tAIger+ insights (async, non-blocking) ──────────
@@ -130,7 +131,8 @@ export async function POST(request: NextRequest) {
       )
     )
 
-    // Step 2: Prepare batch — filter out duplicates and build insert rows
+    // Step 2: Preparar filas — filtrar duplicados, separar Garmin de no-Garmin
+
     interface InsertRow {
       user_id: string
       course_name: string
@@ -146,15 +148,13 @@ export async function POST(request: NextRequest) {
       course_rating?: number | null
       slope_rating?: number | null
       diferencial?: number | null
+      par_per_hole?: Record<string, number> | null
       formato_juego?: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
       modo_juego?: 'gross' | 'neto'
     }
 
-    const rowsToInsert: InsertRow[] = []
-    const garminUpsertRows: InsertRow[] = [] // Garmin rounds that already exist — UPDATE
+    const garminUpsertRows: InsertRow[] = [] // Garmin rounds que ya existen — UPDATE
     const garminUpsertTempIds: string[] = []
-
-    const tempIdMap: string[] = [] // parallel array to track tempIds
 
     for (const round of validRounds) {
       // Build scores array
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       const garminId = round.metadata?.garmin_scorecard_id
       const importSource = round.metadata?.import_source || 'photo_scan'
 
-      // For Garmin rounds marked as duplicates, update instead of skip
+      // Path Garmin — duplicado existente: hacer UPDATE en lugar de skip
       if (garminId && round.metadata?.is_duplicate) {
         garminUpsertRows.push({
           user_id: user.id,
@@ -192,6 +192,7 @@ export async function POST(request: NextRequest) {
           diferencial: (round.course_rating != null && round.slope_rating != null)
             ? calcularDiferencial(round.total_gross, round.course_rating, round.slope_rating)
             : null,
+          par_per_hole: round.par_per_hole ?? null,
           formato_juego: round.formato_juego ?? 'stroke_play',
           modo_juego: round.modo_juego ?? 'gross',
         })
@@ -199,7 +200,7 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Standard duplicate check (non-Garmin)
+      // Detección de duplicados estándar (no-Garmin)
       if (!garminId) {
         const dupeKey = `${round.course_name}|${round.played_at.split('T')[0]}|${round.total_gross}`
         if (existingSet.has(dupeKey)) {
@@ -208,58 +209,34 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const row: InsertRow = {
-        user_id: user.id,
-        course_name: round.course_name,
-        played_at: round.played_at,
+      // Path no-Garmin: delegar a importRound() para resolución de cancha + par_per_hole
+      // Trade-off: N inserts secuenciales en lugar de 1 batch. Aceptable para
+      // tamaño típico de batches (1-10 rondas). El path Garmin sigue siendo batch.
+      const importResult = await importRound(supabase, {
+        userId: user.id,
+        courseName: round.course_name,
+        parPerHole: round.par_per_hole ?? null,
         scores: scoresArray,
-        total_gross: round.total_gross,
-        holes_played: round.holes_played || scoresArray.length,
-        import_confidence: round.import_confidence ?? 0.5,
-        import_source: importSource,
+        playedAt: round.played_at,
+        source: importSource as ImportSource,
+        totalGross: round.total_gross,
         privacy: 'private',
-        formato_juego: round.formato_juego ?? 'stroke_play',
-        modo_juego: round.modo_juego ?? 'gross',
-      }
+        metadata: round.metadata as Record<string, unknown> ?? {},
+        formatoJuego: round.formato_juego ?? 'stroke_play',
+        modoJuego: round.modo_juego ?? 'gross',
+        holesPlayed: round.holes_played || scoresArray.length,
+        importConfidence: round.import_confidence ?? 0.5,
+      })
 
-      // Always include metadata if present (photo rounds: reconstruction_method, ambiguous_holes, etc.)
-      if (round.metadata) {
-        row.metadata = round.metadata as Record<string, unknown>
-      }
-
-      // Course rating/slope + diferencial for all rounds that have them
-      if (round.course_rating != null) row.course_rating = round.course_rating
-      if (round.slope_rating != null) row.slope_rating = round.slope_rating
-      if (round.course_rating != null && round.slope_rating != null) {
-        row.diferencial = calcularDiferencial(round.total_gross, round.course_rating, round.slope_rating)
-      }
-
-      // Garmin-specific fields
-      if (garminId) {
-        row.garmin_scorecard_id = garminId
-      }
-
-      rowsToInsert.push(row)
-      tempIdMap.push(round.tempId)
-    }
-
-    // Step 3a: Single batch insert for new rounds
-    if (rowsToInsert.length > 0) {
-      const { data: inserted, error: batchError } = await supabase
-        .from('historical_rounds')
-        .insert(rowsToInsert)
-        .select('id')
-
-      if (batchError) {
-        // If batch fails, report all as errors
-        tempIdMap.forEach(tid => insertErrors.push({ tempId: tid, error: batchError.message }))
-      } else if (inserted) {
-        inserted.forEach(row => insertedIds.push(row.id))
+      if (!importResult.success) {
+        insertErrors.push({ tempId: round.tempId, error: importResult.warnings.join('; ') })
+      } else if (importResult.roundId) {
+        insertedIds.push(importResult.roundId)
       }
     }
 
     // Step 3b: Update existing Garmin rounds (upsert by garmin_scorecard_id) — parallelized
-    const upsertResults = await Promise.all(
+    await Promise.all(
       garminUpsertRows.map((row, i) =>
         supabase
           .from('historical_rounds')
@@ -274,6 +251,7 @@ export async function POST(request: NextRequest) {
             metadata: row.metadata,
             course_rating: row.course_rating,
             slope_rating: row.slope_rating,
+            par_per_hole: row.par_per_hole ?? null,
           })
           .eq('user_id', user.id)
           .eq('garmin_scorecard_id', row.garmin_scorecard_id!)

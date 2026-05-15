@@ -48,6 +48,7 @@ export default defineConfig({
         'organizar-campeonato-formato-cambia.spec.ts',
         'organizar-campeonato-live.spec.ts',
         'organizar-campeonato-modal-duplicar.spec.ts',
+        'import-photo-scan.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],

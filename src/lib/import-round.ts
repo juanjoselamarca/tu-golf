@@ -4,6 +4,7 @@
  * Usado por: importación manual, ronda libre finalizada, futuro photo scan, Garmin.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveCourse } from '@/lib/resolve-course'
 
 export type ImportSource = 'manual' | 'ronda_libre' | 'photo_scan' | 'garmin' | 'csv' | 'import'
 
@@ -12,6 +13,7 @@ export interface ImportRoundInput {
   courseName: string
   courseId?: string | null
   teeColor?: string | null
+  parPerHole?: Record<string, number> | null
   playedAt: string               // YYYY-MM-DD
   scores: number[]               // array de 9 o 18 scores (gross)
   totalGross?: number | null     // si no se pasa, se calcula de scores
@@ -25,6 +27,11 @@ export interface ImportRoundInput {
     penalties?: number[]         // penalties por hoyo
     [key: string]: unknown
   }
+  // Campos opcionales para importación vía confirm/route (anteriormente hardcoded)
+  formatoJuego?: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome' | string
+  modoJuego?: 'gross' | 'neto' | string
+  holesPlayed?: number
+  importConfidence?: number
 }
 
 export interface ImportRoundResult {
@@ -76,29 +83,29 @@ export async function importRound(
     warnings.push(`Total gross (${input.totalGross}) no coincide con suma de scores (${sumScores})`)
   }
 
-  // ── Vincular course_id ────────────────────────────────────
+  // ── Resolver course (vincular + opcionalmente crear/enriquecer) ──
   let courseId = input.courseId || null
   if (!courseId && input.courseName) {
-    const { data: match } = await supabase
-      .from('courses')
-      .select('id')
-      .eq('nombre', input.courseName)
-      .limit(1)
+    const resolveResult = await resolveCourse({
+      supabase,
+      courseName: input.courseName,
+      parPerHole: input.parPerHole ?? null,
+    })
+    courseId = resolveResult.courseId
+    warnings.push(...resolveResult.warnings)
+  }
 
-    if (match && match.length > 0) {
-      courseId = match[0].id
-    } else {
-      // Try partial match
-      const { data: partial } = await supabase
-        .from('courses')
-        .select('id, nombre')
-        .ilike('nombre', `%${input.courseName.split(' ').slice(-2).join(' ')}%`)
-        .limit(1)
-
-      if (partial && partial.length > 0) {
-        courseId = partial[0].id
-        warnings.push(`Cancha vinculada por coincidencia parcial: ${(partial[0] as { nombre: string }).nombre}`)
-      }
+  // ── Determinar par_per_hole final ──
+  // Prioridad: 1) input.parPerHole (OCR) → 2) course_holes lookup → 3) null
+  let finalParPerHole: Record<string, number> | null = input.parPerHole ?? null
+  if (!finalParPerHole && courseId) {
+    const { data: holes } = await supabase
+      .from('course_holes')
+      .select('numero, par')
+      .eq('course_id', courseId)
+      .order('numero')
+    if (holes && holes.length > 0) {
+      finalParPerHole = Object.fromEntries(holes.map(h => [String(h.numero), h.par]))
     }
   }
 
@@ -157,6 +164,7 @@ export async function importRound(
       course_name: input.courseName,
       course_id: courseId,
       tee_color: input.teeColor || null,
+      par_per_hole: finalParPerHole,
       played_at: input.playedAt,
       scores: input.scores,
       total_gross: totalGross,
@@ -166,8 +174,10 @@ export async function importRound(
       privacy: input.privacy || 'private',
       source: input.source,
       metadata: input.metadata || {},
-      formato_juego: 'stroke_play',
-      modo_juego: 'gross',
+      formato_juego: (input.formatoJuego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') ?? 'stroke_play',
+      modo_juego: (input.modoJuego as 'gross' | 'neto') ?? 'gross',
+      holes_played: input.holesPlayed ?? input.scores.length,
+      import_confidence: input.importConfidence ?? null,
     })
     .select('id')
     .single()

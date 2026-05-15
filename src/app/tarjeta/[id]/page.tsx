@@ -31,7 +31,7 @@ interface RoundData {
 
 interface CourseHole {
   numero: number
-  par: number
+  par: number | null
   stroke_index: number
 }
 
@@ -139,7 +139,7 @@ export default function TarjetaPublicaPage() {
   const totalHoles = round.holes_played ?? 18
   const scorecardHoles: ScorecardHole[] = courseHoles.length > 0
     ? courseHoles.slice(0, totalHoles)
-    : Array.from({ length: totalHoles }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
+    : Array.from({ length: totalHoles }, (_, i) => ({ numero: i + 1, par: null, stroke_index: i + 1 }))
 
   const scoresRecord: Record<string, number> = {}
   if (round.scores) {

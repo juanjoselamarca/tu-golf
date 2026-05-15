@@ -26,7 +26,7 @@ interface HistoricalRound {
 
 interface CourseHole {
   numero: number
-  par: number
+  par: number | null
   stroke_index: number | null
 }
 
@@ -173,7 +173,7 @@ export default function HistorialDetallePage() {
 
   const scorecardHoles: ScorecardHole[] = Array.from({ length: totalHoles }, (_, i) => ({
     numero: i + 1,
-    par: courseHoleMap[i + 1]?.par ?? 4,
+    par: courseHoleMap[i + 1]?.par ?? null,
     stroke_index: courseHoleMap[i + 1]?.stroke_index ?? (i + 1),
   }))
 
