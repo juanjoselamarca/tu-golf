@@ -84,16 +84,28 @@ async function processRow(row) {
   let parPerHole = row.par_per_hole || metaPars || null
   const isPathA = !!metaPars && !row.par_per_hole
 
-  const { data: rpcResult, error: rpcError } = await supabase.rpc('resolve_and_link_course', {
-    p_course_name: row.course_name,
-    p_par_per_hole: parPerHole,
-    p_similarity_threshold: 0.8,
-  })
+  // Respetar el course_id existente si ya está resuelto.
+  // Solo invocar el RPC cuando el course_id falta (matchear o crear).
+  let resolvedCourseId = row.course_id || null
+  let course_created = false
+  let holes_populated = false
 
-  if (rpcError) throw new Error(`RPC: ${rpcError.message}`)
+  if (!resolvedCourseId) {
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('resolve_and_link_course', {
+      p_course_name: row.course_name,
+      p_par_per_hole: parPerHole,
+      p_similarity_threshold: 0.8,
+    })
 
-  const { course_id: resolvedCourseId, course_created, holes_populated } = rpcResult || {}
+    if (rpcError) throw new Error(`RPC: ${rpcError.message}`)
 
+    const out = rpcResult || {}
+    resolvedCourseId = out.course_id || null
+    course_created = !!out.course_created
+    holes_populated = !!out.holes_populated
+  }
+
+  // Con course_id (existente o recién resuelto), leer pares si faltan.
   if (!parPerHole && resolvedCourseId) {
     const { data: holes } = await supabase
       .from('course_holes')
