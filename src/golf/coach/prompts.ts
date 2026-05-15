@@ -147,8 +147,21 @@ export interface TaigerContext {
     indice_nota?: string | null
   }
   stats: {
+    // avg_score/best_score se mantienen para compatibilidad: siempre apuntan
+    // al bucket DOMINANTE (mayor count). agg_holes indica si es 18 o 9.
     avg_score: number | null
     best_score: number | null
+    agg_holes: 9 | 18 | null
+    agg_rounds_count: number
+    // Bucket secundario — null cuando el user solo juega una modalidad.
+    // Cuando ambos buckets tienen rondas, exponemos ambos al LLM para que
+    // pueda citarlos sin mezclar (bug pre-15-may: el LLM decía
+    // "promedio 88 sobre 10 rondas" pero matemáticamente era sobre 5 del
+    // bucket dominante, ignorando 5 del otro).
+    avg_score_secondary: number | null
+    best_score_secondary: number | null
+    secondary_holes: 9 | 18 | null
+    secondary_rounds_count: number
     total_birdies: number
     total_eagles: number
     front9_avg: number | null
@@ -265,9 +278,30 @@ export function buildContextString(context: TaigerContext): string {
       ).join('\n')
     : 'Sin patrones estadísticos aún (necesita más rondas)'
 
-  const sgText = stats.avg_score && indice
-    ? `Score promedio: ${stats.avg_score.toFixed(1)}\nÍndice actual: ${indice}`
-    : 'Sin suficientes datos estadísticos'
+  // Render de stats:
+  // - Solo-bucket (todas las rondas son 9h o todas 18h): "Score promedio: X (Nh)"
+  // - Mixed: ambos buckets renderizados explícitamente — el LLM nunca debe
+  //   mezclar avg de 18h con avg de 9h. Bug pre-15-may: solo se exponía el
+  //   bucket dominante pero total_rounds contaba ambos, lo que llevaba al LLM
+  //   a citar "avg X sobre N rondas" cuando N era la suma de ambos buckets.
+  const isMixed = stats.secondary_rounds_count > 0 && stats.avg_score_secondary != null
+  let sgText: string
+  if (!stats.avg_score || !indice) {
+    sgText = 'Sin suficientes datos estadísticos'
+  } else if (isMixed) {
+    const primaryLabel = stats.agg_holes === 18 ? '18 hoyos' : '9 hoyos'
+    const secondaryLabel = stats.secondary_holes === 18 ? '18 hoyos' : '9 hoyos'
+    sgText =
+      `Score promedio (${primaryLabel}, ${stats.agg_rounds_count} rondas): ${stats.avg_score.toFixed(1)}\n` +
+      `Score promedio (${secondaryLabel}, ${stats.secondary_rounds_count} rondas): ${(stats.avg_score_secondary as number).toFixed(1)}\n` +
+      `Índice actual: ${indice}\n` +
+      `⚠️ El jugador tiene rondas de ambas modalidades — NUNCA mezcles los promedios. Si te pregunta "mi promedio" sin especificar, cita ambos.`
+  } else {
+    const label = stats.agg_holes === 18 ? '18 hoyos' : stats.agg_holes === 9 ? '9 hoyos' : ''
+    sgText =
+      `Score promedio${label ? ` (${label}, ${stats.agg_rounds_count} rondas)` : ''}: ${stats.avg_score.toFixed(1)}\n` +
+      `Índice actual: ${indice}`
+  }
 
   // Build session history section
   const sessionsText = (recent_sessions ?? []).length > 0
@@ -311,7 +345,11 @@ Tendencia actual: ${trend}
 
 === ESTADÍSTICAS ===
 ${sgText}
-Mejor vuelta: ${stats.best_score ?? 'Sin datos'}
+Mejor vuelta: ${stats.best_score != null && stats.agg_holes ? `${stats.best_score} (${stats.agg_holes}h)` : stats.best_score ?? 'Sin datos'}${
+  stats.best_score_secondary != null && stats.secondary_holes
+    ? ` / Mejor en ${stats.secondary_holes}h: ${stats.best_score_secondary}`
+    : ''
+}
 Promedio Front 9: ${stats.front9_avg?.toFixed(1) ?? 'Sin datos'}
 Promedio Back 9: ${stats.back9_avg?.toFixed(1) ?? 'Sin datos'}
 Total birdies: ${stats.total_birdies ?? 0}

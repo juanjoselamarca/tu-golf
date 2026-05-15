@@ -134,7 +134,9 @@ export async function buildPlayerContext(
   const validRounds18 = validRounds.filter(r => inferHoles(r) === 18)
   const validRounds9 = validRounds.filter(r => inferHoles(r) === 9)
   const bucketAgg = validRounds18.length >= validRounds9.length ? validRounds18 : validRounds9
+  const bucketSecondary = bucketAgg === validRounds18 ? validRounds9 : validRounds18
   const aggHoles: 9 | 18 | null = bucketAgg.length === 0 ? null : (bucketAgg === validRounds18 ? 18 : 9)
+  const secondaryHoles: 9 | 18 | null = bucketSecondary.length === 0 ? null : (bucketSecondary === validRounds18 ? 18 : 9)
 
   let totalBirdies = 0, totalEagles = 0
   let front9Sum = 0, front9Count = 0
@@ -163,6 +165,10 @@ export async function buildPlayerContext(
     ? Math.round(bucketAgg.reduce((a, r) => a + r.total_gross, 0) / bucketAgg.length * 10) / 10
     : null
   const bestScore = bucketAgg.length > 0 ? Math.min(...bucketAgg.map(r => r.total_gross)) : null
+  const avgScoreSecondary = bucketSecondary.length > 0
+    ? Math.round(bucketSecondary.reduce((a, r) => a + r.total_gross, 0) / bucketSecondary.length * 10) / 10
+    : null
+  const bestScoreSecondary = bucketSecondary.length > 0 ? Math.min(...bucketSecondary.map(r => r.total_gross)) : null
   const front9Avg = front9Count > 0 ? Math.round(front9Sum / front9Count * 9 * 10) / 10 : null
   const back9Avg = back9Count > 0 ? Math.round(back9Sum / back9Count * 9 * 10) / 10 : null
 
@@ -251,6 +257,12 @@ export async function buildPlayerContext(
     stats: {
       avg_score: avgScore,
       best_score: bestScore,
+      agg_holes: aggHoles,
+      agg_rounds_count: bucketAgg.length,
+      avg_score_secondary: avgScoreSecondary,
+      best_score_secondary: bestScoreSecondary,
+      secondary_holes: secondaryHoles,
+      secondary_rounds_count: bucketSecondary.length,
       total_birdies: totalBirdies,
       total_eagles: totalEagles,
       front9_avg: front9Avg,
