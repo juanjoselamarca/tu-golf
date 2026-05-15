@@ -380,6 +380,46 @@ describe('POST /api/inbox/webhook', () => {
     expect(errorCalls.length).toBeGreaterThan(0);
   });
 
+  it('9. foto SIN mime_type (caso real de Telegram getFile) → usa fallback image/jpeg y SÍ inserta', async () => {
+    // REGRESSION: Telegram getFile NO retorna mime_type para fotos (las normaliza
+    // a JPEG implícitamente). El primer deploy produjo "❌ tipo de archivo no
+    // soportado" porque el código rechazaba si mime_type era null. Fix: usar
+    // fallback 'image/jpeg' explícito para msg.photo[].
+    getFileSpy.mockResolvedValue({
+      filePath: 'photos/file_42.jpg',
+      fileSize: 800_000,
+      mimeType: null, // ← exactamente lo que devuelve Telegram para fotos
+    });
+    downloadFileSpy.mockResolvedValue(new ArrayBuffer(800_000));
+
+    const req = buildRequest({
+      update_id: 9,
+      message: {
+        message_id: 90,
+        date: nowUnix(),
+        chat: { id: ALLOWED_CHAT },
+        from: { id: ALLOWED_CHAT },
+        photo: [{ file_id: 'small' }, { file_id: 'large' }],
+        caption: 'bug del scorer',
+      },
+    });
+    const resp = await POST(req as unknown as Parameters<typeof POST>[0]);
+    expect(resp.status).toBe(200);
+    const successInserts = captured.inserts.filter(
+      (i) => (i as { status: string }).status === 'nuevo',
+    );
+    expect(successInserts).toHaveLength(1);
+    const inserted = successInserts[0] as { fotos_paths: string[]; caption: string };
+    expect(inserted.fotos_paths).toHaveLength(1);
+    expect(inserted.fotos_paths[0]).toMatch(/^reports\/\d{4}\/\d{2}\/[a-f0-9-]+\.jpg$/);
+    expect(inserted.caption).toBe('bug del scorer');
+    expect(captured.uploads).toHaveLength(1);
+    expect(captured.uploads[0].contentType).toBe('image/jpeg');
+    expect(captured.uploads[0].bucket).toBe('inbox-photos');
+    const okMsg = sendMessageSpy.mock.calls.find((c) => String(c[1]).includes('✓ recibido'));
+    expect(okMsg).toBeDefined();
+  });
+
   it('8. media_group_id con row reciente → UPDATE merge, no INSERT', async () => {
     // El select de findRecentMediaGroup devuelve una row existente:
     captured.selectMaybeSingleReturn = {
