@@ -250,6 +250,7 @@ async function seed() {
         total_gross: gross,
         total_neto: Math.max(gross - p.indice, 60),
         scores,
+        holes_played: 18,
         privacy: 'private',
       })
       if (!error) { ok++; process.stdout.write('.') }

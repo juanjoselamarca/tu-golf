@@ -88,6 +88,7 @@ async function seedCarlos() {
       total_gross: gross,
       total_neto: gross - 2,
       scores,
+      holes_played: 18,
       privacy: 'private',
     })
 

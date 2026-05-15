@@ -211,6 +211,10 @@ export async function finalizeRound(
         const diferencial = (slopeRating && courseRating)
           ? calcularDiferencial(round.total_gross, courseRating, slopeRating) : null
 
+        // holes_played es NOT NULL — contamos hoyos con score real (torneos
+        // de 9 hoyos también pasan por este path).
+        const tournamentHolesPlayed = scoresArray.filter((s) => s != null).length || 18
+
         await svc.from('historical_rounds').insert({
           user_id: player.user_id,
           course_name: tourney.courses?.nombre ?? 'Torneo',
@@ -218,6 +222,7 @@ export async function finalizeRound(
           played_at: new Date().toISOString().split('T')[0],
           total_gross: round.total_gross,
           scores: scoresArray,
+          holes_played: tournamentHolesPlayed,
           privacy: 'private',
           slope_rating: slopeRating,
           course_rating: courseRating,
