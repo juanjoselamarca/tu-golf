@@ -78,6 +78,11 @@ function formatDate(d: string) {
 
 const M = 'var(--font-dm-mono), monospace'
 const REFRESH_MS = 30000
+// Widget brand-locked: vive dentro de HeroSection con fondo dark forzado en
+// AMBOS temas (ver globals.css "HeroSection ya forza fondo dark"). NO usar
+// var(--text) para texto del widget — en light mode resuelve a dark y queda
+// invisible sobre el navy. Reporte inbox c0f1bd6f (15-may-2026).
+const PLAYER_NAME_COLOR = '#edeae4'
 
 export default function PGALiveWidget() {
   const [data, setData] = useState<PGAData | null>(null)
@@ -296,7 +301,7 @@ export default function PGALiveWidget() {
               ))}
               <span style={{
                 fontSize: '13px', fontWeight: isLeader || isLatam ? 600 : 400,
-                color: isLatam ? '#f3d37a' : 'var(--text)',
+                color: isLatam ? '#f3d37a' : PLAYER_NAME_COLOR,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>{p.name}</span>
               {isLatam && (
