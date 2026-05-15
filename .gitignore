@@ -71,6 +71,8 @@ reports/
 # Claude Code internal state
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+.claude/inbox-cache/
+.claude/inbox-pending.json
 
 # Coach visual review artifacts (worktree-local)
 screenshots-coach-visual/

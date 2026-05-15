@@ -211,6 +211,48 @@ const { data, error } = await supabase
   ```
   Retorna `setWebhook` y `getWebhookInfo` de Telegram.
 
+## Consumer local (Agente 5B)
+
+Slash command `/inbox` + hook `SessionStart` permiten procesamiento autónomo de los reportes desde Claude Code local.
+
+### Componentes
+
+- `scripts/inbox-bootstrap.mjs` — hook que avisa pendientes al inicio de sesión (cache 5 min + timeout 2s).
+- `scripts/inbox-triage.mjs` — clasificación con Haiku 4.5 (multimodal). Tipos: `tecnico-trivial`, `tecnico-complejo`, `visual`, `producto`, `ambiguo`.
+- `scripts/inbox-download.mjs` — descarga de fotos via signed URL del bucket privado (TTL 1h).
+- `.claude/commands/inbox.md` — prompt operativo del slash command con checklist obligatoria de 11 pasos.
+
+### Pipeline técnico (por reporte)
+
+worktree → diagnóstico → fix → tsc → build → lint → vitest → graphify → commit → push → PR → `merge --squash --admin` → deploy → **smoke post-deploy** → UPDATE BD `status='resuelto'` + `rama_fix` + `enlace_auditoria`.
+
+Si smoke post-deploy falla → `git revert <merge-sha>` automático + `status='error'`.
+
+### Pipeline visual (por reporte)
+
+`DESIGN.md` check → `docs/design-benchmarks/<categoria>/` consultados → `design-shotgun` (3-4 variantes) → evaluación objetiva (5 criterios) → si ganador único: `frontend-design` implementa, `design-review` auto, decision log en `docs/design-decisions/`. Si empate: `AskUserQuestion` con preview de 2 finalistas (único click del user en pipeline visual).
+
+### Cuándo pregunta al user
+
+- Clasificación con confidence < 0.85 → pregunta puntual sobre ese reporte.
+- >5 técnicos o >2 visuales en una corrida → pregunta cuáles priorizar.
+- Empate visual sin ganador objetivo → 2 variantes con preview, 1 click.
+- Decisión de producto pura → pregunta o queda en `status='triaged'` para próxima sesión.
+
+### Cap de costos
+
+Triage Haiku 4.5: ~$0.001 por reporte. Fix con Opus 4.7: ~$1-7. Cap 5 fixes/corrida. Estimación realista: ~$15-25 USD/día.
+
+### Idempotencia
+
+Al arrancar fix de un reporte, `UPDATE status='en_progreso'`. Si Claude crashea a mitad, próxima invocación skip los `en_progreso` (o los retoma con `/inbox --resume`). Sub-comando `/inbox reopen <uuid>` para recuperar reportes cerrados por error.
+
+### Bootstrap silencioso
+
+Si inbox vacío al inicio de sesión, el hook no emite nada. Cero ruido en el 95% de sesiones que no tienen pendientes. Si timeout o error → `(inbox check timed out)` y exit 0, nunca bloquea la sesión.
+
+---
+
 ## Hallazgos colaterales
 
 (Sin hallazgos preexistentes durante este trabajo. Si surgen en futuras
