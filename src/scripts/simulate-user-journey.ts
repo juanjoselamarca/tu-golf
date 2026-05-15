@@ -328,6 +328,7 @@ async function simulate() {
         total_gross: grossTotal,
         total_neto: grossTotal - (profile.indice ?? 15),
         scores: scoresArray,
+        holes_played: scoresArray.length || 18,
         privacy: 'private',
       })
 

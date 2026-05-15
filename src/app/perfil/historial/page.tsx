@@ -363,11 +363,17 @@ function HistorialContent() {
       ? calcularDiferencial(totalGross, courseRating, slopeRating)
       : null
 
+    // holes_played es ahora NOT NULL — contamos los hoyos con score real.
+    // Si el form quedara vacío (caso defensivo, el botón debería estar bloqueado),
+    // caemos a 18 que es el default histórico.
+    const holesPlayed = scores.filter((s) => s != null).length || 18
+
     const { error } = await supabase.from('historical_rounds').insert({
       user_id: userId, course_name: courseName,
       course_id: courseId,
       tee_color: teeColor || null, played_at: playedAt,
       scores, total_gross: totalGross,
+      holes_played: holesPlayed,
       notes: notes || null, privacy,
       slope_rating: slopeRating,
       course_rating: courseRating,
