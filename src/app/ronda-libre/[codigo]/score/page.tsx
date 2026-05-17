@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 // trackEvent moved to useFinalizeRonda hook
 import { Flame } from '@/components/icons'
-import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getYardajeForTee } from '@/types/ronda'
@@ -394,25 +393,19 @@ function ScorePageContent() {
     currentHoleIdx,
   })
   const {
-    modoJuego, formatoJuego, modoLabel, showNet, showStableford,
-    par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
-    totalGross, totalParPlayed, totalOverUnder, holesPlayed,
-    f9Gross, f9Par, f9Count, b9Gross, b9Par, b9Count,
-    totalNet, totalStableford, totalNetOverUnder,
-    currentNetScore, currentNetDiff, currentStablefordPts,
-    displayOverUnder, displayTotal,
-    missingCount, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning,
-    isLastHole,
+    mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford },
+    current: {
+      par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
+      currentNetScore, currentNetDiff, currentStablefordPts,
+      isLastHole,
+    },
+    totals: { totalGross, totalParPlayed, totalOverUnder, holesPlayed },
+    nines: { f9Gross, f9Par, f9Count, b9Gross, b9Par, b9Count },
+    neto: { totalNet, totalStableford, totalNetOverUnder },
+    flags: { missingCount, canFinalize, isAboveDoubleBogey, showStrokeIndexWarning },
+    display: { displayOverUnder, displayTotal },
+    strokeAdvantageOn,
   } = calc
-
-  // Helper local: ventaja de strokes en un hoyo arbitrario (no es hook).
-  const hasStrokeAdvantage = (si: number): boolean => {
-    const jug = ronda?.ronda_libre_jugadores ?? []
-    if (modoJuego === 'gross' || jug.length !== 2) return strokesRecibidosEnHoyo(hcpForPlayer, si) > 0
-    const rivalId = jug.find(j => j.id !== activeJugadorId)?.id
-    const rivalHcp = rivalId ? (playerHcp[rivalId] ?? 0) : 0
-    return strokesRecibidosEnHoyo(hcpForPlayer, si) > strokesRecibidosEnHoyo(rivalHcp, si)
-  }
 
   /* ── Render ── */
   if (adminRedirectMsg) return (
@@ -551,7 +544,7 @@ function ScorePageContent() {
         currentHole={currentHole}
         setCurrentHole={setCurrentHole}
         modoJuego={modoJuego}
-        hasStrokeAdvantage={hasStrokeAdvantage}
+        hasStrokeAdvantage={strokeAdvantageOn}
         totalGross={totalGross}
         totalNet={totalNet}
         showNet={showNet}
@@ -637,7 +630,7 @@ function ScorePageContent() {
                 fontVariantNumeric: 'tabular-nums',
               }}
             >{score ?? par}</div>
-            {ronda?.modo_juego !== 'gross' && strokeAdvantageOnHole && (
+            {modoJuego !== 'gross' && strokeAdvantageOnHole && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '3px',
                 alignSelf: 'flex-start', marginTop: '12px',
@@ -826,8 +819,8 @@ function ScorePageContent() {
             parMap={parMap}
             currentUserId={ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.user_id ?? null}
             totalHoles={ronda.holes}
-            modoJuego={ronda.modo_juego ?? 'gross'}
-            formatoJuego={ronda.formato_juego ?? 'stroke_play'}
+            modoJuego={modoJuego}
+            formatoJuego={formatoJuego}
             hcpMap={playerHcp}
             siMap={Object.fromEntries(Object.entries(holeDataMap).map(([k, v]) => [k, v.stroke_index]))}
           />
@@ -838,7 +831,7 @@ function ScorePageContent() {
                 jugadores={gwiInputs}
                 hoyosRestantes={ronda.holes - Math.max(...gwiInputs.map(j => j.hoyosCompletados), 0)}
                 totalHoyos={ronda.holes}
-                modoJuego={ronda.modo_juego || 'gross'}
+                modoJuego={modoJuego}
               />
             </div>
           )}

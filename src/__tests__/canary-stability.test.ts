@@ -227,29 +227,40 @@ describe('Canario: Scorer ronda-libre — sin use-before-declaration en TDZ', ()
   //
   // Fix estructural (13-may-2026, Task 3 scorer-refactor): los cálculos derivados
   // se extrajeron a useScoreboardCalc. modoJuego/formatoJuego se declaran al TOP
-  // del hook, antes de hasStrokeAdvantage, garantizado por esta suite.
+  // del hook, antes de la closure, garantizado por esta suite.
   // El canario ahora verifica el HOOK (fuente de verdad) en vez de page.tsx.
+  //
+  // Cleanup 17-may-2026 (Nit 8): patrones tightened para sobrevivir refactors
+  // — aceptan `const`/`let`/`var`, type annotations (`: ModoJuego`), y los dos
+  // nombres del callback (`hasStrokeAdvantage` legacy, `strokeAdvantageOn` actual).
   const HOOK = 'app/ronda-libre/[codigo]/score/hooks/useScoreboardCalc.ts'
 
-  it('const modoJuego está declarado ANTES de hasStrokeAdvantage en el hook', () => {
+  // `const modoJuego = ...`, `let modoJuego = ...`, `const modoJuego: ModoJuego = ...`.
+  const MODO_DECL_RE = /\b(?:const|let|var)\s+modoJuego\b\s*(?::[^=]+)?=/
+  const FORMATO_DECL_RE = /\b(?:const|let|var)\s+formatoJuego\b\s*(?::[^=]+)?=/
+  // Acepta ambos nombres históricos del callback. Si futuros refactors renombran
+  // de nuevo, agregar el alias acá — no aflojar el patrón.
+  const CLOSURE_RE = /\b(?:const|let|var)\s+(?:hasStrokeAdvantage|strokeAdvantageOn)\b\s*(?::[^=]+)?=/
+
+  it('modoJuego declarado ANTES de la closure que captura sobre él', () => {
     const src = readFile(HOOK)
-    const decl = src.indexOf('const modoJuego = ')
-    const callback = src.indexOf('const hasStrokeAdvantage')
-    expect(decl, 'No encuentro `const modoJuego` en useScoreboardCalc').toBeGreaterThan(-1)
-    expect(callback, 'No encuentro `const hasStrokeAdvantage` en useScoreboardCalc').toBeGreaterThan(-1)
+    const decl = src.search(MODO_DECL_RE)
+    const closure = src.search(CLOSURE_RE)
+    expect(decl, 'No encuentro declaración de modoJuego en useScoreboardCalc (regex MODO_DECL_RE)').toBeGreaterThan(-1)
+    expect(closure, 'No encuentro closure strokeAdvantageOn/hasStrokeAdvantage en useScoreboardCalc (regex CLOSURE_RE)').toBeGreaterThan(-1)
     expect(decl,
-      'TDZ: modoJuego debe declararse ANTES de hasStrokeAdvantage en el hook. Fix estructural del bug 12-may.'
-    ).toBeLessThan(callback)
+      'TDZ: modoJuego debe declararse ANTES de la closure que lo captura. Fix estructural del bug 12-may.'
+    ).toBeLessThan(closure)
   })
 
-  it('const formatoJuego está declarado ANTES de hasStrokeAdvantage en el hook', () => {
+  it('formatoJuego declarado ANTES de la closure que captura sobre él', () => {
     const src = readFile(HOOK)
-    const decl = src.indexOf('const formatoJuego = ')
-    const callback = src.indexOf('const hasStrokeAdvantage')
-    expect(decl, 'No encuentro `const formatoJuego` en useScoreboardCalc').toBeGreaterThan(-1)
+    const decl = src.search(FORMATO_DECL_RE)
+    const closure = src.search(CLOSURE_RE)
+    expect(decl, 'No encuentro declaración de formatoJuego en useScoreboardCalc (regex FORMATO_DECL_RE)').toBeGreaterThan(-1)
     expect(decl,
-      'TDZ: formatoJuego debe declararse ANTES de hasStrokeAdvantage en el hook. Mismo patrón que el bug 12-may.'
-    ).toBeLessThan(callback)
+      'TDZ: formatoJuego debe declararse ANTES de la closure que lo captura. Mismo patrón que el bug 12-may.'
+    ).toBeLessThan(closure)
   })
 })
 
