@@ -88,12 +88,12 @@ export default function HistorialDetallePage() {
       // 3. Fetch player name
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('name')
         .eq('id', roundData.user_id)
         .single()
 
-      if (profile?.full_name) {
-        setPlayerName(profile.full_name)
+      if (profile?.name) {
+        setPlayerName(profile.name)
       }
 
       setLoading(false)

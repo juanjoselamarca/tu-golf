@@ -58,8 +58,7 @@ interface RoundData {
   id: string
   scores: (number | null)[] | null
   total_gross: number | null
-  par_total: number | null
-  hole_pars: number[] | null
+  par_per_hole: number[] | null
   played_at: string
   metadata: Record<string, unknown> | null
 }
@@ -230,7 +229,7 @@ async function computeMetric(
 }
 
 function pars(round: RoundData): number[] {
-  return round.hole_pars && round.hole_pars.length === 18 ? round.hole_pars : STANDARD_PARS
+  return round.par_per_hole && round.par_per_hole.length === 18 ? round.par_per_hole : STANDARD_PARS
 }
 
 function validScores(round: RoundData): { scores: number[]; pars: number[] } | null {
@@ -373,7 +372,7 @@ async function loadRound(
   if ('historical_round_id' in source) {
     const { data } = await supabase
       .from('historical_rounds')
-      .select('id, scores, total_gross, par_total, hole_pars, played_at, metadata')
+      .select('id, scores, total_gross, par_per_hole, played_at, metadata')
       .eq('id', source.historical_round_id)
       .eq('user_id', userId)
       .maybeSingle()
@@ -403,8 +402,7 @@ async function loadRound(
     id: rl.id,
     scores,
     total_gross: total,
-    par_total: null,
-    hole_pars: null,
+    par_per_hole: null,
     played_at: rl.fecha as string,
     metadata: null,
   }

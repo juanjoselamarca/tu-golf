@@ -68,7 +68,7 @@ interface UserSupabaseStub {
   round: {
     id: string
     scores: (number | null)[] | null
-    hole_pars?: number[] | null
+    par_per_hole?: number[] | null
     total_gross?: number | null
     played_at?: string
   } | null
@@ -114,8 +114,7 @@ function makeSupabase(stub: UserSupabaseStub) {
                         id: round.id,
                         scores: round.scores,
                         total_gross: round.total_gross ?? null,
-                        par_total: 72,
-                        hole_pars: round.hole_pars ?? null,
+                        par_per_hole: round.par_per_hole ?? null,
                         played_at: round.played_at ?? '2026-04-01T00:00:00Z',
                         metadata: null,
                       }
@@ -142,7 +141,7 @@ describe('computePlanOutcomeForRound — métricas computables', () => {
         id: 'r1',
         // front 9 = 36 (par), back 9 = 42 → delta = +6
         scores: [4,4,3,4,5,4,3,4,5, 5,5,4,5,6,5,4,4,4],
-        hole_pars: STD_PARS,
+        par_per_hole: STD_PARS,
       },
     }
     const res = await computePlanOutcomeForRound({
@@ -179,7 +178,7 @@ describe('computePlanOutcomeForRound — métricas computables', () => {
     const scores = [4,4,4,4,5,4,3,4,5,4,4,4,4,5,4,3,4,5]
     const stub: UserSupabaseStub = {
       plan: { metric: 'par3_avg_vs_par', target_value: 0.3, target_op: 'lte', baseline_value: 0.7 },
-      round: { id: 'r3', scores, hole_pars: STD_PARS },
+      round: { id: 'r3', scores, par_per_hole: STD_PARS },
     }
     const res = await computePlanOutcomeForRound({
       supabase: makeSupabase(stub), userId: 'u-1',
@@ -198,7 +197,7 @@ describe('computePlanOutcomeForRound — métricas computables', () => {
     const scores = [5,4,4,4,4,4,4,4,4, 5,6,4,4,4,4,4,4,4]
     const stub: UserSupabaseStub = {
       plan: { metric: 'post_bogey_score_avg', target_value: 4.2, target_op: 'lte', baseline_value: 5.5 },
-      round: { id: 'r4', scores, hole_pars: Array(18).fill(4) },
+      round: { id: 'r4', scores, par_per_hole: Array(18).fill(4) },
     }
     const res = await computePlanOutcomeForRound({
       supabase: makeSupabase(stub), userId: 'u-1',
@@ -217,7 +216,7 @@ describe('computePlanOutcomeForRound — métricas computables', () => {
     const scoresFixed = [6,4,4,4,4,4,4,4,4, 4,4,4,4,4,6,4,4,4] // 2 doubles → 2/18
     const stub: UserSupabaseStub = {
       plan: { metric: 'double_or_worse_pct', target_value: 0.05, target_op: 'lte', baseline_value: 0.2 },
-      round: { id: 'r5', scores: scoresFixed, hole_pars: Array(18).fill(4) },
+      round: { id: 'r5', scores: scoresFixed, par_per_hole: Array(18).fill(4) },
     }
     const res = await computePlanOutcomeForRound({
       supabase: makeSupabase(stub), userId: 'u-1',
@@ -235,7 +234,7 @@ describe('computePlanOutcomeForRound — métricas computables', () => {
     const scores = [...Array(14).fill(4), 5,5,5,5]
     const stub: UserSupabaseStub = {
       plan: { metric: 'last4holes_minus_rest_strokes', target_value: 0.5, target_op: 'lte', baseline_value: 1.5 },
-      round: { id: 'r6', scores, hole_pars: STD_PARS },
+      round: { id: 'r6', scores, par_per_hole: STD_PARS },
     }
     const res = await computePlanOutcomeForRound({
       supabase: makeSupabase(stub), userId: 'u-1',
@@ -252,7 +251,7 @@ describe('computePlanOutcomeForRound — métricas computables', () => {
     // Si todas iguales → CV=0
     const stub: UserSupabaseStub = {
       plan: { metric: 'total_gross_cv', target_value: 0.05, target_op: 'lte', baseline_value: 0.10 },
-      round: { id: 'r7', scores: Array(18).fill(4), hole_pars: STD_PARS, total_gross: 72 },
+      round: { id: 'r7', scores: Array(18).fill(4), par_per_hole: STD_PARS, total_gross: 72 },
       historicalGrosses: [85, 85, 85, 85, 85, 85, 85, 85, 85, 85],
     }
     const res = await computePlanOutcomeForRound({
@@ -271,7 +270,7 @@ describe('computePlanOutcomeForRound — métricas no rastreadas', () => {
   it('three_putts_per_round retorna compliance unknown', async () => {
     const stub: UserSupabaseStub = {
       plan: { metric: 'three_putts_per_round', target_value: 1, target_op: 'lte', baseline_value: 2 },
-      round: { id: 'r8', scores: Array(18).fill(4), hole_pars: STD_PARS },
+      round: { id: 'r8', scores: Array(18).fill(4), par_per_hole: STD_PARS },
     }
     const res = await computePlanOutcomeForRound({
       supabase: makeSupabase(stub), userId: 'u-1',

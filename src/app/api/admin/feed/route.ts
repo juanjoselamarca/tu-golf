@@ -22,7 +22,7 @@ export async function GET() {
   const admin = createAdminClient()
 
   const { data: rawEvents } = await admin.from('analytics_events')
-    .select('id, event_type, created_at, user_id, metadata')
+    .select('id, event_type, created_at, user_id, event_data')
     .order('created_at', { ascending: false })
     .limit(50)
 

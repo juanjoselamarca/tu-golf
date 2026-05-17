@@ -18,7 +18,7 @@ interface UserProfile {
 
 interface HistoricalRound {
   id: string; course_name: string; total_gross: number
-  diferencial: number | null; played_at: string; source: string
+  diferencial: number | null; played_at: string; import_source: string | null
 }
 
 interface TournamentPlayed {
@@ -76,7 +76,7 @@ export default function UserDetailPage() {
       const [profileRes, roundsRes, tourneysRes, sessionsRes, patternsRes, rondasRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase.from('historical_rounds')
-          .select('id, course_name, total_gross, diferencial, played_at, source, holes_played, scores')
+          .select('id, course_name, total_gross, diferencial, played_at, import_source, holes_played, scores')
           .eq('user_id', id).order('played_at', { ascending: false }).limit(50),
         supabase.from('players')
           .select('id, status, tournaments(name, slug, date_start), rounds(total_gross, total_net, status)')
