@@ -13,13 +13,13 @@ async function migrateGuestRounds(supabase: Awaited<ReturnType<typeof createClie
     // Obtener nombre del perfil
     const { data: profile } = await supabase
       .from('profiles')
-      .select('full_name')
+      .select('name')
       .eq('id', userId)
       .single()
 
-    if (!profile?.full_name) return
+    if (!profile?.name) return
 
-    const nombre = profile.full_name.trim().toLowerCase()
+    const nombre = profile.name.trim().toLowerCase()
     if (!nombre) return
 
     // Buscar filas de invitado que coincidan por nombre (sin user_id asignado)

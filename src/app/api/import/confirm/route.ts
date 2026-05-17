@@ -30,11 +30,11 @@ async function generarInsights(
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('nombre, indice')
+      .select('name, indice')
       .eq('id', userId)
       .single()
 
-    const prompt = `El jugador ${profile?.nombre || 'anónimo'} (índice: ${profile?.indice ?? 'desconocido'}) acaba de importar ${importedCount} rondas históricas.
+    const prompt = `El jugador ${profile?.name || 'anónimo'} (índice: ${profile?.indice ?? 'desconocido'}) acaba de importar ${importedCount} rondas históricas.
 
 Sus últimas rondas:
 ${recentRounds.map(r => `- ${r.course_name}: ${r.total_gross} golpes (${r.played_at})`).join('\n')}
