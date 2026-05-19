@@ -365,3 +365,54 @@ describe('Canary: tournament drafts API + frontend (feat/organizar-campeonato)',
     }
   })
 })
+
+/**
+ * Post-incidente 19-may-2026: /coach crasheaba con TypeError porque
+ * `historical_rounds.par_per_hole` es JSONB objeto (`{"1":4,...}`), NO array.
+ * `lastRound?.par_per_hole?.reduce(...)` lanzaba "reduce is not a function" y
+ * el error boundary mostraba "Algo salió mal" sin loguear nada.
+ *
+ * Estos canarios bloquean cualquier regresión que vuelva a llamar métodos de
+ * Array (.reduce/.slice/.map/.length) directo sobre par_per_hole en
+ * /coach/page.tsx, y exigen que ambos error boundaries del módulo capturen
+ * el error vía captureError().
+ */
+describe('Canary: /coach no rompe con par_per_hole como JSONB objeto (19-may-2026)', () => {
+  it('coach/page.tsx importa parPerHoleArray para normalizar par_per_hole', () => {
+    const content = rootRead('src/app/coach/page.tsx')
+    expect(
+      /from\s+['"]@\/golf\/core\/compare['"]/.test(content) && /parPerHoleArray/.test(content),
+      'coach/page.tsx debe importar parPerHoleArray — par_per_hole en BD es objeto, no array',
+    ).toBe(true)
+  })
+
+  it('coach/page.tsx no llama métodos de Array directo sobre par_per_hole', () => {
+    const content = rootRead('src/app/coach/page.tsx')
+    // .reduce/.slice/.map/.length sobre par_per_hole crashean cuando el valor
+    // es {"1":4,"2":4,...}. Forzar normalización vía parPerHoleArray primero.
+    const badPatterns = [
+      /par_per_hole\??\.reduce\b/,
+      /par_per_hole\??\.slice\b/,
+      /par_per_hole\??\.map\b/,
+      /par_per_hole\??\.length\b/,
+    ]
+    for (const pat of badPatterns) {
+      expect(
+        pat.test(content),
+        `PELIGRO: coach/page.tsx usa ${pat.source} directo sobre par_per_hole — crashea con JSONB objeto. Normalizar con parPerHoleArray primero.`,
+      ).toBe(false)
+    }
+  })
+
+  it('coach/error.tsx captura el error vía captureError (no lo descarta)', () => {
+    const content = rootRead('src/app/coach/error.tsx')
+    expect(content).toMatch(/captureError/)
+    expect(content).toMatch(/error-tracking/)
+  })
+
+  it('coach/sesion/[id]/error.tsx captura el error vía captureError', () => {
+    const content = rootRead('src/app/coach/sesion/[id]/error.tsx')
+    expect(content).toMatch(/captureError/)
+    expect(content).toMatch(/error-tracking/)
+  })
+})
