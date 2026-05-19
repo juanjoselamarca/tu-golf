@@ -22,6 +22,7 @@ import {
   type MentalState,
 } from '@/golf/coach/mental-index'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
+import { parPerHoleArray } from '@/golf/core/compare'
 
 interface Session {
   id: string
@@ -60,7 +61,10 @@ interface RoundRow {
   scores: (number | null)[] | null
   total_gross: number | null
   course_name: string | null
-  par_per_hole: number[] | null
+  // par_per_hole en BD es JSONB indexado por número de hoyo como string
+  // ({"1":4,"2":4,...}), NO array posicional. Normalizar con parPerHoleArray
+  // antes de iterar/reducir — ver src/golf/core/compare.ts.
+  par_per_hole: Record<string, number> | null
   played_at: string
   course_rating: number | null
   slope_rating: number | null
@@ -232,7 +236,11 @@ export default function CoachDashboard() {
 
   const hasActiveSpiralPattern = state.patterns.some(p => p.pattern_type === 'post_bogey_spiral' && p.status === 'active')
   const evitables = hasActiveSpiralPattern
-    ? strokesEvitables(state.rounds.slice(0, 8).map(r => ({ id: r.id, scores: r.scores ?? [], hole_pars: r.par_per_hole })))
+    ? strokesEvitables(state.rounds.slice(0, 8).map(r => ({
+        id: r.id,
+        scores: r.scores ?? [],
+        hole_pars: parPerHoleArray(r.par_per_hole, r.scores?.length ?? 0) ?? null,
+      })))
     : null
 
   const recoveryTitle = mentalIndex.band === 'high' ? 'Tu cabeza está equilibrada' : mentalIndex.band === 'mid' ? 'Tu cabeza está bajo presión' : 'Tu cabeza necesita reset'
@@ -242,10 +250,16 @@ export default function CoachDashboard() {
   const ctaLabel = state.primarySessionId ? 'Conversar con tAIger+' : 'Iniciar conversación con tAIger+'
 
   const lastRound = state.rounds[0]
-  const lastRoundParTotal = lastRound?.par_per_hole?.reduce((a, b) => a + b, 0) ?? 72
+  // par_per_hole viene como objeto JSONB {"1":4,...} — normalizar a array
+  // ANTES de cualquier .reduce/.slice/.map. Sin esto, /coach crashea con
+  // TypeError porque objetos no tienen .reduce.
+  const lastRoundParArr: number[] | null = lastRound
+    ? parPerHoleArray(lastRound.par_per_hole, lastRound.scores?.length ?? 0) ?? null
+    : null
+  const lastRoundParTotal = lastRoundParArr?.reduce((a, b) => a + b, 0) ?? 72
   let curvaStates: Array<MentalState | null> = []
   if (lastRound && lastRound.scores) {
-    const roundForAnalysis = { id: lastRound.id, scores: lastRound.scores, hole_pars: lastRound.par_per_hole }
+    const roundForAnalysis = { id: lastRound.id, scores: lastRound.scores, hole_pars: lastRoundParArr }
     // length real (9 o 18) — evita estados null falsos para hoyos no jugados.
     curvaStates = Array.from({ length: lastRound.scores.length }, (_, i) => clasificarHoyo(roundForAnalysis, i))
   }
@@ -314,7 +328,7 @@ export default function CoachDashboard() {
         />
       )}
 
-      {lastRound && lastRound.scores && lastRound.par_per_hole && (
+      {lastRound && lastRound.scores && lastRoundParArr && (
         <CurvaMentalCard
           fecha={`Ronda ${new Date(lastRound.played_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}`}
           curso={lastRound.course_name ?? 'la cancha'}
@@ -322,7 +336,7 @@ export default function CoachDashboard() {
           overPar={(lastRound.total_gross ?? 0) - lastRoundParTotal}
           states={curvaStates}
           scores={lastRound.scores}
-          hole_pars={lastRound.par_per_hole}
+          hole_pars={lastRoundParArr}
           espirales={tiltCount}
         />
       )}
