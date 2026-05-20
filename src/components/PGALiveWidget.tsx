@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 
 interface Player {
   position: string
@@ -92,40 +93,68 @@ export default function PGALiveWidget() {
   const [prevScores, setPrevScores] = useState<Record<string, string>>({})
   const [changedPlayers, setChangedPlayers] = useState<Set<string>>(new Set())
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const dataRef = useRef<PGAData | null>(null)
+  const pathname = usePathname()
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch('/api/pga-live')
-        const json = await res.json()
+  // Mantener ref con el último data — el fetch lee desde aquí para detectar
+  // cambios de score sin tener que re-subscribirse en cada render.
+  useEffect(() => { dataRef.current = data }, [data])
 
-        // Detect score changes for flash animation
-        if (data?.players) {
-          const prev: Record<string, string> = {}
-          data.players.forEach(p => { prev[p.nameFull] = p.score })
-          setPrevScores(prev)
+  // fetchData estable (lee data via ref) — re-utilizado por mount, polling,
+  // re-navegación a "/" y visibilitychange. Evita closures stale.
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/pga-live')
+      const json = await res.json()
 
-          const changed = new Set<string>()
-          ;(json.players || []).forEach((p: Player) => {
-            if (prev[p.nameFull] && prev[p.nameFull] !== p.score) changed.add(p.nameFull)
-          })
-          setChangedPlayers(changed)
-          if (changed.size > 0) setTimeout(() => setChangedPlayers(new Set()), 2000)
-        }
+      // Detect score changes for flash animation
+      const previous = dataRef.current
+      if (previous?.players) {
+        const prev: Record<string, string> = {}
+        previous.players.forEach(p => { prev[p.nameFull] = p.score })
+        setPrevScores(prev)
 
-        setData(json)
-        setProgress(100) // reset countdown
-      } catch {
-        setData({ active: false })
-      } finally {
-        setLoading(false)
+        const changed = new Set<string>()
+        ;(json.players || []).forEach((p: Player) => {
+          if (prev[p.nameFull] && prev[p.nameFull] !== p.score) changed.add(p.nameFull)
+        })
+        setChangedPlayers(changed)
+        if (changed.size > 0) setTimeout(() => setChangedPlayers(new Set()), 2000)
       }
+
+      setData(json)
+      setProgress(100) // reset countdown
+    } catch {
+      setData({ active: false })
+    } finally {
+      setLoading(false)
     }
+  }, [])
+
+  // Mount + polling cada 30s mientras el widget esté montado.
+  // Si el usuario navega fuera del home y vuelve, HeroSection se re-monta y
+  // dispara fetchData de nuevo aquí. La dep en `pathname` garantiza re-fetch
+  // explícito incluso si el componente sobrevive a la navegación (cache de
+  // App Router). Reporte inbox CX 13b7c749 (19-may-2026).
+  useEffect(() => {
     fetchData()
     const interval = setInterval(fetchData, REFRESH_MS)
     return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [fetchData, pathname])
+
+  // Re-fetch al volver al tab. Los timers se throttlean cuando el tab está en
+  // background (Chrome: ~1/min), así que datos pueden quedar stale 5-10 min
+  // sin este listener. Resuelve el caso "abrí la app, fui a otro lado, volví".
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchData()
+      }
+    }
+    if (typeof document === 'undefined') return
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [fetchData])
 
   // Countdown progress bar
   useEffect(() => {
