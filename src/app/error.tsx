@@ -1,13 +1,7 @@
 'use client'
 
-import { ErrorScreen } from '@/components/ui/ErrorScreen'
+import { RouteErrorBoundary } from '@/components/ui/RouteErrorBoundary'
 
-export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  return (
-    <ErrorScreen
-      onRetry={reset}
-      homeHref="/"
-      errorCode={error.digest}
-    />
-  )
+export default function Error(props: { error: Error & { digest?: string }; reset: () => void }) {
+  return <RouteErrorBoundary context="app.root.render" {...props} />
 }

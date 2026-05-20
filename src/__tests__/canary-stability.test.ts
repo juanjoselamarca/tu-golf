@@ -404,15 +404,79 @@ describe('Canary: /coach no rompe con par_per_hole como JSONB objeto (19-may-202
     }
   })
 
-  it('coach/error.tsx captura el error vía captureError (no lo descarta)', () => {
+  it('coach/error.tsx usa RouteErrorBoundary (captura vía componente compartido)', () => {
     const content = rootRead('src/app/coach/error.tsx')
-    expect(content).toMatch(/captureError/)
-    expect(content).toMatch(/error-tracking/)
+    expect(content).toMatch(/RouteErrorBoundary/)
   })
 
-  it('coach/sesion/[id]/error.tsx captura el error vía captureError', () => {
+  it('coach/sesion/[id]/error.tsx usa RouteErrorBoundary', () => {
     const content = rootRead('src/app/coach/sesion/[id]/error.tsx')
-    expect(content).toMatch(/captureError/)
-    expect(content).toMatch(/error-tracking/)
+    expect(content).toMatch(/RouteErrorBoundary/)
+  })
+})
+
+/**
+ * Post-sweep 19-may-2026: TODOS los app/**\/error.tsx deben delegar a
+ * <RouteErrorBoundary>, que es el único lugar donde llamamos a captureError().
+ *
+ * Antes del sweep, 13 de 14 boundaries descartaban el `error` prop con
+ * `function Error({ reset })` y la app entera era ciega a crashes en producción
+ * (error_logs vacía por 7+ días a pesar del incidente real de /coach).
+ *
+ * Estos canarios bloquean cualquier regresión a ese patrón:
+ *  1. Todo error.tsx debe importar RouteErrorBoundary.
+ *  2. Ningún error.tsx debe destructurar `{ reset }` solo (descarta el error).
+ *  3. RouteErrorBoundary mismo debe llamar captureError — si alguien lo
+ *     "simplifica" rompiendo la observabilidad, el canario lo bloquea.
+ */
+describe('Canary: error.tsx app-wide usan RouteErrorBoundary (19-may-2026)', () => {
+  const ALL_ERROR_BOUNDARIES = [
+    'src/app/error.tsx',
+    'src/app/admin/error.tsx',
+    'src/app/coach/error.tsx',
+    'src/app/coach/sesion/[id]/error.tsx',
+    'src/app/dashboard/error.tsx',
+    'src/app/importar/error.tsx',
+    'src/app/organizador/[slug]/jugadores/error.tsx',
+    'src/app/organizador/[slug]/scoring/error.tsx',
+    'src/app/perfil/error.tsx',
+    'src/app/perfil/historial/error.tsx',
+    'src/app/perfil/stats/error.tsx',
+    'src/app/ronda-libre/[codigo]/error.tsx',
+    'src/app/ronda-libre/[codigo]/score/error.tsx',
+    'src/app/torneo/[slug]/error.tsx',
+  ]
+
+  for (const file of ALL_ERROR_BOUNDARIES) {
+    it(`${file} usa RouteErrorBoundary con context único`, () => {
+      const content = rootRead(file)
+      expect(
+        /RouteErrorBoundary/.test(content),
+        `${file} debe delegar a <RouteErrorBoundary> — único componente que llama captureError. Patrón: 3 líneas, ver src/app/error.tsx`,
+      ).toBe(true)
+      expect(
+        /context\s*=\s*['"]/.test(content),
+        `${file} debe pasar un context="..." literal (ej: 'dashboard.render') — sin esto los crashes no se categorizan en error_logs/PostHog`,
+      ).toBe(true)
+    })
+
+    it(`${file} NO descarta el error prop (patrón ciego anterior)`, () => {
+      const content = rootRead(file)
+      // Patrón roto: `function Error({ reset })` o `function Error({ reset }: ...)`
+      // — destructura solo reset y descarta error. Causó 7+ días sin telemetría.
+      const blindPattern = /function\s+Error\s*\(\s*\{\s*reset\s*\}/
+      expect(
+        blindPattern.test(content),
+        `PELIGRO: ${file} destructura solo { reset } — descarta el error prop. Usar el patrón de RouteErrorBoundary con {...props}.`,
+      ).toBe(false)
+    })
+  }
+
+  it('RouteErrorBoundary llama captureError (única fuente de telemetría)', () => {
+    const content = rootRead('src/components/ui/RouteErrorBoundary.tsx')
+    expect(
+      /captureError/.test(content) && /error-tracking/.test(content),
+      'RouteErrorBoundary DEBE llamar captureError — es el único lugar donde la app captura crashes de render. Si esto se rompe, los 14 boundaries quedan ciegos otra vez.',
+    ).toBe(true)
   })
 })
