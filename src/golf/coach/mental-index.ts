@@ -54,6 +54,29 @@ export interface StrokesEvitablesResult {
   instances: Array<{ round_id: string; holes: string[]; strokes_saved: number }>
 }
 
+export interface RoundForCostoPsicologico extends RoundForAnalysis {
+  total_gross: number | null
+}
+
+export interface CostoPsicologicoResult {
+  /** Strokes evitables totales sobre el universo (windowSize rondas). */
+  evitables: number
+  /** Promedio de total_gross sobre el universo. */
+  promedioReal: number
+  /** Promedio "contenido" = promedioReal − evitables/windowSize. */
+  promedioContenido: number
+  /** Tamaño real del universo (rondas usadas). Puede ser < cap si hay menos. */
+  windowSize: number
+  /** Datos de la última ronda, solo si tuvo ≥1 espiral evitable. */
+  lastRound: {
+    id: string
+    realScore: number
+    ghostScore: number
+    strokes_saved: number
+    holes: string[]
+  } | null
+}
+
 export function calcularMentalIndex(input: MentalIndexInput): MentalIndexResult {
   let score = 100
   let patternPenalty = 0
@@ -180,6 +203,71 @@ export function clasificarHoyo(round: RoundForAnalysis, i: number): MentalState 
 
 function parForHole(round: RoundForAnalysis, i: number): number {
   return round.hole_pars?.[i] ?? STANDARD_PARS[i]
+}
+
+/**
+ * Calcula todos los datos de la Costo Psicológico Card sobre UN SOLO universo
+ * de rondas. Garantiza la invariante matemática:
+ *
+ *   evitables === windowSize × (promedioReal − promedioContenido)
+ *
+ * Antes (bug del 19-may reportado por Juanjo: "36 strokes evitables"):
+ *   - `evitables` se calculaba sobre las últimas 8 rondas.
+ *   - `promedioReal` / `promedioContenido` sobre las últimas 5 rondas.
+ *   - Resultado: número grande (36) inflado vs. los promedios mostrados debajo
+ *     (delta ~3.6 × 5 = 18). Card mezcla denominadores → usuarios confundidos.
+ *
+ * Hoy: TODO se calcula sobre las primeras `windowSize` rondas (por defecto 5).
+ * El componente debe mostrar el `windowSize` como label real, no "30D".
+ *
+ * @param rounds Rondas ordenadas DESC por fecha (más recientes primero).
+ * @param windowSize Cap superior. El universo real es `min(windowSize, rounds.length)`.
+ */
+export function calcularCostoPsicologico(
+  rounds: RoundForCostoPsicologico[],
+  windowSize = 5,
+): CostoPsicologicoResult {
+  const universo = rounds.slice(0, windowSize)
+  const realWindowSize = universo.length
+
+  if (realWindowSize === 0) {
+    return {
+      evitables: 0,
+      promedioReal: 0,
+      promedioContenido: 0,
+      windowSize: 0,
+      lastRound: null,
+    }
+  }
+
+  // Strokes evitables y promedios: ambos sobre el MISMO universo.
+  const evitablesResult = strokesEvitables(universo)
+  const evitables = evitablesResult.total
+
+  const promedioReal =
+    universo.reduce((a, r) => a + (r.total_gross ?? 0), 0) / realWindowSize
+  const promedioContenido = promedioReal - evitables / realWindowSize
+
+  // Última ronda (la más reciente del universo) — solo si tuvo espirales.
+  const last = universo[0]
+  const lastInstance = evitablesResult.instances.find(i => i.round_id === last.id)
+  const lastRound = lastInstance && last.total_gross != null
+    ? {
+        id: last.id,
+        realScore: last.total_gross,
+        ghostScore: last.total_gross - lastInstance.strokes_saved,
+        strokes_saved: lastInstance.strokes_saved,
+        holes: lastInstance.holes,
+      }
+    : null
+
+  return {
+    evitables,
+    promedioReal,
+    promedioContenido,
+    windowSize: realWindowSize,
+    lastRound,
+  }
 }
 
 // Expose para tests

@@ -3,7 +3,9 @@ import {
   calcularMentalIndex,
   strokesEvitables,
   clasificarHoyo,
+  calcularCostoPsicologico,
   type MentalIndexInput,
+  type RoundForCostoPsicologico,
 } from './mental-index'
 
 describe('calcularMentalIndex', () => {
@@ -174,5 +176,106 @@ describe('clasificarHoyo', () => {
     const states = round.scores.map((_, i) => clasificarHoyo(round, i))
     const tiltCount = states.filter(s => s === 'tilt').length
     expect(tiltCount).toBeGreaterThanOrEqual(3)
+  })
+})
+
+describe('calcularCostoPsicologico', () => {
+  // Helper: ronda sintética con par 4 en todos los hoyos, scores configurables
+  const mkRound = (id: string, total: number, scores: number[]): RoundForCostoPsicologico => ({
+    id,
+    total_gross: total,
+    scores,
+    hole_pars: scores.map(() => 4),
+  })
+
+  it('invariante: evitables === windowSize × (promedioReal − promedioContenido)', () => {
+    // Universo consistente: 5 rondas, cada una con 1 espiral de +2 (evitable=1)
+    // Total evitables = 5, promedioReal = 83, promedioContenido = 83 − 5/5 = 82.
+    const rounds = [
+      mkRound('r1', 83, [4, 5, 6, 4, 4]),
+      mkRound('r2', 83, [4, 5, 6, 4, 4]),
+      mkRound('r3', 83, [4, 5, 6, 4, 4]),
+      mkRound('r4', 83, [4, 5, 6, 4, 4]),
+      mkRound('r5', 83, [4, 5, 6, 4, 4]),
+    ]
+    const r = calcularCostoPsicologico(rounds)
+    expect(r.windowSize).toBe(5)
+    expect(r.evitables).toBe(5)
+    expect(r.promedioReal).toBe(83)
+    expect(r.promedioContenido).toBe(82)
+    // Invariante matemática crítica — el número grande de la card NUNCA
+    // puede divergir del delta de promedios mostrado debajo:
+    expect(r.evitables).toBeCloseTo(r.windowSize * (r.promedioReal - r.promedioContenido), 6)
+  })
+
+  it('reproduce bug del usuario: 36 strokes con denominador inflado (regression test)', () => {
+    // Antes del fix: evitables se calculaba sobre slice(0,8) mientras que
+    // promedios sobre slice(0,5). Con 8 espirales (1 stroke evitable c/u) en
+    // 8 rondas y promedio real 83, el viejo flujo mostraba:
+    //   evitables = 8 (de 8 rondas) pero promedioContenido se calculaba con
+    //   strokes_saved solo de las primeras 5 rondas → mismatch.
+    // Tras el fix: TODO debe estar sobre el mismo universo (5 rondas por defecto).
+    const rounds = Array.from({ length: 8 }, (_, i) =>
+      mkRound(`r${i + 1}`, 83, [4, 5, 6, 4, 4]) // 1 evitable c/u
+    )
+    const r = calcularCostoPsicologico(rounds, 5)
+    expect(r.windowSize).toBe(5)
+    expect(r.evitables).toBe(5) // solo las 5 últimas rondas, NO 8
+    // Invariante se mantiene:
+    expect(r.evitables).toBeCloseTo(r.windowSize * (r.promedioReal - r.promedioContenido), 6)
+  })
+
+  it('reporta la última ronda con sus holes y strokes_saved', () => {
+    const rounds = [
+      mkRound('last', 88, [4, 5, 6, 4, 4]), // 1 evitable en H2→H3
+      mkRound('prev1', 83, [4, 4, 4, 4, 4]),
+      mkRound('prev2', 83, [4, 4, 4, 4, 4]),
+    ]
+    const r = calcularCostoPsicologico(rounds)
+    expect(r.lastRound).not.toBeNull()
+    expect(r.lastRound?.id).toBe('last')
+    expect(r.lastRound?.strokes_saved).toBe(1)
+    expect(r.lastRound?.holes).toEqual(['H2→H3'])
+    expect(r.lastRound?.ghostScore).toBe(87) // 88 − 1
+  })
+
+  it('windowSize se ajusta cuando hay menos rondas que el cap', () => {
+    const rounds = [mkRound('r1', 83, [4, 5, 6, 4, 4]), mkRound('r2', 80, [4, 4, 4, 4, 4])]
+    const r = calcularCostoPsicologico(rounds, 5)
+    expect(r.windowSize).toBe(2) // no infla a 5 con rondas inexistentes
+    expect(r.evitables).toBe(1)
+    expect(r.promedioReal).toBe((83 + 80) / 2)
+  })
+
+  it('devuelve null en lastRound cuando última ronda no tuvo espirales', () => {
+    const rounds = [
+      mkRound('clean', 72, [4, 4, 4, 4, 4]), // sin espirales
+      mkRound('prev', 83, [4, 5, 6, 4, 4]),  // 1 evitable
+    ]
+    const r = calcularCostoPsicologico(rounds)
+    expect(r.lastRound).toBeNull() // no mostrar "Tu yo contenido" si última fue limpia
+    expect(r.evitables).toBe(1) // pero seguimos contando la histórica
+  })
+
+  it('maneja rondas vacías sin crashear', () => {
+    const r = calcularCostoPsicologico([])
+    expect(r.evitables).toBe(0)
+    expect(r.promedioReal).toBe(0)
+    expect(r.promedioContenido).toBe(0)
+    expect(r.windowSize).toBe(0)
+    expect(r.lastRound).toBeNull()
+  })
+
+  it('skip rondas sin hole_pars (mantiene invariante)', () => {
+    const rounds: RoundForCostoPsicologico[] = [
+      { id: 'no-pars', total_gross: 88, scores: [4, 5, 6, 4, 4], hole_pars: null },
+      mkRound('good', 80, [4, 4, 4, 4, 4]),
+    ]
+    const r = calcularCostoPsicologico(rounds)
+    // Rondas sin pars no aportan strokes_saved pero SÍ aportan al total_gross
+    // (no se puede inferir su componente "contenido" sin pars, así que su
+    // strokes_saved = 0 — consistente con strokesEvitables que las skipea).
+    expect(r.evitables).toBe(0)
+    expect(r.evitables).toBeCloseTo(r.windowSize * (r.promedioReal - r.promedioContenido), 6)
   })
 })
