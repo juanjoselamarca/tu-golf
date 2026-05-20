@@ -10,9 +10,16 @@ interface Props {
   ghostScore: number
   delta: number
   holesAffected: string[]
+  /**
+   * Tamaño real del universo de rondas usado para calcular `evitables` y los
+   * promedios. La card renderea "ÚLTIMAS N RONDAS" en vez del viejo "30D"
+   * (que era falso: nunca hubo ventana temporal real).
+   */
+  windowSize: number
 }
 
-export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenido, realScore, ghostScore, delta, holesAffected }: Props) {
+export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenido, realScore, ghostScore, delta, holesAffected, windowSize }: Props) {
+  const windowLabel = windowSize === 1 ? 'última ronda' : `últimas ${windowSize} rondas`
   const cardStyle: CSSProperties = {
     background: 'var(--bg-surface)',
     border: '1px solid var(--line)',
@@ -34,7 +41,7 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
     <div style={cardStyle}>
       <div style={accent} aria-hidden />
       <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--coach-recovery-low)', fontWeight: 700, marginBottom: '14px', fontFamily: '"DM Mono", monospace' }}>
-        Costo psicológico · 30D
+        Costo psicológico · {windowLabel}
       </div>
       <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '72px', fontWeight: 700, lineHeight: 0.92, color: 'var(--coach-recovery-low)', letterSpacing: '-0.03em', marginBottom: '4px' }}>
         {evitables}
@@ -43,7 +50,7 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
         strokes evitables
       </div>
       <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.55, paddingBottom: '18px', borderBottom: '1px solid var(--line)', marginBottom: '18px' }}>
-        Si hubieras contenido las espirales post-bogey, tu promedio del mes hubiera bajado de <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioReal.toFixed(1)}</b> a <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioContenido.toFixed(1)}</b>. La cabeza paga, no el swing.
+        Si hubieras contenido las espirales post-bogey en tus {windowLabel}, tu promedio hubiera bajado de <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioReal.toFixed(1)}</b> a <b style={{ color: 'var(--text)', fontWeight: 600 }}>{promedioContenido.toFixed(1)}</b>. La cabeza paga, no el swing.
       </div>
 
       <div style={{ fontSize: '10.5px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700, marginBottom: '8px', fontFamily: '"DM Mono", monospace' }}>

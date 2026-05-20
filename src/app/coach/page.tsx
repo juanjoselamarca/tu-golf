@@ -16,7 +16,7 @@ import { PlanActiveCard } from '@/components/coach/PlanActiveCard'
 import { ConversarStickyCTA } from '@/components/coach/ConversarStickyCTA'
 import {
   calcularMentalIndex,
-  strokesEvitables,
+  calcularCostoPsicologico,
   clasificarHoyo,
   type MentalIndexResult,
   type MentalState,
@@ -235,12 +235,17 @@ export default function CoachDashboard() {
   })
 
   const hasActiveSpiralPattern = state.patterns.some(p => p.pattern_type === 'post_bogey_spiral' && p.status === 'active')
-  const evitables = hasActiveSpiralPattern
-    ? strokesEvitables(state.rounds.slice(0, 8).map(r => ({
+  // Costo Psicológico: TODO se calcula sobre UN solo universo (últimas 5 rondas).
+  // Antes había mismatch: evitables sobre 8 rondas, promedios sobre 5 → "36" inflado
+  // vs delta promedio. Ahora invariante: evitables === windowSize × (real − contenido).
+  // Ver mental-index.ts:calcularCostoPsicologico para la lógica.
+  const costoPsicologico = hasActiveSpiralPattern
+    ? calcularCostoPsicologico(state.rounds.map(r => ({
         id: r.id,
+        total_gross: r.total_gross,
         scores: r.scores ?? [],
         hole_pars: parPerHoleArray(r.par_per_hole, r.scores?.length ?? 0) ?? null,
-      })))
+      })), 5)
     : null
 
   const recoveryTitle = mentalIndex.band === 'high' ? 'Tu cabeza está equilibrada' : mentalIndex.band === 'mid' ? 'Tu cabeza está bajo presión' : 'Tu cabeza necesita reset'
@@ -265,21 +270,8 @@ export default function CoachDashboard() {
   }
   const tiltCount = curvaStates.filter(s => s === 'tilt').length
 
-  // CostoPsicológicoCard: derivamos strokes ahorrados por ronda — denominador consistente
-  // (antes: evitables.total agregaba hasta 8 rondas, se dividía por 5 hardcodeado).
-  const fiveRounds = state.rounds.slice(0, 5)
-  const fiveRealAvg = fiveRounds.length > 0
-    ? fiveRounds.reduce((a, r) => a + (r.total_gross ?? 0), 0) / fiveRounds.length
-    : 0
-  const fiveSaved = evitables
-    ? fiveRounds.reduce((sum, r) => sum + (evitables.instances.find(i => i.round_id === r.id)?.strokes_saved ?? 0), 0)
-    : 0
-  const fiveContainedAvg = fiveRounds.length > 0
-    ? fiveRealAvg - fiveSaved / fiveRounds.length
-    : 0
-  const lastRoundInstance = evitables?.instances.find(i => i.round_id === lastRound?.id)
-  const lastRoundSaved = lastRoundInstance?.strokes_saved ?? 0
-  const lastRoundHoles = lastRoundInstance?.holes ?? []
+  // Todos los datos de la card vienen de calcularCostoPsicologico — universo único,
+  // invariante matemática garantizada (ver tests calcularCostoPsicologico).
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 0 0' }}>
@@ -316,15 +308,16 @@ export default function CoachDashboard() {
         </HighlightsCarousel>
       )}
 
-      {evitables && evitables.total > 0 && lastRound && lastRoundHoles.length > 0 && (
+      {costoPsicologico && costoPsicologico.evitables > 0 && costoPsicologico.lastRound && (
         <CostoPsicologicoCard
-          evitables={evitables.total}
-          promedioReal={fiveRealAvg}
-          promedioContenido={fiveContainedAvg}
-          realScore={lastRound.total_gross ?? 0}
-          ghostScore={(lastRound.total_gross ?? 0) - lastRoundSaved}
-          delta={lastRoundSaved}
-          holesAffected={lastRoundHoles}
+          evitables={costoPsicologico.evitables}
+          promedioReal={costoPsicologico.promedioReal}
+          promedioContenido={costoPsicologico.promedioContenido}
+          windowSize={costoPsicologico.windowSize}
+          realScore={costoPsicologico.lastRound.realScore}
+          ghostScore={costoPsicologico.lastRound.ghostScore}
+          delta={costoPsicologico.lastRound.strokes_saved}
+          holesAffected={costoPsicologico.lastRound.holes}
         />
       )}
 
