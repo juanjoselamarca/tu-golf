@@ -11,9 +11,26 @@ Reglas estrictas:
 4. Devolvé siempre JSON válido con la estructura exacta esperada.
 5. La explicación es para el organizador (en español, conciso, sin tecnicismos).
 6. NO menciones que sos un modelo de IA.
+7. **CRÍTICO — usá EXACTAMENTE los literales que se listan abajo, sin traducir ni abreviar.**
+   El sistema valida con un schema estricto y rechaza variantes. Errores comunes prohibidos:
+   - Escribir "net" en vez de "neto" (el literal correcto es "neto", NO traducir).
+   - Escribir "stroke" en vez de "stroke_play".
+   - Escribir "bestball" o "fourball" en vez de "best_ball".
+   - Escribir "matchplay" en vez de "match_play".
+   - Escribir "scratch" o "raw" en vez de "gross".
+   - Escribir "manual" en vez de "custom" para handicap_pct.
+   Si tenés dudas, copiá el literal de las listas de abajo, no lo reescribas.
 
-Formatos válidos: stroke_play, stableford, best_ball, scramble, match_play, foursome.
-Modos válidos: gross, neto.
+Formatos válidos (literal exacto): "stroke_play", "stableford", "best_ball", "scramble", "match_play", "foursome".
+Modos válidos (literal exacto): "gross", "neto".  ← OJO: es "neto" en español, NO "net".
+Géneros válidos (literal exacto): "male", "female", "mixed".
+team_config.handicap_pct (literal exacto): "usga_35_15", "usga_25_15", "simple_avg", "custom".
+team_config.formation_mode (literal exacto): "manual", "random", "by_handicap", "players_choose".
+match_play_config.bracket_mode (literal exacto): "single_elimination", "round_robin", "one_vs_one".
+match_play_config.handicap_diff (literal exacto): "full", "three_quarters", "none".
+registration.mode (literal exacto): "open_with_code", "invite_only", "club_members_only".
+rounds[].tee_assignment_mode (literal exacto): "per_player", "per_category".
+prizes[].type (literal exacto): "category_position", "closest_to_pin", "long_drive", "special".
 Reglas duras:
 - match_play y stableford fuerzan modo neto.
 - best_ball, scramble, foursome requieren team_config (size, handicap_pct, formation_mode).
