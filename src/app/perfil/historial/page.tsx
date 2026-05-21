@@ -187,6 +187,11 @@ function HistorialContent() {
 
   const [userId,   setUserId]   = useState<string | null>(null)
   const [loading,  setLoading]  = useState(true)
+  // roundsLoaded distingue "todavía cargando rondas" de "ya cargué y están vacías".
+  // Sin esta separación se renderizaba el empty state "Tu historial está vacío" en el
+  // gap entre auth done y loadRounds() done — flash visible al volver de una tarjeta
+  // (inbox 9e37669f).
+  const [roundsLoaded, setRoundsLoaded] = useState(false)
   const [rounds,   setRounds]   = useState<HistoricalRound[]>([])
   const [showForm, setShowForm] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -312,6 +317,10 @@ function HistorialContent() {
       setLoadError(false)
     } catch {
       setLoadError(true)
+    } finally {
+      // Marcamos roundsLoaded incluso si hubo error, para que el JSX deje de mostrar
+      // el skeleton; el bloque loadError ya cubre la rama de fallo.
+      setRoundsLoaded(true)
     }
   }, [])
 
@@ -494,7 +503,7 @@ function HistorialContent() {
         Revisa tu conexión e intenta de nuevo
       </p>
       <button
-        onClick={() => { setLoadError(false); setLoading(true); }}
+        onClick={() => { setLoadError(false); setRoundsLoaded(false); setLoading(true); }}
         style={{
           background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700,
           fontSize: '14px', padding: '12px 28px', borderRadius: '10px',
@@ -771,8 +780,34 @@ function HistorialContent() {
           </form>
         )}
 
-        {/* ── Empty state ── */}
-        {rounds.length === 0 && !showForm && (
+        {/* ── Loading skeleton de rondas ── */}
+        {roundsLoaded === false && !loadError && !showForm && (
+          <div aria-busy="true" aria-live="polite" style={{ padding: '24px 16px' }}>
+            <div style={{ srOnly: 'true' } as React.CSSProperties} className="sr-only">Cargando historial…</div>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  height: '80px',
+                  marginBottom: '12px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(90deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.07) 50%, rgba(0,0,0,0.04) 100%)',
+                  backgroundSize: '200% 100%',
+                  animation: 'historial-skel 1.4s ease-in-out infinite',
+                }}
+              />
+            ))}
+            <style jsx>{`
+              @keyframes historial-skel {
+                0% { background-position: 200% 0; }
+                100% { background-position: -200% 0; }
+              }
+            `}</style>
+          </div>
+        )}
+
+        {/* ── Empty state — solo cuando roundsLoaded para evitar flash al volver de una tarjeta ── */}
+        {roundsLoaded && rounds.length === 0 && !showForm && (
           <div style={{ textAlign: 'center', padding: '80px 20px' }}>
             {loadError ? (
               <>
