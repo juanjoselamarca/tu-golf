@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/server'
 import { tournamentConfigPartialSchema, tournamentConfigSchema } from '@/lib/draft/schema'
 import { deepMergeConfig } from '@/lib/draft/deep-merge-config'
 import { upgradeConfig } from '@/lib/draft/upgrade-config'
+import { normalizeAiConfigPartial } from '@/lib/draft/normalize-ai-partial'
 import { checkRateLimit } from '@/lib/draft/rate-limit'
 import { logAiCall, getMonthlyAiCostUsd, shouldAlarm } from '@/lib/draft/ai-cost-tracker'
 import { TOURNAMENT_ASSISTANT_PROMPT_V1 } from '@/lib/prompts/tournament-assistant-v1'
@@ -95,8 +96,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'IA devolvió estructura inválida', details: parsed.error.issues }, { status: 502 })
   }
 
+  // Defensa: el modelo a veces traduce literales (ej. "neto" → "net"). Coercionamos
+  // sinónimos conocidos antes de validar; los valores desconocidos pasan tal cual y
+  // los rechaza zod a continuación con el mismo error que antes.
+  const normalizedPartial = normalizeAiConfigPartial(parsed.data.config_partial)
+
   // Validar config_partial contra schema parcial
-  const partialResult = tournamentConfigPartialSchema.safeParse(parsed.data.config_partial)
+  const partialResult = tournamentConfigPartialSchema.safeParse(normalizedPartial)
   if (!partialResult.success) {
     return NextResponse.json({ error: 'IA propuso campos inválidos', details: partialResult.error.issues }, { status: 502 })
   }
