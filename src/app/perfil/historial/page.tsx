@@ -967,12 +967,16 @@ function HistorialContent() {
                           </div>
                         </div>
 
-                        {/* Garmin activity bar */}
+                        {/* Garmin activity bar.
+                            par_per_hole por ronda es la fuente confiable; courseParCache
+                            solo se popula al expandir la card, así que sin esta preferencia
+                            la barra colapsada renderizaba con par=4 default → colores
+                            incoherentes con la ronda real (inbox 4633254e). */}
                         {r.scores && r.scores.some(Boolean) && (
                           <div style={{ padding: '0 16px 8px' }}>
                             <HoleBar
                               scores={r.scores ?? []}
-                              pars={r.course_id ? (courseParCache[r.course_id] ?? {}) : {}}
+                              pars={r.par_per_hole ?? (r.course_id ? courseParCache[r.course_id] : undefined) ?? {}}
                               totalHoles={r.holes_played ?? 18}
                               height={5}
                               gap={1.5}
@@ -982,11 +986,20 @@ function HistorialContent() {
 
                         {/* ── Expanded scorecard ── */}
                         {isOpen && (() => {
-                          const cp = r.course_id ? (courseParCache[r.course_id] ?? {}) : {}
+                          // Preferencia: par_per_hole de la ronda > courseParCache (popula al expandir) > {}.
+                          // Sin esto la scorecard expandida usaba par=4 default cuando el cache aún no había
+                          // resuelto, dando una vsPar errónea por hoyo.
+                          const parPerHoleRaw = r.par_per_hole ?? {}
+                          const cp: Record<number, number> = r.course_id ? (courseParCache[r.course_id] ?? {}) : {}
+                          const getParFor = (n: number): number => {
+                            const fromRound = parPerHoleRaw[String(n)] ?? (parPerHoleRaw as Record<number, number>)[n]
+                            if (typeof fromRound === 'number') return fromRound
+                            return cp[n] ?? 4
+                          }
                           const totalHoles = r.holes_played ?? 18
                           const scorecardHoles: ScorecardHole[] = Array.from({ length: totalHoles }, (_, i) => ({
                             numero: i + 1,
-                            par: cp[i + 1] ?? 4,
+                            par: getParFor(i + 1),
                             stroke_index: i + 1,
                           }))
                           const scorecardScores: Record<string, number> = Object.fromEntries(
