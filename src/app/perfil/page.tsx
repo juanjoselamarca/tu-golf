@@ -145,7 +145,18 @@ export default function PerfilPage() {
   const playerTier = getPlayerTier(profile.indice)
 
   return (
-    <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', padding: '16px 16px 80px' }}>
+    <div style={{
+      background: 'var(--bg-surface)',
+      minHeight: '100vh',
+      // padding-bottom: el bottom-nav fijo mide 52px + safe-area-inset-bottom (15-20px en
+      // iOS). 80px previos no alcanzaba en dispositivos con notch → la card "Tu experiencia"
+      // se cortaba al fondo (inbox 164b8c80). 100px + safe-area da gap consistente con
+      // /perfil/historial.
+      paddingTop: '16px',
+      paddingLeft: '16px',
+      paddingRight: '16px',
+      paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))',
+    }}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
         <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '16px' }}>
           ← Dashboard
