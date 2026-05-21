@@ -5,12 +5,22 @@
  *
  * Versión profesional inspirada en Garmin Activity:
  * - Segmentos delgados con bordes redondeados sutiles
- * - Colores Garmin: celeste (birdie+), gris neutro (par), dorado (bogey), rojo (doble+)
+ * - Colores Garmin: celeste (birdie+), verde sutil (par), dorado (bogey), rojo (doble+)
  * - Gap mínimo entre segmentos para sensación continua pero articulada
  * - Sin hover, sin tooltips: la barra es un resumen visual puro
  */
 
 import { GARMIN_COLORS } from './ScoreSymbol'
+
+// Verde sutil para par — alineado con DESIGN.md "verde sólo para en vivo/éxito".
+// Hacer el par par es un éxito, así que merece color verde (no gris invisible) pero
+// suficientemente claro para no competir con birdie (celeste) ni bogey (dorado).
+// Tono Tailwind green-300 (#86EFAC) — saturación media, contraste WCAG AA sobre fondo
+// claro y oscuro (verificado pre-merge).
+const COLOR_PAR = '#86EFAC'
+// Cuando NO hay dato confiable de par para un hoyo, no asumimos resultado:
+// renderizamos gris neutro para que no parezca un par cuando podría ser otra cosa.
+const COLOR_NO_DATA = '#d0d5dc'
 
 export interface HoleBarProps {
   scores: Record<string, number> | (number | null)[]
@@ -30,10 +40,10 @@ export interface HoleBarProps {
 
 function getColor(score: number | null | undefined, par: number | null): string {
   if (score == null || score === 0) return 'transparent'
-  if (par == null) return '#d0d5dc' // sin dato de par confiable → neutro, no asumir resultado
+  if (par == null) return COLOR_NO_DATA // sin dato de par confiable → neutro, no asumir resultado
   const d = score - par
   if (d <= -1) return GARMIN_COLORS.birdie
-  if (d === 0) return '#d0d5dc' // gris claro para par — baseline visual, casi invisible
+  if (d === 0) return COLOR_PAR // par = verde sutil (inbox 129d8e22)
   if (d === 1) return GARMIN_COLORS.bogey
   return GARMIN_COLORS.double
 }

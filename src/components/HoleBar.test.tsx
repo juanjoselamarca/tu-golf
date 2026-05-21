@@ -25,7 +25,10 @@ function getSegmentColors(container: HTMLElement): string[] {
   return segs.map(s => (s as HTMLElement).style.background).filter(Boolean).map(hexToRgb)
 }
 
-const COLOR_PAR = hexToRgb('#d0d5dc')
+// Verde sutil para par — inbox 129d8e22 cambió "par gris" → "par verde".
+const COLOR_PAR = hexToRgb('#86EFAC')
+// Gris neutro: solo cuando NO hay dato confiable de par para el hoyo.
+const COLOR_NO_DATA = hexToRgb('#d0d5dc')
 const COLOR_BIRDIE = hexToRgb(GARMIN_COLORS.birdie)
 const COLOR_BOGEY = hexToRgb(GARMIN_COLORS.bogey)
 
@@ -61,18 +64,17 @@ describe('HoleBar (regression: inbox 4633254e)', () => {
     expect(colors[8]).toBe(COLOR_PAR)
   })
 
-  it('cuando NO hay par confiable, renderiza neutro en vez de asumir par=4 (regression bug)', () => {
+  it('cuando NO hay par confiable, renderiza gris neutro en vez de asumir par=4 (regression bug)', () => {
     // Pre-fix: con pars={} se asumía par=4 → hoyo 3 par real 3 con score 3
     // se mostraba como BIRDIE (azul), incoherente con la ronda real.
-    // Post-fix: pars vacíos → todos neutros, no se asume resultado.
+    // Post-fix: pars vacíos → todos gris neutro, NO verde (porque no sabemos si era par real).
     const { container } = render(
       <HoleBar scores={losLeonesScores} pars={{}} totalHoles={9} fillTo18={false} />,
     )
     const colors = getSegmentColors(container)
     expect(colors).toHaveLength(9)
-    // Todos los hoyos jugados deben ser neutros (gris-par) cuando no hay dato de par
     for (const c of colors) {
-      expect(c).toBe(COLOR_PAR)
+      expect(c).toBe(COLOR_NO_DATA)
     }
   })
 
@@ -84,15 +86,15 @@ describe('HoleBar (regression: inbox 4633254e)', () => {
     )
     const colors = getSegmentColors(container)
     expect(colors).toHaveLength(9)
-    // H1: 4 vs par 4 → par
+    // H1: 4 vs par 4 → par (verde)
     expect(colors[0]).toBe(COLOR_PAR)
     // H2: 3 vs par 4 → birdie
     expect(colors[1]).toBe(COLOR_BIRDIE)
-    // H3: 3 vs par 3 → par
+    // H3: 3 vs par 3 → par (verde)
     expect(colors[2]).toBe(COLOR_PAR)
-    // H4..H9 sin dato de par → todos neutros
+    // H4..H9 sin dato de par → gris neutro (no asumir que es par)
     for (let i = 3; i < 9; i++) {
-      expect(colors[i]).toBe(COLOR_PAR)
+      expect(colors[i]).toBe(COLOR_NO_DATA)
     }
   })
 
