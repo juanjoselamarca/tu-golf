@@ -14,6 +14,9 @@ import { GARMIN_COLORS } from './ScoreSymbol'
 
 export interface HoleBarProps {
   scores: Record<string, number> | (number | null)[]
+  /** Pares por hoyo. Si para un hoyo dado no hay dato, ese segmento se renderiza
+   *  como neutro (gris-par) en vez de asumir par=4 — porque asumir par=4 con un
+   *  cache vacío producía colores incoherentes con el detalle de la ronda. */
   pars: Record<string, number> | number[]
   totalHoles: number
   height?: number
@@ -25,8 +28,9 @@ export interface HoleBarProps {
   fillTo18?: boolean
 }
 
-function getColor(score: number | null | undefined, par: number): string {
+function getColor(score: number | null | undefined, par: number | null): string {
   if (score == null || score === 0) return 'transparent'
+  if (par == null) return '#d0d5dc' // sin dato de par confiable → neutro, no asumir resultado
   const d = score - par
   if (d <= -1) return GARMIN_COLORS.birdie
   if (d === 0) return '#d0d5dc' // gris claro para par — baseline visual, casi invisible
@@ -40,10 +44,13 @@ function getS(scores: HoleBarProps['scores'], h: number): number | null {
   return typeof v === 'number' && v > 0 ? v : null
 }
 
-function getP(pars: HoleBarProps['pars'], h: number): number {
-  if (Array.isArray(pars)) return pars[h - 1] ?? 4
+function getP(pars: HoleBarProps['pars'], h: number): number | null {
+  if (Array.isArray(pars)) {
+    const v = pars[h - 1]
+    return typeof v === 'number' ? v : null
+  }
   const v = pars[String(h)] ?? (pars as Record<number, number>)[h]
-  return typeof v === 'number' ? v : 4
+  return typeof v === 'number' ? v : null
 }
 
 export default function HoleBar({
@@ -62,7 +69,7 @@ export default function HoleBar({
     const h = i + 1
     const inRound = h <= totalHoles
     const s = inRound ? getS(scores, h) : null
-    const p = inRound ? getP(pars, h) : 4
+    const p = inRound ? getP(pars, h) : null
     return { h, color: getColor(s, p), has: s != null, inRound }
   })
 
