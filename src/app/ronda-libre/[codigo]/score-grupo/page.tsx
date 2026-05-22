@@ -326,7 +326,12 @@ export default function ScoreGrupoPage() {
       const savePromises = ronda.ronda_libre_jugadores.map(j => {
         const scoresObj: Record<string, number> = {}
         for (const [k, v] of Object.entries(toSave[j.id] ?? {})) scoresObj[String(k)] = v
-        return supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
+        // Audit 2026-05-17 P0 #1: merge server-side vía RPC, nunca UPDATE destructivo.
+        return supabase.rpc('upsert_ronda_libre_scores', {
+          p_jugador_id: j.id,
+          p_codigo: codigo,
+          p_delta: scoresObj,
+        })
       })
       const results = await Promise.all(savePromises)
       allOk = !results.some(r => r.error)
@@ -359,7 +364,12 @@ export default function ScoreGrupoPage() {
     let ok = false
     let attempts = 0
     while (!ok && attempts < 3) {
-      const { error } = await supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', jugadorId)
+      // Audit 2026-05-17 P0 #1: merge server-side vía RPC, nunca UPDATE destructivo.
+      const { error } = await supabase.rpc('upsert_ronda_libre_scores', {
+        p_jugador_id: jugadorId,
+        p_codigo: codigo,
+        p_delta: scoresObj,
+      })
       if (!error) ok = true
       else {
         attempts++
@@ -462,7 +472,12 @@ export default function ScoreGrupoPage() {
         let ok = false
         let attempts = 0
         while (!ok && attempts < 3) {
-          const { error } = await supabase.from('ronda_equipos').update({ scores: newScores }).eq('id', equipoId)
+          // Audit 2026-05-17 P0 #1: RPC merge server-side para ronda_equipos también.
+          const { error } = await supabase.rpc('upsert_ronda_equipos_scores', {
+            p_equipo_id: equipoId,
+            p_codigo: codigo,
+            p_delta: newScores,
+          })
           if (!error) ok = true
           else {
             attempts++
@@ -557,7 +572,12 @@ export default function ScoreGrupoPage() {
       for (const [k, v] of Object.entries(filledScores[j.id] ?? {})) {
         if (v != null) scoresObj[String(k)] = v
       }
-      return supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', j.id)
+      // Audit 2026-05-17 P0 #1: merge server-side vía RPC también en finalize.
+      return supabase.rpc('upsert_ronda_libre_scores', {
+        p_jugador_id: j.id,
+        p_codigo: codigo,
+        p_delta: scoresObj,
+      })
     })
     await Promise.all(savePromises)
 
@@ -725,9 +745,13 @@ export default function ScoreGrupoPage() {
       const supabase = createClient()
       for (const eq of teamEquipos) {
         if (eq.scores[String(currentHole)] == null) {
-          const newScores = { ...eq.scores, [String(currentHole)]: par }
-          setTeamEquipos(prev => prev.map(e => e.id === eq.id ? { ...e, scores: newScores } : e))
-          await supabase.from('ronda_equipos').update({ scores: newScores }).eq('id', eq.id)
+          // Audit 2026-05-17 P0 #1: delta-only RPC, preserva el resto del JSONB del equipo.
+          await supabase.rpc('upsert_ronda_equipos_scores', {
+            p_equipo_id: eq.id,
+            p_codigo: codigo,
+            p_delta: { [String(currentHole)]: par },
+          })
+          setTeamEquipos(prev => prev.map(e => e.id === eq.id ? { ...e, scores: { ...e.scores, [String(currentHole)]: par } } : e))
         }
       }
     } else {
