@@ -46,7 +46,7 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_libre_scores — merge semantics 
       .from('ronda_libre_jugadores')
       .update({ scores: { '1': 4, '2': 3 } })
       .eq('id', jugadorId)
-  })
+  }, 30_000)
 
   afterAll(async () => {
     if (rondaId) await cleanupRondaFixture(rondaId)
@@ -127,6 +127,88 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_libre_scores — merge semantics 
       expect(row?.scores).toEqual({ '1': 4, '2': 99, '3': 5, '4': 6 })
     } finally {
       // Restablecer estado para no contaminar otros tests
+      await admin.from('rondas_libres').update({ estado: 'en_curso' }).eq('id', rondaId)
+    }
+  })
+})
+
+describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_equipos_scores — merge semantics (audit P0 #1 fase 2)', () => {
+  let admin: SupabaseClient
+  let userId: string
+  let rondaId: string
+  let codigo: string
+  let equipoId: string
+
+  beforeAll(async () => {
+    admin = createClient(url!, serviceKey!, { auth: { autoRefreshToken: false, persistSession: false } })
+    userId = await getTestUserId()
+
+    const ronda = await createRondaFixture({ creadorUserId: userId, creadorName: 'P0#1 fase 2 equipos' })
+    rondaId = ronda.id
+    codigo = ronda.codigo
+
+    // Crear un equipo de test con scores iniciales {1:4, 2:3}.
+    const { data: equipo, error: eqErr } = await admin
+      .from('ronda_equipos')
+      .insert({
+        ronda_id: rondaId,
+        nombre: 'Equipo Test E2E',
+        scores: { '1': 4, '2': 3 },
+      })
+      .select('id')
+      .single()
+    if (eqErr || !equipo) throw new Error(`crear equipo falló: ${eqErr?.message ?? 'unknown'}`)
+    equipoId = equipo.id
+  }, 30_000)
+
+  afterAll(async () => {
+    // ronda_equipos tiene ON DELETE CASCADE desde rondas_libres, así que
+    // cleanupRondaFixture limpia también el equipo.
+    if (rondaId) await cleanupRondaFixture(rondaId)
+  })
+
+  it('agrega un hoyo nuevo al equipo sin perder los anteriores', async () => {
+    const { data, error } = await admin.rpc('upsert_ronda_equipos_scores', {
+      p_equipo_id: equipoId,
+      p_codigo: codigo,
+      p_delta: { '3': 5 },
+    })
+    expect(error).toBeNull()
+    expect(data).toEqual({ '1': 4, '2': 3, '3': 5 })
+  })
+
+  it('STALE STATE PROTECTION en equipos: delta parcial no pisa hoyos previos', async () => {
+    const { data, error } = await admin.rpc('upsert_ronda_equipos_scores', {
+      p_equipo_id: equipoId,
+      p_codigo: codigo,
+      p_delta: { '3': 5 }, // solo h3 — h1 y h2 deben quedar intactos
+    })
+    expect(error).toBeNull()
+    expect(data).toEqual({ '1': 4, '2': 3, '3': 5 })
+  })
+
+  it('rechaza con RONDA_NOT_FOUND (P0001) si el equipo no existe', async () => {
+    const fakeId = '00000000-0000-0000-0000-000000000000'
+    const { error } = await admin.rpc('upsert_ronda_equipos_scores', {
+      p_equipo_id: fakeId,
+      p_codigo: codigo,
+      p_delta: { '1': 4 },
+    })
+    expect(error).not.toBeNull()
+    expect(error!.code).toBe('P0001')
+  })
+
+  it('rechaza con RONDA_FINALIZED (P0002) si la ronda está cerrada', async () => {
+    await admin.from('rondas_libres').update({ estado: 'finalizada' }).eq('id', rondaId)
+    try {
+      const { error } = await admin.rpc('upsert_ronda_equipos_scores', {
+        p_equipo_id: equipoId,
+        p_codigo: codigo,
+        p_delta: { '5': 7 },
+      })
+      expect(error).not.toBeNull()
+      expect(error!.code).toBe('P0002')
+    } finally {
       await admin.from('rondas_libres').update({ estado: 'en_curso' }).eq('id', rondaId)
     }
   })
