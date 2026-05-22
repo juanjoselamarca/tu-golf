@@ -177,7 +177,12 @@ function ScorePageContent() {
       const supabase = createClient()
       const scoresObj: Record<string, number> = {}
       for (const [k, v] of Object.entries(pendingScores)) scoresObj[k] = v
-      supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', activeJugadorId)
+      // Audit 2026-05-17 P0 #1: merge server-side vía RPC para no perder hoyos.
+      supabase.rpc('upsert_ronda_libre_scores', {
+        p_jugador_id: activeJugadorId,
+        p_codigo: codigo,
+        p_delta: scoresObj,
+      })
         .then(({ error }) => {
           if (!error) {
             scoreSync.marcarSincronizado()

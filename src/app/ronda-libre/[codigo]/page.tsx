@@ -425,7 +425,12 @@ function RondaLibrePageContent() {
 
     const updatedScores = { ...jugador.scores, [String(hole)]: newScore }
     const supabase = createClient()
-    const { error } = await supabase.from('ronda_libre_jugadores').update({ scores: updatedScores }).eq('id', jugadorId)
+    // Audit 2026-05-17 P0 #1: merge server-side vía RPC; el delta es solo el hoyo editado.
+    const { error } = await supabase.rpc('upsert_ronda_libre_scores', {
+      p_jugador_id: jugadorId,
+      p_codigo: codigo,
+      p_delta: { [String(hole)]: newScore },
+    })
     if (error) {
       addToast({ type: 'error', title: 'Error', message: 'No se pudo actualizar el score', duration: 4000 })
     } else {
