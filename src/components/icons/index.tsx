@@ -9,5 +9,6 @@ export {
   ArrowUpRight, ArrowDownRight, ArrowUpCircle, ArrowDownCircle,
   Search, MessageCircle, Repeat, Clock,
   Sun, Moon, Settings,
+  MoreVertical, Pencil, Trash2,
   Link as LinkIcon,
 } from 'lucide-react'

@@ -10,7 +10,7 @@ import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components
 import HoleBar from '@/components/HoleBar'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { parPerHoleArray } from '@/golf/core/compare'
-import { Radio, ClipboardList, Trophy, ChevronDown, AlertTriangle } from '@/components/icons'
+import { Radio, ClipboardList, Trophy, ChevronDown, AlertTriangle, MoreVertical, Pencil, Trash2 } from '@/components/icons'
 
 /* ─── Datos ────────────────────────────────────────────── */
 const CANCHAS_CHILE = [
@@ -60,6 +60,8 @@ interface BestRound {
   course: string
   date: string
   vsPar: number
+  /** id de la ronda — habilita tap-to-scroll a la card en la lista (inbox e21e2a32). */
+  roundId: string | null
 }
 
 interface HistorialStats {
@@ -203,6 +205,8 @@ function HistorialContent() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
+  // Menú "..." por card (editar/eliminar minimalista, inbox 92ebdc65).
+  const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null)
   const [editScores, setEditScores] = useState<(number | null)[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
   const [courseParCache, setCourseParCache] = useState<Record<string, Record<number, number>>>({})
@@ -587,14 +591,53 @@ function HistorialContent() {
             gap: '10px',
             marginBottom: '16px',
           }}>
+            {/* Highlight transient cuando el user tapea un Personal Record (inbox e21e2a32) */}
+            <style>{`
+              .historial-pr-highlight {
+                animation: historial-pr-pulse 1.6s ease-out;
+              }
+              @keyframes historial-pr-pulse {
+                0%   { background: rgba(196,153,42,0.18); box-shadow: 0 0 0 3px rgba(196,153,42,0.35); }
+                100% { background: transparent; box-shadow: 0 0 0 0 rgba(196,153,42,0); }
+              }
+            `}</style>
             {([
               { label: 'Personal Record 18 hoyos', data: apiStats.bestRound18, showVsPar: true },
               { label: 'Personal Record 9 hoyos', data: apiStats.bestRound9, showVsPar: true },
             ] as const).map(rec => {
               if (!rec.data) return null
               const d = rec.data
+              const canScroll = !!d.roundId
+              const handleClick = () => {
+                if (!d.roundId) return
+                // Tap-to-scroll a la card de la ronda PR en la lista (inbox e21e2a32).
+                // Si la ronda no está visible (ej. está colapsada en un mes futuro), el
+                // browser hace el scroll de todas formas porque el elemento existe en el DOM.
+                const el = document.getElementById(`round-card-${d.roundId}`)
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  // Highlight transient de 1.6s para que el usuario "vea" cuál es.
+                  el.classList.add('historial-pr-highlight')
+                  setTimeout(() => el.classList.remove('historial-pr-highlight'), 1600)
+                }
+              }
               return (
-                <div key={rec.label} style={{ ...cardStyle, padding: '14px 16px' }}>
+                <div
+                  key={rec.label}
+                  onClick={canScroll ? handleClick : undefined}
+                  onKeyDown={canScroll ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } } : undefined}
+                  role={canScroll ? 'button' : undefined}
+                  tabIndex={canScroll ? 0 : undefined}
+                  aria-label={canScroll ? `Ir a ${rec.label} en la lista` : undefined}
+                  style={{
+                    ...cardStyle,
+                    padding: '14px 16px',
+                    cursor: canScroll ? 'pointer' : 'default',
+                    transition: 'transform 120ms ease, box-shadow 120ms ease',
+                  }}
+                  onMouseEnter={canScroll ? (e) => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-1px)' } : undefined}
+                  onMouseLeave={canScroll ? (e) => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)' } : undefined}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', color: '#c4992a' }}><Trophy size={14} strokeWidth={1.75} /></span>
                     <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{rec.label}</span>
@@ -903,6 +946,7 @@ function HistorialContent() {
                     return (
                       <div
                         key={r.id}
+                        id={`round-card-${r.id}`}
                         className="card-animate"
                         onClick={() => router.push(`/perfil/historial/${r.id}`)}
                         style={{
@@ -991,14 +1035,109 @@ function HistorialContent() {
                             </div>
                           </div>
 
-                          {/* Right side */}
-                          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {/* Right side — menú "..." + chevron (inbox 92ebdc65) */}
+                          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setMenuOpenFor(menuOpenFor === r.id ? null : r.id) }}
+                              aria-label="Opciones de la tarjeta"
+                              aria-expanded={menuOpenFor === r.id}
+                              aria-haspopup="menu"
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                color: 'var(--text-3)', padding: '6px',
+                                minWidth: '32px', minHeight: '32px',
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                borderRadius: '8px',
+                              }}
+                            >
+                              <MoreVertical size={16} strokeWidth={2} />
+                            </button>
                             <span style={{
                               fontSize: '12px', color: '#d1d5db',
                               transition: 'transform 0.2s',
                               transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
                               display: 'inline-block',
                             }} aria-hidden><ChevronDown size={14} strokeWidth={2} /></span>
+
+                            {menuOpenFor === r.id && (
+                              <>
+                                {/* Backdrop click-outside */}
+                                <div
+                                  onClick={(e) => { e.stopPropagation(); setMenuOpenFor(null) }}
+                                  style={{ position: 'fixed', inset: 0, zIndex: 49 }}
+                                  aria-hidden
+                                />
+                                <div
+                                  role="menu"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{
+                                    position: 'absolute', top: 'calc(100% + 4px)', right: '4px',
+                                    minWidth: '160px',
+                                    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+                                    borderRadius: '10px',
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06)',
+                                    padding: '4px',
+                                    zIndex: 50,
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setMenuOpenFor(null)
+                                      // Navegar a página detalle con flag edit (el detalle entra en modo edición).
+                                      router.push(`/perfil/historial/${r.id}?edit=1`)
+                                    }}
+                                    style={{
+                                      width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                                      padding: '10px 12px', minHeight: '44px',
+                                      background: 'none', border: 'none', cursor: 'pointer',
+                                      fontSize: '13px', color: 'var(--text)',
+                                      fontFamily: '"DM Sans", system-ui, sans-serif',
+                                      borderRadius: '6px',
+                                      textAlign: 'left',
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(196,153,42,0.08)')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                                  >
+                                    <Pencil size={14} strokeWidth={1.75} />
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    disabled={deleting === r.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setMenuOpenFor(null)
+                                      // Confirmación nativa antes de borrar (acción destructiva).
+                                      const dateLabel = r.played_at ? formatDateShort(r.played_at) : 'esta ronda'
+                                      const courseLabel = r.course_name || 'esa cancha'
+                                      if (window.confirm(`¿Eliminar la ronda en ${courseLabel} (${dateLabel})? No se puede deshacer.`)) {
+                                        void handleDelete(r.id)
+                                      }
+                                    }}
+                                    style={{
+                                      width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                                      padding: '10px 12px', minHeight: '44px',
+                                      background: 'none', border: 'none', cursor: 'pointer',
+                                      fontSize: '13px', color: '#dc2626',
+                                      fontFamily: '"DM Sans", system-ui, sans-serif',
+                                      borderRadius: '6px',
+                                      textAlign: 'left',
+                                      opacity: deleting === r.id ? 0.5 : 1,
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(220,38,38,0.08)')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                                  >
+                                    <Trash2 size={14} strokeWidth={1.75} />
+                                    {deleting === r.id ? 'Eliminando…' : 'Eliminar'}
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
 

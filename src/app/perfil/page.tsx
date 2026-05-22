@@ -69,6 +69,9 @@ export default function PerfilPage() {
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  // Refresh FedeGolf — inbox 25366393
+  const [fedegolfRefreshing, setFedegolfRefreshing] = useState(false)
+  const [fedegolfMsg, setFedegolfMsg] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -130,6 +133,48 @@ export default function PerfilPage() {
     setSaved(true)
     setEditing(false)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  // Refresh índice FedeGolf manual — inbox 25366393.
+  // El endpoint tiene cooldown de 4h, así que un click frecuente devuelve cached=true sin
+  // pegarle a fedegolf.cl. Estados: ok, cached (warn), no-vinculado (warn), error.
+  const handleFedegolfRefresh = async () => {
+    if (fedegolfRefreshing) return
+    setFedegolfRefreshing(true)
+    setFedegolfMsg(null)
+    try {
+      const res = await fetch('/api/fedegolf/sync-indice', { method: 'POST' })
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; indice?: number; cambio?: boolean; cached?: boolean; error?: string }
+        | null
+      if (res.status === 404 || body?.error === 'No hay cuenta FedeGolf vinculada') {
+        setFedegolfMsg({ kind: 'warn', text: 'Vinculá tu cuenta FedeGolf primero.' })
+      } else if (!res.ok) {
+        setFedegolfMsg({ kind: 'error', text: body?.error || 'No se pudo actualizar. Intentá más tarde.' })
+      } else if (body?.cached) {
+        setFedegolfMsg({ kind: 'warn', text: 'Ya está actualizado. Probá de nuevo en 4 horas.' })
+      } else if (body?.cambio === false) {
+        setFedegolfMsg({ kind: 'ok', text: 'Tu índice no cambió.' })
+      } else {
+        setFedegolfMsg({ kind: 'ok', text: `Índice actualizado: ${body?.indice?.toFixed(1) ?? '—'}` })
+        // Refrescar profile para que la card muestre el nuevo valor
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: updated } = await supabase
+            .from('profiles')
+            .select('id, name, email, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at')
+            .eq('id', user.id).single()
+          if (updated) setProfile(updated as Profile)
+        }
+      }
+    } catch {
+      setFedegolfMsg({ kind: 'error', text: 'Error de red. Probá de nuevo.' })
+    } finally {
+      setFedegolfRefreshing(false)
+      // Auto-clear mensaje a los 6s
+      setTimeout(() => setFedegolfMsg(null), 6000)
+    }
   }
 
   if (loading) {
@@ -215,7 +260,7 @@ export default function PerfilPage() {
         {/* Dual Index Cards — P18: storytelling explícito de qué es cada índice */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '100ms' }}>
           {/* Índice Federación */}
-          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
             <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', marginBottom: '8px', margin: '0 0 8px' }}>
               Federación
             </p>
@@ -225,6 +270,61 @@ export default function PerfilPage() {
             <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
               Oficial USGA · torneos federados
             </p>
+            {/* Botón "Actualizar" — inbox 25366393. Trigger manual al sync FedeGolf
+                (cooldown 4h server-side). No se muestra mientras refresca para evitar
+                doble-click. Mensaje de resultado debajo, auto-clear a los 6s. */}
+            <button
+              type="button"
+              onClick={handleFedegolfRefresh}
+              disabled={fedegolfRefreshing}
+              aria-label="Actualizar índice FedeGolf"
+              style={{
+                marginTop: '12px',
+                minHeight: '32px',
+                padding: '6px 10px',
+                background: 'transparent',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                color: fedegolfRefreshing ? 'var(--text-3)' : '#c4992a',
+                cursor: fedegolfRefreshing ? 'wait' : 'pointer',
+                letterSpacing: '0.02em',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <span aria-hidden style={{
+                display: 'inline-block',
+                width: '11px', height: '11px',
+                animation: fedegolfRefreshing ? 'fedegolfSpin 800ms linear infinite' : 'none',
+              }}>↻</span>
+              {fedegolfRefreshing ? 'Actualizando…' : 'Actualizar'}
+            </button>
+            {fedegolfMsg && (
+              <p
+                role="status"
+                aria-live="polite"
+                style={{
+                  marginTop: '8px',
+                  marginBottom: 0,
+                  fontSize: '10px',
+                  lineHeight: 1.4,
+                  color: fedegolfMsg.kind === 'error' ? '#dc2626' : fedegolfMsg.kind === 'warn' ? 'var(--text-2)' : '#16a34a',
+                }}
+              >
+                {fedegolfMsg.text}
+              </p>
+            )}
+            <style jsx>{`
+              @keyframes fedegolfSpin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
           </div>
 
           {/* Índice Golfers+ */}
