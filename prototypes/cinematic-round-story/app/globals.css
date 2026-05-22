@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background: #0e0c0a;
+  color: #ebe3d3;
+  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: none;
+}
+
+.editorial {
+  font-family: 'Playfair Display', Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+.editorial-italic {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic;
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #c9a14a 0%, #876523 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.burgundy-gradient {
+  background: linear-gradient(135deg, #6b1f2a 0%, #581821 100%);
+}
+
+.vignette {
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+  pointer-events: none;
+}
