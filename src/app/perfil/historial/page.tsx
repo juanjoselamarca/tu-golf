@@ -865,7 +865,9 @@ function HistorialContent() {
                 }}
               />
             ))}
-            <style jsx>{`
+            {/* global porque inline style={{ animation: ... }} no puede referenciar
+                keyframes scoped a styled-jsx. */}
+            <style jsx global>{`
               @keyframes historial-skel {
                 0% { background-position: 200% 0; }
                 100% { background-position: -200% 0; }

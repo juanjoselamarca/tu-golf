@@ -243,7 +243,11 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
           </ul>
         )}
 
-        <style jsx>{`
+        {/* style jsx global porque las animations se aplican via inline style={{ animation: ... }}
+            que no puede referenciar keyframes scoped al componente. Sin global, el modal abría
+            sin pintar la animación (Playwright detectaba el dialog pero el visual humano lo
+            veía vacío detrás del backdrop). */}
+        <style jsx global>{`
           @keyframes breakdownOverlayIn {
             from { opacity: 0; }
             to   { opacity: 1; }
