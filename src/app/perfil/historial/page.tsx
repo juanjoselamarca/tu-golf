@@ -10,7 +10,7 @@ import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components
 import HoleBar from '@/components/HoleBar'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { parPerHoleArray } from '@/golf/core/compare'
-import { Radio, ClipboardList, Trophy, ChevronDown, AlertTriangle } from '@/components/icons'
+import { Radio, ClipboardList, Trophy, ChevronDown, AlertTriangle, MoreVertical, Pencil, Trash2 } from '@/components/icons'
 
 /* ─── Datos ────────────────────────────────────────────── */
 const CANCHAS_CHILE = [
@@ -205,6 +205,8 @@ function HistorialContent() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
+  // Menú "..." por card (editar/eliminar minimalista, inbox 92ebdc65).
+  const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null)
   const [editScores, setEditScores] = useState<(number | null)[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
   const [courseParCache, setCourseParCache] = useState<Record<string, Record<number, number>>>({})
@@ -1033,14 +1035,109 @@ function HistorialContent() {
                             </div>
                           </div>
 
-                          {/* Right side */}
-                          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {/* Right side — menú "..." + chevron (inbox 92ebdc65) */}
+                          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setMenuOpenFor(menuOpenFor === r.id ? null : r.id) }}
+                              aria-label="Opciones de la tarjeta"
+                              aria-expanded={menuOpenFor === r.id}
+                              aria-haspopup="menu"
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                color: 'var(--text-3)', padding: '6px',
+                                minWidth: '32px', minHeight: '32px',
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                borderRadius: '8px',
+                              }}
+                            >
+                              <MoreVertical size={16} strokeWidth={2} />
+                            </button>
                             <span style={{
                               fontSize: '12px', color: '#d1d5db',
                               transition: 'transform 0.2s',
                               transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
                               display: 'inline-block',
                             }} aria-hidden><ChevronDown size={14} strokeWidth={2} /></span>
+
+                            {menuOpenFor === r.id && (
+                              <>
+                                {/* Backdrop click-outside */}
+                                <div
+                                  onClick={(e) => { e.stopPropagation(); setMenuOpenFor(null) }}
+                                  style={{ position: 'fixed', inset: 0, zIndex: 49 }}
+                                  aria-hidden
+                                />
+                                <div
+                                  role="menu"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{
+                                    position: 'absolute', top: 'calc(100% + 4px)', right: '4px',
+                                    minWidth: '160px',
+                                    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+                                    borderRadius: '10px',
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06)',
+                                    padding: '4px',
+                                    zIndex: 50,
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setMenuOpenFor(null)
+                                      // Navegar a página detalle con flag edit (el detalle entra en modo edición).
+                                      router.push(`/perfil/historial/${r.id}?edit=1`)
+                                    }}
+                                    style={{
+                                      width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                                      padding: '10px 12px', minHeight: '44px',
+                                      background: 'none', border: 'none', cursor: 'pointer',
+                                      fontSize: '13px', color: 'var(--text)',
+                                      fontFamily: '"DM Sans", system-ui, sans-serif',
+                                      borderRadius: '6px',
+                                      textAlign: 'left',
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(196,153,42,0.08)')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                                  >
+                                    <Pencil size={14} strokeWidth={1.75} />
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    disabled={deleting === r.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setMenuOpenFor(null)
+                                      // Confirmación nativa antes de borrar (acción destructiva).
+                                      const dateLabel = r.played_at ? formatDateShort(r.played_at) : 'esta ronda'
+                                      const courseLabel = r.course_name || 'esa cancha'
+                                      if (window.confirm(`¿Eliminar la ronda en ${courseLabel} (${dateLabel})? No se puede deshacer.`)) {
+                                        void handleDelete(r.id)
+                                      }
+                                    }}
+                                    style={{
+                                      width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                                      padding: '10px 12px', minHeight: '44px',
+                                      background: 'none', border: 'none', cursor: 'pointer',
+                                      fontSize: '13px', color: '#dc2626',
+                                      fontFamily: '"DM Sans", system-ui, sans-serif',
+                                      borderRadius: '6px',
+                                      textAlign: 'left',
+                                      opacity: deleting === r.id ? 0.5 : 1,
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(220,38,38,0.08)')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                                  >
+                                    <Trash2 size={14} strokeWidth={1.75} />
+                                    {deleting === r.id ? 'Eliminando…' : 'Eliminar'}
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
 
