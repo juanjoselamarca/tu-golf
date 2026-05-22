@@ -23,6 +23,8 @@ interface BestRound {
   course: string
   date: string
   vsPar: number
+  /** id de la historical_round que es PR — habilita tap-to-scroll en /perfil/historial (inbox e21e2a32). */
+  roundId: string | null
 }
 
 interface CourseBreakdownItem {
@@ -279,6 +281,7 @@ export async function GET() {
         course: round.course_name,
         date: round.played_at,
         vsPar: round.vsPar ?? 0,
+        roundId: round.id ?? null,
       }
     }
   }
@@ -291,6 +294,7 @@ export async function GET() {
         course: round.course_name,
         date: round.played_at,
         vsPar: round.vsPar ?? 0,
+        roundId: round.id ?? null,
       }
     }
   }

@@ -60,6 +60,8 @@ interface BestRound {
   course: string
   date: string
   vsPar: number
+  /** id de la ronda — habilita tap-to-scroll a la card en la lista (inbox e21e2a32). */
+  roundId: string | null
 }
 
 interface HistorialStats {
@@ -587,14 +589,53 @@ function HistorialContent() {
             gap: '10px',
             marginBottom: '16px',
           }}>
+            {/* Highlight transient cuando el user tapea un Personal Record (inbox e21e2a32) */}
+            <style>{`
+              .historial-pr-highlight {
+                animation: historial-pr-pulse 1.6s ease-out;
+              }
+              @keyframes historial-pr-pulse {
+                0%   { background: rgba(196,153,42,0.18); box-shadow: 0 0 0 3px rgba(196,153,42,0.35); }
+                100% { background: transparent; box-shadow: 0 0 0 0 rgba(196,153,42,0); }
+              }
+            `}</style>
             {([
               { label: 'Personal Record 18 hoyos', data: apiStats.bestRound18, showVsPar: true },
               { label: 'Personal Record 9 hoyos', data: apiStats.bestRound9, showVsPar: true },
             ] as const).map(rec => {
               if (!rec.data) return null
               const d = rec.data
+              const canScroll = !!d.roundId
+              const handleClick = () => {
+                if (!d.roundId) return
+                // Tap-to-scroll a la card de la ronda PR en la lista (inbox e21e2a32).
+                // Si la ronda no está visible (ej. está colapsada en un mes futuro), el
+                // browser hace el scroll de todas formas porque el elemento existe en el DOM.
+                const el = document.getElementById(`round-card-${d.roundId}`)
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  // Highlight transient de 1.6s para que el usuario "vea" cuál es.
+                  el.classList.add('historial-pr-highlight')
+                  setTimeout(() => el.classList.remove('historial-pr-highlight'), 1600)
+                }
+              }
               return (
-                <div key={rec.label} style={{ ...cardStyle, padding: '14px 16px' }}>
+                <div
+                  key={rec.label}
+                  onClick={canScroll ? handleClick : undefined}
+                  onKeyDown={canScroll ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } } : undefined}
+                  role={canScroll ? 'button' : undefined}
+                  tabIndex={canScroll ? 0 : undefined}
+                  aria-label={canScroll ? `Ir a ${rec.label} en la lista` : undefined}
+                  style={{
+                    ...cardStyle,
+                    padding: '14px 16px',
+                    cursor: canScroll ? 'pointer' : 'default',
+                    transition: 'transform 120ms ease, box-shadow 120ms ease',
+                  }}
+                  onMouseEnter={canScroll ? (e) => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-1px)' } : undefined}
+                  onMouseLeave={canScroll ? (e) => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)' } : undefined}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', color: '#c4992a' }}><Trophy size={14} strokeWidth={1.75} /></span>
                     <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{rec.label}</span>
@@ -903,6 +944,7 @@ function HistorialContent() {
                     return (
                       <div
                         key={r.id}
+                        id={`round-card-${r.id}`}
                         className="card-animate"
                         onClick={() => router.push(`/perfil/historial/${r.id}`)}
                         style={{
