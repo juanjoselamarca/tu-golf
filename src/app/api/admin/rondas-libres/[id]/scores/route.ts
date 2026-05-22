@@ -21,13 +21,20 @@ export async function PATCH(
     return NextResponse.json({ error: 'Se requiere jugadorId y scores' }, { status: 400 })
   }
 
-  const { data, error } = await admin
-    .from('ronda_libre_jugadores')
-    .update({ scores })
-    .eq('id', jugadorId)
-    .eq('ronda_id', rondaId)
-    .select()
+  // Audit 2026-05-17 P0 #1: merge server-side vía RPC también en admin route.
+  // La RPC requiere `codigo` para validar atómicamente que la ronda existe + en_curso.
+  const { data: ronda, error: rondaErr } = await admin
+    .from('rondas_libres')
+    .select('codigo')
+    .eq('id', rondaId)
     .single()
+  if (rondaErr || !ronda) return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
+
+  const { data, error } = await admin.rpc('upsert_ronda_libre_scores', {
+    p_jugador_id: jugadorId,
+    p_codigo: ronda.codigo,
+    p_delta: scores,
+  })
 
   if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
 
