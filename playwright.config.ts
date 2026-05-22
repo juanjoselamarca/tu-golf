@@ -1,4 +1,11 @@
+import { config as dotenvConfig } from 'dotenv'
 import { defineConfig, devices } from '@playwright/test'
+
+// Carga `.env.local` ANTES de que se evalúe el config y antes de que global-setup
+// + helpers (ronda-fixture, auth) consulten process.env. Sin esto, correr
+// `npm run test:e2e:ronda` sin shell-exports skipea silenciosamente la suite
+// auth y reporta exit 0 (bug P0 #2 audit 2026-05-17).
+dotenvConfig({ path: '.env.local' })
 
 /**
  * Playwright E2E config para Golfers+
