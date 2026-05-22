@@ -14,6 +14,7 @@ import { LevelsBar } from '@/components/perfil/LevelsBar'
 import { getNivel } from '@/lib/mi-golf/niveles'
 import { Check, ChevronUp, ChevronDown } from '@/components/icons'
 import IndiceBreakdownModal from '@/components/IndiceBreakdownModal'
+import InstallAppCard from '@/components/InstallAppCard'
 import { formatRelativeTime } from '@/lib/format'
 
 interface Profile {
@@ -393,6 +394,11 @@ export default function PerfilPage() {
             ¿Cuándo uso cuál? →
           </Link>
         </div>
+
+        {/* Install card persistente — inbox 7ea72a78. Solo aparece si no está
+            instalada como PWA. Una vez instalada, en Android los links de
+            golfersplus.vercel.app se abren automáticamente en la app. */}
+        <InstallAppCard />
 
         {/* Gap note — momento editorial cuando hay desalineación >= 1.5 entre índices */}
         {profile.indice != null && profile.indice_golfers != null && Math.abs(profile.indice - profile.indice_golfers) >= 1.5 && (
