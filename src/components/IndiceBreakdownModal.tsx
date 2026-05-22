@@ -18,6 +18,7 @@
 // resto del historial), pero cada item indica si entra o no en el cálculo.
 
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase'
 import { X, Trophy } from '@/components/icons'
 
@@ -105,8 +106,13 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
   }, [rounds])
 
   if (!isOpen) return null
+  // SSR safety: portal solo en cliente. Sin el guard, hydration mismatch.
+  if (typeof document === 'undefined') return null
 
-  return (
+  // Portal a document.body para que position:fixed se resuelva contra el viewport,
+  // no contra un ancestor con transform (main { animation:pageIn } crea containing
+  // block que rompía el posicionamiento del bottom-sheet).
+  return createPortal((
     <div
       role="dialog"
       aria-modal="true"
@@ -259,5 +265,5 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
         `}</style>
       </div>
     </div>
-  )
+  ), document.body)
 }
