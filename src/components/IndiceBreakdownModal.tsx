@@ -62,6 +62,27 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
   const [rounds, setRounds] = useState<RoundForBreakdown[] | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Inyectar keyframes globales una sola vez. Patrón portable que evita
+  // el problema de styled-jsx con inline style animation + ESLint Vercel.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const id = 'indice-breakdown-keyframes'
+    if (document.getElementById(id)) return
+    const style = document.createElement('style')
+    style.id = id
+    style.textContent = `
+      @keyframes breakdownOverlayIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes breakdownSheetIn {
+        from { transform: translateY(100%); }
+        to   { transform: translateY(0); }
+      }
+    `
+    document.head.appendChild(style)
+  }, [])
+
   useEffect(() => {
     if (!isOpen) return
     let cancelled = false
@@ -249,20 +270,8 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
           </ul>
         )}
 
-        {/* style jsx global porque las animations se aplican via inline style={{ animation: ... }}
-            que no puede referenciar keyframes scoped al componente. Sin global, el modal abría
-            sin pintar la animación (Playwright detectaba el dialog pero el visual humano lo
-            veía vacío detrás del backdrop). */}
-        <style jsx global>{`
-          @keyframes breakdownOverlayIn {
-            from { opacity: 0; }
-            to   { opacity: 1; }
-          }
-          @keyframes breakdownSheetIn {
-            from { transform: translateY(100%); }
-            to   { transform: translateY(0); }
-          }
-        `}</style>
+        {/* Keyframes inyectados via useEffect (ver bloque arriba del componente).
+            <style jsx global> rompe el ESLint config de Vercel. */}
       </div>
     </div>
   ), document.body)

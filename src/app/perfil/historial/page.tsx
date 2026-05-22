@@ -275,6 +275,24 @@ function HistorialContent() {
 
   const [loadError, setLoadError] = useState(false)
 
+  // Inyectar keyframes globales una sola vez. Patrón portable (mismo que
+  // InstallAppCard / StepCelebration) — evita problemas de styled-jsx
+  // con ESLint + inline animation style.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const id = 'historial-skel-keyframes'
+    if (document.getElementById(id)) return
+    const style = document.createElement('style')
+    style.id = id
+    style.textContent = `
+      @keyframes historial-skel {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+    `
+    document.head.appendChild(style)
+  }, [])
+
   /* Auth */
   useEffect(() => {
     const check = async () => {
@@ -865,14 +883,8 @@ function HistorialContent() {
                 }}
               />
             ))}
-            {/* global porque inline style={{ animation: ... }} no puede referenciar
-                keyframes scoped a styled-jsx. */}
-            <style jsx global>{`
-              @keyframes historial-skel {
-                0% { background-position: 200% 0; }
-                100% { background-position: -200% 0; }
-              }
-            `}</style>
+            {/* Keyframes inyectados via useEffect (ver bloque al inicio del componente).
+                <style jsx global> rompe ESLint en Vercel build. */}
           </div>
         )}
 
