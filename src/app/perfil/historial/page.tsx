@@ -53,6 +53,10 @@ interface HistoricalRound {
   formato_juego?: string
   modo_juego?:    string
   par_per_hole?:  Record<string, number> | null
+  /** Si true, la ronda NO entra al cálculo del índice Golfers+ (inbox e21e2a32 parte B). */
+  excluded_from_handicap?: boolean
+  /** Diferencial WHS pre-calculado en BD — usado por modal "¿Qué rondas cuentan?" (inbox 82af3d48). */
+  diferencial?: number | null
 }
 
 interface BestRound {
@@ -313,7 +317,7 @@ function HistorialContent() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('historical_rounds')
-        .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego, par_per_hole')
+        .select('id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego, par_per_hole, excluded_from_handicap, diferencial')
         .order('played_at', { ascending: false })
         .limit(500)
       if (error) { setLoadError(true); return }
@@ -415,6 +419,27 @@ function HistorialContent() {
         })
       await trackEvent(supabase, userId!, 'tarjeta_historica_agregada', { course_name: courseName })
       resetForm(); setShowForm(false); await loadRounds()
+    }
+  }
+
+  // Toggle excluded_from_handicap — inbox e21e2a32 parte B.
+  // Update optimista en UI + UPDATE en BD + trigger recálculo del índice.
+  const handleToggleExcluded = async (r: HistoricalRound) => {
+    const next = !r.excluded_from_handicap
+    setRounds(prev => prev.map(x => x.id === r.id ? { ...x, excluded_from_handicap: next } : x))
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('historical_rounds')
+      .update({ excluded_from_handicap: next })
+      .eq('id', r.id)
+    if (error) {
+      // Revert si falló
+      setRounds(prev => prev.map(x => x.id === r.id ? { ...x, excluded_from_handicap: !next } : x))
+      return
+    }
+    // Disparar recálculo del índice (fire-and-forget como en handleDelete)
+    if (userId) {
+      void supabase.rpc('calcular_indice_golfers', { p_user_id: userId })
     }
   }
 
@@ -1108,6 +1133,32 @@ function HistorialContent() {
                                   <button
                                     type="button"
                                     role="menuitem"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setMenuOpenFor(null)
+                                      // Toggle excluded_from_handicap (inbox e21e2a32 parte B).
+                                      void handleToggleExcluded(r)
+                                    }}
+                                    style={{
+                                      width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                                      padding: '10px 12px', minHeight: '44px',
+                                      background: 'none', border: 'none', cursor: 'pointer',
+                                      fontSize: '13px', color: 'var(--text)',
+                                      fontFamily: '"DM Sans", system-ui, sans-serif',
+                                      borderRadius: '6px',
+                                      textAlign: 'left',
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(196,153,42,0.08)')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                                  >
+                                    <span style={{ width: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} aria-hidden>
+                                      {r.excluded_from_handicap ? '✓' : '∅'}
+                                    </span>
+                                    {r.excluded_from_handicap ? 'Incluir en índice' : 'Excluir del índice'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
                                     disabled={deleting === r.id}
                                     onClick={(e) => {
                                       e.stopPropagation()
@@ -1155,6 +1206,26 @@ function HistorialContent() {
                               height={5}
                               gap={1.5}
                             />
+                          </div>
+                        )}
+
+                        {/* Badge "Excluida del índice" — inbox e21e2a32 parte B.
+                            Indicador sutil para que el usuario sepa qué rondas marcó como excluidas. */}
+                        {r.excluded_from_handicap && (
+                          <div style={{ padding: '0 16px 10px' }}>
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              fontSize: '10px', fontWeight: 600,
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              background: 'rgba(148,168,192,0.12)',
+                              color: 'var(--text-3)',
+                              fontFamily: '"DM Mono", monospace',
+                              letterSpacing: '0.04em',
+                              textTransform: 'uppercase',
+                            }}>
+                              <span aria-hidden>∅</span> no cuenta para el índice
+                            </span>
                           </div>
                         )}
 
