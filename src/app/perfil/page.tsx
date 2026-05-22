@@ -13,6 +13,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { LevelsBar } from '@/components/perfil/LevelsBar'
 import { getNivel } from '@/lib/mi-golf/niveles'
 import { Check, ChevronUp, ChevronDown } from '@/components/icons'
+import IndiceBreakdownModal from '@/components/IndiceBreakdownModal'
 import { formatRelativeTime } from '@/lib/format'
 
 interface Profile {
@@ -72,6 +73,8 @@ export default function PerfilPage() {
   // Refresh FedeGolf — inbox 25366393
   const [fedegolfRefreshing, setFedegolfRefreshing] = useState(false)
   const [fedegolfMsg, setFedegolfMsg] = useState<{ kind: 'ok' | 'warn' | 'error'; text: string } | null>(null)
+  // Modal "¿Qué rondas cuentan?" — inbox 82af3d48
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -327,34 +330,56 @@ export default function PerfilPage() {
             `}</style>
           </div>
 
-          {/* Índice Golfers+ */}
-          <div style={{ background: 'var(--bg)', border: `1px solid ${profile.indice_golfers != null ? 'rgba(196,153,42,0.35)' : 'var(--border)'}`, borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
-            <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c4992a', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
-              Golfers+
-            </p>
-            {profile.indice_golfers != null ? (
-              <>
-                <p style={{ fontSize: '38px', fontWeight: 700, color: '#c4992a', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
-                  {profile.indice_golfers.toFixed(1)}
+          {/* Índice Golfers+ — clickeable cuando hay índice para abrir el desglose
+              de qué rondas cuentan (inbox 82af3d48). */}
+          {profile.indice_golfers != null ? (
+            <button
+              type="button"
+              onClick={() => setBreakdownOpen(true)}
+              aria-label="Ver qué rondas cuentan para el cálculo"
+              style={{
+                background: 'var(--bg)',
+                border: '1px solid rgba(196,153,42,0.35)',
+                borderRadius: '16px',
+                padding: '16px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                width: '100%',
+                fontFamily: 'inherit',
+                transition: 'transform 120ms ease',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)' }}
+            >
+              <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c4992a', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
+                Golfers+
+              </p>
+              <p style={{ fontSize: '38px', fontWeight: 700, color: '#c4992a', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
+                {profile.indice_golfers.toFixed(1)}
+              </p>
+              <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+                Rendimiento real · coaching y amistosos
+              </p>
+              {profile.indice_golfers_updated_at && (
+                <p style={{ fontSize: '9px', color: 'var(--text-3)', margin: '6px 0 0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.04em', fontStyle: 'italic' }}>
+                  Actualizado {formatRelativeTime(profile.indice_golfers_updated_at)}
                 </p>
-                <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
-                  Rendimiento real · coaching y amistosos
-                </p>
-                {profile.indice_golfers_updated_at && (
-                  <p style={{ fontSize: '9px', color: 'var(--text-3)', margin: '6px 0 0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.04em', fontStyle: 'italic' }}>
-                    Actualizado {formatRelativeTime(profile.indice_golfers_updated_at)}
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <p style={{ fontSize: '28px', color: 'var(--text-3)', lineHeight: 1, margin: '0 0 4px' }}>—</p>
-                <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
-                  3+ rondas para activar
-                </p>
-              </>
-            )}
-          </div>
+              )}
+              <p style={{ fontSize: '10px', color: '#c4992a', margin: '8px 0 0', fontWeight: 600 }}>
+                Ver qué rondas cuentan →
+              </p>
+            </button>
+          ) : (
+            <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
+              <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c4992a', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
+                Golfers+
+              </p>
+              <p style={{ fontSize: '28px', color: 'var(--text-3)', lineHeight: 1, margin: '0 0 4px' }}>—</p>
+              <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+                3+ rondas para activar
+              </p>
+            </div>
+          )}
         </div>
 
         {/* P18: link explicativo — "¿Cuándo uso cuál?" */}
@@ -762,6 +787,9 @@ export default function PerfilPage() {
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+
+      {/* Modal "¿Qué rondas cuentan?" — inbox 82af3d48 */}
+      <IndiceBreakdownModal isOpen={breakdownOpen} onClose={() => setBreakdownOpen(false)} />
     </div>
   )
 }
