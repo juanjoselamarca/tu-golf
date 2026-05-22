@@ -5,7 +5,8 @@ import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
 import type { ImportState } from './ImportWizard'
 import ScoreSymbol from '@/components/ScoreSymbol'
-import { CheckCircle, Flag } from '@/components/icons'
+import HoleBar from '@/components/HoleBar'
+import { CheckCircle, Flag, ChevronDown } from '@/components/icons'
 
 interface StepReviewProps {
   rounds: ImportRoundData[]
@@ -361,6 +362,20 @@ export default function StepReview({
             const isGarmin = level === 'garmin'
             const garminStats = getGarminStatsLine(round)
 
+            // vsPar del score importado — null si no hay pars suficientes para calcular.
+            // Replicar la convención de /perfil/historial: gris si null, rojo si over, dorado si <=par.
+            const importedPars: Record<string, number> | undefined = round.par_per_hole
+            const totalPar = importedPars
+              ? Object.entries(importedPars)
+                  .filter(([h]) => Number(h) <= (round.holes_played ?? 18))
+                  .reduce((a, [, p]) => a + (Number(p) || 0), 0)
+              : null
+            const vsParImport = (round.total_gross != null && totalPar != null && totalPar > 0)
+              ? round.total_gross - totalPar
+              : null
+            const formatOv = (v: number): string => v === 0 ? 'E' : v > 0 ? `+${v}` : String(v)
+            const scoreColorImport = vsParImport == null ? 'var(--text)' : vsParImport <= 0 ? '#c4992a' : vsParImport <= 3 ? 'var(--text)' : '#ef4444'
+
             return (
               <div
                 key={round.tempId}
@@ -368,102 +383,129 @@ export default function StepReview({
                   background: isRejected ? 'rgba(255,255,255,0.02)' : 'var(--bg-surface)',
                   border: isRejected ? '1px solid rgba(255,255,255,0.06)' : getCardBorder(level, status),
                   borderRadius: '16px',
-                  padding: '20px',
+                  overflow: 'hidden',
                   opacity: isRejected ? 0.5 : 1,
                   transition: 'all 0.3s ease',
                   boxShadow: getCardShadow(level, status),
                   animation: `reviewCardEnter 0.4s ease-out ${idx * 0.05}s both`,
                 }}
               >
-                {/* Status row */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    background: isRejected ? 'rgba(255,255,255,0.03)' : statusLabel.bg,
-                    padding: '4px 10px', borderRadius: '10px',
-                  }}>
-                    {!isRejected && isGarmin && <span style={{ fontSize: '12px' }}>{'��'}</span>}
-                    {!isRejected && level === 'high' && <span style={{ fontSize: '12px' }}><CheckCircle size={12} /></span>}
-                    <span style={{
-                      fontSize: '11px', fontWeight: 600,
-                      color: isRejected ? '#5a7494' : statusLabel.color,
-                      letterSpacing: '0.05em',
-                    }}>
-                      {isRejected ? 'DESCARTADA' : statusLabel.text}
-                    </span>
+                {/* Row layout horizontal — replica /perfil/historial card.
+                    Score grande izq · club + fecha centro · status pill + chevron derecha. */}
+                <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  {/* Score column — coloreado por vsPar (cuando hay pars) */}
+                  <div style={{ flexShrink: 0, textAlign: 'center', minWidth: '50px' }}>
+                    {!isRejected ? (
+                      <>
+                        <div style={{
+                          fontFamily: "'Playfair Display', serif",
+                          fontSize: '28px', fontWeight: 700,
+                          color: isRejected ? '#5a7494' : scoreColorImport,
+                          lineHeight: 1,
+                          fontVariantNumeric: 'tabular-nums',
+                        }}>
+                          {round.total_gross ?? '—'}
+                        </div>
+                        {vsParImport != null && (
+                          <div style={{
+                            fontSize: '11px',
+                            color: 'var(--text-3)',
+                            marginTop: '2px',
+                            fontFamily: '"DM Mono", monospace',
+                            letterSpacing: '0.04em',
+                          }}>
+                            {formatOv(vsParImport)}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ fontSize: '24px', color: '#5a7494' }}>—</div>
+                    )}
                   </div>
-                  {!isGarmin && (
-                    <span style={{ fontSize: '11px', color: '#3d5570' }}>
-                      {Math.round((round.import_confidence || 0) * 100)}%
-                    </span>
+
+                  {/* Center — club name + date + status pill */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontFamily: "'Playfair Display', serif",
+                      fontSize: '16px', fontWeight: 700,
+                      color: isRejected ? '#5a7494' : 'var(--text)',
+                      marginBottom: '2px',
+                      lineHeight: 1.2,
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                    }}>
+                      <Flag size={12} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0, opacity: 0.6 }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {round.course_name || 'Campo desconocido'}
+                      </span>
+                    </div>
+                    <div style={{
+                      fontSize: '12px', color: 'var(--text-3)',
+                      display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+                    }}>
+                      <span>{round.played_at}</span>
+                      <span aria-hidden>·</span>
+                      <span>{round.holes_played}h</span>
+                      <span
+                        style={{
+                          padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
+                          background: isRejected ? 'rgba(255,255,255,0.03)' : statusLabel.bg,
+                          color: isRejected ? '#5a7494' : statusLabel.color,
+                          letterSpacing: '0.04em',
+                          display: 'inline-flex', alignItems: 'center', gap: '4px',
+                        }}
+                      >
+                        {!isRejected && isGarmin && <CheckCircle size={10} strokeWidth={2} aria-hidden />}
+                        {!isRejected && level === 'high' && <CheckCircle size={10} strokeWidth={2} aria-hidden />}
+                        {isRejected ? 'DESCARTADA' : statusLabel.text}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right side — chevron expand */}
+                  {!isRejected && (
+                    <button
+                      onClick={() => toggleExpand(round.tempId)}
+                      aria-label={isExpanded ? 'Ocultar scorecard' : 'Ver scorecard'}
+                      aria-expanded={isExpanded}
+                      style={{
+                        flexShrink: 0,
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--text-3)', padding: '6px',
+                        minWidth: '32px', minHeight: '32px',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        borderRadius: '8px',
+                        transition: 'transform 0.2s ease, color 0.15s ease',
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      }}
+                    >
+                      <ChevronDown size={16} strokeWidth={2} />
+                    </button>
                   )}
                 </div>
 
-                {/* Club name */}
-                <h3 style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: '18px', fontWeight: 700,
-                  color: isRejected ? '#5a7494' : 'var(--text)',
-                  margin: '0 0 4px', lineHeight: 1.2,
-                }}>
-                  <Flag size={14} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> {round.course_name || 'Campo desconocido'}
-                </h3>
-
-                {/* Date + holes */}
-                <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '16px' }}>
-                  {round.played_at} {'·'} {round.holes_played} hoyos
-                </div>
-
-                {/* Score total */}
-                {!isRejected && (
-                  <div style={{
-                    display: 'flex', alignItems: 'baseline', gap: '6px',
-                    marginBottom: '16px',
-                  }}>
-                    <span style={{
-                      fontFamily: "'Playfair Display', serif",
-                      fontSize: '32px', fontWeight: 700,
-                      color: isRejected ? '#5a7494' : '#c4992a',
-                      lineHeight: 1,
-                    }}>
-                      {round.total_gross}
-                    </span>
-                    <span style={{ fontSize: '14px', color: 'var(--text-2)', fontWeight: 500 }}>
-                      golpes
-                    </span>
+                {/* HoleBar — barra Garmin de colores por hoyo. Visible siempre (no requiere expand),
+                    igual que en /perfil/historial. Le da feedback inmediato del scan al usuario.
+                    scores en wizard es Record<string,number>; HoleBar acepta ese tipo directamente. */}
+                {!isRejected && round.scores && Object.values(round.scores).some(s => typeof s === 'number' && s > 0) && (
+                  <div style={{ padding: '0 16px 12px' }}>
+                    <HoleBar
+                      scores={round.scores}
+                      pars={importedPars ?? {}}
+                      totalHoles={round.holes_played ?? 18}
+                      height={5}
+                      gap={1.5}
+                    />
                   </div>
                 )}
 
-                {/* Expand button for scorecard */}
-                {!isRejected && (
-                  <button
-                    onClick={() => toggleExpand(round.tempId)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '6px',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text-2)', fontSize: '13px', fontWeight: 500,
-                      padding: '6px 0', marginBottom: isExpanded ? '12px' : '16px',
-                      minHeight: '44px',
-                    }}
-                  >
-                    {isExpanded ? 'Ocultar scorecard' : 'Ver scorecard'}
-                    <span style={{
-                      display: 'inline-block',
-                      transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                      transition: 'transform 0.2s ease',
-                      fontSize: '10px',
-                    }}>{'▼'}</span>
-                  </button>
-                )}
-
-                {/* Expanded scorecard */}
+                {/* Expanded scorecard — wrapper con padding lateral para alinear con la row de arriba */}
                 {!isRejected && isExpanded && (
+                  <div style={{ padding: '0 16px 16px' }}>
                   <div style={{
                     background: '#111827',
                     borderRadius: '12px',
                     padding: '14px',
                     border: '1px solid rgba(255,255,255,0.06)',
-                    marginBottom: '16px',
                     overflow: 'hidden',
                   }}>
                     {[0, 9].map(startIdx => renderScorecardRow(round, startIdx))}
@@ -487,11 +529,17 @@ export default function StepReview({
                       </div>
                     )}
                   </div>
+                  </div>
                 )}
 
-                {/* Action buttons — clean text links */}
+                {/* Action buttons — clean text links. Padding lateral + border-top sutil para
+                    separarlo del HoleBar/expanded scorecard sin chrome adicional. */}
                 {!isRejected && (
-                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div style={{
+                    padding: '8px 16px 14px',
+                    display: 'flex', gap: '16px', alignItems: 'center',
+                    borderTop: '1px solid rgba(255,255,255,0.04)',
+                  }}>{/* keep gap layout below */}
                     {decisions[round.tempId] === 'accepted' ? (
                       <>
                         <span style={{
@@ -533,20 +581,22 @@ export default function StepReview({
                   </div>
                 )}
 
-                {/* Rejected — restore button */}
+                {/* Rejected — restore button (con padding lateral del card) */}
                 {isRejected && (
-                  <button
-                    onClick={() => handleDecision(round.tempId, 'accepted')}
-                    style={{
-                      width: '100%', padding: '10px', borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      color: '#5a7494', fontSize: '13px', fontWeight: 500,
-                      cursor: 'pointer', minHeight: '44px',
-                    }}
-                  >
-                    Restaurar
-                  </button>
+                  <div style={{ padding: '0 16px 14px' }}>
+                    <button
+                      onClick={() => handleDecision(round.tempId, 'accepted')}
+                      style={{
+                        width: '100%', padding: '10px', borderRadius: '10px',
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: '#5a7494', fontSize: '13px', fontWeight: 500,
+                        cursor: 'pointer', minHeight: '44px',
+                      }}
+                    >
+                      Restaurar
+                    </button>
+                  </div>
                 )}
               </div>
             )
