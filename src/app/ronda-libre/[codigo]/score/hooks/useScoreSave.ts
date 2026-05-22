@@ -69,13 +69,28 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     for (const [k, v] of Object.entries(holeScores)) scoresObj[String(k)] = v  // Explicit string keys for JSONB
 
     let success = false
+    let rondaFinalizedRpc = false
     retryCountRef.current = 0
     while (!success && retryCountRef.current < 3) {
       const supabase = createClient()
-      const { error } = await supabase.from('ronda_libre_jugadores').update({ scores: scoresObj }).eq('id', jugadorId)
-      if (!error) { success = true; retryCountRef.current = 0 } else retryCountRef.current++
+      // Audit 2026-05-17 P0 #1: RPC hace merge atómico server-side (`scores || delta`)
+      // en vez del UPDATE completo que perdía hoyos si el estado React quedaba stale.
+      const { error } = await supabase.rpc('upsert_ronda_libre_scores', {
+        p_jugador_id: jugadorId,
+        p_codigo: codigo,
+        p_delta: scoresObj,
+      })
+      if (!error) { success = true; retryCountRef.current = 0 }
+      else if (error.code === 'P0002') { rondaFinalizedRpc = true; break }
+      else retryCountRef.current++
     }
 
+    if (rondaFinalizedRpc) {
+      setSaveStatus('error')
+      addToast({ type: 'warning', title: 'Ronda finalizada', message: 'El administrador cerro esta ronda. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
+      onRondaFinalized?.()
+      return
+    }
     if (!success) {
       setSaveStatus('error')
       addToast({ type: 'error', title: 'Error al guardar', message: 'No se pudo conectar despues de 3 intentos. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
