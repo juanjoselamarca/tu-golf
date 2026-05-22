@@ -15,8 +15,19 @@ import { loginViaUI, saveAuthState, hasValidAuthState } from './helpers/auth'
  * (ver beforeEach en authenticated-flow.spec.ts).
  */
 export default async function globalSetup(config: FullConfig) {
-  if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
-    console.log('[e2e-setup] E2E_TEST_USER_EMAIL/PASSWORD no configuradas — skipping login setup')
+  const hasCreds = !!(process.env.E2E_TEST_USER_EMAIL && process.env.E2E_TEST_USER_PASSWORD)
+  // `config.projects` ya viene filtrada por --project=. Si el run incluye el
+  // proyecto auth y faltan credenciales, abortamos LOUD en vez de skipear.
+  // Eso evita el falso verde detectado en audit 2026-05-17 (P0 #2).
+  const needsAuth = config.projects.some((p) => p.name === 'mobile-chromium-auth')
+  if (needsAuth && !hasCreds) {
+    throw new Error(
+      '[e2e-setup] E2E_TEST_USER_EMAIL/PASSWORD requeridos para la suite auth. ' +
+      'Chequear .env.local (debería cargarse vía dotenv en playwright.config.ts).'
+    )
+  }
+  if (!hasCreds) {
+    console.log('[e2e-setup] Sólo proyectos anónimos seleccionados — skipping login setup')
     return
   }
 
