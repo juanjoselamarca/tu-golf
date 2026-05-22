@@ -66,9 +66,14 @@ const baseOpts = () => ({
   setHistoricalRoundId: vi.fn(),
 })
 
+// Cerebro v2 wiring — interceptamos fetch para verificar que el coach recibe la senal de aprendizaje.
+const mockFetch = vi.fn(() => Promise.resolve({ ok: true } as Response))
+globalThis.fetch = mockFetch as unknown as typeof fetch
+
 describe('useFinalizeRonda', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockFetch.mockClear()
   })
 
   it('estados iniciales correctos', () => {
@@ -113,5 +118,23 @@ describe('useFinalizeRonda', () => {
     // Segundo tap — deberia entrar al path "Sin hoyos jugados" y setRoundDone(true)
     await act(async () => { await result.current.finalizeRound() })
     expect(result.current.roundDone).toBe(true)
+  })
+
+  // Cerebro v2 — canario crítico
+  it('canario Cerebro v2: dispara POST /api/coach/plan-outcome con historical_round_id', async () => {
+    const { result } = renderHook(() => useFinalizeRonda(baseOpts()))
+    await act(async () => { await result.current.finalizeRound() }) // primer tap
+    await act(async () => { await result.current.finalizeRound() }) // segundo tap (ejecuta)
+
+    const calls = mockFetch.mock.calls as unknown as Array<[string, RequestInit | undefined]>
+    const planOutcomeCalls = calls.filter(
+      (call) => typeof call[0] === 'string' && call[0] === '/api/coach/plan-outcome',
+    )
+    expect(planOutcomeCalls.length).toBeGreaterThanOrEqual(1)
+
+    const init = planOutcomeCalls[0]?.[1]
+    expect(init?.method).toBe('POST')
+    const body = JSON.parse(init?.body as string) as { historical_round_id: string }
+    expect(body.historical_round_id).toBe('h1') // mock insert devuelve { id: 'h1' }
   })
 })
