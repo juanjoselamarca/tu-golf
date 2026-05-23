@@ -686,11 +686,11 @@ function HistorialContent() {
                     <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{rec.label}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                    <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', fontWeight: 700, color: '#c4992a', lineHeight: 1 }}>
+                    <span style={{ fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace', fontSize: '28px', fontWeight: 700, color: '#c4992a', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                       {d.score}
                     </span>
                     {rec.showVsPar && 'vsPar' in d && (
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: scoreColor(d.vsPar) }}>
+                      <span style={{ fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace', fontSize: '12px', fontWeight: 600, color: scoreColor(d.vsPar), fontVariantNumeric: 'tabular-nums' }}>
                         {formatOv(d.vsPar)}
                       </span>
                     )}

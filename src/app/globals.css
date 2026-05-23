@@ -474,7 +474,21 @@ html {
   }
 }
 
-/* â”€â”€ M12: Landscape scorecard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â”€â”€ M12: Scorecard hole/score display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Base portrait — DM Mono obligatorio (DESIGN.md §4: data tabular en cancha).
+   18px mínimo para leerse bajo sol con guante (audit tipográfico 22-may-2026). */
+.hole-number {
+  font-family: var(--font-dm-mono), 'DM Mono', ui-monospace, monospace;
+  font-size: 1.125rem;          /* 18px */
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.score-display {
+  font-family: var(--font-dm-mono), 'DM Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+/* Landscape — sube a 48px para llenar pantalla horizontal sin chrome. */
 @media (orientation: landscape) and (max-height: 500px) {
   .hole-number   { font-size: 3rem  !important; }
   .score-display { font-size: 3rem  !important; }
