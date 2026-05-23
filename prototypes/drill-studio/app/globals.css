@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background: #0e0c0a;
+  color: #ebe3d3;
+  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.editorial {
+  font-family: 'Playfair Display', Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+.editorial-italic {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic;
+}
+
+.gold-text {
+  background: linear-gradient(135deg, #ebd285 0%, #c9a14a 35%, #876523 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.burgundy-text {
+  background: linear-gradient(135deg, #a83749 0%, #6b1f2a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.thin-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201,161,74,0.6) 30%, rgba(201,161,74,0.6) 70%, transparent);
+}
+
+.vignette {
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.55) 75%, rgba(0,0,0,0.85) 100%);
+  pointer-events: none;
+}
+
+@keyframes pulse-gold {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.pulse-gold {
+  animation: pulse-gold 2.2s ease-in-out infinite;
+}

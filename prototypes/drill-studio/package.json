@@ -1,0 +1,32 @@
+{
+  "name": "drill-studio-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Drill Studio standalone — animaciones 3D editorial de los drills que el coach asigna. NO se deploya, solo localhost:3002. Validación visual con golfistas reales antes de migrar a la app.",
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start -p 3002"
+  },
+  "dependencies": {
+    "next": "14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@react-three/fiber": "^8.17.10",
+    "@react-three/drei": "^9.114.3",
+    "@react-three/postprocessing": "^2.16.3",
+    "postprocessing": "^6.36.4",
+    "three": "^0.169.0",
+    "framer-motion": "^11.11.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.169.0",
+    "typescript": "^5.6.3",
+    "tailwindcss": "^3.4.14",
+    "postcss": "^8.4.47",
+    "autoprefixer": "^10.4.20"
+  }
+}
