@@ -813,7 +813,7 @@ export default function ScoreGrupoPage() {
         </button>
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: theme.gold, letterSpacing: '0.05em' }}>
+            <div style={{ fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace', fontSize: '13px', fontWeight: 600, color: theme.gold, letterSpacing: '0.05em', fontVariantNumeric: 'tabular-nums' }}>
               HOYO {currentHole}
             </div>
             <span style={{
@@ -990,7 +990,7 @@ export default function ScoreGrupoPage() {
                     }}
                   >{'\u2212'}</button>
                   <div style={{ textAlign: 'center', minWidth: '80px' }}>
-                    <div style={{ fontSize: '42px', fontWeight: 700, lineHeight: 1, color: teamScore != null ? '#1a1a2e' : '#d1d5db', fontVariantNumeric: 'tabular-nums' }}>
+                    <div style={{ fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace', fontSize: '42px', fontWeight: 700, lineHeight: 1, color: teamScore != null ? '#1a1a2e' : '#d1d5db', fontVariantNumeric: 'tabular-nums' }}>
                       {displayTeamScore}
                     </div>
                     {teamScore != null && chipStyle && (
@@ -1131,6 +1131,7 @@ export default function ScoreGrupoPage() {
                   <div style={{ textAlign: 'center', minWidth: '80px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                       <div style={{
+                        fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
                         fontSize: '42px', fontWeight: 700, lineHeight: 1,
                         color: playerScore != null ? '#1a1a2e' : '#d1d5db',
                         fontVariantNumeric: 'tabular-nums',

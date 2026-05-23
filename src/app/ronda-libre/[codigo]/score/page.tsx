@@ -490,7 +490,7 @@ function ScorePageContent() {
         }}>←</button>
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em' }}>HOYO {currentHole}</div>
+            <div style={{ fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace', fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em', fontVariantNumeric: 'tabular-nums' }}>HOYO {currentHole}</div>
             <span style={{
               fontSize: '9px', fontWeight: 600, letterSpacing: '0.05em',
               padding: '2px 8px', borderRadius: '10px',
@@ -630,7 +630,7 @@ function ScorePageContent() {
             <div
               className={scoreAnimating ? 'score-animating' : ''}
               style={{
-                fontSize: 'clamp(72px, 20vw, 96px)', fontWeight: 700, fontFamily: 'var(--font-dm-sans)',
+                fontSize: 'clamp(72px, 20vw, 96px)', fontWeight: 700, fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
                 lineHeight: 1, color: score != null ? theme.scoreText : theme.scoreDimmed, letterSpacing: '-3px',
                 fontVariantNumeric: 'tabular-nums',
               }}

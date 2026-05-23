@@ -692,13 +692,13 @@ export default function LeaderboardTable({ players, modoJuego, formatoJuego }: {
                         </div>
                       </td>
 
-                      {/* HCP */}
-                      <td className="py-3.5 px-4 text-center font-sans text-sm text-gray-soft">{player.hcp}</td>
+                      {/* HCP — DM Mono tabular (DESIGN.md §4: data en cancha sin ambigüedad 1/I, 0/O, 8/B) */}
+                      <td className="py-3.5 px-4 text-center font-mono text-dataSm tabular-nums text-gray-soft">{player.hcp}</td>
 
                       {/* PAR */}
                       <td className="py-3.5 px-4 text-center">
                         <span
-                          className="inline-flex min-w-[46px] items-center justify-center rounded-full px-2.5 py-1 font-sans text-xs font-semibold"
+                          className="inline-flex min-w-[46px] items-center justify-center rounded-full px-2.5 py-1 font-mono text-caption tabular-nums font-semibold"
                           style={{
                             background: 'rgba(243,239,230,0.06)',
                             color: scoreColor(player.today),
@@ -710,14 +710,14 @@ export default function LeaderboardTable({ players, modoJuego, formatoJuego }: {
                       </td>
 
                       {/* HOY */}
-                      <td className="py-3.5 px-4 text-center font-sans font-bold"
-                        style={{ fontSize: 18, color: scoreColor(player.today) }}>
+                      <td className="py-3.5 px-4 text-center font-mono text-dataMd tabular-nums font-semibold"
+                        style={{ color: scoreColor(player.today) }}>
                         {formatScore(player.today)}
                       </td>
 
                       {/* TOTAL */}
-                      <td className="py-3.5 px-4 text-center font-sans font-bold"
-                        style={{ fontSize: 18, color: scoreColor(player.total) }}>
+                      <td className="py-3.5 px-4 text-center font-mono text-dataMd tabular-nums font-semibold"
+                        style={{ color: scoreColor(player.total) }}>
                         {formatScore(player.total)}
                       </td>
 
