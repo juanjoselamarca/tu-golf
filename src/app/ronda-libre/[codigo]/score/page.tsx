@@ -239,57 +239,80 @@ function ScorePageContent() {
 
   /* ── Navigate ── */
   const handleExit = () => router.push(`/ronda-libre/${codigo}`)
-  const goToNextHole = async () => {
+  const goToNextHole = () => {
     if (!ronda || !activeJugadorId) return
     haptic(30)
-    // If no score was entered, auto-fill with par (the ghost value shown)
-    if (scores[activeJugadorId]?.[currentHole] == null) {
-      const holePar = parMap[currentHole] ?? 4
-      handleScoreChange(currentHole, holePar)
-    }
-    await saveScores(activeJugadorId, scores[activeJugadorId] ?? {})
 
-    // Send server-side push for notable events (birdie, eagle, hole-in-one)
-    const savedScore = scores[activeJugadorId]?.[currentHole]
-    const holePar = parMap[currentHole] ?? 4
+    // 1. Computar scoresToSave inline (auto-fill par si el hoyo no tiene score).
+    //    Necesario: leer del closure de `scores` da estado stale del setScores
+    //    recién programado por handleScoreChange. Computamos el objeto final acá.
+    const currentPlayerScores = scores[activeJugadorId] ?? {}
+    let scoresToSave: Record<number, number> = currentPlayerScores
+    if (currentPlayerScores[currentHole] == null) {
+      const holePar = parMap[currentHole] ?? 4
+      handleScoreChange(currentHole, holePar)  // sync UI
+      scoresToSave = { ...currentPlayerScores, [currentHole]: holePar }
+    }
+
+    // 2. Capturar valores pre-nav para celebraciones + streak.
+    const holeScored = currentHole
+    const holeScoredIdx = currentHoleIdx
+    const savedScore = scoresToSave[holeScored]
+    const holeParScored = parMap[holeScored] ?? 4
+
+    // 3. NAVEGAR PRIMERO — la RPC merge garantiza que el save background no pierde data.
+    //    Audit P0 #1 fase 3: el await del save bloqueaba la nav y el siguiente tap iba
+    //    al hoyo anterior por timing. Fix: nav inmediata, save fire-and-forget.
+    const nextIdx = holeScoredIdx + 1
+    if (nextIdx < ordenHoyos.length) {
+      const nextHole = ordenHoyos[nextIdx]
+      setCurrentHole(nextHole)
+      if (ronda && getNotifPrefs().player) {
+        const overUnder = totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : String(totalOverUnder)
+        updatePlayerNotification(ronda.course_name, nextHole, parMap[nextHole] ?? 4, overUnder, `/ronda-libre/${codigo}/score?hole=${nextHole}`)
+      }
+    }
+
+    // 4. Save en background. `saveScores` maneja sus propios toasts de error/finalize.
+    void saveScores(activeJugadorId, scoresToSave)
+
+    // 5. Celebraciones — usar valores capturados pre-nav (NO `currentHole` actual).
     if (savedScore != null && ronda) {
       const playerName = ronda.ronda_libre_jugadores.find(j => j.id === activeJugadorId)?.nombre ?? 'Jugador'
 
-      // Celebrate & push AFTER confirming with Siguiente
       if (savedScore === 1) {
-        const decision = shouldNotify({ type: 'hole_in_one', playerName, hole: currentHole, courseName: ronda.course_name })
+        const decision = shouldNotify({ type: 'hole_in_one', playerName, hole: holeScored, courseName: ronda.course_name })
         if (decision.notify) {
-          setHoleInOneData({ playerName, hole: currentHole })
+          setHoleInOneData({ playerName, hole: holeScored })
           haptic(decision.hapticPattern ?? [50, 100, 50, 100, 50])
         }
-        sendPushViaServer({ title: 'HOLE IN ONE!', body: `${playerName} hizo hoyo en uno en el hoyo ${currentHole}!`, tag: `ace-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
+        sendPushViaServer({ title: 'HOLE IN ONE!', body: `${playerName} hizo hoyo en uno en el hoyo ${holeScored}!`, tag: `ace-${codigo}-${holeScored}`, url: `/ronda-libre/${codigo}` })
       } else {
-        const diff = savedScore - holePar
+        const diff = savedScore - holeParScored
         if (diff <= -2) {
-          const decision = shouldNotify({ type: 'eagle', playerName, hole: currentHole, courseName: ronda.course_name })
+          const decision = shouldNotify({ type: 'eagle', playerName, hole: holeScored, courseName: ronda.course_name })
           if (decision.notify) {
-            setEagleData({ playerName, hole: currentHole })
+            setEagleData({ playerName, hole: holeScored })
             haptic(decision.hapticPattern ?? [30, 60, 30, 60])
           }
-          sendPushViaServer({ title: `Eagle — ${playerName}`, body: `Eagle en hoyo ${currentHole} en ${ronda.course_name}`, tag: `eagle-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
+          sendPushViaServer({ title: `Eagle — ${playerName}`, body: `Eagle en hoyo ${holeScored} en ${ronda.course_name}`, tag: `eagle-${codigo}-${holeScored}`, url: `/ronda-libre/${codigo}` })
         } else if (diff === -1) {
-          const decision = shouldNotify({ type: 'birdie', playerName, hole: currentHole, courseName: ronda.course_name })
+          const decision = shouldNotify({ type: 'birdie', playerName, hole: holeScored, courseName: ronda.course_name })
           if (decision.notify) {
-            setBirdieData({ playerName, hole: currentHole })
+            setBirdieData({ playerName, hole: holeScored })
             haptic(decision.hapticPattern ?? [15, 30, 15])
           }
-          sendPushViaServer({ title: `Birdie — ${playerName}`, body: `Birdie en hoyo ${currentHole} en ${ronda.course_name}`, tag: `birdie-${codigo}-${currentHole}`, url: `/ronda-libre/${codigo}` })
+          sendPushViaServer({ title: `Birdie — ${playerName}`, body: `Birdie en hoyo ${holeScored} en ${ronda.course_name}`, tag: `birdie-${codigo}-${holeScored}`, url: `/ronda-libre/${codigo}` })
         }
       }
     }
 
-    // Streak detection: 3+ consecutive pars or better
+    // 6. Streak — usar scoresToSave (incluye auto-fill) en vez de closure stale.
     if (savedScore != null && activeJugadorId) {
-      const ps = scores[activeJugadorId] ?? {}
       let streak = 0
-      for (let i = currentHoleIdx; i >= 0; i--) {
+      for (let i = holeScoredIdx; i >= 0; i--) {
         const h = ordenHoyos[i]
-        const s = ps[h]; const p = parMap[h] ?? 4
+        const s = scoresToSave[h]; const p = parMap[h] ?? 4
         if (s != null && s <= p) streak++
         else break
       }
@@ -301,18 +324,6 @@ function ScorePageContent() {
         ]
         setStreakMsg(msgs[Math.min(streak - 3, msgs.length - 1)])
         setTimeout(() => setStreakMsg(null), 2500)
-      }
-    }
-
-    // Use circular order for next hole
-    const nextIdx = currentHoleIdx + 1
-    if (nextIdx < ordenHoyos.length) {
-      const nextHole = ordenHoyos[nextIdx]
-      setCurrentHole(nextHole)
-      // Player notification: update persistent notification
-      if (ronda && getNotifPrefs().player) {
-        const overUnder = totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : String(totalOverUnder)
-        updatePlayerNotification(ronda.course_name, nextHole, parMap[nextHole] ?? 4, overUnder, `/ronda-libre/${codigo}/score?hole=${nextHole}`)
       }
     }
   }
