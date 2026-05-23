@@ -56,6 +56,8 @@ async function main() {
     console.log('Si perdiste la password, la guardada en .env.local debería seguir siendo válida.')
     console.log('Si necesitás resetearla, borrá el user primero desde el dashboard de Supabase')
     console.log('y corré este script de nuevo.')
+    // Aun si el user existe, asegurar seed del torneo previo (idempotente).
+    await ensureSeedTournament(existing.id)
     return
   }
 
@@ -93,6 +95,11 @@ async function main() {
     console.warn(`[e2e-setup] Aviso: no se pudo upsert profile (${profileErr.message}) — continuando`)
   }
 
+  // 4. Seed: asegurar 1 torneo previo existe (necesario para el test
+  //    organizar-campeonato-modal-duplicar.spec.ts, que skipea si el user
+  //    no tiene torneos previos). Audit 2026-05-17 gap.
+  await ensureSeedTournament(userId)
+
   console.log('')
   console.log('┌─────────────────────────────────────────────────────────────────┐')
   console.log('│ ✅ Test user creado                                             │')
@@ -104,6 +111,56 @@ async function main() {
   console.log('│   E2E_TEST_USER_EMAIL=' + E2E_EMAIL.padEnd(40) + '  │')
   console.log(`│   E2E_TEST_USER_PASSWORD=${password.padEnd(37)}  │`)
   console.log('└─────────────────────────────────────────────────────────────────┘')
+}
+
+/**
+ * Idempotente: chequea que el test user tenga al menos 1 torneo previo.
+ * Si no, crea uno mínimo marcado es_demo=true para que el modal
+ * "Duplicar desde torneo previo" tenga algo que mostrar.
+ *
+ * Cierra el gap del audit 2026-05-17 §5 (modal-duplicar.spec.ts:29 skipeaba
+ * porque el test user no tenía torneos previos).
+ */
+async function ensureSeedTournament(userId) {
+  const { data: existing, error: queryErr } = await admin
+    .from('tournaments')
+    .select('id, slug')
+    .eq('organizer_id', userId)
+    .limit(1)
+
+  if (queryErr) {
+    console.warn(`[e2e-setup] Aviso: no se pudo verificar torneos previos (${queryErr.message}) — saltando seed`)
+    return
+  }
+
+  if (existing && existing.length > 0) {
+    console.log(`[e2e-setup] ✅ Test user ya tiene ${existing.length} torneo(s) previo(s) — seed no necesario`)
+    return
+  }
+
+  // Crear torneo mínimo viable, marcado es_demo=true para no contaminar stats reales.
+  const slug = `e2e-seed-torneo-${randomBytes(4).toString('hex')}`
+  const { error: insertErr } = await admin
+    .from('tournaments')
+    .insert({
+      name: 'Torneo Seed E2E',
+      slug,
+      organizer_id: userId,
+      date_start: new Date().toISOString().slice(0, 10),
+      format: 'stroke_play',
+      formato_juego: 'stroke_play',
+      modo_juego: 'gross',
+      hole_count: 18,
+      status: 'draft',
+      es_demo: true,
+    })
+
+  if (insertErr) {
+    console.warn(`[e2e-setup] Aviso: no se pudo crear seed tournament (${insertErr.message}) — el test modal-duplicar seguirá skipeando`)
+    return
+  }
+
+  console.log(`[e2e-setup] ✅ Seed tournament creado (slug=${slug})`)
 }
 
 main().catch(err => {
