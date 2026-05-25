@@ -88,3 +88,9 @@ graphify-out/manifest.json
 graphify-out/cost.json
 graphify-out/cache/
 graphify-build.log
+
+# Vercel CLI artifacts
+.env.vercel
+.env.preview.local
+.env.production.local
+.env.development.local
