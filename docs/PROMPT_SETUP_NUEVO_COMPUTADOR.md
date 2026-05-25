@@ -38,15 +38,25 @@ Si `~/Desktop` no existe, usar el directorio actual.
 
 Crear el archivo `.env.local` en la raíz del proyecto (tu-golf/) con este contenido EXACTO:
 
+> ⚠️ **Los valores reales NO están en este repo** (es público). Juanjo te los pasa por
+> chat privado, o los copiás desde tu otro computador (`.env.local`), o los traés
+> desde el dashboard de Supabase / Vercel / Anthropic.
+>
+> Estructura del archivo (con los valores reales completados):
+
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://hoswfwhvcgqlqdmzpnce.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhvc3dmd2h2Y2dxbHFkbXpwbmNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzNTc2NDYsImV4cCI6MjA4ODkzMzY0Nn0.M1nuDgVA7HtUFa3cuGZZFujqv35YYeTFPiDIErBTjUY
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhvc3dmd2h2Y2dxbHFkbXpwbmNlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzM1NzY0NiwiZXhwIjoyMDg4OTMzNjQ2fQ.gncfJlDKlsPeWws3s27VCW5FtgjPBBchRZL2LKLSHD4
-ANTHROPIC_API_KEY=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
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=BFRDClR1N59HIKCI1xwNKI3w_keD1pthHeEcjxa9wL5JTq3CrQUSe56K-ToIuLC7gQWmIfi-qTNQJHLwkBDEqqk
-VAPID_PRIVATE_KEY=mCfwe9Y6DHeIC0_kna3mWiWF7jK0MJDg4rgrWCKq168
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<pegar el valor real — Supabase dashboard → Settings → API → anon public>
+SUPABASE_SERVICE_ROLE_KEY=<pegar el valor real — Supabase dashboard → Settings → API → service_role>
+ANTHROPIC_API_KEY=<pegar el valor real — console.anthropic.com → API Keys>
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=<pegar el valor real — Vercel env vars o computador anterior>
+VAPID_PRIVATE_KEY=<pegar el valor real — Vercel env vars o computador anterior>
 NEXT_PUBLIC_SITE_URL=https://golfersplus.vercel.app
 ```
+
+> 💡 Atajo: si tenés acceso al computador anterior, copiá `.env.local` directo y
+> evitás esto. Solo si es completamente fresh start o estás onboarding a otro
+> dev hace falta hacerlo por dashboards.
 
 ### 3. Instalar el pre-push hook de seguridad
 
