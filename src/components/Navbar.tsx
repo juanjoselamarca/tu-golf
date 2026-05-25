@@ -651,7 +651,9 @@ export default function Navbar() {
                 </div>
               </Link>
 
-              {/* Liga de Golf — disabled */}
+              {/* Liga de Golf — oculto hasta implementación (22-may-2026).
+                  Mostrar "Próximamente" gris pesado degrada la percepción de la app
+                  y ocupa espacio sin valor en el FTUE. Restaurar cuando exista flujo real.
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '14px',
                 background: 'rgba(255,255,255,0.04)',
@@ -671,6 +673,7 @@ export default function Navbar() {
                   <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>Próximamente</div>
                 </div>
               </div>
+              */}
             </div>
           </div>
         </>
