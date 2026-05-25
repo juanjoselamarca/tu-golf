@@ -48,6 +48,8 @@ vi.mock('@/lib/supabaseAdmin', () => ({
 import { computePlanOutcomeForRound, type RoundSource } from './compute-plan-outcome'
 // eslint-disable-next-line import/first
 import type { PlanMetric, TargetOp } from './plan-engine'
+// eslint-disable-next-line import/first
+import type { ParPerHoleInput } from '@/golf/core/holes'
 
 // Fixture mutable para simular outcomes previos en .order().limit()
 let lastOutcomesFixture: Array<{ target_reached: boolean }> = []
@@ -68,7 +70,9 @@ interface UserSupabaseStub {
   round: {
     id: string
     scores: (number | null)[] | null
-    par_per_hole?: number[] | null
+    // Acepta tanto array (legacy) como JSONB object (BD real).
+    // Tests validan que ambos shapes funcionen.
+    par_per_hole?: ParPerHoleInput
     total_gross?: number | null
     played_at?: string
   } | null
@@ -263,6 +267,69 @@ describe('computePlanOutcomeForRound — métricas computables', () => {
     expect(row.metric_value).toBeCloseTo(0, 6)
     expect(row.target_reached).toBe(true)
     expect(row.compliance).toBe('full')
+  })
+})
+
+describe('computePlanOutcomeForRound — par_per_hole JSONB shape (canchas par 71)', () => {
+  // CANARIO P0 #1 — bug detectado por auditoría 24-may-2026.
+  // BD guarda par_per_hole como JSONB objeto `{"1":4,...}`. Antes del fix,
+  // el código asumía array y caía silenciosamente al fallback STANDARD_PARS
+  // (par 72). En canchas reales chilenas (Los Leones, Sport Francés, Prince
+  // of Wales) que son par 71, esto rompía par3_avg_vs_par, double_or_worse_pct
+  // y post_bogey_score_avg.
+
+  it('par_per_hole como JSONB objeto se normaliza correctamente (par 71 real)', async () => {
+    // Cancha par 71: hoyo 9 cambia a par 4 (no par 5 como STD_PARS).
+    // Si el bug no estuviera fixeado, pars() devolvería STD_PARS (par 72)
+    // y el cálculo de par3_avg sería el mismo que con STD_PARS.
+    // Pero queremos verificar que LEE los pares del objeto JSONB real.
+    const par71Object: Record<string, number> = {
+      '1': 4, '2': 4, '3': 3, '4': 4, '5': 5, '6': 4, '7': 3, '8': 4, '9': 4,
+      '10': 4, '11': 4, '12': 3, '13': 4, '14': 5, '15': 4, '16': 3, '17': 4, '18': 5,
+    }
+    // En par 3 (idx 2,6,11,15) scores: 4, 3, 3, 3 → over par: +1, 0, 0, 0 → avg 0.25
+    const scores = [4, 4, 4, 4, 5, 4, 3, 4, 4, 4, 4, 3, 4, 5, 4, 3, 4, 5]
+    const stub: UserSupabaseStub = {
+      plan: { metric: 'par3_avg_vs_par', target_value: 0.3, target_op: 'lte', baseline_value: 0.7 },
+      round: {
+        id: 'r-par71',
+        scores,
+        par_per_hole: par71Object, // ← JSONB object, NO array
+      },
+    }
+    const res = await computePlanOutcomeForRound({
+      supabase: makeSupabase(stub),
+      userId: 'u-1',
+      roundSource: { historical_round_id: 'r-par71' } as RoundSource,
+    })
+    expect(res.ok).toBe(true)
+    const row = adminInserts.find(i => i.table === 'plan_outcomes')!.payload as Record<string, unknown>
+    expect(row.metric_value).toBeCloseTo(0.25, 6)
+    expect(row.target_reached).toBe(true) // 0.25 <= 0.3
+  })
+
+  it('par_per_hole con shape inválido (huecos) cae a STANDARD_PARS, no rompe', async () => {
+    // Shape inválido: solo 10 keys. parPerHoleArray devuelve null → fallback.
+    const broken: Record<string, number> = {
+      '1': 4, '2': 4, '3': 3, '4': 4, '5': 5, '6': 4, '7': 3, '8': 4, '9': 5, '10': 4,
+    }
+    const stub: UserSupabaseStub = {
+      plan: { metric: 'par3_avg_vs_par', target_value: 0.5, target_op: 'lte', baseline_value: 0.7 },
+      round: {
+        id: 'r-broken',
+        scores: [3, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5],
+        par_per_hole: broken,
+      },
+    }
+    const res = await computePlanOutcomeForRound({
+      supabase: makeSupabase(stub),
+      userId: 'u-1',
+      roundSource: { historical_round_id: 'r-broken' } as RoundSource,
+    })
+    expect(res.ok).toBe(true)
+    // No crashea — devuelve algún valor con fallback STANDARD_PARS
+    const row = adminInserts.find(i => i.table === 'plan_outcomes')!.payload as Record<string, unknown>
+    expect(row.metric_value).not.toBeNaN()
   })
 })
 

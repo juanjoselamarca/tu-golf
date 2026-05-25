@@ -21,7 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import type { PlanMetric, TargetOp } from './plan-engine'
-import { inferHoles } from '@/golf/core/holes'
+import { inferHoles, parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
 
 const STANDARD_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
 const CONSECUTIVE_HITS_TO_RESOLVE = 3
@@ -58,7 +58,10 @@ interface RoundData {
   id: string
   scores: (number | null)[] | null
   total_gross: number | null
-  par_per_hole: number[] | null
+  // BD guarda JSONB objeto `{"1":4,...}`. Aceptamos ambos shapes para tolerar
+  // legacy + tests con arrays. Normalizar siempre con `parPerHoleArray()`
+  // antes de usar — NO castear directo a `number[]`.
+  par_per_hole: ParPerHoleInput
   played_at: string
   metadata: Record<string, unknown> | null
 }
@@ -229,7 +232,12 @@ async function computeMetric(
 }
 
 function pars(round: RoundData): number[] {
-  return round.par_per_hole && round.par_per_hole.length === 18 ? round.par_per_hole : STANDARD_PARS
+  // Normalizar a array (BD lo guarda como JSONB objeto, no array). Sólo
+  // aceptamos 18 hoyos completos para métricas de full round — si vienen
+  // 9 hoyos, las métricas 18h aplican fallback STANDARD_PARS (consistente
+  // con validScores() que requiere length 18).
+  const arr = parPerHoleArray(round.par_per_hole)
+  return arr && arr.length === 18 ? arr : STANDARD_PARS
 }
 
 function validScores(round: RoundData): { scores: number[]; pars: number[] } | null {
