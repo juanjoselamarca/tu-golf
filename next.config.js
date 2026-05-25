@@ -15,12 +15,13 @@ const securityHeaders = [
     // 'strict-dynamic' is NOT added because it conflicts with Next.js script loading.
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://us-assets.i.posthog.com",
+      "script-src-elem 'self' 'unsafe-inline' https://us-assets.i.posthog.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://images.unsplash.com https://flagcdn.com https://lh3.googleusercontent.com",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://site.api.espn.com https://us.i.posthog.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://site.api.espn.com https://us.i.posthog.com https://us-assets.i.posthog.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      "worker-src 'self'",
+      "worker-src 'self' blob:",
       "manifest-src 'self'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
