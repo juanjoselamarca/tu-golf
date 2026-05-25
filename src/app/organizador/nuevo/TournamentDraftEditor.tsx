@@ -497,6 +497,11 @@ function StartModal({
   creating,
   errorMsg,
 }: StartModalProps) {
+  // `mounted` evita hydration mismatch en `formatRelativeDate` que usa Date.now().
+  // Durante SSR renderea formato absoluto (determinístico); tras hydrate cambia a relativo.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   return (
     <div style={pageStyle}>
       <div style={startModalContainerStyle}>
@@ -531,8 +536,8 @@ function StartModal({
                     disabled={creating}
                   >
                     <span style={{ fontWeight: 600 }}>{d.name?.trim() || 'Sin nombre'}</span>
-                    <span style={startListMetaStyle}>
-                      {formatRelativeDate(d.updated_at)}
+                    <span style={startListMetaStyle} suppressHydrationWarning>
+                      {mounted ? formatRelativeDate(d.updated_at) : formatDate(d.updated_at)}
                     </span>
                   </button>
                 </li>
@@ -568,13 +573,30 @@ function StartModal({
   )
 }
 
+/**
+ * Deterministic ES-cl date formatter — produces idéntico HTML en server y
+ * client. NO usar `toLocaleDateString` acá: aunque Node tenga full-icu,
+ * `'es-CL'` puede producir variantes sutiles entre runtimes y dispara
+ * React error #425 (hydration mismatch) durante SSR.
+ *
+ * Usa `getUTC*` porque `date_start` y `updated_at` son ISO timestamps;
+ * `getDate()` (local TZ) generaría días distintos entre server UTC y
+ * cliente GMT-X.
+ */
+const MONTHS_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
 function formatDate(iso?: string | null): string {
   if (!iso) return 'sin fecha'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleDateString('es-CL', { year: 'numeric', month: 'short', day: 'numeric' })
+  return `${d.getUTCDate()} ${MONTHS_ES[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
 
+/**
+ * Relative date ("hace 5 min"). Usa `Date.now()` que difiere entre server
+ * y client → hydration mismatch. **Solo llamar tras mount** (ver flag
+ * `mounted` en StartModal). Durante SSR usar `formatDate` como fallback.
+ */
 function formatRelativeDate(iso?: string | null): string {
   if (!iso) return ''
   const d = new Date(iso)
