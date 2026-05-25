@@ -230,6 +230,21 @@ Estos defaults se aplican SIEMPRE que el contexto matchee, sin que Juanjo deba m
 
 5. **Juanjo no recuerda qué skill usar** → indicarle que pregunte en lenguaje natural ("¿hay alguna skill para X?") y usar `find-skills` (Vercel Labs) si está instalado. Si no, recomendar desde la tabla de routing abajo.
 
+6. **Antes de mergear cualquier PR con diff > 100 LOC** → invocar `superpowers:code-reviewer` agent contra el diff vs base branch. Razón: auditoría 25-may detectó que 5 PRs grandes del día (RPC merge, hydration fix, team scorecard, cleanup secretos, etc.) NUNCA fueron revisados antes de prod. Resultado: `.env.vercel` con 7 secretos quedó tracked y solo se descubrió 5h después en barrido manual. Un reviewer independiente lo agarra en commit-time.
+
+   **Criterio de diff >100 LOC**: `git diff --shortstat <base>...HEAD` → suma `insertions + deletions` > 100.
+
+   **Excepciones (NO se invoca code-reviewer)**:
+   - PR solo docs (`.md`, `.txt`).
+   - PR solo CI yml o config (`.github/workflows/`, `.eslintrc*`, `playwright.config*`).
+   - PR solo `.gitignore` o cleanup chico.
+   - Hotfix bloqueante con torneo activo (Juanjo avisa "hay torneo el X" — ese contexto manda sobre la regla, igual que la regla "el que toca, ordena").
+   - El PR es exclusivamente test files nuevos sin cambio de código productivo.
+
+   **Flow**: después de `git commit` y antes de `gh pr merge`, lanzar `Agent` con `subagent_type: "superpowers:code-reviewer"` y prompt que incluya el diff. El agent devuelve pass/fail con findings. **Si el reviewer marca issues críticos (security, lógica de negocio rota, regresión de canarios) → no se mergea hasta resolver.** Si encuentra issues menores (naming, redundancia, micro-perf) → Claude decide caso por caso si aplicar antes de merge o anotar como follow-up.
+
+   **Por qué un Claude revisando otro Claude vale la pena**: el reviewer arranca sin contexto de la implementación. No tiene los sesgos de "yo ya decidí esta arquitectura". Lee el diff como código nuevo. Detalle en feedback `feedback_code_reviewer_pre_merge.md` (memoria).
+
 ### Routing por frase del usuario:
 
 - "torneo real próximo", "antes del torneo" → `/pre-torneo`
