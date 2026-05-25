@@ -116,6 +116,12 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: https://golfersplus.vercel.app
           CI: 'true'
+          # global-setup.ts lee E2E_TEST_USER_EMAIL/PASSWORD — los secrets
+          # en GH se llaman E2E_USER_EMAIL/PASSWORD (mismo mapeo que en
+          # scorer-smoke.yml y e2e-trigger.yml). Sin esto el smoke postmerge
+          # fallaba en main desde hace 3+ runs.
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
 
       - name: Upload Playwright report on failure
         if: failure()
