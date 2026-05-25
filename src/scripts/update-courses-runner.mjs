@@ -1,11 +1,22 @@
 /**
  * Actualización masiva de canchas — usa fetch directo (no SDK)
- * Ejecutar: node src/scripts/update-courses-runner.mjs
+ * Ejecutar: node --env-file=.env.local src/scripts/update-courses-runner.mjs
+ *
+ * Requiere en .env.local:
+ *   NEXT_PUBLIC_SUPABASE_URL
+ *   SUPABASE_SERVICE_ROLE_KEY
+ *   GOLFCOURSEAPI_KEY  (api key de golfcourseapi.com)
  */
 
-const SUPABASE_URL = 'https://hoswfwhvcgqlqdmzpnce.supabase.co'
-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhvc3dmd2h2Y2dxbHFkbXpwbmNlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzM1NzY0NiwiZXhwIjoyMDg4OTMzNjQ2fQ.gncfJlDKlsPeWws3s27VCW5FtgjPBBchRZL2LKLSHD4'
-const API_KEY = 'PT4JTCIYP63XOIRLXXXDEI36NE'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const API_KEY = process.env.GOLFCOURSEAPI_KEY
+
+if (!SUPABASE_URL || !SERVICE_KEY || !API_KEY) {
+  console.error('ERROR: faltan env vars. Necesarias: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOLFCOURSEAPI_KEY')
+  console.error('Correr con: node --env-file=.env.local src/scripts/update-courses-runner.mjs')
+  process.exit(1)
+}
 const headers = { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }
 
 async function sql(query) {
