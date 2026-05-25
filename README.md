@@ -1,6 +1,6 @@
 # Golfers+
 
-Live scoring para torneos amateur de golf · https://golfersplus.vercel.app
+Coach IA élite para jugadores amateur de golf · https://golfersplus.vercel.app
 
 Next.js 14 · TypeScript · Tailwind · Supabase · Vercel
 
