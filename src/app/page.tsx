@@ -3,6 +3,46 @@ import { Smartphone, TrendingUp, Trophy } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import HeroSection  from '@/components/HeroSection'
 import StatsSection from '@/components/StatsSection'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+
+// Landing pública — refrescar contadores cada hora (no cambian con frecuencia).
+// ISR mantiene el TTFB bajo: HTML cacheado en edge, queries se ejecutan en el
+// background al regenerar. NOTE: usamos cliente Supabase anon directo (NO el
+// SSR client de @/utils/supabase/server) porque ese llama a cookies() y eso
+// fuerza dynamic rendering — rompería el ISR.
+export const revalidate = 3600
+
+/**
+ * Counts reales para el bloque de stats de la landing.
+ * - `courses`: cancha root (sin sufijos DAMAS/VARONES), activas → ~183 hoy.
+ * - `holes`: total course_holes mapeados → ~3150 hoy.
+ * - `rounds`: historical_rounds + rondas_libres → ~498 hoy.
+ * Si alguna query falla, ese dato vuelve como 0 y StatsSection lo oculta
+ * con un guión en lugar de "0+" (que destruiría credibilidad).
+ */
+async function getLandingStats() {
+  try {
+    const supabase = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false } },
+    )
+    const [coursesRes, holesRes, historicalRes, libresRes] = await Promise.all([
+      supabase.from('courses').select('id', { count: 'exact', head: true }).eq('activa', true).is('parent_id', null),
+      supabase.from('course_holes').select('id', { count: 'exact', head: true }),
+      supabase.from('historical_rounds').select('id', { count: 'exact', head: true }),
+      supabase.from('rondas_libres').select('id', { count: 'exact', head: true }),
+    ])
+    return {
+      courses: coursesRes.count ?? 0,
+      holes: holesRes.count ?? 0,
+      rounds: (historicalRes.count ?? 0) + (libresRes.count ?? 0),
+    }
+  } catch {
+    // Failsafe — si Supabase está caído, devolvemos 0 y StatsSection se oculta.
+    return { courses: 0, holes: 0, rounds: 0 }
+  }
+}
 
 const FEATURES = [
   {
@@ -46,14 +86,15 @@ const STEPS = [
   },
 ]
 
-export default function Home() {
+export default async function Home() {
+  const stats = await getLandingStats()
   return (
     <div>
       {/* ── Hero ──────────────────────────────────────── */}
       <HeroSection />
 
       {/* ── Stats (social proof) ──────────────────────── */}
-      <StatsSection />
+      <StatsSection courses={stats.courses} holes={stats.holes} rounds={stats.rounds} />
 
       {/* ── Feature highlights ────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
