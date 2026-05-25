@@ -120,7 +120,16 @@ function SupportStat({ value, label, active, animate }: SupportStatProps) {
   )
 }
 
-export default function StatsSection() {
+interface StatsSectionProps {
+  /** Canchas chilenas con rating oficial. Si <= 0 el componente NO renderiza hero. */
+  courses: number
+  /** Hoyos mapeados (course_holes). Si <= 0 oculta esa SupportStat. */
+  holes: number
+  /** Rondas registradas (historical_rounds + rondas_libres). Si <= 0 oculta. */
+  rounds: number
+}
+
+export default function StatsSection({ courses, holes, rounds }: StatsSectionProps) {
   const [active, setActive] = useState(false)
   const ref = useRef<HTMLElement>(null)
 
@@ -138,14 +147,19 @@ export default function StatsSection() {
     return () => observer.disconnect()
   }, [])
 
+  // Guardia anti-credibility-killer: si la DB devolvió 0 (improbable pero
+  // posible si la query falla en el server), no renderizamos "0+ canchas".
+  // Mostrar 0+ daña credibilidad inmediata — preferimos ocultar la sección.
+  if (courses <= 0) return null
+
   return (
     <section ref={ref} className="bg-bg-card">
       <div className="gold-divider" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
 
-        {/* ── Hero stat — 47+ canchas chilenas con rating oficial ──────── */}
+        {/* ── Hero stat — canchas chilenas con rating oficial ──────── */}
         <HeroStat
-          value={47}
+          value={courses}
           headline="canchas chilenas con rating oficial"
           sublabel="Federación Chilena de Golf"
           active={active}
@@ -163,8 +177,12 @@ export default function StatsSection() {
 
         {/* ── Support stats (3 métricas secundarias) ───────────────────── */}
         <div className="grid grid-cols-3 gap-6 md:gap-10 mt-10 md:mt-12 max-w-3xl mx-auto">
-          <SupportStat value={864} label="Hoyos mapeados" active={active} animate />
-          <SupportStat value={244} label="Rondas registradas" active={active} animate />
+          {holes > 0
+            ? <SupportStat value={holes} label="Hoyos mapeados" active={active} animate />
+            : <SupportStat value="—" label="Hoyos mapeados" active={active} />}
+          {rounds > 0
+            ? <SupportStat value={rounds} label="Rondas registradas" active={active} animate />
+            : <SupportStat value="—" label="Rondas registradas" active={active} />}
           <SupportStat value="100%" label="Gratis" active={active} />
         </div>
       </div>
