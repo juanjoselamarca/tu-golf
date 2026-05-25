@@ -197,6 +197,13 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
 
       if (insertedRound?.id) {
         setHistoricalRoundId(insertedRound.id)
+        // Cerebro v2 — wire plan outcomes para que el coach aprenda de la ronda.
+        // Sin esto, plan_outcomes queda en 0 filas y el coach no aprende. Non-blocking.
+        fetch('/api/coach/plan-outcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ historical_round_id: insertedRound.id }),
+        }).then(() => {}).catch(() => {})
       }
 
       // Recalcular Indice Golfers+ y nivel del dueno de la tarjeta (no del dispositivo)
