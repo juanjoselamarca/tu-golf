@@ -13,6 +13,7 @@ import { getNivel } from '@/lib/mi-golf/niveles'
 import { getTaigerLine } from '@/lib/mi-golf/taiger-line'
 import { getVsPar } from '@/lib/mi-golf/par'
 import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '@/lib/mi-golf/types'
+import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
 
 export const metadata: Metadata = {
   title: 'Inicio — Golfers+',
@@ -65,7 +66,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     diferencial: (row.diferencial as number | null) ?? null,
     holes_played: (row.holes_played as number | null) ?? null,
     scores: (row.scores as number[] | null) ?? null,
-    parPerHole: (row.par_per_hole as number[] | null) ?? null,
+    // BD guarda `par_per_hole` como JSONB objeto `{"1":4,...}` — el cast a
+    // `number[]` previo silenciaba el bug. Normalizamos aquí para que el
+    // resto del flow (HistoricalRound type, consumers downstream) reciba
+    // siempre un array number[] válido o null.
+    parPerHole: parPerHoleArray(row.par_per_hole as ParPerHoleInput),
   }))
 
   const activeRonda = rondasLibres.find((r) => r.estado === 'en_curso') ?? null
