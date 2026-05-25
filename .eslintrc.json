@@ -7,13 +7,31 @@
     "no-use-before-define": [
       "warn",
       { "functions": false, "classes": true, "variables": true, "allowNamedExports": false }
+    ],
+    "max-lines": [
+      "error",
+      { "max": 800, "skipBlankLines": true, "skipComments": true }
     ]
   },
   "overrides": [
     {
       "files": ["src/__tests__/**/*", "**/*.test.{ts,tsx}", "src/lib/logger.ts"],
       "rules": {
-        "no-console": "off"
+        "no-console": "off",
+        "max-lines": "off"
+      }
+    },
+    {
+      "files": ["src/scripts/**/*"],
+      "rules": {
+        "max-lines": "off"
+      }
+    },
+    {
+      "files": ["src/scripts/**/*.mjs"],
+      "rules": {
+        "no-console": "off",
+        "max-lines": "off"
       }
     },
     {
@@ -30,6 +48,30 @@
             ]
           }
         ]
+      }
+    },
+    {
+      "files": [
+        "src/app/ronda-libre/nueva/page.tsx",
+        "src/app/ronda-libre/*/page.tsx",
+        "src/app/ronda-libre/*/score/page.tsx",
+        "src/app/ronda-libre/*/score-grupo/page.tsx",
+        "src/app/perfil/historial/page.tsx",
+        "src/app/organizador/*/jugadores/JugadoresPanel.tsx",
+        "src/app/organizador/*/scoring/page.tsx",
+        "src/components/import/ImportGuide.tsx",
+        "src/components/CourseSelector.tsx",
+        "src/app/admin/golf-ops/page.tsx",
+        "src/app/admin/sistema/page.tsx",
+        "src/app/demo/taiger/page.tsx",
+        "src/app/api/import/screenshot/route.ts",
+        "src/app/api/admin/health-check/route.ts",
+        "src/app/api/import/garmin-zip/route.ts",
+        "src/app/api/inbox/webhook/route.ts",
+        "src/app/api/torneos/draft/*/assistant/route.ts"
+      ],
+      "rules": {
+        "max-lines": "off"
       }
     }
   ]

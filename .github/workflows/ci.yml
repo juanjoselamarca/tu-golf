@@ -28,6 +28,15 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
+      - name: Lint (max-lines + no-restricted-imports gate)
+        # next lint falla si hay reglas con severity "error". Las dos que
+        # importan aquí: max-lines (800) bloquea NUEVOS archivos monstruo;
+        # no-restricted-imports impide que src/golf/ importe react/next.
+        # Los archivos preexistentes >800 LOC están exentos vía override en
+        # .eslintrc.json. Cuando se refactorice uno, se quita del override
+        # y la regla pasa a aplicar también ahí.
+        run: npm run lint
+
       - name: Run tests
         run: npm run test -- --run
 
@@ -48,6 +57,33 @@ jobs:
           NEXT_PUBLIC_VAPID_PUBLIC_KEY: BA24XsfwtZKyxQuWltINW-0e22ovEqfVNhqRxPSaFHIORQ3S1nn2mR9PCVAwcIVrLS3cpLFINX-UbICRU6VZu2w
           VAPID_PRIVATE_KEY: wsmrzpbRZZsztEIQimkkBc2jy-ZoaXvqyf49TZs6iUs
           VAPID_CONTACT_EMAIL: mailto:placeholder@example.com
+
+  no-new-console:
+    # Bloquea PRs que agregan nuevos console.log/warn/info/debug en código
+    # productivo. Hoy hay 465 ocurrencias preexistentes que se migran
+    # gradualmente (regla "el que toca, ordena" — ver CLAUDE.md). Este job
+    # garantiza que el número no crece.
+    name: Sin nuevos console.* en código productivo
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout (full history for diff)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: Check no new console.*
+        run: node scripts/check-no-new-console.mjs --base=origin/${{ github.base_ref }}
 
   audit:
     name: Auditoría de dependencias
