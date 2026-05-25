@@ -15,6 +15,7 @@ import { calcularScramble, calcularFoursome, teePlayerEnHoyo } from '@/golf/form
 import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import { getMissingHoles, fillMissingHolesWithPar } from '@/lib/ronda/helpers'
 import TeamLeaderboard from '@/components/TeamLeaderboard'
+import { BestBallTeamCard } from './components/BestBallTeamCard'
 
 /* ── Helpers ── */
 function getTeeYardageColumn(tee: string): string {
@@ -920,6 +921,37 @@ export default function ScoreGrupoPage() {
         onTouchEnd={handleTouchEnd}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Best Ball — 1 score por jugador, agrupados por equipo */}
+          {formatoJuego === 'best_ball' && teamEquipos.length > 0 && (() => {
+            // Pre-compute dot HCPs y SI por hoyo (consumidos por el componente y sus helpers)
+            const playerDotHcps: Record<string, number> = {}
+            for (const j of jugadores) playerDotHcps[j.id] = getDotHcp(j.id)
+            const strokeIndexByHole: Record<number, number> = {}
+            for (let h = 1; h <= totalHoles; h++) strokeIndexByHole[h] = holeDataMap[h]?.stroke_index ?? h
+            return teamEquipos.map((equipo) => (
+              <BestBallTeamCard
+                key={equipo.id}
+                equipo={equipo}
+                jugadores={jugadores}
+                scores={scores}
+                playerHcp={playerHcp}
+                playerDotHcps={playerDotHcps}
+                modoJuego={modoJuego}
+                currentHole={currentHole}
+                par={par}
+                strokeIndex={holeData.stroke_index}
+                parMap={parMap}
+                strokeIndexByHole={strokeIndexByHole}
+                totalHoles={totalHoles}
+                onIncrement={(jid) => handleScoreChange(jid, currentHole, 1)}
+                onDecrement={(jid) => handleScoreChange(jid, currentHole, -1)}
+                getVsParColor={getVsParColor}
+                getVsParLabel={getVsParLabel}
+                theme={theme}
+              />
+            ))
+          })()}
+
           {/* Team scoring for Scramble/Foursome */}
           {['scramble', 'foursome'].includes(formatoJuego) && teamEquipos.length > 0 && teamEquipos.map(equipo => {
             const teamScore = equipo.scores[String(currentHole)]
@@ -943,10 +975,30 @@ export default function ScoreGrupoPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: theme.text }}>{equipo.nombre}</div>
-                    <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>
-                      {equipo.jugadorNombres.join(' \u00B7 ')}
-                      {equipo.handicap_equipo != null && ` \u00B7 HCP ${equipo.handicap_equipo}`}
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: theme.text, letterSpacing: '0.02em', textTransform: 'uppercase' as const }}>{equipo.nombre}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      {equipo.jugadorNombres.map((nombre, i) => (
+                        <span
+                          key={`${equipo.id}-jugador-${i}`}
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            color: theme.textMuted,
+                            background: 'rgba(196,153,42,0.08)',
+                            border: '1px solid rgba(196,153,42,0.2)',
+                            borderRadius: '10px',
+                            padding: '2px 8px',
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {nombre}
+                        </span>
+                      ))}
+                      {equipo.handicap_equipo != null && (
+                        <span style={{ fontSize: '11px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
+                          HCP {equipo.handicap_equipo}
+                        </span>
+                      )}
                     </div>
                     {formatoJuego === 'foursome' && equipo.jugadorNombres.length === 2 && (
                       <div style={{ fontSize: '10px', color: '#c4992a', marginTop: '2px' }}>
@@ -1020,8 +1072,8 @@ export default function ScoreGrupoPage() {
             )
           })}
 
-          {/* Individual scoring (hidden for team scoring formats) */}
-          {!['scramble', 'foursome'].includes(formatoJuego) && jugadores.map(j => {
+          {/* Individual scoring (hidden for team scoring formats: scramble, foursome, best_ball) */}
+          {!['scramble', 'foursome', 'best_ball'].includes(formatoJuego) && jugadores.map(j => {
             const playerScore = scores[j.id]?.[currentHole]
             const displayScore = playerScore ?? par
             const diff = playerScore != null ? playerScore - par : 0
