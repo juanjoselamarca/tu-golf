@@ -57,6 +57,7 @@ export default defineConfig({
         'organizar-campeonato-modal-duplicar.spec.ts',
         'import-photo-scan.spec.ts',
         'inbox-fixes-verify.spec.ts',
+        'wizard-dark-light-diag.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],

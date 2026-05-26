@@ -76,6 +76,16 @@
   --surface-soft:          rgba(0, 0, 0, 0.04);
   --surface-border:        rgba(0, 0, 0, 0.08);
   --surface-border-strong: rgba(0, 0, 0, 0.16);
+
+  /* Aliases theme-aware para el wizard /organizador/nuevo, componentes
+     tournament-draft (AssistantPanel) y vistas torneo/en-vivo. Sin estos,
+     los 4 tokens caían siempre al fallback hardcoded #f9fafb/#111827/etc.,
+     dejando texto oscuro sobre fondo oscuro en dark mode (bug inbox 25-may).
+     var() resuelve lazily, así que heredan el valor correcto por tema. */
+  --card-bg:        var(--bg-surface);
+  --text-primary:   var(--text);
+  --text-secondary: var(--text-2);
+  --brand-gold:     #c4992a;
 }
 
 [data-theme="light"] {
