@@ -563,7 +563,7 @@ export default function Navbar() {
           <div style={{
             position: 'fixed',
             bottom: 0, left: 0, right: 0,
-            background: '#0a1628',
+            background: 'var(--bg-surface)',
             borderRadius: '20px 20px 0 0',
             zIndex: 199,
             transform: playSheetOpen ? 'translateY(0)' : 'translateY(100%)',
@@ -576,7 +576,7 @@ export default function Navbar() {
             }}>
               <div style={{
                 width: '36px', height: '4px', borderRadius: '2px',
-                background: 'rgba(255,255,255,0.2)',
+                background: 'var(--surface-border-strong)',
               }} />
             </div>
 
@@ -599,14 +599,14 @@ export default function Navbar() {
                 onClick={() => setPlaySheetOpen(false)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '14px',
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'var(--surface-soft)',
+                  border: '1px solid var(--surface-border)',
                   borderRadius: '14px', padding: '16px',
                   minHeight: '64px', textDecoration: 'none',
                   cursor: 'pointer', transition: 'border-color 0.15s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--surface-border-strong)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--surface-border)')}
               >
                 <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(196,153,42,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4992a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -626,16 +626,16 @@ export default function Navbar() {
                 onClick={() => setPlaySheetOpen(false)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '14px',
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'var(--surface-soft)',
+                  border: '1px solid var(--surface-border)',
                   borderRadius: '14px', padding: '16px',
                   minHeight: '64px', textDecoration: 'none',
                   cursor: 'pointer', transition: 'border-color 0.15s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--surface-border-strong)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--surface-border)')}
               >
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--surface-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M6 9H4.5a2.5 2.5 0 010-5C7 4 7 7 7 7" />
                     <path d="M18 9h1.5a2.5 2.5 0 000-5C17 4 17 7 17 7" />

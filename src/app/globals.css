@@ -69,6 +69,13 @@
   --coach-pattern-latente: #8A8F86;
   --coach-brass: #C9A961;
   --coach-brass-soft: rgba(201, 169, 97, 0.12);
+
+  /* Surface overlays — translúcidos que invierten polaridad según tema.
+     Para componentes que renderizan sobre var(--bg-surface) y necesitan
+     elevación sutil (cards anidados, items de listas, etc). */
+  --surface-soft:          rgba(0, 0, 0, 0.04);
+  --surface-border:        rgba(0, 0, 0, 0.08);
+  --surface-border-strong: rgba(0, 0, 0, 0.16);
 }
 
 [data-theme="light"] {
@@ -102,6 +109,11 @@
   --score-bogey-fg:  #92400e;
   --score-double-bg: rgba(220,59,46,0.15);
   --score-double-fg: #b91c1c;
+
+  /* Surface overlays — light: negro translúcido */
+  --surface-soft:          rgba(0, 0, 0, 0.04);
+  --surface-border:        rgba(0, 0, 0, 0.08);
+  --surface-border-strong: rgba(0, 0, 0, 0.16);
 }
 
 [data-theme="dark"] {
@@ -148,6 +160,11 @@
   --coach-pattern-latente: #6B7268;
   --coach-brass: #D9BA76;
   --coach-brass-soft: rgba(217, 186, 118, 0.16);
+
+  /* Surface overlays — dark: blanco translúcido */
+  --surface-soft:          rgba(255, 255, 255, 0.04);
+  --surface-border:        rgba(255, 255, 255, 0.08);
+  --surface-border-strong: rgba(255, 255, 255, 0.2);
 }
 
 /* â”€â”€ Base styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
