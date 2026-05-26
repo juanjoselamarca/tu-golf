@@ -128,7 +128,7 @@ export function validateGolfRules(config: TournamentConfig): ValidationResult {
       errors.push({
         code: 'team_handicap_custom_out_of_range',
         field: 'team_config.handicap_pct_custom',
-        message: 'Porcentajes de handicap custom deben estar entre 0 y 100',
+        message: 'El % de handicap personalizado debe estar entre 0 y 100',
       })
     }
   }
