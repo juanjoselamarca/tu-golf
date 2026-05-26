@@ -7,9 +7,14 @@
  *  (b) cualquier nombre de cancha citado aparezca en las rondas conocidas
  *      del jugador.
  *
- * Modo shadow (D6): por 7 dias logueamos coach_events('hallucination_check')
- * con flagged=true|false y NO degradamos la respuesta. Despues del dia 7,
- * si false_positive_rate < 5% → activar enforcement.
+ * Modo enforcement light (D6.1, 2026-05-25): el flag se expone al cliente
+ * vía SSE pero NO bloquea ni degrada el response. Frontend decide si muestra
+ * disclaimer. Medición previa: 7.7% flagged en prod, ~2-3 de 3 eran falsos
+ * positivos (libros/duraciones). Esta rev incluye whitelist de términos
+ * no-cancha y skip de números en contexto de duración + rangos.
+ *
+ * D6.2 pendiente: enforcement hard (degradar respuesta + retry) cuando el
+ * false_positive_rate medido baje a <3% sostenido.
  *
  * Spec: docs/superpowers/plans/2026-05-05-cerebro-v2.md §5.8
  * Set de regresion: tests/regression/taiger-hallucination-set.json
@@ -18,6 +23,17 @@
 const SCORE_KEYWORDS = [
   'score', 'ronda', 'hoyo', 'putt', 'fairway', 'gir', 'vspar', 'birdie', 'bogey', 'eagle', 'doble', 'triple', 'over par', 'under par',
 ]
+
+// Contextos de duración: skip números que claramente describen tiempo de práctica.
+const DURATION_PATTERN = /\b(min|minuto|minutos|hr|hrs|hora|horas|seg|segundo|segundos|sem|semana|semanas|dia|día|dias|días|mes|meses)\b/
+
+// Whitelist de términos que parecen canchas pero NO lo son. Libros de coaching,
+// federaciones, marcas. Cuando aparecen tras "en X" el regex de canchas los matchea.
+const NON_COURSE_TERMS = new Set([
+  'vision54', 'rotella', 'hogan', 'nilsson', 'marriott', 'usga', 'r&a', 'pga', 'lpga',
+  'fedegolf', 'trackman', 'shotscope', 'arccos', 'garmin', 'augusta national',
+  'masters', 'open championship', 'us open',
+])
 
 export type HallucinationKind = 'unknown_number' | 'unknown_course'
 
@@ -65,6 +81,14 @@ export function validateResponse(input: ValidatorInput): ValidatorOutput {
 
     const isScoreContext = SCORE_KEYWORDS.some(k => window.includes(k))
     if (!isScoreContext) continue
+
+    // Skip si el contexto es duración de práctica (ej: "45-60 min", "30 minutos").
+    if (DURATION_PATTERN.test(window)) continue
+
+    // Skip si el número está dentro de un rango "X-Y" o "X–Y" (range, no score puntual).
+    const rangeRegex = new RegExp(`\\d+\\s*[-–]\\s*${num}\\b|\\b${num}\\s*[-–]\\s*\\d+`)
+    if (rangeRegex.test(window)) continue
+
     totalNumbers++
 
     // Numeros < 30 son comúnmente referencia a hoyo (1-18) o handicaps (0-30)
@@ -96,8 +120,12 @@ export function validateResponse(input: ValidatorInput): ValidatorOutput {
   while ((cm = courseHints.exec(response)) !== null) {
     const cited = cm[2].trim()
     if (!cited) continue
-    totalCourses++
     const citedLower = cited.toLowerCase()
+
+    // Skip términos famosos no-cancha (libros de coaching, federaciones, marcas).
+    if (NON_COURSE_TERMS.has(citedLower)) continue
+
+    totalCourses++
 
     // Match suave: si alguna conocida contiene la citada o viceversa, OK.
     const known = knownLower.some(k => k.includes(citedLower) || citedLower.includes(k))
