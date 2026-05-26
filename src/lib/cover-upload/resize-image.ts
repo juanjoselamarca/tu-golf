@@ -16,7 +16,7 @@
 const MAX_DIMENSION = 1600
 const QUALITY = 0.85
 
-export async function resizeImage(file: File): Promise<Blob> {
+export async function resizeImage(file: File): Promise<Blob | File> {
   // Skip resize si el archivo ya es chico (<500KB y <1600px implícito)
   if (file.size < 500 * 1024) {
     return file

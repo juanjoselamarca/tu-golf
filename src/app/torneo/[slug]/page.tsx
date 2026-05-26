@@ -649,8 +649,12 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             <img
               src={tournament.cover_image_url}
               alt={`Portada de ${tournament.name}`}
+              width={1600}
+              height={900}
+              loading="eager"
               style={{
                 width: '100%',
+                height: 'auto',
                 aspectRatio: '16 / 9',
                 objectFit: 'cover',
                 borderRadius: '12px',
