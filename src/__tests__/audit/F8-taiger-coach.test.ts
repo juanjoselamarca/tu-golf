@@ -676,21 +676,13 @@ describe('[documentación] Gaps arquitecturales conocidos', () => {
   })
 
   /**
-   * GAP #3: La extracción de recomendaciones usa keyword matching sobre texto libre.
-   * Esto es frágil y puede capturar frases que no son recomendaciones reales,
-   * o perder recomendaciones bien redactadas que no contienen keywords.
-   *
-   * Sistema actual: RECOMMENDATION_TRIGGERS + regex en chat/route.ts línea 229-307
-   * Sistema ideal: pedir al LLM que devuelva JSON estructurado con recomendaciones explícitas
+   * GAP #3 RESUELTO (2026-05-25, D3 cerebro v2):
+   * La extracción regex con RECOMMENDATION_TRIGGERS fue eliminada de chat/route.ts.
+   * Ahora la única fuente de planes es la tool `save_plan` (JSON estructurado,
+   * decisión explícita del LLM). El shadow extractor corrió 20 días sin escribir
+   * a BD: 57% de matches del regex contra 2.5% de save_plan calls confirmó que
+   * el regex tenía falsos positivos masivos.
    */
-  it('[GAP] Extracción de recomendaciones usa keyword matching frágil sobre texto libre', () => {
-    // Simular que una frase que contiene trigger keyword se extrae aunque no sea accionable
-    const triggers = ['te recomiendo', 'trabaja en', 'enfócate en', 'practica', 'drill']
-    const nonActionablePhrase = 'No te recomiendo abandonar el golf'
-    const wouldBeExtracted = triggers.some(t => nonActionablePhrase.toLowerCase().includes(t))
-    // "No te recomiendo" contiene "te recomiendo" → falso positivo
-    expect(wouldBeExtracted).toBe(true) // documenta el problema
-  })
 
   /**
    * GAP #4: No hay análisis comparativo entre sesiones.

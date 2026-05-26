@@ -6,7 +6,7 @@ import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
-import { validateResponse } from '@/golf/coach/hallucination-validator'
+import { validateResponse, type HallucinationWarning } from '@/golf/coach/hallucination-validator'
 import { toolActivityLabel, friendlyPatternName, friendlyMetricName } from '@/lib/coach-event-narrator'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -302,24 +302,16 @@ export async function POST(req: NextRequest) {
             console.error('[tAIger/chat] sesión update error:', sessionUpdErr)
           }
 
-          // SHADOW EXTRACTOR (D3) — el regex extractor ya NO escribe a taiger_recommendations
-          // ni a coach_plans. Solo registra a coach_events('extractor_shadow', ...) por 7 dias
-          // para comparar contra lo que la tool save_plan capturo. Despues del dia 7, si la
-          // divergencia es <5%, esta funcion entera se borra.
-          // Spec: docs/superpowers/plans/2026-05-05-cerebro-v2.md §5.4.3 (D3).
-          try {
-            await extractRecommendationsShadow(
-              user.id, active.id, fullResponse,
-            )
-          } catch (recErr) {
-            console.error('[tAIger/chat] extractor shadow error:', recErr)
-          }
-
-          // VALIDADOR ANTI-ALUCINACION (D6 — shadow 7 dias). NO degrada respuesta.
-          // Logea coach_events('hallucination_check', { flagged, warnings }) y
-          // listo. Despues del dia 7, si false_positive_rate < 5%, se promueve
-          // a enforcement (degradacion + retry forzando tool call).
+          // VALIDADOR ANTI-ALUCINACION (D6.1 — enforcement light desde 2026-05-25).
+          // El validator corre, logea coach_events('hallucination_check', ...) Y
+          // expone el flag al cliente en el evento `done` para que el frontend
+          // pueda decidir si muestra disclaimer. NO degrada el response.
+          // D6.2 pendiente: degradacion + retry cuando false_positive_rate <3%.
           // Spec: docs/superpowers/plans/2026-05-05-cerebro-v2.md §5.8 (D6).
+          let hallucinationFlag: { flagged: boolean; warnings: HallucinationWarning[] } = {
+            flagged: false,
+            warnings: [],
+          }
           try {
             const knownCourseNames = (ctx.recent_rounds ?? [])
               .map(r => r.course_name)
@@ -330,6 +322,7 @@ export async function POST(req: NextRequest) {
               toolResultsConcat: allToolResultStrings.join('\n'),
               knownCourseNames,
             })
+            hallucinationFlag = { flagged: validation.flagged, warnings: validation.warnings }
             const admin = createAdminClient()
             await admin.from('coach_events').insert({
               user_id: user.id,
@@ -349,7 +342,11 @@ export async function POST(req: NextRequest) {
           }
 
           controller.enqueue(encoder.encode(
-            `data: ${JSON.stringify({ done: true, session_id: active.id })}\n\n`,
+            `data: ${JSON.stringify({
+              done: true,
+              session_id: active.id,
+              hallucination: hallucinationFlag,
+            })}\n\n`,
           ))
           controller.close()
         } catch (err) {
@@ -389,65 +386,3 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// --- Shadow extractor (D3) ---
-// El extractor regex ya NO escribe planes. Por 7 dias corre en sombra y solo
-// registra a coach_events('extractor_shadow', { regex_extracted, ... }) lo que
-// el regex hubiera capturado, para comparar con la tool save_plan. Si la
-// divergencia es <5% al dia 7, esta funcion entera se borra.
-//
-// Spec: docs/superpowers/plans/2026-05-05-cerebro-v2.md §5.4.3 (D3).
-
-const RECOMMENDATION_TRIGGERS = [
-  'te recomiendo',
-  'trabaja en',
-  'enfócate en',
-  'enfocate en',
-  'practica este',
-  'practica la',
-  'practica el',
-  'practica tu',
-  'tu tarea',
-  'esta semana',
-  'drill',
-  'ejercicio',
-]
-
-async function extractRecommendationsShadow(
-  userId: string,
-  sessionId: string,
-  responseText: string,
-) {
-  const lines = responseText.split('\n').map(l => l.trim()).filter(Boolean)
-  const recommendations: string[] = []
-
-  for (const line of lines) {
-    if (recommendations.length >= 3) break
-
-    const lower = line.toLowerCase()
-
-    const isNumbered = /^\d+[\.\)]\s/.test(line)
-    const isBullet = /^[-*•]\s/.test(line)
-    const hasTrigger = RECOMMENDATION_TRIGGERS.some(t => lower.includes(t))
-
-    if ((isNumbered || isBullet || hasTrigger) && line.length > 20 && line.length < 500) {
-      const cleaned = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[-*•]\s*/, '').trim()
-      if (cleaned.length > 15) {
-        recommendations.push(cleaned)
-      }
-    }
-  }
-
-  // Registramos SIEMPRE el resultado del shadow extractor (incluso vacio) para
-  // poder comparar dia a dia: cuando save_plan se llamo, el shadow ¿extrajo o no?
-  const admin = createAdminClient()
-  await admin.from('coach_events').insert({
-    user_id: userId,
-    type: 'extractor_shadow',
-    payload: {
-      regex_extracted: recommendations,
-      regex_extracted_count: recommendations.length,
-      response_length: responseText.length,
-    },
-    related_session_id: sessionId,
-  })
-}

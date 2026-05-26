@@ -92,4 +92,63 @@ describe('validateResponse — anti-alucinacion shadow', () => {
     expect(out.total_numbers_checked).toBe(0)
     expect(out.flagged).toBe(false)
   })
+
+  // D6.1 (2026-05-25) — anti falsos positivos detectados en prod
+
+  it('D6.1: NO flaguea numero en rango de duracion (ej: 45-60 min, contexto score)', () => {
+    const out = validateResponse({
+      response: 'En la sesión: putting green (45-60 min) trabajando birdie putts.',
+      contextString: '',
+      toolResultsConcat: '',
+      knownCourseNames: [],
+    })
+    // "60" cerca de "birdie" (score keyword) PERO en contexto "min" → skip
+    const numWarning = out.warnings.find(w => w.kind === 'unknown_number' && w.evidence === '60')
+    expect(numWarning).toBeUndefined()
+  })
+
+  it('D6.1: NO flaguea numero de duracion explicita (ej: 30 minutos, contexto score)', () => {
+    const out = validateResponse({
+      response: 'Trabajá 30 minutos antes de cada ronda haciendo putts.',
+      contextString: '',
+      toolResultsConcat: '',
+      knownCourseNames: [],
+    })
+    // "30" cerca de "ronda"/"putt" PERO contexto "minutos" → skip
+    const numWarning = out.warnings.find(w => w.kind === 'unknown_number' && w.evidence === '30')
+    expect(numWarning).toBeUndefined()
+  })
+
+  it('D6.1: NO flaguea VISION54 (libro de coaching, no cancha)', () => {
+    const out = validateResponse({
+      response: 'En VISION54 hablan sobre el "play box". Lectura recomendada.',
+      contextString: '',
+      toolResultsConcat: '',
+      knownCourseNames: ['Marbella'],
+    })
+    const courseWarning = out.warnings.find(w => w.kind === 'unknown_course' && w.evidence === 'VISION54')
+    expect(courseWarning).toBeUndefined()
+  })
+
+  it('D6.1: NO flaguea referencias a Rotella, Hogan, Nilsson (no canchas)', () => {
+    const out = validateResponse({
+      response: 'En Rotella encontrás varios drills. En Hogan también.',
+      contextString: '',
+      toolResultsConcat: '',
+      knownCourseNames: [],
+    })
+    const flagged = out.warnings.some(w => w.kind === 'unknown_course' && ['Rotella','Hogan'].includes(w.evidence))
+    expect(flagged).toBe(false)
+  })
+
+  it('D6.1: SIGUE flagueando cancha inventada real (no whitelist)', () => {
+    const out = validateResponse({
+      response: 'jugaste en Pinos Altos y rompiste tu récord.',
+      contextString: '',
+      toolResultsConcat: '',
+      knownCourseNames: ['Marbella'],
+    })
+    const courseWarning = out.warnings.find(w => w.kind === 'unknown_course')
+    expect(courseWarning).toBeTruthy()
+  })
 })
