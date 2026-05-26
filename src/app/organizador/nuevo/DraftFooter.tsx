@@ -20,7 +20,6 @@ export interface DraftFooterProps {
 export function DraftFooter({ config, onPreview, onCreate }: DraftFooterProps) {
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [tooltipOpen, setTooltipOpen] = useState(false)
 
   const validation = useMemo(() => validateGolfRules(config), [config])
   const ready = validation.isReadyToCreate && validation.errors.length === 0
@@ -82,42 +81,35 @@ export function DraftFooter({ config, onPreview, onCreate }: DraftFooterProps) {
         </div>
       )}
 
+      {!ready && blockers.length > 0 && (
+        <div style={blockersPanelStyle} role="status" aria-live="polite">
+          <div style={blockersTitleStyle}>Falta para poder crear el torneo:</div>
+          <ul style={blockersListStyle}>
+            {blockers.slice(0, 6).map((b, i) => (
+              <li key={`${b.code}-${i}`} style={blockersItemStyle}>
+                {b.message}
+              </li>
+            ))}
+            {blockers.length > 6 && (
+              <li style={blockersItemStyle}>...y {blockers.length - 6} más</li>
+            )}
+          </ul>
+        </div>
+      )}
+
       <div style={rowStyle}>
         <button type="button" style={previewButtonStyle} onClick={onPreview}>
           Vista previa
         </button>
 
-        <div
-          style={createWrapperStyle}
-          onMouseEnter={() => !ready && setTooltipOpen(true)}
-          onMouseLeave={() => setTooltipOpen(false)}
+        <button
+          type="button"
+          style={createButtonStyle(ready, submitting)}
+          disabled={!ready || submitting}
+          onClick={handleCreate}
         >
-          {!ready && tooltipOpen && blockers.length > 0 && (
-            <div style={tooltipStyle} role="tooltip">
-              <div style={tooltipTitleStyle}>Falta para poder crear:</div>
-              <ul style={tooltipListStyle}>
-                {blockers.slice(0, 6).map((b, i) => (
-                  <li key={`${b.code}-${i}`} style={tooltipItemStyle}>
-                    {b.message}
-                  </li>
-                ))}
-                {blockers.length > 6 && (
-                  <li style={tooltipItemStyle}>...y {blockers.length - 6} más</li>
-                )}
-              </ul>
-            </div>
-          )}
-          <button
-            type="button"
-            style={createButtonStyle(ready, submitting)}
-            disabled={!ready || submitting}
-            onClick={handleCreate}
-            onFocus={() => !ready && setTooltipOpen(true)}
-            onBlur={() => setTooltipOpen(false)}
-          >
-            {submitting ? 'Creando...' : 'Crear torneo →'}
-          </button>
-        </div>
+          {submitting ? 'Creando...' : 'Crear torneo →'}
+        </button>
       </div>
     </div>
   )
@@ -160,11 +152,6 @@ const previewButtonStyle: React.CSSProperties = {
   cursor: 'pointer',
 }
 
-const createWrapperStyle: React.CSSProperties = {
-  position: 'relative',
-  display: 'inline-block',
-}
-
 const createButtonStyle = (ready: boolean, submitting: boolean): React.CSSProperties => ({
   appearance: 'none',
   fontFamily: 'inherit',
@@ -181,26 +168,27 @@ const createButtonStyle = (ready: boolean, submitting: boolean): React.CSSProper
   opacity: submitting ? 0.7 : 1,
 })
 
-const tooltipStyle: React.CSSProperties = {
-  position: 'absolute',
-  bottom: 'calc(100% + 8px)',
-  right: 0,
-  width: 280,
-  padding: 12,
-  borderRadius: 10,
-  background: 'var(--brand-dark, #0a1419)',
-  color: '#fff',
+// Panel persistente que lista los blockers de validación. Aparece DENTRO
+// del footer sticky, arriba del row de botones, para que el organizador
+// vea SIEMPRE qué falta sin tener que hacer hover (que no funciona en
+// mobile) o buscar tooltip flotante en otra parte de la pantalla.
+const blockersPanelStyle: React.CSSProperties = {
+  padding: '10px 12px',
+  borderRadius: 8,
+  background: 'rgba(196, 153, 42, 0.10)',
+  border: '1px solid rgba(196, 153, 42, 0.35)',
+  color: 'var(--text-primary, #111827)',
   fontSize: 12,
-  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-  zIndex: 25,
+  lineHeight: 1.35,
 }
 
-const tooltipTitleStyle: React.CSSProperties = {
+const blockersTitleStyle: React.CSSProperties = {
   fontWeight: 700,
   marginBottom: 6,
+  color: 'var(--brand-on-bg, #8A6A16)',
 }
 
-const tooltipListStyle: React.CSSProperties = {
+const blockersListStyle: React.CSSProperties = {
   margin: 0,
   paddingLeft: 16,
   display: 'flex',
@@ -208,9 +196,9 @@ const tooltipListStyle: React.CSSProperties = {
   gap: 4,
 }
 
-const tooltipItemStyle: React.CSSProperties = {
+const blockersItemStyle: React.CSSProperties = {
   fontSize: 12,
-  lineHeight: 1.3,
+  lineHeight: 1.35,
 }
 
 const errorStyle: React.CSSProperties = {

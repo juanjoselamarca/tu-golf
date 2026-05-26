@@ -18,6 +18,30 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     .single()
 
   if (error || !data) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
+
+  // Enriquecer collaborators con full_name desde profiles. No hay FK directa
+  // entre tournament_draft_collaborators.user_id y profiles.id (ambas FK a
+  // auth.users), así que hacemos el join manual con una query separada.
+  const collabs = (data.tournament_draft_collaborators as Array<{ user_id: string; role: string }> | null) ?? []
+  const userIds = collabs.map((c) => c.user_id)
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, name, email')
+      .in('id', userIds)
+    const byId = new Map((profiles ?? []).map((p) => [p.id as string, p as { id: string; name: string | null; email: string | null }]))
+    const enriched = collabs.map((c) => ({
+      user_id: c.user_id,
+      role: c.role,
+      name: byId.get(c.user_id)?.name ?? null,
+      email: byId.get(c.user_id)?.email ?? null,
+    }))
+    return NextResponse.json({
+      ok: true,
+      draft: { ...data, tournament_draft_collaborators: enriched },
+    })
+  }
+
   return NextResponse.json({ ok: true, draft: data })
 }
 
