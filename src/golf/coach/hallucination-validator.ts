@@ -29,11 +29,13 @@ const DURATION_PATTERN = /\b(min|minuto|minutos|hr|hrs|hora|horas|seg|segundo|se
 
 // Whitelist de términos que parecen canchas pero NO lo son. Libros de coaching,
 // federaciones, marcas. Cuando aparecen tras "en X" el regex de canchas los matchea.
-const NON_COURSE_TERMS = new Set([
+// Usamos `includes` (no exact match) para que entradas compuestas como
+// "augusta national" matcheen aunque el regex capture solo "Augusta".
+const NON_COURSE_TERMS = [
   'vision54', 'rotella', 'hogan', 'nilsson', 'marriott', 'usga', 'r&a', 'pga', 'lpga',
-  'fedegolf', 'trackman', 'shotscope', 'arccos', 'garmin', 'augusta national',
+  'fedegolf', 'trackman', 'shotscope', 'arccos', 'garmin', 'augusta',
   'masters', 'open championship', 'us open',
-])
+]
 
 export type HallucinationKind = 'unknown_number' | 'unknown_course'
 
@@ -123,7 +125,7 @@ export function validateResponse(input: ValidatorInput): ValidatorOutput {
     const citedLower = cited.toLowerCase()
 
     // Skip términos famosos no-cancha (libros de coaching, federaciones, marcas).
-    if (NON_COURSE_TERMS.has(citedLower)) continue
+    if (NON_COURSE_TERMS.some(t => citedLower.includes(t) || t.includes(citedLower))) continue
 
     totalCourses++
 
