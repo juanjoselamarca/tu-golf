@@ -523,8 +523,11 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
           transition: 'all 0.2s ease',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Inbox 7a18d95b: flexWrap evita que toggle Varones/Damas + botón
+            Cambiar le coman ancho al nombre en mobile angosto y rompan el
+            texto carácter-por-carácter por culpa de wordBreak: break-word. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 200px', minWidth: 0 }}>
             <div
               style={{
                 fontSize: 16,
