@@ -9,6 +9,7 @@
 // La fecha global propagara a rounds[0].date al sincronizarse en el editor.
 
 import type { TournamentConfig } from '@/lib/draft/types'
+import { CoverUploader } from '@/components/tournament-draft/CoverUploader'
 
 export interface CourseOption {
   id: string
@@ -22,11 +23,13 @@ export interface QueTorneoSectionProps {
   // courses se mantiene en props por compatibilidad con el padre, aunque
   // ya no se usa acá (lo consume RondasSection).
   courses: CourseOption[]
+  draftId: string
 }
 
 export function QueTorneoSection({
   config,
   applyChange,
+  draftId,
 }: QueTorneoSectionProps) {
 
   return (
@@ -68,16 +71,11 @@ export function QueTorneoSection({
       </div>
 
       <div style={fieldStyle}>
-        <label style={labelStyle} htmlFor="t-cover">Foto de portada (URL)</label>
-        <input
-          id="t-cover"
-          type="url"
-          value={config.cover_image_url ?? ''}
-          placeholder="https://..."
-          style={inputStyle}
-          onChange={(e) =>
-            applyChange({ cover_image_url: e.target.value || null })
-          }
+        <span style={labelStyle}>Foto de portada</span>
+        <CoverUploader
+          draftId={draftId}
+          value={config.cover_image_url}
+          onChange={(url) => applyChange({ cover_image_url: url })}
         />
       </div>
     </section>

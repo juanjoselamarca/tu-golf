@@ -45,6 +45,7 @@ interface DBTournament {
   codigo: string | null
   afecta_estadisticas: boolean | null
   es_demo: boolean | null
+  cover_image_url: string | null
   courses: { id: string; nombre: string; ciudad: string; par_total: number; slope_rating: number; course_rating: number } | null
 }
 
@@ -156,7 +157,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   // Try to fetch real tournament
   const { data: rawTournament } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, date_start, status, codigo, afecta_estadisticas, es_demo, courses(id, nombre, ciudad, par_total, slope_rating, course_rating)')
+    .select('id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, date_start, status, codigo, afecta_estadisticas, es_demo, cover_image_url, courses(id, nombre, ciudad, par_total, slope_rating, course_rating)')
     .eq('slug', params.slug)
     .single()
 
@@ -639,6 +640,26 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             </Link>
           )}
         </div>
+
+        {/* Hero: foto de portada del torneo. Cae limpiamente si no hay
+            foto subida — el header sigue legible sin ella. */}
+        {tournament?.cover_image_url && (
+          <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 20px 0' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={tournament.cover_image_url}
+              alt={`Portada de ${tournament.name}`}
+              style={{
+                width: '100%',
+                aspectRatio: '16 / 9',
+                objectFit: 'cover',
+                borderRadius: '12px',
+                display: 'block',
+                background: '#e5e7eb',
+              }}
+            />
+          </div>
+        )}
 
         {/* Tournament info */}
         <div style={{ padding: '24px 20px 20px', maxWidth: '1080px', margin: '0 auto' }}>
