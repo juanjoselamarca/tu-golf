@@ -99,6 +99,7 @@ test('wizard tokens: definidos en DARK con valores theme-aware correctos', async
   expect(tokens.cardBg, '--card-bg debe estar definido en dark').not.toBe('')
   expect(tokens.textPrimary, '--text-primary debe estar definido en dark').not.toBe('')
   expect(tokens.textSecondary, '--text-secondary debe estar definido en dark').not.toBe('')
+  expect(tokens.brandGold, '--brand-gold debe estar definido en dark').not.toBe('')
 
   // En dark, card-bg debe resolver a un valor OSCURO (lum<0.2)
   const cardBgRgb = await page.evaluate(() => {
