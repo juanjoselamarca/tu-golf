@@ -135,8 +135,8 @@ export default function UnirsePage() {
         {tournament.codigo && (
           <div
             style={{
-              background: 'rgba(14,28,47,0.92)',
-              border: '1px solid rgba(196,153,42,0.3)',
+              background: 'var(--surface-soft)',
+              border: '1px solid var(--surface-border-strong)',
               borderRadius: '14px',
               padding: '20px 32px',
               textAlign: 'center',
@@ -223,8 +223,8 @@ export default function UnirsePage() {
           <>
             <div
               style={{
-                background: 'rgba(14,28,47,0.92)',
-                border: '1px solid rgba(196,153,42,0.2)',
+                background: 'var(--surface-soft)',
+                border: '1px solid var(--surface-border)',
                 borderRadius: '14px',
                 padding: '24px',
                 marginBottom: '20px',
@@ -265,8 +265,8 @@ export default function UnirsePage() {
             {profile && (
               <div
                 style={{
-                  background: 'rgba(14,28,47,0.92)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'var(--surface-soft)',
+                  border: '1px solid var(--surface-border)',
                   borderRadius: '14px',
                   padding: '24px',
                   marginBottom: '24px',
