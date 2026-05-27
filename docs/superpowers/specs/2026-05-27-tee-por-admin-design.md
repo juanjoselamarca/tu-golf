@@ -196,45 +196,109 @@ const showTeesSection = tournament.rounds?.some(r => r.tee_assignment_mode === '
 
 Si ninguna ronda usa modo `manual`, la sección no se renderiza. **Cero ruido para el 95% de los torneos.**
 
-**Patrón visual:** clona `CategoriasSection.tsx` (cards con grid auto-fit `repeat(auto-fit, minmax(140px, 1fr))`). Componente premium ya validado.
+**Tema de la sección:** light mode (es surface operativa per DESIGN.md §2 — el admin edita).
+
+**Mockup v4 (auditado contra DESIGN.md + apps elite The Grint / V-Par / Apple Settings):**
 
 ```
-┌─ Asignación de tees ─────────────────────────────────┐
-│  Modo manual activo. Asigná un tee por jugador.       │
-│  Los vacíos heredan por categoría → tee global.       │
-│                                                       │
-│  ┌──────────────────────────────────────────────┐   │
-│  │ Juan Pérez            HCP 12.3   [● Azul ▼]  │   │
-│  └──────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────┐   │
-│  │ María González        HCP 18.4   [○ Rojo* ▼] │   │
-│  └──────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────┐   │
-│  │ Diego Rojas (Senior)  HCP 8.1    [● Blanco▼] │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                       │
-│  * heredado de la categoría                          │
-└───────────────────────────────────────────────────────┘
+─────────────────────────────────────────────────────────────
+ASIGNACIÓN DE TEES                          ← 12px DM Sans
+                                              UPPERCASE
+                                              tracking 0.08em
+                                              color: var(--text-2)
+
+  (JP)  Juan Pérez                12.3    [ ● Azul   ⌄ ]
+  ──────────────────────────────────────────────────────
+  (MG)  María González            18.4    [ ○ Rojo   ⌄ ]
+  ──────────────────────────────────────────────────────
+  (DR)  Diego Rojas                8.1    [ ● Negras ⌄ ]
+  ──────────────────────────────────────────────────────
 ```
 
-**Componente del dropdown:**
+### Anatomía de cada fila
 
-- `<select>` nativo (accesible, móvil-friendly, sin custom UI).
-- Opciones se cargan dinámicamente desde `course_tees` filtrados por `course_id` del torneo (ej. Granadilla muestra `azul / negras / rojo / dorado / blanco`; Antofagasta muestra `azul / blanco / rojo`).
-- Primera opción: `"— Sin asignar (hereda) —"` con `value=""`.
-- Al elegir → optimistic update + `PATCH` al endpoint. Si falla, rollback con toast de error.
+- **Container:** `min-height: 60px`, `padding: 18px 16px`, `border-bottom: 1px solid rgba(0,0,0,0.06)` (light mode hairline).
+- **Avatar (izquierda):** `<Avatar name={player.profiles.name} size="sm" />` — componente shared `src/components/ui/Avatar.tsx`. 28px circle, color hash-estable del nombre (paleta de 8 colores Golfers+), iniciales en DM Sans 11px 700. Soporte transparente para foto futura si agregamos `profile.avatar_url`.
+- **Nombre:** 15px DM Sans 500, `color: var(--text)`. `text-overflow: ellipsis` si supera el ancho disponible.
+- **HCP:** 14px DM Mono 500, `color: var(--text-2)`, alineado a la derecha (entre nombre y chip). Spacing `padding-right: 16px` del chip.
+- **Chip de tee (derecha):** ver detalle abajo.
 
-**Dot de color a la izquierda del nombre:**
+### Chip de tee — estado **asignado**
 
-- Si asignado: dot lleno con color derivado del nombre del tee vía mapa en `src/golf/core/colors.ts` (ya existe, ej. `"azul" → "#1a4fd6"`, `"rojo" → "#dc2626"`).
-- Si tee del jugador no matchea ningún color conocido en el mapa (ej. `"dorado"`): dot gris neutro. No revienta nada.
-- Si heredado (vacío): dot vacío (outline) + nombre del tee heredado en `text-2` itálico con asterisco indicando que es default.
+```
+[ ● Azul   ⌄ ]
+```
 
-**Mobile-first:**
+- `padding: 10px 14px`, `min-height: 44px`, `border-radius: 999px` (pill)
+- `border: 1px solid rgba(<teeColor>, 0.3)` — color sólido del tee (mapa en `src/golf/core/colors.ts`)
+- `background: rgba(<teeColor>, 0.08)` — tint del color del tee
+- `color: <teeColor sólido>` — texto en color del tee
+- Dot `8px circle background: <teeColor>` (relleno) a la izquierda
+- Icon `<ChevronDown size={14} stroke-width={2} />` de `@/components/icons` (Lucide) a la derecha
+- Font: 14px DM Sans 500
 
-- `gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))'` colapsa a 1 columna debajo de ~480px.
-- Cada fila tiene padding generoso (`12px 16px`) para tap con guante.
-- El `<select>` nativo abre el picker nativo del sistema operativo (iOS wheel, Android sheet) — UX de primera, sin custom.
+### Chip de tee — estado **heredado** (default por categoría o tee global)
+
+```
+[ ○ Rojo   ⌄ ]
+```
+
+- Mismo tamaño y forma
+- `border: 1px dashed rgba(0,0,0,0.2)` (light mode) — dashed comunica "no asignado manualmente"
+- `background: transparent`
+- `color: var(--text-2)` — texto neutro
+- Dot outline (no relleno): `8px circle, border: 1.5px solid var(--text-2), background: transparent`
+- Mismo ChevronDown
+- Mismo font
+
+**Convención visual:** **filled vs outline = asignado vs heredado.** El admin scanea la columna derecha y ve quién falta sin leer nada.
+
+### Dropdown abierto (info contextual)
+
+El `<select>` nativo renderiza la `option.label` completa en el picker móvil (rueda iOS, sheet Android). Aprovecho gratis para mostrar yardaje + slope:
+
+```html
+<select>
+  <option value="">— Sin asignar (hereda) —</option>
+  <option value="<uuid1>">Azul     6573 yd · 129</option>
+  <option value="<uuid2>">Blanco   5950 yd · 120</option>
+  <option value="<uuid3>">Negras   6810 yd · 140</option>
+  <option value="<uuid4>">Rojo     5240 yd · 115</option>
+  <option value="<uuid5>">Dorado   5100 yd · 131</option>
+</select>
+```
+
+Las opciones se cargan dinámicamente desde `course_tees` filtrados por `course_id` del torneo (ej. Granadilla muestra 5 tees, Antofagasta 3).
+
+### Estados de la fila
+
+- **Asignando (loading):** chip pasa a `opacity: 0.6` + ChevronDown se reemplaza por `<Loader2 size={14} className="animate-spin" />` durante el PATCH. ~200ms típico, 1.5s timeout. Si falla → revert + toast error.
+- **Error sticky:** si el PATCH falla, además del toast, la fila gana `border-left: 3px solid #dc2626` durante 3s.
+- **Empty state (sección):** si modo manual activo pero ningún jugador inscrito, mostrar `<Users size={32} />` + texto: "Inscribí jugadores en la sección de arriba. Después asigná sus tees."
+
+### Mobile
+
+- Layout flex: `[avatar 28px] [gap 12px] [nombre flex-1] [hcp auto] [gap 12px] [chip auto]`
+- En viewport `< 380px`: el HCP se va a una línea debajo del nombre (no se sacrifica el chip).
+- Tap target del chip: 44×44 px mínimo garantizado por `globals.css:457` global rule.
+- `<select>` nativo abre picker del sistema operativo — UX premium gratis, sin custom UI.
+
+### Acceso a datos
+
+`useTees.ts` (nuevo hook) expone:
+
+```ts
+{
+  players: PlayerWithTee[];           // de useJugadores, enriquecido con tee_id
+  courseTees: CourseTee[];            // SELECT * FROM course_tees WHERE course_id = ...
+  assignTee: (playerId, teeId | null) => Promise<void>;
+  resolveDisplayTee: (player) => { tee: CourseTee | null; source: 'manual' | 'category' | 'global' | 'none' };
+  loading: Set<string>;               // playerIds en flight (para opacity 0.6)
+  error: Map<string, string>;          // playerIds con error (para border rojo 3s)
+}
+```
+
+El hook llama a `src/lib/data/tournaments/players.ts` (capa de datos nueva, parte del refactor).
 
 ---
 
