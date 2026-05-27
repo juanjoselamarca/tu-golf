@@ -1,16 +1,11 @@
 // src/golf/leaderboard/build-from-ronda-libre.ts
 //
-// Construye el leaderboard a partir de scores agregados de rondas libres
-// vinculadas a tournament_groups (path NUEVO). Cada `ronda_libre_jugadores`
-// row trae un `scores` JSONB con {hole: gross}. Acá lo expandimos a
-// totales gross/neto/stableford + countback para tiebreaker.
+// Construye los leaderboards a partir de scores agregados de rondas libres
+// vinculadas a tournament_groups (path NUEVO). Devuelve TRES rankings
+// paralelos (gross, neto, primario según modo del torneo) más los inputs
+// de GWI para el live tracker.
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
-import { resolveLeaderboardTies } from '@/golf/core/countback'
-import type {
-  CountbackPlayer,
-  CountbackMode,
-} from '@/golf/core/countback'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBRondaLibreJugador } from '@/app/torneo/[slug]/types'
@@ -18,9 +13,17 @@ import type {
   LeaderboardEntry,
   TournamentLeaderboardContext,
 } from './types'
+import { rankEntries, type RankingMode } from './rank-entries'
 
 export interface RondaLibreLeaderboardOutput {
+  /** Ranking primario: stableford-points si formatoJuego === 'stableford',
+   *  si no por el modo elegido por el torneo (gross o neto). Mantiene la
+   *  compat con el comportamiento previo del leaderboard. */
   players: Player[]
+  /** Ranking forzado por gross (todos los formatos excepto match_play). */
+  playersByGross: Player[]
+  /** Ranking forzado por neto (todos los formatos excepto match_play). */
+  playersByNeto: Player[]
   gwiInputs: JugadorGWIInput[]
 }
 
@@ -28,9 +31,10 @@ export function buildLeaderboardFromRondaLibre(
   jugadores: DBRondaLibreJugador[],
   ctx: TournamentLeaderboardContext,
 ): RondaLibreLeaderboardOutput {
-  const { totalHoyos, modoJuego, formatoJuego, courseHoles } = ctx
+  const { parTotal, totalHoyos, modoJuego, formatoJuego, courseHoles } = ctx
   const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
 
+  // ── Entries crudos (cero sort, cero countback, cero conversión a Player). ──
   const entries: LeaderboardEntry[] = jugadores.map((j) => {
     const hcp = j.handicap ?? 0
     const scoresMap = j.scores || {}
@@ -74,51 +78,20 @@ export function buildLeaderboardFromRondaLibre(
       stablefordScores,
       vsPar: holesPlayed > 0 ? grossTotal - parPlayed : 0,
       holesPlayed,
+      roundsPlayed: 1,
       scores: scoreArr,
       status: (holesPlayed >= totalHoyos ? 'F' : 'live') as 'F' | 'live',
     }
   })
 
-  entries.sort((a, b) => {
-    if (formatoJuego === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
-    if (modoJuego === 'neto') return (a.netTotal || 999) - (b.netTotal || 999)
-    return (a.grossTotal || 999) - (b.grossTotal || 999)
-  })
+  const primaryMode: RankingMode = formatoJuego === 'stableford' ? 'stableford' : modoJuego
+  const rankOpts = { parTotal, formatoJuego }
 
-  const cbMode: CountbackMode = formatoJuego === 'stableford' ? 'higher_wins' : 'lower_wins'
-  const cbPlayers: CountbackPlayer[] = entries.map((e, idx) => ({
-    id: String(idx),
-    name: e.name,
-    scores: formatoJuego === 'stableford'
-      ? (e.stablefordScores ?? e.scores.map((s) => s ?? 0))
-      : e.scores.map((s) => s ?? 0),
-    primaryScore: formatoJuego === 'stableford'
-      ? e.stablefordTotal
-      : modoJuego === 'neto' ? e.netTotal : e.grossTotal,
-  }))
-  const cbResults = resolveLeaderboardTies(cbPlayers, cbMode)
+  const players = rankEntries(entries, primaryMode, rankOpts)
+  const playersByGross = rankEntries(entries, 'gross', rankOpts)
+  const playersByNeto = rankEntries(entries, 'neto', rankOpts)
 
-  const annotationMap = new Map<string, string>()
-  cbResults.forEach((r) => annotationMap.set(r.id, r.annotation))
-
-  const reorderedEntries = cbResults.map((r) => {
-    const e = entries[parseInt(r.id)]
-    return { ...e, tieAnnotation: annotationMap.get(r.id) || '' }
-  })
-
-  const players: Player[] = reorderedEntries.map((e, idx): Player => ({
-    pos:     idx + 1,
-    name:    e.tieAnnotation ? `${e.name} ${e.tieAnnotation}` : e.name,
-    country: 'CL',
-    cat:     'General',
-    hcp:     e.handicap,
-    today:   e.vsPar,
-    total:   e.vsPar,
-    holes:   e.holesPlayed,
-    status:  e.status,
-    scores:  e.scores,
-  }))
-
+  // ── GWI inputs (independientes del orden — mismo behavior que antes). ──
   const gwiInputs: JugadorGWIInput[] = jugadores.map((j) => {
     const hcp = j.handicap ?? 18
     const scoresMap = j.scores || {}
@@ -155,5 +128,5 @@ export function buildLeaderboardFromRondaLibre(
     } satisfies JugadorGWIInput
   })
 
-  return { players, gwiInputs }
+  return { players, playersByGross, playersByNeto, gwiInputs }
 }

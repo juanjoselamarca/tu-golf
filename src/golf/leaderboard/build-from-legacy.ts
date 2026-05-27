@@ -1,20 +1,23 @@
 // src/golf/leaderboard/build-from-legacy.ts
 //
-// Construye el leaderboard del torneo a partir del schema legacy
-// `players` + `rounds` + `hole_scores`. Multi-round aware: acumula totals
-// across rounds y aplica countback como tiebreaker.
+// Construye los leaderboards desde el schema legacy `players` + `rounds` +
+// `hole_scores`. Multi-round aware. Devuelve TRES rankings paralelos
+// (gross, neto, primario por modo del torneo) + inputs GWI + mapping
+// playerId→index del ranking primario (para mostrar grupos).
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
-import { resolveLeaderboardTies } from '@/golf/core/countback'
-import type { CountbackPlayer, CountbackMode } from '@/golf/core/countback'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
-import type { TournamentLeaderboardContext } from './types'
+import type { LeaderboardEntry, TournamentLeaderboardContext } from './types'
+import { rankEntries, type RankingMode } from './rank-entries'
 
 export interface LegacyLeaderboardOutput {
   players: Player[]
+  playersByGross: Player[]
+  playersByNeto: Player[]
   gwiInputs: JugadorGWIInput[]
+  /** dbPlayerId → index dentro de `players` (ranking primario). */
   playerIdToIndex: Record<string, number>
 }
 
@@ -24,18 +27,31 @@ export function buildLeaderboardFromLegacy(
   tournamentTotalRounds: number,
 ): LegacyLeaderboardOutput {
   const { totalHoyos, parTotal, modoJuego, formatoJuego, courseHoles } = ctx
-  const players: Player[] = []
   const playerIdToIndex: Record<string, number> = {}
 
   if (dbPlayers.length === 0) {
-    return { players, gwiInputs: [], playerIdToIndex }
+    return {
+      players: [],
+      playersByGross: [],
+      playersByNeto: [],
+      gwiInputs: [],
+      playerIdToIndex,
+    }
   }
 
   const isMultiRound = tournamentTotalRounds > 1
   const withRounds = dbPlayers.filter((p) => p.rounds?.length > 0)
   const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
 
-  const legacyEntries = withRounds.map((p) => {
+  // ── Entries crudos (multi-round aware). ──
+  // Cada entry incluye también su dbPlayerId para reconstruir playerIdToIndex
+  // sobre el ranking primario después de ordenar.
+  interface LegacyEntryWithMeta extends LeaderboardEntry {
+    dbPlayerId: string
+    todayVsPar: number
+  }
+
+  const entries: LegacyEntryWithMeta[] = withRounds.map((p) => {
     const hcp = p.handicap_at_registration ?? 0
     const sortedRounds = [...(p.rounds || [])].sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
 
@@ -76,62 +92,62 @@ export function buildLeaderboardFromLegacy(
       : []
 
     return {
-      dbPlayer: p,
-      hcp,
-      scores: latestScores,
-      stablefordScores,
-      holesPlayed: totalHolesPlayed,
-      netVsPar,
-      todayVsPar: isMultiRound ? todayNet : netVsPar,
+      name: p.profiles?.name || 'Jugador',
+      cat: p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
+      handicap: hcp,
       grossTotal: cumulGross,
       netTotal: cumulNet,
       stablefordTotal: cumulPoints,
+      stablefordScores,
+      vsPar: netVsPar,
+      holesPlayed: totalHolesPlayed,
+      roundsPlayed,
+      scores: latestScores,
       status: (allFinished ? 'F' : 'live') as 'F' | 'live',
+      dbPlayerId: p.id,
+      todayVsPar: isMultiRound ? todayNet : netVsPar,
     }
   })
 
-  legacyEntries.sort((a, b) => {
-    if (formatoJuego === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
-    if (modoJuego === 'neto') return (a.netTotal || 999) - (b.netTotal || 999)
-    return (a.grossTotal || 999) - (b.grossTotal || 999)
+  const primaryMode: RankingMode = formatoJuego === 'stableford' ? 'stableford' : modoJuego
+  const rankOpts = { parTotal, formatoJuego }
+
+  // Para los rankings finales necesitamos también el `today` específico del legacy
+  // (multi-round). Lo aplicamos como post-step que actualiza Player.today.
+  const applyToday = (players: Player[], orderedEntries: LegacyEntryWithMeta[]): Player[] =>
+    players.map((p, idx) => ({ ...p, today: orderedEntries[idx]?.todayVsPar ?? p.today }))
+
+  // rankEntries usa el orden FINAL del sort que aplica internamente. Para que
+  // el array de entries reordenado coincida con `players`, replicamos el mismo
+  // sort key acá (solo afecta el cálculo de `today`, no `total`).
+  const sortFor = (mode: RankingMode) => [...entries].sort((a, b) => {
+    if (mode === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
+    const aVal = mode === 'gross' ? (a.grossTotal || 999) : (a.netTotal || 999)
+    const bVal = mode === 'gross' ? (b.grossTotal || 999) : (b.netTotal || 999)
+    return aVal - bVal
   })
 
-  const cbMode: CountbackMode = formatoJuego === 'stableford' ? 'higher_wins' : 'lower_wins'
-  const cbPlayers: CountbackPlayer[] = legacyEntries.map((e, idx) => ({
-    id: String(idx),
-    name: e.dbPlayer.profiles?.name || 'Jugador',
-    scores: formatoJuego === 'stableford'
-      ? (e.stablefordScores ?? e.scores.map((s) => s ?? 0))
-      : e.scores.map((s) => s ?? 0),
-    primaryScore: formatoJuego === 'stableford'
-      ? e.stablefordTotal
-      : modoJuego === 'neto' ? e.netTotal : e.grossTotal,
-  }))
-  const cbResults = resolveLeaderboardTies(cbPlayers, cbMode)
+  const primaryPlayers = applyToday(rankEntries(entries, primaryMode, rankOpts), sortFor(primaryMode))
+  const playersByGross = applyToday(rankEntries(entries, 'gross', rankOpts), sortFor('gross'))
+  const playersByNeto = applyToday(rankEntries(entries, 'neto', rankOpts), sortFor('neto'))
 
-  cbResults.forEach((r, idx) => {
-    const e = legacyEntries[parseInt(r.id)]
-    const nameWithAnnotation = r.annotation ? `${r.name} ${r.annotation}` : r.name
-    players.push({
-      pos:     idx + 1,
-      name:    nameWithAnnotation,
-      country: 'CL',
-      cat:     e.dbPlayer.categories?.name ? `Cat. ${e.dbPlayer.categories.name}` : 'General',
-      hcp:     e.hcp,
-      today:   e.todayVsPar,
-      total:   e.netVsPar,
-      holes:   e.holesPlayed,
-      status:  e.status,
-      scores:  e.scores,
-    })
-    playerIdToIndex[e.dbPlayer.id] = idx
+  // ── playerIdToIndex sobre el ranking primario. ──
+  // Si dos jugadores se empatan, su anotación queda en r.name pero `dbPlayerId`
+  // sigue siendo el mismo — usamos el orden devuelto por sortFor(primary) que
+  // coincide 1:1 con primaryPlayers.
+  const orderedPrimary = sortFor(primaryMode)
+  orderedPrimary.forEach((e, idx) => {
+    playerIdToIndex[e.dbPlayerId] = idx
   })
 
-  // Players sin ronda aún (inscritos pero no empezaron)
+  // ── Jugadores sin ronda aún (inscritos, no empezaron). ──
+  // Se agregan al final del ranking primario. NO van a gross/neto rankings
+  // (no tienen datos), pero el playerIdToIndex sí los registra para que
+  // los grupos puedan localizarlos.
   const noRound = dbPlayers.filter((p) => !p.rounds?.length)
   noRound.forEach((p, i) => {
-    const playerIdx = players.length
-    players.push({
+    const playerIdx = primaryPlayers.length
+    primaryPlayers.push({
       pos:     withRounds.length + i + 1,
       name:    p.profiles?.name ?? p.player_name ?? 'Jugador',
       country: 'CL',
@@ -146,7 +162,7 @@ export function buildLeaderboardFromLegacy(
     playerIdToIndex[p.id] = playerIdx
   })
 
-  // GWI inputs
+  // ── GWI inputs (independientes del orden). ──
   const gwiInputs: JugadorGWIInput[] = dbPlayers
     .filter((p) => p.rounds?.length > 0)
     .map((p) => {
@@ -184,5 +200,11 @@ export function buildLeaderboardFromLegacy(
       } satisfies JugadorGWIInput
     })
 
-  return { players, gwiInputs, playerIdToIndex }
+  return {
+    players: primaryPlayers,
+    playersByGross,
+    playersByNeto,
+    gwiInputs,
+    playerIdToIndex,
+  }
 }

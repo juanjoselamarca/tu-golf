@@ -54,6 +54,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
   // ── Defaults para fallback demo (cuando slug no existe) ─────────────
   let players: Player[]                       = []
+  let playersByGross: Player[]                = []
+  let playersByNeto: Player[]                 = []
   let gwiInputs: JugadorGWIInput[]            = []
   let withdrawnPlayers: WithdrawnEntry[]      = []
   let tournamentName                          = 'TPC Sawgrass Amateur 2025'
@@ -114,12 +116,16 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       const jugadores = await fetchRondaLibreJugadores(supabase, rondaIds)
       const out = buildLeaderboardFromRondaLibre(jugadores, ctx)
       players = out.players
+      playersByGross = out.playersByGross
+      playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
     } else {
       withdrawnPlayers = await fetchWithdrawnPlayers(supabase, tournament.id)
       const dbPlayers = await fetchLegacyPlayers(supabase, tournament.id)
       const out = buildLeaderboardFromLegacy(dbPlayers, ctx, tournament.total_rounds ?? 1)
       players = out.players
+      playersByGross = out.playersByGross
+      playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
       playerIdToIndex = out.playerIdToIndex
       stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, parTotal) : null
@@ -154,6 +160,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         {players.length > 0 ? (
           <TournamentTabs
             players={players}
+            playersByGross={playersByGross}
+            playersByNeto={playersByNeto}
             groups={groupsData}
             modoJuego={modoJuego}
             totalHoyos={totalHoyos}

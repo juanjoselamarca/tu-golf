@@ -17,6 +17,11 @@ export interface LeaderboardEntry {
   /** Score vs par para el modo elegido por el torneo (mostrado en TournamentTabs). */
   vsPar: number
   holesPlayed: number
+  /** Cantidad de rondas con datos para este jugador. Multi-round: vsPar =
+   *  cumulNet - parTotal * roundsPlayed. Default 1 para torneos single-round. */
+  roundsPlayed?: number
+  /** Categoría legible para Player.cat. Si no se especifica, 'General'. */
+  cat?: string
   scores: (number | null)[]
   status: 'live' | 'F'
   tieAnnotation?: string
