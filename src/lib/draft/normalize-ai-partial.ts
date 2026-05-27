@@ -146,6 +146,67 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
+// Formats que requieren team_config en el schema FULL. Si el LLM trae uno de estos
+// como format Y no completó team_config, el merge produce un config FULL inválido.
+const TEAM_FORMATS = new Set(['scramble', 'best_ball', 'foursome'])
+
+// Defaults sensatos cuando el LLM provee team_config parcial o cuando solo eligió
+// un team format. Sin estos, el FULL schema rechaza y la UI muestra "El asistente
+// no pudo procesar eso" (regresion inbox 047ca225).
+const TEAM_CONFIG_DEFAULTS = {
+  size: 2 as const,
+  handicap_pct: 'usga_35_15' as const,
+  formation_mode: 'manual' as const,
+}
+
+const MATCH_PLAY_CONFIG_DEFAULTS = {
+  bracket_mode: 'single_elimination' as const,
+  handicap_diff: 'full' as const,
+  extra_holes_on_tie: false as const,
+}
+
+const ROUND_DEFAULTS = {
+  tee_assignment_mode: 'per_player' as const,
+  hole_count: 18 as const,
+}
+
+function autocompleteSubConfigs(out: Record<string, unknown>): void {
+  // team_config: completar con defaults si format es team-based o si team_config viene parcial.
+  const needsTeam =
+    typeof out.format === 'string' && TEAM_FORMATS.has(out.format)
+  const hasTeamPartial = isPlainObject(out.team_config)
+  if (needsTeam || hasTeamPartial) {
+    out.team_config = {
+      ...TEAM_CONFIG_DEFAULTS,
+      ...(hasTeamPartial ? (out.team_config as Record<string, unknown>) : {}),
+    }
+  }
+
+  // match_play_config: idem para match_play.
+  const needsMP = out.format === 'match_play'
+  const hasMPPartial = isPlainObject(out.match_play_config)
+  if (needsMP || hasMPPartial) {
+    out.match_play_config = {
+      ...MATCH_PLAY_CONFIG_DEFAULTS,
+      ...(hasMPPartial ? (out.match_play_config as Record<string, unknown>) : {}),
+    }
+  }
+
+  // rounds: completar tee_assignment_mode y hole_count si vienen sin ellos.
+  // El merge por round_number combina, pero un round NUEVO debe traer requireds completos.
+  if (Array.isArray(out.rounds)) {
+    out.rounds = (out.rounds as unknown[]).map((r) => {
+      if (!isPlainObject(r)) return r
+      const rr: Record<string, unknown> = { ...r }
+      if (!('tee_assignment_mode' in rr)) rr.tee_assignment_mode = ROUND_DEFAULTS.tee_assignment_mode
+      if (!('hole_count' in rr)) rr.hole_count = ROUND_DEFAULTS.hole_count
+      // round_number es required pero NO defaulteable — el merge por round_number lo necesita
+      // como key. Si falta, se deja faltante y zod lo rechaza con mensaje claro.
+      return rr
+    })
+  }
+}
+
 export function normalizeAiConfigPartial(raw: Json): Json {
   if (!isPlainObject(raw)) return raw
 
@@ -200,6 +261,11 @@ export function normalizeAiConfigPartial(raw: Json): Json {
       return pp
     })
   }
+
+  // Defense in depth: completar sub-configs requeridos cuando el LLM solo trae el
+  // format/tipo sin los campos secundarios. Sin esto, el merge sobre un initial
+  // config que no los tenia produce un FULL config invalido. Regresion inbox 047ca225.
+  autocompleteSubConfigs(out)
 
   return out
 }

@@ -111,3 +111,104 @@ describe('normalizeAiConfigPartial', () => {
     expect(normalizeAiConfigPartial([])).toEqual([])
   })
 })
+
+describe('autocompleteSubConfigs (regresion inbox 047ca225)', () => {
+  it('autocompleta team_config cuando format es scramble y NO se trajo team_config', () => {
+    // El LLM solo entendio "scramble" del prompt "Copa Padre e Hijo scramble neto 9 hoyos".
+    const out = normalizeAiConfigPartial({ format: 'scramble', modo: 'neto' }) as Record<string, unknown>
+    expect(out.team_config).toEqual({
+      size: 2,
+      handicap_pct: 'usga_35_15',
+      formation_mode: 'manual',
+    })
+  })
+
+  it('autocompleta team_config cuando el LLM trajo team_config PARCIAL (solo size)', () => {
+    // El LLM mapeo "en parejas" → size:2 pero olvido handicap_pct y formation_mode.
+    const out = normalizeAiConfigPartial({
+      format: 'scramble',
+      team_config: { size: 2 },
+    }) as Record<string, unknown>
+    expect(out.team_config).toEqual({
+      size: 2,
+      handicap_pct: 'usga_35_15',
+      formation_mode: 'manual',
+    })
+  })
+
+  it('preserva valores explicitos del LLM sobre los defaults', () => {
+    const out = normalizeAiConfigPartial({
+      format: 'best_ball',
+      team_config: { size: 4, handicap_pct: 'simple_avg' },
+    }) as Record<string, unknown>
+    expect(out.team_config).toEqual({
+      size: 4,
+      handicap_pct: 'simple_avg',
+      formation_mode: 'manual',
+    })
+  })
+
+  it('autocompleta match_play_config cuando format es match_play', () => {
+    const out = normalizeAiConfigPartial({ format: 'match_play' }) as Record<string, unknown>
+    expect(out.match_play_config).toEqual({
+      bracket_mode: 'single_elimination',
+      handicap_diff: 'full',
+      extra_holes_on_tie: false,
+    })
+  })
+
+  it('NO agrega team_config si format es stroke_play', () => {
+    const out = normalizeAiConfigPartial({ format: 'stroke_play' }) as Record<string, unknown>
+    expect(out.team_config).toBeUndefined()
+    expect(out.match_play_config).toBeUndefined()
+  })
+
+  it('completa tee_assignment_mode y hole_count en rounds nuevos', () => {
+    const out = normalizeAiConfigPartial({
+      rounds: [{ round_number: 1, course_id: null, date: null }],
+    }) as Record<string, unknown>
+    expect(out.rounds).toEqual([{
+      round_number: 1,
+      course_id: null,
+      date: null,
+      tee_assignment_mode: 'per_player',
+      hole_count: 18,
+    }])
+  })
+
+  it('preserva hole_count y tee_assignment_mode si vienen explicitos', () => {
+    const out = normalizeAiConfigPartial({
+      rounds: [{ round_number: 1, hole_count: 9, tee_assignment_mode: 'per_category' }],
+    }) as Record<string, unknown>
+    expect((out.rounds as Array<Record<string, unknown>>)[0]).toEqual({
+      round_number: 1,
+      hole_count: 9,
+      tee_assignment_mode: 'per_category',
+    })
+  })
+
+  it('CASO REGRESION COMPLETO inbox 047ca225 — prompt scramble neto 9h en parejas', () => {
+    // Simulacion del config_partial que devuelve Haiku para el prompt:
+    // "Copa Padre e Hijo 2026, modalidad scramble neto en parejas 9 hoyos, sin cantidad de jugadores definida todavía"
+    // Antes del fix: el merge sobre el initial config (sin team_config) producia un team_config
+    // incompleto que rompia el FULL schema validation → 502 "Config IA produciria invalido".
+    const llmOutput = {
+      name: 'Copa Padre e Hijo 2026',
+      format: 'scramble',
+      modo: 'neto',
+      team_config: { size: 2 },
+      rounds: [{ round_number: 1, hole_count: 9 }],
+    }
+    const out = normalizeAiConfigPartial(llmOutput) as Record<string, unknown>
+    expect(out.team_config).toEqual({
+      size: 2,
+      handicap_pct: 'usga_35_15',
+      formation_mode: 'manual',
+    })
+    expect((out.rounds as Array<Record<string, unknown>>)[0]).toEqual({
+      round_number: 1,
+      hole_count: 9,
+      tee_assignment_mode: 'per_player',
+    })
+  })
+})
