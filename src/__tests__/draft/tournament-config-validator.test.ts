@@ -62,12 +62,21 @@ describe('validateGolfRules', () => {
     expect(r.errors.some((e) => e.code === 'match_play_requires_config')).toBe(true)
   })
 
-  it('stableford con modo gross tira error (debe ser neto)', () => {
+  it('stableford con modo gross es válido (Scratch Stableford, USGA / R&A)', () => {
     const c = makeBaseConfig()
     c.format = 'stableford'
     c.modo = 'gross'
     const r = validateGolfRules(c)
-    expect(r.errors.some((e) => e.code === 'stableford_must_be_neto')).toBe(true)
+    expect(r.errors.some((e) => e.code === 'stableford_must_be_neto')).toBe(false)
+    // El motor calcula puntos gross y neto en paralelo: no hay razón de bloquear.
+  })
+
+  it('stableford con modo neto sigue siendo válido (stableford clásico)', () => {
+    const c = makeBaseConfig()
+    c.format = 'stableford'
+    c.modo = 'neto'
+    const r = validateGolfRules(c)
+    expect(r.errors.some((e) => e.code === 'stableford_must_be_neto')).toBe(false)
   })
 
   it('rondas con round_number duplicado tiran error', () => {
