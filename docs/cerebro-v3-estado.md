@@ -1,4 +1,4 @@
-# Estado Cerebro V3 — Actualizado 2026-05-27 00:30 GMT-4
+# Estado Cerebro V3 — Actualizado 2026-05-27 01:15 GMT-4
 
 > Este archivo es el dashboard vivo del proyecto cerebro v3. Se actualiza al cierre de cada sesión que toque el proyecto. Si lees esto al iniciar una sesión, sabés exactamente dónde retomar.
 >
@@ -6,8 +6,19 @@
 
 ## Ola actual
 
-- **Ola 0 — Limpiar el taller** — estado: `pending`, plan no escrito todavía
-- Próximo paso: invocar `superpowers:writing-plans` en el worktree `chore/cerebro-v3-ola-0-claude` para crear el plan detallado.
+- **Ola 0 — Limpiar el taller** — estado: `ready_to_execute`
+- Plan escrito y mergeado a main: `docs/superpowers/plans/2026-05-27-cerebro-v3-ola-0.md` (commit `1952ecd`)
+- 20 tasks TDD con código real y commits frecuentes. Estimado 3-4 días.
+- Worktree creado: `.claude/worktrees/cerebro-v3-ola-0` en branch `chore/cerebro-v3-ola-0-claude` desde `origin/main (18e21d6)`.
+- `.env.local` ya copiado al worktree.
+
+## Próximo paso (próxima sesión)
+
+1. **Verificar repo y estado** (protocolo de inicio del Apéndice de CLAUDE.md sección "Protocolo Cerebro V3").
+2. **`cd .claude/worktrees/cerebro-v3-ola-0`** y verificar que sigue alineado con `origin/main` actualizado (hacer `git pull origin main` desde el worktree si hace falta para traer el plan).
+3. **Arrancar Task 1 del plan**: setup del worktree, junction de node_modules, verificar baseline verde (`npx tsc --noEmit` + `npm test` + `npm run build`).
+4. **Continuar Tasks 2-20** siguiendo el plan checkbox a checkbox.
+5. **Demo en vivo con Juanjo** antes del merge (Task 20).
 
 ## Olas siguientes
 
@@ -59,3 +70,4 @@
 | Fecha | Sesión | Resultado |
 |---|---|---|
 | 2026-05-26 | Brainstorming + spec maestro + auditoría | Spec aprobado y pusheado (`d116fd3`). Memorias + CLAUDE.md + estado vivo creados. |
+| 2026-05-27 (madrugada) | Cierre del diseño + plan de Ola 0 | Plan detallado de 20 tasks TDD escrito y pusheado (`1952ecd`). Worktree creado. Listo para arrancar Task 1. |
