@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAllWeights, setWeight } from '@/lib/cerebro/weights'
 import { invalidateLocal } from '@/lib/cerebro/weights-cache'
-import { isAdmin } from '@/lib/cerebro/admin-auth'
+import { isCerebroAdmin } from '@/lib/cerebro/admin-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -13,8 +13,8 @@ const PutSchema = z.object({
   new_weight: z.number().min(0).max(1),
 })
 
-export async function GET(req: NextRequest) {
-  if (!(await isAdmin(req))) {
+export async function GET(_req: NextRequest) {
+  if (!(await isCerebroAdmin())) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
   const weights = await getAllWeights()
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!(await isAdmin(req))) {
+  if (!(await isCerebroAdmin())) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
   const parsed = PutSchema.safeParse(await req.json())
