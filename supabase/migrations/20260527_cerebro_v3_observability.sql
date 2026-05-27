@@ -64,4 +64,70 @@ CREATE POLICY "cerebro_weights_write_admin"
   ON cerebro_weights FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
+-- 4) Event log del cerebro (alimenta el tablero del coach)
+CREATE TABLE IF NOT EXISTS cerebro_events (
+  id bigserial PRIMARY KEY,
+  user_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
+  event_type text NOT NULL,
+  event_payload jsonb NOT NULL,
+  weights_snapshot jsonb,
+  latency_ms integer,
+  cost_usd numeric(8,5),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cerebro_events_user_time ON cerebro_events (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cerebro_events_type_time ON cerebro_events (event_type, created_at DESC);
+
+ALTER TABLE cerebro_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "cerebro_events_read_admin" ON cerebro_events;
+CREATE POLICY "cerebro_events_read_admin"
+  ON cerebro_events FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+
+DROP POLICY IF EXISTS "cerebro_events_insert_service" ON cerebro_events;
+CREATE POLICY "cerebro_events_insert_service"
+  ON cerebro_events FOR INSERT TO service_role WITH CHECK (true);
+
+-- 5) Cost tracking por feature y proveedor
+CREATE TABLE IF NOT EXISTS cost_tracking (
+  id bigserial PRIMARY KEY,
+  user_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
+  feature text NOT NULL,
+  provider text NOT NULL,
+  tokens_input integer,
+  tokens_output integer,
+  cost_usd numeric(8,5) NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cost_user_day ON cost_tracking (user_id, created_at);
+
+ALTER TABLE cost_tracking ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "cost_tracking_read_admin" ON cost_tracking;
+CREATE POLICY "cost_tracking_read_admin"
+  ON cost_tracking FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+
+-- 6) Banco de pruebas — runs de evaluación contra perfiles sintéticos
+CREATE TABLE IF NOT EXISTS evaluation_runs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  triggered_by text NOT NULL,
+  ola_version text,
+  profiles_evaluated text[],
+  results jsonb NOT NULL,
+  pass boolean NOT NULL,
+  evaluator_notes text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE evaluation_runs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "evaluation_runs_admin" ON evaluation_runs;
+CREATE POLICY "evaluation_runs_admin"
+  ON evaluation_runs FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+
 COMMIT;
