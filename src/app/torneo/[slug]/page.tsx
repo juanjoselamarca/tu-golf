@@ -623,22 +623,14 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
       {/* ── Clean dark header ── */}
       <div style={{ background: '#f8f9fa', borderBottom: '1px solid #e2e8f0' }}>
-        {/* Top bar: logo + TV button */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 0', maxWidth: '1080px', margin: '0 auto' }}>
+        {/* Top bar: solo logo. Modo TV removido del header público
+            (decisión Juanjo inbox 35f4ee89, may 27). La ruta
+            /torneo/[slug]/tv sigue accesible vía URL directa para casting. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '16px 20px 0', maxWidth: '1080px', margin: '0 auto' }}>
           <Link href="/" className="flex items-center gap-1 group" style={{ textDecoration: 'none' }}>
             <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#1a1a2e' }}>Golfers</span>
             <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#c4992a' }}>+</span>
           </Link>
-          {tournament && (
-            <Link
-              href={`/torneo/${tournament.slug}/tv`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#c4992a', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(196,153,42,0.2)', fontFamily: '"DM Sans", system-ui, sans-serif' }}
-            >
-              Modo TV
-            </Link>
-          )}
         </div>
 
         {/* Hero: foto de portada del torneo. Cae limpiamente si no hay
