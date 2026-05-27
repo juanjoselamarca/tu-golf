@@ -1,2 +1,3 @@
-// Barrel del cerebro paramétrico vivo. Se llena en Tasks 13-15.
+// Barrel del cerebro paramétrico vivo.
 export * from './weights'
+export * from './weights-cache'
