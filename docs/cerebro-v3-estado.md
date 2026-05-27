@@ -1,13 +1,18 @@
-# Estado Cerebro V3 — Actualizado 2026-05-27 18:05 GMT-4
+# Estado Cerebro V3 — Actualizado 2026-05-27 18:25 GMT-4
 
 > Este archivo es el dashboard vivo del proyecto cerebro v3. Se actualiza al cierre de cada sesión que toque el proyecto. Si lees esto al iniciar una sesión, sabés exactamente dónde retomar.
 >
 > Fuente única de verdad arquitectónica: `docs/superpowers/specs/2026-05-26-cerebro-v3-diseño.md`.
 
-## Ola actual
+## Próxima ola
 
-- **Ola 0 — Limpiar el taller** — estado: `awaiting_demo_and_merge`
-- **PR #67 abierto**: https://github.com/juanjoselamarca/tu-golf/pull/67
+- **Ola 1 — El coach estudia el mundo** — estado: `awaiting_kickoff` (esperando OK de Juanjo para arrancar)
+- Bloqueada hasta el OK explícito. Cuando arranque: brainstorming → spec/plan → ejecución TDD por tasks, mismo protocolo que Ola 0.
+
+## Ola anterior — CERRADA
+
+- **Ola 0 — Limpiar el taller** — estado: `✅ merged 2026-05-27 via PR #67 (merge commit `0e7e56d`)`
+- Branch `chore/cerebro-v3-ola-0-claude` borrada del remote + worktree limpio.
 - Plan: `docs/superpowers/plans/2026-05-27-cerebro-v3-ola-0.md` (commit `1952ecd`)
 - Progreso: **20/20 tasks (100%)** + code review aplicado.
 - Worktree: `.claude/worktrees/cerebro-v3-ola-0` en branch `chore/cerebro-v3-ola-0-claude`.
