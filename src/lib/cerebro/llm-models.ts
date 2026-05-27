@@ -35,7 +35,7 @@ function client(): SupabaseClient {
   return _client
 }
 
-export function __setClient(sb: SupabaseClient | null): void {
+export function __setLlmModelsClient(sb: SupabaseClient | null): void {
   _client = sb
 }
 

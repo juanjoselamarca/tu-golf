@@ -41,7 +41,7 @@ function client(): SupabaseClient {
 }
 
 /** Solo para tests: permite inyectar un cliente custom. */
-export function __setClient(sb: SupabaseClient | null): void {
+export function __setWeightsClient(sb: SupabaseClient | null): void {
   _client = sb
 }
 
