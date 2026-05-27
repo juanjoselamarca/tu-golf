@@ -130,4 +130,44 @@ CREATE POLICY "evaluation_runs_admin"
   ON evaluation_runs FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
+-- 7) Versionado de LLM con fallback explícito
+CREATE TABLE IF NOT EXISTS llm_models (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  model_id text NOT NULL UNIQUE,
+  role text NOT NULL CHECK (role IN ('primary_chat','reasoning','evaluator','embedding','rerank')),
+  status text NOT NULL CHECK (status IN ('active','fallback','deprecated','retired')),
+  context_window integer,
+  cost_per_1m_tokens_input numeric(8,4),
+  cost_per_1m_tokens_output numeric(8,4),
+  embedding_dim integer,
+  fallback_to_model_id text,
+  config jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE llm_models ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "llm_models_read_public" ON llm_models;
+CREATE POLICY "llm_models_read_public"
+  ON llm_models FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "llm_models_write_admin" ON llm_models;
+CREATE POLICY "llm_models_write_admin"
+  ON llm_models FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+
+-- Seed de los 5 roles iniciales (Vercel AI Gateway naming convention)
+INSERT INTO llm_models (model_id, role, status, context_window, cost_per_1m_tokens_input, cost_per_1m_tokens_output, embedding_dim, fallback_to_model_id, config)
+VALUES
+  ('anthropic/claude-sonnet-4-6', 'primary_chat', 'active', 200000, 3.0, 15.0, NULL, 'anthropic/claude-haiku-4-5', '{}'),
+  ('anthropic/claude-opus-4-7', 'reasoning', 'active', 200000, 15.0, 75.0, NULL, 'anthropic/claude-sonnet-4-6', '{}'),
+  ('anthropic/claude-haiku-4-5', 'evaluator', 'active', 200000, 0.25, 1.25, NULL, NULL, '{}'),
+  ('openai/text-embedding-3-small', 'embedding', 'active', NULL, 0.02, NULL, 1536, NULL, '{}'),
+  ('cohere/rerank-multilingual-v3.0', 'rerank', 'active', NULL, NULL, NULL, NULL, NULL, '{}')
+ON CONFLICT (model_id) DO NOTHING;
+
+-- 8) Feature flag por usuario para rollback seguro entre cerebro v2 y v3
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS cerebro_v3_enabled boolean NOT NULL DEFAULT false;
+
 COMMIT;
