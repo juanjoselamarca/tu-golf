@@ -112,32 +112,29 @@ export function buildLeaderboardFromLegacy(
   const primaryMode: RankingMode = formatoJuego === 'stableford' ? 'stableford' : modoJuego
   const rankOpts = { parTotal, formatoJuego }
 
-  // Para los rankings finales necesitamos también el `today` específico del legacy
-  // (multi-round). Lo aplicamos como post-step que actualiza Player.today.
-  const applyToday = (players: Player[], orderedEntries: LegacyEntryWithMeta[]): Player[] =>
-    players.map((p, idx) => ({ ...p, today: orderedEntries[idx]?.todayVsPar ?? p.today }))
+  // rankEntries devuelve { players, order } donde order[i] es el índice del
+  // entry original cuyo Player quedó en posición final i (POST-countback).
+  // Usamos `order` para mapear `todayVsPar` y `dbPlayerId` al orden final;
+  // antes los mapeábamos pre-countback y los empates rompían el mapeo.
+  const applyToday = (players: Player[], order: number[]): Player[] =>
+    players.map((p, idx) => {
+      const originalIdx = order[idx]
+      const e = entries[originalIdx]
+      return { ...p, today: e?.todayVsPar ?? p.today }
+    })
 
-  // rankEntries usa el orden FINAL del sort que aplica internamente. Para que
-  // el array de entries reordenado coincida con `players`, replicamos el mismo
-  // sort key acá (solo afecta el cálculo de `today`, no `total`).
-  const sortFor = (mode: RankingMode) => [...entries].sort((a, b) => {
-    if (mode === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
-    const aVal = mode === 'gross' ? (a.grossTotal || 999) : (a.netTotal || 999)
-    const bVal = mode === 'gross' ? (b.grossTotal || 999) : (b.netTotal || 999)
-    return aVal - bVal
-  })
+  const primaryRanked = rankEntries(entries, primaryMode, rankOpts)
+  const grossRanked = rankEntries(entries, 'gross', rankOpts)
+  const netoRanked = rankEntries(entries, 'neto', rankOpts)
 
-  const primaryPlayers = applyToday(rankEntries(entries, primaryMode, rankOpts), sortFor(primaryMode))
-  const playersByGross = applyToday(rankEntries(entries, 'gross', rankOpts), sortFor('gross'))
-  const playersByNeto = applyToday(rankEntries(entries, 'neto', rankOpts), sortFor('neto'))
+  const primaryPlayers = applyToday(primaryRanked.players, primaryRanked.order)
+  const playersByGross = applyToday(grossRanked.players, grossRanked.order)
+  const playersByNeto = applyToday(netoRanked.players, netoRanked.order)
 
-  // ── playerIdToIndex sobre el ranking primario. ──
-  // Si dos jugadores se empatan, su anotación queda en r.name pero `dbPlayerId`
-  // sigue siendo el mismo — usamos el orden devuelto por sortFor(primary) que
-  // coincide 1:1 con primaryPlayers.
-  const orderedPrimary = sortFor(primaryMode)
-  orderedPrimary.forEach((e, idx) => {
-    playerIdToIndex[e.dbPlayerId] = idx
+  // playerIdToIndex sobre el ranking primario, usando el order FINAL.
+  primaryRanked.order.forEach((originalIdx, finalIdx) => {
+    const e = entries[originalIdx]
+    if (e) playerIdToIndex[e.dbPlayerId] = finalIdx
   })
 
   // ── Jugadores sin ronda aún (inscritos, no empezaron). ──

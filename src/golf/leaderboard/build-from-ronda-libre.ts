@@ -87,9 +87,9 @@ export function buildLeaderboardFromRondaLibre(
   const primaryMode: RankingMode = formatoJuego === 'stableford' ? 'stableford' : modoJuego
   const rankOpts = { parTotal, formatoJuego }
 
-  const players = rankEntries(entries, primaryMode, rankOpts)
-  const playersByGross = rankEntries(entries, 'gross', rankOpts)
-  const playersByNeto = rankEntries(entries, 'neto', rankOpts)
+  const players = rankEntries(entries, primaryMode, rankOpts).players
+  const playersByGross = rankEntries(entries, 'gross', rankOpts).players
+  const playersByNeto = rankEntries(entries, 'neto', rankOpts).players
 
   // ── GWI inputs (independientes del orden — mismo behavior que antes). ──
   const gwiInputs: JugadorGWIInput[] = jugadores.map((j) => {

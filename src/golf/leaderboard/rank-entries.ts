@@ -17,6 +17,16 @@ import type { LeaderboardEntry } from './types'
 
 export type RankingMode = 'gross' | 'neto' | 'stableford'
 
+export interface RankedOutput {
+  /** Players ordenados (sort + countback aplicado), listos para render. */
+  players: Player[]
+  /** order[i] = índice del entry original (input `entries`) cuyo Player
+   *  quedó en la posición final i. Necesario para mapear datos del entry
+   *  (todayVsPar, dbPlayerId) al orden FINAL — el `sortFor` previo solo
+   *  da el orden pre-countback. */
+  order: number[]
+}
+
 /** Score vs par del entry según el modo de ranking. Es el número que
  *  termina en Player.total (la columna SCORE del leaderboard).
  *  En ronda libre `holesPlayed < totalHoyos` se compara contra par parcial
@@ -49,47 +59,63 @@ export interface RankEntriesOptions {
 
 /**
  * Toma una lista de entries crudos y produce Player[] ordenado + countback
- * aplicado para el modo elegido. Cero side-effects.
+ * aplicado para el modo elegido, junto con el `order` final (índice de cada
+ * entry original en la posición resultante). Cero side-effects.
+ *
+ * Bug corregido vs versión previa:
+ * - cbMode depende del `mode` (de la VISTA), no del `formatoJuego` del
+ *   torneo. Antes: torneo stableford con tab gross usaba higher_wins → en
+ *   empate elegía al jugador con MÁS strokes (bug). Ahora: gross → lower,
+ *   neto → lower, stableford-points → higher.
+ * - Devuelve `order` final para que el caller pueda mapear datos del entry
+ *   (todayVsPar, dbPlayerId) al orden POST-countback, no al pre-sort.
  */
 export function rankEntries(
   entries: LeaderboardEntry[],
   mode: RankingMode,
   opts: RankEntriesOptions,
-): Player[] {
-  if (entries.length === 0) return []
+): RankedOutput {
+  if (entries.length === 0) return { players: [], order: [] }
 
-  const { parTotal, formatoJuego } = opts
+  const { parTotal } = opts
   const nameOf = opts.nameOf ?? ((e) => e.name)
 
   // Sort por el modo elegido. stableford siempre higher-wins.
-  const sorted = [...entries].sort((a, b) => {
-    if (mode === 'stableford') return (b.stablefordTotal || 0) - (a.stablefordTotal || 0)
-    const aVal = mode === 'gross' ? (a.grossTotal || 999) : (a.netTotal || 999)
-    const bVal = mode === 'gross' ? (b.grossTotal || 999) : (b.netTotal || 999)
+  // Llevamos también el índice original del entry para que el countback
+  // pueda devolver el orden final POST-tiebreak con el dato preservado.
+  const indexed = entries.map((e, i) => ({ entry: e, originalIndex: i }))
+  const sorted = [...indexed].sort((a, b) => {
+    if (mode === 'stableford') return (b.entry.stablefordTotal || 0) - (a.entry.stablefordTotal || 0)
+    const aVal = mode === 'gross' ? (a.entry.grossTotal || 999) : (a.entry.netTotal || 999)
+    const bVal = mode === 'gross' ? (b.entry.grossTotal || 999) : (b.entry.netTotal || 999)
     return aVal - bVal
   })
 
-  // Countback: stableford → higher_wins, resto → lower_wins.
-  const cbMode: CountbackMode = mode === 'stableford' || formatoJuego === 'stableford'
-    ? 'higher_wins'
-    : 'lower_wins'
+  // Countback: dirección la decide el MODO de la vista, no el formato del
+  // torneo. stableford-points → higher_wins. gross/neto → lower_wins.
+  const cbMode: CountbackMode = mode === 'stableford' ? 'higher_wins' : 'lower_wins'
 
-  const cbPlayers: CountbackPlayer[] = sorted.map((e, idx) => ({
+  // El countback usa puntos stableford solo cuando el modo de la vista es
+  // 'stableford'. Para gross/neto siempre usa strokes brutos.
+  const cbPlayers: CountbackPlayer[] = sorted.map((s, idx) => ({
     id: String(idx),
-    name: nameOf(e, idx),
-    scores: mode === 'stableford' || formatoJuego === 'stableford'
-      ? (e.stablefordScores ?? e.scores.map((s) => s ?? 0))
-      : e.scores.map((s) => s ?? 0),
-    primaryScore: primaryScoreFor(e, mode),
+    name: nameOf(s.entry, idx),
+    scores: mode === 'stableford'
+      ? (s.entry.stablefordScores ?? s.entry.scores.map((v) => v ?? 0))
+      : s.entry.scores.map((v) => v ?? 0),
+    primaryScore: primaryScoreFor(s.entry, mode),
   }))
 
   const cbResults = resolveLeaderboardTies(cbPlayers, cbMode)
 
-  return cbResults.map((r, idx): Player => {
-    const e = sorted[parseInt(r.id)]
+  const players: Player[] = []
+  const order: number[] = []
+  cbResults.forEach((r, idx) => {
+    const sortedIdx = parseInt(r.id)
+    const { entry: e, originalIndex } = sorted[sortedIdx]
     const vsPar = vsParFor(e, mode, parTotal)
     const annotatedName = r.annotation ? `${nameOf(e, idx)} ${r.annotation}` : nameOf(e, idx)
-    return {
+    players.push({
       pos:     idx + 1,
       name:    annotatedName,
       country: 'CL',
@@ -100,6 +126,9 @@ export function rankEntries(
       holes:   e.holesPlayed,
       status:  e.status,
       scores:  e.scores,
-    }
+    })
+    order.push(originalIndex)
   })
+
+  return { players, order }
 }
