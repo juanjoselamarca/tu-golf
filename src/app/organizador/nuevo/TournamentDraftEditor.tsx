@@ -354,7 +354,7 @@ export default function TournamentDraftEditor({
 
         {/* Secciones del formulario — fuente de verdad editable manualmente */}
         <div className="draft-editor-form" style={formStackStyle}>
-          <QueTorneoSection config={config} applyChange={applyChangeManual} courses={courses} />
+          <QueTorneoSection config={config} applyChange={applyChangeManual} courses={courses} draftId={draftId} />
           <ComoJueganSection config={config} applyChange={applyChangeManual} />
           <EquiposSection config={config} applyChange={applyChangeManual} />
           <MatchPlaySection config={config} applyChange={applyChangeManual} />
