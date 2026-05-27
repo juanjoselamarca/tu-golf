@@ -111,3 +111,4 @@ describe('normalizeAiConfigPartial', () => {
     expect(normalizeAiConfigPartial([])).toEqual([])
   })
 })
+
