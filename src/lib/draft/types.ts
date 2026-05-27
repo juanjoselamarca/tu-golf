@@ -58,6 +58,8 @@ export interface RegistrationConfig {
   max_players?: number
 }
 
+export type PrizeKind = 'gross' | 'neto'
+
 export interface PrizeConfig {
   id: string
   type: 'category_position' | 'closest_to_pin' | 'long_drive' | 'special'
@@ -65,6 +67,11 @@ export interface PrizeConfig {
   category_id?: string
   position?: number
   hole_number?: number
+  /** Escala del premio para tipos basados en ranking (`category_position`).
+   *  En torneos amateurs es común premiar 1° y 2° Gross + 1° y 2° Neto en
+   *  paralelo. NULL = sin distinción (default para premios no ranking-based).
+   *  Match Play: NULL siempre (modo del torneo manda — gross XOR neto). */
+  kind?: PrizeKind
 }
 
 export interface TournamentConfig {

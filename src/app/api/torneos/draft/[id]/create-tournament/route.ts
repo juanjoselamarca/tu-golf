@@ -5,6 +5,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { upgradeConfig } from '@/lib/draft/upgrade-config'
 import { tournamentConfigSchema } from '@/lib/draft/schema'
 import { validateGolfRules } from '@/golf/tournament-config-validator'
+import { mapPrizeForInsert } from '@/lib/data/tournaments/prizes'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,14 +111,9 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       if (cErr) throw new Error(`categories: ${cErr.message}`)
     }
 
-    // Prizes
-    const prizesToInsert = config.prizes.map(p => ({
-      tournament_id: tour.id,
-      type: p.type,
-      description: p.description,
-      position: p.position,
-      hole_number: p.hole_number,
-    }))
+    // Prizes — mapeo centralizado en `src/lib/data/tournaments/prizes.ts`
+    // (testeable, contrato único entre wizard y tabla).
+    const prizesToInsert = config.prizes.map((p) => mapPrizeForInsert(p, tour.id, config.format))
     if (prizesToInsert.length > 0) {
       const { error: pErr } = await service.from('tournament_prizes').insert(prizesToInsert)
       if (pErr) throw new Error(`prizes: ${pErr.message}`)
