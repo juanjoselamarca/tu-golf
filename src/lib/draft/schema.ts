@@ -52,7 +52,7 @@ export const roundConfigSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   course_id: z.string().uuid().nullable(),
   hole_count: z.union([z.literal(9), z.literal(18)]),
-  tee_assignment_mode: z.enum(['per_player', 'per_category']),
+  tee_assignment_mode: z.enum(['per_player', 'per_category', 'manual']),
   custom_si: z.record(z.string(), z.number().int().min(1).max(18)).optional(),
   notes: z.string().optional(),
 })

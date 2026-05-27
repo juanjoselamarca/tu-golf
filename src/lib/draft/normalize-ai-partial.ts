@@ -129,11 +129,16 @@ const PRIZE_TYPE_SYNONYMS: Record<string, 'category_position' | 'closest_to_pin'
   especial: 'special',
 }
 
-const TEE_ASSIGNMENT_MODE_SYNONYMS: Record<string, 'per_player' | 'per_category'> = {
+const TEE_ASSIGNMENT_MODE_SYNONYMS: Record<string, 'per_player' | 'per_category' | 'manual'> = {
   per_player: 'per_player',
   por_jugador: 'per_player',
   per_category: 'per_category',
   por_categoria: 'per_category',
+  manual: 'manual',
+  por_admin: 'manual',
+  manual_admin: 'manual',
+  asignacion_manual: 'manual',
+  admin: 'manual',
 }
 
 function coerceEnum<T extends string>(value: unknown, table: Record<string, T>): unknown {
