@@ -73,11 +73,14 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                   value={prize.type}
                   onChange={(e) => {
                     const newType = e.target.value as PrizeConfig['type']
-                    // Limpiamos campos que no aplican al nuevo tipo
+                    // Limpiamos campos que no aplican al nuevo tipo para
+                    // evitar dejar state stale en config.prizes (que se
+                    // persiste como JSONB en tournament_drafts).
                     const patch: Partial<PrizeConfig> = { type: newType }
                     if (newType !== 'category_position') {
                       patch.position = undefined
                       patch.category_id = undefined
+                      patch.kind = undefined  // kind solo aplica a category_position
                     }
                     if (newType !== 'closest_to_pin' && newType !== 'long_drive') {
                       patch.hole_number = undefined

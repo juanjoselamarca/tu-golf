@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mapPrizeForInsert } from './prizes'
+import { prizeConfigSchema } from '@/lib/draft/schema'
 import type { PrizeConfig, TournamentFormat } from '@/lib/draft/types'
 
 function prize(over: Partial<PrizeConfig> & { id: string; type: PrizeConfig['type'] }): PrizeConfig {
@@ -82,4 +83,65 @@ describe('mapPrizeForInsert — escala gross/neto del premio', () => {
       expect(row.kind).toBe('neto')
     },
   )
+})
+
+describe('prizeConfigSchema — round-trip de kind por zod (post-review)', () => {
+  // Bug del review: zod en strip-mode quitaba `kind` antes de llegar a
+  // mapPrizeForInsert. La feature quedaba silenciosamente rota en prod
+  // aunque los tests unitarios pasaran. Estos tests previenen la regresión.
+
+  it('preserva kind=gross al parsear', () => {
+    const parsed = prizeConfigSchema.parse({
+      id: 'p1',
+      type: 'category_position',
+      description: '1° Gross',
+      position: 1,
+      kind: 'gross',
+    })
+    expect(parsed.kind).toBe('gross')
+  })
+
+  it('preserva kind=neto al parsear', () => {
+    const parsed = prizeConfigSchema.parse({
+      id: 'p2',
+      type: 'category_position',
+      description: '1° Neto',
+      position: 1,
+      kind: 'neto',
+    })
+    expect(parsed.kind).toBe('neto')
+  })
+
+  it('permite kind ausente (undefined)', () => {
+    const parsed = prizeConfigSchema.parse({
+      id: 'p3',
+      type: 'category_position',
+      description: 'Sin kind',
+      position: 1,
+    })
+    expect(parsed.kind).toBeUndefined()
+  })
+
+  it('rechaza kind con valor no permitido', () => {
+    expect(() => prizeConfigSchema.parse({
+      id: 'p4',
+      type: 'category_position',
+      description: 'Inválido',
+      position: 1,
+      kind: 'mixed' as unknown as 'gross' | 'neto',
+    })).toThrow()
+  })
+
+  it('round-trip parse → mapPrizeForInsert preserva kind', () => {
+    const raw = {
+      id: 'p5',
+      type: 'category_position' as const,
+      description: '2° Gross',
+      position: 2,
+      kind: 'gross' as const,
+    }
+    const parsed = prizeConfigSchema.parse(raw)
+    const row = mapPrizeForInsert(parsed, TID, 'stroke_play')
+    expect(row.kind).toBe('gross')
+  })
 })

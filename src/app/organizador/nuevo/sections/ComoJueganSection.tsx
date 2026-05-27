@@ -35,6 +35,13 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
     if (NETO_FORCED.includes(format) && config.modo !== 'neto') {
       partial.modo = 'neto'
     }
+    // Match Play tiene modo exclusivo (gross XOR neto): los premios con
+    // kind explícito ya no aplican. Limpiamos para no dejar state stale
+    // en config.prizes (JSONB en tournament_drafts) que confunda al
+    // mapPrizeForInsert o a futuros consumers del draft.
+    if (format === 'match_play' && config.prizes?.some((p) => p.kind != null)) {
+      partial.prizes = config.prizes.map((p) => ({ ...p, kind: undefined }))
+    }
     applyChange(partial)
   }
 
