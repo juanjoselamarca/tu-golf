@@ -54,7 +54,9 @@ interface PlanRow {
   created_at: string
 }
 
-interface RoundData {
+// @internal — exportada para regression snapshots (Ola 0 Task 4).
+// Se moverá a `src/golf/coach/metrics/types.ts` en Task 12.
+export interface RoundData {
   id: string
   scores: (number | null)[] | null
   total_gross: number | null
@@ -252,7 +254,8 @@ function validScores(round: RoundData): { scores: number[]; pars: number[] } | n
   return { scores: sc, pars: pa }
 }
 
-function computeBack9MinusFront9(round: RoundData): ComputedMetric {
+// @internal — exportada para regression snapshots (Ola 0 Task 4). Movida a metrics/ en Task 12.
+export function computeBack9MinusFront9(round: RoundData): ComputedMetric {
   const v = validScores(round)
   if (!v) return { value: null, reason: 'incomplete_18_holes' }
   const front = sum(v.scores.slice(0, 9))
@@ -260,13 +263,15 @@ function computeBack9MinusFront9(round: RoundData): ComputedMetric {
   return { value: back - front, reason: 'computed', metadata: { front, back } }
 }
 
-function computeFirstHole(round: RoundData): ComputedMetric {
+// @internal — Ola 0 Task 4. Movida a metrics/ en Task 12.
+export function computeFirstHole(round: RoundData): ComputedMetric {
   const s = round.scores?.[0]
   if (typeof s !== 'number') return { value: null, reason: 'no_first_hole_score' }
   return { value: s, reason: 'computed' }
 }
 
-function computePar3VsPar(round: RoundData): ComputedMetric {
+// @internal — Ola 0 Task 4. Movida a metrics/ en Task 12.
+export function computePar3VsPar(round: RoundData): ComputedMetric {
   const v = validScores(round)
   if (!v) return { value: null, reason: 'incomplete_18_holes' }
   let total = 0
@@ -281,7 +286,8 @@ function computePar3VsPar(round: RoundData): ComputedMetric {
   return { value: total / count, reason: 'computed', metadata: { par3_count: count } }
 }
 
-function computePostBogeyAvg(round: RoundData): ComputedMetric {
+// @internal — Ola 0 Task 4. Movida a metrics/ en Task 12.
+export function computePostBogeyAvg(round: RoundData): ComputedMetric {
   const v = validScores(round)
   if (!v) return { value: null, reason: 'incomplete_18_holes' }
   let total = 0
@@ -297,7 +303,8 @@ function computePostBogeyAvg(round: RoundData): ComputedMetric {
   return { value: total / count, reason: 'computed', metadata: { post_bogey_count: count } }
 }
 
-function computeDoubleOrWorsePct(round: RoundData): ComputedMetric {
+// @internal — Ola 0 Task 4. Movida a metrics/ en Task 12.
+export function computeDoubleOrWorsePct(round: RoundData): ComputedMetric {
   const v = validScores(round)
   if (!v) return { value: null, reason: 'incomplete_18_holes' }
   let dbl = 0
@@ -307,7 +314,8 @@ function computeDoubleOrWorsePct(round: RoundData): ComputedMetric {
   return { value: dbl / 18, reason: 'computed', metadata: { double_or_worse: dbl } }
 }
 
-function computeLast4MinusRest(round: RoundData): ComputedMetric {
+// @internal — Ola 0 Task 4. Movida a metrics/ en Task 12.
+export function computeLast4MinusRest(round: RoundData): ComputedMetric {
   const v = validScores(round)
   if (!v) return { value: null, reason: 'incomplete_18_holes' }
   const last4Avg = sum(v.scores.slice(14, 18)) / 4

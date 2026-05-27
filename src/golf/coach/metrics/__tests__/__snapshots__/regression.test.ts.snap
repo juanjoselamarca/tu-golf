@@ -1,0 +1,56 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`métricas v2 — regresión post-refactor > computeBack9MinusFront9 produce un número estable 1`] = `
+{
+  "metadata": {
+    "back": 47,
+    "front": 44,
+  },
+  "reason": "computed",
+  "value": 3,
+}
+`;
+
+exports[`métricas v2 — regresión post-refactor > computeDoubleOrWorsePct produce un número estable 1`] = `
+{
+  "metadata": {
+    "double_or_worse": 3,
+  },
+  "reason": "computed",
+  "value": 0.16666666666666666,
+}
+`;
+
+exports[`métricas v2 — regresión post-refactor > computeFirstHole produce un número estable 1`] = `
+{
+  "reason": "computed",
+  "value": 4,
+}
+`;
+
+exports[`métricas v2 — regresión post-refactor > computeLast4MinusRest produce un número estable 1`] = `
+{
+  "reason": "computed",
+  "value": -0.07142857142857117,
+}
+`;
+
+exports[`métricas v2 — regresión post-refactor > computePar3VsPar produce un número estable 1`] = `
+{
+  "metadata": {
+    "par3_count": 3,
+  },
+  "reason": "computed",
+  "value": 2,
+}
+`;
+
+exports[`métricas v2 — regresión post-refactor > computePostBogeyAvg produce un número estable 1`] = `
+{
+  "metadata": {
+    "post_bogey_count": 12,
+  },
+  "reason": "computed",
+  "value": 4.916666666666667,
+}
+`;
