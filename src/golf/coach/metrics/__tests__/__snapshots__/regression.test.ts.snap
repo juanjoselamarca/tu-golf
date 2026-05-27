@@ -11,6 +11,18 @@ exports[`métricas v2 — regresión post-refactor > computeBack9MinusFront9 pro
 }
 `;
 
+exports[`métricas v2 — regresión post-refactor > computeCV (lógica pura del CV) produce un número estable 1`] = `
+{
+  "metadata": {
+    "mean": 87.8,
+    "sample_size": 10,
+    "std": 1.2489995996796797,
+  },
+  "reason": "computed",
+  "value": 0.014225507969016853,
+}
+`;
+
 exports[`métricas v2 — regresión post-refactor > computeDoubleOrWorsePct produce un número estable 1`] = `
 {
   "metadata": {
