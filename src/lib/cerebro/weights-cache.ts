@@ -62,6 +62,11 @@ export function invalidateLocal(): void {
 /** Solo para tests — resetea estado del cache y la subscripción. */
 export function _resetCacheForTest(): void {
   cache = null
+  if (realtimeClient) {
+    realtimeClient.removeAllChannels().catch(() => {
+      // best-effort cleanup
+    })
+  }
   channelSubscribed = false
   realtimeClient = null
 }

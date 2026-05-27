@@ -62,7 +62,8 @@ CREATE POLICY "cerebro_weights_read_public"
 DROP POLICY IF EXISTS "cerebro_weights_write_admin" ON cerebro_weights;
 CREATE POLICY "cerebro_weights_write_admin"
   ON cerebro_weights FOR ALL TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'))
+  WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- 4) Event log del cerebro (alimenta el tablero del coach)
 CREATE TABLE IF NOT EXISTS cerebro_events (
@@ -86,9 +87,9 @@ CREATE POLICY "cerebro_events_read_admin"
   ON cerebro_events FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
-DROP POLICY IF EXISTS "cerebro_events_insert_service" ON cerebro_events;
-CREATE POLICY "cerebro_events_insert_service"
-  ON cerebro_events FOR INSERT TO service_role WITH CHECK (true);
+-- Nota: no se crea policy para INSERT desde service_role porque service_role
+-- bypassea RLS por diseño en Supabase. Las escrituras desde el backend
+-- (event sourcing del coach) van vía createAdminClient().
 
 -- 5) Cost tracking por feature y proveedor
 CREATE TABLE IF NOT EXISTS cost_tracking (
@@ -111,6 +112,10 @@ CREATE POLICY "cost_tracking_read_admin"
   ON cost_tracking FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
+-- cost_tracking INSERT: solo desde backend via service_role (bypassea RLS).
+-- Cada feature que llama LLM debe persistir costo aquí. No hay policy de
+-- INSERT para authenticated — no queremos que el browser meta filas.
+
 -- 6) Banco de pruebas — runs de evaluación contra perfiles sintéticos
 CREATE TABLE IF NOT EXISTS evaluation_runs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -128,7 +133,8 @@ ALTER TABLE evaluation_runs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "evaluation_runs_admin" ON evaluation_runs;
 CREATE POLICY "evaluation_runs_admin"
   ON evaluation_runs FOR ALL TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'))
+  WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- 7) Versionado de LLM con fallback explícito
 CREATE TABLE IF NOT EXISTS llm_models (
@@ -154,7 +160,8 @@ CREATE POLICY "llm_models_read_public"
 DROP POLICY IF EXISTS "llm_models_write_admin" ON llm_models;
 CREATE POLICY "llm_models_write_admin"
   ON llm_models FOR ALL TO authenticated
-  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'))
+  WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- Seed de los 5 roles iniciales (Vercel AI Gateway naming convention)
 INSERT INTO llm_models (model_id, role, status, context_window, cost_per_1m_tokens_input, cost_per_1m_tokens_output, embedding_dim, fallback_to_model_id, config)

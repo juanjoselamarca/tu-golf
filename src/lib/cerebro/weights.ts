@@ -40,11 +40,6 @@ function client(): SupabaseClient {
   return _client
 }
 
-/** Solo para tests: permite inyectar un cliente custom. */
-export function __setWeightsClient(sb: SupabaseClient | null): void {
-  _client = sb
-}
-
 export async function getAllWeights(): Promise<CerebroWeight[]> {
   const { data, error } = await client().from('cerebro_weights').select('*')
   if (error) throw error
@@ -81,6 +76,13 @@ export async function setWeight(
   // UPDATE explícito vs INSERT — no usamos upsert porque Postgres trata
   // NULL como distinto en UNIQUE constraints por default, lo que crearía
   // duplicados para pesos globales (user_cluster_id IS NULL).
+  //
+  // Race condition tolerada en Ola 0: dos admins moviendo el mismo slider
+  // simultáneamente pueden leer el mismo `existing.version`, ambos
+  // escribir `version+1`, y last-write-wins. previous_weight queda
+  // potencialmente desactualizado. Aceptable mientras sólo Juanjo toque
+  // sliders. Cuando Ola 4+ active auto-updates concurrentes, mover a
+  // RPC con FOR UPDATE o partial unique index NULLS NOT DISTINCT.
   if (existing) {
     const { error } = await client()
       .from('cerebro_weights')

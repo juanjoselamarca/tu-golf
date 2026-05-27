@@ -35,10 +35,6 @@ function client(): SupabaseClient {
   return _client
 }
 
-export function __setLlmModelsClient(sb: SupabaseClient | null): void {
-  _client = sb
-}
-
 export async function resolveModelByRole(role: LLMModelRole): Promise<LLMModel | null> {
   const { data, error } = await client()
     .from('llm_models')
