@@ -42,18 +42,24 @@ export function computePlayerCourseHcp(
     })
 
     if (tee?.slope && tee?.rating) {
-      return holeCount <= 9
-        ? courseHandicap9h(index, tee.slope, tee.rating, parTotal)
-        : courseHandicap18h(index, tee.slope, tee.rating, parTotal)
+      if (holeCount <= 9) {
+        // Use 9-hole specific ratings if available, otherwise halve the 18h CR
+        const slope9 = tee.front_slope_rating ?? tee.slope
+        const cr9 = tee.front_course_rating ?? tee.rating / 2
+        return courseHandicap9h(index, slope9, cr9, parTotal)
+      }
+      return courseHandicap18h(index, tee.slope, tee.rating, parTotal)
     }
   }
 
   // Fallback: course-level ratings
   const course = tournament.courses
   if (course?.slope_rating && course?.course_rating) {
-    return holeCount <= 9
-      ? courseHandicap9h(index, course.slope_rating, course.course_rating, parTotal)
-      : courseHandicap18h(index, course.slope_rating, course.course_rating, parTotal)
+    if (holeCount <= 9) {
+      // Halve course-level CR for 9-hole estimate
+      return courseHandicap9h(index, course.slope_rating, course.course_rating / 2, parTotal)
+    }
+    return courseHandicap18h(index, course.slope_rating, course.course_rating, parTotal)
   }
 
   return index

@@ -129,7 +129,7 @@ export default function ScoringPage() {
             .order('numero'),
           supabase
             .from('course_tees')
-            .select('id, nombre, rating, slope, yardaje_total, genero')
+            .select('id, nombre, rating, slope, yardaje_total, genero, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating')
             .eq('course_id', courseId),
         ])
         setCourseHoles((holes as CourseHole[]) || [])

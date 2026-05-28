@@ -14,6 +14,10 @@ export interface CourseTeeRow {
   slope: number | null
   yardaje_total: number | null
   genero?: string | null
+  front_course_rating?: number | null
+  front_slope_rating?: number | null
+  back_course_rating?: number | null
+  back_slope_rating?: number | null
 }
 
 export type TeeSource = 'manual' | 'category' | 'global' | 'none'

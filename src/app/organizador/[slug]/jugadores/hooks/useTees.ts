@@ -27,7 +27,7 @@ export function useTees({
         const supabase = createClient()
         const { data, error } = await supabase
           .from('course_tees')
-          .select('id, nombre, rating, slope, yardaje_total, genero')
+          .select('id, nombre, rating, slope, yardaje_total, genero, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating')
           .eq('course_id', courseId)
           .order('yardaje_total', { ascending: false })
         if (error) throw error

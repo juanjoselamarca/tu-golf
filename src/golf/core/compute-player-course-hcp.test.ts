@@ -60,11 +60,24 @@ describe('computePlayerCourseHcp', () => {
     expect(ch).toBe(0)
   })
 
-  it('uses 9h formula for 9-hole courses', () => {
-    // CH_9h = 15 × (119/113) + (68.5 - 36) = 15 × 1.053 + 32.5 = 15.80 + 32.5 = 48.30 → round = 48
+  it('uses 9h formula with halved 18h CR when no front_course_rating', () => {
+    // No front ratings → CR_9h = 68.5 / 2 = 34.25, slope stays 119
+    // CH_9h = 15 × (119/113) + (34.25 - 36) = 15 × 1.053 + (-1.75) = 15.80 - 1.75 = 14.05 → round = 14
     const player = { ...basePlayer, tee_id: 'tee-rojo' }
     const ch = computePlayerCourseHcp(player, baseTournament, allTees, 36, 9)
-    expect(ch).toBe(48)
+    expect(ch).toBe(14)
+  })
+
+  it('uses front_course_rating and front_slope_rating for 9-hole when available', () => {
+    const teeWith9h: CourseTeeRow = {
+      ...teeRojo,
+      front_course_rating: 34.5,
+      front_slope_rating: 115,
+    }
+    // CH_9h = 15 × (115/113) + (34.5 - 36) = 15 × 1.018 + (-1.5) = 15.27 - 1.5 = 13.77 → round = 14
+    const player = { ...basePlayer, tee_id: 'tee-rojo' }
+    const ch = computePlayerCourseHcp(player, baseTournament, [teeWith9h], 36, 9)
+    expect(ch).toBe(14)
   })
 
   it('manual tee overrides category and global', () => {
@@ -84,5 +97,13 @@ describe('computePlayerCourseHcp', () => {
     // Resolved tee has no slope → falls back to course-level
     const ch = computePlayerCourseHcp(player, baseTournament, [teeNoSlope], 72, 18)
     expect(ch).toBe(17) // Uses course.slope_rating/course_rating
+  })
+
+  it('course-level fallback halves CR for 9-hole', () => {
+    const tournament = { tees: null, courses: { par_total: 72, slope_rating: 131, course_rating: 72.1 } }
+    // CR_9h = 72.1 / 2 = 36.05, slope = 131
+    // CH_9h = 15 × (131/113) + (36.05 - 36) = 15 × 1.159 + 0.05 = 17.39 + 0.05 = 17.44 → round = 17
+    const ch = computePlayerCourseHcp(basePlayer, tournament, [], 36, 9)
+    expect(ch).toBe(17)
   })
 })
