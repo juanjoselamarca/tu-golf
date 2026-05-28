@@ -46,7 +46,7 @@ export interface RoundConfig {
   date: string | null              // ISO date
   course_id: string | null
   hole_count: 9 | 18
-  tee_assignment_mode: 'per_player' | 'per_category'
+  tee_assignment_mode: 'per_player' | 'per_category' | 'manual'
   custom_si?: Record<string, number>
   notes?: string
 }

@@ -6,13 +6,17 @@ import Link from 'next/link'
 import { Flag, PersonStanding } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
+import { type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { computePlayerCourseHcp } from '@/golf/core/compute-player-course-hcp'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
 interface Round { id: string; status: string; total_gross: number; total_net: number; total_points: number; round_number: number }
 interface Player {
   id: string
   handicap_at_registration: number | null
+  tee_id: string | null
   profiles: { name: string }
+  categories: { default_tee_color: string | null } | null
   rounds: Round[]
 }
 interface Tournament {
@@ -22,6 +26,7 @@ interface Tournament {
   format: string
   hole_count: number
   total_rounds: number
+  tees: string | null
   courses: { id: string; nombre: string; par_total: number; slope_rating: number; course_rating: number } | null
 }
 
@@ -77,6 +82,8 @@ export default function ScoringPage() {
   const [holeFairway,  setHoleFairway]  = useState<Record<number, boolean | null>>({})
   const [holeGir,      setHoleGir]      = useState<Record<number, boolean | null>>({})
 
+  const [courseTees, setCourseTees] = useState<CourseTeeRow[]>([])
+
   // Undo last score
   const [lastAction, setLastAction] = useState<{
     holeNumber: number; previousScore: number | undefined; playerId: string
@@ -89,7 +96,7 @@ export default function ScoringPage() {
 
       const { data: t } = await supabase
         .from('tournaments')
-        .select('id, name, slug, format, hole_count, total_rounds, courses(id, nombre, par_total, slope_rating, course_rating)')
+        .select('id, name, slug, format, hole_count, total_rounds, tees, courses(id, nombre, par_total, slope_rating, course_rating)')
         .eq('slug', slug)
         .single()
 
@@ -98,7 +105,7 @@ export default function ScoringPage() {
 
       const { data: p } = await supabase
         .from('players')
-        .select('id, handicap_at_registration, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
+        .select('id, handicap_at_registration, tee_id, profiles(name), categories(default_tee_color), rounds(id, status, total_gross, total_net, total_points, round_number)')
         .eq('tournament_id', t.id)
         .order('created_at')
 
@@ -114,12 +121,19 @@ export default function ScoringPage() {
 
       const courseId = (t.courses as unknown as { id: string } | null)?.id
       if (courseId) {
-        const { data: holes } = await supabase
-          .from('course_holes')
-          .select('numero, par, stroke_index')
-          .eq('course_id', courseId)
-          .order('numero')
+        const [{ data: holes }, { data: tees }] = await Promise.all([
+          supabase
+            .from('course_holes')
+            .select('numero, par, stroke_index')
+            .eq('course_id', courseId)
+            .order('numero'),
+          supabase
+            .from('course_tees')
+            .select('id, nombre, rating, slope, yardaje_total, genero, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating')
+            .eq('course_id', courseId),
+        ])
         setCourseHoles((holes as CourseHole[]) || [])
+        setCourseTees((tees as CourseTeeRow[]) || [])
       }
 
       setLoading(false)
@@ -197,7 +211,7 @@ export default function ScoringPage() {
     const hole         = courseHoles.find((h) => h.numero === holeNumber)
     const par          = hole?.par ?? 4
     const strokeIndex  = hole?.stroke_index ?? holeNumber
-    const courseHcp    = player.handicap_at_registration ?? 0
+    const courseHcp    = computePlayerCourseHcp(player, tournament, courseTees, tournament.courses?.par_total ?? 72, tournament.hole_count || 18)
     const strokes      = strokesOnHole(courseHcp, strokeIndex)
     const netScore     = gross - strokes
 
@@ -284,7 +298,7 @@ export default function ScoringPage() {
     const supabase = createClient()
     const { data: p } = await supabase
       .from('players')
-      .select('id, handicap_at_registration, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
+      .select('id, handicap_at_registration, tee_id, profiles(name), categories(default_tee_color), rounds(id, status, total_gross, total_net, total_points, round_number)')
       .eq('tournament_id', tournament.id)
       .order('created_at')
     setPlayers((p as unknown as Player[]) || [])
@@ -391,7 +405,7 @@ export default function ScoringPage() {
       const supabase = createClient()
       const { data: p } = await supabase
         .from('players')
-        .select('id, handicap_at_registration, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
+        .select('id, handicap_at_registration, tee_id, profiles(name), categories(default_tee_color), rounds(id, status, total_gross, total_net, total_points, round_number)')
         .eq('tournament_id', tournament.id)
         .order('created_at')
       setPlayers((p as unknown as Player[]) || [])
@@ -415,13 +429,15 @@ export default function ScoringPage() {
   const grossTotal = holes.reduce((s, h) => s + (currentScores[h] ?? 0), 0)
   const outGross   = holes.filter(h => h <= 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
   const inGross    = holes.filter(h => h > 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
+  const selectedCourseHcp = selectedPlayer
+    ? computePlayerCourseHcp(selectedPlayer, tournament, courseTees, parTotalRecorrido, holeCount)
+    : 0
   const netTotal   = holes.reduce((s, h) => {
     if (!currentScores[h]) return s
     const hole        = courseHoles.find((ch) => ch.numero === h)
     const par         = hole?.par ?? 4
     const si          = hole?.stroke_index ?? h
-    const hcp         = selectedPlayer?.handicap_at_registration ?? 0
-    const strokes     = strokesOnHole(hcp, si)
+    const strokes     = strokesOnHole(selectedCourseHcp, si)
     return s + (currentScores[h] - strokes)
   }, 0)
 
@@ -791,8 +807,7 @@ export default function ScoringPage() {
                       placeholder="—"
                     />
                     {haScore && tournament?.format === 'stableford' && (() => {
-                      const currentPlayer = players.find(p => p.id === selectedId)
-                      const strokes = strokesOnHole(currentPlayer?.handicap_at_registration ?? 0, courseHoles.find(h => h.numero === holeNum)?.stroke_index ?? holeNum)
+                      const strokes = strokesOnHole(selectedCourseHcp, courseHoles.find(h => h.numero === holeNum)?.stroke_index ?? holeNum)
                       const neto = gross - strokes
                       const pts = Math.max(0, 2 - (neto - par))
                       return (

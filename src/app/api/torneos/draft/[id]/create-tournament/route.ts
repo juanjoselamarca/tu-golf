@@ -83,7 +83,10 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
         formato_juego: config.format,
         modo_juego: config.modo,
         hole_count: firstRound.hole_count,
-        tees: firstRound.tee_assignment_mode === 'per_player' ? 'per_player' : 'mixed',
+        tees:
+          firstRound.tee_assignment_mode === 'per_player' ? 'per_player'
+          : firstRound.tee_assignment_mode === 'manual' ? 'manual'
+          : 'mixed',
         use_handicap: config.use_handicap,
         afecta_estadisticas: !config.is_practice,
         codigo: code,
