@@ -1,29 +1,12 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { PersonStanding, Flag, Calendar } from '@/components/icons'
-
-interface TournamentInfo {
-  id: string
-  name: string
-  slug: string
-  format: string
-  date_start: string | null
-  codigo: string | null
-  course_name: string | null
-  courses: { nombre: string; ciudad: string; slope_rating: number; course_rating: number; par_total: number } | null
-}
-
-interface ProfileInfo {
-  name: string
-  indice: number | null
-}
-
-function calcCourseHandicap(indice: number, slope: number, rating: number, par: number) {
-  return Math.round(indice * (slope / 113) + (rating - par))
-}
+import type {
+  JoinInfoTournament,
+  JoinInfoProfile,
+} from '@/lib/data/tournaments/joinFlow'
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('es-CL', {
@@ -51,59 +34,41 @@ export default function UnirsePage() {
   const slug = params.slug as string
 
   const [loading, setLoading] = useState(true)
-  const [tournament, setTournament] = useState<TournamentInfo | null>(null)
-  const [profile, setProfile] = useState<ProfileInfo | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [tournament, setTournament] = useState<JoinInfoTournament | null>(null)
+  const [profile, setProfile] = useState<JoinInfoProfile | null>(null)
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
   const [inscribing, setInscribing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  const supabase = createClient()
-
   const loadData = useCallback(async () => {
-    // Check auth
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const res = await fetch(`/api/torneos/${encodeURIComponent(slug)}/join-info`, {
+      cache: 'no-store',
+    })
+    if (res.status === 401) {
       router.replace(`/login?redirect=/torneo/${slug}/unirse`)
       return
     }
-    setUserId(user.id)
-
-    // Fetch profile
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('name, indice')
-      .eq('id', user.id)
-      .single()
-    if (prof) setProfile(prof as ProfileInfo)
-
-    // Fetch tournament
-    const { data: t, error: tErr } = await supabase
-      .from('tournaments')
-      .select('id, name, slug, format, date_start, codigo, course_name, courses(nombre, ciudad, slope_rating, course_rating, par_total)')
-      .eq('slug', slug)
-      .single()
-
-    if (tErr || !t) {
+    if (res.status === 404) {
       setError('Torneo no encontrado')
       setLoading(false)
       return
     }
-    setTournament(t as unknown as TournamentInfo)
-
-    // Check if already registered
-    const { data: existing } = await supabase
-      .from('players')
-      .select('id')
-      .eq('tournament_id', t.id)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (existing) setAlreadyRegistered(true)
-
+    if (!res.ok) {
+      setError('No se pudo cargar la información del torneo. Intenta nuevamente.')
+      setLoading(false)
+      return
+    }
+    const data = (await res.json()) as {
+      tournament: JoinInfoTournament
+      profile: JoinInfoProfile | null
+      alreadyRegistered: boolean
+    }
+    setTournament(data.tournament)
+    setProfile(data.profile)
+    setAlreadyRegistered(data.alreadyRegistered)
     setLoading(false)
-  }, [slug, router, supabase])
+  }, [slug, router])
 
   useEffect(() => {
     loadData()
@@ -111,56 +76,30 @@ export default function UnirsePage() {
   }, [])
 
   const handleInscribirse = async () => {
-    if (!userId || !tournament || !profile || inscribing) return
+    if (!tournament || !profile || inscribing) return
     setInscribing(true)
     setError(null)
 
-    const course = tournament.courses
-    const courseHandicap =
-      profile.indice != null && course
-        ? calcCourseHandicap(profile.indice, course.slope_rating, course.course_rating, course.par_total)
-        : null
+    const res = await fetch(`/api/torneos/${encodeURIComponent(slug)}/inscribirse`, {
+      method: 'POST',
+    })
 
-    // Insert player
-    const { data: player, error: pErr } = await supabase
-      .from('players')
-      .insert({
-        tournament_id: tournament.id,
-        user_id: userId,
-        handicap_at_registration: courseHandicap,
-        status: 'approved',
-      })
-      .select()
-      .single()
-
-    if (pErr || !player) {
-      const msg = pErr?.message?.toLowerCase() || ''
-      if (msg.includes('duplicate') || msg.includes('unique')) {
-        setError('Ya estás inscrito en este torneo.')
-        setAlreadyRegistered(true)
-      } else if (msg.includes('permission') || msg.includes('policy') || pErr?.code === '42501') {
-        setError('No tienes permiso para inscribirte. Contacta al organizador del torneo.')
-      } else if (msg.includes('violates check') || msg.includes('not-null')) {
-        setError('Faltan datos en tu perfil. Verifica que tengas nombre y handicap configurados.')
-      } else {
-        setError(`No se pudo completar la inscripción: ${pErr?.message || 'error desconocido'}. Intenta nuevamente.`)
-      }
+    if (res.ok) {
+      setSuccess(true)
       setInscribing(false)
       return
     }
 
-    // Create round
-    await supabase.from('rounds').insert({
-      tournament_id: tournament.id,
-      player_id: player.id,
-      status: 'in_progress',
-    })
-
-    setSuccess(true)
+    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+    if (body.error === 'already_registered') {
+      setAlreadyRegistered(true)
+      setError(body.message ?? 'Ya estás inscrito en este torneo.')
+    } else {
+      setError(body.message ?? 'No se pudo completar la inscripción. Intenta nuevamente.')
+    }
     setInscribing(false)
   }
 
-  // Success screen
   if (success && tournament) {
     return (
       <div
@@ -196,8 +135,8 @@ export default function UnirsePage() {
         {tournament.codigo && (
           <div
             style={{
-              background: 'rgba(14,28,47,0.92)',
-              border: '1px solid rgba(196,153,42,0.3)',
+              background: 'var(--surface-soft)',
+              border: '1px solid var(--surface-border-strong)',
               borderRadius: '14px',
               padding: '20px 32px',
               textAlign: 'center',
@@ -240,16 +179,12 @@ export default function UnirsePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '0' }}>
-
-      {/* Header */}
       <div style={{ padding: '24px 20px 0' }}>
         <Link href={`/torneo/${slug}`} style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none' }}>
           ← Volver al torneo
         </Link>
       </div>
-
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '32px 20px' }}>
-
         <h1
           style={{
             fontFamily: '"Playfair Display", serif',
@@ -262,7 +197,6 @@ export default function UnirsePage() {
           Inscribirse al torneo
         </h1>
 
-        {/* Error */}
         {error && (
           <div
             style={{
@@ -279,20 +213,18 @@ export default function UnirsePage() {
           </div>
         )}
 
-        {/* Loading */}
         {loading && (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-2)', fontSize: '14px' }}>
             Cargando...
           </div>
         )}
 
-        {/* Tournament info card */}
         {!loading && tournament && (
           <>
             <div
               style={{
-                background: 'rgba(14,28,47,0.92)',
-                border: '1px solid rgba(196,153,42,0.2)',
+                background: 'var(--surface-soft)',
+                border: '1px solid var(--surface-border)',
                 borderRadius: '14px',
                 padding: '24px',
                 marginBottom: '20px',
@@ -330,12 +262,11 @@ export default function UnirsePage() {
               </div>
             </div>
 
-            {/* Player info card */}
             {profile && (
               <div
                 style={{
-                  background: 'rgba(14,28,47,0.92)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'var(--surface-soft)',
+                  border: '1px solid var(--surface-border)',
                   borderRadius: '14px',
                   padding: '24px',
                   marginBottom: '24px',
@@ -374,7 +305,6 @@ export default function UnirsePage() {
               </div>
             )}
 
-            {/* Action */}
             {alreadyRegistered ? (
               <div
                 style={{

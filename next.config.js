@@ -18,7 +18,12 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://us-assets.i.posthog.com",
       "script-src-elem 'self' 'unsafe-inline' https://us-assets.i.posthog.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: blob: https://images.unsplash.com https://flagcdn.com https://lh3.googleusercontent.com",
+      // Supabase Storage sirve imágenes públicas desde
+      // `https://<project-ref>.supabase.co/storage/v1/object/public/...`
+      // (bucket `tournament-covers`, avatares futuros, etc.). Sin este whitelist
+      // el browser bloquea las <img> por CSP y muestra icono de imagen rota
+      // (inbox 99500ba6 + 35f4ee89, may 27).
+      "img-src 'self' data: blob: https://images.unsplash.com https://flagcdn.com https://lh3.googleusercontent.com https://*.supabase.co",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://site.api.espn.com https://us.i.posthog.com https://us-assets.i.posthog.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "worker-src 'self' blob:",
@@ -41,6 +46,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'flagcdn.com' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      // Supabase Storage: portadas de torneos y futuros buckets públicos
+      { protocol: 'https', hostname: '*.supabase.co' },
     ],
   },
 }

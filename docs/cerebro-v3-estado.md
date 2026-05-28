@@ -1,40 +1,94 @@
-# Estado Cerebro V3 — Actualizado 2026-05-27 01:15 GMT-4
+# Estado Cerebro V3 — Actualizado 2026-05-27 18:25 GMT-4
 
 > Este archivo es el dashboard vivo del proyecto cerebro v3. Se actualiza al cierre de cada sesión que toque el proyecto. Si lees esto al iniciar una sesión, sabés exactamente dónde retomar.
 >
 > Fuente única de verdad arquitectónica: `docs/superpowers/specs/2026-05-26-cerebro-v3-diseño.md`.
 
-## Ola actual
+## Próxima ola
 
-- **Ola 0 — Limpiar el taller** — estado: `ready_to_execute`
-- Plan escrito y mergeado a main: `docs/superpowers/plans/2026-05-27-cerebro-v3-ola-0.md` (commit `1952ecd`)
-- 20 tasks TDD con código real y commits frecuentes. Estimado 3-4 días.
-- Worktree creado: `.claude/worktrees/cerebro-v3-ola-0` en branch `chore/cerebro-v3-ola-0-claude` desde `origin/main (18e21d6)`.
-- `.env.local` ya copiado al worktree.
+- **Ola 1 — El coach estudia el mundo** — estado: `awaiting_kickoff` (esperando OK de Juanjo para arrancar)
+- Bloqueada hasta el OK explícito. Cuando arranque: brainstorming → spec/plan → ejecución TDD por tasks, mismo protocolo que Ola 0.
 
-## Próximo paso (próxima sesión)
+## Ola anterior — CERRADA
 
-1. **Verificar repo y estado** (protocolo de inicio del Apéndice de CLAUDE.md sección "Protocolo Cerebro V3").
-2. **`cd .claude/worktrees/cerebro-v3-ola-0`** y verificar que sigue alineado con `origin/main` actualizado (hacer `git pull origin main` desde el worktree si hace falta para traer el plan).
-3. **Arrancar Task 1 del plan**: setup del worktree, junction de node_modules, verificar baseline verde (`npx tsc --noEmit` + `npm test` + `npm run build`).
-4. **Continuar Tasks 2-20** siguiendo el plan checkbox a checkbox.
-5. **Demo en vivo con Juanjo** antes del merge (Task 20).
+- **Ola 0 — Limpiar el taller** — estado: `✅ merged 2026-05-27 via PR #67 (merge commit `0e7e56d`)`
+- Branch `chore/cerebro-v3-ola-0-claude` borrada del remote + worktree limpio.
+- Plan: `docs/superpowers/plans/2026-05-27-cerebro-v3-ola-0.md` (commit `1952ecd`)
+- Progreso: **20/20 tasks (100%)** + code review aplicado.
+- Worktree: `.claude/worktrees/cerebro-v3-ola-0` en branch `chore/cerebro-v3-ola-0-claude`.
+
+### Tasks completadas
+
+| # | Task | Commit |
+|---|---|---|
+| 1 | Setup worktree + baseline verde | `a350148` |
+| 2 | Estructura v3/ + metrics/ + lib/cerebro/ | `61f57a9` |
+| 3 | Snapshot system prompt v2 | `28297bc` |
+| 4 | Snapshots regresión 6 métricas v2 sync | `c6bada7` |
+| 5 | Migración `cerebro_weights` + trigger `pg_notify` | `d2070df` |
+| 6 | Tablas `cerebro_events` + `cost_tracking` + `evaluation_runs` | `6c07364` |
+| 7+8 | Tabla `llm_models` (5 roles seed) + flag `cerebro_v3_enabled` | `91dad18` |
+| 9+11 | Baseline verde pre-refactor | (sin commit) |
+| 10 | Refactor `prompts.ts` a 4 submódulos | `d6b1794` |
+| 12 | Extracción de 7 métricas a `metrics/<name>.ts` | `b21184c` |
+| 13 | Capa `cerebro_weights` (getAll/get/setWeight) TDD | `dd323dc` |
+| 14 | Cache distribuido con TTL + Realtime | `2f66354` |
+| 15 | Capa `llm_models` con resolveFallbackChain | `b157b2d` |
+| — | Fix colisión `__setClient` en barrel | `196a454` |
+| 16+17 | Endpoints admin `weights` GET/PUT + `test-now` POST | `7b5f02f` |
+| 18 | Página admin `/admin/cerebro/pesos` con sliders | `6907645` |
+| 19 | Harness baseline `evaluate-cerebro.mjs` | `21f08f9` |
+| 20 | Push + PR #67 + code review por superpowers:code-reviewer | (PR) |
+| — | Merge `origin/main` para no revertir PR #66/#68 | `962e792` |
+| — | Code review fixes C1 + I1 (auth SSR, LF en prompt) | `6d4bea7` |
+| — | Code review fixes I3 + I4 + I5 + I6 (RLS, race comment, cleanup) | `9b218b9` |
+
+### Estado de la app
+
+- `npx tsc --noEmit`: 0 errores.
+- `npm test`: **1800 passed** | 29 skipped | (1829 total).
+- `npm run build`: OK.
+- Supabase: 5 tablas + 1 columna + migración re-aplicada con RLS WITH CHECK reforzado.
+- `cerebro_v3_enabled = true` activado para `juanjoselamarca@gmail.com`.
+- **Baseline harness: 26/40 PASS (65%)**. Failures principales: `sg-no-data` 5/5 fail, `shot-by-shot` 5/5 fail (coach v2 alucina pese al anti-hallucination block).
+- 5 pesos seed en `cerebro_weights`: pga_data 0.35, distributions 0.15, strategy 0.20, psychology 0.20, rules 0.10.
+
+### Code review resultado
+
+`superpowers:code-reviewer` agent corrió contra el PR #67. Marcó:
+- **2 críticos** (C1 auth cookie incorrecto, C2 branch atrás de main): ✅ ambos resueltos.
+- **6 importantes** (I1 CRLF injection, I3 RLS WITH CHECK, I4 race condition, I5 channel cleanup, I6 dead code, I2 snapshot weakness documented): ✅ todos resueltos o documentados explícitamente.
+- 8 sugerencias menores (S1-S8): follow-ups para olas siguientes.
+
+Comentario completo en PR #67 con resumen.
+
+### Lo que falta para mergear
+
+1. **Demo en vivo con Juanjo** (Rule 4 del protocolo Cerebro V3 — "Cada ola termina con demo en vivo a Juanjo antes de mergear. Sin OK no merge aunque tests pasen."). Mostrar:
+   - `/admin/cerebro/pesos` cargado con los 5 sliders.
+   - Mover un slider, ver que persiste y `version` incrementa.
+   - "Test ahora" muestra los pesos vigentes vía POST.
+   - Output del harness baseline (`node --env-file=.env.local scripts/evaluate-cerebro.mjs`).
+2. **Si OK de Juanjo** → `gh pr merge --merge --delete-branch` → actualizar este doc con cierre + apuntar próximo paso a Ola 1.
+
+### Desviaciones del plan documentadas
+
+1. **Naming migración:** `YYYYMMDD_*` en vez de `037_*` (colisión + convención vigente).
+2. **Firmas de métricas:** 6 sync + 1 async con `(round: RoundData)` reales, no las 7 separadas asumidas.
+3. **Cache channel:** `postgres_changes` en vez de `broadcast` (pg_notify no dispara broadcasts).
+4. **Harness:** Anthropic SDK directo en vez de `/api/taiger/chat` (sin profile_override y requiere auth).
 
 ## Olas siguientes
 
 | Ola | Nombre | Estado |
 |---|---|---|
-| 0 | Limpiar el taller | **pending** (próxima) |
+| 0 | Limpiar el taller | **awaiting_demo_and_merge** |
 | 1 | El coach estudia el mundo | bloqueada hasta merge de 0 |
 | 2 | El coach te conoce | bloqueada hasta merge de 1 |
 | 3 | El cerebro guarda y crece | bloqueada hasta merge de 2 |
 | 4 | Preguntas que se adaptan | bloqueada hasta merge de 3 |
 | 5 | El coach descubre solo | bloqueada hasta merge de 4 |
 | 6 | El coach aprende a hablar a cada tipo | bloqueada hasta merge de 5 |
-
-## Olas cerradas
-
-(ninguna todavía)
 
 ## Decisiones tomadas en la sesión de diseño (2026-05-26)
 
@@ -45,29 +99,21 @@
 - ✅ Fine-tuning de Haiku reservado para V3 con opt-in explícito de cada usuario.
 - ❌ Voice I/O y Vision multimodal: descartados (no entran en ningún roadmap previsto).
 - ✅ Reglas oficiales del juego (USGA/R&A) como skill custom (única excepción a "no book-to-skill v1"), libros de instrucción vía RAG en `knowledge_chunks`.
-- ✅ Memorias del proyecto creadas/actualizadas: `project_cerebro_v3_metricas_relativas`, `feedback_metodologia_cerebro_v3`, `feedback_cerebro_parametrico_vivo`, `reference_cerebro_v3_arquitectura`. Index en `MEMORY.md`.
-- ✅ `CLAUDE.md` actualizado con sección "Protocolo Cerebro V3".
 
 ## Bloqueos / pendientes urgentes
 
-(ninguno)
+Sólo demo + OK de Juanjo para mergear PR #67.
 
 ## Costos comprometidos esta semana
 
-- Procesamiento inicial de embeddings (Ola 1): $20-50 USD una vez (Whisper para audio + chunks de PDFs/libros).
+- Baseline harness corrido: ~$0.04 USD.
+- Procesamiento inicial de embeddings (Ola 1): $20-50 USD una vez.
 - Costos recurrentes: empiezan a contar desde Ola 1. Estimado <$10/mes para 10 usuarios activos con prompt caching activado.
-
-## Próxima sesión arranca con
-
-1. **Verificar repo y estado** (protocolo de inicio del proyecto).
-2. **Crear worktree** `chore/cerebro-v3-ola-0-claude` con `setup-worktree.mjs` (si no existe ya).
-3. **Invocar `superpowers:writing-plans`** dentro del worktree para crear `docs/superpowers/plans/2026-05-27-cerebro-v3-ola-0.md`.
-4. **Revisar el plan con plan-eng-review** antes de tocar código.
-5. **Empezar a codear Ola 0** con TDD obligatorio.
 
 ## Histórico de sesiones
 
 | Fecha | Sesión | Resultado |
 |---|---|---|
 | 2026-05-26 | Brainstorming + spec maestro + auditoría | Spec aprobado y pusheado (`d116fd3`). Memorias + CLAUDE.md + estado vivo creados. |
-| 2026-05-27 (madrugada) | Cierre del diseño + plan de Ola 0 | Plan detallado de 20 tasks TDD escrito y pusheado (`1952ecd`). Worktree creado. Listo para arrancar Task 1. |
+| 2026-05-27 (madrugada) | Cierre del diseño + plan de Ola 0 | Plan detallado de 20 tasks TDD escrito y pusheado (`1952ecd`). Worktree creado. |
+| 2026-05-27 (mediodía + tarde) | **Ejecución Ola 0 completa (20/20)** | Todos los tasks ejecutados, 1800 tests PASS, build OK, baseline harness corrido (26/40), PR #67 abierto con code review aplicado. Espera demo + merge. |

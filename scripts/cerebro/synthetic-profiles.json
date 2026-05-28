@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Aldo",
+    "handicap": 5,
+    "target": 3,
+    "frequency": "2x_week",
+    "type": "ambicioso",
+    "context_summary": "5 hcp, juega 2 veces por semana, quiere bajar a 3 en 6 meses. Ya hizo 3 torneos club este año, mejor score 73."
+  },
+  {
+    "name": "Beatriz",
+    "handicap": 12,
+    "target": 9,
+    "frequency": "1x_week",
+    "type": "recreativa-competitiva",
+    "context_summary": "12 hcp, juega 1 vez por semana, target 9 hcp. Patrón histórico: back nine peor que front nine."
+  },
+  {
+    "name": "Carlos",
+    "handicap": 18,
+    "target": 12,
+    "frequency": "1x_2weeks",
+    "type": "recreativo-serio",
+    "context_summary": "18 hcp, juega cada 2 semanas, dobles bogeys frecuentes en par 4. Quiere reducir 6 strokes en un año."
+  },
+  {
+    "name": "Dolores",
+    "handicap": 22,
+    "target": 18,
+    "frequency": "1x_month",
+    "type": "recreativa-social",
+    "context_summary": "22 hcp, juega 1 vez al mes con amigas, target 18 hcp en un año. Le encanta el aspecto social."
+  },
+  {
+    "name": "Esteban",
+    "handicap": 28,
+    "target": 22,
+    "frequency": "starter",
+    "type": "aprendiz",
+    "context_summary": "28 hcp, golfista nuevo (6 meses), tomando clases. Aún no tiene patrones estadísticos sólidos."
+  }
+]
