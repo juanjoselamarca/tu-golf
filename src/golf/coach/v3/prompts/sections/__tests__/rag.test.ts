@@ -6,17 +6,24 @@ describe('RAG_SECTION', () => {
     expect(RAG_SECTION).toContain('search_knowledge_chunks');
   });
 
-  it('incluye el contrato anti-hallucination con disclaimer exacto', () => {
-    expect(RAG_SECTION).toContain('No encontré una regla específica');
+  it('enmarca al coach como ENTRENADOR, no árbitro (foco Juanjo 29-may)', () => {
+    expect(RAG_SECTION).toMatch(/ENTRENADOR/);
+    expect(RAG_SECTION).toMatch(/no un árbitro/i);
+    expect(RAG_SECTION).toMatch(/MEJORAR su juego/i);
+  });
+
+  it('mantiene honestidad anti-invención + fallback a la app oficial', () => {
+    expect(RAG_SECTION).toMatch(/nunca inventes/i);
     expect(RAG_SECTION).toContain('https://www.usga.org/rules.html');
   });
 
   it('cubre resolución de conflictos USGA vs FedeGolf Chile', () => {
     expect(RAG_SECTION).toContain('FedeGolf Chile');
-    expect(RAG_SECTION).toMatch(/CONFLICT RESOLUTION/i);
+    expect(RAG_SECTION).toMatch(/CONFLICTOS DE JURISDICCIÓN/i);
   });
 
-  it('prohíbe responder reglas sin llamar la tool primero', () => {
-    expect(RAG_SECTION).toContain('NEVER answer rule questions without first calling the tool');
+  it('no enmarca al coach como buscador-de-reglas obligatorio', () => {
+    // El foco corregido: NO debe forzar consultar la tool ante cualquier pregunta.
+    expect(RAG_SECTION).not.toMatch(/NEVER answer rule questions/i);
   });
 });
