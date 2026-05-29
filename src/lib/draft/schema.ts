@@ -71,6 +71,10 @@ export const prizeConfigSchema = z.object({
   category_id: z.string().optional(),
   position: z.number().int().positive().optional(),
   hole_number: z.number().int().min(1).max(18).optional(),
+  // Escala del premio para ranking-based prizes (`category_position`).
+  // NULL/undefined = sin distinción. La normalización final (Match Play,
+  // tipos no ranking-based) la hace `mapPrizeForInsert` antes del INSERT.
+  kind: z.enum(['gross', 'neto']).optional(),
 })
 
 export const tournamentConfigSchema = z.object({
