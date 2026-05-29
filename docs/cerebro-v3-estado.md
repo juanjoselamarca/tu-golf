@@ -29,16 +29,27 @@
 | 4 | Migration knowledge_chunks (pgvector + tsvector + CASCADE) | `cc11172` | 5/5 | ✅ |
 | 5 | Migration rag_query_log (observabilidad) | `9adea47` | 4/4 | ✅ |
 | 6 | RPC search_chunks_hybrid (vector + BM25) | `bd600c0` | 5/5 | ✅ |
-| 7-12 | Fase B — Pipeline de ingesta (download/parse/prefix/embed/upsert/orchestrator) | — | — | ⏸️ pendiente |
-| 13-17 | Fase C — Retrieval engine TS | — | — | ⏸️ pendiente |
-| 18-20 | Fase D — Coach integration | — | — | ⏸️ pendiente |
-| 21-23 | Fase E — Admin UI | — | — | ⏸️ pendiente |
+| 7 | lib/download-pdf.mjs (sha256 + cache + retry + UA) | `047d0c6` | 5/5 | ✅ |
+| 8 | lib/parse-structural.mjs (Rule→Sub→Para + fallback) | `3f07252` | 7/7 | ✅ |
+| 9 | lib/contextual-prefix.mjs (Haiku 4.5) | `2987550` | 4/4 | ✅ |
+| 10 | lib/embed-openai.mjs (batched + retry) | `5fc1a39` | 6/6 | ✅ |
+| 11 | lib/upsert-supabase.mjs (idempotente batched) | `67ce663` | 4/4 | ✅ |
+| 12 | ingest-rules.mjs orchestrator (validado dry-run con PDF real 16MB) | `2629528` | 235 chunks | ✅ |
+| 13 | retrieval/types + embed-query LRU cache | `7b76e5a` | 5/5 | ✅ |
+| 14 | retrieval/hybrid-search wrapper RPC | `f0043d5` | 5/5 | ✅ |
+| 15 | retrieval/contextual-rerank bge-reranker + fallback | `bc71007` | 5/5 | ✅ |
+| 16 | retrieval/weighted-scoring + query-logger | `b6292d8` | 8/8 | ✅ |
+| 17 | retrieval/index orchestrator end-to-end | `4d3397a` | 4/4 | ✅ |
+| 18-20 | Fase D — Coach integration (tool + system prompt + smoke) | — | — | ⏸️ pendiente |
+| 21-23 | Fase E — Admin UI (endpoints + page) | — | — | ⏸️ pendiente |
 | 24-27 | Fase F — Ingesta real + validation | — | — | ⏸️ pendiente |
 | 28-29 | Fase G — Code review + PR + merge | — | — | ⏸️ pendiente |
 
-### Estado app en worktree (post Fase A)
+### Estado app en worktree (post Fase A+B+C)
 
 - 4 migraciones aplicadas a Supabase prod: `knowledge_sources` + `knowledge_chunks` + `rag_query_log` + RPC `search_chunks_hybrid`.
+- Pipeline de ingesta validado end-to-end con PDF real (Rules of Golf 2023, 16MB → 260 páginas → 235 chunks).
+- Retrieval engine completo: hybrid search + bge-reranker-v2-m3 fallback + weighted scoring + query logger.
 - 5 PDFs oficiales verificados (URLs reales con magic bytes %PDF):
   - usga-rules-of-golf-2023 (libro completo)
   - usga-clarifications-2026
@@ -46,15 +57,17 @@
   - whs-rules-of-handicapping-2024
   - fedegolf-chile-rno
 - Player's Edition removido del catálogo (no existe como PDF público — USGA solo lo distribuye via web/app).
-- 20 tests TDD nuevos pasando contra BD prod (con cleanup defensivo).
+- **54 tests TDD nuevos pasando** (20 BD integration + 34 unit con mocks).
+- `npx tsc --noEmit`: 0 errores.
 
 ### Desviaciones del spec maestro
 
 - 5 fuentes en lugar de 6 (Player's Edition no disponible como PDF).
 - `set_updated_at()` → reutiliza `update_updated_at()` existente en el proyecto.
+- `pdf-parse v2` requiere API nueva `new PDFParse({data}).getText()` (no `pdfParse(buf)`).
 - Tests usan `describe.skipIf` + `beforeAll(60_000)` para timeout con embeddings grandes.
 
-**Próxima sesión arranca con:** dispatch implementer subagent para Task 7 (`scripts/cerebro-v3/lib/download-pdf.mjs`). Plan full en `docs/superpowers/plans/2026-05-28-cerebro-v3-ola-1e.md`. Las Fases B-G son más voluminosas — recomendado correr con subagents fresh por task.
+**Próxima sesión arranca con:** Task 18 — `tools/search-knowledge-chunks-tool.ts` + sección RAG del system prompt v3. Plan full en `docs/superpowers/plans/2026-05-28-cerebro-v3-ola-1e.md`. Quedan ~12 tasks (Fases D-G): integración con `/api/taiger/chat`, admin UI `/admin/cerebro/fuentes`, ingesta real, validación y merge.
 
 ## Sub-olas restantes de Ola 1 (post-1e)
 
