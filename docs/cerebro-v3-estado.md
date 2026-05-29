@@ -40,10 +40,26 @@
 | 15 | retrieval/contextual-rerank bge-reranker + fallback | `bc71007` | 5/5 | ✅ |
 | 16 | retrieval/weighted-scoring + query-logger | `b6292d8` | 8/8 | ✅ |
 | 17 | retrieval/index orchestrator end-to-end | `4d3397a` | 4/4 | ✅ |
-| 18-20 | Fase D — Coach integration (tool + system prompt + smoke) | — | — | ⏸️ pendiente |
-| 21-23 | Fase E — Admin UI (endpoints + page) | — | — | ⏸️ pendiente |
-| 24-27 | Fase F — Ingesta real + validation | — | — | ⏸️ pendiente |
-| 28-29 | Fase G — Code review + PR + merge | — | — | ⏸️ pendiente |
+| 18-20 | Fase D — Coach integration (tool + RAG prompt + smoke) | `a773fcd`/`97071bc`/`b6e3bd2` | 11 | ✅ |
+| 21-23 | Fase E — Admin UI (endpoints + page) | `f7f6c94`/`e97192f`/`003b2c4` | 18 | ✅ |
+| 24 | Fase F — eval-rag-bench | `973a886` | — | ✅ |
+| 28 | Fase G — code review + fixes C1/C2/I1-I4 | `39202ca`/`dc53a2e` | +5 | ✅ |
+| 25-26 | Ingesta real + validación (Gemini) | `b83742a` | 372 chunks | ✅ |
+| 27 | Skill golf-rules-official (book-to-skill) | — | — | ⏸️ no crítico |
+| 29 | Demo Juanjo + merge | — | — | ⏸️ gate demo |
+
+**PR abierto:** #79 (`chore/cerebro-v3-ola-1e-claude` → main). NO mergeado.
+
+**Pivote arquitectónico (29-may):** sin `OPENAI_API_KEY` (billing), Juanjo eligió
+**Gemini embeddings**. `gemini-embedding-001` dim=1536 → mantiene `vector(1536)`
+sin migración. `taskType` RETRIEVAL_QUERY/DOCUMENT subió el banco 17→20/20.
+
+**Bloqueo abierto para merge:** precisión anti-hallucination (hybrid-only no
+separa limpio relevante de ruido). Fix = **reranker hosted** — decisión de
+provider pendiente (Cohere `rerank-multilingual-v3.0` ya en llm_models seed, o
+re-scoring con Gemini). El bge-reranker ONNX local quedó descartado (incompatible
+con Vercel read-only FS). + mejorar cobertura FedeGolf (Q8 devolvió 0 chunks).
+Eval completa: `docs/cerebro-v3-ola1e-evaluacion-rag.md`.
 
 ### Estado app en worktree (post Fase A+B+C)
 
@@ -67,7 +83,11 @@
 - `pdf-parse v2` requiere API nueva `new PDFParse({data}).getText()` (no `pdfParse(buf)`).
 - Tests usan `describe.skipIf` + `beforeAll(60_000)` para timeout con embeddings grandes.
 
-**Próxima sesión arranca con:** Task 18 — `tools/search-knowledge-chunks-tool.ts` + sección RAG del system prompt v3. Plan full en `docs/superpowers/plans/2026-05-28-cerebro-v3-ola-1e.md`. Quedan ~12 tasks (Fases D-G): integración con `/api/taiger/chat`, admin UI `/admin/cerebro/fuentes`, ingesta real, validación y merge.
+**Próxima sesión arranca con:** decisión de Juanjo sobre el **reranker hosted**
+(Cohere vs Gemini re-scoring) para cerrar la precisión anti-hallucination, luego
+implementarlo, mejorar cobertura FedeGolf, demo en vivo y merge del PR #79.
+Tasks 18-28 + ingesta/eval ya cerradas (ver tabla arriba). Eval RAG completa en
+`docs/cerebro-v3-ola1e-evaluacion-rag.md` (este doc vive en el branch del PR #79).
 
 ## Sub-olas restantes de Ola 1 (post-1e)
 
