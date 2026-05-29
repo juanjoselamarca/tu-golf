@@ -2,3 +2,4 @@
 // Cada sección es un fragmento que se appendea al system prompt del coach
 // cuando el feature flag `cerebro_v3_enabled` está activo para el usuario.
 export { RAG_SECTION } from './sections/rag';
+export { ENGAGEMENT_SECTION } from './sections/engagement';

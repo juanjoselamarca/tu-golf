@@ -6,7 +6,7 @@ import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { SEARCH_KNOWLEDGE_TOOL } from '@/golf/coach/v3/tools/search-knowledge-chunks-tool'
 import { handleToolUse } from '@/golf/coach/v3/tools/handle-tool-use'
-import { RAG_SECTION } from '@/golf/coach/v3/prompts'
+import { RAG_SECTION, ENGAGEMENT_SECTION } from '@/golf/coach/v3/prompts'
 import type { Jurisdiction } from '@/golf/coach/v3/retrieval/types'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       cerebroV3Enabled = false
     }
 
-    const ragSection = cerebroV3Enabled ? `\n\n${RAG_SECTION}` : ''
+    const ragSection = cerebroV3Enabled ? `\n\n${ENGAGEMENT_SECTION}\n\n${RAG_SECTION}` : ''
     const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}${ragSection}`
     const activeTools = cerebroV3Enabled
       ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL]
