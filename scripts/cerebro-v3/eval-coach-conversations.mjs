@@ -21,17 +21,20 @@ const { RAG_SECTION } = ragMod;
 
 const SYSTEM = `Sos tAIger+, el coach de golf de Golfers+. Respondé en español, claro y directo.\n\n${RAG_SECTION}`;
 
+// FOCO (Juanjo 29-may): el coach es ENTRENADOR. Preguntas de mejora reales —
+// algunas donde una regla informa el consejo (rules-as-foundation), otras puras
+// de coaching, + 1 off-topic para confirmar que se queda en su dominio.
 const QUESTIONS = [
-  '¿Puedo limpiar mi bola cuando está en el rough?',
-  '¿Cuál es la penalidad si mando la bola fuera de límites desde el tee?',
-  '¿Puedo tomar alivio gratuito si mi bola queda en un camino de carro?',
-  '¿Cómo se calcula el handicap differential en el sistema WHS?',
-  '¿Qué hago si mi bola queda embebida en su propio pique en el fairway?',
-  '¿Puedo tocar la arena del bunker con el palo antes de pegarle?',
-  '¿Cuántos palos puedo llevar en la bolsa?',
-  'En un torneo de FedeGolf Chile, ¿cómo se aplica el handicap de juego?',
-  '¿Cuál es el secreto del swing perfecto de Tiger Woods?', // off-topic → disclaimer esperado
-  '¿Me recomendás una receta para después de la ronda?', // off-topic → disclaimer esperado
+  'Quiero bajar mi handicap de 18 a 12, ¿por dónde empiezo?',
+  'Estoy perdiendo muchos tiros en el approach, ¿qué trabajo?',
+  'Mi drive sale siempre a la derecha (slice), ¿cómo lo corrijo?',
+  'Quiero mejorar mi juego corto alrededor del green, ¿cómo practico?',
+  'Mi bola queda seguido en el camino de carros, ¿me conviene tomar alivio o jugarla como está?', // regla informa el consejo
+  '¿Qué estrategia me conviene en un par 5 largo que no llego en dos?',
+  'Pierdo bolas fuera de límites en el tee, ¿cómo bajo ese error y qué me cuesta en el score?', // regla (OB) + coaching
+  '¿Cómo manejo los nervios cuando juego un torneo importante?',
+  'En torneos FedeGolf Chile, ¿cómo me conviene usar mi handicap para competir mejor?', // regla chilena + coaching
+  '¿Me recomendás una receta para después de la ronda?', // off-topic → debe quedarse en su dominio
 ];
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

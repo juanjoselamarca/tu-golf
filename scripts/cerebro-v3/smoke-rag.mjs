@@ -55,6 +55,11 @@ const NONSENSE_QUERIES = [
   'recetas para cocinar después de jugar golf',
 ];
 
+// El retrieval corre el reranker (Gemini); espaciar evita rate-limit falso del
+// free tier en corridas rápidas. En prod las queries van de a una.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const QUERY_GAP_MS = 4000;
+
 let pass = 0;
 let fail = 0;
 
@@ -78,6 +83,7 @@ for (const q of RULE_QUERIES) {
     `${ok ? '✓' : '✗'} ${q}  (${result.length} chunks, ${above.length} sobre ${SCORE_FLOOR}, top=${top(result)?.toFixed(2) ?? '-'})`,
   );
   ok ? pass++ : fail++;
+  await sleep(QUERY_GAP_MS);
 }
 
 console.log('\n=== Anti-hallucination: sin sentido (espera <2 chunks sobre 0.4) ===');
@@ -94,6 +100,7 @@ for (const q of NONSENSE_QUERIES) {
   const ok = above.length < MIN_CHUNKS;
   console.log(`${ok ? '✓' : '✗'} ${q}  (${above.length} chunks sobre ${SCORE_FLOOR})`);
   ok ? pass++ : fail++;
+  await sleep(QUERY_GAP_MS);
 }
 
 const total = pass + fail;

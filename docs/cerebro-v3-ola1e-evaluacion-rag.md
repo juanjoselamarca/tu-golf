@@ -105,10 +105,56 @@ es menor que lo que sugiere el score-gate aislado.
    gap entre top-1 y top-N, o un margen relativo. Sólo tiene sentido junto al
    reranker.
 
+## Segunda iteración (29-may PM): reframe entrenador + reranker Gemini
+
+Tras el feedback de Juanjo ("el coach es entrenador, no árbitro de reglamento"):
+
+**1. Reframe del prompt** (`RAG_SECTION`): las reglas son conocimiento de BASE
+para entrenar mejor; el coach no fuerza lookups de reglas, usa el reglamento
+cuando informa el consejo o cuando preguntan directo, y devuelve la charla al
+plan de mejora.
+
+**2. Reranker Gemini** (`gemini-2.5-flash-lite`, ~760ms): re-puntúa relevancia
+real query↔chunk. Reemplaza el ONNX local (incompatible con Vercel). Degrada a
+hybrid ante timeout/error.
+
+**Resultado — precisión arreglada** (probe espaciado, reranker activo):
+| Query | Antes (hybrid) | Ahora (reranker) |
+|---|---|---|
+| alivio cart path | 0.49 | **0.80** ✓ |
+| bola embebida | 0 (FN) | **1.00** ✓ |
+| "mejor marca de bola" (ruido) | 5 chunks (FP) | **0 chunks** ✓ |
+| "recetas para cocinar" (ruido) | 5 chunks (FP) | **0 chunks** ✓ |
+| "asdfgh gibberish" (ruido) | 5 chunks (FP) | **0 chunks** ✓ |
+
+Los 3 falsos positivos anti-hallucination del review → **resueltos**. Trade-off:
+el reranker es estricto y alguna query común puede quedar bajo el piso (ej.
+"cuántos palos") — aceptable bajo el enfoque entrenador (decir honesto "no lo
+tengo a mano" > inventar). Tuneo fino del piso 0.4 = follow-up.
+
+**Conversaciones de entrenamiento reales** (`eval-coach-conversations.mjs`, 10 Q):
+- Preguntas puras de técnica/mental (approach, slice, juego corto, estrategia
+  par 5, nervios): el coach **NO** consultó reglas — coaching directo. ✓
+- "¿Me conviene tomar alivio del cart path o jugarla?": explicó Regla 16.1 →
+  **tabla de decisión estratégica** → consejo de práctica (drops, NPCR). ✓
+- "Pierdo bolas OB, ¿cómo bajo el error y qué me cuesta?": Regla 18.2 (costo
+  golpe+distancia) + bola provisional → **plan de entrenamiento** (grip, drill
+  anti-slice, gestión de campo). ✓
+- Off-topic (receta): se quedó en su dominio. ✓
+
+El coach quedó como ENTRENADOR que usa las reglas de base, no como árbitro.
+
 ## Conclusión
 
-El pipeline funciona end-to-end: ingiere, embebe (Gemini), recupera y cita con
-100% recall en preguntas reales. El bloque a cerrar antes de exponer a usuarios
-es la **precisión anti-hallucination**, que requiere un **reranker hosted**
-(decisión de provider pendiente). Hasta entonces, el coach v3 queda detrás del
-feature flag (default OFF) — sin riesgo para usuarios.
+El pipeline funciona end-to-end: ingiere, embebe (Gemini), recupera, **re-rankea
+(Gemini flash-lite)** y cita. Con el reranker, la precisión anti-hallucination
+quedó resuelta (ruido rechazado) y el coach se comporta como ENTRENADOR que usa
+las reglas de base, no como árbitro. Queda detrás del feature flag (default OFF).
+
+**Follow-ups (no bloquean la demo):**
+1. Tuneo fino del piso 0.4 para recuperar queries comunes estrictas (ej "cuántos
+   palos") sin re-introducir ruido.
+2. Mejorar cobertura/chunking de FedeGolf (Q8 de la 1ª iteración).
+3. Monitorear latencia del reranker en prod (free tier RPM de Gemini).
+
+Próximo paso real: **demo en vivo con Juanjo** → si OK, merge del PR #79.

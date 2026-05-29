@@ -27,6 +27,12 @@ const queries = JSON.parse(
   await readFile(resolve(here, 'eval-rag-bench.queries.json'), 'utf8'),
 )
 
+// Espaciado entre queries: el retrieval ahora corre el reranker (Gemini). En
+// corridas rápidas seguidas el free tier rate-limitea → timeouts falsos. 4s
+// mantiene bajo el RPM. En prod las queries van de a una (no aplica).
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const QUERY_GAP_MS = 4000
+
 let pass = 0
 let fail = 0
 const results = []
@@ -56,6 +62,7 @@ for (const { id, query, expect_topic } of queries) {
   console.log(
     `${ok ? '✓' : '✗'} ${id}  ${query}  top=${top?.scores.final?.toFixed(2) ?? '-'}  (${top?.breadcrumb ?? '—'})`,
   )
+  await sleep(QUERY_GAP_MS)
 }
 
 const total = pass + fail
