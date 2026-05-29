@@ -21,12 +21,40 @@
 
 ### Progreso sub-ola 1e
 
-| # | Task | Commit | Estado |
-|---|---|---|---|
-| 1 | Setup worktree + @xenova/transformers | `3f24f53` + `cef5368` | ✅ |
-| 2-29 | Implementación + ingesta + validación + close | — | ⏸️ pendiente |
+| # | Task | Commit | Tests | Estado |
+|---|---|---|---|---|
+| 1 | Setup worktree + @xenova/transformers | `3f24f53` + `cef5368` | — | ✅ |
+| 2 | sources.config.json + verify-sources con 5 PDFs verificados | `04f2840` | URLs OK | ✅ |
+| 3 | Migration knowledge_sources + RLS | `5537e74` | 6/6 | ✅ |
+| 4 | Migration knowledge_chunks (pgvector + tsvector + CASCADE) | `cc11172` | 5/5 | ✅ |
+| 5 | Migration rag_query_log (observabilidad) | `9adea47` | 4/4 | ✅ |
+| 6 | RPC search_chunks_hybrid (vector + BM25) | `bd600c0` | 5/5 | ✅ |
+| 7-12 | Fase B — Pipeline de ingesta (download/parse/prefix/embed/upsert/orchestrator) | — | — | ⏸️ pendiente |
+| 13-17 | Fase C — Retrieval engine TS | — | — | ⏸️ pendiente |
+| 18-20 | Fase D — Coach integration | — | — | ⏸️ pendiente |
+| 21-23 | Fase E — Admin UI | — | — | ⏸️ pendiente |
+| 24-27 | Fase F — Ingesta real + validation | — | — | ⏸️ pendiente |
+| 28-29 | Fase G — Code review + PR + merge | — | — | ⏸️ pendiente |
 
-**Próxima sesión arranca con:** dispatch implementer subagent para Task 2 (`scripts/cerebro-v3/sources.config.json` + `verify-sources.mjs`). Plan full en `docs/superpowers/plans/2026-05-28-cerebro-v3-ola-1e.md`.
+### Estado app en worktree (post Fase A)
+
+- 4 migraciones aplicadas a Supabase prod: `knowledge_sources` + `knowledge_chunks` + `rag_query_log` + RPC `search_chunks_hybrid`.
+- 5 PDFs oficiales verificados (URLs reales con magic bytes %PDF):
+  - usga-rules-of-golf-2023 (libro completo)
+  - usga-clarifications-2026
+  - usga-local-rules-2023 (sustituye Committee Procedures — no había PDF completo)
+  - whs-rules-of-handicapping-2024
+  - fedegolf-chile-rno
+- Player's Edition removido del catálogo (no existe como PDF público — USGA solo lo distribuye via web/app).
+- 20 tests TDD nuevos pasando contra BD prod (con cleanup defensivo).
+
+### Desviaciones del spec maestro
+
+- 5 fuentes en lugar de 6 (Player's Edition no disponible como PDF).
+- `set_updated_at()` → reutiliza `update_updated_at()` existente en el proyecto.
+- Tests usan `describe.skipIf` + `beforeAll(60_000)` para timeout con embeddings grandes.
+
+**Próxima sesión arranca con:** dispatch implementer subagent para Task 7 (`scripts/cerebro-v3/lib/download-pdf.mjs`). Plan full en `docs/superpowers/plans/2026-05-28-cerebro-v3-ola-1e.md`. Las Fases B-G son más voluminosas — recomendado correr con subagents fresh por task.
 
 ## Sub-olas restantes de Ola 1 (post-1e)
 
