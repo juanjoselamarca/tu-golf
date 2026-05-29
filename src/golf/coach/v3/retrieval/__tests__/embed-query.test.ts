@@ -22,6 +22,7 @@ describe('embedQuery (Gemini)', () => {
     expect(client.embedContent).toHaveBeenCalledWith({
       content: { parts: [{ text: 'test query' }] },
       outputDimensionality: EMBED_DIM,
+      taskType: 'RETRIEVAL_QUERY',
     });
   });
 

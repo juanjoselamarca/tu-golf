@@ -34,6 +34,7 @@ describe('embedBatch (Gemini)', () => {
     expect(call.requests[0]).toEqual({
       content: { parts: [{ text: 'a' }] },
       outputDimensionality: EMBED_DIM,
+      taskType: 'RETRIEVAL_DOCUMENT',
     });
   });
 

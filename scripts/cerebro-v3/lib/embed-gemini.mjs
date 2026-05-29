@@ -36,6 +36,8 @@ export async function embedBatch(client, texts, opts = {}) {
           requests: slice.map((text) => ({
             content: { parts: [{ text }] },
             outputDimensionality: dim,
+            // RETRIEVAL_DOCUMENT debe parear con RETRIEVAL_QUERY en embed-query.ts.
+            taskType: 'RETRIEVAL_DOCUMENT',
           })),
         });
         // batchEmbedContents preserva el orden de requests.

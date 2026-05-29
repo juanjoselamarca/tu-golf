@@ -12,11 +12,14 @@
  * Requiere corpus ingestado (Task 25) + .env.local con SUPABASE + OPENAI keys.
  *
  * Uso:
- *   node --import tsx --env-file=.env.local scripts/cerebro-v3/smoke-rag.mjs
+ *   node_modules/.bin/tsx --env-file=.env.local scripts/cerebro-v3/smoke-rag.mjs
  *
  * Importa el motor de retrieval TypeScript real (vía tsx), no una reimplementación.
+ * Default-import: tsx transpila el .ts a CJS (proyecto CJS), así que los exports
+ * vienen en el default, no como named ESM.
  */
-import { searchKnowledgeChunks } from '../../src/golf/coach/v3/retrieval/index.ts';
+import retrieval from '../../src/golf/coach/v3/retrieval/index.ts';
+const { searchKnowledgeChunks } = retrieval;
 
 const SCORE_FLOOR = 0.4; // umbral del contrato anti-hallucination (spec §6).
 const MIN_CHUNKS = 2;

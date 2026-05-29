@@ -28,6 +28,7 @@ export interface EmbedClient {
   embedContent(req: {
     content: { parts: { text: string }[] };
     outputDimensionality?: number;
+    taskType?: string;
   }): Promise<{ embedding: { values: number[] } }>;
 }
 
@@ -88,6 +89,10 @@ export async function embedQuery(
   const res = await client.embedContent({
     content: { parts: [{ text: query }] },
     outputDimensionality: EMBED_DIM,
+    // taskType RETRIEVAL_QUERY mejora la similitud query↔documento (sobre todo
+    // cross-lingual: queries ES vs corpus EN). Debe parear con RETRIEVAL_DOCUMENT
+    // en la ingesta (embed-gemini.mjs).
+    taskType: 'RETRIEVAL_QUERY',
   });
   const embedding = res.embedding.values;
   // Gemini embedContent no devuelve uso de tokens; estimamos ~4 chars/token

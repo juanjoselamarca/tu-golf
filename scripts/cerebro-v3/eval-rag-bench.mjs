@@ -7,14 +7,16 @@
  * cambio del parser/embedding/alpha para detectar regresiones.
  *
  * Uso:
- *   node --import tsx --env-file=.env.local scripts/cerebro-v3/eval-rag-bench.mjs
+ *   node_modules/.bin/tsx --env-file=.env.local scripts/cerebro-v3/eval-rag-bench.mjs
  *
- * Importa el motor de retrieval TypeScript real vía tsx.
+ * Importa el motor de retrieval TypeScript real vía tsx. Default-import: tsx
+ * transpila el .ts a CJS (proyecto CJS), exports vienen en el default.
  */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
-import { searchKnowledgeChunks } from '../../src/golf/coach/v3/retrieval/index.ts'
+import retrieval from '../../src/golf/coach/v3/retrieval/index.ts'
+const { searchKnowledgeChunks } = retrieval
 
 const SCORE_FLOOR = 0.4
 const MIN_CHUNKS = 2
