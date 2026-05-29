@@ -10,7 +10,7 @@
  *      c. extraer texto con pdf-parse
  *      d. parseStructural → chunks con breadcrumb
  *      e. generar contextual prefix con Haiku (paralelo, batched)
- *      f. embed con OpenAI text-embedding-3-small (batched 100)
+ *      f. embed con Gemini gemini-embedding-001 dim=1536 (batched 100)
  *      g. upsertChunks (idempotente por chunk_hash)
  *      h. update knowledge_sources con status='ready' + métricas
  *   3. Report total cost + chunks ingestados.
@@ -26,12 +26,12 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PDFParse } from 'pdf-parse';
 import { downloadPdf } from './lib/download-pdf.mjs';
 import { parseStructural } from './lib/parse-structural.mjs';
 import { generateContextualPrefix } from './lib/contextual-prefix.mjs';
-import { embedBatch } from './lib/embed-openai.mjs';
+import { embedBatch, EMBED_MODEL } from './lib/embed-gemini.mjs';
 import { upsertChunks } from './lib/upsert-supabase.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -73,8 +73,9 @@ const anthropic =
     ? null
     : new Anthropic({ apiKey: requireEnv('ANTHROPIC_API_KEY') });
 
-// OpenAI solo si se hacen embeddings (no dry-run)
-const openai = DRY_RUN ? null : new OpenAI({ apiKey: requireEnv('OPENAI_API_KEY') });
+// Gemini solo si se hacen embeddings (no dry-run)
+const genAI = DRY_RUN ? null : new GoogleGenerativeAI(requireEnv('GEMINI_API_KEY'));
+const embedClient = genAI ? genAI.getGenerativeModel({ model: EMBED_MODEL }) : null;
 
 const configPath = resolve(__dirname, 'sources.config.json');
 const config = JSON.parse(await readFile(configPath, 'utf8'));
@@ -196,14 +197,14 @@ for (const src of targets) {
 
     if (DRY_RUN) {
       const estimatedTokens = chunks.reduce((s, c) => s + c.tokenCount, 0);
-      const estEmbedCost = (estimatedTokens / 1000) * 0.00002;
+      const estEmbedCost = 0; // Gemini embeddings free tier
       console.log(`  [DRY-RUN] would embed ${chunks.length} chunks (~${estimatedTokens.toLocaleString()} tokens, ~$${estEmbedCost.toFixed(4)})`);
       continue;
     }
 
     // 5. Embed
-    console.log(`  ⊡ Embedding ${chunks.length} chunks with text-embedding-3-small...`);
-    const { embeddings, costUsd: embedCost, tokens } = await embedBatch(openai, chunks.map((c) => c.contentForEmbed));
+    console.log(`  ⊡ Embedding ${chunks.length} chunks with ${EMBED_MODEL}...`);
+    const { embeddings, costUsd: embedCost, tokens } = await embedBatch(embedClient, chunks.map((c) => c.contentForEmbed));
     chunks.forEach((c, i) => {
       c.embedding = embeddings[i];
     });

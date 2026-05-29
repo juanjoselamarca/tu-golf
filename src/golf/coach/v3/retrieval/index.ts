@@ -11,9 +11,10 @@ import type {
   RerankedCandidate,
 } from './types';
 
-const EMBED_MODEL = 'text-embedding-3-small';
+const EMBED_MODEL = 'gemini-embedding-001';
 const RERANKER_MODEL = 'bge-reranker-v2-m3';
-const EMBED_COST_PER_1K = 0.00002;
+// Gemini embeddings free tier → costo ~0. Si se pasa a tier pagado, actualizar.
+const EMBED_COST_PER_1K = 0;
 
 /**
  * Piso de relevancia y mínimo de chunks fuertes para el contrato

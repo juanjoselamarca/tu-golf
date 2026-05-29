@@ -24,7 +24,7 @@ describe('logRagQuery', () => {
       citedChunkIds: ['c1', 'c2'],
       latencyMs: 123,
       costUsd: 0.00001,
-      embeddingModel: 'text-embedding-3-small',
+      embeddingModel: 'gemini-embedding-001',
       rerankerModel: 'bge-reranker-v2-m3',
     });
 
@@ -38,7 +38,7 @@ describe('logRagQuery', () => {
         top_k_requested: 5,
         hybrid_alpha: 0.7,
         cited_chunk_ids: ['c1', 'c2'],
-        embedding_model: 'text-embedding-3-small',
+        embedding_model: 'gemini-embedding-001',
         error_code: null,
         user_id: null,
       })
@@ -57,7 +57,7 @@ describe('logRagQuery', () => {
       citedChunkIds: [],
       latencyMs: 50,
       costUsd: 0.000001,
-      embeddingModel: 'text-embedding-3-small',
+      embeddingModel: 'gemini-embedding-001',
       rerankerModel: 'bge-reranker-v2-m3',
       errorCode: 'no_results',
     });

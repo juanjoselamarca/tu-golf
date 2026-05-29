@@ -1,5 +1,17 @@
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createHash } from 'node:crypto';
+
+/**
+ * Embedding de queries del retrieval RAG (cerebro v3).
+ *
+ * Provider: Gemini `gemini-embedding-001` con `outputDimensionality: 1536`
+ * (decisión Juanjo 2026-05-29 — usamos la GEMINI_API_KEY existente, free tier,
+ * sin nueva relación de billing). 1536 dims mantiene la columna `vector(1536)`
+ * sin migración de schema. El RPC usa cosine (`<=>`), magnitude-invariant, así
+ * que no requiere normalización manual del vector truncado por MRL.
+ */
+export const EMBED_MODEL = 'gemini-embedding-001';
+export const EMBED_DIM = 1536;
 
 const CACHE_MAX = 1000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -10,7 +22,16 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>();
-let sharedClient: OpenAI | null = null;
+
+/** Cliente mínimo de embeddings (lo que usamos del SDK de Gemini). Inyectable en tests. */
+export interface EmbedClient {
+  embedContent(req: {
+    content: { parts: { text: string }[] };
+    outputDimensionality?: number;
+  }): Promise<{ embedding: { values: number[] } }>;
+}
+
+let sharedClient: EmbedClient | null = null;
 
 function hashKey(query: string): string {
   return createHash('sha256').update(query).digest('hex');
@@ -36,8 +57,15 @@ export function _resetCacheForTests(): void {
   sharedClient = null;
 }
 
+function getClient(): EmbedClient {
+  if (sharedClient) return sharedClient;
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
+  sharedClient = genAI.getGenerativeModel({ model: EMBED_MODEL }) as unknown as EmbedClient;
+  return sharedClient;
+}
+
 export interface EmbedQueryOpts {
-  client?: Pick<OpenAI, 'embeddings'>;
+  client?: EmbedClient;
   model?: string;
 }
 
@@ -56,15 +84,15 @@ export async function embedQuery(
   if (hit && Date.now() - hit.ts <= CACHE_TTL_MS) {
     return { embedding: hit.embedding, fromCache: true, tokens: 0 };
   }
-  const client =
-    opts.client ??
-    (sharedClient ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' }));
-  const res = await client.embeddings.create({
-    model: opts.model ?? 'text-embedding-3-small',
-    input: [query],
+  const client = opts.client ?? getClient();
+  const res = await client.embedContent({
+    content: { parts: [{ text: query }] },
+    outputDimensionality: EMBED_DIM,
   });
-  const embedding = res.data[0].embedding;
-  const tokens = res.usage?.total_tokens ?? 0;
+  const embedding = res.embedding.values;
+  // Gemini embedContent no devuelve uso de tokens; estimamos ~4 chars/token
+  // para observabilidad (el costo real en free tier es ~0).
+  const tokens = Math.ceil(query.length / 4);
   cache.set(key, { embedding, ts: Date.now() });
   pruneCache();
   return { embedding, fromCache: false, tokens };
