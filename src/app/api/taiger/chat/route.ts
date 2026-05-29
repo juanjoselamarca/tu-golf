@@ -4,6 +4,10 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from '@/golf/coach/prompts'
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
+import { SEARCH_KNOWLEDGE_TOOL } from '@/golf/coach/v3/tools/search-knowledge-chunks-tool'
+import { handleToolUse } from '@/golf/coach/v3/tools/handle-tool-use'
+import { RAG_SECTION } from '@/golf/coach/v3/prompts'
+import type { Jurisdiction } from '@/golf/coach/v3/retrieval/types'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
 import { validateResponse, type HallucinationWarning } from '@/golf/coach/hallucination-validator'
@@ -86,7 +90,28 @@ export async function POST(req: NextRequest) {
     const sessionStarter = TAIGER_SESSION_STARTER
     const toolsInstruction = `\n\nHERRAMIENTAS DISPONIBLES:\nTienes acceso a tools para consultar datos reales del jugador y para asignar planes estructurados:\n- get_latest_round: detalle hoyo-por-hoyo de su última ronda finalizada\n- get_round_by_id: detalle de una ronda específica por UUID\n- get_round_by_date: ronda por fecha (YYYY-MM-DD), opcional cancha\n- get_recent_rounds: resumen de últimas N rondas\n- get_all_rounds_summary: agregados sobre el 100% del histórico\n- get_course_details: pares y stroke index por hoyo de una cancha\n- save_plan: ASIGNA un plan estructurado al jugador (patrón + hipótesis + métrica + target). Es la ÚNICA forma de comprometer un plan.\n\nREGLA CRÍTICA — DATOS: Cuando el jugador haga referencia a una ronda específica, cancha, fecha o score concreto — SIEMPRE llama la tool apropiada antes de responder. NUNCA inventes scores, pares ni configuraciones de hoyos. Si la data no está en tools ni en el contexto inyectado, dilo honestamente.\n\nREGLA CRÍTICA — PLANES: Si vas a comprometer un plan ("trabaja esto", "tu tarea de la semana", "te recomiendo enfocarte en…"), DEBES llamar la tool save_plan con el schema completo. NO escribas planes en prosa sin guardar. Si no tenés datos suficientes para llenar el schema (data_points >= 5, metric_value real, hipótesis concreta), pedí más datos al jugador en lugar de inventar.`
 
-    const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}`
+    // Feature flag cerebro v3 por usuario (profiles.cerebro_v3_enabled).
+    // Solo si está ON exponemos la tool RAG de reglas + la sección del prompt.
+    // Coach v2 sigue idéntico para todos los demás (rollback seguro).
+    let cerebroV3Enabled = false
+    try {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('cerebro_v3_enabled')
+        .eq('id', user.id)
+        .maybeSingle()
+      cerebroV3Enabled = prof?.cerebro_v3_enabled === true
+    } catch (flagErr) {
+      // Fail-closed: ante cualquier error, coach v2 sin RAG.
+      console.error('[tAIger/chat] cerebro_v3 flag error:', flagErr)
+      cerebroV3Enabled = false
+    }
+
+    const ragSection = cerebroV3Enabled ? `\n\n${RAG_SECTION}` : ''
+    const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}${ragSection}`
+    const activeTools = cerebroV3Enabled
+      ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL]
+      : TAIGER_TOOLS
     const anthropic = new Anthropic({ apiKey })
 
     // Sesion activa pre-fetched: necesario para que save_plan pueda referenciar
@@ -143,7 +168,7 @@ export async function POST(req: NextRequest) {
                   cache_control: { type: 'ephemeral' },
                 },
               ],
-              tools: TAIGER_TOOLS as unknown as Anthropic.Tool[],
+              tools: activeTools as unknown as Anthropic.Tool[],
               messages: loopMessages as unknown as Anthropic.MessageParam[],
             })
 
@@ -171,15 +196,35 @@ export async function POST(req: NextRequest) {
                   ))
 
                   const t0 = Date.now()
-                  const result = await executeTool(block.name, block.input as Record<string, unknown>, toolCtx)
+                  // La tool RAG v3 (search_knowledge_chunks) va por handleToolUse;
+                  // el resto de las tools v2 por executeTool. Mismo shape {ok,data}
+                  // para que la instrumentación de abajo funcione sin cambios.
+                  let result: { ok: boolean; data?: unknown; error?: string }
+                  let serialized: string
+                  if (block.name === 'search_knowledge_chunks') {
+                    const trBlock = await handleToolUse(
+                      {
+                        tool_use_id: block.id,
+                        name: block.name,
+                        input: block.input as { query?: string; jurisdictions?: Jurisdiction[] },
+                      },
+                      { userId: user.id },
+                    )
+                    serialized = trBlock.content
+                    const parsed = JSON.parse(serialized) as { error?: string }
+                    result = { ok: !parsed.error, data: parsed, error: parsed.error }
+                    toolResults.push(trBlock)
+                  } else {
+                    result = await executeTool(block.name, block.input as Record<string, unknown>, toolCtx)
+                    serialized = JSON.stringify(result)
+                    toolResults.push({
+                      type: 'tool_result',
+                      tool_use_id: block.id,
+                      content: serialized,
+                    })
+                  }
                   const ms = Date.now() - t0
-                  const serialized = JSON.stringify(result)
                   allToolResultStrings.push(serialized)
-                  toolResults.push({
-                    type: 'tool_result',
-                    tool_use_id: block.id,
-                    content: serialized,
-                  })
 
                   // Si la tool devolvió una ronda con scores+pares, mandamos
                   // un summary compacto para que el cliente pueda renderizar
