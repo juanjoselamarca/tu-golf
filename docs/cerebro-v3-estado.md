@@ -1,13 +1,43 @@
-# Estado Cerebro V3 — Actualizado 2026-05-27 18:25 GMT-4
+# Estado Cerebro V3 — Actualizado 2026-05-28 15:25 GMT-4
 
 > Este archivo es el dashboard vivo del proyecto cerebro v3. Se actualiza al cierre de cada sesión que toque el proyecto. Si lees esto al iniciar una sesión, sabés exactamente dónde retomar.
 >
 > Fuente única de verdad arquitectónica: `docs/superpowers/specs/2026-05-26-cerebro-v3-diseño.md`.
 
-## Próxima ola
+## Ola activa — EN EJECUCIÓN
 
-- **Ola 1 — El coach estudia el mundo** — estado: `awaiting_kickoff` (esperando OK de Juanjo para arrancar)
-- Bloqueada hasta el OK explícito. Cuando arranque: brainstorming → spec/plan → ejecución TDD por tasks, mismo protocolo que Ola 0.
+- **Ola 1 — El coach estudia el mundo** — estado: `in_progress`
+- **Sub-ola activa:** 1e — Reglas oficiales en `knowledge_chunks` (USGA/R&A/WHS/FedeGolf)
+- **Spec sub-ola 1e:** `docs/superpowers/specs/2026-05-28-cerebro-v3-ola-1e-design.md` (commit `2fad0bc`)
+- **Plan sub-ola 1e:** `docs/superpowers/plans/2026-05-28-cerebro-v3-ola-1e.md` (commit `de6b54b`) — 29 tasks TDD en 7 fases (A: schema → G: close)
+- **Worktree:** `.claude/worktrees/cerebro-v3-ola-1e/` en branch `chore/cerebro-v3-ola-1e-claude`
+- **Modo de ejecución:** subagent-driven (decisión Juanjo 2026-05-28)
+- **Decisiones arquitectónicas tomadas en brainstorming 2026-05-28:**
+  - 5 PRs por sub-ola (1a-1e), no un PR gigante por toda la Ola 1.
+  - Sub-ola 1e primero (reglas oficiales): dataset acotado, valida infra RAG completa.
+  - RAG completo desde 1e: hybrid search (vector + BM25) + contextual retrieval (Anthropic 2024) + bge-reranker-v2-m3 local (ONNX vía `@xenova/transformers`).
+  - 6 fuentes oficiales con jurisdicción + priority_rank para resolver conflictos USGA vs FedeGolf Chile.
+  - Admin UI `/admin/cerebro/fuentes` con re-indexado manual.
+
+### Progreso sub-ola 1e
+
+| # | Task | Commit | Estado |
+|---|---|---|---|
+| 1 | Setup worktree + @xenova/transformers | `3f24f53` + `cef5368` | ✅ |
+| 2-29 | Implementación + ingesta + validación + close | — | ⏸️ pendiente |
+
+**Próxima sesión arranca con:** dispatch implementer subagent para Task 2 (`scripts/cerebro-v3/sources.config.json` + `verify-sources.mjs`). Plan full en `docs/superpowers/plans/2026-05-28-cerebro-v3-ola-1e.md`.
+
+## Sub-olas restantes de Ola 1 (post-1e)
+
+| Sub-ola | Días | Estado |
+|---|---|---|
+| 1b — Distribuciones (USGA/R&A reports, Course DB, Stagner) | 3-4 | bloqueada hasta merge de 1e |
+| 1c — Estrategia (Decade, Broadie, podcasts) | 3-4 | bloqueada hasta merge de 1e |
+| 1d — Psicología (Rotella, Nilsson, Parent, McCabe, Valiante) | 3-4 | bloqueada hasta merge de 1e |
+| 1a — Datos PGA + amateurs (scraping responsable) | 8-10 | bloqueada hasta merge de 1e |
+
+## Ola anterior — CERRADA
 
 ## Ola anterior — CERRADA
 
