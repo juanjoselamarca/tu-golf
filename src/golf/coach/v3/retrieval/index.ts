@@ -12,7 +12,7 @@ import type {
 } from './types';
 
 const EMBED_MODEL = 'gemini-embedding-001';
-const RERANKER_MODEL = 'gemini-2.5-flash'; // reranker LLM (re-scoring), ver contextual-rerank.ts
+const RERANKER_MODEL = 'gemini-2.5-flash-lite'; // reranker LLM (re-scoring), ver contextual-rerank.ts
 // Gemini embeddings free tier → costo ~0. Si se pasa a tier pagado, actualizar.
 const EMBED_COST_PER_1K = 0;
 

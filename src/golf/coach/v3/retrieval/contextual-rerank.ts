@@ -17,8 +17,10 @@ import type { ChunkCandidate, RerankedCandidate } from './types';
  *     hybridScore (fallback). El coach jamás se queda colgado ni sin resultados.
  *   • temperature 0 para scores estables.
  */
-export const RERANK_MODEL = 'gemini-2.5-flash';
-const RERANK_TIMEOUT_MS = 8000;
+// flash-lite: ~760ms/call vs ~3.2s de 2.5-flash (que trae "thinking" ON). Para
+// un reranker queremos baja latencia en el request del coach. Medido 2026-05-29.
+export const RERANK_MODEL = 'gemini-2.5-flash-lite';
+const RERANK_TIMEOUT_MS = 10000;
 const SNIPPET_CHARS = 500;
 
 interface RerankModel {
