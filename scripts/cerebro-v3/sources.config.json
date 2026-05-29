@@ -1,0 +1,57 @@
+[
+  {
+    "slug": "usga-rules-of-golf-2023",
+    "title": "Rules of Golf — Effective January 2023",
+    "authors": ["USGA", "R&A"],
+    "url_source": "https://assets-us-01.kc-usercontent.com/c42c7bf4-dca7-00ea-4f2e-373223f80f76/48712d47-76dc-4fd3-add1-53972c021580/2023%20Rules%20of%20Golf.pdf",
+    "block_key": "rules",
+    "jurisdiction": "usga",
+    "priority_rank": 100,
+    "is_authoritative_for": ["rules_global", "rules_official"],
+    "legal_basis": "public_domain_official_publication"
+  },
+  {
+    "slug": "usga-clarifications-2026",
+    "title": "Additional Clarifications of the 2023 Rules of Golf — Updated January 1, 2026",
+    "authors": ["USGA", "R&A"],
+    "url_source": "https://www.usga.org/content/dam/usga/pdf/2026/Additional%20Clarifications%20of%20the%202023%20Rules%20of%20Golf%20-%201%20January%202026%20-%20final%20(Dec%2023).pdf",
+    "block_key": "rules",
+    "jurisdiction": "usga",
+    "priority_rank": 98,
+    "is_authoritative_for": ["rules_clarification"],
+    "legal_basis": "public_domain_official_publication"
+  },
+  {
+    "slug": "usga-local-rules-2023",
+    "title": "USGA Local Rules and Terms of the Competition 2022-2023",
+    "authors": ["USGA"],
+    "url_source": "https://www.usga.org/content/dam/usga/pdf/2023/rules/2022%20and%202023%20USGA%20Local%20Rules%20and%20Terms%20of%20the%20Competition.pdf",
+    "block_key": "rules",
+    "jurisdiction": "usga_committee",
+    "priority_rank": 85,
+    "is_authoritative_for": ["local_rules_model", "committee_procedures_excerpts"],
+    "legal_basis": "public_domain_official_publication"
+  },
+  {
+    "slug": "whs-rules-of-handicapping-2024",
+    "title": "Rules of Handicapping — Effective January 2024 (World Handicap System)",
+    "authors": ["USGA", "R&A"],
+    "url_source": "https://www.usga.org/content/dam/usga/pdf/2024-revision/2024-Rules-of-Handicapping-USGA.pdf",
+    "block_key": "rules",
+    "jurisdiction": "whs_global",
+    "priority_rank": 90,
+    "is_authoritative_for": ["handicap_global"],
+    "legal_basis": "public_domain_official_publication"
+  },
+  {
+    "slug": "fedegolf-chile-rno",
+    "title": "Reglamento para Campeonatos Válidos para el Ranking Nacional Oficial — FedeGolf Chile",
+    "authors": ["Federación Chilena de Golf"],
+    "url_source": "https://chilegolf.cl/sitio/files/archivos/67f040d4-68e4-4ad9-b69c-3876c83f600b.pdf",
+    "block_key": "rules",
+    "jurisdiction": "fedegolf_chile",
+    "priority_rank": 110,
+    "is_authoritative_for": ["handicap_chile", "tournament_rules_chile"],
+    "legal_basis": "public_official_publication"
+  }
+]
