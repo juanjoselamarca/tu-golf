@@ -33,7 +33,9 @@ describe('downloadPdf (live HTTP)', () => {
     expect(sizeBytes).toBeGreaterThan(100_000);
     const buf = await readFile(path);
     expect(buf.subarray(0, 4).toString('ascii')).toBe('%PDF');
-  }, 60_000);
+    // Descarga live de un PDF de 16MB; bajo carga concurrente del suite completo
+    // 60s no alcanza (en aislamiento corre ~50s). 120s evita el flake.
+  }, 120_000);
 
   it('segunda llamada devuelve fromCache=true', async () => {
     const { fromCache, hash: hash1 } = await downloadPdf(TEST_URL, { cacheDir: CACHE_DIR });
@@ -41,7 +43,7 @@ describe('downloadPdf (live HTTP)', () => {
     // Hash debe ser idéntico al de la primera descarga
     const { hash: hash2 } = await downloadPdf(TEST_URL, { cacheDir: CACHE_DIR });
     expect(hash1).toBe(hash2);
-  }, 30_000);
+  }, 60_000);
 
   it('URL inválida lanza después de retries', async () => {
     await expect(
