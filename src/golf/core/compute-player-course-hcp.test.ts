@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computePlayerCourseHcp } from './compute-player-course-hcp'
+import { computePlayerCourseHcp, resolveScoringCourseHcp } from './compute-player-course-hcp'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 
 const teeAzul: CourseTeeRow = { id: 'tee-azul', nombre: 'Azul', rating: 72.1, slope: 131, yardaje_total: 6573, genero: null }
@@ -105,5 +105,32 @@ describe('computePlayerCourseHcp', () => {
     // CH_9h = 15 × (131/113) + (36.05 - 36) = 15 × 1.159 + 0.05 = 17.39 + 0.05 = 17.44 → round = 17
     const ch = computePlayerCourseHcp(basePlayer, tournament, [], 36, 9)
     expect(ch).toBe(17)
+  })
+})
+
+describe('resolveScoringCourseHcp — gate por torneo (decisión 28-may)', () => {
+  // basePlayer: índice 15, tee global 'Azul' (rating 72.1, slope 131)
+  // WHS esperado = round(15 × 131/113 + (72.1−72)) = round(17.49) = 17
+  const whsValue = computePlayerCourseHcp(basePlayer, baseTournament, allTees, 72, 18)
+
+  it("mode 'whs' aplica course handicap WHS (torneos nuevos)", () => {
+    expect(resolveScoringCourseHcp('whs', basePlayer, baseTournament, allTees, 72, 18)).toBe(whsValue)
+    expect(whsValue).toBe(17)
+  })
+
+  it("mode 'raw' usa índice crudo, NO WHS (torneos existentes/in_progress)", () => {
+    const ch = resolveScoringCourseHcp('raw', basePlayer, baseTournament, allTees, 72, 18)
+    expect(ch).toBe(15) // handicap_at_registration crudo, no convertido
+    expect(ch).not.toBe(whsValue)
+  })
+
+  it('mode null/undefined cae a índice crudo (default seguro, no altera histórico)', () => {
+    expect(resolveScoringCourseHcp(null, basePlayer, baseTournament, allTees, 72, 18)).toBe(15)
+    expect(resolveScoringCourseHcp(undefined, basePlayer, baseTournament, allTees, 72, 18)).toBe(15)
+  })
+
+  it('mode raw con índice null devuelve 0', () => {
+    const player = { ...basePlayer, handicap_at_registration: null }
+    expect(resolveScoringCourseHcp('raw', player, baseTournament, allTees, 72, 18)).toBe(0)
   })
 })
