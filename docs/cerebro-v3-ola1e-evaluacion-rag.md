@@ -51,6 +51,38 @@ OFF (hybrid puro — el ONNX local es incompatible con Vercel, ver C1 del review
    vía vector (BM25 'simple' aporta ~0 entre idiomas distintos), lo que aprieta
    el rango de similitud.
 
+## Conversaciones reales con el coach (`eval-coach-conversations.mjs`)
+
+10 preguntas a través del loop real (Anthropic Sonnet + tool + corpus). Evaluación:
+
+| # | Pregunta | Chunk top | ¿Correcto? |
+|---|---|---|---|
+| Q1 | limpiar bola en rough | Rule 14 [usga] 0.50 | ✅ cita "Regla 14.1c" precisa |
+| Q2 | penalidad OB desde tee | Rule 18 [usga] 0.50 | ✅ |
+| Q3 | alivio cart path | Rule 14, 15, **16** 0.51 | ⚠️ la regla correcta (16) está, pero 3ª |
+| Q4 | handicap differential WHS | Rule 5 [whs] 0.54 | ✅ |
+| Q5 | bola embebida | Rule 16 [usga] 0.50 (×3) | ✅ fuerte |
+| Q6 | tocar arena bunker | Rule 12 [usga] 0.52 | ✅ |
+| Q7 | cuántos palos | Rule 4 [usga] 0.52 | ✅ |
+| Q8 | handicap de juego FedeGolf | **(ninguno)** | ❌ 0 chunks pero el coach **respondió igual** con detalles de allowance → riesgo de inventar reglas chilenas |
+| Q9 | swing de Tiger (off-topic) | (ninguno) | ✅ responde como coach general (no es regla, OK) |
+| Q10 | receta post-ronda (off-topic) | (ninguno) | ✅ declina y redirige correctamente |
+
+**Defensa en profundidad confirmada:** aunque el smoke marcó FP a nivel score-gate
+("recetas" devolvía chunks), el coach real (Q10) declinó correctamente — el LLM
+leyendo chunks irrelevantes no inventa. Es decir, el riesgo real de hallucination
+es menor que lo que sugiere el score-gate aislado.
+
+**Hallazgos nuevos de las conversaciones:**
+- **Q8 es el más serio:** para una pregunta de handicap FedeGolf, el retrieval
+  devolvió 0 chunks (cobertura del corpus FedeGolf delgada / phrasing) y el coach
+  respondió de su conocimiento general WHS en vez de usar el disclaimer. Para
+  reglas chilenas específicas esto puede dar info que no matchea el reglamento
+  real. **Fix:** (a) endurecer el contrato para handicap/FedeGolf cuando hay 0
+  chunks; (b) ampliar/mejorar el chunking de la fuente FedeGolf.
+- **Formato de cita:** el coach cita "Regla 14.1c" inline, no el formato
+  `[Regla — fuente]` del contrato. Afinar el prompt si se quiere el formato exacto.
+
 ## Qué mejorar (priorizado)
 
 1. **Reranker hosted (alto impacto).** Un reranker (Cohere `rerank-multilingual-v3.0`
