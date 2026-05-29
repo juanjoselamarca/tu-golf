@@ -26,8 +26,29 @@ const SCORE_PAGE           = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score
 const FINALIZE_RONDA_HOOK  = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda.ts')
 const GAME_ACTIONS         = path.join(ROOT, 'src/app/api/game/actions.ts')
 
+// Post-refactor: historial page.tsx is a thin orchestrator — logic/components
+// now live in hooks/, components/, and lib/. Tests that grep for code patterns
+// must search all module files.
+const HISTORIAL_DIR = path.join(ROOT, 'src/app/perfil/historial')
+
 function readSrc(filePath: string): string {
   return fs.readFileSync(filePath, 'utf-8')
+}
+
+/** Read page.tsx + all co-located hooks/components/lib files for pattern matching. */
+function readHistorialModule(): string {
+  const dirs = ['hooks', 'components', 'lib']
+  let combined = readSrc(HISTORIAL_PAGE)
+  for (const dir of dirs) {
+    const dirPath = path.join(HISTORIAL_DIR, dir)
+    if (!fs.existsSync(dirPath)) continue
+    for (const file of fs.readdirSync(dirPath)) {
+      if (file.endsWith('.ts') || file.endsWith('.tsx')) {
+        combined += '\n' + fs.readFileSync(path.join(dirPath, file), 'utf-8')
+      }
+    }
+  }
+  return combined
 }
 
 // ─── DB snapshots (verified live via Supabase Management API) ─────────────────
@@ -122,7 +143,8 @@ describe('F6 | Display Logic (peso 3)', () => {
   let pageSource: string
 
   beforeAll(() => {
-    pageSource = readSrc(HISTORIAL_PAGE)
+    // Post-refactor: patterns live across hooks/components/lib, not just page.tsx
+    pageSource = readHistorialModule()
   })
 
   it('[DL-1] cellBg uses diff vs par (score - par), not absolute score', () => {
@@ -207,17 +229,23 @@ describe('F6 | Query (peso 2)', () => {
   let statsSource: string
 
   beforeAll(() => {
-    pageSource  = readSrc(HISTORIAL_PAGE)
+    // Post-refactor: queries/types live in hooks/ and lib/, not just page.tsx
+    pageSource  = readHistorialModule()
     statsSource = readSrc(HISTORIAL_STATS)
   })
 
   it('[Q-1] Supabase query in historial page includes formato_juego', () => {
-    // The .select() call must include formato_juego
-    expect(pageSource).toMatch(/\.select\(.*formato_juego/)
+    // The .select() call must include formato_juego — either inline or via a
+    // SELECT_COLUMNS constant (post-refactor pattern in useHistorialRounds.ts).
+    const inlineSelect = pageSource.match(/\.select\(.*formato_juego/)
+    const constantSelect = pageSource.match(/SELECT_COLUMNS[\s\S]*?formato_juego/) && pageSource.match(/\.select\(SELECT_COLUMNS\)/)
+    expect(inlineSelect || constantSelect).toBeTruthy()
   })
 
   it('[Q-2] Supabase query in historial page includes modo_juego', () => {
-    expect(pageSource).toMatch(/\.select\(.*modo_juego/)
+    const inlineSelect = pageSource.match(/\.select\(.*modo_juego/)
+    const constantSelect = pageSource.match(/SELECT_COLUMNS[\s\S]*?modo_juego/) && pageSource.match(/\.select\(SELECT_COLUMNS\)/)
+    expect(inlineSelect || constantSelect).toBeTruthy()
   })
 
   it('[Q-3] HistoricalRound interface includes formato_juego field', () => {
@@ -389,7 +417,8 @@ describe('F6 | Finalization (peso 3)', () => {
   it('[FN-7] manual insert from historial page does NOT include formato_juego (historical only, no format context)', () => {
     // When a user manually adds a round via the historial form, there is no formato_juego
     // (the form only captures course, date, scores). This is expected — these are always stroke play.
-    const historialSource = readSrc(HISTORIAL_PAGE)
+    // Post-refactor: the insert lives in hooks/useAddRoundForm.ts, not page.tsx
+    const historialSource = readHistorialModule()
     const manualInsertBlock = historialSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,1000})\}\)/)?.[1] ?? ''
     // Manual inserts legitimately omit formato_juego (defaults to stroke_play in DB)
     // so this test confirms the omission is correct for this specific path
