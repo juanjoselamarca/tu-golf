@@ -138,7 +138,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   }
 
   if (isClosed && players.length > 0) {
-    resultados = computeTournamentResults(players, parTotal, stats)
+    resultados = computeTournamentResults(playersByGross, playersByNeto, parTotal, stats)
   }
 
   return (

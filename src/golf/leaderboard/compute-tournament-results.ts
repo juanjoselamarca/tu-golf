@@ -9,25 +9,31 @@ import type { TournamentResultados } from '@/app/torneo/[slug]/types'
 import type { TourneyStats } from './types'
 
 export function computeTournamentResults(
-  players: Player[],
+  playersByGross: Player[],
+  playersByNeto: Player[],
   parTotal: number,
   stats: TourneyStats | null,
 ): TournamentResultados | null {
-  const finishedPlayers = players.filter((p) => p.status === 'F' && p.holes > 0)
-  if (finishedPlayers.length === 0) return null
-
   const grossOf = (p: Player) =>
     (p.scores || []).reduce((sum: number, s: number | null) => sum + (s ?? 0), 0)
 
-  const byGross = [...finishedPlayers].sort((a, b) => grossOf(a) - grossOf(b))
-  const byNeto  = [...finishedPlayers].sort((a, b) => a.total - b.total)
+  // Ambos rankings llegan YA ordenados con countback por modo desde
+  // `rankEntries` (gross asc por strokes, neto asc por net-vs-par). NO se
+  // re-ordena: re-inferir el neto desde el ranking primario rompía el podio
+  // en torneos gross-mode (el primario trae vsPar del modo, no net). Solo
+  // filtramos finished preservando el orden.
+  const byGross = playersByGross.filter((p) => p.status === 'F' && p.holes > 0)
+  const byNeto  = playersByNeto.filter((p) => p.status === 'F' && p.holes > 0)
+  if (byGross.length === 0) return null
 
   const grossScore1 = byGross[0] ? grossOf(byGross[0]) : 0
   const grossScore2 = byGross[1] ? grossOf(byGross[1]) : 0
+  // Player.total del ranking neto = net vs-par; el score neto en strokes es
+  // net-vs-par + parTotal (misma fórmula que el código legacy).
   const netoScore1  = byNeto[0]  ? byNeto[0].total + parTotal : 0
   const netoScore2  = byNeto[1]  ? byNeto[1].total + parTotal : 0
 
-  const avgGross = finishedPlayers.reduce((sum, p) => sum + grossOf(p), 0) / finishedPlayers.length
+  const avgGross = byGross.reduce((sum, p) => sum + grossOf(p), 0) / byGross.length
 
   return {
     grossWinner: byGross[0] ? { name: byGross[0].name, score: grossScore1 } : null,

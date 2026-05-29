@@ -1,8 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 // src/app/torneo/[slug]/components/TournamentHeader.tsx
 //
-// Header del torneo: logo + botón TV + foto de portada + título + chips
+// Header del torneo: logo + foto de portada + título + chips
 // (cancha, hoyos, formato, fecha, status) + código de inscripción.
+// El botón "Modo TV" se removió del header público (decisión Juanjo
+// inbox 35f4ee89, may-27). La ruta /torneo/[slug]/tv sigue accesible por URL.
 // Estilo premium consistente con la marca (Playfair + DM Sans + DM Mono).
 
 import Link from 'next/link'
@@ -22,27 +24,17 @@ export interface TournamentHeaderProps {
 
 export function TournamentHeader(props: TournamentHeaderProps) {
   const {
-    tournamentName, slug, courseName, totalHoyos, formatLabel,
+    tournamentName, courseName, totalHoyos, formatLabel,
     dateDisplay, isLive, isClosed, coverImageUrl, codigo,
   } = props
 
   return (
     <div style={{ background: '#f8f9fa', borderBottom: '1px solid #e2e8f0' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 0', maxWidth: '1080px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '16px 20px 0', maxWidth: '1080px', margin: '0 auto' }}>
         <Link href="/" className="flex items-center gap-1 group" style={{ textDecoration: 'none' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#1a1a2e' }}>Golfers</span>
           <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#c4992a' }}>+</span>
         </Link>
-        {slug && (
-          <Link
-            href={`/torneo/${slug}/tv`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: '#c4992a', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(196,153,42,0.2)', fontFamily: '"DM Sans", system-ui, sans-serif' }}
-          >
-            Modo TV
-          </Link>
-        )}
       </div>
 
       {coverImageUrl && (
