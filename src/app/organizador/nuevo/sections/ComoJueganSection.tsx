@@ -24,7 +24,11 @@ const FORMAT_OPTIONS: Array<{ value: TournamentFormat; label: string }> = [
   { value: 'foursome', label: 'Foursome' },
 ]
 
-const NETO_FORCED: TournamentFormat[] = ['stableford', 'match_play']
+// Sólo Match Play exige modo único por torneo (no se pueden mantener dos
+// brackets paralelos gross/neto del mismo torneo — la concesión de palos
+// cambia quién gana cada hoyo). Stableford acepta ambos: "Scratch Stableford"
+// (gross, handicap=0) y stableford clásico (neto) son válidos USGA/R&A.
+const NETO_FORCED: TournamentFormat[] = ['match_play']
 
 export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProps) {
   const netoForced = NETO_FORCED.includes(config.format)

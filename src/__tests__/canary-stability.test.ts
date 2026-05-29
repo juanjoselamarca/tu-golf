@@ -93,7 +93,10 @@ describe('Canario: Páginas client-side tienen timeout de seguridad o loading co
   })
 
   it('historial page tiene loading state con fallback', () => {
+    // Post-refactor: loading state lives in useHistorialRounds hook, not page.tsx.
+    // The page imports and uses the hook; the canary validates the pattern exists.
     const historial = readFile('app/perfil/historial/page.tsx')
+      + '\n' + readFile('app/perfil/historial/hooks/useHistorialRounds.ts')
     expect(historial).toContain('loading')
     expect(historial).toContain('setLoading(false)')
   })

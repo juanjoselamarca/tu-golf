@@ -153,6 +153,9 @@ function computeStats(dbPlayers: DBPlayer[], courseHoles: DBCourseHole[], parTot
 
 export default async function TorneoPage({ params }: { params: { slug: string } }) {
   const supabase = await createClient()
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser()
 
   // Try to fetch real tournament
   const { data: rawTournament } = await supabase
@@ -623,22 +626,14 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
       {/* ── Clean dark header ── */}
       <div style={{ background: '#f8f9fa', borderBottom: '1px solid #e2e8f0' }}>
-        {/* Top bar: logo + TV button */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 0', maxWidth: '1080px', margin: '0 auto' }}>
+        {/* Top bar: solo logo. Modo TV removido del header público
+            (decisión Juanjo inbox 35f4ee89, may 27). La ruta
+            /torneo/[slug]/tv sigue accesible vía URL directa para casting. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '16px 20px 0', maxWidth: '1080px', margin: '0 auto' }}>
           <Link href="/" className="flex items-center gap-1 group" style={{ textDecoration: 'none' }}>
             <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#1a1a2e' }}>Golfers</span>
             <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '18px', color: '#c4992a' }}>+</span>
           </Link>
-          {tournament && (
-            <Link
-              href={`/torneo/${tournament.slug}/tv`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#c4992a', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(196,153,42,0.2)', fontFamily: '"DM Sans", system-ui, sans-serif' }}
-            >
-              Modo TV
-            </Link>
-          )}
         </div>
 
         {/* Hero: foto de portada del torneo. Cae limpiamente si no hay
@@ -836,31 +831,34 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         </div>
       )}
 
-      {/* Premium footer — minimal */}
-      <footer style={{ borderTop: '1px solid rgba(196,153,42,0.08)', marginTop: '32px' }}>
-        <div style={{ maxWidth: '480px', margin: '0 auto', padding: '32px 20px', textAlign: 'center' }}>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: '#1a1a2e', fontWeight: 700, marginBottom: '4px' }}>
-            <span>Golfers</span><span style={{ color: '#c4992a' }}>+</span>
+      {/* Premium footer — solo a no-logged users. Carece de sentido recomendar
+          "crear cuenta gratis" a alguien que ya tiene sesion activa (inbox 22257fa0). */}
+      {!viewer && (
+        <footer style={{ borderTop: '1px solid rgba(196,153,42,0.08)', marginTop: '32px' }}>
+          <div style={{ maxWidth: '480px', margin: '0 auto', padding: '32px 20px', textAlign: 'center' }}>
+            <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: '#1a1a2e', fontWeight: 700, marginBottom: '4px' }}>
+              <span>Golfers</span><span style={{ color: '#c4992a' }}>+</span>
+            </div>
+            <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '20px' }}>
+              Scoring en vivo &middot; &Iacute;ndices &middot; Coach IA
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <Link href="/register" style={{
+                background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px',
+                padding: '12px 24px', borderRadius: '10px', textDecoration: 'none',
+              }}>
+                Crear cuenta gratis
+              </Link>
+              <Link href="/demo" style={{
+                color: '#4a5568', fontSize: '14px', fontWeight: 500,
+                padding: '12px 16px', textDecoration: 'none',
+              }}>
+                Ver demo
+              </Link>
+            </div>
           </div>
-          <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '20px' }}>
-            Scoring en vivo &middot; &Iacute;ndices &middot; Coach IA
-          </div>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-            <Link href="/register" style={{
-              background: '#c4992a', color: '#1a1a2e', fontWeight: 700, fontSize: '14px',
-              padding: '12px 24px', borderRadius: '10px', textDecoration: 'none',
-            }}>
-              Crear cuenta gratis
-            </Link>
-            <Link href="/demo" style={{
-              color: '#4a5568', fontSize: '14px', fontWeight: 500,
-              padding: '12px 16px', textDecoration: 'none',
-            }}>
-              Ver demo
-            </Link>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
       {/* Retirados / Descalificados — transparencia USGA (scores preservados) */}
       {withdrawnPlayers.length > 0 && (

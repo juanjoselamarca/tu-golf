@@ -27,8 +27,12 @@ describe('Tournament Creation Validation', () => {
 
   describe('Format-Mode rules', () => {
     function resolveModo(format: string, userModo: string): string {
-      // Mirror API logic: match_play and stableford always neto
-      if (format === 'match_play' || format === 'stableford') return 'neto'
+      // Match Play es el único formato con modo exclusivo: no se pueden
+      // mantener brackets paralelos gross/neto porque la concesión de palos
+      // cambia quién gana cada hoyo. Resto de formatos respeta la elección
+      // del organizador — el motor calcula gross y neto en paralelo y la
+      // UI ofrece dos leaderboards.
+      if (format === 'match_play') return 'neto'
       return userModo
     }
 
@@ -37,8 +41,8 @@ describe('Tournament Creation Validation', () => {
       expect(resolveModo('match_play', 'neto')).toBe('neto')
     })
 
-    it('stableford forces neto regardless of user choice', () => {
-      expect(resolveModo('stableford', 'gross')).toBe('neto')
+    it('stableford respects user choice (Scratch Stableford = gross es válido)', () => {
+      expect(resolveModo('stableford', 'gross')).toBe('gross')
       expect(resolveModo('stableford', 'neto')).toBe('neto')
     })
 
