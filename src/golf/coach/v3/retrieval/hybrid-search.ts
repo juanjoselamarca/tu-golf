@@ -27,12 +27,19 @@ export async function hybridSearch(
   queryText: string,
   opts: HybridSearchOpts = {}
 ): Promise<ChunkCandidate[]> {
+  // Normalizar jurisdictions: un array vacío `[]` haría `jurisdiction = ANY('{}')`
+  // en el RPC → siempre falso → 0 resultados. La intención de "sin filtro" es
+  // NULL. El modelo puede emitir `[]` (válido en el schema de la tool), así que
+  // lo colapsamos a null acá (I2).
+  const jurisdictions =
+    opts.jurisdictions && opts.jurisdictions.length > 0 ? opts.jurisdictions : null;
+
   const { data, error } = await sb.rpc('search_chunks_hybrid', {
     query_embedding: queryEmbedding,
     query_text: queryText,
     alpha: opts.alpha ?? 0.7,
     top_k: opts.topCandidates ?? 20,
-    jurisdictions: opts.jurisdictions ?? null,
+    jurisdictions,
     block_filter: opts.blockKey ?? null,
   });
   if (error) throw error;

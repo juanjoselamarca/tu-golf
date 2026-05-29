@@ -14,12 +14,27 @@ export function _resetRerankerForTests(): void {
   rerankerLoadAttempted = false;
 }
 
+/**
+ * El reranker ONNX (bge-reranker-v2-m3 vía @xenova/transformers) descarga
+ * cientos de MB a `node_modules/.cache`, que en Vercel serverless es read-only:
+ * el download fallaría EN EL REQUEST del usuario (path crítico de la primera
+ * pregunta de reglas). Por eso queda detrás de un flag explícito, default OFF.
+ * En 1e shippeamos hybrid-search puro; el reranking hosted (Cohere u otro
+ * worker con el modelo pre-cacheado) llega en una sub-ola posterior.
+ */
+function isRerankerEnabled(): boolean {
+  return process.env.CEREBRO_V3_RERANKER_ENABLED === 'true';
+}
+
 async function loadReranker(): Promise<any> {
   if (rerankerInstance) return rerankerInstance;
   if (rerankerLoadAttempted) return null;
   rerankerLoadAttempted = true;
+  if (!isRerankerEnabled()) return null;
   try {
-    // @xenova/transformers — ONNX runtime local, sin dependencia externa
+    // @xenova/transformers — ONNX runtime local, sin dependencia externa.
+    // Solo se intenta si CEREBRO_V3_RERANKER_ENABLED=true (entorno con modelo
+    // pre-cacheado y FS escribible, p.ej. un worker dedicado — nunca Vercel).
     const { pipeline } = await import('@xenova/transformers');
     rerankerInstance = await pipeline('text-classification', 'Xenova/bge-reranker-v2-m3');
     return rerankerInstance;

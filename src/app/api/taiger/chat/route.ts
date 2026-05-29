@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
       cerebroV3Enabled = prof?.cerebro_v3_enabled === true
     } catch (flagErr) {
       // Fail-closed: ante cualquier error, coach v2 sin RAG.
-      console.error('[tAIger/chat] cerebro_v3 flag error:', flagErr)
+      void captureError(flagErr, { context: 'taiger.chat.cerebro_v3_flag', userId: user.id })
       cerebroV3Enabled = false
     }
 

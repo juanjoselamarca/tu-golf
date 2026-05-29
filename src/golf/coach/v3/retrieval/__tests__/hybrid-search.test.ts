@@ -59,6 +59,15 @@ describe('hybridSearch', () => {
     });
   });
 
+  it('I2: jurisdictions=[] se colapsa a null (no filtra a cero resultados)', async () => {
+    const sb = makeMockSb([])
+    await hybridSearch(sb as any, Array(1536).fill(0), 'q', { jurisdictions: [] })
+    expect(sb.rpc).toHaveBeenCalledWith(
+      'search_chunks_hybrid',
+      expect.objectContaining({ jurisdictions: null }),
+    )
+  })
+
   it('error de RPC propaga la excepción', async () => {
     const sb = makeMockSb(null as any, { message: 'rpc fail', code: 'XX000' });
     await expect(

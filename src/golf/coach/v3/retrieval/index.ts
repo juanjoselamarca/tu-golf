@@ -15,6 +15,15 @@ const EMBED_MODEL = 'text-embedding-3-small';
 const RERANKER_MODEL = 'bge-reranker-v2-m3';
 const EMBED_COST_PER_1K = 0.00002;
 
+/**
+ * Piso de relevancia y mínimo de chunks fuertes para el contrato
+ * anti-hallucination (spec §6). Se ENFORCEAN en código (no se delega al LLM):
+ * si no hay ≥MIN_CONFIDENT_CHUNKS sobre RELEVANCE_FLOOR, devolvemos [] y el
+ * coach usa el disclaimer en vez de citar chunks débiles como reglas oficiales.
+ */
+export const RELEVANCE_FLOOR = 0.4;
+export const MIN_CONFIDENT_CHUNKS = 2;
+
 let sharedSb: SupabaseClient | null = null;
 let embedQueryFn = embedQuery;
 let hybridSearchFn = hybridSearch;
@@ -144,6 +153,16 @@ export async function searchKnowledgeChunks(
       };
     });
 
+    // Anti-hallucination enforcement (C2): el contrato exige ≥2 chunks sobre el
+    // piso de relevancia. Lo aplicamos acá, no confiamos en que el LLM cuente y
+    // compare scores. Sin evidencia fuerte → [] → disclaimer.
+    const confident = result.filter((r) => r.scores.final > RELEVANCE_FLOOR);
+    const finalChunks = confident.length >= MIN_CONFIDENT_CHUNKS ? confident : [];
+
+    // Logging honesto (C1): el reranker ONNX solo corre si está habilitado y
+    // cargó; si degradó a hybrid, no mentimos en rag_query_log.
+    const rerankerUsed = reranked.some((r) => r.rerankAvailable);
+
     logRagQuery(sb, {
       userId: opts.userId,
       query,
@@ -151,17 +170,18 @@ export async function searchKnowledgeChunks(
       topKRequested: topK,
       hybridAlpha: alpha,
       totalCandidates: candidates.length,
-      returnedCount: result.length,
+      returnedCount: finalChunks.length,
       topScore: result[0]?.scores.final,
       bottomScore: result[result.length - 1]?.scores.final,
-      citedChunkIds: result.map((r) => r.id),
+      citedChunkIds: finalChunks.map((r) => r.id),
       latencyMs: Date.now() - start,
       costUsd: totalCost,
       embeddingModel: EMBED_MODEL,
-      rerankerModel: RERANKER_MODEL,
+      rerankerModel: rerankerUsed ? RERANKER_MODEL : 'hybrid-fallback',
+      ...(finalChunks.length === 0 ? { errorCode: 'low_confidence' } : {}),
     });
 
-    return result;
+    return finalChunks;
   } catch (e) {
     logRagQuery(sb, {
       userId: opts.userId,
