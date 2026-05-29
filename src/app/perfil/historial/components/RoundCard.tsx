@@ -179,14 +179,21 @@ export function RoundCard({
           >
             <MoreVertical size={16} strokeWidth={2} />
           </button>
-          <span style={{
-            fontSize: '12px', color: '#d1d5db',
-            transition: 'transform 0.2s',
-            transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
-            display: 'inline-block',
-          }} aria-hidden>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleExpand() }}
+            aria-label={isOpen ? 'Colapsar scorecard' : 'Expandir scorecard'}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: '6px', minWidth: '32px', minHeight: '32px',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              color: '#d1d5db',
+              transition: 'transform 0.2s',
+              transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
+            }}
+          >
             <ChevronDown size={14} strokeWidth={2} />
-          </span>
+          </button>
 
           <RoundMenu
             open={menuOpen}

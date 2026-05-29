@@ -117,7 +117,7 @@ function HistorialContent() {
 
   /* ── Guards ── */
   if (loading) return <LoadingScreen />
-  if (loadError && rounds.length === 0 && !roundsLoaded) {
+  if (loadError && rounds.length === 0) {
     return <FatalErrorScreen onRetry={() => { setLoadError(false); void reload() }} />
   }
 
