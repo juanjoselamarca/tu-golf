@@ -37,6 +37,7 @@ export default function UnirsePage() {
   const [tournament, setTournament] = useState<JoinInfoTournament | null>(null)
   const [profile, setProfile] = useState<JoinInfoProfile | null>(null)
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
+  const [authenticated, setAuthenticated] = useState(false)
   const [inscribing, setInscribing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -45,10 +46,6 @@ export default function UnirsePage() {
     const res = await fetch(`/api/torneos/${encodeURIComponent(slug)}/join-info`, {
       cache: 'no-store',
     })
-    if (res.status === 401) {
-      router.replace(`/login?redirect=/torneo/${slug}/unirse`)
-      return
-    }
     if (res.status === 404) {
       setError('Torneo no encontrado')
       setLoading(false)
@@ -63,10 +60,12 @@ export default function UnirsePage() {
       tournament: JoinInfoTournament
       profile: JoinInfoProfile | null
       alreadyRegistered: boolean
+      authenticated: boolean
     }
     setTournament(data.tournament)
     setProfile(data.profile)
     setAlreadyRegistered(data.alreadyRegistered)
+    setAuthenticated(data.authenticated ?? false)
     setLoading(false)
   }, [slug, router])
 
@@ -305,7 +304,38 @@ export default function UnirsePage() {
               </div>
             )}
 
-            {alreadyRegistered ? (
+            {!authenticated ? (
+              /* Visitor sin sesión — muestra info del torneo + CTA login */
+              <div style={{ textAlign: 'center' }}>
+                <Link
+                  href={`/login?next=/torneo/${slug}/unirse`}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    background: '#c4992a',
+                    color: 'var(--brand-dark)',
+                    fontWeight: 700,
+                    fontSize: '16px',
+                    padding: '16px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    textDecoration: 'none',
+                    textAlign: 'center',
+                  }}
+                >
+                  Iniciar sesión para inscribirme
+                </Link>
+                <p style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '10px' }}>
+                  Vuelves automáticamente al torneo después
+                </p>
+                <Link
+                  href={`/torneo/${slug}`}
+                  style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '3px', marginTop: '8px', display: 'inline-block' }}
+                >
+                  Ver leaderboard sin inscribirme →
+                </Link>
+              </div>
+            ) : alreadyRegistered ? (
               <div
                 style={{
                   background: 'rgba(34,197,94,0.1)',
