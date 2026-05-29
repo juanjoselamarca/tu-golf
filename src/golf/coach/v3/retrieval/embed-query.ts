@@ -18,9 +18,12 @@ function hashKey(query: string): string {
 
 function pruneCache(): void {
   const now = Date.now();
-  for (const [k, v] of cache) {
-    if (now - v.ts > CACHE_TTL_MS) cache.delete(k);
-  }
+  const expiredKeys: string[] = [];
+  cache.forEach((v, k) => {
+    if (now - v.ts > CACHE_TTL_MS) expiredKeys.push(k);
+  });
+  expiredKeys.forEach((k) => cache.delete(k));
+
   while (cache.size > CACHE_MAX) {
     const firstKey = cache.keys().next().value;
     if (firstKey === undefined) break;
