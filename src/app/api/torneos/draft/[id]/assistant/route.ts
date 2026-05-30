@@ -14,6 +14,9 @@ import { TOURNAMENT_ASSISTANT_PROMPT_V1 } from '@/lib/prompts/tournament-assista
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+// Asegura margen para el path de fallback (Anthropic falla → Gemini ~16s) sin que
+// la plataforma mate la función antes de la degradación elegante.
+export const maxDuration = 60
 
 const aiResponseSchema = z.object({
   config_partial: z.record(z.string(), z.unknown()),
@@ -23,7 +26,12 @@ const aiResponseSchema = z.object({
 
 const HAIKU_INPUT_PER_MTOK = 0.25  // USD per 1M input tokens (placeholder)
 const HAIKU_OUTPUT_PER_MTOK = 1.25
-const TIMEOUT_MS = 12_000
+// Budget por intento del gateway. 20s (antes 12s) porque el FALLBACK a Gemini
+// flash-lite para esta generación tarda 10-16s (medido en smoke 30-may): con 12s
+// el fallback se pasaba del timeout y fallaba. El path primario (Anthropic, 2-4s)
+// no se ve afectado. Un fallback degradado a ~18s es aceptable; lo contrario es
+// quedarse sin IA en pleno torneo cuando Anthropic se cae.
+const TIMEOUT_MS = 20_000
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = await createClient()
