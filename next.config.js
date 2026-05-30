@@ -37,6 +37,15 @@ const securityHeaders = [
 
 const nextConfig = {
   compress: true,
+  // El reranker ONNX (cerebro v3) arrastra bindings nativos (.node) de
+  // onnxruntime-node que webpack no puede bundlear para el target serverless.
+  // El módulo @xenova/transformers solo se importa dinámicamente y gateado tras
+  // CEREBRO_V3_RERANKER_ENABLED (default OFF), así que lo externalizamos: Next lo
+  // deja como require runtime en vez de bundlearlo. Sin esto el build de webpack
+  // falla al trazar el import transitivo desde /api/taiger/chat.
+  experimental: {
+    serverComponentsExternalPackages: ['@xenova/transformers', 'onnxruntime-node'],
+  },
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }]
   },

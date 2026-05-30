@@ -1,0 +1,22 @@
+[
+  { "id": "q01", "query": "puedo limpiar mi bola en el rough", "expect_topic": "rule_14_lifting_cleaning" },
+  { "id": "q02", "query": "cuál es la penalidad por fuera de límites", "expect_topic": "rule_18_OB" },
+  { "id": "q03", "query": "tomar alivio gratuito de un cart path", "expect_topic": "rule_16_abnormal" },
+  { "id": "q04", "query": "cómo se calcula el handicap diferencial", "expect_topic": "whs_differential" },
+  { "id": "q05", "query": "qué pasa si pierdo una bola en agua", "expect_topic": "rule_17_penalty_areas" },
+  { "id": "q06", "query": "puedo cambiar la bola entre hoyos", "expect_topic": "rule_4_equipment" },
+  { "id": "q07", "query": "qué hago si mi bola cae en bunker", "expect_topic": "rule_12_bunkers" },
+  { "id": "q08", "query": "puedo mover una piedra cerca de mi bola", "expect_topic": "rule_15_loose_impediments" },
+  { "id": "q09", "query": "regla de obstrucción inamovible", "expect_topic": "rule_16_immovable_obstruction" },
+  { "id": "q10", "query": "qué pasa si mi swing toca arena en el bunker", "expect_topic": "rule_12_grounding_club" },
+  { "id": "q11", "query": "máximo de palos en la bolsa", "expect_topic": "rule_4_14_clubs" },
+  { "id": "q12", "query": "puedo recibir consejos durante el juego", "expect_topic": "rule_10_advice" },
+  { "id": "q13", "query": "qué es el match play", "expect_topic": "rule_3_match_play" },
+  { "id": "q14", "query": "cuándo se actualiza mi handicap WHS", "expect_topic": "whs_revision" },
+  { "id": "q15", "query": "regla del out of bounds", "expect_topic": "rule_18_OB" },
+  { "id": "q16", "query": "agua casual qué es", "expect_topic": "rule_16_temporary_water" },
+  { "id": "q17", "query": "puedo identificar mi bola en juego", "expect_topic": "rule_7_identification" },
+  { "id": "q18", "query": "qué hago con una bola embebida", "expect_topic": "rule_16_embedded" },
+  { "id": "q19", "query": "puedo dropear una bola desde el hombro", "expect_topic": "rule_14_drop_height_knee" },
+  { "id": "q20", "query": "qué pasa si juego con un palo no conforme", "expect_topic": "rule_4_nonconforming" }
+]
