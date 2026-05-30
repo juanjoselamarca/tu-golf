@@ -13,6 +13,8 @@
 import { anthropicAdapter } from './providers/anthropic'
 import { geminiAdapter } from './providers/gemini'
 import { resolveChain, currentAiEnv } from './registry'
+import { logAiUsage, type AiErrorKind } from './usage-log'
+import { estimateCostUsd } from './costs'
 import {
   AllProvidersFailedError,
   type CallLLMParams,
@@ -54,6 +56,17 @@ export function isTransient(err: unknown): boolean {
   )
 }
 
+/** Clasifica el error para observabilidad (`ai_usage.error_kind`). */
+export function classifyError(err: unknown): AiErrorKind {
+  const e = err as { status?: number; statusCode?: number; message?: string } | null
+  const status = e?.status ?? e?.statusCode
+  const msg = String(e?.message ?? '').toLowerCase()
+  if (status === 429 || /rate.?limit|too many/.test(msg)) return 'rate_limit'
+  if (status === 529 || /overloaded/.test(msg)) return 'overloaded'
+  if (/timeout|aborted|etimedout/.test(msg)) return 'timeout'
+  return 'other'
+}
+
 function backoffMs(attempt: number): number {
   // Exponencial con jitter determinístico (sin Math.random para tests estables
   // en CI; el jitter real no aporta a fairness con 1 cliente).
@@ -79,6 +92,12 @@ export async function callLLM(params: CallLLMParams): Promise<LLMResult> {
   const aiEnv = params.aiEnv ?? currentAiEnv()
   const chain = params.chain ?? resolveChain(params.role, aiEnv)
   if (chain.length === 0) {
+    // Mantiene el invariante "cada callLLM registra un row" (misconfig de cadena).
+    logAiUsage({
+      aiEnv, role: params.role, provider: null, model: null, status: 'all_failed',
+      fallbackUsed: false, attempts: 0, tokensIn: 0, tokensOut: 0, latencyMs: 0,
+      costUsd: 0, errorKind: 'other',
+    })
     throw new AllProvidersFailedError(
       `Sin proveedores para rol=${params.role} en env=${aiEnv}`,
     )
@@ -111,11 +130,27 @@ export async function callLLM(params: CallLLMParams): Promise<LLMResult> {
       attempts++
       try {
         const out = await withTimeout(adapter.generate({ ...args, model }), timeoutMs)
+        const fallbackUsed = ci > 0
+        logAiUsage({
+          aiEnv,
+          role: params.role,
+          provider: providerKey,
+          model,
+          status: 'ok',
+          fallbackUsed,
+          attempts,
+          tokensIn: out.tokensIn,
+          tokensOut: out.tokensOut,
+          latencyMs: Date.now() - t0,
+          costUsd: estimateCostUsd(model, out.tokensIn, out.tokensOut),
+          // Si hubo fallback, registramos por qué falló el proveedor anterior.
+          errorKind: fallbackUsed ? classifyError(lastErr) : null,
+        })
         return {
           text: out.text,
           provider: providerKey,
           model,
-          fallbackUsed: ci > 0,
+          fallbackUsed,
           attempts,
           tokensIn: out.tokensIn,
           tokensOut: out.tokensOut,
@@ -129,6 +164,20 @@ export async function callLLM(params: CallLLMParams): Promise<LLMResult> {
     }
   }
 
+  logAiUsage({
+    aiEnv,
+    role: params.role,
+    provider: null,
+    model: null,
+    status: 'all_failed',
+    fallbackUsed: chain.length > 1,
+    attempts,
+    tokensIn: 0,
+    tokensOut: 0,
+    latencyMs: Date.now() - t0,
+    costUsd: 0,
+    errorKind: classifyError(lastErr),
+  })
   throw new AllProvidersFailedError(
     `gateway: toda la cadena falló para rol=${params.role}`,
     lastErr,
