@@ -34,6 +34,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { getAiUsageStats, evaluateAiAlerts } from '@/lib/ai/usage-stats'
+import { captureError } from '@/lib/error-tracking'
+import { sendMessage } from '@/lib/telegram-inbox'
 
 export const dynamic = 'force-dynamic'
 
@@ -104,6 +107,43 @@ export async function GET(request: NextRequest) {
     })
   )
   checks.push(...countResults)
+
+  // 3. Alerta temprana de IA: ¿Anthropic degradado / acercándonos al rate-limit?
+  // Avisarnos NOSOTROS antes de que se vuelva un mail de Anthropic.
+  try {
+    const t0 = Date.now()
+    const aiStats = await getAiUsageStats(24)
+    const aiAlerts = evaluateAiAlerts(aiStats)
+    checks.push({
+      name: 'ai_usage_24h',
+      ok: aiAlerts.every((a) => a.level !== 'critical'),
+      ms: Date.now() - t0,
+      detail: `${aiStats.total} llamadas, ${aiStats.fallbackCount} fallback, ${aiStats.rateLimitCount} rate-limit, ~$${aiStats.costUsd.toFixed(4)}`,
+    })
+    for (const alert of aiAlerts) {
+      void captureError(alert.message, {
+        context: `ai-gateway.alert.${alert.code}`,
+        level: alert.level === 'critical' ? 'fatal' : 'warning',
+      })
+    }
+    // Notificación proactiva real a Juanjo por Telegram (cron diario → máx 1 aviso/día,
+    // sin spam). Best-effort: sendMessage degrada solo si falla.
+    const chatId = Number(process.env.TELEGRAM_ALLOWED_CHAT_ID)
+    if (aiAlerts.length > 0 && Number.isFinite(chatId)) {
+      const body = aiAlerts
+        .map((a) => `${a.level === 'critical' ? '🔴' : '🟡'} ${a.message}`)
+        .join('\n')
+      void sendMessage(chatId, `⚠️ Alerta de IA (Golfers+)\n\n${body}`)
+    }
+  } catch (e) {
+    // La tabla ai_usage puede no existir aún / consulta fallar: no bloquear el cron.
+    checks.push({
+      name: 'ai_usage_24h',
+      ok: true,
+      ms: 0,
+      detail: e instanceof Error ? `skip: ${e.message}` : 'skip',
+    })
+  }
 
   const durationMs = Date.now() - startTime
   const allOk = checks.every((c) => c.ok)

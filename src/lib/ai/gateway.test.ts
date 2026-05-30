@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { callLLM, isTransient, _setBackoffBaseForTests } from './gateway'
 import { _setAnthropicForTests } from './providers/anthropic'
 import { _setGeminiForTests } from './providers/gemini'
+import { _setUsageLogEnabledForTests } from './usage-log'
 import { AllProvidersFailedError, type ProviderAdapter } from './types'
 
 /** Adaptador mock: responde según un guion de funciones por invocación. */
@@ -38,12 +39,14 @@ const baseParams = {
 
 beforeEach(() => {
   _setBackoffBaseForTests(0) // sin esperas reales en test
+  _setUsageLogEnabledForTests(false) // no escribir a ai_usage desde tests
 })
 
 afterEach(() => {
   _setAnthropicForTests(null)
   _setGeminiForTests(null)
   _setBackoffBaseForTests(400)
+  _setUsageLogEnabledForTests(true)
   vi.unstubAllEnvs()
 })
 
