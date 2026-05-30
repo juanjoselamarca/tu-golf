@@ -25,7 +25,11 @@ describe('computeSha256', () => {
   });
 });
 
-describe('downloadPdf (live HTTP)', () => {
+// Descarga un PDF real de 16MB de un CDN externo. NO pertenece a la suite unit
+// rápida del pre-push: depende de red + del CDN, es lento (120s) y flakea sin
+// conexión. Corre solo con RUN_LIVE_HTTP=1 (CI de ingestión / verificación manual).
+// El body solo registra it()s (sin side-effects top-level), así que skipIf es seguro.
+describe.skipIf(!process.env.RUN_LIVE_HTTP)('downloadPdf (live HTTP)', () => {
   it('descarga PDF real, calcula sha256, cachea', async () => {
     const { path, hash, fromCache, sizeBytes } = await downloadPdf(TEST_URL, { cacheDir: CACHE_DIR });
     expect(fromCache).toBe(false);

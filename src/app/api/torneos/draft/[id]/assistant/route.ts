@@ -1,6 +1,7 @@
 // src/app/api/torneos/draft/[id]/assistant/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { callLLM, AllProvidersFailedError, type LLMResult } from '@/lib/ai'
+import { captureError } from '@/lib/error-tracking'
 import { createClient } from '@/utils/supabase/server'
 import { tournamentConfigPartialSchema, tournamentConfigSchema } from '@/lib/draft/schema'
 import { deepMergeConfig } from '@/lib/draft/deep-merge-config'
@@ -13,6 +14,9 @@ import { TOURNAMENT_ASSISTANT_PROMPT_V1 } from '@/lib/prompts/tournament-assista
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+// Asegura margen para el path de fallback (Anthropic falla → Gemini ~16s) sin que
+// la plataforma mate la función antes de la degradación elegante.
+export const maxDuration = 60
 
 const aiResponseSchema = z.object({
   config_partial: z.record(z.string(), z.unknown()),
@@ -22,7 +26,12 @@ const aiResponseSchema = z.object({
 
 const HAIKU_INPUT_PER_MTOK = 0.25  // USD per 1M input tokens (placeholder)
 const HAIKU_OUTPUT_PER_MTOK = 1.25
-const TIMEOUT_MS = 12_000
+// Budget por intento del gateway. 20s (antes 12s) porque el FALLBACK a Gemini
+// flash-lite para esta generación tarda 10-16s (medido en smoke 30-may): con 12s
+// el fallback se pasaba del timeout y fallaba. El path primario (Anthropic, 2-4s)
+// no se ve afectado. Un fallback degradado a ~18s es aceptable; lo contrario es
+// quedarse sin IA en pleno torneo cuando Anthropic se cae.
+const TIMEOUT_MS = 20_000
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = await createClient()
@@ -51,38 +60,48 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (cErr || !current) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
   if (current.status !== 'draft') return NextResponse.json({ error: 'Draft no editable' }, { status: 409 })
 
-  // Llamada IA
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  const t0 = Date.now()
-  // El SDK tiene overloads para stream vs no-stream; al pasar stream:false explícitamente
-  // el tipo es Anthropic.Messages.Message.
-  let resp: Anthropic.Messages.Message
+  // Llamada IA vía gateway central: rol 'evaluator' (cadena Haiku → Gemini en
+  // prod; solo Gemini en dev para no quemar el cupo del golfista). El gateway
+  // reintenta y cae a otro proveedor ante 429/529/timeout antes de rendirse.
+  let llm: LLMResult
   try {
-    resp = await anthropic.messages.create(
-      {
-        // Modelo principal Haiku 4.5; alias 'claude-haiku-4-5' funciona como fallback si el snapshot no existe.
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system: TOURNAMENT_ASSISTANT_PROMPT_V1 + `\n\nConfig actual:\n${JSON.stringify(current.config, null, 2)}`,
-        messages: [{ role: 'user', content: message }],
-      },
-      { signal: AbortSignal.timeout(TIMEOUT_MS) },
-    )
+    llm = await callLLM({
+      role: 'evaluator',
+      system: TOURNAMENT_ASSISTANT_PROMPT_V1 + `\n\nConfig actual:\n${JSON.stringify(current.config, null, 2)}`,
+      messages: [{ role: 'user', content: message }],
+      maxTokens: 1024,
+      // temperature 1 explícito: preserva EXACTO el comportamiento previo (la ruta
+      // no pasaba temperature → Anthropic usaba su default 1.0, y el prompt +
+      // pipeline de parsing se tunearon contra ese comportamiento). No cambiar a
+      // 0 sin validar contra el banco de pruebas del asistente.
+      temperature: 1,
+      // Gemini (fallback) devuelve JSON puro vía responseMimeType → robustece el
+      // parsing en el path de fallback. Neutral para Anthropic (ya pide JSON en el prompt).
+      responseJson: true,
+      timeoutMs: TIMEOUT_MS,
+    })
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Error IA'
-    console.error('[assistant] anthropic error:', msg)
+    // Toda la cadena de proveedores falló: degradación elegante. El organizador
+    // nunca ve un error crudo — se le ofrece editar manualmente.
+    void captureError(err, {
+      context: err instanceof AllProvidersFailedError
+        ? 'assistant.ai-all-providers-failed'
+        : 'assistant.ai-unexpected',
+      userId: user.id,
+    })
     return NextResponse.json({ error: 'IA no disponible, editá manualmente' }, { status: 503 })
   }
-  const latencyMs = Date.now() - t0
+  const latencyMs = llm.latencyMs
 
-  // Costo
-  const inputTokens = resp.usage?.input_tokens || 0
-  const outputTokens = resp.usage?.output_tokens || 0
+  // Costo: estimación con tarifas Haiku. Si cayó a Gemini (más barato) SOBREestima
+  // → la alarma de presupuesto puede saltar antes de tiempo (lado seguro). El costeo
+  // real por proveedor llega con la tabla ai_usage (Fase 2).
+  const inputTokens = llm.tokensIn
+  const outputTokens = llm.tokensOut
   const costUsd = (inputTokens * HAIKU_INPUT_PER_MTOK + outputTokens * HAIKU_OUTPUT_PER_MTOK) / 1_000_000
 
   // Parse JSON
-  const textBlock = resp.content.find(b => b.type === 'text') as Anthropic.Messages.TextBlock | undefined
-  const textValue = textBlock?.text || ''
+  const textValue = llm.text
   let json: unknown
   try {
     const start = textValue.indexOf('{')
@@ -156,7 +175,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // Alarma async (fire-and-forget)
   void getMonthlyAiCostUsd(supabase).then(c => {
-    if (shouldAlarm(c)) console.warn(`[ai-cost] ALARM: monthly $${c.toFixed(2)} >= $100`)
+    if (shouldAlarm(c)) {
+      void captureError(`Costo IA mensual $${c.toFixed(2)} >= $100`, {
+        context: 'assistant.ai-cost-alarm',
+        level: 'warning',
+      })
+    }
   })
 
   return NextResponse.json({
