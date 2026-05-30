@@ -111,3 +111,24 @@ describe('normalizeAiConfigPartial', () => {
     expect(normalizeAiConfigPartial([])).toEqual([])
   })
 })
+
+describe('tee_assignment_mode synonyms — manual', () => {
+  it('normaliza "manual" → "manual"', () => {
+    const out = normalizeAiConfigPartial({
+      rounds: [{ round_number: 1, tee_assignment_mode: 'manual' }],
+    })
+    expect(((out as { rounds: Array<{ tee_assignment_mode: string }> }).rounds)[0].tee_assignment_mode).toBe('manual')
+  })
+  it('normaliza "por_admin" → "manual"', () => {
+    const out = normalizeAiConfigPartial({
+      rounds: [{ round_number: 1, tee_assignment_mode: 'por_admin' }],
+    })
+    expect(((out as { rounds: Array<{ tee_assignment_mode: string }> }).rounds)[0].tee_assignment_mode).toBe('manual')
+  })
+  it('normaliza "asignacion_manual" → "manual"', () => {
+    const out = normalizeAiConfigPartial({
+      rounds: [{ round_number: 1, tee_assignment_mode: 'asignacion_manual' }],
+    })
+    expect(((out as { rounds: Array<{ tee_assignment_mode: string }> }).rounds)[0].tee_assignment_mode).toBe('manual')
+  })
+})

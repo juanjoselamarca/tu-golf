@@ -7,8 +7,11 @@
 // Reglas implementadas:
 // - team formats (scramble/best_ball/foursome) requieren team_config
 // - match_play requiere match_play_config
-// - stableford fuerza modo neto (regla USGA / R&A)
-// - match_play típicamente neto (warning, no error)
+// - match_play típicamente neto (warning, no error). Es el único formato
+//   donde el modo es exclusivo: no se pueden mantener brackets paralelos
+//   gross/neto porque la concesión de palos cambia quién gana cada hoyo.
+// - stableford acepta gross ("Scratch Stableford") y neto — ambos válidos
+//   USGA/R&A. El motor calcula los dos rankings en paralelo.
 // - rondas con round_number duplicado son inválidas
 // - debe haber al menos una ronda
 // - stableford points_table tiene que ser monotónica
@@ -53,14 +56,6 @@ export function validateGolfRules(config: TournamentConfig): ValidationResult {
       code: 'match_play_requires_config',
       field: 'match_play_config',
       message: 'match_play requiere match_play_config (bracket_mode, handicap_diff)',
-    })
-  }
-
-  if (config.format === 'stableford' && config.modo === 'gross') {
-    errors.push({
-      code: 'stableford_must_be_neto',
-      field: 'modo',
-      message: 'Stableford oficial siempre se juega con handicap (neto)',
     })
   }
 

@@ -6,6 +6,7 @@ import { tournamentConfigPartialSchema, tournamentConfigSchema } from '@/lib/dra
 import { deepMergeConfig } from '@/lib/draft/deep-merge-config'
 import { upgradeConfig } from '@/lib/draft/upgrade-config'
 import { normalizeAiConfigPartial } from '@/lib/draft/normalize-ai-partial'
+import { fillMissingSubConfigs } from '@/lib/draft/fill-missing-sub-configs'
 import { checkRateLimit } from '@/lib/draft/rate-limit'
 import { logAiCall, getMonthlyAiCostUsd, shouldAlarm } from '@/lib/draft/ai-cost-tracker'
 import { TOURNAMENT_ASSISTANT_PROMPT_V1 } from '@/lib/prompts/tournament-assistant-v1'
@@ -107,11 +108,29 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'IA propuso campos inválidos', details: partialResult.error.issues }, { status: 502 })
   }
 
-  // Mergear y validar resultado
+  // Mergear y validar resultado.
+  // El cast es seguro: zod ya valido el shape del partial; el deep partial
+  // tiene sub-objetos parciales (ej. team_config: { size: 2 } sin handicap_pct)
+  // que TournamentConfigPartial (top-level Partial) no expresa. deepMergeConfig
+  // si los maneja en runtime.
   const upgraded = upgradeConfig(current.config)
-  const nextConfig = deepMergeConfig(upgraded, partialResult.data)
-  // Agregar needs_confirmation al pending_confirmations (de-dup)
-  const pending = new Set([...(nextConfig.pending_confirmations || []), ...parsed.data.needs_confirmation])
+  const nextConfig = deepMergeConfig(
+    upgraded,
+    partialResult.data as import('@/lib/draft/types').TournamentConfigPartial,
+  )
+  // Defense in depth post-merge: si el merge dejo sub-configs incompletos (ej.
+  // LLM trajo format=scramble sin team_config, o team_config solo con size),
+  // rellenamos con defaults SOLO los campos faltantes en el resultado FUSIONADO.
+  // Esto preserva todos los valores que el organizador ya habia configurado en
+  // turnos previos (no pisa). Regresion inbox 047ca225.
+  const autoFilledPaths = fillMissingSubConfigs(nextConfig)
+  // Agregar needs_confirmation + paths autocompletados a pending_confirmations
+  // para que el organizador confirme los defaults inyectados (contrato del prompt).
+  const pending = new Set([
+    ...(nextConfig.pending_confirmations || []),
+    ...parsed.data.needs_confirmation,
+    ...autoFilledPaths,
+  ])
   nextConfig.pending_confirmations = Array.from(pending)
 
   const fullResult = tournamentConfigSchema.safeParse(nextConfig)

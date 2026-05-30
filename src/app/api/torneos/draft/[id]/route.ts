@@ -74,7 +74,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const upgraded = upgradeConfig(current.config)
-  const nextConfig = deepMergeConfig(upgraded, partialResult.data)
+  const nextConfig = deepMergeConfig(
+    upgraded,
+    partialResult.data as import('@/lib/draft/types').TournamentConfigPartial,
+  )
 
   const fullResult = tournamentConfigSchema.safeParse(nextConfig)
   if (!fullResult.success) {

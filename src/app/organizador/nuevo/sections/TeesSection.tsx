@@ -73,6 +73,24 @@ export function TeesSection({ config, applyChange }: TeesSectionProps) {
             </span>
           </div>
         </label>
+
+        <label style={radioRowStyle(currentMode === 'manual')}>
+          <input
+            type="radio"
+            name="tee-mode"
+            value="manual"
+            checked={currentMode === 'manual'}
+            onChange={() => setMode('manual')}
+          />
+          <div style={radioTextStyle}>
+            <span style={radioTitleStyle}>El admin asigna jugador por jugador</span>
+            <span style={radioDescStyle}>
+              Para casos especiales (senior que juega tee de varón, junior de tees
+              adelantadas, etc.). Configurás el tee de cada jugador desde el panel
+              de jugadores.
+            </span>
+          </div>
+        </label>
       </div>
     </section>
   )

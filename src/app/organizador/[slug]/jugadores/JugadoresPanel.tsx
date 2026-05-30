@@ -6,12 +6,16 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { Flag, Users } from '@/components/icons'
+import { useTees } from './hooks/useTees'
+import { TeesAssignmentSection } from './components/TeesAssignmentSection'
+import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
 
 interface Course { slope_rating: number; course_rating: number; par_total: number; nombre?: string }
 interface Tournament {
   id: string; name: string; slug: string; course_id: string; status: string;
   courses: Course; course_name?: string; tees?: string; hole_count?: number;
-  date_start?: string; total_rounds?: number
+  date_start?: string; total_rounds?: number;
+  rounds?: Array<{ tee_assignment_mode?: string }>
 }
 interface Category { id: string; name: string; handicap_min: number | null; handicap_max: number | null }
 interface Profile  { id: string; name: string; email: string; indice: number | null }
@@ -529,6 +533,22 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     }
     setClosing(false)
   }
+
+  // ───── Feature bug #6 inbox: asignación manual de tee por jugador ─────
+  // El modo manual se persiste en tournaments.tees por el create-tournament route.
+  // También aceptamos lectura desde tournament.rounds (Fase 11 futura).
+  const teesManualMode =
+    tournament.tees === 'manual' ||
+    (tournament.rounds ?? []).some((r) => r?.tee_assignment_mode === 'manual')
+  const tees = useTees({ slug: tournament.slug, courseId: tournament.course_id })
+  const [playersWithTees, setPlayersWithTees] = useState<PlayerRow[]>([])
+  useEffect(() => {
+    if (!teesManualMode) return
+    const supabase = createClient()
+    void listPlayers(supabase, tournament.id)
+      .then(setPlayersWithTees)
+      .catch(() => { /* swallow: motor sigue funcionando con fallback */ })
+  }, [teesManualMode, tournament.id, players.length])
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '100px' }}>
@@ -1107,6 +1127,30 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           </div>
         )}
       </div>
+
+      {/* Bug #6 inbox: asignación manual de tee por jugador */}
+      {teesManualMode && (
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 24px' }}>
+          <TeesAssignmentSection
+            players={playersWithTees}
+            courseTees={tees.courseTees}
+            // tournaments.tees guarda 'per_player'|'mixed'|'manual' (no un nombre de tee).
+            // Por eso pasamos null acá — el fallback efectivo se resuelve via category
+            // o queda en source='none' (motor decide).
+            tournamentTeesGlobal={null}
+            loading={tees.loading}
+            errors={tees.errors}
+            onAssign={async (playerId, teeId) => {
+              try {
+                await tees.assignTee(playerId, teeId)
+                const supabase = createClient()
+                const fresh = await listPlayers(supabase, tournament.id)
+                setPlayersWithTees(fresh)
+              } catch { /* el useTees ya populated errors map */ }
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -29,7 +29,7 @@ team_config.formation_mode (literal exacto): "manual", "random", "by_handicap", 
 match_play_config.bracket_mode (literal exacto): "single_elimination", "round_robin", "one_vs_one".
 match_play_config.handicap_diff (literal exacto): "full", "three_quarters", "none".
 registration.mode (literal exacto): "open_with_code", "invite_only", "club_members_only".
-rounds[].tee_assignment_mode (literal exacto): "per_player", "per_category".
+rounds[].tee_assignment_mode (literal exacto): "per_player", "per_category", "manual". "manual" = el admin asigna desde qué tee sale cada jugador uno por uno.
 prizes[].type (literal exacto): "category_position", "closest_to_pin", "long_drive", "special".
 Reglas duras:
 - match_play y stableford fuerzan modo neto.

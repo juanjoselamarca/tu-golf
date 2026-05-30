@@ -16,14 +16,28 @@
  *
  * Spec: docs/superpowers/plans/2026-05-05-cerebro-v2.md §5.5 + §5.7
  * Schema: supabase/migrations/034_cerebro_foundation.sql
+ *
+ * Ola 0 Task 12: las 7 funciones de cómputo de métricas vivían acá; ahora
+ * cada una vive en `src/golf/coach/metrics/<name>.ts` con sus tests de
+ * regresión. Este archivo orquesta plan activo + ronda + dispatch +
+ * persistencia, nada de matemática de hoyos.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import type { PlanMetric, TargetOp } from './plan-engine'
-import { inferHoles, parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
+import {
+  computeBack9MinusFront9,
+  computeFirstHole,
+  computePar3VsPar,
+  computePostBogeyAvg,
+  computeDoubleOrWorsePct,
+  computeLast4MinusRest,
+  computeTotalGrossCV,
+  type ComputedMetric,
+  type RoundData,
+} from './metrics'
 
-const STANDARD_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
 const CONSECUTIVE_HITS_TO_RESOLVE = 3
 
 export type RoundSource =
@@ -52,18 +66,6 @@ interface PlanRow {
   baseline_value: number | null
   duration_days: number
   created_at: string
-}
-
-interface RoundData {
-  id: string
-  scores: (number | null)[] | null
-  total_gross: number | null
-  // BD guarda JSONB objeto `{"1":4,...}`. Aceptamos ambos shapes para tolerar
-  // legacy + tests con arrays. Normalizar siempre con `parPerHoleArray()`
-  // antes de usar — NO castear directo a `number[]`.
-  par_per_hole: ParPerHoleInput
-  played_at: string
-  metadata: Record<string, unknown> | null
 }
 
 export async function computePlanOutcomeForRound(
@@ -193,13 +195,7 @@ export async function computePlanOutcomeForRound(
   }
 }
 
-// ---------- Métricas ----------
-
-interface ComputedMetric {
-  value: number | null
-  reason: string
-  metadata?: Record<string, unknown>
-}
+// ---------- Dispatch de métricas (las implementaciones viven en `./metrics/`) ----------
 
 async function computeMetric(
   supabase: SupabaseClient,
@@ -231,129 +227,7 @@ async function computeMetric(
   }
 }
 
-function pars(round: RoundData): number[] {
-  // Normalizar a array (BD lo guarda como JSONB objeto, no array). Sólo
-  // aceptamos 18 hoyos completos para métricas de full round — si vienen
-  // 9 hoyos, las métricas 18h aplican fallback STANDARD_PARS (consistente
-  // con validScores() que requiere length 18).
-  const arr = parPerHoleArray(round.par_per_hole)
-  return arr && arr.length === 18 ? arr : STANDARD_PARS
-}
-
-function validScores(round: RoundData): { scores: number[]; pars: number[] } | null {
-  if (!Array.isArray(round.scores)) return null
-  const sc: number[] = []
-  const pa = pars(round)
-  for (let i = 0; i < 18; i++) {
-    const s = round.scores[i]
-    if (typeof s !== 'number') return null
-    sc.push(s)
-  }
-  return { scores: sc, pars: pa }
-}
-
-function computeBack9MinusFront9(round: RoundData): ComputedMetric {
-  const v = validScores(round)
-  if (!v) return { value: null, reason: 'incomplete_18_holes' }
-  const front = sum(v.scores.slice(0, 9))
-  const back = sum(v.scores.slice(9, 18))
-  return { value: back - front, reason: 'computed', metadata: { front, back } }
-}
-
-function computeFirstHole(round: RoundData): ComputedMetric {
-  const s = round.scores?.[0]
-  if (typeof s !== 'number') return { value: null, reason: 'no_first_hole_score' }
-  return { value: s, reason: 'computed' }
-}
-
-function computePar3VsPar(round: RoundData): ComputedMetric {
-  const v = validScores(round)
-  if (!v) return { value: null, reason: 'incomplete_18_holes' }
-  let total = 0
-  let count = 0
-  for (let i = 0; i < 18; i++) {
-    if (v.pars[i] === 3) {
-      total += v.scores[i] - 3
-      count++
-    }
-  }
-  if (count === 0) return { value: null, reason: 'no_par3_holes' }
-  return { value: total / count, reason: 'computed', metadata: { par3_count: count } }
-}
-
-function computePostBogeyAvg(round: RoundData): ComputedMetric {
-  const v = validScores(round)
-  if (!v) return { value: null, reason: 'incomplete_18_holes' }
-  let total = 0
-  let count = 0
-  for (let i = 0; i < 17; i++) {
-    const overPar = v.scores[i] - v.pars[i]
-    if (overPar >= 1) {
-      total += v.scores[i + 1]
-      count++
-    }
-  }
-  if (count === 0) return { value: null, reason: 'no_bogey_or_worse' }
-  return { value: total / count, reason: 'computed', metadata: { post_bogey_count: count } }
-}
-
-function computeDoubleOrWorsePct(round: RoundData): ComputedMetric {
-  const v = validScores(round)
-  if (!v) return { value: null, reason: 'incomplete_18_holes' }
-  let dbl = 0
-  for (let i = 0; i < 18; i++) {
-    if (v.scores[i] - v.pars[i] >= 2) dbl++
-  }
-  return { value: dbl / 18, reason: 'computed', metadata: { double_or_worse: dbl } }
-}
-
-function computeLast4MinusRest(round: RoundData): ComputedMetric {
-  const v = validScores(round)
-  if (!v) return { value: null, reason: 'incomplete_18_holes' }
-  const last4Avg = sum(v.scores.slice(14, 18)) / 4
-  const restAvg = sum(v.scores.slice(0, 14)) / 14
-  return { value: last4Avg - restAvg, reason: 'computed' }
-}
-
-async function computeTotalGrossCV(
-  supabase: SupabaseClient,
-  userId: string,
-  round: RoundData,
-): Promise<ComputedMetric> {
-  // Necesita las ultimas 10 rondas de 18h (incluyendo la actual). Como
-  // historical_rounds y rondas_libres son fuentes distintas, usamos
-  // historical_rounds. CV/variance sólo es comparable entre rondas del
-  // mismo hole count — mezclar 9h con 18h infla cv artificialmente.
-  // Si <5 rondas 18h con total_gross numerico, metric=null.
-  const { data, error } = await supabase
-    .from('historical_rounds')
-    .select('total_gross, played_at, holes_played, scores')
-    .eq('user_id', userId)
-    .order('played_at', { ascending: false })
-    .limit(20)
-
-  if (error) return { value: null, reason: error.message }
-  const only18h = (data ?? []).filter(r => inferHoles(r as { holes_played?: number | null; scores?: number[] | null }) === 18).slice(0, 10)
-  const grosses = only18h
-    .map(r => (typeof r.total_gross === 'number' ? r.total_gross : null))
-    .filter((x): x is number => x !== null)
-
-  if (grosses.length < 5) return { value: null, reason: 'insufficient_rounds_for_cv' }
-
-  const mean = grosses.reduce((a, b) => a + b, 0) / grosses.length
-  const variance = grosses.reduce((a, b) => a + (b - mean) ** 2, 0) / grosses.length
-  const std = Math.sqrt(variance)
-  const cv = mean > 0 ? std / mean : 0
-  return { value: cv, reason: 'computed', metadata: { mean, std, sample_size: grosses.length } }
-}
-
-// ---------- Helpers ----------
-
-function sum(xs: number[]): number {
-  let s = 0
-  for (const x of xs) s += x
-  return s
-}
+// ---------- Helpers de evaluación de target ----------
 
 function evalTarget(value: number, target: number, op: TargetOp): boolean {
   if (op === 'lte') return value <= target

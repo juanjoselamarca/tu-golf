@@ -52,7 +52,7 @@ export const roundConfigSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   course_id: z.string().uuid().nullable(),
   hole_count: z.union([z.literal(9), z.literal(18)]),
-  tee_assignment_mode: z.enum(['per_player', 'per_category']),
+  tee_assignment_mode: z.enum(['per_player', 'per_category', 'manual']),
   custom_si: z.record(z.string(), z.number().int().min(1).max(18)).optional(),
   notes: z.string().optional(),
 })
@@ -71,6 +71,10 @@ export const prizeConfigSchema = z.object({
   category_id: z.string().optional(),
   position: z.number().int().positive().optional(),
   hole_number: z.number().int().min(1).max(18).optional(),
+  // Escala del premio para ranking-based prizes (`category_position`).
+  // NULL/undefined = sin distinción. La normalización final (Match Play,
+  // tipos no ranking-based) la hace `mapPrizeForInsert` antes del INSERT.
+  kind: z.enum(['gross', 'neto']).optional(),
 })
 
 export const tournamentConfigSchema = z.object({
@@ -92,5 +96,25 @@ export const tournamentConfigSchema = z.object({
   pending_confirmations: z.array(z.string()),
 })
 
-// Schema partial: todos los campos opcionales (recursivo simple)
-export const tournamentConfigPartialSchema = tournamentConfigSchema.partial()
+// Schema partial: DEEP partial — cada sub-schema acepta tambien sub-objetos
+// parciales. Sin esto, el LLM no puede mandar { team_config: { size: 2 } }
+// porque teamConfigSchema exige handicap_pct + formation_mode. Esos campos
+// requeridos se rellenan post-merge en fillMissingSubConfigs (regresion 047ca225).
+export const tournamentConfigPartialSchema = z.object({
+  schema_version: z.literal(1).optional(),
+  name: z.string().optional(),
+  date_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  cover_image_url: z.string().url().nullable().optional(),
+  format: tournamentFormatSchema.optional(),
+  modo: scoringModeSchema.optional(),
+  use_handicap: z.boolean().optional(),
+  team_config: teamConfigSchema.partial().optional(),
+  match_play_config: matchPlayConfigSchema.partial().optional(),
+  stableford_config: stablefordConfigSchema.partial().optional(),
+  categories: z.array(categoryConfigSchema.partial()).optional(),
+  rounds: z.array(roundConfigSchema.partial()).optional(),
+  registration: registrationConfigSchema.partial().optional(),
+  prizes: z.array(prizeConfigSchema.partial()).optional(),
+  is_practice: z.boolean().optional(),
+  pending_confirmations: z.array(z.string()).optional(),
+})
