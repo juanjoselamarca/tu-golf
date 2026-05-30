@@ -92,6 +92,12 @@ export async function callLLM(params: CallLLMParams): Promise<LLMResult> {
   const aiEnv = params.aiEnv ?? currentAiEnv()
   const chain = params.chain ?? resolveChain(params.role, aiEnv)
   if (chain.length === 0) {
+    // Mantiene el invariante "cada callLLM registra un row" (misconfig de cadena).
+    logAiUsage({
+      aiEnv, role: params.role, provider: null, model: null, status: 'all_failed',
+      fallbackUsed: false, attempts: 0, tokensIn: 0, tokensOut: 0, latencyMs: 0,
+      costUsd: 0, errorKind: 'other',
+    })
     throw new AllProvidersFailedError(
       `Sin proveedores para rol=${params.role} en env=${aiEnv}`,
     )
