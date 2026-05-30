@@ -1,4 +1,4 @@
-# Estado Cerebro V3 — Actualizado 2026-05-28 15:25 GMT-4
+# Estado Cerebro V3 — Actualizado 2026-05-29 18:10 GMT-4
 
 > Este archivo es el dashboard vivo del proyecto cerebro v3. Se actualiza al cierre de cada sesión que toque el proyecto. Si lees esto al iniciar una sesión, sabés exactamente dónde retomar.
 >
@@ -54,12 +54,24 @@
 **Gemini embeddings**. `gemini-embedding-001` dim=1536 → mantiene `vector(1536)`
 sin migración. `taskType` RETRIEVAL_QUERY/DOCUMENT subió el banco 17→20/20.
 
-**Bloqueo abierto para merge:** precisión anti-hallucination (hybrid-only no
-separa limpio relevante de ruido). Fix = **reranker hosted** — decisión de
-provider pendiente (Cohere `rerank-multilingual-v3.0` ya en llm_models seed, o
-re-scoring con Gemini). El bge-reranker ONNX local quedó descartado (incompatible
-con Vercel read-only FS). + mejorar cobertura FedeGolf (Q8 devolvió 0 chunks).
+**Reranker — RESUELTO (29-may PM):** `gemini-2.5-flash-lite` re-scoring (~760ms),
+serverless-safe, degrada a hybrid ante timeout/error. ONNX local descartado.
+Validado: anti-hallucination **5/5** (ruido rechazado), scores limpios 0.7-1.0.
+
+**Reenfoque del coach (29-may, decisión Juanjo) — HECHO:** el coach es ENTRENADOR,
+no árbitro. `RAG_SECTION` reescrita (reglas = base para enseñar). Nueva
+`ENGAGEMENT_SECTION`: 3 niveles de temas (núcleo/golf-cercano/fuera), **asesor de
+equipo que se la juega con marcas/modelos personalizados** + disclaimer specs, y
+reencauce con onda cuando la charla se aleja del objetivo. Validado en
+conversaciones reales. Norte: herramientas mentales para bajar handicap.
+
+**Falta SOLO para merge:** demo en vivo con Juanjo (regla #4). Sin bloqueos
+técnicos. Follow-ups no bloqueantes: tuneo fino del piso 0.4 (2 queries comunes
+quedaron estrictas), cobertura FedeGolf, monitorear latencia reranker en prod.
 Eval completa: `docs/cerebro-v3-ola1e-evaluacion-rag.md`.
+
+**Feature futura aprobada (post-1e):** asesor de equipo con búsqueda web (Gemini
+grounding) para specs/modelos actuales verificados. Memoria `project_asesor_equipo_web`.
 
 ### Estado app en worktree (post Fase A+B+C)
 
@@ -83,11 +95,15 @@ Eval completa: `docs/cerebro-v3-ola1e-evaluacion-rag.md`.
 - `pdf-parse v2` requiere API nueva `new PDFParse({data}).getText()` (no `pdfParse(buf)`).
 - Tests usan `describe.skipIf` + `beforeAll(60_000)` para timeout con embeddings grandes.
 
-**Próxima sesión arranca con:** decisión de Juanjo sobre el **reranker hosted**
-(Cohere vs Gemini re-scoring) para cerrar la precisión anti-hallucination, luego
-implementarlo, mejorar cobertura FedeGolf, demo en vivo y merge del PR #79.
-Tasks 18-28 + ingesta/eval ya cerradas (ver tabla arriba). Eval RAG completa en
-`docs/cerebro-v3-ola1e-evaluacion-rag.md` (este doc vive en el branch del PR #79).
+**Próxima sesión arranca con:** **demo en vivo con Juanjo del PR #79** (coach v3
+con reglas + asesor). Si OK → activar flag para Juanjo, mergear PR #79, cerrar
+sub-ola 1e. Después: feature "asesor de equipo con web" (memoria
+`project_asesor_equipo_web`) o sub-ola 1b. Toda la implementación de 1e (Tasks
+18-28 + ingesta + reranker + reenfoque coach) está cerrada, testeada y pusheada
+en el branch del PR #79. Para retomar: `git -C .claude/worktrees/cerebro-v3-ola-1e
+log --oneline` + leer `docs/cerebro-v3-ola1e-evaluacion-rag.md` (vive en el branch).
+NOTA: el branch puede necesitar `git merge origin/main` antes del merge (diverge
+desde antes del estado doc actual).
 
 ## Sub-olas restantes de Ola 1 (post-1e)
 
