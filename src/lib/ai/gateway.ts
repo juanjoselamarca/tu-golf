@@ -21,7 +21,10 @@ import {
   type ProviderGenerateArgs,
 } from './types'
 
-const MAX_RETRIES = 2 // reintentos por proveedor (3 intentos totales por proveedor)
+// 1 reintento por proveedor (2 intentos). El valor de resiliencia real es el
+// fallback CROSS-proveedor (→ Gemini), no martillar al mismo proveedor saturado.
+// Mantiene acotada la latencia en una ruta en vivo de torneo.
+const MAX_RETRIES = 1
 let _backoffBaseMs = 400
 const DEFAULT_TIMEOUT_MS = 30_000
 
@@ -46,7 +49,7 @@ export function isTransient(err: unknown): boolean {
   const status = e?.status ?? e?.statusCode
   if (typeof status === 'number') return RETRYABLE_STATUS.has(status)
   const msg = String(e?.message ?? '').toLowerCase()
-  return /timeout|overloaded|rate.?limit|too many|econnreset|etimedout|fetch failed|network|socket hang/.test(
+  return /timeout|overloaded|rate.?limit|too many|econnreset|etimedout|fetch failed|network|socket hang|aborted/.test(
     msg,
   )
 }

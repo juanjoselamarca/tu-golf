@@ -107,6 +107,8 @@ Validación obligatoria: Gemini debe pasar el banco de pruebas para esos roles a
 ### 3.5 Degradación elegante (el golfista nunca ve error crudo)
 
 - **Interactivo (asistente de torneo, coach):** si `AllProvidersFailedError` → la API responde `200` con un payload tipado `{ degraded: true, message: "El asistente está ocupado, probá de nuevo en unos segundos." }`. La UI muestra un estado amable + botón "reintentar". Nunca un `502`/`500` crudo.
+  - **Desviación consciente en Fase 1 (asistente de torneo):** la ruta `draft/assistant` **mantiene su contrato previo `503` + `{ error: 'IA no disponible, editá manualmente' }`** en vez de `200 {degraded}`. Razón: ese 503 ya existía y el cliente lo maneja; cambiar el contrato HTTP + el cliente excede el alcance de Fase 1 y agrega riesgo a una ruta en vivo. El payload `200 {degraded}` se adopta en Fase 4 junto con la actualización del cliente. No es regresión (comportamiento idéntico al de `main`).
+  - **Follow-up (Fase 2):** cablear un `AbortSignal` real al `withTimeout` del gateway para CANCELAR la llamada del proveedor al vencer el timeout (hoy la promesa descartada sigue consumiendo tokens hasta completar). Agregar `abort` ya está contemplado en `isTransient`.
 - **No interactivo (inbox triage):** ante fallo total → el reporte queda en estado `pendiente_retry` y se reintenta en la próxima corrida (no se pierde, no se marca error de cara al usuario).
 - Todo fallo total se captura con `captureError()` (contexto único por call-site) para que lo veamos.
 

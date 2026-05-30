@@ -1,6 +1,6 @@
 // src/app/api/torneos/draft/[id]/assistant/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { callLLM, AllProvidersFailedError } from '@/lib/ai'
+import { callLLM, AllProvidersFailedError, type LLMResult } from '@/lib/ai'
 import { captureError } from '@/lib/error-tracking'
 import { createClient } from '@/utils/supabase/server'
 import { tournamentConfigPartialSchema, tournamentConfigSchema } from '@/lib/draft/schema'
@@ -55,13 +55,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Llamada IA vía gateway central: rol 'evaluator' (cadena Haiku → Gemini en
   // prod; solo Gemini en dev para no quemar el cupo del golfista). El gateway
   // reintenta y cae a otro proveedor ante 429/529/timeout antes de rendirse.
-  let llm
+  let llm: LLMResult
   try {
     llm = await callLLM({
       role: 'evaluator',
       system: TOURNAMENT_ASSISTANT_PROMPT_V1 + `\n\nConfig actual:\n${JSON.stringify(current.config, null, 2)}`,
       messages: [{ role: 'user', content: message }],
       maxTokens: 1024,
+      // temperature 1 explícito: preserva EXACTO el comportamiento previo (la ruta
+      // no pasaba temperature → Anthropic usaba su default 1.0, y el prompt +
+      // pipeline de parsing se tunearon contra ese comportamiento). No cambiar a
+      // 0 sin validar contra el banco de pruebas del asistente.
+      temperature: 1,
+      // Gemini (fallback) devuelve JSON puro vía responseMimeType → robustece el
+      // parsing en el path de fallback. Neutral para Anthropic (ya pide JSON en el prompt).
+      responseJson: true,
       timeoutMs: TIMEOUT_MS,
     })
   } catch (err: unknown) {
@@ -77,8 +85,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
   const latencyMs = llm.latencyMs
 
-  // Costo: estimación con tarifas Haiku. Conservadora si cayó a Gemini (más barato),
-  // que es lo que queremos para la alarma de presupuesto.
+  // Costo: estimación con tarifas Haiku. Si cayó a Gemini (más barato) SOBREestima
+  // → la alarma de presupuesto puede saltar antes de tiempo (lado seguro). El costeo
+  // real por proveedor llega con la tabla ai_usage (Fase 2).
   const inputTokens = llm.tokensIn
   const outputTokens = llm.tokensOut
   const costUsd = (inputTokens * HAIKU_INPUT_PER_MTOK + outputTokens * HAIKU_OUTPUT_PER_MTOK) / 1_000_000
