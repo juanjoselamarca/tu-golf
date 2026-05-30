@@ -150,10 +150,11 @@ Cada uno testeable en aislamiento; los providers se mockean para testear el gate
 ## 5. Plan por fases
 
 - **Fase 1 — Apagar el incendio + base del gateway (esta entrega):**
-  `src/lib/ai/` (index + gateway + 2 providers + registry + usage-log stub), cadenas cross-proveedor en `llm_models`, migración de `draft/assistant` e `inbox-triage` a `callLLM`, separación prod/dev (dev→Gemini), degradación elegante en esos 2 sitios, tests unit (gateway con providers mockeados, fallback, retry, prod/dev). → detiene las 519.
+  `src/lib/ai/` (index + gateway + 2 providers + registry), migración de `draft/assistant` (ruta en vivo) a `callLLM`, separación prod/dev (dev→Gemini), degradación elegante vía `captureError` + 503 amable, tests unit (gateway con providers mockeados: happy path, fallback 429/529, retry, no-transitorio, prod/dev, cadena agotada — 11 tests). El asistente en dev/preview deja de tocar la llave Haiku de prod → corta el contribuyente dominante de las 519 (E2E que martillaban la ruta).
+  **Diferido conscientemente:** `scripts/inbox-triage.mjs` es **multimodal** (vision) y de baja frecuencia (corre solo en `/inbox`); su migración a Gemini-vision va en Fase 4 para no inflar esta entrega. La tabla `ai_usage` (observabilidad) también es Fase 2.
 - **Fase 2 — Observabilidad + alerta:** tabla `ai_usage`, widget admin, alerta 70%.
 - **Fase 3 — Caché:** prompt caching en system prompts grandes + caché de respuesta en triage.
-- **Fase 4 — Migración total:** mover `taiger/chat`, `playground`, `import/confirm` (Sonnet) y el resto al gateway; retirar todo `new Anthropic()` directo de los call-sites. Aplica "el que toca, ordena" a `import/screenshot/route.ts` (767 LOC) si se toca.
+- **Fase 4 — Migración total:** mover `taiger/chat`, `playground`, `import/confirm` (Sonnet), `inbox-triage` (multimodal → Gemini-vision) y el resto al gateway; retirar todo `new Anthropic()` directo de los call-sites; canario "ningún call-site instancia el SDK directo fuera de `src/lib/ai/`". Aplica "el que toca, ordena" a `import/screenshot/route.ts` (767 LOC) si se toca.
 - **Fase 5 (opcional):** Vercel AI Gateway como proveedor; org Anthropic prod separada.
 
 Cada fase: worktree, tests, `/pre-push`, `superpowers:code-reviewer` (>100 LOC), demo/aviso a Juanjo, deploy confirmado.
