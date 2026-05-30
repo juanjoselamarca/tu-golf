@@ -4,7 +4,7 @@
 //
 // Sección "Premios": lista editable de config.prizes.
 
-import type { TournamentConfig, PrizeConfig } from '@/lib/draft/types'
+import type { TournamentConfig, PrizeConfig, PrizeKind } from '@/lib/draft/types'
 
 export interface PremiosSectionProps {
   config: TournamentConfig
@@ -33,6 +33,10 @@ const TYPE_LABELS: Record<PrizeConfig['type'], string> = {
 export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
   const prizes = config.prizes ?? []
   const categories = config.categories ?? []
+
+  // En Match Play el modo es exclusivo: un solo bracket gross XOR neto.
+  // El toggle de premio Gross/Neto no aplica — el premio sigue al torneo.
+  const isMatchPlay = config.format === 'match_play'
 
   const updateAt = (idx: number, patch: Partial<PrizeConfig>) => {
     const next = prizes.map((p, i) => (i === idx ? { ...p, ...patch } : p))
@@ -69,11 +73,14 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                   value={prize.type}
                   onChange={(e) => {
                     const newType = e.target.value as PrizeConfig['type']
-                    // Limpiamos campos que no aplican al nuevo tipo
+                    // Limpiamos campos que no aplican al nuevo tipo para
+                    // evitar dejar state stale en config.prizes (que se
+                    // persiste como JSONB en tournament_drafts).
                     const patch: Partial<PrizeConfig> = { type: newType }
                     if (newType !== 'category_position') {
                       patch.position = undefined
                       patch.category_id = undefined
+                      patch.kind = undefined  // kind solo aplica a category_position
                     }
                     if (newType !== 'closest_to_pin' && newType !== 'long_drive') {
                       patch.hole_number = undefined
@@ -136,6 +143,37 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                       ))}
                     </select>
                   </div>
+                  {/* Toggle Gross / Neto. En Match Play queda oculto porque el modo
+                      del torneo es exclusivo. En el resto de formatos permite premiar
+                      "1° Gross" y "1° Neto" como dos premios distintos. */}
+                  {!isMatchPlay && (
+                    <div style={{ ...fieldStyle, gridColumn: 'span 2' }}>
+                      <span style={labelStyle}>Escala</span>
+                      <div style={chipRowStyle}>
+                        {(['gross', 'neto'] as const).map((k) => (
+                          <button
+                            key={k}
+                            type="button"
+                            style={kindChipStyle(prize.kind === k)}
+                            onClick={() => updateAt(idx, { kind: k as PrizeKind })}
+                            aria-pressed={prize.kind === k}
+                          >
+                            {k === 'gross' ? 'Gross' : 'Neto'}
+                          </button>
+                        ))}
+                        {prize.kind != null && (
+                          <button
+                            type="button"
+                            style={kindClearStyle}
+                            onClick={() => updateAt(idx, { kind: undefined })}
+                            aria-label="Limpiar escala"
+                          >
+                            Limpiar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -269,6 +307,47 @@ const addBtnStyle: React.CSSProperties = {
   color: 'var(--brand-gold, #c4992a)',
   fontFamily: '"DM Sans", sans-serif',
   fontSize: 13,
+  fontWeight: 500,
+  cursor: 'pointer',
+}
+
+// ── Estilo del chip Gross/Neto. Mismo pattern que ComoJueganSection
+// (chip pill rounded-full, gold cuando activo, 120ms transition) — mantiene
+// consistencia visual con el resto del wizard premium.
+const chipRowStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  marginTop: 2,
+}
+
+function kindChipStyle(active: boolean): React.CSSProperties {
+  return {
+    padding: '6px 12px',
+    borderRadius: 999,
+    border: active
+      ? '1px solid var(--brand-gold, #c4992a)'
+      : '1px solid var(--border, #e5e7eb)',
+    background: active
+      ? 'var(--brand-gold, #c4992a)'
+      : 'var(--input-bg, #ffffff)',
+    color: active ? '#fff' : 'var(--text-primary, #111827)',
+    fontFamily: '"DM Sans", sans-serif',
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'background 120ms ease, border-color 120ms ease, color 120ms ease',
+  }
+}
+
+const kindClearStyle: React.CSSProperties = {
+  padding: '6px 10px',
+  borderRadius: 999,
+  border: '1px solid transparent',
+  background: 'transparent',
+  color: 'var(--text-secondary, #4b5563)',
+  fontFamily: '"DM Sans", sans-serif',
+  fontSize: 11,
   fontWeight: 500,
   cursor: 'pointer',
 }

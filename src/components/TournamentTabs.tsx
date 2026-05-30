@@ -20,6 +20,12 @@ export interface GroupData {
 
 interface Props {
   players: Player[]
+  /** Ranking forzado por gross. Cuando viene + playersByNeto + formato !==
+   *  'match_play', se renderiza un sub-toggle "Gross | Neto" sobre el
+   *  leaderboard. Si vacío o ausente, el toggle no aparece y el render
+   *  cae a `players` (ranking primario por modo del torneo). */
+  playersByGross?: Player[]
+  playersByNeto?: Player[]
   groups: GroupData[]
   modoJuego: ModoJuego
   totalHoyos: number
@@ -33,6 +39,7 @@ interface Props {
 }
 
 type Tab = 'leaderboard' | 'grupos'
+type ViewMode = 'gross' | 'neto'
 
 /* ── Design tokens ────────────────────────────────────────── */
 const T = {
@@ -96,11 +103,32 @@ function groupStatusDot(groupPlayers: Player[], totalHoyos: number): { dot: stri
 }
 
 /* ── Component ────────────────────────────────────────────── */
-export default function TournamentTabs({ players, groups, modoJuego, totalHoyos, isLive, gwiInputs, playerIdToIndex, formato, courseHoles, courseName, formatLabel: formatLabelProp }: Props) {
+export default function TournamentTabs({ players, playersByGross, playersByNeto, groups, modoJuego, totalHoyos, isLive, gwiInputs, playerIdToIndex, formato, courseHoles, courseName, formatLabel: formatLabelProp }: Props) {
   const [tab, setTab] = useState<Tab>('leaderboard')
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const hasGroups = groups.length > 0
-  const scoreHeader = formato === 'stableford' ? 'PUNTOS' : 'SCORE'
+
+  // ── Sub-toggle Gross / Neto ─────────────────────────────────────────
+  // Visible solo si: (a) ambos rankings llegaron poblados, (b) el torneo
+  // no es match_play (modo exclusivo: un solo bracket válido), (c) hay
+  // jugadores con datos en ambas listas. Default: el modo del torneo.
+  const supportsDualLeaderboard =
+    formato !== 'match_play'
+    && (playersByGross?.length ?? 0) > 0
+    && (playersByNeto?.length ?? 0) > 0
+  const [viewMode, setViewMode] = useState<ViewMode>(modoJuego === 'neto' ? 'neto' : 'gross')
+
+  // Players activos en el leaderboard. Cuando dual está activo, vienen del
+  // ranking forzado (gross o neto). Caso contrario, ranking primario.
+  const activePlayers: Player[] = supportsDualLeaderboard
+    ? (viewMode === 'gross' ? (playersByGross as Player[]) : (playersByNeto as Player[]))
+    : players
+
+  // El header de la columna SCORE cambia según contexto:
+  // - stableford SIN dual = PUNTOS (ranking primario por puntos)
+  // - stableford + dual activo = SCORE (Gross/Neto strokes vs par)
+  // - resto = SCORE
+  const scoreHeader = formato === 'stableford' && !supportsDualLeaderboard ? 'PUNTOS' : 'SCORE'
 
   // Resolve holes for Scorecard: use courseHoles if provided, else generate defaults
   const resolvedHoles: ScorecardHole[] = courseHoles && courseHoles.length > 0
@@ -129,8 +157,8 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
       .filter(Boolean)
   }, [groups, playerIdToIndex, players])
 
-  // Positions for leaderboard
-  const positions = useMemo(() => computePositions(players), [players])
+  // Positions for leaderboard (de la lista activa: dual o primario)
+  const positions = useMemo(() => computePositions(activePlayers), [activePlayers])
 
   return (
     <>
@@ -175,6 +203,48 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
       {/* ── Leaderboard tab ── */}
       {tab === 'leaderboard' && (
         <>
+          {/* ── Sub-toggle Gross | Neto ──
+              Solo cuando el motor devolvió rankings paralelos completos
+              (formato !== match_play) y hay datos. Pills compactas, gold
+              activo, fontSize menor que el toggle principal. */}
+          {supportsDualLeaderboard && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '8px',
+              marginBottom: '14px',
+            }}>
+              {(['gross', 'neto'] as const).map((mode) => {
+                const active = viewMode === mode
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    style={{
+                      padding: '6px 16px',
+                      borderRadius: 999,
+                      border: active
+                        ? `1px solid ${T.gold}`
+                        : `1px solid ${T.border}`,
+                      background: active ? T.gold : 'transparent',
+                      color: active ? '#ffffff' : T.muted,
+                      fontFamily: '"DM Sans", system-ui, sans-serif',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      letterSpacing: '0.04em',
+                      cursor: 'pointer',
+                      transition: 'background 140ms ease, border-color 140ms ease, color 140ms ease',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                    aria-pressed={active}
+                  >
+                    {mode === 'gross' ? 'Gross' : 'Neto'}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           {/* PGA-style table */}
           <div style={{ width: '100%', overflow: 'hidden' }}>
             {/* Header row */}
@@ -200,7 +270,7 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
             </div>
 
             {/* Player rows */}
-            {players.map((p, idx) => {
+            {activePlayers.map((p, idx) => {
               const isLeader = idx === 0 && p.holes > 0
               const isExpanded = expandedIdx === idx
               const hasScores = p.holes > 0
@@ -312,7 +382,7 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
                         holes={resolvedHoles}
                         scores={scoresRecord}
                         courseHandicap={Math.round(p.hcp)}
-                        modo={modoJuego === 'neto' ? 'neto' : 'gross'}
+                        modo={supportsDualLeaderboard ? viewMode : (modoJuego === 'neto' ? 'neto' : 'gross')}
                         formato={formato as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome' ?? 'stroke_play'}
                         playerName={p.name}
                         courseName={courseName}
@@ -324,7 +394,7 @@ export default function TournamentTabs({ players, groups, modoJuego, totalHoyos,
               )
             })}
 
-            {players.length === 0 && (
+            {activePlayers.length === 0 && (
               <div style={{ padding: '40px 20px', textAlign: 'center', color: T.muted, fontSize: '14px' }}>
                 Sin jugadores aún
               </div>

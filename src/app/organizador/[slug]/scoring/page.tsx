@@ -7,7 +7,7 @@ import { Flag, PersonStanding } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
-import { computePlayerCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
 interface Round { id: string; status: string; total_gross: number; total_net: number; total_points: number; round_number: number }
@@ -27,6 +27,7 @@ interface Tournament {
   hole_count: number
   total_rounds: number
   tees: string | null
+  hcp_calc_mode: string | null
   courses: { id: string; nombre: string; par_total: number; slope_rating: number; course_rating: number } | null
 }
 
@@ -96,7 +97,7 @@ export default function ScoringPage() {
 
       const { data: t } = await supabase
         .from('tournaments')
-        .select('id, name, slug, format, hole_count, total_rounds, tees, courses(id, nombre, par_total, slope_rating, course_rating)')
+        .select('id, name, slug, format, hole_count, total_rounds, tees, hcp_calc_mode, courses(id, nombre, par_total, slope_rating, course_rating)')
         .eq('slug', slug)
         .single()
 
@@ -211,7 +212,7 @@ export default function ScoringPage() {
     const hole         = courseHoles.find((h) => h.numero === holeNumber)
     const par          = hole?.par ?? 4
     const strokeIndex  = hole?.stroke_index ?? holeNumber
-    const courseHcp    = computePlayerCourseHcp(player, tournament, courseTees, tournament.courses?.par_total ?? 72, tournament.hole_count || 18)
+    const courseHcp    = resolveScoringCourseHcp(tournament.hcp_calc_mode, player, tournament, courseTees, tournament.courses?.par_total ?? 72, tournament.hole_count || 18)
     const strokes      = strokesOnHole(courseHcp, strokeIndex)
     const netScore     = gross - strokes
 
@@ -430,7 +431,7 @@ export default function ScoringPage() {
   const outGross   = holes.filter(h => h <= 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
   const inGross    = holes.filter(h => h > 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
   const selectedCourseHcp = selectedPlayer
-    ? computePlayerCourseHcp(selectedPlayer, tournament, courseTees, parTotalRecorrido, holeCount)
+    ? resolveScoringCourseHcp(tournament.hcp_calc_mode, selectedPlayer, tournament, courseTees, parTotalRecorrido, holeCount)
     : 0
   const netTotal   = holes.reduce((s, h) => {
     if (!currentScores[h]) return s

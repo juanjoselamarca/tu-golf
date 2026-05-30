@@ -21,6 +21,29 @@ const DEFAULT_TEAM_CONFIG: TeamConfig = {
   formation_mode: 'manual',
 }
 
+const HCP_OPTIONS = [
+  {
+    value: 'usga_35_15',
+    title: 'USGA 35/15',
+    desc: 'Recomendado scramble 2 jugadores. Mejor handicap al 35%, resto al 15%.',
+  },
+  {
+    value: 'usga_25_15',
+    title: 'USGA 25/15',
+    desc: 'Recomendado scramble 3-4 jugadores. Mejor handicap al 25%, resto al 15%.',
+  },
+  {
+    value: 'simple_avg',
+    title: 'Promedio simple',
+    desc: 'Promedio directo de los handicaps del equipo, sin ponderación.',
+  },
+  {
+    value: 'custom',
+    title: 'Custom',
+    desc: 'Define tus propios porcentajes manualmente.',
+  },
+] as const
+
 export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
   if (!VISIBLE_FORMATS.includes(config.format as typeof VISIBLE_FORMATS[number])) {
     return null
@@ -52,22 +75,43 @@ export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
         </select>
       </div>
 
-      <div style={fieldStyle}>
-        <label style={labelStyle} htmlFor="t-team-hcp">% de handicap</label>
-        <select
-          id="t-team-hcp"
-          style={inputStyle}
-          value={tc.handicap_pct}
-          onChange={(e) =>
-            update({ handicap_pct: e.target.value as TeamConfig['handicap_pct'] })
-          }
-        >
-          <option value="usga_35_15">USGA 35/15</option>
-          <option value="usga_25_15">USGA 25/15</option>
-          <option value="simple_avg">Promedio simple</option>
-          <option value="custom">Custom</option>
-        </select>
-      </div>
+      <fieldset style={{ ...fieldStyle, border: 'none', margin: 0, padding: 0 }}>
+        <legend style={labelStyle}>% de handicap</legend>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+          {HCP_OPTIONS.map(opt => {
+            const selected = tc.handicap_pct === opt.value
+            return (
+              <label
+                key={opt.value}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                  border: selected ? '1.5px solid #c4992a' : '1px solid var(--border, #e5e7eb)',
+                  background: selected ? 'rgba(196,153,42,0.06)' : 'var(--input-bg, #ffffff)',
+                  transition: 'border-color 0.15s, background 0.15s',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="handicap_pct"
+                  value={opt.value}
+                  checked={selected}
+                  onChange={() => update({ handicap_pct: opt.value as TeamConfig['handicap_pct'] })}
+                  style={{ marginTop: 3, accentColor: '#c4992a', flexShrink: 0 }}
+                />
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #111827)' }}>
+                    {opt.title}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginTop: 2, lineHeight: 1.4 }}>
+                    {opt.desc}
+                  </div>
+                </div>
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
 
       <div style={fieldStyle}>
         <label style={labelStyle} htmlFor="t-team-formation">Armado de equipos</label>

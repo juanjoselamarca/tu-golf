@@ -8,7 +8,9 @@ export function createClient() {
 }
 
 export type UserRole = 'player' | 'organizer' | 'admin'
-export type TournamentFormat = 'stroke_play' | 'stableford' | 'match_play'
+export type TournamentFormat =
+  | 'stroke_play' | 'stableford' | 'match_play'
+  | 'best_ball'   | 'scramble'   | 'foursome'
 export type TournamentStatus = 'draft' | 'open' | 'in_progress' | 'closed' | 'published'
 export type PlayerStatus    = 'pending' | 'approved' | 'waitlist' | 'withdrawn'
 export type RoundStatus     = 'in_progress' | 'closed' | 'official'

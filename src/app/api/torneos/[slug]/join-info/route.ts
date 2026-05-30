@@ -10,11 +10,36 @@ export async function GET(_req: NextRequest, { params }: { params: { slug: strin
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const admin = createAdminClient()
-  const info = await fetchJoinInfo(admin, params.slug, user.id)
-  if (!info) return NextResponse.json({ error: 'not_found' }, { status: 404 })
 
-  return NextResponse.json(info)
+  // Authenticated → full info (profile + alreadyRegistered)
+  if (user) {
+    const info = await fetchJoinInfo(admin, params.slug, user.id)
+    if (!info) return NextResponse.json({ error: 'not_found' }, { status: 404 })
+    return NextResponse.json({ ...info, authenticated: true })
+  }
+
+  // Unauthenticated → public tournament info only (no redirect, no 401)
+  const { data: tournament } = await admin
+    .from('tournaments')
+    .select(
+      'id, name, slug, format, status, organizer_id, date_start, codigo, course_name, courses(nombre, ciudad, slope_rating, course_rating, par_total)'
+    )
+    .eq('slug', params.slug)
+    .maybeSingle()
+
+  if (!tournament) return NextResponse.json({ error: 'not_found' }, { status: 404 })
+
+  const PUBLIC_STATUSES = ['open', 'in_progress', 'closed', 'published']
+  if (!PUBLIC_STATUSES.includes((tournament as { status: string }).status)) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  }
+
+  return NextResponse.json({
+    tournament: tournament as unknown,
+    profile: null,
+    alreadyRegistered: false,
+    authenticated: false,
+  })
 }

@@ -64,3 +64,26 @@ export function computePlayerCourseHcp(
 
   return index
 }
+
+/**
+ * Gate del cálculo de neto por torneo (decisión Juanjo 28-may-2026).
+ *
+ * PR #73 (tee-por-admin) cableó el neto a course handicap WHS para todos los torneos,
+ * lo que alteraría el neto de torneos in_progress a mitad de evento. Decisión: WHS solo
+ * para torneos NUEVOS; los existentes congelan el cálculo previo (índice crudo).
+ *
+ * - mode === 'whs'  → course handicap WHS por tee (computePlayerCourseHcp).
+ * - cualquier otro  → índice crudo (handicap_at_registration). Default seguro: si la
+ *   columna falta/llega null, no se altera el comportamiento histórico del torneo.
+ */
+export function resolveScoringCourseHcp(
+  mode: string | null | undefined,
+  player: PlayerForCourseHcp,
+  tournament: TournamentForCourseHcp,
+  courseTees: CourseTeeRow[],
+  parTotal: number,
+  holeCount: number,
+): number {
+  if (mode !== 'whs') return player.handicap_at_registration ?? 0
+  return computePlayerCourseHcp(player, tournament, courseTees, parTotal, holeCount)
+}

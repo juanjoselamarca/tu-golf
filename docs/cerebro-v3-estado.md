@@ -1,13 +1,120 @@
-# Estado Cerebro V3 — Actualizado 2026-05-27 18:25 GMT-4
+# Estado Cerebro V3 — Actualizado 2026-05-29 18:10 GMT-4
 
 > Este archivo es el dashboard vivo del proyecto cerebro v3. Se actualiza al cierre de cada sesión que toque el proyecto. Si lees esto al iniciar una sesión, sabés exactamente dónde retomar.
 >
 > Fuente única de verdad arquitectónica: `docs/superpowers/specs/2026-05-26-cerebro-v3-diseño.md`.
 
-## Próxima ola
+## Ola activa — EN EJECUCIÓN
 
-- **Ola 1 — El coach estudia el mundo** — estado: `awaiting_kickoff` (esperando OK de Juanjo para arrancar)
-- Bloqueada hasta el OK explícito. Cuando arranque: brainstorming → spec/plan → ejecución TDD por tasks, mismo protocolo que Ola 0.
+- **Ola 1 — El coach estudia el mundo** — estado: `in_progress`
+- **Sub-ola activa:** 1e — Reglas oficiales en `knowledge_chunks` (USGA/R&A/WHS/FedeGolf)
+- **Spec sub-ola 1e:** `docs/superpowers/specs/2026-05-28-cerebro-v3-ola-1e-design.md` (commit `2fad0bc`)
+- **Plan sub-ola 1e:** `docs/superpowers/plans/2026-05-28-cerebro-v3-ola-1e.md` (commit `de6b54b`) — 29 tasks TDD en 7 fases (A: schema → G: close)
+- **Worktree:** `.claude/worktrees/cerebro-v3-ola-1e/` en branch `chore/cerebro-v3-ola-1e-claude`
+- **Modo de ejecución:** subagent-driven (decisión Juanjo 2026-05-28)
+- **Decisiones arquitectónicas tomadas en brainstorming 2026-05-28:**
+  - 5 PRs por sub-ola (1a-1e), no un PR gigante por toda la Ola 1.
+  - Sub-ola 1e primero (reglas oficiales): dataset acotado, valida infra RAG completa.
+  - RAG completo desde 1e: hybrid search (vector + BM25) + contextual retrieval (Anthropic 2024) + bge-reranker-v2-m3 local (ONNX vía `@xenova/transformers`).
+  - 6 fuentes oficiales con jurisdicción + priority_rank para resolver conflictos USGA vs FedeGolf Chile.
+  - Admin UI `/admin/cerebro/fuentes` con re-indexado manual.
+
+### Progreso sub-ola 1e
+
+| # | Task | Commit | Tests | Estado |
+|---|---|---|---|---|
+| 1 | Setup worktree + @xenova/transformers | `3f24f53` + `cef5368` | — | ✅ |
+| 2 | sources.config.json + verify-sources con 5 PDFs verificados | `04f2840` | URLs OK | ✅ |
+| 3 | Migration knowledge_sources + RLS | `5537e74` | 6/6 | ✅ |
+| 4 | Migration knowledge_chunks (pgvector + tsvector + CASCADE) | `cc11172` | 5/5 | ✅ |
+| 5 | Migration rag_query_log (observabilidad) | `9adea47` | 4/4 | ✅ |
+| 6 | RPC search_chunks_hybrid (vector + BM25) | `bd600c0` | 5/5 | ✅ |
+| 7 | lib/download-pdf.mjs (sha256 + cache + retry + UA) | `047d0c6` | 5/5 | ✅ |
+| 8 | lib/parse-structural.mjs (Rule→Sub→Para + fallback) | `3f07252` | 7/7 | ✅ |
+| 9 | lib/contextual-prefix.mjs (Haiku 4.5) | `2987550` | 4/4 | ✅ |
+| 10 | lib/embed-openai.mjs (batched + retry) | `5fc1a39` | 6/6 | ✅ |
+| 11 | lib/upsert-supabase.mjs (idempotente batched) | `67ce663` | 4/4 | ✅ |
+| 12 | ingest-rules.mjs orchestrator (validado dry-run con PDF real 16MB) | `2629528` | 235 chunks | ✅ |
+| 13 | retrieval/types + embed-query LRU cache | `7b76e5a` | 5/5 | ✅ |
+| 14 | retrieval/hybrid-search wrapper RPC | `f0043d5` | 5/5 | ✅ |
+| 15 | retrieval/contextual-rerank bge-reranker + fallback | `bc71007` | 5/5 | ✅ |
+| 16 | retrieval/weighted-scoring + query-logger | `b6292d8` | 8/8 | ✅ |
+| 17 | retrieval/index orchestrator end-to-end | `4d3397a` | 4/4 | ✅ |
+| 18-20 | Fase D — Coach integration (tool + RAG prompt + smoke) | `a773fcd`/`97071bc`/`b6e3bd2` | 11 | ✅ |
+| 21-23 | Fase E — Admin UI (endpoints + page) | `f7f6c94`/`e97192f`/`003b2c4` | 18 | ✅ |
+| 24 | Fase F — eval-rag-bench | `973a886` | — | ✅ |
+| 28 | Fase G — code review + fixes C1/C2/I1-I4 | `39202ca`/`dc53a2e` | +5 | ✅ |
+| 25-26 | Ingesta real + validación (Gemini) | `b83742a` | 372 chunks | ✅ |
+| 27 | Skill golf-rules-official (book-to-skill) | — | — | ⏸️ no crítico |
+| 29 | Demo Juanjo + merge | — | — | ⏸️ gate demo |
+
+**PR abierto:** #79 (`chore/cerebro-v3-ola-1e-claude` → main). NO mergeado.
+
+**Pivote arquitectónico (29-may):** sin `OPENAI_API_KEY` (billing), Juanjo eligió
+**Gemini embeddings**. `gemini-embedding-001` dim=1536 → mantiene `vector(1536)`
+sin migración. `taskType` RETRIEVAL_QUERY/DOCUMENT subió el banco 17→20/20.
+
+**Reranker — RESUELTO (29-may PM):** `gemini-2.5-flash-lite` re-scoring (~760ms),
+serverless-safe, degrada a hybrid ante timeout/error. ONNX local descartado.
+Validado: anti-hallucination **5/5** (ruido rechazado), scores limpios 0.7-1.0.
+
+**Reenfoque del coach (29-may, decisión Juanjo) — HECHO:** el coach es ENTRENADOR,
+no árbitro. `RAG_SECTION` reescrita (reglas = base para enseñar). Nueva
+`ENGAGEMENT_SECTION`: 3 niveles de temas (núcleo/golf-cercano/fuera), **asesor de
+equipo que se la juega con marcas/modelos personalizados** + disclaimer specs, y
+reencauce con onda cuando la charla se aleja del objetivo. Validado en
+conversaciones reales. Norte: herramientas mentales para bajar handicap.
+
+**Falta SOLO para merge:** demo en vivo con Juanjo (regla #4). Sin bloqueos
+técnicos. Follow-ups no bloqueantes: tuneo fino del piso 0.4 (2 queries comunes
+quedaron estrictas), cobertura FedeGolf, monitorear latencia reranker en prod.
+Eval completa: `docs/cerebro-v3-ola1e-evaluacion-rag.md`.
+
+**Feature futura aprobada (post-1e):** asesor de equipo con búsqueda web (Gemini
+grounding) para specs/modelos actuales verificados. Memoria `project_asesor_equipo_web`.
+
+### Estado app en worktree (post Fase A+B+C)
+
+- 4 migraciones aplicadas a Supabase prod: `knowledge_sources` + `knowledge_chunks` + `rag_query_log` + RPC `search_chunks_hybrid`.
+- Pipeline de ingesta validado end-to-end con PDF real (Rules of Golf 2023, 16MB → 260 páginas → 235 chunks).
+- Retrieval engine completo: hybrid search + bge-reranker-v2-m3 fallback + weighted scoring + query logger.
+- 5 PDFs oficiales verificados (URLs reales con magic bytes %PDF):
+  - usga-rules-of-golf-2023 (libro completo)
+  - usga-clarifications-2026
+  - usga-local-rules-2023 (sustituye Committee Procedures — no había PDF completo)
+  - whs-rules-of-handicapping-2024
+  - fedegolf-chile-rno
+- Player's Edition removido del catálogo (no existe como PDF público — USGA solo lo distribuye via web/app).
+- **54 tests TDD nuevos pasando** (20 BD integration + 34 unit con mocks).
+- `npx tsc --noEmit`: 0 errores.
+
+### Desviaciones del spec maestro
+
+- 5 fuentes en lugar de 6 (Player's Edition no disponible como PDF).
+- `set_updated_at()` → reutiliza `update_updated_at()` existente en el proyecto.
+- `pdf-parse v2` requiere API nueva `new PDFParse({data}).getText()` (no `pdfParse(buf)`).
+- Tests usan `describe.skipIf` + `beforeAll(60_000)` para timeout con embeddings grandes.
+
+**Próxima sesión arranca con:** **demo en vivo con Juanjo del PR #79** (coach v3
+con reglas + asesor). Si OK → activar flag para Juanjo, mergear PR #79, cerrar
+sub-ola 1e. Después: feature "asesor de equipo con web" (memoria
+`project_asesor_equipo_web`) o sub-ola 1b. Toda la implementación de 1e (Tasks
+18-28 + ingesta + reranker + reenfoque coach) está cerrada, testeada y pusheada
+en el branch del PR #79. Para retomar: `git -C .claude/worktrees/cerebro-v3-ola-1e
+log --oneline` + leer `docs/cerebro-v3-ola1e-evaluacion-rag.md` (vive en el branch).
+NOTA: el branch puede necesitar `git merge origin/main` antes del merge (diverge
+desde antes del estado doc actual).
+
+## Sub-olas restantes de Ola 1 (post-1e)
+
+| Sub-ola | Días | Estado |
+|---|---|---|
+| 1b — Distribuciones (USGA/R&A reports, Course DB, Stagner) | 3-4 | bloqueada hasta merge de 1e |
+| 1c — Estrategia (Decade, Broadie, podcasts) | 3-4 | bloqueada hasta merge de 1e |
+| 1d — Psicología (Rotella, Nilsson, Parent, McCabe, Valiante) | 3-4 | bloqueada hasta merge de 1e |
+| 1a — Datos PGA + amateurs (scraping responsable) | 8-10 | bloqueada hasta merge de 1e |
+
+## Ola anterior — CERRADA
 
 ## Ola anterior — CERRADA
 

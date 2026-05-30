@@ -24,7 +24,11 @@ const FORMAT_OPTIONS: Array<{ value: TournamentFormat; label: string }> = [
   { value: 'foursome', label: 'Foursome' },
 ]
 
-const NETO_FORCED: TournamentFormat[] = ['stableford', 'match_play']
+// Sólo Match Play exige modo único por torneo (no se pueden mantener dos
+// brackets paralelos gross/neto del mismo torneo — la concesión de palos
+// cambia quién gana cada hoyo). Stableford acepta ambos: "Scratch Stableford"
+// (gross, handicap=0) y stableford clásico (neto) son válidos USGA/R&A.
+const NETO_FORCED: TournamentFormat[] = ['match_play']
 
 export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProps) {
   const netoForced = NETO_FORCED.includes(config.format)
@@ -34,6 +38,13 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
     // Si el nuevo formato fuerza neto, ajustamos el modo también
     if (NETO_FORCED.includes(format) && config.modo !== 'neto') {
       partial.modo = 'neto'
+    }
+    // Match Play tiene modo exclusivo (gross XOR neto): los premios con
+    // kind explícito ya no aplican. Limpiamos para no dejar state stale
+    // en config.prizes (JSONB en tournament_drafts) que confunda al
+    // mapPrizeForInsert o a futuros consumers del draft.
+    if (format === 'match_play' && config.prizes?.some((p) => p.kind != null)) {
+      partial.prizes = config.prizes.map((p) => ({ ...p, kind: undefined }))
     }
     applyChange(partial)
   }

@@ -11,6 +11,7 @@
 
 import type { FormatCategory } from '../core/rules'
 import { calcularResumenRonda, scorePrimario, ordenarJugadores } from '../core/scoring'
+import { captureError } from '@/lib/error-tracking'
 
 // ─── Re-exports de cada formato ───
 
@@ -106,6 +107,44 @@ export const FORMATS: Record<string, GolfFormat> = {
   foursome,
 }
 
+/** Claves canónicas reconocidas por el motor. */
+export const KNOWN_FORMAT_KEYS = Object.keys(FORMATS) as ReadonlyArray<string>
+
+/**
+ * Devuelve el GolfFormat para `key`. Si `key` no está registrada,
+ * cae a stroke_play PERO registra el caso vía captureError para que
+ * el equipo lo vea en `error_logs` (antes se tragaba en silencio).
+ *
+ * Para call sites donde una key desconocida debe ser un error duro
+ * (creación de torneo, validador de config), usar `getFormatStrict`.
+ */
 export function getFormat(key: string): GolfFormat {
-  return FORMATS[key] ?? strokePlay
+  const fmt = FORMATS[key]
+  if (!fmt) {
+    void captureError(
+      new Error(`getFormat(): formato desconocido "${key}" — cayendo a stroke_play`),
+      {
+        context: 'golf.formats.getFormat',
+        level: 'warning',
+        meta: { key, knownFormats: KNOWN_FORMAT_KEYS },
+      },
+    )
+    return strokePlay
+  }
+  return fmt
+}
+
+/**
+ * Igual que getFormat() pero tira en vez de caer al fallback.
+ * Usar en boundaries que NO deben aceptar formatos inválidos
+ * (ej: persistencia de torneos, validación de config de wizard).
+ */
+export function getFormatStrict(key: string): GolfFormat {
+  const fmt = FORMATS[key]
+  if (!fmt) {
+    throw new Error(
+      `Formato desconocido: "${key}". Formatos válidos: ${KNOWN_FORMAT_KEYS.join(', ')}`,
+    )
+  }
+  return fmt
 }
