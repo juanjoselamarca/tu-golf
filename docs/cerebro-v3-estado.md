@@ -1,4 +1,4 @@
-# Estado Cerebro V3 — Actualizado 2026-05-29 18:10 GMT-4
+# Estado Cerebro V3 — Actualizado 2026-05-30 — Sub-ola 1e CERRADA y EN PRODUCCIÓN (flag solo Juanjo)
 
 > Este archivo es el dashboard vivo del proyecto cerebro v3. Se actualiza al cierre de cada sesión que toque el proyecto. Si lees esto al iniciar una sesión, sabés exactamente dónde retomar.
 >
@@ -7,7 +7,13 @@
 ## Ola activa — EN EJECUCIÓN
 
 - **Ola 1 — El coach estudia el mundo** — estado: `in_progress`
-- **Sub-ola activa:** 1e — Reglas oficiales en `knowledge_chunks` (USGA/R&A/WHS/FedeGolf)
+- **Sub-ola 1e — ✅ CERRADA Y EN PRODUCCIÓN (2026-05-30).** Mergeada vía PR #79
+  (squash `0c15313`), branch borrada, worktree liberado. Flag `cerebro_v3_enabled`
+  activado SOLO para el usuario de Juanjo (`98c5cb7a-…`). Deploy de Vercel
+  confirmado vivo (ruta `/api/admin/cerebro/sources` responde 403 en prod).
+- **Sub-ola activa siguiente:** sin definir aún (Juanjo elige próxima sesión:
+  1b estadísticas vs feature asesor-equipo-web). Ver "Próxima sesión".
+- **(histórico 1e)** Reglas oficiales en `knowledge_chunks` (USGA/R&A/WHS/FedeGolf)
 - **Spec sub-ola 1e:** `docs/superpowers/specs/2026-05-28-cerebro-v3-ola-1e-design.md` (commit `2fad0bc`)
 - **Plan sub-ola 1e:** `docs/superpowers/plans/2026-05-28-cerebro-v3-ola-1e.md` (commit `de6b54b`) — 29 tasks TDD en 7 fases (A: schema → G: close)
 - **Worktree:** `.claude/worktrees/cerebro-v3-ola-1e/` en branch `chore/cerebro-v3-ola-1e-claude`
@@ -65,7 +71,10 @@ equipo que se la juega con marcas/modelos personalizados** + disclaimer specs, y
 reencauce con onda cuando la charla se aleja del objetivo. Validado en
 conversaciones reales. Norte: herramientas mentales para bajar handicap.
 
-**Falta SOLO para merge:** demo en vivo con Juanjo (regla #4). Sin bloqueos
+**✅ MERGE HECHO (30-may):** demo aprobada por Juanjo → PR #79 squash-merged
+(`0c15313`) → flag ON solo para su usuario → deploy Vercel confirmado.
+
+**(histórico) Lo que faltaba para merge:** demo en vivo con Juanjo (regla #4). Sin bloqueos
 técnicos. Follow-ups no bloqueantes: tuneo fino del piso 0.4 (2 queries comunes
 quedaron estrictas), cobertura FedeGolf, monitorear latencia reranker en prod.
 Eval completa: `docs/cerebro-v3-ola1e-evaluacion-rag.md`.
@@ -95,15 +104,18 @@ grounding) para specs/modelos actuales verificados. Memoria `project_asesor_equi
 - `pdf-parse v2` requiere API nueva `new PDFParse({data}).getText()` (no `pdfParse(buf)`).
 - Tests usan `describe.skipIf` + `beforeAll(60_000)` para timeout con embeddings grandes.
 
-**Próxima sesión arranca con:** **demo en vivo con Juanjo del PR #79** (coach v3
-con reglas + asesor). Si OK → activar flag para Juanjo, mergear PR #79, cerrar
-sub-ola 1e. Después: feature "asesor de equipo con web" (memoria
-`project_asesor_equipo_web`) o sub-ola 1b. Toda la implementación de 1e (Tasks
-18-28 + ingesta + reranker + reenfoque coach) está cerrada, testeada y pusheada
-en el branch del PR #79. Para retomar: `git -C .claude/worktrees/cerebro-v3-ola-1e
-log --oneline` + leer `docs/cerebro-v3-ola1e-evaluacion-rag.md` (vive en el branch).
-NOTA: el branch puede necesitar `git merge origin/main` antes del merge (diverge
-desde antes del estado doc actual).
+**Próxima sesión — Juanjo elige el foco (pendientes ordenados):**
+1. **Rollout 1e a TODA la app** — antes, revisión de seguridad independiente del
+   código nuevo (el reranker Gemini corre en el request del coach en vivo).
+   Luego activar `cerebro_v3_enabled` para todos (o por cohortes).
+2. **Feature: asesor de equipo con búsqueda web** (Gemini grounding) — aprobada.
+   Memoria `project_asesor_equipo_web`. Arranca con brainstorming + mini-spec.
+3. **Sub-ola 1b — estadísticas/distribuciones de juego** (siguiente pieza de Ola 1).
+4. **Follow-ups menores 1e** (no urgentes): tuneo fino del piso 0.4 (un par de
+   queries comunes quedaron estrictas), ampliar cobertura/chunking FedeGolf.
+
+Juanjo va a probar el coach unos días con su cuenta y dar feedback antes de elegir.
+Eval RAG completa: `docs/cerebro-v3-ola1e-evaluacion-rag.md` (ya en main, post-merge).
 
 ## Sub-olas restantes de Ola 1 (post-1e)
 
