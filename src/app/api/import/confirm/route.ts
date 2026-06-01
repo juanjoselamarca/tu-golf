@@ -5,6 +5,8 @@ import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportRoundData } from '@/lib/import-types'
 import { importRound, type ImportSource } from '@/lib/import-round'
+import { callLLM, AllProvidersFailedError } from '@/lib/ai'
+import { captureError } from '@/lib/error-tracking'
 export const dynamic = 'force-dynamic'
 
 // ── Generate tAIger+ insights (async, non-blocking) ──────────
@@ -15,9 +17,6 @@ async function generarInsights(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<void> {
   try {
-    const Anthropic = (await import('@anthropic-ai/sdk')).default
-    const anthropic = new Anthropic()
-
     // Get recent rounds for context
     const { data: recentRounds } = await supabase
       .from('historical_rounds')
@@ -41,14 +40,17 @@ ${recentRounds.map(r => `- ${r.course_name}: ${r.total_gross} golpes (${r.played
 
 Genera un análisis breve (máximo 3 oraciones) de lo que revelan estos datos importados sobre su juego. Sé específico y usa los números. Responde en español.`
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 300,
+    // Vía gateway central: fallback Anthropic→Gemini + logging a ai_usage.
+    // Rol primary_chat = sonnet→haiku→gemini-flash (mantiene calidad sonnet
+    // del modelo original y suma red de seguridad si Anthropic se satura).
+    const llm = await callLLM({
+      role: 'primary_chat',
       messages: [{ role: 'user', content: prompt }],
+      maxTokens: 300,
     })
 
-    const textBlock = response.content.find(b => b.type === 'text')
-    if (!textBlock || textBlock.type !== 'text') return
+    const insightText = llm.text.trim()
+    if (!insightText) return
 
     // Store insight
     await supabase
@@ -57,13 +59,19 @@ Genera un análisis breve (máximo 3 oraciones) de lo que revelan estos datos im
         user_id: userId,
         session_type: 'import_insight',
         messages: [
-          { role: 'assistant', content: textBlock.text },
+          { role: 'assistant', content: insightText },
         ],
         metadata: { source: 'import', imported_count: importedCount },
       })
   } catch (err) {
-    // Non-blocking: log but don't fail
-    console.error('Error generating import insights:', err)
+    // Non-blocking: el insight es accesorio. Si toda la cadena de IA cae
+    // (Anthropic + Gemini) o falla la persistencia, NUNCA rompe la importación.
+    void captureError(err, {
+      context: err instanceof AllProvidersFailedError
+        ? 'import.insights-all-providers-failed'
+        : 'import.insights-generation-error',
+      userId,
+    })
   }
 }
 
@@ -308,7 +316,7 @@ export async function POST(request: NextRequest) {
           .eq('id', user.id)
       }
     } catch (err) {
-      console.error('Error recalculating CPI:', err)
+      void captureError(err, { context: 'import.cpi-recalc-error' })
     }
 
     // Recalculate Índice Golfers+ and nivel (async, don't block)
@@ -351,7 +359,7 @@ export async function POST(request: NextRequest) {
       cpiResult: cpiResult ?? null,
     })
   } catch (err) {
-    console.error('Confirm import error:', err)
+    void captureError(err, { context: 'import.confirm-handler-error' })
     return NextResponse.json(
       { error: 'Error interno al confirmar importación' },
       { status: 500 }
