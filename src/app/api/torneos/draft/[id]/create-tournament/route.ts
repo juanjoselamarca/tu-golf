@@ -6,6 +6,7 @@ import { upgradeConfig } from '@/lib/draft/upgrade-config'
 import { tournamentConfigSchema } from '@/lib/draft/schema'
 import { validateGolfRules } from '@/golf/tournament-config-validator'
 import { mapPrizeForInsert } from '@/lib/data/tournaments/prizes'
+import { mapTournamentForInsert } from '@/lib/data/tournaments/createTournament'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,7 +64,6 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   const slug = genSlug(config.name)
   const code = genCode()
-  const firstRound = config.rounds[0]
 
   // ID del tournament insertado — se setea después del primer insert.
   // Lo necesitamos en el catch para deletear si algún paso posterior falla,
@@ -73,29 +73,12 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   let tournamentId: string | null = null
 
   try {
+    // Mapeo centralizado en `src/lib/data/tournaments/createTournament.ts`
+    // (contrato único wizard→tabla, testeable). Persiste `team_config` para
+    // que el organizador vea la UI de equipos — cierra el P0 FTUE 22-may.
     const { data: tour, error: tErr } = await service
       .from('tournaments')
-      .insert({
-        name: config.name,
-        slug,
-        organizer_id: user.id,
-        course_id: firstRound.course_id,
-        format: config.format,
-        formato_juego: config.format,
-        modo_juego: config.modo,
-        hole_count: firstRound.hole_count,
-        tees:
-          firstRound.tee_assignment_mode === 'per_player' ? 'per_player'
-          : firstRound.tee_assignment_mode === 'manual' ? 'manual'
-          : 'mixed',
-        use_handicap: config.use_handicap,
-        afecta_estadisticas: !config.is_practice,
-        codigo: code,
-        cover_image_url: config.cover_image_url,
-        status: 'draft',
-        date_start: config.date_start,
-        total_rounds: config.rounds.length,
-      })
+      .insert(mapTournamentForInsert(config, { organizerId: user.id, slug, code }))
       .select('id, slug')
       .single()
 
