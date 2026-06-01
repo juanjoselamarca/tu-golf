@@ -396,14 +396,20 @@ export async function POST(req: NextRequest) {
           controller.close()
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Error desconocido'
-          console.error('[tAIger/chat] Stream error:', msg)
+          // Status code del SDK si lo expone (Anthropic: 429 rate-limit, 529 overloaded).
+          const status = (err as { status?: number })?.status
+          // 529 "Overloaded" / 503 = Anthropic saturado: el incidente exacto que
+          // originó el AI Gateway. Es transitorio → mismo trato que rate-limit
+          // ("descansando, reintentá") en vez del genérico "algo falló". El fallback
+          // real a Gemini llega cuando el coach migre al gateway (streaming+tools).
+          const overloaded = status === 529 || status === 503 || /overloaded|529/i.test(msg)
           // Captura a PostHog para investigación posterior (sin bloquear el response).
           void captureError(err, {
             context: 'taiger.chat.stream',
             userId: user?.id ?? null,
-            meta: { sessionId: active?.id },
+            meta: { sessionId: active?.id, status },
           })
-          if (msg.includes('rate_limit') || msg.includes('429')) {
+          if (overloaded || msg.includes('rate_limit') || msg.includes('429')) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'tAIger+ está descansando. Intenta en unos minutos.' })}\n\n`))
           } else if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('aborted')) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'La respuesta se demoró más de lo esperado. Intenta de nuevo — si vuelve a pasar, ya quedó registrado y lo investigamos.' })}\n\n`))
