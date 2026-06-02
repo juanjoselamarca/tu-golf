@@ -1,6 +1,31 @@
-# Estado Cerebro V3 — Actualizado 2026-06-02 — Ola 2 "el coach te conoce" EN CURSO (motor, Fase 1)
+# Estado Cerebro V3 — Actualizado 2026-06-02 — Ola 2 "el coach te conoce" EN CURSO (Fase 1 motor ✅ HECHA, Fase 2 cara NEXT)
 
-## ⏩ SESIÓN 2026-06-02 — retomar acá
+## ⏩ SESIÓN 2026-06-02 (tarde) — retomar acá
+
+**Branch:** `feat/cerebro-v3-ola2-conocer-claude` (worktree `.claude/worktrees/cerebro-v3-ola2-conocer`).
+
+**Fase 1 (motor headless) CERRADA Y VERIFICADA.** tsc 0 · 2112 tests pass (1 todo: cerebro_events) · build OK. Nada mergeado (gate demo regla #4). Commits:
+- `eb2ba0e` motor puro `selectFocus` (gate anti-fantasía + rankeo confianza×peso).
+- `eab8d42` `getFocus` orquestador + capa datos `src/lib/data/focus.ts` (lee `getCachedWeights` en runtime → paramétrico vivo CONECTADO).
+- `bfb9c8e` 5 tools (`set_target/remember_fact/recall_facts/get_focus/get_progress`) en `v3/tools/focus-tools.ts`, cableadas a `executeTool` + `FOCUS_TOOLS` ofrecidas al modelo con el flag.
+- `5aeea4b` canario flipeado: `cerebro_weights` + `metrics/` pasan de `it.todo` a ENFORCED (+ contratos de la cadena route→dispatch). Script `scripts/cerebro-v3/validate-focus.ts`.
+
+**Validación contra datos reales (hecha):** Juanjo (111 rondas) → foco `post_bogey_spiral`, métrica 5.01 sobre 68 rondas, spiral_rate 0.67 — **coincide con su plan activo real**, explicable y fundamentado. 5 perfiles sintéticos coherentes; el perfil sólido → fallback honesto SIN inventar foco (gate anti-fantasía OK).
+
+**Arquitectura del motor (decisión):** `impacto = confianza_del_detect × peso_del_patrón`. La confianza de `patterns.ts` es severidad ya calibrada (gate); el peso de `cerebro_weights` (parameter_type='pattern') es cuánto mover ese patrón acerca al target. La `metrica` baseline se computa con `golf/coach/metrics` en escala PLAN_METRIC (continuidad con el motor de planes). Catálogo en `v3/focus/catalog.ts` = interfaz que Ola 3 reemplaza por DB sin tocar `selectFocus`.
+
+**PRÓXIMA TAREA — Fase 2 "la cara" (empezar acá):**
+1. **Prompt del coach a 6 piezas** + inyectar facts (`recall_facts`) + foco citado (`get_focus`). Reescribir/extender la sección de sistema para que el coach: pregunte la meta (`set_target`) sólo si mejora el consejo, proponga UN foco enmarcado en el target, y refleje avance. Cuidado con el snapshot del system prompt (`prompts/__tests__/snapshot.test.ts` — actualizar). 
+2. **Onboarding conversacional** (perfil rico mínimo: play_frequency, main_frustration) vía `remember_fact`.
+3. **Vista de progreso** (`design-shotgun` → `frontend-design` → `design-review`) leyendo `get_progress`.
+4. **Lifecycle del plan stale**: el plan de Juanjo venció (creado 2026-05-07, 21d). Cierre/refresh del plan activo al recomputar foco (spec §11). El motor de foco ya recomputa fresco; falta el cierre del plan v2 viejo.
+
+**Pendiente de Juanjo:** ejemplo concreto del bug de lenguaje golfístico (para banco de pruebas).
+**Freno:** demo en vivo antes de mergear (regla #4). Nada mergeado aún.
+
+---
+
+## (histórico) SESIÓN 2026-06-02 (madrugada) — pivote + P0 + migración
 
 **Branch de trabajo (NO main):** `feat/cerebro-v3-ola2-conocer-claude`
 (worktree `.claude/worktrees/cerebro-v3-ola2-conocer`). La próxima sesión hace
