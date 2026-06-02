@@ -85,6 +85,11 @@ const ENFORCED: WiringContract[] = [
     consumer: 'app/api/taiger/chat/route.ts',
     needles: ['FOCUS_TOOLS'],
   },
+  {
+    piece: 'Sección "el coach te conoce" appendeada al system prompt (Ola 2)',
+    consumer: 'app/api/taiger/chat/route.ts',
+    needles: ['CONOCER_SECTION'],
+  },
 ]
 
 describe('Canario wiring cerebro v3: piezas VIVAS no se desconectan', () => {

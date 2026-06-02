@@ -8,7 +8,7 @@ import { SEARCH_KNOWLEDGE_TOOL } from '@/golf/coach/v3/tools/search-knowledge-ch
 import { FOCUS_TOOLS } from '@/golf/coach/v3/tools/focus-tools'
 import { handleToolUse } from '@/golf/coach/v3/tools/handle-tool-use'
 import { coachDegradedFallback, toPlainMessages, isRetryableLLMError } from '@/golf/coach/v3/resilience/coach-fallback'
-import { RAG_SECTION, ENGAGEMENT_SECTION } from '@/golf/coach/v3/prompts'
+import { RAG_SECTION, ENGAGEMENT_SECTION, CONOCER_SECTION } from '@/golf/coach/v3/prompts'
 import type { Jurisdiction } from '@/golf/coach/v3/retrieval/types'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
@@ -109,7 +109,9 @@ export async function POST(req: NextRequest) {
       cerebroV3Enabled = false
     }
 
-    const ragSection = cerebroV3Enabled ? `\n\n${ENGAGEMENT_SECTION}\n\n${RAG_SECTION}` : ''
+    const ragSection = cerebroV3Enabled
+      ? `\n\n${ENGAGEMENT_SECTION}\n\n${CONOCER_SECTION}\n\n${RAG_SECTION}`
+      : ''
     const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}${ragSection}`
     const activeTools = cerebroV3Enabled
       ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL, ...FOCUS_TOOLS]

@@ -3,3 +3,4 @@
 // cuando el feature flag `cerebro_v3_enabled` está activo para el usuario.
 export { RAG_SECTION } from './sections/rag';
 export { ENGAGEMENT_SECTION } from './sections/engagement';
+export { CONOCER_SECTION } from './sections/conocer';
