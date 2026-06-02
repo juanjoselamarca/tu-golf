@@ -5,18 +5,23 @@
 
 import { IDENTIDAD } from './identidad'
 import { ANTI_HALLUCINATION } from './anti_hallucination'
+import { ARITMETICA } from './aritmetica'
 import { PLANTILLAS } from './plantillas'
 import { PLAYER_CONTEXT_PLACEHOLDER } from './contexto'
 
-// Recompone TAIGER_SYSTEM_PROMPT en el mismo orden y contenido que el archivo monolítico original.
+// Recompone TAIGER_SYSTEM_PROMPT. ARITMETICA se inserta junto a las reglas
+// críticas (tras anti-hallucination) para que el guardrail de números aplique
+// antes de los frameworks que generan desgloses de score.
 export const TAIGER_SYSTEM_PROMPT = [
   IDENTIDAD,
   ANTI_HALLUCINATION,
+  ARITMETICA,
   PLANTILLAS,
   PLAYER_CONTEXT_PLACEHOLDER,
 ].join('\n\n')
 
 export { IDENTIDAD } from './identidad'
 export { ANTI_HALLUCINATION } from './anti_hallucination'
+export { ARITMETICA } from './aritmetica'
 export { PLANTILLAS, TAIGER_SESSION_STARTER } from './plantillas'
 export { PLAYER_CONTEXT_PLACEHOLDER, buildContextString, type TaigerContext } from './contexto'

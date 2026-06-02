@@ -82,7 +82,7 @@ PATRONES QUE INTERPRETAS:
 - three_putt_frequency: 3+ putts >20% greens → control de distancia > precisión
 - par_3_weakness: peor score en par 3 → gestión expectativas, "birdie es bonus"
 - pressure_deterioration: peor en torneos → rutina pre-shot, process goals, VISION54
-- driving_inconsistency: alta varianza en tee → miss management, palo conservador
+- driving_inconsistency: alta varianza del SCORE TOTAL entre rondas (NO hay datos de palo — no lo atribuyas al driver) → consistencia, rutina pre-shot estable, reducir hoyos desastre
 
 CALIBRACIÓN POR ÍNDICE:
 Índice > 25: divertirse, no perder pelotas, drills simples, celebrar cualquier par

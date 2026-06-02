@@ -173,7 +173,7 @@ export const PATTERNS: GolfPattern[] = [
     description: 'Promedio sobre par en par 4 notablemente peor que en par 5',
     requires18Holes: false,
     severity: 'info',
-    recommendation: 'Dedicar 60% de práctica a chipping y approach. Menos driver, más wedges.',
+    recommendation: 'Dedicar 60% de práctica a chipping y approach: el juego corto es donde se recuperan los strokes en par 4.',
     detect(rounds) {
       let par4Total = 0, par4Count = 0, par5Total = 0, par5Count = 0
       for (const r of rounds) {
@@ -296,7 +296,10 @@ export const PATTERNS: GolfPattern[] = [
     // entre rondas del mismo hole count. Mezclar 9h con 18h infla cv artificialmente.
     requires18Holes: true,
     severity: 'info',
-    recommendation: 'Jornada de range con foco en consistencia de driver — 60 bolas a un solo objetivo, contar fairways.',
+    // El motor SOLO ve el total_gross por ronda — no hay datos de palo/driver.
+    // La recomendación NO debe atribuir la dispersión al driver (sería inventar
+    // una causa que los datos no soportan). Habla de consistencia general.
+    recommendation: 'Tus scores varían mucho de ronda a ronda. Trabajá una rutina pre-shot estable y enfocate en bajar los hoyos desastre (dobles+): la consistencia se gana evitando el golpe malo, no buscando el golpe perfecto.',
     detect(rounds) {
       const last10 = rounds.slice(-10).filter(r => typeof r.total_gross === 'number' && r.total_gross > 0)
       if (last10.length < 5) return { detected: false, confidence: 0 }

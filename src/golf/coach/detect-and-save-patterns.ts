@@ -79,7 +79,12 @@ export async function detectAndSavePatterns(
         user_id: userId,
         pattern_type: d.pattern.id,
         confidence: d.confidence,
-        data_points: rounds.length,
+        // data_points = rondas REALMENTE analizadas por este patrón, NO el total
+        // del usuario. Varios patrones acotan su ventana (ej. driving_inconsistency
+        // sólo mira las últimas 10 rondas → metadata.sample). Guardar rounds.length
+        // global mentía: la UI mostraba "sobre 109 rondas" cuando el patrón usó 10.
+        // Honestidad de datos (CERO FALLOS): el conteo debe reflejar la evidencia real.
+        data_points: analyzedSample(d.metadata, rounds.length),
         metadata: d.metadata ?? {},
         last_updated: new Date().toISOString(),
         status: 'active',
@@ -97,4 +102,24 @@ export async function detectAndSavePatterns(
   await supabase.from('profiles').update({ patterns_need_recalc: false }).eq('id', userId)
 
   return { detected: upserted.length, total_rounds: rounds.length, patterns: upserted }
+}
+
+/**
+ * Cuántas rondas analizó REALMENTE un patrón, leído de su metadata.
+ *
+ * Algunos patrones acotan su ventana de análisis y lo declaran en metadata:
+ *  - driving_inconsistency → `sample` (= últimas 10 rondas de 18h)
+ *  - pressure_deterioration → `eligible_rounds` (= rondas de 18h completas)
+ * El resto recorre TODAS las rondas elegibles, así que el total del usuario es
+ * el conteo correcto. Devolver el menor entre la muestra declarada y el total
+ * evita jamás sobre-reportar la evidencia (nunca decir "sobre N" con N > rondas reales).
+ */
+function analyzedSample(metadata: Record<string, unknown> | undefined, totalRounds: number): number {
+  if (metadata) {
+    const declared = metadata.sample ?? metadata.eligible_rounds
+    if (typeof declared === 'number' && Number.isFinite(declared) && declared > 0) {
+      return Math.min(Math.round(declared), totalRounds)
+    }
+  }
+  return totalRounds
 }
