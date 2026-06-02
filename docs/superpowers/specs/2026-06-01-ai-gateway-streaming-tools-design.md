@@ -1,9 +1,40 @@
 # AI Gateway — Fase 3: streaming + tool-calling con fallback (diseño)
 
 **Fecha:** 2026-06-01
-**Estado:** DISEÑO — pendiente de `plan-eng-review` antes de implementar.
+**Estado:** ❌ **RECHAZADO en `plan-eng-review` (01-jun-2026). NO implementar.** Ver veredicto abajo.
 **Autor:** Claude (CTO)
 **Spec padre:** `docs/superpowers/specs/2026-05-30-ai-gateway-arquitectura-design.md`
+
+---
+
+## VEREDICTO DEL ENG-REVIEW (01-jun-2026) — NO CONSTRUIR
+
+El `plan-eng-review` + una voz externa independiente (subagente adversarial) concluyeron que **este diseño no debe implementarse**. Decisión de Juanjo (delegada a CTO por ser íntegramente técnica): **el coach se queda con degradación honesta ("tAIger+ está descansando, reintentá"), ya en prod desde el endurecimiento del 529 (PR #84). No se construye fallback a Gemini para el coach.**
+
+### Las tres razones que mataron el diseño
+
+1. **Over-engineering vs CERO FALLOS.** Reconstruir streaming+tools en el gateway es la versión más grande y riesgosa, sobre el hot-path más crítico del producto. La regla correcta: la versión más chica que cumple gana. La versión más chica es la que YA tenemos (degradación honesta).
+
+2. **El fallback propuesto no cubre el caso real.** El coach hace hasta 5 iteraciones de tool-use. El `LLMMessage` del gateway (`types.ts`) ni siquiera representa bloques `tool_use`/`tool_result`, y el historial se acumula en formato Anthropic nativo (`route.ts:189-306`). Caer a Gemini solo es posible en la **primera** vuelta, **antes** de cualquier tool. Pero el coach v3 con RAG casi siempre llama `search_knowledge_chunks` en la primera vuelta → el fallback no se activaría justo en el caso que importa. Además el 529 de Anthropic streaming probablemente sale *dentro* del `for await`, no en la apertura, así que "fallback antes del primer byte" o es indefinido o exige bufferear (matando el streaming que el diseño dice proteger).
+
+3. **Riesgo de reputación irreversible (el corazón de la directiva).** Gemini Flash con el schema anidado de `save_plan` (enums estrictos, `tools.ts:85-156`) tiene historial de ignorar enums y aplanar objetos → **escrituras corruptas a `coach_plans`** y/o **scores alucinados**. Un coach que afirma un dato falso con confianza es PEOR para la reputación que uno que dice "descansando, reintentá". "Mejor tools imperfectas que nada" es un supuesto de producto **falso** bajo CERO FALLOS.
+
+### Qué SÍ quedó hecho (el objetivo de fondo, cumplido por la vía segura)
+
+- Coach endurecido: 529/overloaded → mensaje transitorio honesto (PR #84, en prod). Esto YA es degradación CERO-FALLOS-compatible (sin datos falsos, claro, recuperable).
+- Gateway con fallback a Gemini activo donde es **seguro y puro upside**: asistente de torneo (sin tools) e insights de import (sin tools, accesorio). Ahí no hay scores que inventar.
+
+### Cuándo revisitar
+
+Solo si las caídas de Anthropic pasan de evento raro/transitorio a **frecuente y sostenido**. Señal de disparo: la alerta de IA (Fase 2) reportando `error_kind=overloaded/rate_limit` de forma recurrente durante semanas, no un pico aislado. Si se revisita, el approach NO es el de abajo (cross-provider streaming): es el **más simple** que propuso la voz externa — envolver solo el primer request en detección de 529 y caer a una sola llamada Gemini **no-streaming** que corre el loop de tools desde cero en formato Gemini nativo (sin traducción de historial cross-formato), Y con un **gate de calidad medido** contra el banco de pruebas: si Gemini no llega al umbral en `save_plan`/consulta de rondas, la rama segura es degradar a texto-sin-tools o directamente a "descansando" — nunca escribir planes posiblemente corruptos.
+
+### Decisiones técnicas registradas (CTO)
+- `admin/taiger/playground`: si alguna vez se quiere su fallback, va por `callLLM` **no-streaming** en PR aparte (no usa SSE) — fuera del scope de cualquier trabajo de streaming.
+- Si en el futuro se loguea streaming a `ai_usage`, el row debe emitirse en `finally` para preservar el invariante "1 llamada = 1 row" aun si el stream se corta.
+
+---
+
+> El diseño original se preserva abajo como **registro histórico de los problemas duros** — útil si algún día se revisita. NO es un plan activo.
 
 ---
 
