@@ -9,6 +9,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { getFocus, defaultFocusDeps, type GetFocusDeps } from '@/golf/coach/v3/focus'
+import { backfillRoundMetrics } from '@/golf/coach/v3/progress/round-metrics'
 
 export type ToolResult = { ok: true; data: unknown } | { ok: false; error: string }
 
@@ -155,7 +156,17 @@ export async function getFocusTool(
   return { ok: true, data: focus }
 }
 
-export async function getProgress(ctx: FocusToolCtx): Promise<ToolResult> {
+export async function getProgress(
+  ctx: FocusToolCtx,
+  admin: SupabaseClient = createAdminClient(),
+): Promise<ToolResult> {
+  // Autopobla métricas relativas faltantes (idempotente, best-effort). Que falle
+  // el backfill NUNCA debe romper la lectura del avance.
+  try {
+    await backfillRoundMetrics(admin, ctx.userId)
+  } catch {
+    /* best-effort: la serie ya persistida sigue sirviendo */
+  }
   const [metricsRes, planRes] = await Promise.all([
     ctx.supabase
       .from('round_metrics')

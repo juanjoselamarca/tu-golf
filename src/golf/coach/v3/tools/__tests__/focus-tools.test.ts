@@ -118,7 +118,12 @@ describe('get_progress', () => {
       coach_plans: fakeTable({ data: null, error: null }),
       plan_outcomes: fakeTable({ data: [], error: null }),
     })
-    const r = await getProgress(ctx(supabase))
+    // admin fake para el backfill: sin rondas elegibles → no upsert, no rompe.
+    const admin = fakeClient({
+      profiles: fakeTable({ data: { indice: 9.6, target_handicap: null }, error: null }),
+      historical_rounds: fakeTable({ data: [], error: null }),
+    })
+    const r = await getProgress(ctx(supabase), admin)
     expect(r.ok).toBe(true)
     if (!r.ok) throw new Error('unreachable')
     expect((r.data as { round_metrics: unknown[] }).round_metrics).toHaveLength(2)
