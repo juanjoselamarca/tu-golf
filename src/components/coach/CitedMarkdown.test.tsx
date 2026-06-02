@@ -64,4 +64,28 @@ describe('CitedMarkdown', () => {
     expect(html).toContain('<em>')
     expect(html).not.toContain('fuente')
   })
+
+  // Reporte de campo 2026-06-02: tabla "plan hoyo a hoyo" ilegible en mobile
+  // (columnas colapsaban letra por letra). El fix envuelve la tabla en un
+  // contenedor con scroll horizontal y celdas sin wrap.
+  const TABLE_MD = [
+    '| Hoyo | Par | Tu promedio | Objetivo | Estrategia |',
+    '|------|-----|-------------|----------|------------|',
+    '| H1 | 4 | 4.5 | 4 (par) | Salida conservadora, hierro al green |',
+    '| H2 | 4 | 4.8 | 5 (bogey) | Hoyo difícil — bogey es buen resultado |',
+  ].join('\n')
+
+  it('envuelve las tablas en un contenedor con scroll horizontal (mobile legible)', () => {
+    const html = renderToString(<CitedMarkdown text={TABLE_MD} round={null} />)
+    expect(html).toContain('<table')
+    expect(html).toContain('overflow-x:auto')
+    // Las celdas NO deben envolver (causa del colapso letra-por-letra).
+    expect(html).toContain('white-space:nowrap')
+  })
+
+  it('aplica el render de tabla también en la rama con citas de fuente', () => {
+    const html = renderToString(<CitedMarkdown text={TABLE_MD} round={round} />)
+    expect(html).toContain('<table')
+    expect(html).toContain('overflow-x:auto')
+  })
 })
