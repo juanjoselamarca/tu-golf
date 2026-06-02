@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { Flag, Users } from '@/components/icons'
 import { useTees } from './hooks/useTees'
+import { useProfileSearch, type Profile } from './hooks/useProfileSearch'
 import { TeesAssignmentSection } from './components/TeesAssignmentSection'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
 
@@ -18,7 +19,6 @@ interface Tournament {
   rounds?: Array<{ tee_assignment_mode?: string }>
 }
 interface Category { id: string; name: string; handicap_min: number | null; handicap_max: number | null }
-interface Profile  { id: string; name: string; email: string; indice: number | null }
 export interface Player {
   id: string
   user_id?: string
@@ -61,16 +61,16 @@ const inputStyle: React.CSSProperties = {
 
 export default function JugadoresPanel({ tournament, initialPlayers, categories }: Props) {
   const router = useRouter()
-  const dropdownRef = useRef<HTMLDivElement>(null)
   const { showError, showWarning, showSuccess } = useToast()
+  const {
+    dropdownRef, search, setSearch, results,
+    showResults, setShowResults, selectedProfile, setSelectedProfile,
+    reset: resetSearch,
+  } = useProfileSearch()
 
   const [players,         setPlayers]         = useState<Player[]>(initialPlayers)
   const [codeCopied,      setCodeCopied]      = useState(false)
   const [linkCopied,      setLinkCopied]      = useState(false)
-  const [search,          setSearch]          = useState('')
-  const [results,         setResults]         = useState<Profile[]>([])
-  const [showResults,     setShowResults]     = useState(false)
-  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null)
   const [selectedCat,     setSelectedCat]     = useState(categories[0]?.id || '')
   const [loading,         setLoading]         = useState(false)
   const [starting,        setStarting]        = useState(false)
@@ -86,33 +86,6 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const [teeStartTime, setTeeStartTime] = useState('08:00')
   const [teeInterval, setTeeInterval] = useState(10)
   const [generatingTees, setGeneratingTees] = useState(false)
-
-  // Debounced search
-  useEffect(() => {
-    if (!search.trim()) { setResults([]); return }
-    const timer = setTimeout(async () => {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, name, email, indice')
-        .or(`name.ilike.%${search}%,email.ilike.%${search}%`)
-        .limit(10)
-      setResults((data as Profile[]) || [])
-      setShowResults(true)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [search])
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowResults(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
 
   const fetchPlayers = async () => {
     const supabase = createClient()
@@ -318,9 +291,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     }
 
     const playerName = selectedProfile.name
-    setSelectedProfile(null)
-    setSearch('')
-    setResults([])
+    resetSearch()
     await fetchPlayers()
     setLoading(false)
     showSuccess('¡Jugador inscrito!', `${playerName} fue agregado al torneo correctamente.`)
