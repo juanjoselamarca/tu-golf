@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { getFocus, type GetFocusDeps } from '../get-focus'
 import { normalizeScores } from '@/lib/data/focus'
-import { spiralRound } from './select-focus.test'
+import { spiralRound } from './fixtures'
 import type { CerebroWeight } from '@/lib/cerebro/weights'
 
 function patternW(key: string, weight: number): CerebroWeight {

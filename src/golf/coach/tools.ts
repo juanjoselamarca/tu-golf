@@ -1,6 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { savePlan, PATTERN_IDS, PLAN_METRICS, type SavePlanInput } from './plan-engine'
 import { inferHoles } from '@/golf/core/holes'
+import {
+  setTarget,
+  rememberFact,
+  recallFacts,
+  getFocusTool,
+  getProgress,
+} from '@/golf/coach/v3/tools/focus-tools'
 
 /**
  * Definiciones de tools que tAIger+ puede llamar durante una conversación.
@@ -203,6 +210,17 @@ export async function executeTool(
         return await getAllRoundsSummary(ctx)
       case 'save_plan':
         return await dispatchSavePlan(ctx, input)
+      // Tools de Ola 2 "el coach te conoce" (sólo activas con cerebro_v3_enabled).
+      case 'set_target':
+        return await setTarget(ctx, input)
+      case 'remember_fact':
+        return await rememberFact(ctx, input)
+      case 'recall_facts':
+        return await recallFacts(ctx, input)
+      case 'get_focus':
+        return await getFocusTool(ctx)
+      case 'get_progress':
+        return await getProgress(ctx)
       default:
         return { ok: false, error: `Tool desconocida: ${name}` }
     }

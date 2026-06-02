@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from '@/golf/coach/prompts'
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { SEARCH_KNOWLEDGE_TOOL } from '@/golf/coach/v3/tools/search-knowledge-chunks-tool'
+import { FOCUS_TOOLS } from '@/golf/coach/v3/tools/focus-tools'
 import { handleToolUse } from '@/golf/coach/v3/tools/handle-tool-use'
 import { coachDegradedFallback, toPlainMessages, isRetryableLLMError } from '@/golf/coach/v3/resilience/coach-fallback'
 import { RAG_SECTION, ENGAGEMENT_SECTION } from '@/golf/coach/v3/prompts'
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
     const ragSection = cerebroV3Enabled ? `\n\n${ENGAGEMENT_SECTION}\n\n${RAG_SECTION}` : ''
     const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}${ragSection}`
     const activeTools = cerebroV3Enabled
-      ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL]
+      ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL, ...FOCUS_TOOLS]
       : TAIGER_TOOLS
     const anthropic = new Anthropic({ apiKey })
 
