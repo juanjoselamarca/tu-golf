@@ -27,11 +27,15 @@
 
 Estado: tsc 0 · 2140 tests · build OK · branch pusheada. Nada mergeado (demo gate).
 
-**PRÓXIMA TAREA — cierre de Fase 2:**
-1. **Vista de progreso** (UI, lo único visual que falta) — `design-shotgun` → `frontend-design` → `design-review`, leyendo `get_progress` (round_metrics + plan + outcomes). Claude lidera el diseño.
-2. **Onboarding conversacional** — el prompt ya habilita `set_target`/`remember_fact`; falta el disparo en la primera sesión + (opcional) columnas de perfil en `profiles`.
-3. **9h en round_metrics** (follow-up): escalado WHS correcto para incluir rondas de 9 hoyos.
-4. **Banco**: sumar el ejemplo del bug de lenguaje golfístico (pendiente de Juanjo).
+**Vista de progreso ✅ HECHA Y VALIDADA VISUAL.** Commit `a431bb6`. `/coach/progreso` ("La bajada hacia tu meta"): hero del foco en 6 piezas humanas + gráfico SVG de diferenciales por ronda con media móvil (la tendencia) + líneas de hcp/meta + tarjeta hoy→meta con delta. Agregador `loadProgressDashboard` + API `/api/coach/progress`. Entrada desde la home del coach (canario: no huérfana). QA visual con browser (before/after: la media móvil hizo legible "la bajada"). Validado vs Juanjo: 34 rondas, diferenciales 29→12 en 2 años. Estados honestos (cold start, sin meta).
+
+**Estado Ola 2: motor + prompt + data foundation + lifecycle + vista de progreso TODO HECHO Y VALIDADO. tsc 0 · 2144 tests · build OK · branch pusheada. Falta solo el merge (demo gate, regla #4).**
+
+**PRÓXIMA TAREA — cierre de Ola 2:**
+1. **Demo en vivo a Juanjo** (regla #4) → si OK: `superpowers:code-reviewer` sobre el diff → PR → merge → activar flag → deploy → smoke post-deploy.
+2. **Onboarding conversacional** (opcional pre-merge) — el prompt ya habilita `set_target`/`remember_fact`; falta el disparo en la 1ª sesión + (opcional) columnas de perfil.
+3. **9h en round_metrics** (follow-up post-merge): escalado WHS correcto.
+4. **Banco**: ejemplo del bug de lenguaje golfístico (pendiente de Juanjo).
 
 **Pendiente de Juanjo:** ejemplo concreto del bug de lenguaje golfístico (para banco de pruebas).
 **Freno:** demo en vivo antes de mergear (regla #4). Nada mergeado aún.
