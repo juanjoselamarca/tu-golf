@@ -90,6 +90,11 @@ const ENFORCED: WiringContract[] = [
     consumer: 'app/api/taiger/chat/route.ts',
     needles: ['CONOCER_SECTION'],
   },
+  {
+    piece: 'Lifecycle: planes vencidos se cierran antes de armar contexto (Ola 2)',
+    consumer: 'app/api/taiger/chat/route.ts',
+    needles: ['closeExpiredPlans'],
+  },
 ]
 
 describe('Canario wiring cerebro v3: piezas VIVAS no se desconectan', () => {

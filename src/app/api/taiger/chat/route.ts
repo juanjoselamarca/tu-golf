@@ -12,6 +12,7 @@ import { RAG_SECTION, ENGAGEMENT_SECTION, CONOCER_SECTION } from '@/golf/coach/v
 import type { Jurisdiction } from '@/golf/coach/v3/retrieval/types'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
+import { closeExpiredPlans } from '@/golf/coach/plan-lifecycle'
 import { validateResponse, type HallucinationWarning } from '@/golf/coach/hallucination-validator'
 import { toolActivityLabel, friendlyPatternName, friendlyMetricName } from '@/lib/coach-event-narrator'
 import { z } from 'zod'
@@ -82,6 +83,10 @@ export async function POST(req: NextRequest) {
     if (!userMessage.trim()) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 })
     }
+
+    // Lifecycle: cerrar planes vencidos ANTES de armar contexto, para que el coach
+    // nunca proponga sobre un plan stale (best-effort, no rompe el chat).
+    await closeExpiredPlans(supabase, user.id).catch(() => {})
 
     // Contexto del jugador: fetch directo (sin HTTP server-to-server, sin .limit).
     const ctx = await buildPlayerContext(supabase, user.id)
