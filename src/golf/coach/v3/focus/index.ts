@@ -10,6 +10,7 @@
  * Interfaz estable `getFocus(userId)` para que Ola 3 cambie la fuente de patrones
  * (hardcoded → catálogo en DB) sin tocar consumidores.
  */
+export { getFocus, defaultFocusDeps, type GetFocusDeps } from './get-focus'
 export { selectFocus, deltaVsTarget, patternWeight, MIN_ROUNDS_FOR_FOCUS, DEFAULT_PATTERN_WEIGHT } from './select-focus'
 export { FOCUS_CATALOG } from './catalog'
 export type { FocusCandidate, Baseline, DetectInfo, MeasureCtx } from './catalog'
