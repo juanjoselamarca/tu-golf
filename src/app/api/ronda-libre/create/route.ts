@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
+import { calcularHandicapScramble, calcularHandicapFoursome } from '@/golf/formats'
 
 export const dynamic = 'force-dynamic'
 
@@ -174,15 +175,18 @@ export async function POST(req: NextRequest) {
           handicap: body.jugadores[idx]?.handicap ?? 0,
         }))
 
+        // Handicap de equipo con los helpers canónicos del motor (USGA).
+        // Antes era una fórmula inline "simplified" (solo min+max) que daba
+        // valores equivocados en equipos scramble de 3-4 jugadores. Ahora usa
+        // calcularHandicapScramble (20/15/10 para 3, 25/20/15/10 para 4) y
+        // calcularHandicapFoursome, mismos helpers que el productor de torneos
+        // y el leaderboard → una sola fuente de verdad.
         let handicapEquipo: number | null = null
         if (body.formato_juego === 'scramble') {
-          const handicaps = jugadoresEquipo.map(j => j.handicap)
-          // Scramble: 35% lowest + 15% highest (simplified)
-          const sorted = [...handicaps].sort((a, b) => (a ?? 0) - (b ?? 0))
-          handicapEquipo = Math.round(sorted[0] * 0.35 + sorted[sorted.length - 1] * 0.15)
+          handicapEquipo = calcularHandicapScramble(jugadoresEquipo.map(j => j.handicap ?? 0))
         } else if (body.formato_juego === 'foursome') {
-          const h = jugadoresEquipo.map(j => j.handicap)
-          handicapEquipo = Math.round(((h[0] ?? 0) + (h[1] ?? 0)) / 2)
+          const h = jugadoresEquipo.map(j => j.handicap ?? 0)
+          handicapEquipo = calcularHandicapFoursome(h[0] ?? 0, h[1] ?? 0)
         }
 
         const { data: equipoDB } = await supabase
