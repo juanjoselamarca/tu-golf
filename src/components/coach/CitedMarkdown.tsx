@@ -25,16 +25,72 @@ interface Props {
   round?: RoundSummary | null
 }
 
+// Renderers de tabla para el chat del coach. Sin esto, ReactMarkdown emite una
+// <table> sin estilo y en mobile las columnas colapsan partiendo cada header
+// letra por letra ("H o y o"). Reporte de campo 2026-06-02 (tabla "plan hoyo a
+// hoyo" ilegible). Solución: contenedor con scroll horizontal + celdas sin wrap
+// (`whiteSpace: nowrap`), tokens del design system. Aplica a AMBAS ramas del
+// componente (con y sin citas de fuente).
+const TABLE_WRAPPER: React.CSSProperties = {
+  overflowX: 'auto',
+  WebkitOverflowScrolling: 'touch',
+  maxWidth: '100%',
+  margin: '10px 0',
+  border: '1px solid var(--line)',
+  borderRadius: 8,
+}
+const TABLE: React.CSSProperties = {
+  borderCollapse: 'collapse',
+  width: 'auto',
+  minWidth: '100%',
+  fontSize: 13,
+}
+const TH: React.CSSProperties = {
+  whiteSpace: 'nowrap',
+  textAlign: 'left',
+  padding: '8px 12px',
+  borderBottom: '1px solid var(--line)',
+  background: 'var(--bg-elevated, rgba(196,153,42,0.06))',
+  color: 'var(--text-3, var(--text-2))',
+  fontFamily: '"DM Mono", monospace',
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: '0.04em',
+  textTransform: 'uppercase',
+}
+const TD: React.CSSProperties = {
+  whiteSpace: 'nowrap',
+  padding: '8px 12px',
+  borderBottom: '1px solid var(--line)',
+  color: 'var(--text)',
+  verticalAlign: 'top',
+}
+
+const MD_TABLE_COMPONENTS = {
+  table: ({ children }: { children?: React.ReactNode }) => (
+    <div style={TABLE_WRAPPER}>
+      <table style={TABLE}>{children}</table>
+    </div>
+  ),
+  th: ({ children }: { children?: React.ReactNode }) => <th style={TH}>{children}</th>,
+  td: ({ children }: { children?: React.ReactNode }) => <td style={TD}>{children}</td>,
+} as const
+
 export function CitedMarkdown({ text, round }: Props) {
-  // Si no hay datos de fuente, render plano
+  // Si no hay datos de fuente, render plano (pero con tablas legibles).
   if (!round || !round.total_gross || round.total_gross < 30) {
-    return <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+    return (
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_TABLE_COMPONENTS}>
+        {text}
+      </ReactMarkdown>
+    )
   }
 
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
+        ...MD_TABLE_COMPONENTS,
         p: ({ children }) => <p>{citeChildren(children, round)}</p>,
         li: ({ children }) => <li>{citeChildren(children, round)}</li>,
         strong: ({ children }) => <strong>{citeChildren(children, round)}</strong>,
