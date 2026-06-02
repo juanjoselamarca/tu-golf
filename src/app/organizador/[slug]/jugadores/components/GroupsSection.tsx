@@ -140,7 +140,7 @@ export function GroupsSection({
               whiteSpace: 'nowrap',
             }}
           >
-            {generatingTees ? 'Generando...' : `Generar horarios (${groups.length} grupos)`}
+            {generatingTees ? 'Generando...' : `Generar horarios (${groups.length} ${noun}s)`}
           </button>
         </div>
       )}

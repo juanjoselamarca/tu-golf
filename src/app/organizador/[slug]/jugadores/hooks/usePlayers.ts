@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
+import { captureError } from '@/lib/error-tracking'
 import type { Category, Player, Tournament } from '../types'
 import type { Profile } from './useProfileSearch'
 
@@ -94,7 +95,7 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
       status:        'in_progress',
     })
     if (rErr) {
-      console.warn('[rounds] Error al crear ronda:', rErr.message)
+      void captureError(rErr, { context: 'usePlayers.inscribirPlayer.crearRonda', level: 'warning' })
     }
 
     const playerName = selectedProfile.name

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
+import { captureError } from '@/lib/error-tracking'
 import type { Player, Tournament, TournamentGroup } from '../types'
 
 interface UseTournamentLifecycleArgs {
@@ -122,7 +123,7 @@ export function useTournamentLifecycle({
       }))
       const { error: roundErr } = await supabase.from('rounds').insert(roundInserts)
       if (roundErr) {
-        console.warn('[rounds] Error al crear rondas:', roundErr.message)
+        void captureError(roundErr, { context: 'useTournamentLifecycle.start.crearRounds', level: 'warning' })
       }
     }
 
@@ -148,7 +149,11 @@ export function useTournamentLifecycle({
         .single()
 
       if (rondaErr || !ronda) {
-        console.warn('[rondas_libres] Error para grupo', group.name, rondaErr?.message)
+        void captureError(rondaErr ?? new Error('ronda_libre no creada'), {
+          context: 'useTournamentLifecycle.start.crearRondaLibre',
+          level: 'warning',
+          meta: { group: group.name },
+        })
         continue
       }
 
