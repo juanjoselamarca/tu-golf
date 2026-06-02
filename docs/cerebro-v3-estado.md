@@ -20,10 +20,17 @@
 - **Números honestos:** impacto/confianza/peso marcados como señales INTERNAS (no strokes) — fix tras el smoke que mostró al coach inventando "+0.3 strokes/hoyo".
 - **Smoke E2E real** (`scripts/cerebro-v3/smoke-conocer.ts`, contra Juanjo): el coach LLAMA get_focus + recall_facts y responde en 6 piezas con números reales (1.017 bogeys, 67%, índice 9.6), sin claves crudas. Prueba de consumo en runtime ✅.
 
-**PRÓXIMA TAREA — resto de Fase 2 (empezar acá):**
-1. **Onboarding conversacional** — perfil rico mínimo (play_frequency, main_frustration) vía `remember_fact`/`set_target`. El prompt ya habilita las tools; falta el flujo de arranque que las dispare en la primera sesión + (opcional) columnas de perfil en `profiles`.
-2. **Vista de progreso** (UI — arrancar con `design-shotgun` → `frontend-design` → `design-review`) leyendo `get_progress`.
-3. **Lifecycle del plan stale**: el plan de Juanjo venció (creado 2026-05-07, 21d). Cierre/refresh del plan v2 activo al recomputar foco (spec §11). El motor recomputa fresco; falta cerrar el plan viejo.
+**Data foundation de "ver avance" + lifecycle ✅ HECHA Y VALIDADA EN PROD.** Commits `69780c7` (FK fix) · `6d0973c` (round_metrics) · `37a70a3` (lifecycle).
+- **FK fix:** `round_metrics.round_id` apuntaba a `rounds` (torneo) en vez de `historical_rounds`; todo INSERT habría fallado. Corregido en prod.
+- **round_metrics populador** (`v3/progress/round-metrics.ts`): `computeRoundMetric` (WHS, diferencial−índice, sólo 18h para no mezclar escala 9h), `backfillRoundMetrics` idempotente. `get_progress` autopobla. Validado: 34 rondas 18h de Juanjo pobladas.
+- **Plan lifecycle** (`plan-lifecycle.ts`): `closeExpiredPlans` cableado en el route antes de `buildPlayerContext`. Validado: el plan stale de Juanjo (vencido 28-may) quedó `expired`.
+
+Estado: tsc 0 · 2140 tests · build OK · branch pusheada. Nada mergeado (demo gate).
+
+**PRÓXIMA TAREA — cierre de Fase 2:**
+1. **Vista de progreso** (UI, lo único visual que falta) — `design-shotgun` → `frontend-design` → `design-review`, leyendo `get_progress` (round_metrics + plan + outcomes). Claude lidera el diseño.
+2. **Onboarding conversacional** — el prompt ya habilita `set_target`/`remember_fact`; falta el disparo en la primera sesión + (opcional) columnas de perfil en `profiles`.
+3. **9h en round_metrics** (follow-up): escalado WHS correcto para incluir rondas de 9 hoyos.
 4. **Banco**: sumar el ejemplo del bug de lenguaje golfístico (pendiente de Juanjo).
 
 **Pendiente de Juanjo:** ejemplo concreto del bug de lenguaje golfístico (para banco de pruebas).
