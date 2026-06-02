@@ -3,7 +3,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
+import { isTeamFormat } from '../types'
 import type { Player, Tournament, TournamentGroup } from '../types'
+import { computeStoredTeamHandicap, resolvePlayerHandicap } from '@/lib/data/tournaments/teamRounds'
 
 interface UseTournamentLifecycleArgs {
   tournament: Tournament & { codigo?: string | null }
@@ -127,7 +129,12 @@ export function useTournamentLifecycle({
       }
     }
 
-    // 3. Create rondas_libres for groups that don't have one yet
+    // 3. Create rondas_libres for groups that don't have one yet.
+    // En formatos por equipos (scramble/best_ball/foursome) el grupo ES el
+    // equipo: además de la ronda y sus jugadores, creamos un ronda_equipos por
+    // grupo. Sin `formato_juego` en la ronda, score-grupo no engancha el
+    // scoring de equipo y el leaderboard se queda sin datos.
+    const teamFormat = isTeamFormat(tournament.format)
     const groupsWithoutRonda = groups.filter((g) => !g.ronda_libre_id && g.players.length > 0)
     for (const group of groupsWithoutRonda) {
       const codigo = 'T' + Math.random().toString(36).substring(2, 8).toUpperCase()
@@ -144,6 +151,7 @@ export function useTournamentLifecycle({
           holes: tournament.hole_count || 18,
           fecha: tournament.date_start || new Date().toISOString().split('T')[0],
           estado: 'en_curso',
+          ...(teamFormat ? { formato_juego: tournament.format } : {}),
         })
         .select('id')
         .single()
@@ -160,17 +168,22 @@ export function useTournamentLifecycle({
       // Link group to ronda_libre
       await supabase.from('tournament_groups').update({ ronda_libre_id: ronda.id }).eq('id', group.id)
 
-      // Create ronda_libre_jugadores for each player in the group
+      // Create ronda_libre_jugadores for each player in the group.
+      // Guardamos el id de cada ronda_libre_jugador + su handicap en orden de
+      // grupo para, en formatos por equipos, armar los miembros del equipo.
+      const teamMembers: Array<{ jugadorRondaId: string; handicap: number }> = []
       for (const gp of group.players) {
         const player = players.find((p) => p.id === gp.player_id)
         if (!player) continue
 
+        const handicap = resolvePlayerHandicap(player)
         const { data: jugador } = await supabase
           .from('ronda_libre_jugadores')
           .insert({
             ronda_id: ronda.id,
             nombre: player.profiles?.name || 'Jugador',
             user_id: player.user_id || null,
+            handicap,
             scores: {},
           })
           .select('id')
@@ -182,6 +195,53 @@ export function useTournamentLifecycle({
             .update({ jugador_ronda_id: jugador.id })
             .eq('group_id', group.id)
             .eq('player_id', gp.player_id)
+          teamMembers.push({ jugadorRondaId: jugador.id, handicap })
+        }
+      }
+
+      // Formato por equipos: crear el ronda_equipos del grupo + sus miembros.
+      // Espeja api/ronda-libre/create pero con el handicap canónico del motor
+      // (computeStoredTeamHandicap). El valor almacenado es la fuente de verdad
+      // que leen tanto el scorer en cancha como el leaderboard.
+      if (teamFormat && teamMembers.length > 0) {
+        const handicapEquipo = computeStoredTeamHandicap(
+          tournament.format ?? '',
+          teamMembers.map((m) => m.handicap),
+        )
+
+        const { data: equipo, error: equipoErr } = await supabase
+          .from('ronda_equipos')
+          .insert({
+            ronda_id: ronda.id,
+            nombre: group.name,
+            handicap_equipo: handicapEquipo,
+            scores: {},
+          })
+          .select('id')
+          .single()
+
+        if (equipoErr || !equipo) {
+          void captureError(equipoErr ?? new Error('ronda_equipos no creado'), {
+            context: 'useTournamentLifecycle.start.crearRondaEquipo',
+            level: 'warning',
+            meta: { group: group.name },
+          })
+        } else {
+          const memberRows = teamMembers.map((m, idx) => ({
+            equipo_id: equipo.id,
+            jugador_id: m.jugadorRondaId,
+            orden: idx,
+          }))
+          const { error: membersErr } = await supabase
+            .from('ronda_equipo_jugadores')
+            .insert(memberRows)
+          if (membersErr) {
+            void captureError(membersErr, {
+              context: 'useTournamentLifecycle.start.crearRondaEquipoJugadores',
+              level: 'warning',
+              meta: { group: group.name },
+            })
+          }
         }
       }
     }
