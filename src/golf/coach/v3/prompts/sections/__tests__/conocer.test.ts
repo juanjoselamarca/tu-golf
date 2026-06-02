@@ -40,4 +40,10 @@ describe('CONOCER_SECTION', () => {
   it('traduce métricas a lenguaje claro (cero métricas opacas)', () => {
     expect(CONOCER_SECTION).toMatch(/lenguaje claro|cero métricas opacas|sin jerga|no muestres.*clave|nunca.*metric/i)
   })
+
+  it('marca impacto/confianza/peso como señales internas (no son strokes)', () => {
+    expect(CONOCER_SECTION).toMatch(/impacto/i)
+    expect(CONOCER_SECTION).toMatch(/se[ñn]ales INTERNAS|interna/i)
+    expect(CONOCER_SECTION).toMatch(/cantidad de golpes/i)
+  })
 })
