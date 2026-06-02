@@ -9,6 +9,7 @@ import { FOCUS_TOOLS } from '@/golf/coach/v3/tools/focus-tools'
 import { handleToolUse } from '@/golf/coach/v3/tools/handle-tool-use'
 import { coachDegradedFallback, toPlainMessages, isRetryableLLMError } from '@/golf/coach/v3/resilience/coach-fallback'
 import { RAG_SECTION, ENGAGEMENT_SECTION, CONOCER_SECTION } from '@/golf/coach/v3/prompts'
+import { getOnboardingState, ONBOARDING_SECTION } from '@/golf/coach/v3/onboarding'
 import type { Jurisdiction } from '@/golf/coach/v3/retrieval/types'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
@@ -114,8 +115,19 @@ export async function POST(req: NextRequest) {
       cerebroV3Enabled = false
     }
 
+    // Onboarding: en la 1ª sesión (sin meta ni hechos), el coach entrevista corto
+    // antes de avanzar. Solo con el flag y solo si todavía no está onboarded.
+    let onboardingSection = ''
+    if (cerebroV3Enabled) {
+      try {
+        const ob = await getOnboardingState(supabase, user.id)
+        if (!ob.onboarded) onboardingSection = `\n\n${ONBOARDING_SECTION}`
+      } catch (obErr) {
+        void captureError(obErr, { context: 'taiger.chat.onboarding_state', userId: user.id })
+      }
+    }
     const ragSection = cerebroV3Enabled
-      ? `\n\n${ENGAGEMENT_SECTION}\n\n${CONOCER_SECTION}\n\n${RAG_SECTION}`
+      ? `\n\n${ENGAGEMENT_SECTION}\n\n${CONOCER_SECTION}${onboardingSection}\n\n${RAG_SECTION}`
       : ''
     const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}${ragSection}`
     const activeTools = cerebroV3Enabled

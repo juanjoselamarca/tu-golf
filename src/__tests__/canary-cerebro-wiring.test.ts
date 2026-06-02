@@ -105,6 +105,11 @@ const ENFORCED: WiringContract[] = [
     consumer: 'app/coach/page.tsx',
     needles: ['/coach/progreso'],
   },
+  {
+    piece: 'Onboarding de 1ª sesión consumido por el route (gated por estado)',
+    consumer: 'app/api/taiger/chat/route.ts',
+    needles: ['getOnboardingState', 'ONBOARDING_SECTION'],
+  },
 ]
 
 describe('Canario wiring cerebro v3: piezas VIVAS no se desconectan', () => {
