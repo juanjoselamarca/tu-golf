@@ -11,31 +11,9 @@ import { useProfileSearch, type Profile } from './hooks/useProfileSearch'
 import { TeesAssignmentSection } from './components/TeesAssignmentSection'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
 
-interface Course { slope_rating: number; course_rating: number; par_total: number; nombre?: string }
-interface Tournament {
-  id: string; name: string; slug: string; course_id: string; status: string;
-  courses: Course; course_name?: string; tees?: string; hole_count?: number;
-  date_start?: string; total_rounds?: number;
-  rounds?: Array<{ tee_assignment_mode?: string }>
-}
-interface Category { id: string; name: string; handicap_min: number | null; handicap_max: number | null }
-export interface Player {
-  id: string
-  user_id?: string
-  handicap_at_registration: number | null
-  status: string
-  profiles: { name: string; email: string; indice: number | null }
-  categories: { name: string } | null
-}
+import type { Tournament, Category, Player, TournamentGroup } from './types'
 
-interface TournamentGroup {
-  id: string
-  name: string
-  tee_time: string | null
-  sort_order: number
-  ronda_libre_id: string | null
-  players: Array<{ id: string; player_id: string; playerName: string }>
-}
+export type { Player } from './types'
 
 interface Props {
   tournament:     Tournament & { codigo?: string | null }
