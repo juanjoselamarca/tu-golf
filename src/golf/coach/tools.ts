@@ -419,13 +419,14 @@ async function getRoundByDate(
 
 type HistoricalRow = {
   total_gross: number
+  course_id: string | null
   course_name: string
   played_at: string
   holes_played: number | null
   scores: number[] | Record<string, number> | null
 }
 
-function summarizeBucket(arr: HistoricalRow[]) {
+export function summarizeBucket(arr: HistoricalRow[]) {
   if (arr.length === 0) return null
   const totals = arr.map(r => r.total_gross)
   const avg = totals.reduce((a, b) => a + b, 0) / totals.length
@@ -434,17 +435,30 @@ function summarizeBucket(arr: HistoricalRow[]) {
   const last10 = totals.slice(0, 10)
   const last10Avg = last10.length > 0 ? last10.reduce((a, b) => a + b, 0) / last10.length : null
 
-  const byCourse: Record<string, { count: number; sum: number }> = {}
+  // Agrupar por IDENTIDAD de cancha (course_id), no por el texto del nombre.
+  // Una misma cancha física puede aparecer con variantes de nombre
+  // ("Los Leones" / "Club De Golf Los Leones" / "Club de Golf Los Leones");
+  // agrupar por string fragmenta las stats y el coach la ve como varias canchas
+  // distintas, dando promedios separados de la misma cancha. Cuando no hay
+  // course_id (rondas viejas) caemos al nombre normalizado como key.
+  const byCourse: Record<string, { count: number; sum: number; nombres: Record<string, number> }> = {}
   for (const r of arr) {
-    const key = r.course_name || 'Sin cancha'
-    if (!byCourse[key]) byCourse[key] = { count: 0, sum: 0 }
+    const key = r.course_id ?? `name:${(r.course_name || 'Sin cancha').trim().toLowerCase()}`
+    if (!byCourse[key]) byCourse[key] = { count: 0, sum: 0, nombres: {} }
     byCourse[key].count++
     byCourse[key].sum += r.total_gross
+    const nombre = r.course_name || 'Sin cancha'
+    byCourse[key].nombres[nombre] = (byCourse[key].nombres[nombre] || 0) + 1
   }
-  const topCourses = Object.entries(byCourse)
-    .sort((a, b) => b[1].count - a[1].count)
+  const topCourses = Object.values(byCourse)
+    .sort((a, b) => b.count - a.count)
     .slice(0, 5)
-    .map(([cancha, v]) => ({ cancha, rondas: v.count, avg_score: Math.round((v.sum / v.count) * 10) / 10 }))
+    .map(v => ({
+      // Nombre representativo: la variante más frecuente para esa identidad.
+      cancha: Object.entries(v.nombres).sort((a, b) => b[1] - a[1])[0][0],
+      rondas: v.count,
+      avg_score: Math.round((v.sum / v.count) * 10) / 10,
+    }))
 
   return {
     total: arr.length,
@@ -461,7 +475,7 @@ async function getAllRoundsSummary(ctx: ToolExecutionContext): Promise<ToolResul
   const { supabase, userId } = ctx
   const { data, error } = await supabase
     .from('historical_rounds')
-    .select('total_gross, course_name, played_at, holes_played, scores')
+    .select('total_gross, course_id, course_name, played_at, holes_played, scores')
     .eq('user_id', userId)
     .not('total_gross', 'is', null)
     .order('played_at', { ascending: false })
