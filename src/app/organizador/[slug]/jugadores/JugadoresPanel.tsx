@@ -9,10 +9,11 @@ import { Flag, Users } from '@/components/icons'
 import { useTees } from './hooks/useTees'
 import { useProfileSearch } from './hooks/useProfileSearch'
 import { usePlayers } from './hooks/usePlayers'
+import { useGroups } from './hooks/useGroups'
 import { TeesAssignmentSection } from './components/TeesAssignmentSection'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
 
-import type { Tournament, Category, Player, TournamentGroup } from './types'
+import type { Tournament, Category, Player } from './types'
 
 export type { Player } from './types'
 
@@ -59,44 +60,16 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const handleDesinscribir = withdrawPlayer
   const handleDescalificar = disqualifyPlayer
 
-  // Groups state
-  const [groups, setGroups] = useState<TournamentGroup[]>([])
-  const [newGroupName, setNewGroupName] = useState('')
-  const [newGroupTeeTime, setNewGroupTeeTime] = useState('')
-  const [creatingGroup, setCreatingGroup] = useState(false)
   const [allRoundsClosed, setAllRoundsClosed] = useState(false)
-  const [teeStartTime, setTeeStartTime] = useState('08:00')
-  const [teeInterval, setTeeInterval] = useState(10)
-  const [generatingTees, setGeneratingTees] = useState(false)
+
+  const {
+    groups, newGroupName, setNewGroupName, newGroupTeeTime, setNewGroupTeeTime,
+    creatingGroup, teeStartTime, setTeeStartTime, teeInterval, setTeeInterval,
+    generatingTees, fetchGroups, handleCreateGroup, handleDeleteGroup,
+    handleGenerateTeeTimes, handleAssignPlayer, getPlayerGroupId,
+  } = useGroups({ tournament, players })
 
   // Fetch groups with their players
-  const fetchGroups = async () => {
-    const supabase = createClient()
-    const { data: gData } = await supabase
-      .from('tournament_groups')
-      .select('id, name, tee_time, sort_order, ronda_libre_id, tournament_group_players(id, player_id)')
-      .eq('tournament_id', tournament.id)
-      .order('sort_order')
-
-    if (!gData) { setGroups([]); return }
-
-    const mapped: TournamentGroup[] = gData.map((g: Record<string, unknown>) => {
-      const gPlayers = (g.tournament_group_players as Array<{ id: string; player_id: string }>) || []
-      return {
-        id: g.id as string,
-        name: g.name as string,
-        tee_time: g.tee_time as string | null,
-        sort_order: (g.sort_order as number) || 0,
-        ronda_libre_id: g.ronda_libre_id as string | null,
-        players: gPlayers.map((gp) => {
-          const p = players.find((pl) => pl.id === gp.player_id)
-          return { id: gp.id, player_id: gp.player_id, playerName: p?.profiles?.name || 'Jugador' }
-        }),
-      }
-    })
-    setGroups(mapped)
-  }
-
   // Check if all rounds in the latest round_number are closed
   const checkAllRoundsClosed = async () => {
     const supabase = createClient()
@@ -118,93 +91,6 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, tournamentStatus])
-
-  // Create a new group
-  const handleCreateGroup = async () => {
-    if (!newGroupName.trim()) { showWarning('Nombre requerido', 'Escribe un nombre para el grupo.'); return }
-    setCreatingGroup(true)
-    const supabase = createClient()
-    // Convert time string "HH:MM" to full TIMESTAMPTZ using tournament date
-    let teeTimeValue: string | null = null
-    if (newGroupTeeTime) {
-      const dateBase = tournament.date_start || new Date().toISOString().split('T')[0]
-      teeTimeValue = `${dateBase}T${newGroupTeeTime}:00`
-    }
-
-    const { error } = await supabase.from('tournament_groups').insert({
-      tournament_id: tournament.id,
-      name: newGroupName.trim(),
-      tee_time: teeTimeValue,
-      sort_order: groups.length,
-    })
-    if (error) {
-      showError('Error al crear grupo', error.message)
-    } else {
-      showSuccess('Grupo creado', `"${newGroupName.trim()}" agregado.`)
-      setNewGroupName('')
-      setNewGroupTeeTime('')
-      await fetchGroups()
-    }
-    setCreatingGroup(false)
-  }
-
-  // Delete a group
-  const handleDeleteGroup = async (groupId: string) => {
-    const supabase = createClient()
-    await supabase.from('tournament_groups').delete().eq('id', groupId)
-    await fetchGroups()
-  }
-
-  // Auto-generate tee times for all groups
-  const handleGenerateTeeTimes = async () => {
-    if (groups.length === 0) { showWarning('Sin grupos', 'Crea grupos primero antes de generar horarios.'); return }
-    setGeneratingTees(true)
-    const supabase = createClient()
-    const dateBase = tournament.date_start || new Date().toISOString().split('T')[0]
-    const [startH, startM] = teeStartTime.split(':').map(Number)
-
-    for (let i = 0; i < groups.length; i++) {
-      const totalMinutes = startH * 60 + startM + (i * teeInterval)
-      const h = Math.floor(totalMinutes / 60).toString().padStart(2, '0')
-      const m = (totalMinutes % 60).toString().padStart(2, '0')
-      const teeTimeValue = `${dateBase}T${h}:${m}:00`
-
-      await supabase
-        .from('tournament_groups')
-        .update({ tee_time: teeTimeValue })
-        .eq('id', groups[i].id)
-    }
-
-    await fetchGroups()
-    setGeneratingTees(false)
-    showSuccess('Horarios generados', `${groups.length} grupos con horarios desde las ${teeStartTime} cada ${teeInterval} min.`)
-  }
-
-  // Assign player to group
-  const handleAssignPlayer = async (playerId: string, groupId: string) => {
-    const supabase = createClient()
-    // Remove from any current group first
-    await supabase.from('tournament_group_players').delete().eq('player_id', playerId)
-    if (groupId) {
-      const { error } = await supabase.from('tournament_group_players').insert({
-        group_id: groupId,
-        player_id: playerId,
-      })
-      if (error && !error.message.includes('duplicate')) {
-        showError('Error', 'No se pudo asignar al grupo.')
-        return
-      }
-    }
-    await fetchGroups()
-  }
-
-  // Get the group a player belongs to
-  const getPlayerGroupId = (playerId: string): string => {
-    for (const g of groups) {
-      if (g.players.some((gp) => gp.player_id === playerId)) return g.id
-    }
-    return ''
-  }
 
   const handleCancelTournament = async () => {
     if (!window.confirm('Cancelar y eliminar este torneo? Esta acción no se puede deshacer.')) return
