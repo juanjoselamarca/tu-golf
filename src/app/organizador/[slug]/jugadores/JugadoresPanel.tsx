@@ -1,16 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { Flag, Users } from '@/components/icons'
+import { Flag } from '@/components/icons'
 import { useTees } from './hooks/useTees'
 import { useProfileSearch } from './hooks/useProfileSearch'
 import { usePlayers } from './hooks/usePlayers'
 import { useGroups } from './hooks/useGroups'
 import { useTournamentLifecycle } from './hooks/useTournamentLifecycle'
 import { TeesAssignmentSection } from './components/TeesAssignmentSection'
+import { TournamentInvitationCard } from './components/TournamentInvitationCard'
+import { InscribirPlayerForm } from './components/InscribirPlayerForm'
+import { GroupsSection } from './components/GroupsSection'
+import { PlayersTable } from './components/PlayersTable'
+import { TournamentActionsBar } from './components/TournamentActionsBar'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
 
 import type { Tournament, Category, Player } from './types'
@@ -23,29 +27,14 @@ interface Props {
   categories:     Category[]
 }
 
-const inputStyle: React.CSSProperties = {
-  background: 'var(--input-bg)',
-  border: '1px solid var(--input-border)',
-  color: 'var(--text)',
-  borderRadius: '8px',
-  padding: '10px 12px',
-  fontSize: '14px',
-  outline: 'none',
-  transition: 'border-color 200ms',
-  boxSizing: 'border-box',
-}
-
 export default function JugadoresPanel({ tournament, initialPlayers, categories }: Props) {
-  const router = useRouter()
   const {
     dropdownRef, search, setSearch, results,
     showResults, setShowResults, selectedProfile, setSelectedProfile,
     reset: resetSearch,
   } = useProfileSearch()
 
-  const [codeCopied,      setCodeCopied]      = useState(false)
-  const [linkCopied,      setLinkCopied]      = useState(false)
-  const [selectedCat,     setSelectedCat]     = useState(categories[0]?.id || '')
+  const [selectedCat] = useState(categories[0]?.id || '')
   const [tournamentStatus, setTournamentStatus] = useState(tournament.status)
 
   const {
@@ -127,553 +116,63 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 24px' }}>
 
-        {/* Tournament invitation card */}
         {tournament.codigo && (
-          <div
-            style={{
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border-md)',
-              borderRadius: '16px',
-              boxShadow: 'var(--shadow-card)',
-              padding: '24px 28px',
-              marginBottom: '24px',
-              textAlign: 'center',
-            }}
-          >
-            <div style={{ fontSize: '12px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
-              Invitar jugadores
-            </div>
-
-            {/* Copy link button - primary action */}
-            <button
-              type="button"
-              onClick={() => {
-                const link = `${window.location.origin}/torneo/${tournament.slug}/unirse`
-                navigator.clipboard.writeText(link).then(() => {
-                  setLinkCopied(true)
-                  setTimeout(() => setLinkCopied(false), 2500)
-                })
-              }}
-              style={{
-                background: linkCopied ? 'rgba(34,197,94,0.15)' : '#c4992a',
-                border: linkCopied ? '1px solid rgba(34,197,94,0.4)' : '1px solid #c4992a',
-                color: linkCopied ? '#22c55e' : 'var(--brand-dark)',
-                padding: '12px 28px',
-                borderRadius: '10px',
-                fontSize: '15px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 200ms',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginBottom: '14px',
-              }}
-            >
-              {linkCopied ? 'Link copiado!' : 'Copiar link de invitacion'}
-            </button>
-
-            {/* Code reference - secondary */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>Codigo:</span>
-              <span
-                style={{
-                  fontFamily: 'monospace',
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  color: 'var(--brand-on-bg)',
-                  letterSpacing: '0.1em',
-                }}
-              >
-                {tournament.codigo}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(tournament.codigo!).then(() => {
-                    setCodeCopied(true)
-                    setTimeout(() => setCodeCopied(false), 2000)
-                  })
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: codeCopied ? '#22c55e' : 'var(--text-2)',
-                  padding: '2px 6px',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  textUnderlineOffset: '2px',
-                }}
-              >
-                {codeCopied ? 'Copiado!' : 'Copiar'}
-              </button>
-            </div>
-          </div>
+          <TournamentInvitationCard slug={tournament.slug} codigo={tournament.codigo} />
         )}
 
-        {/* Inscribir jugador */}
-        <div
-          style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            boxShadow: 'var(--shadow-card)',
-            padding: '28px',
-            marginBottom: '32px',
-          }}
-        >
-          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: '0 0 20px' }}>
-            Inscribir jugador
-          </h2>
+        <InscribirPlayerForm
+          dropdownRef={dropdownRef}
+          search={search}
+          setSearch={setSearch}
+          results={results}
+          showResults={showResults}
+          setShowResults={setShowResults}
+          selectedProfile={selectedProfile}
+          setSelectedProfile={setSelectedProfile}
+          loading={loading}
+          onInscribir={handleInscribir}
+        />
 
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <GroupsSection
+          tournamentStatus={tournamentStatus}
+          groups={groups}
+          newGroupName={newGroupName}
+          setNewGroupName={setNewGroupName}
+          newGroupTeeTime={newGroupTeeTime}
+          setNewGroupTeeTime={setNewGroupTeeTime}
+          creatingGroup={creatingGroup}
+          onCreateGroup={handleCreateGroup}
+          teeStartTime={teeStartTime}
+          setTeeStartTime={setTeeStartTime}
+          teeInterval={teeInterval}
+          setTeeInterval={setTeeInterval}
+          generatingTees={generatingTees}
+          onGenerateTeeTimes={handleGenerateTeeTimes}
+          onDeleteGroup={handleDeleteGroup}
+        />
 
-            {/* Search */}
-            <div ref={dropdownRef} style={{ flex: '1 1 220px', position: 'relative' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Jugador</label>
-              <input
-                type="text"
-                placeholder="Buscar por nombre o email..."
-                value={selectedProfile ? selectedProfile.name : search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setSelectedProfile(null)
-                }}
-                style={inputStyle}
-                onFocus={() => search && setShowResults(true)}
-              />
-              {selectedProfile && (
-                <div style={{ fontSize: '11px', color: 'var(--brand-on-bg)', marginTop: '3px' }}>
-                  ✓ {selectedProfile.name}{selectedProfile.indice != null ? ` — Hcp ${Number(selectedProfile.indice).toFixed(1)}` : ''}
-                </div>
-              )}
-              {showResults && results.length > 0 && !selectedProfile && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-surface)', border: '1px solid var(--border-md)', borderRadius: '8px', maxHeight: '180px', overflowY: 'auto', zIndex: 50, boxShadow: 'var(--shadow-md)' }}>
-                  {results.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedProfile(p)
-                        setSearch(p.name)
-                        setShowResults(false)
-                      }}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)')}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = 'none')}
-                    >
-                      <div style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 500 }}>{p.name}</div>
-                      <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>
-                        {p.email}
-                        {p.indice != null && <span> · Índice {p.indice}</span>}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Button */}
-            <button
-              type="button"
-              onClick={handleInscribir}
-              disabled={loading || !selectedProfile}
-              style={{
-                background: '#1a4fd6',
-                color: 'white',
-                fontWeight: 600,
-                fontSize: '14px',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: loading || !selectedProfile ? 'not-allowed' : 'pointer',
-                opacity: loading || !selectedProfile ? 0.6 : 1,
-                alignSelf: 'flex-end',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {loading ? '...' : 'Inscribir'}
-            </button>
-          </div>
-        </div>
-
-        {/* Groups section */}
-        <div
-          style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            boxShadow: 'var(--shadow-card)',
-            padding: '28px',
-            marginBottom: '32px',
-          }}
-        >
-          <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: '0 0 20px' }}>
-            Grupos de salida ({groups.length})
-          </h2>
-
-          {/* Create group form */}
-          {tournamentStatus === 'draft' && (
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px' }}>
-              <div style={{ flex: '1 1 180px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre del grupo</label>
-                <input
-                  type="text"
-                  placeholder="Ej: Grupo 1"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-              <div style={{ flex: '0 1 160px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Hora de salida (opc.)</label>
-                <input
-                  type="time"
-                  value={newGroupTeeTime}
-                  onChange={(e) => setNewGroupTeeTime(e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleCreateGroup}
-                disabled={creatingGroup || !newGroupName.trim()}
-                style={{
-                  background: '#1a4fd6',
-                  color: 'white',
-                  fontWeight: 600,
-                  fontSize: '14px',
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  cursor: creatingGroup || !newGroupName.trim() ? 'not-allowed' : 'pointer',
-                  opacity: creatingGroup || !newGroupName.trim() ? 0.6 : 1,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {creatingGroup ? '...' : 'Crear grupo'}
-              </button>
-            </div>
-          )}
-
-          {/* Generate tee times */}
-          {tournamentStatus === 'draft' && groups.length > 0 && (
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px', padding: '16px', background: 'var(--bg)', borderRadius: '10px', border: '1px solid var(--border)' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Hora inicio</label>
-                <input
-                  type="time"
-                  value={teeStartTime}
-                  onChange={(e) => setTeeStartTime(e.target.value)}
-                  style={{ ...inputStyle, width: '120px' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Intervalo (min)</label>
-                <input
-                  type="number"
-                  value={teeInterval}
-                  onChange={(e) => setTeeInterval(Math.max(1, parseInt(e.target.value) || 10))}
-                  min={1}
-                  max={30}
-                  style={{ ...inputStyle, width: '80px' }}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleGenerateTeeTimes}
-                disabled={generatingTees}
-                style={{
-                  background: 'rgba(196,153,42,0.15)',
-                  border: '1px solid var(--border-md)',
-                  color: 'var(--brand-on-bg)',
-                  fontWeight: 600,
-                  fontSize: '13px',
-                  padding: '10px 16px',
-                  borderRadius: '8px',
-                  cursor: generatingTees ? 'not-allowed' : 'pointer',
-                  opacity: generatingTees ? 0.6 : 1,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {generatingTees ? 'Generando...' : `Generar horarios (${groups.length} grupos)`}
-              </button>
-            </div>
-          )}
-
-          {/* Group cards */}
-          {groups.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-2)', fontSize: '13px' }}>
-              Sin grupos aún. Crea grupos y asigna jugadores.
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
-              {groups.map((g) => (
-                <div
-                  key={g.id}
-                  style={{
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border-md)',
-                    borderRadius: '10px',
-                    padding: '16px',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{g.name}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {g.tee_time && (
-                        <span style={{ fontSize: '12px', color: 'var(--brand-on-bg)', fontFamily: 'monospace' }}>
-                          {g.tee_time.includes('T') ? new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : g.tee_time}
-                        </span>
-                      )}
-                      {tournamentStatus === 'draft' && (
-                        <button
-                          onClick={() => handleDeleteGroup(g.id)}
-                          style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', borderRadius: '4px', padding: '2px 6px', fontSize: '11px', cursor: 'pointer' }}
-                        >
-                          X
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {g.players.length === 0 ? (
-                    <div style={{ fontSize: '12px', color: 'var(--text-2)', fontStyle: 'italic' }}>Sin jugadores</div>
-                  ) : (
-                    g.players.map((gp) => (
-                      <div key={gp.id} style={{ fontSize: '13px', color: 'var(--text)', padding: '4px 0', borderTop: '1px solid var(--border)' }}>
-                        {gp.playerName}
-                      </div>
-                    ))
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Players table */}
-        <div
-          style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            boxShadow: 'var(--shadow-card)',
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-            <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: 0 }}>
-              Jugadores inscritos ({players.length})
-            </h2>
-          </div>
-
-          {players.length === 0 ? (
-            <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
-              <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Users size={40} strokeWidth={1.5} /></div>
-              <div style={{ fontSize: '16px', marginBottom: '6px', color: 'var(--text)' }}>Sin jugadores aún</div>
-              <div style={{ fontSize: '13px' }}>Busca y añade jugadores usando el formulario de arriba.</div>
-            </div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    {['#', 'Nombre', 'Índice', 'Course HCP', 'Categoría', 'Grupo', ''].map((h) => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {players.map((p, i) => (
-                    <tr
-                      key={p.id}
-                      style={{ borderBottom: '1px solid var(--border)', transition: 'background 150ms' }}
-                      onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'rgba(var(--text-2-rgb), 0.04)')}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = 'transparent')}
-                    >
-                      <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '14px' }}>{i + 1}</td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>
-                        {p.profiles?.name || '—'}
-                        {p.status === 'withdrawn' && (
-                          <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(148,168,192,0.15)', color: 'var(--text-2)', letterSpacing: '0.05em' }}>WD</span>
-                        )}
-                        {p.status === 'disqualified' && (
-                          <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(220,38,38,0.2)', color: '#fca5a5', letterSpacing: '0.05em' }}>DQ</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '14px' }}>{p.profiles?.indice ?? '—'}</td>
-                      <td style={{ padding: '12px 16px', color: 'var(--brand-on-bg)', fontSize: '14px', fontWeight: 600 }}>{p.handicap_at_registration ?? '—'}</td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '13px' }}>{p.categories?.name || '—'}</td>
-                      <td style={{ padding: '12px 16px' }}>
-                        {groups.length > 0 ? (
-                          <select
-                            value={getPlayerGroupId(p.id)}
-                            onChange={(e) => handleAssignPlayer(p.id, e.target.value)}
-                            style={{ ...inputStyle, fontSize: '12px', padding: '4px 6px', minWidth: '100px' }}
-                          >
-                            <option value="">Sin grupo</option>
-                            {groups.map((g) => (
-                              <option key={g.id} value={g.id}>{g.name}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span style={{ color: 'var(--text-2)', fontSize: '12px' }}>—</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '12px 16px', display: 'flex', gap: '6px' }}>
-                        {tournamentStatus !== 'closed' && p.status !== 'withdrawn' && p.status !== 'disqualified' && (
-                          <>
-                            <button
-                              onClick={() => handleDesinscribir(p.id)}
-                              title="Retirar (WD)"
-                              style={{ background: 'rgba(148,168,192,0.12)', border: '1px solid rgba(148,168,192,0.3)', color: 'var(--text-2)', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
-                            >
-                              WD
-                            </button>
-                            {tournamentStatus === 'in_progress' && (
-                              <button
-                                onClick={() => handleDescalificar(p.id)}
-                                title="Descalificar (DQ)"
-                                style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
-                              >
-                                DQ
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <PlayersTable
+          players={players}
+          groups={groups}
+          tournamentStatus={tournamentStatus}
+          getPlayerGroupId={getPlayerGroupId}
+          onAssignPlayer={handleAssignPlayer}
+          onWithdraw={handleDesinscribir}
+          onDisqualify={handleDescalificar}
+        />
       </div>
 
-      {/* Sticky bottom bar */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', justifyContent: 'center', gap: '12px', zIndex: 50 }}>
-        {tournamentStatus === 'draft' && (
-          <>
-            <button
-              onClick={handleCancelTournament}
-              style={{
-                background: 'rgba(220,38,38,0.1)',
-                color: '#fca5a5',
-                fontWeight: 600,
-                fontSize: '14px',
-                padding: '14px 24px',
-                borderRadius: '8px',
-                border: '1px solid rgba(220,38,38,0.25)',
-                cursor: 'pointer',
-                transition: 'all 200ms',
-              }}
-            >
-              Eliminar torneo
-            </button>
-            <button
-              onClick={handleStartTournament}
-              disabled={players.length < 1 || starting}
-              style={{
-                background: players.length >= 1 ? '#c4992a' : 'rgba(122,143,168,0.2)',
-                color: players.length >= 1 ? '#1a1a2e' : 'var(--text-2)',
-                fontWeight: 700,
-                fontSize: '16px',
-                padding: '14px 40px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: players.length < 1 || starting ? 'not-allowed' : 'pointer',
-                transition: 'all 200ms',
-                minWidth: '280px',
-              }}
-            >
-              {starting ? 'Iniciando...' : `Iniciar torneo (${players.length} jugador${players.length !== 1 ? 'es' : ''})`}
-            </button>
-          </>
-        )}
-
-        {tournamentStatus === 'in_progress' && (
-          <>
-            <button
-              onClick={() => router.push(`/organizador/${tournament.slug}/salida`)}
-              style={{
-                background: 'rgba(196,153,42,0.12)',
-                color: 'var(--brand-on-bg)',
-                fontWeight: 600,
-                fontSize: '14px',
-                padding: '14px 20px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-md)',
-                cursor: 'pointer',
-                transition: 'all 200ms',
-              }}
-            >
-              Hoja de salida
-            </button>
-            <button
-              onClick={() => router.push(`/organizador/${tournament.slug}/scoring`)}
-              style={{
-                background: '#1a4fd6',
-                color: 'white',
-                fontWeight: 700,
-                fontSize: '16px',
-                padding: '14px 30px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 200ms',
-              }}
-            >
-              Ver scoring
-            </button>
-            {allRoundsClosed && (
-              <button
-                onClick={handleCloseTournament}
-                disabled={closing}
-                style={{
-                  background: 'rgba(220,38,38,0.15)',
-                  color: '#fca5a5',
-                  fontWeight: 700,
-                  fontSize: '16px',
-                  padding: '14px 30px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(220,38,38,0.3)',
-                  cursor: closing ? 'not-allowed' : 'pointer',
-                  transition: 'all 200ms',
-                }}
-              >
-                {closing ? 'Cerrando...' : 'Cerrar torneo'}
-              </button>
-            )}
-          </>
-        )}
-
-        {tournamentStatus === 'closed' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ color: 'var(--text-2)', fontSize: '14px', fontWeight: 600 }}>
-              Torneo cerrado — Resultados definitivos
-            </span>
-            <button
-              onClick={() => window.open(`/torneo/${tournament.slug}`, '_blank')}
-              style={{
-                background: '#c4992a',
-                color: '#1a1a2e',
-                fontWeight: 700,
-                fontSize: '14px',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              Ver leaderboard
-            </button>
-          </div>
-        )}
-      </div>
+      <TournamentActionsBar
+        tournamentStatus={tournamentStatus}
+        slug={tournament.slug}
+        playersCount={players.length}
+        starting={starting}
+        closing={closing}
+        allRoundsClosed={allRoundsClosed}
+        onStart={handleStartTournament}
+        onCancel={handleCancelTournament}
+        onClose={handleCloseTournament}
+      />
 
       {/* Bug #6 inbox: asignación manual de tee por jugador */}
       {teesManualMode && (
