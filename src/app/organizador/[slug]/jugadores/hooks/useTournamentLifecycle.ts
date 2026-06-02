@@ -183,7 +183,10 @@ export function useTournamentLifecycle({
             ronda_id: ronda.id,
             nombre: player.profiles?.name || 'Jugador',
             user_id: player.user_id || null,
-            handicap,
+            // Sólo en formato equipos: el handicap por jugador es fallback del
+            // leaderboard de equipos. En individual NO se setea para mantener el
+            // path byte-idéntico al que ya corre en prod.
+            ...(teamFormat ? { handicap } : {}),
             scores: {},
           })
           .select('id')

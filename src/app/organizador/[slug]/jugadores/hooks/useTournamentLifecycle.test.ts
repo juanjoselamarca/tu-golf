@@ -149,5 +149,8 @@ describe('useTournamentLifecycle.handleStartTournament — productor de equipos'
     expect(recorded.inserts['ronda_equipo_jugadores']).toBeUndefined()
     const ronda = recorded.inserts['rondas_libres']?.[0] as { formato_juego?: string }
     expect(ronda?.formato_juego).toBeUndefined()
+    // Path individual byte-idéntico: ronda_libre_jugadores no lleva handicap.
+    const jugadores = recorded.inserts['ronda_libre_jugadores'] as Array<{ handicap?: number }>
+    expect(jugadores.every((j) => j.handicap === undefined)).toBe(true)
   })
 })
