@@ -18,6 +18,7 @@ import { TournamentActionsBar } from './components/TournamentActionsBar'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
 
 import type { Tournament, Category, Player } from './types'
+import { isTeamFormat } from './types'
 
 export type { Player } from './types'
 
@@ -58,6 +59,10 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     checkAllRoundsClosed, handleStartTournament,
     handleCancelTournament, handleCloseTournament,
   } = useTournamentLifecycle({ tournament, players, groups, setTournamentStatus })
+
+  // Formato de equipos: el grupo de salida ES el equipo (modelo PM 2026-06-02).
+  const teamFormat = isTeamFormat(tournament.format)
+  const teamSize = tournament.team_config?.size ?? 2
 
   // Fetch groups with their players
   // Check if all rounds in the latest round_number are closed
@@ -149,6 +154,8 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           generatingTees={generatingTees}
           onGenerateTeeTimes={handleGenerateTeeTimes}
           onDeleteGroup={handleDeleteGroup}
+          isTeam={teamFormat}
+          teamSize={teamSize}
         />
 
         <PlayersTable

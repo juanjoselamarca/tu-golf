@@ -19,6 +19,10 @@ interface Props {
   generatingTees: boolean
   onGenerateTeeTimes: () => void
   onDeleteGroup: (groupId: string) => void
+  /** En formatos de equipo (scramble/best ball/foursome), el grupo ES el
+   *  equipo: la sección se re-etiqueta y valida el tamaño esperado. */
+  isTeam: boolean
+  teamSize: number
 }
 
 /** Sección de grupos de salida: crear grupo, generar horarios, cards de grupo.
@@ -29,7 +33,9 @@ export function GroupsSection({
   creatingGroup, onCreateGroup,
   teeStartTime, setTeeStartTime, teeInterval, setTeeInterval,
   generatingTees, onGenerateTeeTimes, onDeleteGroup,
+  isTeam, teamSize,
 }: Props) {
+  const noun = isTeam ? 'equipo' : 'grupo'
   return (
     <div
       style={{
@@ -41,18 +47,23 @@ export function GroupsSection({
         marginBottom: '32px',
       }}
     >
-      <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: '0 0 20px' }}>
-        Grupos de salida ({groups.length})
+      <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: isTeam ? '0 0 6px' : '0 0 20px' }}>
+        {isTeam ? `Equipos (${groups.length})` : `Grupos de salida (${groups.length})`}
       </h2>
+      {isTeam && (
+        <div style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 20px' }}>
+          Cada grupo es un equipo. Arma equipos de {teamSize} jugador{teamSize !== 1 ? 'es' : ''} y asigná cada jugador desde la tabla de abajo.
+        </div>
+      )}
 
       {/* Create group form */}
       {tournamentStatus === 'draft' && (
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px' }}>
           <div style={{ flex: '1 1 180px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre del grupo</label>
+            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre del {noun}</label>
             <input
               type="text"
-              placeholder="Ej: Grupo 1"
+              placeholder={isTeam ? 'Ej: Equipo 1' : 'Ej: Grupo 1'}
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
               style={inputStyle}
@@ -84,7 +95,7 @@ export function GroupsSection({
               whiteSpace: 'nowrap',
             }}
           >
-            {creatingGroup ? '...' : 'Crear grupo'}
+            {creatingGroup ? '...' : `Crear ${noun}`}
           </button>
         </div>
       )}
@@ -137,7 +148,7 @@ export function GroupsSection({
       {/* Group cards */}
       {groups.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-2)', fontSize: '13px' }}>
-          Sin grupos aún. Crea grupos y asigna jugadores.
+          {isTeam ? `Sin equipos aún. Crea equipos de ${teamSize} y asigna jugadores.` : 'Sin grupos aún. Crea grupos y asigna jugadores.'}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
@@ -152,7 +163,22 @@ export function GroupsSection({
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{g.name}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
+                  {g.name}
+                  {isTeam && (
+                    <span
+                      title={g.players.length === teamSize ? 'Equipo completo' : `Debería tener ${teamSize} jugadores`}
+                      style={{
+                        fontSize: '11px', fontWeight: 700, padding: '1px 7px', borderRadius: '10px',
+                        background: g.players.length === teamSize ? 'rgba(34,197,94,0.15)' : 'rgba(196,153,42,0.15)',
+                        color: g.players.length === teamSize ? '#22c55e' : 'var(--brand-on-bg)',
+                        border: `1px solid ${g.players.length === teamSize ? 'rgba(34,197,94,0.3)' : 'var(--border-md)'}`,
+                      }}
+                    >
+                      {g.players.length}/{teamSize}
+                    </span>
+                  )}
+                </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {g.tee_time && (
                     <span style={{ fontSize: '12px', color: 'var(--brand-on-bg)', fontFamily: 'monospace' }}>
