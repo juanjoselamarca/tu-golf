@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { Flag, Users } from '@/components/icons'
 import { useTees } from './hooks/useTees'
-import { useProfileSearch, type Profile } from './hooks/useProfileSearch'
+import { useProfileSearch } from './hooks/useProfileSearch'
+import { usePlayers } from './hooks/usePlayers'
 import { TeesAssignmentSection } from './components/TeesAssignmentSection'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
 
@@ -19,10 +20,6 @@ interface Props {
   tournament:     Tournament & { codigo?: string | null }
   initialPlayers: Player[]
   categories:     Category[]
-}
-
-function calcCourseHandicap(indice: number, slope: number, rating: number, par: number) {
-  return Math.round(indice * (slope / 113) + (rating - par))
 }
 
 const inputStyle: React.CSSProperties = {
@@ -46,14 +43,21 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     reset: resetSearch,
   } = useProfileSearch()
 
-  const [players,         setPlayers]         = useState<Player[]>(initialPlayers)
   const [codeCopied,      setCodeCopied]      = useState(false)
   const [linkCopied,      setLinkCopied]      = useState(false)
   const [selectedCat,     setSelectedCat]     = useState(categories[0]?.id || '')
-  const [loading,         setLoading]         = useState(false)
   const [starting,        setStarting]        = useState(false)
   const [closing,         setClosing]         = useState(false)
   const [tournamentStatus, setTournamentStatus] = useState(tournament.status)
+
+  const {
+    players, setPlayers, loading,
+    fetchPlayers, inscribirPlayer, withdrawPlayer, disqualifyPlayer,
+  } = usePlayers({ tournament, categories, initialPlayers, tournamentStatus })
+
+  const handleInscribir = () => inscribirPlayer(selectedProfile, selectedCat, resetSearch)
+  const handleDesinscribir = withdrawPlayer
+  const handleDescalificar = disqualifyPlayer
 
   // Groups state
   const [groups, setGroups] = useState<TournamentGroup[]>([])
@@ -64,18 +68,6 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const [teeStartTime, setTeeStartTime] = useState('08:00')
   const [teeInterval, setTeeInterval] = useState(10)
   const [generatingTees, setGeneratingTees] = useState(false)
-
-  const fetchPlayers = async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('players')
-      .select(
-        'id, user_id, handicap_at_registration, status, profiles(name, email, indice), categories(name)'
-      )
-      .eq('tournament_id', tournament.id)
-      .order('created_at', { ascending: true })
-    setPlayers((data as unknown as Player[]) || [])
-  }
 
   // Fetch groups with their players
   const fetchGroups = async () => {
@@ -212,115 +204,6 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
       if (g.players.some((gp) => gp.player_id === playerId)) return g.id
     }
     return ''
-  }
-
-  const handleInscribir = async () => {
-    if (!selectedProfile) { showWarning('Jugador requerido', 'Busca y selecciona un jugador primero.'); return }
-
-    setLoading(true)
-    const supabase = createClient()
-    const course = tournament.courses
-
-    const courseHandicap =
-      selectedProfile.indice != null && course
-        ? calcCourseHandicap(
-            selectedProfile.indice,
-            course.slope_rating,
-            course.course_rating,
-            course.par_total
-          )
-        : null
-
-    // Auto-assign default category if none selected
-    const catId = selectedCat || categories[0]?.id || null
-
-    const { data: player, error: pErr } = await supabase
-      .from('players')
-      .insert({
-        tournament_id:           tournament.id,
-        user_id:                 selectedProfile.id,
-        category_id:             catId,
-        handicap_at_registration: courseHandicap,
-        status:                  'approved',
-      })
-      .select()
-      .single()
-
-    if (pErr || !player) {
-      const msg = pErr?.message?.toLowerCase() || ''
-      if (msg.includes('duplicate') || msg.includes('unique')) {
-        showError('Jugador duplicado', 'Este jugador ya está inscrito en el torneo.')
-      } else if (msg.includes('permission') || msg.includes('policy') || pErr?.code === '42501') {
-        showError('Sin permisos', 'No tienes permisos para inscribir jugadores. Verifica que eres el organizador.')
-      } else {
-        showError('Error al inscribir', `No pudimos inscribir al jugador: ${pErr?.message || 'error desconocido'}`)
-      }
-      setLoading(false)
-      return
-    }
-
-    const { error: rErr } = await supabase.from('rounds').insert({
-      tournament_id: tournament.id,
-      player_id:     player.id,
-      status:        'in_progress',
-    })
-    if (rErr) {
-      console.warn('[rounds] Error al crear ronda:', rErr.message)
-    }
-
-    const playerName = selectedProfile.name
-    resetSearch()
-    await fetchPlayers()
-    setLoading(false)
-    showSuccess('¡Jugador inscrito!', `${playerName} fue agregado al torneo correctamente.`)
-  }
-
-  const handleDesinscribir = async (playerId: string) => {
-    const playerName = players.find(p => p.id === playerId)?.profiles?.name || 'este jugador'
-
-    if (tournamentStatus === 'in_progress') {
-      if (!window.confirm(`Retirar a ${playerName} (WD)? Sus scores se conservan en el historial.`)) return
-      // Marca status='withdrawn' — preserva scores
-      const res = await fetch('/api/game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'withdraw_player', tournament_id: tournament.id, player_id: playerId }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        showError('Error', data.error || 'No se pudo retirar al jugador.')
-        return
-      }
-      showSuccess('Jugador retirado (WD)', `${playerName} fue marcado como retirado.`)
-    } else {
-      // Torneo aún no empezó: se puede eliminar la inscripción sin penalizar historial
-      const supabase = createClient()
-      await supabase.from('players').delete().eq('id', playerId)
-    }
-    await fetchPlayers()
-  }
-
-  const handleDescalificar = async (playerId: string) => {
-    const playerName = players.find(p => p.id === playerId)?.profiles?.name || 'este jugador'
-    const reason = window.prompt(`Descalificar a ${playerName} (DQ). Motivo (opcional):`)
-    if (reason === null) return // canceló el prompt
-    const res = await fetch('/api/game', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'disqualify_player',
-        tournament_id: tournament.id,
-        player_id: playerId,
-        reason: reason.trim() || null,
-      }),
-    })
-    if (!res.ok) {
-      const data = await res.json()
-      showError('Error', data.error || 'No se pudo descalificar al jugador.')
-      return
-    }
-    showSuccess('Jugador descalificado (DQ)', `${playerName} fue marcado como descalificado.`)
-    await fetchPlayers()
   }
 
   const handleCancelTournament = async () => {
