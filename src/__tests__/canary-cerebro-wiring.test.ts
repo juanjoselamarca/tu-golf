@@ -64,6 +64,27 @@ const ENFORCED: WiringContract[] = [
     consumer: 'app/api/taiger/chat/route.ts',
     needles: ['coachDegradedFallback'],
   },
+  // ── Ola 2 "el coach te conoce": el motor de foco conecta las piezas huérfanas ──
+  {
+    piece: 'cerebro_weights leído en runtime por el motor de foco (paramétrico vivo)',
+    consumer: 'golf/coach/v3/focus/get-focus.ts',
+    needles: ['getCachedWeights'],
+  },
+  {
+    piece: 'métricas golf/coach/metrics consumidas por el catálogo de foco',
+    consumer: 'golf/coach/v3/focus/catalog.ts',
+    needles: ['@/golf/coach/metrics'],
+  },
+  {
+    piece: 'Motor de foco enchufado al dispatch de tools del coach',
+    consumer: 'golf/coach/tools.ts',
+    needles: ['getFocusTool'],
+  },
+  {
+    piece: 'Tools de foco (Ola 2) ofrecidas al modelo por el route',
+    consumer: 'app/api/taiger/chat/route.ts',
+    needles: ['FOCUS_TOOLS'],
+  },
 ]
 
 describe('Canario wiring cerebro v3: piezas VIVAS no se desconectan', () => {
@@ -84,7 +105,8 @@ describe('Canario wiring cerebro v3: piezas VIVAS no se desconectan', () => {
 describe('Canario wiring cerebro v3: piezas PENDIENTES de enchufar', () => {
   // Cada una pasa a ENFORCED (assertion real) cuando se conecta en su ola.
   // Hasta entonces queda como todo para que no se declare "hecha".
-  it.todo('cerebro_weights leído en runtime por el motor de foco (Ola 2)')
-  it.todo('métricas golf/coach/metrics consumidas en runtime (conectar o borrar)')
+  // ✅ Conectadas en Ola 2 (movidas a ENFORCED arriba):
+  //    - cerebro_weights → motor de foco (paramétrico vivo)
+  //    - golf/coach/metrics → catálogo de foco
   it.todo('tabla cerebro_events escrita/leída en runtime (conectar o borrar)')
 })
