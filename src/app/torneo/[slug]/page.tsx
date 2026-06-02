@@ -11,6 +11,11 @@
 
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
+import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
+import type { LiveTeam } from './en-vivo/types'
+import { fetchScrambleTeams } from '@/lib/data/tournaments/teamLeaderboard'
+import { computeScrambleStandings } from '@/golf/leaderboard/team-standings'
+import { scrambleResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
 import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
 import ShareResultsButton from '@/components/ShareResultsButton'
 import { PLAYERS, PAR } from '@/lib/golf-data'
@@ -71,6 +76,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   let groupsData: GroupData[]                 = []
   let playerIdToIndex: Record<string, number> = {}
   let courseHoles: CourseHole[]               = []
+  let teamStandings: LiveTeam[]               = []
 
   if (tournament) {
     tournamentName = tournament.name
@@ -130,6 +136,16 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       playerIdToIndex = out.playerIdToIndex
       stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, parTotal) : null
     }
+
+    // Standings de equipos Scramble (v1): el grupo de salida ES el equipo.
+    // Best Ball / Foursome quedan fuera de v1 (su motor difiere).
+    if (formatoJuego === 'scramble') {
+      const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
+      if (teams.length > 0) {
+        const ordered = computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego)
+        teamStandings = scrambleResultsToLiveTeams(ordered, memberNames, modoJuego)
+      }
+    }
   } else {
     // Demo fallback (slug no encontrado)
     players  = PLAYERS
@@ -157,7 +173,9 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
-        {players.length > 0 ? (
+        {teamStandings.length > 0 ? (
+          <TeamLeaderboard teams={teamStandings} />
+        ) : players.length > 0 ? (
           <TournamentTabs
             players={players}
             playersByGross={playersByGross}

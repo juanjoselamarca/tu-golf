@@ -5,7 +5,12 @@
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import LiveView from './LiveView'
-import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveStatus } from './types'
+import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveStatus, LiveTeam } from './types'
+import { fetchScrambleTeams } from '@/lib/data/tournaments/teamLeaderboard'
+import { computeScrambleStandings } from '@/golf/leaderboard/team-standings'
+import { fetchCourseHoles, buildFallbackCourseHoles } from '@/lib/data/tournaments/leaderboard'
+import { scrambleResultsToLiveTeams } from './scrambleTeamsToLive'
+import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,7 +48,7 @@ export default async function LivePage({ params }: PageProps) {
   const { data: tournamentRaw } = await supabase
     .from('tournaments')
     .select(
-      'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, courses(nombre, par_total), categories(id, name), tournament_groups(id, name)'
+      'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, course_id, courses(nombre, par_total), categories(id, name), tournament_groups(id, name)'
     )
     .eq('slug', resolvedParams.slug)
     .single()
@@ -59,6 +64,7 @@ export default async function LivePage({ params }: PageProps) {
     hole_count: number | null
     total_rounds: number | null
     status: string | null
+    course_id: string | null
     courses: { nombre: string | null; par_total: number | null } | null
     categories: Array<{ id: string; name: string }> | null
     tournament_groups: Array<{ id: string; name: string }> | null
@@ -166,11 +172,27 @@ export default async function LivePage({ params }: PageProps) {
     status: normalizeStatus(tournament.status),
   }
 
+  // 7) Equipos Scramble (v1): standings desde grupos + ronda_equipos.
+  //    Best Ball / Foursome quedan [] hasta v2 (su motor difiere del scramble).
+  let liveTeams: LiveTeam[] = []
+  if (liveTournament.format === 'scramble' && tournament.course_id) {
+    const { teams: scrambleTeams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
+    if (scrambleTeams.length > 0) {
+      const courseHoles = await fetchCourseHoles(supabase, tournament.course_id)
+      const holes = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(holeCount)
+      const ordered = computeScrambleStandings(
+        scrambleTeams, holes, parTotal,
+        'scramble' as FormatoJuego, liveTournament.modo as ModoJuego,
+      )
+      liveTeams = scrambleResultsToLiveTeams(ordered, memberNames, liveTournament.modo)
+    }
+  }
+
   return (
     <LiveView
       tournament={liveTournament}
       players={players}
-      teams={[]}
+      teams={liveTeams}
       matches={[]}
       categories={tournament.categories ?? []}
       groups={tournament.tournament_groups ?? []}
