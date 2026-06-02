@@ -153,4 +153,21 @@ describe('useTournamentLifecycle.handleStartTournament — productor de equipos'
     const jugadores = recorded.inserts['ronda_libre_jugadores'] as Array<{ handicap?: number }>
     expect(jugadores.every((j) => j.handicap === undefined)).toBe(true)
   })
+
+  it('best_ball: NO crea equipos ni setea formato_juego (sigue como individual hasta que el scorer lo soporte)', async () => {
+    // Regresión que detectó el code-reviewer (C1): si el productor seteara
+    // formato_juego='best_ball', score-grupo ocultaría el scoring individual
+    // pero no carga teamEquipos para best_ball → pantalla en blanco.
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgs('best_ball')))
+    await act(async () => {
+      await result.current.handleStartTournament()
+    })
+
+    expect(recorded.inserts['ronda_equipos']).toBeUndefined()
+    expect(recorded.inserts['ronda_equipo_jugadores']).toBeUndefined()
+    const ronda = recorded.inserts['rondas_libres']?.[0] as { formato_juego?: string }
+    expect(ronda?.formato_juego).toBeUndefined()
+    const jugadores = recorded.inserts['ronda_libre_jugadores'] as Array<{ handicap?: number }>
+    expect(jugadores.every((j) => j.handicap === undefined)).toBe(true)
+  })
 })

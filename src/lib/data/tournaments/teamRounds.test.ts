@@ -1,5 +1,22 @@
 import { describe, it, expect } from 'vitest'
-import { computeStoredTeamHandicap, resolvePlayerHandicap } from './teamRounds'
+import { computeStoredTeamHandicap, resolvePlayerHandicap, isProducerTeamFormat } from './teamRounds'
+
+describe('isProducerTeamFormat', () => {
+  it('scramble y foursome → true', () => {
+    expect(isProducerTeamFormat('scramble')).toBe(true)
+    expect(isProducerTeamFormat('foursome')).toBe(true)
+  })
+
+  it('best_ball → false (el scorer aún no carga sus equipos)', () => {
+    expect(isProducerTeamFormat('best_ball')).toBe(false)
+  })
+
+  it('formatos individuales y vacíos → false', () => {
+    expect(isProducerTeamFormat('stroke_play')).toBe(false)
+    expect(isProducerTeamFormat(undefined)).toBe(false)
+    expect(isProducerTeamFormat(null)).toBe(false)
+  })
+})
 
 describe('computeStoredTeamHandicap', () => {
   describe('scramble (USGA por nº de jugadores)', () => {

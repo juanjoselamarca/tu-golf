@@ -21,6 +21,25 @@
 import { calcularHandicapScramble, calcularHandicapFoursome } from '@/golf/formats'
 
 /**
+ * Formatos por equipos con scoring en cancha FUNCIONAL hoy: `score-grupo`
+ * carga `teamEquipos` y los renderiza sólo para estos dos.
+ *
+ * `best_ball` queda DELIBERADAMENTE fuera: aunque es un formato por equipos
+ * (`isTeamFormat` lo incluye), el scorer sólo carga `teamEquipos` para
+ * scramble/foursome. Si el productor le seteara `formato_juego='best_ball'` a la
+ * ronda, el scorer ocultaría el scoring individual pero no tendría equipos que
+ * mostrar → pantalla en blanco. Mientras score-grupo no cargue equipos para
+ * best_ball, el productor NO lo toca y best_ball sigue scoreándose como
+ * individual (comportamiento actual en prod). Ver score-grupo/page.tsx:253.
+ */
+export const PRODUCER_TEAM_FORMATS = ['scramble', 'foursome'] as const
+
+/** True si el productor debe materializar equipos + setear formato_juego. */
+export function isProducerTeamFormat(format: string | null | undefined): boolean {
+  return !!format && (PRODUCER_TEAM_FORMATS as readonly string[]).includes(format)
+}
+
+/**
  * Handicap de equipo a almacenar en `ronda_equipos.handicap_equipo`.
  *
  * - `scramble`  → fórmula USGA según nº de jugadores (2: 35/15, 3: 20/15/10,

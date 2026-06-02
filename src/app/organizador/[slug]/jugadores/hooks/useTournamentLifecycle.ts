@@ -3,9 +3,12 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
-import { isTeamFormat } from '../types'
 import type { Player, Tournament, TournamentGroup } from '../types'
-import { computeStoredTeamHandicap, resolvePlayerHandicap } from '@/lib/data/tournaments/teamRounds'
+import {
+  computeStoredTeamHandicap,
+  resolvePlayerHandicap,
+  isProducerTeamFormat,
+} from '@/lib/data/tournaments/teamRounds'
 
 interface UseTournamentLifecycleArgs {
   tournament: Tournament & { codigo?: string | null }
@@ -130,11 +133,13 @@ export function useTournamentLifecycle({
     }
 
     // 3. Create rondas_libres for groups that don't have one yet.
-    // En formatos por equipos (scramble/best_ball/foursome) el grupo ES el
-    // equipo: además de la ronda y sus jugadores, creamos un ronda_equipos por
-    // grupo. Sin `formato_juego` en la ronda, score-grupo no engancha el
-    // scoring de equipo y el leaderboard se queda sin datos.
-    const teamFormat = isTeamFormat(tournament.format)
+    // En formatos por equipos con scoring en cancha funcional (scramble/
+    // foursome) el grupo ES el equipo: además de la ronda y sus jugadores,
+    // creamos un ronda_equipos por grupo. Sin `formato_juego` en la ronda,
+    // score-grupo no engancha el scoring de equipo y el leaderboard se queda
+    // sin datos. best_ball queda fuera a propósito (ver isProducerTeamFormat):
+    // el scorer aún no carga sus equipos, así que sigue como individual.
+    const teamFormat = isProducerTeamFormat(tournament.format)
     const groupsWithoutRonda = groups.filter((g) => !g.ronda_libre_id && g.players.length > 0)
     for (const group of groupsWithoutRonda) {
       const codigo = 'T' + Math.random().toString(36).substring(2, 8).toUpperCase()
