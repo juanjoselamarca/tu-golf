@@ -1,4 +1,51 @@
-# Estado Cerebro V3 — Actualizado 2026-05-30 — Sub-ola 1e CERRADA y EN PRODUCCIÓN (flag solo Juanjo)
+# Estado Cerebro V3 — Actualizado 2026-06-02 — Ola 2 "el coach te conoce" EN CURSO (motor, Fase 1)
+
+## ⏩ SESIÓN 2026-06-02 — retomar acá
+
+**Branch de trabajo (NO main):** `feat/cerebro-v3-ola2-conocer-claude`
+(worktree `.claude/worktrees/cerebro-v3-ola2-conocer`). La próxima sesión hace
+checkout de esta branch, NO arranca de main.
+
+**Qué pasó esta sesión (pivote por feedback de Juanjo tras probar 1e):**
+- Juanjo reportó: plan genérico, sin seguimiento, avance no medible, no lo
+  conoce/no le pregunta. + bug P0: mezcla conceptos de lenguaje golfístico (falta
+  ejemplo de Juanjo para reproducir).
+- **Auditoría de wiring** (`docs/cerebro-v3-auditoria-wiring-2026-06-02.md`):
+  descubrió que `cerebro_weights` (paramétrico vivo), `metrics/` y `cerebro_events`
+  estaban construidos pero DESCONECTADOS del coach, y que el coach no tenía
+  fallback. RAG 1e + engagement + motor planes v2 SÍ vivos.
+- **Regla anti-decoración** instalada (memoria `feedback_anti_decoracion_wiring` +
+  canario `src/__tests__/canary-cerebro-wiring.test.ts`).
+- **Spec del corte:** `docs/superpowers/specs/2026-06-02-cerebro-v3-ola2-conocer-design.md`.
+
+**Commits en la branch:** `78b01bb` auditoría · `f34f4b9` spec+canario ·
+`80b982b` P0 resiliencia coach (verificado: tsc 0, 158 tests, build ✓) ·
+`e4ba668` migración Ola 2 (aplicada a prod).
+
+**Hecho y verificado:**
+- ✅ P0 coach: fallback degradado a Gemini vía `coach-fallback.ts` cableado en el
+  catch del stream de `taiger/chat/route.ts`. Canario protege la conexión.
+- ✅ Migración Ola 2 en prod: `profiles.target_*`, `round_metrics`,
+  `coach_episodic_memory` (+ RLS). Aditivo, cerebro v2 intacto.
+
+**PRÓXIMA TAREA (Fase 1 motor — empezar acá):**
+1. **Motor de foco** `src/golf/coach/v3/focus/`: lee historial (`historical_rounds`),
+   computa los 9 patrones (reusar `golf/coach/metrics/`, conectándolas al runtime),
+   gate anti-fantasía (muestra/efecto mínimos), rankeo por impacto hacia el target
+   **leyendo `cerebro_weights`** (`lib/cerebro/weights-cache.ts`) → conecta el
+   paramétrico vivo. Interfaz `getFocus(userId)`. TDD. Al conectar weights, flipear
+   el `todo` del canario a `enforced`.
+2. Tools del coach: `set_target`, `remember_fact`, `recall_facts`, `get_focus`,
+   `get_progress` (extender el dispatch; hoy `handle-tool-use.ts` solo hace RAG).
+3. Validar contra rondas reales de Juanjo + 5 perfiles sintéticos.
+Luego Fase 2 (cara): prompt 6 piezas + onboarding + vista de progreso (design-shotgun).
+
+**Pendiente de Juanjo:** ejemplo concreto del bug de lenguaje golfístico (#4).
+**Freno:** demo en vivo antes de mergear (regla #4). Nada mergeado aún.
+
+---
+
+## (histórico) Estado al 2026-05-30 — Sub-ola 1e CERRADA y EN PRODUCCIÓN (flag solo Juanjo)
 
 > Este archivo es el dashboard vivo del proyecto cerebro v3. Se actualiza al cierre de cada sesión que toque el proyecto. Si lees esto al iniciar una sesión, sabés exactamente dónde retomar.
 >
