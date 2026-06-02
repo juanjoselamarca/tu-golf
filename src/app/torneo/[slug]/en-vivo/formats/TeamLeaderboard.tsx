@@ -26,7 +26,10 @@ function joinPlayerNames(team: LiveTeam): string {
 }
 
 export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
-  const sorted = [...teams].sort((a, b) => a.team_total - b.team_total)
+  // Ordenar por vs_par (par-relativo): comparable entre equipos con distinto
+  // `thru`. Ordenar por team_total (golpes totales) haría liderar erróneamente a
+  // un equipo que jugó menos hoyos. Desempate por más hoyos jugados.
+  const sorted = [...teams].sort((a, b) => a.vs_par - b.vs_par || b.thru - a.thru)
 
   const tableStyle: React.CSSProperties = {
     width: '100%',

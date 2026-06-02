@@ -67,11 +67,15 @@ export async function fetchScrambleTeams(
       return (j.handicap as number | null) ?? 0
     })
     const id = eq.id as string
+    const storedHcp = eq.handicap_equipo as number | null
     teams.push({
       id,
       nombre: eq.nombre as string,
       handicaps,
       scores: (eq.scores as Record<string, number>) ?? {},
+      // Usa el handicap de equipo que aplicó el scorer (consistencia con la
+      // tarjeta en cancha). Si no está almacenado, el motor recalcula.
+      teamHandicap: storedHcp ?? undefined,
     })
     memberNames[id] = members.map((m) => {
       const j = rljById.get(m.jugador_id)

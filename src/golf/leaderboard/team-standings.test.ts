@@ -38,4 +38,12 @@ describe('computeScrambleStandings', () => {
     expect(out[0].teamHandicap).toBeCloseTo(6.5, 1)
     expect(out[0].totalNeto).toBeLessThan(out[0].totalGross)
   })
+
+  it('usa teamHandicap almacenado (override) en vez de recalcular — consistencia con la tarjeta', () => {
+    // handicaps [10,20] recalcularían 6.5, pero el override 0 → neto == gross.
+    const t: ScrambleTeam = { id: 'e', nombre: 'Override', handicaps: [10, 20], scores: { '1': 4, '2': 4, '3': 4 }, teamHandicap: 0 }
+    const out = computeScrambleStandings([t], HOLES, 12, 'scramble', 'neto')
+    expect(out[0].teamHandicap).toBe(0)
+    expect(out[0].totalNeto).toBe(out[0].totalGross)
+  })
 })

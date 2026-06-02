@@ -28,6 +28,12 @@ export interface ScrambleTeam {
   handicaps: number[]
   /** Scores del equipo (un score por hoyo): {"1": 4, "2": 3, ...} */
   scores: Record<string, number>
+  /**
+   * Handicap de equipo ya almacenado (ronda_equipos.handicap_equipo). Si está
+   * presente, se usa tal cual en vez de recalcular desde `handicaps`, para que
+   * el neto del leaderboard coincida con el que el scorer aplicó en cancha.
+   */
+  teamHandicap?: number
 }
 
 export interface ScrambleHoleDetail {
@@ -108,7 +114,7 @@ export function calcularScramble(
   holes: Array<{ numero: number; par: number; stroke_index: number }>,
   parTotal: number
 ): ScrambleTeamResult {
-  const teamHandicap = calcularHandicapScramble(team.handicaps)
+  const teamHandicap = team.teamHandicap ?? calcularHandicapScramble(team.handicaps)
   const sortedHoles = [...holes].sort((a, b) => a.numero - b.numero)
 
   let totalGross = 0
