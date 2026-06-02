@@ -95,6 +95,16 @@ const ENFORCED: WiringContract[] = [
     consumer: 'app/api/taiger/chat/route.ts',
     needles: ['closeExpiredPlans'],
   },
+  {
+    piece: 'Dashboard de progreso consume el agregador (foco + serie + plan)',
+    consumer: 'app/api/coach/progress/route.ts',
+    needles: ['loadProgressDashboard'],
+  },
+  {
+    piece: 'La home del coach tiene entrada a la vista de progreso (no huérfana)',
+    consumer: 'app/coach/page.tsx',
+    needles: ['/coach/progreso'],
+  },
 ]
 
 describe('Canario wiring cerebro v3: piezas VIVAS no se desconectan', () => {
