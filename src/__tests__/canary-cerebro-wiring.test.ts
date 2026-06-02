@@ -59,6 +59,11 @@ const ENFORCED: WiringContract[] = [
     consumer: 'golf/coach/context.ts',
     needles: ['coach_plans', 'player_patterns'],
   },
+  {
+    piece: 'Fallback degradado del coach (P0) consumido por el route',
+    consumer: 'app/api/taiger/chat/route.ts',
+    needles: ['coachDegradedFallback'],
+  },
 ]
 
 describe('Canario wiring cerebro v3: piezas VIVAS no se desconectan', () => {
@@ -80,7 +85,6 @@ describe('Canario wiring cerebro v3: piezas PENDIENTES de enchufar', () => {
   // Cada una pasa a ENFORCED (assertion real) cuando se conecta en su ola.
   // Hasta entonces queda como todo para que no se declare "hecha".
   it.todo('cerebro_weights leído en runtime por el motor de foco (Ola 2)')
-  it.todo('coach con fallback degradado a gateway/Gemini ante fallo Anthropic (P0)')
   it.todo('métricas golf/coach/metrics consumidas en runtime (conectar o borrar)')
   it.todo('tabla cerebro_events escrita/leída en runtime (conectar o borrar)')
 })

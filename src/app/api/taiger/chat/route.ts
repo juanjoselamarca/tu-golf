@@ -6,6 +6,7 @@ import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { SEARCH_KNOWLEDGE_TOOL } from '@/golf/coach/v3/tools/search-knowledge-chunks-tool'
 import { handleToolUse } from '@/golf/coach/v3/tools/handle-tool-use'
+import { coachDegradedFallback, toPlainMessages, isRetryableLLMError } from '@/golf/coach/v3/resilience/coach-fallback'
 import { RAG_SECTION, ENGAGEMENT_SECTION } from '@/golf/coach/v3/prompts'
 import type { Jurisdiction } from '@/golf/coach/v3/retrieval/types'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
@@ -144,6 +145,9 @@ export async function POST(req: NextRequest) {
             // controller cerrado — el clearInterval lo limpia abajo
           }
         }, 15000)
+        // P0 resiliencia: si aún no se emitió contenido, el catch puede caer a un
+        // fallback degradado (no-streaming) sin duplicar tokens ya enviados.
+        let emittedContent = false
         try {
           type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
           const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
@@ -177,6 +181,7 @@ export async function POST(req: NextRequest) {
               if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
                 const text = event.delta.text
                 fullResponse += text
+                emittedContent = true
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
               }
             }
@@ -409,7 +414,27 @@ export async function POST(req: NextRequest) {
             userId: user?.id ?? null,
             meta: { sessionId: active?.id, status },
           })
-          if (overloaded || msg.includes('rate_limit') || msg.includes('429')) {
+          const retryable = overloaded || msg.includes('rate_limit') || msg.includes('429') || isRetryableLLMError(err)
+          // P0 resiliencia: ante rate-limit/overload de Anthropic, si todavía no
+          // emitimos contenido, intentamos una respuesta degradada (no-streaming,
+          // sin tools) vía el gateway, cuya cadena cruza a Gemini. El coach no se cae.
+          if (retryable && !emittedContent) {
+            try {
+              const fb = await coachDegradedFallback({
+                system: systemFinal,
+                messages: toPlainMessages(conversation),
+              })
+              if (fb.text) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: fb.text })}\n\n`))
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, degraded: true, provider: fb.provider })}\n\n`))
+                controller.close()
+                return
+              }
+            } catch (fbErr) {
+              void captureError(fbErr, { context: 'taiger.chat.fallback', userId: user?.id ?? null })
+            }
+          }
+          if (retryable) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'tAIger+ está descansando. Intenta en unos minutos.' })}\n\n`))
           } else if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('aborted')) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'La respuesta se demoró más de lo esperado. Intenta de nuevo — si vuelve a pasar, ya quedó registrado y lo investigamos.' })}\n\n`))
