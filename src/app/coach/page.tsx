@@ -88,7 +88,7 @@ const PATTERN_NAMES: Record<string, string> = {
   par_3_weakness: 'Par 3 destructivos',
   short_game_weakness: 'Juego corto débil',
   three_putt_frequency: 'Three putts frecuentes',
-  driving_inconsistency: 'Inconsistencia con driver',
+  driving_inconsistency: 'Scores irregulares entre rondas',
 }
 
 const MENTAL_PATTERN_IDS = new Set(['post_bogey_spiral', 'pressure_deterioration', 'first_hole_anxiety'])

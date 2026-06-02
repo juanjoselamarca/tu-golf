@@ -141,7 +141,7 @@ export function buildContextString(context: TaigerContext): string {
     three_putt_frequency: 'exceso de 3-putts',
     par_3_weakness: 'debilidad en par 3',
     pressure_deterioration: 'baja el rendimiento bajo presión',
-    driving_inconsistency: 'inconsistencia con el driver',
+    driving_inconsistency: 'alta dispersión de scores entre rondas (varianza alta del total, no atribuible a un palo específico — el motor no ve datos de palo)',
     front_nine_struggles: 'arranque lento en el campo',
     short_game_weakness: 'juego corto deficiente',
     post_bogey_spiral: 'espiral post-bogey',
