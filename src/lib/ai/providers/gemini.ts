@@ -20,14 +20,25 @@ export const geminiAdapter: ProviderAdapter = {
     if (!key) throw new Error('gemini: falta GEMINI_API_KEY')
 
     const genAI = new GoogleGenerativeAI(key)
+    // thinkingBudget: 0 DESACTIVA el "pensamiento" de los modelos Gemini 2.5
+    // (flash / flash-lite). Sin esto el thinking consume maxOutputTokens y la
+    // respuesta visible sale TRUNCADA — verificado en vivo: 285 tokens de thinking
+    // dejaban solo 11 de respuesta ("Juan muestra un..."). Con thinkingBudget:0 la
+    // respuesta sale completa. Para estas llamadas cortas (insights, fallback del
+    // asistente) no queremos chain-of-thought: gasta presupuesto y latencia.
+    // El SDK @google/generative-ai 0.24.1 (deprecado) no tipa `thinkingConfig`,
+    // pero la API REST sí lo respeta; va por variable para no gatillar el
+    // excess-property check del literal (no necesita cast).
+    const generationConfig = {
+      maxOutputTokens: args.maxTokens,
+      temperature: args.temperature,
+      thinkingConfig: { thinkingBudget: 0 },
+      ...(args.responseJson ? { responseMimeType: 'application/json' } : {}),
+    }
     const model = genAI.getGenerativeModel({
       model: args.model,
       ...(args.system ? { systemInstruction: args.system } : {}),
-      generationConfig: {
-        maxOutputTokens: args.maxTokens,
-        temperature: args.temperature,
-        ...(args.responseJson ? { responseMimeType: 'application/json' } : {}),
-      },
+      generationConfig,
     })
 
     // Gemini usa role 'model' para el asistente; 'user' se mantiene.
