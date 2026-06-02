@@ -31,11 +31,14 @@ Estado: tsc 0 · 2140 tests · build OK · branch pusheada. Nada mergeado (demo 
 
 **Estado Ola 2: motor + prompt + data foundation + lifecycle + vista de progreso TODO HECHO Y VALIDADO. tsc 0 · 2144 tests · build OK · branch pusheada. Falta solo el merge (demo gate, regla #4).**
 
-**PRÓXIMA TAREA — cierre de Ola 2:**
+**Onboarding ✅ HECHO Y VALIDADO E2E.** Commit `455a65b`. `getOnboardingState` + `ONBOARDING_SECTION` (gated por flag + estado): en la 1ª sesión (sin meta ni hechos) el coach entrevista corto, fija la meta (`set_target`) sí o sí y capta la frustración (`remember_fact`), sin perder el valor de entrada. Validado: 2 turnos → llamó `recall_facts + get_focus + set_target({7,2026-12-31}) + remember_fact` (escrituras interceptadas, sin tocar prod).
+
+**OLA 2 COMPLETA: motor + 5 tools + prompt + onboarding + round_metrics + lifecycle + vista de progreso. Todo con TDD + prueba de consumo en runtime (14 contratos de canario). tsc 0 · 2151 tests · build OK · branch pusheada.**
+
+**PRÓXIMA TAREA — cierre de Ola 2 (solo falta esto):**
 1. **Demo en vivo a Juanjo** (regla #4) → si OK: `superpowers:code-reviewer` sobre el diff → PR → merge → activar flag → deploy → smoke post-deploy.
-2. **Onboarding conversacional** (opcional pre-merge) — el prompt ya habilita `set_target`/`remember_fact`; falta el disparo en la 1ª sesión + (opcional) columnas de perfil.
-3. **9h en round_metrics** (follow-up post-merge): escalado WHS correcto.
-4. **Banco**: ejemplo del bug de lenguaje golfístico (pendiente de Juanjo).
+2. **9h en round_metrics** (follow-up post-merge): escalado WHS correcto.
+3. **Banco**: ejemplo del bug de lenguaje golfístico (pendiente de Juanjo).
 
 **Pendiente de Juanjo:** ejemplo concreto del bug de lenguaje golfístico (para banco de pruebas).
 **Freno:** demo en vivo antes de mergear (regla #4). Nada mergeado aún.
