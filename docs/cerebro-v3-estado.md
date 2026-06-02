@@ -1,4 +1,4 @@
-# Estado Cerebro V3 — Actualizado 2026-06-02 — Ola 2 "el coach te conoce" EN CURSO (Fase 1 motor ✅ HECHA, Fase 2 cara NEXT)
+# Estado Cerebro V3 — Actualizado 2026-06-02 — Ola 2 "el coach te conoce" EN CURSO (Fase 1 motor ✅ + Fase 2.1 prompt ✅; resto Fase 2 NEXT)
 
 ## ⏩ SESIÓN 2026-06-02 (tarde) — retomar acá
 
@@ -14,11 +14,17 @@
 
 **Arquitectura del motor (decisión):** `impacto = confianza_del_detect × peso_del_patrón`. La confianza de `patterns.ts` es severidad ya calibrada (gate); el peso de `cerebro_weights` (parameter_type='pattern') es cuánto mover ese patrón acerca al target. La `metrica` baseline se computa con `golf/coach/metrics` en escala PLAN_METRIC (continuidad con el motor de planes). Catálogo en `v3/focus/catalog.ts` = interfaz que Ola 3 reemplaza por DB sin tocar `selectFocus`.
 
-**PRÓXIMA TAREA — Fase 2 "la cara" (empezar acá):**
-1. **Prompt del coach a 6 piezas** + inyectar facts (`recall_facts`) + foco citado (`get_focus`). Reescribir/extender la sección de sistema para que el coach: pregunte la meta (`set_target`) sólo si mejora el consejo, proponga UN foco enmarcado en el target, y refleje avance. Cuidado con el snapshot del system prompt (`prompts/__tests__/snapshot.test.ts` — actualizar). 
-2. **Onboarding conversacional** (perfil rico mínimo: play_frequency, main_frustration) vía `remember_fact`.
-3. **Vista de progreso** (`design-shotgun` → `frontend-design` → `design-review`) leyendo `get_progress`.
-4. **Lifecycle del plan stale**: el plan de Juanjo venció (creado 2026-05-07, 21d). Cierre/refresh del plan activo al recomputar foco (spec §11). El motor de foco ya recomputa fresco; falta el cierre del plan v2 viejo.
+**Fase 2.1 (prompt "el coach te conoce") ✅ HECHA Y VALIDADA E2E.** Commits `615f238` + `2096e0a`.
+- `CONOCER_SECTION` (`v3/prompts/sections/conocer.ts`) gated por flag, appendeada al system prompt en el route. NO toca `TAIGER_SYSTEM_PROMPT` v2 → snapshot intacto. Canario enforced.
+- Manda al coach: llamar `get_focus` y presentar EL foco en 6 piezas (identidad/hecho/veredicto/target/delta/acción) en lenguaje humano; `recall_facts` al inicio; `set_target` sólo si mejora el consejo; `remember_fact` con criterio; `get_progress` para avance; fallback honesto.
+- **Números honestos:** impacto/confianza/peso marcados como señales INTERNAS (no strokes) — fix tras el smoke que mostró al coach inventando "+0.3 strokes/hoyo".
+- **Smoke E2E real** (`scripts/cerebro-v3/smoke-conocer.ts`, contra Juanjo): el coach LLAMA get_focus + recall_facts y responde en 6 piezas con números reales (1.017 bogeys, 67%, índice 9.6), sin claves crudas. Prueba de consumo en runtime ✅.
+
+**PRÓXIMA TAREA — resto de Fase 2 (empezar acá):**
+1. **Onboarding conversacional** — perfil rico mínimo (play_frequency, main_frustration) vía `remember_fact`/`set_target`. El prompt ya habilita las tools; falta el flujo de arranque que las dispare en la primera sesión + (opcional) columnas de perfil en `profiles`.
+2. **Vista de progreso** (UI — arrancar con `design-shotgun` → `frontend-design` → `design-review`) leyendo `get_progress`.
+3. **Lifecycle del plan stale**: el plan de Juanjo venció (creado 2026-05-07, 21d). Cierre/refresh del plan v2 activo al recomputar foco (spec §11). El motor recomputa fresco; falta cerrar el plan viejo.
+4. **Banco**: sumar el ejemplo del bug de lenguaje golfístico (pendiente de Juanjo).
 
 **Pendiente de Juanjo:** ejemplo concreto del bug de lenguaje golfístico (para banco de pruebas).
 **Freno:** demo en vivo antes de mergear (regla #4). Nada mergeado aún.
