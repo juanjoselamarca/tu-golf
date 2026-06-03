@@ -96,3 +96,6 @@ graphify-build.log
 .env.production.local
 .env.development.local
 scripts/cerebro-v3/.cache/
+
+# Backups locales de migraciones (contienen datos de usuarios — nunca commitear)
+scripts/backups/
