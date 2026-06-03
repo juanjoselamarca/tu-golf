@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { computeRoundMetric, type HistoricalRoundRow } from '../round-metrics'
 
-const PAR72 = Object.fromEntries(
-  [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5].map((p, i) => [String(i + 1), p]),
-)
+const PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
+const PAR72 = Object.fromEntries(PARS.map((p, i) => [String(i + 1), p]))
+const FRONT9_PAR = PARS.slice(0, 9).reduce((a, b) => a + b, 0) // 36
 
 function row(over: Partial<HistoricalRoundRow> = {}): HistoricalRoundRow {
   return {
@@ -12,6 +12,7 @@ function row(over: Partial<HistoricalRoundRow> = {}): HistoricalRoundRow {
     holes_played: 18,
     par_per_hole: PAR72,
     diferencial: '15.3',
+    course_rating: 72.0,
     excluded_from_handicap: false,
     ...over,
   }
@@ -48,9 +49,58 @@ describe('computeRoundMetric — métricas relativas WHS (18h)', () => {
   })
 })
 
+describe('computeRoundMetric — rondas de 9 hoyos (diferencial ya es equiv-18h)', () => {
+  // El app guarda el diferencial 9h escalado ×2 a equivalente-18h (indice-golfers.ts),
+  // así que es comparable al índice igual que las 18h. Par de cancha = front 9.
+  it('9h con CR de 18 hoyos (≥55): computa, par = front 9, holes_played = 9', () => {
+    const m = computeRoundMetric(
+      row({ holes_played: 9, course_rating: 72.0, diferencial: '2.24', total_gross: 40 }),
+      'u1',
+      9.6,
+      null,
+    )
+    expect(m).not.toBeNull()
+    expect(m!.holes_played).toBe(9)
+    expect(m!.par_cancha).toBe(FRONT9_PAR) // 36
+    expect(m!.strokes_over_par_round).toBe(4) // 40 − 36
+    expect(m!.delta_vs_handicap_expected).toBeCloseTo(-7.4) // round1(2.24 − 9.6)
+  })
+
+  it('9h con meta: delta vs target usa el mismo diferencial equiv-18h', () => {
+    const m = computeRoundMetric(
+      row({ holes_played: 9, course_rating: 72.0, diferencial: '2.24', total_gross: 40 }),
+      'u1',
+      9.6,
+      7,
+    )
+    expect(m!.delta_vs_target_handicap).toBeCloseTo(-4.8) // round1(2.24 − 7)
+    expect(m!.target_at_time).toBe(7)
+  })
+
+  it('9h legacy con CR de 9 hoyos (<55) → null (diferencial raw, no comparable)', () => {
+    const m = computeRoundMetric(
+      row({ holes_played: 9, course_rating: 37.2, diferencial: '0.70', total_gross: 38 }),
+      'u1',
+      9.6,
+      null,
+    )
+    expect(m).toBeNull()
+  })
+
+  it('9h sin course_rating → null (no se puede descartar el caso legacy)', () => {
+    const m = computeRoundMetric(
+      row({ holes_played: 9, course_rating: null, diferencial: '2.24', total_gross: 40 }),
+      'u1',
+      9.6,
+      null,
+    )
+    expect(m).toBeNull()
+  })
+})
+
 describe('computeRoundMetric — gate de no-fantasía (devuelve null, no inventa)', () => {
-  it('ronda de 9 hoyos → null (diferencial 9h no es comparable al índice 18h)', () => {
-    expect(computeRoundMetric(row({ holes_played: 9 }), 'u1', 9.6, null)).toBeNull()
+  it('hole count inválido (no 9 ni 18) → null', () => {
+    expect(computeRoundMetric(row({ holes_played: 13 }), 'u1', 9.6, null)).toBeNull()
   })
 
   it('excluida del handicap → null', () => {

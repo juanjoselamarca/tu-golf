@@ -41,7 +41,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
           lineHeight: 1.6,
         }}
       >
-        Necesito al menos 2 rondas de 18 hoyos con diferencial para dibujar tu
+        Necesito al menos 2 rondas con diferencial para dibujar tu
         avance. Seguí sumando vueltas y acá vas a ver la tendencia.
       </div>
     )
@@ -96,7 +96,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
         <span style={{ fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600 }}>
-          Diferencial por ronda · 18 hoyos
+          Diferencial por ronda · equiv. 18h
         </span>
         {mejorando != null && (
           <span style={{ fontSize: '11px', fontWeight: 700, color: mejorando ? 'var(--coach-recovery-high)' : 'var(--text-3)' }}>
