@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
 interface Round { id: string; status: string; total_gross: number; total_net: number; total_points: number; round_number: number }
@@ -51,12 +52,6 @@ function scoreBorder(gross: number, par: number) {
   if (d === 0)  return '1px solid #e2e8f0'
   if (d === 1)  return '2px solid rgba(220,38,38,0.6)'
   return '2px solid #dc2626'
-}
-
-function strokesOnHole(courseHandicap: number, strokeIndex: number) {
-  const base      = Math.floor(courseHandicap / 18)
-  const remainder = courseHandicap % 18
-  return strokeIndex <= remainder ? base + 1 : base
 }
 
 export default function ScoringPage() {
@@ -213,7 +208,7 @@ export default function ScoringPage() {
     const par          = hole?.par ?? 4
     const strokeIndex  = hole?.stroke_index ?? holeNumber
     const courseHcp    = resolveScoringCourseHcp(tournament.hcp_calc_mode, player, tournament, courseTees, tournament.courses?.par_total ?? 72, tournament.hole_count || 18)
-    const strokes      = strokesOnHole(courseHcp, strokeIndex)
+    const strokes      = strokesRecibidosEnHoyo(courseHcp, strokeIndex, tournament.hole_count || 18)
     const netScore     = gross - strokes
 
     let points = 0
@@ -438,7 +433,7 @@ export default function ScoringPage() {
     const hole        = courseHoles.find((ch) => ch.numero === h)
     const par         = hole?.par ?? 4
     const si          = hole?.stroke_index ?? h
-    const strokes     = strokesOnHole(selectedCourseHcp, si)
+    const strokes     = strokesRecibidosEnHoyo(selectedCourseHcp, si, holeCount)
     return s + (currentScores[h] - strokes)
   }, 0)
 
@@ -808,7 +803,7 @@ export default function ScoringPage() {
                       placeholder="—"
                     />
                     {haScore && tournament?.format === 'stableford' && (() => {
-                      const strokes = strokesOnHole(selectedCourseHcp, courseHoles.find(h => h.numero === holeNum)?.stroke_index ?? holeNum)
+                      const strokes = strokesRecibidosEnHoyo(selectedCourseHcp, courseHoles.find(h => h.numero === holeNum)?.stroke_index ?? holeNum, holeCount)
                       const neto = gross - strokes
                       const pts = Math.max(0, 2 - (neto - par))
                       return (
