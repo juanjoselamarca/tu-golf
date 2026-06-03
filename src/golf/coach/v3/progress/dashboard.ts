@@ -13,6 +13,7 @@ export interface RoundMetricJoinRow {
   strokes_over_par_round: number
   delta_vs_handicap_expected: number
   delta_vs_target_handicap: number | null
+  holes_played: number
   historical_rounds: { played_at: string | null } | Array<{ played_at: string | null }> | null
 }
 
@@ -21,6 +22,8 @@ export interface SeriePunto {
   strokes_over_par_round: number
   delta_vs_handicap_expected: number
   delta_vs_target_handicap: number | null
+  /** 9 o 18 — un strokes_over_par de 9h es sobre 9 hoyos, no comparar con 18h. */
+  holes_played: number
 }
 
 export interface ProgressDashboard {
@@ -41,6 +44,7 @@ export function shapeSeries(rows: RoundMetricJoinRow[]): SeriePunto[] {
         strokes_over_par_round: r.strokes_over_par_round,
         delta_vs_handicap_expected: r.delta_vs_handicap_expected,
         delta_vs_target_handicap: r.delta_vs_target_handicap,
+        holes_played: r.holes_played,
       }
     })
     .sort((a, b) => (a.played_at ?? '').localeCompare(b.played_at ?? ''))
@@ -64,7 +68,7 @@ export async function loadProgressDashboard(
     supabase
       .from('round_metrics')
       .select(
-        'strokes_over_par_round, delta_vs_handicap_expected, delta_vs_target_handicap, historical_rounds(played_at)',
+        'strokes_over_par_round, delta_vs_handicap_expected, delta_vs_target_handicap, holes_played, historical_rounds(played_at)',
       )
       .eq('user_id', userId),
     supabase
