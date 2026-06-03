@@ -109,7 +109,12 @@ export const FOCUS_CATALOG: FocusCandidate[] = [
     accion: 'Armá una rutina pre-ronda: 15 min en el putting green y unas respiraciones lentas (4-4-6) antes del primer tee.',
     minConfidence: 0.5,
     minSample: 3,
-    measure: ({ rounds }) => aggregate(rounds, computeBack9MinusFront9),
+    // El front es el flojo: reportamos front−back (positivo = cuánto peor el front),
+    // invirtiendo el signo de back9_minus_front9 para que el baseline no quede negativo.
+    measure: ({ rounds }) => {
+      const b = aggregate(rounds, computeBack9MinusFront9)
+      return b ? { valor: Math.round(-b.valor * 100) / 100, muestra: b.muestra } : null
+    },
   },
   {
     patternId: 'first_hole_anxiety',

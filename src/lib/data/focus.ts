@@ -66,7 +66,7 @@ export async function loadFocusTarget(
     .from('profiles')
     .select('indice, target_handicap, target_deadline')
     .eq('id', userId)
-    .single()
+    .maybeSingle()
   if (error) throw error
   return {
     currentHandicap: numOrNull(data?.indice),

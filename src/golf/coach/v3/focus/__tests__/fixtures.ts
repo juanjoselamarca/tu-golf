@@ -43,6 +43,12 @@ export function multiPatternRound(id: string): RoundData {
   return round(id, scores)
 }
 
+/** Par 4 flojos (+2), par 5 y par 3 en par: dispara juego corto débil (par4 >> par5). */
+export function shortGameRound(id: string): RoundData {
+  const scores = STD_PARS.map((par) => (par === 4 ? par + 2 : par))
+  return round(id, scores)
+}
+
 /** 9 hoyos con espiral: detect dispara, pero la métrica PLAN exige 18 → sin foco. */
 export function nineHoleSpiral(id: string): RoundData {
   const pars9 = STD_PARS.slice(0, 9)

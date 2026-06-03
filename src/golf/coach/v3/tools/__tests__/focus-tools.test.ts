@@ -24,7 +24,14 @@ function fakeTable(result: { data?: unknown; error?: unknown }, capture?: { call
 }
 
 function fakeClient(byTable: Record<string, ReturnType<typeof fakeTable>>): SupabaseClient {
-  return { from: (t: string) => byTable[t] ?? fakeTable({ data: [], error: null }) } as unknown as SupabaseClient
+  return {
+    from: (t: string) => byTable[t] ?? fakeTable({ data: [], error: null }),
+    // rpc devuelve un thenable (como PostgrestFilterBuilder) para restamp de target.
+    rpc: () => ({
+      then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
+        Promise.resolve({ data: null, error: null }).then(res, rej),
+    }),
+  } as unknown as SupabaseClient
 }
 
 const ctx = (supabase: SupabaseClient) => ({

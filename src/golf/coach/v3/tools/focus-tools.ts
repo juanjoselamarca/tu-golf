@@ -100,6 +100,13 @@ export async function setTarget(
     .update({ target_handicap: handicap, target_deadline: deadline, target_set_at })
     .eq('id', ctx.userId)
   if (error) return { ok: false, error: String((error as { message?: string }).message ?? error) }
+
+  // Re-estampar las métricas ya guardadas con la meta nueva, para que
+  // delta_vs_target_handicap no quede NULL en rondas previas (best-effort).
+  await admin
+    .rpc('restamp_round_metrics_target', { p_user: ctx.userId, p_target: handicap })
+    .then(undefined, () => undefined)
+
   return { ok: true, data: { target_handicap: handicap, target_deadline: deadline, target_set_at } }
 }
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { selectFocus } from '../select-focus'
 import type { CerebroWeight } from '@/lib/cerebro/weights'
-import { round, spiralRound, multiPatternRound, nineHoleSpiral, NO_TARGET } from './fixtures'
+import { round, spiralRound, multiPatternRound, nineHoleSpiral, shortGameRound, NO_TARGET } from './fixtures'
 
 describe('selectFocus — cold start', () => {
   it('sin rondas devuelve fallback honesto (cold_start), nunca un foco inventado', () => {
@@ -95,6 +95,24 @@ describe('selectFocus — el peso decide el ganador, no sólo la confianza', () 
     expect(boosted.patternId).toBe('first_hole_anxiety')
     expect(boosted.peso).toBe(1.0)
     expect(boosted.patternId).not.toBe(base.patternId)
+  })
+})
+
+describe('selectFocus — short_game_weakness es seleccionable (regresión C2)', () => {
+  // Antes el catálogo pedía par4_count a la metadata del detect, que no lo emitía
+  // → muestra 0 → el patrón quedaba muerto. patterns.ts ahora emite par4_count.
+  const rounds = [shortGameRound('s1'), shortGameRound('s2'), shortGameRound('s3')]
+
+  it('con su peso alto, el foco elegido es short_game_weakness (muestra > 0)', () => {
+    const result = selectFocus({
+      rounds,
+      weights: [patternW('short_game_weakness', 1.0)],
+      target: NO_TARGET,
+    })
+    expect(result.kind).toBe('focus')
+    if (result.kind !== 'focus') throw new Error('unreachable')
+    expect(result.patternId).toBe('short_game_weakness')
+    expect(result.metrica.muestra).toBeGreaterThan(0)
   })
 })
 

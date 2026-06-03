@@ -18,8 +18,12 @@ function frasesEvidencia(ev: Record<string, unknown> | undefined): string | null
   if (typeof ev.spiral_rate === 'number') {
     return `${Math.round(ev.spiral_rate * 100)}% de tus bogeys arrastran a otro bogey o peor.`
   }
-  if (typeof ev.diff === 'number' && typeof ev.back9_avg === 'number') {
-    return `Tu back nine promedia ${ev.diff} golpes más que tu front nine.`
+  if (typeof ev.front9_avg === 'number' && typeof ev.back9_avg === 'number') {
+    const f = ev.front9_avg as number
+    const b = ev.back9_avg as number
+    return b >= f
+      ? `Tu back nine promedia ${(b - f).toFixed(1)} golpes más que tu front nine.`
+      : `Tu front nine promedia ${(f - b).toFixed(1)} golpes más que tu back nine.`
   }
   if (typeof ev.par3_avg_over === 'number') {
     return `En los par 3 promedias +${ev.par3_avg_over} sobre par.`
