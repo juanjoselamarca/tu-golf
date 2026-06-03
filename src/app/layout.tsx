@@ -89,8 +89,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icon-192.svg" />
-
-        <link rel="preload" as="image" href="https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=75" />
       </head>
       <body>
         <ThemeProvider>
