@@ -279,6 +279,32 @@ export default function CoachDashboard() {
         <TaigerHero subtitle={mentalIndex.band === 'low' ? 'Tu coach detectó algo importante esta semana' : mentalIndex.band === 'mid' ? 'Tu coach está leyendo tu juego' : 'Tu coach de rendimiento con inteligencia artificial'} />
       </div>
 
+      <div style={{ padding: '12px 16px 0' }}>
+        <Link
+          href="/coach/progreso"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--line)',
+            borderRadius: '10px',
+            padding: '14px 18px',
+            textDecoration: 'none',
+          }}
+        >
+          <span>
+            <span style={{ display: 'block', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-brass)', fontWeight: 700 }}>
+              Tu progreso
+            </span>
+            <span style={{ display: 'block', fontSize: '14px', color: 'var(--text)', fontWeight: 600, marginTop: '2px' }}>
+              La bajada hacia tu meta
+            </span>
+          </span>
+          <span style={{ color: 'var(--coach-brass)', fontSize: '18px' }} aria-hidden>→</span>
+        </Link>
+      </div>
+
       {mentalIndex.status !== 'insufficient_data' && (
         <MentalRecoveryCard
           score={mentalIndex.score}

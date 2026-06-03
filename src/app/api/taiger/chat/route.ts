@@ -5,11 +5,15 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from '@/golf/coach/prompts'
 import { TAIGER_TOOLS, executeTool } from '@/golf/coach/tools'
 import { SEARCH_KNOWLEDGE_TOOL } from '@/golf/coach/v3/tools/search-knowledge-chunks-tool'
+import { FOCUS_TOOLS } from '@/golf/coach/v3/tools/focus-tools'
 import { handleToolUse } from '@/golf/coach/v3/tools/handle-tool-use'
-import { RAG_SECTION, ENGAGEMENT_SECTION } from '@/golf/coach/v3/prompts'
+import { coachDegradedFallback, toPlainMessages, isRetryableLLMError } from '@/golf/coach/v3/resilience/coach-fallback'
+import { RAG_SECTION, ENGAGEMENT_SECTION, CONOCER_SECTION } from '@/golf/coach/v3/prompts'
+import { getOnboardingState, ONBOARDING_SECTION } from '@/golf/coach/v3/onboarding'
 import type { Jurisdiction } from '@/golf/coach/v3/retrieval/types'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
+import { closeExpiredPlans } from '@/golf/coach/plan-lifecycle'
 import { validateResponse, type HallucinationWarning } from '@/golf/coach/hallucination-validator'
 import { toolActivityLabel, friendlyPatternName, friendlyMetricName } from '@/lib/coach-event-narrator'
 import { z } from 'zod'
@@ -81,6 +85,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 })
     }
 
+    // Lifecycle: cerrar planes vencidos ANTES de armar contexto, para que el coach
+    // nunca proponga sobre un plan stale (best-effort, no rompe el chat).
+    await closeExpiredPlans(supabase, user.id).catch(() => {})
+
     // Contexto del jugador: fetch directo (sin HTTP server-to-server, sin .limit).
     const ctx = await buildPlayerContext(supabase, user.id)
     const contextString = buildContextString(ctx)
@@ -107,10 +115,23 @@ export async function POST(req: NextRequest) {
       cerebroV3Enabled = false
     }
 
-    const ragSection = cerebroV3Enabled ? `\n\n${ENGAGEMENT_SECTION}\n\n${RAG_SECTION}` : ''
+    // Onboarding: en la 1ª sesión (sin meta ni hechos), el coach entrevista corto
+    // antes de avanzar. Solo con el flag y solo si todavía no está onboarded.
+    let onboardingSection = ''
+    if (cerebroV3Enabled) {
+      try {
+        const ob = await getOnboardingState(supabase, user.id)
+        if (!ob.onboarded) onboardingSection = `\n\n${ONBOARDING_SECTION}`
+      } catch (obErr) {
+        void captureError(obErr, { context: 'taiger.chat.onboarding_state', userId: user.id })
+      }
+    }
+    const ragSection = cerebroV3Enabled
+      ? `\n\n${ENGAGEMENT_SECTION}\n\n${CONOCER_SECTION}${onboardingSection}\n\n${RAG_SECTION}`
+      : ''
     const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}${ragSection}`
     const activeTools = cerebroV3Enabled
-      ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL]
+      ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL, ...FOCUS_TOOLS]
       : TAIGER_TOOLS
     const anthropic = new Anthropic({ apiKey })
 
@@ -144,6 +165,9 @@ export async function POST(req: NextRequest) {
             // controller cerrado — el clearInterval lo limpia abajo
           }
         }, 15000)
+        // P0 resiliencia: si aún no se emitió contenido, el catch puede caer a un
+        // fallback degradado (no-streaming) sin duplicar tokens ya enviados.
+        let emittedContent = false
         try {
           type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
           const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
@@ -177,6 +201,7 @@ export async function POST(req: NextRequest) {
               if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
                 const text = event.delta.text
                 fullResponse += text
+                emittedContent = true
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
               }
             }
@@ -409,7 +434,27 @@ export async function POST(req: NextRequest) {
             userId: user?.id ?? null,
             meta: { sessionId: active?.id, status },
           })
-          if (overloaded || msg.includes('rate_limit') || msg.includes('429')) {
+          const retryable = overloaded || msg.includes('rate_limit') || msg.includes('429') || isRetryableLLMError(err)
+          // P0 resiliencia: ante rate-limit/overload de Anthropic, si todavía no
+          // emitimos contenido, intentamos una respuesta degradada (no-streaming,
+          // sin tools) vía el gateway, cuya cadena cruza a Gemini. El coach no se cae.
+          if (retryable && !emittedContent) {
+            try {
+              const fb = await coachDegradedFallback({
+                system: systemFinal,
+                messages: toPlainMessages(conversation),
+              })
+              if (fb.text) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: fb.text })}\n\n`))
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, degraded: true, provider: fb.provider })}\n\n`))
+                controller.close()
+                return
+              }
+            } catch (fbErr) {
+              void captureError(fbErr, { context: 'taiger.chat.fallback', userId: user?.id ?? null })
+            }
+          }
+          if (retryable) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'tAIger+ está descansando. Intenta en unos minutos.' })}\n\n`))
           } else if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('aborted')) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'La respuesta se demoró más de lo esperado. Intenta de nuevo — si vuelve a pasar, ya quedó registrado y lo investigamos.' })}\n\n`))
