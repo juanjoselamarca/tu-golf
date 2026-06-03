@@ -6,10 +6,10 @@ import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import LiveView from './LiveView'
 import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveStatus, LiveTeam } from './types'
-import { fetchScrambleTeams } from '@/lib/data/tournaments/teamLeaderboard'
-import { computeScrambleStandings, computeFoursomeStandings } from '@/golf/leaderboard/team-standings'
+import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
+import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
 import { fetchCourseHoles, buildFallbackCourseHoles } from '@/lib/data/tournaments/leaderboard'
-import { scrambleResultsToLiveTeams } from './scrambleTeamsToLive'
+import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './scrambleTeamsToLive'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
 export const dynamic = 'force-dynamic'
@@ -172,10 +172,12 @@ export default async function LivePage({ params }: PageProps) {
     status: normalizeStatus(tournament.status),
   }
 
-  // 7) Equipos: standings desde grupos + ronda_equipos. Scramble y foursome
-  //    comparten la estructura (un score por equipo por hoyo); cambia el motor
-  //    (calcularScramble vs calcularFoursome). Best Ball queda [] (su scoring es
-  //    por jugador, no compartido — el motor difiere).
+  // 7) Equipos: standings desde grupos + ronda_equipos.
+  //    - scramble/foursome: un score COMPARTIDO por equipo por hoyo (cambia el
+  //      motor: calcularScramble vs calcularFoursome).
+  //    - best_ball: score INDIVIDUAL por jugador; el motor toma la mejor bola
+  //      neta por hoyo (fetchBestBallTeams lee los scores individuales + course
+  //      handicap, paridad exacta con la tarjeta en cancha).
   let liveTeams: LiveTeam[] = []
   if ((liveTournament.format === 'scramble' || liveTournament.format === 'foursome') && tournament.course_id) {
     const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
@@ -188,6 +190,18 @@ export default async function LivePage({ params }: PageProps) {
         ? computeFoursomeStandings(teams, memberNames, holes, parTotal, formato, modo)
         : computeScrambleStandings(teams, holes, parTotal, formato, modo)
       liveTeams = scrambleResultsToLiveTeams(ordered, memberNames, liveTournament.modo)
+    }
+  } else if (liveTournament.format === 'best_ball' && tournament.course_id) {
+    const courseHoles = await fetchCourseHoles(supabase, tournament.course_id)
+    const holes = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(holeCount)
+    // par para el course handicap = suma del par real de course_holes (lo que usa el scorer).
+    const parForHcp = holes.reduce((s, h) => s + h.par, 0)
+    const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parForHcp)
+    if (teams.length > 0) {
+      const formato = liveTournament.format as FormatoJuego
+      const modo = liveTournament.modo as ModoJuego
+      const ordered = computeBestBallStandings(teams, holes, parTotal, formato, modo)
+      liveTeams = bestBallResultsToLiveTeams(ordered, memberNames, liveTournament.modo)
     }
   }
 

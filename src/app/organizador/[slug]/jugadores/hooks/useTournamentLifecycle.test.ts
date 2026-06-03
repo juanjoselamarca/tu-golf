@@ -154,20 +154,34 @@ describe('useTournamentLifecycle.handleStartTournament — productor de equipos'
     expect(jugadores.every((j) => j.handicap === undefined)).toBe(true)
   })
 
-  it('best_ball: NO crea equipos ni setea formato_juego (sigue como individual hasta que el scorer lo soporte)', async () => {
-    // Regresión que detectó el code-reviewer (C1): si el productor seteara
-    // formato_juego='best_ball', score-grupo ocultaría el scoring individual
-    // pero no carga teamEquipos para best_ball → pantalla en blanco.
+  it('best_ball: crea equipos (handicap_equipo null) + miembros + formato_juego + handicaps por jugador', async () => {
+    // best_ball materializa la membresía del equipo igual que scramble/foursome,
+    // pero NO almacena handicap de equipo: cada jugador juega con su propio course
+    // handicap. El scorer (BestBallTeamCard) y el leaderboard (fetchBestBallTeams)
+    // leen los scores individuales y toman la mejor bola neta por hoyo.
     const { result } = renderHook(() => useTournamentLifecycle(buildArgs('best_ball')))
     await act(async () => {
       await result.current.handleStartTournament()
     })
 
-    expect(recorded.inserts['ronda_equipos']).toBeUndefined()
-    expect(recorded.inserts['ronda_equipo_jugadores']).toBeUndefined()
+    // La ronda lleva formato_juego para que score-grupo cargue teamEquipos.
     const ronda = recorded.inserts['rondas_libres']?.[0] as { formato_juego?: string }
-    expect(ronda?.formato_juego).toBeUndefined()
+    expect(ronda?.formato_juego).toBe('best_ball')
+
+    // Un ronda_equipos por grupo, SIN handicap de equipo (cada jugador con el suyo).
+    const equipos = recorded.inserts['ronda_equipos'] as Array<{ nombre: string; handicap_equipo: number | null }>
+    expect(equipos).toHaveLength(1)
+    expect(equipos[0].nombre).toBe('Equipo 1')
+    expect(equipos[0].handicap_equipo).toBeNull()
+
+    // Miembros ordenados.
+    const miembros = recorded.inserts['ronda_equipo_jugadores'] as Array<{ jugador_id: string; orden: number }>
+    expect(miembros).toHaveLength(2)
+    expect(miembros.map((m) => m.orden)).toEqual([0, 1])
+
+    // Cada jugador lleva su índice en ronda_libre_jugadores (lo convierte el scorer
+    // a course handicap; el leaderboard usa el mismo resolverCourseHandicap).
     const jugadores = recorded.inserts['ronda_libre_jugadores'] as Array<{ handicap?: number }>
-    expect(jugadores.every((j) => j.handicap === undefined)).toBe(true)
+    expect(jugadores.map((j) => j.handicap)).toEqual([10, 20])
   })
 })

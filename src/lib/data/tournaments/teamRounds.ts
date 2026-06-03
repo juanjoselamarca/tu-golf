@@ -21,18 +21,23 @@
 import { calcularHandicapScramble, calcularHandicapFoursome } from '@/golf/formats'
 
 /**
- * Formatos por equipos con scoring en cancha FUNCIONAL hoy: `score-grupo`
- * carga `teamEquipos` y los renderiza sólo para estos dos.
+ * Formatos por equipos con scoring en cancha FUNCIONAL: `score-grupo` carga
+ * `teamEquipos` y los renderiza para los tres.
  *
- * `best_ball` queda DELIBERADAMENTE fuera: aunque es un formato por equipos
- * (`isTeamFormat` lo incluye), el scorer sólo carga `teamEquipos` para
- * scramble/foursome. Si el productor le seteara `formato_juego='best_ball'` a la
- * ronda, el scorer ocultaría el scoring individual pero no tendría equipos que
- * mostrar → pantalla en blanco. Mientras score-grupo no cargue equipos para
- * best_ball, el productor NO lo toca y best_ball sigue scoreándose como
- * individual (comportamiento actual en prod). Ver score-grupo/page.tsx:253.
+ * - `scramble` / `foursome`: una sola bola por equipo → score COMPARTIDO en
+ *   `ronda_equipos.scores`. El productor almacena `handicap_equipo` (USGA/R&A).
+ * - `best_ball`: cada jugador su bola → score INDIVIDUAL en `ronda_libre_jugadores`.
+ *   `ronda_equipos` se materializa SÓLO para la membresía (qué jugadores forman el
+ *   equipo); su `scores` queda vacío y `handicap_equipo` es `null` (cada jugador
+ *   juega con su propio course handicap). El scorer (`BestBallTeamCard`) y el
+ *   leaderboard (`fetchBestBallTeams` → `calcularBestBall`) leen los scores
+ *   individuales y toman la mejor bola neta por hoyo. Ver score-grupo/page.tsx:253.
+ *
+ * best_ball se habilitó (03-jun) una vez que score-grupo carga `teamEquipos` para
+ * él y el leaderboard público lo computa end-to-end. Antes quedaba fuera para no
+ * dejar el scorer en blanco (cargaba 0 equipos y ocultaba el scoring individual).
  */
-export const PRODUCER_TEAM_FORMATS = ['scramble', 'foursome'] as const
+export const PRODUCER_TEAM_FORMATS = ['scramble', 'foursome', 'best_ball'] as const
 
 /** True si el productor debe materializar equipos + setear formato_juego. */
 export function isProducerTeamFormat(format: string | null | undefined): boolean {

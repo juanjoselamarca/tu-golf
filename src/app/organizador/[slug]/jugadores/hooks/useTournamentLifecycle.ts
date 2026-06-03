@@ -133,12 +133,12 @@ export function useTournamentLifecycle({
     }
 
     // 3. Create rondas_libres for groups that don't have one yet.
-    // En formatos por equipos con scoring en cancha funcional (scramble/
-    // foursome) el grupo ES el equipo: además de la ronda y sus jugadores,
-    // creamos un ronda_equipos por grupo. Sin `formato_juego` en la ronda,
-    // score-grupo no engancha el scoring de equipo y el leaderboard se queda
-    // sin datos. best_ball queda fuera a propósito (ver isProducerTeamFormat):
-    // el scorer aún no carga sus equipos, así que sigue como individual.
+    // En formatos por equipos (scramble/foursome/best_ball) el grupo ES el
+    // equipo: además de la ronda y sus jugadores, creamos un ronda_equipos por
+    // grupo. Sin `formato_juego` en la ronda, score-grupo no engancha el scoring
+    // de equipo y el leaderboard se queda sin datos. En scramble/foursome el
+    // ronda_equipos guarda el score COMPARTIDO; en best_ball sólo la membresía
+    // (handicap_equipo null, cada jugador con su course handicap individual).
     const teamFormat = isProducerTeamFormat(tournament.format)
     const groupsWithoutRonda = groups.filter((g) => !g.ronda_libre_id && g.players.length > 0)
     for (const group of groupsWithoutRonda) {

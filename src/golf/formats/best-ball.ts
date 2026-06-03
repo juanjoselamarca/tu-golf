@@ -20,6 +20,14 @@ import type { ModoJuego, FormatoJuego } from '../core/rules'
 export interface BestBallPlayer {
   id: string
   nombre: string
+  /**
+   * Golpes que recibe el jugador: este valor se pasa directo a
+   * `strokesRecibidosEnHoyo`, así que debe ser el COURSE HANDICAP (entero por
+   * cancha/tee), NO el Handicap Index decimal. El nombre `handicapIndex` es
+   * histórico. El wiring de producción (`fetchBestBallTeams`) y el scorer
+   * (`getDotHcp`) ya resuelven el course handicap vía `resolverCourseHandicap`.
+   * TODO(follow-up): renombrar a `courseHandicap` (toca tests + simuladores).
+   */
   handicapIndex: number
   scores: Record<string, number> // {"1": 4, "2": 5, ...}
 }

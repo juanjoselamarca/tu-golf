@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { computeScrambleStandings, computeFoursomeStandings } from './team-standings'
-import type { ScrambleTeam } from '@/golf/formats'
+import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from './team-standings'
+import type { ScrambleTeam, BestBallTeam } from '@/golf/formats'
+import { calcBestBallTotals } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useTeamScorecard'
 
 // Par 4 en los 3 hoyos, stroke index 1..3. parTotal 12.
 const HOLES = [
@@ -104,5 +105,104 @@ describe('computeFoursomeStandings', () => {
     const t3 = out.find((x) => x.teamId === 't3')!
     expect(u.teamHandicap).toBe(6)
     expect(t3.teamHandicap).toBe(8)
+  })
+})
+
+describe('computeBestBallStandings', () => {
+  // handicapIndex aquí es el COURSE HANDICAP (golpes), igual que en producción.
+  function bbTeam(
+    id: string,
+    nombre: string,
+    jugadores: Array<{ id: string; nombre: string; courseHcp: number; scores: Record<string, number> }>,
+  ): BestBallTeam {
+    return {
+      id,
+      nombre,
+      jugadores: jugadores.map((j) => ({
+        id: j.id,
+        nombre: j.nombre,
+        handicapIndex: j.courseHcp,
+        scores: j.scores,
+      })),
+    }
+  }
+
+  // Equipo: A scratch (0), B course hcp 3. Par 4 ×3, SI 1/2/3.
+  const A = { id: 'a', nombre: 'Ana', courseHcp: 0, scores: { '1': 4, '2': 5, '3': 4 } }
+  const B = { id: 'b', nombre: 'Beto', courseHcp: 3, scores: { '1': 5, '2': 4, '3': 6 } }
+
+  it('neto: mejor bola neta por hoyo, vs par sobre hoyos jugados', () => {
+    const out = computeBestBallStandings([bbTeam('e1', 'Equipo 1', [A, B])], HOLES, 12, 'best_ball', 'neto')
+    expect(out).toHaveLength(1)
+    // Hoyo1 net: A 4 / B 4 → 4 ; Hoyo2 net: A 5 / B 3 → 3 ; Hoyo3 net: A 4 / B 5 → 4. Total 11, vs par -1.
+    expect(out[0].totalNeto).toBe(11)
+    expect(out[0].overUnderNeto).toBe(-1)
+    expect(out[0].holesPlayed).toBe(3)
+  })
+
+  it('gross: mejor bola gross por hoyo', () => {
+    const out = computeBestBallStandings([bbTeam('e1', 'Equipo 1', [A, B])], HOLES, 12, 'best_ball', 'gross')
+    // gross best: 4,4,4 → 12, vs par 0.
+    expect(out[0].totalGross).toBe(12)
+    expect(out[0].overUnderGross).toBe(0)
+  })
+
+  it('ordena por menor over/under (neto)', () => {
+    const peor = bbTeam('peor', 'Peor', [{ id: 'x', nombre: 'X', courseHcp: 0, scores: { '1': 6, '2': 6, '3': 6 } }])
+    const mejor = bbTeam('mejor', 'Mejor', [{ id: 'y', nombre: 'Y', courseHcp: 0, scores: { '1': 3, '2': 3, '3': 3 } }])
+    const out = computeBestBallStandings([peor, mejor], HOLES, 12, 'best_ball', 'neto')
+    expect(out[0].teamId).toBe('mejor')
+    expect(out[1].teamId).toBe('peor')
+  })
+
+  it('equipo sin scores → holesPlayed 0 sin crashear', () => {
+    const out = computeBestBallStandings([bbTeam('vacio', 'Vacío', [{ id: 'z', nombre: 'Z', courseHcp: 10, scores: {} }])], HOLES, 12, 'best_ball', 'neto')
+    expect(out[0].holesPlayed).toBe(0)
+    expect(out[0].totalNeto).toBe(0)
+  })
+
+  // ── PARIDAD CERO FALLOS: el board (motor) debe dar el MISMO total/vsPar que la
+  //    tarjeta en cancha (calcBestBallTotals del scorer), con los mismos inputs. ──
+  it('paridad neto: computeBestBallStandings ≡ calcBestBallTotals del scorer', () => {
+    const team = bbTeam('e1', 'Equipo 1', [A, B])
+    const board = computeBestBallStandings([team], HOLES, 12, 'best_ball', 'neto')[0]
+
+    const scorer = calcBestBallTotals({
+      equipoJugadorIds: [A.id, B.id],
+      totalHoles: 3,
+      scores: {
+        [A.id]: { 1: A.scores['1'], 2: A.scores['2'], 3: A.scores['3'] },
+        [B.id]: { 1: B.scores['1'], 2: B.scores['2'], 3: B.scores['3'] },
+      },
+      modoJuego: 'neto',
+      playerDotHcps: { [A.id]: A.courseHcp, [B.id]: B.courseHcp },
+      strokeIndexByHole: { 1: 1, 2: 2, 3: 3 },
+      parMap: { 1: 4, 2: 4, 3: 4 },
+    })
+
+    expect(board.totalNeto).toBe(scorer.total)
+    expect(board.overUnderNeto).toBe(scorer.vsPar)
+    expect(board.holesPlayed).toBe(scorer.played)
+  })
+
+  it('paridad gross: computeBestBallStandings ≡ calcBestBallTotals del scorer', () => {
+    const team = bbTeam('e1', 'Equipo 1', [A, B])
+    const board = computeBestBallStandings([team], HOLES, 12, 'best_ball', 'gross')[0]
+
+    const scorer = calcBestBallTotals({
+      equipoJugadorIds: [A.id, B.id],
+      totalHoles: 3,
+      scores: {
+        [A.id]: { 1: A.scores['1'], 2: A.scores['2'], 3: A.scores['3'] },
+        [B.id]: { 1: B.scores['1'], 2: B.scores['2'], 3: B.scores['3'] },
+      },
+      modoJuego: 'gross',
+      playerDotHcps: { [A.id]: A.courseHcp, [B.id]: B.courseHcp },
+      strokeIndexByHole: { 1: 1, 2: 2, 3: 3 },
+      parMap: { 1: 4, 2: 4, 3: 4 },
+    })
+
+    expect(board.totalGross).toBe(scorer.total)
+    expect(board.overUnderGross).toBe(scorer.vsPar)
   })
 })

@@ -249,8 +249,11 @@ export default function ScoreGrupoPage() {
       }
       setPlayerHcp(hcpMap)
 
-      // Fetch team data for team formats
-      if (['scramble', 'foursome'].includes(r.formato_juego)) {
+      // Fetch team data for team formats.
+      // scramble/foursome usan equipo.scores (compartido); best_ball lee la
+      // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo
+      // (BestBallTeamCard toma la mejor bola neta por hoyo).
+      if (['scramble', 'foursome', 'best_ball'].includes(r.formato_juego)) {
         const { data: eqData } = await supabase
           .from('ronda_equipos')
           .select('id, nombre, handicap_equipo, scores, ronda_equipo_jugadores(jugador_id, orden)')
