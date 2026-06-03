@@ -13,9 +13,9 @@ import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
 import type { LiveTeam } from './en-vivo/types'
-import { fetchScrambleTeams } from '@/lib/data/tournaments/teamLeaderboard'
-import { computeScrambleStandings, computeFoursomeStandings } from '@/golf/leaderboard/team-standings'
-import { scrambleResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
+import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
+import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
+import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
 import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
 import ShareResultsButton from '@/components/ShareResultsButton'
 import { PLAYERS, PAR } from '@/lib/golf-data'
@@ -32,6 +32,7 @@ import {
   fetchTournamentBySlug,
   fetchTournamentGroups,
   fetchWithdrawnPlayers,
+  sumParDedupByHole,
 } from '@/lib/data/tournaments/leaderboard'
 import {
   buildLeaderboardFromLegacy,
@@ -137,9 +138,10 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, parTotal) : null
     }
 
-    // Standings de equipos: el grupo de salida ES el equipo. Scramble y
-    // foursome comparten estructura (un score por equipo por hoyo); cambia el
-    // motor. Best Ball queda fuera (scoring por jugador, no compartido).
+    // Standings de equipos: el grupo de salida ES el equipo.
+    //  - scramble/foursome: un score COMPARTIDO por equipo por hoyo (cambia el motor).
+    //  - best_ball: score INDIVIDUAL por jugador; el motor toma la mejor bola
+    //    neta por hoyo (paridad exacta con la tarjeta en cancha).
     if (formatoJuego === 'scramble' || formatoJuego === 'foursome') {
       const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
       if (teams.length > 0) {
@@ -147,6 +149,15 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, modoJuego)
           : computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego)
         teamStandings = scrambleResultsToLiveTeams(ordered, memberNames, modoJuego)
+      }
+    } else if (formatoJuego === 'best_ball') {
+      // par para el course handicap = suma del par de course_holes deduplicado por
+      // nº de hoyo (igual que el scorer; evita inflar el par en canchas 27/36h).
+      const parForHcp = sumParDedupByHole(courseHoles)
+      const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parForHcp)
+      if (teams.length > 0) {
+        const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego)
+        teamStandings = bestBallResultsToLiveTeams(ordered, memberNames, modoJuego)
       }
     }
   } else {

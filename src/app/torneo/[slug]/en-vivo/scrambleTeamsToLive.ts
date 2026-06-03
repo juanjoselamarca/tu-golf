@@ -1,4 +1,4 @@
-import type { ScrambleTeamResult } from '@/golf/formats'
+import type { ScrambleTeamResult, BestBallTeamResult } from '@/golf/formats'
 import type { LiveTeam, LivePlayer } from './types'
 
 /** Nombres de jugadores por teamId (para la columna "Jugadores"). */
@@ -30,6 +30,27 @@ export function scrambleResultsToLiveTeams(
     name: r.teamNombre,
     players: (memberNames[r.teamId] ?? []).map(nameToLivePlayer),
     team_scores_per_hole: r.holes.map((h) => h.gross ?? 0),
+    team_total: modo === 'neto' ? r.totalNeto : r.totalGross,
+    vs_par: modo === 'neto' ? r.overUnderNeto : r.overUnderGross,
+    thru: r.holesPlayed,
+  }))
+}
+
+/**
+ * Mapea los resultados del motor best_ball a `LiveTeam` para `TeamLeaderboard`.
+ * El score por hoyo del equipo es la mejor bola (neto o gross según modo); el
+ * total y vs_par se eligen por modo, igual que scramble/foursome.
+ */
+export function bestBallResultsToLiveTeams(
+  results: BestBallTeamResult[],
+  memberNames: TeamMemberNames,
+  modo: 'gross' | 'neto',
+): LiveTeam[] {
+  return results.map((r) => ({
+    id: r.teamId,
+    name: r.teamNombre,
+    players: (memberNames[r.teamId] ?? []).map(nameToLivePlayer),
+    team_scores_per_hole: r.holes.map((h) => (modo === 'neto' ? h.teamNeto : h.teamGross) ?? 0),
     team_total: modo === 'neto' ? r.totalNeto : r.totalGross,
     vs_par: modo === 'neto' ? r.overUnderNeto : r.overUnderGross,
     thru: r.holesPlayed,

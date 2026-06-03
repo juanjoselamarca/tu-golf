@@ -8,6 +8,8 @@
  * Si no hay datos de cancha, fallback = round(index).
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
+
 export interface CourseData {
   slope: number
   courseRating: number
@@ -40,6 +42,9 @@ export function resolverCourseHandicap(
  * @param parTotal - par total real calculado desde course_holes (más preciso que BD)
  * @param recorridos - lista de loop_nombre a combinar (canchas 27h/36h). Si length>=1
  *                    y la cancha tiene children matching, combina sus ratings.
+ *
+ * Usa el cliente browser de Supabase (solo client-side). Para contextos
+ * server-side (leaderboard) usar `resolverCourseData` con el cliente del request.
  */
 export async function cargarCourseData(
   courseId: string | null,
@@ -49,10 +54,26 @@ export async function cargarCourseData(
   recorridos?: string[] | null
 ): Promise<CourseData | null> {
   if (!courseId) return null
-
   // Dynamic import para evitar que el módulo se evalúe en contextos no-browser
   const { createClient } = await import('@/lib/supabase')
-  const supabase = createClient()
+  return resolverCourseData(createClient(), courseId, tees, holes, parTotal, recorridos)
+}
+
+/**
+ * Núcleo de `cargarCourseData` parametrizado por cliente Supabase, para reusar la
+ * MISMA lógica de lookup (tee-specific → courses → multi-recorrido) tanto en el
+ * scorer client-side como en el leaderboard server-side. Garantiza que el course
+ * handicap del leaderboard coincida exactamente con el de la tarjeta en cancha.
+ */
+export async function resolverCourseData(
+  supabase: SupabaseClient,
+  courseId: string | null,
+  tees: string,
+  holes: number,
+  parTotal?: number,
+  recorridos?: string[] | null
+): Promise<CourseData | null> {
+  if (!courseId) return null
 
   // 0. Multi-recorrido: si hay loops seleccionados, combinar ratings de los
   //    child courses correspondientes (ej: Brisas 27h = parent + 3 children).

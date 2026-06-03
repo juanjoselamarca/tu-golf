@@ -59,6 +59,18 @@ export function buildFallbackCourseHoles(totalHoyos: number): CourseHole[] {
   return holes
 }
 
+/**
+ * Par total deduplicado por nº de hoyo, para el cálculo de course handicap.
+ * Espeja cómo el scorer arma `finalParTotal` (`pm[numero] = par`): si una cancha
+ * multi-recorrido (27/36h) trae filas repetidas de `course_holes`, sumarlas todas
+ * inflaría el par y desincronizaría el course handicap del board vs la tarjeta.
+ */
+export function sumParDedupByHole(holes: CourseHole[]): number {
+  const parByHole = new Map<number, number>()
+  for (const h of holes) parByHole.set(h.numero, h.par)
+  return Array.from(parByHole.values()).reduce((s, p) => s + p, 0)
+}
+
 export async function fetchTournamentGroups(
   supabase: Client,
   tournamentId: string,
