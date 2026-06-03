@@ -36,6 +36,13 @@ export interface FoursomeTeam {
   nombreB: string
   /** Scores del equipo (un score por hoyo): {"1": 4, "2": 3, ...} */
   scores: Record<string, number>
+  /**
+   * Handicap de equipo ya almacenado (ronda_equipos.handicap_equipo). Si está
+   * presente, se usa tal cual en vez de recalcular desde handicapA/B, para que
+   * el neto del leaderboard coincida con el que el scorer aplicó en cancha
+   * (paridad con ScrambleTeam.teamHandicap).
+   */
+  teamHandicap?: number
   /** Si true, jugador A tira en hoyos pares (invierte el orden default) */
   invertirOrden?: boolean
 }
@@ -114,7 +121,7 @@ export function calcularFoursome(
   holes: Array<{ numero: number; par: number; stroke_index: number }>,
   parTotal: number
 ): FoursomeTeamResult {
-  const teamHandicap = calcularHandicapFoursome(team.handicapA, team.handicapB)
+  const teamHandicap = team.teamHandicap ?? calcularHandicapFoursome(team.handicapA, team.handicapB)
   const sortedHoles = [...holes].sort((a, b) => a.numero - b.numero)
   const invertir = team.invertirOrden ?? false
 

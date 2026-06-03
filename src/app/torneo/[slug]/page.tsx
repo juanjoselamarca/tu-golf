@@ -14,7 +14,7 @@ import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
 import type { LiveTeam } from './en-vivo/types'
 import { fetchScrambleTeams } from '@/lib/data/tournaments/teamLeaderboard'
-import { computeScrambleStandings } from '@/golf/leaderboard/team-standings'
+import { computeScrambleStandings, computeFoursomeStandings } from '@/golf/leaderboard/team-standings'
 import { scrambleResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
 import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
 import ShareResultsButton from '@/components/ShareResultsButton'
@@ -137,12 +137,15 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, parTotal) : null
     }
 
-    // Standings de equipos Scramble (v1): el grupo de salida ES el equipo.
-    // Best Ball / Foursome quedan fuera de v1 (su motor difiere).
-    if (formatoJuego === 'scramble') {
+    // Standings de equipos: el grupo de salida ES el equipo. Scramble y
+    // foursome comparten estructura (un score por equipo por hoyo); cambia el
+    // motor. Best Ball queda fuera (scoring por jugador, no compartido).
+    if (formatoJuego === 'scramble' || formatoJuego === 'foursome') {
       const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
       if (teams.length > 0) {
-        const ordered = computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego)
+        const ordered = formatoJuego === 'foursome'
+          ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, modoJuego)
+          : computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego)
         teamStandings = scrambleResultsToLiveTeams(ordered, memberNames, modoJuego)
       }
     }
