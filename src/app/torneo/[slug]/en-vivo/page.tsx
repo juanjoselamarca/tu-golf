@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation'
 import LiveView from './LiveView'
 import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveStatus, LiveTeam } from './types'
 import { fetchScrambleTeams } from '@/lib/data/tournaments/teamLeaderboard'
-import { computeScrambleStandings } from '@/golf/leaderboard/team-standings'
+import { computeScrambleStandings, computeFoursomeStandings } from '@/golf/leaderboard/team-standings'
 import { fetchCourseHoles, buildFallbackCourseHoles } from '@/lib/data/tournaments/leaderboard'
 import { scrambleResultsToLiveTeams } from './scrambleTeamsToLive'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
@@ -172,18 +172,21 @@ export default async function LivePage({ params }: PageProps) {
     status: normalizeStatus(tournament.status),
   }
 
-  // 7) Equipos Scramble (v1): standings desde grupos + ronda_equipos.
-  //    Best Ball / Foursome quedan [] hasta v2 (su motor difiere del scramble).
+  // 7) Equipos: standings desde grupos + ronda_equipos. Scramble y foursome
+  //    comparten la estructura (un score por equipo por hoyo); cambia el motor
+  //    (calcularScramble vs calcularFoursome). Best Ball queda [] (su scoring es
+  //    por jugador, no compartido — el motor difiere).
   let liveTeams: LiveTeam[] = []
-  if (liveTournament.format === 'scramble' && tournament.course_id) {
-    const { teams: scrambleTeams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
-    if (scrambleTeams.length > 0) {
+  if ((liveTournament.format === 'scramble' || liveTournament.format === 'foursome') && tournament.course_id) {
+    const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
+    if (teams.length > 0) {
       const courseHoles = await fetchCourseHoles(supabase, tournament.course_id)
       const holes = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(holeCount)
-      const ordered = computeScrambleStandings(
-        scrambleTeams, holes, parTotal,
-        'scramble' as FormatoJuego, liveTournament.modo as ModoJuego,
-      )
+      const formato = liveTournament.format as FormatoJuego
+      const modo = liveTournament.modo as ModoJuego
+      const ordered = liveTournament.format === 'foursome'
+        ? computeFoursomeStandings(teams, memberNames, holes, parTotal, formato, modo)
+        : computeScrambleStandings(teams, holes, parTotal, formato, modo)
       liveTeams = scrambleResultsToLiveTeams(ordered, memberNames, liveTournament.modo)
     }
   }
