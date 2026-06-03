@@ -4,11 +4,11 @@
 
 **Goal:** Hacer imposible que el coach tAIger+ muestre un número de score calculado que esté mal — el LLM nunca escribe un número derivado; lo computa una calculadora determinista y se renderiza/verifica antes de mostrarse.
 
-**Architecture:** Calculadora pura en `src/golf/coach/scoring/` (sin I/O, property-tested). El coach pide proyecciones vía una tool determinista `compute_score_projection` (mismo patrón que `save_plan`); el resultado se renderiza como **tarjeta** (reusa el patrón SSE `plan_assigned`/`round_summary`). Un **guard de procedencia** (upgrade de `hallucination-validator.ts`) corre sobre el mensaje final y bloquea cualquier número de score que no salga de la calculadora ni coincida con un dato real — ante la duda, no muestra el número. Donde el par de la cancha es desconocido, la calculadora emite "+N sobre par" en vez de score absoluto.
+**Architecture:** Calculadora pura en `src/golf/coach/scoring/` (sin I/O, property-tested). El coach pide proyecciones vía una tool determinista `compute_score_projection` (mismo patrón que `save_plan`); el resultado se renderiza como **tarjeta** (reusa el patrón SSE `plan_assigned`/`round_summary`) Y el coach puede citar el número inline. La clave de la garantía: **el turno final de texto se BUFFEREA (no se streamea token-a-token); antes de soltarlo, el guard verifica que todo score absoluto/desglose de la prosa coincida EXACTAMENTE con un valor que produjo la tool en este turno. Si no coincide o no hubo tool, se bloquea/regenera** — nunca se muestra un absoluto sin respaldo. Donde el par de la cancha es desconocido o incompleto (<`holes` hoyos), la calculadora emite "+N sobre par", nunca un absoluto.
 
 **Tech Stack:** TypeScript, Next.js 14 API route (streaming SSE), Anthropic SDK (tool use), Vitest (pool `vmThreads` obligatorio en OneDrive — ver `feedback_vitest_onedrive`), Supabase.
 
-**Decisión de mecánica (lockeada, revisable en plan-eng-review):** tool+card, NO marcas inline. Menor riesgo, reusa infra probada. El "+N sobre par" relativo sí puede ir inline porque el guard lo verifica contra el resultado de la tool.
+**Decisión de mecánica (PM 2026-06-03, post eng-review):** "las dos" — número exacto en tarjeta Y citable inline en la frase. Para que sea **imposible mostrar** uno malo con streaming, el turno final se buffera y se verifica contra la salida de la tool antes de flushear (el delay de ~1-3s en ese mensaje fue aceptado por el PM). Las iteraciones de tool-call siguen mostrando actividad en vivo. El guard verifica **coincidencia con la salida de la tool de este turno**, NO membership laxa contra cualquier número del contexto (cierra el P0#2 del review).
 
 ---
 
@@ -247,7 +247,29 @@ git commit -m "test(coach-scoring): property test de cierre + fix escala dobles/
 
 ---
 
-## Task 3: `realisticTarget` + barrel
+## Task 3: Barrel del submódulo (sin `realisticTarget`)
+
+> **AJUSTE eng-review:** `realisticTarget` queda DESCOPED (ver Task 5). Esta task se reduce a crear el barrel `index.ts` exportando solo `projectScore` + tipos. **Saltear los Steps 1-4 de `realisticTarget`**; hacer solo el Step 3 (barrel, sin la línea `realisticTarget`) y el commit. Si más adelante se implementa el objetivo sugerido, será index-aware y con par completo validado (TODO `objetivo-sugerido-index-aware`).
+
+**Files:**
+- Create: `src/golf/coach/scoring/index.ts`
+
+Barrel mínimo:
+
+```typescript
+// src/golf/coach/scoring/index.ts
+export { projectScore } from './breakdown'
+export type { ProjectScoreInput, ProjectScoreResult, Distribution } from './breakdown'
+```
+
+Commit:
+
+```bash
+git add src/golf/coach/scoring/index.ts
+git commit -m "feat(coach-scoring): barrel del submódulo"
+```
+
+<details><summary>Pasos originales de realisticTarget (DESCOPED — no ejecutar)</summary>
 
 **Files:**
 - Modify: `src/golf/coach/scoring/breakdown.ts`
@@ -328,6 +350,8 @@ git add src/golf/coach/scoring/
 git commit -m "feat(coach-scoring): realisticTarget + barrel del submódulo"
 ```
 
+</details>
+
 ---
 
 ## Task 4: Set canario permanente (anti "pudrirse en silencio")
@@ -388,12 +412,13 @@ git commit -m "test(coach-scoring): set canario permanente (incl. caso 79/86)"
 
 ---
 
-## Task 5: Inyectar `objetivo_realista` en el contexto
+## Task 5: ~~Inyectar `objetivo_realista` en el contexto~~ — DESCOPED (eng-review 2026-06-03)
+
+> **DESCOPED.** El review (P1, confianza 8) mostró que `realisticTarget = avg − 2` es un objetivo arbitrario que ignora el índice y se vende como "realista derivado server-side" sin serlo. Además la fuente del par (`recentRounds[0].course_pars`) puede estar parcial → absoluto plausible-pero-mal con sello de "calculadora". **No es parte de la garantía** y agrega superficie + un número débil. Se difiere a un follow-up index-aware (ver TODO `objetivo-sugerido-index-aware`). El coach calcula objetivos vía `compute_score_projection` con la meta que plantee el jugador o que proponga (y la tool la valida). **Saltear esta task entera.** `realisticTarget` tampoco se implementa (ver banner en Task 3).
 
 **Files:**
-- Modify: `src/golf/coach/prompts/contexto.ts` (interface `TaigerContext` + `buildContextString`)
-- Modify: `src/golf/coach/context.ts` (`buildPlayerContext`)
-- Test: `src/golf/coach/prompts/__tests__/contexto.test.ts` (crear si no existe)
+- ~~Modify: `src/golf/coach/prompts/contexto.ts`~~ — no se toca en v1
+- ~~Modify: `src/golf/coach/context.ts`~~ — no se toca en v1
 
 - [ ] **Step 1: Write the failing test**
 
@@ -481,9 +506,11 @@ git commit -m "feat(coach): inyectar objetivo_realista precomputado en TaigerCon
 
 ## Task 6: Tool `compute_score_projection`
 
+> **AJUSTE eng-review (integridad del par, P1):** la aritmética de la calculadora siempre cierra, pero un **absoluto solo es correcto si el par es correcto**. NO confiar en un `parTotal` que tipee el LLM (puede inventarlo o pasarlo parcial). Regla: la tool emite un **absoluto únicamente** cuando recibe `course_id` y puede leer de `course_holes` un par con **exactamente `holes` hoyos** (par completo verificado). Si no hay `course_id`, o el conteo de hoyos del par ≠ `holes`, la tool **ignora cualquier `parTotal` suelto y devuelve solo relativo "+N"**. Esto cierra el caso "17 de 18 hoyos → absoluto plausible pero mal con sello de garantía". El executor (que tiene `ctx.supabase`) hace el lookup; el `parTotal` directo del LLM se acepta solo como hint para relativo, nunca para absoluto.
+
 **Files:**
-- Modify: `src/golf/coach/tools.ts` (definición + case en `executeTool`)
-- Test: `src/golf/coach/__tests__/tools.test.ts` (crear si no existe)
+- Modify: `src/golf/coach/tools.ts` (definición + case en `executeTool`, con lookup de par vía `course_id` + validación de completitud)
+- Test: `src/golf/coach/__tests__/tools.test.ts` (crear si no existe — incluir caso "par incompleto → relativo")
 
 - [ ] **Step 1: Write the failing test**
 
@@ -674,28 +701,102 @@ git commit -m "feat(coach): guard de procedencia de números (bloquea, no adivin
 
 ---
 
-## Task 8: Extraer tool-loop a `chat-engine.ts` ("el que toca, ordena")
+## Task 8: Extraer tool-loop a `chat-engine.ts` — **PR1, refactor PURO** (el que toca, ordena)
+
+> **AJUSTE eng-review (P1, blast radius — incidente 28-may):** mover ~260 LOC de la arteria del chat (streaming/heartbeat/tools/sesión/fallback 529) Y agregar el guard en el mismo PR es exactamente el patrón que ya rompió prod. Esta task se hace en **su propio PR (PR1)**, es **refactor sin cambio de comportamiento**: el coach debe responder **byte-idéntico** antes y después. Se mergea, se verifica deploy `success` en prod y un smoke del coach, y **recién ahí** arranca el feature (PR2 = Tasks 9-12). Regla de Beck: "make the change easy, then make the easy change". **NO se agrega el guard acá.**
 
 **Files:**
 - Create: `src/golf/coach/chat-engine.ts`
 - Modify: `src/app/api/taiger/chat/route.ts`
 - Test: `src/golf/coach/__tests__/chat-engine.test.ts`
 
-> **Nota:** `route.ts` está en la lista de archivos sucios (439 LOC, lógica de negocio embebida). Esta task lo adelgaza moviendo el loop de streaming+tools a `chat-engine.ts`. El handler queda: auth → rate-limit → parse → `runChatStream(...)`.
-
-- [ ] **Step 1: Write the failing test (allowedNumbers se acumula de contexto+tools)**
+- [ ] **Step 1: Write the test (la firma pública existe; refactor sin cambio de comportamiento)**
 
 ```typescript
 import { describe, it, expect } from 'vitest'
-import { collectAllowedNumbers } from '../chat-engine'
+import { runChatStream } from '../chat-engine'
 
-describe('collectAllowedNumbers', () => {
-  it('extrae números 2-3 dígitos y relativos de contexto + tool results', () => {
-    const nums = collectAllowedNumbers('Promedio 86, par 72.', ['{"absolute":79,"relativeLabel":"+7"}'])
-    expect(nums).toContain('86')
-    expect(nums).toContain('72')
-    expect(nums).toContain('79')
-    expect(nums).toContain('+7')
+describe('chat-engine (refactor puro)', () => {
+  it('exporta runChatStream como función', () => {
+    expect(typeof runChatStream).toBe('function')
+  })
+})
+```
+
+> El test fuerte de este PR NO es unitario: es el **smoke del coach** (Step 4) verificando que la respuesta es idéntica a antes. La extracción es mecánica; el seguro es el smoke + el code-reviewer.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npm run test -- src/golf/coach/__tests__/chat-engine.test.ts`
+Expected: FAIL — módulo no existe.
+
+- [ ] **Step 3: Implement — mover el `ReadableStream`/tool-loop del route a `chat-engine.ts` SIN cambiar lógica**
+
+Crear `chat-engine.ts` exportando `runChatStream(params): ReadableStream` que recibe `{ anthropic, model, systemFinal, activeTools, conversation, toolCtx, contextString, supabase, userId, sessionId, onUsage }` y contiene **exactamente** el `for (iter...)` + heartbeat + tool dispatch + update de sesión + validador de alucinación + manejo de error 529 que hoy vive en `route.ts:134-422`. **Cero cambios de comportamiento. NO se agrega el guard de números acá (eso es PR2/Task 9).**
+
+El route queda delgado:
+
+```typescript
+const readable = runChatStream({
+  anthropic, model: 'claude-sonnet-4-6', systemFinal, activeTools,
+  conversation, toolCtx, contextString, supabase, userId: user.id, sessionId: active.id,
+  onUsage: () => {},
+})
+return new Response(readable, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } })
+```
+
+> Movimiento mecánico: cortar las líneas del `ReadableStream` actual y pegarlas en `runChatStream`, parametrizando dependencias. NO tocar la lógica del loop. Si algo "se quiere mejorar" mientras se mueve — NO. Refactor primero, mejora después.
+
+- [ ] **Step 4: Verificar comportamiento idéntico (el seguro real)**
+
+Run: `npm run test -- src/golf/coach/__tests__/chat-engine.test.ts` → PASS
+Run: `npx tsc --noEmit` → 0 errores
+Run: `npm run build` → exitoso
+Run el smoke del coach contra preview: la respuesta a una pregunta de prueba debe ser idéntica en forma a `origin/main` (eventos SSE, tool calls, texto). Esto es lo que prueba que el refactor no cambió nada.
+
+- [ ] **Step 5: Commit + abrir PR1 + GATE de merge**
+
+```bash
+git add src/golf/coach/chat-engine.ts src/app/api/taiger/chat/route.ts src/golf/coach/__tests__/chat-engine.test.ts
+git commit -m "refactor(coach): extraer tool-loop a chat-engine, route delgado (el que toca ordena)"
+```
+
+**GATE (no negociable):** abrir PR1, pasar `superpowers:code-reviewer` (>100 LOC), `/pre-push`, mergear, y **confirmar deploy `success` en Vercel + smoke del coach en prod** ([[feedback_confirmar_deploy_post_merge]]). Solo cuando prod está verde con el refactor, arranca PR2 (Tasks 9-12). **No mezclar.**
+
+---
+
+## Task 9: Enforcement REAL — bufferear el turno final y bloquear ANTES de mostrar (PR2, cierra P0#1)
+
+**Files:**
+- Modify: `src/golf/coach/chat-engine.ts`
+- Modify: `src/golf/coach/number-guard.ts` (helper `collectAuthorizedNumbers`)
+- Test: `src/golf/coach/__tests__/chat-engine.test.ts`
+
+> **Este es el fix del P0 que cazó el review.** El guard no puede correr *después* de streamear (el número ya se vio). Cambio: el **turno final** (cuando `stop_reason !== 'tool_use'`) NO streamea sus deltas en vivo — los **acumula**. Antes de flushear, verifica contra el **set autorizado** (salidas de `compute_score_projection` de este turno + valores del contexto que coincidan exacto). Solo flushea si pasa. Si bloquea: una regeneración acotada con instrucción estricta; si vuelve a fallar, prosa corta segura + la **tarjeta ya emitida con el número correcto**. Los turnos de tool-call siguen mostrando actividad en vivo (no se buffean). Delay aceptado por PM: ~1-3s solo en el mensaje final.
+>
+> **Honestidad sobre el alcance (P0#2 parcialmente mitigado):** el guard autoriza un absoluto si coincide con una salida de tool o un valor exacto del contexto. NO distingue semánticamente "79 proyección" de "79 histórico" en prosa (eso requeriría el parser frágil que descartamos). Garantía honesta: **ningún absoluto fabricado llega al usuario; todo absoluto en prosa traza a una salida de tool o a un valor exacto del contexto.** El residual (citar mal un número real existente) es chico y lo cubren el prompt + la tarjeta. Cierre total semántico = TODO `guard-semantico-claims`.
+
+- [ ] **Step 1: Write the failing test — el turno final con absoluto no autorizado se bloquea, no se flushea**
+
+```typescript
+import { describe, it, expect } from 'vitest'
+import { enforceFinalText } from '../chat-engine'
+
+describe('enforceFinalText (buffer + bloqueo)', () => {
+  it('deja pasar prosa cuyo absoluto coincide con salida de tool', () => {
+    const r = enforceFinalText('Tu objetivo es 79 (+7 sobre par).', { authorized: ['79', '+7'] })
+    expect(r.blocked).toBe(false)
+    expect(r.text).toContain('79')
+  })
+  it('bloquea un absoluto fabricado que no salió de la tool', () => {
+    const r = enforceFinalText('Si seguís el plan terminás en 81.', { authorized: ['79', '+7'] })
+    expect(r.blocked).toBe(true)
+    // el texto bloqueado NO se entrega tal cual
+    expect(r.text).not.toContain('terminás en 81')
+  })
+  it('relativo +7 pasa si está autorizado', () => {
+    const r = enforceFinalText('Apuntá a +7 sobre par.', { authorized: ['79', '+7'] })
+    expect(r.blocked).toBe(false)
   })
 })
 ```
@@ -703,99 +804,63 @@ describe('collectAllowedNumbers', () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npm run test -- src/golf/coach/__tests__/chat-engine.test.ts`
-Expected: FAIL — módulo no existe.
+Expected: FAIL — `enforceFinalText` no existe.
 
-- [ ] **Step 3: Implement — mover el `ReadableStream`/tool-loop del route a `chat-engine.ts`**
+- [ ] **Step 3: Implement `collectAuthorizedNumbers` + `enforceFinalText` + bufferear el turno final**
 
-Crear `chat-engine.ts` exportando:
-- `collectAllowedNumbers(contextString: string, toolResults: string[]): string[]` — regex `/[+-]?\b\d{2,3}\b/g` sobre `contextString + toolResults.join('\n')`, dedup.
-- `runChatStream(params): ReadableStream` — recibe `{ anthropic, model, systemFinal, activeTools, conversation, toolCtx, contextString, onUsage }` y contiene el loop `for (iter...)` que hoy vive en `route.ts:134-396`, **más** el guard antes del `done`:
+En `number-guard.ts`, agregar:
 
 ```typescript
-import { guardNumbers } from './number-guard'
-// ... dentro del stream, justo antes de cerrar (reemplaza el flush directo del texto final):
-// NOTA: para no romper streaming, el guard corre sobre fullResponse al final.
-// Si bloquea, NO se reemplaza el número: se emite un evento de degradación honesta.
-const allowed = collectAllowedNumbers(contextString, allToolResultStrings)
-const guard = guardNumbers({ text: fullResponse, allowedNumbers: allowed })
-if (guard.blocked) {
-  // Política ante la duda: no mostrar número inventado. Pedir reformular en "sobre par".
-  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ event: 'number_blocked', offending: guard.offending })}\n\n`))
-  void captureError(new Error('coach number guard blocked'), { context: 'taiger.chat.number_guard', meta: { offending: guard.offending } })
+/** Números autorizados para prosa: salidas de la tool de este turno + valores exactos del contexto. */
+export function collectAuthorizedNumbers(toolResults: string[], contextString: string): string[] {
+  const out = new Set<string>()
+  const grab = (s: string) => { const m = s.match(/[+-]?\b\d{2,3}\b/g); (m ?? []).forEach(n => out.add(n.replace(/\s/g, ''))) }
+  toolResults.forEach(grab)   // incluye absolute/over/relativeLabel de compute_score_projection
+  grab(contextString)
+  return [...out]
 }
 ```
 
-El route pasa a:
+En `chat-engine.ts`:
 
 ```typescript
-const readable = runChatStream({ anthropic, model: 'claude-sonnet-4-6', systemFinal, activeTools, conversation, toolCtx, contextString, onUsage: (u) => {/* log */} })
-return new Response(readable, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } })
-```
+import { guardNumbers, collectAuthorizedNumbers } from './number-guard'
 
-> El movimiento es mecánico: cortar las líneas del `ReadableStream` actual y pegarlas en `runChatStream`, parametrizando las dependencias. NO cambiar la lógica del loop salvo el bloque guard añadido.
-
-- [ ] **Step 4: Run tests + tsc**
-
-Run: `npm run test -- src/golf/coach/__tests__/chat-engine.test.ts`
-Expected: PASS.
-Run: `npx tsc --noEmit`
-Expected: 0 errores.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/golf/coach/chat-engine.ts src/app/api/taiger/chat/route.ts src/golf/coach/__tests__/chat-engine.test.ts
-git commit -m "refactor(coach): extraer tool-loop a chat-engine + wire guard (el que toca ordena)"
-```
-
----
-
-## Task 9: Decidir comportamiento del guard al bloquear (degradación honesta)
-
-**Files:**
-- Modify: `src/golf/coach/chat-engine.ts`
-- Test: `src/golf/coach/__tests__/chat-engine.test.ts`
-
-> Política §6 del spec: ante la duda NO se adivina. Opciones de degradación: (a) emitir disclaimer al cliente, (b) regenerar el mensaje forzando "sobre par". Para v1 elegimos (a) **disclaimer no destructivo** — el número queda flaggeado y el front muestra un aviso. Regeneración (b) queda como follow-up medido (evita doble costo LLM en v1).
-
-- [ ] **Step 1: Write the test del evento done con flag**
-
-```typescript
-it('cuando el guard bloquea, el evento done incluye number_guard.blocked=true', () => {
-  // test de integración ligero: simular fullResponse con 79 no permitido
-  // (extraer una fn pura buildDoneEvent(fullResponse, allowed) para testear sin stream)
-  const { buildDoneEvent } = require('../chat-engine')
-  const ev = buildDoneEvent('Terminás en 79.', ['86', '84'])
-  expect(ev.number_guard.blocked).toBe(true)
-})
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `npm run test -- src/golf/coach/__tests__/chat-engine.test.ts`
-Expected: FAIL — `buildDoneEvent` no existe.
-
-- [ ] **Step 3: Implement `buildDoneEvent` + incluir en el evento `done`**
-
-```typescript
-export function buildDoneEvent(fullResponse: string, allowedNumbers: string[]) {
-  const guard = guardNumbers({ text: fullResponse, allowedNumbers })
-  return { number_guard: { blocked: guard.blocked, offending: guard.offending } }
+export function enforceFinalText(text: string, opts: { authorized: string[] }): { blocked: boolean; text: string } {
+  const g = guardNumbers({ text, allowedNumbers: opts.authorized })
+  if (!g.blocked) return { blocked: false, text }
+  // Bloqueado: NO entregar el texto con el número malo. Prosa segura; el número correcto vive en la tarjeta.
+  return { blocked: true, text: 'Te dejé el objetivo exacto y su desglose en la tarjeta de acá abajo 👇' }
 }
 ```
 
-En el `done` del stream, mergear `...buildDoneEvent(fullResponse, allowed)` junto a `done: true, session_id, hallucination`.
+En `runChatStream`, en la iteración final (`resp.stop_reason !== 'tool_use'`): **NO** hacer `controller.enqueue` de los `text_delta` en vivo; acumular en `finalText`. Tras `finalMessage`:
+
+```typescript
+const authorized = collectAuthorizedNumbers(allToolResultStrings, contextString)
+let { blocked, text } = enforceFinalText(finalText, { authorized })
+if (blocked) {
+  // regeneración acotada (1 intento) con instrucción estricta de usar +N y la tarjeta
+  const retry = await regenerateRelativeOnly(...)  // mismo loop, system + "no des absolutos sin la tool"
+  const r2 = enforceFinalText(retry, { authorized: collectAuthorizedNumbers(allToolResultStrings, contextString) })
+  text = r2.blocked ? text /* prosa segura */ : retry
+}
+// recién ahora se flushea el texto final verificado, en un solo enqueue
+controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+```
+
+> Las iteraciones con `tool_use` mantienen el streaming live actual (su texto suele ser mínimo y no lleva el desglose). Solo el turno final se buffea.
 
 - [ ] **Step 4: Run test + tsc**
 
-Run: `npm run test -- src/golf/coach/__tests__/chat-engine.test.ts`
-Expected: PASS.
+Run: `npm run test -- src/golf/coach/__tests__/chat-engine.test.ts` → PASS
+Run: `npx tsc --noEmit` → 0 errores
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/golf/coach/chat-engine.ts src/golf/coach/__tests__/chat-engine.test.ts
-git commit -m "feat(coach): degradación honesta del guard en evento done"
+git add src/golf/coach/chat-engine.ts src/golf/coach/number-guard.ts src/golf/coach/__tests__/chat-engine.test.ts
+git commit -m "feat(coach): bufferear turno final + bloquear absoluto no autorizado antes de mostrar"
 ```
 
 ---
@@ -875,9 +940,10 @@ export const ARITMETICA = `INTEGRIDAD ARITMÉTICA DEL SCORE (regla crítica, no 
 
 NUNCA calcules un número de score vos mismo en el texto. Tu aritmética mental no es confiable.
 
-- Para CUALQUIER objetivo, proyección o desglose de score ("X pares + Y bogeys", "para bajar a Z", "terminás en N"): llamá SIEMPRE la tool compute_score_projection y usá EXACTAMENTE su resultado. No reformules ni "redondees" el número.
-- Si no conocés el par del campo, pasá parTotal null: la tool te da el objetivo en "sobre par" (+N). Hablá en "sobre par", no inventes un score absoluto.
-- Podés mencionar inline el "sobre par" (+N) que devuelve la tool. El score absoluto y el desglose completo se muestran en la tarjeta que genera la tool — no los repitas a mano.
+- Para CUALQUIER objetivo, proyección o desglose de score ("X pares + Y bogeys", "para bajar a Z", "terminás en N"): llamá SIEMPRE la tool compute_score_projection (pasando course_id cuando lo tengas) y usá EXACTAMENTE su resultado. No reformules ni "redondees" el número.
+- Podés citar inline tanto el "+N sobre par" como el score absoluto que devuelve la tool (ej: "tu objetivo es 79, +7 sobre par"). El sistema verifica que coincida con la calculadora antes de mostrarlo. NUNCA cites un absoluto que no haya salido de la tool — si lo hacés, el mensaje se bloquea.
+- Si la tool devuelve solo relativo (par desconocido o incompleto), hablá solo en "+N sobre par". No inventes el absoluto.
+- El desglose completo (X pares, Y bogeys) se muestra en la tarjeta que genera la tool. Podés referirlo ("mirá el desglose 👇").
 - Reportar un dato real existente (tu promedio, tu índice) está bien, copiándolo tal cual del contexto. Lo prohibido es CONSTRUIR un número nuevo de cabeza.`
 ```
 
@@ -984,9 +1050,66 @@ graphify update .
 
 ---
 
-## Notas para plan-eng-review
+## Resoluciones del eng-review (2026-06-03)
 
-1. **Mecánica tool+card vs inline:** lockeada en tool+card por menor riesgo. Revisar si el costo de voz (número absoluto fuera de la frase) justifica el inline-DSL. Recomendación del autor: mantener tool+card.
-2. **Guard al bloquear:** v1 = disclaimer no destructivo (Task 9). ¿Vale la pena la regeneración forzada en "sobre par" en v1, o es follow-up? Recomendación: follow-up (evita doble costo LLM).
-3. **`parTotal` para el objetivo inyectado** (Task 5) sale de la ronda reciente; con canchas fragmentadas (Los Leones) puede venir null → relativo. Confirmar que el fallback relativo es aceptable para el objetivo del contexto.
-4. **Mover el tool-loop (Task 8)** toca la arteria. ¿Hacerlo en el mismo PR o separar el refactor del feature en dos PRs para aislar riesgo? Recomendación: dos commits, mismo PR, con code-reviewer obligatorio (>100 LOC).
+Revisión: Claude (reviewer) + agente adversarial independiente. **Coincidencia fuerte en 2 P0 + 3 P1.** Decisiones tomadas:
+
+1. **[P0#1] El guard corría post-stream → no bloqueaba.** RESUELTO: el turno final se **buffea** y se verifica **antes** de flushear (Task 9 reescrita). PM eligió "las dos" (número en tarjeta Y citable inline, verificado).
+2. **[P0#2] Guard por membership laxa.** MITIGADO: el set autorizado es la **salida de la tool de este turno** + valores exactos del contexto. Cierre semántico total = TODO diferido (honesto sobre el residual).
+3. **[P1] `realisticTarget = avg−2` arbitrario + par parcial → absoluto mal con sello.** RESUELTO: objetivo auto-inyectado **DESCOPED** (Tasks 3/5). Absoluto solo con par completo verificado (Task 6).
+4. **[P1] Refactor de la arteria + feature en un PR.** RESUELTO: **dos PRs** — PR1 refactor puro verificado en prod, después PR2 feature (Task 8 GATE).
+5. **[P2] ¿Enfoque más simple?** Considerado: "solo card, sin guard". Descartado porque PM quiere número inline; el buffer+verify lo permite sin sacrificar la garantía.
+
+---
+
+## NOT in scope (diferido explícito)
+
+- **Objetivo sugerido index-aware** (`realisticTarget` honesto): el `avg−2` era arbitrario. Se hace bien (índice + distribución + par completo) en follow-up, no acá. No es la garantía.
+- **Guard semántico de claims** (distinguir "79 proyección" vs "79 histórico" en prosa): requiere el parser frágil que descartamos. Residual chico cubierto por prompt+tarjeta.
+- **Regeneración multi-intento**: v1 hace 1 retry acotado y cae a prosa segura + tarjeta. Más intentos = doble costo LLM sin ganancia clara.
+- **Limpieza de canchas duplicadas** (Los Leones): deuda aparte; este plan la tolera vía fallback relativo.
+- **Migración del coach al AI Gateway / streaming v3**: proyecto separado.
+
+## What already exists (se reusa, no se reconstruye)
+
+- **Tool loop + dispatch** (`route.ts:157-312`, `tools.ts:executeTool`): se reusa; el feature agrega una tool más y mueve el loop a `chat-engine.ts` sin reescribirlo.
+- **Patrón de cards SSE** (`plan_assigned`, `round_summary` en `route.ts:255-284`): la tarjeta de proyección sigue el mismo patrón.
+- **Validador anti-alucinación** (`hallucination-validator.ts`): sigue corriendo como telemetría (flag de canchas/números de afuera). El guard nuevo es complementario (cierre aritmético), NO lo reemplaza.
+- **Feature flag pattern** (`cerebro_v3_enabled`): el kill-switch `COACH_NUMBER_GUARD_ENABLED` (env, default true) envuelve el **buffer+block del turno final** en `chat-engine.ts`; en `false` revierte a streaming live actual. La calculadora + tool + card no necesitan flag (no degradan, solo agregan).
+
+## Failure modes (por codepath nuevo)
+
+| Codepath | Falla realista | ¿Test? | ¿Error handling? | ¿Visible? |
+|---|---|---|---|---|
+| `projectScore` over irreal (>3×holes) | clamp silencioso a par<0 | property test cubre rango real | sí (clamp) | n/a |
+| Tool sin `course_id` | no puede dar absoluto | Task 6 test "par incompleto" | sí → relativo | sí (habla en +N) |
+| Buffer turno final | si el retry también bloquea | Task 9 test | sí → prosa segura + tarjeta | usuario ve tarjeta correcta |
+| LLM no llama la tool | claim de score sin respaldo | Task 9 test bloqueo | sí → bloquea+retry | sí (prosa segura) |
+| `chat-engine` extracción (PR1) | romper SSE/sesión/529 | smoke byte-idéntico | gate de PR1 | **CRÍTICO si falla → coach mudo** |
+
+**Gap crítico flagueado:** la extracción (PR1) es el único punto donde un error deja el coach mudo para todos. Mitigado por: PR separado, smoke byte-idéntico, code-reviewer, deploy `success` confirmado antes de PR2. Sin esa secuencia, es el incidente del 28-may de nuevo.
+
+## TODOS generados
+
+- `objetivo-sugerido-index-aware` — objetivo realista derivado de índice+distribución+par completo (reemplaza el `avg−2` descopeado).
+- `guard-semantico-claims` — cierre del residual P0#2 (distinguir uso correcto vs incorrecto de un número real en prosa).
+
+## Parallelization
+
+PR1 (Task 8, refactor) bloquea PR2 (resto). Dentro de PR2: Tasks 1-4 (calculadora, puras, sin deps) pueden ir en paralelo a la espera del merge de PR1. Task 6 (tool) depende de 1-4. Tasks 9-10 (engine+card) dependen de PR1 mergeado + Task 6-7. **Lane A:** Tasks 1→2→4 + 7 (módulos `scoring/`, `number-guard` — independientes del route). **Lane B:** Task 8 (PR1, arteria). **Secuencia:** Lane A y B en paralelo → merge PR1 (B) → Tasks 6,9,10,11,12 (dependen de ambos). Conflicto potencial: ninguno entre A y B (módulos distintos).
+
+---
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 1 | issues_found | 2 P0 + 3 P1 (Claude subagent; codex no instalado) |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | issues_open→resolved | 2 P0 + 3 P1 resueltos en el plan |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | tarjeta sencilla, se cubre en design-review post-impl |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | n/a | — |
+
+- **CROSS-MODEL:** reviewer interno y agente independiente coincidieron en los 2 P0 (guard tardío, prosa sin respaldo) — señal fuerte. Sin tensión cross-model.
+- **UNRESOLVED:** 0 (todos los hallazgos resueltos o diferidos explícito con TODO).
+- **VERDICT:** ENG REVIEW CLEARED tras revisión — plan corregido, listo para implementar PR1→PR2.
