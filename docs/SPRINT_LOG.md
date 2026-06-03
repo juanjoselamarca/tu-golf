@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-06-03 · Cerebro V3 — Ola 2 "el coach te conoce" (PR #96, `92e4180`)
+
+Mergeada y en producción (flag por usuario). El coach ahora conoce al jugador, le da UN foco de alto impacto enmarcado en su meta, recuerda entre sesiones y deja ver el avance.
+
+- **Motor de foco** (`src/golf/coach/v3/focus/`): `getFocus` rankea los 9 patrones por impacto hacia el target, ponderado por `cerebro_weights` en runtime (primer consumidor → paramétrico vivo conectado). Gate anti-fantasía + fallback honesto. Interfaz estable para Ola 3.
+- **5 tools**: `set_target`, `remember_fact`, `recall_facts`, `get_focus`, `get_progress`.
+- **Prompt 6 piezas** (`CONOCER_SECTION`) + **onboarding** de 1ª sesión.
+- **round_metrics** WHS (diferencial−índice, 18h) + populador idempotente + RPC restamp al fijar meta.
+- **Lifecycle de planes** (cierra vencidos) + **vista `/coach/progreso`** ("La bajada hacia tu meta") + **P0 resiliencia** (fallback a Gemini).
+- 14 contratos de canario anti-decoración. `superpowers:code-reviewer` PASS (2 críticos resueltos). tsc 0 · 2152 tests · build OK · smoke prod OK.
+
 ## 2026-05-11 · tAIger+ Coach Home rediseño psicológico-first
 
 **Branch:** `feat/coach-home-mobile-v3` (worktree aislada en `.claude/worktrees/coach-home-mobile/`)

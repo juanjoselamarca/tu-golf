@@ -1,6 +1,27 @@
-# Estado Cerebro V3 — Actualizado 2026-06-02 — Ola 2 "el coach te conoce" EN CURSO (Fase 1 motor ✅ + Fase 2.1 prompt ✅; resto Fase 2 NEXT)
+# Estado Cerebro V3 — Actualizado 2026-06-03 — Ola 2 "el coach te conoce" ✅ MERGEADA Y EN PRODUCCIÓN
 
-## ⏩ SESIÓN 2026-06-02 (tarde) — retomar acá
+## ✅ OLA 2 CERRADA (2026-06-03) — PR #96 squash-merged (`92e4180`)
+
+Ola 2 completa, mergeada a main y desplegada en producción. Flag `cerebro_v3_enabled`
+ON solo para Juanjo (rollout seguro; el resto sigue en cerebro v2). Demo en vivo
+ejecutada en preview + `superpowers:code-reviewer` PASS (2 críticos + 2 importantes
+encontrados y resueltos, re-verificados en prod). tsc 0 · 2152 tests · build OK · smoke
+de prod OK (rutas vivas + auth-gated). Validado contra datos reales de Juanjo:
+foco `post_bogey_spiral` enmarcado en su meta (9.6 → 7, delta 2.6).
+
+**Entregado:** motor de foco + 5 tools + prompt 6 piezas + onboarding + round_metrics
+(WHS) + lifecycle de planes + vista `/coach/progreso` + P0 resiliencia. 14 contratos
+de canario anti-decoración enforced. Migraciones: target/round_metrics/memoria
+episódica + fix FK + enum plan_expired + RPC restamp.
+
+**PRÓXIMO (Ola 3 "el cerebro guarda y crece"):** migrar los 9 patrones a catálogo
+declarativo `pattern_definitions` (el motor de foco ya está detrás de la interfaz
+`getFocus` para que cambie la fuente sin reescribirse). Follow-ups menores: 9h en
+round_metrics, rollout del flag a más usuarios, ejemplo del bug de lenguaje (Juanjo).
+
+---
+
+## ⏩ SESIÓN 2026-06-02 (tarde) — histórico (Fase 1+2 construcción)
 
 **Branch:** `feat/cerebro-v3-ola2-conocer-claude` (worktree `.claude/worktrees/cerebro-v3-ola2-conocer`).
 
