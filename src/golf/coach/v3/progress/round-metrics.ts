@@ -5,9 +5,11 @@
  * reinventar la matemática de course handicap. delta_vs_handicap_expected =
  * diferencial − índice: negativo = jugaste mejor que tu handicap esa vuelta.
  *
- * v1 SOLO 18 hoyos: el diferencial de 9h está en otra escala (no comparable al
- * índice 18h) — mezclarlos es el bug histórico 9h/18h. 9h queda como follow-up
- * con el escalado WHS correcto. Nunca producimos un número que no es comparable.
+ * 9h y 18h: el app guarda el diferencial 9h escalado ×2 a equivalente-18h
+ * (indice-golfers.ts), así que ambos son comparables al índice. Las 9h legacy con
+ * CR de 9 hoyos (<55, diferencial raw) se descartan. `strokes_over_par_round` de
+ * una 9h es sobre 9 hoyos — siempre acompañado de `holes_played` para no
+ * confundirlo con una 18h. Nunca producimos un número que no es comparable.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
@@ -69,7 +71,8 @@ export function computeRoundMetric(
   if (round.excluded_from_handicap) return null
   const holes = round.holes_played
   if (holes !== 18 && holes !== 9) return null
-  if (typeof round.total_gross !== 'number') return null
+  const gross = toNum(round.total_gross)
+  if (gross == null) return null
   if (indice == null) return null
 
   // Descartar 9h legacy con CR de 9 hoyos: el diferencial guardado es raw 9h.
@@ -90,7 +93,7 @@ export function computeRoundMetric(
   return {
     round_id: round.id,
     user_id: userId,
-    strokes_over_par_round: round.total_gross - par_cancha,
+    strokes_over_par_round: gross - par_cancha,
     delta_vs_handicap_expected: round1(dif - indice),
     delta_vs_target_handicap: hasTarget ? round1(dif - target) : null,
     holes_played: holes,
