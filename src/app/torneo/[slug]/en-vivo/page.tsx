@@ -8,7 +8,7 @@ import LiveView from './LiveView'
 import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveStatus, LiveTeam } from './types'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
-import { fetchCourseHoles, buildFallbackCourseHoles } from '@/lib/data/tournaments/leaderboard'
+import { fetchCourseHoles, buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './scrambleTeamsToLive'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
@@ -194,8 +194,11 @@ export default async function LivePage({ params }: PageProps) {
   } else if (liveTournament.format === 'best_ball' && tournament.course_id) {
     const courseHoles = await fetchCourseHoles(supabase, tournament.course_id)
     const holes = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(holeCount)
-    // par para el course handicap = suma del par real de course_holes (lo que usa el scorer).
-    const parForHcp = holes.reduce((s, h) => s + h.par, 0)
+    // par para el course handicap = suma del par real de course_holes, deduplicado
+    // por nº de hoyo (igual que el scorer: pm[numero]=par). Evita inflar el par en
+    // canchas multi-recorrido (27/36h) con filas repetidas → mismo course handicap
+    // que la tarjeta en cancha.
+    const parForHcp = sumParDedupByHole(holes)
     const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parForHcp)
     if (teams.length > 0) {
       const formato = liveTournament.format as FormatoJuego

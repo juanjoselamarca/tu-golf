@@ -32,6 +32,7 @@ import {
   fetchTournamentBySlug,
   fetchTournamentGroups,
   fetchWithdrawnPlayers,
+  sumParDedupByHole,
 } from '@/lib/data/tournaments/leaderboard'
 import {
   buildLeaderboardFromLegacy,
@@ -150,8 +151,9 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         teamStandings = scrambleResultsToLiveTeams(ordered, memberNames, modoJuego)
       }
     } else if (formatoJuego === 'best_ball') {
-      // par para el course handicap = suma del par real de course_holes (lo que usa el scorer).
-      const parForHcp = courseHoles.reduce((s, h) => s + h.par, 0)
+      // par para el course handicap = suma del par de course_holes deduplicado por
+      // nº de hoyo (igual que el scorer; evita inflar el par en canchas 27/36h).
+      const parForHcp = sumParDedupByHole(courseHoles)
       const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parForHcp)
       if (teams.length > 0) {
         const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego)
