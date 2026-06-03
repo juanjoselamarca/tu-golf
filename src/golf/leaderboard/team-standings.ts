@@ -52,6 +52,10 @@ export function computeFoursomeStandings(
         nombreA: names[0] ?? '',
         nombreB: names[1] ?? '',
         scores: t.scores,
+        // Override con el handicap almacenado (paridad con scramble): el board
+        // usa el mismo valor congelado que aplicó la tarjeta en cancha, así no
+        // divergen si el índice de un jugador cambia mid-torneo.
+        teamHandicap: t.teamHandicap,
       },
       holes,
       parTotal,

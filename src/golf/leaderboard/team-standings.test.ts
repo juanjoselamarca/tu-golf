@@ -85,4 +85,24 @@ describe('computeFoursomeStandings', () => {
     expect(out[0].teamId).toBe('d')
     expect(out[0].holesPlayed).toBe(1)
   })
+
+  it('usa teamHandicap almacenado (override) en vez de recalcular — paridad con la tarjeta', () => {
+    // handicaps [10,20] recalcularían (10+20)/2=15, pero el override 0 → neto == gross.
+    const t: ScrambleTeam = { id: 'o', nombre: 'Override', handicaps: [10, 20], scores: { '1': 4, '2': 4, '3': 4 }, teamHandicap: 0 }
+    const out = computeFoursomeStandings([t], {}, HOLES, 12, 'foursome', 'neto')
+    expect(out[0].teamHandicap).toBe(0)
+    expect(out[0].totalNeto).toBe(out[0].totalGross)
+  })
+
+  it('equipo con !=2 jugadores no crashea (1 y 3 índices)', () => {
+    const uno = team('u', 'Uno', [12], { '1': 4 })       // foursome incompleto
+    const tres = team('t3', 'Tres', [6, 10, 14], { '1': 5 }) // sobra el 3ro
+    const out = computeFoursomeStandings([uno, tres], {}, HOLES, 12, 'foursome', 'gross')
+    expect(out).toHaveLength(2)
+    // Uno: (12+0)/2=6 ; Tres ignora el 3ro: (6+10)/2=8
+    const u = out.find((x) => x.teamId === 'u')!
+    const t3 = out.find((x) => x.teamId === 't3')!
+    expect(u.teamHandicap).toBe(6)
+    expect(t3.teamHandicap).toBe(8)
+  })
 })
