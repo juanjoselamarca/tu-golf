@@ -149,7 +149,7 @@ describe('Verificación reglas oficiales R&A/USGA', () => {
       expect(scoreNetoHoyo(5, 18, 1, 18)).toBe(4)
     })
     it('Plus handicap: neto > gross (dan strokes)', () => {
-      expect(scoreNetoHoyo(4, -2, 1, 18)).toBe(5)
+      expect(scoreNetoHoyo(4, -2, 18, 18)).toBe(5)
     })
   })
 

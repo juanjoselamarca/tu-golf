@@ -109,7 +109,10 @@ export function strokesRecibidosEnHoyo(
 ): number {
   if (courseHandicap < 0) {
     const hcpAbs = Math.abs(Math.round(courseHandicap))
-    return strokeIndex <= hcpAbs ? -1 : 0
+    // WHS Appendix E: el jugador plus DEVUELVE golpes al campo empezando por el
+    // hoyo MÁS FÁCIL (stroke index más alto), no el más difícil. Un +2 en 18
+    // hoyos devuelve en SI 18 y 17; en 9 hoyos, en SI 9 y 8.
+    return strokeIndex >= roundHoles - hcpAbs + 1 ? -1 : 0
   }
   if (courseHandicap <= 0) return 0
   const maxSI = roundHoles

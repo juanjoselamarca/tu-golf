@@ -81,10 +81,21 @@ describe('strokesRecibidosEnHoyo', () => {
     expect(strokesRecibidosEnHoyo(5, 6, 9)).toBe(0)
   })
 
-  it('negative handicap (plus player) → gives back strokes on lowest SI', () => {
-    expect(strokesRecibidosEnHoyo(-2, 1, 18)).toBe(-1)
-    expect(strokesRecibidosEnHoyo(-2, 2, 18)).toBe(-1)
-    expect(strokesRecibidosEnHoyo(-2, 3, 18)).toBe(0)
+  it('negative handicap (plus player) → devuelve golpes en los hoyos MÁS FÁCILES (SI más alto), no en los difíciles — WHS Appendix E', () => {
+    // WHS Appendix E: el jugador plus devuelve golpes empezando por el hoyo
+    // con el stroke index MÁS ALTO (el más fácil), no el más bajo.
+    // Un +2 (CH = -2) devuelve 2 golpes: en SI 18 y 17, NO en SI 1 y 2.
+    expect(strokesRecibidosEnHoyo(-2, 18, 18)).toBe(-1) // SI 18 (más fácil) → devuelve
+    expect(strokesRecibidosEnHoyo(-2, 17, 18)).toBe(-1) // SI 17 → devuelve
+    expect(strokesRecibidosEnHoyo(-2, 16, 18)).toBe(0)  // SI 16 → no
+    expect(strokesRecibidosEnHoyo(-2, 1, 18)).toBe(0)   // SI 1 (más difícil) → no
+    expect(strokesRecibidosEnHoyo(-2, 2, 18)).toBe(0)   // SI 2 → no
+  })
+
+  it('plus handicap en 9 hoyos: devuelve desde el SI más alto de la vuelta (SI 9)', () => {
+    expect(strokesRecibidosEnHoyo(-2, 9, 9)).toBe(-1) // SI 9 (más fácil de 9) → devuelve
+    expect(strokesRecibidosEnHoyo(-2, 8, 9)).toBe(-1) // SI 8 → devuelve
+    expect(strokesRecibidosEnHoyo(-2, 1, 9)).toBe(0)  // SI 1 (más difícil) → no
   })
 })
 
