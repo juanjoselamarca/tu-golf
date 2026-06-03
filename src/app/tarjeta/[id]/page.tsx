@@ -27,6 +27,7 @@ interface RoundData {
   scores: number[] | null
   notes: string | null
   user_id: string
+  formato_juego: string | null
 }
 
 interface CourseHole {
@@ -58,7 +59,7 @@ export default function TarjetaPublicaPage() {
       // Fetch round
       const { data: r, error } = await supabase
         .from('historical_rounds')
-        .select('id, course_name, course_id, total_gross, total_neto, holes_played, played_at, tee_color, scores, notes, user_id')
+        .select('id, course_name, course_id, total_gross, total_neto, holes_played, played_at, tee_color, scores, notes, user_id, formato_juego')
         .eq('id', id)
         .single()
 
@@ -188,7 +189,7 @@ export default function TarjetaPublicaPage() {
           scores={scoresRecord}
           courseHandicap={0}
           modo="gross"
-          formato="stroke_play"
+          formato={(round.formato_juego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome' | null) ?? 'stroke_play'}
           playerName={playerName}
           courseName={round.course_name}
           date={dateStr}
