@@ -158,7 +158,8 @@ describe('Canario tAIger+: chat coach (fixes 2026-05-06)', () => {
   })
 
   it('route.ts del coach emite heartbeat SSE periódico', () => {
-    const route = readFile('app/api/taiger/chat/route.ts')
+    // El motor del stream (heartbeat + tool-loop) se extrajo a chat-engine.ts (PR1 refactor).
+    const route = readFile('golf/coach/chat-engine.ts')
     // Debe haber un comment frame `: keepalive\n\n` y un setInterval/clearInterval que lo dispare.
     expect(
       route.includes(': keepalive') && /setInterval\s*\(/.test(route) && /clearInterval\s*\(/.test(route),
