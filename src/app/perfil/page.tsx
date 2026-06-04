@@ -20,7 +20,6 @@ import { formatRelativeTime } from '@/lib/format'
 interface Profile {
   id: string
   name: string
-  email: string
   indice: number | null
   avatar_url: string | null
   indice_golfers: number | null
@@ -70,6 +69,7 @@ export default function PerfilPage() {
   const router = useRouter()
 
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   // Refresh FedeGolf — inbox 25366393
   const [fedegolfRefreshing, setFedegolfRefreshing] = useState(false)
@@ -90,10 +90,11 @@ export default function PerfilPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login?redirect=/perfil'); return }
+      setUserEmail(user.email ?? null)
 
       // Parallel queries — all at once, not sequential
       const [profRes, countRes] = await Promise.all([
-        supabase.from('profiles').select('id, name, email, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at').eq('id', user.id).single(),
+        supabase.from('profiles').select('id, name, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at').eq('id', user.id).single(),
         supabase.from('players').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ])
 
@@ -128,7 +129,7 @@ export default function PerfilPage() {
       .from('profiles')
       .update({ name: editName.trim(), indice: indiceParsed })
       .eq('id', profile.id)
-      .select('id, name, email, indice, avatar_url')
+      .select('id, name, indice, avatar_url')
       .single()
 
     if (updated) setProfile(updated as Profile)
@@ -167,7 +168,7 @@ export default function PerfilPage() {
         if (user) {
           const { data: updated } = await supabase
             .from('profiles')
-            .select('id, name, email, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at')
+            .select('id, name, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at')
             .eq('id', user.id).single()
           if (updated) setProfile(updated as Profile)
         }
@@ -626,7 +627,7 @@ export default function PerfilPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {[
                 ['Nombre', profile.name || '—'],
-                ['Email', profile.email],
+                ['Email', userEmail || '—'],
               ].map(([label, value], idx, arr) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: idx < arr.length - 1 ? '1px solid #f1f5f9' : 'none', gap: '12px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{label}</span>
