@@ -1,10 +1,6 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
-import { TaigerIcon } from '@/components/icons/TaigerIcon'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/utils/supabase/server'
 import { TaigerHero } from '@/components/coach/TaigerHero'
 import { MentalRecoveryCard } from '@/components/coach/MentalRecoveryCard'
 import { HighlightsCarousel } from '@/components/coach/HighlightsCarousel'
@@ -23,6 +19,8 @@ import {
 } from '@/golf/coach/mental-index'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { parPerHoleArray } from '@/golf/core/compare'
+
+export const dynamic = 'force-dynamic'
 
 interface Session {
   id: string
@@ -112,91 +110,36 @@ function patternScore(p: { pattern_type: string; confidence: number }): number {
   return Math.round((sev * p.confidence) / 2.85 * 100)
 }
 
-interface PageState {
-  sessions: Session[]
-  primarySessionId: string | null
-  rounds: RoundRow[]
-  patterns: PatternRow[]
-  plan: PlanRow | null
-  outcomes: OutcomeRow[]
-  totalRounds: number
-  loading: boolean
-  error: string | null
-}
+export default async function CoachDashboard() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login?next=/coach')
 
-export default function CoachDashboard() {
-  const router = useRouter()
-  const [state, setState] = useState<PageState>({
-    sessions: [], primarySessionId: null, rounds: [], patterns: [], plan: null, outcomes: [],
-    totalRounds: 0, loading: true, error: null,
-  })
+  // Todas las queries en paralelo, server-side (sin waterfall de hidratación).
+  const [sessionsRes, primaryRes, roundsRes, patternsRes, planRes, totalRes] = await Promise.all([
+    supabase.from('taiger_sessions').select('id, session_type, created_at, next_focus').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
+    supabase.from('taiger_sessions').select('id').eq('user_id', user.id).eq('is_primary', true).maybeSingle(),
+    supabase.from('historical_rounds').select('id, scores, total_gross, course_name, par_per_hole, played_at, course_rating, slope_rating').eq('user_id', user.id).order('played_at', { ascending: false }).limit(10),
+    supabase.from('player_patterns').select('id, pattern_type, confidence, data_points, status, first_detected').eq('user_id', user.id).in('status', ['active', 'monitoring']),
+    supabase.from('coach_plans').select('id, pattern_id, hypothesis, rule, status, created_at, duration_days').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
+    supabase.from('historical_rounds').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+  ])
 
-  useEffect(() => {
-    const load = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login?next=/coach'); return }
-
-      try {
-        const [sessionsRes, primaryRes, roundsRes, patternsRes, planRes, totalRes] = await Promise.all([
-          supabase.from('taiger_sessions').select('id, session_type, created_at, next_focus').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
-          supabase.from('taiger_sessions').select('id').eq('user_id', user.id).eq('is_primary', true).maybeSingle(),
-          supabase.from('historical_rounds').select('id, scores, total_gross, course_name, par_per_hole, played_at, course_rating, slope_rating').eq('user_id', user.id).order('played_at', { ascending: false }).limit(10),
-          supabase.from('player_patterns').select('id, pattern_type, confidence, data_points, status, first_detected').eq('user_id', user.id).in('status', ['active', 'monitoring']),
-          supabase.from('coach_plans').select('id, pattern_id, hypothesis, rule, status, created_at, duration_days').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
-          supabase.from('historical_rounds').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        ])
-
-        let outcomes: OutcomeRow[] = []
-        if (planRes.data) {
-          const fourWeeksAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString()
-          const outcomesRes = await supabase.from('plan_outcomes').select('target_reached, compliance, played_at').eq('plan_id', planRes.data.id).gte('played_at', fourWeeksAgo).order('played_at', { ascending: false })
-          outcomes = (outcomesRes.data as OutcomeRow[]) || []
-        }
-
-        setState({
-          sessions: (sessionsRes.data as Session[]) || [],
-          primarySessionId: (primaryRes.data as { id: string } | null)?.id ?? null,
-          rounds: (roundsRes.data as RoundRow[]) || [],
-          patterns: (patternsRes.data as PatternRow[]) || [],
-          plan: (planRes.data as PlanRow | null) ?? null,
-          outcomes,
-          totalRounds: totalRes.count ?? 0,
-          loading: false,
-          error: null,
-        })
-      } catch (err) {
-        setState(s => ({ ...s, loading: false, error: err instanceof Error ? err.message : 'Error cargando coach' }))
-      }
-    }
-    load()
-  }, [router])
-
-  if (state.loading) {
-    return (
-      <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ marginBottom: '12px', animation: 'tpulse 1.5s ease infinite', color: 'var(--coach-brass)' }}><TaigerIcon size={48} /></div>
-          <div style={{ color: 'var(--text-2)', fontSize: '14px', fontWeight: 600 }}>Cargando tAIger+...</div>
-          <style>{`@keyframes tpulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }`}</style>
-        </div>
-      </div>
-    )
+  let outcomes: OutcomeRow[] = []
+  if (planRes.data) {
+    const fourWeeksAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString()
+    const outcomesRes = await supabase.from('plan_outcomes').select('target_reached, compliance, played_at').eq('plan_id', planRes.data.id).gte('played_at', fourWeeksAgo).order('played_at', { ascending: false })
+    outcomes = (outcomesRes.data as OutcomeRow[]) || []
   }
 
-  if (state.error) {
-    return (
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px' }}>
-        <TaigerHero subtitle="Tu coach de rendimiento con inteligencia artificial" />
-        <div style={{ background: 'var(--coach-recovery-low-soft)', border: '1px solid var(--coach-recovery-low)', borderRadius: '8px', padding: '20px', textAlign: 'center' }}>
-          <div style={{ color: 'var(--coach-recovery-low)', fontWeight: 600, marginBottom: '6px' }}>No pude cargar tu data</div>
-          <div style={{ color: 'var(--text-2)', fontSize: '13px' }}>{state.error}</div>
-        </div>
-      </div>
-    )
-  }
+  const sessions = (sessionsRes.data as Session[]) || []
+  const primarySessionId = (primaryRes.data as { id: string } | null)?.id ?? null
+  const rounds = (roundsRes.data as RoundRow[]) || []
+  const patterns = (patternsRes.data as PatternRow[]) || []
+  const plan = (planRes.data as PlanRow | null) ?? null
+  const totalRounds = totalRes.count ?? 0
 
-  if (state.totalRounds === 0) {
+  if (totalRounds === 0) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 100px' }}>
         <TaigerHero subtitle="Tu coach de rendimiento con inteligencia artificial" />
@@ -216,8 +159,8 @@ export default function CoachDashboard() {
     )
   }
 
-  const cpi: ResultadoCPI | null = state.rounds.length >= 3
-    ? calcularCPI(state.rounds.map(r => ({
+  const cpi: ResultadoCPI | null = rounds.length >= 3
+    ? calcularCPI(rounds.map(r => ({
         played_at: r.played_at,
         total_gross: r.total_gross ?? 0,
         course_rating: r.course_rating,
@@ -226,21 +169,21 @@ export default function CoachDashboard() {
     : null
 
   const mentalIndex: MentalIndexResult = calcularMentalIndex({
-    activePatterns: state.patterns.filter(p => p.status === 'active').map(p => ({ pattern_type: p.pattern_type, confidence: p.confidence })),
-    activePlan: state.plan ? { id: state.plan.id } : null,
-    outcomes: state.outcomes,
+    activePatterns: patterns.filter(p => p.status === 'active').map(p => ({ pattern_type: p.pattern_type, confidence: p.confidence })),
+    activePlan: plan ? { id: plan.id } : null,
+    outcomes,
     cpi,
-    totalRounds: state.totalRounds,
+    totalRounds,
     previousScore: null,
   })
 
-  const hasActiveSpiralPattern = state.patterns.some(p => p.pattern_type === 'post_bogey_spiral' && p.status === 'active')
+  const hasActiveSpiralPattern = patterns.some(p => p.pattern_type === 'post_bogey_spiral' && p.status === 'active')
   // Costo Psicológico: TODO se calcula sobre UN solo universo (últimas 5 rondas).
   // Antes había mismatch: evitables sobre 8 rondas, promedios sobre 5 → "36" inflado
   // vs delta promedio. Ahora invariante: evitables === windowSize × (real − contenido).
   // Ver mental-index.ts:calcularCostoPsicologico para la lógica.
   const costoPsicologico = hasActiveSpiralPattern
-    ? calcularCostoPsicologico(state.rounds.map(r => ({
+    ? calcularCostoPsicologico(rounds.map(r => ({
         id: r.id,
         total_gross: r.total_gross,
         scores: r.scores ?? [],
@@ -249,12 +192,12 @@ export default function CoachDashboard() {
     : null
 
   const recoveryTitle = mentalIndex.band === 'high' ? 'Tu cabeza está equilibrada' : mentalIndex.band === 'mid' ? 'Tu cabeza está bajo presión' : 'Tu cabeza necesita reset'
-  const recoveryDesc = `Patrones activos: ${state.patterns.filter(p => p.status === 'active').length}. Adherencia: ${state.outcomes.length > 0 ? Math.round(state.outcomes.filter(o => o.target_reached).length / state.outcomes.length * 100) : 0}%.`
+  const recoveryDesc = `Patrones activos: ${patterns.filter(p => p.status === 'active').length}. Adherencia: ${outcomes.length > 0 ? Math.round(outcomes.filter(o => o.target_reached).length / outcomes.length * 100) : 0}%.`
 
-  const ctaHref = `/coach/sesion/${state.primarySessionId ?? 'nueva'}`
-  const ctaLabel = state.primarySessionId ? 'Conversar con tAIger+' : 'Iniciar conversación con tAIger+'
+  const ctaHref = `/coach/sesion/${primarySessionId ?? 'nueva'}`
+  const ctaLabel = primarySessionId ? 'Conversar con tAIger+' : 'Iniciar conversación con tAIger+'
 
-  const lastRound = state.rounds[0]
+  const lastRound = rounds[0]
   // par_per_hole viene como objeto JSONB {"1":4,...} — normalizar a array
   // ANTES de cualquier .reduce/.slice/.map. Sin esto, /coach crashea con
   // TypeError porque objetos no tienen .reduce.
@@ -269,9 +212,6 @@ export default function CoachDashboard() {
     curvaStates = Array.from({ length: lastRound.scores.length }, (_, i) => clasificarHoyo(roundForAnalysis, i))
   }
   const tiltCount = curvaStates.filter(s => s === 'tilt').length
-
-  // Todos los datos de la card vienen de calcularCostoPsicologico — universo único,
-  // invariante matemática garantizada (ver tests calcularCostoPsicologico).
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 0 0' }}>
@@ -315,9 +255,9 @@ export default function CoachDashboard() {
         />
       )}
 
-      {state.patterns.length > 0 && (
+      {patterns.length > 0 && (
         <HighlightsCarousel label="Highlights · esta semana">
-          {state.patterns.slice(0, 3).map(p => (
+          {patterns.slice(0, 3).map(p => (
             <HighlightCard
               key={p.id}
               narrative={
@@ -360,10 +300,10 @@ export default function CoachDashboard() {
         />
       )}
 
-      {state.patterns.length > 0 && (
+      {patterns.length > 0 && (
         <div style={{ padding: '0 20px', marginBottom: '24px' }}>
           <div style={{ fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 600, marginBottom: '14px' }}>Patrones detectados</div>
-          {state.patterns.map(p => {
+          {patterns.map(p => {
             const isActive = p.status === 'active'
             return (
               <PatternTile
@@ -384,12 +324,12 @@ export default function CoachDashboard() {
         </div>
       )}
 
-      {state.plan && (
+      {plan && (
         <PlanActiveCard
-          title={state.plan.hypothesis}
-          description={state.plan.rule}
-          status={state.plan.status as 'active' | 'resolved' | 'expired' | 'superseded' | 'cancelled'}
-          dots={state.outcomes
+          title={plan.hypothesis}
+          description={plan.rule}
+          status={plan.status as 'active' | 'resolved' | 'expired' | 'superseded' | 'cancelled'}
+          dots={outcomes
             .slice(0, 7)
             .map(o => ({
               label: String(new Date(o.played_at).getDate()).padStart(2, '0'),
@@ -397,22 +337,22 @@ export default function CoachDashboard() {
             }))
             .reverse()
           }
-          appliedRatio={state.outcomes.length > 0 ? state.outcomes.filter(o => o.target_reached).length / state.outcomes.length : 0}
+          appliedRatio={outcomes.length > 0 ? outcomes.filter(o => o.target_reached).length / outcomes.length : 0}
           correlationLine={
             <>
-              Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{state.outcomes.length > 0 ? Math.round(state.outcomes.filter(o => o.target_reached).length / state.outcomes.length * 100) : 0}%</span> de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{state.outcomes.length}</b> rondas con plan activo. <b style={{ color: 'var(--text)', fontWeight: 600 }}>El resto son donde la cabeza paga el precio.</b>
+              Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{outcomes.length > 0 ? Math.round(outcomes.filter(o => o.target_reached).length / outcomes.length * 100) : 0}%</span> de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{outcomes.length}</b> rondas con plan activo. <b style={{ color: 'var(--text)', fontWeight: 600 }}>El resto son donde la cabeza paga el precio.</b>
             </>
           }
         />
       )}
 
-      {state.sessions.filter(s => s.id !== state.primarySessionId).length > 0 && (
+      {sessions.filter(s => s.id !== primarySessionId).length > 0 && (
         <div style={{ padding: '0 20px', marginBottom: '24px' }}>
           <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>
             Sesiones anteriores
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {state.sessions.filter(s => s.id !== state.primarySessionId).map(s => (
+            {sessions.filter(s => s.id !== primarySessionId).map(s => (
               <Link key={s.id} href={`/coach/sesion/${s.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)', border: '1px solid var(--line)', borderRadius: '12px', padding: '14px 16px', textDecoration: 'none' }}>
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{SESSION_LABELS[s.session_type] ?? s.session_type}</div>
