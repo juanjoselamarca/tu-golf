@@ -3,15 +3,16 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { executeTool, type ToolExecutionContext } from '@/golf/coach/tools'
 import { handleToolUse } from '@/golf/coach/v3/tools/handle-tool-use'
+import { coachDegradedFallback, toPlainMessages, isRetryableLLMError } from '@/golf/coach/v3/resilience/coach-fallback'
 import type { Jurisdiction } from '@/golf/coach/v3/retrieval/types'
 import { validateResponse, type HallucinationWarning } from '@/golf/coach/hallucination-validator'
 import { toolActivityLabel, friendlyPatternName, friendlyMetricName } from '@/lib/coach-event-narrator'
 import { captureError } from '@/lib/error-tracking'
 import type { TaigerContext } from '@/golf/coach/prompts'
 
-// Motor del chat del coach: tool-loop + streaming SSE + update de sesión + validador.
-// Extraído de route.ts (PR1, refactor puro — sin cambio de comportamiento) para
-// dejar el handler delgado. El guard aritmético se monta sobre esto en PR2.
+// Motor del chat del coach: tool-loop + streaming SSE + update de sesión + validador
+// + fallback degradado (Ola 2). Extraído de route.ts (refactor puro, sin cambio de
+// comportamiento) para dejar el handler delgado. El guard aritmético se monta en PR2.
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
 
@@ -45,6 +46,9 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             // controller cerrado — el clearInterval lo limpia abajo
           }
         }, 15000)
+        // P0 resiliencia: si aún no se emitió contenido, el catch puede caer a un
+        // fallback degradado (no-streaming) sin duplicar tokens ya enviados.
+        let emittedContent = false
         try {
           type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
           const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
@@ -78,6 +82,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
                 const text = event.delta.text
                 fullResponse += text
+                emittedContent = true
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
               }
             }
@@ -310,7 +315,27 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             userId: userId ?? null,
             meta: { sessionId: sessionId, status },
           })
-          if (overloaded || msg.includes('rate_limit') || msg.includes('429')) {
+          const retryable = overloaded || msg.includes('rate_limit') || msg.includes('429') || isRetryableLLMError(err)
+          // P0 resiliencia: ante rate-limit/overload de Anthropic, si todavía no
+          // emitimos contenido, intentamos una respuesta degradada (no-streaming,
+          // sin tools) vía el gateway, cuya cadena cruza a Gemini. El coach no se cae.
+          if (retryable && !emittedContent) {
+            try {
+              const fb = await coachDegradedFallback({
+                system: systemFinal,
+                messages: toPlainMessages(conversation),
+              })
+              if (fb.text) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: fb.text })}\n\n`))
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, degraded: true, provider: fb.provider })}\n\n`))
+                controller.close()
+                return
+              }
+            } catch (fbErr) {
+              void captureError(fbErr, { context: 'taiger.chat.fallback', userId: userId ?? null })
+            }
+          }
+          if (retryable) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'tAIger+ está descansando. Intenta en unos minutos.' })}\n\n`))
           } else if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('aborted')) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'La respuesta se demoró más de lo esperado. Intenta de nuevo — si vuelve a pasar, ya quedó registrado y lo investigamos.' })}\n\n`))

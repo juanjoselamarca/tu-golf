@@ -1,8 +1,12 @@
 import {
   calcularScramble, ordenarEquiposScramble,
   calcularFoursome, ordenarEquiposFoursome,
+  calcularBestBall, ordenarEquiposBestBall,
 } from '@/golf/formats'
-import type { ScrambleTeam, ScrambleTeamResult, FoursomeTeamResult } from '@/golf/formats'
+import type {
+  ScrambleTeam, ScrambleTeamResult, FoursomeTeamResult,
+  BestBallTeam, BestBallTeamResult,
+} from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
 /**
@@ -62,4 +66,30 @@ export function computeFoursomeStandings(
     )
   })
   return ordenarEquiposFoursome(results, formato, modo)
+}
+
+/**
+ * Compone el motor de best_ball en standings ordenados de equipos.
+ *
+ * A diferencia de scramble/foursome (un score COMPARTIDO por equipo), best_ball
+ * recibe `BestBallTeam` con los scores INDIVIDUALES de cada jugador y su course
+ * handicap (ver `fetchBestBallTeams`). El motor toma la mejor bola neta (o gross)
+ * por hoyo y suma. El neto coincide con la tarjeta en cancha (`calcBestBallTotals`)
+ * porque ambos usan `strokesRecibidosEnHoyo` con el mismo course handicap.
+ *
+ * `formato` enruta el desempate en `scorePrimarioBestBall`: como el scorer de
+ * best_ball sólo hace gross/neto (no stableford), pasamos el formato del torneo
+ * (`'best_ball'`, ≠ `'stableford'`) y el orden cae a overUnder por `modo`.
+ *
+ * Pura y defensiva: un equipo sin scores devuelve holesPlayed 0 sin crashear.
+ */
+export function computeBestBallStandings(
+  teams: BestBallTeam[],
+  holes: Array<{ numero: number; par: number; stroke_index: number }>,
+  parTotal: number,
+  formato: FormatoJuego,
+  modo: ModoJuego,
+): BestBallTeamResult[] {
+  const results = teams.map((t) => calcularBestBall(t, holes, parTotal))
+  return ordenarEquiposBestBall(results, formato, modo)
 }

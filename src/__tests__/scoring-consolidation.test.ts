@@ -34,9 +34,9 @@ describe('strokesRecibidosEnHoyo — WHS consolidated', () => {
   })
 
   it('negative HCP (plus player): gives back strokes', () => {
-    expect(strokesRecibidosEnHoyo(-2, 1, 18)).toBe(-1)
-    expect(strokesRecibidosEnHoyo(-2, 2, 18)).toBe(-1)
-    expect(strokesRecibidosEnHoyo(-2, 3, 18)).toBe(0)
+    expect(strokesRecibidosEnHoyo(-2, 18, 18)).toBe(-1)
+    expect(strokesRecibidosEnHoyo(-2, 17, 18)).toBe(-1)
+    expect(strokesRecibidosEnHoyo(-2, 1, 18)).toBe(0)
   })
 
   it('9-hole round: HCP 5 on 9 holes', () => {

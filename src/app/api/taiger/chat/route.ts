@@ -4,10 +4,13 @@ import { createClient } from '@/utils/supabase/server'
 import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from '@/golf/coach/prompts'
 import { TAIGER_TOOLS } from '@/golf/coach/tools'
 import { SEARCH_KNOWLEDGE_TOOL } from '@/golf/coach/v3/tools/search-knowledge-chunks-tool'
-import { RAG_SECTION, ENGAGEMENT_SECTION } from '@/golf/coach/v3/prompts'
+import { FOCUS_TOOLS } from '@/golf/coach/v3/tools/focus-tools'
+import { RAG_SECTION, ENGAGEMENT_SECTION, CONOCER_SECTION } from '@/golf/coach/v3/prompts'
+import { getOnboardingState, ONBOARDING_SECTION } from '@/golf/coach/v3/onboarding'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
 import { runChatStream } from '@/golf/coach/chat-engine'
+import { closeExpiredPlans } from '@/golf/coach/plan-lifecycle'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
@@ -77,6 +80,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 })
     }
 
+    // Lifecycle: cerrar planes vencidos ANTES de armar contexto, para que el coach
+    // nunca proponga sobre un plan stale (best-effort, no rompe el chat).
+    await closeExpiredPlans(supabase, user.id).catch(() => {})
+
     // Contexto del jugador: fetch directo (sin HTTP server-to-server, sin .limit).
     const ctx = await buildPlayerContext(supabase, user.id)
     const contextString = buildContextString(ctx)
@@ -103,10 +110,23 @@ export async function POST(req: NextRequest) {
       cerebroV3Enabled = false
     }
 
-    const ragSection = cerebroV3Enabled ? `\n\n${ENGAGEMENT_SECTION}\n\n${RAG_SECTION}` : ''
+    // Onboarding: en la 1ª sesión (sin meta ni hechos), el coach entrevista corto
+    // antes de avanzar. Solo con el flag y solo si todavía no está onboarded.
+    let onboardingSection = ''
+    if (cerebroV3Enabled) {
+      try {
+        const ob = await getOnboardingState(supabase, user.id)
+        if (!ob.onboarded) onboardingSection = `\n\n${ONBOARDING_SECTION}`
+      } catch (obErr) {
+        void captureError(obErr, { context: 'taiger.chat.onboarding_state', userId: user.id })
+      }
+    }
+    const ragSection = cerebroV3Enabled
+      ? `\n\n${ENGAGEMENT_SECTION}\n\n${CONOCER_SECTION}${onboardingSection}\n\n${RAG_SECTION}`
+      : ''
     const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}${ragSection}`
     const activeTools = cerebroV3Enabled
-      ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL]
+      ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL, ...FOCUS_TOOLS]
       : TAIGER_TOOLS
     const anthropic = new Anthropic({ apiKey })
 

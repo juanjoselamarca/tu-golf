@@ -2,13 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { computeStoredTeamHandicap, resolvePlayerHandicap, isProducerTeamFormat } from './teamRounds'
 
 describe('isProducerTeamFormat', () => {
-  it('scramble y foursome → true', () => {
+  it('scramble, foursome y best_ball → true', () => {
     expect(isProducerTeamFormat('scramble')).toBe(true)
     expect(isProducerTeamFormat('foursome')).toBe(true)
-  })
-
-  it('best_ball → false (el scorer aún no carga sus equipos)', () => {
-    expect(isProducerTeamFormat('best_ball')).toBe(false)
+    expect(isProducerTeamFormat('best_ball')).toBe(true)
   })
 
   it('formatos individuales y vacíos → false', () => {

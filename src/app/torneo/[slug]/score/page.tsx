@@ -8,19 +8,13 @@ import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { useScoreSync } from '@/hooks/useScoreSync'
 import { formatLabel } from '@/golf/core/rules'
-import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
 interface Round { id: string; status: string }
 interface Player { id: string; handicap_at_registration: number | null; profiles: { name: string }; rounds: Round[] }
 interface Tournament { id: string; name: string; slug: string; format: string; hole_count: number; formato_juego: FormatoJuego | null; modo_juego: ModoJuego | null; es_demo?: boolean }
-
-function strokesOnHole(courseHandicap: number, strokeIndex: number) {
-  const base      = Math.floor(courseHandicap / 18)
-  const remainder = courseHandicap % 18
-  return strokeIndex <= remainder ? base + 1 : base
-}
 
 export default function PlayerScoringPage() {
   const { slug } = useParams() as { slug: string }
@@ -133,7 +127,7 @@ export default function PlayerScoringPage() {
     const si         = hole?.stroke_index ?? holeNumber
     const holeCount  = tournament.hole_count || 18
     const handicapIndex = player.handicap_at_registration ?? 0
-    const strokes    = strokesOnHole(handicapIndex, si)
+    const strokes    = strokesRecibidosEnHoyo(handicapIndex, si, holeCount)
     const netScore   = gross - strokes
     let points = 0
     if (tournament.formato_juego === 'stableford') {
@@ -186,7 +180,7 @@ export default function PlayerScoringPage() {
             const hole = courseHoles.find(ch => ch.numero === holeNumber)
             const par = hole?.par ?? 4
             const si = hole?.stroke_index ?? holeNumber
-            const strokes = strokesOnHole(handicapIndex, si)
+            const strokes = strokesRecibidosEnHoyo(handicapIndex, si, holeCount)
             const netScore = g - strokes
             let points = 0
             if (tournament.formato_juego === 'stableford') {

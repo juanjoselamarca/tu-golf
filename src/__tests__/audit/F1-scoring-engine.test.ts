@@ -75,11 +75,12 @@ describe('[peso:3] WHS §4.3 — strokesRecibidosEnHoyo', () => {
     }
   })
 
-  // WHS §4.3: jugador plus (-2) da strokes en SI 1-2, 0 en el resto
-  it('HCP -2 (plus) → -1 stroke en SI 1-2, 0 en SI 3-18', () => {
-    expect(strokesRecibidosEnHoyo(-2, 1, 18)).toBe(-1)
-    expect(strokesRecibidosEnHoyo(-2, 2, 18)).toBe(-1)
-    for (let si = 3; si <= 18; si++) {
+  // WHS Appendix E: jugador plus (-2) devuelve strokes en los hoyos MÁS FÁCILES
+  // (stroke index más alto: SI 18 y 17), 0 en el resto.
+  it('HCP -2 (plus) → -1 stroke en SI 17-18, 0 en SI 1-16', () => {
+    expect(strokesRecibidosEnHoyo(-2, 18, 18)).toBe(-1)
+    expect(strokesRecibidosEnHoyo(-2, 17, 18)).toBe(-1)
+    for (let si = 1; si <= 16; si++) {
       expect(strokesRecibidosEnHoyo(-2, si, 18)).toBe(0)
     }
   })
@@ -122,9 +123,9 @@ describe('[peso:3] WHS §4.3 — strokesRecibidosEnHoyo', () => {
   })
 
   // Plus player en ronda de 9 hoyos
-  it('ronda de 9 hoyos: HCP -1 (plus) → -1 stroke en SI 1, 0 en el resto', () => {
-    expect(strokesRecibidosEnHoyo(-1, 1, 9)).toBe(-1)
-    for (let si = 2; si <= 9; si++) {
+  it('ronda de 9 hoyos: HCP -1 (plus) → -1 stroke en SI 9 (más fácil), 0 en el resto', () => {
+    expect(strokesRecibidosEnHoyo(-1, 9, 9)).toBe(-1)
+    for (let si = 1; si <= 8; si++) {
       expect(strokesRecibidosEnHoyo(-1, si, 9)).toBe(0)
     }
   })
@@ -243,10 +244,10 @@ describe('[peso:3] R&A Rule 32.1b — puntosStablefordHoyo (scoring.ts wrapper)'
     expect(puntosFromScoring(9, 4, 0, 5, 18)).toBe(0)
   })
 
-  // Plus player (-2): en SI 1-2 recibe -1 → neto = gross + 1
+  // Plus player (-2): en SI 17-18 recibe -1 → neto = gross + 1
   // gross = par → neto = par + 1 = bogey → 1 punto
-  it('plus player HCP -2 en SI 1: gross=par → neto=bogey → 1 punto', () => {
-    expect(puntosFromScoring(4, 4, -2, 1, 18)).toBe(1)
+  it('plus player HCP -2 en SI 18: gross=par → neto=bogey → 1 punto', () => {
+    expect(puntosFromScoring(4, 4, -2, 18, 18)).toBe(1)
   })
 })
 
@@ -275,14 +276,14 @@ describe('[peso:2] Score neto — scoreNetoHoyo', () => {
   })
 
   // Plus player: los strokes son NEGATIVOS → neto sube (más difícil)
-  it('plus player HCP -2: neto > gross en SI 1-2 (strokes negativos aumentan neto)', () => {
+  it('plus player HCP -2: neto > gross en SI 17-18 (strokes negativos aumentan neto)', () => {
     // gross=4, strokes=-1 → neto = 4 - (-1) = 5
-    expect(scoreNetoHoyo(4, -2, 1, 18)).toBe(5)
-    expect(scoreNetoHoyo(4, -2, 2, 18)).toBe(5)
+    expect(scoreNetoHoyo(4, -2, 18, 18)).toBe(5)
+    expect(scoreNetoHoyo(4, -2, 17, 18)).toBe(5)
   })
 
-  it('plus player HCP -2: neto = gross en SI 3-18', () => {
-    for (let si = 3; si <= 18; si++) {
+  it('plus player HCP -2: neto = gross en SI 1-16', () => {
+    for (let si = 1; si <= 16; si++) {
       expect(scoreNetoHoyo(4, -2, si, 18)).toBe(4)
     }
   })

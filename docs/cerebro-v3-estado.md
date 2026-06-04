@@ -1,4 +1,117 @@
-# Estado Cerebro V3 — Actualizado 2026-05-30 — Sub-ola 1e CERRADA y EN PRODUCCIÓN (flag solo Juanjo)
+# Estado Cerebro V3 — Actualizado 2026-06-03 — Ola 2 "el coach te conoce" ✅ MERGEADA Y EN PRODUCCIÓN
+
+## ✅ OLA 2 CERRADA (2026-06-03) — PR #96 squash-merged (`92e4180`)
+
+Ola 2 completa, mergeada a main y desplegada en producción. Flag `cerebro_v3_enabled`
+ON solo para Juanjo (rollout seguro; el resto sigue en cerebro v2). Demo en vivo
+ejecutada en preview + `superpowers:code-reviewer` PASS (2 críticos + 2 importantes
+encontrados y resueltos, re-verificados en prod). tsc 0 · 2152 tests · build OK · smoke
+de prod OK (rutas vivas + auth-gated). Validado contra datos reales de Juanjo:
+foco `post_bogey_spiral` enmarcado en su meta (9.6 → 7, delta 2.6).
+
+**Entregado:** motor de foco + 5 tools + prompt 6 piezas + onboarding + round_metrics
+(WHS) + lifecycle de planes + vista `/coach/progreso` + P0 resiliencia. 14 contratos
+de canario anti-decoración enforced. Migraciones: target/round_metrics/memoria
+episódica + fix FK + enum plan_expired + RPC restamp.
+
+**PRÓXIMO (Ola 3 "el cerebro guarda y crece"):** migrar los 9 patrones a catálogo
+declarativo `pattern_definitions` (el motor de foco ya está detrás de la interfaz
+`getFocus` para que cambie la fuente sin reescribirse). Follow-ups menores: 9h en
+round_metrics, rollout del flag a más usuarios, ejemplo del bug de lenguaje (Juanjo).
+
+---
+
+## ⏩ SESIÓN 2026-06-02 (tarde) — histórico (Fase 1+2 construcción)
+
+**Branch:** `feat/cerebro-v3-ola2-conocer-claude` (worktree `.claude/worktrees/cerebro-v3-ola2-conocer`).
+
+**Fase 1 (motor headless) CERRADA Y VERIFICADA.** tsc 0 · 2112 tests pass (1 todo: cerebro_events) · build OK. Nada mergeado (gate demo regla #4). Commits:
+- `eb2ba0e` motor puro `selectFocus` (gate anti-fantasía + rankeo confianza×peso).
+- `eab8d42` `getFocus` orquestador + capa datos `src/lib/data/focus.ts` (lee `getCachedWeights` en runtime → paramétrico vivo CONECTADO).
+- `bfb9c8e` 5 tools (`set_target/remember_fact/recall_facts/get_focus/get_progress`) en `v3/tools/focus-tools.ts`, cableadas a `executeTool` + `FOCUS_TOOLS` ofrecidas al modelo con el flag.
+- `5aeea4b` canario flipeado: `cerebro_weights` + `metrics/` pasan de `it.todo` a ENFORCED (+ contratos de la cadena route→dispatch). Script `scripts/cerebro-v3/validate-focus.ts`.
+
+**Validación contra datos reales (hecha):** Juanjo (111 rondas) → foco `post_bogey_spiral`, métrica 5.01 sobre 68 rondas, spiral_rate 0.67 — **coincide con su plan activo real**, explicable y fundamentado. 5 perfiles sintéticos coherentes; el perfil sólido → fallback honesto SIN inventar foco (gate anti-fantasía OK).
+
+**Arquitectura del motor (decisión):** `impacto = confianza_del_detect × peso_del_patrón`. La confianza de `patterns.ts` es severidad ya calibrada (gate); el peso de `cerebro_weights` (parameter_type='pattern') es cuánto mover ese patrón acerca al target. La `metrica` baseline se computa con `golf/coach/metrics` en escala PLAN_METRIC (continuidad con el motor de planes). Catálogo en `v3/focus/catalog.ts` = interfaz que Ola 3 reemplaza por DB sin tocar `selectFocus`.
+
+**Fase 2.1 (prompt "el coach te conoce") ✅ HECHA Y VALIDADA E2E.** Commits `615f238` + `2096e0a`.
+- `CONOCER_SECTION` (`v3/prompts/sections/conocer.ts`) gated por flag, appendeada al system prompt en el route. NO toca `TAIGER_SYSTEM_PROMPT` v2 → snapshot intacto. Canario enforced.
+- Manda al coach: llamar `get_focus` y presentar EL foco en 6 piezas (identidad/hecho/veredicto/target/delta/acción) en lenguaje humano; `recall_facts` al inicio; `set_target` sólo si mejora el consejo; `remember_fact` con criterio; `get_progress` para avance; fallback honesto.
+- **Números honestos:** impacto/confianza/peso marcados como señales INTERNAS (no strokes) — fix tras el smoke que mostró al coach inventando "+0.3 strokes/hoyo".
+- **Smoke E2E real** (`scripts/cerebro-v3/smoke-conocer.ts`, contra Juanjo): el coach LLAMA get_focus + recall_facts y responde en 6 piezas con números reales (1.017 bogeys, 67%, índice 9.6), sin claves crudas. Prueba de consumo en runtime ✅.
+
+**Data foundation de "ver avance" + lifecycle ✅ HECHA Y VALIDADA EN PROD.** Commits `69780c7` (FK fix) · `6d0973c` (round_metrics) · `37a70a3` (lifecycle).
+- **FK fix:** `round_metrics.round_id` apuntaba a `rounds` (torneo) en vez de `historical_rounds`; todo INSERT habría fallado. Corregido en prod.
+- **round_metrics populador** (`v3/progress/round-metrics.ts`): `computeRoundMetric` (WHS, diferencial−índice, sólo 18h para no mezclar escala 9h), `backfillRoundMetrics` idempotente. `get_progress` autopobla. Validado: 34 rondas 18h de Juanjo pobladas.
+- **Plan lifecycle** (`plan-lifecycle.ts`): `closeExpiredPlans` cableado en el route antes de `buildPlayerContext`. Validado: el plan stale de Juanjo (vencido 28-may) quedó `expired`.
+
+Estado: tsc 0 · 2140 tests · build OK · branch pusheada. Nada mergeado (demo gate).
+
+**Vista de progreso ✅ HECHA Y VALIDADA VISUAL.** Commit `a431bb6`. `/coach/progreso` ("La bajada hacia tu meta"): hero del foco en 6 piezas humanas + gráfico SVG de diferenciales por ronda con media móvil (la tendencia) + líneas de hcp/meta + tarjeta hoy→meta con delta. Agregador `loadProgressDashboard` + API `/api/coach/progress`. Entrada desde la home del coach (canario: no huérfana). QA visual con browser (before/after: la media móvil hizo legible "la bajada"). Validado vs Juanjo: 34 rondas, diferenciales 29→12 en 2 años. Estados honestos (cold start, sin meta).
+
+**Estado Ola 2: motor + prompt + data foundation + lifecycle + vista de progreso TODO HECHO Y VALIDADO. tsc 0 · 2144 tests · build OK · branch pusheada. Falta solo el merge (demo gate, regla #4).**
+
+**Onboarding ✅ HECHO Y VALIDADO E2E.** Commit `455a65b`. `getOnboardingState` + `ONBOARDING_SECTION` (gated por flag + estado): en la 1ª sesión (sin meta ni hechos) el coach entrevista corto, fija la meta (`set_target`) sí o sí y capta la frustración (`remember_fact`), sin perder el valor de entrada. Validado: 2 turnos → llamó `recall_facts + get_focus + set_target({7,2026-12-31}) + remember_fact` (escrituras interceptadas, sin tocar prod).
+
+**OLA 2 COMPLETA: motor + 5 tools + prompt + onboarding + round_metrics + lifecycle + vista de progreso. Todo con TDD + prueba de consumo en runtime (14 contratos de canario). tsc 0 · 2151 tests · build OK · branch pusheada.**
+
+**PRÓXIMA TAREA — cierre de Ola 2 (solo falta esto):**
+1. **Demo en vivo a Juanjo** (regla #4) → si OK: `superpowers:code-reviewer` sobre el diff → PR → merge → activar flag → deploy → smoke post-deploy.
+2. **9h en round_metrics** (follow-up post-merge): escalado WHS correcto.
+3. **Banco**: ejemplo del bug de lenguaje golfístico (pendiente de Juanjo).
+
+**Pendiente de Juanjo:** ejemplo concreto del bug de lenguaje golfístico (para banco de pruebas).
+**Freno:** demo en vivo antes de mergear (regla #4). Nada mergeado aún.
+
+---
+
+## (histórico) SESIÓN 2026-06-02 (madrugada) — pivote + P0 + migración
+
+**Branch de trabajo (NO main):** `feat/cerebro-v3-ola2-conocer-claude`
+(worktree `.claude/worktrees/cerebro-v3-ola2-conocer`). La próxima sesión hace
+checkout de esta branch, NO arranca de main.
+
+**Qué pasó esta sesión (pivote por feedback de Juanjo tras probar 1e):**
+- Juanjo reportó: plan genérico, sin seguimiento, avance no medible, no lo
+  conoce/no le pregunta. + bug P0: mezcla conceptos de lenguaje golfístico (falta
+  ejemplo de Juanjo para reproducir).
+- **Auditoría de wiring** (`docs/cerebro-v3-auditoria-wiring-2026-06-02.md`):
+  descubrió que `cerebro_weights` (paramétrico vivo), `metrics/` y `cerebro_events`
+  estaban construidos pero DESCONECTADOS del coach, y que el coach no tenía
+  fallback. RAG 1e + engagement + motor planes v2 SÍ vivos.
+- **Regla anti-decoración** instalada (memoria `feedback_anti_decoracion_wiring` +
+  canario `src/__tests__/canary-cerebro-wiring.test.ts`).
+- **Spec del corte:** `docs/superpowers/specs/2026-06-02-cerebro-v3-ola2-conocer-design.md`.
+
+**Commits en la branch:** `78b01bb` auditoría · `f34f4b9` spec+canario ·
+`80b982b` P0 resiliencia coach (verificado: tsc 0, 158 tests, build ✓) ·
+`e4ba668` migración Ola 2 (aplicada a prod).
+
+**Hecho y verificado:**
+- ✅ P0 coach: fallback degradado a Gemini vía `coach-fallback.ts` cableado en el
+  catch del stream de `taiger/chat/route.ts`. Canario protege la conexión.
+- ✅ Migración Ola 2 en prod: `profiles.target_*`, `round_metrics`,
+  `coach_episodic_memory` (+ RLS). Aditivo, cerebro v2 intacto.
+
+**PRÓXIMA TAREA (Fase 1 motor — empezar acá):**
+1. **Motor de foco** `src/golf/coach/v3/focus/`: lee historial (`historical_rounds`),
+   computa los 9 patrones (reusar `golf/coach/metrics/`, conectándolas al runtime),
+   gate anti-fantasía (muestra/efecto mínimos), rankeo por impacto hacia el target
+   **leyendo `cerebro_weights`** (`lib/cerebro/weights-cache.ts`) → conecta el
+   paramétrico vivo. Interfaz `getFocus(userId)`. TDD. Al conectar weights, flipear
+   el `todo` del canario a `enforced`.
+2. Tools del coach: `set_target`, `remember_fact`, `recall_facts`, `get_focus`,
+   `get_progress` (extender el dispatch; hoy `handle-tool-use.ts` solo hace RAG).
+3. Validar contra rondas reales de Juanjo + 5 perfiles sintéticos.
+Luego Fase 2 (cara): prompt 6 piezas + onboarding + vista de progreso (design-shotgun).
+
+**Pendiente de Juanjo:** ejemplo concreto del bug de lenguaje golfístico (#4).
+**Freno:** demo en vivo antes de mergear (regla #4). Nada mergeado aún.
+
+---
+
+## (histórico) Estado al 2026-05-30 — Sub-ola 1e CERRADA y EN PRODUCCIÓN (flag solo Juanjo)
 
 > Este archivo es el dashboard vivo del proyecto cerebro v3. Se actualiza al cierre de cada sesión que toque el proyecto. Si lees esto al iniciar una sesión, sabés exactamente dónde retomar.
 >

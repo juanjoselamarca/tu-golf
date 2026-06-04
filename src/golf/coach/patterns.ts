@@ -193,7 +193,7 @@ export const PATTERNS: GolfPattern[] = [
       return {
         detected: true,
         confidence: Math.min(Math.round((0.45 + (par4AvgOver - par5AvgOver - 0.5) * 0.15) * 100) / 100, 0.9),
-        metadata: { par4_avg_over: Math.round(par4AvgOver * 100) / 100, par5_avg_over: Math.round(par5AvgOver * 100) / 100 },
+        metadata: { par4_avg_over: Math.round(par4AvgOver * 100) / 100, par5_avg_over: Math.round(par5AvgOver * 100) / 100, par4_count: par4Count, par5_count: par5Count },
       }
     },
   },
