@@ -10,6 +10,9 @@
 export interface PuntoSerie {
   played_at: string | null
   delta_vs_handicap_expected: number
+  /** 9 o 18. Las 9h se marcan distinto y no entran a la tendencia (su
+   * diferencial equiv-18h es más volátil: un buen front-9 ×2 da un dif optimista). */
+  holes_played: number
 }
 
 interface Props {
@@ -25,7 +28,7 @@ const PAD = { top: 18, right: 16, bottom: 26, left: 34 }
 export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
   const puntos = serie
     .filter((p) => currentHandicap != null)
-    .map((p) => ({ ...p, dif: p.delta_vs_handicap_expected + (currentHandicap ?? 0) }))
+    .map((p) => ({ ...p, dif: p.delta_vs_handicap_expected + (currentHandicap ?? 0), is9: p.holes_played === 9 }))
 
   if (puntos.length < 2 || currentHandicap == null) {
     return (
@@ -57,16 +60,25 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
   const plotH = H - PAD.top - PAD.bottom
   const x = (i: number) => PAD.left + (puntos.length === 1 ? plotW / 2 : (i / (puntos.length - 1)) * plotW)
   const y = (v: number) => PAD.top + ((hi - v) / span) * plotH
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
 
-  // Línea cruda (contexto, tenue) + media móvil trailing (la tendencia, el héroe).
+  // La TENDENCIA (la bajada) se computa sobre las rondas de 18h — la señal
+  // estable y representativa del handicap. Las 9h son contexto (su dif equiv-18h
+  // es más volátil). Si hay pocas 18h, caemos a todas las rondas para no quedar
+  // sin tendencia (jugador 9h-heavy).
+  const trend = puntos.filter((p) => !p.is9).map((p) => ({ i: puntos.indexOf(p), dif: p.dif }))
+  const trendPts = trend.length >= 3 ? trend : puntos.map((p, i) => ({ i, dif: p.dif }))
+  const hay9 = puntos.some((p) => p.is9)
+
   const rawPath = puntos.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(p.dif).toFixed(1)}`).join(' ')
+
   const WIN = 5
-  const ma = puntos.map((_, i) => {
-    const w = difs.slice(Math.max(0, i - WIN + 1), i + 1)
-    return w.reduce((a, b) => a + b, 0) / w.length
-  })
-  const maPath = ma.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')
-  const areaPath = `${maPath} L ${x(puntos.length - 1).toFixed(1)} ${(PAD.top + plotH).toFixed(1)} L ${x(0).toFixed(1)} ${(PAD.top + plotH).toFixed(1)} Z`
+  const trendDifs = trendPts.map((t) => t.dif)
+  const ma = trendPts.map((_, k) => avg(trendDifs.slice(Math.max(0, k - WIN + 1), k + 1)) as number)
+  const maPath = trendPts.map((t, k) => `${k === 0 ? 'M' : 'L'} ${x(t.i).toFixed(1)} ${y(ma[k]).toFixed(1)}`).join(' ')
+  const firstTx = x(trendPts[0].i)
+  const lastTx = x(trendPts[trendPts.length - 1].i)
+  const areaPath = `${maPath} L ${lastTx.toFixed(1)} ${(PAD.top + plotH).toFixed(1)} L ${firstTx.toFixed(1)} ${(PAD.top + plotH).toFixed(1)} Z`
 
   const fmtMes = (d: string | null) => {
     if (!d) return ''
@@ -74,12 +86,9 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
     return Number.isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('es-CL', { month: 'short', year: '2-digit' })
   }
 
-  // Tendencia: promedio de las últimas 5 vs las 5 previas.
-  const tail = difs.slice(-5)
-  const prev = difs.slice(-10, -5)
-  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
-  const tailAvg = avg(tail)
-  const prevAvg = avg(prev)
+  // Mejorando/estable sobre la tendencia (18h): últimas 5 vs 5 previas.
+  const tailAvg = avg(trendDifs.slice(-5))
+  const prevAvg = avg(trendDifs.slice(-10, -5))
   const mejorando = tailAvg != null && prevAvg != null ? tailAvg < prevAvg - 0.3 : null
 
   const last = puntos[puntos.length - 1]
@@ -131,14 +140,18 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
         </g>
 
         <path d={areaPath} fill="url(#avance-fill)" />
-        {/* Rondas crudas: contexto tenue */}
+        {/* Rondas crudas: contexto tenue. 9h = punto hueco (más volátil). */}
         <path d={rawPath} fill="none" stroke="var(--brand)" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" opacity="0.28" />
-        {puntos.map((p, i) => (
-          <circle key={i} cx={x(i)} cy={y(p.dif)} r="1.8" fill="var(--brand)" opacity="0.3" />
-        ))}
-        {/* Tendencia (media móvil 5): la bajada */}
+        {puntos.map((p, i) =>
+          p.is9 ? (
+            <circle key={i} cx={x(i)} cy={y(p.dif)} r="2.4" fill="var(--bg-surface)" stroke="var(--brand)" strokeWidth="1" opacity="0.6" />
+          ) : (
+            <circle key={i} cx={x(i)} cy={y(p.dif)} r="1.8" fill="var(--brand)" opacity="0.35" />
+          ),
+        )}
+        {/* Tendencia (media móvil 5 sobre 18h): la bajada */}
         <path d={maPath} fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        <circle cx={x(puntos.length - 1)} cy={y(ma[ma.length - 1])} r="4.5" fill="var(--brand)" stroke="var(--bg-surface)" strokeWidth="1.5" />
+        <circle cx={lastTx} cy={y(ma[ma.length - 1])} r="4.5" fill="var(--brand)" stroke="var(--bg-surface)" strokeWidth="1.5" />
 
         {/* Orientación temporal */}
         <text x={PAD.left} y={H - 6} fontSize="10" fill="var(--text-3)" style={{ fontFamily: 'var(--font-dm-mono)' }}>{fmtMes(puntos[0].played_at)}</text>
@@ -146,11 +159,25 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
       </svg>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
-        <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>Última ronda</span>
+        <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+          Última ronda{last.is9 ? ' · 9 hoyos' : ''}
+        </span>
         <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
           dif {last.dif.toFixed(1)}
         </span>
       </div>
+      {hay9 && (
+        <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '6px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <svg width="9" height="9"><circle cx="4.5" cy="4.5" r="3" fill="var(--brand)" opacity="0.6" /></svg>
+            18 hoyos (tendencia)
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <svg width="9" height="9"><circle cx="4.5" cy="4.5" r="3" fill="var(--bg-surface)" stroke="var(--brand)" strokeWidth="1" /></svg>
+            9 hoyos (equiv. 18h, más volátil)
+          </span>
+        </div>
+      )}
     </div>
   )
 }

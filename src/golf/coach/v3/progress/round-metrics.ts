@@ -16,7 +16,7 @@ import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
 
 export interface HistoricalRoundRow {
   id: string
-  total_gross: number | null
+  total_gross: number | string | null
   holes_played: number | null
   par_per_hole: ParPerHoleInput | null
   diferencial: number | string | null
