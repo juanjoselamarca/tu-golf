@@ -33,7 +33,7 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
     const { data } = await supabase
       .from('players')
       .select(
-        'id, user_id, handicap_at_registration, status, profiles(name, email, indice), categories(name)'
+        'id, user_id, handicap_at_registration, status, profiles(name, indice), categories(name)'
       )
       .eq('tournament_id', tournament.id)
       .order('created_at', { ascending: true })

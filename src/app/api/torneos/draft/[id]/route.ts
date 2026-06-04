@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 import { tournamentConfigPartialSchema, tournamentConfigSchema } from '@/lib/draft/schema'
 import { deepMergeConfig } from '@/lib/draft/deep-merge-config'
 import { upgradeConfig } from '@/lib/draft/upgrade-config'
@@ -25,7 +26,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const collabs = (data.tournament_draft_collaborators as Array<{ user_id: string; role: string }> | null) ?? []
   const userIds = collabs.map((c) => c.user_id)
   if (userIds.length > 0) {
-    const { data: profiles } = await supabase
+    // El email de colaboradores lo lee solo el service role (RLS column-level
+    // bloquea email para el rol público). El acceso al draft ya se validó arriba.
+    const { data: profiles } = await createAdminClient()
       .from('profiles')
       .select('id, name, email')
       .in('id', userIds)

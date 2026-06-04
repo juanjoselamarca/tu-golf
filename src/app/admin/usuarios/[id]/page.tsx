@@ -74,7 +74,8 @@ export default function UserDetailPage() {
       const supabase = createClient()
 
       const [profileRes, roundsRes, tourneysRes, sessionsRes, patternsRes, rondasRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', id).single(),
+        // Profile vía API admin (service role): email no legible por cliente público.
+        fetch(`/api/admin/users/${id}`).then(r => r.ok ? r.json() : null).then(j => ({ data: j?.profile ?? null })),
         supabase.from('historical_rounds')
           .select('id, course_name, total_gross, diferencial, played_at, import_source, holes_played, scores')
           .eq('user_id', id).order('played_at', { ascending: false }).limit(50),

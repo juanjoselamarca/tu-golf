@@ -53,7 +53,7 @@ export interface Player {
   user_id?: string
   handicap_at_registration: number | null
   status: string
-  profiles: { name: string; email: string; indice: number | null }
+  profiles: { name: string; indice: number | null }
   categories: { name: string } | null
 }
 

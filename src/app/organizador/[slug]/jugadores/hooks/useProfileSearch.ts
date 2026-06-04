@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase'
 
 export interface Profile {
   id: string
@@ -24,13 +23,15 @@ export function useProfileSearch() {
   useEffect(() => {
     if (!search.trim()) { setResults([]); return }
     const timer = setTimeout(async () => {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, name, email, indice')
-        .or(`name.ilike.%${search}%,email.ilike.%${search}%`)
-        .limit(10)
-      setResults((data as Profile[]) || [])
+      // La búsqueda por email vive en el servidor (API autenticada): el email de
+      // profiles ya no es legible por el cliente público (RLS column-level).
+      try {
+        const res = await fetch(`/api/profiles/search?q=${encodeURIComponent(search)}`)
+        const json = res.ok ? await res.json() : { results: [] }
+        setResults((json.results as Profile[]) || [])
+      } catch {
+        setResults([])
+      }
       setShowResults(true)
     }, 300)
     return () => clearTimeout(timer)

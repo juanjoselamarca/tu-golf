@@ -14,7 +14,7 @@ const players: PlayerRow[] = [
     handicap_at_registration: 12.3,
     status: 'approved',
     tee_id: 't-azul',
-    profiles: { id: 'u1', name: 'Juan Pérez', email: 'jp@x.cl', indice: 12.3 },
+    profiles: { id: 'u1', name: 'Juan Pérez', indice: 12.3 },
     categories: null,
   },
   {
@@ -25,7 +25,7 @@ const players: PlayerRow[] = [
     handicap_at_registration: 18.4,
     status: 'approved',
     tee_id: null,
-    profiles: { id: 'u2', name: 'María González', email: 'mg@x.cl', indice: 18.4 },
+    profiles: { id: 'u2', name: 'María González', indice: 18.4 },
     categories: { id: 'cat-damas', name: 'Damas', default_tee_color: 'Rojo', gender: 'female' },
   },
 ]
