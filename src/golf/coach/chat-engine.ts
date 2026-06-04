@@ -53,8 +53,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
           type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
           const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
           let fullResponse = ''
-          const MAX_TOOL_ITERS = 5
-          let lastUsage: Anthropic.Messages.Usage | null = null
+          const MAX_TOOL_ITERS = 5
           // Acumulado de results de tool calls en TODAS las iters del loop —
           // alimenta al validador anti-alucinacion (D6) al final del stream.
           const allToolResultStrings: string[] = []
@@ -87,8 +86,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               }
             }
 
-            const resp = await stream.finalMessage()
-            lastUsage = resp.usage
+            const resp = await stream.finalMessage()
 
             if (resp.stop_reason === 'tool_use') {
               // Ejecutar tools, agregar al loop, continuar.
@@ -205,7 +203,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
                       related_session_id: sessionId,
                     })
                   } catch (e) {
-                    console.error('[tAIger/chat] tool_called event error:', e)
+                    void captureError(e, { context: 'taiger.chat.tool_called_event', userId })
                   }
                 }
               }
@@ -221,16 +219,6 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             fullResponse = 'Se me acabaron los pasos de análisis. ¿Puedes reformular tu pregunta?'
           }
 
-          if (lastUsage) {
-            const cacheRead = (lastUsage as { cache_read_input_tokens?: number }).cache_read_input_tokens ?? 0
-            const cacheCreate = (lastUsage as { cache_creation_input_tokens?: number }).cache_creation_input_tokens ?? 0
-            console.log('[tAIger/chat] usage:', {
-              input: lastUsage.input_tokens,
-              output: lastUsage.output_tokens,
-              cache_read: cacheRead,
-              cache_create: cacheCreate,
-            })
-          }
 
           // Sesion continua: pre-fetched arriba como `active` (migracion 017).
           const fullHistory: ChatMsg[] = [
@@ -250,7 +238,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             })
             .eq('id', sessionId)
           if (sessionUpdErr) {
-            console.error('[tAIger/chat] sesión update error:', sessionUpdErr)
+            void captureError(sessionUpdErr, { context: 'taiger.chat.session_update', userId })
           }
 
           // VALIDADOR ANTI-ALUCINACION (D6.1 — enforcement light desde 2026-05-25).
@@ -289,7 +277,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               related_session_id: sessionId,
             })
           } catch (vErr) {
-            console.error('[tAIger/chat] hallucination validator error:', vErr)
+            void captureError(vErr, { context: 'taiger.chat.hallucination_validator', userId })
           }
 
           controller.enqueue(encoder.encode(
