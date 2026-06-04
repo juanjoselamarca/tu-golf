@@ -123,3 +123,48 @@ describe('computeRoundMetric — gate de no-fantasía (devuelve null, no inventa
     expect(computeRoundMetric(row({ total_gross: null }), 'u1', 9.6, null)).toBeNull()
   })
 })
+
+describe('computeRoundMetric — edge cases de par y gross', () => {
+  const PAR9_OBJ = Object.fromEntries(PARS.slice(0, 9).map((p, i) => [String(i + 1), p])) // 9 entradas, suma 36
+
+  it('9h con par_per_hole de 9 entradas → usa esos 9 (par 36)', () => {
+    const m = computeRoundMetric(
+      row({ holes_played: 9, course_rating: 72, diferencial: '5.0', total_gross: 41, par_per_hole: PAR9_OBJ }),
+      'u1',
+      9.6,
+      null,
+    )
+    expect(m).not.toBeNull()
+    expect(m!.par_cancha).toBe(36)
+    expect(m!.strokes_over_par_round).toBe(5) // 41 − 36
+  })
+
+  it('18h con par_per_hole de solo 9 entradas → null (datos insuficientes)', () => {
+    expect(
+      computeRoundMetric(row({ holes_played: 18, par_per_hole: PAR9_OBJ }), 'u1', 9.6, null),
+    ).toBeNull()
+  })
+
+  it('9h con front asimétrico (par 37) → par de cancha = front 9 REAL, no asumido', () => {
+    const asym = { ...PAR72, '5': 6 } // hoyo 5 par 6 → front sube de 36 a 37
+    const m = computeRoundMetric(
+      row({ holes_played: 9, course_rating: 72, diferencial: '5.0', total_gross: 42, par_per_hole: asym }),
+      'u1',
+      9.6,
+      null,
+    )
+    expect(m!.par_cancha).toBe(37)
+    expect(m!.strokes_over_par_round).toBe(5) // 42 − 37
+  })
+
+  it('total_gross como string numérico (PostgREST numeric) → parsea', () => {
+    const m = computeRoundMetric(row({ total_gross: '88' }), 'u1', 9.6, null)
+    expect(m!.strokes_over_par_round).toBe(16) // 88 − 72
+  })
+
+  it('diferencial 0 exacto es válido (no se confunde con falsy)', () => {
+    const m = computeRoundMetric(row({ diferencial: 0 }), 'u1', 9.6, null)
+    expect(m).not.toBeNull()
+    expect(m!.delta_vs_handicap_expected).toBeCloseTo(-9.6) // 0 − 9.6
+  })
+})
