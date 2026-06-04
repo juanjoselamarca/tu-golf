@@ -9,6 +9,8 @@ import {
   resolvePlayerHandicap,
   isProducerTeamFormat,
 } from '@/lib/data/tournaments/teamRounds'
+import { FORMAT_META } from '@/golf/core/rules'
+import type { FormatoJuego } from '@/golf/core/rules'
 
 interface UseTournamentLifecycleArgs {
   tournament: Tournament & { codigo?: string | null }
@@ -91,6 +93,39 @@ export function useTournamentLifecycle({
         `Asigná a un grupo antes de iniciar: ${names}${extra}.`,
       )
       return
+    }
+
+    // Validación de tamaño de equipo: en formatos por equipos cada grupo (= equipo)
+    // debe respetar el rango del formato (foursome exactamente 2; scramble/best_ball
+    // 2 a 4). Sin esto el motor degrada EN SILENCIO — foursome con 3 ignora al
+    // tercero, scramble con 5 los trata como 4 — y nadie se entera hasta que los
+    // netos salen mal. Bloqueamos el inicio con un mensaje claro. Rango canónico en
+    // FORMAT_META (golf-correcto). Grupos vacíos se ignoran (no se les crea ronda).
+    if (isProducerTeamFormat(tournament.format)) {
+      const meta = FORMAT_META[tournament.format as FormatoJuego]
+      const rango = meta?.jugadoresPorEquipo
+      if (rango) {
+        // Contamos `group.players` igual que el loop de materialización de abajo
+        // (mismo array, sin filtrar por `approved`): así el tamaño validado es el
+        // MISMO equipo que el motor va a construir. No "arreglar" a approved-only:
+        // desincronizaría la validación de la realidad.
+        const fueraDeRango = groups.filter(
+          (g) => g.players.length > 0 && (g.players.length < rango.min || g.players.length > rango.max),
+        )
+        if (fueraDeRango.length > 0) {
+          const exigido = rango.min === rango.max ? `${rango.min}` : `${rango.min} a ${rango.max}`
+          const detalle = fueraDeRango
+            .map((g) => `"${g.name}" (${g.players.length})`)
+            .slice(0, 5)
+            .join(', ')
+          const extra = fueraDeRango.length > 5 ? ` y ${fueraDeRango.length - 5} más` : ''
+          showError(
+            'Tamaño de equipo incorrecto',
+            `En ${meta.label}, cada equipo debe tener ${exigido} jugadores. Corregí: ${detalle}${extra}.`,
+          )
+          return
+        }
+      }
     }
 
     if (!window.confirm(`Iniciar torneo con ${players.length} jugador${players.length !== 1 ? 'es' : ''}? Se crearán las rondas para todos.`)) return

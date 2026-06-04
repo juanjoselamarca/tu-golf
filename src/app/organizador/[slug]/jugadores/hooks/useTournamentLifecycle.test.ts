@@ -103,6 +103,34 @@ function buildArgs(format: string | undefined) {
   return { tournament, players, groups, setTournamentStatus: vi.fn() }
 }
 
+/**
+ * Variante parametrizable: `sizes` = jugadores por grupo (ej. [3] = un grupo de 3;
+ * [2, 0] = uno de 2 + uno vacío). Todos los jugadores quedan asignados a su grupo.
+ */
+function buildArgsSizes(format: string, sizes: number[]) {
+  const tournament = {
+    id: 't1', name: 'Test', slug: 'test', course_id: 'c1', status: 'inscripcion', format,
+    courses: { slope_rating: 113, course_rating: 72, par_total: 72, nombre: 'Cancha' },
+    hole_count: 18,
+  } as unknown as Tournament
+
+  const players: Player[] = []
+  const groups: TournamentGroup[] = []
+  let n = 0
+  sizes.forEach((size, gi) => {
+    const groupPlayers: TournamentGroup['players'] = []
+    for (let i = 0; i < size; i++) {
+      n++
+      const id = `p${n}`
+      players.push({ id, user_id: `u${n}`, handicap_at_registration: 99, status: 'approved', profiles: { name: `J${n}`, indice: 10 }, categories: null } as unknown as Player)
+      groupPlayers.push({ id: `gp${n}`, player_id: id, playerName: `J${n}` })
+    }
+    groups.push({ id: `g${gi + 1}`, name: `Equipo ${gi + 1}`, tee_time: null, sort_order: gi, ronda_libre_id: null, players: groupPlayers })
+  })
+
+  return { tournament, players, groups, setTournamentStatus: vi.fn() }
+}
+
 describe('useTournamentLifecycle.handleStartTournament — productor de equipos', () => {
   beforeEach(() => {
     recorded.inserts = {}
@@ -183,5 +211,77 @@ describe('useTournamentLifecycle.handleStartTournament — productor de equipos'
     // a course handicap; el leaderboard usa el mismo resolverCourseHandicap).
     const jugadores = recorded.inserts['ronda_libre_jugadores'] as Array<{ handicap?: number }>
     expect(jugadores.map((j) => j.handicap)).toEqual([10, 20])
+  })
+})
+
+describe('useTournamentLifecycle.handleStartTournament — validación de tamaño de equipo', () => {
+  beforeEach(() => {
+    recorded.inserts = {}
+    pushMock.mockClear()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+  })
+
+  // Bloqueado = no se crea NINGUNA ronda (se corta antes de materializar).
+  const fueBloqueado = () =>
+    recorded.inserts['rondas_libres'] === undefined && recorded.inserts['ronda_equipos'] === undefined
+
+  it('foursome con 3 jugadores → BLOQUEA el inicio (debe ser exactamente 2)', async () => {
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('foursome', [3])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(fueBloqueado()).toBe(true)
+  })
+
+  it('foursome con exactamente 2 → permite iniciar', async () => {
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('foursome', [2])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(recorded.inserts['ronda_equipos']).toHaveLength(1)
+  })
+
+  it('scramble con 5 jugadores → BLOQUEA (máximo 4)', async () => {
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('scramble', [5])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(fueBloqueado()).toBe(true)
+  })
+
+  it('scramble con 1 jugador → BLOQUEA (mínimo 2)', async () => {
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('scramble', [1])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(fueBloqueado()).toBe(true)
+  })
+
+  it('scramble con 3 jugadores → permite (rango 2-4)', async () => {
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('scramble', [3])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(recorded.inserts['ronda_equipos']).toHaveLength(1)
+  })
+
+  it('best_ball con 4 jugadores → permite (rango 2-4)', async () => {
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('best_ball', [4])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(recorded.inserts['ronda_equipos']).toHaveLength(1)
+  })
+
+  it('un grupo bien (2) y otro mal (3) → BLOQUEA todo el inicio sin efectos colaterales', async () => {
+    const args = buildArgsSizes('foursome', [2, 3])
+    const { result } = renderHook(() => useTournamentLifecycle(args))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(fueBloqueado()).toBe(true)
+    // Bloqueo limpio: no se tocó el estado del torneo ni se navegó.
+    expect(args.setTournamentStatus).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it('grupo vacío (0) se ignora: no bloquea si los demás están bien', async () => {
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('foursome', [2, 0])))
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(recorded.inserts['ronda_equipos']).toHaveLength(1)
+  })
+
+  it('formato individual (stroke_play) con 3 en un grupo → NO valida tamaño, inicia normal', async () => {
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [3])))
+    await act(async () => { await result.current.handleStartTournament() })
+    // Individual: crea ronda pero NO ronda_equipos, y nunca bloquea por tamaño.
+    expect(recorded.inserts['rondas_libres']).toHaveLength(1)
+    expect(recorded.inserts['ronda_equipos']).toBeUndefined()
   })
 })
