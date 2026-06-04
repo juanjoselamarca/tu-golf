@@ -41,8 +41,8 @@ interface WiringContract {
 const ENFORCED: WiringContract[] = [
   {
     piece: 'RAG reglas (tool search_knowledge_chunks)',
-    consumer: 'app/api/taiger/chat/route.ts',
-    needles: ['handle-tool-use', 'search-knowledge-chunks-tool'],
+    consumer: 'golf/coach/chat-engine.ts',
+    needles: ['handle-tool-use', 'search_knowledge_chunks'],
   },
   {
     piece: 'Sección engagement v3 en el system prompt',
@@ -60,8 +60,8 @@ const ENFORCED: WiringContract[] = [
     needles: ['coach_plans', 'player_patterns'],
   },
   {
-    piece: 'Fallback degradado del coach (P0) consumido por el route',
-    consumer: 'app/api/taiger/chat/route.ts',
+    piece: 'Fallback degradado del coach (P0) consumido por chat-engine',
+    consumer: 'golf/coach/chat-engine.ts',
     needles: ['coachDegradedFallback'],
   },
   // ── Ola 2 "el coach te conoce": el motor de foco conecta las piezas huérfanas ──
