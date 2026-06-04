@@ -18,8 +18,10 @@ Cruce de los hallazgos contra los 3 worktrees activos + ramas de auditoría FTUE
 | **P0-1b** `strokesOnHole` inline en torneo (NUEVO, destapado al cerrar P0-1) | ✅ **RESUELTO + EN PROD** | PR #100 (`f69b0ad`, 2026-06-03). Eliminadas las 2 copias inline en `organizador/[slug]/scoring` y `torneo/[slug]/score`; ahora usan `strokesRecibidosEnHoyo` del motor con `holeCount`. Arregla plus (restaba 18 golpes) + 9 hoyos + duplicación. CI verde (build + Playwright scorer smoke + E2E). |
 | **P0-2** allowances de equipo | ❌ **NADIE LO TOCA** | `best-ball.ts:104,106` en main sigue con `handicapIndex` crudo. `team-scoring-v1` agregó standings/leaderboard, no el cálculo de strokes. PR #93 tocó el handicap de equipo *agregado* en el create route, no el reparto por jugador con allowance 85%. |
 | **P0-3 / P0-4** idempotencia finalización | ❌ **NADIE LO TOCA** | Commits en `score-grupo`/`useFinalizeRonda` son todos de mayo. Sin trabajo activo. |
-| **P0-5** ledger de migraciones | ❌ **NADIE LO TOCA** | — |
-| **P0-6** RLS `profiles` world-readable | ❌ **NADIE LO TOCA** | — |
+| **P0-5** ledger de migraciones | ❌ **PENDIENTE** | — |
+| **P0-6** RLS `profiles` world-readable (emails) | ✅ **RESUELTO + EN PROD** | PR #107 (`bdca620`, 2026-06-04). Column-level security: `REVOKE SELECT(email)` para anon/authenticated, `name`/`indice` siguen públicos. ~9 lecturas de email migradas a service role (API nueva `/api/profiles/search` + auth.getUser + APIs admin). 2 pasadas de code-reviewer (1ª FAIL detectó 6 lecturas en joins embebidos). Verificado en prod: anon pidiendo email → 42501; name/indice OK; rutas 200. |
+
+> **Hallazgo nuevo (CI, 2026-06-04):** CVE **CRITICAL "Malware in supabase"** en deps (`supabase` CLI, dev-dependency — no entra al bundle de prod). Preexistente, ya falla en todo main. **P0 de supply-chain separado** — verificar versión/advisory y pinnear/parchear.
 | Auditoría FTUE equipos (`worktree-agent-*`, `chore/audit-ftue-equipos`) | ➖ **ORTOGONAL** | Auditoría de producto/UX del onboarding de equipos (screenshots, benchmark Grint/V-Par, funnel). No toca backend/cálculo/seguridad. |
 
 **Lectura crítica:** el trabajo en curso resuelve 2 de los 3 P1 de IA, pero **ninguno de los 6 P0** (los bloqueantes CERO FALLOS de cálculo e integridad) está siendo trabajado por nadie. El esfuerzo está en features de cerebro v3 y leaderboard de equipos, no en los bugs de corrección matemática que se ven en cancha.
