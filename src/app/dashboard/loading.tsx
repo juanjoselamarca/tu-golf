@@ -1,29 +1,13 @@
 // src/app/dashboard/loading.tsx
-// Skeleton instantáneo mientras el server component de /dashboard corre sus
-// queries. Sin esto el usuario veía pantalla blanca congelada durante todo el
-// SSR (force-dynamic + 9 queries). Calca la estructura real de MiGolfTabs:
-// barra de tabs sticky (640px, fondo blanco, acento #c4992a) + contenido.
-
-function Bar({ width, height, radius = 8, mb = 0 }: { width: string; height: number; radius?: number; mb?: number }) {
-  return (
-    <div
-      style={{
-        width,
-        height,
-        borderRadius: radius,
-        marginBottom: mb,
-        background: 'linear-gradient(90deg, #f0f0ee 25%, #e6e6e3 50%, #f0f0ee 75%)',
-        backgroundSize: '200% 100%',
-        animation: 'mg-shimmer 1.4s ease-in-out infinite',
-      }}
-    />
-  )
-}
+// Skeleton instantáneo (fallback de ruta) mientras resuelve el auth del server
+// component de /dashboard. Calca la estructura real de MiGolfTabs: barra de tabs
+// (640px, fondo blanco, acento #c4992a) + contenido. Usa el Shimmer compartido.
+import { Bar, ShimmerKeyframes } from '@/components/mi-golf/Shimmer'
 
 export default function DashboardLoading() {
   return (
     <div style={{ background: '#ffffff', minHeight: '100vh' }} aria-busy="true" aria-label="Cargando Mi Golf">
-      <style>{`@keyframes mg-shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+      <ShimmerKeyframes />
 
       {/* Barra de tabs (mismas medidas que MiGolfTabs) */}
       <div
