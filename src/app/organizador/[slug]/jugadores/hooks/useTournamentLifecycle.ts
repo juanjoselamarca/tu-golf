@@ -105,6 +105,10 @@ export function useTournamentLifecycle({
       const meta = FORMAT_META[tournament.format as FormatoJuego]
       const rango = meta?.jugadoresPorEquipo
       if (rango) {
+        // Contamos `group.players` igual que el loop de materialización de abajo
+        // (mismo array, sin filtrar por `approved`): así el tamaño validado es el
+        // MISMO equipo que el motor va a construir. No "arreglar" a approved-only:
+        // desincronizaría la validación de la realidad.
         const fueraDeRango = groups.filter(
           (g) => g.players.length > 0 && (g.players.length < rango.min || g.players.length > rango.max),
         )

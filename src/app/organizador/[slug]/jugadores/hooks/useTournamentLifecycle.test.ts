@@ -261,10 +261,14 @@ describe('useTournamentLifecycle.handleStartTournament — validación de tamañ
     expect(recorded.inserts['ronda_equipos']).toHaveLength(1)
   })
 
-  it('un grupo bien (2) y otro mal (3) → BLOQUEA todo el inicio', async () => {
-    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('foursome', [2, 3])))
+  it('un grupo bien (2) y otro mal (3) → BLOQUEA todo el inicio sin efectos colaterales', async () => {
+    const args = buildArgsSizes('foursome', [2, 3])
+    const { result } = renderHook(() => useTournamentLifecycle(args))
     await act(async () => { await result.current.handleStartTournament() })
     expect(fueBloqueado()).toBe(true)
+    // Bloqueo limpio: no se tocó el estado del torneo ni se navegó.
+    expect(args.setTournamentStatus).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
   })
 
   it('grupo vacío (0) se ignora: no bloquea si los demás están bien', async () => {
