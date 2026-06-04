@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +18,7 @@ export async function GET() {
       return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await createAdminClient()
       .from('profiles')
       .select('id, email, role')
       .eq('id', user.id)

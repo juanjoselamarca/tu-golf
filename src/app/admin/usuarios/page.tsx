@@ -44,14 +44,14 @@ export default function UsuariosPage() {
     const load = async () => {
       const supabase = createClient()
 
-      // Fetch all profiles
-      const { data: profiles, count } = await supabase
-        .from('profiles')
-        .select('id, name, email, role, indice, indice_golfers, nivel, cpi_score, cpi_status, created_at', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .limit(500)
+      // Lista de usuarios vía API admin (service role): el email de profiles ya
+      // no es legible por el cliente público (RLS column-level).
+      const usersRes = await fetch('/api/admin/users?limit=500')
+      const usersJson = usersRes.ok ? await usersRes.json() : { users: [], total: 0 }
+      const profiles = (usersJson.users as UserRow[]) || []
+      const count = usersJson.total as number
 
-      if (!profiles) { setLoading(false); return }
+      if (!profiles.length) { setLoading(false); return }
       setTotalCount(count ?? profiles.length)
 
       // Batch: count rounds per user

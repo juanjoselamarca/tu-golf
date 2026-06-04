@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,13 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  }
+
+  // Rate-limit por usuario: es un endpoint de enumeración de PII (devuelve email
+  // de terceros para inscribirlos). 30 búsquedas/min frena el scraping del directorio.
+  const rl = checkRateLimit(`profiles-search:${user.id}`, 30, 60_000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Demasiadas búsquedas, esperá un momento.' }, { status: 429 })
   }
 
   const q = (new URL(request.url).searchParams.get('q') ?? '').trim()
