@@ -82,8 +82,8 @@ function buildArgs(format: string | undefined) {
   } as unknown as Tournament
 
   const players: Player[] = [
-    { id: 'p1', user_id: 'u1', handicap_at_registration: 99, status: 'approved', profiles: { name: 'Ana', email: 'a@a.cl', indice: 10 }, categories: null },
-    { id: 'p2', user_id: 'u2', handicap_at_registration: 99, status: 'approved', profiles: { name: 'Beto', email: 'b@b.cl', indice: 20 }, categories: null },
+    { id: 'p1', user_id: 'u1', handicap_at_registration: 99, status: 'approved', profiles: { name: 'Ana', indice: 10 }, categories: null },
+    { id: 'p2', user_id: 'u2', handicap_at_registration: 99, status: 'approved', profiles: { name: 'Beto', indice: 20 }, categories: null },
   ]
 
   const groups: TournamentGroup[] = [
