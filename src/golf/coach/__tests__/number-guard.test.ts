@@ -30,6 +30,33 @@ describe('guardNumbers', () => {
     expect(r.blocked).toBe(true)
     expect(r.offending).toContain('81')
   })
+
+  // P0 (review 2026-06-05): la exención de duración NO puede dispararse por mera
+  // co-ocurrencia de "día"/"semana" en la ventana — son palabras comunes en copy
+  // de coaching y dejarían pasar un score fabricado.
+  it('bloquea un absoluto fabricado cuando "día" aparece cerca pero no pegado al número', () => {
+    const r = guardNumbers({ text: 'El objetivo del día es 80.', allowedNumbers: allowed })
+    expect(r.blocked).toBe(true)
+    expect(r.offending).toContain('80')
+  })
+
+  it('bloquea un absoluto fabricado con "semana" en la frase', () => {
+    const r = guardNumbers({ text: 'Esta semana apuntá a 80 sobre par.', allowedNumbers: allowed })
+    expect(r.blocked).toBe(true)
+    expect(r.offending).toContain('80')
+  })
+
+  it('exime una duración real pegada al número (90 minutos)', () => {
+    const r = guardNumbers({ text: 'Practicá 90 minutos el approach esta semana.', allowedNumbers: allowed })
+    expect(r.blocked).toBe(false)
+  })
+
+  it('exime "90 días" pero bloquea el score fabricado de la misma frase', () => {
+    const r = guardNumbers({ text: 'En 90 días podés bajar a 80.', allowedNumbers: allowed })
+    expect(r.blocked).toBe(true)
+    expect(r.offending).toContain('80')
+    expect(r.offending).not.toContain('90')
+  })
 })
 
 describe('collectAuthorizedNumbers', () => {

@@ -33,4 +33,18 @@ describe('enforceFinalText (buffer + bloqueo del turno final)', () => {
     expect(r.blocked).toBe(false)
     expect(r.text).toContain('búnker')
   })
+
+  it('al bloquear con relativeHint, la prosa segura cita el "+N sobre par" (auto-contenida)', () => {
+    const r = enforceFinalText('Si seguís el plan terminás en 81.', { authorized: ['79', '+7'], relativeHint: '+7' })
+    expect(r.blocked).toBe(true)
+    expect(r.text).toContain('+7 sobre par')
+    expect(r.text).not.toContain('81')
+  })
+
+  it('al bloquear sin relativeHint, la prosa segura NO promete una tarjeta inexistente', () => {
+    const r = enforceFinalText('Terminás en 81.', { authorized: ['79'], relativeHint: null })
+    expect(r.blocked).toBe(true)
+    expect(r.text).not.toContain('tarjeta')
+    expect(r.text).not.toContain('81')
+  })
 })

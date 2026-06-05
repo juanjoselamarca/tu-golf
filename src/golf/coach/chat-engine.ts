@@ -23,13 +23,20 @@ type ChatMsg = { role: 'user' | 'assistant'; content: string }
  * score absoluto fabricado que no traza a la calculadora, lo BLOQUEA y devuelve
  * prosa segura — el número exacto vive en la tarjeta. NUNCA adivina una corrección.
  */
-export function enforceFinalText(text: string, opts: { authorized: string[] }): { blocked: boolean; text: string } {
+export function enforceFinalText(
+  text: string,
+  opts: { authorized: string[]; relativeHint?: string | null },
+): { blocked: boolean; text: string } {
   const g = guardNumbers({ text, allowedNumbers: opts.authorized })
   if (!g.blocked) return { blocked: false, text }
-  return {
-    blocked: true,
-    text: 'Te dejé el objetivo exacto y su desglose en la tarjeta de acá abajo 👇',
-  }
+  // Prosa segura AUTO-CONTENIDA: si hay un objetivo relativo verificado de este
+  // turno, lo citamos inline ("+N sobre par") para que el mensaje siga teniendo
+  // información aunque la tarjeta no se haya persistido (P1 review 2026-06-05).
+  const hint = opts.relativeHint
+  const safe = hint
+    ? `Mejor te lo doy en "sobre par" para no jugarte un número sin verificar: apuntá a ${hint} sobre par. El desglose exacto está en la tarjeta de acá abajo 👇`
+    : 'Mejor te lo doy en "sobre par" para no jugarte un número sin verificar. Pedímelo de nuevo y te lo calculo exacto con los datos de la cancha.'
+  return { blocked: true, text: safe }
 }
 
 /**
@@ -101,6 +108,9 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
           // Acumulado de results de tool calls en TODAS las iters del loop —
           // alimenta al validador anti-alucinacion (D6) al final del stream.
           const allToolResultStrings: string[] = []
+          // Último "+N sobre par" verificado por compute_score_projection en este
+          // turno — sirve de respaldo auto-contenido si el guard bloquea el final.
+          let lastProjectionRelative: string | null = null
 
           for (let iter = 0; iter < MAX_TOOL_ITERS; iter++) {
             // System como array con cache_control ephemeral. Cachea el system prompt
@@ -245,6 +255,8 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
                   // compute_score_projection: emitimos la tarjeta con el número exacto
                   // (el LLM puede citarlo inline; el guard del turno final lo verifica).
                   if (block.name === 'compute_score_projection' && result.ok) {
+                    const proj = result.data as { relativeLabel?: string }
+                    if (typeof proj.relativeLabel === 'string') lastProjectionRelative = proj.relativeLabel
                     controller.enqueue(encoder.encode(
                       `data: ${JSON.stringify({ event: 'score_projection', projection: result.data })}\n\n`,
                     ))
@@ -280,12 +292,12 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             // "+N"; si reincide → prosa segura + tarjeta (el número correcto vive ahí).
             if (guardEnabled) {
               const authorized = collectAuthorizedNumbers(allToolResultStrings, contextString)
-              const enforced = enforceFinalText(iterText, { authorized })
+              const enforced = enforceFinalText(iterText, { authorized, relativeHint: lastProjectionRelative })
               let outText = enforced.text
               if (enforced.blocked) {
                 try {
                   const retry = await regenerateRelativeOnly(anthropic, systemFinal, loopMessages)
-                  const r2 = enforceFinalText(retry, { authorized })
+                  const r2 = enforceFinalText(retry, { authorized, relativeHint: lastProjectionRelative })
                   if (!r2.blocked && retry.trim()) outText = retry
                 } catch (rErr) {
                   void captureError(rErr, { context: 'taiger.chat.guard_retry', userId })

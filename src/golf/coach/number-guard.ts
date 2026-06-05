@@ -10,7 +10,11 @@ const SCORE_KEYWORDS = [
   'tiras', 'bajar a', 'bajás a', 'bajas a', 'cerrar en', 'hacés', 'haces', 'anotar', 'apuntá',
   'apunta',
 ]
-const DURATION = /\b(min|minuto|minutos|hr|hora|horas|seg|segundo|sem|semana|semanas|dia|día|dias|días|mes|meses)\b/
+// Unidad de duración/tiempo INMEDIATAMENTE pegada al número ("45 minutos", "90 días").
+// Se chequea la adyacencia, NO la mera co-ocurrencia en la ventana: si no, frases
+// normales como "el objetivo del día es 80" o "esta semana apuntá a 80" dejarían
+// pasar un absoluto fabricado (P0 detectado en review 2026-06-05).
+const DURATION_UNIT_AFTER = /^\s*(min|minutos?|hr|horas?|seg|segundos?|sem|semanas?|d[ií]as?|mes(es)?|a[nñ]os?)\b/i
 
 export interface GuardInput {
   text: string
@@ -33,7 +37,9 @@ export function guardNumbers(input: GuardInput): GuardResult {
     const at = m.index
     const window = lower.slice(Math.max(0, at - 25), Math.min(lower.length, at + num.length + 25))
     if (!SCORE_KEYWORDS.some((k) => window.includes(k))) continue // no es claim de score
-    if (DURATION.test(window)) continue // duración de práctica
+    // Exención de duración: SOLO si la unidad está pegada al número ("45 minutos").
+    const after = input.text.slice(at + m[1].length, at + m[1].length + 16)
+    if (DURATION_UNIT_AFTER.test(after)) continue // es una duración, no un score
     const n = parseInt(num.replace('+', ''), 10)
     if (n < 30 && !num.startsWith('+') && !num.startsWith('-')) continue // hoyos/handicaps chicos
     if (allowed.has(num) || allowed.has(num.replace('+', ''))) continue // trazable

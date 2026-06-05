@@ -39,9 +39,12 @@ const PART_LABELS: ReadonlyArray<readonly [keyof ScoreProjection['distribution']
 ]
 
 export function ScoreProjectionCard({ projection }: Props) {
-  const { absolute, relativeLabel, distribution } = projection
+  const { over, absolute, relativeLabel, distribution } = projection
   const parts = PART_LABELS.filter(([k]) => distribution[k] > 0)
-  const big = absolute != null ? String(absolute) : relativeLabel
+  const relText = over === 0 ? 'En par' : `${relativeLabel} sobre par`
+  // Con par verificado mostramos el absoluto grande + el relativo como subtítulo;
+  // sin par confiable, el relativo ("+N sobre par") ES el número grande.
+  const big = absolute != null ? String(absolute) : relText
 
   return (
     <div
@@ -83,7 +86,7 @@ export function ScoreProjectionCard({ projection }: Props) {
         </span>
         {absolute != null && (
           <span style={{ fontSize: 14, color: 'var(--text-2)' }}>
-            {relativeLabel} sobre par
+            {relText}
           </span>
         )}
       </div>
