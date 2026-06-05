@@ -242,6 +242,13 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
                       })}\n\n`,
                     ))
                   }
+                  // compute_score_projection: emitimos la tarjeta con el número exacto
+                  // (el LLM puede citarlo inline; el guard del turno final lo verifica).
+                  if (block.name === 'compute_score_projection' && result.ok) {
+                    controller.enqueue(encoder.encode(
+                      `data: ${JSON.stringify({ event: 'score_projection', projection: result.data })}\n\n`,
+                    ))
+                  }
                   // Instrumentacion: emit tool_called para el cerebro del agente
                   // (sin bloquear el flow si falla la auditoria).
                   try {
