@@ -51,5 +51,5 @@ export function collectAuthorizedNumbers(toolResults: string[], contextString: s
   }
   toolResults.forEach(grab) // incluye absolute/over/relativeLabel de compute_score_projection
   grab(contextString)
-  return [...out]
+  return Array.from(out)
 }

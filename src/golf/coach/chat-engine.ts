@@ -6,6 +6,7 @@ import { handleToolUse } from '@/golf/coach/v3/tools/handle-tool-use'
 import { coachDegradedFallback, toPlainMessages, isRetryableLLMError } from '@/golf/coach/v3/resilience/coach-fallback'
 import type { Jurisdiction } from '@/golf/coach/v3/retrieval/types'
 import { validateResponse, type HallucinationWarning } from '@/golf/coach/hallucination-validator'
+import { guardNumbers, collectAuthorizedNumbers } from '@/golf/coach/number-guard'
 import { toolActivityLabel, friendlyPatternName, friendlyMetricName } from '@/lib/coach-event-narrator'
 import { captureError } from '@/lib/error-tracking'
 import type { TaigerContext } from '@/golf/coach/prompts'
@@ -15,6 +16,46 @@ import type { TaigerContext } from '@/golf/coach/prompts'
 // comportamiento) para dejar el handler delgado. El guard aritmético se monta en PR2.
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
+
+/**
+ * Verifica el texto del turno FINAL contra el set autorizado (salidas de la tool
+ * de este turno + valores exactos del contexto) ANTES de mostrarlo. Si trae un
+ * score absoluto fabricado que no traza a la calculadora, lo BLOQUEA y devuelve
+ * prosa segura — el número exacto vive en la tarjeta. NUNCA adivina una corrección.
+ */
+export function enforceFinalText(text: string, opts: { authorized: string[] }): { blocked: boolean; text: string } {
+  const g = guardNumbers({ text, allowedNumbers: opts.authorized })
+  if (!g.blocked) return { blocked: false, text }
+  return {
+    blocked: true,
+    text: 'Te dejé el objetivo exacto y su desglose en la tarjeta de acá abajo 👇',
+  }
+}
+
+/**
+ * Retry acotado (1 intento, sin tools) cuando el turno final trajo un absoluto no
+ * respaldado: re-pide la respuesta forzando "+N sobre par" + referencia a la tarjeta.
+ * No-streaming; si falla, el caller cae a la prosa segura de enforceFinalText.
+ */
+async function regenerateRelativeOnly(
+  anthropic: Anthropic,
+  systemFinal: string,
+  loopMessages: unknown[],
+): Promise<string> {
+  const strictSystem =
+    systemFinal +
+    '\n\n[CORRECCIÓN OBLIGATORIA] Tu respuesta anterior incluyó un score absoluto que NO salió de la calculadora (compute_score_projection). Reescribí tu respuesta SIN ningún score absoluto: hablá solo en "+N sobre par" y referí al jugador a la tarjeta de objetivo (👇) para el número exacto. No inventes ni recalcules números.'
+  const resp = await anthropic.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1024,
+    system: [{ type: 'text', text: strictSystem, cache_control: { type: 'ephemeral' } }],
+    messages: loopMessages as unknown as Anthropic.MessageParam[],
+  })
+  return resp.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map((b) => b.text)
+    .join('')
+}
 
 export interface RunChatStreamParams {
   anthropic: Anthropic
@@ -32,6 +73,9 @@ export interface RunChatStreamParams {
 export function runChatStream(params: RunChatStreamParams): ReadableStream {
   const { anthropic, systemFinal, activeTools, conversation, toolCtx, supabase, userId, sessionId, ctx, contextString } = params
   const encoder = new TextEncoder()
+  // Kill-switch del enforcement aritmético (default ON). En 'false' revierte al
+  // streaming live token-a-token del turno final (comportamiento pre-garantía).
+  const guardEnabled = process.env.COACH_NUMBER_GUARD_ENABLED !== 'false'
 
     const readable = new ReadableStream({
       async start(controller) {
@@ -53,7 +97,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
           type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
           const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
           let fullResponse = ''
-          const MAX_TOOL_ITERS = 5
+          const MAX_TOOL_ITERS = 5
           // Acumulado de results de tool calls en TODAS las iters del loop —
           // alimenta al validador anti-alucinacion (D6) al final del stream.
           const allToolResultStrings: string[] = []
@@ -76,19 +120,31 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               messages: loopMessages as unknown as Anthropic.MessageParam[],
             })
 
-            // Forward text deltas al cliente conforme llegan.
+            // Acumulamos el texto de ESTA iteración. Con guard activo no se streamea
+            // token-a-token: recién sabemos si es el turno final tras finalMessage(),
+            // y el turno final debe verificarse antes de mostrarse. Sin guard, live.
+            let iterText = ''
             for await (const event of stream) {
               if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
                 const text = event.delta.text
-                fullResponse += text
-                emittedContent = true
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+                iterText += text
+                if (!guardEnabled) {
+                  emittedContent = true
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+                }
               }
             }
 
-            const resp = await stream.finalMessage()
+            const resp = await stream.finalMessage()
 
             if (resp.stop_reason === 'tool_use') {
+              // Texto pre-tool (chatter corto antes de consultar; no lleva el desglose
+              // final): con guard activo se buffeó, lo flusheamos ahora.
+              if (guardEnabled && iterText) {
+                emittedContent = true
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: iterText })}\n\n`))
+              }
+              fullResponse += iterText
               // Ejecutar tools, agregar al loop, continuar.
               loopMessages.push({ role: 'assistant', content: resp.content })
               const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
@@ -211,7 +267,32 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               continue
             }
 
-            // end_turn o max_tokens — ya recolectamos texto via deltas.
+            // Turno FINAL (end_turn o max_tokens). Con guard activo, el texto se buffeó
+            // (iterText) y NO se mostró todavía: lo verificamos contra el set autorizado
+            // ANTES de flushear. Si trae un absoluto no respaldado → 1 retry acotado a
+            // "+N"; si reincide → prosa segura + tarjeta (el número correcto vive ahí).
+            if (guardEnabled) {
+              const authorized = collectAuthorizedNumbers(allToolResultStrings, contextString)
+              const enforced = enforceFinalText(iterText, { authorized })
+              let outText = enforced.text
+              if (enforced.blocked) {
+                try {
+                  const retry = await regenerateRelativeOnly(anthropic, systemFinal, loopMessages)
+                  const r2 = enforceFinalText(retry, { authorized })
+                  if (!r2.blocked && retry.trim()) outText = retry
+                } catch (rErr) {
+                  void captureError(rErr, { context: 'taiger.chat.guard_retry', userId })
+                }
+              }
+              if (outText) {
+                emittedContent = true
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: outText })}\n\n`))
+              }
+              fullResponse += outText
+            } else {
+              // Sin guard: el texto del turno final ya se streameó live arriba.
+              fullResponse += iterText
+            }
             break
           }
 
