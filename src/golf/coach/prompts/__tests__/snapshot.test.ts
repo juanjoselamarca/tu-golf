@@ -19,7 +19,9 @@ describe('TAIGER_SYSTEM_PROMPT snapshot', () => {
   // el coach generó "7 pares + 8 bogeys + 3 dobles = 79" (en realidad 86).
   it('incluye la regla de INTEGRIDAD ARITMÉTICA en el prompt que recibe el LLM', () => {
     expect(TAIGER_SYSTEM_PROMPT).toContain('INTEGRIDAD ARITMÉTICA')
-    expect(TAIGER_SYSTEM_PROMPT).toContain('DEBE cerrar exactamente')
+    // PR2 (garantía dura): la regla manda DELEGAR la aritmética en la tool
+    // determinista, no "revisar la suma". El wiring se verifica acá.
+    expect(TAIGER_SYSTEM_PROMPT).toContain('compute_score_projection')
   })
 
   // El prompt NO debe atribuir la dispersión de scores al driver: el motor no
