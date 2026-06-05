@@ -220,6 +220,8 @@ async function runCoachChat(userId, userMessage) {
 
   const loopMessages = [{ role: 'user', content: userMessage }]
   let fullResponse = ''
+  const toolResultStrings = []
+  const toolNames = []
   const MAX_ITERS = 4
 
   for (let iter = 0; iter < MAX_ITERS; iter++) {
@@ -241,7 +243,10 @@ async function runCoachChat(userId, userMessage) {
       for (const block of resp.content) {
         if (block.type === 'tool_use') {
           const result = await executeTool(block.name, block.input, toolCtx)
-          toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) })
+          const serialized = JSON.stringify(result)
+          toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: serialized })
+          toolResultStrings.push(serialized)
+          toolNames.push(block.name)
         }
       }
       loopMessages.push({ role: 'user', content: toolResults })
@@ -249,7 +254,7 @@ async function runCoachChat(userId, userMessage) {
     }
     break
   }
-  return fullResponse.trim()
+  return { text: fullResponse.trim(), toolResultStrings, toolNames, contextString }
 }
 
 // ---------- Asserts ----------
@@ -311,7 +316,7 @@ async function runProfile(key, profile) {
   const userMessage = '¿Cuál es mi promedio de scoring? Cita el número exacto.'
   console.log(`  → preguntando al coach: "${userMessage}"`)
   const t0 = Date.now()
-  const response = await runCoachChat(userId, userMessage)
+  const { text: response } = await runCoachChat(userId, userMessage)
   const ms = Date.now() - t0
   console.log(`  ← respuesta (${response.length} chars, ${ms}ms):`)
   console.log(response.split('\n').map(l => '    ' + l).join('\n'))
@@ -327,8 +332,47 @@ async function runProfile(key, profile) {
   }
 }
 
+// Smoke de la GARANTÍA DURA ARITMÉTICA (PR2): pide un objetivo de score y verifica
+// (1) que el coach delegue en compute_score_projection y (2) que ningún score
+// absoluto de la prosa esté fuera del set autorizado (lo que el enforcement de
+// runtime bloquearía). Usa el guard REAL — prueba de consumo end-to-end.
+async function runProjectionSmoke() {
+  console.log('\n━━━ PROYECCIÓN (garantía aritmética dura) ━━━')
+  const { guardNumbers, collectAuthorizedNumbers } = await import('../src/golf/coach/number-guard.ts')
+  const profile = PROFILES['18h']
+  const userId = await getOrCreateUser(profile.email, profile.name)
+  await ensureProfile(userId, profile.email, profile.name, profile.indice)
+  await cleanRounds(userId)
+  const seedRows = buildSeedRounds(profile)
+  await seedRounds(userId, seedRows)
+
+  const userMessage = '¿Qué tengo que hacer para bajar 2 golpes mi promedio? Dame el score objetivo exacto y el desglose de hoyos.'
+  console.log(`  → "${userMessage}"`)
+  const { text, toolResultStrings, toolNames, contextString } = await runCoachChat(userId, userMessage)
+  console.log(`  ← respuesta (${text.length} chars). Tools: ${toolNames.join(', ') || '(ninguna)'}`)
+  console.log(text.split('\n').map(l => '    ' + l).join('\n'))
+
+  const failures = []
+  if (!toolNames.includes('compute_score_projection')) {
+    failures.push('El coach NO llamó compute_score_projection para un objetivo de score (debe delegar la aritmética).')
+  }
+  const authorized = collectAuthorizedNumbers(toolResultStrings, contextString)
+  const guard = guardNumbers({ text, allowedNumbers: authorized })
+  if (guard.blocked) {
+    failures.push(`Score(s) absoluto(s) sin respaldo en la prosa: ${guard.offending.join(', ')} — no salieron de la calculadora ni del contexto. El enforcement de runtime los bloquearía.`)
+  }
+
+  if (failures.length === 0) {
+    console.log('  ✓ PASS')
+    return { key: 'projection', pass: true }
+  }
+  console.log('  ✗ FAIL')
+  failures.forEach(f => console.log(`    - ${f}`))
+  return { key: 'projection', pass: false, failures }
+}
+
 async function main() {
-  console.log('🐯 qa-coach-llm-smoke — validando consistencia 9h/18h del LLM\n')
+  console.log('🐯 qa-coach-llm-smoke — validando consistencia 9h/18h + garantía aritmética del LLM\n')
   const results = []
   for (const [key, profile] of Object.entries(PROFILES)) {
     try {
@@ -337,6 +381,12 @@ async function main() {
       console.error(`  ✗ ERROR en ${key}: ${err.message}`)
       results.push({ key, pass: false, error: err.message })
     }
+  }
+  try {
+    results.push(await runProjectionSmoke())
+  } catch (err) {
+    console.error(`  ✗ ERROR en projection: ${err.message}`)
+    results.push({ key: 'projection', pass: false, error: err.message })
   }
 
   console.log('\n━━━ RESUMEN ━━━')
