@@ -1,0 +1,8 @@
+[
+  { "id": "bug-79-86", "parTotal": 72, "holes": 18, "distribution": { "par": 7, "bogey": 8, "double": 3 }, "expectOver": 14, "expectAbsolute": 86 },
+  { "id": "target-79", "parTotal": 72, "holes": 18, "targetOver": 7, "expectOver": 7, "expectAbsolute": 79 },
+  { "id": "even-par", "parTotal": 72, "holes": 18, "targetOver": 0, "expectOver": 0, "expectAbsolute": 72 },
+  { "id": "9h-bogey-golf", "parTotal": 36, "holes": 9, "distribution": { "par": 0, "bogey": 9 }, "expectOver": 9, "expectAbsolute": 45 },
+  { "id": "under-par", "parTotal": 72, "holes": 18, "targetOver": -3, "expectOver": -3, "expectAbsolute": 69 },
+  { "id": "no-par-relative", "parTotal": null, "holes": 18, "targetOver": 7, "expectOver": 7, "expectAbsolute": null }
+]
