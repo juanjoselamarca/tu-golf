@@ -135,14 +135,14 @@ export default function Navbar() {
             aria-label="Menú"
           >
             <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
 
           {/* Logo — always goes to landing */}
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '2px', textDecoration: 'none', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
-            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: t.logoText }}>Golfers</span>
-            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px', color: '#C4992A' }}>+</span>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '1px', textDecoration: 'none', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+            <span style={{ fontFamily: 'var(--font-dm-sans), system-ui, sans-serif', fontWeight: 700, fontSize: '20px', letterSpacing: '-0.02em', color: t.logoText }}>Golfers</span>
+            <span style={{ fontFamily: 'var(--font-dm-sans), system-ui, sans-serif', fontWeight: 700, fontSize: '20px', letterSpacing: '-0.02em', color: '#C4992A' }}>+</span>
           </Link>
 
           {/* Right: notification bell + avatar or login */}
@@ -214,8 +214,8 @@ export default function Navbar() {
           ) : (
             <Link href="/login" style={{
               fontSize: '14px', fontWeight: 600, color: t.loginBtnText,
-              textDecoration: 'none', padding: '8px 16px',
-              border: `1px solid ${t.loginBtnBorder}`, borderRadius: '10px',
+              textDecoration: 'none', padding: '8px 18px', letterSpacing: '-0.01em',
+              border: `1px solid ${t.loginBtnBorder}`, borderRadius: '12px',
             }}>
               Entrar
             </Link>
@@ -253,7 +253,7 @@ export default function Navbar() {
           borderBottom: `1px solid ${t.sidebarBorder}`,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: user ? '16px' : '0' }}>
-            <span style={{ fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: '20px' }}>
+            <span style={{ fontFamily: 'var(--font-dm-sans), system-ui, sans-serif', fontWeight: 700, fontSize: '20px', letterSpacing: '-0.02em' }}>
               <span style={{ color: t.logoText }}>Golfers</span>
               <span style={{ color: '#C4992A' }}>+</span>
             </span>
@@ -419,14 +419,14 @@ export default function Navbar() {
               <Link href="/login" onClick={() => setSidebarOpen(false)} style={{
                 display: 'block', padding: '12px 16px', textAlign: 'center',
                 color: t.guestBtnText, fontSize: '15px', textDecoration: 'none',
-                border: `1px solid ${t.guestBtnBorder}`, borderRadius: '10px',
+                border: `1px solid ${t.guestBtnBorder}`, borderRadius: '12px',
               }}>
                 Iniciar sesión
               </Link>
               <Link href="/register" onClick={() => setSidebarOpen(false)} style={{
                 display: 'block', padding: '12px 16px', textAlign: 'center',
-                color: t.registerText, fontSize: '15px', fontWeight: 700, textDecoration: 'none',
-                background: t.registerBg, borderRadius: '10px',
+                color: t.registerText, fontSize: '15px', fontWeight: 700, letterSpacing: '-0.01em', textDecoration: 'none',
+                background: t.registerBg, borderRadius: '12px',
               }}>
                 Registrarse gratis
               </Link>
