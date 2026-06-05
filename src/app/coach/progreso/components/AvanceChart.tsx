@@ -45,7 +45,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
         }}
       >
         Necesito al menos 2 rondas con diferencial para dibujar tu
-        avance. Seguí sumando vueltas y acá vas a ver la tendencia.
+        avance. Sigue sumando vueltas y aquí verás la tendencia.
       </div>
     )
   }

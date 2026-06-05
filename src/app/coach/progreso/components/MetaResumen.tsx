@@ -30,7 +30,7 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
           <div style={{ ...mono, fontSize: '28px', fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>{hcp}</div>
         </div>
         <Link href="/coach" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-on-bg, #8A6A16)', textDecoration: 'none', textAlign: 'right', lineHeight: 1.4, maxWidth: '150px' }}>
-          Fijá tu meta con el coach para medir el avance →
+          Fija tu meta con el coach para medir el avance →
         </Link>
       </div>
     )

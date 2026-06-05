@@ -61,8 +61,8 @@ export function FocusHero({ foco }: { foco: FocoData }) {
         </p>
         <p style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>
           {foco.reason === 'cold_start'
-            ? 'Me faltan rondas para leer un patrón real. Sumá algunas vueltas de 18 y vuelvo con tu palanca de mayor impacto — sin inventar nada.'
-            : 'Tus números no muestran una fuga clara ahora mismo. Buena señal: estás parejo. Seguí jugando y aviso si aparece algo que mueva la aguja.'}
+            ? 'Me faltan rondas para leer un patrón real. Suma algunas vueltas de 18 y vuelvo con tu palanca de mayor impacto — sin inventar nada.'
+            : 'Tus números no muestran una fuga clara ahora mismo. Buena señal: estás parejo. Sigue jugando y aviso si aparece algo que mueva la aguja.'}
         </p>
       </div>
     )
