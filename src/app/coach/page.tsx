@@ -289,7 +289,7 @@ export default async function CoachDashboard() {
 
       {lastRound && lastRound.scores && lastRoundParArr && (
         <CurvaMentalCard
-          fecha={`Ronda ${new Date(lastRound.played_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}`}
+          fecha={`Ronda ${new Date(lastRound.played_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', timeZone: 'America/Santiago' })}`}
           curso={lastRound.course_name ?? 'la cancha'}
           totalScore={lastRound.total_gross ?? 0}
           overPar={(lastRound.total_gross ?? 0) - lastRoundParTotal}
@@ -332,7 +332,7 @@ export default async function CoachDashboard() {
           dots={outcomes
             .slice(0, 7)
             .map(o => ({
-              label: String(new Date(o.played_at).getDate()).padStart(2, '0'),
+              label: new Date(o.played_at).toLocaleDateString('es-CL', { day: '2-digit', timeZone: 'America/Santiago' }),
               state: o.target_reached ? 'on' as const : 'miss' as const,
             }))
             .reverse()
@@ -358,7 +358,7 @@ export default async function CoachDashboard() {
                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{SESSION_LABELS[s.session_type] ?? s.session_type}</div>
                   {s.next_focus && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>Foco: {s.next_focus}</div>}
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{new Date(s.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>{new Date(s.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', timeZone: 'America/Santiago' })}</div>
               </Link>
             ))}
           </div>

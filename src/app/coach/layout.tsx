@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { CoachAuthGuard } from './CoachAuthGuard'
+import { CoachShell } from './CoachShell'
 
 export const metadata: Metadata = {
   title: 'tAIger+ Coach IA — Golfers+',
@@ -14,5 +14,5 @@ export const metadata: Metadata = {
 }
 
 export default function CoachLayout({ children }: { children: React.ReactNode }) {
-  return <CoachAuthGuard>{children}</CoachAuthGuard>
+  return <CoachShell>{children}</CoachShell>
 }
