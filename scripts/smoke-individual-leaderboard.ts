@@ -72,17 +72,30 @@ async function main() {
       tournament_id: tournamentId, name: 'Grupo 1', ronda_libre_id: rondaId, sort_order: 0,
     })
 
-    // Jugador individual: índice 10 (lo que guarda el productor), tee azul, 9 hoyos al par+1.
+    // Jugador 1: índice 10 (lo que guarda el productor), tee azul, 9 hoyos al par+1.
     const scores: Record<string, number> = {}
     for (const h of seeded) scores[String(h.numero)] = h.par + 1
     await supabase.from('ronda_libre_jugadores').insert({
       ronda_id: rondaId, nombre: 'SMOKE Jugador', handicap: INDEX, scores, tees: 'azul', user_id: null,
     })
+    // Jugador 2 (C4 + C3): handicap NULL → cae a profiles.indice del user; tees NULL
+    // → cae al tee de la ronda ('azul'). Prueba ambos fallbacks del scorer.
+    const { data: prof } = await supabase.from('profiles').select('indice').eq('id', ORGANIZER).single()
+    const idxOrg = prof?.indice ?? 0
+    await supabase.from('ronda_libre_jugadores').insert({
+      ronda_id: rondaId, nombre: 'SMOKE NullHcp', handicap: null, scores, tees: null, user_id: ORGANIZER,
+    })
 
     // ── Consumidor REAL con el fix ──
-    const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, [rondaId], COURSE, 18, parTotal)
-    assert(jugadores.length === 1, `fetch trae 1 jugador (${jugadores.length})`)
-    assert(jugadores[0].handicap === courseHcpEsperado, `handicap resuelto a course handicap ${courseHcpEsperado} (obtuvo ${jugadores[0].handicap}), NO el índice`)
+    const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, [rondaId], parTotal)
+    assert(jugadores.length === 2, `fetch trae 2 jugadores (${jugadores.length})`)
+    const j1 = jugadores.find((j) => j.nombre === 'SMOKE Jugador')!
+    const j2 = jugadores.find((j) => j.nombre === 'SMOKE NullHcp')!
+    assert(j1.handicap === courseHcpEsperado, `J1: handicap resuelto a course handicap ${courseHcpEsperado} (obtuvo ${j1.handicap}), NO el índice`)
+    assert(j1.handicap_index === INDEX, `J1: conserva el índice crudo ${INDEX} para GWI (obtuvo ${j1.handicap_index})`)
+    // J2: handicap null → usa profiles.indice; tees null → tee de la ronda 'azul'.
+    const courseHcpOrg = resolverCourseHandicap(idxOrg, cd)
+    assert(j2.handicap === courseHcpOrg, `J2 (hcp null): cae a profiles.indice ${idxOrg} → course handicap ${courseHcpOrg} en el tee de la ronda (obtuvo ${j2.handicap})`)
 
     // Neto manual con COURSE handicap (lo que ve la tarjeta) vs con índice crudo (el bug).
     const netoCon = (hcp: number) => seeded.reduce((sum, h) => {
@@ -99,7 +112,7 @@ async function main() {
       parTotal, totalHoyos: 18, modoJuego: 'neto', formatoJuego: 'stroke_play', courseHoles: holes,
     }
     const board = buildLeaderboardFromRondaLibre(jugadores, ctx).playersByNeto
-    assert(board.length === 1, 'el builder produce el ranking neto sin crashear')
+    assert(board.length === 2, 'el builder produce el ranking neto de ambos jugadores sin crashear')
 
     await cleanup(tournamentId)
     log('  🧹 cadena borrada')

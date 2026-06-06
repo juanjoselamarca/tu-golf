@@ -108,34 +108,65 @@ export async function fetchRondaLibreJugadores(
  * en cancha (`getDotHcp` de score-grupo). Así el neto/stableford de la tabla pública
  * coincide EXACTO con la tarjeta del jugador en canchas reales (slope ≠ 113).
  *
- * El builder (`buildLeaderboardFromRondaLibre`) consume `j.handicap` tal cual, así
- * que entregándolo ya como course handicap el board queda correcto sin tocar el
- * motor. Sin cancha vinculada, `resolverCourseHandicap` cae a `round(index)` (mismo
- * fallback que el scorer) → sin divergencia.
+ * Paridad con el scorer (y con `fetchBestBallTeams`, mismo patrón):
+ *  - Resuelve por cada ronda su `course_id` / `holes` / `recorridos` (multi-loop
+ *    27-36h) y el tee `j.tees || ronda.tees || 'azul'`.
+ *  - Índice: `handicap` almacenado primero, luego `profiles.indice` (score-grupo:241).
+ *  - `parTotal` = suma del par real de course_holes (lo pasa el caller), no la
+ *    columna `courses.par_total`.
+ *  - Cache de CourseData por `courseId|tee|holes`.
+ *
+ * El builder consume `j.handicap` tal cual, así que entregándolo ya como course
+ * handicap el board queda correcto sin tocar el motor. Conserva `handicap_index`
+ * (índice crudo) para el GWI. Sin cancha → `round(index)` (fallback del scorer).
  */
 export async function fetchRondaLibreJugadoresConCourseHcp(
   supabase: Client,
   rondaIds: string[],
-  courseId: string | null,
-  holeCount: number,
   parTotal: number,
 ): Promise<DBRondaLibreJugador[]> {
   const jugadores = await fetchRondaLibreJugadores(supabase, rondaIds)
-  if (!courseId || jugadores.length === 0) return jugadores
+  if (jugadores.length === 0) return jugadores
 
-  // Cache de CourseData por tee (mismas claves que el scorer → mismo resultado).
+  // Datos por ronda (course_id / holes / recorridos / tee por defecto).
+  const { data: rondas } = await supabase
+    .from('rondas_libres')
+    .select('id, course_id, holes, recorridos, tees')
+    .in('id', rondaIds)
+  const rondaById = new Map((rondas ?? []).map((r) => [r.id as string, r]))
+
+  // Índice WHS vivo: fallback cuando el handicap almacenado en la ronda es null.
+  const userIds = Array.from(new Set(jugadores.map((j) => j.user_id).filter((x): x is string => !!x)))
+  const { data: profs } = userIds.length
+    ? await supabase.from('profiles').select('id, indice').in('id', userIds)
+    : { data: [] as Array<{ id: string; indice: number | null }> }
+  const indiceByUser = new Map((profs ?? []).map((p) => [p.id, p.indice ?? 0]))
+
   const cache = new Map<string, CourseData | null>()
   const out: DBRondaLibreJugador[] = []
   for (const j of jugadores) {
-    const tee = (j.tees || 'azul').toLowerCase()
-    if (!cache.has(tee)) {
-      cache.set(
-        tee,
-        await resolverCourseData(supabase as unknown as SupabaseClient, courseId, tee, holeCount, parTotal, null),
-      )
+    // Índice crudo: handicap almacenado primero, luego profiles.indice (= scorer).
+    const index = j.handicap != null
+      ? j.handicap
+      : (j.user_id && indiceByUser.has(j.user_id) ? (indiceByUser.get(j.user_id) as number) : 0)
+
+    const ronda = rondaById.get(j.ronda_id)
+    const courseId = (ronda?.course_id as string | null) ?? null
+    let courseData: CourseData | null = null
+    if (courseId) {
+      const holesN = (ronda?.holes as number | null) ?? 18
+      const recorridos = (ronda?.recorridos as string[] | null) ?? null
+      const tee = (j.tees || (ronda?.tees as string | null) || 'azul').toLowerCase()
+      const key = `${courseId}|${tee}|${holesN}`
+      if (!cache.has(key)) {
+        cache.set(
+          key,
+          await resolverCourseData(supabase as unknown as SupabaseClient, courseId, tee, holesN, parTotal, recorridos),
+        )
+      }
+      courseData = cache.get(key) ?? null
     }
-    const courseHcp = resolverCourseHandicap(j.handicap ?? 0, cache.get(tee) ?? null)
-    out.push({ ...j, handicap: courseHcp })
+    out.push({ ...j, handicap_index: index, handicap: resolverCourseHandicap(index, courseData) })
   }
   return out
 }

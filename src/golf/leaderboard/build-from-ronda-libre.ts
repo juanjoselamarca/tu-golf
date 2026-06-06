@@ -93,7 +93,11 @@ export function buildLeaderboardFromRondaLibre(
 
   // ── GWI inputs (independientes del orden — mismo behavior que antes). ──
   const gwiInputs: JugadorGWIInput[] = jugadores.map((j) => {
+    // Neto/stableford del GWI usan el course handicap (j.handicap), igual que el
+    // board; pero handicapIndex del GWI modela varianza por SKILL → índice crudo
+    // (j.handicap_index) cuando está disponible. Fallback a j.handicap.
     const hcp = j.handicap ?? 18
+    const hcpIndex = j.handicap_index ?? j.handicap ?? 18
     const scoresMap = j.scores || {}
     let overUnderGross = 0, overUnderNeto = 0, totalSF = 0, hoyosComp = 0
 
@@ -115,7 +119,7 @@ export function buildLeaderboardFromRondaLibre(
     return {
       id:                   j.id,
       nombre:               j.nombre,
-      handicapIndex:        hcp,
+      handicapIndex:        hcpIndex,
       currentScore,
       hoyosCompletados:     hoyosComp,
       modoJuego,
