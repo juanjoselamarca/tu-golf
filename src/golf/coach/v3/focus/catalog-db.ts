@@ -34,11 +34,14 @@ export async function loadFocusCatalog(supabase: SupabaseClient): Promise<FocusC
     const measure = MEASURE_BY_KEY[row.pattern_key]
     if (!measure) continue // sin binding de código (gen-0) → se ignora; declarativo full = Ola 5
     const p = row.formula_payload ?? {}
+    // Fila incompleta (acción/métrica faltante): NO emitir un foco con acción vacía
+    // al coach — se salta y cae a los demás candidatos / fallback (CERO FALLOS).
+    if (!p.accion || !p.metric_key) continue
     candidates.push({
       patternId: row.pattern_key,
-      metricKey: p.metric_key ?? row.pattern_key,
+      metricKey: p.metric_key,
       label: row.name,
-      accion: p.accion ?? '',
+      accion: p.accion,
       minConfidence: typeof p.min_confidence === 'number' ? p.min_confidence : 0.5,
       minSample: typeof p.min_sample === 'number' ? p.min_sample : 3,
       measure,

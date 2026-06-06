@@ -40,6 +40,19 @@ describe('loadFocusCatalog — catálogo desde pattern_definitions (Ola 3)', () 
     expect(c.map((x) => x.patternId)).toEqual(['post_bogey_spiral'])
   })
 
+  it('fila con accion/metric_key faltante → se salta (no manda acción vacía al coach)', async () => {
+    const c = await loadFocusCatalog(
+      fakeClient({
+        data: [
+          ROW('post_bogey_spiral'),
+          ROW('par_3_weakness', { formula_payload: { metric_key: 'par3_avg_vs_par' } }), // sin accion
+        ],
+        error: null,
+      }),
+    )
+    expect(c.map((x) => x.patternId)).toEqual(['post_bogey_spiral'])
+  })
+
   it('DB vacía → fallback al catálogo de código (nunca deja al coach sin patrones)', async () => {
     const c = await loadFocusCatalog(fakeClient({ data: [], error: null }))
     expect(c).toBe(FOCUS_CATALOG)
