@@ -2,6 +2,7 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { createClient } from '@/utils/supabase/server'
+import { getPageUser } from '@/lib/auth/getPageUser'
 import { redirect } from 'next/navigation'
 import { ExperiencePopupWrapper } from '@/components/ExperiencePopupWrapper'
 import { PostLoginRedirect } from '@/components/PostLoginRedirect'
@@ -27,7 +28,7 @@ export const dynamic = 'force-dynamic'
  */
 export default async function DashboardPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getPageUser(supabase)
   if (!user) redirect('/login')
 
   const userName = user.user_metadata?.name || user.email?.split('@')[0] || 'Golfista'

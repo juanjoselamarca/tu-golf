@@ -1,4 +1,5 @@
 import { createClient } from '@/utils/supabase/server'
+import { getPageUser } from '@/lib/auth/getPageUser'
 import { redirect } from 'next/navigation'
 import EditTorneoForm from './EditTorneoForm'
 
@@ -13,7 +14,7 @@ interface TournamentData {
 
 export default async function EditarTorneoPage({ params }: { params: { slug: string } }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getPageUser(supabase)
   if (!user) redirect('/login')
 
   const { data: tournament } = await supabase

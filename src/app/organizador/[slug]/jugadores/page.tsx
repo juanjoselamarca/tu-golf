@@ -1,4 +1,5 @@
 import { createClient } from '@/utils/supabase/server'
+import { getPageUser } from '@/lib/auth/getPageUser'
 import { redirect } from 'next/navigation'
 import JugadoresPanel from './JugadoresPanel'
 import type { Player } from './JugadoresPanel'
@@ -9,9 +10,7 @@ export default async function JugadoresPage({
   params: { slug: string }
 }) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getPageUser(supabase)
   if (!user) redirect('/login')
 
   const { data: tournament } = await supabase
