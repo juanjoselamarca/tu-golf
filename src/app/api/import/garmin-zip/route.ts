@@ -430,10 +430,16 @@ export async function POST(request: NextRequest) {
         tempId: crypto.randomUUID(),
         played_at: playedAt,
         course_name: courseName,
+        // Propagar la identidad de cancha y el tee del match para que el confirm
+        // resuelva CR/slope desde course_tees (no del archivo) y vincule la ronda.
+        course_id: dbCourse?.id ?? null,
+        tee_color: sc.teeBox ?? null,
         total_gross: totalGross,
         holes_played: sc.holesCompleted as 9 | 18,
         scores,
         par_per_hole: parPerHole,
+        // Valores del archivo Garmin: quedan como FALLBACK si la cancha no está
+        // en el catálogo (extranjera) o el tee no resuelve.
         course_rating: sc.teeBoxRating ?? null,
         slope_rating: sc.teeBoxSlope ?? null,
         metadata: {

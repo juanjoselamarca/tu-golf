@@ -5,6 +5,7 @@ import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportRoundData } from '@/lib/import-types'
 import { importRound, type ImportSource } from '@/lib/import-round'
+import { resolveTeeRatingsForCourse } from '@/lib/data/course-tees'
 import { callLLM, AllProvidersFailedError } from '@/lib/ai'
 import { captureError } from '@/lib/error-tracking'
 export const dynamic = 'force-dynamic'
@@ -183,6 +184,19 @@ export async function POST(request: NextRequest) {
 
       // Path Garmin — duplicado existente: hacer UPDATE en lugar de skip
       if (garminId && round.metadata?.is_duplicate) {
+        // Resolver CR/slope desde el catálogo (course_tees); fallback al archivo.
+        let cr = round.course_rating ?? null
+        let slope = round.slope_rating ?? null
+        let nineHole: { cr9h: number; slope9h: number } | null = null
+        if (round.course_id) {
+          const resolved = await resolveTeeRatingsForCourse(
+            supabase,
+            round.course_id,
+            round.tee_color ?? round.metadata?.tee_box ?? null,
+            round.holes_played,
+          )
+          if (resolved) { cr = resolved.cr; slope = resolved.slope; nineHole = resolved.nineHoleRatings }
+        }
         garminUpsertRows.push({
           user_id: user.id,
           course_name: round.course_name,
@@ -195,10 +209,10 @@ export async function POST(request: NextRequest) {
           privacy: 'private',
           garmin_scorecard_id: garminId,
           metadata: round.metadata as Record<string, unknown>,
-          course_rating: round.course_rating ?? null,
-          slope_rating: round.slope_rating ?? null,
-          diferencial: (round.course_rating != null && round.slope_rating != null)
-            ? calcularDiferencial(round.total_gross, round.course_rating, round.slope_rating)
+          course_rating: cr,
+          slope_rating: slope,
+          diferencial: (cr != null && slope != null)
+            ? calcularDiferencial(round.total_gross, cr, slope, round.holes_played, nineHole)
             : null,
           par_per_hole: round.par_per_hole ?? null,
           formato_juego: round.formato_juego ?? 'stroke_play',
@@ -223,6 +237,8 @@ export async function POST(request: NextRequest) {
       const importResult = await importRound(supabase, {
         userId: user.id,
         courseName: round.course_name,
+        courseId: round.course_id ?? null,
+        teeColor: round.tee_color ?? round.metadata?.tee_box ?? null,
         parPerHole: round.par_per_hole ?? null,
         scores: scoresArray,
         playedAt: round.played_at,
@@ -290,7 +306,7 @@ export async function POST(request: NextRequest) {
     try {
       const { data: allRounds } = await supabase
         .from('historical_rounds')
-        .select('total_gross, played_at, course_rating, slope_rating')
+        .select('total_gross, played_at, course_rating, slope_rating, holes_played')
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
         .limit(20)
@@ -301,6 +317,7 @@ export async function POST(request: NextRequest) {
           played_at: r.played_at,
           course_rating: r.course_rating ?? null,
           slope_rating: r.slope_rating ?? null,
+          holes_played: r.holes_played ?? null,
         }))
 
         cpiResult = calcularCPI(rondasCPI)

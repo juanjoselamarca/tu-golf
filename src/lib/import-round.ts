@@ -5,6 +5,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { resolveCourse } from '@/lib/resolve-course'
+import { resolveTeeRatingsForCourse } from '@/lib/data/course-tees'
+import { calcularDiferencial } from '@/lib/indice-golfers'
 
 export type ImportSource = 'manual' | 'ronda_libre' | 'photo_scan' | 'garmin' | 'csv' | 'import'
 
@@ -156,6 +158,33 @@ export async function importRound(
     }
   }
 
+  // ── Resolver CR/slope reales desde el catálogo (course_tees) ──
+  // Raíz del índice corrupto: tomar el rating del archivo en vez del tee real.
+  // Solo cuando hay cancha vinculada + color de tee. Sin match confiable → null
+  // (no se inventa rating; la ronda no aporta diferencial al índice).
+  let courseRating: number | null = null
+  let slopeRating: number | null = null
+  let diferencial: number | null = null
+  if (courseId && input.teeColor) {
+    const resolved = await resolveTeeRatingsForCourse(
+      supabase,
+      courseId,
+      input.teeColor,
+      input.holesPlayed ?? input.scores.length,
+    )
+    if (resolved) {
+      courseRating = resolved.cr
+      slopeRating = resolved.slope
+      diferencial = calcularDiferencial(
+        totalGross,
+        resolved.cr,
+        resolved.slope,
+        input.holesPlayed ?? input.scores.length,
+        resolved.nineHoleRatings,
+      )
+    }
+  }
+
   // ── Insertar ──────────────────────────────────────────────
   const { data: inserted, error } = await supabase
     .from('historical_rounds')
@@ -164,6 +193,9 @@ export async function importRound(
       course_name: input.courseName,
       course_id: courseId,
       tee_color: input.teeColor || null,
+      course_rating: courseRating,
+      slope_rating: slopeRating,
+      diferencial,
       par_per_hole: finalParPerHole,
       played_at: input.playedAt,
       scores: input.scores,
