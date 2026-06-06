@@ -8,6 +8,7 @@ import {
   getFocusTool,
   getProgress,
 } from '@/golf/coach/v3/tools/focus-tools'
+import { projectScore, type Distribution } from './scoring'
 
 /**
  * Definiciones de tools que tAIger+ puede llamar durante una conversación.
@@ -163,6 +164,31 @@ export const TAIGER_TOOLS = [
       required: ['pattern_id', 'observation_data', 'hypothesis', 'plan'],
     },
   },
+  {
+    name: 'compute_score_projection',
+    description:
+      'Calcula un objetivo de score o un desglose de hoyos que SIEMPRE cierra aritméticamente. ÚSALA SIEMPRE que vayas a mostrar un score objetivo, un desglose ("X pares + Y bogeys") o una proyección. NUNCA hagas vos la aritmética del score: llamá esta tool y usá EXACTAMENTE su resultado. Para que devuelva un score ABSOLUTO (ej "79"), pasá course_id: la tool verifica el par real de la cancha hoyo por hoyo. Si no pasás course_id o la cancha no tiene par completo, devuelve solo el "+N sobre par" (nunca un absoluto adivinado).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        course_id: {
+          type: 'string',
+          description: 'UUID de la cancha (del contexto/ronda). Necesario para un score absoluto verificado. Sin él, solo "+N sobre par".',
+        },
+        holes: { type: 'number', description: 'Hoyos de la ronda (18 o 9)', default: 18 },
+        targetOver: { type: 'number', description: 'Objetivo en sobre-par (ej 7 para +7). Usar esto O distribution, no ambos.' },
+        distribution: {
+          type: 'object',
+          description: 'Reparto explícito de hoyos para verificar un desglose puntual.',
+          properties: {
+            eagle: { type: 'number' }, birdie: { type: 'number' }, par: { type: 'number' },
+            bogey: { type: 'number' }, double: { type: 'number' }, triple: { type: 'number' },
+          },
+        },
+      },
+      required: ['holes'],
+    },
+  },
 ] as const
 
 // ---------- Executor ----------
@@ -221,6 +247,8 @@ export async function executeTool(
         return await getFocusTool(ctx)
       case 'get_progress':
         return await getProgress(ctx)
+      case 'compute_score_projection':
+        return await computeScoreProjection(ctx, input)
       default:
         return { ok: false, error: `Tool desconocida: ${name}` }
     }
@@ -548,6 +576,45 @@ async function getCourseDetails(ctx: ToolExecutionContext, courseId: string): Pr
       })),
     },
   }
+}
+
+/**
+ * Calculadora determinista de score para el coach. El absoluto SOLO se emite con
+ * par COMPLETO verificado desde course_holes (exactamente `holes` hoyos con par válido):
+ * un parTotal que tipee el LLM no produce absoluto (puede inventarlo o pasarlo parcial —
+ * cierra el caso "17 de 18 hoyos → absoluto plausible pero mal con sello de garantía").
+ * Sin course_id confiable, devuelve solo "+N sobre par".
+ */
+async function computeScoreProjection(
+  ctx: ToolExecutionContext,
+  input: Record<string, unknown>,
+): Promise<ToolResult> {
+  const holes = typeof input.holes === 'number' ? input.holes : 18
+  const targetOver = typeof input.targetOver === 'number' ? input.targetOver : undefined
+  const distribution =
+    input.distribution && typeof input.distribution === 'object'
+      ? (input.distribution as Partial<Distribution>)
+      : undefined
+  const courseId = typeof input.course_id === 'string' ? input.course_id : null
+
+  // El par confiable se lee de la BD por course_id; debe estar COMPLETO (= holes hoyos).
+  let verifiedParTotal: number | null = null
+  if (courseId) {
+    const { data: holesRows } = await ctx.supabase
+      .from('course_holes')
+      .select('par')
+      .eq('course_id', courseId)
+      .order('numero')
+    const pars = (holesRows ?? [])
+      .map((h: { par: number | null }) => h.par)
+      .filter((p): p is number => typeof p === 'number')
+    if (pars.length === holes) {
+      verifiedParTotal = pars.reduce((a, b) => a + b, 0)
+    }
+  }
+
+  const r = projectScore({ parTotal: verifiedParTotal, holes, targetOver, distribution })
+  return { ok: true, data: r }
 }
 
 // ---------- save_plan dispatcher ----------

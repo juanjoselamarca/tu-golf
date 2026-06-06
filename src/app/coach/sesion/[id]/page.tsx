@@ -10,6 +10,7 @@ import { Calendar, PersonStanding } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { PlanAssignedCard, type AssignedPlan } from '@/components/coach/PlanAssignedCard'
 import { RoundMiniChart, type RoundSummary } from '@/components/coach/RoundMiniChart'
+import { ScoreProjectionCard, type ScoreProjection } from '@/components/coach/ScoreProjectionCard'
 import { CitedMarkdown } from '@/components/coach/CitedMarkdown'
 
 interface ChatMessage {
@@ -71,6 +72,7 @@ export default function SesionDetailPage() {
   // assistant correspondiente.
   const [plansByMsgIdx, setPlansByMsgIdx] = useState<Record<number, AssignedPlan>>({})
   const [roundsByMsgIdx, setRoundsByMsgIdx] = useState<Record<number, RoundSummary>>({})
+  const [projectionsByMsgIdx, setProjectionsByMsgIdx] = useState<Record<number, ScoreProjection>>({})
   const currentAssistantIdxRef = useRef<number>(-1)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -241,6 +243,13 @@ export default function SesionDetailPage() {
             const idx = currentAssistantIdxRef.current
             if (idx >= 0) {
               setPlansByMsgIdx(prev => ({ ...prev, [idx]: plan }))
+            }
+          }
+          if (data.event === 'score_projection' && data.projection) {
+            const projection = data.projection as ScoreProjection
+            const idx = currentAssistantIdxRef.current
+            if (idx >= 0) {
+              setProjectionsByMsgIdx(prev => ({ ...prev, [idx]: projection }))
             }
           }
 
@@ -527,6 +536,11 @@ export default function SesionDetailPage() {
             {msg.role === 'assistant' && roundsByMsgIdx[i] && shouldRenderChart(msg.content) && (
               <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', paddingLeft: 40 }}>
                 <RoundMiniChart summary={roundsByMsgIdx[i]} />
+              </div>
+            )}
+            {msg.role === 'assistant' && projectionsByMsgIdx[i] && (
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', paddingLeft: 40 }}>
+                <ScoreProjectionCard projection={projectionsByMsgIdx[i]} />
               </div>
             )}
             {msg.role === 'assistant' && plansByMsgIdx[i] && (
