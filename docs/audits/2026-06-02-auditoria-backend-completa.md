@@ -156,7 +156,7 @@ validación determinista dura (`tools.ts:565-632`) — el número alucinado se g
 auditado, no contamina el histórico de scores. El riesgo residual es el número mostrado en chat. Esto ya está
 en backlog ("garantía dura aritmética", priorizado por Juanjo).
 
-### P1-6 · `captureError` server-side es casi un no-op → backend ciego
+### P1-6 · `captureError` server-side es casi un no-op → backend ciego — ✅ RESUELTO (#116, 2026-06-05)
 `src/lib/error-tracking.ts:78`. La persistencia en `error_logs` y el envío a PostHog están gateados por
 `if (isClient)`. En servidor solo hace `console.error` → Vercel logs (retención corta, no consultable, sin
 alerta). Todo error en API routes, crons, webhook y motor del coach es invisible fuera de Vercel. Esto explica
@@ -164,7 +164,7 @@ los "error_logs con cero entradas" del 19-may: el server-side no escribe ahí po
 toda la observabilidad** — sin esto, migrar consoles a captureError no cambia nada.
 Fix: persistir en `error_logs` vía `createAdminClient()` cuando `!isClient` (o agregar `posthog-node`).
 
-### P1-7 · Canal de feedback (Inbox) ciego y mentiroso
+### P1-7 · Canal de feedback (Inbox) ciego y mentiroso — ✅ RESUELTO (#119, 2026-06-05)
 - `src/lib/inbox-logger.ts:60-75`: bridge a `globalThis.Sentry` **muerto** (Sentry se removió el 12-may). Todos
   los fallos del webhook terminan solo en consola.
 - `api/inbox/webhook/route.ts:~330`: `insertOrUpdateReport` traga el error del `.insert()` y el caller manda
