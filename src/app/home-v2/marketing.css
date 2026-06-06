@@ -1,0 +1,57 @@
+/* ════════════════════════════════════════════════════════════════════
+   Estilos del HOME de marketing (landing v2). TODO scoped bajo `.home-mkt`
+   para no filtrar al resto de la app. Fonts cargadas vía Fontshare solo acá
+   (NO se toca el layout.tsx global / fuentes globales).
+   Navy fijo + doble dorado. Vocabulario del prototipo aprobado hero-wow2.
+   ════════════════════════════════════════════════════════════════════ */
+@import url('https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@400,500,600,700&display=swap');
+
+.home-mkt {
+  --navy:#070d18; --ink:#080f1b; --gold:#c4992a; --gold-br:#e7b94c; --gold-ant:#cbb188;
+  --ivory:#f4f1ea; --leak:#d8795f; --gain:#7ee0a8; --mute:rgba(244,241,234,0.66);
+  --line:rgba(203,177,136,0.18); --ease:cubic-bezier(0.32,0.72,0,1);
+  background:var(--navy); color:var(--ivory); overflow-x:hidden;
+  font-family:'Satoshi',system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+}
+.home-mkt .display{font-family:'Clash Display',sans-serif}
+.home-mkt .mono{font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums}
+
+@keyframes mkt-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+
+/* shared */
+.home-mkt .eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:999px;padding:7px 15px;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold-ant);font-weight:600}
+.home-mkt .eyebrow .d{width:5px;height:5px;border-radius:50%;background:var(--gold)}
+.home-mkt .commit{display:inline-flex;align-items:center;gap:10px;background:var(--gold);color:#0b1424;font-weight:700;font-size:15px;padding:14px 14px 14px 24px;border-radius:13px;text-decoration:none;border:0;cursor:pointer;transition:.5s var(--ease)}
+.home-mkt .commit:hover{filter:brightness(1.08)}.home-mkt .commit:active{transform:scale(.98)}
+.home-mkt .commit .c{width:28px;height:28px;border-radius:50%;background:rgba(11,20,36,0.15);display:grid;place-items:center}
+.home-mkt .commit:hover .c{transform:translateX(2px) translateY(-1px)}
+.home-mkt .ghost{display:inline-flex;align-items:center;gap:9px;color:var(--ivory);font-weight:600;font-size:15px;text-decoration:none;padding:14px 18px;border:1px solid var(--line);border-radius:13px;transition:.5s var(--ease)}
+.home-mkt .ghost:hover{border-color:var(--gold);color:var(--gold-br)}
+.home-mkt svg.ar{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7}
+
+/* ════ HERO ════ */
+.home-mkt .hero{position:relative;min-height:calc(100vh - 56px);display:flex;align-items:center;overflow:hidden}
+.home-mkt .bgs{position:absolute;inset:0;z-index:0}
+.home-mkt .bgs .s{position:absolute;inset:0;opacity:0;transition:opacity 1.8s ease}
+.home-mkt .bgs .s.on{opacity:1}
+.home-mkt .bgs .s::before{content:"";position:absolute;inset:0;background-size:cover;background-position:center 36%;filter:sepia(0.22) saturate(1.12) contrast(1.05) brightness(0.6)}
+.home-mkt .bgs .s1::before{background-image:url('https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1800&q=80')}
+.home-mkt .bgs .s2::before{background-image:url('https://images.unsplash.com/photo-1592919505780-303950717480?w=1800&q=80')}
+.home-mkt .bgs .s3::before{background-image:url('https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1800&q=80')}
+.home-mkt .bgs .s4::before{background-image:url('https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=1800&q=80')}
+.home-mkt .hero .navy{position:absolute;inset:0;z-index:1;background:linear-gradient(108deg,rgba(7,13,24,0.92),rgba(7,13,24,0.5) 52%,rgba(7,13,24,0.32))}
+.home-mkt .hero .fade{position:absolute;left:0;right:0;bottom:0;height:22%;z-index:1;background:linear-gradient(to bottom,transparent,var(--navy))}
+.home-mkt .hero .glow{position:absolute;top:-15%;right:-8%;width:60vw;height:70vh;z-index:1;pointer-events:none;background:radial-gradient(circle,rgba(196,153,42,0.16),transparent 60%)}
+.home-mkt .hero .grain{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.045;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.home-mkt .hero .inner{position:relative;z-index:5;width:100%;max-width:1240px;margin:0 auto;padding:72px clamp(24px,6vw,80px) 90px}
+.home-mkt .hero .eyebrow{opacity:0;animation:mkt-up .9s .1s var(--ease) forwards}
+.home-mkt .hero h1{font-family:'Clash Display';font-weight:600;line-height:0.97;letter-spacing:-0.02em;font-size:clamp(52px,7.2vw,104px);margin:26px 0 0;max-width:16ch}
+.home-mkt .hero h1 .a{display:block;opacity:0;animation:mkt-up 1s .24s var(--ease) forwards}
+.home-mkt .hero h1 .b{display:block;color:var(--gold);opacity:0;animation:mkt-up 1s .4s var(--ease) forwards}
+.home-mkt .hero .sub{font-size:clamp(16px,1.5vw,19px);line-height:1.6;color:var(--mute);max-width:40ch;margin-top:26px;opacity:0;animation:mkt-up 1s .58s var(--ease) forwards}
+.home-mkt .hero .hcta{display:flex;gap:14px;flex-wrap:wrap;margin-top:36px;opacity:0;animation:mkt-up 1s .74s var(--ease) forwards}
+.home-mkt .hero .trust{margin-top:22px;font-size:12px;letter-spacing:.04em;color:rgba(244,241,234,0.4);opacity:0;animation:mkt-up 1s .9s var(--ease) forwards}
+.home-mkt .hero .dots{position:absolute;bottom:26px;left:clamp(24px,6vw,80px);z-index:6;display:flex;gap:8px}
+.home-mkt .hero .dots button{width:7px;height:7px;border-radius:99px;border:0;background:rgba(203,177,136,0.4);cursor:pointer;transition:.4s var(--ease)}
+.home-mkt .hero .dots button.on{width:26px;background:var(--gold)}
+@media(max-width:760px){.home-mkt .hero h1{font-size:clamp(44px,12vw,68px)}}
