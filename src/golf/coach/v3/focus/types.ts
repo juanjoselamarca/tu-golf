@@ -1,5 +1,6 @@
 import type { RoundData } from '@/golf/coach/metrics'
 import type { CerebroWeight } from '@/lib/cerebro/weights'
+import type { FocusCandidate } from './catalog'
 
 /** Meta del jugador + handicap actual, ya resueltos por el orquestador. */
 export interface FocusTarget {
@@ -13,6 +14,8 @@ export interface SelectFocusInput {
   /** Pesos vivos (parameter_type='pattern') leídos de cerebro_weights en runtime. */
   weights: CerebroWeight[]
   target: FocusTarget | null
+  /** Catálogo de candidatos. Por defecto el de código; Ola 3 lo carga de DB. */
+  catalog?: FocusCandidate[]
 }
 
 /** El foco elegido: la palanca de mayor impacto hacia la meta, con evidencia. */

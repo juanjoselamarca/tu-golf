@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { setTarget, rememberFact, recallFacts, getFocusTool, getProgress } from '../focus-tools'
 import type { GetFocusDeps } from '@/golf/coach/v3/focus'
+import { FOCUS_CATALOG } from '@/golf/coach/v3/focus/catalog'
 import { spiralRound } from '@/golf/coach/v3/focus/__tests__/fixtures'
 
 /** Fake encadenable de Supabase: cualquier cadena resuelve al `result` dado y
@@ -106,6 +107,7 @@ describe('get_focus (tool)', () => {
       loadRounds: async () => [spiralRound('a'), spiralRound('b'), spiralRound('c'), spiralRound('d')],
       loadTarget: async () => ({ currentHandicap: 18, targetHandicap: 12, targetDeadline: null }),
       loadWeights: async () => [],
+      loadCatalog: async () => FOCUS_CATALOG,
     }
     const r = await getFocusTool(ctx(fakeClient({})), deps)
     expect(r.ok).toBe(true)

@@ -12,6 +12,7 @@
  */
 export { getFocus, defaultFocusDeps, type GetFocusDeps } from './get-focus'
 export { selectFocus, deltaVsTarget, patternWeight, MIN_ROUNDS_FOR_FOCUS, DEFAULT_PATTERN_WEIGHT } from './select-focus'
-export { FOCUS_CATALOG } from './catalog'
+export { FOCUS_CATALOG, MEASURE_BY_KEY } from './catalog'
+export { loadFocusCatalog } from './catalog-db'
 export type { FocusCandidate, Baseline, DetectInfo, MeasureCtx } from './catalog'
 export type { Focus, FocusFallback, FocusResult, FocusTarget, SelectFocusInput } from './types'

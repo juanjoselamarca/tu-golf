@@ -178,3 +178,13 @@ export const FOCUS_CATALOG: FocusCandidate[] = [
     measure: ({ detected }) => fromMeta(detected, 'three_putt_rate', 'total_greens'),
   },
 ]
+
+/**
+ * Binding de la matemática gen-0 por pattern_key. Cuando Ola 3 mueve el catálogo
+ * a `pattern_definitions` (DB), la metadata (label/acción/umbrales/peso) sale de
+ * la tabla pero la función `measure` (la matemática) sigue acá, ligada por key.
+ * Patrones declarativos full (formula_payload interpretado) = Ola 5.
+ */
+export const MEASURE_BY_KEY: Record<string, FocusCandidate['measure']> = Object.fromEntries(
+  FOCUS_CATALOG.map((c) => [c.patternId, c.measure]),
+)

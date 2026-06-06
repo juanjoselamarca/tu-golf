@@ -64,7 +64,7 @@ export function selectFocus(input: SelectFocusInput): FocusResult {
   }
 
   const candidates: Focus[] = []
-  for (const c of FOCUS_CATALOG) {
+  for (const c of input.catalog ?? FOCUS_CATALOG) {
     const detected = detectedMap.get(c.patternId)
     if (!detected) continue // gate: patrón no detectado → nunca foco-fantasía
     if (detected.confidence < c.minConfidence) continue

@@ -110,6 +110,16 @@ const ENFORCED: WiringContract[] = [
     consumer: 'app/api/taiger/chat/route.ts',
     needles: ['getOnboardingState', 'ONBOARDING_SECTION'],
   },
+  {
+    piece: 'Catálogo declarativo pattern_definitions leído por el motor de foco (Ola 3)',
+    consumer: 'golf/coach/v3/focus/get-focus.ts',
+    needles: ['loadFocusCatalog'],
+  },
+  {
+    piece: 'loadFocusCatalog consulta la tabla pattern_definitions',
+    consumer: 'golf/coach/v3/focus/catalog-db.ts',
+    needles: ['pattern_definitions'],
+  },
 ]
 
 describe('Canario wiring cerebro v3: piezas VIVAS no se desconectan', () => {
