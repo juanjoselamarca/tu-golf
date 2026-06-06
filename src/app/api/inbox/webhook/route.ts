@@ -377,8 +377,11 @@ async function processNonCommand(
     audioPath = result.path;
   }
 
-  await insertOrUpdateReport(supabase, msg, photosPaths, audioPath, 'nuevo');
-  await sendMessage(msg.chat.id, '✓ recibido');
+  const saved = await insertOrUpdateReport(supabase, msg, photosPaths, audioPath, 'nuevo');
+  await sendMessage(
+    msg.chat.id,
+    saved.ok ? '✓ recibido' : '⚠️ no pude guardar tu reporte. Probá de nuevo en un momento.',
+  );
 }
 
 async function insertOrUpdateReport(
@@ -387,7 +390,7 @@ async function insertOrUpdateReport(
   newPhotos: string[],
   audioPath: string | null,
   status: 'nuevo' | 'error',
-): Promise<void> {
+): Promise<{ ok: boolean }> {
   // Caso álbum: si hay row reciente con mismo media_group_id, UPDATE.
   const existing = await findRecentMediaGroup(supabase, msg);
   if (existing) {
@@ -403,7 +406,7 @@ async function insertOrUpdateReport(
     if (error) {
       log('error', 'inbox media_group merge failed', { error: error.message });
     }
-    return;
+    return { ok: !error };
   }
 
   // INSERT nuevo
@@ -425,6 +428,7 @@ async function insertOrUpdateReport(
   if (error) {
     log('error', 'inbox insert failed', { error: error.message });
   }
+  return { ok: !error };
 }
 
 // ──────────────────────────────────────────────

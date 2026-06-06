@@ -7,13 +7,15 @@
  *   Functions logs y agregable por queries.
  * - Redaction: bot tokens y strings tipo secret se reemplazan por [REDACTED]
  *   antes de imprimir.
- * - Bridge a Sentry: si `Sentry.captureException` está disponible en
- *   globalThis (cargado por @sentry/nextjs en el proyecto), errors se
- *   forwarean. No falla si no está.
+ * - Errores: además del console.error, se reportan a captureError
+ *   (PostHog en cliente + error_logs server-side) para tener histórico
+ *   consultable. El bridge viejo a Sentry (removido 12-may) ya no existía.
  *
  * Nombre con sufijo -inbox para no chocar con un futuro logger general
  * del proyecto.
  */
+
+import { captureError } from '@/lib/error-tracking';
 
 export type LogLevel = 'info' | 'warn' | 'error';
 
@@ -44,16 +46,6 @@ function redactObject(input: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-type SentryShape = {
-  captureMessage?: (msg: string, level: string) => void;
-  captureException?: (err: unknown) => void;
-};
-
-function getSentry(): SentryShape | null {
-  const g = globalThis as unknown as { Sentry?: SentryShape };
-  return g.Sentry ?? null;
-}
-
 export function log(
   level: LogLevel,
   msg: string,
@@ -70,7 +62,9 @@ export function log(
   console[level](JSON.stringify(payload));
 
   if (level === 'error') {
-    const sentry = getSentry();
-    sentry?.captureMessage?.(safeMsg, 'error');
+    void captureError(safeMsg, {
+      context: 'inbox',
+      meta: data ? redactObject(data) : undefined,
+    });
   }
 }
