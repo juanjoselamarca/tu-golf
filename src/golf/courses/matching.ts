@@ -77,37 +77,117 @@ function matchScore(externalName: string, dbName: string): number {
   return score
 }
 
+/** Levenshtein (distancia de edición) iterativa. */
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0
+  if (a.length === 0) return b.length
+  if (b.length === 0) return a.length
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    const curr = [i]
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost)
+    }
+    prev = curr
+  }
+  return prev[b.length]
+}
+
+/**
+ * Similitud token-set (0..1): Levenshtein normalizado sobre las palabras
+ * significativas ordenadas. Tolera typos y orden distinto ("Marbela" ~ "Marbella").
+ */
+function tokenSetRatio(a: string, b: string): number {
+  const ta = getSignificantWords(a).sort().join(' ')
+  const tb = getSignificantWords(b).sort().join(' ')
+  if (!ta || !tb) return 0
+  const dist = levenshtein(ta, tb)
+  return 1 - dist / Math.max(ta.length, tb.length)
+}
+
 export interface CourseMatch {
   id: string
   nombre: string
   score: number
 }
 
+/** Candidato de cancha. `fuente`/`canonical_course_id`/`activa` son opcionales:
+ *  si la query no los trae (columnas aún no migradas), el matcher degrada limpio. */
+export interface CourseCandidate {
+  id: string
+  nombre: string
+  fuente?: string | null
+  canonical_course_id?: string | null
+  activa?: boolean | null
+}
+
+/** Umbral de similitud fuzzy para aceptar un match que el overlap de palabras no agarró. */
+const FUZZY_FALLBACK_RATIO = 0.85
+/** Sensibilidad por defecto: al menos 1 palabra significativa en común. */
+const DEFAULT_MIN_SCORE = 2
+
 /**
  * Find the best matching course in a list of candidates.
- * Returns the candidate with the highest score, or null if no match (score 0).
+ *
+ * Estrategia (conservadora, no recalibra el score por palabras existente):
+ * 1. Score primario = `matchScore` (overlap de palabras significativas).
+ * 2. Empates: gana `fuente='fedegolf'` (catálogo canónico); luego mayor token-set ratio.
+ * 3. Si nada llega a `minScore` por palabras → fallback fuzzy (ratio ≥ 0.85).
+ * 4. Si la fila ganadora tiene `canonical_course_id` apuntando a otro candidato,
+ *    se devuelve la canónica (nunca una ficha duplicada/desactivada).
  *
  * @param externalName - Name from Garmin, photo, CSV, etc.
- * @param candidates - Array of {id, nombre} from our DB
- * @param minScore - Minimum score to consider a match (default 2 = at least 1 significant word)
+ * @param candidates - Array de {id, nombre, fuente?, canonical_course_id?, activa?}
+ * @param minScore - Minimum score to consider a match (default 2 = al menos 1 palabra)
  */
 export function findBestCourseMatch(
   externalName: string,
-  candidates: Array<{ id: string; nombre: string }>,
+  candidates: CourseCandidate[],
   minScore = 2,
 ): CourseMatch | null {
   if (!externalName || candidates.length === 0) return null
 
-  let bestMatch: CourseMatch | null = null
+  const isFede = (c: CourseCandidate) => (c.fuente ?? '').toLowerCase() === 'fedegolf'
+
+  let best: { c: CourseCandidate; score: number; ratio: number } | null = null
 
   for (const c of candidates) {
     const score = matchScore(externalName, c.nombre)
-    if (score >= minScore && (!bestMatch || score > bestMatch.score)) {
-      bestMatch = { id: c.id, nombre: c.nombre, score }
+    if (score < minScore) continue
+    const ratio = tokenSetRatio(externalName, c.nombre)
+    if (!best) { best = { c, score, ratio }; continue }
+    if (score > best.score) { best = { c, score, ratio }; continue }
+    if (score === best.score) {
+      // Desempate: fedegolf primero, luego mayor ratio fuzzy.
+      const bf = isFede(best.c) ? 1 : 0
+      const cf = isFede(c) ? 1 : 0
+      if (cf > bf || (cf === bf && ratio > best.ratio)) best = { c, score, ratio }
     }
   }
 
-  return bestMatch
+  // Fallback fuzzy: nada matcheó por palabras pero hay un nombre casi idéntico.
+  // Solo a sensibilidad por defecto — si el caller subió minScore, quiere
+  // estrictez y no se debe recuperar por fuzzy.
+  if (!best && minScore <= DEFAULT_MIN_SCORE) {
+    for (const c of candidates) {
+      const ratio = tokenSetRatio(externalName, c.nombre)
+      if (ratio >= FUZZY_FALLBACK_RATIO && (!best || ratio > best.ratio)) {
+        best = { c, score: minScore, ratio }
+      }
+    }
+  }
+
+  if (!best) return null
+
+  // Resolver identidad canónica: si la ganadora es alias de otra ficha, devolver la canónica.
+  const canonicalId = best.c.canonical_course_id
+  if (canonicalId) {
+    const canon = candidates.find(x => x.id === canonicalId)
+    if (canon) return { id: canon.id, nombre: canon.nombre, score: best.score }
+  }
+
+  return { id: best.c.id, nombre: best.c.nombre, score: best.score }
 }
 
 /**
