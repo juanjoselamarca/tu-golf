@@ -13,6 +13,7 @@
  */
 
 import type { ImportRoundData, ImportIssue } from '@/lib/import-types'
+import { calcularDiferencial } from '@/lib/indice-golfers'
 
 // ── Import Round Validation ───────────────────────────────────
 
@@ -78,6 +79,8 @@ export interface RondaCPI {
   total_gross: number
   course_rating: number | null
   slope_rating: number | null
+  /** Hoyos jugados (9 o 18). Necesario para el diferencial WHS correcto de 9h. */
+  holes_played?: number | null
 }
 
 export interface ResultadoCPI {
@@ -91,21 +94,17 @@ export interface ResultadoCPI {
     volumen_factor: number
   }
   rondas_usadas: number
+  /** Diferenciales WHS efectivamente computados (rondas con CR/slope reales). */
+  diferenciales: number[]
 }
 
 // ── Constants ─────────────────────────────────────────────────
 
-const DEFAULT_COURSE_RATING = 72
-const DEFAULT_SLOPE = 113
 const MIN_RONDAS = 3
 const RONDAS_PROVISIONAL = 10
 const MAX_RONDAS = 20        // usar las últimas 20
 
 // ── Helpers ───────────────────────────────────────────────────
-
-function calcularDiferencial(gross: number, cr: number, slope: number): number {
-  return ((gross - cr) * 113) / slope
-}
 
 function validarRondaCPI(r: RondaCPI): boolean {
   const s = r.total_gross
@@ -155,22 +154,26 @@ export function calcularCPI(rondas: RondaCPI[]): ResultadoCPI {
     .sort((a, b) => new Date(b.played_at).getTime() - new Date(a.played_at).getTime())
     .slice(0, MAX_RONDAS)
 
-  if (validas.length < MIN_RONDAS) {
+  // ── Calcular diferenciales ────────────────────────────────
+  // Solo rondas con CR/slope reales. Sin defaults silenciosos: una ronda sin
+  // rating no se computa con 72/113 (eso inflaba el diferencial del coach).
+  // Usa el calcularDiferencial canónico (con holes_played → WHS 9h correcto).
+  const diferenciales = validas
+    .map(r => (r.course_rating != null && r.slope_rating != null)
+      ? calcularDiferencial(r.total_gross, r.course_rating, r.slope_rating, r.holes_played)
+      : null)
+    .filter((d): d is number => d != null)
+
+  if (diferenciales.length < MIN_RONDAS) {
     return {
       score: 0,
       trend: 0,
       status: 'insufficient_data',
       breakdown: { diferencial_avg: 0, consistencia: 0, tendencia: 0, volumen_factor: 0 },
-      rondas_usadas: validas.length,
+      rondas_usadas: diferenciales.length,
+      diferenciales,
     }
   }
-
-  // ── Calcular diferenciales ────────────────────────────────
-  const diferenciales = validas.map(r => {
-    const cr = r.course_rating ?? DEFAULT_COURSE_RATING
-    const slope = r.slope_rating ?? DEFAULT_SLOPE
-    return calcularDiferencial(r.total_gross, cr, slope)
-  })
 
   // ── 1. Diferencial promedio ponderado ─────────────────────
   const pesos = diferenciales.map((_, i) => pesoRecencia(i, diferenciales.length))
@@ -195,7 +198,7 @@ export function calcularCPI(rondas: RondaCPI[]): ResultadoCPI {
 
   // ── 4. Volumen ────────────────────────────────────────────
   // Penalizar si pocas rondas
-  const volumenFactor = Math.min(1, validas.length / RONDAS_PROVISIONAL)
+  const volumenFactor = Math.min(1, diferenciales.length / RONDAS_PROVISIONAL)
 
   // ── Score base: mapear diferencial a 0–55 ─────────────────
   // Diferencial 0 (scratch) → 55pts
@@ -206,7 +209,7 @@ export function calcularCPI(rondas: RondaCPI[]): ResultadoCPI {
   const rawScore = (scoreBase + consistencia + tendencia) * volumenFactor
   const score = Math.round(Math.max(0, Math.min(100, rawScore)) * 100) / 100
 
-  const status = validas.length >= RONDAS_PROVISIONAL ? 'established' : 'provisional'
+  const status = diferenciales.length >= RONDAS_PROVISIONAL ? 'established' : 'provisional'
 
   return {
     score,
@@ -218,6 +221,7 @@ export function calcularCPI(rondas: RondaCPI[]): ResultadoCPI {
       tendencia: Math.round(tendencia * 100) / 100,
       volumen_factor: Math.round(volumenFactor * 100) / 100,
     },
-    rondas_usadas: validas.length,
+    rondas_usadas: diferenciales.length,
+    diferenciales,
   }
 }

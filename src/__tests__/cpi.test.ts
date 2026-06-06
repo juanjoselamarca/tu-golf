@@ -6,6 +6,33 @@ function makeRonda(playedAt: string, gross: number, cr = 72, slope = 113): Ronda
   return { played_at: playedAt, total_gross: gross, course_rating: cr, slope_rating: slope }
 }
 
+describe('CPI — diferenciales sin defaults silenciosos', () => {
+  it('omite rondas sin CR/slope en vez de usar default 72/113', () => {
+    const rondas = [
+      { total_gross: 42, played_at: '2026-05-01', course_rating: null, slope_rating: null, holes_played: 9 },
+      { total_gross: 85, played_at: '2026-05-02', course_rating: 72, slope_rating: 130, holes_played: 18 },
+      { total_gross: 88, played_at: '2026-05-03', course_rating: 72, slope_rating: 130, holes_played: 18 },
+    ] as unknown as RondaCPI[]
+    const res = calcularCPI(rondas)
+    // La ronda de 9h sin CR no debe inyectar un diferencial ~-30 (default slope 113)
+    expect(res.diferenciales.every((d: number) => d > -5)).toBe(true)
+    // y la 9h sin CR se descarta: solo quedan las 2 rondas con CR/slope reales
+    expect(res.diferenciales).toHaveLength(2)
+  })
+
+  it('una 9h con CR/slope usa el diferencial equiv-18h del canónico (no la fórmula cruda)', () => {
+    const rondas = [
+      { total_gross: 40, played_at: '2026-05-01', course_rating: 72, slope_rating: 130, holes_played: 9 },
+      { total_gross: 85, played_at: '2026-05-02', course_rating: 72, slope_rating: 130, holes_played: 18 },
+      { total_gross: 88, played_at: '2026-05-03', course_rating: 72, slope_rating: 130, holes_played: 18 },
+    ] as unknown as RondaCPI[]
+    const res = calcularCPI(rondas)
+    // 9h: (40 - 72/2) * 113 / 130 * 2 = (40-36)*113/130*2 ≈ 6.95, razonable (no -27 de la fórmula cruda 18h)
+    expect(res.diferenciales[0]).toBeGreaterThan(0)
+    expect(res.diferenciales[0]).toBeLessThan(20)
+  })
+})
+
 function makeImportRound(scores: Record<string, number>, total?: number): ImportRoundData {
   const sum = Object.values(scores).reduce((a, b) => a + b, 0)
   return {
@@ -171,12 +198,15 @@ describe('CPI — calcularCPI scoring', () => {
     expect(r.trend).toBeLessThan(0)
   })
 
-  it('uses default course_rating/slope when null', () => {
+  it('NO usa defaults cuando CR/slope son null: omite las rondas (insufficient_data)', () => {
+    // Antes: estas rondas se computaban con 72/113 y daban un score "established"
+    // falso. Ahora se omiten (sin defaults silenciosos), así que no hay diferenciales.
     const r = calcularCPI(Array.from({ length: 10 }, (_, i) =>
       ({ played_at: `2026-${String(i + 1).padStart(2, '0')}-01`, total_gross: 80, course_rating: null, slope_rating: null })
     ))
-    expect(r.status).toBe('established')
-    expect(r.score).toBeGreaterThan(0)
+    expect(r.status).toBe('insufficient_data')
+    expect(r.score).toBe(0)
+    expect(r.diferenciales).toHaveLength(0)
   })
 
   it('score is always in [0, 100]', () => {
