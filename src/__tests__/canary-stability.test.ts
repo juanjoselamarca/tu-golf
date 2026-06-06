@@ -484,3 +484,69 @@ describe('Canary: error.tsx app-wide usan RouteErrorBoundary (19-may-2026)', () 
     ).toBe(true)
   })
 })
+
+/**
+ * Canario: frontera de confianza de getPageUser (06-jun-2026)
+ *
+ * getPageUser() lee getSession() (decodifica el JWT de la cookie SIN validarlo
+ * contra el servidor de Supabase). Solo es seguro en rutas que el middleware
+ * REDIRIGE a /login si no hay user válido (las de `protectedRoutes`): ahí un
+ * token forjado/expirado nunca llega a renderizar la página. En rutas PÚBLICAS
+ * (torneo, tarjeta) getSession() podría devolver un viewer forjado → usar
+ * getUser(). Este canario convierte esa regla en garantía ejecutable: si alguien
+ * usa getPageUser en una ruta no protegida, el test falla y no se puede pushear.
+ *
+ * Debe mantenerse sincronizado con `protectedRoutes` en src/middleware.ts.
+ */
+describe('Canario: getPageUser solo en rutas protegidas (frontera de confianza)', () => {
+  // Mismos prefijos que protectedRoutes en src/middleware.ts (sin la barra inicial).
+  const PROTECTED_PREFIXES = ['dashboard', 'perfil', 'coach', 'organizador', 'admin', 'importar', 'ronda-libre/nueva']
+  const APP_DIR = path.join(SRC, 'app')
+
+  function walk(dir: string): string[] {
+    const out: string[] = []
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) out.push(...walk(full))
+      else if (entry.isFile() && (entry.name.endsWith('.tsx') || entry.name.endsWith('.ts'))) out.push(full)
+    }
+    return out
+  }
+
+  // Ruta app-relativa con separadores POSIX (ej: 'organizador/[slug]/editar/page.tsx').
+  const appRel = (full: string) => path.relative(APP_DIR, full).split(path.sep).join('/')
+  const importsHelper = (full: string) => /from ['"]@\/lib\/auth\/getPageUser['"]/.test(fs.readFileSync(full, 'utf-8'))
+
+  const filesUsingHelper = walk(APP_DIR).filter(importsHelper)
+
+  it('hay al menos una página usando getPageUser (sanity del propio canario)', () => {
+    expect(filesUsingHelper.length).toBeGreaterThan(0)
+  })
+
+  filesUsingHelper.forEach((full) => {
+    const rel = appRel(full)
+    it(`app/${rel} está bajo una ruta protegida`, () => {
+      const ok = PROTECTED_PREFIXES.some((p) => rel === p || rel.startsWith(p + '/'))
+      expect(
+        ok,
+        `PELIGRO: app/${rel} usa getPageUser() pero su ruta NO está en protectedRoutes. ` +
+          `En una ruta no redirigida a /login, getSession() puede devolver un usuario forjado. ` +
+          `Usar supabase.auth.getUser() ahí, o agregar el prefijo a protectedRoutes en middleware.ts.`,
+      ).toBe(true)
+    })
+  })
+
+  // Rutas públicas conocidas: NUNCA deben usar getPageUser.
+  const PUBLIC_PAGES = ['torneo/[slug]/page.tsx', 'tarjeta/[id]/page.tsx']
+  PUBLIC_PAGES.forEach((rel) => {
+    it(`ruta pública app/${rel} NO usa getPageUser`, () => {
+      const full = path.join(APP_DIR, rel)
+      if (!fs.existsSync(full)) return // si se renombra/elimina, no romper el canario
+      expect(
+        importsHelper(full),
+        `PELIGRO: app/${rel} es ruta pública (no redirige a /login) y usa getPageUser(). ` +
+          `Debe usar supabase.auth.getUser() — es la frontera de confianza real ahí.`,
+      ).toBe(false)
+    })
+  })
+})

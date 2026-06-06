@@ -3,12 +3,16 @@ import type { SupabaseClient, User } from '@supabase/supabase-js'
 /**
  * Usuario autenticado para un Server Component, SIN round-trip de validación.
  *
- * Lee la sesión de la cookie con `getSession()` (local, decodifica el JWT) en
- * vez de `getUser()` (que valida el token contra el servidor de Supabase en
- * cada llamada). El `middleware.ts` ya ejecuta `getUser()` en CADA request no
- * estático (el matcher captura todo salvo assets) y refresca el token, así que
- * la cookie que lee la página ya pasó por validación en el mismo request. Esto
- * evita duplicar un round-trip a la BD (otra región: ~120ms por carga).
+ * Lee la sesión de la cookie con `getSession()` en vez de `getUser()` (que
+ * valida el token contra el servidor de Supabase en CADA llamada). Camino
+ * rápido: mientras el token sea válido, getSession() solo decodifica el JWT de
+ * la cookie sin round-trip. (Si el token está a <90s de expirar getSession()
+ * sí refresca con un round-trip — pero el `middleware.ts` ya lo refrescó en
+ * este mismo request, así que en la práctica la página cae casi siempre en el
+ * camino rápido.) El middleware ejecuta `getUser()` en CADA request no estático
+ * (el matcher captura todo salvo assets) y refresca el token, así que la cookie
+ * que lee la página ya pasó por validación en el mismo request. Esto evita
+ * duplicar el round-trip de validación de getUser() (otra región: ~120ms/carga).
  *
  * SEGURIDAD — usar SOLO en Server Components de rutas que el middleware
  * REDIRIGE a /login si no hay user (las de `protectedRoutes` en middleware.ts:
