@@ -73,11 +73,8 @@ export async function captureError(
 
     // Supabase: copia de seguridad — datos que nosotros controlamos.
     // - En client usamos el browser client (anon key, RLS aplica).
-    // - En server podríamos usar service role, pero importar el cliente
-    //   server-side dentro de captureError es frágil (depende del contexto).
-    //   Para errores server, el primer recurso es console.error → Vercel logs.
-    //   Si el caller quiere persistir en BD desde server, debe pasar el
-    //   supabase client en meta._supabase (escape hatch documentado abajo).
+    // - En server usamos el service role (no depende de cookies ni del request),
+    //   importado dinámicamente para no entrar al bundle de cliente.
     if (isClient) {
       try {
         const { createBrowserClient } = await import('@supabase/ssr')
@@ -94,6 +91,23 @@ export async function captureError(
             metadata: { ...meta, ...(stack ? { stack } : {}) },
           })
         }
+      } catch {
+        // Falla de persistencia nunca propaga.
+      }
+    } else {
+      // Server-side: persistir vía service role. Cierra la observabilidad del
+      // backend — antes los errores server solo iban a console.error → Vercel
+      // logs (sin histórico consultable ni alertas).
+      try {
+        const { createAdminClient } = await import('@/lib/supabaseAdmin')
+        await createAdminClient().from('error_logs').insert({
+          level: level === 'warning' ? 'warn' : level,
+          message,
+          source: context,
+          page: null,
+          user_id: userId,
+          metadata: { ...meta, ...(stack ? { stack } : {}) },
+        })
       } catch {
         // Falla de persistencia nunca propaga.
       }
