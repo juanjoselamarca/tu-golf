@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { getFocus, type GetFocusDeps } from '../get-focus'
 import { normalizeScores } from '@/lib/data/focus'
 import { spiralRound } from './fixtures'
+import { FOCUS_CATALOG } from '../catalog'
 import type { CerebroWeight } from '@/lib/cerebro/weights'
 
 function patternW(key: string, weight: number): CerebroWeight {
@@ -29,6 +30,7 @@ describe('getFocus — orquestación con dependencias inyectadas', () => {
       loadRounds: async () => rounds,
       loadTarget: async () => ({ currentHandicap: 20, targetHandicap: 14, targetDeadline: null }),
       loadWeights: async () => [],
+      loadCatalog: async () => FOCUS_CATALOG,
       ...over,
     }
   }
