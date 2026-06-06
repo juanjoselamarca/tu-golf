@@ -4,6 +4,33 @@
 
 ---
 
+## 2026-06-06 · import-hardening (prevención) — Fases 1-3 + matcher + DB
+
+Endurecimiento del pipeline de import para que ninguna ronda entre con CR/slope
+equivocado ni el diferencial corrupto. Foco: **prevención** (los barridos de datos
+quedan para checkpoint con Juanjo).
+
+- **Diferencial único** (`cpi.ts`): eliminado el `calcularDiferencial` duplicado y
+  los defaults 72/113 que ensuciaban el coach; usa el canónico con `holes_played`
+  y omite rondas sin CR/slope (no inventa). `ResultadoCPI` expone `diferenciales[]`.
+- **tee-resolver** (`src/golf/courses/tee-resolver.ts`): CR/slope reales por
+  color+género+hoyos desde `course_tees` (columnas reales verificadas: nombre,
+  genero, rating/slope, front_*/back_*). 9h usa front real; fallback documentado.
+- **Import resuelve CR/slope del catálogo** (no del archivo, raíz del −10.14):
+  capa `src/lib/data/course-tees.ts` + wiring en `importRound` (manual/foto/csv +
+  garmin nuevo, antes guardaba 0 diferencial), garmin-zip (propaga course_id+tee,
+  arregla bug obs 8113) y confirm garmin-upsert.
+- **Matcher** (`matching.ts`): fuzzy edit-distance (tie-break + fallback ≥0.85),
+  preferir `fedegolf`, resolver `canonical_course_id`. Score por palabras intacto.
+- **Migración `20260606_course_canonical`** (aplicada a prod): `canonical_course_id`,
+  `nombre_canonico`/`genero_norm` generados, índice único FedeGolf. Índice anti-dup
+  diferido al barrido (3 clusters reales).
+- **fedegolf-sync**: upsert atómico onConflict (antes find-then-insert con carrera).
+- tsc 0 · 2317 tests · build OK. **PENDIENTE (checkpoint Juanjo):** Barrido A
+  (dedup 3 clusters + backfill course_id) y Barrido B (re-derivar índice de Juanjo)
+  — tocan datos prod + su hándicap. Follow-up: cap net-double-bogey + género en
+  profiles. Sin mergear aún.
+
 ## 2026-06-03 · Cerebro V3 — Ola 2 "el coach te conoce" (PR #96, `92e4180`)
 
 Mergeada y en producción (flag por usuario). El coach ahora conoce al jugador, le da UN foco de alto impacto enmarcado en su meta, recuerda entre sesiones y deja ver el avance.
