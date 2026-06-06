@@ -26,18 +26,25 @@ no con los fierros."**
    neutro, voseo PROHIBIDO). Honestidad de marca: sin Strokes Gained ni dispersión de
    tiros (el motor no los calcula), import = guiada, 137 canchas = real.
 
+## Estado (6-jun-2026)
+Fases 1-4 cerradas y en la rama `feat/home-marketing-claude` (`0ba8d1c`). El landing
+`/home-v2` (preview, noindex) renderiza completo y verificado: tsc 0, anti-voseo, build,
+2201 tests, smoke visual desktop+mobile con `browse`. **Hallazgo + fix:** el CSP global
+bloqueaba Fontshare → se agregó `api.fontshare.com` (style-src) + `cdn.fontshare.com`
+(font-src) en `next.config.js` (commit `0ba8d1c`). Próximo: **Fase 5 (mini-juego)**.
+
 ## Fases
-- [ ] **Fase 1 — Contenido + infra** (esta sesión)
+- [x] **Fase 1 — Contenido + infra** (`fb77d51`)
   - `src/content/home.ts`: todo el copy estructurado y tipado.
   - `src/content/home.test.ts`: test anti-voseo (bloquea formas vos).
   - Verificar test verde.
-- [ ] **Fase 2 — Fonts + tokens del landing**
+- [x] **Fase 2 — Fonts + tokens del landing**
   - Cargar Clash Display + Satoshi scoped. Tokens CSS (navy + doble dorado) en módulo/scope.
-- [ ] **Fase 3 — Componentes estáticos** (consumen `home.ts`)
+- [x] **Fase 3 — Componentes estáticos** (consumen `home.ts`)
   - `HeroMarketing`, `CoachSteps`, `CompeteLeaderboard`, `FeaturesGrid`, `PlansTeaser`,
     `FinalCta`. Cada uno con su mini-visual (índice dual, scorecard leída, course rows,
     sparkline). Reveal con IntersectionObserver.
-- [ ] **Fase 4 — Wiring en `page.tsx`**
+- [x] **Fase 4 — Wiring en `page.tsx`**
   - Reemplazar secciones viejas, mantener ISR + stats reales en proofbar.
 - [ ] **Fase 5 — Mini-juego interactivo** (client component)
   - "Pega tu tiro": barra de potencia, 3 tiros, tracer SVG, gancho al coach.
