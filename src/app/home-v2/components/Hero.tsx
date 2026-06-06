@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { HOME } from '@/content/home'
+import PGALiveWidget from '@/components/PGALiveWidget'
 
 const SLIDES = ['s1', 's2', 's3', 's4'] as const
 const Arrow = () => (
@@ -46,6 +47,12 @@ export default function Hero() {
         </div>
         <p className="trust">{h.trustLine1}</p>
         <p className="trust" style={{ marginTop: 8, color: 'var(--gold-ant)' }}>{h.trustLine2}</p>
+
+        {/* PGA broadcast (lower-third). El widget consume /api/pga-live y se
+            auto-oculta si ESPN cae o no hay torneo — el hero queda perfecto sin él. */}
+        <div className="pgaslot">
+          <PGALiveWidget />
+        </div>
       </div>
 
       <div className="dots">
