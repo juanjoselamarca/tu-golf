@@ -4,6 +4,7 @@
 // torneos recientes del organizador) y los pasa al editor cliente.
 
 import { createClient } from '@/utils/supabase/server'
+import { getPageUser } from '@/lib/auth/getPageUser'
 import { redirect } from 'next/navigation'
 import TournamentDraftEditor, {
   type CourseOption,
@@ -19,9 +20,7 @@ interface NuevoTorneoPageProps {
 
 export default async function NuevoTorneoPage({ searchParams }: NuevoTorneoPageProps) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getPageUser(supabase)
   if (!user) redirect('/login?next=/organizador/nuevo')
 
   const [coursesRes, draftsRes, tournamentsRes] = await Promise.all([

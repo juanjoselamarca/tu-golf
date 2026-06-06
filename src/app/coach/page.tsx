@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { getPageUser } from '@/lib/auth/getPageUser'
 import { TaigerHero } from '@/components/coach/TaigerHero'
 import { MentalRecoveryCard } from '@/components/coach/MentalRecoveryCard'
 import { HighlightsCarousel } from '@/components/coach/HighlightsCarousel'
@@ -112,7 +113,7 @@ function patternScore(p: { pattern_type: string; confidence: number }): number {
 
 export default async function CoachDashboard() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getPageUser(supabase)
   if (!user) redirect('/login?next=/coach')
 
   // Todas las queries en paralelo, server-side (sin waterfall de hidratación).

@@ -53,6 +53,9 @@ import type { TournamentResultados, WithdrawnEntry } from './types'
 
 export default async function TorneoPage({ params }: { params: { slug: string } }) {
   const supabase = await createClient()
+  // Ruta PÚBLICA (no está en protectedRoutes del middleware): acá getUser() es la
+  // frontera de confianza, no se puede usar getPageUser() porque un token forjado
+  // no dispararía redirect y getSession() devolvería un viewer falso.
   const {
     data: { user: viewer },
   } = await supabase.auth.getUser()
