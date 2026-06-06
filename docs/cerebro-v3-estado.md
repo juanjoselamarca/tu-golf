@@ -1,4 +1,23 @@
-# Estado Cerebro V3 — Actualizado 2026-06-03 — Ola 2 "el coach te conoce" ✅ MERGEADA Y EN PRODUCCIÓN
+# Estado Cerebro V3 — Actualizado 2026-06-06 — Ola 2 ✅ EN PROD · Ola 3 EN CURSO (chunk 1 ✅)
+
+## ⏩ RETOMAR ACÁ — Ola 3 chunk 2 (próxima sesión)
+
+**Trabajar en MAIN** (Ola 3 chunk 1 ya mergeado, no hay branch abierta). Crear worktree nuevo.
+
+**Ola 3 "el cerebro guarda y crece" — chunk 1 CERRADO Y EN PROD** (PR #117 `d477ada`):
+- Tabla `pattern_definitions` (spec §8.4) + RLS + seed de los 9 patrones gen-0.
+- `loadFocusCatalog` (`v3/focus/catalog-db.ts`): el motor de foco lee el catálogo de DB, liga la matemática gen-0 por `pattern_key` (`MEASURE_BY_KEY`), fallback al código. Canario enforced.
+- Validado: catálogo DB = mismo foco que código (regresión) + PoC (archivar un patrón por SQL cambia el foco, sin merge).
+
+**PRÓXIMA TAREA — Ola 3 chunk 2 (empezar acá):**
+1. **`pattern_observations`** (tabla, spec §8.4 — OJO: FK a `historical_rounds`, NO a `rounds`, mismo aprendizaje que round_metrics en Ola 2) + **runner** `v3/pattern-runner.ts` que computa y persiste cada patrón por ronda. Cada ronda finalizada dispara el cómputo.
+2. **`pattern-validator.ts`** (filtro anti-fantasía con reglas duras: min_N≥10, min_effect_size≥0.3, min_R²≥0.15). TDD.
+3. **Pesos por patrón individual** en el paramétrico vivo (extender `cerebro_weights` / leer `weight` de `pattern_definitions`).
+4. (chunk 3) **Formula declarativa** (`formula_payload` interpretado) → agregar patrón NUEVO solo por SQL, sin código. Eso completa la promesa de Ola 3.
+
+**Gotchas confirmados esta sesión:** browser headless se corrompe tras muchos ciclos (capturar con server fresco + poll de contenido; o usar server-render del componente para visual). Windows page-file OOM tras sesión larga — reiniciar procesos / sesión nueva. Migración FK: usar `historical_rounds`, no `rounds`.
+
+---
 
 ## ✅ OLA 2 CERRADA (2026-06-03) — PR #96 squash-merged (`92e4180`)
 
