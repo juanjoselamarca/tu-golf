@@ -61,7 +61,20 @@ export interface DBRondaLibreJugador {
   nombre: string
   user_id: string | null
   scores: Record<string, number> | null
+  /**
+   * Handicap del jugador para el cálculo de neto/stableford en la tabla.
+   * `fetchRondaLibreJugadores` lo trae como ÍNDICE (lo que guarda el productor);
+   * `fetchRondaLibreJugadoresConCourseHcp` lo resuelve a COURSE HANDICAP por tee
+   * para que la tabla coincida con la tarjeta en cancha (que usa course handicap).
+   */
   handicap: number | null
+  /**
+   * Índice crudo (sin convertir), conservado por `...ConCourseHcp` para el GWI live
+   * tracker, cuya varianza se modela por índice de skill, no por course handicap.
+   * Undefined en el fetch plano (el builder cae a `handicap`).
+   */
+  handicap_index?: number | null
+  tees: string | null
   ronda_id: string
 }
 

@@ -28,7 +28,7 @@ import {
   buildFallbackCourseHoles,
   fetchCourseHoles,
   fetchLegacyPlayers,
-  fetchRondaLibreJugadores,
+  fetchRondaLibreJugadoresConCourseHcp,
   fetchTournamentBySlug,
   fetchTournamentGroups,
   fetchWithdrawnPlayers,
@@ -120,7 +120,13 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
     if (hasRondaLibreGroups) {
       const rondaIds = groups.map((g) => g.ronda_libre_id).filter(Boolean) as string[]
-      const jugadores = await fetchRondaLibreJugadores(supabase, rondaIds)
+      // Resuelve el handicap de cada jugador a COURSE HANDICAP por su tee (mismo
+      // cálculo que la tarjeta en cancha) para que el neto/stableford de la tabla
+      // coincida con el del jugador. En cancha estándar (slope 113, CR=par) o sin
+      // cancha vinculada es idéntico al índice → sin cambio. parTotal deduplicado
+      // por hoyo (lo que usa el scorer), no la columna courses.par_total.
+      const parParaHcp = sumParDedupByHole(courseHoles)
+      const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parParaHcp)
       const out = buildLeaderboardFromRondaLibre(jugadores, ctx)
       players = out.players
       playersByGross = out.playersByGross
