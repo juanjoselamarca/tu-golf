@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
     // 7. Pre-fetch all courses and holes (avoid N+1 per scorecard)
     const { data: allCourses } = await supabase
       .from('courses')
-      .select('id, nombre')
+      .select('id, nombre, fuente, canonical_course_id')
 
     // Pre-fetch holes for all courses that have them
     const allCourseIds = allCourses?.map(c => c.id) ?? []

@@ -98,7 +98,10 @@ async function upsertCancha(
     fedegolf_synced_at: new Date().toISOString(),
   }
 
-  // Buscar si ya existe
+  // Idempotente: upsert atómico sobre la llave natural FedeGolf
+  // (índice único uq_courses_fedegolf_natural). Antes era find-then-insert/update
+  // con carrera; ahora el DB garantiza no duplicar. El chequeo previo es solo
+  // para reportar new vs updated.
   const { data: existing, error: findError } = await supabase
     .from('courses')
     .select('id')
@@ -111,46 +114,27 @@ async function upsertCancha(
     return 'error'
   }
 
-  let courseId: string
-  let isNew: boolean
+  const { data: upserted, error: upsertError } = await supabase
+    .from('courses')
+    .upsert(courseRow, { onConflict: 'fedegolf_club_id,fedegolf_cancha_id' })
+    .select('id')
+    .single()
 
-  if (existing) {
-    // UPDATE existente
-    const { error: updateError } = await supabase
-      .from('courses')
-      .update(courseRow)
-      .eq('id', existing.id)
-
-    if (updateError) {
-      console.error(`  ❌ Error actualizando ${nombreCurso}:`, updateError.message)
-      return 'error'
-    }
-
-    // Borrar tees anteriores de fedegolf (no tocar los manuales)
-    await supabase
-      .from('course_tees')
-      .delete()
-      .eq('course_id', existing.id)
-      .eq('fuente', 'fedegolf')
-
-    courseId = existing.id
-    isNew = false
-  } else {
-    // INSERT nuevo
-    const { data: inserted, error: insertError } = await supabase
-      .from('courses')
-      .insert(courseRow)
-      .select('id')
-      .single()
-
-    if (insertError || !inserted) {
-      console.error(`  ❌ Error insertando ${nombreCurso}:`, insertError?.message)
-      return 'error'
-    }
-
-    courseId = inserted.id
-    isNew = true
+  if (upsertError || !upserted) {
+    console.error(`  ❌ Error upserting ${nombreCurso}:`, upsertError?.message)
+    return 'error'
   }
+
+  const courseId: string = upserted.id
+  const isNew: boolean = !existing
+
+  // Refrescar tees de fedegolf (no tocar los manuales): borrar y reinsertar.
+  // Idempotente tanto para curso nuevo (no-op) como existente.
+  await supabase
+    .from('course_tees')
+    .delete()
+    .eq('course_id', courseId)
+    .eq('fuente', 'fedegolf')
 
   // Insertar tees (solo los que tienen datos)
   const genero = info.genero === 'femenino' ? 'F' : 'M'
