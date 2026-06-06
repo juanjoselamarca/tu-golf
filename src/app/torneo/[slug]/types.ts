@@ -61,7 +61,14 @@ export interface DBRondaLibreJugador {
   nombre: string
   user_id: string | null
   scores: Record<string, number> | null
+  /**
+   * Handicap del jugador para el cálculo de neto/stableford en la tabla.
+   * `fetchRondaLibreJugadores` lo trae como ÍNDICE (lo que guarda el productor);
+   * `fetchRondaLibreJugadoresConCourseHcp` lo resuelve a COURSE HANDICAP por tee
+   * para que la tabla coincida con la tarjeta en cancha (que usa course handicap).
+   */
   handicap: number | null
+  tees: string | null
   ronda_id: string
 }
 

@@ -17,6 +17,12 @@ import type {
 } from '@/app/torneo/[slug]/types'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { createClient } from '@/utils/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  resolverCourseData,
+  resolverCourseHandicap,
+  type CourseData,
+} from '@/golf/core/course-handicap'
 
 /** Cliente Supabase server-side. Atado al createClient real para que el
  *  tipo coincida 1:1 con lo que devuelve `createClient()` en page.tsx. */
@@ -90,9 +96,48 @@ export async function fetchRondaLibreJugadores(
   if (rondaIds.length === 0) return []
   const { data } = await supabase
     .from('ronda_libre_jugadores')
-    .select('id, nombre, user_id, scores, handicap, ronda_id')
+    .select('id, nombre, user_id, scores, handicap, tees, ronda_id')
     .in('ronda_id', rondaIds)
   return (data as unknown as DBRondaLibreJugador[] | null) ?? []
+}
+
+/**
+ * Igual que `fetchRondaLibreJugadores` pero RESUELVE el `handicap` de cada jugador
+ * de índice → COURSE HANDICAP por su tee, con los helpers canónicos
+ * (`resolverCourseData` + `resolverCourseHandicap`) — los MISMOS que usa el scorer
+ * en cancha (`getDotHcp` de score-grupo). Así el neto/stableford de la tabla pública
+ * coincide EXACTO con la tarjeta del jugador en canchas reales (slope ≠ 113).
+ *
+ * El builder (`buildLeaderboardFromRondaLibre`) consume `j.handicap` tal cual, así
+ * que entregándolo ya como course handicap el board queda correcto sin tocar el
+ * motor. Sin cancha vinculada, `resolverCourseHandicap` cae a `round(index)` (mismo
+ * fallback que el scorer) → sin divergencia.
+ */
+export async function fetchRondaLibreJugadoresConCourseHcp(
+  supabase: Client,
+  rondaIds: string[],
+  courseId: string | null,
+  holeCount: number,
+  parTotal: number,
+): Promise<DBRondaLibreJugador[]> {
+  const jugadores = await fetchRondaLibreJugadores(supabase, rondaIds)
+  if (!courseId || jugadores.length === 0) return jugadores
+
+  // Cache de CourseData por tee (mismas claves que el scorer → mismo resultado).
+  const cache = new Map<string, CourseData | null>()
+  const out: DBRondaLibreJugador[] = []
+  for (const j of jugadores) {
+    const tee = (j.tees || 'azul').toLowerCase()
+    if (!cache.has(tee)) {
+      cache.set(
+        tee,
+        await resolverCourseData(supabase as unknown as SupabaseClient, courseId, tee, holeCount, parTotal, null),
+      )
+    }
+    const courseHcp = resolverCourseHandicap(j.handicap ?? 0, cache.get(tee) ?? null)
+    out.push({ ...j, handicap: courseHcp })
+  }
+  return out
 }
 
 const LEGACY_PLAYER_SELECT =
