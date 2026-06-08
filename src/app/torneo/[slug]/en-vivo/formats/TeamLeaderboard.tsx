@@ -4,20 +4,10 @@
 // Tabla de equipos para best_ball, scramble y foursome.
 
 import type { LiveTeam } from '../types'
+import { formatVsPar, formatThru, vsParColor } from './golf-format'
 
 export interface TeamLeaderboardProps {
   teams: LiveTeam[]
-}
-
-function formatVsPar(vsPar: number): string {
-  if (vsPar === 0) return 'E'
-  return vsPar > 0 ? `+${vsPar}` : `${vsPar}`
-}
-
-function formatThru(thru: number, holeCount = 18): string {
-  if (thru >= holeCount) return 'F'
-  if (thru <= 0) return '-'
-  return String(thru)
 }
 
 function joinPlayerNames(team: LiveTeam): string {
@@ -93,7 +83,7 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
               <td style={{ ...tdStyle, fontWeight: 600 }}>{t.name}</td>
               <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{joinPlayerNames(t)}</td>
               <td style={tdNumStyle}>{t.team_total}</td>
-              <td style={{ ...tdNumStyle, fontWeight: 600 }}>{formatVsPar(t.vs_par)}</td>
+              <td style={{ ...tdNumStyle, fontWeight: 600, color: vsParColor(t.vs_par) }}>{formatVsPar(t.vs_par)}</td>
               <td style={{ ...tdNumStyle, color: 'var(--text-2, #5a6573)' }}>{formatThru(t.thru)}</td>
             </tr>
           ))}
