@@ -164,7 +164,6 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (err) {
-    console.error('[tAIger/chat] Error interno:', err)
     void captureError(err, { context: 'taiger.chat.outer' })
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
