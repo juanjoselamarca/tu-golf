@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { HOME } from '@/content/home'
-import PGALiveWidget from '@/components/PGALiveWidget'
+import PgaBroadcast from './PgaBroadcast'
 
 const SLIDES = ['s1', 's2', 's3', 's4'] as const
 const Arrow = () => (
@@ -51,7 +51,7 @@ export default function Hero() {
         {/* PGA broadcast (lower-third). El widget consume /api/pga-live y se
             auto-oculta si ESPN cae o no hay torneo — el hero queda perfecto sin él. */}
         <div className="pgaslot">
-          <PGALiveWidget />
+          <PgaBroadcast />
         </div>
       </div>
 
