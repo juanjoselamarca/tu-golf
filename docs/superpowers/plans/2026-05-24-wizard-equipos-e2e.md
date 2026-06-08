@@ -1,5 +1,33 @@
 # Plan: Wizard Equipos E2E + Refactor JugadoresPanel
 
+> **ESTADO: CERRADO — 2026-06-07.** La feature de equipos está en producción.
+>
+> El plan original (24-may) apuntaba a tablas `tournament_teams` /
+> `tournament_team_members` como fuente de verdad de la membresía. Eso fue
+> **SUPERADO** por la decisión PM 2026-06-02 **"el grupo de salida ES el equipo"**:
+> los equipos viven en `tournament_groups` y se materializan en `ronda_equipos` al
+> iniciar el torneo; el leaderboard lee de ahí (PRs #89/#94/#98).
+>
+> Mapeo final del plan → realidad:
+> - Pasos 1-7 (UI de asignación, wire por formato, validación de tamaño de equipo,
+>   materialización): **HECHOS** en el refactor de `JugadoresPanel` (`GroupsSection`
+>   con `isTeam`/`teamSize`) + `useTournamentLifecycle` (materializa + valida rango
+>   golf-correcto vía `FORMAT_META`). Cubiertos por `useTournamentLifecycle.test.ts`.
+> - Paso 8 (test E2E): **HECHO** como integration test contra schema real —
+>   `src/__tests__/integration/team-leaderboard.test.ts` prueba el seam sin cubrir
+>   (`fetchScrambleTeams`/`fetchBestBallTeams` desde `ronda_equipos`). Se prefirió
+>   integration determinista sobre browser E2E (CERO FALLOS: cero flakiness, atrapa
+>   drift de schema). Fixture reutilizable en `e2e/helpers/tournament-team-fixture.ts`.
+> - Modelo muerto `tournament_teams` (data layer `teams.ts` + tipos + tablas vacías):
+>   **ELIMINADO** (migración `20260607_drop_dead_tournament_teams.sql`). Era una
+>   trampa que invitaba a construir sobre el modelo equivocado.
+>
+> Contenido original abajo (histórico — la sección "DB schema nuevo" y los pasos
+> 2-3 sobre `tournament_teams` ya no aplican).
+
+---
+
+
 **Fecha inicio:** 2026-05-24
 **Worktree:** `.claude/worktrees/wizard-equipos-e2e` (branch `fix/wizard-equipos-e2e-claude`)
 **Triggers:**
