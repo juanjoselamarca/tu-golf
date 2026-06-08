@@ -1,5 +1,34 @@
 import { describe, it, expect } from 'vitest'
-import { resolveRatings, type TeeRow } from './tee-resolver'
+import { resolveRatings, extractTeeColor, type TeeRow } from './tee-resolver'
+
+describe('extractTeeColor — leer el color de un texto libre (OCR de tarjeta)', () => {
+  it('extrae color simple en EN/ES', () => {
+    expect(extractTeeColor('Blue')).toBe('azul')
+    expect(extractTeeColor('Azul')).toBe('azul')
+    expect(extractTeeColor('Blanco')).toBe('blanco')
+  })
+  it('extrae el color dentro de una frase', () => {
+    expect(extractTeeColor("Men's Blue Tees")).toBe('azul')
+    expect(extractTeeColor('Tee de salida: Rojo')).toBe('rojo')
+  })
+  it('extrae aunque venga con sufijo de género', () => {
+    expect(extractTeeColor('Rojo - Damas')).toBe('rojo')
+    expect(extractTeeColor('negras')).toBe('negras')
+  })
+  it('devuelve null si no hay color reconocible', () => {
+    expect(extractTeeColor('Championship')).toBeNull()
+    expect(extractTeeColor('6800 yards')).toBeNull()
+    expect(extractTeeColor(null)).toBeNull()
+    expect(extractTeeColor('')).toBeNull()
+  })
+  it('lo que extrae resuelve después contra el catálogo', () => {
+    const tees: TeeRow[] = [
+      { nombre: 'negras', genero: 'M', rating: 75.1, slope: 142, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+    ]
+    const color = extractTeeColor("Men's Black Tees")
+    expect(resolveRatings(tees, color, 18)?.cr).toBe(75.1)
+  })
+})
 
 // Columnas reales de course_tees (verificadas contra prod 2026-06-06):
 // nombre (color), genero ('M'|'F'), rating/slope (18h), front_*/back_* (9h).

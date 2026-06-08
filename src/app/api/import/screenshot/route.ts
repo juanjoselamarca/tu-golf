@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { normalizeGarminColor, colorToDiff, isAmbiguousColor } from '@/golf/core/colors'
+import { extractTeeColor } from '@/golf/courses/tee-resolver'
 import { matchCourseInDB } from '@/golf/courses/matching'
 import { checkRateLimit } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
@@ -516,6 +517,10 @@ export async function POST(request: NextRequest) {
     // Helper: build ImportRoundData from a scorecard response
     // -------------------------------------------------------------------
     const buildScorecardRound = async (parsed: VisionScorecard): Promise<ImportRoundData> => {
+      // El tee aparece en la tarjeta Garmin; el OCR ya lo lee (parsed.tees).
+      // Lo extraemos como color para que confirm/importRound resuelva el CR/slope
+      // del catálogo (antes se descartaba → fotos sin diferencial).
+      const teeColor = extractTeeColor(parsed.tees)
       const round: ImportRoundData = {
         tempId: crypto.randomUUID(),
         played_at: parsed.played_at || new Date().toISOString().split('T')[0],
@@ -523,7 +528,8 @@ export async function POST(request: NextRequest) {
         total_gross: parsed.total_gross || 0,
         holes_played: parsed.holes_played === 9 ? 9 : 18,
         scores: parsed.scores || {},
-        metadata: {},
+        tee_color: teeColor,
+        metadata: parsed.tees ? { tee_box: parsed.tees } : {},
         import_confidence: parsed.confidence ?? 0.5,
         validation: { valid: false, holesPlayed: 0, issues: [] },
       }
