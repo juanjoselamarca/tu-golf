@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
+import { captureError } from '@/lib/error-tracking'
 import StepSurvey from './StepSurvey'
 import StepSelector from './StepSelector'
 import ImportGuide from './ImportGuide'
@@ -250,7 +251,7 @@ export default function ImportWizard() {
           })
         }
       } catch (err) {
-        console.error('Upload error:', err)
+        void captureError(err, { context: 'import.upload', meta: { source: state.source } })
         const errMsg = err instanceof Error ? err.message : ''
         // Preserve specific server errors (e.g. Gemini unavailable)
         const fallback = state.source === 'garmin_zip'
@@ -374,7 +375,13 @@ export default function ImportWizard() {
           />
         )}
 
-        {state.step === 'celebration' && state.cpiResult && (
+        {/* IMPORTANTE: la celebración NO debe depender de `cpiResult`. El CPI
+            solo se calcula con ≥3 rondas históricas (api/import/confirm), así que
+            un usuario nuevo importando sus primeras 1-2 tarjetas recibe
+            cpiResult=null en 200 OK. El guard previo `&& state.cpiResult` dejaba
+            la pantalla EN BLANCO tras una importación exitosa (inbox ccadf3c4).
+            StepCelebration ya no usa cpiResult — solo roundCount. */}
+        {state.step === 'celebration' && (
           <StepCelebration
             cpiResult={state.cpiResult}
             insights={state.insights}
