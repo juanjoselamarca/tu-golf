@@ -204,7 +204,9 @@ export async function importRound(
       total_stableford: totalStableford,
       notes: input.notes || null,
       privacy: input.privacy || 'private',
-      source: input.source,
+      // La columna de la tabla es `import_source`, NO `source`. Escribir `source`
+      // hacía fallar TODO insert con 42703 → 0 rondas importadas (bug P0, jun-2026).
+      import_source: input.source,
       metadata: input.metadata || {},
       formato_juego: (input.formatoJuego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') ?? 'stroke_play',
       modo_juego: (input.modoJuego as 'gross' | 'neto') ?? 'gross',
