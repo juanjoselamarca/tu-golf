@@ -43,7 +43,7 @@ function statusBadge(status: LiveTournament['status']): StatusBadge {
 
 function formatLastUpdate(ts: number): string {
   const diffSec = Math.max(0, Math.round((Date.now() - ts) / 1000))
-  if (diffSec < 5) return 'recien actualizado'
+  if (diffSec < 5) return 'recién actualizado'
   if (diffSec < 60) return `actualizado hace ${diffSec}s`
   const diffMin = Math.round(diffSec / 60)
   if (diffMin < 60) return `actualizado hace ${diffMin} min`

@@ -68,7 +68,7 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
           fontSize: '14px',
         }}
       >
-        Aun no hay equipos con scores.
+        Aún no hay equipos con scores.
       </div>
     )
   }
