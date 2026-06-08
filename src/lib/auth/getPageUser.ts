@@ -9,9 +9,11 @@ import type { SupabaseClient, User } from '@supabase/supabase-js'
  * la cookie sin round-trip. (Si el token está a <90s de expirar getSession()
  * sí refresca con un round-trip — pero el `middleware.ts` ya lo refrescó en
  * este mismo request, así que en la práctica la página cae casi siempre en el
- * camino rápido.) El middleware ejecuta `getUser()` en CADA request no estático
- * (el matcher captura todo salvo assets) y refresca el token, así que la cookie
- * que lee la página ya pasó por validación en el mismo request. Esto evita
+ * camino rápido.) El middleware ejecuta `getUser()` en las rutas protegidas y en
+ * `/api/*` — incluidas TODAS las que usan este helper (canario-gated abajo) — y
+ * refresca el token, así que la cookie que lee la página ya pasó por validación
+ * en el mismo request. (Las páginas públicas saltean getUser() en el middleware
+ * para acelerar el TTFB; por eso este helper NO se usa en ellas.) Esto evita
  * duplicar el round-trip de validación de getUser() (otra región: ~120ms/carga).
  *
  * SEGURIDAD — usar SOLO en Server Components de rutas que el middleware
