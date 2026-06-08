@@ -74,6 +74,29 @@ function canonicalColor(raw: string): string {
   return stripped.length >= 3 ? stripped : c
 }
 
+/** Colores de tee reconocidos (forma ES base), por su raíz canónica. */
+const KNOWN_COLOR_STEMS = new Set(
+  ['azul', 'blanco', 'negro', 'rojo', 'dorado', 'amarillo', 'verde', 'gris',
+   'plata', 'naranjo', 'celeste', 'morado', 'rosado', 'cafe', 'oro', 'marfil']
+    .map(canonicalColor),
+)
+
+/**
+ * Extrae el color de tee de un texto libre — típicamente el campo "tees" que el
+ * OCR lee de una tarjeta Garmin ("Blue", "Men's Blue Tees", "Rojo - Damas").
+ * Devuelve el color (mapeado a ES cuando viene en inglés) listo para resolver,
+ * o `null` si no reconoce ningún color. No inventa: si no hay color, null.
+ */
+export function extractTeeColor(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  for (const token of norm(raw).split(/[^a-z0-9]+/)) {
+    if (!token) continue
+    const mapped = COLOR_SYNONYMS[token] ?? token
+    if (KNOWN_COLOR_STEMS.has(canonicalColor(mapped))) return mapped
+  }
+  return null
+}
+
 /**
  * Resuelve CR/slope para un color de tee. Devuelve `null` si no hay match
  * confiable (color desconocido o tee sin rating de 18h).

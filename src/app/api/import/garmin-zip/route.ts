@@ -4,6 +4,7 @@ import JSZip from 'jszip'
 import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { findBestCourseMatch } from '@/golf/courses/matching'
+import { extractTeeColor } from '@/golf/courses/tee-resolver'
 export const dynamic = 'force-dynamic'
 
 export const maxDuration = 60
@@ -433,7 +434,7 @@ export async function POST(request: NextRequest) {
         // Propagar la identidad de cancha y el tee del match para que el confirm
         // resuelva CR/slope desde course_tees (no del archivo) y vincule la ronda.
         course_id: dbCourse?.id ?? null,
-        tee_color: sc.teeBox ?? null,
+        tee_color: extractTeeColor(sc.teeBox),
         total_gross: totalGross,
         holes_played: sc.holesCompleted as 9 | 18,
         scores,
