@@ -50,8 +50,11 @@ const theme = {
   textFaint: 'var(--text-3)',
   border: 'var(--border)',
   gold: '#C4992A',
-  navBg: 'rgba(255,255,255,0.97)',
-  headerBg: 'rgba(255,255,255,0.97)',
+  // Token, no hardcode: en dark resuelve a #0e1c2f (navy), en light a #fff.
+  // Mismo bug que el scorer individual (inbox 8eda9722): header y barra
+  // inferior quedaban blancos sobre cuerpo oscuro en dark mode.
+  navBg: 'var(--bg-surface)',
+  headerBg: 'var(--bg-surface)',
 }
 
 /* ── Score color chip ── */
