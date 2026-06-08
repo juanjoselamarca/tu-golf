@@ -7,6 +7,33 @@ export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
   supabaseResponse.headers.set('x-request-id', requestId)
 
+  const pathname = request.nextUrl.pathname
+
+  // Solo estas rutas de PÁGINA necesitan leer la sesión en el middleware:
+  //  - protectedRoutes: redirigen a /login si no hay user válido.
+  //  - /login y /register: redirigen a /dashboard si el user YA está logueado.
+  // El resto de páginas públicas (landing /, /torneo, /tarjeta, /unirse, etc.)
+  // retorna sin tocar Supabase, evitando un round-trip getUser() cross-continente
+  // (Vercel gru1 ↔ Supabase sa-east-1, ~120ms) en cada request → mata el TTFB de
+  // la primera pantalla. Las páginas públicas que leen auth (torneo, tarjeta)
+  // llaman getUser() ellas mismas — son su propia frontera de confianza — y el
+  // token también se refresca client-side, así que saltearlo acá no caduca la
+  // sesión. getPageUser() solo se usa en rutas protegidas, donde getUser() abajo
+  // sigue corriendo (frontera de confianza intacta).
+  //
+  // /api/* SÍ pasa por getUser(): el middleware refresca el JWT en cada llamada,
+  // y excluirlo rompería sesiones largas que pollean una API (ej. /en-vivo en un
+  // torneo) → logout prematuro. Decisión deliberada (memoria 4938, 28-abr-2026);
+  // el costo en /api es marginal (la mayoría de /en-vivo sale del CDN, s-maxage).
+  const protectedRoutes = ['/dashboard', '/perfil', '/coach', '/organizador', '/admin', '/importar', '/ronda-libre/nueva']
+  const isProtected = protectedRoutes.some((r) => pathname.startsWith(r))
+  const isAuthPage = pathname === '/login' || pathname === '/register'
+  const isApi = pathname.startsWith('/api')
+
+  if (!isProtected && !isAuthPage && !isApi) {
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -59,15 +86,9 @@ export async function middleware(request: NextRequest) {
 
   // Redirect logged-in users away from auth pages only (NOT from /)
   // Landing page (/) is accessible to everyone — logged in or not
-  const pathname = request.nextUrl.pathname
-  if (user && (pathname === '/login' || pathname === '/register')) {
+  if (user && isAuthPage) {
     return redirectWithCookies(new URL('/dashboard', request.url))
   }
-
-  const protectedRoutes = ['/dashboard', '/perfil', '/coach', '/organizador', '/admin', '/importar', '/ronda-libre/nueva']
-  const isProtected = protectedRoutes.some((r) =>
-    pathname.startsWith(r)
-  )
 
   if (isProtected && !user) {
     const loginUrl = new URL('/login', request.url)
