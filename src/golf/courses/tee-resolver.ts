@@ -93,7 +93,9 @@ export function resolveRatings(
       // Front-9 real (preferido).
       nineHoleRatings = { cr9h: Number(tee.front_course_rating), slope9h: Number(tee.front_slope_rating) }
     } else if (tee.back_course_rating != null && tee.back_slope_rating != null) {
-      // Sin front explícito: derivar front = 18h CR − back CR; slope del back.
+      // Sin front explícito: aproximación documentada. El CR se deriva (18h − back),
+      // pero el slope es el del BACK (no hay slope front). Mezcla deliberada y
+      // acotada; suficiente para el diferencial 9h cuando no hay front rating.
       nineHoleRatings = {
         cr9h: Number((cr - Number(tee.back_course_rating)).toFixed(1)),
         slope9h: Number(tee.back_slope_rating),

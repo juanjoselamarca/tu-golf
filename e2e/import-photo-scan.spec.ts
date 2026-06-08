@@ -76,6 +76,7 @@ const MOCK_CONFIRM_RESPONSE = {
       volumen_factor: 0.8,
     },
     rondas_usadas: 1,
+    diferenciales: [20],
   },
   cpi: {
     score: 62,
@@ -88,6 +89,7 @@ const MOCK_CONFIRM_RESPONSE = {
       volumen_factor: 0.8,
     },
     rondas_usadas: 1,
+    diferenciales: [20],
   },
   insights: ['Tu primera ronda importada.'],
 }

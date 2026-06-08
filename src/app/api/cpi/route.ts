@@ -23,18 +23,18 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: 'No pudimos calcular tu índice. Intenta de nuevo.' }, { status: 500 })
 
-  // Solo rondas de 18 hoyos (9H no tienen course_rating comparable)
-  const rondasCPI = (rondas ?? [])
-    .filter(r => {
-      const holes = (r as Record<string, unknown>).holes_played as number | null
-      return !holes || holes >= 18
-    })
-    .map(r => ({
-      played_at: r.played_at,
-      total_gross: r.total_gross,
-      course_rating: r.course_rating ?? null,
-      slope_rating: r.slope_rating ?? null,
-    }))
+  // Incluye 9h y 18h: calcularCPI usa el calcularDiferencial canónico, que
+  // convierte 9h → equivalente-18h con holes_played. Antes se filtraban las 9h
+  // (sin holes_played), lo que daba un CPI distinto al de /coach para el mismo
+  // jugador. Ahora las tres superficies (/perfil, /coach, import-confirm) usan
+  // exactamente los mismos inputs.
+  const rondasCPI = (rondas ?? []).map(r => ({
+    played_at: r.played_at,
+    total_gross: r.total_gross,
+    course_rating: r.course_rating ?? null,
+    slope_rating: r.slope_rating ?? null,
+    holes_played: (r as { holes_played?: number | null }).holes_played ?? null,
+  }))
 
   const resultado = calcularCPI(rondasCPI)
 

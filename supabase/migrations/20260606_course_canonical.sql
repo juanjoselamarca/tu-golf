@@ -36,6 +36,12 @@ ALTER TABLE courses ADD COLUMN IF NOT EXISTS genero_norm text
 -- Piso duro: no dos canchas FedeGolf con la misma (club, cancha). Hace el upsert
 -- de fedegolf-sync.ts atómico (onConflict) en vez de find-then-insert con carrera.
 -- Verificado: 0 grupos en conflicto al 2026-06-06.
+--
+-- IMPORTANTE: índice NO parcial. Un índice parcial (WHERE ...) NO puede ser
+-- inferido por `ON CONFLICT (cols)` del cliente JS (Postgres exige el predicado,
+-- error 42P10). Como índice completo sí lo infiere. Las filas no-FedeGolf tienen
+-- (NULL, NULL) y los NULL son distintos entre sí en un UNIQUE → conviven sin
+-- conflicto. Las filas FedeGolf siempre traen ambos → unicidad garantizada.
+DROP INDEX IF EXISTS uq_courses_fedegolf_natural;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_courses_fedegolf_natural
-  ON courses (fedegolf_club_id, fedegolf_cancha_id)
-  WHERE fedegolf_club_id IS NOT NULL AND fedegolf_cancha_id IS NOT NULL;
+  ON courses (fedegolf_club_id, fedegolf_cancha_id);

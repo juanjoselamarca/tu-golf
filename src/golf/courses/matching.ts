@@ -211,7 +211,7 @@ export async function matchCourseInDB(
   // Fetch candidates that contain at least one significant word
   const { data: candidates } = await (supabase as ReturnType<typeof import('@supabase/supabase-js').createClient>)
     .from('courses')
-    .select('id, nombre')
+    .select('id, nombre, fuente, canonical_course_id')
     .ilike('nombre', `%${searchWord}%`)
 
   if (!candidates || candidates.length === 0) {
@@ -219,7 +219,7 @@ export async function matchCourseInDB(
     if (words.length > 1) {
       const { data: fallback } = await (supabase as ReturnType<typeof import('@supabase/supabase-js').createClient>)
         .from('courses')
-        .select('id, nombre')
+        .select('id, nombre, fuente, canonical_course_id')
         .ilike('nombre', `%${words[1]}%`)
 
       if (fallback && fallback.length > 0) {

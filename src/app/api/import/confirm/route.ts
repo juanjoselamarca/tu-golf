@@ -188,12 +188,13 @@ export async function POST(request: NextRequest) {
         let cr = round.course_rating ?? null
         let slope = round.slope_rating ?? null
         let nineHole: { cr9h: number; slope9h: number } | null = null
+        const holes = round.holes_played || scoresArray.length
         if (round.course_id) {
           const resolved = await resolveTeeRatingsForCourse(
             supabase,
             round.course_id,
             round.tee_color ?? round.metadata?.tee_box ?? null,
-            round.holes_played,
+            holes,
           )
           if (resolved) { cr = resolved.cr; slope = resolved.slope; nineHole = resolved.nineHoleRatings }
         }
@@ -212,7 +213,7 @@ export async function POST(request: NextRequest) {
           course_rating: cr,
           slope_rating: slope,
           diferencial: (cr != null && slope != null)
-            ? calcularDiferencial(round.total_gross, cr, slope, round.holes_played, nineHole)
+            ? calcularDiferencial(round.total_gross, cr, slope, holes, nineHole)
             : null,
           par_per_hole: round.par_per_hole ?? null,
           formato_juego: round.formato_juego ?? 'stroke_play',
