@@ -51,6 +51,9 @@ const COLOR_SYNONYMS: Record<string, string> = {
   blue: 'azul', white: 'blanco', red: 'rojo', black: 'negro', gold: 'dorado',
   yellow: 'amarillo', green: 'verde', silver: 'plata', orange: 'naranjo',
   pink: 'rosado', purple: 'morado', brown: 'cafe', gray: 'gris', grey: 'gris',
+  // Plurales de colores que terminan en consonante (el stem genérico no los
+  // normaliza bien): se mapean a su singular.
+  azules: 'azul', grises: 'gris',
 }
 
 /**
@@ -60,7 +63,10 @@ const COLOR_SYNONYMS: Record<string, string> = {
  * colapsar colores distintos (azul ≠ negras).
  */
 function canonicalColor(raw: string): string {
-  let c = norm(raw).split('_')[0].trim()
+  // Primer token: corta loops multi-recorrido ("azul_andes pro_...") y sufijos
+  // de género que algunos catálogos meten en el nombre ("amarillo - damas").
+  let c = norm(raw).split(/_| - /)[0].trim()
+  if (!c) return ''
   c = COLOR_SYNONYMS[c] ?? c
   // Quita plural y género solo si la raíz queda con ≥3 chars (negras→negr,
   // rojo→roj). No toca colores sin sufijo (azul, verde, gris).
