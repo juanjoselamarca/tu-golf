@@ -57,8 +57,8 @@ export default async function HomeV2() {
       <CoachSteps />
       <Compete />
       <Features />
-      <Plans />
       <FinalCta courses={courses} />
+      <Plans />
       <RevealObserver />
     </div>
   )

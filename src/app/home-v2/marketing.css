@@ -14,6 +14,11 @@
   font-family:'Satoshi',system-ui,sans-serif; -webkit-font-smoothing:antialiased;
 }
 .home-mkt .display{font-family:'Clash Display',sans-serif}
+/* El landing es navy fijo (texto claro SIEMPRE). globals.css define reglas de
+   elemento h1/h2/h3{color:var(--text)} que en modo claro son oscuras y le ganan
+   al color heredado → títulos negros sobre navy. Forzamos el color del landing;
+   las partes doradas (.g/.b/inline) ganan por mayor especificidad. */
+.home-mkt h1,.home-mkt h2,.home-mkt h3,.home-mkt h4{color:var(--ivory)}
 .home-mkt .mono{font-family:var(--font-dm-mono),'DM Mono',monospace;font-variant-numeric:tabular-nums}
 
 @keyframes mkt-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
