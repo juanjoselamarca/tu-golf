@@ -33,11 +33,11 @@ interface StatusBadge {
 function statusBadge(status: LiveTournament['status']): StatusBadge {
   switch (status) {
     case 'in_progress':
-      return { label: 'En curso', bg: 'rgba(34, 197, 94, 0.12)', fg: '#16a34a' }
+      return { label: 'En curso', bg: 'var(--status-live-bg)', fg: 'var(--status-live-fg)' }
     case 'draft':
-      return { label: 'Borrador', bg: 'rgba(107, 114, 128, 0.14)', fg: '#4b5563' }
+      return { label: 'Borrador', bg: 'var(--status-draft-bg)', fg: 'var(--status-draft-fg)' }
     case 'closed':
-      return { label: 'Cerrado', bg: 'rgba(220, 38, 38, 0.12)', fg: '#dc2626' }
+      return { label: 'Cerrado', bg: 'var(--status-closed-bg)', fg: 'var(--status-closed-fg)' }
   }
 }
 
