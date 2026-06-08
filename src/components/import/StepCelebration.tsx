@@ -24,7 +24,9 @@ import type { ResultadoCPI } from '@/golf/stats/cpi'
 import { Check } from '@/components/icons'
 
 interface StepCelebrationProps {
-  cpiResult: ResultadoCPI
+  /** Puede ser null: el CPI solo se calcula con ≥3 rondas. Prop conservado por
+      compatibilidad de signature; este componente ya no lo consume. */
+  cpiResult: ResultadoCPI | null
   insights: string[]
   roundCount: number
 }
