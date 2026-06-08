@@ -107,15 +107,33 @@ export async function createTeamTournamentFixture(
   let tournamentId = ''
   const cleanup = async () => {
     const a = adminClient()
-    // Hijos antes que padres (FK).
-    if (teamIds.length) await a.from('ronda_equipo_jugadores').delete().in('equipo_id', teamIds)
-    if (rondaIds.length) {
-      await a.from('ronda_equipos').delete().in('ronda_id', rondaIds)
-      await a.from('ronda_libre_jugadores').delete().in('ronda_id', rondaIds)
+    const errs: string[] = []
+    // Acumula errores en vez de tragarlos: un delete que falla (RLS, red) no debe
+    // pasar inadvertido — corrida tras corrida acumularía huérfanos en prod.
+    const del = async (
+      label: string,
+      builder: PromiseLike<{ error: { message: string } | null }>,
+    ) => {
+      const { error } = await builder
+      if (error) errs.push(`${label}: ${error.message}`)
     }
-    if (tournamentId) await a.from('tournament_groups').delete().eq('tournament_id', tournamentId)
-    if (rondaIds.length) await a.from('rondas_libres').delete().in('id', rondaIds)
-    if (tournamentId) await a.from('tournaments').delete().eq('id', tournamentId)
+    // Hijos antes que padres (FK). `tournament_groups.ronda_libre_id` es RESTRICT,
+    // así que el grupo se borra ANTES que su ronda.
+    if (teamIds.length) await del('ronda_equipo_jugadores', a.from('ronda_equipo_jugadores').delete().in('equipo_id', teamIds))
+    if (rondaIds.length) {
+      await del('ronda_equipos', a.from('ronda_equipos').delete().in('ronda_id', rondaIds))
+      await del('ronda_libre_jugadores', a.from('ronda_libre_jugadores').delete().in('ronda_id', rondaIds))
+    }
+    if (tournamentId) await del('tournament_groups', a.from('tournament_groups').delete().eq('tournament_id', tournamentId))
+    if (rondaIds.length) await del('rondas_libres', a.from('rondas_libres').delete().in('id', rondaIds))
+    if (tournamentId) await del('tournaments', a.from('tournaments').delete().eq('id', tournamentId))
+    if (errs.length) {
+      // No `throw`: en afterAll enmascararía el resultado real del test. Visible
+      // para que un cleanup parcial no acumule basura silenciosa en prod.
+      console.warn(
+        `[tournament-team-fixture] cleanup parcial — huérfanos posibles:\n  ${errs.join('\n  ')}`,
+      )
+    }
   }
 
   try {

@@ -28,7 +28,8 @@ y están cubiertas por `useTournamentLifecycle.test.ts`. El plan original apunta
   (`20260607_drop_dead_tournament_teams.sql`). Era una trampa que invitaba a
   construir asignación sobre el modelo equivocado.
 
-Validación: `tsc` limpio, 2306 tests verdes, build OK. −654/+423 LOC.
+Validación: `tsc` limpio, 2306 tests verdes, build OK. Código: +423/−654 LOC
+(borra más de lo que agrega). Code-reviewer independiente: PASS.
 
 ---
 
