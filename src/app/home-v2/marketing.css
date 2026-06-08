@@ -97,6 +97,9 @@
 .home-mkt .pgalive .evcard .ev-k{font-family:var(--font-dm-mono),'DM Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-ant);margin-bottom:10px}
 .home-mkt .pgalive .evcard .ev-n{font-family:'Clash Display',sans-serif;font-weight:600;font-size:20px;margin-bottom:6px}
 .home-mkt .pgalive .evcard .ev-d{font-size:12.5px;color:var(--mute);line-height:1.5}
+.home-mkt .pgalive .cutline{display:flex;align-items:center;gap:10px;padding:7px 15px;font-family:var(--font-dm-mono),'DM Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-ant);background:rgba(203,177,136,0.06)}
+.home-mkt .pgalive .cutline::before,.home-mkt .pgalive .cutline::after{content:"";flex:1;height:1px;background:var(--line)}
+.home-mkt .pgalive .cutline.proj{color:var(--gold-br)}
 
 /* ════ GAME — "Pega tu tiro" ════ */
 .home-mkt .game{position:relative;min-height:100vh;display:flex;align-items:center;background:linear-gradient(180deg,var(--navy),var(--ink) 50%);padding:clamp(70px,10vh,120px) 0;overflow:hidden}

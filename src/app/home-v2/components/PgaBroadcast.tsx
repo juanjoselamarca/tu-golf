@@ -30,6 +30,7 @@ interface PgaData {
   active: boolean; live?: boolean; complete?: boolean
   tournament?: string; round?: string
   players?: Player[]; next_event?: NextEvent; isTeamEvent?: boolean
+  projectedCut?: string | null
 }
 
 const Trophy = () => (
@@ -155,6 +156,9 @@ export default function PgaBroadcast() {
                 </div>
               )
             })}
+            {data.projectedCut && (
+              <div className="cutline proj">Corte proyectado · {dash(data.projectedCut)}</div>
+            )}
           </div>
         </>
       ) : (

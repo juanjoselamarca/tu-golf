@@ -71,6 +71,30 @@ describe('PgaBroadcast — estados del widget', () => {
     expect(today2?.textContent).toBe('–')
   })
 
+  it('en vivo con corte proyectado → muestra la línea "Corte proyectado · +X"', async () => {
+    stubFetch({
+      active: true, live: true, complete: false, round: 'R2 · Viernes',
+      projectedCut: '+1',
+      players: [
+        { position: '1', name: 'S. Scheffler', nameFull: 'Scottie Scheffler', score: '-9', today: '-4', thru: 'F', flag: 'https://flagcdn.com/w40/us.png', countryCode: 'us', isTeam: false },
+      ],
+    })
+    const { container } = await mount()
+    const cut = container.querySelector('.cutline.proj')
+    expect(cut).not.toBeNull()
+    expect(cut?.textContent).toContain('Corte proyectado')
+    expect(cut?.textContent).toContain('+1')
+  })
+
+  it('en vivo sin corte (signature / projectedCut null) → NO muestra línea de corte', async () => {
+    stubFetch({
+      active: true, live: true, complete: false, round: 'R2', projectedCut: null,
+      players: [{ position: '1', name: 'S. Scheffler', nameFull: 'Scottie Scheffler', score: '-9', today: '-4', thru: 'F', flag: 'https://flagcdn.com/w40/us.png', countryCode: 'us', isTeam: false }],
+    })
+    const { container } = await mount()
+    expect(container.querySelector('.cutline')).toBeNull()
+  })
+
   it('finalizado → campeón con trofeo y footer de campeón', async () => {
     stubFetch({
       active: true, live: false, complete: true, round: 'Finalizada',
