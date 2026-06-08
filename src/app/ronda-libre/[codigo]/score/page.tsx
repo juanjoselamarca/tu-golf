@@ -157,8 +157,11 @@ function ScorePageContent() {
     buttonBg: 'var(--bg)',
     buttonBorder: 'var(--border)',
     buttonText: 'var(--text-2)',
-    navBg: 'rgba(255,255,255,0.97)',
-    headerBg: 'rgba(255,255,255,0.97)',
+    // Token, no hardcode: en dark resuelve a #0e1c2f (navy), en light a #fff.
+    // Antes estaban hardcodeados en blanco → header y barra inferior salían
+    // blancos sobre cuerpo oscuro en dark mode (inbox 8eda9722).
+    navBg: 'var(--bg-surface)',
+    headerBg: 'var(--bg-surface)',
   }
 
   const swipeRef = useRef({ startX: 0, startY: 0 })
