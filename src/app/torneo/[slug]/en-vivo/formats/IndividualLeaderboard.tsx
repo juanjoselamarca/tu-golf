@@ -5,7 +5,7 @@
 // Sin click-expandir (eso es follow-up de Wave 3 tanda 2).
 
 import type { LivePlayer } from '../types'
-import { formatVsPar, formatThru, vsParColor } from './golf-format'
+import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-format'
 
 export interface IndividualLeaderboardProps {
   players: LivePlayer[]
@@ -36,6 +36,16 @@ export default function IndividualLeaderboard({
   modo,
 }: IndividualLeaderboardProps) {
   const sorted = sortPlayers(players, format, modo)
+  // Empates estilo golf por la misma métrica que ordenó (puntos / neto / bruto).
+  const positions = computePositions(
+    sorted.map((p) =>
+      format === 'stableford'
+        ? (p.points_total ?? 0)
+        : modo === 'neto'
+          ? (p.net_total ?? Number.POSITIVE_INFINITY)
+          : p.gross_total,
+    ),
+  )
   const isStableford = format === 'stableford'
 
   // Estilos inline para tokens con fallback hex (sin tocar Tailwind config).
@@ -108,7 +118,7 @@ export default function IndividualLeaderboard({
         <tbody>
           {sorted.map((p, idx) => (
             <tr key={p.id}>
-              <td style={tdNumStyle}>{idx + 1}</td>
+              <td style={tdNumStyle}>{positions[idx]}</td>
               <td style={{ ...tdStyle, fontWeight: 500 }}>{p.name}</td>
               <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{p.category_name ?? '-'}</td>
               <td style={tdNumStyle}>{p.gross_total}</td>
