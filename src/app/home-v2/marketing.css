@@ -58,6 +58,46 @@
 .home-mkt .pgaslot{position:absolute;right:0;bottom:8px;width:336px;max-width:calc(100vw - 48px);z-index:6;opacity:0;animation:mkt-up 1s 1.05s var(--ease) forwards}
 .home-mkt .pgaslot:empty{display:none}
 @media(max-width:980px){.home-mkt .pgaslot{position:static;width:100%;max-width:none;margin-top:30px}}
+
+/* ════ GAME — "Pega tu tiro" ════ */
+.home-mkt .game{position:relative;min-height:100vh;display:flex;align-items:center;background:linear-gradient(180deg,var(--navy),var(--ink) 50%);padding:clamp(70px,10vh,120px) 0;overflow:hidden}
+.home-mkt .game .grid{position:absolute;inset:0;opacity:.5;background-image:linear-gradient(rgba(203,177,136,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(203,177,136,0.05) 1px,transparent 1px);background-size:48px 48px;-webkit-mask-image:radial-gradient(130% 100% at 50% 40%,#000,transparent 80%);mask-image:radial-gradient(130% 100% at 50% 40%,#000,transparent 80%)}
+.home-mkt .ginner{position:relative;z-index:2;width:100%;max-width:920px;margin:0 auto;padding:0 clamp(24px,6vw,40px);text-align:center}
+.home-mkt .ghead h2{font-family:'Clash Display';font-weight:600;font-size:clamp(32px,4vw,58px);line-height:1.0;letter-spacing:-0.02em;margin:18px 0 0}
+.home-mkt .ghead h2 .g{color:var(--gold)}
+.home-mkt .ghead p{font-size:clamp(15px,1.4vw,17px);line-height:1.55;color:var(--mute);max-width:46ch;margin:16px auto 30px}
+.home-mkt .stage{position:relative;border:1px solid var(--line);border-radius:24px;overflow:hidden;aspect-ratio:16/9;background:linear-gradient(180deg,#0a1422 0%,#0b1830 56%,#0e2415 56%,#0c1f12 100%);box-shadow:0 50px 110px -45px rgba(0,0,0,0.75)}
+.home-mkt .stage .ymark{position:absolute;bottom:44%;font-family:var(--font-dm-mono),'DM Mono',monospace;font-size:10px;color:rgba(244,241,234,0.32)}
+.home-mkt .stage svg{position:absolute;inset:0;width:100%;height:100%}
+.home-mkt .shotpath{fill:none;stroke:url(#mkt-gg);stroke-width:3;stroke-linecap:round;filter:url(#mkt-gl)}
+.home-mkt .tee{fill:#cbb188}
+.home-mkt .ball{fill:#fff;filter:url(#mkt-gl);opacity:0}
+.home-mkt .land{fill:#e7b94c}
+.home-mkt .flag .pole{stroke:rgba(244,241,234,0.6);stroke-width:1.5}
+.home-mkt .flag .fl{fill:var(--leak)}
+.home-mkt .hud{position:absolute;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;font-family:var(--font-dm-mono),'DM Mono',monospace;font-size:12px;color:var(--gold-ant)}
+.home-mkt .hud .b{color:var(--gold-br)}
+.home-mkt .dist{position:absolute;left:0;right:0;top:13%;text-align:center;opacity:0;transition:.4s var(--ease);pointer-events:none}
+.home-mkt .dist.show{opacity:1}
+.home-mkt .dist .puro{display:none;font-family:'Clash Display';font-weight:700;font-size:12px;letter-spacing:.18em;color:var(--gold-br);border:1.5px solid var(--gold-br);border-radius:7px;padding:3px 11px;margin-bottom:12px}
+.home-mkt .dist.sweet .puro{display:inline-block}
+.home-mkt .dist .v{font-family:'Clash Display';font-weight:600;font-size:clamp(34px,5vw,58px);color:#fff;line-height:1;text-shadow:0 4px 30px rgba(0,0,0,.6)}
+.home-mkt .dist .v .u{font-size:.42em;color:var(--gold-br)}
+.home-mkt .ctrl{position:absolute;left:0;right:0;bottom:0;padding:16px clamp(16px,3vw,24px);background:linear-gradient(to top,rgba(7,13,24,0.94),transparent);display:flex;align-items:center;gap:16px}
+.home-mkt .meter{flex:1;height:13px;border-radius:99px;background:rgba(255,255,255,0.09);position:relative;overflow:hidden}
+.home-mkt .meter .spot{position:absolute;top:0;bottom:0;left:80%;width:14%;background:rgba(196,153,42,0.35)}
+.home-mkt .meter .mark{position:absolute;top:-3px;bottom:-3px;width:4px;border-radius:2px;background:#fff;left:0%;box-shadow:0 0 12px rgba(255,255,255,0.9)}
+.home-mkt .hit{white-space:nowrap;background:var(--gold);color:#0b1424;font-family:'Satoshi';font-weight:700;font-size:15px;border:0;border-radius:12px;padding:13px 26px;cursor:pointer;transition:.4s var(--ease)}
+.home-mkt .hit:hover{filter:brightness(1.08)}
+.home-mkt .hit:active{transform:scale(.96)}
+.home-mkt .react{font-size:clamp(15px,1.6vw,18px);color:var(--ivory);font-weight:500;margin-top:22px;min-height:24px;opacity:0;transition:.5s var(--ease)}
+.home-mkt .react.show{opacity:1}
+.home-mkt .funnel{margin-top:8px;max-height:0;opacity:0;overflow:hidden;transition:max-height .8s var(--ease),opacity .6s var(--ease)}
+.home-mkt .funnel.show{max-height:240px;opacity:1;margin-top:24px}
+.home-mkt .funnel p{font-family:'Clash Display';font-weight:500;font-size:clamp(19px,2.2vw,28px);line-height:1.18;max-width:24ch;margin:0 auto 20px}
+.home-mkt .funnel p b{color:var(--gold-br)}
+.home-mkt .funnel .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+@media(max-width:600px){.home-mkt .hit{padding:13px 18px}.home-mkt .ctrl{gap:10px}}
 @media(max-width:760px){.home-mkt .hero h1{font-size:clamp(44px,12vw,68px)}}
 
 /* ════ shared: reveal-on-scroll + contenedor ════ */

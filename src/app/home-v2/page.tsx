@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import './marketing.css'
 import Hero from './components/Hero'
+import Game from './components/Game'
 import CoachSteps from './components/CoachSteps'
 import Compete from './components/Compete'
 import Features from './components/Features'
@@ -52,6 +53,7 @@ export default async function HomeV2() {
   return (
     <div className="home-mkt">
       <Hero />
+      <Game />
       <CoachSteps />
       <Compete />
       <Features />
