@@ -67,4 +67,50 @@ describe('tee-resolver — resolveRatings', () => {
     ]
     expect(resolveRatings(sinRating, 'gris', 18)).toBeNull()
   })
+
+  // Casos reales de prod: el color de la ronda (Garmin/foto) difiere del catálogo
+  // en género/número o idioma. Sin esto, rondas de Juanjo daban "tee no resuelve"
+  // (negro→negras, blue→azul).
+  describe('matching de color tolerante (género/número + EN/ES)', () => {
+    const t: TeeRow[] = [
+      { nombre: 'negras', genero: 'M', rating: 75.1, slope: 142, front_course_rating: 37.8, front_slope_rating: 137, back_course_rating: null, back_slope_rating: null },
+      { nombre: 'azul', genero: 'M', rating: 73.7, slope: 137, front_course_rating: 37.2, front_slope_rating: 132, back_course_rating: null, back_slope_rating: null },
+      { nombre: 'blanco', genero: 'M', rating: 71.8, slope: 130, front_course_rating: 36.2, front_slope_rating: 128, back_course_rating: null, back_slope_rating: null },
+    ]
+    it('"negro" matchea "negras" (género/número)', () => {
+      expect(resolveRatings(t, 'negro', 18)?.cr).toBe(75.1)
+    })
+    it('"blue" matchea "azul" (EN→ES)', () => {
+      expect(resolveRatings(t, 'blue', 18)?.cr).toBe(73.7)
+    })
+    it('"white" matchea "blanco"', () => {
+      expect(resolveRatings(t, 'white', 18)?.cr).toBe(71.8)
+    })
+    it('NO colapsa colores distintos: "azul" no matchea solo-"negras"', () => {
+      expect(resolveRatings([t[0]], 'azul', 18)).toBeNull()
+    })
+
+    // Plurales de colores que terminan en consonante (no se resuelven con el
+    // stem genérico): azul/azules, gris/grises.
+    it('"azules" matchea "azul" y viceversa', () => {
+      const azules: TeeRow[] = [{ nombre: 'azules', genero: 'M', rating: 73.7, slope: 137, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null }]
+      expect(resolveRatings(azules, 'azul', 18)?.cr).toBe(73.7)
+      expect(resolveRatings(t, 'azules', 18)?.cr).toBe(73.7)
+    })
+    it('"grises" matchea "gris"', () => {
+      const gris: TeeRow[] = [{ nombre: 'gris', genero: 'M', rating: 70, slope: 120, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null }]
+      expect(resolveRatings(gris, 'grises', 18)?.cr).toBe(70)
+    })
+
+    // Catálogo real: nombres con sufijo de género en el nombre (no en la columna
+    // genero): "amarillo - damas", "rojo - caballeros".
+    it('color del catálogo con sufijo " - damas" matchea el color de la ronda', () => {
+      const conSufijo: TeeRow[] = [{ nombre: 'amarillo - damas', genero: 'F', rating: 72.6, slope: 123, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null }]
+      expect(resolveRatings(conSufijo, 'amarillo', 18)?.cr).toBe(72.6)
+    })
+
+    it('color en blanco/whitespace devuelve null (no matchea tees raros)', () => {
+      expect(resolveRatings(t, '   ', 18)).toBeNull()
+    })
+  })
 })

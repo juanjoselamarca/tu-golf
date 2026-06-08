@@ -46,9 +46,32 @@ function norm(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
 }
 
-/** El color real es el primer token antes de '_' (multi-loop combina recorridos). */
-function teeColorToken(nombre: string): string {
-  return norm(nombre).split('_')[0].trim()
+/** Sinónimos EN→ES de colores de tee frecuentes (Garmin a veces los trae en inglés). */
+const COLOR_SYNONYMS: Record<string, string> = {
+  blue: 'azul', white: 'blanco', red: 'rojo', black: 'negro', gold: 'dorado',
+  yellow: 'amarillo', green: 'verde', silver: 'plata', orange: 'naranjo',
+  pink: 'rosado', purple: 'morado', brown: 'cafe', gray: 'gris', grey: 'gris',
+  // Plurales de colores que terminan en consonante (el stem genérico no los
+  // normaliza bien): se mapean a su singular.
+  azules: 'azul', grises: 'gris',
+}
+
+/**
+ * Reduce un color de tee a una raíz comparable: primer token (multi-loop combina
+ * recorridos), sinónimo EN→ES, y sin sufijo de género/número español. Así
+ * "negro"/"negras", "blue"/"azul", "blanco"/"blanca" matchean entre sí, sin
+ * colapsar colores distintos (azul ≠ negras).
+ */
+function canonicalColor(raw: string): string {
+  // Primer token: corta loops multi-recorrido ("azul_andes pro_...") y sufijos
+  // de género que algunos catálogos meten en el nombre ("amarillo - damas").
+  let c = norm(raw).split(/_| - /)[0].trim()
+  if (!c) return ''
+  c = COLOR_SYNONYMS[c] ?? c
+  // Quita plural y género solo si la raíz queda con ≥3 chars (negras→negr,
+  // rojo→roj). No toca colores sin sufijo (azul, verde, gris).
+  const stripped = c.replace(/s$/, '').replace(/[ao]$/, '')
+  return stripped.length >= 3 ? stripped : c
 }
 
 /**
@@ -66,11 +89,8 @@ export function resolveRatings(
 ): ResolvedRatings | null {
   if (!teeColor || !Array.isArray(tees) || tees.length === 0) return null
 
-  const target = norm(teeColor)
-  let candidates = tees.filter(t => {
-    const n = norm(t.nombre ?? '')
-    return n === target || teeColorToken(t.nombre ?? '') === target
-  })
+  const target = canonicalColor(teeColor)
+  let candidates = tees.filter(t => canonicalColor(t.nombre ?? '') === target)
   if (candidates.length === 0) return null
 
   // Desambiguar por género si se conoce y hay tees de ambos.
