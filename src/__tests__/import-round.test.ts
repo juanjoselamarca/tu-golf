@@ -4,7 +4,21 @@ import * as resolveCourseModule from '@/lib/resolve-course'
 
 vi.mock('@/lib/resolve-course')
 
-function mockSupabase(opts: { courseId?: string; existingHoles?: Array<{ numero: number; par: number }>; profileIndice?: number; insertId?: string }) {
+// Columnas REALES de `historical_rounds` (information_schema, jun-2026).
+// El mock las usa para simular el error 42703 de Postgres si el código intenta
+// escribir una columna inexistente — exactamente el bug que dejó a un usuario
+// nuevo con 0 de 125 rondas importadas (se escribía `source` en vez de
+// `import_source`). Mantener sincronizada con la tabla si se agregan columnas.
+const HISTORICAL_ROUNDS_COLUMNS = new Set([
+  'id', 'user_id', 'course_name', 'tee_color', 'played_at', 'scores',
+  'total_gross', 'notes', 'privacy', 'created_at', 'total_neto',
+  'total_stableford', 'course_id', 'import_confidence', 'holes_played',
+  'import_source', 'course_rating', 'slope_rating', 'metadata',
+  'garmin_scorecard_id', 'diferencial', 'formato_juego', 'modo_juego',
+  'par_per_hole', 'excluded_from_handicap',
+])
+
+function mockSupabase(opts: { courseId?: string; existingHoles?: Array<{ numero: number; par: number }>; profileIndice?: number; insertId?: string; capture?: { payload?: Record<string, unknown> } }) {
   const mock: any = {
     from: vi.fn((table: string) => {
       if (table === 'profiles') {
@@ -25,7 +39,17 @@ function mockSupabase(opts: { courseId?: string; existingHoles?: Array<{ numero:
       }
       if (table === 'historical_rounds') {
         return {
-          insert: () => ({ select: () => ({ single: async () => ({ data: { id: opts.insertId ?? 'inserted-id' }, error: null }) }) }),
+          insert: (payload: Record<string, unknown>) => {
+            if (opts.capture) opts.capture.payload = payload
+            // Simular Postgres: columna inexistente → error 42703 (no lanza,
+            // devuelve { error } como supabase-js).
+            const unknownCol = Object.keys(payload).find(k => !HISTORICAL_ROUNDS_COLUMNS.has(k))
+            if (unknownCol) {
+              const error = { code: '42703', message: `column "${unknownCol}" of relation "historical_rounds" does not exist` }
+              return { select: () => ({ single: async () => ({ data: null, error }) }) }
+            }
+            return { select: () => ({ single: async () => ({ data: { id: opts.insertId ?? 'inserted-id' }, error: null }) }) }
+          },
           select: () => ({ eq: async () => ({ count: 0, error: null }) }),
         }
       }
@@ -98,5 +122,37 @@ describe('importRound — integración con resolveCourse', () => {
     })
 
     expect(resolveCourseModule.resolveCourse).not.toHaveBeenCalled()
+  })
+
+  // Regresión P0 (jun-2026): un usuario nuevo intentó importar 125 rondas 3 veces
+  // y se guardaron 0 porque importRound escribía la columna `source` (inexistente)
+  // en vez de `import_source` → Postgres 42703 → success:false silencioso.
+  it('escribe la columna import_source (NO source) y persiste la ronda', async () => {
+    const capture: { payload?: Record<string, unknown> } = {}
+    const supabase = mockSupabase({ capture })
+
+    const result = await importRound(supabase as any, {
+      userId: 'user-1',
+      courseId: 'predefined-id',
+      courseName: 'Los Leones',
+      scores: [4,5,4,6,5,4,4,5,7],
+      playedAt: '2026-06-05',
+      source: 'garmin',
+    })
+
+    // El insert debe tener éxito: si escribiera `source` el mock simula 42703.
+    expect(result.success).toBe(true)
+    expect(capture.payload).toBeDefined()
+    expect(capture.payload).toHaveProperty('import_source', 'garmin')
+    expect(capture.payload).not.toHaveProperty('source')
+  })
+
+  it('falla con warning claro si el insert intenta una columna inexistente (guardia 42703)', async () => {
+    // Verifica que el guardia del mock realmente atrapa columnas inválidas,
+    // para que el test anterior no sea un falso verde.
+    const supabase = mockSupabase({})
+    const badInsert = supabase.from('historical_rounds').insert({ source: 'x' })
+    const { error } = await badInsert.select().single()
+    expect(error?.code).toBe('42703')
   })
 })
