@@ -35,6 +35,7 @@ const selectStyle: React.CSSProperties = {
   fontWeight: 500,
   cursor: 'pointer',
   minWidth: '160px',
+  minHeight: '44px', // touch target accesible en mobile
 }
 
 const tvButtonStyle: React.CSSProperties = {
@@ -42,12 +43,15 @@ const tvButtonStyle: React.CSSProperties = {
   borderRadius: '8px',
   border: '1px solid var(--brand-gold, #c4992a)',
   background: 'var(--brand-gold, #c4992a)',
-  color: '#ffffff',
+  // Texto OSCURO sobre el dorado (no blanco): blanco sobre #c4992a da ~2.4:1 y
+  // falla WCAG AA; el navy de marca pasa holgado en ambos temas.
+  color: 'var(--brand-dark, #070d18)',
   fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
   fontSize: '14px',
   fontWeight: 600,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
+  minHeight: '44px', // touch target accesible en mobile
 }
 
 export default function LiveFilterBar({
@@ -129,6 +133,8 @@ export default function LiveFilterBar({
             fontWeight: 500,
             cursor: 'pointer',
             alignSelf: 'flex-end',
+            minHeight: '44px', // touch target accesible en mobile
+            boxSizing: 'border-box',
           }}
         >
           <input
