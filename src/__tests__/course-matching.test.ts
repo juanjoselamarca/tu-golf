@@ -149,3 +149,38 @@ describe('findBestCourseMatch — special characters', () => {
     expect(result!.id).toBe('3')
   })
 })
+
+describe('findBestCourseMatch — fuente fedegolf + canónico', () => {
+  it('prefiere la fila fedegolf ante empate de score', () => {
+    const db = [
+      { id: 'man', nombre: 'Club de Golf Los Leones', fuente: 'manual' },
+      { id: 'fede', nombre: 'C.G. Los Leones (VARONES)', fuente: 'fedegolf' },
+    ]
+    expect(findBestCourseMatch('Los Leones', db)!.id).toBe('fede')
+  })
+
+  it('resuelve a través de canonical_course_id (devuelve la canónica, no la duplicada)', () => {
+    const db = [
+      { id: 'dup', nombre: 'Club de Golf Marbella', fuente: 'manual', canonical_course_id: 'good', activa: false },
+      { id: 'good', nombre: 'Club de Golf Marbella', fuente: 'fedegolf', canonical_course_id: null, activa: true },
+    ]
+    expect(findBestCourseMatch('Marbella', db)!.id).toBe('good')
+  })
+
+  it('si la fila ganadora apunta a una canónica, devuelve la canónica aunque gane la duplicada', () => {
+    // Solo la duplicada matchea por nombre, pero su canonical apunta a otra ficha.
+    const db = [
+      { id: 'dup', nombre: 'Club de Golf Sotogrande', fuente: 'manual', canonical_course_id: 'canon' },
+      { id: 'canon', nombre: 'La Otra Cancha', fuente: 'fedegolf', canonical_course_id: null },
+    ]
+    expect(findBestCourseMatch('Sotogrande', db)!.id).toBe('canon')
+  })
+
+  it('fallback fuzzy: matchea un typo que el overlap de palabras no agarra', () => {
+    const db = [{ id: 'x', nombre: 'Marbella' }]
+    // "Marbela" (typo, una L) no es igualdad de palabra exacta pero ratio alto.
+    const r = findBestCourseMatch('Marbela', db)
+    expect(r).not.toBeNull()
+    expect(r!.id).toBe('x')
+  })
+})

@@ -25,6 +25,7 @@ describe('calcularMentalIndex', () => {
         status: 'established',
         breakdown: { diferencial_avg: 5, consistencia: 25, tendencia: 18, volumen_factor: 1 },
         rondas_usadas: 15,
+        diferenciales: [3, 4, 5, 6, 7],
       },
       totalRounds: 15,
       previousScore: 95,

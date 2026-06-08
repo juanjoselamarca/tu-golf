@@ -27,6 +27,10 @@ export interface ImportRoundData {
   par_per_hole?: Record<string, number>
   course_rating?: number | null
   slope_rating?: number | null
+  // Identidad de cancha resuelta en el match (garmin-zip). Se propaga al confirm
+  // para resolver CR/slope desde course_tees y para vincular la ronda.
+  course_id?: string | null
+  tee_color?: string | null
   // Formato de juego + modo. Si no están presentes, el API aplica
   // stroke_play + gross por default (no romper imports previos).
   formato_juego?: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
