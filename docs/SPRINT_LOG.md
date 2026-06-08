@@ -4,6 +4,34 @@
 
 ---
 
+## 2026-06-07 · Equipos E2E — cierre del plan wizard-equipos + limpieza modelo muerto
+
+Cierre formal del plan `2026-05-24-wizard-equipos-e2e`. Al retomarlo se descubrió
+que la feature ya está **en producción**: la UI de asignación (modelo "grupo =
+equipo", decisión PM 2026-06-02), la validación de tamaño golf-correcta y la
+materialización a `ronda_equipos` se construyeron en el refactor de `JugadoresPanel`
+y están cubiertas por `useTournamentLifecycle.test.ts`. El plan original apuntaba a
+`tournament_teams`, modelo que el equipo abandonó.
+
+- **Test del seam faltante** (`src/__tests__/integration/team-leaderboard.test.ts`):
+  integration contra el schema REAL de `fetchScrambleTeams` / `fetchBestBallTeams`
+  (lo único del flujo de equipos sin test). Se eligió integration determinista sobre
+  browser E2E (CERO FALLOS: cero flakiness, atrapa drift de schema). Con esto los 3
+  seams del flujo quedan testeados: materialización (lifecycle) → fetch (este) →
+  motor (`team-standings`). 4 tests verdes contra prod, fixture se autolimpia.
+- **Fixture reutilizable** (`e2e/helpers/tournament-team-fixture.ts`): siembra el
+  grafo completo torneo→grupos→ronda→equipos→membresía con admin client + cleanup
+  FK-safe. Reusable para futuros tests de equipos.
+- **Modelo muerto eliminado**: `src/lib/data/tournaments/teams.ts` (+ test) y
+  `src/lib/types/tournament.ts` (0 importadores) borrados; tablas vacías
+  `tournament_teams` / `tournament_team_members` dropeadas en prod
+  (`20260607_drop_dead_tournament_teams.sql`). Era una trampa que invitaba a
+  construir asignación sobre el modelo equivocado.
+
+Validación: `tsc` limpio, 2306 tests verdes, build OK. −654/+423 LOC.
+
+---
+
 ## 2026-06-06 · import-hardening (prevención) — Fases 1-3 + matcher + DB
 
 Endurecimiento del pipeline de import para que ninguna ronda entre con CR/slope
