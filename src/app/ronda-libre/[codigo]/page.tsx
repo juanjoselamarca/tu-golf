@@ -1503,7 +1503,7 @@ function RondaLibrePageContent() {
 
             {leaderboard.length === 0 && (
               <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-3)', fontSize: '14px' }}>
-                Aun no hay jugadores en esta ronda
+                Aún no hay jugadores en esta ronda
               </div>
             )}
 

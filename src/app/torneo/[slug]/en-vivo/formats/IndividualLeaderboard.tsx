@@ -89,7 +89,7 @@ export default function IndividualLeaderboard({
           fontSize: '14px',
         }}
       >
-        Aun no hay jugadores con scores.
+        Aún no hay jugadores con scores.
       </div>
     )
   }
