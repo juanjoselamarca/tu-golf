@@ -5,6 +5,7 @@
 // Sin click-expandir (eso es follow-up de Wave 3 tanda 2).
 
 import type { LivePlayer } from '../types'
+import { formatVsPar, formatThru, vsParColor } from './golf-format'
 
 export interface IndividualLeaderboardProps {
   players: LivePlayer[]
@@ -27,17 +28,6 @@ function sortPlayers(
     copy.sort((a, b) => a.gross_total - b.gross_total)
   }
   return copy
-}
-
-function formatVsPar(vsPar: number): string {
-  if (vsPar === 0) return 'E'
-  return vsPar > 0 ? `+${vsPar}` : `${vsPar}`
-}
-
-function formatThru(thru: number, holeCount = 18): string {
-  if (thru >= holeCount) return 'F'
-  if (thru <= 0) return '-'
-  return String(thru)
 }
 
 export default function IndividualLeaderboard({
@@ -128,7 +118,7 @@ export default function IndividualLeaderboard({
               ) : (
                 <>
                   <td style={tdNumStyle}>{modo === 'neto' ? (p.net_total ?? '-') : '-'}</td>
-                  <td style={{ ...tdNumStyle, fontWeight: 600 }}>{formatVsPar(p.vs_par)}</td>
+                  <td style={{ ...tdNumStyle, fontWeight: 600, color: vsParColor(p.vs_par) }}>{formatVsPar(p.vs_par)}</td>
                 </>
               )}
               <td style={{ ...tdNumStyle, color: 'var(--text-2, #5a6573)' }}>{formatThru(p.thru)}</td>
