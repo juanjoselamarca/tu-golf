@@ -83,6 +83,24 @@ describe('tee-resolver — resolveRatings', () => {
     expect(resolveRatings(mixed, 'amarillo', 18, 'M')?.cr).toBe(70)
   })
 
+  it('SIN género + mismo color con CR/slope distintos (M vs F) → null (no adivina)', () => {
+    const mixed: TeeRow[] = [
+      { nombre: 'rojo - caballeros', genero: 'M', rating: 70, slope: 120, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+      { nombre: 'rojo - damas', genero: 'F', rating: 74, slope: 128, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+    ]
+    expect(resolveRatings(mixed, 'rojo', 18)).toBeNull()
+    // con género sí resuelve el correcto
+    expect(resolveRatings(mixed, 'rojo', 18, 'F')?.cr).toBe(74)
+  })
+
+  it('SIN género + mismo color con CR/slope IGUALES → resuelve (no es ambiguo)', () => {
+    const same: TeeRow[] = [
+      { nombre: 'azul', genero: 'M', rating: 73, slope: 130, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+      { nombre: 'azul', genero: 'F', rating: 73, slope: 130, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+    ]
+    expect(resolveRatings(same, 'azul', 18)?.cr).toBe(73)
+  })
+
   it('color compuesto multi-loop matchea por el primer token', () => {
     const multi: TeeRow[] = [
       { nombre: 'azul_andes pro_pacifico sur', genero: 'M', rating: 70.8, slope: 126, front_course_rating: 35.5, front_slope_rating: 121, back_course_rating: 35.3, back_slope_rating: 131 },

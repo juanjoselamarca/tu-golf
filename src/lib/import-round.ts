@@ -115,7 +115,7 @@ export async function importRound(
   let totalNeto: number | null = null
   const { data: profile } = await supabase
     .from('profiles')
-    .select('indice')
+    .select('indice, default_tee_color')
     .eq('id', input.userId)
     .single()
 
@@ -162,14 +162,17 @@ export async function importRound(
   // Raíz del índice corrupto: tomar el rating del archivo en vez del tee real.
   // Solo cuando hay cancha vinculada + color de tee. Sin match confiable → null
   // (no se inventa rating; la ronda no aporta diferencial al índice).
+  // Si la tarjeta no trae tee (foto/manual sin tee), caer al default del usuario
+  // (preguntado una sola vez). Así una tarjeta sin tee igual resuelve su CR/slope.
+  const effectiveTee = input.teeColor || profile?.default_tee_color || null
   let courseRating: number | null = null
   let slopeRating: number | null = null
   let diferencial: number | null = null
-  if (courseId && input.teeColor) {
+  if (courseId && effectiveTee) {
     const resolved = await resolveTeeRatingsForCourse(
       supabase,
       courseId,
-      input.teeColor,
+      effectiveTee,
       input.holesPlayed ?? input.scores.length,
     )
     if (resolved) {
@@ -192,7 +195,7 @@ export async function importRound(
       user_id: input.userId,
       course_name: input.courseName,
       course_id: courseId,
-      tee_color: input.teeColor || null,
+      tee_color: effectiveTee,
       course_rating: courseRating,
       slope_rating: slopeRating,
       diferencial,

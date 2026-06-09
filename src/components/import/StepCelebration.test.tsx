@@ -37,12 +37,12 @@ describe('StepCelebration — resiliente a cpiResult null (inbox ccadf3c4)', () 
   })
 
   it('renderiza el éxito aunque cpiResult sea null (usuario nuevo, <3 rondas)', () => {
-    render(<StepCelebration cpiResult={null} insights={[]} roundCount={1} />)
+    render(<StepCelebration cpiResult={null} insights={[]} roundCount={1} teelessCount={0} />)
     expect(screen.getByText('Tarjeta guardada')).toBeTruthy()
   })
 
   it('renderiza el resumen en plural con cpiResult null y varias tarjetas', () => {
-    render(<StepCelebration cpiResult={null} insights={[]} roundCount={3} />)
+    render(<StepCelebration cpiResult={null} insights={[]} roundCount={3} teelessCount={0} />)
     expect(screen.getByText('3 tarjetas guardadas')).toBeTruthy()
   })
 })

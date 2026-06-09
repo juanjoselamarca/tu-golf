@@ -149,4 +149,38 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
     expect(saved!.slope_rating).toBeNull()
     expect(saved!.diferencial).toBeNull()
   })
+
+  it('tarjeta SIN tee + default del usuario → resuelve CR/slope del default', async () => {
+    // El usuario fijó su tee habitual una sola vez (Punto 3). Una tarjeta sin
+    // tee debe caer a ese default y resolver igual.
+    await admin.from('profiles').update({ default_tee_color: 'azul' }).eq('id', userId)
+    try {
+      const res = await importRound(admin, {
+        userId,
+        courseId: COURSE_ID,
+        courseName: 'Los Leones',
+        teeColor: null, // tarjeta sin tee
+        scores: Array(18).fill(5),
+        playedAt: '2026-01-04',
+        source: 'manual',
+        totalGross: 90,
+        holesPlayed: 18,
+      })
+      expect(res.success).toBe(true)
+      insertedIds.push(res.roundId!)
+
+      const { data: saved } = await admin
+        .from('historical_rounds')
+        .select('tee_color, course_rating, slope_rating, diferencial')
+        .eq('id', res.roundId!)
+        .single()
+      expect(saved!.tee_color).toBe('azul') // cayó al default
+      expect(Number(saved!.course_rating)).toBe(teeRating)
+      expect(Number(saved!.slope_rating)).toBe(teeSlope)
+      expect(saved!.diferencial).not.toBeNull()
+    } finally {
+      // Reset: que el default no contamine los otros tests ni al usuario real.
+      await admin.from('profiles').update({ default_tee_color: null }).eq('id', userId)
+    }
+  })
 })
