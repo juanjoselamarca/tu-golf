@@ -1,0 +1,58 @@
+name: Import Canary
+
+# Canario end-to-end del pipeline de importación contra el schema REAL de prod.
+#
+# Por qué existe: el 2026-06-08 se colaron 3 bugs de importación que los unit
+# tests con MOCK no agarraron (columna `source` inexistente → usuario nuevo
+# importó 125 rondas y quedó con 0; tee de la foto descartado → sin CR/slope).
+# El `npm run test` de CI corre con credenciales placeholder → los integration
+# tests se SALTEAN ahí. Este workflow los corre con secrets reales para que un PR
+# que rompa la importación NO se pueda mergear.
+#
+# Triggers:
+#   - pull_request a main → bloquea el merge si rompe la importación.
+#   - push a main → atrapa drift apenas entra.
+#   - schedule cada 6h → atrapa corrupción operacional (schema drift, RPC, etc.).
+#   - workflow_dispatch → manual.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+# Un run a la vez por ref (evita pisarse cron + push). Distintos PRs corren en
+# paralelo sin colisión: cada test borra SOLO las rondas que él mismo insertó.
+concurrency:
+  group: import-canary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canary:
+    name: Vitest import canary (schema real)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    env:
+      # Mismo mapeo de secrets que scorer-smoke.yml / e2e-trigger.yml.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run import canary (importRound → BD → CR/slope + diferencial)
+        run: node ./node_modules/vitest/vitest.mjs run src/__tests__/integration/import-pipeline.test.ts
