@@ -4,7 +4,7 @@
 // Tabla de equipos para best_ball, scramble y foursome.
 
 import type { LiveTeam } from '../types'
-import { formatVsPar, formatThru, vsParColor } from './golf-format'
+import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-format'
 
 export interface TeamLeaderboardProps {
   teams: LiveTeam[]
@@ -20,6 +20,8 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
   // `thru`. Ordenar por team_total (golpes totales) haría liderar erróneamente a
   // un equipo que jugó menos hoyos. Desempate por más hoyos jugados.
   const sorted = [...teams].sort((a, b) => a.vs_par - b.vs_par || b.thru - a.thru)
+  // Empates estilo golf: equipos al mismo vs_par comparten posición (T2, T2, 4).
+  const positions = computePositions(sorted.map((t) => t.vs_par))
 
   const tableStyle: React.CSSProperties = {
     width: '100%',
@@ -79,7 +81,7 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
         <tbody>
           {sorted.map((t, idx) => (
             <tr key={t.id}>
-              <td style={tdNumStyle}>{idx + 1}</td>
+              <td style={tdNumStyle}>{positions[idx]}</td>
               <td style={{ ...tdStyle, fontWeight: 600 }}>{t.name}</td>
               <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{joinPlayerNames(t)}</td>
               <td style={tdNumStyle}>{t.team_total}</td>
