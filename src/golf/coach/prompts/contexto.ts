@@ -118,11 +118,16 @@ export interface TaigerContext {
 export function buildContextString(context: TaigerContext): string {
   const { player, stats, patterns, recent_rounds, last_session, recent_sessions, active_recommendations, collective_insights, active_plan, recent_outcomes, plan_history } = context
   const indice = player.indice ?? player.handicap ?? null
+  const indiceGolfers = player.indice_golfers ?? null
+  // Índice efectivo para nivelar y mostrar stats: oficial si existe, si no el
+  // computado Golfers+. Un jugador con rondas pero sin índice oficial igual
+  // tiene señal suficiente para el coach.
+  const anyIndice = indice ?? indiceGolfers
 
-  const indexLevel = !indice ? 'sin índice registrado' :
-    indice > 25 ? 'principiante' :
-    indice > 15 ? 'amateur medio' :
-    indice > 5 ? 'amateur bueno' :
+  const indexLevel = !anyIndice ? 'sin índice registrado' :
+    anyIndice > 25 ? 'principiante' :
+    anyIndice > 15 ? 'amateur medio' :
+    anyIndice > 5 ? 'amateur bueno' :
     'single digit / élite amateur'
 
   const trend = (recent_rounds ?? []).length >= 3
@@ -170,13 +175,22 @@ export function buildContextString(context: TaigerContext): string {
   // 3. Cansancio mental: si mental_fatigue_delta está computado, lo
   //    exponemos al LLM con instrucción explícita de cuándo mencionarlo.
   let sgText: string
-  if (!stats.avg_score || !indice) {
+  // Las stats salen de las rondas (avg_score), NO del índice oficial. Antes se
+  // gateaba en `!indice` → un jugador con 125 rondas pero sin índice oficial veía
+  // "Sin datos". Ahora solo exige avg_score; el índice se muestra con fallback.
+  if (!stats.avg_score) {
     sgText = 'Sin suficientes datos estadísticos'
   } else {
     const lines: string[] = []
     lines.push(`Score promedio (equivalente 18 hoyos): ${stats.avg_score.toFixed(1)}`)
     lines.push(`Mejor vuelta (equivalente 18 hoyos): ${stats.best_score?.toFixed(1) ?? 'Sin datos'}`)
-    lines.push(`Índice actual: ${indice}`)
+    lines.push(
+      indice != null
+        ? `Índice actual: ${indice}`
+        : indiceGolfers != null
+          ? `Índice Golfers+ (estimado de sus rondas, aún sin índice oficial): ${indiceGolfers}`
+          : `Índice: aún sin registrar (puede importar rondas o registrar su índice oficial)`,
+    )
     if (stats.rounds_18h > 0 && stats.rounds_9h > 0) {
       lines.push(
         `Detalle real por bucket — usar solo si el user pregunta específico:` +
@@ -233,7 +247,7 @@ export function buildContextString(context: TaigerContext): string {
   return `
 === PERFIL DEL JUGADOR ===
 Nombre: ${player.name}
-Índice oficial: ${indice ?? 'No registrado'}
+Índice oficial: ${indice ?? (indiceGolfers != null ? `No registrado (estimado Golfers+: ${indiceGolfers})` : 'No registrado')}
 Nivel: ${indexLevel}
 Rondas registradas: ${player.total_rounds ?? 0}
 Tendencia actual: ${trend}
