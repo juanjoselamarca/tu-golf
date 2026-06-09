@@ -19,6 +19,7 @@ export function DefaultTeeBanner() {
   const router = useRouter()
   const [show, setShow] = useState(false)
   const [recoverable, setRecoverable] = useState(0)
+  const [genero, setGenero] = useState<'M' | 'F' | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(false)
   const [done, setDone] = useState<{ color: string; recomputed: number } | null>(null)
@@ -33,6 +34,8 @@ export function DefaultTeeBanner() {
         if (!cancelled && data?.show) {
           setShow(true)
           setRecoverable(data.recoverableRounds ?? 0)
+          // Pre-seleccionar el género si el perfil ya lo tiene (no re-preguntar).
+          if (data.genero === 'M' || data.genero === 'F') setGenero(data.genero)
         }
       } catch {
         /* fail-closed: no mostrar */
@@ -42,13 +45,16 @@ export function DefaultTeeBanner() {
   }, [])
 
   async function choose(color: string) {
+    // El género es obligatorio para desambiguar tees por género en el catálogo.
+    // Si no se conoce, no se postea (los botones de color están deshabilitados).
+    if (!genero) return
     setSaving(true)
     setError(false)
     try {
       const res = await fetch('/api/perfil/default-tee', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ color }),
+        body: JSON.stringify({ color, genero }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'error')
@@ -103,12 +109,39 @@ export function DefaultTeeBanner() {
               </p>
             </div>
           </div>
+          {/* Género: obligatorio para desambiguar tees del mismo color en canchas
+              con set por género (DAMAS/VARONES). Pre-seleccionado si el perfil ya
+              lo tiene; si no, se pide acá (si no, el recompute salta esas rondas). */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+            {(['M', 'F'] as const).map((g) => (
+              <button
+                key={g}
+                disabled={saving}
+                onClick={() => setGenero(g)}
+                style={{
+                  flex: 1,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  border: `1px solid ${genero === g ? '#16a34a' : 'var(--border, rgba(255,255,255,0.14))'}`,
+                  background: genero === g ? 'rgba(34,197,94,0.10)' : 'transparent',
+                  color: 'var(--text)',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: saving ? 'default' : 'pointer',
+                  minHeight: '40px',
+                }}
+              >
+                {g === 'M' ? 'Varones' : 'Damas'}
+              </button>
+            ))}
+          </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {TEE_COLOR_OPTIONS.map((t) => (
               <button
                 key={t.color}
-                disabled={saving}
+                disabled={saving || !genero}
                 onClick={() => choose(t.color)}
+                title={!genero ? 'Elegí primero Varones o Damas' : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -120,8 +153,8 @@ export function DefaultTeeBanner() {
                   color: 'var(--text)',
                   fontSize: '14px',
                   fontWeight: 600,
-                  cursor: saving ? 'default' : 'pointer',
-                  opacity: saving ? 0.5 : 1,
+                  cursor: saving || !genero ? 'default' : 'pointer',
+                  opacity: saving || !genero ? 0.5 : 1,
                   minHeight: '40px',
                 }}
               >

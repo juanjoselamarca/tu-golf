@@ -15,9 +15,17 @@ export interface TeePromptStatus {
   show: boolean
   /** Cuántas rondas sin tee se recalcularían al elegir (course_id resuelto). */
   recoverableRounds: number
+  /**
+   * Género del jugador si ya está en el perfil ('M' | 'F'), o null. El recompute
+   * lo necesita para desambiguar tees del mismo color en canchas con set por
+   * género (DAMAS/VARONES). Si es null, el banner debe pedirlo (igual que la
+   * celebración) — sin esto las rondas en canchas con tees por género no se
+   * recuperan y el usuario queda sin índice.
+   */
+  genero: 'M' | 'F' | null
 }
 
-const NONE: TeePromptStatus = { show: false, recoverableRounds: 0 }
+const NONE: TeePromptStatus = { show: false, recoverableRounds: 0, genero: null }
 
 /**
  * `show` es true cuando: (1) el perfil NO tiene `default_tee_color`, y (2) existe
@@ -31,7 +39,7 @@ export async function getTeePromptStatus(
 ): Promise<TeePromptStatus> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('default_tee_color')
+    .select('default_tee_color, genero')
     .eq('id', userId)
     .maybeSingle()
 
@@ -45,6 +53,9 @@ export async function getTeePromptStatus(
     .is('tee_color', null)
     .not('course_id', 'is', null)
 
+  const generoRaw = (profile?.genero ?? '').toString().trim().toUpperCase()
+  const genero = generoRaw === 'M' || generoRaw === 'F' ? (generoRaw as 'M' | 'F') : null
+
   const recoverableRounds = count ?? 0
-  return { show: recoverableRounds > 0, recoverableRounds }
+  return { show: recoverableRounds > 0, recoverableRounds, genero }
 }
