@@ -123,11 +123,15 @@ export function resolveRatings(
     if (byGender.length > 0) candidates = byGender
   }
 
-  // Sin género conocido, si quedan varios tees del mismo color con CR/slope
-  // DISTINTOS (típico M vs F: 'rojo - damas' / 'rojo - caballeros'), es ambiguo:
-  // NO adivinar (elegir el género equivocado daría un CR/slope mal → índice mal).
-  // Honestidad sobre cobertura: devolver null (la ronda no aporta diferencial).
-  if (!genero && candidates.length > 1) {
+  // Tras desambiguar por género (si se conocía), si AÚN quedan varios tees del
+  // mismo color con CR/slope DISTINTOS, es ambiguo y NO se adivina → null:
+  //  - sin género: el típico M vs F ('rojo - damas' / 'rojo - caballeros').
+  //  - con género: loops distintos de una cancha multi-recorrido (27/36 hoyos)
+  //    del MISMO género ('azul norte-sur' vs 'azul norte-este') — no sabemos
+  //    qué recorrido jugó.
+  // Honestidad sobre cobertura: elegir uno al azar daría un CR/slope mal → índice
+  // mal. Devolver null (la ronda no aporta diferencial) es lo correcto (CERO FALLOS).
+  if (candidates.length > 1) {
     const first = candidates[0]
     const ambiguo = candidates.some(
       t => Number(t.rating) !== Number(first.rating) || Number(t.slope) !== Number(first.slope),
