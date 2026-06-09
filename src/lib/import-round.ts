@@ -115,7 +115,7 @@ export async function importRound(
   let totalNeto: number | null = null
   const { data: profile } = await supabase
     .from('profiles')
-    .select('indice, default_tee_color')
+    .select('indice, default_tee_color, genero')
     .eq('id', input.userId)
     .single()
 
@@ -174,6 +174,7 @@ export async function importRound(
       courseId,
       effectiveTee,
       input.holesPlayed ?? input.scores.length,
+      profile?.genero,
     )
     if (resolved) {
       courseRating = resolved.cr

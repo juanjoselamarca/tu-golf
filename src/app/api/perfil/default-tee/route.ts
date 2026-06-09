@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Debes iniciar sesión.' }, { status: 401 })
 
-  let body: { color?: string }
+  let body: { color?: string; genero?: string }
   try {
     body = await req.json()
   } catch {
@@ -34,10 +34,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Elegí un color: negro, azul, blanco o rojo.' }, { status: 400 })
   }
 
+  // Género opcional ('M'=varones / 'F'=damas) para desambiguar tees del mismo
+  // color por género.
+  const generoRaw = (body.genero || '').toString().trim().toUpperCase()
+  const genero = generoRaw === 'M' || generoRaw === 'F' ? generoRaw : null
+
   // 1. Guardar la preferencia.
   const { error: upErr } = await supabase
     .from('profiles')
-    .update({ default_tee_color: color })
+    .update({ default_tee_color: color, ...(genero ? { genero } : {}) })
     .eq('id', user.id)
   if (upErr) {
     captureError(upErr, { context: 'perfil.default-tee.update' })
@@ -48,7 +53,9 @@ export async function POST(req: NextRequest) {
   //    falla, la preferencia ya quedó guardada y las próximas importaciones la usan).
   let recomputed = 0
   try {
-    recomputed = await applyDefaultTeeToRounds(supabase, user.id, color)
+    // Género efectivo: el recién fijado o el que ya tenía el perfil.
+    const { data: prof } = await supabase.from('profiles').select('genero').eq('id', user.id).single()
+    recomputed = await applyDefaultTeeToRounds(supabase, user.id, color, prof?.genero)
     if (recomputed > 0) {
       await supabase.rpc('calcular_indice_golfers', { p_user_id: user.id })
     }

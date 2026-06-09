@@ -19,6 +19,7 @@ export async function applyDefaultTeeToRounds(
   supabase: SupabaseClient,
   userId: string,
   color: string,
+  genero?: string | null,
 ): Promise<number> {
   const { data: rounds } = await supabase
     .from('historical_rounds')
@@ -39,7 +40,7 @@ export async function applyDefaultTeeToRounds(
   let updated = 0
   for (const r of rounds) {
     const tees = await teesFor(r.course_id)
-    const resolved = resolveRatings(tees, color, r.holes_played)
+    const resolved = resolveRatings(tees, color, r.holes_played, genero ?? null)
     if (!resolved) continue
     const diferencial =
       r.total_gross != null

@@ -28,8 +28,9 @@ export async function getTeesForCourse(
  * Devuelve `null` si no hay course_id, no hay tees, o el color no matchea con
  * confianza → el caller usa su fallback (valor del archivo) sin inventar.
  *
- * NOTA (follow-up): `profiles` no guarda género, así que `genero` va sin setear
- * y la desambiguación M/F no se aplica todavía. Ver spec import-hardening.
+ * `genero` ('M'/'F', de `profiles.genero`) desambigua tees del mismo color por
+ * género. Si no se conoce o el color queda ambiguo (entre géneros o loops), el
+ * resolver devuelve null (no adivina).
  */
 export async function resolveTeeRatingsForCourse(
   supabase: SupabaseClient,

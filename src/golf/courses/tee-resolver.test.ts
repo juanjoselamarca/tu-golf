@@ -101,6 +101,27 @@ describe('tee-resolver — resolveRatings', () => {
     expect(resolveRatings(same, 'azul', 18)?.cr).toBe(73)
   })
 
+  it('CON género + cancha multi-loop (mismo color y género, ratings distintos) → null', () => {
+    // 27 hoyos: 'azul' en varios recorridos, todos del mismo género. No sabemos
+    // qué loop jugó → no adivinar (C-1: el género NO debe saltear el guard).
+    const multiLoop: TeeRow[] = [
+      { nombre: 'azul norte-sur', genero: 'M', rating: 71.9, slope: 132, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+      { nombre: 'azul norte-este', genero: 'M', rating: 72.0, slope: 128, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+    ]
+    expect(resolveRatings(multiLoop, 'azul', 18, 'M')).toBeNull()
+  })
+
+  it('género F + color que solo existe en M → resuelve al tee físico (no null)', () => {
+    // Caso dominante del catálogo: el color elegido existe solo para un género.
+    // byGender queda vacío → no narrowing → resuelve el tee que hay (su rating es
+    // el del tee físico jugado). I-2.
+    const soloM: TeeRow[] = [
+      { nombre: 'azul', genero: 'M', rating: 73, slope: 130, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+    ]
+    expect(resolveRatings(soloM, 'azul', 18, 'F')?.cr).toBe(73)
+    expect(resolveRatings(soloM, 'azul', 18, 'M')?.cr).toBe(73)
+  })
+
   it('color compuesto multi-loop matchea por el primer token', () => {
     const multi: TeeRow[] = [
       { nombre: 'azul_andes pro_pacifico sur', genero: 'M', rating: 70.8, slope: 126, front_course_rating: 35.5, front_slope_rating: 121, back_course_rating: 35.3, back_slope_rating: 131 },
