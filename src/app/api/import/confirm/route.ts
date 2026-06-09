@@ -86,6 +86,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
+    // Género del usuario para desambiguar tees del mismo color por género.
+    const { data: profileGen } = await supabase
+      .from('profiles')
+      .select('genero')
+      .eq('id', user.id)
+      .maybeSingle()
+    const userGenero = profileGen?.genero ?? null
+
     const body = await request.json()
     const { job_id, rounds: selectedRounds } = body as {
       job_id: string
@@ -195,6 +203,7 @@ export async function POST(request: NextRequest) {
             round.course_id,
             round.tee_color ?? round.metadata?.tee_box ?? null,
             holes,
+            userGenero,
           )
           if (resolved) { cr = resolved.cr; slope = resolved.slope; nineHole = resolved.nineHoleRatings }
         }

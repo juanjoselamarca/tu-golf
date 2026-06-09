@@ -59,6 +59,8 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
   const [totalRounds, setTotalRounds] = useState<number | null>(null)
   // Pregunta de 1 vez por el tee de salida de las tarjetas que no lo traían.
   const [needsTee, setNeedsTee] = useState(false)
+  const [genero, setGenero] = useState<'M' | 'F' | null>(null)
+  const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [savingTee, setSavingTee] = useState(false)
   const [teeError, setTeeError] = useState(false)
   const [teeResult, setTeeResult] = useState<{ color: string; recomputed: number } | null>(null)
@@ -99,26 +101,30 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
       if (!user) return
       const { data } = await supabase
         .from('profiles')
-        .select('default_tee_color')
+        .select('default_tee_color, genero')
         .eq('id', user.id)
         .maybeSingle()
-      if (!cancelled && !data?.default_tee_color) setNeedsTee(true)
+      if (cancelled) return
+      // Pre-seleccionar el género si ya estaba guardado (no re-preguntar de cero).
+      if (data?.genero === 'M' || data?.genero === 'F') setGenero(data.genero)
+      if (!data?.default_tee_color) setNeedsTee(true)
     })()
     return () => { cancelled = true }
   }, [teelessCount])
 
-  async function chooseTee(color: string) {
+  async function submitTeePrefs() {
+    if (!selectedColor || !genero) return
     setSavingTee(true)
     setTeeError(false)
     try {
       const res = await fetch('/api/perfil/default-tee', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ color }),
+        body: JSON.stringify({ color: selectedColor, genero }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'error')
-      setTeeResult({ color, recomputed: json.recomputed ?? 0 })
+      setTeeResult({ color: selectedColor, recomputed: json.recomputed ?? 0 })
       setNeedsTee(false)
     } catch {
       setTeeError(true)
@@ -220,27 +226,55 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
             }}
           >
             <p style={{ fontSize: '14px', color: 'var(--text)', margin: '0 0 14px', lineHeight: 1.5, textAlign: 'center' }}>
-              Algunas tarjetas no traían el tee de salida. ¿Desde qué color salís normalmente?
+              Algunas tarjetas no traían el tee de salida. Para calcular bien tu hándicap, contanos cómo jugás.
+            </p>
+
+            {/* Género — desambigua tees del mismo color por género. */}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '14px' }}>
+              {(['M', 'F'] as const).map((g) => (
+                <button
+                  key={g}
+                  disabled={savingTee}
+                  onClick={() => setGenero(g)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: '10px',
+                    border: `1px solid ${genero === g ? '#16a34a' : 'var(--border, rgba(255,255,255,0.14))'}`,
+                    background: genero === g ? 'rgba(34,197,94,0.10)' : 'transparent',
+                    color: 'var(--text)',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: savingTee ? 'default' : 'pointer',
+                  }}
+                >
+                  {g === 'M' ? 'Varones' : 'Damas'}
+                </button>
+              ))}
+            </div>
+
+            {/* Color de tee habitual. */}
+            <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 8px', textAlign: 'center' }}>
+              ¿Desde qué color salís normalmente?
             </p>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
               {TEE_OPTIONS.map((t) => (
                 <button
                   key={t.color}
                   disabled={savingTee}
-                  onClick={() => chooseTee(t.color)}
+                  onClick={() => setSelectedColor(t.color)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '7px',
                     padding: '9px 14px',
                     borderRadius: '10px',
-                    border: '1px solid var(--border, rgba(255,255,255,0.14))',
-                    background: 'transparent',
+                    border: `1px solid ${selectedColor === t.color ? '#16a34a' : 'var(--border, rgba(255,255,255,0.14))'}`,
+                    background: selectedColor === t.color ? 'rgba(34,197,94,0.10)' : 'transparent',
                     color: 'var(--text)',
                     fontSize: '14px',
                     fontWeight: 600,
                     cursor: savingTee ? 'default' : 'pointer',
-                    opacity: savingTee ? 0.5 : 1,
                   }}
                 >
                   <span
@@ -257,6 +291,26 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
                 </button>
               ))}
             </div>
+
+            <button
+              disabled={savingTee || !genero || !selectedColor}
+              onClick={submitTeePrefs}
+              style={{
+                width: '100%',
+                marginTop: '16px',
+                padding: '13px',
+                borderRadius: '12px',
+                border: 'none',
+                background: !genero || !selectedColor ? 'var(--border, rgba(255,255,255,0.14))' : '#16a34a',
+                color: '#fff',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: savingTee || !genero || !selectedColor ? 'default' : 'pointer',
+                opacity: savingTee || !genero || !selectedColor ? 0.6 : 1,
+              }}
+            >
+              {savingTee ? 'Guardando…' : 'Guardar'}
+            </button>
             {teeError && (
               <p style={{ fontSize: '13px', color: '#dc2626', margin: '12px 0 0', textAlign: 'center' }}>
                 No pudimos guardar. Probá de nuevo.

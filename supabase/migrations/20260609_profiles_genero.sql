@@ -1,0 +1,11 @@
+-- Género del jugador para desambiguar el tee de salida al importar.
+--
+-- En el catálogo chileno una misma cancha suele tener el mismo color de tee para
+-- varones y damas con CR/slope DISTINTO ('rojo - caballeros' vs 'rojo - damas').
+-- Sin el género, el resolver no puede elegir y devuelve null (no adivina). Con el
+-- género guardado, resuelve el tee correcto → CR/slope e índice correctos también
+-- para las jugadoras.
+--
+-- 'M' = varones | 'F' = damas. NULL = desconocido (se sigue cayendo a null en
+-- colores ambiguos, comportamiento seguro actual).
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS genero text;
