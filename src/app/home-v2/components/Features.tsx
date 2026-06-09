@@ -8,9 +8,9 @@ import { HOME } from '@/content/home'
 
 // Canchas de ejemplo para el visual de la card 03 (ilustrativo, no data real).
 const SAMPLE_COURSES = [
-  { name: 'Los Leones', rating: 'CR 72.1 · 130' },
-  { name: 'Sport Francés', rating: 'CR 71.4 · 128' },
-  { name: 'Prince of Wales', rating: 'CR 73.0 · 134' },
+  { name: 'C.G. Los Leones', rating: 'CR 72.1 · 130' },
+  { name: 'C.G. Sport Francés', rating: 'CR 71.4 · 128' },
+  { name: 'C.G. Prince of Wales', rating: 'CR 73.0 · 134' },
 ]
 
 export default function Features() {

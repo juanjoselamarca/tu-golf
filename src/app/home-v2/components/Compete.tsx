@@ -10,7 +10,7 @@ type Row = { pos: string; name: string; thru: string; score: string; under?: boo
 
 const ROWS: Row[] = [
   { pos: '1', name: 'Tomás Vidal', thru: 'H14', score: '−3', under: true, lead: true },
-  { pos: '2', name: 'Juan Lamarca', thru: 'H14', score: '−1', under: true },
+  { pos: '2', name: 'Matías Rojas', thru: 'H14', score: '−1', under: true },
   { pos: '3', name: 'Diego Soto', thru: 'H13', score: '+1' },
   { pos: '4', name: 'Andrés Court', thru: 'H14', score: '+2' },
 ]
