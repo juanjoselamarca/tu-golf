@@ -130,6 +130,11 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
       .insert({
         tournament_id:            tournament.id,
         user_id:                  null,
+        // CHECK players_identity_check (migración 029): una fila sin user_id DEBE
+        // llevar pending_user_id (o el insert se rechaza con 23514). El invitado
+        // queda con una identidad placeholder; si más adelante reclama su cuenta,
+        // se linkea por acá. UNIQUE(tournament_id, pending_user_id) evita choques.
+        pending_user_id:          crypto.randomUUID(),
         player_name:              name,
         category_id:              catId,
         // Índice tal cual lo ingresó el organizador (no course handicap): el
