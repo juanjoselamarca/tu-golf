@@ -51,9 +51,11 @@ export interface Category {
 export interface Player {
   id: string
   user_id?: string
+  /** Invitado sin cuenta: nombre tipeado por el organizador (profiles es null). */
+  player_name?: string | null
   handicap_at_registration: number | null
   status: string
-  profiles: { name: string; indice: number | null }
+  profiles: { name: string; indice: number | null } | null
   categories: { name: string } | null
 }
 

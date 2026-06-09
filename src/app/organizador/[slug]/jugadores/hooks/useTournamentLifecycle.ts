@@ -221,12 +221,16 @@ export function useTournamentLifecycle({
           .from('ronda_libre_jugadores')
           .insert({
             ronda_id: ronda.id,
-            nombre: player.profiles?.name || 'Jugador',
+            nombre: player.profiles?.name || player.player_name || 'Jugador',
             user_id: player.user_id || null,
-            // Sólo en formato equipos: el handicap por jugador es fallback del
-            // leaderboard de equipos. En individual NO se setea para mantener el
-            // path byte-idéntico al que ya corre en prod.
-            ...(teamFormat ? { handicap } : {}),
+            // Handicap por jugador en ronda_libre_jugadores. Se setea cuando:
+            //  - formato equipos (fallback del leaderboard de equipos), o
+            //  - jugador INVITADO (sin user_id): no tiene profiles.indice, así que
+            //    su índice debe viajar por acá para que el leaderboard individual
+            //    (leaderboard.ts: handicap almacenado primero) calcule su neto.
+            // Para jugadores registrados en individual NO se setea: path
+            // byte-idéntico al que ya corre en prod (usa profiles.indice).
+            ...((teamFormat || !player.user_id) ? { handicap } : {}),
             scores: {},
           })
           .select('id')

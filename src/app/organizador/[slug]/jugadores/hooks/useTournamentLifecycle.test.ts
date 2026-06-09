@@ -182,6 +182,34 @@ describe('useTournamentLifecycle.handleStartTournament — productor de equipos'
     expect(jugadores.every((j) => j.handicap === undefined)).toBe(true)
   })
 
+  it('invitado (sin cuenta) en individual: ronda_libre_jugador lleva su nombre y handicap', async () => {
+    // Invitado: user_id undefined, sin profiles, nombre + índice tipeados por el
+    // organizador. A diferencia del jugador registrado (path byte-idéntico sin
+    // handicap), el invitado SÍ lleva su índice a ronda_libre_jugadores para que
+    // el leaderboard individual calcule su neto (no tiene profiles.indice).
+    const tournament = {
+      id: 't1', name: 'Test', slug: 'test', course_id: 'c1', status: 'inscripcion', format: 'stroke_play',
+      courses: { slope_rating: 113, course_rating: 72, par_total: 72, nombre: 'Cancha' }, hole_count: 18,
+    } as unknown as Tournament
+    const players = [
+      { id: 'p1', user_id: undefined, player_name: 'Invitado Uno', handicap_at_registration: 15, status: 'approved', profiles: null, categories: null },
+    ] as unknown as Player[]
+    const groups: TournamentGroup[] = [
+      { id: 'g1', name: 'Grupo 1', tee_time: null, sort_order: 0, ronda_libre_id: null,
+        players: [{ id: 'gp1', player_id: 'p1', playerName: 'Invitado Uno' }] },
+    ]
+    const { result } = renderHook(() =>
+      useTournamentLifecycle({ tournament, players, groups, setTournamentStatus: vi.fn() }),
+    )
+    await act(async () => { await result.current.handleStartTournament() })
+
+    const jugadores = recorded.inserts['ronda_libre_jugadores'] as Array<{ nombre: string; user_id: string | null; handicap?: number }>
+    expect(jugadores).toHaveLength(1)
+    expect(jugadores[0].nombre).toBe('Invitado Uno') // su nombre, no el literal 'Jugador'
+    expect(jugadores[0].user_id).toBeNull()
+    expect(jugadores[0].handicap).toBe(15) // índice escrito aun en individual → neto correcto
+  })
+
   it('best_ball: crea equipos (handicap_equipo null) + miembros + formato_juego + handicaps por jugador', async () => {
     // best_ball materializa la membresía del equipo igual que scramble/foursome,
     // pero NO almacena handicap de equipo: cada jugador juega con su propio course
