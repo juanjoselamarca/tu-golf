@@ -29,7 +29,18 @@ interface StepCelebrationProps {
   cpiResult: ResultadoCPI | null
   insights: string[]
   roundCount: number
+  /** Cuántas tarjetas recién importadas no traían tee de salida. Si >0 y el
+      usuario no tiene tee por defecto, se le pregunta UNA vez. */
+  teelessCount: number
 }
+
+// Las 4 opciones de la pregunta de 1 vez + su swatch (sin emoji, premium).
+const TEE_OPTIONS: { color: string; label: string; swatch: string; border?: string }[] = [
+  { color: 'negro', label: 'Negro', swatch: '#1f2937' },
+  { color: 'azul', label: 'Azul', swatch: '#2563eb' },
+  { color: 'blanco', label: 'Blanco', swatch: '#f8fafc', border: '#cbd5e1' },
+  { color: 'rojo', label: 'Rojo', swatch: '#dc2626' },
+]
 
 const KEYFRAMES = `
 @keyframes celebFadeIn {
@@ -43,9 +54,14 @@ const KEYFRAMES = `
 }
 `
 
-export default function StepCelebration({ roundCount }: StepCelebrationProps) {
+export default function StepCelebration({ roundCount, teelessCount }: StepCelebrationProps) {
   const router = useRouter()
   const [totalRounds, setTotalRounds] = useState<number | null>(null)
+  // Pregunta de 1 vez por el tee de salida de las tarjetas que no lo traían.
+  const [needsTee, setNeedsTee] = useState(false)
+  const [savingTee, setSavingTee] = useState(false)
+  const [teeError, setTeeError] = useState(false)
+  const [teeResult, setTeeResult] = useState<{ color: string; recomputed: number } | null>(null)
 
   // Inject keyframes (una sola vez, idempotente).
   useEffect(() => {
@@ -71,6 +87,45 @@ export default function StepCelebration({ roundCount }: StepCelebrationProps) {
     })()
     return () => { cancelled = true }
   }, [])
+
+  // ¿Preguntar el tee? Solo si esta tanda trajo tarjetas sin tee y el usuario
+  // todavía no fijó su color habitual (se pregunta UNA sola vez).
+  useEffect(() => {
+    if (teelessCount === 0) return
+    let cancelled = false
+    ;(async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('profiles')
+        .select('default_tee_color')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (!cancelled && !data?.default_tee_color) setNeedsTee(true)
+    })()
+    return () => { cancelled = true }
+  }, [teelessCount])
+
+  async function chooseTee(color: string) {
+    setSavingTee(true)
+    setTeeError(false)
+    try {
+      const res = await fetch('/api/perfil/default-tee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ color }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'error')
+      setTeeResult({ color, recomputed: json.recomputed ?? 0 })
+      setNeedsTee(false)
+    } catch {
+      setTeeError(true)
+    } finally {
+      setSavingTee(false)
+    }
+  }
 
   return (
     <div
@@ -149,6 +204,84 @@ export default function StepCelebration({ roundCount }: StepCelebrationProps) {
               ? 'Esta es tu primera ronda en Golfers+.'
               : `Ya tenés ${totalRounds} rondas en tu historial.`}
         </p>
+
+        {/* Pregunta de 1 vez: tee de salida para las tarjetas que no lo traían. */}
+        {needsTee && (
+          <div
+            style={{
+              width: '100%',
+              background: 'var(--bg-surface, rgba(255,255,255,0.04))',
+              border: '1px solid var(--border, rgba(255,255,255,0.1))',
+              borderRadius: '14px',
+              padding: '18px',
+              marginBottom: '20px',
+              opacity: 0,
+              animation: 'celebFadeIn 480ms ease 220ms forwards',
+            }}
+          >
+            <p style={{ fontSize: '14px', color: 'var(--text)', margin: '0 0 14px', lineHeight: 1.5, textAlign: 'center' }}>
+              Algunas tarjetas no traían el tee de salida. ¿Desde qué color salís normalmente?
+            </p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {TEE_OPTIONS.map((t) => (
+                <button
+                  key={t.color}
+                  disabled={savingTee}
+                  onClick={() => chooseTee(t.color)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '9px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border, rgba(255,255,255,0.14))',
+                    background: 'transparent',
+                    color: 'var(--text)',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: savingTee ? 'default' : 'pointer',
+                    opacity: savingTee ? 0.5 : 1,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      background: t.swatch,
+                      border: t.border ? `1px solid ${t.border}` : 'none',
+                      flexShrink: 0,
+                    }}
+                  />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            {teeError && (
+              <p style={{ fontSize: '13px', color: '#dc2626', margin: '12px 0 0', textAlign: 'center' }}>
+                No pudimos guardar. Probá de nuevo.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Confirmación tras elegir el tee. */}
+        {teeResult && (
+          <p
+            style={{
+              fontSize: '14px',
+              color: 'var(--text-2)',
+              margin: '0 0 24px',
+              textAlign: 'center',
+              lineHeight: 1.5,
+            }}
+          >
+            Listo: usaremos {teeResult.color} para tus tarjetas sin tee
+            {teeResult.recomputed > 0
+              ? ` — recalculamos ${teeResult.recomputed} ${teeResult.recomputed === 1 ? 'ronda' : 'rondas'}.`
+              : '.'}
+          </p>
+        )}
 
         {/* CTA primario — el botón único que pide el reporte. */}
         <button

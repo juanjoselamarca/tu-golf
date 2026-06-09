@@ -386,6 +386,7 @@ export default function ImportWizard() {
             cpiResult={state.cpiResult}
             insights={state.insights}
             roundCount={state.rounds.filter(r => r.validation.valid).length}
+            teelessCount={state.rounds.filter(r => r.validation.valid && !r.tee_color).length}
           />
         )}
       </div>
