@@ -282,6 +282,10 @@ export async function buildPlayerContext(
       name: profile?.name || '',
       handicap: profile?.indice ?? null,
       indice: profile?.indice ?? null,
+      // Índice Golfers+ computado desde las rondas (proxy del WHS). Fallback para
+      // mostrar stats cuando el jugador aún no registró índice oficial — si no, un
+      // usuario con 125 rondas importadas veía "Sin suficientes datos estadísticos".
+      indice_golfers: profile?.indice_golfers ?? null,
       total_rounds: totalRounds,
     },
     stats: {
