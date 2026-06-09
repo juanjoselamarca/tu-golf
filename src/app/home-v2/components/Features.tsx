@@ -65,7 +65,7 @@ export default function Features() {
             <p>{importar.desc}</p>
           </div>
 
-          {/* 03 · 137 canchas FedeGolf */}
+          {/* 03 · +180 canchas en LatAm */}
           <div className="ft">
             <div className="fn">{canchas.kicker}</div>
             <div className="ftviz courses">

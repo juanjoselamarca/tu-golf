@@ -9,7 +9,8 @@
  * - Tono premium / app de elite. Sin relleno ni buzzwords.
  * - Honestidad de marca: sin Strokes Gained numérico ni dispersión de tiros (el
  *   motor no los calcula; el coach detecta patrones). Importación = guiada
- *   (foto/smartwatch/CSV), NO trackeo tiro por tiro. 137 canchas federadas = real.
+ *   (foto/smartwatch/CSV), NO trackeo tiro por tiro. "+180 canchas en LatAm" =
+ *   piso honesto (182 canchas activas reales en el catálogo; auditoría 8-jun).
  * - Marcas con riesgo legal fuera: no nombrar marcas de relojes ni a la Federación
  *   (usar "smartwatch / app de golf" y "canchas federadas con rating oficial").
  * - Nunca hablar de "perder" golpes para referir a mejorar: enfoque en dónde se
@@ -28,7 +29,7 @@ export const HOME = {
     ctaPrimary: 'Crear cuenta gratis',
     ctaSecondary: 'Probar el tracer',
     trustLine1: 'Gratis para empezar · Sin tarjeta · En español',
-    trustLine2: '137 canchas chilenas federadas, con rating oficial',
+    trustLine2: '+180 canchas en LatAm',
   },
 
   /** Widget broadcast del PGA Tour. La data viene del API en vivo; acá solo el copy. */
@@ -134,9 +135,9 @@ export const HOME = {
       },
       {
         kicker: '03 · Canchas',
-        title: '137 canchas federadas',
+        title: '+180 canchas en LatAm',
         desc:
-          'Las canchas chilenas con su rating y slope oficiales. Eliges dónde jugaste y los cálculos salen exactos.',
+          'Todas en un solo lugar. Eliges dónde jugaste y, con el rating oficial de la cancha, los cálculos de tu hándicap salen exactos.',
       },
       {
         kicker: '04 · Historial',
@@ -159,7 +160,7 @@ export const HOME = {
       tag: 'Para registrar y competir',
       features: [
         'Score en vivo y torneos ilimitados',
-        '137 canchas federadas con rating oficial',
+        '+180 canchas en LatAm',
         'Índice Dual e historial completo',
         'El diagnóstico del coach en cada ronda',
       ],
@@ -206,7 +207,7 @@ export const HOME = {
     ctaSecondary: 'Ver una ronda de ejemplo',
     risk: 'Sin tarjeta · Cancela cuando quieras · Tus datos son tuyos',
     proof: {
-      coursesLabel: 'canchas chilenas con rating oficial',
+      coursesLabel: 'canchas en LatAm',
       freeLabel: 'gratis para empezar',
       madeIn: 'Hecho en Chile · en español',
     },
