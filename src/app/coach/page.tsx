@@ -11,6 +11,7 @@ import { CurvaMentalCard } from '@/components/coach/CurvaMentalCard'
 import { PatternTile } from '@/components/coach/PatternTile'
 import { PlanActiveCard } from '@/components/coach/PlanActiveCard'
 import { ConversarStickyCTA } from '@/components/coach/ConversarStickyCTA'
+import { DefaultTeeBanner } from '@/components/DefaultTeeBanner'
 import {
   calcularMentalIndex,
   calcularCostoPsicologico,
@@ -220,6 +221,12 @@ export default async function CoachDashboard() {
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 0 0' }}>
       <div style={{ padding: '0 16px' }}>
         <TaigerHero subtitle={mentalIndex.band === 'low' ? 'Tu coach detectó algo importante esta semana' : mentalIndex.band === 'mid' ? 'Tu coach está leyendo tu juego' : 'Tu coach de rendimiento con inteligencia artificial'} />
+      </div>
+
+      {/* Red de seguridad: si importó tarjetas sin tee y no fijó su tee habitual,
+          sus rondas no alimentan el índice. Auto-oculto si ya lo fijó. */}
+      <div style={{ padding: '12px 16px 0' }}>
+        <DefaultTeeBanner />
       </div>
 
       <div style={{ padding: '12px 16px 0' }}>
