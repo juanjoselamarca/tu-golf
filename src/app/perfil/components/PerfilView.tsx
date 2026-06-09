@@ -10,6 +10,7 @@ import type { Profile, ResultadoCPI } from '@/lib/data/perfil'
 import { useProfileEdit } from '../hooks/useProfileEdit'
 import { useFedegolfRefresh } from '../hooks/useFedegolfRefresh'
 import { ProfileHeaderCard } from './ProfileHeaderCard'
+import { DefaultTeeBanner } from '@/components/DefaultTeeBanner'
 import { DualIndexCards } from './DualIndexCards'
 import { CpiCard } from './CpiCard'
 import { AccountSection } from './AccountSection'
@@ -50,6 +51,8 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData 
         <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '16px' }}>
           ← Dashboard
         </Link>
+
+        <DefaultTeeBanner />
 
         <ProfileHeaderCard
           profile={profile}

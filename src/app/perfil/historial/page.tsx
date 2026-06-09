@@ -16,6 +16,7 @@ import { useExpandedRounds } from './hooks/useExpandedRounds'
 import { useAddRoundForm } from './hooks/useAddRoundForm'
 import { LoadingScreen, FatalErrorScreen, RoundsSkeleton, EmptyHistorialState } from './components/EmptyStates'
 import { HistorialHeader } from './components/HistorialHeader'
+import { DefaultTeeBanner } from '@/components/DefaultTeeBanner'
 import { PersonalRecordsGrid } from './components/PersonalRecordsGrid'
 import { AddRoundForm } from './components/AddRoundForm'
 import { RoundCard } from './components/RoundCard'
@@ -126,6 +127,10 @@ function HistorialContent() {
       <HistorialHeader pills={pills} totalRounds={totalRounds} progress={progress} />
 
       <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px 16px 100px' }}>
+        {/* Red de seguridad: tarjetas importadas sin tee → fijar el tee habitual
+            para que alimenten el índice. Auto-oculto si ya lo fijó. */}
+        <DefaultTeeBanner />
+
         {/* Personal Records */}
         <PersonalRecordsGrid
           bestRound18={apiStats?.bestRound18 ?? bestRound18}

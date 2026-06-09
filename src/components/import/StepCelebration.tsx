@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
 import { Check } from '@/components/icons'
+import { TEE_COLOR_OPTIONS } from '@/golf/courses/tee-colors'
 
 interface StepCelebrationProps {
   /** Puede ser null: el CPI solo se calcula con ≥3 rondas. Prop conservado por
@@ -35,12 +36,8 @@ interface StepCelebrationProps {
 }
 
 // Las 4 opciones de la pregunta de 1 vez + su swatch (sin emoji, premium).
-const TEE_OPTIONS: { color: string; label: string; swatch: string; border?: string }[] = [
-  { color: 'negro', label: 'Negro', swatch: '#1f2937' },
-  { color: 'azul', label: 'Azul', swatch: '#2563eb' },
-  { color: 'blanco', label: 'Blanco', swatch: '#f8fafc', border: '#cbd5e1' },
-  { color: 'rojo', label: 'Rojo', swatch: '#dc2626' },
-]
+// Colores de tee: fuente única compartida con DefaultTeeBanner.
+const TEE_OPTIONS = TEE_COLOR_OPTIONS
 
 const KEYFRAMES = `
 @keyframes celebFadeIn {
