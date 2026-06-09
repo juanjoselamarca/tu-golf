@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { HOME } from '@/content/home'
 import PgaBroadcast from './PgaBroadcast'
+import CTAButton from './CTAButton'
 
 const SLIDES = ['s1', 's2', 's3', 's4'] as const
 const Arrow = () => (
@@ -40,10 +40,10 @@ export default function Hero() {
         </h1>
         <p className="sub">{h.subtitle}</p>
         <div className="hcta">
-          <Link className="commit" href="/register">
+          <CTAButton className="commit" href="/register" location="hero" target="register">
             {h.ctaPrimary}<span className="c"><Arrow /></span>
-          </Link>
-          <a className="ghost" href="#game">{h.ctaSecondary} ↓</a>
+          </CTAButton>
+          <CTAButton className="ghost" href="#game" location="hero" target="game">{h.ctaSecondary} ↓</CTAButton>
         </div>
         <p className="trust">{h.trustLine1}</p>
         <p className="trust" style={{ marginTop: 8, color: 'var(--gold-ant)' }}>{h.trustLine2}</p>

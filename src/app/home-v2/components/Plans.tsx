@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { HOME } from '@/content/home'
+import CTAButton from './CTAButton'
 
 /**
  * Sección "Planes" — teaser SIN precios (decisión PM: no casarse con CLP antes de
@@ -39,7 +39,7 @@ export default function Plans() {
                 <li key={feat}><Check />{feat}</li>
               ))}
             </ul>
-            <Link className="ghost" href="/register">{p.free.cta}</Link>
+            <CTAButton className="ghost" href="/register" location="plans" target="register">{p.free.cta}</CTAButton>
           </div>
 
           {/* Pro (destacada) */}

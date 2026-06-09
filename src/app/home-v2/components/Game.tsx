@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { usePostHog } from 'posthog-js/react'
 import { HOME } from '@/content/home'
+import CTAButton from './CTAButton'
 
 /**
  * Mini-juego "Pega tu tiro" — barra de potencia oscilante, 3 tiros, tracer SVG,
@@ -19,6 +21,9 @@ const Arrow = () => (
 
 export default function Game() {
   const g = HOME.game
+  const posthog = usePostHog()
+  const phRef = useRef(posthog)
+  phRef.current = posthog
   const mark = useRef<HTMLDivElement>(null)
   const hit = useRef<HTMLButtonElement>(null)
   const shot = useRef<SVGPathElement>(null)
@@ -44,7 +49,7 @@ export default function Game() {
 
     const R = g.reactions
     let pos = 0, dir = 1, raf = 0, shotsLeft = 3, best = 0
-    let state: 'ready' | 'end' = 'ready', animating = false
+    let state: 'ready' | 'end' = 'ready', animating = false, played = false
     const timers: number[] = []
 
     function osc() {
@@ -122,6 +127,7 @@ export default function Game() {
       cancelAnimationFrame(raf)
       const power = pos
       di.classList.remove('show', 'sweet'); rc.classList.remove('show')
+      if (!played) { played = true; phRef.current?.capture('home_game_played') }
       fire(power)
     }
 
@@ -187,7 +193,7 @@ export default function Game() {
         <div className="funnel" ref={funnel}>
           <p>{g.funnelText}</p>
           <div className="row">
-            <a className="commit" href="#coach">{g.funnelCta}<span className="c"><Arrow /></span></a>
+            <CTAButton className="commit" href="#coach" location="game-funnel" target="coach">{g.funnelCta}<span className="c"><Arrow /></span></CTAButton>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { HOME } from '@/content/home'
+import CTAButton from './CTAButton'
 
 /**
  * CTA final — fórmula CRO (titular + 3 pasos + doble CTA + proofbar).
@@ -33,10 +33,10 @@ export default function FinalCta() {
       </div>
 
       <div className="row">
-        <Link className="commit" href="/register">
+        <CTAButton className="commit" href="/register" location="final" target="register">
           {c.ctaPrimary}<span className="c"><Arrow /></span>
-        </Link>
-        <Link className="ghost" href="/demo">{c.ctaSecondary}</Link>
+        </CTAButton>
+        <CTAButton className="ghost" href="/demo" location="final" target="demo">{c.ctaSecondary}</CTAButton>
       </div>
       <p className="risk">{c.risk}</p>
 
