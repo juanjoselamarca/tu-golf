@@ -33,7 +33,7 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
     const { data } = await supabase
       .from('players')
       .select(
-        'id, user_id, handicap_at_registration, status, profiles(name, indice), categories(name)'
+        'id, user_id, player_name, handicap_at_registration, status, profiles(name, indice), categories(name)'
       )
       .eq('tournament_id', tournament.id)
       .order('created_at', { ascending: true })
@@ -105,8 +105,75 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
     showSuccess('¡Jugador inscrito!', `${playerName} fue agregado al torneo correctamente.`)
   }
 
+  /**
+   * Inscribe un INVITADO sin cuenta: una fila en `players` con `user_id = null`
+   * y `player_name`. Espeja `inscribirPlayer` pero el índice lo tipea el
+   * organizador y se guarda en `handicap_at_registration` (resolvePlayerHandicap
+   * cae a esa columna cuando no hay perfil → el índice viaja a
+   * ronda_libre_jugadores.handicap al iniciar y el leaderboard calcula el neto).
+   */
+  const inscribirGuest = async (
+    nombre: string,
+    handicapIndex: number | null,
+    selectedCat: string,
+    onInscribed: () => void,
+  ) => {
+    const name = nombre.trim()
+    if (!name) { showWarning('Nombre requerido', 'Escribe el nombre del invitado.'); return }
+
+    setLoading(true)
+    const supabase = createClient()
+    const catId = selectedCat || categories[0]?.id || null
+
+    const { data: player, error: pErr } = await supabase
+      .from('players')
+      .insert({
+        tournament_id:            tournament.id,
+        user_id:                  null,
+        // CHECK players_identity_check (migración 029): una fila sin user_id DEBE
+        // llevar pending_user_id (o el insert se rechaza con 23514). El invitado
+        // queda con una identidad placeholder; si más adelante reclama su cuenta,
+        // se linkea por acá. UNIQUE(tournament_id, pending_user_id) evita choques.
+        pending_user_id:          crypto.randomUUID(),
+        player_name:              name,
+        category_id:              catId,
+        // Índice tal cual lo ingresó el organizador (no course handicap): el
+        // leaderboard lo convierte a course handicap con el tee del jugador.
+        handicap_at_registration: handicapIndex,
+        status:                   'approved',
+      })
+      .select()
+      .single()
+
+    if (pErr || !player) {
+      const msg = pErr?.message?.toLowerCase() || ''
+      if (msg.includes('permission') || msg.includes('policy') || pErr?.code === '42501') {
+        showError('Sin permisos', 'No tienes permisos para inscribir. Verifica que eres el organizador.')
+      } else {
+        showError('Error al inscribir', `No pudimos inscribir al invitado: ${pErr?.message || 'error desconocido'}`)
+      }
+      setLoading(false)
+      return
+    }
+
+    const { error: rErr } = await supabase.from('rounds').insert({
+      tournament_id: tournament.id,
+      player_id:     player.id,
+      status:        'in_progress',
+    })
+    if (rErr) {
+      void captureError(rErr, { context: 'usePlayers.inscribirGuest.crearRonda', level: 'warning' })
+    }
+
+    onInscribed()
+    await fetchPlayers()
+    setLoading(false)
+    showSuccess('¡Invitado inscrito!', `${name} fue agregado al torneo.`)
+  }
+
   const withdrawPlayer = async (playerId: string) => {
-    const playerName = players.find(p => p.id === playerId)?.profiles?.name || 'este jugador'
+    const _pl = players.find(p => p.id === playerId)
+    const playerName = _pl?.profiles?.name ?? _pl?.player_name ?? 'este jugador'
 
     if (tournamentStatus === 'in_progress') {
       if (!window.confirm(`Retirar a ${playerName} (WD)? Sus scores se conservan en el historial.`)) return
@@ -131,7 +198,8 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
   }
 
   const disqualifyPlayer = async (playerId: string) => {
-    const playerName = players.find(p => p.id === playerId)?.profiles?.name || 'este jugador'
+    const _pl = players.find(p => p.id === playerId)
+    const playerName = _pl?.profiles?.name ?? _pl?.player_name ?? 'este jugador'
     const reason = window.prompt(`Descalificar a ${playerName} (DQ). Motivo (opcional):`)
     if (reason === null) return // canceló el prompt
     const res = await fetch('/api/game', {
@@ -155,6 +223,6 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
 
   return {
     players, setPlayers, loading,
-    fetchPlayers, inscribirPlayer, withdrawPlayer, disqualifyPlayer,
+    fetchPlayers, inscribirPlayer, inscribirGuest, withdrawPlayer, disqualifyPlayer,
   }
 }

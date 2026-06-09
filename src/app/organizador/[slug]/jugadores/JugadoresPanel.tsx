@@ -11,7 +11,7 @@ import { useGroups } from './hooks/useGroups'
 import { useTournamentLifecycle } from './hooks/useTournamentLifecycle'
 import { TeesAssignmentSection } from './components/TeesAssignmentSection'
 import { TournamentInvitationCard } from './components/TournamentInvitationCard'
-import { InscribirPlayerForm } from './components/InscribirPlayerForm'
+import { InscribirPlayerForm, type InscribirMode } from './components/InscribirPlayerForm'
 import { GroupsSection } from './components/GroupsSection'
 import { PlayersTable } from './components/PlayersTable'
 import { TournamentActionsBar } from './components/TournamentActionsBar'
@@ -38,12 +38,22 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const [selectedCat] = useState(categories[0]?.id || '')
   const [tournamentStatus, setTournamentStatus] = useState(tournament.status)
 
+  // Inscripción: modo búsqueda de perfil existente vs invitado sin cuenta.
+  const [mode, setMode] = useState<InscribirMode>('search')
+  const [guestName, setGuestName] = useState('')
+  const [guestHcp, setGuestHcp] = useState('')
+
   const {
     players, setPlayers, loading,
-    fetchPlayers, inscribirPlayer, withdrawPlayer, disqualifyPlayer,
+    fetchPlayers, inscribirPlayer, inscribirGuest, withdrawPlayer, disqualifyPlayer,
   } = usePlayers({ tournament, categories, initialPlayers, tournamentStatus })
 
   const handleInscribir = () => inscribirPlayer(selectedProfile, selectedCat, resetSearch)
+  const handleInscribirGuest = () =>
+    inscribirGuest(guestName, guestHcp.trim() === '' ? null : Number(guestHcp), selectedCat, () => {
+      setGuestName('')
+      setGuestHcp('')
+    })
   const handleDesinscribir = withdrawPlayer
   const handleDescalificar = disqualifyPlayer
 
@@ -136,6 +146,13 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           setSelectedProfile={setSelectedProfile}
           loading={loading}
           onInscribir={handleInscribir}
+          mode={mode}
+          setMode={setMode}
+          guestName={guestName}
+          setGuestName={setGuestName}
+          guestHcp={guestHcp}
+          setGuestHcp={setGuestHcp}
+          onInscribirGuest={handleInscribirGuest}
         />
 
         <GroupsSection

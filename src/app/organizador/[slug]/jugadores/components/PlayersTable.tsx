@@ -64,7 +64,7 @@ export function PlayersTable({
                 >
                   <td style={{ padding: '12px 16px', color: 'var(--text-2)', fontSize: '14px' }}>{i + 1}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>
-                    {p.profiles?.name || '—'}
+                    {p.profiles?.name ?? p.player_name ?? '—'}
                     {p.status === 'withdrawn' && (
                       <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(148,168,192,0.15)', color: 'var(--text-2)', letterSpacing: '0.05em' }}>WD</span>
                     )}
