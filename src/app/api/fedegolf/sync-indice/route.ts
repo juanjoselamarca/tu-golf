@@ -25,9 +25,15 @@ export async function POST() {
       .single()
 
     if (credsError || !creds) {
+      // 200, no 404: "sin cuenta FedeGolf vinculada" es un estado VÁLIDO, no un
+      // error de recurso. FedegolfSync se monta en el layout raíz y dispara este
+      // POST en CADA página para todo usuario logueado; con 404 ensuciaba la
+      // consola (Failed to load resource 404) en cada carga para la mayoría de
+      // usuarios (los no vinculados). El body conserva `error` para que /perfil
+      // siga mostrando "Vinculá tu cuenta FedeGolf primero" (matchea por string).
       return NextResponse.json(
-        { error: 'No hay cuenta FedeGolf vinculada' },
-        { status: 404 }
+        { ok: false, linked: false, error: 'No hay cuenta FedeGolf vinculada' },
+        { status: 200 }
       )
     }
 
