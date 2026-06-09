@@ -31,7 +31,9 @@ Fases 1-4 cerradas y en la rama `feat/home-marketing-claude` (`0ba8d1c`). El lan
 `/home-v2` (preview, noindex) renderiza completo y verificado: tsc 0, anti-voseo, build,
 2201 tests, smoke visual desktop+mobile con `browse`. **Hallazgo + fix:** el CSP global
 bloqueaba Fontshare → se agregó `api.fontshare.com` (style-src) + `cdn.fontshare.com`
-(font-src) en `next.config.js` (commit `0ba8d1c`). Próximo: **Fase 5 (mini-juego)**.
+(font-src) en `next.config.js` (commit `0ba8d1c`). **Fases 1-5 + copy premium +
+widget PGA nuevo + corte proyectado + analítica + Pro "Próximamente" CERRADAS (8-jun,
+`f3eaadc`). Próximo: Fase 6 (swap a `/`) — detalle en memoria project_home_mensaje_marketing.**
 
 ## Fases
 - [x] **Fase 1 — Contenido + infra** (`fb77d51`)
@@ -46,7 +48,7 @@ bloqueaba Fontshare → se agregó `api.fontshare.com` (style-src) + `cdn.fontsh
     sparkline). Reveal con IntersectionObserver.
 - [x] **Fase 4 — Wiring en `page.tsx`**
   - Reemplazar secciones viejas, mantener ISR + stats reales en proofbar.
-- [ ] **Fase 5 — Mini-juego interactivo** (client component)
+- [x] **Fase 5 — Mini-juego interactivo** (client component)
   - "Pega tu tiro": barra de potencia, 3 tiros, tracer SVG, gancho al coach.
 - [ ] **Fase 6 — QA + ship**
   - `design-review` (before/after), `/pre-push` (tsc+tests+build+health), code-reviewer
