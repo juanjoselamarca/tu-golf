@@ -53,7 +53,7 @@ export default function Features() {
                 </span>
                 <span className="src">
                   <svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="3" /><circle cx="12" cy="12" r="2.4" /></svg>
-                  Garmin
+                  Smartwatch
                 </span>
                 <span className="src">CSV</span>
               </div>

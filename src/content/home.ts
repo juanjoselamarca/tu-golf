@@ -54,7 +54,7 @@ export const HOME = {
     titleLine1: 'Pega tu tiro.',
     titleLine2: 'Apunta a la bandera.',
     desc:
-      'Mide la potencia y suéltala. Tienes 3 tiros. Es lo más entretenido del golf… y casi nunca lo que define tu tarjeta.',
+      'Mide la potencia y suéltala. Tienes 3 tiros. El drive es lo más entretenido del golf… y casi nunca lo que define tu tarjeta.',
     hudShot: 'Tiro',
     hudToFlag: 'A bandera',
     pureBadge: 'PURO · al centro',
@@ -77,7 +77,7 @@ export const HOME = {
     titleLine1: 'Tu mejor golf,',
     titleLine2: 'ronda a ronda.',
     subtitle:
-      'Tú solo registras tu ronda. El coach hace el resto — y mientras más juegas, mejor te conoce.',
+      'Tú solo registras tu ronda. El coach hace el resto: cada ronda alimenta un modelo de tu juego que aprende tus patrones — por eso, mientras más juegas, mejor te conoce.',
     steps: [
       {
         title: 'Registra tu ronda',

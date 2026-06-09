@@ -21,7 +21,7 @@ const SOURCE_ICON: Record<string, JSX.Element> = {
       <path d="M8 7l1.5-2h5L16 7" />
     </svg>
   ),
-  Garmin: (
+  Smartwatch: (
     <svg viewBox="0 0 24 24">
       <rect x="7" y="3" width="10" height="18" rx="3" />
       <circle cx="12" cy="12" r="2.4" />
