@@ -123,6 +123,18 @@ export function resolveRatings(
     if (byGender.length > 0) candidates = byGender
   }
 
+  // Sin género conocido, si quedan varios tees del mismo color con CR/slope
+  // DISTINTOS (típico M vs F: 'rojo - damas' / 'rojo - caballeros'), es ambiguo:
+  // NO adivinar (elegir el género equivocado daría un CR/slope mal → índice mal).
+  // Honestidad sobre cobertura: devolver null (la ronda no aporta diferencial).
+  if (!genero && candidates.length > 1) {
+    const first = candidates[0]
+    const ambiguo = candidates.some(
+      t => Number(t.rating) !== Number(first.rating) || Number(t.slope) !== Number(first.slope),
+    )
+    if (ambiguo) return null
+  }
+
   const tee = candidates[0]
   if (!tee || tee.rating == null || tee.slope == null) return null
 
