@@ -9,9 +9,6 @@ import { HOME } from '@/content/home'
 const Check = () => (
   <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
 )
-const Arrow = () => (
-  <svg className="ar" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-)
 
 export default function Plans() {
   const p = HOME.plans
@@ -56,9 +53,7 @@ export default function Plans() {
               ))}
             </ul>
             <div className="trialhook">{p.pro.trialHook}</div>
-            <Link className="commit" href="/register">
-              {p.pro.cta}<span className="c"><Arrow /></span>
-            </Link>
+            <div className="soon">{p.pro.comingSoon}</div>
           </div>
         </div>
 

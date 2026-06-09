@@ -251,6 +251,8 @@
 .home-mkt .trialhook{border:1px dashed rgba(196,153,42,0.45);border-radius:12px;background:rgba(196,153,42,0.07);padding:13px 15px;font-size:13px;line-height:1.42;color:var(--ivory);margin-bottom:18px}
 .home-mkt .trialhook b{color:var(--gold-br)}
 .home-mkt .plan-c .commit,.home-mkt .plan-c .ghost{width:100%;justify-content:center}
+/* Pro = próximamente: ocupa el lugar del botón, no es clickeable */
+.home-mkt .plan-c .soon{width:100%;text-align:center;padding:13px;border:1px dashed rgba(196,153,42,0.45);border-radius:13px;color:var(--gold-ant);font-weight:600;font-size:14px;letter-spacing:.02em}
 .home-mkt .plans-foot{text-align:center;font-size:12.5px;color:rgba(244,241,234,0.5);margin-top:26px}
 
 /* ════ CTA final (fórmula CRO) ════ */

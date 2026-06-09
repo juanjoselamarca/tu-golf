@@ -167,7 +167,7 @@ export const HOME = {
       cta: 'Crear cuenta gratis',
     },
     pro: {
-      ribbon: 'Recomendado',
+      ribbon: 'Próximamente',
       name: 'Pro',
       tag: 'Para jugar tu mejor golf',
       features: [
@@ -177,7 +177,7 @@ export const HOME = {
         'Un coach que aprende tu juego y se adapta a ti',
       ],
       trialHook: 'Tus 3 primeras rondas con el coach completo — gratis y sin tarjeta.',
-      cta: 'Probar el coach gratis',
+      comingSoon: 'Disponible muy pronto',
     },
     footer: 'Sin tarjeta para empezar · Cancela cuando quieras · Hecho en Chile, en español',
   },
