@@ -86,10 +86,18 @@ describe('Canario: Navbar no tiene patrones peligrosos', () => {
 })
 
 describe('Canario: Páginas client-side tienen timeout de seguridad o loading controlado', () => {
-  it('perfil page tiene loading state con fallback', () => {
+  it('perfil page es Server Component sin spinner client (datos server-side)', () => {
+    // Post-refactor RSC (08-jun): /perfil pasó de 'use client' con loading state a
+    // un Server Component que fetchea perfil + torneos + CPI server-side y pinta con
+    // datos al instante. Ya NO hay spinner client (ese era el waterfall que se mató).
+    // El canario blinda que la page NO reintroduzca fetching client-side: sin
+    // 'use client', sin useEffect/useState, sin loading state. El render se delega a
+    // PerfilView (client orchestrator) con los datos ya resueltos por props.
     const perfil = readFile('app/perfil/page.tsx')
-    expect(perfil).toContain('loading')
-    expect(perfil).toContain('setLoading(false)')
+    expect(perfil).not.toContain("'use client'")
+    expect(perfil).not.toContain('useEffect')
+    expect(perfil).not.toContain('setLoading')
+    expect(perfil).toContain('PerfilView')
   })
 
   it('historial page tiene loading state con fallback', () => {
