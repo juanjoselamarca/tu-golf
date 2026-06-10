@@ -35,6 +35,24 @@ Detalle expandido en `feedback_rol_cto.md` (memoria).
 
 ---
 
+## MODELOS — routing por tarea (sugerencia, no auto-switch)
+
+El modelo de la sesión lo cambia Juanjo con `/model`. Claude NO se auto-cambia
+mid-sesión; solo sugiere con "Sugiero `/model <X>` porque <razón>" y espera.
+
+- **Opus 4.8 (default):** ejecutar planes, features, fixes acotados, el día a día.
+  Es el caballo de batalla.
+- **Fable 5:** arquitectura, refactors transversales, planes de sprint, y bugs con
+  2+ intentos fallidos (gatillo: si `systematic-debugging` ya falló 2 veces en el
+  mismo bug, sugerir Fable). Más capaz; reservarlo por ser más pesado/lento y con
+  cupo por fases — NO por costo (Fable $10/$50 por 1M es más barato que Opus 4.7).
+- **Sonnet 4.6:** tareas mecánicas y verificables (renombres, datos de prueba, docs,
+  scripts triviales).
+- **UI/copy NO baja a Sonnet:** mantiene la barra premium con las skills de diseño
+  (design-shotgun → frontend-design → design-review).
+
+---
+
 ## REGLA OPERATIVA — "El que toca, ordena" (vigente desde 24-may-2026)
 
 **Contexto:** auditoría del 22-may-2026 (`docs/INFORME_CTO_2026-05-22.md`) detectó que la app tiene motor sólido pero estructura desordenada: 9 archivos productivos >1000 LOC, 41 puntos de acoplamiento directo UI↔Supabase, 4 API routes >500 LOC, 465 `console.*` sin logger central, duplicación `lib/` ↔ `golf/`. Sin reordenamiento la app no escala y rompe la directiva CERO FALLOS al primer torneo con problemas.
