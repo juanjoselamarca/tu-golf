@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-06-10
 **Autor:** Claude (CTO)
-**Estado:** Diseño aprobado por Juanjo (Opción A). Pendiente: writing-plans → eng-review → implementación.
+**Estado:** v2 — Opción A (manual canónica) **blindada** tras eng-review adversarial. Juanjo aprobó "dedup completo y correcto ahora". Ver §11 (respuestas a la review) y §12 (fixes del matcher). Pendiente: implementación con gates de data real.
 **Relacionado:** [[project_indice_engine_fix]], [[project_cancha_duplicada_los_leones]], import-hardening (PRs #122/#131/#138), `src/golf/courses/matching.ts`, `src/golf/courses/tee-resolver.ts`.
 
 ---
@@ -119,3 +119,65 @@ Cada cluster tiene su backup JSON. Revertir = restaurar `courses`/`course_tees`/
 - Funciones puras testeadas (`planTeeCorrections`, `findDuplicateRounds`).
 - Dry-run script read-only con tabla de impacto por usuario.
 - PR con code-reviewer, pre-push verde, deploy confirmado.
+
+---
+
+## 11. Respuesta a la eng-review adversarial (v2 — blindaje)
+
+Una eng-review independiente reprobó la v1 de Opción A. Cada hallazgo y su resolución:
+
+### Por qué se MANTIENE manual-canónica (no se pasa a fedegolf-canónica)
+La review sugirió alinear con la convención "fedegolf = canónica". Al verificar el linkage real (2026-06-10): las fichas fedegolf V/D comparten `fedegolf_club_id` pero tienen **`fedegolf_cancha_id` distinto** (Los Leones V=34 / D=165). Por lo tanto:
+- Un solo `canonical_course_id` (FK simple) no puede apuntar a las DOS fichas de género.
+- Encontrar el sibling de género requiere buscar por `fedegolf_club_id` + distinto `genero_norm` → **ambiguo en clubes multi-loop** (varias V y D bajo el mismo club_id) y obliga a cablear el resolver core.
+- La ficha **manual mixta** (`genero_norm='X'`, con tees M **y** F en una sola fila de catálogo) es estructuralmente ideal: `resolveRatings` ya desambigua por género desde sus propios tees, sin sibling-hunt ni tocar el resolver.
+
+**Decisión:** manual-canónica es estructuralmente más limpia y de menor riesgo de código. La convención "fedegolf gana" se respeta vía el override de `canonical_course_id` (ver §12). `canonical_course_id` es direccional-agnóstico: es el mecanismo de alias, y apuntar fedegolf→manual es un uso válido.
+
+### C1 — Canario invertido / convención contradictoria → RESUELTO
+`findBestCourseMatch` ya respeta `canonical_course_id` por encima del tie-break "fedegolf gana": si la ganadora (fedegolf) tiene `canonical_course_id`, devuelve la canónica (manual). Acción: **actualizar** el canario existente (`course-matching.test.ts`) para reflejar que ahora hay dups que apuntan fedegolf→manual, y agregar el caso manual-canónica. No es contradicción: es el mismo mecanismo de override.
+
+### C2 — `historial/stats/route.ts` no trae `canonical_course_id` → FIX
+`src/app/api/historial/stats/route.ts` (~L99) hace `select('id, nombre')` sin `canonical_course_id` → el match no resuelve la canónica y devolvería la fedegolf desactivada. Acción: **agregar `canonical_course_id` al select** y pasar candidatos completos a `findBestCourseMatch`. Auditar TODOS los call-sites de `findBestCourseMatch`/`matchCourseInDB` y asegurar que el select incluya `canonical_course_id`.
+
+### C3 — La canónica puede no estar en el candidate-set → FIX en `findBestCourseMatch`
+Si la búsqueda `ilike` devuelve la fedegolf pero NO la manual, `candidates.find(canon)` falla y devuelve la fedegolf desactivada. Acción: cuando `best.canonical_course_id` está seteado pero la canónica no está en `candidates`, **devolver `{ id: canonicalId, nombre: best.nombre, score }`** igual (conocemos el id). Es un fix de robustez de 3 líneas en `matching.ts`, con test.
+
+### M3 — Idempotencia frágil (insert de tee duplicado) → RESUELTO con constraint + match canónico
+Riesgo: si el nombre de tee oficial no matchea EXACTO el manual (casing/loop), se insertaba un tee duplicado → ambigüedad → null → índice roto. Acciones:
+1. **Migración:** `CREATE UNIQUE INDEX uq_course_tees_identity ON course_tees (course_id, lower(nombre), coalesce(genero,''))`. Verificar 0 violaciones previas; si las hay, limpiarlas primero. Bloquea duplicados a nivel BD.
+2. `planTeeCorrections` matchea manual↔oficial por **color canonicalizado** (1er token lowercased, igual que `tee-resolver`) + género, y para `action:'update'` **carga el `nombre` REAL del tee manual** (no el canonicalizado). `applyTeeCorrections` actualiza ESA fila por id; sólo inserta cuando no hubo match. Nunca inserta un nombre canonicalizado nuevo sobre un manual existente.
+3. Para estos 3 clusters los nombres son simples (`azul`/`blanco`/`negras`/`rojo`/`dorado`) — verificado en §4 — pero el blindaje aplica igual.
+
+### M2 — Usuario con `genero` null → ABORT explícito
+Si un usuario afectado tiene `profiles.genero` null y jugó un color presente en M y F con ratings distintos, `resolveRatings` → null → ronda unresolved → índice mezclado. Acción: el dry-run y el apply **listan los usuarios afectados con `genero` null y ABORTAN** (no `?? null` silencioso). Se resuelve seteando su género (o se excluye del cluster) antes de aplicar.
+
+### M4 — Guardia de fedegolf con rondas inesperadas → IMPLEMENTAR de verdad
+El apply, antes de desactivar/redirigir, **verifica que cada fedegolf a redirigir no tenga más rondas que las contempladas** (Los Leones `b1b6ba60`: exactamente 1). Si hay rondas inesperadas → ABORTA y reporta. La ronda contemplada se repointa a la manual y se verifica que su `tee_color` exista en los tees corregidos de la manual (si no, se reporta, no se deja huérfana).
+
+### M1 — Cálculo "índice después" del dry-run → ESPECIFICADO (ver §13)
+
+### Minor → atendidos
+- Backup a **ruta persistente versionada** (`docs/backups/dedup-<slug>-<commit>.json` en el repo o carpeta del proyecto), NO `%TEMP%`.
+- `repointRounds`: verificar `count` real con un `select` posterior independiente, no confiar en el `.select()` del update.
+- Test de 9h **back-9** en `planTeeCorrections` (preservar back_* del oficial/manual). Para Los Leones los back son null pero el test cubre el caso por si un oficial trae back.
+- Verificar que ningún consumidor de `course_tees` filtre por `fuente` (el insert usa `fuente='dedup-oficial'`).
+
+## 12. Fixes del matcher (código core — cambio mínimo + tests)
+
+`src/golf/courses/matching.ts` y los call-sites son código de identidad de cancha (alto radio). Cambios MÍNIMOS, cada uno con test:
+1. `findBestCourseMatch`: si `best.canonical_course_id` seteado y la canónica no está en `candidates` → devolver `{ id: canonicalId }` (C3).
+2. Auditar y arreglar el `select` de cada call-site para incluir `canonical_course_id` (C2): `historial/stats/route.ts`, screenshot-import, y cualquier otro. `garmin-zip` ya lo trae.
+3. Canario actualizado (C1).
+
+Estos NO tocan `tee-resolver.ts` ni `recompute-tee-rounds.ts` (que se acaba de mergear). El recompute resuelve los tees desde la ficha manual (donde viven las rondas) con sus tees ya corregidos — sin wiring de canonical en el recompute.
+
+## 13. Cálculo "índice después" del dry-run (replica exacta del RPC)
+
+Para mostrar el impacto por usuario ANTES del apply, el dry-run estima el índice replicando EXACTO `calcular_indice_golfers` (migración `20260521_excluded_from_handicap.sql`):
+1. Tomar TODAS las rondas del usuario con `diferencial` no-null, `slope_rating` no-null, `course_rating` no-null, `excluded_from_handicap=false`, **ordenadas por `played_at DESC`**, y quedarse con las **últimas 20**.
+2. Para las rondas del cluster (course_id = manual), **sustituir** su `diferencial` por el recomputado con los tees corregidos (vía `calcularDiferencial` con el rating oficial + el `nineHoleRatings` correcto front/back según `holes_played`). Aplicar el mismo **guard de implausibilidad** (`total_gross < 3*holes` → se excluye, como en el motor). Las rondas de otras canchas mantienen su `diferencial` actual.
+3. Ordenar esas 20 por `diferencial` ASC, tomar **best-N** según la tabla WHS (`rondasUsadas(count)`), promedio × 0.96.
+4. Tabla: `usuario | índice antes | índice después | delta | rondas del cluster afectadas`.
+
+El número oficial lo confirma el RPC al aplicar; esta estimación es para el gate de aprobación.

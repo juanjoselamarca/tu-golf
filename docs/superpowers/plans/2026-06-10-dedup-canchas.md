@@ -601,3 +601,48 @@ git commit -m "test(dedup): canario — matcher devuelve la canónica, no la fed
 - §9 rollback (backup JSON) → Task 5 step 1. ✓
 
 **Pendiente de completar en implementación:** el detalle del cálculo de índice "después" en el dry-run (Task 4 step 2 nota) — el algoritmo está descrito (ventana últimas-20 global del usuario sustituyendo el diferencial de las rondas del cluster por el recomputado), falta el código inline del helper. UUIDs ya completos y verificados.
+
+---
+
+## v2 — Tareas adicionales y cambios (post eng-review)
+
+Ver spec §11-§13. Cambios sobre las tareas v1 + tareas nuevas. Orden de implementación: T1', T-MIG, T3', T-MATCH, T2, T4', T5', T6', T7.
+
+### T1' — `planTeeCorrections` con match canónico + carry del nombre manual
+- `key()` matchea por **color canonicalizado** (1er token de `nombre` lowercased, igual que `tee-resolver`) + género.
+- El `TeeUpsert` de `action:'update'` incluye `manualNombre: string` (el nombre REAL del tee manual) para que el apply actualice ESA fila, no inserte un nombre canonicalizado.
+- Test extra: tee manual `'Azul'` (capitalizado) + oficial `'azul'` → `action:'update'`, `manualNombre:'Azul'` (no genera insert). Test back-9: oficial con `back_course_rating` → se preserva.
+
+### T-MIG — Migración: índice único de identidad de tee (idempotencia, spec §11 M3)
+- Create: `supabase/migrations/2026061001_uq_course_tees_identity.sql`
+- [ ] Verificar 0 violaciones: `select course_id, lower(nombre), coalesce(genero,''), count(*) from course_tees group by 1,2,3 having count(*)>1`. Si hay, limpiar primero (reportar a Juanjo).
+- [ ] `CREATE UNIQUE INDEX uq_course_tees_identity ON course_tees (course_id, lower(nombre), coalesce(genero,''));`
+- [ ] Aplicar vía `node --env-file=.env.local scripts/run-sql.mjs <migración>` y verificar en prod.
+
+### T3' — `applyTeeCorrections` idempotente
+- Para `action:'update'`: busca la fila manual por `(course_id, lower(nombre)=color-canónico, genero)` y UPDATE por su `id`. Usa `manualNombre` del upsert para el match exacto.
+- Para `action:'insert'`: INSERT con el nombre oficial. Si el índice único rechaza (carrera) → re-leer y UPDATE.
+- Test: correr 2 veces seguidas → 2da corrida 0 inserts, N updates (idempotente). Test con tee manual capitalizado → UPDATE, no INSERT.
+
+### T-MATCH — Fixes del matcher (spec §12, código core, cambio mínimo)
+- Modify: `src/golf/courses/matching.ts` (`findBestCourseMatch`): si `best.canonical_course_id` seteado y `candidates.find(canon)` es undefined → `return { id: best.canonical_course_id, nombre: best.nombre, score: best.score }` (C3).
+- [ ] Test: candidato único = fedegolf con `canonical_course_id` a un id ausente del set → devuelve ese id.
+- Modify: `src/app/api/historial/stats/route.ts` (~L99): `select('id, nombre')` → `select('id, nombre, fuente, canonical_course_id')` (C2).
+- [ ] Auditar TODOS los call-sites: `grep -rn "findBestCourseMatch\|matchCourseInDB" src` → cada uno que arme candidatos debe incluir `canonical_course_id` en el select.
+- Modify: `src/__tests__/course-matching.test.ts`: actualizar canario existente + agregar caso fedegolf→manual (C1).
+
+### T4' — Dry-run con cálculo "índice después" EXACTO (spec §13) + abort género null
+- El dry-run replica la ventana del RPC: rondas `excluded=false` con dif/slope/cr no-null, **ORDER BY played_at DESC LIMIT 20**, sustituye el dif de las rondas del cluster por el recomputado (con guard implausibilidad), ordena por dif ASC, best-N (`rondasUsadas`), ×0.96.
+- [ ] **ABORT** si algún usuario afectado tiene `profiles.genero` null → listar y parar (spec §11 M2).
+- Backup a `docs/backups/dedup-<slug>-<commit>.json` (NO %TEMP%).
+
+### T5' — Apply con guardia de fedegolf-con-rondas-inesperadas
+- [ ] Antes de redirigir: por cada fedegolfId contar rondas; si > las contempladas (Los Leones `b1b6ba60`=1, resto=0) → **ABORT** y reportar (spec §11 M4).
+- [ ] La ronda repointada: verificar que su `tee_color` exista en los tees corregidos de la manual; si no → reportar, no dejar huérfana.
+- [ ] Backup a ruta persistente. Verificar count de repoint con `select` independiente.
+
+### T6' — Canario de stats/route + matcher
+- [ ] Test de integración: tras setear `canonical_course_id`, `matchCourseInDB('Club de Golf Los Leones')` devuelve la manual canónica (no la fedegolf desactivada), incluso si el candidate-set trae solo la fedegolf.
+
+### Self-review v2
+- C1 → T-MATCH (canario). C2 → T-MATCH (stats select). C3 → T-MATCH (findBestCourseMatch fix). M1 → T4' (§13 calc). M2 → T4'/T5' (abort género null). M3 → T-MIG + T1' + T3'. M4 → T5' (guardia). Minors → T1' (back-9), T4'/T5' (backup persistente, count real). ✓
