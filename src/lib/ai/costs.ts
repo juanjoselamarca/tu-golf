@@ -11,6 +11,9 @@ const RATES: Record<string, Rate> = {
   'claude-haiku-4-5-20251001': { in: 0.25, out: 1.25 },
   'claude-sonnet-4-6': { in: 3, out: 15 },
   'claude-opus-4-7': { in: 15, out: 75 },
+  // Fable 5 (GA 09-jun-2026): $10/$50 por 1M. Habilitable en el coach vía
+  // COACH_MODEL=claude-fable-5 (src/golf/coach/model.ts) — ~3× sonnet-4-6.
+  'claude-fable-5': { in: 10, out: 50 },
   'gemini-2.5-flash': { in: 0.1, out: 0.4 },
   'gemini-2.5-flash-lite': { in: 0.05, out: 0.2 },
 }

@@ -10,6 +10,7 @@ import { guardNumbers, collectAuthorizedNumbers } from '@/golf/coach/number-guar
 import { toolActivityLabel, friendlyPatternName, friendlyMetricName } from '@/lib/coach-event-narrator'
 import { captureError } from '@/lib/error-tracking'
 import type { TaigerContext } from '@/golf/coach/prompts'
+import { coachModel } from '@/golf/coach/model'
 
 // Motor del chat del coach: tool-loop + streaming SSE + update de sesión + validador
 // + fallback degradado (Ola 2). Extraído de route.ts (refactor puro, sin cambio de
@@ -53,7 +54,7 @@ async function regenerateRelativeOnly(
     systemFinal +
     '\n\n[CORRECCIÓN OBLIGATORIA] Tu respuesta anterior incluyó un score absoluto que NO salió de la calculadora (compute_score_projection). Reescribí tu respuesta SIN ningún score absoluto: hablá solo en "+N sobre par" y referí al jugador a la tarjeta de objetivo (👇) para el número exacto. No inventes ni recalcules números.'
   const resp = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: coachModel(),
     max_tokens: 1024,
     system: [{ type: 'text', text: strictSystem, cache_control: { type: 'ephemeral' } }],
     messages: loopMessages as unknown as Anthropic.MessageParam[],
@@ -117,7 +118,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             // (~5K tokens estables) — en follow-ups dentro de 5min el coste de input
             // baja ~80% via cache_read_input_tokens.
             const stream = anthropic.messages.stream({
-              model: 'claude-sonnet-4-6',
+              model: coachModel(),
               max_tokens: 2048,
               system: [
                 {
