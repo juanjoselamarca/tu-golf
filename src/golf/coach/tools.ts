@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { savePlan, PATTERN_IDS, PLAN_METRICS, type SavePlanInput } from './plan-engine'
 import { inferHoles } from '@/golf/core/holes'
 import { matchCourseInDB } from '@/golf/courses/matching'
+import { findRoundsForCoach, type CoachRoundFilters } from '@/lib/data/coach-rounds'
 import {
   setTarget,
   rememberFact,
@@ -95,10 +96,27 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_all_rounds_summary',
     description:
-      'Resumen estadístico de las rondas históricas del jugador, SEPARADO entre rondas de 18 hoyos y de 9 hoyos. Devuelve `rondas_18`, `rondas_9` y `rondas_indeterminadas` (count only). NUNCA mezcles los promedios de 18h con los de 9h al razonar. Usá rondas_18 para tendencia general; rondas_9 para sub-segmento corto; indeterminadas son rondas viejas sin metadata suficiente — no inventes promedio para ellas. Para análisis ronda-por-ronda usá get_latest_round / get_round_by_date.',
+      'Resumen estadístico de las rondas históricas del jugador, SEPARADO entre rondas de 18 hoyos y de 9 hoyos. Devuelve `rondas_18`, `rondas_9` y `rondas_indeterminadas` (count only). NUNCA mezcles los promedios de 18h con los de 9h al razonar. Usá rondas_18 para tendencia general; rondas_9 para sub-segmento corto; indeterminadas son rondas viejas sin metadata suficiente — no inventes promedio para ellas. Cada cancha del resumen trae su `course_id`. Para listar rondas concretas usá find_rounds.',
     input_schema: {
       type: 'object',
       properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'find_rounds',
+    description:
+      'Busca rondas del jugador con filtros flexibles sobre TODO su historial (importado + jugado en la app, fuente única). Usala cuando el jugador menciona una cancha ("mis rondas en Lomas de la Dehesa"), un período ("este año", "marzo"), o quiere las recientes / su mejor / su peor ronda: NO necesitás la fecha exacta. Devuelve una lista de rondas con id, fecha, cancha, course_id, total y hoyos. Para el detalle hoyo-por-hoyo de una, después usá get_round_by_date o get_course_scorecard con el course_id que te devuelve.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        course: { type: 'string', description: 'Nombre de la cancha (ej "Lomas de la Dehesa") o su UUID. Opcional.' },
+        desde: { type: 'string', description: 'Fecha desde YYYY-MM-DD (inclusive). Opcional.' },
+        hasta: { type: 'string', description: 'Fecha hasta YYYY-MM-DD (inclusive). Opcional.' },
+        holes: { type: 'number', description: 'Filtrar por 9 o 18 hoyos. Opcional.' },
+        limit: { type: 'number', description: 'Máximo de rondas (default 10, tope 30).' },
+        orden: { type: 'string', enum: ['reciente', 'antigua', 'mejor', 'peor'], description: 'Orden del resultado (default reciente).' },
+      },
       required: [],
     },
   },
@@ -252,6 +270,20 @@ export async function executeTool(
       }
       case 'get_all_rounds_summary':
         return await getAllRoundsSummary(ctx)
+      case 'find_rounds': {
+        const filters: CoachRoundFilters = {
+          course: typeof input.course === 'string' ? input.course : null,
+          desde: typeof input.desde === 'string' ? input.desde : null,
+          hasta: typeof input.hasta === 'string' ? input.hasta : null,
+          holes: typeof input.holes === 'number' ? input.holes : null,
+          limit: typeof input.limit === 'number' ? input.limit : undefined,
+          orden: typeof input.orden === 'string'
+            ? (input.orden as CoachRoundFilters['orden'])
+            : undefined,
+        }
+        const res = await findRoundsForCoach(ctx.supabase, ctx.userId, filters)
+        return { ok: true, data: res }
+      }
       case 'save_plan':
         return await dispatchSavePlan(ctx, input)
       // Tools de Ola 2 "el coach te conoce" (sólo activas con cerebro_v3_enabled).
