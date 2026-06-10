@@ -77,4 +77,25 @@ describe('summarizeBucket — agrupación de top_canchas por identidad de cancha
   it('devuelve null para bucket vacío', () => {
     expect(summarizeBucket([])).toBeNull()
   })
+
+  it('expone el course_id de cada cancha (el coach lo necesita para el scorecard)', () => {
+    const cid = 'dff847e1-34d9-4805-85a7-01ec3e554f65'
+    const rounds = [
+      row({ course_id: cid, course_name: 'Club de Golf Lomas de La Dehesa', total_gross: 86 }),
+      row({ course_id: cid, course_name: 'Club Golf Lomas De La Dehesa', total_gross: 92 }),
+    ]
+    const out = summarizeBucket(rounds)!
+    expect(out.top_canchas).toHaveLength(1)
+    // Antes el id se calculaba y se descartaba → el coach solo veía el nombre y
+    // no podía pedir los pares. Ahora viaja el course_id canónico.
+    expect(out.top_canchas[0].course_id).toBe(cid)
+  })
+
+  it('expone course_id null en rondas viejas agrupadas por nombre', () => {
+    const out = summarizeBucket([
+      row({ course_id: null, course_name: 'Los Leones' }),
+      row({ course_id: null, course_name: 'los leones' }),
+    ])!
+    expect(out.top_canchas[0].course_id).toBeNull()
+  })
 })

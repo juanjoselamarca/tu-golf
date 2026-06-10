@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { savePlan, PATTERN_IDS, PLAN_METRICS, type SavePlanInput } from './plan-engine'
 import { inferHoles } from '@/golf/core/holes'
+import { matchCourseInDB } from '@/golf/courses/matching'
 import {
   setTarget,
   rememberFact,
@@ -57,13 +58,25 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_course_details',
     description:
-      'Obtén información de una cancha: pares por hoyo, stroke index, par total. Úsala cuando necesites calcular strokes sobre par o analizar dificultad por hoyo.',
+      'Obtén información de una cancha: pares por hoyo, stroke index, par total. Úsala cuando necesites calcular strokes sobre par o analizar dificultad por hoyo. Requiere el UUID de la cancha. Si solo tenés el NOMBRE, usá get_course_scorecard.',
     input_schema: {
       type: 'object',
       properties: {
         course_id: { type: 'string', description: 'UUID de la cancha' },
       },
       required: ['course_id'],
+    },
+  },
+  {
+    name: 'get_course_scorecard',
+    description:
+      'Obtén el scorecard de una cancha (pares y stroke index por hoyo, par total) por NOMBRE o por UUID. Usala cuando el jugador menciona una cancha por su nombre ("los pares de Lomas de la Dehesa"): NO necesitás el UUID, pasá el nombre y el sistema resuelve la cancha en el catálogo. Si la cancha no está en el catálogo, la tool te lo dice — en ese caso NUNCA le pidas los pares al jugador, ofrecé lo que puedas con lo que haya.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        course: { type: 'string', description: 'Nombre de la cancha (ej "Lomas de la Dehesa") o su UUID.' },
+      },
+      required: ['course'],
     },
   },
   {
@@ -225,6 +238,11 @@ export async function executeTool(
         const id = typeof input.course_id === 'string' ? input.course_id : null
         if (!id) return { ok: false, error: 'Falta course_id' }
         return await getCourseDetails(ctx, id)
+      }
+      case 'get_course_scorecard': {
+        const ref = typeof input.course === 'string' ? input.course : null
+        if (!ref) return { ok: false, error: 'Falta course (nombre o UUID de la cancha)' }
+        return await getCourseScorecard(ctx, ref)
       }
       case 'get_round_by_date': {
         const date = typeof input.date === 'string' ? input.date : null
@@ -487,10 +505,10 @@ export function summarizeBucket(arr: HistoricalRow[]) {
   // agrupar por string fragmenta las stats y el coach la ve como varias canchas
   // distintas, dando promedios separados de la misma cancha. Cuando no hay
   // course_id (rondas viejas) caemos al nombre normalizado como key.
-  const byCourse: Record<string, { count: number; sum: number; nombres: Record<string, number> }> = {}
+  const byCourse: Record<string, { course_id: string | null; count: number; sum: number; nombres: Record<string, number> }> = {}
   for (const r of arr) {
     const key = r.course_id ?? `name:${(r.course_name || 'Sin cancha').trim().toLowerCase()}`
-    if (!byCourse[key]) byCourse[key] = { count: 0, sum: 0, nombres: {} }
+    if (!byCourse[key]) byCourse[key] = { course_id: r.course_id ?? null, count: 0, sum: 0, nombres: {} }
     byCourse[key].count++
     byCourse[key].sum += r.total_gross
     const nombre = r.course_name || 'Sin cancha'
@@ -502,6 +520,9 @@ export function summarizeBucket(arr: HistoricalRow[]) {
     .map(v => ({
       // Nombre representativo: la variante más frecuente para esa identidad.
       cancha: Object.entries(v.nombres).sort((a, b) => b[1] - a[1])[0][0],
+      // course_id canónico de la identidad — el coach lo necesita para pedir el
+      // scorecard/detalle sin adivinar. null en rondas viejas sin course_id.
+      course_id: v.course_id,
       rondas: v.count,
       avg_score: Math.round((v.sum / v.count) * 10) / 10,
     }))
@@ -574,6 +595,47 @@ async function getCourseDetails(ctx: ToolExecutionContext, courseId: string): Pr
         par: h.par,
         stroke_index: h.stroke_index ?? null,
       })),
+    },
+  }
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Scorecard de una cancha aceptando NOMBRE o UUID.
+ *
+ * El coach conoce las canchas por su nombre (del resumen / del jugador), no por
+ * su UUID. Antes solo existía get_course_details(UUID), así que el coach no podía
+ * pedir los pares de "Lomas de la Dehesa" — terminaba pidiéndoselos al jugador.
+ * Acá resolvemos nombre→cancha con el matcher canónico compartido
+ * (`matchCourseInDB`, mismo que usa import + torneos) y degradamos honesto si la
+ * cancha no está en el catálogo: NUNCA se le pide el scorecard al jugador.
+ */
+async function getCourseScorecard(ctx: ToolExecutionContext, ref: string): Promise<ToolResult> {
+  const { supabase } = ctx
+  const trimmed = ref.trim()
+  if (!trimmed) return { ok: false, error: 'Falta el nombre o UUID de la cancha' }
+
+  // Camino directo: ya es un UUID.
+  if (UUID_RE.test(trimmed)) return await getCourseDetails(ctx, trimmed)
+
+  // Camino por nombre: resolver con el matcher canónico.
+  const match = await matchCourseInDB(trimmed, supabase)
+  if (!match) {
+    return {
+      ok: false,
+      error: `No hay ninguna cancha que coincida con "${trimmed}" en el catálogo. NO le pidas los pares al jugador: la app no tiene esa cancha catalogada todavía. Ofrecé el mejor análisis posible con los scores que sí tengas.`,
+    }
+  }
+
+  const details = await getCourseDetails(ctx, match.id)
+  if (!details.ok) return details
+  return {
+    ok: true,
+    data: {
+      ...(details.data as Record<string, unknown>),
+      resolved_from: trimmed,
+      match_confidence: match.score,
     },
   }
 }
