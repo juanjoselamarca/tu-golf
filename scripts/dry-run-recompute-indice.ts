@@ -28,7 +28,10 @@ function n(v: unknown): string {
   return v == null ? '—' : String(v)
 }
 
-async function indiceEstimado(afterById: Map<string, number | null>): Promise<{ antes: number | null; despues: number | null; usadas: number }> {
+async function indiceEstimado(
+  afterById: Map<string, number | null>,
+  excluirIds: Set<string>,
+): Promise<{ antes: number | null; despues: number | null; usadas: number }> {
   // Todas las rondas con fecha, ordenadas desc; tomamos las últimas 20 con
   // diferencial no nulo y no excluidas. "despues" usa el valor recomputado
   // cuando existe; "antes" usa el guardado actual.
@@ -39,7 +42,10 @@ async function indiceEstimado(afterById: Map<string, number | null>): Promise<{ 
     .order('played_at', { ascending: false })
   if (!data) return { antes: null, despues: null, usadas: 0 }
 
-  const elegibles = data.filter(r => !r.excluded_from_handicap)
+  // Espejo del apply: las implausibles se excluyen, así que el "después" debe
+  // calcularse SIN ellas (si no, el estimado queda hundido por un diferencial
+  // congelado que el apply en realidad saca del cómputo).
+  const elegibles = data.filter(r => !r.excluded_from_handicap && !excluirIds.has(r.id))
   const difAntes: number[] = []
   const difDespues: number[] = []
   for (const r of elegibles) {
@@ -114,7 +120,8 @@ async function main() {
   }
 
   const afterById = new Map(result.rounds.map(r => [r.id, r.after.diferencial]))
-  const idx = await indiceEstimado(afterById)
+  const implausibleIds = new Set(result.implausible.map(im => im.id))
+  const idx = await indiceEstimado(afterById, implausibleIds)
   console.log('')
   console.log('── Índice estimado (fórmula local, ventana últimas-20; oficial = RPC al aplicar) ──')
   console.log(`  antes:   ${n(idx.antes)}`)

@@ -54,6 +54,12 @@ describe('POST /api/admin/recompute-indice', () => {
     expect(recompute).not.toHaveBeenCalled()
   })
 
+  it('rechaza un género inválido (400)', async () => {
+    const res = await POST(jsonReq({ userId: UID, genero: 'hombre' }))
+    expect(res.status).toBe(400)
+    expect(recompute).not.toHaveBeenCalled()
+  })
+
   it('por defecto es dry-run y NO recalcula el índice', async () => {
     const res = await POST(jsonReq({ userId: UID, genero: 'M' }))
     const json = await res.json()

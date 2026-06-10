@@ -35,6 +35,11 @@ export async function POST(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: 'Falta userId' }, { status: 400 })
   }
+  // Validar género explícito: un typo ('hombre', 'male') resolvería a un char que
+  // no matchea y dejaría rondas sin tocar en silencio. Mejor fallar fuerte.
+  if (body.genero != null && body.genero !== 'M' && body.genero !== 'F') {
+    return NextResponse.json({ error: "genero debe ser 'M', 'F' o null" }, { status: 400 })
+  }
   // Default seguro: dryRun salvo que se pida explícitamente aplicar.
   const dryRun = body.dryRun !== false
 

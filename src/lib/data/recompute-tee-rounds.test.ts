@@ -128,9 +128,11 @@ describe('recomputeRoundsFromCatalog', () => {
     expect(Number(updates[0].diferencial)).toBeCloseTo(1.37, 2)
   })
 
-  it('score físicamente imposible (46 en 18h) → implausible, no recomputa (no corrompe el índice)', async () => {
-    // Caso real (ronda c314a556 de Juanjo): 18h con total 46. Diferencial −22.85
-    // si se computara → al ser el "mejor", hundiría el índice. Debe quedar intacta.
+  it('score físicamente imposible (46 en 18h) → implausible, no recomputa y SE EXCLUYE en apply', async () => {
+    // Caso real (ronda c314a556 de Juanjo): 18h con total 46. Su diferencial NO se
+    // recomputa (es absurdo), pero en apply debe EXCLUIRSE del handicap: si no, el
+    // RPC lo tomaría como "el mejor" y hundiría el índice. Esa exclusión es la
+    // única forma de que el endpoint repare el índice por sí solo.
     const updates: Record<string, unknown>[] = []
     const sb = stub(
       [{ id: 'bad', course_id: 'leones', tee_color: 'azul', holes_played: 18, total_gross: 46, course_rating: null, slope_rating: null, diferencial: null }],
@@ -141,6 +143,38 @@ describe('recomputeRoundsFromCatalog', () => {
     expect(result.implausible).toHaveLength(1)
     expect(result.implausible[0].id).toBe('bad')
     expect(result.rounds.find(r => r.id === 'bad')).toBeUndefined()
+    expect(result.excludedImplausible).toBe(1)
+    expect(result.failedUpdates).toBe(0)
+    expect(updates).toHaveLength(1)
+    expect(updates[0]).toEqual({ excluded_from_handicap: true })
+  })
+
+  it('implausible con diferencial congelado NEGATIVO → se excluye (no hunde el índice vía RPC)', async () => {
+    // El escenario que corrompe de verdad: la ronda ya trae un diferencial
+    // congelado absurdo (−22.85) del import. El recompute no lo toca; el apply
+    // DEBE excluirla para que el RPC no la consuma como mejor diferencial.
+    const updates: Record<string, unknown>[] = []
+    const sb = stub(
+      [{ id: 'frozen', course_id: 'leones', tee_color: 'azul', holes_played: 18, total_gross: 46, course_rating: 75.1, slope_rating: 142, diferencial: -22.85 }],
+      TEES_LEONES_AZUL,
+      updates,
+    )
+    const result = await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: false, genero: null })
+    expect(result.implausible.map(i => i.id)).toEqual(['frozen'])
+    expect(result.excludedImplausible).toBe(1)
+    expect(updates).toEqual([{ excluded_from_handicap: true }])
+  })
+
+  it('en dryRun una implausible se detecta pero NO se escribe nada', async () => {
+    const updates: Record<string, unknown>[] = []
+    const sb = stub(
+      [{ id: 'bad', course_id: 'leones', tee_color: 'azul', holes_played: 18, total_gross: 46, course_rating: null, slope_rating: null, diferencial: -22.85 }],
+      TEES_LEONES_AZUL,
+      updates,
+    )
+    const result = await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: true, genero: null })
+    expect(result.implausible).toHaveLength(1)
+    expect(result.excludedImplausible).toBe(0)
     expect(updates).toHaveLength(0)
   })
 

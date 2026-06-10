@@ -91,6 +91,15 @@ export interface RecomputeFromCatalogResult {
   rounds: RecomputedRound[]
   /** Cuántas rondas resueltas cambian al menos un campo. */
   changedCount: number
+  /**
+   * Rondas implausibles que se EXCLUYERON del handicap en este apply (0 en
+   * dryRun). Su diferencial congelado no se puede recomputar y, de seguir activo,
+   * el RPC lo tomaría como "el mejor" y hundiría el índice: excluirlas es la única
+   * forma de sanear el índice. El recompute por sí solo no las toca.
+   */
+  excludedImplausible: number
+  /** Updates a la BD que fallaron (diferencial o exclusión). Debería ser 0. */
+  failedUpdates: number
   /** false en dryRun (no se escribió nada). */
   applied: boolean
 }
@@ -126,6 +135,9 @@ export async function recomputeRoundsFromCatalog(
     .eq('user_id', userId)
     .not('tee_color', 'is', null)
     .not('course_id', 'is', null)
+    // No tocar rondas ya excluidas a mano (scramble, equipos, etc.): su
+    // exclusión es una decisión deliberada, no un dato a recomputar.
+    .eq('excluded_from_handicap', false)
 
   const result: RecomputeFromCatalogResult = {
     scanned: rounds?.length ?? 0,
@@ -134,6 +146,8 @@ export async function recomputeRoundsFromCatalog(
     implausible: [],
     rounds: [],
     changedCount: 0,
+    excludedImplausible: 0,
+    failedUpdates: 0,
     applied: !dryRun,
   }
   if (!rounds || rounds.length === 0) return result
@@ -195,10 +209,27 @@ export async function recomputeRoundsFromCatalog(
     if (changed) result.changedCount++
 
     if (!dryRun && changed) {
-      await supabase
+      const { error } = await supabase
         .from('historical_rounds')
         .update({ course_rating: after.course_rating, slope_rating: after.slope_rating, diferencial })
         .eq('id', r.id)
+      if (error) result.failedUpdates++
+    }
+  }
+
+  // En apply, las rondas con score físicamente imposible se excluyen del
+  // handicap. El recompute NO las toca (su diferencial congelado es absurdo y no
+  // re-derivable), así que la ÚNICA forma de que el índice quede sano es sacarlas
+  // del cómputo antes de correr el RPC. Mismo paso que hacía el script one-shot;
+  // ahora vive en el motor para que el endpoint repare el índice por sí solo.
+  if (!dryRun) {
+    for (const im of result.implausible) {
+      const { error } = await supabase
+        .from('historical_rounds')
+        .update({ excluded_from_handicap: true })
+        .eq('id', im.id)
+      if (error) result.failedUpdates++
+      else result.excludedImplausible++
     }
   }
 
