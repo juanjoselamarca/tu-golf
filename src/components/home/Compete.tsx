@@ -28,7 +28,7 @@ export default function Compete() {
             {c.titleLine1} <span className="g">{c.titleLine2}</span>
           </h2>
           <p>{c.desc}</p>
-          <CTAButton className="cl2" href="#cta" location="compete" target="tournament-demo">
+          <CTAButton className="cl2" href="/demo" location="compete" target="demo">
             {c.cta}
             <svg className="ar" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </CTAButton>

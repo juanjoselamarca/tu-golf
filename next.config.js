@@ -51,6 +51,12 @@ const nextConfig = {
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }]
   },
+  async redirects() {
+    // El landing vivió en /home-v2 durante el preview (Fase 1-5). Tras el swap a
+    // `/` (Fase 6) esa ruta ya no existe: redirigimos permanente para que viejos
+    // links del preview no caigan en 404 y Google no vea contenido duplicado.
+    return [{ source: '/home-v2', destination: '/', permanent: true }]
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
