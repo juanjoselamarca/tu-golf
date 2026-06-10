@@ -1,7 +1,13 @@
 # Spec — Verificador de visión Fable 5 para el import de scorecards
 
 **Fecha:** 2026-06-10
-**Estado:** PROPUESTO — requiere OK de Juanjo (decisión de costo)
+**Estado:** ❌ DESCARTADO (parqueado) — 10-jun-2026. Decisión CTO: el import YA tiene
+revisión humana hole-by-hole con edición (`src/components/import/StepReview.tsx`), así que
+el humano es la red de seguridad y atrapa más que la IA. Los bugs reales de import fueron
+plumbing (tee/género/source), no misreads de Gemini. CERO FALLOS: hay deuda de import abierta
+primero. Alternativa preferida: resaltar hoyos sospechosos en StepReview (inconsistencia
+aritmética = gratis). Gatillo para revisitar: evidencia de misreads guardados mal pese a la
+revisión humana → empezar por shadow mode. Resto del spec queda como referencia histórica.
 **Autor:** Claude (CTO)
 
 ## Problema
