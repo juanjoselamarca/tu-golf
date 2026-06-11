@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getProjectedCut } from '@/lib/pga/projectedCut'
 
 const PGA_2026 = [
   { name: 'THE PLAYERS Championship',       start: '2026-03-12', end: '2026-03-15', venue: 'TPC Sawgrass' },
@@ -208,6 +209,12 @@ export async function GET() {
       || PGA_2026.find(e => (event.name || '').toLowerCase().includes(e.name.toLowerCase().split(' ')[0]))?.venue
       || ''
 
+    // Corte proyectado OFICIAL del PGA Tour (solo en vivo). Si la API del PGA
+    // falla o el evento no tiene corte → null y el widget no muestra la línea.
+    const projectedCut = isLive
+      ? await getProjectedCut(event.name || event.shortName || '', today.slice(0, 4))
+      : null
+
     return NextResponse.json({
       active: true,
       live: isLive,
@@ -216,6 +223,7 @@ export async function GET() {
       round: traducirRonda(status?.type?.shortDetail || ''),
       course,
       players: top10,
+      projectedCut,
       next_event,
       isTeamEvent,
     })
