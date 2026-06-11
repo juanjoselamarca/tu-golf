@@ -1591,7 +1591,7 @@ function RondaLibrePageContent() {
           </div>
 
           {/* GWI — solo para formatos individuales (stroke/stableford), NO match play ni equipos */}
-          {ronda.formato_juego !== 'match_play' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+          {ronda.formato_juego !== 'match_play' && !isFinished && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
             <div style={{ padding: '8px 12px', marginBottom: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
@@ -1603,7 +1603,7 @@ function RondaLibrePageContent() {
               </div>
             </div>
           )}
-          {ronda.formato_juego !== 'match_play' && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+          {ronda.formato_juego !== 'match_play' && !isFinished && gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
             <GWILeaderboard
               jugadores={gwiInputs}
               hoyosRestantes={ronda.holes - Math.max(...gwiInputs.map(j => j.hoyosCompletados), 0)}
