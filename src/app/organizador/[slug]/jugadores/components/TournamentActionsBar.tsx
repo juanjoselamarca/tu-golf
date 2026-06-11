@@ -24,7 +24,7 @@ export function TournamentActionsBar({
   const router = useRouter()
 
   return (
-    <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', justifyContent: 'center', gap: '12px', zIndex: 50 }}>
+    <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', zIndex: 50 }}>
       {tournamentStatus === 'draft' && (
         <>
           <button
@@ -39,6 +39,8 @@ export function TournamentActionsBar({
               border: '1px solid rgba(220,38,38,0.25)',
               cursor: 'pointer',
               transition: 'all 200ms',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             Eliminar torneo
@@ -56,7 +58,9 @@ export function TournamentActionsBar({
               border: 'none',
               cursor: playersCount < 1 || starting ? 'not-allowed' : 'pointer',
               transition: 'all 200ms',
-              minWidth: '280px',
+              minWidth: '200px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             {starting ? 'Iniciando...' : `Iniciar torneo (${playersCount} jugador${playersCount !== 1 ? 'es' : ''})`}
@@ -78,6 +82,8 @@ export function TournamentActionsBar({
               border: '1px solid var(--border-md)',
               cursor: 'pointer',
               transition: 'all 200ms',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             Hoja de salida
@@ -94,6 +100,8 @@ export function TournamentActionsBar({
               border: 'none',
               cursor: 'pointer',
               transition: 'all 200ms',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             Ver scoring
@@ -112,6 +120,8 @@ export function TournamentActionsBar({
                 border: '1px solid rgba(220,38,38,0.3)',
                 cursor: closing ? 'not-allowed' : 'pointer',
                 transition: 'all 200ms',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
               {closing ? 'Cerrando...' : 'Cerrar torneo'}
@@ -121,8 +131,8 @@ export function TournamentActionsBar({
       )}
 
       {tournamentStatus === 'closed' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ color: 'var(--text-2)', fontSize: '14px', fontWeight: 600 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '16px' }}>
+          <span style={{ color: 'var(--text-2)', fontSize: '14px', fontWeight: 600, textAlign: 'center' }}>
             Torneo cerrado — Resultados definitivos
           </span>
           <button
@@ -136,6 +146,8 @@ export function TournamentActionsBar({
               borderRadius: '8px',
               border: 'none',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             Ver leaderboard
