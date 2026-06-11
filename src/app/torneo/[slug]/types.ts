@@ -32,6 +32,7 @@ export interface DBTournament {
   modo_juego: ModoJuego | null
   formato_juego: FormatoJuego | null
   date_start: string | null
+  date_end: string | null
   status: string
   codigo: string | null
   afecta_estadisticas: boolean | null

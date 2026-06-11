@@ -30,6 +30,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const cancha = searchParams.get('cancha')
 
+    // "En vivo" = ronda en curso CON actividad reciente. Sin esto, una ronda que
+    // nunca se finalizó queda en el feed público para siempre (visto: ronda de 7
+    // días atrás listada como "1 ACTIVA"). rondas_libres no tiene updated_at, así
+    // que usamos created_at como cota de frescura. Las demo (es_demo) no expiran.
+    const VENTANA_EN_VIVO_HORAS = 24
+    const cutoffEnVivo = new Date(Date.now() - VENTANA_EN_VIVO_HORAS * 3_600_000).toISOString()
+
     let query = supabase
       .from('rondas_libres')
       .select(`
@@ -38,6 +45,7 @@ export async function GET(request: Request) {
         ronda_libre_jugadores ( id, nombre, user_id, scores, handicap )
       `)
       .eq('estado', 'en_curso')
+      .or(`created_at.gte.${cutoffEnVivo},es_demo.eq.true`)
       .order('fecha', { ascending: false })
       .limit(50)
 
