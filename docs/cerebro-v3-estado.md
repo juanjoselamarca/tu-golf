@@ -9,18 +9,19 @@ revisado por arquitecto independiente).
 
 **Worktree:** `.claude/worktrees/coach-data-access` · rama `fix/coach-data-access-claude` · **PR #147** (abierto).
 
-**Hecho y verificado (tsc 0 · 2413 tests · build OK · code-reviewer PASS):**
+**Hecho y verificado (tsc 0 · 2426 tests · build OK · code-reviewer PASS x2):**
 - **F (causa raíz #1):** `anti_hallucination.ts` reescrito — el coach usa tools, NO le pide data al jugador, NO culpa al sistema. + `toolsInstruction` en `chat/route.ts`. Test de regresión.
 - **0a (A,B):** `summarizeBucket` expone `course_id`; tool `get_course_scorecard(course)` por nombre/id reusando `findBestCourseMatch`; degrada honesto.
 - **0b (C,D):** tool `find_rounds` (fuente única `historical_rounds` vía `src/lib/data/coach-rounds.ts`, buckets 9h/18h). `get_recent_rounds`/`get_latest_round` re-apuntadas a `historical_rounds` (finding MENOR-1 del review — importado-only ya no ve "sin rondas").
+- **0c (E) — captura #1 (índice vs handicap de juego):** tool `get_playing_handicap` + data-layer `src/lib/data/coach-handicap.ts` (course handicap WHS reusando `resolveTeeRatingsForCourse` + `courseHandicap18h/9h`); prompt con sección "ÍNDICE vs HANDICAP DE JUEGO" + prohibición de inventarlo. Degrada honesto. **CORRECCIÓN: `profiles.genero` SÍ existe y se captura (onboarding/import) — NO había bloqueante de producto; 0c quedó puro técnico.**
 - **G (credit-out):** 401/402 → fallback Gemini existente.
-- Reproduce el fix de capturas **#2 (pide data), #3 (se contradice), #4 (culpa al sistema)**.
+- Reproduce el fix de **las 4 capturas** (#1 índice/hcp, #2 pide data, #3 se contradice, #4 culpa al sistema).
 
 **PENDIENTE antes de merge:** demo en vivo a Juanjo (regla cerebro v3 #4).
 
 **PENDIENTE de Fase 0 (PR siguiente, NO en #147):**
-- **0c (causa E) — captura #1 (confunde índice con handicap de juego):** `context.ts:283-284` conflaciona `handicap=indice`. El handicap de juego WHS necesita **género**, que NO existe en `profiles` → **bloqueante de producto** (cómo capturar/inferir género). Consultar a Juanjo.
 - **Examen real (causa H):** extraer tool-loop a función pura + juez semántico en CI con las 4 capturas como fixtures.
+- Menor anotado del review 0c: UUID-path de `get_playing_handicap` no sigue `canonical_course_id` (dedup canchas = proyecto aparte).
 
 ---
 
