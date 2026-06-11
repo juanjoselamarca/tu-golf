@@ -1,13 +1,12 @@
-# Estado Cerebro V3 — Actualizado 2026-06-10 — Ola 2 ✅ EN PROD · Ola 3 EN PAUSA · Coach Data-Access Fase 0 EN REVIEW
+# Estado Cerebro V3 — Actualizado 2026-06-11 — Ola 2 ✅ EN PROD · Coach Data-Access Fase 0 ✅ EN PROD · Ola 3 NEXT (retomar)
 
-## 🔴 ACTIVO — Coach Data-Access Fase 0 (P0 de campo, Ola 3 EN PAUSA)
+## ✅ Coach Data-Access Fase 0 — MERGEADA Y EN PROD (11-jun, PR #147 `b664c15`)
 
 Decisión PM (10-jun): pausar Ola 3 y arreglar primero que el coach lea su propia
-data (inbox 09-jun, 4 capturas reales). Es el cimiento de "el coach te conoce".
-Spec: `docs/superpowers/specs/2026-06-10-coach-data-access-fase0-design.md` (v2,
-revisado por arquitecto independiente).
-
-**Worktree:** `.claude/worktrees/coach-data-access` · rama `fix/coach-data-access-claude` · **PR #147** (abierto).
+data (inbox 09-jun, 4 capturas reales). **Cerrado**: PR #147 squash-merged a main
+(`b664c15`), deploy de producción `dpl_GMzip4Kb…` READY, demo en vivo a Juanjo OK
+contra su data real (find_rounds Lomas → 5 rondas, scorecard par 72, handicap de
+juego 9.6→13). Spec: `docs/superpowers/specs/2026-06-10-coach-data-access-fase0-design.md`.
 
 **Hecho y verificado (tsc 0 · 2426 tests · build OK · code-reviewer PASS x2):**
 - **F (causa raíz #1):** `anti_hallucination.ts` reescrito — el coach usa tools, NO le pide data al jugador, NO culpa al sistema. + `toolsInstruction` en `chat/route.ts`. Test de regresión.
@@ -17,10 +16,8 @@ revisado por arquitecto independiente).
 - **G (credit-out):** 401/402 → fallback Gemini existente.
 - Reproduce el fix de **las 4 capturas** (#1 índice/hcp, #2 pide data, #3 se contradice, #4 culpa al sistema).
 
-**PENDIENTE antes de merge:** demo en vivo a Juanjo (regla cerebro v3 #4).
-
-**PENDIENTE de Fase 0 (PR siguiente, NO en #147):**
-- **Examen real (causa H):** extraer tool-loop a función pura + juez semántico en CI con las 4 capturas como fixtures.
+**PENDIENTE de Fase 0 (PR siguiente):**
+- **Examen real (causa H):** extraer tool-loop a función pura + juez semántico en CI con las 4 capturas como fixtures de regresión.
 - Menor anotado del review 0c: UUID-path de `get_playing_handicap` no sigue `canonical_course_id` (dedup canchas = proyecto aparte).
 
 ---
