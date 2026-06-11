@@ -70,6 +70,14 @@ export function planTeeCorrections(manualTees: TeeRow[], officialTees: TeeRow[])
     const man = manualByColor.get(color)
     // Elegir el oficial: si la manual tiene el color, el del mismo género; si no,
     // el masculino (M) primero; si no, el primero disponible.
+    // LIMITACIÓN CONOCIDA (code-review 10-jun, follow-up): la BD tiene
+    // UNIQUE(course_id, nombre) SIN género → un color sólo puede tener UNA fila.
+    // Si un color NUEVO (la manual no lo tiene) viniera en M y F con ratings
+    // DISTINTOS, al insertar uno se "pierde" el otro y el resolver le daría a ese
+    // género el rating del otro (silenciosamente). Para los 3 clusters actuales
+    // NO ocurre (rojo M y F tienen rating idéntico). Si aparece un cluster donde
+    // difieran, hay que decidir explícitamente (idealmente cambiar el constraint a
+    // incluir género), no insertar a ciegas.
     const chosen = (man && offs.find(o => gInitial(o) === gInitial(man)))
       ?? offs.find(o => gInitial(o) === 'M')
       ?? offs[0]
