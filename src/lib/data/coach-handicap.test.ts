@@ -43,7 +43,7 @@ function fakeSupabase(d: FakeData): SupabaseClient {
                   return Promise.resolve({ data: { par_total: d.parTotal ?? 72 }, error: null })
                 }
                 const c = (d.catalog ?? []).find(x => x.id === id) ?? null
-                return Promise.resolve({ data: c ? { id: c.id, nombre: c.nombre } : null, error: null })
+                return Promise.resolve({ data: c ? { id: c.id, nombre: c.nombre, canonical_course_id: c.canonical_course_id } : null, error: null })
               },
             }),
           }),
@@ -98,6 +98,23 @@ describe('computePlayingHandicapForCoach — handicap de juego real, sin inventa
     const r = await computePlayingHandicapForCoach(sb, 'u1', { course: LOMAS_ID })
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.tee).toBe('Blanco')
+  })
+
+  it('por UUID de una ficha DUPLICADA resuelve a la cancha canónica (no los ratings del duplicado)', async () => {
+    const DUP_ID = '11111111-1111-4111-8111-111111111111'
+    const dup = { id: DUP_ID, nombre: 'Lomas (ficha fedegolf duplicada)', fuente: 'fedegolf', canonical_course_id: LOMAS_ID }
+    const sb = fakeSupabase({
+      profile: { indice: 9.6, genero: 'M', default_tee_color: 'Blanco' },
+      catalog: [dup, LOMAS],
+      tees: [teeBlanco],
+      parTotal: 72,
+    })
+    const r = await computePlayingHandicapForCoach(sb, 'u1', { course: DUP_ID })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.course_id).toBe(LOMAS_ID) // canónica, NO el UUID duplicado
+      expect(r.cancha).toBe(LOMAS.nombre)
+    }
   })
 
   it('computa el handicap de juego 9h con el rating de 9 hoyos del tee', async () => {

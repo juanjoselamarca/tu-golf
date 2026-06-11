@@ -69,8 +69,16 @@ export async function computePlayingHandicapForCoach(
   // Resolver cancha: UUID directo (matchCourseInDB solo resuelve por nombre) o nombre.
   let match: { id: string; nombre: string } | null
   if (UUID_RE.test(courseRef)) {
-    const { data: c } = await supabase.from('courses').select('id, nombre').eq('id', courseRef).maybeSingle()
-    match = c ? { id: c.id as string, nombre: c.nombre as string } : null
+    const { data: c } = await supabase.from('courses').select('id, nombre, canonical_course_id').eq('id', courseRef).maybeSingle()
+    const canonicalId = (c as { canonical_course_id?: string | null } | null)?.canonical_course_id
+    if (c && canonicalId) {
+      // Ficha duplicada redirigida: usar la cancha canónica (ratings oficiales),
+      // nunca los del duplicado desactivado. Coherente con matchCourseInDB.
+      const { data: canon } = await supabase.from('courses').select('id, nombre').eq('id', canonicalId).maybeSingle()
+      match = canon ? { id: canon.id as string, nombre: canon.nombre as string } : { id: c.id as string, nombre: c.nombre as string }
+    } else {
+      match = c ? { id: c.id as string, nombre: c.nombre as string } : null
+    }
   } else {
     match = await matchCourseInDB(courseRef, supabase)
   }
