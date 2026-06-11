@@ -1,4 +1,4 @@
-# Estado Cerebro V3 — Actualizado 2026-06-11 — Ola 2 ✅ EN PROD · Coach Data-Access Fase 0 ✅ EN PROD · Ola 3 NEXT (retomar)
+# Estado Cerebro V3 — Actualizado 2026-06-11 — Ola 2 ✅ EN PROD · Fase 0 + Examen causa H ✅ EN PROD · Ola 3 chunk 2 NEXT
 
 ## ✅ Coach Data-Access Fase 0 — MERGEADA Y EN PROD (11-jun, PR #147 `b664c15`)
 
@@ -16,10 +16,15 @@ juego 9.6→13). Spec: `docs/superpowers/specs/2026-06-10-coach-data-access-fase
 - **G (credit-out):** 401/402 → fallback Gemini existente.
 - Reproduce el fix de **las 4 capturas** (#1 índice/hcp, #2 pide data, #3 se contradice, #4 culpa al sistema).
 
-**PENDIENTE de Fase 0 (PR siguiente):**
-- **Examen real (causa H):** extraer tool-loop a función pura + juez semántico en CI con las 4 capturas como fixtures de regresión.
-- Menor anotado del review 0c: UUID-path de `get_playing_handicap` no sigue `canonical_course_id` (dedup canchas = proyecto aparte).
+**Fase 0 — CERRADA del todo (11-jun):**
+- **Examen real (causa H) ✅ EN PROD (PR #153, `5adf390`):** tool-loop puro `runExamTurn` (espeja `runChatStream`, comparte `MAX_TOOL_ITERS`) + `TOOLS_INSTRUCTION`/`buildExamSystem` compartidos route↔examen + juez semántico Gemini + 5 capturas (4 reales + lenguaje golfístico) como fixtures. Dos capas: wiring offline por-PR + examen live nocturno gated (`coach-exam.yml`, `scripts/cerebro-v3/run-coach-exam.ts`). **Validación live de las 5 capturas pendiente de saldo en ANTHROPIC_API_KEY** (hoy 0 → coach en fallback Gemini); apenas haya créditos, correr el runner.
+- **UUID-path canonical ✅ (catchup 11-jun):** `get_playing_handicap` por UUID resuelve `canonical_course_id` (no usa los ratings del duplicado).
+- **Cold-start `/coach/progreso` ✅ (catchup 11-jun):** test del agregador en cold start (no crashea, forma vacía renderizable). Gatea el rollout del flag.
 
+**Puesta al día 11-jun — pendientes acotados (no bloqueantes):**
+- **Piso 0.4 del reranker RAG (`RELEVANCE_FLOOR`):** DIFERIDO — tunearlo a ciegas viola CERO FALLOS; requiere correr el eval-RAG contra el knowledge base real (Gemini) para medir las 2 queries estrictas antes de mover el umbral. Es una corrida de validación, no un tweak.
+- **Limpieza de worktrees stale (19):** `git worktree prune` para los huérfanos; los lockeados por OneDrive requieren reintento/cerrar procesos.
+- **Bucket B (decisión de producto):** rollout del flag a todos (necesita security review), asesor-equipo-web, sub-olas 1a-1d, **Ola 3 chunk 2** (el avance real).
 ---
 
 ## ⏩ Ola 3 chunk 2 (RETOMAR cuando cierre Fase 0)
