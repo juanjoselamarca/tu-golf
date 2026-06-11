@@ -146,6 +146,12 @@
 .home-mkt .funnel .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
 @media(max-width:600px){.home-mkt .hit{padding:13px 18px}.home-mkt .ctrl{gap:10px}}
 @media(max-width:760px){.home-mkt .hero h1{font-size:clamp(44px,12vw,68px)}}
+/* En 16/9, el stage en tablet/móvil queda tan bajo que la barra de control
+   (.ctrl, ~81px fijos) tapa la bandera y aplasta el campo. Lo hacemos más alto
+   según el ancho para que el banderín y todo el vuelo queden siempre visibles
+   sobre la barra. (orden: el de 560 va después para ganar en pantallas angostas) */
+@media(max-width:860px){.home-mkt .stage{aspect-ratio:3/2}}
+@media(max-width:560px){.home-mkt .stage{aspect-ratio:4/5}}
 
 /* ════ shared: reveal-on-scroll + contenedor ════ */
 .home-mkt .rv{opacity:0;transform:translateY(28px);transition:.9s var(--ease)}
