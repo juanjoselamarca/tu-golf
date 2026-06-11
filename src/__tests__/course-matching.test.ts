@@ -183,4 +183,24 @@ describe('findBestCourseMatch — fuente fedegolf + canónico', () => {
     expect(r).not.toBeNull()
     expect(r!.id).toBe('x')
   })
+
+  it('C3: devuelve la canónica aunque NO esté en el candidate-set', () => {
+    // El ilike trajo solo la fedegolf desactivada; la manual canónica no quedó en
+    // el set. Aun así el matcher conoce su id por canonical_course_id → la devuelve.
+    const db = [
+      { id: 'fede', nombre: 'C.G. Los Leones - Los Leones (VARONES)', fuente: 'fedegolf', canonical_course_id: 'manual-leones', activa: false },
+    ]
+    const m = findBestCourseMatch('Los Leones', db)
+    expect(m!.id).toBe('manual-leones')
+  })
+
+  it('canario dedup: con la ficha manual canónica y la fedegolf redirigida, gana la manual', () => {
+    // Estado post-dedup: manual = canónica (canonical null, activa), fedegolf
+    // apunta a la manual y está desactivada. El matcher devuelve la manual.
+    const db = [
+      { id: 'manual-leones', nombre: 'Club de Golf Los Leones', fuente: 'manual', canonical_course_id: null, activa: true },
+      { id: 'fedegolf-leones', nombre: 'C.G. Los Leones - Los Leones (VARONES)', fuente: 'fedegolf', canonical_course_id: 'manual-leones', activa: false },
+    ]
+    expect(findBestCourseMatch('Los Leones', db)!.id).toBe('manual-leones')
+  })
 })

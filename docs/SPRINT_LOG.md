@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-06-10 · Dedup de canchas duplicadas (manual ↔ fedegolf) — APLICADO EN PROD
+
+Cierre del último pendiente del frente del índice (post PR #144): unificación de las
+3 canchas duplicadas EN USO. Diseño v2 blindado tras eng-review adversarial
+(spec `2026-06-10-dedup-canchas-design.md` §11-§13). Decisión: la ficha **manual
+mixta es la canónica** (ya tiene tees M y F en una sola ficha); se le corrigen los
+tees a los valores oficiales fedegolf, las fichas fedegolf V/D se redirigen vía
+`canonical_course_id` y se desactivan. Tocó 0 rondas reales por mover course_id
+(salvo 1 ronda suelta repointada).
+
+- **Lógica pura testeada** (`src/golf/courses/course-dedup.ts`): `planTeeCorrections`
+  (UNA corrección por color canónico — la BD tiene `UNIQUE(course_id,nombre)` sin
+  género, así que un color = un tee), `findDuplicateRounds`, `buildIndexWindows`
+  (réplica de la ventana del RPC para estimar índice antes/después).
+- **Capa de datos idempotente** (`src/lib/data/course-dedup.ts`): decide UPDATE/INSERT
+  por estado real de la BD (no por el plan), throw en todo error de escritura.
+- **Matcher** (`matching.ts`): C3 — devuelve la canónica aunque no esté en el
+  candidate-set; C2 — `historial/stats` ahora trae `canonical_course_id`.
+- **Migración** `20260610_uq_course_tees_identity.sql` (índice único de identidad).
+- **Scripts**: dry-run con impacto por usuario + apply por cluster (backup + guardias
+  M2/M4 + repoint + tees + redirect + recompute) + barrido de rondas duplicadas.
+- **APLICADO Y VERIFICADO en prod**: 3 clusters (Los Leones, La Dehesa, Lomas) → 9
+  fichas = 3 canónicas activas + 6 redirigidas/inactivas. 5 rondas exacto-duplicadas
+  borradas (con backup). Índices sanos: Juanjo 5.1 (sin cambio), a6e0df09 7.9→8.1
+  (corrección fina esperada, <0.3). 0 duplicados restantes. M2 OK en los 3 clusters.
+- **Pendiente (follow-up)**: poblar `canonical_course_id` de las ~180 canchas SIN
+  rondas (limpieza masiva del catálogo, sin urgencia).
+
+---
+
 ## 2026-06-07 · Equipos E2E — cierre del plan wizard-equipos + limpieza modelo muerto
 
 Cierre formal del plan `2026-05-24-wizard-equipos-e2e`. Al retomarlo se descubrió
