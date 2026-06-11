@@ -11,6 +11,7 @@ import { toolActivityLabel, friendlyPatternName, friendlyMetricName } from '@/li
 import { captureError } from '@/lib/error-tracking'
 import type { TaigerContext } from '@/golf/coach/prompts'
 import { coachModel } from '@/golf/coach/model'
+import { MAX_TOOL_ITERS } from '@/golf/coach/loop-config'
 
 // Motor del chat del coach: tool-loop + streaming SSE + update de sesión + validador
 // + fallback degradado (Ola 2). Extraído de route.ts (refactor puro, sin cambio de
@@ -105,7 +106,8 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
           type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
           const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
           let fullResponse = ''
-          const MAX_TOOL_ITERS = 5
+          // MAX_TOOL_ITERS se importa de loop-config (compartido con el examen
+          // runExamTurn) para que el examen no pueda divergir del coach real.
           // Acumulado de results de tool calls en TODAS las iters del loop —
           // alimenta al validador anti-alucinacion (D6) al final del stream.
           const allToolResultStrings: string[] = []
