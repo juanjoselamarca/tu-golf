@@ -1,4 +1,6 @@
 import type { ComputedMetric, RoundData } from '@/golf/coach/metrics'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizeScores } from '@/lib/data/focus'
 import {
   computePostBogeyAvg,
   computeBack9MinusFront9,
@@ -102,4 +104,72 @@ export function computeObservationsForRound(
     })
   }
   return out
+}
+
+/** Forma mínima de una fila de historical_rounds que el runner lee. */
+interface RawHistoricalRow {
+  id: string
+  scores: unknown
+  total_gross: number | null
+  par_per_hole: unknown
+  played_at: string
+  metadata: Record<string, unknown> | null
+}
+
+/**
+ * Orquestador idempotente (espeja backfillRoundMetrics): computa y persiste las
+ * observaciones FALTANTES de un usuario. Incluye defs `validating` (un patrón
+ * nuevo acumula evidencia ANTES de activarse). Service_role (la RLS solo deja
+ * escribir a service_role). Re-correr no duplica: salta lo ya observado en
+ * memoria + UNIQUE(pattern_id,round_id) con ignoreDuplicates de cinturón.
+ */
+export async function backfillPatternObservations(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<{ inserted: number; roundsScanned: number; patternsRun: number }> {
+  const { data: defsRaw, error: defsErr } = await admin
+    .from('pattern_definitions')
+    .select('id, pattern_key, version, formula_kind, status')
+    .in('status', ['active', 'validating'])
+  if (defsErr) throw defsErr
+  const defs = (defsRaw ?? []) as RunnablePatternDef[]
+
+  const { data: roundsRaw, error: rErr } = await admin
+    .from('historical_rounds')
+    .select('id, scores, total_gross, par_per_hole, played_at, metadata')
+    .eq('user_id', userId)
+  if (rErr) throw rErr
+  const rounds = (roundsRaw ?? []) as RawHistoricalRow[]
+
+  const { data: existingRaw, error: eErr } = await admin
+    .from('pattern_observations')
+    .select('pattern_id, round_id')
+    .eq('user_id', userId)
+  if (eErr) throw eErr
+  const seen = new Set(
+    ((existingRaw ?? []) as { pattern_id: string; round_id: string }[]).map((e) => `${e.pattern_id}|${e.round_id}`),
+  )
+
+  const inserts: PatternObservationInsert[] = []
+  for (const r of rounds) {
+    const round: RoundData = {
+      id: r.id,
+      scores: normalizeScores(r.scores),
+      total_gross: r.total_gross,
+      par_per_hole: r.par_per_hole as RoundData["par_per_hole"],
+      played_at: r.played_at,
+      metadata: r.metadata,
+    }
+    for (const o of computeObservationsForRound(round, userId, defs)) {
+      if (!seen.has(`${o.pattern_id}|${o.round_id}`)) inserts.push(o)
+    }
+  }
+
+  if (inserts.length > 0) {
+    const { error: upErr } = await admin
+      .from('pattern_observations')
+      .upsert(inserts, { onConflict: 'pattern_id,round_id', ignoreDuplicates: true })
+    if (upErr) throw upErr
+  }
+  return { inserted: inserts.length, roundsScanned: rounds.length, patternsRun: defs.length }
 }

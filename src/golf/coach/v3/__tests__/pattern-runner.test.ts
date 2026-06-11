@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { computeObservationsForRound, OBSERVE_BY_KEY, type RunnablePatternDef } from '../pattern-runner'
+import { describe, it, expect, vi } from 'vitest'
+import { computeObservationsForRound, OBSERVE_BY_KEY, backfillPatternObservations, type RunnablePatternDef } from '../pattern-runner'
 import type { RoundData } from '@/golf/coach/metrics'
 import { STANDARD_PARS } from '@/golf/coach/metrics'
 
@@ -63,5 +63,63 @@ describe('computeObservationsForRound — observaciones puras por ronda', () => 
       'back_nine_collapse', 'first_hole_anxiety', 'front_nine_struggles', 'par_3_weakness',
       'post_bogey_spiral', 'pressure_deterioration', 'short_game_weakness', 'three_putt_frequency',
     ])
+  })
+})
+
+type RawRound = { id: string; scores: unknown; total_gross: number | null; par_per_hole: unknown; played_at: string; metadata: unknown }
+function mockAdmin(opts: {
+  defs: unknown[]; rounds: RawRound[]; existing: { pattern_id: string; round_id: string }[]
+  defsError?: boolean; onUpsert?: (rows: unknown[]) => void
+}) {
+  return {
+    from(table: string) {
+      if (table === 'pattern_definitions') {
+        return { select: () => ({ in: () => Promise.resolve({ data: opts.defsError ? null : opts.defs, error: opts.defsError ? { message: 'boom' } : null }) }) }
+      }
+      if (table === 'historical_rounds') {
+        return { select: () => ({ eq: () => Promise.resolve({ data: opts.rounds, error: null }) }) }
+      }
+      if (table === 'pattern_observations') {
+        return {
+          select: () => ({ eq: () => Promise.resolve({ data: opts.existing, error: null }) }),
+          upsert: (rows: unknown[]) => { opts.onUpsert?.(rows); return Promise.resolve({ error: null }) },
+        }
+      }
+      throw new Error('tabla inesperada: ' + table)
+    },
+  } as never
+}
+
+const rawRound: RawRound = { id: 'round-1', scores, total_gross: 90, par_per_hole: STANDARD_PARS, played_at: '2026-05-01', metadata: { putts: [2, 2, 3, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 2] } }
+
+describe('backfillPatternObservations — orquestador idempotente', () => {
+  it('primera corrida: inserta las observaciones computables (incluye defs validating)', async () => {
+    let upserted: unknown[] = []
+    const admin = mockAdmin({ defs, rounds: [rawRound], existing: [], onUpsert: (r) => { upserted = r } })
+    const res = await backfillPatternObservations(admin, 'user-1')
+    expect(res.roundsScanned).toBe(1)
+    expect(res.patternsRun).toBe(defs.length)
+    expect(res.inserted).toBe(3) // bnc + fns + 3p (driving es cross_round)
+    expect(upserted).toHaveLength(3)
+    const keys = (upserted as { pattern_key: string }[]).map((o) => o.pattern_key)
+    expect(keys).toContain('three_putt_frequency') // status validating SÍ se observa
+  })
+
+  it('idempotente: si ya están todas observadas → inserted 0, no upsertea', async () => {
+    let called = false
+    const existing = [
+      { pattern_id: 'id-bnc', round_id: 'round-1' },
+      { pattern_id: 'id-fns', round_id: 'round-1' },
+      { pattern_id: 'id-3p', round_id: 'round-1' },
+    ]
+    const admin = mockAdmin({ defs, rounds: [rawRound], existing, onUpsert: () => { called = true } })
+    const res = await backfillPatternObservations(admin, 'user-1')
+    expect(res.inserted).toBe(0)
+    expect(called).toBe(false)
+  })
+
+  it('propaga el error de query (lo atrapa el try best-effort del caller)', async () => {
+    const admin = mockAdmin({ defs, rounds: [rawRound], existing: [], defsError: true })
+    await expect(backfillPatternObservations(admin, 'user-1')).rejects.toBeTruthy()
   })
 })
