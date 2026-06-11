@@ -27,6 +27,24 @@ juego 9.6→13). Spec: `docs/superpowers/specs/2026-06-10-coach-data-access-fase
 - **Bucket B (decisión de producto):** rollout del flag a todos (necesita security review), asesor-equipo-web, sub-olas 1a-1d, **Ola 3 chunk 2** (el avance real).
 ---
 
+## 🟡 Ola 3 chunk 2 — EN CURSO (branch `feat/cerebro-v3-ola3-chunk2-claude`, NO mergeado)
+
+Diseño del subagente Fable en `docs/superpowers/plans/2026-06-11-cerebro-v3-ola3-chunk2.md`.
+**Núcleo puro construido y testeado (tsc 0):**
+- ✅ `pattern-validator.ts` — Cohen d signado + R² OLS, gates AND, función total sin NaN (12 tests). EL CORAZÓN.
+- ✅ métricas per-ronda `short_game_gap` + `three_putt_rate` (6 tests) → cobertura 8/9 patrones.
+- ✅ runner puro `OBSERVE_BY_KEY` + `computeObservationsForRound` (6 tests).
+
+**Pendiente (DB + wiring, próxima sesión) — orden del plan §7:**
+1. Migración `pattern_observations` (FK historical_rounds, RLS, seed cerebro_weights) + tests integración. Schema de prod ya verificado.
+6. `backfillPatternObservations` (orquestador idempotente, mock supabase).
+8. `loadObservationPairs` (lib/data, join con diferencial elegible).
+9. Gate por tiers en `selectFocus` + peso 3 niveles + canario de comportamiento.
+10. `loadFocusCatalog` mapea source/weight. 11. `getFocus` +dep `loadValidation`. 12. canarios wiring + hook en `getProgress`. 13. script + corrida real vs Juanjo (gate demo).
+
+NO mergear hasta tener el wiring completo (validador + métricas sin consumir = decoración). Cierre: tsc·tests·build·code-reviewer·demo (regla #4).
+
+---
 ## ⏩ Ola 3 chunk 2 (RETOMAR cuando cierre Fase 0)
 
 **Trabajar en MAIN** (Ola 3 chunk 1 ya mergeado, no hay branch abierta). Crear worktree nuevo.
