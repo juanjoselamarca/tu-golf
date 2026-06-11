@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Flag, Trophy, Check } from '@/components/icons'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
 import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '@/lib/mi-golf/types'
+import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { esMejorDelMes } from '@/lib/mi-golf/mejor-del-mes'
 import { UltimaRondaHero } from '@/components/mi-golf/UltimaRondaHero'
 import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
@@ -395,7 +396,7 @@ function TorneoRowPlaying({ t }: { t: Tournament & { horaSalida: string | null; 
 }
 
 function TorneoRowOrganizing({ t }: { t: Tournament & { inscritos: number; hoyoActual: number | null } }) {
-  const isLive = t.status === 'in_progress' || t.status === 'active'
+  const isLive = torneoEnVivo(t.status, t.date_start, null, new Date())
   return (
     <div
       style={{

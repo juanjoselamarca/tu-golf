@@ -13,6 +13,7 @@ import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
 import type { LiveTeam } from './en-vivo/types'
+import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
@@ -88,7 +89,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     modoJuego      = tournament.modo_juego ?? 'gross'
     formatoJuego   = tournament.formato_juego ?? 'stroke_play'
     totalHoyos     = tournament.hole_count ?? 18
-    isLive         = tournament.status === 'active' || tournament.status === 'in_progress'
+    isLive         = torneoEnVivo(tournament.status, tournament.date_start, tournament.date_end, new Date())
     isClosed       = tournament.status === 'closed' || tournament.status === 'published'
 
     if (tournament.date_start) {
