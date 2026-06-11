@@ -3,6 +3,7 @@ import { savePlan, PATTERN_IDS, PLAN_METRICS, type SavePlanInput } from './plan-
 import { inferHoles } from '@/golf/core/holes'
 import { matchCourseInDB } from '@/golf/courses/matching'
 import { findRoundsForCoach, type CoachRoundFilters } from '@/lib/data/coach-rounds'
+import { computePlayingHandicapForCoach } from '@/lib/data/coach-handicap'
 import {
   setTarget,
   rememberFact,
@@ -118,6 +119,20 @@ export const TAIGER_TOOLS = [
         orden: { type: 'string', enum: ['reciente', 'antigua', 'mejor', 'peor'], description: 'Orden del resultado (default reciente).' },
       },
       required: [],
+    },
+  },
+  {
+    name: 'get_playing_handicap',
+    description:
+      'Calcula el HANDICAP DE JUEGO (course handicap WHS) del jugador en una cancha y tee concretos — los golpes que recibe en ESA cancha. Es DISTINTO del índice (el índice es uno solo; el handicap de juego depende de la cancha y el tee). Usala cuando el jugador pregunte "cuántos golpes me da X", "mi handicap de juego", "con qué handicap juego en Y". NUNCA inventes este número: si no llamás esta tool, hablá solo del índice y aclará que el de juego depende de la cancha.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        course: { type: 'string', description: 'Nombre de la cancha (ej "Lomas de la Dehesa") o su UUID.' },
+        tee: { type: 'string', description: 'Color del tee (ej "Blanco"). Opcional: si no se da, usa el tee por defecto del jugador.' },
+        holes: { type: 'number', description: '9 o 18 (default 18). Opcional.' },
+      },
+      required: ['course'],
     },
   },
   {
@@ -283,6 +298,16 @@ export async function executeTool(
         }
         const res = await findRoundsForCoach(ctx.supabase, ctx.userId, filters)
         return { ok: true, data: res }
+      }
+      case 'get_playing_handicap': {
+        const course = typeof input.course === 'string' ? input.course : null
+        if (!course) return { ok: false, error: 'Falta course (nombre o UUID de la cancha)' }
+        const tee = typeof input.tee === 'string' ? input.tee : null
+        const holes = typeof input.holes === 'number' ? input.holes : null
+        const res = await computePlayingHandicapForCoach(ctx.supabase, ctx.userId, { course, tee, holes })
+        if (!res.ok) return { ok: false, error: res.reason }
+        const { ok: _ok, ...data } = res
+        return { ok: true, data }
       }
       case 'save_plan':
         return await dispatchSavePlan(ctx, input)

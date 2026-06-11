@@ -36,6 +36,13 @@ describe('ANTI_HALLUCINATION — manejo de datos sin pedirle al jugador', () => 
     expect(ANTI_HALLUCINATION).toMatch(/sin culpar al jugador/i)
   })
 
+  it('distingue ÍNDICE de HANDICAP DE JUEGO y prohíbe inventarlo (captura #1)', () => {
+    expect(ANTI_HALLUCINATION).toMatch(/ÍNDICE vs HANDICAP DE JUEGO/i)
+    expect(ANTI_HALLUCINATION).toContain('get_playing_handicap')
+    // No debe deducir el handicap de juego "a ojo" del índice.
+    expect(ANTI_HALLUCINATION).toMatch(/nunca inventes un handicap de juego|NI un handicap de juego/i)
+  })
+
   it('mantiene el ancla "MANEJO DE DATOS" del snapshot', () => {
     expect(ANTI_HALLUCINATION).toContain('MANEJO DE DATOS')
   })
