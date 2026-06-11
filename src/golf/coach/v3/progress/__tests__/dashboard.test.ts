@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import { shapeSeries, type RoundMetricJoinRow } from '../dashboard'
+import { describe, it, expect, vi } from 'vitest'
+import { shapeSeries, loadProgressDashboard, type RoundMetricJoinRow } from '../dashboard'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+vi.mock('@/golf/coach/v3/focus', () => ({ getFocus: vi.fn().mockResolvedValue({ kind: 'fallback' }), defaultFocusDeps: vi.fn(() => ({})) }))
+vi.mock('@/lib/data/focus', () => ({ loadFocusTarget: vi.fn().mockResolvedValue(null) }))
+vi.mock('../round-metrics', () => ({ backfillRoundMetrics: vi.fn().mockResolvedValue(undefined) }))
 
 describe('shapeSeries — serie cronológica para el gráfico de avance', () => {
   it('ordena por fecha ascendente (más vieja → más nueva) y aplana el join', () => {
@@ -23,5 +28,23 @@ describe('shapeSeries — serie cronológica para el gráfico de avance', () => 
     expect(s).toHaveLength(2)
     // null played_at va primero (string vacío); el array se desempaqueta
     expect(s.find((r) => r.played_at === '2026-05-05')).toBeTruthy()
+  })
+})
+
+describe('loadProgressDashboard — cold start (sin meta ni rondas)', () => {
+  const emptySupabase = {
+    from(table: string) {
+      if (table === 'round_metrics') return { select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) }
+      if (table === 'coach_plans') return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) }) }
+      throw new Error('tabla inesperada: ' + table)
+    },
+  } as unknown as SupabaseClient
+
+  it('no rompe y devuelve forma vacía renderizable (serie [], plan null, outcomes [])', async () => {
+    const r = await loadProgressDashboard(emptySupabase, emptySupabase, 'u1')
+    expect(r.serie).toEqual([])
+    expect(r.activePlan).toBeNull()
+    expect(r.outcomes).toEqual([])
+    expect(r.target).toBeNull()
   })
 })
