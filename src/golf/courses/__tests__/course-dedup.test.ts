@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planTeeCorrections } from '../course-dedup'
+import { planTeeCorrections, findDuplicateRounds } from '../course-dedup'
 import type { TeeRow } from '../tee-resolver'
 
 // Datos reales Los Leones (verificados vs prod 2026-06-10).
@@ -77,5 +77,42 @@ describe('planTeeCorrections', () => {
     const azul = ups.find(u => u.nombre === 'azul')!
     expect(azul.back_course_rating).toBe(36.3)
     expect(azul.back_slope_rating).toBe(132)
+  })
+})
+
+describe('findDuplicateRounds', () => {
+  it('marca para borrar las copias, conserva la más antigua', () => {
+    const rounds = [
+      { id: 'a', user_id: 'u1', played_at: '2026-05-03', holes_played: 18, total_gross: 96, course_id: 'c1', created_at: '2026-05-03T10:00:00Z' },
+      { id: 'b', user_id: 'u1', played_at: '2026-05-03', holes_played: 18, total_gross: 96, course_id: 'c1', created_at: '2026-05-04T10:00:00Z' },
+      { id: 'c', user_id: 'u1', played_at: '2026-05-02', holes_played: 18, total_gross: 90, course_id: 'c1', created_at: '2026-05-02T10:00:00Z' },
+    ]
+    expect(findDuplicateRounds(rounds)).toEqual(['b']) // 'a' es más antigua → se conserva
+  })
+
+  it('no marca nada si no hay duplicados', () => {
+    const rounds = [
+      { id: 'a', user_id: 'u1', played_at: '2026-05-03', holes_played: 18, total_gross: 96, course_id: 'c1', created_at: '2026-05-03T10:00:00Z' },
+      { id: 'b', user_id: 'u1', played_at: '2026-05-03', holes_played: 9,  total_gross: 96, course_id: 'c1', created_at: '2026-05-04T10:00:00Z' },
+    ]
+    expect(findDuplicateRounds(rounds)).toEqual([])
+  })
+
+  it('agrupa por usuario, fecha, hoyos, score y cancha (no mezcla usuarios)', () => {
+    const rounds = [
+      { id: 'a', user_id: 'u1', played_at: '2026-05-03', holes_played: 18, total_gross: 96, course_id: 'c1', created_at: '2026-05-03T10:00:00Z' },
+      { id: 'b', user_id: 'u2', played_at: '2026-05-03', holes_played: 18, total_gross: 96, course_id: 'c1', created_at: '2026-05-04T10:00:00Z' },
+    ]
+    expect(findDuplicateRounds(rounds)).toEqual([]) // distinto usuario → no son duplicados
+  })
+
+  it('borra todas las copias menos una cuando hay 3 idénticas', () => {
+    const base = { user_id: 'u1', played_at: '2026-05-03', holes_played: 18, total_gross: 96, course_id: 'c1' }
+    const rounds = [
+      { id: 'a', ...base, created_at: '2026-05-03T12:00:00Z' },
+      { id: 'b', ...base, created_at: '2026-05-03T10:00:00Z' }, // la más antigua
+      { id: 'c', ...base, created_at: '2026-05-03T11:00:00Z' },
+    ]
+    expect(findDuplicateRounds(rounds).sort()).toEqual(['a', 'c']) // conserva 'b'
   })
 })

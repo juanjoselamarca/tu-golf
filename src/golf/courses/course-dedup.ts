@@ -67,3 +67,36 @@ export function planTeeCorrections(manualTees: TeeRow[], officialTees: TeeRow[])
     }
   })
 }
+
+export interface DupRound {
+  id: string
+  user_id: string
+  played_at: string
+  holes_played: number | null
+  total_gross: number | null
+  course_id: string
+  created_at: string
+}
+
+/**
+ * Detecta rondas exacto-duplicadas (mismo `user_id|played_at|holes_played|
+ * total_gross|course_id`) y devuelve los `id` a borrar: todos menos la fila más
+ * antigua por `created_at` de cada grupo con >1 copia. Conservadora: un grupo de
+ * 1 nunca devuelve nada; no mezcla usuarios ni canchas.
+ */
+export function findDuplicateRounds(rounds: DupRound[]): string[] {
+  const groups = new Map<string, DupRound[]>()
+  for (const r of rounds) {
+    const k = `${r.user_id}|${r.played_at}|${r.holes_played}|${r.total_gross}|${r.course_id}`
+    const arr = groups.get(k) ?? []
+    arr.push(r)
+    groups.set(k, arr)
+  }
+  const toDelete: string[] = []
+  for (const arr of groups.values()) {
+    if (arr.length < 2) continue
+    const sorted = [...arr].sort((a, b) => a.created_at.localeCompare(b.created_at))
+    for (const r of sorted.slice(1)) toDelete.push(r.id)
+  }
+  return toDelete
+}
