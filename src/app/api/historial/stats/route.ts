@@ -97,7 +97,7 @@ export async function GET() {
       .order('played_at', { ascending: false }),
     supabase
       .from('courses')
-      .select('id, nombre'),
+      .select('id, nombre, fuente, canonical_course_id'),
   ])
 
   // Paginar course_holes
@@ -132,7 +132,7 @@ export async function GET() {
     metadata: Record<string, unknown> | null
   }>
 
-  const allCourses = (coursesRes.data ?? []) as Array<{ id: string; nombre: string }>
+  const allCourses = (coursesRes.data ?? []) as Array<{ id: string; nombre: string; fuente?: string | null; canonical_course_id?: string | null }>
   const allHoles = allHolesAcc
 
   // Build course_id -> pars map (sorted by numero)

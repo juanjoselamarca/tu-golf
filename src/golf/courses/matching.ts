@@ -185,6 +185,10 @@ export function findBestCourseMatch(
   if (canonicalId) {
     const canon = candidates.find(x => x.id === canonicalId)
     if (canon) return { id: canon.id, nombre: canon.nombre, score: best.score }
+    // C3: la canónica no quedó en el candidate-set (el `ilike` por palabra no la
+    // trajo, p.ej. la fedegolf matchea pero la manual canónica no). Conocemos su
+    // id por `canonical_course_id` → devolverla igual, nunca la ficha duplicada.
+    return { id: canonicalId, nombre: best.c.nombre, score: best.score }
   }
 
   return { id: best.c.id, nombre: best.c.nombre, score: best.score }
