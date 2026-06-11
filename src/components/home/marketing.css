@@ -150,6 +150,9 @@
 /* ════ shared: reveal-on-scroll + contenedor ════ */
 .home-mkt .rv{opacity:0;transform:translateY(28px);transition:.9s var(--ease)}
 .home-mkt .rv.in{opacity:1;transform:none}
+/* CERO FALLOS: sin JS el RevealObserver no corre y las secciones .rv quedarían
+   invisibles (opacity:0). Si el navegador no ejecuta scripts, revelamos todo. */
+@media (scripting: none){.home-mkt .rv{opacity:1;transform:none}}
 .home-mkt .pinner{max-width:1240px;margin:0 auto;padding:0 clamp(24px,6vw,80px)}
 
 /* ════ COACH tAIger+ (3 pasos) ════ */
