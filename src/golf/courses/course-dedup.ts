@@ -26,46 +26,68 @@ export interface TeeUpsert {
   action: 'update' | 'insert'
 }
 
-/** Clave de identidad de tee: color canónico (mismo que el resolver) + género. */
-function teeKey(t: { nombre: string; genero?: string | null }): string {
-  const g = (t.genero ?? '').trim().charAt(0).toUpperCase()
-  return `${canonicalColor(t.nombre ?? '')}|${g}`
-}
-
 /** Devuelve `official` si no es null/undefined, si no `manual` (sin perder un 9h existente). */
 function pick<T>(official: T | null | undefined, manual: T | null | undefined): T | null {
   return official != null ? official : (manual ?? null)
 }
 
+/** Primer carácter del género en mayúscula ('' si no hay). */
+function gInitial(t: { genero?: string | null }): string {
+  return (t.genero ?? '').trim().charAt(0).toUpperCase()
+}
+
 /**
- * Para cada tee OFICIAL (fedegolf = fuente de verdad de 18h), devuelve el tee
- * corregido para la ficha manual: rating/slope del oficial; front/back del
- * oficial si existe, si no se conserva el de la manual (no se pierde el 9h).
+ * Devuelve UNA corrección de tee por COLOR canónico para la ficha manual.
  *
- * El match manual↔oficial es por COLOR CANÓNICO + género (igual que
- * `tee-resolver`), así `'Azul'`/`'azul'` y `'Negro'`/`'negras'` matchean. Para
- * `action:'update'` se carga `manualNombre` (el nombre REAL del tee manual) para
- * que el apply actualice ESA fila por su identidad real y NO inserte un duplicado.
+ * Restricción real de la BD: `UNIQUE(course_id, nombre)` (sin género) → una ficha
+ * sólo puede tener UN tee por nombre/color. La fedegolf parte cada club en VARONES
+ * (todos los tees género M, incluso rojo/M) y DAMAS (rojo/F): un mismo color puede
+ * venir en M y F. Por eso se agrupa por color canónico y se emite un solo upsert:
+ *  - rating/slope del oficial elegido (fedegolf = fuente de verdad de 18h);
+ *  - front/back del oficial si existe, si no se conserva el de la manual (no se
+ *    pierde el 9h);
+ *  - si la manual ya tiene el color, se ACTUALIZA esa fila (`manualNombre` = su
+ *    nombre real, se preserva nombre y género) eligiendo el oficial del mismo
+ *    género; si no, se INSERTA un solo tee (oficial M primero, luego el primero).
  *
- * Tees manuales sin equivalente oficial NO se tocan (no aparecen en el output).
+ * Tees manuales de un color sin oficial NO se tocan (no aparecen en el output).
  */
 export function planTeeCorrections(manualTees: TeeRow[], officialTees: TeeRow[]): TeeUpsert[] {
-  const manualByKey = new Map(manualTees.map(t => [teeKey(t), t]))
-  return officialTees.map(off => {
-    const man = manualByKey.get(teeKey(off))
-    return {
-      nombre: off.nombre.trim().toLowerCase(),
+  const manualByColor = new Map<string, TeeRow>()
+  for (const m of manualTees) {
+    const k = canonicalColor(m.nombre ?? '')
+    if (!manualByColor.has(k)) manualByColor.set(k, m) // primer match del color gana
+  }
+  const officialByColor = new Map<string, TeeRow[]>()
+  for (const o of officialTees) {
+    const k = canonicalColor(o.nombre ?? '')
+    const arr = officialByColor.get(k) ?? []
+    arr.push(o); officialByColor.set(k, arr)
+  }
+
+  const ups: TeeUpsert[] = []
+  for (const [color, offs] of Array.from(officialByColor)) {
+    const man = manualByColor.get(color)
+    // Elegir el oficial: si la manual tiene el color, el del mismo género; si no,
+    // el masculino (M) primero; si no, el primero disponible.
+    const chosen = (man && offs.find(o => gInitial(o) === gInitial(man)))
+      ?? offs.find(o => gInitial(o) === 'M')
+      ?? offs[0]
+    if (!chosen) continue
+    ups.push({
+      nombre: chosen.nombre.trim().toLowerCase(),
       manualNombre: man ? man.nombre : null,
-      genero: off.genero ?? null,
-      rating: off.rating,
-      slope: off.slope,
-      front_course_rating: pick(off.front_course_rating, man?.front_course_rating),
-      front_slope_rating: pick(off.front_slope_rating, man?.front_slope_rating),
-      back_course_rating: pick(off.back_course_rating, man?.back_course_rating),
-      back_slope_rating: pick(off.back_slope_rating, man?.back_slope_rating),
+      genero: man ? (man.genero ?? null) : (chosen.genero ?? null),
+      rating: chosen.rating,
+      slope: chosen.slope,
+      front_course_rating: pick(chosen.front_course_rating, man?.front_course_rating),
+      front_slope_rating: pick(chosen.front_slope_rating, man?.front_slope_rating),
+      back_course_rating: pick(chosen.back_course_rating, man?.back_course_rating),
+      back_slope_rating: pick(chosen.back_slope_rating, man?.back_slope_rating),
       action: man ? 'update' : 'insert',
-    }
-  })
+    })
+  }
+  return ups
 }
 
 export interface IndexRound {

@@ -66,6 +66,36 @@ describe('planTeeCorrections', () => {
     expect(negr.rating).toBe(75.0)
   })
 
+  it('una sola corrección por color: oficial con rojo/M y rojo/F → un solo rojo (restricción UNIQUE course_id,nombre)', () => {
+    // La fedegolf VARONES etiqueta rojo como M y DAMAS como F; la ficha sólo
+    // puede tener UN tee por nombre. La manual tiene rojo/F → se actualiza ESE.
+    const off: TeeRow[] = [
+      { nombre: 'rojo', genero: 'M', rating: 74.8, slope: 131, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+      { nombre: 'rojo', genero: 'F', rating: 74.8, slope: 131, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+    ]
+    const ups = planTeeCorrections(manual, off)
+    const rojos = ups.filter(u => u.nombre === 'rojo')
+    expect(rojos).toHaveLength(1)              // UN solo rojo, no dos
+    expect(rojos[0].action).toBe('update')
+    expect(rojos[0].genero).toBe('F')          // preserva el género de la manual
+    expect(rojos[0].manualNombre).toBe('rojo')
+    expect(rojos[0].front_course_rating).toBe(37.7) // oficial null → conserva manual
+  })
+
+  it('manual vacía + oficial con color dual → inserta UN solo tee por color', () => {
+    const off: TeeRow[] = [
+      { nombre: 'azul', genero: 'M', rating: 71.8, slope: 128, front_course_rating: 36.0, front_slope_rating: 117, back_course_rating: null, back_slope_rating: null },
+      { nombre: 'rojo', genero: 'M', rating: 72.6, slope: 130, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+      { nombre: 'rojo', genero: 'F', rating: 72.6, slope: 130, front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null },
+    ]
+    const ups = planTeeCorrections([], off)
+    expect(ups.filter(u => u.nombre === 'rojo')).toHaveLength(1) // un solo rojo
+    expect(ups.filter(u => u.nombre === 'azul')).toHaveLength(1)
+    expect(ups.every(u => u.action === 'insert')).toBe(true)
+    // nombres únicos (no viola UNIQUE course_id,nombre)
+    expect(new Set(ups.map(u => u.nombre)).size).toBe(ups.length)
+  })
+
   it('preserva back-9 del oficial cuando viene', () => {
     const man: TeeRow[] = [
       { nombre: 'azul', genero: 'M', rating: 72.0, slope: 130, front_course_rating: 36.0, front_slope_rating: 130, back_course_rating: null, back_slope_rating: null },
