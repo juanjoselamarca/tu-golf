@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { savePlan, PATTERN_IDS, PLAN_METRICS, type SavePlanInput } from './plan-engine'
 import { inferHoles } from '@/golf/core/holes'
+import { matchCourseInDB } from '@/golf/courses/matching'
+import { findRoundsForCoach, type CoachRoundFilters } from '@/lib/data/coach-rounds'
+import { computePlayingHandicapForCoach } from '@/lib/data/coach-handicap'
 import {
   setTarget,
   rememberFact,
@@ -23,7 +26,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_latest_round',
     description:
-      'Obtén la última ronda libre finalizada del jugador con el detalle hoyo-por-hoyo, pares de la cancha y strokes sobre par por hoyo. Úsala cuando el jugador haga referencia a "mi última ronda", "la vuelta de hoy" o similar sin identificar una ronda específica.',
+      'Obtén la última ronda registrada del jugador (jugada en la app o importada) con el detalle hoyo-por-hoyo, pares de la cancha y strokes sobre par por hoyo. Úsala cuando el jugador haga referencia a "mi última ronda", "la vuelta de hoy" o similar sin identificar una ronda específica.',
     input_schema: {
       type: 'object',
       properties: {},
@@ -57,13 +60,25 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_course_details',
     description:
-      'Obtén información de una cancha: pares por hoyo, stroke index, par total. Úsala cuando necesites calcular strokes sobre par o analizar dificultad por hoyo.',
+      'Obtén información de una cancha: pares por hoyo, stroke index, par total. Úsala cuando necesites calcular strokes sobre par o analizar dificultad por hoyo. Requiere el UUID de la cancha. Si solo tenés el NOMBRE, usá get_course_scorecard.',
     input_schema: {
       type: 'object',
       properties: {
         course_id: { type: 'string', description: 'UUID de la cancha' },
       },
       required: ['course_id'],
+    },
+  },
+  {
+    name: 'get_course_scorecard',
+    description:
+      'Obtén el scorecard de una cancha (pares y stroke index por hoyo, par total) por NOMBRE o por UUID. Usala cuando el jugador menciona una cancha por su nombre ("los pares de Lomas de la Dehesa"): NO necesitás el UUID, pasá el nombre y el sistema resuelve la cancha en el catálogo. Si la cancha no está en el catálogo, la tool te lo dice — en ese caso NUNCA le pidas los pares al jugador, ofrecé lo que puedas con lo que haya.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        course: { type: 'string', description: 'Nombre de la cancha (ej "Lomas de la Dehesa") o su UUID.' },
+      },
+      required: ['course'],
     },
   },
   {
@@ -82,11 +97,42 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_all_rounds_summary',
     description:
-      'Resumen estadístico de las rondas históricas del jugador, SEPARADO entre rondas de 18 hoyos y de 9 hoyos. Devuelve `rondas_18`, `rondas_9` y `rondas_indeterminadas` (count only). NUNCA mezcles los promedios de 18h con los de 9h al razonar. Usá rondas_18 para tendencia general; rondas_9 para sub-segmento corto; indeterminadas son rondas viejas sin metadata suficiente — no inventes promedio para ellas. Para análisis ronda-por-ronda usá get_latest_round / get_round_by_date.',
+      'Resumen estadístico de las rondas históricas del jugador, SEPARADO entre rondas de 18 hoyos y de 9 hoyos. Devuelve `rondas_18`, `rondas_9` y `rondas_indeterminadas` (count only). NUNCA mezcles los promedios de 18h con los de 9h al razonar. Usá rondas_18 para tendencia general; rondas_9 para sub-segmento corto; indeterminadas son rondas viejas sin metadata suficiente — no inventes promedio para ellas. Cada cancha del resumen trae su `course_id`. Para listar rondas concretas usá find_rounds.',
     input_schema: {
       type: 'object',
       properties: {},
       required: [],
+    },
+  },
+  {
+    name: 'find_rounds',
+    description:
+      'Busca rondas del jugador con filtros flexibles sobre TODO su historial (importado + jugado en la app, fuente única). Usala cuando el jugador menciona una cancha ("mis rondas en Lomas de la Dehesa"), un período ("este año", "marzo"), o quiere las recientes / su mejor / su peor ronda: NO necesitás la fecha exacta. Devuelve una lista de rondas con id, fecha, cancha, course_id, total y hoyos. Para el detalle hoyo-por-hoyo de una, después usá get_round_by_date o get_course_scorecard con el course_id que te devuelve.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        course: { type: 'string', description: 'Nombre de la cancha (ej "Lomas de la Dehesa") o su UUID. Opcional.' },
+        desde: { type: 'string', description: 'Fecha desde YYYY-MM-DD (inclusive). Opcional.' },
+        hasta: { type: 'string', description: 'Fecha hasta YYYY-MM-DD (inclusive). Opcional.' },
+        holes: { type: 'number', description: 'Filtrar por 9 o 18 hoyos. Opcional.' },
+        limit: { type: 'number', description: 'Máximo de rondas (default 10, tope 30).' },
+        orden: { type: 'string', enum: ['reciente', 'antigua', 'mejor', 'peor'], description: 'Orden del resultado (default reciente).' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_playing_handicap',
+    description:
+      'Calcula el HANDICAP DE JUEGO (course handicap WHS) del jugador en una cancha y tee concretos — los golpes que recibe en ESA cancha. Es DISTINTO del índice (el índice es uno solo; el handicap de juego depende de la cancha y el tee). Usala cuando el jugador pregunte "cuántos golpes me da X", "mi handicap de juego", "con qué handicap juego en Y". NUNCA inventes este número: si no llamás esta tool, hablá solo del índice y aclará que el de juego depende de la cancha.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        course: { type: 'string', description: 'Nombre de la cancha (ej "Lomas de la Dehesa") o su UUID.' },
+        tee: { type: 'string', description: 'Color del tee (ej "Blanco"). Opcional: si no se da, usa el tee por defecto del jugador.' },
+        holes: { type: 'number', description: '9 o 18 (default 18). Opcional.' },
+      },
+      required: ['course'],
     },
   },
   {
@@ -226,6 +272,11 @@ export async function executeTool(
         if (!id) return { ok: false, error: 'Falta course_id' }
         return await getCourseDetails(ctx, id)
       }
+      case 'get_course_scorecard': {
+        const ref = typeof input.course === 'string' ? input.course : null
+        if (!ref) return { ok: false, error: 'Falta course (nombre o UUID de la cancha)' }
+        return await getCourseScorecard(ctx, ref)
+      }
       case 'get_round_by_date': {
         const date = typeof input.date === 'string' ? input.date : null
         const courseName = typeof input.course_name === 'string' ? input.course_name : null
@@ -234,6 +285,30 @@ export async function executeTool(
       }
       case 'get_all_rounds_summary':
         return await getAllRoundsSummary(ctx)
+      case 'find_rounds': {
+        const filters: CoachRoundFilters = {
+          course: typeof input.course === 'string' ? input.course : null,
+          desde: typeof input.desde === 'string' ? input.desde : null,
+          hasta: typeof input.hasta === 'string' ? input.hasta : null,
+          holes: typeof input.holes === 'number' ? input.holes : null,
+          limit: typeof input.limit === 'number' ? input.limit : undefined,
+          orden: typeof input.orden === 'string'
+            ? (input.orden as CoachRoundFilters['orden'])
+            : undefined,
+        }
+        const res = await findRoundsForCoach(ctx.supabase, ctx.userId, filters)
+        return { ok: true, data: res }
+      }
+      case 'get_playing_handicap': {
+        const course = typeof input.course === 'string' ? input.course : null
+        if (!course) return { ok: false, error: 'Falta course (nombre o UUID de la cancha)' }
+        const tee = typeof input.tee === 'string' ? input.tee : null
+        const holes = typeof input.holes === 'number' ? input.holes : null
+        const res = await computePlayingHandicapForCoach(ctx.supabase, ctx.userId, { course, tee, holes })
+        if (!res.ok) return { ok: false, error: res.reason }
+        const { ok: _ok, ...data } = res
+        return { ok: true, data }
+      }
       case 'save_plan':
         return await dispatchSavePlan(ctx, input)
       // Tools de Ola 2 "el coach te conoce" (sólo activas con cerebro_v3_enabled).
@@ -260,29 +335,107 @@ export async function executeTool(
 
 // ---------- Implementaciones ----------
 
+type HistoricalDetailRow = {
+  id: string
+  course_id: string | null
+  course_name: string | null
+  played_at: string | null
+  scores: number[] | Record<string, number> | null
+  total_gross: number | null
+  holes_played: number | null
+}
+
+/** Carga los pares (numero→par) de una o varias canchas en un solo query. */
+async function loadParsByCourse(
+  supabase: SupabaseClient,
+  courseIds: Array<string | null>,
+): Promise<Record<string, Record<number, number>>> {
+  const parsByCourse: Record<string, Record<number, number>> = {}
+  const ids = Array.from(new Set(courseIds.filter((x): x is string => !!x)))
+  if (ids.length === 0) return parsByCourse
+  const { data: holes } = await supabase
+    .from('course_holes')
+    .select('course_id, numero, par')
+    .in('course_id', ids)
+  for (const h of (holes ?? []) as Array<{ course_id: string; numero: number; par: number }>) {
+    if (!parsByCourse[h.course_id]) parsByCourse[h.course_id] = {}
+    parsByCourse[h.course_id][h.numero] = h.par
+  }
+  return parsByCourse
+}
+
+/** Lee el score de un hoyo tolerando ambas formas de `scores` en historical_rounds:
+ *  array [n,…] (índice 0 = hoyo 1) u objeto {"1":n,…}. */
+function scoreForHole(scores: HistoricalDetailRow['scores'], hole: number): number | null {
+  if (Array.isArray(scores)) {
+    const v = scores[hole - 1]
+    return typeof v === 'number' ? v : null
+  }
+  if (scores && typeof scores === 'object') {
+    const v = (scores as Record<string, number>)[String(hole)]
+    return typeof v === 'number' ? v : null
+  }
+  return null
+}
+
+/** Arma el detalle hoyo-por-hoyo de una ronda de `historical_rounds`. Fuente
+ *  compartida por get_latest_round y get_round_by_date. Solo hoyos jugados. */
+function mapHistoricalRoundDetail(
+  row: HistoricalDetailRow,
+  parsByCourse: Record<string, Record<number, number>>,
+) {
+  const pars = row.course_id ? parsByCourse[row.course_id] ?? null : null
+  const maxHole = row.holes_played && row.holes_played > 0 ? row.holes_played : 18
+  const hoyos: Array<{ hoyo: number; par: number | null; strokes: number; vs_par: number | null }> = []
+  let totalStrokes = 0
+  let totalPar = 0
+  for (let h = 1; h <= maxHole; h++) {
+    const strokes = scoreForHole(row.scores, h) ?? 0
+    if (strokes <= 0) continue
+    const par = pars?.[h] ?? null
+    const vsPar = par != null ? strokes - par : null
+    hoyos.push({ hoyo: h, par, strokes, vs_par: vsPar })
+    totalStrokes += strokes
+    if (par != null) totalPar += par
+  }
+  return {
+    id: row.id,
+    ronda_id: row.id,
+    fecha: row.played_at,
+    cancha: row.course_name,
+    course_id: row.course_id,
+    holes_played: row.holes_played ?? hoyos.length,
+    total_strokes: totalStrokes || row.total_gross || null,
+    total_par: totalPar || null,
+    vs_par: totalPar ? totalStrokes - totalPar : null,
+    hoyos,
+  }
+}
+
 async function getLatestRound(ctx: ToolExecutionContext): Promise<ToolResult> {
   const { supabase, userId, defaultRondaId } = ctx
 
-  let rondaId = defaultRondaId ?? null
-  if (!rondaId) {
-    const { data: jug } = await supabase
-      .from('ronda_libre_jugadores')
-      .select('ronda_id, created_at, rondas_libres!inner(id, estado, fecha)')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(5)
+  // Si el chat está dentro de una ronda en-vivo concreta, devolvemos su detalle
+  // rico desde la tabla en-vivo (tiene tees/formato/estado que el historial no).
+  if (defaultRondaId) return await getRoundById(ctx, defaultRondaId)
 
-    const first = (jug ?? []).find(
-      (r: { rondas_libres?: { estado?: string } | Array<{ estado?: string }> }) => {
-        const rl = Array.isArray(r.rondas_libres) ? r.rondas_libres[0] : r.rondas_libres
-        return rl?.estado === 'finalizada'
-      },
-    ) as { ronda_id?: string } | undefined
-    rondaId = first?.ronda_id ?? null
-  }
+  // Fuente única: la última ronda del historial unificado (importada o en-vivo).
+  // Antes leía solo ronda_libre_jugadores → un usuario importado-only veía
+  // "no tenés rondas" aunque tuviera cientos. Bug P0 de campo (inbox 09-jun).
+  const { data, error } = await supabase
+    .from('historical_rounds')
+    .select('id, course_id, course_name, played_at, scores, total_gross, holes_played')
+    .eq('user_id', userId)
+    .not('total_gross', 'is', null)
+    .order('played_at', { ascending: false })
+    .limit(1)
 
-  if (!rondaId) return { ok: false, error: 'El jugador no tiene rondas libres finalizadas' }
-  return await getRoundById(ctx, rondaId)
+  if (error) return { ok: false, error: `Error DB historial: ${error.message}` }
+  const row = (data ?? [])[0] as HistoricalDetailRow | undefined
+  if (!row) return { ok: false, error: 'El jugador todavía no tiene rondas registradas' }
+
+  const parsByCourse = await loadParsByCourse(supabase, [row.course_id])
+  return { ok: true, data: mapHistoricalRoundDetail(row, parsByCourse) }
 }
 
 async function getRoundById(ctx: ToolExecutionContext, rondaId: string): Promise<ToolResult> {
@@ -369,32 +522,17 @@ async function getRoundById(ctx: ToolExecutionContext, rondaId: string): Promise
 async function getRecentRounds(ctx: ToolExecutionContext, limit: number): Promise<ToolResult> {
   const { supabase, userId } = ctx
 
-  const { data: jugadores, error } = await supabase
-    .from('ronda_libre_jugadores')
-    .select('ronda_id, scores, rondas_libres!inner(id, course_name, fecha, holes, estado, formato_juego)')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(limit * 2)
-
-  if (error) return { ok: false, error: error.message }
-
-  const rondas = (jugadores ?? [])
-    .map((j) => {
-      const rl = Array.isArray(j.rondas_libres) ? j.rondas_libres[0] : j.rondas_libres
-      if (!rl || rl.estado !== 'finalizada') return null
-      const scores = (j.scores ?? {}) as Record<string, number>
-      const total = Object.values(scores).reduce((a, b) => a + (b || 0), 0)
-      return {
-        ronda_id: j.ronda_id,
-        fecha: rl.fecha,
-        cancha: rl.course_name,
-        holes: rl.holes,
-        formato: rl.formato_juego,
-        total_strokes: total,
-      }
-    })
-    .filter(Boolean)
-    .slice(0, limit)
+  // Fuente única: historial unificado (importadas + en-vivo) vía la data-layer.
+  // Antes leía solo ronda_libre_jugadores → un usuario importado-only veía vacío.
+  const res = await findRoundsForCoach(supabase, userId, { limit, orden: 'reciente' })
+  const rondas = res.rounds.map(r => ({
+    ronda_id: r.id,
+    fecha: r.fecha,
+    cancha: r.cancha,
+    holes: r.holes_played,
+    total_strokes: r.total_gross,
+    source: r.source,
+  }))
 
   return { ok: true, data: { rondas } }
 }
@@ -423,42 +561,9 @@ async function getRoundByDate(
     return { ok: false, error: `No hay rondas del jugador en la fecha ${date}${courseName ? ` en ${courseName}` : ''}` }
   }
 
-  // Cargar pares hoyo por hoyo de las canchas de las rondas encontradas
-  const courseIds = Array.from(new Set(data.map(r => r.course_id).filter((x): x is string => !!x)))
-  const parsByCourse: Record<string, Record<number, number>> = {}
-  if (courseIds.length > 0) {
-    const { data: holes } = await supabase
-      .from('course_holes')
-      .select('course_id, numero, par')
-      .in('course_id', courseIds)
-    for (const h of (holes ?? []) as Array<{ course_id: string; numero: number; par: number }>) {
-      if (!parsByCourse[h.course_id]) parsByCourse[h.course_id] = {}
-      parsByCourse[h.course_id][h.numero] = h.par
-    }
-  }
-
-  const rounds = data.map(r => {
-    const scores = Array.isArray(r.scores) ? (r.scores as (number | null)[]) : []
-    const pars = r.course_id ? parsByCourse[r.course_id] : null
-    const hoyos = scores.map((s, idx) => {
-      const holeNum = idx + 1
-      const par = pars?.[holeNum] ?? null
-      return {
-        hoyo: holeNum,
-        par,
-        strokes: s,
-        vs_par: par != null && s != null && s > 0 ? s - par : null,
-      }
-    }).filter(h => h.strokes != null && h.strokes > 0)
-    return {
-      id: r.id,
-      fecha: r.played_at,
-      cancha: r.course_name,
-      total_strokes: r.total_gross,
-      holes_played: r.holes_played,
-      hoyos,
-    }
-  })
+  // Pares hoyo por hoyo de las canchas de las rondas encontradas + detalle.
+  const parsByCourse = await loadParsByCourse(supabase, data.map(r => r.course_id))
+  const rounds = data.map(r => mapHistoricalRoundDetail(r as HistoricalDetailRow, parsByCourse))
 
   return { ok: true, data: { count: rounds.length, rounds } }
 }
@@ -487,10 +592,10 @@ export function summarizeBucket(arr: HistoricalRow[]) {
   // agrupar por string fragmenta las stats y el coach la ve como varias canchas
   // distintas, dando promedios separados de la misma cancha. Cuando no hay
   // course_id (rondas viejas) caemos al nombre normalizado como key.
-  const byCourse: Record<string, { count: number; sum: number; nombres: Record<string, number> }> = {}
+  const byCourse: Record<string, { course_id: string | null; count: number; sum: number; nombres: Record<string, number> }> = {}
   for (const r of arr) {
     const key = r.course_id ?? `name:${(r.course_name || 'Sin cancha').trim().toLowerCase()}`
-    if (!byCourse[key]) byCourse[key] = { count: 0, sum: 0, nombres: {} }
+    if (!byCourse[key]) byCourse[key] = { course_id: r.course_id ?? null, count: 0, sum: 0, nombres: {} }
     byCourse[key].count++
     byCourse[key].sum += r.total_gross
     const nombre = r.course_name || 'Sin cancha'
@@ -502,6 +607,9 @@ export function summarizeBucket(arr: HistoricalRow[]) {
     .map(v => ({
       // Nombre representativo: la variante más frecuente para esa identidad.
       cancha: Object.entries(v.nombres).sort((a, b) => b[1] - a[1])[0][0],
+      // course_id canónico de la identidad — el coach lo necesita para pedir el
+      // scorecard/detalle sin adivinar. null en rondas viejas sin course_id.
+      course_id: v.course_id,
       rondas: v.count,
       avg_score: Math.round((v.sum / v.count) * 10) / 10,
     }))
@@ -574,6 +682,47 @@ async function getCourseDetails(ctx: ToolExecutionContext, courseId: string): Pr
         par: h.par,
         stroke_index: h.stroke_index ?? null,
       })),
+    },
+  }
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Scorecard de una cancha aceptando NOMBRE o UUID.
+ *
+ * El coach conoce las canchas por su nombre (del resumen / del jugador), no por
+ * su UUID. Antes solo existía get_course_details(UUID), así que el coach no podía
+ * pedir los pares de "Lomas de la Dehesa" — terminaba pidiéndoselos al jugador.
+ * Acá resolvemos nombre→cancha con el matcher canónico compartido
+ * (`matchCourseInDB`, mismo que usa import + torneos) y degradamos honesto si la
+ * cancha no está en el catálogo: NUNCA se le pide el scorecard al jugador.
+ */
+async function getCourseScorecard(ctx: ToolExecutionContext, ref: string): Promise<ToolResult> {
+  const { supabase } = ctx
+  const trimmed = ref.trim()
+  if (!trimmed) return { ok: false, error: 'Falta el nombre o UUID de la cancha' }
+
+  // Camino directo: ya es un UUID.
+  if (UUID_RE.test(trimmed)) return await getCourseDetails(ctx, trimmed)
+
+  // Camino por nombre: resolver con el matcher canónico.
+  const match = await matchCourseInDB(trimmed, supabase)
+  if (!match) {
+    return {
+      ok: false,
+      error: `No hay ninguna cancha que coincida con "${trimmed}" en el catálogo. NO le pidas los pares al jugador: la app no tiene esa cancha catalogada todavía. Ofrecé el mejor análisis posible con los scores que sí tengas.`,
+    }
+  }
+
+  const details = await getCourseDetails(ctx, match.id)
+  if (!details.ok) return details
+  return {
+    ok: true,
+    data: {
+      ...(details.data as Record<string, unknown>),
+      resolved_from: trimmed,
+      match_confidence: match.score,
     },
   }
 }

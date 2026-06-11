@@ -21,10 +21,17 @@ export function isRetryableLLMError(err: unknown): boolean {
   const status = typeof anyErr.status === 'number' ? anyErr.status
     : typeof anyErr.statusCode === 'number' ? anyErr.statusCode
     : undefined
-  if (status === 429 || status === 529 || status === 503 || status === 500 || status === 502) {
+  if (status === 429 || status === 529 || status === 503 || status === 500 || status === 502 || status === 401 || status === 402) {
     return true
   }
   const msg = typeof anyErr.message === 'string' ? anyErr.message : String(err)
+  // Credit-out / billing del proveedor primario: Anthropic devuelve 400 con
+  // type invalid_request_error y este mensaje cuando se acaba el saldo. NO es un
+  // error de input NUESTRO → conviene cruzar a Gemini en vez de caer el coach.
+  // (Visto en prod 2026-06-10: saldo agotado dejó el coach sin responder.)
+  if (/credit balance|insufficient (credits?|quota|funds|balance)|billing|payment required|quota.*exceeded/i.test(msg)) {
+    return true
+  }
   return /overloaded|rate.?limit|429|529|too many requests|service unavailable|timeout/i.test(msg)
 }
 

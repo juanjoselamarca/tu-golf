@@ -51,6 +51,9 @@ const TOOL_LABELS: Record<string, string> = {
   get_recent_rounds: 'rondas recientes',
   get_all_rounds_summary: 'historial completo',
   get_course_details: 'datos de cancha',
+  get_course_scorecard: 'pares de la cancha',
+  find_rounds: 'tus rondas',
+  get_playing_handicap: 'tu handicap de juego',
   save_plan: 'asignar plan',
 }
 
@@ -69,6 +72,9 @@ export function toolActivityLabel(toolName: string): string {
     case 'get_recent_rounds':      return 'Comparando tus últimas rondas…'
     case 'get_all_rounds_summary': return 'Repasando tu historial completo…'
     case 'get_course_details':     return 'Mirando los pares de la cancha…'
+    case 'get_course_scorecard':   return 'Mirando los pares de la cancha…'
+    case 'find_rounds':            return 'Buscando tus rondas…'
+    case 'get_playing_handicap':   return 'Calculando tu handicap de juego…'
     case 'save_plan':              return 'Asignando tu plan…'
     default:                       return 'Pensando…'
   }

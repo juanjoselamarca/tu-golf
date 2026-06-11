@@ -31,6 +31,18 @@ describe('isRetryableLLMError', () => {
     expect(isRetryableLLMError(null)).toBe(false)
     expect(isRetryableLLMError(undefined)).toBe(false)
   })
+
+  it('reintenta credit-out / billing (cruza a Gemini en vez de caer el coach)', () => {
+    // Anthropic devuelve 400 + este mensaje cuando se agota el saldo (prod 10-jun).
+    // El status es 400 (input error genérico) pero el mensaje lo identifica.
+    expect(
+      isRetryableLLMError({ status: 400, message: 'Your credit balance is too low to access the Anthropic API.' }),
+    ).toBe(true)
+    expect(isRetryableLLMError(new Error('billing: payment required'))).toBe(true)
+    expect(isRetryableLLMError({ status: 402 })).toBe(true)
+    // Un 400 SIN mensaje de billing sigue siendo no-retryable (no romper input-errors).
+    expect(isRetryableLLMError({ status: 400, message: 'invalid tool schema' })).toBe(false)
+  })
 })
 
 describe('toPlainMessages', () => {
