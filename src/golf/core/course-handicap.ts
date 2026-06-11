@@ -60,9 +60,16 @@ async function resolveNineHolePar(
     .select('numero, par')
     .eq('course_id', courseId)
     .order('numero')
-    .limit(9)
   if (data && data.length > 0) {
-    return (data as Array<{ par: number | null }>).reduce((s, h) => s + (h.par ?? 4), 0)
+    // Dedup por numero — algunas canchas tienen filas duplicadas por recorrido;
+    // un .limit(9) crudo agarraría 1,1,2,2,… y sumaría menos de 9 hoyos. Tomamos
+    // el par de los 9 hoyos de MENOR numero (front-9) sin duplicar.
+    const parByNumero = new Map<number, number>()
+    for (const h of data as Array<{ numero: number; par: number | null }>) {
+      if (!parByNumero.has(h.numero)) parByNumero.set(h.numero, h.par ?? 4)
+    }
+    const front9 = Array.from(parByNumero.entries()).sort((a, b) => a[0] - b[0]).slice(0, 9)
+    if (front9.length > 0) return front9.reduce((s, [, par]) => s + par, 0)
   }
   // Sin datos de hoyos: mitad del par-18 si lo tenemos (aprox. simétrica), si no 36.
   return parTotal != null ? Math.round(parTotal / 2) : 36

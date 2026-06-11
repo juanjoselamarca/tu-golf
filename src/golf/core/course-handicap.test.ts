@@ -287,4 +287,23 @@ describe('resolverCourseData — par de 9h (regresión neto>gross, 11-jun-2026)'
     const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 72, null)
     expect(cd?.par).toBe(36) // round(72/2)
   })
+
+  it('front-9 con par ≠ 36: usa el par real (no asume 36)', async () => {
+    // Front-9 par 35 (un par-3 extra). El fix existe justamente para esto.
+    const front35 = [4, 4, 4, 3, 4, 4, 4, 4, 4].map((par, i) => ({ numero: i + 1, par }))
+    const supa = mockSupabase({ tee: teeAzulLosLeones, holes9: front35 })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 72, null)
+    expect(cd?.par).toBe(35)
+  })
+
+  it('course_holes con numero duplicado (por recorrido): no doble-cuenta el front-9', async () => {
+    // Cancha con filas duplicadas por numero — limit(9) crudo sumaría ~5 hoyos.
+    const dup = [4, 5, 4, 3, 4, 4, 4, 4, 4].flatMap((par, i) => [
+      { numero: i + 1, par },
+      { numero: i + 1, par }, // fila duplicada
+    ])
+    const supa = mockSupabase({ tee: teeAzulLosLeones, holes9: dup })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 72, null)
+    expect(cd?.par).toBe(36) // 4+5+4+3+4+4+4+4+4, sin duplicar
+  })
 })
