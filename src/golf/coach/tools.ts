@@ -25,7 +25,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_latest_round',
     description:
-      'Obtén la última ronda libre finalizada del jugador con el detalle hoyo-por-hoyo, pares de la cancha y strokes sobre par por hoyo. Úsala cuando el jugador haga referencia a "mi última ronda", "la vuelta de hoy" o similar sin identificar una ronda específica.',
+      'Obtén la última ronda registrada del jugador (jugada en la app o importada) con el detalle hoyo-por-hoyo, pares de la cancha y strokes sobre par por hoyo. Úsala cuando el jugador haga referencia a "mi última ronda", "la vuelta de hoy" o similar sin identificar una ronda específica.',
     input_schema: {
       type: 'object',
       properties: {},
@@ -310,29 +310,107 @@ export async function executeTool(
 
 // ---------- Implementaciones ----------
 
+type HistoricalDetailRow = {
+  id: string
+  course_id: string | null
+  course_name: string | null
+  played_at: string | null
+  scores: number[] | Record<string, number> | null
+  total_gross: number | null
+  holes_played: number | null
+}
+
+/** Carga los pares (numero→par) de una o varias canchas en un solo query. */
+async function loadParsByCourse(
+  supabase: SupabaseClient,
+  courseIds: Array<string | null>,
+): Promise<Record<string, Record<number, number>>> {
+  const parsByCourse: Record<string, Record<number, number>> = {}
+  const ids = Array.from(new Set(courseIds.filter((x): x is string => !!x)))
+  if (ids.length === 0) return parsByCourse
+  const { data: holes } = await supabase
+    .from('course_holes')
+    .select('course_id, numero, par')
+    .in('course_id', ids)
+  for (const h of (holes ?? []) as Array<{ course_id: string; numero: number; par: number }>) {
+    if (!parsByCourse[h.course_id]) parsByCourse[h.course_id] = {}
+    parsByCourse[h.course_id][h.numero] = h.par
+  }
+  return parsByCourse
+}
+
+/** Lee el score de un hoyo tolerando ambas formas de `scores` en historical_rounds:
+ *  array [n,…] (índice 0 = hoyo 1) u objeto {"1":n,…}. */
+function scoreForHole(scores: HistoricalDetailRow['scores'], hole: number): number | null {
+  if (Array.isArray(scores)) {
+    const v = scores[hole - 1]
+    return typeof v === 'number' ? v : null
+  }
+  if (scores && typeof scores === 'object') {
+    const v = (scores as Record<string, number>)[String(hole)]
+    return typeof v === 'number' ? v : null
+  }
+  return null
+}
+
+/** Arma el detalle hoyo-por-hoyo de una ronda de `historical_rounds`. Fuente
+ *  compartida por get_latest_round y get_round_by_date. Solo hoyos jugados. */
+function mapHistoricalRoundDetail(
+  row: HistoricalDetailRow,
+  parsByCourse: Record<string, Record<number, number>>,
+) {
+  const pars = row.course_id ? parsByCourse[row.course_id] ?? null : null
+  const maxHole = row.holes_played && row.holes_played > 0 ? row.holes_played : 18
+  const hoyos: Array<{ hoyo: number; par: number | null; strokes: number; vs_par: number | null }> = []
+  let totalStrokes = 0
+  let totalPar = 0
+  for (let h = 1; h <= maxHole; h++) {
+    const strokes = scoreForHole(row.scores, h) ?? 0
+    if (strokes <= 0) continue
+    const par = pars?.[h] ?? null
+    const vsPar = par != null ? strokes - par : null
+    hoyos.push({ hoyo: h, par, strokes, vs_par: vsPar })
+    totalStrokes += strokes
+    if (par != null) totalPar += par
+  }
+  return {
+    id: row.id,
+    ronda_id: row.id,
+    fecha: row.played_at,
+    cancha: row.course_name,
+    course_id: row.course_id,
+    holes_played: row.holes_played ?? hoyos.length,
+    total_strokes: totalStrokes || row.total_gross || null,
+    total_par: totalPar || null,
+    vs_par: totalPar ? totalStrokes - totalPar : null,
+    hoyos,
+  }
+}
+
 async function getLatestRound(ctx: ToolExecutionContext): Promise<ToolResult> {
   const { supabase, userId, defaultRondaId } = ctx
 
-  let rondaId = defaultRondaId ?? null
-  if (!rondaId) {
-    const { data: jug } = await supabase
-      .from('ronda_libre_jugadores')
-      .select('ronda_id, created_at, rondas_libres!inner(id, estado, fecha)')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(5)
+  // Si el chat está dentro de una ronda en-vivo concreta, devolvemos su detalle
+  // rico desde la tabla en-vivo (tiene tees/formato/estado que el historial no).
+  if (defaultRondaId) return await getRoundById(ctx, defaultRondaId)
 
-    const first = (jug ?? []).find(
-      (r: { rondas_libres?: { estado?: string } | Array<{ estado?: string }> }) => {
-        const rl = Array.isArray(r.rondas_libres) ? r.rondas_libres[0] : r.rondas_libres
-        return rl?.estado === 'finalizada'
-      },
-    ) as { ronda_id?: string } | undefined
-    rondaId = first?.ronda_id ?? null
-  }
+  // Fuente única: la última ronda del historial unificado (importada o en-vivo).
+  // Antes leía solo ronda_libre_jugadores → un usuario importado-only veía
+  // "no tenés rondas" aunque tuviera cientos. Bug P0 de campo (inbox 09-jun).
+  const { data, error } = await supabase
+    .from('historical_rounds')
+    .select('id, course_id, course_name, played_at, scores, total_gross, holes_played')
+    .eq('user_id', userId)
+    .not('total_gross', 'is', null)
+    .order('played_at', { ascending: false })
+    .limit(1)
 
-  if (!rondaId) return { ok: false, error: 'El jugador no tiene rondas libres finalizadas' }
-  return await getRoundById(ctx, rondaId)
+  if (error) return { ok: false, error: `Error DB historial: ${error.message}` }
+  const row = (data ?? [])[0] as HistoricalDetailRow | undefined
+  if (!row) return { ok: false, error: 'El jugador todavía no tiene rondas registradas' }
+
+  const parsByCourse = await loadParsByCourse(supabase, [row.course_id])
+  return { ok: true, data: mapHistoricalRoundDetail(row, parsByCourse) }
 }
 
 async function getRoundById(ctx: ToolExecutionContext, rondaId: string): Promise<ToolResult> {
@@ -419,32 +497,17 @@ async function getRoundById(ctx: ToolExecutionContext, rondaId: string): Promise
 async function getRecentRounds(ctx: ToolExecutionContext, limit: number): Promise<ToolResult> {
   const { supabase, userId } = ctx
 
-  const { data: jugadores, error } = await supabase
-    .from('ronda_libre_jugadores')
-    .select('ronda_id, scores, rondas_libres!inner(id, course_name, fecha, holes, estado, formato_juego)')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(limit * 2)
-
-  if (error) return { ok: false, error: error.message }
-
-  const rondas = (jugadores ?? [])
-    .map((j) => {
-      const rl = Array.isArray(j.rondas_libres) ? j.rondas_libres[0] : j.rondas_libres
-      if (!rl || rl.estado !== 'finalizada') return null
-      const scores = (j.scores ?? {}) as Record<string, number>
-      const total = Object.values(scores).reduce((a, b) => a + (b || 0), 0)
-      return {
-        ronda_id: j.ronda_id,
-        fecha: rl.fecha,
-        cancha: rl.course_name,
-        holes: rl.holes,
-        formato: rl.formato_juego,
-        total_strokes: total,
-      }
-    })
-    .filter(Boolean)
-    .slice(0, limit)
+  // Fuente única: historial unificado (importadas + en-vivo) vía la data-layer.
+  // Antes leía solo ronda_libre_jugadores → un usuario importado-only veía vacío.
+  const res = await findRoundsForCoach(supabase, userId, { limit, orden: 'reciente' })
+  const rondas = res.rounds.map(r => ({
+    ronda_id: r.id,
+    fecha: r.fecha,
+    cancha: r.cancha,
+    holes: r.holes_played,
+    total_strokes: r.total_gross,
+    source: r.source,
+  }))
 
   return { ok: true, data: { rondas } }
 }
@@ -473,42 +536,9 @@ async function getRoundByDate(
     return { ok: false, error: `No hay rondas del jugador en la fecha ${date}${courseName ? ` en ${courseName}` : ''}` }
   }
 
-  // Cargar pares hoyo por hoyo de las canchas de las rondas encontradas
-  const courseIds = Array.from(new Set(data.map(r => r.course_id).filter((x): x is string => !!x)))
-  const parsByCourse: Record<string, Record<number, number>> = {}
-  if (courseIds.length > 0) {
-    const { data: holes } = await supabase
-      .from('course_holes')
-      .select('course_id, numero, par')
-      .in('course_id', courseIds)
-    for (const h of (holes ?? []) as Array<{ course_id: string; numero: number; par: number }>) {
-      if (!parsByCourse[h.course_id]) parsByCourse[h.course_id] = {}
-      parsByCourse[h.course_id][h.numero] = h.par
-    }
-  }
-
-  const rounds = data.map(r => {
-    const scores = Array.isArray(r.scores) ? (r.scores as (number | null)[]) : []
-    const pars = r.course_id ? parsByCourse[r.course_id] : null
-    const hoyos = scores.map((s, idx) => {
-      const holeNum = idx + 1
-      const par = pars?.[holeNum] ?? null
-      return {
-        hoyo: holeNum,
-        par,
-        strokes: s,
-        vs_par: par != null && s != null && s > 0 ? s - par : null,
-      }
-    }).filter(h => h.strokes != null && h.strokes > 0)
-    return {
-      id: r.id,
-      fecha: r.played_at,
-      cancha: r.course_name,
-      total_strokes: r.total_gross,
-      holes_played: r.holes_played,
-      hoyos,
-    }
-  })
+  // Pares hoyo por hoyo de las canchas de las rondas encontradas + detalle.
+  const parsByCourse = await loadParsByCourse(supabase, data.map(r => r.course_id))
+  const rounds = data.map(r => mapHistoricalRoundDetail(r as HistoricalDetailRow, parsByCourse))
 
   return { ok: true, data: { count: rounds.length, rounds } }
 }
