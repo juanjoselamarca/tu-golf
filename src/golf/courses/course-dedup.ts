@@ -133,7 +133,7 @@ export function findDuplicateRounds(rounds: DupRound[]): string[] {
     groups.set(k, arr)
   }
   const toDelete: string[] = []
-  for (const arr of groups.values()) {
+  for (const arr of Array.from(groups.values())) {
     if (arr.length < 2) continue
     const sorted = [...arr].sort((a, b) => a.created_at.localeCompare(b.created_at))
     for (const r of sorted.slice(1)) toDelete.push(r.id)

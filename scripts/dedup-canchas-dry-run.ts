@@ -90,7 +90,7 @@ async function main() {
     console.log('user | genero | idx antes → después | delta | rondas cluster (resueltas/total) | ambiguas-sin-genero')
     const generoNullAmbiguo: { uid: string; rounds: string[] }[] = []
 
-    for (const [uid, clusterRs] of byUser) {
+    for (const [uid, clusterRs] of Array.from(byUser)) {
       const { data: prof } = await sb.from('profiles').select('genero, indice_golfers').eq('id', uid).maybeSingle()
       const genero = (prof?.genero as string | null) ?? null
 
