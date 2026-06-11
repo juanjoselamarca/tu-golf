@@ -30,10 +30,10 @@ describe('resolverCourseHandicap', () => {
     expect(ch).toBe(11)
   })
 
-  it('maneja 9 hoyos con CR/slope de 9', () => {
-    // 10.5 × (120/113) + (35.5 - 36) = 10.5 × 1.06195 - 0.5 = 10.651 → 11
+  it('maneja 9 hoyos: índice/2 (WHS) con CR/slope de 9', () => {
+    // 9h WHS: (10.5/2) × (120/113) + (35.5 - 36) = 5.25 × 1.06195 - 0.5 = 5.08 → 5
     const ch = resolverCourseHandicap(10.5, { slope: 120, courseRating: 35.5, par: 36, is9Hole: true })
-    expect(ch).toBe(11)
+    expect(ch).toBe(5)
   })
 
   it('handicap alto: 36 index en cancha difícil', () => {

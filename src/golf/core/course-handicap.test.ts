@@ -13,7 +13,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { resolverCourseHandicap, type CourseData } from './course-handicap'
+import { resolverCourseHandicap, resolverCourseData, type CourseData } from './course-handicap'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -24,7 +25,9 @@ const par60Executive: CourseData = { slope: 103, courseRating: 58.3, par: 60 }
 const par62Short: CourseData = { slope: 113, courseRating: 55.0, par: 62 }
 
 function whsFormula(index: number, c: CourseData): number {
-  return Math.round(index * (c.slope / 113) + (c.courseRating - c.par))
+  // 9h: el índice se divide por 2 (índice de 9 hoyos WHS).
+  const idx = c.is9Hole ? index / 2 : index
+  return Math.round(idx * (c.slope / 113) + (c.courseRating - c.par))
 }
 
 // ─── Suite 1: Fórmula correcta ──────────────────────────────────────────────
@@ -44,8 +47,9 @@ describe('resolverCourseHandicap — fórmula WHS', () => {
     expect(resolverCourseHandicap(0, tough18)).toBe(3)
   })
 
-  it('9 hoyos: slope 113, CR 35.0, par 36 → CH = round(index - 1)', () => {
-    expect(resolverCourseHandicap(10, easy9)).toBe(9)
+  it('9 hoyos: índice se divide por 2 (WHS) → CH = round(index/2 - 1)', () => {
+    // 9h WHS: (10/2)×(113/113) + (35−36) = 5 − 1 = 4
+    expect(resolverCourseHandicap(10, easy9)).toBe(4)
     expect(resolverCourseHandicap(0, easy9)).toBe(-1)
   })
 
@@ -194,5 +198,93 @@ describe('resolverCourseHandicap — regresiones', () => {
     for (const [idx, c] of cases) {
       expect(resolverCourseHandicap(idx, c)).toBe(whsFormula(idx, c))
     }
+  })
+})
+
+// ─── Suite 6: resolverCourseData — par de 9h (regresión "neto peor que gross") ──
+
+/**
+ * Mock mínimo de Supabase: un query-builder encadenable y awaitable que resuelve
+ * con el `result` configurado por tabla. Cubre el chain real de resolverCourseData:
+ *   course_tees: .select().eq().ilike().limit().maybeSingle()
+ *   course_holes: .select().eq().order().limit()  (awaited, sin maybeSingle)
+ *   courses:     .select().eq().maybeSingle()
+ */
+function makeQuery(result: { data: unknown }) {
+  const q: Record<string, unknown> = {
+    select: () => q,
+    eq: () => q,
+    in: () => q,
+    ilike: () => q,
+    order: () => q,
+    limit: () => q,
+    maybeSingle: () => Promise.resolve(result),
+    then: (onF: (v: { data: unknown }) => unknown, onR?: (e: unknown) => unknown) =>
+      Promise.resolve(result).then(onF, onR),
+  }
+  return q
+}
+
+function mockSupabase(opts: { tee?: unknown; holes9?: unknown[]; course?: unknown }): SupabaseClient {
+  return {
+    from(table: string) {
+      if (table === 'course_tees') return makeQuery({ data: opts.tee ?? null })
+      if (table === 'course_holes') return makeQuery({ data: opts.holes9 ?? null })
+      if (table === 'courses') return makeQuery({ data: opts.course ?? null })
+      return makeQuery({ data: null })
+    },
+  } as unknown as SupabaseClient
+}
+
+// Tee azul real de Los Leones (verificado en prod 2026-06-11).
+const teeAzulLosLeones = {
+  rating: 73.3,
+  slope: 136,
+  front_course_rating: 37.2,
+  front_slope_rating: 132,
+}
+// Front-9 real de Los Leones: 9 hoyos que suman par 36.
+const frontNine = [4, 5, 4, 3, 4, 4, 4, 4, 4].map((par, i) => ({ numero: i + 1, par }))
+
+describe('resolverCourseData — par de 9h (regresión neto>gross, 11-jun-2026)', () => {
+  it('ronda 9h en cancha de 18: usa el par del front-9 (36), NO el par-18 (72)', async () => {
+    const supa = mockSupabase({ tee: teeAzulLosLeones, holes9: frontNine })
+    // El caller buggy pasa parTotal=72 (suma de los 18 hoyos).
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 72, null)
+    expect(cd).toEqual({ slope: 132, courseRating: 37.2, par: 36, is9Hole: true })
+    // CH 9h WHS = (10.7/2)×(132/113) + (37.2−36) = 6.25 + 1.2 = 7.45 → 7.
+    // (era −22 con el bug del par-18; sin el halving habría dado 14.)
+    const ch = resolverCourseHandicap(10.7, cd)
+    expect(ch).toBe(7)
+    expect(ch).toBeGreaterThan(0)
+  })
+
+  it('respeta el par de 9h si el caller ya lo pasa correcto (≤50)', async () => {
+    const supa = mockSupabase({ tee: teeAzulLosLeones, holes9: frontNine })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 36, null)
+    expect(cd?.par).toBe(36)
+  })
+
+  it('18h intacto: usa el CR y par de 18 hoyos', async () => {
+    const supa = mockSupabase({ tee: teeAzulLosLeones, holes9: frontNine })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 18, 72, null)
+    expect(cd).toEqual({ slope: 136, courseRating: 73.3, par: 72 })
+  })
+
+  it('fallback courses para 9h: aproxima CR/2 y par de 9h (no 18h CR + 9h par)', async () => {
+    // Sin datos de tee → cae a la tabla courses. Antes daba CR-18 con par-9 (roto).
+    const supa = mockSupabase({
+      tee: null,
+      holes9: frontNine,
+      course: { slope_rating: 130, course_rating: 71.0, par_total: 72 },
+    })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 72, null)
+    expect(cd).toEqual({ slope: 130, courseRating: 35.5, par: 36, is9Hole: true })
+  })
+
+  it('sin course_holes ni par-9 del caller: cae a la mitad del par-18', async () => {
+    const supa = mockSupabase({ tee: teeAzulLosLeones, holes9: [] })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 72, null)
+    expect(cd?.par).toBe(36) // round(72/2)
   })
 })
