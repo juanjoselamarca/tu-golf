@@ -18,7 +18,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://us-assets.i.posthog.com",
       "script-src-elem 'self' 'unsafe-inline' https://us-assets.i.posthog.com",
       // Fontshare (api.fontshare.com) sirve el CSS de Clash Display + Satoshi
-      // que usa el landing de marketing (scoped en src/app/home-v2/marketing.css).
+      // que usa el landing de marketing (scoped en src/components/home/marketing.css).
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com",
       // Supabase Storage sirve imágenes públicas desde
       // `https://<project-ref>.supabase.co/storage/v1/object/public/...`
