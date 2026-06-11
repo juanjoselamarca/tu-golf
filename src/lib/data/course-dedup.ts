@@ -11,17 +11,23 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TeeUpsert } from '@/golf/courses/course-dedup'
 
-/** Busca el id del tee manual por identidad real (course_id + nombre case-insensitive + género). */
+/**
+ * Busca el id del tee manual por identidad real (course_id + nombre
+ * case-insensitive + género). Carga los tees de la cancha (≤ una decena) y matchea
+ * en memoria — evita que `ilike` interprete `%`/`_` de un nombre multi-loop como
+ * comodín (un `azul_andes` no debe matchear `azulXandes`).
+ */
 async function findTeeId(
   supabase: SupabaseClient,
   courseId: string,
   nombre: string,
   genero: string | null,
 ): Promise<string | null> {
-  let q = supabase.from('course_tees').select('id').eq('course_id', courseId).ilike('nombre', nombre)
-  q = genero == null ? q.is('genero', null) : q.eq('genero', genero)
-  const { data } = await q.maybeSingle()
-  return (data as { id: string } | null)?.id ?? null
+  const { data, error } = await supabase.from('course_tees').select('id, nombre, genero').eq('course_id', courseId)
+  if (error) throw new Error(`course_tees select falló para ${courseId}: ${error.message}`)
+  const rows = (data as { id: string; nombre: string; genero: string | null }[] | null) ?? []
+  const hit = rows.find(r => r.nombre.toLowerCase() === nombre.toLowerCase() && (r.genero ?? null) === (genero ?? null))
+  return hit?.id ?? null
 }
 
 /**
@@ -47,12 +53,14 @@ export async function applyTeeCorrections(
     const lookupNombre = u.manualNombre ?? u.nombre
     const existingId = await findTeeId(supabase, courseId, lookupNombre, u.genero)
     if (existingId) {
-      await supabase.from('course_tees').update(fields).eq('id', existingId)
+      const { error } = await supabase.from('course_tees').update(fields).eq('id', existingId)
+      if (error) throw new Error(`update tee ${existingId} falló: ${error.message}`)
       updated++
     } else {
-      await supabase.from('course_tees').insert({
+      const { error } = await supabase.from('course_tees').insert({
         course_id: courseId, nombre: u.nombre, genero: u.genero, fuente: 'dedup-oficial', ...fields,
       })
+      if (error) throw new Error(`insert tee ${u.nombre}/${u.genero} falló: ${error.message}`)
       inserted++
     }
   }
@@ -61,7 +69,8 @@ export async function applyTeeCorrections(
 
 /** Redirige una ficha duplicada a la canónica y la desactiva (idempotente: valor absoluto). */
 export async function redirectCourse(supabase: SupabaseClient, fromId: string, toId: string): Promise<void> {
-  await supabase.from('courses').update({ canonical_course_id: toId, activa: false }).eq('id', fromId)
+  const { error } = await supabase.from('courses').update({ canonical_course_id: toId, activa: false }).eq('id', fromId)
+  if (error) throw new Error(`redirect course ${fromId} falló: ${error.message}`)
 }
 
 /**
@@ -72,7 +81,8 @@ export async function redirectCourse(supabase: SupabaseClient, fromId: string, t
 export async function repointRounds(supabase: SupabaseClient, fromCourseId: string, toCourseId: string): Promise<number> {
   const before = await countRoundsForCourse(supabase, fromCourseId)
   if (before === 0) return 0
-  await supabase.from('historical_rounds').update({ course_id: toCourseId }).eq('course_id', fromCourseId)
+  const { error } = await supabase.from('historical_rounds').update({ course_id: toCourseId }).eq('course_id', fromCourseId)
+  if (error) throw new Error(`repoint rounds ${fromCourseId}→${toCourseId} falló: ${error.message}`)
   const after = await countRoundsForCourse(supabase, fromCourseId)
   return before - after
 }
@@ -80,15 +90,17 @@ export async function repointRounds(supabase: SupabaseClient, fromCourseId: stri
 /** Borra rondas por id. Devuelve cuántas se borraron. */
 export async function deleteRounds(supabase: SupabaseClient, ids: string[]): Promise<number> {
   if (ids.length === 0) return 0
-  const { data } = await supabase.from('historical_rounds').delete().in('id', ids).select('id')
+  const { data, error } = await supabase.from('historical_rounds').delete().in('id', ids).select('id')
+  if (error) throw new Error(`delete rounds falló: ${error.message}`)
   return (data as unknown[] | null)?.length ?? 0
 }
 
 /** Cuenta rondas que apuntan a una ficha (guardia de fedegolf-con-rondas-inesperadas). */
 export async function countRoundsForCourse(supabase: SupabaseClient, courseId: string): Promise<number> {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('historical_rounds')
     .select('id', { count: 'exact', head: true })
     .eq('course_id', courseId)
+  if (error) throw new Error(`count rounds para ${courseId} falló: ${error.message}`)
   return count ?? 0
 }

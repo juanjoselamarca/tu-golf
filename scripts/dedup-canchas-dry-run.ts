@@ -58,10 +58,12 @@ async function main() {
 
     const corrected = correctedTees(manualTees, ups)
 
-    // Todas las rondas de la ficha manual (el course_id no se mueve).
+    // Todas las rondas de la manual + las fedegolf (que el apply repointará a la
+    // manual). Incluir las fedegolf hace que la tabla de impacto modele EXACTO lo
+    // que ejecuta el apply (finding 1 del code-review).
     const { data: clusterRounds } = await sb.from('historical_rounds')
       .select('id, user_id, course_id, tee_color, holes_played, total_gross, diferencial, course_rating, slope_rating, excluded_from_handicap, played_at')
-      .eq('course_id', c.manualId)
+      .in('course_id', [c.manualId, ...c.fedegolfIds])
     const byUser = new Map<string, RoundFull[]>()
     for (const r of (clusterRounds ?? []) as RoundFull[]) {
       const arr = byUser.get(r.user_id) ?? []
