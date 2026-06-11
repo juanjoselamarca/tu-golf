@@ -31,7 +31,10 @@ export function torneoEnVivo(
   if (startYmd > hoyYmd) return false // futuro: todavía no empezó
 
   const finYmd = (dateEnd ?? dateStart).slice(0, 10)
-  if (diffDias(finYmd, hoyYmd) > GRACE_DIAS_TORNEO) return false // terminó hace rato
+  // Dato corrupto: si date_end quedó ANTES de date_start (fechas invertidas), es
+  // basura — ignorarlo y usar date_start como fin, para no esconder un torneo real.
+  const finEfectivo = finYmd < startYmd ? startYmd : finYmd
+  if (diffDias(finEfectivo, hoyYmd) > GRACE_DIAS_TORNEO) return false // terminó hace rato
 
   return true
 }

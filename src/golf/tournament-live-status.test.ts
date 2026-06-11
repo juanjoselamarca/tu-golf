@@ -45,6 +45,11 @@ describe('torneoEnVivo', () => {
     expect(torneoEnVivo('draft', null, null, HOY)).toBe(false)
   })
 
+  it('dato corrupto date_end < date_start: arranca hoy → sigue en vivo (no esconder)', () => {
+    // Fechas invertidas: date_end en el pasado, date_start hoy. No esconder el evento.
+    expect(torneoEnVivo('in_progress', '2026-06-11', '2026-01-01', HOY)).toBe(true)
+  })
+
   it('tolera timestamps completos en date_start/date_end (slice a YYYY-MM-DD)', () => {
     expect(torneoEnVivo('in_progress', '2026-06-11T08:00:00Z', null, HOY)).toBe(true)
     expect(torneoEnVivo('in_progress', '2026-10-30T00:00:00Z', null, HOY)).toBe(false)
