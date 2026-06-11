@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-06-08 | Commit: `1e2f661`
+> Auto-generado: 2026-06-11 | Commit: `30b38b7`
 
 ## Último deploy
 
-- **Commit:** `1e2f661` — import-hardening: prevención (CR/slope del catálogo + matcher + DB) (#122)
-- **Fecha:** 2026-06-08
-- **Branch:** chore/equipos-e2e-cleanup-claude (1183 commits total)
+- **Commit:** `30b38b7` — feat(dedup): script barrido de rondas duplicadas (dry-run + apply con backup)
+- **Fecha:** 2026-06-10
+- **Branch:** fix/dedup-canchas-claude (1220 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (52 páginas)
@@ -83,25 +83,25 @@
 
 ---
 
-## 2026-06-07 · Equipos E2E — cierre del plan wizard-equipos + limpieza modelo muerto
+## 2026-06-10 · Dedup de canchas duplicadas (manual ↔ fedegolf) — APLICADO EN PROD
 
-Cierre formal del plan `2026-05-24-wizard-equipos-e2e`. Al retomarlo se descubrió
-que la feature ya está **en producción**: la UI de asignación (modelo "grupo =
-equipo", decisión PM 2026-06-02), la validación de tamaño golf-correcta y la
-materialización a `ronda_equipos` se construyeron en el refactor de `JugadoresPanel`
-y están cubiertas por `useTournamentLifecycle.test.ts`. El plan original apuntaba a
-`tournament_teams`, modelo que el equipo abandonó.
+Cierre del último pendiente del frente del índice (post PR #144): unificación de las
+3 canchas duplicadas EN USO. Diseño v2 blindado tras eng-review adversarial
+(spec `2026-06-10-dedup-canchas-design.md` §11-§13). Decisión: la ficha **manual
+mixta es la canónica** (ya tiene tees M y F en una sola ficha); se le corrigen los
+tees a los valores oficiales fedegolf, las fichas fedegolf V/D se redirigen vía
+`canonical_course_id` y se desactivan. Tocó 0 rondas reales por mover course_id
+(salvo 1 ronda suelta repointada).
 
-- **Test del seam faltante** (`src/__tests__/integration/team-leaderboard.test.ts`):
-  integration contra el schema REAL de `fetchScrambleTeams` / `fetchBestBallTeams`
-  (lo único del flujo de equipos sin test). Se eligió integration determinista sobre
-  browser E2E (CERO FALLOS: cero flakiness, atrapa drift de schema). Con esto los 3
-  seams del flujo quedan testeados: materialización (lifecycle) → fetch (este) →
-  motor (`team-standings`). 4 tests verdes contra prod, fixture se autolimpia.
-- **Fixture reutilizable** (`e2e/helpers/tournament-team-fixture.ts`): siembra el
-  grafo completo torneo→grupos→ronda→equipos→membresía con admin client + cleanup
-  FK-safe. Reusable para futuros tests de equipos.
-- **Modelo muerto eliminado**: `src/lib/data/tournaments/teams.ts` (+ test) y
+- **Lógica pura testeada** (`src/golf/courses/course-dedup.ts`): `planTeeCorrections`
+  (UNA corrección por color canónico — la BD tiene `UNIQUE(course_id,nombre)` sin
+  género, así que un color = un tee), `findDuplicateRounds`, `buildIndexWindows`
+  (réplica de la ventana del RPC para estimar índice antes/después).
+- **Capa de datos idempotente** (`src/lib/data/course-dedup.ts`): decide UPDATE/INSERT
+  por estado real de la BD (no por el plan), throw en todo error de escritura.
+- **Matcher** (`matching.ts`): C3 — devuelve la canónica aunque no esté en el
+  candidate-set; C2 — `historial/stats` ahora trae `canonical_course_id`.
+- **Migración** `20260610_uq_course_tees_identity.sql` (índice único de identidad).
 
 ---
 
