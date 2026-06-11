@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planTeeCorrections, findDuplicateRounds } from '../course-dedup'
+import { planTeeCorrections, findDuplicateRounds, buildIndexWindows, type IndexRound } from '../course-dedup'
 import type { TeeRow } from '../tee-resolver'
 
 // Datos reales Los Leones (verificados vs prod 2026-06-10).
@@ -114,5 +114,50 @@ describe('findDuplicateRounds', () => {
       { id: 'c', ...base, created_at: '2026-05-03T11:00:00Z' },
     ]
     expect(findDuplicateRounds(rounds).sort()).toEqual(['a', 'c']) // conserva 'b'
+  })
+})
+
+describe('buildIndexWindows', () => {
+  const r = (id: string, played_at: string, diferencial: number | null, excluded = false): IndexRound =>
+    ({ id, played_at, diferencial, course_rating: 72, slope_rating: 130, excluded_from_handicap: excluded })
+
+  it('sin correcciones, antes y despues son iguales', () => {
+    const rounds = [r('a', '2026-05-01', 10), r('b', '2026-05-02', 12), r('c', '2026-05-03', 8)]
+    const w = buildIndexWindows(rounds, new Map())
+    expect(w.antes).toEqual(w.despues)
+    expect(w.antes.sort((x, y) => x - y)).toEqual([8, 10, 12])
+  })
+
+  it('sustituye el diferencial de las rondas del cluster en "despues"', () => {
+    const rounds = [r('a', '2026-05-01', 10), r('b', '2026-05-02', 12)]
+    const w = buildIndexWindows(rounds, new Map([['a', 6]]))
+    expect(w.antes.sort((x, y) => x - y)).toEqual([10, 12])
+    expect(w.despues.sort((x, y) => x - y)).toEqual([6, 12]) // 'a' corregida a 6
+  })
+
+  it('filtra rondas excluidas y con diferencial null', () => {
+    const rounds = [r('a', '2026-05-01', 10), r('b', '2026-05-02', null), r('c', '2026-05-03', 8, true)]
+    const w = buildIndexWindows(rounds, new Map())
+    expect(w.antes).toEqual([10]) // b (null) y c (excluida) fuera
+  })
+
+  it('una corrección a null saca la ronda del set "despues" (guard implausibilidad)', () => {
+    const rounds = [r('a', '2026-05-01', 10), r('b', '2026-05-02', 12)]
+    const w = buildIndexWindows(rounds, new Map([['a', null]]))
+    expect(w.antes.sort((x, y) => x - y)).toEqual([10, 12])
+    expect(w.despues).toEqual([12]) // 'a' corregida a null → fuera
+  })
+
+  it('toma solo las últimas 20 por played_at DESC', () => {
+    const rounds: IndexRound[] = []
+    for (let i = 0; i < 25; i++) {
+      const day = String(i + 1).padStart(2, '0')
+      rounds.push(r(`r${i}`, `2026-05-${day}`, i)) // diferencial = i, fecha creciente
+    }
+    const w = buildIndexWindows(rounds, new Map())
+    expect(w.antes).toHaveLength(20)
+    // últimas 20 por fecha = diferenciales 5..24; las 5 más viejas (0..4) quedan fuera
+    expect(Math.min(...w.antes)).toBe(5)
+    expect(Math.max(...w.antes)).toBe(24)
   })
 })

@@ -68,6 +68,46 @@ export function planTeeCorrections(manualTees: TeeRow[], officialTees: TeeRow[])
   })
 }
 
+export interface IndexRound {
+  id: string
+  played_at: string
+  diferencial: number | null
+  course_rating: number | null
+  slope_rating: number | null
+  excluded_from_handicap: boolean
+}
+
+/**
+ * Construye las ventanas de diferenciales para estimar el índice ANTES y DESPUÉS
+ * del dedup (spec §13). Replica la ventana del RPC `calcular_indice_golfers`:
+ *  - solo rondas con diferencial + CR + slope no-null y `excluded_from_handicap=false`
+ *  - ordenadas por `played_at` DESC, las últimas 20
+ *  - el caller aplica `calcularIndiceGolfersLocal` (best-N ×0.96) a cada ventana.
+ *
+ * `correctedDiffById`: para las rondas del cluster, el diferencial recomputado con
+ * los tees corregidos. `null` (guard de implausibilidad) saca la ronda del set
+ * "después". Las rondas de otras canchas conservan su diferencial actual.
+ *
+ * Nota: el filtro de validez se evalúa con el diferencial EFECTIVO (corregido en
+ * "después"), de modo que una ronda que pasa de null a válida entra, y viceversa.
+ */
+export function buildIndexWindows(
+  rounds: IndexRound[],
+  correctedDiffById: Map<string, number | null>,
+): { antes: number[]; despues: number[] } {
+  const window = (useCorrected: boolean): number[] =>
+    rounds
+      .map(r => {
+        const diff = useCorrected && correctedDiffById.has(r.id) ? correctedDiffById.get(r.id)! : r.diferencial
+        return { r, diff }
+      })
+      .filter(({ r, diff }) => diff != null && r.course_rating != null && r.slope_rating != null && !r.excluded_from_handicap)
+      .sort((a, b) => b.r.played_at.localeCompare(a.r.played_at)) // DESC por fecha
+      .slice(0, 20)
+      .map(({ diff }) => diff as number)
+  return { antes: window(false), despues: window(true) }
+}
+
 export interface DupRound {
   id: string
   user_id: string
