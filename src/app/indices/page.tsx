@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Flag } from '@/components/icons'
+import { Flag, Target, TrendingUp, BarChart3 } from '@/components/icons'
 
 /* ── Design tokens ──────────────────────────────────── */
 const gold = '#C4992A'
@@ -187,12 +187,12 @@ export default function IndicesPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                 {[
                   { pts: '55', label: 'Base', desc: 'Tu diferencial promedio ponderado por recencia. Scratch = 55 pts.', icon: <Flag size={16} /> },
-                  { pts: '25', label: 'Consistencia', desc: 'Menos variación entre rondas = más puntos. La desviación te penaliza.', icon: '��' },
-                  { pts: '20', label: 'Tendencia', desc: 'Rondas recientes vs antiguas. Mejorando = más puntos.', icon: '��' },
-                  { pts: '×1', label: 'Volumen', desc: 'Multiplicador de 0 a 1. Con 10+ rondas se desbloquea el 100%.', icon: '��' },
+                  { pts: '25', label: 'Consistencia', desc: 'Menos variación entre rondas = más puntos. La desviación te penaliza.', icon: <Target size={16} /> },
+                  { pts: '20', label: 'Tendencia', desc: 'Rondas recientes vs antiguas. Mejorando = más puntos.', icon: <TrendingUp size={16} /> },
+                  { pts: '×1', label: 'Volumen', desc: 'Multiplicador de 0 a 1. Con 10+ rondas se desbloquea el 100%.', icon: <BarChart3 size={16} /> },
                 ].map(f => (
                   <div key={f.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
-                    <div style={{ fontSize: '20px', marginBottom: '6px' }}>{f.icon}</div>
+                    <div style={{ fontSize: '20px', marginBottom: '6px', color: gold }}>{f.icon}</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' }}>
                       <span style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '22px', fontWeight: 700, color: gold }}>{f.pts}</span>
                       <span style={{ fontSize: '12px', fontWeight: 600, color: ivory }}>{f.label}</span>
