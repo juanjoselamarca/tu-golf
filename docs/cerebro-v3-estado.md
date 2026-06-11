@@ -1,6 +1,30 @@
-# Estado Cerebro V3 — Actualizado 2026-06-06 — Ola 2 ✅ EN PROD · Ola 3 EN CURSO (chunk 1 ✅)
+# Estado Cerebro V3 — Actualizado 2026-06-10 — Ola 2 ✅ EN PROD · Ola 3 EN PAUSA · Coach Data-Access Fase 0 EN REVIEW
 
-## ⏩ RETOMAR ACÁ — Ola 3 chunk 2 (próxima sesión)
+## 🔴 ACTIVO — Coach Data-Access Fase 0 (P0 de campo, Ola 3 EN PAUSA)
+
+Decisión PM (10-jun): pausar Ola 3 y arreglar primero que el coach lea su propia
+data (inbox 09-jun, 4 capturas reales). Es el cimiento de "el coach te conoce".
+Spec: `docs/superpowers/specs/2026-06-10-coach-data-access-fase0-design.md` (v2,
+revisado por arquitecto independiente).
+
+**Worktree:** `.claude/worktrees/coach-data-access` · rama `fix/coach-data-access-claude` · **PR #147** (abierto).
+
+**Hecho y verificado (tsc 0 · 2413 tests · build OK · code-reviewer PASS):**
+- **F (causa raíz #1):** `anti_hallucination.ts` reescrito — el coach usa tools, NO le pide data al jugador, NO culpa al sistema. + `toolsInstruction` en `chat/route.ts`. Test de regresión.
+- **0a (A,B):** `summarizeBucket` expone `course_id`; tool `get_course_scorecard(course)` por nombre/id reusando `findBestCourseMatch`; degrada honesto.
+- **0b (C,D):** tool `find_rounds` (fuente única `historical_rounds` vía `src/lib/data/coach-rounds.ts`, buckets 9h/18h). `get_recent_rounds`/`get_latest_round` re-apuntadas a `historical_rounds` (finding MENOR-1 del review — importado-only ya no ve "sin rondas").
+- **G (credit-out):** 401/402 → fallback Gemini existente.
+- Reproduce el fix de capturas **#2 (pide data), #3 (se contradice), #4 (culpa al sistema)**.
+
+**PENDIENTE antes de merge:** demo en vivo a Juanjo (regla cerebro v3 #4).
+
+**PENDIENTE de Fase 0 (PR siguiente, NO en #147):**
+- **0c (causa E) — captura #1 (confunde índice con handicap de juego):** `context.ts:283-284` conflaciona `handicap=indice`. El handicap de juego WHS necesita **género**, que NO existe en `profiles` → **bloqueante de producto** (cómo capturar/inferir género). Consultar a Juanjo.
+- **Examen real (causa H):** extraer tool-loop a función pura + juez semántico en CI con las 4 capturas como fixtures.
+
+---
+
+## ⏩ Ola 3 chunk 2 (RETOMAR cuando cierre Fase 0)
 
 **Trabajar en MAIN** (Ola 3 chunk 1 ya mergeado, no hay branch abierta). Crear worktree nuevo.
 
