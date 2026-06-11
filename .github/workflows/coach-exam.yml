@@ -1,0 +1,39 @@
+name: Coach Exam (causa H · live)
+
+# Examen semántico del coach contra las 4 capturas reales + el bug de lenguaje
+# golfístico. Corre el coach REAL (Anthropic) contra data sembrada en memoria y
+# juzga con Gemini. NO va en el CI por-PR (gastaría créditos de Anthropic en cada
+# push y la protección per-PR ya la dan los tests offline del harness). Acá corre
+# nocturno + on-demand. Si faltan los secrets, el examen SKIPEA honesto (no falso
+# verde) gracias al gate describe.skipIf del propio test.
+
+on:
+  schedule:
+    - cron: '0 8 * * *' # 08:00 UTC, nocturno Chile
+  workflow_dispatch: {}
+
+jobs:
+  exam:
+    name: Examen live (5 capturas)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Examen semántico (live)
+        run: npx vitest run src/golf/coach/v3/exam/__tests__/exam.test.ts
+        env:
+          COACH_EXAM_LIVE: '1'
+          # Si estos secrets no están seteados, el examen LIVE se salta honesto.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
