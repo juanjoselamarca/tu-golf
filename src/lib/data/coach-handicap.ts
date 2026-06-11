@@ -129,6 +129,6 @@ export async function computePlayingHandicapForCoach(
     handicap_de_juego: handicapDeJuego,
     course_rating: cr,
     slope,
-    nota: `El handicap de juego (${handicapDeJuego}) es DISTINTO del índice (${indice}): se calcula por cancha y tee con la fórmula WHS redondeo(índice × slope/113 + (CR − par)).`,
+    nota: `El handicap de juego (${handicapDeJuego}) es DISTINTO del índice (${indice}): se calcula por cancha y tee${holes === 9 ? ', a 9 hoyos,' : ''} con la fórmula WHS redondeo(índice × slope/113 + (CR − par)), con el CR y el par de ${holes} hoyos.`,
   }
 }

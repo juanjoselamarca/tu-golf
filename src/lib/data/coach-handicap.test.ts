@@ -64,6 +64,10 @@ const teeBlanco = {
   nombre: 'Blanco', genero: 'M', rating: 72.4, slope: 130,
   front_course_rating: null, front_slope_rating: null, back_course_rating: null, back_slope_rating: null,
 }
+const teeBlancoCon9 = {
+  nombre: 'Blanco', genero: 'M', rating: 72.4, slope: 130,
+  front_course_rating: 36.2, front_slope_rating: 128, back_course_rating: 36.2, back_slope_rating: 128,
+}
 
 describe('computePlayingHandicapForCoach — handicap de juego real, sin inventar', () => {
   it('computa el handicap de juego 18h con la fórmula WHS', async () => {
@@ -94,6 +98,35 @@ describe('computePlayingHandicapForCoach — handicap de juego real, sin inventa
     const r = await computePlayingHandicapForCoach(sb, 'u1', { course: LOMAS_ID })
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.tee).toBe('Blanco')
+  })
+
+  it('computa el handicap de juego 9h con el rating de 9 hoyos del tee', async () => {
+    const sb = fakeSupabase({
+      profile: { indice: 9.6, genero: 'M', default_tee_color: 'Blanco' },
+      catalog: [LOMAS],
+      tees: [teeBlancoCon9],
+      parTotal: 72,
+    })
+    const r = await computePlayingHandicapForCoach(sb, 'u1', { course: 'Lomas', holes: 9 })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      // WHS 9h: redondeo(9.6 × 128/113 + (36.2 − 36)) = redondeo(10.87 + 0.2) = 11
+      expect(r.handicap_de_juego).toBe(11)
+      expect(r.holes).toBe(9)
+      expect(r.course_rating).toBe(36.2)
+    }
+  })
+
+  it('degrada honesto a 9h si el tee no tiene rating de 9 hoyos', async () => {
+    const sb = fakeSupabase({
+      profile: { indice: 9.6, genero: 'M', default_tee_color: 'Blanco' },
+      catalog: [LOMAS],
+      tees: [teeBlanco], // solo rating 18h
+      parTotal: 72,
+    })
+    const r = await computePlayingHandicapForCoach(sb, 'u1', { course: 'Lomas', holes: 9 })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.reason).toMatch(/9 hoyos|a 18 hoyos/i)
   })
 
   it('degrada honesto si el jugador no tiene índice (no inventa)', async () => {
