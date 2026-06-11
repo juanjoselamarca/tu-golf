@@ -20,7 +20,7 @@ import { getTeesForCourse } from '@/lib/data/course-tees'
 import { planTeeCorrections, buildIndexWindows, type IndexRound } from '@/golf/courses/course-dedup'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
 import { calcularDiferencial, calcularIndiceGolfersLocal } from '@/lib/indice-golfers'
-import type { TeeUpsert } from '@/golf/courses/course-dedup'
+import { correctedTees } from './dedup-canchas-helpers'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -29,24 +29,6 @@ const sb = createClient(url, key, { auth: { persistSession: false } })
 
 const slug = process.argv[2]
 const n = (v: unknown) => (v == null ? '—' : String(v))
-
-/** Aplica los upserts a los tees manuales EN MEMORIA (espejo de applyTeeCorrections). */
-function correctedTees(manual: TeeRow[], ups: TeeUpsert[]): TeeRow[] {
-  const out = manual.map(t => ({ ...t }))
-  const sameId = (a: TeeRow, nombre: string | null, genero: string | null) =>
-    nombre != null && a.nombre.toLowerCase() === nombre.toLowerCase() && (a.genero ?? null) === (genero ?? null)
-  for (const u of ups) {
-    const fields = {
-      rating: u.rating, slope: u.slope,
-      front_course_rating: u.front_course_rating, front_slope_rating: u.front_slope_rating,
-      back_course_rating: u.back_course_rating, back_slope_rating: u.back_slope_rating,
-    }
-    const target = out.find(t => sameId(t, u.manualNombre, u.genero))
-    if (target) Object.assign(target, fields)
-    else out.push({ nombre: u.nombre, genero: u.genero, ...fields })
-  }
-  return out
-}
 
 interface RoundFull extends IndexRound {
   user_id: string

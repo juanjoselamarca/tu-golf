@@ -99,3 +99,6 @@ scripts/cerebro-v3/.cache/
 
 # Backups locales de migraciones (contienen datos de usuarios — nunca commitear)
 scripts/backups/
+
+# Backups del dedup de canchas (data real de usuarios — no versionar PII)
+docs/backups/
