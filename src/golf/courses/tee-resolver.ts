@@ -62,7 +62,7 @@ const COLOR_SYNONYMS: Record<string, string> = {
  * "negro"/"negras", "blue"/"azul", "blanco"/"blanca" matchean entre sí, sin
  * colapsar colores distintos (azul ≠ negras).
  */
-function canonicalColor(raw: string): string {
+export function canonicalColor(raw: string): string {
   // Primer token: corta loops multi-recorrido ("azul_andes pro_...") y sufijos
   // de género que algunos catálogos meten en el nombre ("amarillo - damas").
   let c = norm(raw).split(/_| - /)[0].trim()
