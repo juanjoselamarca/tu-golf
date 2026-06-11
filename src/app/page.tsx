@@ -42,6 +42,17 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div className="home-mkt">
+      {/* CERO FALLOS: sin JS el RevealObserver no corre y las secciones .rv
+          quedarían en opacity:0. El @media (scripting:none) lo borra el
+          minificador de CSS, así que el override va inline en <noscript>
+          (lo permite style-src 'unsafe-inline'; no pasa por el bundler). */}
+      <noscript>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: '.home-mkt .rv{opacity:1 !important;transform:none !important}',
+          }}
+        />
+      </noscript>
       <Hero />
       <Game />
       <CoachSteps />
