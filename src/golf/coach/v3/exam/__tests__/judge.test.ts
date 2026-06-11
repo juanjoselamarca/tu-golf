@@ -62,6 +62,20 @@ describe('judgeResponse — juez semántico del examen', () => {
     expect(sent).toContain('find_rounds')
   })
 
+  it('falla ruidoso (NO falso-verde) si el JSON no trae las claves esperadas', async () => {
+    const llm: JudgeLLM = vi.fn().mockResolvedValue({ text: '{}' })
+    await expect(
+      judgeResponse({ userMessage: 'x', finalText: 'y', toolsUsed: [], rubric, llm }),
+    ).rejects.toThrow()
+  })
+
+  it('falla ruidoso si el juez devuelve las claves en otro formato (camelCase)', async () => {
+    const llm: JudgeLLM = vi.fn().mockResolvedValue({ text: '{"failedMust":["a"],"violatedMustNot":[]}' })
+    await expect(
+      judgeResponse({ userMessage: 'x', finalText: 'y', toolsUsed: [], rubric, llm }),
+    ).rejects.toThrow()
+  })
+
   it('exige JSON puro al proveedor (responseJson=true)', async () => {
     const llm = vi.fn().mockResolvedValue({ text: '{"failed_must":[],"violated_mustNot":[]}' })
     await judgeResponse({ userMessage: 'x', finalText: 'y', toolsUsed: [], rubric, llm: llm as unknown as JudgeLLM })

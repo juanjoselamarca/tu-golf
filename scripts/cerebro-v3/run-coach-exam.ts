@@ -17,8 +17,7 @@ import { buildMockExecuteTool } from '@/golf/coach/v3/exam/mock-executor'
 import { makeAnthropicExamLLM } from '@/golf/coach/v3/exam/anthropic-llm'
 import { judgeResponse } from '@/golf/coach/v3/exam/judge'
 import { EXAM_CASES } from '@/golf/coach/v3/exam/fixtures'
-import { TAIGER_SYSTEM_PROMPT } from '@/golf/coach/prompts'
-import { TOOLS_INSTRUCTION } from '@/golf/coach/prompts/tools-instruction'
+import { buildExamSystem } from '@/golf/coach/v3/exam/build-exam-system'
 import { TAIGER_TOOLS } from '@/golf/coach/tools'
 
 async function main() {
@@ -28,14 +27,13 @@ async function main() {
 
   const anthropic = new Anthropic({ apiKey })
   const llm = makeAnthropicExamLLM(anthropic)
-  const system = `${TAIGER_SYSTEM_PROMPT}\n\nINSTRUCCIÓN DE SESIÓN:\nResponde la consulta del jugador.${TOOLS_INSTRUCTION}`
 
   let passed = 0
   const failures: string[] = []
   for (const caso of EXAM_CASES) {
     const exec = buildMockExecuteTool(caso.seed)
     const turn = await runExamTurn({
-      system,
+      system: buildExamSystem(caso.seed),
       userMessage: caso.userMessage,
       tools: [...TAIGER_TOOLS] as unknown[],
       executeTool: exec,

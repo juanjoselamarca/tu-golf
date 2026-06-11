@@ -11,7 +11,7 @@
  *    violar (`mustNot`), evaluadas por el juez semántico.
  */
 
-const LOMAS_ID = '00000000-0000-4000-8000-00000000l0ma'
+const LOMAS_ID = '00000000-0000-4000-8000-0000000010a5'
 // Par 72 realista (front 36 + back 36).
 const LOMAS_PARES = [4, 4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5]
 

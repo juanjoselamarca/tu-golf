@@ -95,19 +95,17 @@ describe.skipIf(!LIVE || !hasKeys)('Examen coach — LIVE (4 capturas + lenguaje
     // Imports diferidos: solo cuando el bloque corre de verdad.
     const Anthropic = (await import('@anthropic-ai/sdk')).default
     const { makeAnthropicExamLLM } = await import('../anthropic-llm')
-    const { TAIGER_SYSTEM_PROMPT } = await import('@/golf/coach/prompts')
-    const { TOOLS_INSTRUCTION } = await import('@/golf/coach/prompts/tools-instruction')
+    const { buildExamSystem } = await import('../build-exam-system')
     const { TAIGER_TOOLS } = await import('@/golf/coach/tools')
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
     const llm = makeAnthropicExamLLM(anthropic)
-    const system = `${TAIGER_SYSTEM_PROMPT}\n\nINSTRUCCIÓN DE SESIÓN:\nResponde la consulta del jugador.${TOOLS_INSTRUCTION}`
 
     const failures: string[] = []
     for (const caso of EXAM_CASES) {
       const exec = buildMockExecuteTool(caso.seed)
       const turn = await runExamTurn({
-        system, userMessage: caso.userMessage, tools: [...TAIGER_TOOLS] as unknown[], executeTool: exec, llm,
+        system: buildExamSystem(caso.seed), userMessage: caso.userMessage, tools: [...TAIGER_TOOLS] as unknown[], executeTool: exec, llm,
       })
       const verdict = await judgeResponse({
         userMessage: caso.userMessage, finalText: turn.finalText, toolsUsed: turn.toolsUsed, rubric: caso.rubric,

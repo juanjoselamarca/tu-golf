@@ -49,8 +49,15 @@ function parseJudgeJson(text: string): { failed_must: string[]; violated_mustNot
     failed_must?: unknown
     violated_mustNot?: unknown
   }
-  const asStrings = (v: unknown): string[] =>
-    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+  // NO falso-verde: si el juez no devuelve AMBAS claves como arrays, es un
+  // veredicto inválido — lanzamos en vez de asumir "sin violaciones" (que
+  // pasaría el examen). Un gate de regresión nunca debe pasar por defecto.
+  if (!Array.isArray(obj.failed_must) || !Array.isArray(obj.violated_mustNot)) {
+    throw new Error(
+      `Juez devolvió un JSON sin las claves esperadas (failed_must / violated_mustNot): ${text.slice(0, 200)}`,
+    )
+  }
+  const asStrings = (v: unknown[]): string[] => v.filter((x): x is string => typeof x === 'string')
   return { failed_must: asStrings(obj.failed_must), violated_mustNot: asStrings(obj.violated_mustNot) }
 }
 
