@@ -50,7 +50,7 @@ function toNum(v: unknown): number | null {
 const round1 = (n: number) => Math.round(n * 10) / 10
 
 /** CR mínimo creíble de 18 hoyos. Por debajo asumimos un CR de 9 hoyos (legacy). */
-const MIN_18H_COURSE_RATING = 55
+export const MIN_18H_COURSE_RATING = 55
 
 /**
  * Computa las métricas relativas de UNA ronda (9 o 18 hoyos), o null si no es

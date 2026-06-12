@@ -11,6 +11,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { FOCUS_CATALOG, MEASURE_BY_KEY, type FocusCandidate } from './catalog'
 
 interface PatternDefRow {
+  source?: string | null
+  weight?: number | string | null
   pattern_key: string
   name: string
   formula_payload: {
@@ -24,7 +26,7 @@ interface PatternDefRow {
 export async function loadFocusCatalog(supabase: SupabaseClient): Promise<FocusCandidate[]> {
   const { data, error } = await supabase
     .from('pattern_definitions')
-    .select('pattern_key, name, formula_payload')
+    .select('pattern_key, name, formula_payload, source, weight')
     .eq('status', 'active')
 
   if (error || !data || data.length === 0) return FOCUS_CATALOG
@@ -45,6 +47,8 @@ export async function loadFocusCatalog(supabase: SupabaseClient): Promise<FocusC
       minConfidence: typeof p.min_confidence === 'number' ? p.min_confidence : 0.5,
       minSample: typeof p.min_sample === 'number' ? p.min_sample : 3,
       measure,
+      source: row.source ?? undefined,
+      defaultWeight: row.weight != null && Number.isFinite(Number(row.weight)) ? Number(row.weight) : undefined,
     })
   }
   // Si por algún motivo no quedó ninguno ligable, fallback al código.

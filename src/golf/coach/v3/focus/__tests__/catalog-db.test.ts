@@ -62,4 +62,15 @@ describe('loadFocusCatalog — catálogo desde pattern_definitions (Ola 3)', () 
     const c = await loadFocusCatalog(fakeClient({ data: null, error: { message: 'boom' } }))
     expect(c).toBe(FOCUS_CATALOG)
   })
+
+  it('mapea source y weight de pattern_definitions a source/defaultWeight', async () => {
+    const c = await loadFocusCatalog(fakeClient({ data: [ROW('post_bogey_spiral', { source: 'seed', weight: 0.7 })], error: null }))
+    expect(c[0].source).toBe('seed')
+    expect(c[0].defaultWeight).toBe(0.7)
+  })
+
+  it('weight no numérico → defaultWeight undefined (cae a DEFAULT en selectFocus)', async () => {
+    const c = await loadFocusCatalog(fakeClient({ data: [ROW('post_bogey_spiral', { weight: null })], error: null }))
+    expect(c[0].defaultWeight).toBeUndefined()
+  })
 })
