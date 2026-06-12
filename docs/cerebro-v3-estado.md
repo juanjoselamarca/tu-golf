@@ -27,22 +27,22 @@ juego 9.6→13). Spec: `docs/superpowers/specs/2026-06-10-coach-data-access-fase
 - **Bucket B (decisión de producto):** rollout del flag a todos (necesita security review), asesor-equipo-web, sub-olas 1a-1d, **Ola 3 chunk 2** (el avance real).
 ---
 
-## 🟡 Ola 3 chunk 2 — EN CURSO (branch `feat/cerebro-v3-ola3-chunk2-claude`, NO mergeado)
+## ✅ Ola 3 chunk 2 — COMPLETO (branch `feat/cerebro-v3-ola3-chunk2-claude`, en review/PR)
 
-Diseño del subagente Fable en `docs/superpowers/plans/2026-06-11-cerebro-v3-ola3-chunk2.md`.
-**Núcleo puro construido y testeado (tsc 0):**
-- ✅ `pattern-validator.ts` — Cohen d signado + R² OLS, gates AND, función total sin NaN (12 tests). EL CORAZÓN.
-- ✅ métricas per-ronda `short_game_gap` + `three_putt_rate` (6 tests) → cobertura 8/9 patrones.
-- ✅ runner puro `OBSERVE_BY_KEY` + `computeObservationsForRound` (6 tests).
+Diseño Fable en `docs/superpowers/plans/2026-06-11-cerebro-v3-ola3-chunk2.md`. tsc 0 · 2545 tests · build OK.
+**El cerebro observa y ajusta:** cada ronda produce observaciones por patrón → validador estadístico puro decide si es real → el veredicto gatea el foco en runtime.
 
-**Pendiente (DB + wiring, próxima sesión) — orden del plan §7:**
-1. Migración `pattern_observations` (FK historical_rounds, RLS, seed cerebro_weights) + tests integración. Schema de prod ya verificado.
-6. `backfillPatternObservations` (orquestador idempotente, mock supabase).
-8. `loadObservationPairs` (lib/data, join con diferencial elegible).
-9. Gate por tiers en `selectFocus` + peso 3 niveles + canario de comportamiento.
-10. `loadFocusCatalog` mapea source/weight. 11. `getFocus` +dep `loadValidation`. 12. canarios wiring + hook en `getProgress`. 13. script + corrida real vs Juanjo (gate demo).
+- `pattern-validator.ts`: Cohen d signado + R² OLS, gates AND, función total sin NaN (12 tests).
+- 2 métricas per-ronda (`short_game_gap`, `three_putt_rate`) → cobertura 8/9 (6 tests).
+- `pattern-runner.ts`: `computeObservationsForRound` puro + `backfillPatternObservations` idempotente (9 tests).
+- Migración `pattern_observations` aplicada en prod (FK historical_rounds, RLS, seed 9 pesos).
+- Gate por tiers en `selectFocus` + peso 3 niveles (cerebro_weights→defaultWeight→DEFAULT); muerde a gen-0 cuando los datos dicen ruido, no regresa la UX Ola 2.
+- `loadObservationPairs` + `catalog-db` mapea source/weight + `getFocus` 5ª dep `loadValidation` (degrada conservador).
+- Hook en `getProgress` (consumo runtime) + 4 canarios anti-decoración ENFORCED.
 
-NO mergear hasta tener el wiring completo (validador + métricas sin consumir = decoración). Cierre: tsc·tests·build·code-reviewer·demo (regla #4).
+**Demo real (gate regla #4) — vs Juanjo, 113 rondas, 515 observaciones:** el validador confirma SOLO su foco real `post_bogey_spiral` (R²=0.54, Δ5.6 strokes) + `par_3_weakness` (R²=0.25); descarta 5 patrones por effect_too_small/r2_too_low/wrong_direction. **2/7 válidos, cero foco-fantasía.** `first_hole_anxiety` cae por r2_too_low (d=0.51 pero R²=0.11 → el AND funcionó en datos reales).
+
+**Pendiente para cerrar:** code-reviewer (diff >100 LOC) → merge → flag sigue por usuario. Escepticismo Fable anotado: subir minN 10→15-20 en chunk 3 (a N=10 el gate R² deja pasar nulos ~1/4). Chunk 3 = fórmula declarativa (patrón nuevo solo por SQL).
 
 ---
 ## ⏩ Ola 3 chunk 2 (RETOMAR cuando cierre Fase 0)
