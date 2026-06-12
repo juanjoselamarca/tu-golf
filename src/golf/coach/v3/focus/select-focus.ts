@@ -20,11 +20,13 @@ export function deltaVsTarget(target: FocusTarget | null): number | null {
 }
 
 /** Peso vivo del patrón (parameter_type='pattern') leído de cerebro_weights. */
-export function patternWeight(weights: CerebroWeight[], patternId: string): number {
+export function patternWeight(weights: CerebroWeight[], patternId: string, defaultWeight?: number): number {
   const w = weights.find(
     (x) => x.parameter_type === 'pattern' && x.parameter_key === patternId,
   )
-  return w ? w.current_weight : DEFAULT_PATTERN_WEIGHT
+  if (w) return w.current_weight
+  if (typeof defaultWeight === 'number') return defaultWeight
+  return DEFAULT_PATTERN_WEIGHT
 }
 
 function toPatternRound(r: RoundData): PatternRound {
@@ -72,7 +74,22 @@ export function selectFocus(input: SelectFocusInput): FocusResult {
     if (!baseline) continue
     if (baseline.muestra < c.minSample) continue // gate: muestra insuficiente
 
-    const peso = patternWeight(input.weights, c.patternId)
+    // Gate del validador anti-fantasía (Ola 3 chunk 2), por tiers:
+    //  - veredicto concluyente negativo (hubo datos) → EXCLUIDO siempre, aunque el detect dispare.
+    //  - sin datos o sin veredicto → seed sigue por su gate de detect; no-seed se excluye.
+    const verdict = input.validation?.[c.patternId]
+    const esSeed = (c.source ?? 'seed') === 'seed'
+    const datosConcluyentes =
+      !!verdict && !verdict.valido &&
+      ['effect_too_small', 'r2_too_low', 'wrong_direction', 'degenerate_variance', 'degenerate_split'].includes(
+        verdict.razon,
+      )
+    if (datosConcluyentes) continue
+    const validadoOk = verdict?.valido === true
+    const sinDatos = !verdict || verdict.razon === 'serie_vacia' || verdict.razon === 'insufficient_n'
+    if (!validadoOk && !(sinDatos && esSeed)) continue
+
+    const peso = patternWeight(input.weights, c.patternId, c.defaultWeight)
     const impacto = Math.round(detected.confidence * peso * 10000) / 10000
     candidates.push({
       kind: 'focus',
@@ -85,6 +102,9 @@ export function selectFocus(input: SelectFocusInput): FocusResult {
       peso,
       metrica: { key: c.metricKey, valor: baseline.valor, muestra: baseline.muestra },
       evidencia: detected.metadata,
+      validacion: verdict
+        ? { n: verdict.n, effectSize: verdict.effectSize, r2: verdict.r2, meanDeltaStrokes: verdict.meanDeltaStrokes }
+        : null,
       deltaVsTarget: delta,
     })
   }

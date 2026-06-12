@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { selectFocus } from '../select-focus'
+import { selectFocus, patternWeight, DEFAULT_PATTERN_WEIGHT } from '../select-focus'
+import { FOCUS_CATALOG } from '../catalog'
+import type { PatternVerdict } from '../../pattern-validator'
 import type { CerebroWeight } from '@/lib/cerebro/weights'
 import { round, spiralRound, multiPatternRound, nineHoleSpiral, shortGameRound, NO_TARGET } from './fixtures'
 
@@ -123,5 +125,61 @@ describe('selectFocus — gate de muestra (anti-fantasía)', () => {
     expect(result.kind).toBe('fallback')
     if (result.kind !== 'fallback') throw new Error('unreachable')
     expect(result.reason).toBe('no_pattern_passed_gate')
+  })
+})
+
+const verdict = (over: Partial<PatternVerdict>): PatternVerdict => ({
+  valido: false, n: 30, effectSize: 0.1, r2: 0.05, pValue: 0.4, meanDeltaStrokes: 0.5, razon: 'r2_too_low', ...over,
+})
+
+describe('selectFocus — gate del validador anti-fantasía (Ola 3 chunk 2)', () => {
+  const rounds = [spiralRound('r1'), spiralRound('r2'), spiralRound('r3'), spiralRound('r4')]
+
+  it('REGRESIÓN: sin validation el comportamiento no cambia (elige post_bogey_spiral)', () => {
+    const r = selectFocus({ rounds, weights: [], target: NO_TARGET })
+    expect(r.kind).toBe('focus')
+    if (r.kind === 'focus') expect(r.patternId).toBe('post_bogey_spiral')
+  })
+
+  it('veredicto concluyente negativo (r2_too_low) EXCLUYE un patrón seed aunque el detect dispare', () => {
+    const r = selectFocus({ rounds, weights: [], target: NO_TARGET, validation: { post_bogey_spiral: verdict({ razon: 'r2_too_low' }) } })
+    expect(r.kind).toBe('fallback')
+    if (r.kind === 'fallback') expect(r.reason).toBe('no_pattern_passed_gate')
+  })
+
+  it('insufficient_n NO castiga a un patrón seed (no regresión Ola 2)', () => {
+    const r = selectFocus({ rounds, weights: [], target: NO_TARGET, validation: { post_bogey_spiral: verdict({ razon: 'insufficient_n', effectSize: null, r2: null }) } })
+    expect(r.kind).toBe('focus')
+    if (r.kind === 'focus') expect(r.patternId).toBe('post_bogey_spiral')
+  })
+
+  it('veredicto válido adjunta la evidencia (validacion) al foco', () => {
+    const r = selectFocus({ rounds, weights: [], target: NO_TARGET, validation: { post_bogey_spiral: { valido: true, n: 40, effectSize: 0.6, r2: 0.3, pValue: 0.001, meanDeltaStrokes: 2.3, razon: 'passed' } } })
+    expect(r.kind).toBe('focus')
+    if (r.kind === 'focus') expect(r.validacion).toMatchObject({ n: 40, r2: 0.3, meanDeltaStrokes: 2.3 })
+  })
+
+  it('un candidato NO-seed (discovered) sin veredicto NUNCA es foco', () => {
+    const discovered = FOCUS_CATALOG.filter((c) => c.patternId === 'post_bogey_spiral').map((c) => ({ ...c, source: 'discovered' }))
+    const r = selectFocus({ rounds, weights: [], target: NO_TARGET, catalog: discovered })
+    expect(r.kind).toBe('fallback')
+  })
+
+  it('el mismo discovered CON veredicto válido sí es foco', () => {
+    const discovered = FOCUS_CATALOG.filter((c) => c.patternId === 'post_bogey_spiral').map((c) => ({ ...c, source: 'discovered' }))
+    const r = selectFocus({ rounds, weights: [], target: NO_TARGET, catalog: discovered, validation: { post_bogey_spiral: { valido: true, n: 40, effectSize: 0.6, r2: 0.3, pValue: 0.001, meanDeltaStrokes: 2.3, razon: 'passed' } } })
+    expect(r.kind).toBe('focus')
+  })
+})
+
+describe('patternWeight — 3 niveles (cerebro_weights → defaultWeight → DEFAULT)', () => {
+  it('usa defaultWeight cuando no hay override en cerebro_weights', () => {
+    expect(patternWeight([], 'x', 0.7)).toBe(0.7)
+  })
+  it('cerebro_weights gana sobre defaultWeight', () => {
+    expect(patternWeight([patternW('x', 0.9)], 'x', 0.2)).toBe(0.9)
+  })
+  it('sin nada cae a DEFAULT_PATTERN_WEIGHT', () => {
+    expect(patternWeight([], 'x')).toBe(DEFAULT_PATTERN_WEIGHT)
   })
 })

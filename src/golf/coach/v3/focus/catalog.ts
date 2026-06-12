@@ -46,6 +46,10 @@ export interface FocusCandidate {
   /** Muestra mínima (rondas con métrica no nula) para no rankear sobre ruido. */
   minSample: number
   /** Baseline en escala PLAN_METRIC, o null si no hay datos suficientes. */
+  /** Origen del patrón (seed gen-0 | admin | discovered | imported). Default seed. */
+  source?: string
+  /** Peso default del catálogo (pattern_definitions.weight). cerebro_weights lo overridea. */
+  defaultWeight?: number
   measure: (ctx: MeasureCtx) => Baseline | null
 }
 
