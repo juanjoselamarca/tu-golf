@@ -40,8 +40,9 @@ CREATE POLICY pattern_obs_service_write ON pattern_observations
 -- Pesos por patrón individual en el paramétrico vivo: 1 fila 'pattern' por
 -- patrón gen-0, sincronizada con el weight default de pattern_definitions.
 -- Aparecen como sliders en /admin/cerebro/pesos y se propagan en vivo (Realtime).
--- Idempotente vía NOT EXISTS (la UNIQUE es (type,key,user_cluster_id) y
--- user_cluster_id NULL es distinto de NULL en la UNIQUE → NOT EXISTS evita dups).
+-- Idempotente vía NOT EXISTS. Backstop a nivel DB: el índice parcial único
+-- (parameter_type, parameter_key) WHERE user_cluster_id IS NULL
+-- (20260527_cerebro_v3_observability.sql) ya impide duplicados globales.
 INSERT INTO cerebro_weights (parameter_type, parameter_key, current_weight, source)
 SELECT 'pattern', pd.pattern_key, pd.weight, 'seed'
 FROM pattern_definitions pd

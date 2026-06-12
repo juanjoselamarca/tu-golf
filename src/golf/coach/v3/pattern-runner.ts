@@ -49,6 +49,9 @@ export const OBSERVE_BY_KEY: Record<string, (round: RoundData) => ComputedMetric
   first_hole_anxiety: computeFirstHole,
   par_3_weakness: computePar3VsPar,
   pressure_deterioration: computeLast4MinusRest,
+  // OJO: para short_game_weakness y three_putt_frequency el value observado
+  // (gap par4-par5 / fracción 3-putts) es la SERIE DE VALIDACIÓN — escala distinta
+  // del baseline que muestra el catálogo (measure). No unificar: son a propósito.
   short_game_weakness: computeShortGameGap,
   three_putt_frequency: computeThreePuttRate,
 }
@@ -122,6 +125,9 @@ interface RawHistoricalRow {
  * nuevo acumula evidencia ANTES de activarse). Service_role (la RLS solo deja
  * escribir a service_role). Re-correr no duplica: salta lo ya observado en
  * memoria + UNIQUE(pattern_id,round_id) con ignoreDuplicates de cinturón.
+ * Decisión: escribe AMPLIO (todas las rondas); la elegibilidad (CR>=55, no
+ * excluida) la aplica loadObservationPairs al LEER, no acá — reescribir
+ * observaciones si cambia la elegibilidad sería caro y la fila cruda no molesta.
  */
 export async function backfillPatternObservations(
   admin: SupabaseClient,
