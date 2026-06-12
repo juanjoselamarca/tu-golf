@@ -120,6 +120,26 @@ const ENFORCED: WiringContract[] = [
     consumer: 'golf/coach/v3/focus/catalog-db.ts',
     needles: ['pattern_definitions'],
   },
+  {
+    piece: 'pattern_observations se ESCRIBE en runtime (backfill en get_progress) [Ola 3 chunk 2]',
+    consumer: 'golf/coach/v3/tools/focus-tools.ts',
+    needles: ['backfillPatternObservations'],
+  },
+  {
+    piece: 'El runner consulta pattern_definitions y escribe pattern_observations',
+    consumer: 'golf/coach/v3/pattern-runner.ts',
+    needles: ['pattern_observations', 'pattern_definitions'],
+  },
+  {
+    piece: 'Validador anti-fantasía consumido por el motor de foco',
+    consumer: 'golf/coach/v3/focus/get-focus.ts',
+    needles: ['loadValidation', 'validatePattern'],
+  },
+  {
+    piece: 'selectFocus gatea candidatos por el veredicto del validador',
+    consumer: 'golf/coach/v3/focus/select-focus.ts',
+    needles: ['input.validation', 'datosConcluyentes'],
+  },
 ]
 
 describe('Canario wiring cerebro v3: piezas VIVAS no se desconectan', () => {

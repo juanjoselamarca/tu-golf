@@ -1,6 +1,7 @@
 import type { RoundData } from '@/golf/coach/metrics'
 import type { CerebroWeight } from '@/lib/cerebro/weights'
 import type { FocusCandidate } from './catalog'
+import type { PatternVerdict } from '../pattern-validator'
 
 /** Meta del jugador + handicap actual, ya resueltos por el orquestador. */
 export interface FocusTarget {
@@ -16,6 +17,8 @@ export interface SelectFocusInput {
   target: FocusTarget | null
   /** Catálogo de candidatos. Por defecto el de código; Ola 3 lo carga de DB. */
   catalog?: FocusCandidate[]
+  /** Veredicto del validador anti-fantasía por patrón (Ola 3 chunk 2). */
+  validation?: Record<string, PatternVerdict>
 }
 
 /** El foco elegido: la palanca de mayor impacto hacia la meta, con evidencia. */
@@ -36,6 +39,8 @@ export interface Focus {
   metrica: { key: string; valor: number; muestra: number }
   /** Metadata del detect() — los números que justifican el foco. */
   evidencia: Record<string, unknown>
+  /** Evidencia estadística del validador (Ola 3 chunk 2), o null si no se evaluó. */
+  validacion?: { n: number; effectSize: number | null; r2: number | null; meanDeltaStrokes: number | null } | null
   deltaVsTarget: number | null
 }
 
