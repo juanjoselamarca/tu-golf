@@ -108,6 +108,7 @@ describe('get_focus (tool)', () => {
       loadTarget: async () => ({ currentHandicap: 18, targetHandicap: 12, targetDeadline: null }),
       loadWeights: async () => [],
       loadCatalog: async () => FOCUS_CATALOG,
+      loadValidation: async () => ({}),
     }
     const r = await getFocusTool(ctx(fakeClient({})), deps)
     expect(r.ok).toBe(true)

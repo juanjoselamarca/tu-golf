@@ -31,6 +31,7 @@ describe('getFocus — orquestación con dependencias inyectadas', () => {
       loadTarget: async () => ({ currentHandicap: 20, targetHandicap: 14, targetDeadline: null }),
       loadWeights: async () => [],
       loadCatalog: async () => FOCUS_CATALOG,
+      loadValidation: async () => ({}),
       ...over,
     }
   }
@@ -58,6 +59,15 @@ describe('getFocus — orquestación con dependencias inyectadas', () => {
     if (result.kind !== 'fallback') throw new Error('unreachable')
     expect(result.reason).toBe('cold_start')
     expect(result.handicap).toBe(20)
+  })
+
+  it('consume el validador: un veredicto negativo concluyente excluye el patrón', async () => {
+    const result = await getFocus('user-1', deps({
+      loadValidation: async () => ({
+        post_bogey_spiral: { valido: false, n: 30, effectSize: 0.1, r2: 0.05, pValue: 0.4, meanDeltaStrokes: 0.5, razon: 'r2_too_low' },
+      }),
+    }))
+    expect(result.kind).toBe('fallback')
   })
 })
 

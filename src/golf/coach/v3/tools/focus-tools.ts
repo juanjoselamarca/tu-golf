@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { getFocus, defaultFocusDeps, type GetFocusDeps } from '@/golf/coach/v3/focus'
 import { backfillRoundMetrics } from '@/golf/coach/v3/progress/round-metrics'
+import { backfillPatternObservations } from '@/golf/coach/v3/pattern-runner'
 
 export type ToolResult = { ok: true; data: unknown } | { ok: false; error: string }
 
@@ -171,6 +172,8 @@ export async function getProgress(
   // el backfill NUNCA debe romper la lectura del avance.
   try {
     await backfillRoundMetrics(admin, ctx.userId)
+    // Ola 3 chunk 2: poblar observaciones de patrones (idempotente, best-effort).
+    await backfillPatternObservations(admin, ctx.userId)
   } catch {
     /* best-effort: la serie ya persistida sigue sirviendo */
   }
