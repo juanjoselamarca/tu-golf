@@ -32,7 +32,7 @@ INSERT INTO pattern_definitions (
 
 -- Sync peso al paramétrico vivo.
 INSERT INTO cerebro_weights (parameter_type, parameter_key, current_weight, source)
-SELECT 'pattern', 'scoring_after_first_double', 0.4, 'admin'
+SELECT 'pattern', 'scoring_after_first_double', 0.4, 'manual'
 WHERE NOT EXISTS (
   SELECT 1 FROM cerebro_weights
   WHERE parameter_type = 'pattern'
