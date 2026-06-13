@@ -1,19 +1,20 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-06-11 | Commit: `30b38b7`
+> Auto-generado: 2026-06-13 | Commit: `ed00d10`
 
 ## Último deploy
 
-- **Commit:** `30b38b7` — feat(dedup): script barrido de rondas duplicadas (dry-run + apply con backup)
-- **Fecha:** 2026-06-10
-- **Branch:** fix/dedup-canchas-claude (1220 commits total)
+- **Commit:** `ed00d10` — feat(costos): PR-0 medición real de costo de IA por item (#161)
+- **Fecha:** 2026-06-13
+- **Branch:** docs/sprint-costos (1224 commits total)
 - **URL:** https://golfersplus.vercel.app
 
-## Páginas en producción (52 páginas)
+## Páginas en producción (53 páginas)
 
 - `/admin/analytics`
 - `/admin/cerebro/fuentes`
 - `/admin/cerebro/pesos`
+- `/admin/costos`
 - `/admin/e2e`
 - `/admin/finanzas`
 - `/admin/golf-ops`
@@ -83,25 +84,25 @@
 
 ---
 
-## 2026-06-10 · Dedup de canchas duplicadas (manual ↔ fedegolf) — APLICADO EN PROD
+## 2026-06-12 · PR-0 Medición real de costo de IA por item — EN PROD (PR #161)
 
-Cierre del último pendiente del frente del índice (post PR #144): unificación de las
-3 canchas duplicadas EN USO. Diseño v2 blindado tras eng-review adversarial
-(spec `2026-06-10-dedup-canchas-design.md` §11-§13). Decisión: la ficha **manual
-mixta es la canónica** (ya tiene tees M y F en una sola ficha); se le corrigen los
-tees a los valores oficiales fedegolf, las fichas fedegolf V/D se redirigen vía
-`canonical_course_id` y se desactivan. Tocó 0 rondas reales por mover course_id
-(salvo 1 ronda suelta repointada).
+Cierre del agujero de observabilidad que dejó el credit-out del 11-jun: el coach
+llamaba a Anthropic **directo**, salteando el gateway que loguea en `ai_usage`. El
+mayor consumidor de tokens de la app no se medía. Este PR-0 hace medible el
+unit-economics ANTES de subir tokens/turno con el plan WOW del coach.
 
-- **Lógica pura testeada** (`src/golf/courses/course-dedup.ts`): `planTeeCorrections`
-  (UNA corrección por color canónico — la BD tiene `UNIQUE(course_id,nombre)` sin
-  género, así que un color = un tee), `findDuplicateRounds`, `buildIndexWindows`
-  (réplica de la ventana del RPC para estimar índice antes/después).
-- **Capa de datos idempotente** (`src/lib/data/course-dedup.ts`): decide UPDATE/INSERT
-  por estado real de la BD (no por el plan), throw en todo error de escritura.
-- **Matcher** (`matching.ts`): C3 — devuelve la canónica aunque no esté en el
-  candidate-set; C2 — `historial/stats` ahora trae `canonical_course_id`.
-- **Migración** `20260610_uq_course_tees_identity.sql` (índice único de identidad).
+- **Migración aditiva a `ai_usage`** (`20260612_ai_usage_cost_tracking.sql`): `user_id`,
+  `surface`, `session_id`, `cache_read_tokens`, `cache_write_tokens` (+índices).
+  Backward-compatible, idempotente, **aplicada en prod** (columnas vivas).
+- **`estimateCostUsd` cache-aware** (`src/lib/ai/costs.ts`): cache write 1.25×, read
+  0.10× sobre la tarifa input; overload posicional legacy para el gateway. Sin esto el
+  costo del coach (caching ephemeral agresivo) salía mal.
+- **Coach instrumentado** (`chat-engine.ts` + `usage-accumulator.ts`): acumula
+  `message.usage` sobre TODO el tool-loop + la regeneración aritmética y loguea 1
+  row/turno `surface=coach_chat`. **Aditivo y fire-and-forget — no cambia ni bloquea
+  el turno** (CERO FALLOS).
+- **Surfaces tagueadas** vía `callLLM`: `import_insight`, `tournament_assistant`,
+  `coach_chat` (fallback degradado), `eval` (judge → `ai_env=dev`, excluido de prod).
 
 ---
 
