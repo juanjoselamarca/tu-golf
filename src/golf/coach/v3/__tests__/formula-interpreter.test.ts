@@ -175,6 +175,20 @@ describe('hole_filter_agg', () => {
     expect(result.value).toBe(1.5)
   })
 
+  it('pct aggregate con metric no-count → null (guard I-1)', () => {
+    const scores = [5, 4, 4, 5, 6, 5, 4, 5, 6, 5, 5, 4, 5, 6, 5, 4, 5, 6]
+    const def = makeDef({
+      type: 'hole_filter_agg',
+      filter: { field: 'over_par', op: 'gte', value: 1 },
+      scope: 'all',
+      compute: { metric: 'score', aggregate: 'pct' },
+    })
+    const observe = interpretObserver(def)!
+    const result = observe(makeRound(scores))
+    expect(result.value).toBeNull()
+    expect(result.reason).toBe('computation_error')
+  })
+
   it('pct aggregate', () => {
     // Count fraction of holes with bogey or worse
     const scores = [5, 4, 4, 5, 6, 5, 4, 5, 6, 5, 5, 4, 5, 6, 5, 4, 5, 6]
@@ -287,6 +301,25 @@ describe('metadata_extract', () => {
     const observe = interpretObserver(def)!
     const result = observe(round)
     expect(result.value).toBeNull()
+  })
+
+  it('9-hole round with metadata → value extraído (diseño: metadata es round-level)', () => {
+    const round: RoundData = {
+      id: 'r-9h',
+      scores: [4, 4, 3, 4, 5, 4, 3, 4, 5],
+      total_gross: 36,
+      par_per_hole: {},
+      played_at: '2026-01-01',
+      metadata: { driving_accuracy: 0.65 },
+    }
+    const def = makeDef({
+      type: 'metadata_extract',
+      path: 'driving_accuracy',
+      mode: 'scalar',
+    })
+    const observe = interpretObserver(def)!
+    const result = observe(round)
+    expect(result.value).toBe(0.65)
   })
 
   it('null metadata → null', () => {

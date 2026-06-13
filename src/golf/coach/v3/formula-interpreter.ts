@@ -151,7 +151,9 @@ function computeAggregate(
   if (indices.length === 0) return null
 
   if (compute.aggregate === 'pct') {
-    // For 'count' metric with 'pct': fraction of matching holes over total
+    // 'pct' solo tiene sentido con metric='count' (fracción de hoyos seleccionados).
+    // Combinaciones como { metric: 'score', aggregate: 'pct' } son un error del admin.
+    if (compute.metric !== 'count') return null
     return indices.length / totalHoles
   }
 
@@ -183,6 +185,13 @@ function computeAggregate(
 
 // ── metadata_extract ──────────────────────────────────────────────────────────
 
+/**
+ * Decisión de diseño: metadata_extract NO gatea por validScores (18 hoyos).
+ * La metadata es propiedad de la ronda completa (e.g., putts, fairways), no de
+ * la cantidad de hoyos. Una ronda de 9 hoyos con metadata válida CONTRIBUYE
+ * observaciones — la elegibilidad (CR≥55, 18h) la aplica loadObservationPairs
+ * al LEER, no el runner al escribir (misma filosofía que backfillPatternObservations).
+ */
 function buildMetadataExtractObserver(
   recipe: MetadataExtractRecipe,
 ): (round: RoundData) => ComputedMetric {

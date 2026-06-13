@@ -141,7 +141,7 @@ export async function backfillPatternObservations(
     .select('id, pattern_key, version, formula_kind, status, formula_payload')
     .in('status', ['active', 'validating'])
   if (defsErr) throw defsErr
-  const defs = (defsRaw ?? []) as RunnablePatternDef[]
+  const defs = (defsRaw ?? []) as RunnablePatternDefWithPayload[]
 
   const { data: roundsRaw, error: rErr } = await admin
     .from('historical_rounds')

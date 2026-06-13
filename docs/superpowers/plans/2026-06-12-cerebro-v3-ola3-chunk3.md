@@ -93,7 +93,7 @@ Extrae un valor numérico de `round.metadata` (e.g., putts, fairways).
 interface MetadataExtractRecipe {
   type: 'metadata_extract'
 
-  /** Ruta dot-notation en metadata. Ej: 'putts' para metadata.putts. */
+  /** Clave top-level en metadata. Ej: 'putts' para metadata.putts. */
   path: string
 
   /**
