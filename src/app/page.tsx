@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import '@/components/home/marketing.css'
+import { clashDisplay, satoshi } from '@/components/home/fonts'
 import Hero from '@/components/home/Hero'
 import Game from '@/components/home/Game'
 import CoachSteps from '@/components/home/CoachSteps'
@@ -41,7 +42,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="home-mkt">
+    <div className={`home-mkt ${clashDisplay.variable} ${satoshi.variable}`}>
       {/* CERO FALLOS: sin JS el RevealObserver no corre y las secciones .rv
           quedarían en opacity:0. El @media (scripting:none) lo borra el
           minificador de CSS, así que el override va inline en <noscript>
