@@ -40,10 +40,10 @@
 .home-mkt .bgs .s{position:absolute;inset:0;opacity:0;transition:opacity 1.8s ease}
 .home-mkt .bgs .s.on{opacity:1}
 .home-mkt .bgs .s::before{content:"";position:absolute;inset:0;background-color:var(--ink);background-size:cover;background-position:center 36%;filter:sepia(0.22) saturate(1.12) contrast(1.05) brightness(0.6)}
-.home-mkt .bgs .s1::before{background-image:url('/home/hero-1.jpg')}
-.home-mkt .bgs .s2::before{background-image:url('/home/hero-2.jpg')}
-.home-mkt .bgs .s3::before{background-image:url('/home/hero-3.jpg')}
-.home-mkt .bgs .s4::before{background-image:url('/home/hero-4.jpg')}
+.home-mkt .bgs .s1::before{background-image:url('/home/hero-1.webp')}
+.home-mkt .bgs .s2::before{background-image:url('/home/hero-2.webp')}
+.home-mkt .bgs .s3::before{background-image:url('/home/hero-3.webp')}
+.home-mkt .bgs .s4::before{background-image:url('/home/hero-4.webp')}
 .home-mkt .hero .navy{position:absolute;inset:0;z-index:1;background:linear-gradient(108deg,rgba(7,13,24,0.92),rgba(7,13,24,0.5) 52%,rgba(7,13,24,0.32))}
 .home-mkt .hero .fade{position:absolute;left:0;right:0;bottom:0;height:22%;z-index:1;background:linear-gradient(to bottom,transparent,var(--navy))}
 .home-mkt .hero .glow{position:absolute;top:-15%;right:-8%;width:60vw;height:70vh;z-index:1;pointer-events:none;background:radial-gradient(circle,rgba(196,153,42,0.16),transparent 60%)}
@@ -265,7 +265,7 @@
 
 /* ════ CTA final (fórmula CRO) ════ */
 .home-mkt .cta{position:relative;text-align:center;padding:clamp(80px,13vh,150px) clamp(24px,6vw,80px);overflow:hidden;background:var(--navy)}
-.home-mkt .cta::before{content:"";position:absolute;inset:0;z-index:0;background:var(--ink) url('/home/hero-3.jpg') center/cover;filter:brightness(0.3) sepia(0.22) saturate(1.1)}
+.home-mkt .cta::before{content:"";position:absolute;inset:0;z-index:0;background:var(--ink) url('/home/hero-3.webp') center/cover;filter:brightness(0.3) sepia(0.22) saturate(1.1)}
 .home-mkt .cta::after{content:"";position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,rgba(7,13,24,0.84),rgba(7,13,24,0.8)),radial-gradient(120% 90% at 50% 0%,rgba(196,153,42,0.18),transparent 55%)}
 .home-mkt .cta>*{position:relative;z-index:1}
 .home-mkt .cta h2{font-family:'Clash Display';font-weight:600;font-size:clamp(34px,4.6vw,70px);line-height:1.0;letter-spacing:-0.02em;max-width:18ch;margin:14px auto 0}
