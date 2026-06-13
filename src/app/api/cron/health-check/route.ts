@@ -34,7 +34,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
-import { getAiUsageStats, evaluateAiAlerts } from '@/lib/ai/usage-stats'
+import { getAiUsageStats, evaluateAiAlerts, evaluateDailyCostAlert, DEFAULT_DAILY_COST_THRESHOLD_USD } from '@/lib/ai/usage-stats'
+import { getCostSummary } from '@/lib/ai/cost-summary'
 import { captureError } from '@/lib/error-tracking'
 import { sendMessage } from '@/lib/telegram-inbox'
 
@@ -139,6 +140,42 @@ export async function GET(request: NextRequest) {
     // La tabla ai_usage puede no existir aún / consulta fallar: no bloquear el cron.
     checks.push({
       name: 'ai_usage_24h',
+      ok: true,
+      ms: 0,
+      detail: e instanceof Error ? `skip: ${e.message}` : 'skip',
+    })
+  }
+
+  // 4. Alerta de COSTO diario de IA (PR-0 medición). Cierra el loop del credit-out
+  // del 11-jun: avisamos NOSOTROS por Telegram si el gasto prod del día pasa el
+  // umbral, antes de quedarnos sin saldo. Best-effort, no bloquea el cron.
+  try {
+    const t0 = Date.now()
+    const threshold = Number(process.env.AI_DAILY_COST_ALERT_USD) || DEFAULT_DAILY_COST_THRESHOLD_USD
+    const todaySummary = await getCostSummary(1)
+    const costAlerts = evaluateDailyCostAlert(todaySummary.prodCostUsd, threshold)
+    checks.push({
+      name: 'ai_cost_24h',
+      ok: costAlerts.every((a) => a.level !== 'critical'),
+      ms: Date.now() - t0,
+      detail: `~$${todaySummary.prodCostUsd.toFixed(4)} prod (umbral $${threshold}), ${todaySummary.activeUsers} usuarios, ${todaySummary.coachConversations} conversaciones coach`,
+    })
+    for (const alert of costAlerts) {
+      void captureError(alert.message, {
+        context: `ai-cost.alert.${alert.code}`,
+        level: alert.level === 'critical' ? 'fatal' : 'warning',
+      })
+    }
+    const chatId = Number(process.env.TELEGRAM_ALLOWED_CHAT_ID)
+    if (costAlerts.length > 0 && Number.isFinite(chatId)) {
+      const body = costAlerts
+        .map((a) => `${a.level === 'critical' ? '🔴' : '🟡'} ${a.message}`)
+        .join('\n')
+      void sendMessage(chatId, `💸 Alerta de COSTO de IA (Golfers+)\n\n${body}`)
+    }
+  } catch (e) {
+    checks.push({
+      name: 'ai_cost_24h',
       ok: true,
       ms: 0,
       detail: e instanceof Error ? `skip: ${e.message}` : 'skip',

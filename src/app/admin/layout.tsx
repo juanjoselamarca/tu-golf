@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/admin/analytics',  icon: '\uD83D\uDCCA', label: 'Analytics' },
   { href: '/admin/golf-ops',   icon: '\u26F3',  label: 'Golf Ops' },
   { href: '/admin/finanzas',   icon: '\uD83D\uDCB0', label: 'Finanzas' },
+  { href: '/admin/costos',     icon: '\uD83D\uDCB8', label: 'Costos IA' },
   { href: '/admin/sistema',    icon: '\uD83D\uDD27', label: 'Sistema' },
 ]
 

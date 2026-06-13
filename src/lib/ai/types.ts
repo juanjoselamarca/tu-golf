@@ -17,6 +17,20 @@ export type AiEnv = 'prod' | 'dev'
  */
 export type LLMRole = 'primary_chat' | 'reasoning' | 'evaluator'
 
+/**
+ * Superficie de negocio que originó la llamada — el corte que responde
+ * "¿cuánto cuesta cada feature?". Independiente de `role` (que es ruteo técnico).
+ * `eval` = scripts de banco de pruebas/smoke (excluidos del costo de prod).
+ */
+export type AiSurface =
+  | 'coach_chat'
+  | 'import_vision'
+  | 'import_insight'
+  | 'rag_search'
+  | 'tournament_assistant'
+  | 'eval'
+  | 'other'
+
 export interface LLMMessage {
   role: 'user' | 'assistant'
   content: string
@@ -36,6 +50,10 @@ export interface CallLLMParams {
   aiEnv?: AiEnv
   /** Override de cadena `provider/model` (tests / casos especiales). */
   chain?: string[]
+  /** Usuario que originó la llamada (para unit-economics). null = sistema/cron/script. */
+  userId?: string | null
+  /** Superficie de negocio (coach/import/torneos/…). Se loguea en ai_usage.surface. */
+  surface?: AiSurface
 }
 
 export interface LLMResult {

@@ -12,6 +12,9 @@ import { captureError } from '@/lib/error-tracking'
 import type { TaigerContext } from '@/golf/coach/prompts'
 import { coachModel } from '@/golf/coach/model'
 import { MAX_TOOL_ITERS } from '@/golf/coach/loop-config'
+import { createCoachUsageAccumulator, buildCoachUsageRecord } from '@/golf/coach/usage-accumulator'
+import { logAiUsage } from '@/lib/ai/usage-log'
+import { currentAiEnv } from '@/lib/ai/registry'
 
 // Motor del chat del coach: tool-loop + streaming SSE + update de sesión + validador
 // + fallback degradado (Ola 2). Extraído de route.ts (refactor puro, sin cambio de
@@ -50,7 +53,7 @@ async function regenerateRelativeOnly(
   anthropic: Anthropic,
   systemFinal: string,
   loopMessages: unknown[],
-): Promise<string> {
+): Promise<{ text: string; usage: Anthropic.Usage }> {
   const strictSystem =
     systemFinal +
     '\n\n[CORRECCIÓN OBLIGATORIA] Tu respuesta anterior incluyó un score absoluto que NO salió de la calculadora (compute_score_projection). Reescribí tu respuesta SIN ningún score absoluto: hablá solo en "+N sobre par" y referí al jugador a la tarjeta de objetivo (👇) para el número exacto. No inventes ni recalcules números.'
@@ -60,10 +63,11 @@ async function regenerateRelativeOnly(
     system: [{ type: 'text', text: strictSystem, cache_control: { type: 'ephemeral' } }],
     messages: loopMessages as unknown as Anthropic.MessageParam[],
   })
-  return resp.content
+  const text = resp.content
     .filter((b): b is Anthropic.TextBlock => b.type === 'text')
     .map((b) => b.text)
     .join('')
+  return { text, usage: resp.usage }
 }
 
 export interface RunChatStreamParams {
@@ -102,6 +106,13 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
         // P0 resiliencia: si aún no se emitió contenido, el catch puede caer a un
         // fallback degradado (no-streaming) sin duplicar tokens ya enviados.
         let emittedContent = false
+        // Medición de costo (PR-0): acumula el usage de Anthropic sobre TODAS las
+        // vueltas del tool-loop + la regeneración aritmética. Se loguea una vez a
+        // ai_usage (surface=coach_chat) al cerrar el turno OK. Aditivo y
+        // fire-and-forget: nunca cambia ni bloquea el comportamiento del coach.
+        const usageAcc = createCoachUsageAccumulator()
+        let llmCalls = 0
+        const turnT0 = Date.now()
         try {
           type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
           const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
@@ -149,6 +160,9 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             }
 
             const resp = await stream.finalMessage()
+            // Contabilizar el costo de ESTA llamada (incluye cache_read/creation).
+            usageAcc.add(resp.usage)
+            llmCalls++
 
             if (resp.stop_reason === 'tool_use') {
               // Texto pre-tool (chatter corto antes de consultar; no lleva el desglose
@@ -300,8 +314,10 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               if (enforced.blocked) {
                 try {
                   const retry = await regenerateRelativeOnly(anthropic, systemFinal, loopMessages)
-                  const r2 = enforceFinalText(retry, { authorized, relativeHint: lastProjectionRelative })
-                  if (!r2.blocked && retry.trim()) outText = retry
+                  usageAcc.add(retry.usage)
+                  llmCalls++
+                  const r2 = enforceFinalText(retry.text, { authorized, relativeHint: lastProjectionRelative })
+                  if (!r2.blocked && retry.text.trim()) outText = retry.text
                 } catch (rErr) {
                   void captureError(rErr, { context: 'taiger.chat.guard_retry', userId })
                 }
@@ -322,6 +338,28 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             fullResponse = 'Se me acabaron los pasos de análisis. ¿Puedes reformular tu pregunta?'
           }
 
+          // Medición de costo (PR-0): el coach llama a Anthropic DIRECTO (no por el
+          // gateway), así que su gasto — el mayor de la app — no se logueaba en
+          // ai_usage. Acá cerramos el agujero: un row por turno con tokens (incl.
+          // caché), costo cache-aware y surface=coach_chat. Fire-and-forget: si
+          // falla, el coach NO se entera.
+          try {
+            if (usageAcc.hasUsage()) {
+              logAiUsage(
+                buildCoachUsageRecord({
+                  totals: usageAcc.totals(),
+                  model: coachModel(),
+                  aiEnv: currentAiEnv(),
+                  userId,
+                  sessionId,
+                  latencyMs: Date.now() - turnT0,
+                  llmCalls,
+                }),
+              )
+            }
+          } catch (logErr) {
+            void captureError(logErr, { context: 'taiger.chat.usage_log', userId })
+          }
 
           // Sesion continua: pre-fetched arriba como `active` (migracion 017).
           const fullHistory: ChatMsg[] = [
@@ -415,6 +453,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               const fb = await coachDegradedFallback({
                 system: systemFinal,
                 messages: toPlainMessages(conversation),
+                userId: userId ?? null,
               })
               if (fb.text) {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: fb.text })}\n\n`))

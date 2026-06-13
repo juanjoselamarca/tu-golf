@@ -47,6 +47,33 @@ export const DEFAULT_THRESHOLDS: AiAlertThresholds = {
 }
 
 /**
+ * Umbral de costo diario de IA (USD) que dispara alerta. Configurable por env
+ * `AI_DAILY_COST_ALERT_USD` desde el cron; default conservador para una app que
+ * recién mide su gasto. Cierra el loop CERO FALLOS: el credit-out del 11-jun nos
+ * agarró ciegos — ahora avisamos NOSOTROS antes de quedarnos sin saldo.
+ */
+export const DEFAULT_DAILY_COST_THRESHOLD_USD = 5
+
+/**
+ * Alerta de costo diario. Pura. `warning` al pasar el umbral, `critical` al
+ * triplicarlo (gasto descontrolado — posible loop/abuso/eval contra prod).
+ */
+export function evaluateDailyCostAlert(
+  costUsdToday: number,
+  thresholdUsd: number = DEFAULT_DAILY_COST_THRESHOLD_USD,
+): AiAlert[] {
+  if (costUsdToday <= thresholdUsd) return []
+  const critical = costUsdToday > thresholdUsd * 3
+  return [
+    {
+      level: critical ? 'critical' : 'warning',
+      code: 'ai_daily_cost_high',
+      message: `Costo de IA hoy ~$${costUsdToday.toFixed(2)} supera el umbral de $${thresholdUsd.toFixed(2)}${critical ? ' (3× — gasto descontrolado, revisar YA)' : ''}.`,
+    },
+  ]
+}
+
+/**
  * Evalúa alertas a partir de los stats. Pura: misma entrada, misma salida.
  * Devuelve [] si todo está sano o si la muestra es muy chica.
  */

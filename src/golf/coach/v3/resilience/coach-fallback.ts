@@ -79,12 +79,16 @@ export async function coachDegradedFallback(args: {
   system: string
   messages: LLMMessage[]
   maxTokens?: number
+  /** Usuario del turno — para atribuir el costo del fallback (surface coach_chat). */
+  userId?: string | null
 }): Promise<CoachFallbackResult> {
   const r = await callLLM({
     role: 'primary_chat',
     system: args.system,
     messages: args.messages,
     maxTokens: args.maxTokens ?? 2048,
+    surface: 'coach_chat',
+    userId: args.userId ?? null,
   })
   return { text: r.text, provider: r.provider, model: r.model, fallbackUsed: r.fallbackUsed }
 }
