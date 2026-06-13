@@ -1,4 +1,25 @@
-# Estado Cerebro V3 — Actualizado 2026-06-11 — Ola 2 ✅ EN PROD · Fase 0 + Examen causa H ✅ EN PROD · Ola 3 chunk 2 NEXT
+# Estado Cerebro V3 — Actualizado 2026-06-12 — Ola 3 ✅ COMPLETA EN PROD · Fórmula declarativa + PoC gen-1 verificado
+
+## ✅ Ola 3 COMPLETA — "El cerebro guarda y crece" (chunks 1-3 en prod)
+
+**Chunk 3 mergeado** (12-jun, PR #160 `ed00d10`): intérprete declarativo de
+formula_payload.recipe + minN=15 + PoC `scoring_after_first_double`.
+
+**Resultado del PoC contra datos reales de Juanjo (114 rondas):**
+- 73 observaciones nuevas (65 del patrón gen-1 + 8 faltantes de otros).
+- `scoring_after_first_double`: N=65, d=1.71, R²=0.780, Δ≈6.5 strokes → **VÁLIDO**.
+  Es el patrón más fuerte: después del primer double, el diferencial sube 6.5 strokes.
+- 3/8 patrones válidos con minN=15: post_bogey_spiral, par_3_weakness, scoring_after_first_double.
+- Confirma que la pieza 1 del cerebro v3 (catálogo expansivo) funciona: agregar patrón = INSERT SQL, sin código.
+
+**Resumen de los 3 chunks:**
+- Chunk 1 (PR #120): catálogo `pattern_definitions` con 9 gen-0 migrados.
+- Chunk 2 (PR #158): validador anti-fantasía (Cohen d + R², AND gate) + `pattern_observations` + tier gate en foco.
+- Chunk 3 (PR #160): `formula-interpreter.ts` (2 recipe types) + minN=15 + PoC gen-1. Code-review PASS (3 important → fixed).
+
+**Gotcha encontrado:** `cerebro_weights.source` CHECK constraint solo acepta `auto|manual|seed` — la migración original usaba `admin`. Fixeado en `fd3cc69`.
+
+---
 
 ## ✅ Coach Data-Access Fase 0 — MERGEADA Y EN PROD (11-jun, PR #147 `b664c15`)
 
