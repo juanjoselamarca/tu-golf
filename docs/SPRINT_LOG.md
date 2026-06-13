@@ -4,6 +4,44 @@
 
 ---
 
+## 2026-06-12 · PR-0 Medición real de costo de IA por item — EN PROD (PR #161)
+
+Cierre del agujero de observabilidad que dejó el credit-out del 11-jun: el coach
+llamaba a Anthropic **directo**, salteando el gateway que loguea en `ai_usage`. El
+mayor consumidor de tokens de la app no se medía. Este PR-0 hace medible el
+unit-economics ANTES de subir tokens/turno con el plan WOW del coach.
+
+- **Migración aditiva a `ai_usage`** (`20260612_ai_usage_cost_tracking.sql`): `user_id`,
+  `surface`, `session_id`, `cache_read_tokens`, `cache_write_tokens` (+índices).
+  Backward-compatible, idempotente, **aplicada en prod** (columnas vivas).
+- **`estimateCostUsd` cache-aware** (`src/lib/ai/costs.ts`): cache write 1.25×, read
+  0.10× sobre la tarifa input; overload posicional legacy para el gateway. Sin esto el
+  costo del coach (caching ephemeral agresivo) salía mal.
+- **Coach instrumentado** (`chat-engine.ts` + `usage-accumulator.ts`): acumula
+  `message.usage` sobre TODO el tool-loop + la regeneración aritmética y loguea 1
+  row/turno `surface=coach_chat`. **Aditivo y fire-and-forget — no cambia ni bloquea
+  el turno** (CERO FALLOS).
+- **Surfaces tagueadas** vía `callLLM`: `import_insight`, `tournament_assistant`,
+  `coach_chat` (fallback degradado), `eval` (judge → `ai_env=dev`, excluido de prod).
+- **Dashboard `/admin/costos`** (auth admin) + `cost-summary.ts` (`buildCostSummary`
+  puro): KPIs costo/usuario activo, costo/conversación coach (÷ session_id distintos),
+  margen vs precio del plan, % del input del coach servido por caché; prod vs dev;
+  desglose por surface/modelo/día; top 20 usuarios.
+- **Alerta de costo diario** en el cron `health-check` (`evaluateDailyCostAlert`,
+  Telegram canal PR #81; umbral env `AI_DAILY_COST_ALERT_USD`, default $5).
+- **Validación**: TDD (costs/usage-log/usage-accumulator/cost-summary/cost-alert),
+  2582 tests verdes (canarios incl.), build OK, `superpowers:code-reviewer` PASS.
+  Dashboard verificado end-to-end con seed+cleanup contra la `ai_usage` real (12 KPIs
+  exactos, 0 filas residuales). Smoke prod: API 403 sin auth, page 307.
+- **Follow-up (no en scope)**: `import_vision` (OCR Gemini) vive en
+  `screenshot/route.ts` (682 LOC) → instrumentar gatilla "el que toca, ordena"
+  (refactor primero). RAG embeddings: negligible. Paso SIGUIENTE habilitado por la
+  medición = ruteo por costo (Haiku/Gemini para turnos simples).
+
+Spec: `docs/superpowers/specs/2026-06-11-medicion-costo-ia-design.md`.
+
+---
+
 ## 2026-06-10 · Dedup de canchas duplicadas (manual ↔ fedegolf) — APLICADO EN PROD
 
 Cierre del último pendiente del frente del índice (post PR #144): unificación de las
