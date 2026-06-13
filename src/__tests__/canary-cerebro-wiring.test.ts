@@ -140,6 +140,17 @@ const ENFORCED: WiringContract[] = [
     consumer: 'golf/coach/v3/focus/select-focus.ts',
     needles: ['input.validation', 'datosConcluyentes'],
   },
+  // ── Ola 3 chunk 3: fórmula declarativa ──
+  {
+    piece: 'interpretObserver consumido como fallback en pattern-runner (chunk 3)',
+    consumer: 'golf/coach/v3/pattern-runner.ts',
+    needles: ['interpretObserver'],
+  },
+  {
+    piece: 'formula-interpreter importa validScores de metrics (chunk 3)',
+    consumer: 'golf/coach/v3/formula-interpreter.ts',
+    needles: ['validScores'],
+  },
 ]
 
 describe('Canario wiring cerebro v3: piezas VIVAS no se desconectan', () => {

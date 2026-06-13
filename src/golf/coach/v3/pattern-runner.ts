@@ -1,6 +1,8 @@
 import type { ComputedMetric, RoundData } from '@/golf/coach/metrics'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizeScores } from '@/lib/data/focus'
+import { interpretObserver } from './formula-interpreter'
+import type { RunnablePatternDefWithPayload } from './formula-interpreter'
 import {
   computePostBogeyAvg,
   computeBack9MinusFront9,
@@ -22,9 +24,9 @@ import {
  * `backfillPatternObservations` (idempotente, espeja `backfillRoundMetrics`)
  * vive aparte y hace el I/O con Supabase.
  *
- * Seam de chunk 3: hoy el observador se resuelve solo por `OBSERVE_BY_KEY`;
- * chunk 3 agregará `?? interpretObserver(formula_payload)` para patrones
- * declarativos nuevos sin código.
+ * El observador se resuelve por `OBSERVE_BY_KEY` (gen-0 hardcoded) con fallback
+ * a `interpretObserver(formula_payload)` para patrones declarativos (gen-1+)
+ * que llevan `recipe` en su payload — agregar patrón = INSERT SQL, sin código.
  */
 
 /** Invierte el signo del value preservando reason/metadata (orientación del catálogo). */
@@ -88,6 +90,7 @@ export function computeObservationsForRound(
   const out: PatternObservationInsert[] = []
   for (const def of defs) {
     const observe = OBSERVE_BY_KEY[def.pattern_key]
+      ?? interpretObserver(def as RunnablePatternDefWithPayload)
     if (!observe) continue
     let metric: ComputedMetric
     try {
@@ -135,10 +138,10 @@ export async function backfillPatternObservations(
 ): Promise<{ inserted: number; roundsScanned: number; patternsRun: number }> {
   const { data: defsRaw, error: defsErr } = await admin
     .from('pattern_definitions')
-    .select('id, pattern_key, version, formula_kind, status')
+    .select('id, pattern_key, version, formula_kind, status, formula_payload')
     .in('status', ['active', 'validating'])
   if (defsErr) throw defsErr
-  const defs = (defsRaw ?? []) as RunnablePatternDef[]
+  const defs = (defsRaw ?? []) as RunnablePatternDefWithPayload[]
 
   const { data: roundsRaw, error: rErr } = await admin
     .from('historical_rounds')
