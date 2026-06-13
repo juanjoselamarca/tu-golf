@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { computeObservationsForRound, OBSERVE_BY_KEY, backfillPatternObservations, type RunnablePatternDef } from '../pattern-runner'
+import type { RunnablePatternDefWithPayload } from '../formula-interpreter'
 import type { RoundData } from '@/golf/coach/metrics'
 import { STANDARD_PARS } from '@/golf/coach/metrics'
 
@@ -121,5 +122,92 @@ describe('backfillPatternObservations — orquestador idempotente', () => {
   it('propaga el error de query (lo atrapa el try best-effort del caller)', async () => {
     const admin = mockAdmin({ defs, rounds: [rawRound], existing: [], defsError: true })
     await expect(backfillPatternObservations(admin, 'user-1')).rejects.toBeTruthy()
+  })
+})
+
+// ── Integración: patrones declarativos vía interpretObserver ──────────────────
+
+describe('computeObservationsForRound — fallback a interpretObserver para patrones declarativos', () => {
+  const declarativeDef: RunnablePatternDefWithPayload = {
+    id: 'id-decl',
+    pattern_key: 'scoring_after_first_double',
+    version: 1,
+    formula_kind: 'intra_round',
+    status: 'validating',
+    formula_payload: {
+      metric_key: 'post_double_score_avg',
+      accion: 'Reset post-double',
+      min_confidence: 0.5,
+      min_sample: 3,
+      recipe: {
+        type: 'hole_filter_agg',
+        filter: { field: 'over_par', op: 'gte', value: 2 },
+        scope: 'after_first',
+        compute: { metric: 'score', aggregate: 'avg' },
+        min_holes: 2,
+      },
+    },
+  }
+
+  // Ronda con double bogey en hoyo 5 (index 4, par 5, score 7 = +2)
+  const roundWithDouble: RoundData = {
+    id: 'round-dbl',
+    scores: [4, 4, 3, 4, 7, 5, 4, 5, 6, 5, 5, 4, 5, 6, 5, 4, 5, 6],
+    total_gross: 87,
+    par_per_hole: STANDARD_PARS,
+    played_at: '2026-06-01',
+    metadata: null,
+  }
+
+  it('patrón declarativo SIN entrada en OBSERVE_BY_KEY produce observación vía interpretObserver', () => {
+    // scoring_after_first_double NO está en OBSERVE_BY_KEY
+    expect(OBSERVE_BY_KEY['scoring_after_first_double']).toBeUndefined()
+    const obs = computeObservationsForRound(roundWithDouble, 'user-1', [declarativeDef])
+    expect(obs).toHaveLength(1)
+    expect(obs[0].pattern_key).toBe('scoring_after_first_double')
+    expect(obs[0].value).toBe(5) // avg de hoyos 5-17
+    expect(obs[0].pattern_id).toBe('id-decl')
+  })
+
+  it('OBSERVE_BY_KEY tiene precedencia sobre interpretObserver', () => {
+    // post_bogey_spiral está en OBSERVE_BY_KEY; recipe en payload es ignorada
+    const genZeroWithRecipe: RunnablePatternDefWithPayload = {
+      id: 'id-pbs',
+      pattern_key: 'post_bogey_spiral',
+      version: 1,
+      formula_kind: 'aggregate',
+      status: 'active',
+      formula_payload: {
+        metric_key: 'post_bogey_score_avg',
+        accion: 'Reset post-bogey',
+        min_confidence: 0.5,
+        min_sample: 3,
+        recipe: {
+          type: 'hole_filter_agg',
+          filter: { field: 'par', op: 'eq', value: 99 },
+          scope: 'all',
+          compute: { metric: 'score', aggregate: 'avg' },
+        },
+      },
+    }
+    const obs = computeObservationsForRound(roundWithDouble, 'user-1', [genZeroWithRecipe])
+    // Should use OBSERVE_BY_KEY (computePostBogeyAvg), not the recipe
+    expect(obs).toHaveLength(1)
+    expect(obs[0].pattern_key).toBe('post_bogey_spiral')
+    // If the recipe were used, par=99 would match nothing → null → no observation
+    // Having an observation proves OBSERVE_BY_KEY took precedence
+  })
+
+  it('patrón sin recipe ni OBSERVE_BY_KEY → saltado', () => {
+    const unknownDef: RunnablePatternDefWithPayload = {
+      id: 'id-unk',
+      pattern_key: 'unknown_pattern',
+      version: 1,
+      formula_kind: 'multivariate',
+      status: 'active',
+      formula_payload: { metric_key: 'x', accion: 'x', min_confidence: 0.5, min_sample: 3 },
+    }
+    const obs = computeObservationsForRound(roundWithDouble, 'user-1', [unknownDef])
+    expect(obs).toHaveLength(0)
   })
 })

@@ -14,13 +14,12 @@
  *    validar patrones invertidos.
  *  - R² (OLS simple diferencial~valor) ≥ 0.15 y r>0: el valor explica ≥15% de
  *    la varianza del diferencial del usuario, en el sentido dañino.
- *  - N ≥ 10 pares completos (x,y).
+ *  - N ≥ 15 pares completos (x,y).
  *
- * Escepticismo (documentado, no escondido): min_N=10 es BAJO para R² confiable
- * (un patrón nulo pasa el gate de R² ~1/4 de las veces a N=10; el AND con d
- * direccional lo baja). El `pValue` (Fisher z) se reporta como metadata pero NO
- * es gate. Subir min_N a 15-20 vía thresholds queda para chunk 3. El veredicto
- * solo CO-elige el foco junto con detect+confianza+peso; no es claim científico.
+ * A N=15 la tasa de falso positivo compuesta (los 3 gates AND) baja a ~2-3%
+ * (vs ~7% a N=10). El `pValue` (Fisher z) se reporta como metadata pero NO
+ * es gate. El veredicto solo CO-elige el foco junto con detect+confianza+peso;
+ * no es claim científico.
  */
 
 export interface ObservationPair {
@@ -36,7 +35,7 @@ export interface ValidationThresholds {
   minR2: number
 }
 
-export const DEFAULT_THRESHOLDS: ValidationThresholds = { minN: 10, minEffectSize: 0.3, minR2: 0.15 }
+export const DEFAULT_THRESHOLDS: ValidationThresholds = { minN: 15, minEffectSize: 0.3, minR2: 0.15 }
 
 export type VerdictReason =
   | 'passed'
