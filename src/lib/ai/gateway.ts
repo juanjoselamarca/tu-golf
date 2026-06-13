@@ -97,6 +97,7 @@ export async function callLLM(params: CallLLMParams): Promise<LLMResult> {
       aiEnv, role: params.role, provider: null, model: null, status: 'all_failed',
       fallbackUsed: false, attempts: 0, tokensIn: 0, tokensOut: 0, latencyMs: 0,
       costUsd: 0, errorKind: 'other',
+      userId: params.userId ?? null, surface: params.surface ?? null,
     })
     throw new AllProvidersFailedError(
       `Sin proveedores para rol=${params.role} en env=${aiEnv}`,
@@ -145,6 +146,8 @@ export async function callLLM(params: CallLLMParams): Promise<LLMResult> {
           costUsd: estimateCostUsd(model, out.tokensIn, out.tokensOut),
           // Si hubo fallback, registramos por qué falló el proveedor anterior.
           errorKind: fallbackUsed ? classifyError(lastErr) : null,
+          userId: params.userId ?? null,
+          surface: params.surface ?? null,
         })
         return {
           text: out.text,
@@ -177,6 +180,8 @@ export async function callLLM(params: CallLLMParams): Promise<LLMResult> {
     latencyMs: Date.now() - t0,
     costUsd: 0,
     errorKind: classifyError(lastErr),
+    userId: params.userId ?? null,
+    surface: params.surface ?? null,
   })
   throw new AllProvidersFailedError(
     `gateway: toda la cadena falló para rol=${params.role}`,

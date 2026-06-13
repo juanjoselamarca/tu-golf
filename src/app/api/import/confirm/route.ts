@@ -48,6 +48,8 @@ Genera un análisis breve (máximo 3 oraciones) de lo que revelan estos datos im
       role: 'primary_chat',
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 300,
+      surface: 'import_insight',
+      userId,
     })
 
     const insightText = llm.text.trim()

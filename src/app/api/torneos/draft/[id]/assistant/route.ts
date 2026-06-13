@@ -79,6 +79,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       // parsing en el path de fallback. Neutral para Anthropic (ya pide JSON en el prompt).
       responseJson: true,
       timeoutMs: TIMEOUT_MS,
+      surface: 'tournament_assistant',
+      userId: user.id,
     })
   } catch (err: unknown) {
     // Toda la cadena de proveedores falló: degradación elegante. El organizador
