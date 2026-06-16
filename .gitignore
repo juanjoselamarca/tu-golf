@@ -102,3 +102,6 @@ scripts/backups/
 
 # Backups del dedup de canchas (data real de usuarios — no versionar PII)
 docs/backups/
+
+# QA crawler — reportes generados (no versionar)
+qa-crawler-report/
