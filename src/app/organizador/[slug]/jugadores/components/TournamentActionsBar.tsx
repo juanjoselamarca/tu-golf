@@ -106,29 +106,11 @@ export function TournamentActionsBar({
       )}
 
       {tournamentStatus === 'open' && (
+        // En 'open' el estado ya se comunica con el badge del header
+        // ("Inscripciones abiertas"), así que la barra no repite el indicador.
+        // Tampoco expone "Eliminar": para borrar, primero "Volver a borrador"
+        // (un paso extra para lo destructivo = CERO FALLOS). Quedan 3 botones.
         <>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--brand-on-bg)', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.18)', flexShrink: 0 }} />
-            Inscripciones abiertas
-          </span>
-          <button
-            onClick={onCancel}
-            style={{
-              background: 'rgba(220,38,38,0.1)',
-              color: '#fca5a5',
-              fontWeight: 600,
-              fontSize: '14px',
-              padding: '14px 24px',
-              borderRadius: '8px',
-              border: '1px solid rgba(220,38,38,0.25)',
-              cursor: 'pointer',
-              transition: 'all 200ms',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            Eliminar torneo
-          </button>
           <button
             onClick={onRevertToDraft}
             disabled={opening}
