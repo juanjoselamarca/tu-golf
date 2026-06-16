@@ -114,7 +114,24 @@ export async function GET() {
       return sa - sb
     })
 
-    const top10 = sorted.slice(0, 10).map((c: EspnCompetitor, index: number) => {
+    // Posiciones con empates en O(n): el array ya viene ordenado por score, así
+    // que agrupamos scores consecutivos iguales. Antes esto era O(n²) (findIndex +
+    // filter por jugador); con el campo completo (~150 jugadores) eso no escala.
+    const posByIndex: string[] = new Array(sorted.length)
+    {
+      let i = 0
+      while (i < sorted.length) {
+        const sc = parseFloat(sorted[i].score ?? '0')
+        let j = i
+        while (j + 1 < sorted.length && parseFloat(sorted[j + 1].score ?? '0') === sc) j++
+        const tied = j > i
+        for (let k = i; k <= j; k++) posByIndex[k] = tied ? `T${i + 1}` : String(i + 1)
+        i = j + 1
+      }
+    }
+
+    // Leaderboard COMPLETO (todo el campo, no solo top-10).
+    const leaderboard = sorted.map((c: EspnCompetitor, index: number) => {
       // Score total
       const rawScore = parseFloat(c.score ?? '0')
       let score = 'E'
@@ -160,11 +177,8 @@ export async function GET() {
         }
       }
 
-      // Posición con ties reales: todos los empatados comparten el número más bajo
-      const myScore = parseFloat(c.score ?? '0')
-      const firstWithSameScore = sorted.findIndex(s => parseFloat(s.score ?? '0') === myScore)
-      const hasTie = sorted.filter(s => parseFloat(s.score ?? '0') === myScore).length > 1
-      const pos = hasTie ? `T${firstWithSameScore + 1}` : String(index + 1)
+      // Posición con ties reales (precalculada arriba en O(n)).
+      const pos = posByIndex[index]
 
       // Team events (Zurich Classic) traen `team.displayName` en formato
       // "Apellido1/Apellido2" y no tienen un único country/flag. Individuales
@@ -222,7 +236,7 @@ export async function GET() {
       tournament: event.name || event.shortName || '',
       round: traducirRonda(status?.type?.shortDetail || ''),
       course,
-      players: top10,
+      players: leaderboard,
       projectedCut,
       next_event,
       isTeamEvent,
