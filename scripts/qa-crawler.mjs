@@ -294,7 +294,6 @@ async function main() {
   await browser.close()
 
   // -------- reporte
-  const real = allFindings.filter((f) => ['P1', 'P2', 'P3', 'route-load'].includes(f.sev) || ['P1', 'P2', 'P3'].includes(f.sev))
   const bySev = (s) => allFindings.filter((f) => f.sev === s)
   const stamp = now().replace(/[:.]/g, '-')
   const dir = 'qa-crawler-report'

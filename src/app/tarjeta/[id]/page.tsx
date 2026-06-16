@@ -107,9 +107,10 @@ export default function TarjetaPublicaPage() {
     if (navigator.share) {
       try { await navigator.share({ title: text, url }); return } catch { /* cancelled */ }
     }
-    await copyToClipboard(url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2500)
+    if (await copyToClipboard(url)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    }
   }
 
   // Loading

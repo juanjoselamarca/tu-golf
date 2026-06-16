@@ -22,8 +22,7 @@ export default function InvitarAmigos({ userId }: { userId: string }) {
       } catch {
         // User cancelled share
       }
-    } else {
-      await copyToClipboard(referralUrl)
+    } else if (await copyToClipboard(referralUrl)) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }

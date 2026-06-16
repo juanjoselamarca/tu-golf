@@ -51,8 +51,7 @@ export default function ShareResultsButton({
     const opened = window.open(whatsappUrl, '_blank')
 
     // If WhatsApp didn't open, copy to clipboard
-    if (!opened) {
-      await copyToClipboard(text)
+    if (!opened && (await copyToClipboard(text))) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     }
