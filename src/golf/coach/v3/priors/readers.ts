@@ -140,12 +140,20 @@ export async function getPopulationPercentile(
 ): Promise<number | null> {
   const { data, error } = await supabase
     .from('external_priors_handicap_dist')
-    .select('handicap_bin, proportion')
+    .select('handicap_bin, proportion, year')
     .eq('region', region)
     .eq('gender', 'all')
     .eq('age_bucket', 'all');
   if (error || !data) return null;
-  return populationPercentileFromBins(data as DistBin[], index);
+  // Code-review I2: si conviven varios años para el mismo corte, sumar sus bins
+  // daría proporciones >1 y percentil corrupto. Acotamos al año más reciente
+  // (una única distribución vigente). NOTA: scoping por source_id queda como
+  // follow-up obligatorio antes de ingerir una 2ª fuente de capa B.
+  const rows = data as Array<DistBin & { year?: number | null }>;
+  const years = rows.map((r) => r.year).filter((y): y is number => typeof y === 'number');
+  const maxYear = years.length ? Math.max(...years) : null;
+  const scoped = maxYear != null ? rows.filter((r) => r.year === maxYear) : rows;
+  return populationPercentileFromBins(scoped, index);
 }
 
 export async function getCourseNorm(
@@ -158,6 +166,7 @@ export async function getCourseNorm(
     .select('par, slope_rating, course_rating')
     .eq('region', region)
     .eq('par', par)
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error || !data) return null;

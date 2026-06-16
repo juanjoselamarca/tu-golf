@@ -19,7 +19,7 @@ import type { RoundData } from '@/golf/coach/metrics'
 import { loadFocusRounds } from '@/lib/data/focus'
 import { computePlayerBaseline } from '@/golf/coach/v3/focus/select-focus'
 import { FOCUS_CATALOG } from '@/golf/coach/v3/focus/catalog'
-import { handicapToBucket } from '@/golf/coach/v3/priors/buckets'
+import { handicapToBucket, type HandicapBucket } from '@/golf/coach/v3/priors/buckets'
 import { priorMappingFor } from '@/golf/coach/v3/priors/metric-map'
 import {
   getBenchmarkPercentiles,
@@ -56,7 +56,7 @@ export interface FieldContextDeps {
   loadIndice: (userId: string) => Promise<number | null>
   loadRounds: (userId: string) => Promise<RoundData[]>
   /** Benchmark del bucket en escala EXTERNA cruda (la conversión a interna se hace acá). */
-  loadBenchmark: (bucket: string, externalMetricKey: string) => Promise<BenchmarkPoint[]>
+  loadBenchmark: (bucket: HandicapBucket, externalMetricKey: string) => Promise<BenchmarkPoint[]>
   loadPopulationBetterThanPct: (indice: number) => Promise<number | null>
   loadRecentCourse: (
     userId: string,
@@ -73,7 +73,7 @@ export function defaultFieldContextDeps(supabase: SupabaseClient): FieldContextD
     },
     loadRounds: (userId) => loadFocusRounds(supabase, userId),
     loadBenchmark: (bucket, externalMetricKey) =>
-      getBenchmarkPercentiles(supabase, bucket as never, externalMetricKey),
+      getBenchmarkPercentiles(supabase, bucket, externalMetricKey),
     loadPopulationBetterThanPct: (indice) => getPopulationPercentile(supabase, indice),
     loadRecentCourse: async (userId) => {
       const { data: round } = await supabase
