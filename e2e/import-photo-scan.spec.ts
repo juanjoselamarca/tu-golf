@@ -195,9 +195,11 @@ test.describe('Import photo scan — pares correctos en revisión', () => {
     await expect(importBtn).toBeVisible({ timeout: 5000 })
     await importBtn.click()
 
-    // El mock de /api/import/confirm responde con cpiResult → wizard pasa a celebration
-    // La celebration muestra el CPI (62) y nivel (Intermedio)
-    await expect(page.locator('text=Intermedio').or(page.locator('text=62'))).toBeVisible({ timeout: 15000 })
+    // El mock de /api/import/confirm responde → wizard pasa a celebration.
+    // La celebration es minimalista (rediseño): muestra "Tarjeta guardada" + resumen
+    // y CTA a rondas. Ya NO muestra el CPI/nivel (el prop cpiResult quedó solo por
+    // compatibilidad de firma — ver StepCelebration.tsx).
+    await expect(page.locator('text=Tarjeta guardada')).toBeVisible({ timeout: 15000 })
 
     // Sin errores de JS en la página
     expect(pageErrors.filter(e => !e.includes('ResizeObserver'))).toHaveLength(0)

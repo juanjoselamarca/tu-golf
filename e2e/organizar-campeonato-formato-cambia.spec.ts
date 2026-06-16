@@ -69,7 +69,7 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
     await expect(grossChip).toBeDisabled()
   })
 
-  test('Stableford muestra tabla Stableford y modo se fuerza a Neto', async ({ page }) => {
+  test('Stableford acepta Gross y Neto (Scratch Stableford es válido USGA/R&A)', async ({ page }) => {
     await entrarAlEditor(page)
 
     await elegirFormato(page, /^Stableford$/)
@@ -79,8 +79,10 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
       timeout: 5_000,
     })
 
-    // El chip "Gross" debe estar disabled
+    // Stableford NO fuerza neto (a diferencia de Match Play): "Scratch Stableford"
+    // (gross, hcp=0) es válido USGA/R&A, así que el chip "Gross" queda habilitado.
+    // Ver NETO_FORCED = ['match_play'] en ComoJueganSection.tsx (PR #63).
     const grossChip = page.getByRole('button', { name: /^Gross$/i }).first()
-    await expect(grossChip).toBeDisabled()
+    await expect(grossChip).toBeEnabled()
   })
 })
