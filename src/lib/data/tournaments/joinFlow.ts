@@ -63,6 +63,15 @@ function isInscribibleStatus(status: string): status is InscribibleStatus {
   return (INSCRIBIBLE_STATUSES as readonly string[]).includes(status)
 }
 
+/**
+ * ¿Un torneo en este estado acepta auto-inscripción? Fuente de verdad única
+ * compartida con la UI (`/torneo/[slug]/unirse`) para que el botón nunca
+ * contradiga al backend. Espejo booleano de `isInscribibleStatus`.
+ */
+export function esInscribible(status: string): boolean {
+  return (INSCRIBIBLE_STATUSES as readonly string[]).includes(status)
+}
+
 export async function fetchJoinInfo(
   admin: SupabaseClient,
   slug: string,

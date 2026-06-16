@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+import { openTournament, revertToDraft } from '@/lib/data/tournaments/lifecycle'
 
 function captureGameError(action: string, error: unknown, extra?: Record<string, unknown>) {
   void captureError(error, {
@@ -338,6 +339,59 @@ export async function startNextRound(
 // CANCEL TOURNAMENT
 // ═══════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════
+// ABRIR INSCRIPCIONES (draft → open) / VOLVER A BORRADOR (open → draft)
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Abre las inscripciones de un torneo: draft → open. Es la única vía para que
+ * un torneo alcance 'open', el estado que habilita la auto-inscripción en
+ * `/torneo/[slug]/unirse`. Sólo el organizador, sólo desde 'draft'.
+ * La validación de organizador del route ya corrió (no está en selfAuthActions),
+ * pero re-chequeamos acá por defensa en profundidad.
+ */
+export async function openInscriptions(
+  svc: Svc, userId: string, tournamentId: string,
+  organizerId: string, status: string
+): Promise<NextResponse> {
+  if (organizerId !== userId) {
+    return NextResponse.json({ error: 'Solo el organizador puede abrir las inscripciones' }, { status: 403 })
+  }
+  if (status !== 'draft') {
+    return NextResponse.json({ error: 'Solo se pueden abrir inscripciones desde un torneo en borrador' }, { status: 409 })
+  }
+  try {
+    await openTournament(svc, tournamentId)
+  } catch (e) {
+    captureGameError('open_inscriptions', e, { tournamentId })
+    return NextResponse.json({ error: 'No se pudieron abrir las inscripciones' }, { status: 500 })
+  }
+  return NextResponse.json({ success: true, status: 'open' })
+}
+
+/**
+ * Vuelve un torneo a borrador: open → draft. Conserva los jugadores ya
+ * inscritos (no borra `players`). Sirve para pausar inscripciones sin destruir.
+ */
+export async function revertInscriptions(
+  svc: Svc, userId: string, tournamentId: string,
+  organizerId: string, status: string
+): Promise<NextResponse> {
+  if (organizerId !== userId) {
+    return NextResponse.json({ error: 'Solo el organizador puede cerrar las inscripciones' }, { status: 403 })
+  }
+  if (status !== 'open') {
+    return NextResponse.json({ error: 'Solo se puede volver a borrador un torneo con inscripciones abiertas' }, { status: 409 })
+  }
+  try {
+    await revertToDraft(svc, tournamentId)
+  } catch (e) {
+    captureGameError('revert_to_draft', e, { tournamentId })
+    return NextResponse.json({ error: 'No se pudo volver a borrador' }, { status: 500 })
+  }
+  return NextResponse.json({ success: true, status: 'draft' })
+}
+
 export async function cancelTournament(
   svc: Svc, userId: string, tournamentId: string,
   organizerId: string, status: string
@@ -345,8 +399,10 @@ export async function cancelTournament(
   if (organizerId !== userId) {
     return NextResponse.json({ error: 'Solo el organizador puede cancelar el torneo' }, { status: 403 })
   }
-  if (status !== 'draft') {
-    return NextResponse.json({ error: 'Solo se puede cancelar un torneo en borrador' }, { status: 409 })
+  // Se puede eliminar un torneo mientras esté en borrador o con inscripciones
+  // abiertas (ambos pre-inicio). Una vez 'in_progress'/'closed' no se borra.
+  if (status !== 'draft' && status !== 'open') {
+    return NextResponse.json({ error: 'Solo se puede eliminar un torneo antes de iniciarlo' }, { status: 409 })
   }
 
   const { data: rounds } = await svc.from('rounds').select('id').eq('tournament_id', tournamentId)
