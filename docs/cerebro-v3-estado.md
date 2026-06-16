@@ -1,6 +1,33 @@
-# Estado Cerebro V3 — Actualizado 2026-06-16 — Ola 1b EN PROGRESO (Tasks 1-6: shrinkage cableado y consumido) · Ola 3 ✅ COMPLETA
+# Estado Cerebro V3 — Actualizado 2026-06-16 — Ola 1b CÓDIGO COMPLETO (Tasks 1-9), espera DEMO+MERGE · Ola 3 ✅ COMPLETA
 
-## ⏳ Ola 1b — "Priors externos por capas" — EN PROGRESO (branch `feat/cerebro-v3-ola1b-claude`)
+## ⏳ Ola 1b — "Priors externos por capas" — CÓDIGO COMPLETO, gate de merge = demo a Juanjo (branch `feat/cerebro-v3-ola1b-claude`)
+
+**ESTADO (sesión 16-jun PM):** Tasks 7-9 cerradas. Falta SOLO la demo en vivo a Juanjo (regla #4) → merge. code-reviewer ya pasó (PASS, cero críticos).
+
+**TASK 7 ✅ — tool `field_context` (3 capas, índice/cancha SERVER-SIDE):**
+- `field-context.ts` (composición pura: `betterThanPct`, `classifyVsNormal`, `classifyCourseDifficulty`, `buildFieldContext`) + 18 tests.
+- `field-context-tool.ts`: schema Anthropic + `fieldContext(ctx,input,deps)` con deps inyectables. Lee índice + cancha reciente del usuario AUTENTICADO server-side (anti-alucinación, patrón get_playing_handicap); el LLM solo pasa `metric_key`. + 6 tests.
+- `computePlayerBaseline` exportado de select-focus (reusa detect→measure, una sola fuente de verdad).
+- Wiring: despacho en `executeTool` (tools.ts) — NO en handle-tool-use (necesita el cliente RLS; desvío del plan, documentado) — + ofrecido en route.ts con el flag + label en coach-event-narrator + guía de uso en CONOCER_SECTION.
+
+**TASK 8 ✅ — canario anti-huérfanos** `orphans-1b.canary.test.ts`: 7 contratos estáticos (field_context en dispatcher + route, shrink en select-focus, getInternalPrior en get-focus, 3 readers + buildFieldContext, prompt) SIEMPRE enforced + capa DB-backed (con service-role) que prueba que el read-path real devuelve data del seed en prod.
+
+**CURADURÍA DE NÚMEROS (antes de Task 9) — decisión CTO clave:**
+- **Hallazgo:** las distribuciones de PERCENTILES por hándicap NO se publican (Shot Scope/Arccos/Stagner solo publican MEDIAS, además image-locked). La varianza que el shrinkage necesita no existe pública.
+- **Capa B curada a dato REAL/VERIFICADO:** distribución de índices USGA 2024 (GHIN, ~2.7M hombres): <5=9.77%, 5-9.9=20.2%, 10-14.9=26.7%, 15-19.9=27.0%, ≥20=16.33% (split 20-28/29+ prorrateado, documentado). Suma exacta 1.0. Validado: índice 9.6 de Juanjo → "mejor que 80% de golfistas" (real); índice 2 → top 5%; 30 → top 1%.
+- **Gate `benchmarkVerified`:** par-3 sigue PROVISIONAL (no hay distribución real). El gate corta su consumo en TODOS los caminos (shrinkage en get-focus + field_context capa A) → un número no verificado NUNCA llega al usuario. Se activa cuando computemos la distribución par-3 real desde nuestra propia data (historical_rounds) con N suficiente, o licenciemos un dataset con percentiles.
+- **Resultado neto:** capas B (población) y C (dificultad de cancha, slope 113 WHS neutro) están VIVAS y son verdaderas; capa A queda lista pero gateada hasta tener dato verificado. El shrinkage queda cableado + testeado, no-op hasta que un metricKey sea verificado.
+
+**TASK 9 ✅ (todo menos demo+merge):**
+- Banco `validate-field-context.ts`: capa B monótona ✅, capa C banda WHS ✅, E2E contra Juanjo real (ranking 80%, Los Leones slope 142 → "más difícil que referencia", gate corta par-3) ✅.
+- `/pre-push`: **tsc 0 · 2704 tests · build OK**.
+- **code-reviewer (regla #5): PASS, cero críticos.** 2 importantes + 3 menores. Aplicados antes del merge: I1 (year NOT NULL DEFAULT 0 — idempotencia capa B, migración nueva aplicada a prod), I2 (year-scoping en getPopulationPercentile + orden determinista en getCourseNorm), M1 (quitar `as never`).
+- **Follow-up anotado (I2 residual):** scoping por `source_id` en los readers de capa B/C ANTES de ingerir una 2ª fuente/año. Hoy 1 sola fuente por capa → no falla.
+- **M3 (review):** la cascada de bucket usa `targetHandicap` como proxy cuando no hay `currentHandicap` (per spec §5.1). Inerte hoy (gate off); revisar al activar si conviene el default conservador en su lugar.
+
+**PENDIENTE ÚNICO:** demo en vivo a Juanjo (regla #4) → `gh pr merge` + confirmar deploy Vercel `success`. Flag sigue por usuario.
+
+### (histórico) Fundación 1b — Tasks 1-6
 
 **Decisión PM (15-jun):** retomar cerebro v3 por las sub-olas 1a-1d de Ola 1. Se arrancó por **1b** (distribuciones + benchmark por skill + normas de cancha) por ser la pieza que habilita ranking + calibración cold-start.
 

@@ -558,7 +558,9 @@ Enchufe en `select-focus.ts`: antes de computar impacto, reemplazar la métrica 
 
 ---
 
-## Task 7: Tool `field_context` (índice server-side) + registro — sesión siguiente
+## Task 7: Tool `field_context` (índice server-side) + registro — ✅ HECHA (16-jun)
+
+> Desvío del plan: se despacha por `executeTool` (tools.ts), NO por handle-tool-use, porque necesita el cliente RLS autenticado (handle-tool-use solo trae userId). Mismo patrón que get_playing_handicap. Schema ofrecido en route.ts con el flag.
 
 **Files:**
 - Create: `src/golf/coach/v3/tools/field-context-tool.ts`
@@ -569,7 +571,7 @@ El tool recibe del LLM solo `{ metric_key }`. Lee el índice y la cancha del usu
 
 ---
 
-## Task 8: Canario anti-huérfanos (CI) — sesión siguiente
+## Task 8: Canario anti-huérfanos (CI) — ✅ HECHA (16-jun)
 
 **Files:**
 - Create: `src/golf/coach/v3/__tests__/orphans-1b.canary.test.ts`
@@ -578,15 +580,15 @@ Test que falla si: (a) `external_priors_*` tiene filas pero `field_context` no e
 
 ---
 
-## Task 9: Cierre de 1b — sesión siguiente
+## Task 9: Cierre de 1b — ⏳ todo HECHO menos demo+merge (16-jun)
 
-- [ ] Banco de pruebas cerebro v3: `node --env-file=.env.local scripts/evaluate-cerebro.mjs` contra 5 perfiles sintéticos + Juanjo. Un perfil low-N debe mostrar el coach apoyándose en el prior; Juanjo (high-N) su data dominando.
-- [ ] `/pre-push` completo (tsc + tests + build + health).
-- [ ] Demo en vivo a Juanjo (gate regla #4).
-- [ ] `superpowers:code-reviewer` sobre el diff (>100 LOC).
-- [ ] Merge a main (flag sigue por usuario) + confirmar deploy Vercel `success` (`feedback_confirmar_deploy_post_merge`).
-- [ ] Docs: SPRINT_LOG, `docs/cerebro-v3-estado.md`, `update-docs.js`, REORDENAMIENTO_TRACKING.
-- [ ] `graphify update .` (regenerar grafo tras cambio estructural).
+- [x] Banco de pruebas 1b: `scripts/cerebro-v3/validate-field-context.ts` contra Juanjo real + índices sintéticos (no gasta créditos LLM). Capa B monótona, capa C banda WHS, gate corta par-3 provisional. (Nota: el banco específico de 1b reemplaza a `evaluate-cerebro.mjs`, que mide el coach LLM completo y hoy cae en fallback Gemini por saldo Anthropic.)
+- [x] `/pre-push` core: tsc 0 · 2704 tests · build OK.
+- [ ] **Demo en vivo a Juanjo (gate regla #4)** ← ÚNICO pendiente.
+- [x] `superpowers:code-reviewer` sobre el diff: PASS, cero críticos. I1/I2/M1 aplicados.
+- [ ] Merge a main (flag sigue por usuario) + confirmar deploy Vercel `success` (post-demo).
+- [x] Docs: `docs/cerebro-v3-estado.md` + este plan actualizados.
+- [ ] `graphify update .` (al cierre, post-merge).
 
 ---
 
