@@ -86,6 +86,8 @@ function HistorialContent() {
         `${res.deletedCount} ${res.deletedCount === 1 ? 'ronda eliminada' : 'rondas eliminadas'}`,
         'Tu índice se recalculó desde cero.',
       )
+    } else if (res.reason === 'noop') {
+      toast.showWarning('No se eliminó nada', 'Recargá la página e intentá de nuevo.')
     } else {
       toast.showError('No se pudieron eliminar', 'Revisá tu conexión e intentá de nuevo.')
     }

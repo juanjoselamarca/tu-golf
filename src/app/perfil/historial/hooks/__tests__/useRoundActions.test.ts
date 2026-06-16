@@ -92,6 +92,17 @@ describe('useRoundActions — falla silenciosa', () => {
     expect(rpcSpy).toHaveBeenCalledTimes(1)
   })
 
+  it('deleteAllRounds: 0 filas (RLS filtró) → noop, no vacía el estado', async () => {
+    selectResult = { data: [], error: null }
+    const setRounds = vi.fn()
+    const { result } = renderHook(() => useRoundActions({ userId: 'u1', setRounds }))
+    let res
+    await act(async () => { res = await result.current.deleteAllRounds() })
+    expect(res).toEqual({ ok: false, reason: 'noop', deletedCount: 0 })
+    expect(setRounds).not.toHaveBeenCalled()
+    expect(rpcSpy).not.toHaveBeenCalled()
+  })
+
   it('deleteAllRounds: sin userId → no borra nada', async () => {
     const setRounds = vi.fn()
     const { result } = renderHook(() => useRoundActions({ userId: null, setRounds }))

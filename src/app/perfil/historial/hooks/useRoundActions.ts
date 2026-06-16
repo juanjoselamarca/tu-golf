@@ -164,6 +164,12 @@ export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): U
       return { ok: false, reason: 'error', deletedCount: 0 }
     }
     const deletedCount = data?.length ?? 0
+    if (deletedCount === 0) {
+      // 0 filas: RLS filtró todo o no había nada. NO reportamos un wipe que no
+      // ocurrió — mismo principio anti-falla-silenciosa que el borrado individual.
+      void captureError('deleteAll afectó 0 filas', { context: 'historial.deleteAll.noop', userId })
+      return { ok: false, reason: 'noop', deletedCount: 0 }
+    }
     setRounds([])
     await recalcIndice(userId)
     return { ok: true, deletedCount }
