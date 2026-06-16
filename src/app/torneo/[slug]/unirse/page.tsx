@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PersonStanding, Flag, Calendar } from '@/components/icons'
+import { esInscribible } from '@/lib/data/tournaments/joinFlow'
 import type {
   JoinInfoTournament,
   JoinInfoProfile,
@@ -348,6 +349,37 @@ export default function UnirsePage() {
               >
                 <div style={{ fontSize: '15px', color: '#22c55e', fontWeight: 600, marginBottom: '4px' }}>
                   Ya estás inscrito en este torneo
+                </div>
+                <Link
+                  href={`/torneo/${slug}`}
+                  style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                >
+                  Ver leaderboard →
+                </Link>
+              </div>
+            ) : !esInscribible(tournament.status) ? (
+              /* Guard CERO FALLOS: el torneo NO acepta auto-inscripción
+                 (draft = aún no abierto; closed/in_progress = ya cerró).
+                 Mostramos estado honesto en vez de un botón que falla. */
+              <div
+                style={{
+                  background: 'var(--surface-soft)',
+                  border: '1px solid var(--surface-border)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  textAlign: 'center',
+                  marginBottom: '16px',
+                }}
+              >
+                <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600, marginBottom: '6px' }}>
+                  {tournament.status === 'draft'
+                    ? 'Las inscripciones de este torneo aún no están abiertas'
+                    : 'Las inscripciones de este torneo están cerradas'}
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
+                  {tournament.status === 'draft'
+                    ? 'El organizador todavía no abrió las inscripciones. Volvé a intentarlo más tarde.'
+                    : 'Ya no se puede inscribir en este torneo.'}
                 </div>
                 <Link
                   href={`/torneo/${slug}`}

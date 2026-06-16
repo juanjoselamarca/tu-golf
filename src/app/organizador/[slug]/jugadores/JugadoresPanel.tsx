@@ -65,8 +65,9 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   } = useGroups({ tournament, players })
 
   const {
-    starting, closing, allRoundsClosed,
+    starting, closing, opening, allRoundsClosed,
     checkAllRoundsClosed, handleStartTournament,
+    handleOpenInscriptions, handleRevertToDraft,
     handleCancelTournament, handleCloseTournament,
   } = useTournamentLifecycle({ tournament, players, groups, setTournamentStatus })
 
@@ -119,12 +120,12 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
             </span>
           )}
           <span style={{
-            background: tournamentStatus === 'closed' ? 'rgba(220,38,38,0.15)' : tournamentStatus === 'in_progress' ? 'rgba(34,197,94,0.15)' : 'rgba(26,79,214,0.15)',
-            color: tournamentStatus === 'closed' ? '#fca5a5' : tournamentStatus === 'in_progress' ? '#22c55e' : '#7a9ef5',
-            border: `1px solid ${tournamentStatus === 'closed' ? 'rgba(220,38,38,0.3)' : tournamentStatus === 'in_progress' ? 'rgba(34,197,94,0.3)' : 'rgba(26,79,214,0.3)'}`,
+            background: tournamentStatus === 'closed' ? 'rgba(220,38,38,0.15)' : tournamentStatus === 'in_progress' ? 'rgba(34,197,94,0.15)' : tournamentStatus === 'open' ? 'rgba(196,153,42,0.15)' : 'rgba(26,79,214,0.15)',
+            color: tournamentStatus === 'closed' ? '#fca5a5' : tournamentStatus === 'in_progress' ? '#22c55e' : tournamentStatus === 'open' ? '#c4992a' : '#7a9ef5',
+            border: `1px solid ${tournamentStatus === 'closed' ? 'rgba(220,38,38,0.3)' : tournamentStatus === 'in_progress' ? 'rgba(34,197,94,0.3)' : tournamentStatus === 'open' ? 'rgba(196,153,42,0.3)' : 'rgba(26,79,214,0.3)'}`,
             padding: '3px 10px', borderRadius: '20px', fontSize: '12px',
           }}>
-            {tournamentStatus === 'closed' ? 'Cerrado' : tournamentStatus === 'in_progress' ? 'En curso' : 'Borrador'}
+            {tournamentStatus === 'closed' ? 'Cerrado' : tournamentStatus === 'in_progress' ? 'En curso' : tournamentStatus === 'open' ? 'Inscripciones abiertas' : 'Borrador'}
           </span>
         </div>
       </div>
@@ -192,8 +193,11 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         playersCount={players.length}
         starting={starting}
         closing={closing}
+        opening={opening}
         allRoundsClosed={allRoundsClosed}
         onStart={handleStartTournament}
+        onOpenInscriptions={handleOpenInscriptions}
+        onRevertToDraft={handleRevertToDraft}
         onCancel={handleCancelTournament}
         onClose={handleCloseTournament}
       />

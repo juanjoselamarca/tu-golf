@@ -4,6 +4,37 @@
 
 ---
 
+## 2026-06-15 · "Abrir inscripciones" a un torneo (draft→open) — self-service desbloqueado
+
+Cierre del reporte de inbox del 9-jun ("inscripción fallida al torneo"). El flujo de
+auto-inscripción `/torneo/[slug]/unirse` estaba **construido completo** pero
+**permanentemente roto**: aceptaba sólo torneos en estado `'open'` y ningún torneo
+llegaba nunca a `'open'` (nacían `draft` y la única transición era a `in_progress`).
+Faltaba cablear la transición `draft→open`.
+
+- **Lifecycle** (`lifecycle.ts`): `openTournament` (draft→open) + `revertToDraft`
+  (open→draft, conserva jugadores). Tests TDD por función.
+- **Backend** (`/api/game` actions): `open_inscriptions` + `revert_to_draft` (validan
+  organizador server-side + estado de origen, delegan en lifecycle). Patrón espejo de
+  `cancel_tournament` — más seguro que el `update()` directo del cliente porque abrir
+  inscripciones expone el torneo públicamente. Guard de `cancelTournament` extendido a
+  `['draft','open']` (eliminar un torneo pre-inicio).
+- **UI organizador** (`TournamentActionsBar` + `useTournamentLifecycle`): botón "Abrir
+  inscripciones" en `draft`; branch nuevo `open` con indicador "Inscripciones abiertas"
+  + "Compartir link" (copia `/unirse`) + "Iniciar torneo" + "Volver a borrador" +
+  "Eliminar". Cero regresión sobre los botones existentes.
+- **Guard CERO FALLOS** (`/unirse`): helper exportado `esInscribible(status)` como fuente
+  de verdad compartida UI/backend. Si el torneo no acepta inscripción, muestra estado
+  honesto ("aún no abiertas" / "ya cerraron") + link al leaderboard, en vez del botón
+  que fallaba.
+- **Alcance menor al previsto:** `JugadoresPanel.tsx` ya estaba refactorizado a 203 LOC
+  (regla "el que toca, ordena" NO se gatilló) y la BD ya permitía `'open'` (CHECK
+  constraint existente → sin migración).
+- **Verificación:** `tsc` 0 errores · 2647 tests verdes (canarios joinFlow: draft NUNCA
+  inscribible) · build OK. Spec: `docs/superpowers/specs/2026-06-11-abrir-inscripciones-torneo-design.md`.
+
+---
+
 ## 2026-06-12 · PR-0 Medición real de costo de IA por item — EN PROD (PR #161)
 
 Cierre del agujero de observabilidad que dejó el credit-out del 11-jun: el coach

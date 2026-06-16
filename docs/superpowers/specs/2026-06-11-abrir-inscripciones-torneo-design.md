@@ -3,7 +3,13 @@
 **Fecha:** 2026-06-11
 **Origen:** reporte inbox 09-jun `9eeb8f51` — "inscripción fallida al torneo".
 **Decisión PM (Juanjo, 11-jun):** cablear la acción de organizador para abrir un torneo a inscripciones (draft→open), así el flujo de auto-inscripción ya construido funciona.
-**Estado:** APROBADA la dirección. NO implementada todavía — requiere plan-eng-review del lifecycle antes de tocar (es core de torneos reales → CERO FALLOS).
+**Estado:** ✅ IMPLEMENTADA (15-jun-2026, rama `feat/abrir-inscripciones-claude`). Transición draft→open cableada vía `/api/game` (action `open_inscriptions` → `lifecycle.openTournament`), + reverso open→draft, + UI organizador (botón "Abrir inscripciones" en draft, branch `open` con compartir-link/iniciar/volver-a-borrador/eliminar), + guard CERO FALLOS en `/unirse`. El alcance resultó menor al previsto: `JugadoresPanel.tsx` ya estaba refactorizado a 203 LOC (regla "el que toca, ordena" NO se gatilló) y la BD ya permitía 'open' (CHECK constraint existente, sin migración).
+
+### Notas de implementación (decisiones CTO)
+- **Mecanismo:** action `open_inscriptions` en `/api/game` (espeja `cancel_tournament`, valida organizador server-side) en vez del `update()` directo del cliente que usan start/close — abrir inscripciones expone el torneo públicamente, la barrera server-side es la correcta.
+- **Reverso:** `revert_to_draft` (open→draft) conserva los `players` ya inscritos.
+- **Eliminar:** se extendió el guard de `cancelTournament` de `'draft'` a `['draft','open']` (ambos pre-inicio).
+- **Fuente de verdad compartida:** helper exportado `esInscribible(status)` en `joinFlow.ts`, consumido por el guard de la UI para que el botón nunca contradiga al backend.
 
 ---
 

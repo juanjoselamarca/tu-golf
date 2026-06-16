@@ -38,6 +38,7 @@ export function useTournamentLifecycle({
 
   const [starting, setStarting] = useState(false)
   const [closing, setClosing] = useState(false)
+  const [opening, setOpening] = useState(false)
   const [allRoundsClosed, setAllRoundsClosed] = useState(false)
 
   // Check if all rounds in the latest round_number are closed
@@ -54,7 +55,16 @@ export function useTournamentLifecycle({
   }
 
   const handleCancelTournament = async () => {
-    if (!window.confirm('Cancelar y eliminar este torneo? Esta acción no se puede deshacer.')) return
+    // Eliminar es un DELETE duro: borra rondas, grupos, players, categorías y el
+    // torneo. Con inscripciones abiertas puede haber jugadores reales ya inscritos
+    // vía /unirse — el confirm DEBE decir cuántos se borran, no un genérico
+    // "no se puede deshacer" (CERO FALLOS: un fat-finger no puede tragarse 30
+    // inscripciones en silencio). Si hay inscritos, sugerimos volver a borrador.
+    const n = players.length
+    const msg = n > 0
+      ? `Este torneo tiene ${n} jugador${n !== 1 ? 'es' : ''} inscrito${n !== 1 ? 's' : ''}. Eliminarlo borra sus inscripciones de forma PERMANENTE (esto no se puede deshacer). Si solo querés cerrar inscripciones, usá "Volver a borrador". ¿Eliminar igual?`
+      : 'Eliminar este torneo? Esta acción no se puede deshacer.'
+    if (!window.confirm(msg)) return
     const res = await fetch('/api/game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -67,6 +77,62 @@ export function useTournamentLifecycle({
     }
     showSuccess('Torneo eliminado', 'El torneo fue eliminado.')
     router.push('/dashboard')
+  }
+
+  // Abre las inscripciones (draft → open) vía el orquestador /api/game, que
+  // valida organizador server-side y delega en lifecycle.openTournament. No
+  // hacemos el update directo acá (a diferencia de start/close) porque abrir
+  // inscripciones expone el torneo públicamente: la validación server-side es
+  // la barrera correcta.
+  const handleOpenInscriptions = async () => {
+    if (opening) return
+    setOpening(true)
+    // try/finally: si fetch tira (offline, DNS, abort) el flag NO debe quedar
+    // pegado dejando el botón en "Abriendo..." para siempre (CERO FALLOS — wifi
+    // de cancha entre hoyos).
+    try {
+      const res = await fetch('/api/game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'open_inscriptions', tournament_id: tournament.id }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        showError('Error', data.error || 'No se pudieron abrir las inscripciones.')
+        return
+      }
+      setTournamentStatus('open')
+      showSuccess('Inscripciones abiertas', 'Compartí el link para que se inscriban. Podés iniciar el torneo cuando quieras.')
+    } catch {
+      showError('Sin conexión', 'No se pudieron abrir las inscripciones. Revisá tu conexión e intentá de nuevo.')
+    } finally {
+      setOpening(false)
+    }
+  }
+
+  // Vuelve a borrador (open → draft) conservando los jugadores ya inscritos.
+  const handleRevertToDraft = async () => {
+    if (opening) return
+    if (!window.confirm('¿Volver a borrador? Las inscripciones se cierran pero los jugadores ya inscritos se conservan.')) return
+    setOpening(true)
+    try {
+      const res = await fetch('/api/game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'revert_to_draft', tournament_id: tournament.id }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        showError('Error', data.error || 'No se pudo volver a borrador.')
+        return
+      }
+      setTournamentStatus('draft')
+      showSuccess('Inscripciones cerradas', 'El torneo volvió a borrador. Los jugadores inscritos se conservan.')
+    } catch {
+      showError('Sin conexión', 'No se pudo volver a borrador. Revisá tu conexión e intentá de nuevo.')
+    } finally {
+      setOpening(false)
+    }
   }
 
   const handleStartTournament = async () => {
@@ -318,8 +384,9 @@ export function useTournamentLifecycle({
   }
 
   return {
-    starting, closing, allRoundsClosed,
+    starting, closing, opening, allRoundsClosed,
     checkAllRoundsClosed, handleStartTournament,
+    handleOpenInscriptions, handleRevertToDraft,
     handleCancelTournament, handleCloseTournament,
   }
 }
