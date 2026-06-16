@@ -6,6 +6,7 @@ import { TAIGER_TOOLS } from '@/golf/coach/tools'
 import { TOOLS_INSTRUCTION } from '@/golf/coach/prompts/tools-instruction'
 import { SEARCH_KNOWLEDGE_TOOL } from '@/golf/coach/v3/tools/search-knowledge-chunks-tool'
 import { FOCUS_TOOLS } from '@/golf/coach/v3/tools/focus-tools'
+import { FIELD_CONTEXT_TOOL } from '@/golf/coach/v3/tools/field-context-tool'
 import { RAG_SECTION, ENGAGEMENT_SECTION, CONOCER_SECTION } from '@/golf/coach/v3/prompts'
 import { getOnboardingState, ONBOARDING_SECTION } from '@/golf/coach/v3/onboarding'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
       : ''
     const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}${ragSection}`
     const activeTools = cerebroV3Enabled
-      ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL, ...FOCUS_TOOLS]
+      ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL, ...FOCUS_TOOLS, FIELD_CONTEXT_TOOL]
       : TAIGER_TOOLS
     const anthropic = new Anthropic({ apiKey })
 

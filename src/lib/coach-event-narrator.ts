@@ -75,6 +75,7 @@ export function toolActivityLabel(toolName: string): string {
     case 'get_course_scorecard':   return 'Mirando los pares de la cancha…'
     case 'find_rounds':            return 'Buscando tus rondas…'
     case 'get_playing_handicap':   return 'Calculando tu handicap de juego…'
+    case 'field_context':          return 'Comparándote con tu nivel…'
     case 'save_plan':              return 'Asignando tu plan…'
     default:                       return 'Pensando…'
   }

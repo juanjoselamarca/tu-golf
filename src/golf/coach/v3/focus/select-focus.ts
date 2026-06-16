@@ -2,7 +2,7 @@ import { detectPatterns, type PatternRound } from '@/golf/coach/patterns'
 import { parPerHoleArray } from '@/golf/core/holes'
 import { sum, type RoundData } from '@/golf/coach/metrics'
 import type { CerebroWeight } from '@/lib/cerebro/weights'
-import { FOCUS_CATALOG, type DetectInfo } from './catalog'
+import { FOCUS_CATALOG, type DetectInfo, type Baseline, type FocusCandidate } from './catalog'
 import type { Focus, FocusResult, FocusTarget, SelectFocusInput } from './types'
 import { shrink } from '../priors/shrinkage'
 
@@ -28,6 +28,28 @@ export function patternWeight(weights: CerebroWeight[], patternId: string, defau
   if (w) return w.current_weight
   if (typeof defaultWeight === 'number') return defaultWeight
   return DEFAULT_PATTERN_WEIGHT
+}
+
+/**
+ * Valor baseline del jugador para un metricKey del catálogo, computado IGUAL que
+ * en selectFocus (detect → measure). Lo usa field_context (Ola 1b) para situar al
+ * jugador vs el benchmark de su bucket, reusando una sola fuente de verdad de la
+ * matemática. Devuelve null si el metricKey no está en el catálogo o no hay datos.
+ */
+export function computePlayerBaseline(
+  rounds: RoundData[],
+  metricKey: string,
+  catalog: FocusCandidate[] = FOCUS_CATALOG,
+): Baseline | null {
+  const cand = catalog.find((c) => c.metricKey === metricKey)
+  if (!cand) return null
+  const patternRounds = rounds.map(toPatternRound)
+  const detectedMap = new Map<string, DetectInfo>()
+  for (const d of detectPatterns(patternRounds)) {
+    detectedMap.set(d.pattern.id, { confidence: d.confidence, metadata: d.metadata ?? {} })
+  }
+  const detected = detectedMap.get(cand.patternId) ?? { confidence: 0, metadata: {} }
+  return cand.measure({ rounds, detected })
 }
 
 function toPatternRound(r: RoundData): PatternRound {

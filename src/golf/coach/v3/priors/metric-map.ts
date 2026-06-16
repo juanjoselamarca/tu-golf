@@ -19,6 +19,12 @@ export interface PriorMapping {
    * con la curaduría de números (mismo paso que reemplaza el seed preliminar).
    */
   withinRoundSd: number;
+  /**
+   * Dirección de calidad: true = menos es mejor (scores vs par, three-putts,
+   * dispersión). Lo usa field_context para situar al jugador en su bucket. Las
+   * métricas de foco son todas "menos es mejor"; el flag lo deja explícito.
+   */
+  lowerIsBetter: boolean;
 }
 
 export const METRIC_PRIOR_MAP: Record<string, PriorMapping> = {
@@ -30,6 +36,7 @@ export const METRIC_PRIOR_MAP: Record<string, PriorMapping> = {
     externalMetricKey: 'score_par3',
     toInternal: (v) => v - 3,
     withinRoundSd: 0.5, // PRELIMINAR
+    lowerIsBetter: true,
   },
 };
 
