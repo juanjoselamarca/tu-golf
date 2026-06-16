@@ -81,14 +81,20 @@ export default function PgaBroadcast() {
   useEffect(() => {
     const win = winRef.current
     if (!win) return
-    let paused = false, raf = 0
+    let paused = false, raf = 0, last = 0
     let resumeT: ReturnType<typeof setTimeout> | undefined
     const soft = (ms = 3500) => { paused = true; if (resumeT) clearTimeout(resumeT); resumeT = setTimeout(() => { paused = false }, ms) }
-    const loop = () => {
-      if (!paused) {
-        win.scrollTop += 0.35
-        if (win.scrollTop >= win.scrollHeight - win.clientHeight - 1) win.scrollTop = 0
+    // Una vuelta completa dura ~LOOP_MS sin importar cuántos jugadores haya: con el
+    // campo completo (~150) el crawl mantiene la misma sensación que con 10. Basado
+    // en delta-time (no px/frame fijos) → velocidad estable en cualquier refresh-rate.
+    const LOOP_MS = 38000
+    const loop = (now: number) => {
+      const max = win.scrollHeight - win.clientHeight
+      if (!paused && max > 0 && last) {
+        win.scrollTop += (max / LOOP_MS) * (now - last)
+        if (win.scrollTop >= max - 1) win.scrollTop = 0
       }
+      last = now
       raf = requestAnimationFrame(loop)
     }
     const onEnter = () => { paused = true; if (resumeT) clearTimeout(resumeT) }
@@ -124,14 +130,21 @@ export default function PgaBroadcast() {
 
   const state = data.complete ? 'done' : data.active ? 'live' : 'off'
   const label = state === 'done' ? 'Final · PGA Tour' : state === 'live' ? 'En vivo · PGA Tour' : 'Próximo · PGA Tour'
-  const tour = showBoard ? (data.round || data.tournament || '') : (next ? next.name : '')
+  // Nombre del campeonato (lo importante) como chip primario; la ronda, secundaria.
+  const tour = showBoard ? (data.tournament || '') : (next ? next.name : '')
+  const roundLabel = showBoard ? (data.round || '') : ''
   const champ = data.complete ? players[0] : undefined
 
   return (
     <div className="pgalive">
       <div className="ph">
         <span className={`live ${state}`}><span className="ld" />{label}</span>
-        {tour && <span className="tour">{tour}</span>}
+        {(tour || roundLabel) && (
+          <span className="phr">
+            {tour && <span className="tour">{tour}</span>}
+            {roundLabel && <span className="rd">{roundLabel}</span>}
+          </span>
+        )}
       </div>
 
       {showBoard ? (
@@ -147,7 +160,7 @@ export default function PgaBroadcast() {
                 <div key={p.nameFull || i} className={`prow${latam ? ' cl' : ''}${isChamp ? ' champ' : ''}`}>
                   <span className="pp">{p.position}</span>
                   {!p.isTeam && p.flag
-                    ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="fg" src={p.flag} alt="" />
+                    ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="fg" src={p.flag} alt="" loading="lazy" decoding="async" />
                     : <span className="fg" style={{ background: 'rgba(255,255,255,0.08)' }} />}
                   <span className="pn">{isChamp && <Trophy />}{p.name}</span>
                   <span className="pt">{p.thru}</span>
