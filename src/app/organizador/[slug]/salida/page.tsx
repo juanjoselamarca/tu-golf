@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { SITE_DOMAIN } from '@/lib/site-url'
 import { createClient } from '@/lib/supabase'
+import { copyToClipboard } from '@/lib/clipboard'
 
 interface Group {
   name: string
@@ -91,11 +92,11 @@ export default function HojaSalidaPage() {
     return lines.join('\n')
   }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(generateText()).then(() => {
+  const handleCopy = async () => {
+    if (await copyToClipboard(generateText())) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    })
+    }
   }
 
   const handleShare = async () => {

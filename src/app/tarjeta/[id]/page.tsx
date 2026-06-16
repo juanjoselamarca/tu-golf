@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
@@ -106,9 +107,10 @@ export default function TarjetaPublicaPage() {
     if (navigator.share) {
       try { await navigator.share({ title: text, url }); return } catch { /* cancelled */ }
     }
-    await navigator.clipboard.writeText(url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2500)
+    if (await copyToClipboard(url)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    }
   }
 
   // Loading

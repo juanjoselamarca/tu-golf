@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
@@ -451,7 +452,7 @@ export default function NuevaRondaLibrePage() {
     const link = type === 'jugar'
       ? `${baseUrl}/ronda-libre/${roundCode}/score`
       : `${baseUrl}/ronda-libre/${roundCode}`
-    try { await navigator.clipboard.writeText(link) } catch {}
+    try { await copyToClipboard(link) } catch {}
   }
 
   // ─── Share screen after round creation ───

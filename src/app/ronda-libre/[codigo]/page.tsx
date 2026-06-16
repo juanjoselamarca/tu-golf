@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Flag, ClipboardList, Trophy, Handshake, PersonStanding } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
+import { copyToClipboard } from '@/lib/clipboard'
 import { getScoreColor, formatOverUnder } from '@/constants/golf'
 import { getScoreColorLight } from '@/golf/core/colors'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult, type MatchHoleDetail } from '@/golf/formats/match-play'
@@ -400,9 +401,8 @@ function RondaLibrePageContent() {
     return `${leader.nombre} va ${leader.gross} (${vsParStr}) en ${ronda.course_name} — Seguila en vivo`
   })()
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(shareUrl)
-      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+  const handleCopy = async () => {
+    if (await copyToClipboard(shareUrl)) { setCopied(true); setTimeout(() => setCopied(false), 2000) }
   }
 
   const handleShare = async () => {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 import { SITE_DOMAIN } from '@/lib/site-url'
 
 interface ShareResultsProps {
@@ -50,8 +51,7 @@ export default function ShareResultsButton({
     const opened = window.open(whatsappUrl, '_blank')
 
     // If WhatsApp didn't open, copy to clipboard
-    if (!opened) {
-      await navigator.clipboard.writeText(text)
+    if (!opened && (await copyToClipboard(text))) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     }

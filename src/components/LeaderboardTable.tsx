@@ -9,6 +9,7 @@ import {
 } from '@/lib/golf-data'
 import { GWICell } from '@/components/GWICell'
 import { Flag } from '@/components/icons'
+import { copyToClipboard } from '@/lib/clipboard'
 
 // GWI demo data keyed by player name
 function generateGWISeries(indice: number, seed: number): number[] {
@@ -360,11 +361,11 @@ function ShareModal({
 
   const [copied, setCopied] = useState(false)
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(shareUrl).then(() => {
+  const copyLink = async () => {
+    if (await copyToClipboard(shareUrl)) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    })
+    }
   }
 
   return (
