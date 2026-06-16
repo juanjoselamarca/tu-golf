@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 
 /**
@@ -135,6 +135,17 @@ export default function PgaBroadcast() {
   const roundLabel = showBoard ? (data.round || '') : ''
   const champ = data.complete ? players[0] : undefined
 
+  // Línea de corte: la insertamos en su lugar real (tras el último jugador que
+  // pasa el corte), no al fondo de las ~150 filas. Solo en vivo (projectedCut null
+  // si no hay corte). score formateado: "E"→0, "+3"→3, "-5"→-5.
+  const cutVal = data.projectedCut != null ? parseFloat(data.projectedCut) : NaN
+  const cutAfterIdx = !Number.isNaN(cutVal)
+    ? players.reduce((acc, p, i) => {
+        const s = p.score === 'E' ? 0 : parseFloat(p.score)
+        return !Number.isNaN(s) && s <= cutVal ? i : acc
+      }, -1)
+    : -1
+
   return (
     <div className="pgalive">
       <div className="ph">
@@ -157,21 +168,23 @@ export default function PgaBroadcast() {
               const todayOver = p.today?.startsWith('+')
               const todayDash = !p.today || p.today === '-'
               return (
-                <div key={p.nameFull || i} className={`prow${latam ? ' cl' : ''}${isChamp ? ' champ' : ''}`}>
-                  <span className="pp">{p.position}</span>
-                  {!p.isTeam && p.flag
-                    ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="fg" src={p.flag} alt="" loading="lazy" decoding="async" />
-                    : <span className="fg" style={{ background: 'rgba(255,255,255,0.08)' }} />}
-                  <span className="pn">{isChamp && <Trophy />}{p.name}</span>
-                  <span className="pt">{p.thru}</span>
-                  <span className={`ptd${todayDash ? ' dash' : todayOver ? ' over' : ''}`}>{todayDash ? '–' : dash(p.today)}</span>
-                  <span className={`ps${p.score?.startsWith('-') ? ' u' : ''}`}>{dash(p.score)}</span>
-                </div>
+                <Fragment key={p.nameFull || i}>
+                  <div className={`prow${latam ? ' cl' : ''}${isChamp ? ' champ' : ''}`}>
+                    <span className="pp">{p.position}</span>
+                    {!p.isTeam && p.flag
+                      ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="fg" src={p.flag} alt="" loading="lazy" decoding="async" />
+                      : <span className="fg" style={{ background: 'rgba(255,255,255,0.08)' }} />}
+                    <span className="pn">{isChamp && <Trophy />}{p.name}</span>
+                    <span className="pt">{p.thru}</span>
+                    <span className={`ptd${todayDash ? ' dash' : todayOver ? ' over' : ''}`}>{todayDash ? '–' : dash(p.today)}</span>
+                    <span className={`ps${p.score?.startsWith('-') ? ' u' : ''}`}>{dash(p.score)}</span>
+                  </div>
+                  {data.projectedCut && i === cutAfterIdx && (
+                    <div className="cutline proj">Corte proyectado · {dash(data.projectedCut)}</div>
+                  )}
+                </Fragment>
               )
             })}
-            {data.projectedCut && (
-              <div className="cutline proj">Corte proyectado · {dash(data.projectedCut)}</div>
-            )}
           </div>
         </>
       ) : (

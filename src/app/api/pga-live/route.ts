@@ -91,7 +91,16 @@ export async function GET() {
     // e.g. "Round 2 - In Progress" → 2
     const statusDetail = status?.type?.shortDetail || status?.type?.detail || ''
     const roundMatch = statusDetail.match(/Round\s*(\d+)/i)
-    const tournamentRoundNum = roundMatch ? parseInt(roundMatch[1], 10) : 1
+    let tournamentRoundNum = roundMatch ? parseInt(roundMatch[1], 10) : 1
+    // Torneo finalizado: el status no trae "Round N", así que tomamos la última
+    // ronda con datos (la final) en vez de caer a 1. Sin esto, "Hoy/Thru" mostraba
+    // la RONDA 1 de un torneo ya terminado (engañoso) en vez de la vuelta final.
+    if (!roundMatch && status?.type?.state === 'post') {
+      for (const c of competitors) {
+        const n = Array.isArray(c?.linescores) ? c.linescores.length : 0
+        if (n > tournamentRoundNum) tournamentRoundNum = n
+      }
+    }
 
     // Sort by score
     interface EspnLineScore {
