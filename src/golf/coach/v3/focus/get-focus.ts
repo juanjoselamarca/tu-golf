@@ -8,6 +8,7 @@ import { loadFocusCatalog } from './catalog-db'
 import type { FocusCandidate } from './catalog'
 import { handicapToBucket } from '../priors/buckets'
 import { getInternalPrior, type InternalPrior } from '../priors/readers'
+import { priorMappingFor } from '../priors/metric-map'
 import type { FocusResult, FocusTarget } from './types'
 import { loadObservationPairs } from '@/lib/data/pattern-observations'
 import { validatePattern, type PatternVerdict } from '../pattern-validator'
@@ -62,6 +63,10 @@ async function loadPriorsFor(
     const bucket = handicapIndex != null ? handicapToBucket(handicapIndex) : DEFAULT_BUCKET
     const out: Record<string, InternalPrior> = {}
     for (const key of metricKeys) {
+      // Gate de calidad de dato: solo se consume el prior si su benchmark está
+      // VERIFICADO (no provisional). Hoy ningún metricKey lo está → shrinkage
+      // no-op idéntico a pre-1b. El día que se verifique uno, fluye solo.
+      if (!priorMappingFor(key)?.benchmarkVerified) continue
       const prior = await getInternalPrior(supabase, bucket, key)
       if (prior) out[key] = prior
     }

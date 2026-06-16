@@ -44,19 +44,21 @@ function makeDeps(over: Partial<FieldContextDeps> = {}): FieldContextDeps {
 const ctx = { supabase: {} as never, userId: 'u1' }
 
 describe('fieldContext tool', () => {
-  it('devuelve las 3 capas con data real', async () => {
-    const res = await fieldContext(ctx, { metric_key: 'par3_avg_vs_par' }, makeDeps())
+  it('capa B y C disponibles; capa A GATEADA por benchmark provisional (par3 no verificado)', async () => {
+    const deps = makeDeps()
+    const res = await fieldContext(ctx, { metric_key: 'par3_avg_vs_par' }, deps)
     expect(res.ok).toBe(true)
     if (!res.ok) return
-    expect(res.data.vs_handicap.disponible).toBe(true)
+    // par3_avg_vs_par tiene benchmarkVerified=false ⇒ NO se expone un percentil
+    // provisional al usuario. La capa A degrada honesta.
+    expect(res.data.vs_handicap.disponible).toBe(false)
+    // No debe siquiera consultar el benchmark provisional.
+    expect(deps.loadBenchmark).not.toHaveBeenCalled()
+    // Las capas verificadas (B población USGA, C dificultad) sí están vivas.
     expect(res.data.ranking_poblacional.disponible).toBe(true)
     expect(res.data.dificultad_cancha.disponible).toBe(true)
-    if (res.data.vs_handicap.disponible) {
-      // par3_avg_vs_par del jugador = 1.0; benchmark interno: p50=0.6, p90=1.2
-      expect(res.data.vs_handicap.tu_valor).toBeCloseTo(1.0, 1)
-      expect(res.data.vs_handicap.normal_para_tu_handicap).toBe(0.6)
-      // 1.0 está entre p75(0.9) y p90(1.2) ⇒ mejor que poca gente
-      expect(res.data.vs_handicap.mejor_que_pct!).toBeLessThan(25)
+    if (res.data.dificultad_cancha.disponible) {
+      expect(res.data.dificultad_cancha.relativa).toMatch(/más difícil/)
     }
   })
 

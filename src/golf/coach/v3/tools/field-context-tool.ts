@@ -135,7 +135,10 @@ export async function fieldContext(
   let benchmarkInternal: BenchmarkPoint[] = []
   let playerValue: number | null = null
   let lowerIsBetter = true
-  if (metricKey && mapping && indice != null) {
+  // Gate CERO FALLOS: la capa A (percentil vs hándicap) solo se arma con un
+  // benchmark VERIFICADO. Provisional ⇒ no se carga ⇒ la capa degrada honesta
+  // (nunca un percentil inventado al usuario). Las capas B y C son independientes.
+  if (metricKey && mapping && mapping.benchmarkVerified && indice != null) {
     const bucket = handicapToBucket(indice)
     const rawBench = await deps.loadBenchmark(bucket, mapping.externalMetricKey)
     benchmarkInternal = rawBench.map((p) => ({ percentile: p.percentile, value: mapping.toInternal(p.value) }))

@@ -25,6 +25,16 @@ export interface PriorMapping {
    * métricas de foco son todas "menos es mejor"; el flag lo deja explícito.
    */
   lowerIsBetter: boolean;
+  /**
+   * Gate de calidad de dato (CERO FALLOS): el benchmark de percentiles por
+   * hándicap está VERIFICADO contra una distribución real publicada (no solo la
+   * media). Si es false, el seed es provisional/modelado y NO se consume:
+   * ni el shrinkage (get-focus) ni field_context Layer A lo usan, así no llega
+   * un número inventado al usuario. Hoy par_3 = false: las distribuciones de
+   * percentiles por hándicap NO se publican; se activará cuando computemos la
+   * distribución real desde nuestra propia data o licenciemos una con percentiles.
+   */
+  benchmarkVerified: boolean;
 }
 
 export const METRIC_PRIOR_MAP: Record<string, PriorMapping> = {
@@ -37,6 +47,7 @@ export const METRIC_PRIOR_MAP: Record<string, PriorMapping> = {
     toInternal: (v) => v - 3,
     withinRoundSd: 0.5, // PRELIMINAR
     lowerIsBetter: true,
+    benchmarkVerified: false, // distribución de percentiles por hándicap no publicada → no se expone
   },
 };
 
