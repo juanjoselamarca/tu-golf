@@ -69,7 +69,10 @@ export function ToastContainer() {
     {
       style: {
         position:      'fixed',
-        bottom:        '24px',
+        // Despega de la barra de navegación inferior (mobile): barra 52px + el
+        // botón central "+" elevado que sobresale ~24px + safe-area. Antes a 24px
+        // el toast quedaba tapado por la nav y el FAB central.
+        bottom:        'calc(88px + env(safe-area-inset-bottom, 0px))',
         left:          '50%',
         transform:     'translateX(-50%)',
         width:         '100%',

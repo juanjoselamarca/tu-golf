@@ -35,6 +35,8 @@ export interface ActionResult {
   ok: boolean
   /** 'error' = la query falló; 'noop' = 0 filas afectadas (RLS / ya no existe). */
   reason?: 'error' | 'noop'
+  /** Índice Golfers+ recalculado tras la acción (null si <3 rondas válidas o falló el recalc). */
+  index?: number | null
 }
 
 export interface BulkDeleteResult extends ActionResult {
@@ -56,15 +58,21 @@ export interface UseRoundActionsResult {
   deleteAllRounds:    () => Promise<BulkDeleteResult>
 }
 
-/** Recalcula el índice Golfers+ post-mutación. Awaiteado para confirmar al usuario. */
-async function recalcIndice(userId: string | null): Promise<void> {
-  if (!userId) return
+/**
+ * Recalcula el índice Golfers+ post-mutación y devuelve el valor nuevo.
+ * Awaiteado para confirmar al usuario con el número real (no una promesa vacía).
+ * La RPC retorna numeric (el índice) o null (<3 rondas válidas).
+ */
+async function recalcIndice(userId: string | null): Promise<number | null> {
+  if (!userId) return null
   const supabase = createClient()
-  const { error } = await supabase.rpc('calcular_indice_golfers', { p_user_id: userId })
+  const { data, error } = await supabase.rpc('calcular_indice_golfers', { p_user_id: userId })
   if (error) {
     // No es fatal para la acción (la ronda ya se borró/excluyó); solo lo registramos.
     void captureError(error, { context: 'historial.recalcIndice', userId })
+    return null
   }
+  return typeof data === 'number' ? data : null
 }
 
 export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): UseRoundActionsResult {
@@ -94,8 +102,8 @@ export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): U
     }
     setRounds(prev => prev.filter(r => r.id !== id))
     // FIX inbox f772e78b: recalcular el índice tras borrar.
-    await recalcIndice(userId)
-    return { ok: true }
+    const index = await recalcIndice(userId)
+    return { ok: true, index }
   }, [userId, setRounds])
 
   const toggleExcluded = useCallback(async (round: HistoricalRound): Promise<ActionResult> => {
@@ -117,8 +125,8 @@ export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): U
       })
       return { ok: false, reason: error ? 'error' : 'noop' }
     }
-    await recalcIndice(userId)
-    return { ok: true }
+    const index = await recalcIndice(userId)
+    return { ok: true, index }
   }, [userId, setRounds])
 
   const saveEdit = useCallback(async (id: string, editScores: (number | null)[]): Promise<ActionResult> => {
@@ -144,8 +152,8 @@ export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): U
       r.id === id ? { ...r, scores: editScores, total_gross: totalGrossOrNull } : r
     ))
     // Cambiar scores cambia el diferencial — recalcular índice.
-    await recalcIndice(userId)
-    return { ok: true }
+    const index = await recalcIndice(userId)
+    return { ok: true, index }
   }, [userId, setRounds])
 
   const deleteAllRounds = useCallback(async (): Promise<BulkDeleteResult> => {
@@ -171,8 +179,8 @@ export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): U
       return { ok: false, reason: 'noop', deletedCount: 0 }
     }
     setRounds([])
-    await recalcIndice(userId)
-    return { ok: true, deletedCount }
+    const index = await recalcIndice(userId)
+    return { ok: true, deletedCount, index }
   }, [userId, setRounds])
 
   return { deleting, deletingAll, savingEdit, deleteRound, toggleExcluded, saveEdit, deleteAllRounds }
