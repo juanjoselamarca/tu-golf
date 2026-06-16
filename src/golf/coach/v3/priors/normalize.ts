@@ -27,7 +27,7 @@ const layerC = z.object({
   par: z.number().int().nullish(),
   slope_rating: z.number().int().nullish(),
   course_rating: z.number().nullish(),
-  metadata: z.record(z.unknown()).nullish(),
+  metadata: z.record(z.string(), z.unknown()).nullish(),
 });
 
 const SCHEMAS = { A: layerA, B: layerB, C: layerC } as const;
@@ -60,7 +60,7 @@ function assertProportions(rows: LayerBRow[]): void {
     const k = `${r.region}|${r.gender}|${r.age_bucket}|${r.year}`;
     groups.set(k, (groups.get(k) ?? 0) + r.proportion);
   }
-  for (const [k, sum] of groups) {
+  for (const [k, sum] of Array.from(groups)) {
     if (Math.abs(sum - 1) > 0.02) {
       throw new Error(`Suma de proporciones del corte ${k} = ${sum.toFixed(3)}, debe ser ~1.0`);
     }
