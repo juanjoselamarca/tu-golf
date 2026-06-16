@@ -51,10 +51,15 @@ function HistorialContent() {
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
 
   /* ── Handlers con feedback visible (CERO FALLOS: nada falla en silencio) ── */
+  // Subtítulo honesto: muestra el índice REAL recalculado, no una promesa vacía.
+  // null = <3 rondas válidas (todavía no hay índice).
+  const idxMsg = (index?: number | null) =>
+    index != null ? `Tu índice ahora: ${index.toFixed(1)}` : 'Índice recalculado.'
+
   const handleDelete = async (id: string) => {
     const res = await deleteRound(id)
     if (res.ok) {
-      toast.showSuccess('Ronda eliminada', 'Tu índice se recalculó.')
+      toast.showSuccess('Ronda eliminada', idxMsg(res.index))
     } else if (res.reason === 'noop') {
       toast.showWarning('No se eliminó', 'La ronda ya no existe. Recargá la página.')
     } else {
@@ -68,7 +73,7 @@ function HistorialContent() {
     if (res.ok) {
       toast.showSuccess(
         willExclude ? 'Excluida del índice' : 'Incluida en el índice',
-        'Tu handicap se recalculó.',
+        idxMsg(res.index),
       )
     } else {
       toast.showError(
@@ -84,7 +89,7 @@ function HistorialContent() {
     if (res.ok) {
       toast.showSuccess(
         `${res.deletedCount} ${res.deletedCount === 1 ? 'ronda eliminada' : 'rondas eliminadas'}`,
-        'Tu índice se recalculó desde cero.',
+        res.index != null ? `Tu índice ahora: ${res.index.toFixed(1)}` : 'Ya no tenés índice (sin rondas).',
       )
     } else if (res.reason === 'noop') {
       toast.showWarning('No se eliminó nada', 'Recargá la página e intentá de nuevo.')
@@ -226,7 +231,7 @@ function HistorialContent() {
                       onCancelEdit={() => setEditingId(null)}
                       onSaveEdit={async (scores) => {
                         const res = await saveEdit(r.id, scores)
-                        if (res.ok) { setEditingId(null); toast.showSuccess('Ronda actualizada', 'Tu índice se recalculó.') }
+                        if (res.ok) { setEditingId(null); toast.showSuccess('Ronda actualizada', idxMsg(res.index)) }
                         else toast.showError('No se pudo guardar', 'Revisá tu conexión e intentá de nuevo.')
                       }}
                       onToggleExcluded={() => void handleToggleExcluded(r)}

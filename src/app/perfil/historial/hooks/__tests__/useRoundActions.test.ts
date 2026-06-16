@@ -8,7 +8,7 @@ import { useRoundActions } from '../useRoundActions'
 import type { HistoricalRound } from '../../lib/types'
 
 let selectResult: { data: unknown; error: unknown } = { data: [{ id: 'r1' }], error: null }
-const rpcSpy = vi.fn(() => Promise.resolve({ error: null }))
+const rpcSpy = vi.fn(() => Promise.resolve({ data: 5.1, error: null }))
 
 vi.mock('@/lib/supabase', () => ({
   createClient: () => {
@@ -34,7 +34,7 @@ describe('useRoundActions — falla silenciosa', () => {
     const { result } = renderHook(() => useRoundActions({ userId: 'u1', setRounds }))
     let res
     await act(async () => { res = await result.current.deleteRound('r1') })
-    expect(res).toEqual({ ok: true })
+    expect(res).toEqual({ ok: true, index: 5.1 })
     expect(setRounds).toHaveBeenCalledTimes(1)
     expect(rpcSpy).toHaveBeenCalledTimes(1)
   })
@@ -76,7 +76,7 @@ describe('useRoundActions — falla silenciosa', () => {
     const { result } = renderHook(() => useRoundActions({ userId: 'u1', setRounds }))
     let res
     await act(async () => { res = await result.current.toggleExcluded(round) })
-    expect(res).toEqual({ ok: true })
+    expect(res).toEqual({ ok: true, index: 5.1 })
     expect(setRounds).toHaveBeenCalledTimes(1)
     expect(rpcSpy).toHaveBeenCalledTimes(1)
   })
@@ -87,7 +87,7 @@ describe('useRoundActions — falla silenciosa', () => {
     const { result } = renderHook(() => useRoundActions({ userId: 'u1', setRounds }))
     let res
     await act(async () => { res = await result.current.deleteAllRounds() })
-    expect(res).toEqual({ ok: true, deletedCount: 3 })
+    expect(res).toEqual({ ok: true, deletedCount: 3, index: 5.1 })
     expect(setRounds).toHaveBeenCalledWith([])
     expect(rpcSpy).toHaveBeenCalledTimes(1)
   })
