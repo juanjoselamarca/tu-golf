@@ -38,7 +38,14 @@ async function assertPageLoadsAuthenticated(page: Page, path: string) {
   // Si la ruta era protegida y el auth falló, termina en /login — flagearlo
   expect(page.url(), `${path} no debería redirigir a /login con sesión válida`).not.toContain('/login')
 
-  expect(pageErrors, `pageerrors en ${path}`).toEqual([])
+  // Ruido benigno de librerías (no es fallo de la app):
+  // - Supabase gotrue-js usa Web Locks para refrescar el token; bajo contención
+  //   emite "Lock broken ... 'steal' option" (roba el lock y sigue funcionando OK).
+  // - ResizeObserver loop limit: warning benigno de Chromium.
+  const appErrors = pageErrors.filter(
+    (e) => !e.includes('Lock broken by another request') && !e.includes('ResizeObserver'),
+  )
+  expect(appErrors, `pageerrors en ${path}`).toEqual([])
   expect(serverErrors, `5xx en ${path}`).toEqual([])
 }
 
