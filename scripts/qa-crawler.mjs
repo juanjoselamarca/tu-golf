@@ -231,7 +231,9 @@ async function probeRoute(page, sink, route) {
     // texto matchee DESTRUCTIVE (ej. "Crear cuenta gratis" → /register). El
     // crawler ya maneja la navegación de forma segura, así que solo saltamos
     // como destructivos los botones/acciones reales, no la navegación.
-    const isNavLink = el.tag === 'a' && el.href && !/^(javascript:|#|mailto:|tel:)/i.test(el.href)
+    const isNavLink = el.tag === 'a' && el.href
+      && !/^(javascript:|#|mailto:|tel:)/i.test(el.href)
+      && !SKIP_PATH.test(el.href) // /api/, /auth/, logout NO son navegación segura
     if (MODE === 'readonly' && !isNavLink && DESTRUCTIVE.test(el.label)) {
       findings.push({ route, label: el.label, kind: 'skip-destructive', detail: 'saltado en readonly', sev: 'skip' })
       continue
