@@ -1,0 +1,95 @@
+name: QA Crawler de botones
+
+# Recorre la app en producción y prueba cada botón/enlace/tab/modal en
+# aislamiento (excepción JS, 4xx/5xx, 404/error-boundary, console.error).
+# Origen: 16-jun-2026, el crawler detectó un P1 de clipboard que ningún test
+# cubría. Este workflow cierra el hueco de regresión de interacciones.
+#
+# Triggers:
+#   - schedule: semanal (lunes) → detecta botones rotos por deploys/cambios
+#     de datos sin que un usuario tenga que toparse con el error en cancha.
+#   - workflow_dispatch → manual, con cap/modo configurables.
+#
+# Falla (exit 1) si encuentra algún P1. GitHub manda email automático.
+
+on:
+  schedule:
+    # Lunes 12:00 UTC (~08:00 Chile). 1 run/semana × ~10 min — costo trivial.
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'URL contra la que correr'
+        required: false
+        type: string
+        default: 'https://golfersplus.vercel.app'
+      maxel:
+        description: 'Máximo de elementos por ruta'
+        required: false
+        type: string
+        default: '60'
+      admin:
+        description: '¿Incluir rutas /admin/*?'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: qa-crawler-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    name: Crawler de botones (readonly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      CRAWL_BASE_URL: ${{ inputs.base_url || 'https://golfersplus.vercel.app' }}
+      # Mismo mapeo de secrets que scorer-smoke.yml / e2e-trigger.yml.
+      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+      E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cached browser path)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run crawler (readonly, falla si hay P1)
+        run: >
+          node scripts/qa-crawler.mjs
+          --mode=readonly
+          --depth=2
+          --maxel=${{ inputs.maxel || '60' }}
+          ${{ (inputs.admin && '--admin') || '' }}
+
+      - name: Upload reporte del crawler
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-crawler-report-${{ github.run_id }}
+          path: qa-crawler-report/
+          retention-days: 30

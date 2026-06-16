@@ -27,16 +27,22 @@ export default function RecuperarPage() {
     setLoading(true)
     setError('')
 
-    const supabase = createClient()
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/perfil`,
-    })
+    try {
+      const supabase = createClient()
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/perfil`,
+      })
 
-    if (err) {
-      setError('No pudimos enviar el email. Verifica que el correo sea correcto.')
-      setLoading(false)
-    } else {
-      setSent(true)
+      if (err) {
+        setError('No pudimos enviar el email. Verifica que el correo sea correcto.')
+      } else {
+        setSent(true)
+      }
+    } catch {
+      // La red puede lanzar (offline/DNS) en vez de devolver { error } — sin esto
+      // el botón quedaba pegado en "Enviando…" para siempre.
+      setError('Sin conexión. Verifica tu internet e intenta de nuevo.')
+    } finally {
       setLoading(false)
     }
   }

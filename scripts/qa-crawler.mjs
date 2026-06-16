@@ -227,7 +227,14 @@ async function probeRoute(page, sink, route) {
 
   for (const el of snap) {
     if (el.disabled) continue
-    if (MODE === 'readonly' && DESTRUCTIVE.test(el.label)) {
+    // Un enlace de navegación (a[href] a una ruta) NO muta estado aunque su
+    // texto matchee DESTRUCTIVE (ej. "Crear cuenta gratis" → /register). El
+    // crawler ya maneja la navegación de forma segura, así que solo saltamos
+    // como destructivos los botones/acciones reales, no la navegación.
+    const isNavLink = el.tag === 'a' && el.href
+      && !/^(javascript:|#|mailto:|tel:)/i.test(el.href)
+      && !SKIP_PATH.test(el.href) // /api/, /auth/, logout NO son navegación segura
+    if (MODE === 'readonly' && !isNavLink && DESTRUCTIVE.test(el.label)) {
       findings.push({ route, label: el.label, kind: 'skip-destructive', detail: 'saltado en readonly', sev: 'skip' })
       continue
     }
@@ -334,6 +341,16 @@ async function main() {
   log(`JSON:    ${jsonPath}`)
   log(`P1=${payload.counts.P1}  P2=${payload.counts.P2}  P3=${payload.counts.P3}`)
   log('========================================')
+
+  // Exit code para CI: por defecto falla si hay algún P1 (botón roto).
+  // --no-fail desactiva (corridas exploratorias). --fail-on=P2 sube el umbral.
+  if (!args['no-fail']) {
+    const threshold = args['fail-on'] === 'P2' ? payload.counts.P1 + payload.counts.P2 : payload.counts.P1
+    if (threshold > 0) {
+      log(`❌ Umbral de fallo superado (${threshold} hallazgo[s]) — exit 1`)
+      process.exitCode = 1
+    }
+  }
 }
 
 main().catch((e) => { console.error(e); process.exit(1) })
