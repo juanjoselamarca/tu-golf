@@ -1,4 +1,28 @@
-# Estado Cerebro V3 — Actualizado 2026-06-12 — Ola 3 ✅ COMPLETA EN PROD · Fórmula declarativa + PoC gen-1 verificado
+# Estado Cerebro V3 — Actualizado 2026-06-16 — Ola 1b EN PROGRESO (fundación cerrada) · Ola 3 ✅ COMPLETA
+
+## ⏳ Ola 1b — "Priors externos por capas" — EN PROGRESO (branch `feat/cerebro-v3-ola1b-claude`)
+
+**Decisión PM (15-jun):** retomar cerebro v3 por las sub-olas 1a-1d de Ola 1. Se arrancó por **1b** (distribuciones + benchmark por skill + normas de cancha) por ser la pieza que habilita ranking + calibración cold-start.
+
+**Spec:** `docs/superpowers/specs/2026-06-15-cerebro-v3-ola1b-priors-externos-design.md` (con self-review CTO: 7 errores corregidos).
+**Plan:** `docs/superpowers/plans/2026-06-15-cerebro-v3-ola1b.md` (9 tasks).
+
+**FUNDACIÓN CERRADA E IMPECABLE (Tasks 1-4, sesión 15/16-jun):**
+- Task 1 ✅ Migración 3 tablas `external_priors_*` + RLS (lectura pública / service write). **Aplicada y verificada en prod** (`relrowsecurity=t` en las 3). Gotcha 42P10 resuelto (gender/age_bucket NOT NULL DEFAULT 'all'; bandas con `course_external_id` sintético). CHECK `jurisdiction` extendido con 'external_prior'.
+- Task 2 ✅ `src/golf/coach/v3/priors/buckets.ts` — `handicapToBucket()` canónico (2 tests).
+- Task 3 ✅ `priors.config.json` + seed curado (`data/priors/*.json`) + `normalize.ts` (Zod, 5 tests). **Seed PRELIMINAR** (`legal_basis *_preliminary`): solo `score_par3` × 7 buckets. La curaduría de números verificados es el paso previo a encender el shrinkage.
+- Task 4 ✅ `ingest-priors.mjs` orquestador idempotente (fetcher pluggable). **Corrido en prod: 35/6/3 filas, idempotente** (2 corridas = mismo conteo). `status=ready`.
+- tsc 0 errores · 7 tests priors verdes.
+
+**PRÓXIMA SESIÓN — empezar en Task 5:**
+1. **Task 5** `readers.ts` + `metric-map.ts` (METRIC_PRIOR_MAP, unidades). Depende de firmas vivas de `round_metrics`.
+2. **Task 6** `shrinkage.ts` empirical-Bayes (varianzas POBLACIONALES, no del jugador — ver spec §5.1) + enchufe en `select-focus.ts` + regresión high-N. **ANTES: curar números verificados del seed** (reemplazar el preliminar).
+3. **Task 7** tool `field_context` (índice server-side). **Task 8** canario anti-huérfanos. **Task 9** banco + demo (regla #4) + code-reviewer + merge.
+
+**Estado prod:** las 3 tablas existen + seedeadas con data preliminar agregada. SIN consumidor aún (shrinkage/tool no cableados) → cero impacto en usuarios. El merge de 1b ocurre con la capa de consumo + demo, no antes (anti-decoración).
+
+---
+
 
 ## ✅ Ola 3 COMPLETA — "El cerebro guarda y crece" (chunks 1-3 en prod)
 
