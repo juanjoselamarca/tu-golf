@@ -110,4 +110,43 @@ describe('PgaBroadcast — estados del widget', () => {
     expect(container.querySelector('.live')?.textContent).toContain('Final')
     expect(container.querySelector('.pf')?.textContent).toContain('Campeón')
   })
+
+  it('header muestra el NOMBRE del campeonato como chip primario + ronda secundaria', async () => {
+    stubFetch({
+      active: true, complete: true, tournament: 'RBC Canadian Open', round: 'Finalizada',
+      players: [{ position: '1', name: 'B. Cauley', nameFull: 'Bud Cauley', score: '-17', today: '-1', thru: 'F', flag: 'https://flagcdn.com/w40/us.png', countryCode: 'us', isTeam: false }],
+    })
+    const { container } = await mount()
+    expect(container.querySelector('.pgalive .tour')?.textContent).toBe('RBC Canadian Open')
+    expect(container.querySelector('.pgalive .rd')?.textContent).toBe('Finalizada')
+  })
+
+  it('línea de corte se posiciona tras el último que pasa el corte, no al fondo', async () => {
+    stubFetch({
+      active: true, live: true, projectedCut: '+1',
+      players: [
+        { position: '1', name: 'A', nameFull: 'AA', score: '-5', today: '-2', thru: 'F', flag: '', countryCode: 'us', isTeam: false },
+        { position: '2', name: 'B', nameFull: 'BB', score: '-3', today: '-1', thru: 'F', flag: '', countryCode: 'us', isTeam: false },
+        { position: '3', name: 'C', nameFull: 'CC', score: '+1', today: '+2', thru: 'F', flag: '', countryCode: 'us', isTeam: false },
+        { position: '4', name: 'D', nameFull: 'DD', score: '+4', today: '+5', thru: 'F', flag: '', countryCode: 'us', isTeam: false },
+      ],
+    })
+    const { container } = await mount()
+    const cut = container.querySelector('.cutline.proj')
+    expect(cut).not.toBeNull()
+    // el jugador justo arriba del corte es el +1; el de abajo es el +4
+    expect(cut?.previousElementSibling?.querySelector('.ps')?.textContent).toBe('+1')
+    expect(cut?.nextElementSibling?.querySelector('.ps')?.textContent).toBe('+4')
+  })
+
+  it('fila de equipo no renderiza bandera <img>', async () => {
+    stubFetch({
+      active: true, complete: true, isTeamEvent: true, tournament: 'Zurich Classic', round: 'Finalizada',
+      players: [{ position: '1', name: 'Lowry/McIlroy', nameFull: 'Lowry/McIlroy', score: '-25', today: '-6', thru: 'F', flag: '', countryCode: '', isTeam: true }],
+    })
+    const { container } = await mount()
+    const row = container.querySelector('.pwin .prow')
+    expect(row?.querySelector('img.fg')).toBeNull()
+    expect(row?.querySelector('span.fg')).not.toBeNull()
+  })
 })
