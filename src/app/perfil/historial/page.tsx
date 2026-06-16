@@ -20,8 +20,10 @@ import { DefaultTeeBanner } from '@/components/DefaultTeeBanner'
 import { PersonalRecordsGrid } from './components/PersonalRecordsGrid'
 import { AddRoundForm } from './components/AddRoundForm'
 import { RoundCard } from './components/RoundCard'
+import { BulkDeleteModal } from './components/BulkDeleteModal'
 import { groupByMonth, computeStats, formatOv, isMatchPlay, isCompleteRound } from './lib/helpers'
 import { cardStyle } from './lib/constants'
+import { useToast } from '@/hooks/useToast'
 import type { BestRound, Pill } from './lib/types'
 
 function HistorialContent() {
@@ -31,8 +33,12 @@ function HistorialContent() {
     rounds, setRounds, setLoadError, reload,
   } = useHistorialRounds()
   const apiStats = useHistorialStats(!loading && !!userId)
-  const { deleting, savingEdit, deleteRound, toggleExcluded, saveEdit } = useRoundActions({ userId, setRounds })
+  const {
+    deleting, deletingAll, savingEdit,
+    deleteRound, toggleExcluded, saveEdit, deleteAllRounds,
+  } = useRoundActions({ userId, setRounds })
   const { isExpanded, toggleExpand, forceExpand, courseParCache } = useExpandedRounds()
+  const toast = useToast()
 
   /* ── Local state ── */
   const [showForm, setShowForm] = useState(() => {
@@ -42,6 +48,50 @@ function HistorialContent() {
     return false
   })
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false)
+
+  /* ── Handlers con feedback visible (CERO FALLOS: nada falla en silencio) ── */
+  const handleDelete = async (id: string) => {
+    const res = await deleteRound(id)
+    if (res.ok) {
+      toast.showSuccess('Ronda eliminada', 'Tu índice se recalculó.')
+    } else if (res.reason === 'noop') {
+      toast.showWarning('No se eliminó', 'La ronda ya no existe. Recargá la página.')
+    } else {
+      toast.showError('No se pudo eliminar', 'Revisá tu conexión e intentá de nuevo.')
+    }
+  }
+
+  const handleToggleExcluded = async (round: typeof rounds[number]) => {
+    const willExclude = !round.excluded_from_handicap
+    const res = await toggleExcluded(round)
+    if (res.ok) {
+      toast.showSuccess(
+        willExclude ? 'Excluida del índice' : 'Incluida en el índice',
+        'Tu handicap se recalculó.',
+      )
+    } else {
+      toast.showError(
+        'No se pudo cambiar',
+        res.reason === 'noop' ? 'La ronda ya no existe. Recargá.' : 'Revisá tu conexión e intentá de nuevo.',
+      )
+    }
+  }
+
+  const handleDeleteAll = async () => {
+    const res = await deleteAllRounds()
+    setShowBulkConfirm(false)
+    if (res.ok) {
+      toast.showSuccess(
+        `${res.deletedCount} ${res.deletedCount === 1 ? 'ronda eliminada' : 'rondas eliminadas'}`,
+        'Tu índice se recalculó desde cero.',
+      )
+    } else if (res.reason === 'noop') {
+      toast.showWarning('No se eliminó nada', 'Recargá la página e intentá de nuevo.')
+    } else {
+      toast.showError('No se pudieron eliminar', 'Revisá tu conexión e intentá de nuevo.')
+    }
+  }
 
   const form = useAddRoundForm({
     userId,
@@ -175,11 +225,12 @@ function HistorialContent() {
                       onStartEdit={() => { setEditingId(r.id); forceExpand(r.id) }}
                       onCancelEdit={() => setEditingId(null)}
                       onSaveEdit={async (scores) => {
-                        const { ok } = await saveEdit(r.id, scores)
-                        if (ok) setEditingId(null)
+                        const res = await saveEdit(r.id, scores)
+                        if (res.ok) { setEditingId(null); toast.showSuccess('Ronda actualizada', 'Tu índice se recalculó.') }
+                        else toast.showError('No se pudo guardar', 'Revisá tu conexión e intentá de nuevo.')
                       }}
-                      onToggleExcluded={() => void toggleExcluded(r)}
-                      onDeleteRound={() => void deleteRound(r.id)}
+                      onToggleExcluded={() => void handleToggleExcluded(r)}
+                      onDeleteRound={() => void handleDelete(r.id)}
                     />
                   ))}
                 </div>
@@ -188,9 +239,37 @@ function HistorialContent() {
             <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-3)', marginTop: '20px' }}>
               {rounds.length} tarjetas guardadas
             </p>
+
+            {/* Borrado masivo — detrás de confirmación fuerte (acción destructiva) */}
+            <div style={{ textAlign: 'center', marginTop: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setShowBulkConfirm(true)}
+                disabled={deletingAll}
+                data-testid="historial-bulk-delete-open"
+                style={{
+                  background: 'none', border: 'none',
+                  color: '#dc2626', fontSize: '12px', fontWeight: 600,
+                  cursor: deletingAll ? 'not-allowed' : 'pointer',
+                  padding: '8px 12px', opacity: deletingAll ? 0.5 : 1,
+                  textDecoration: 'underline', textUnderlineOffset: '2px',
+                }}
+              >
+                Eliminar todas mis rondas
+              </button>
+            </div>
           </>
         )}
       </div>
+
+      {/* Modal de borrado masivo */}
+      <BulkDeleteModal
+        open={showBulkConfirm}
+        count={rounds.length}
+        deleting={deletingAll}
+        onConfirm={() => void handleDeleteAll()}
+        onCancel={() => setShowBulkConfirm(false)}
+      />
 
       {/* FAB */}
       <button
