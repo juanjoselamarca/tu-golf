@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 
 export default function CopyLinkButton({ slug }: { slug: string }) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
@@ -8,20 +9,7 @@ export default function CopyLinkButton({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2500)
-    } catch {
-      // Fallback for older browsers
-      const textarea = document.createElement('textarea')
-      textarea.value = url
-      textarea.style.position = 'fixed'
-      textarea.style.opacity = '0'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
+    if (await copyToClipboard(url)) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     }

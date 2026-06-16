@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 import { Copy, Check } from '@/components/icons'
 import { formatRoundCodeForDisplay } from '@/lib/round-code'
 
@@ -34,13 +35,10 @@ export function RoundCode({
   const [copied, setCopied] = useState(false)
 
   async function handleCopy() {
-    if (!copyable || typeof navigator === 'undefined' || !navigator.clipboard) return
-    try {
-      await navigator.clipboard.writeText(code)
+    if (!copyable || typeof document === 'undefined') return
+    if (await copyToClipboard(code)) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
-    } catch {
-      // fallback silencioso
     }
   }
 

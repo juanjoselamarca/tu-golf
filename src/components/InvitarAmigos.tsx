@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 
 export default function InvitarAmigos({ userId }: { userId: string }) {
   const [copied, setCopied] = useState(false)
@@ -22,7 +23,7 @@ export default function InvitarAmigos({ userId }: { userId: string }) {
         // User cancelled share
       }
     } else {
-      await navigator.clipboard.writeText(referralUrl)
+      await copyToClipboard(referralUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }

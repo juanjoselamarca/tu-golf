@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { copyToClipboard } from '@/lib/clipboard'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { compartirResultado } from '@/lib/share-card'
 import type { ShareCardData } from '@/lib/share-card'
@@ -76,7 +77,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
       if (navigator.share) {
         try { await navigator.share({ title: `${playerName} — Golfers+`, text, url: tarjetaUrl }); return } catch { /* cancelled */ }
       }
-      await navigator.clipboard.writeText(`${text}\n${tarjetaUrl}`)
+      await copyToClipboard(`${text}\n${tarjetaUrl}`)
       return
     }
 

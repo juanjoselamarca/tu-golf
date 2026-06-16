@@ -5,6 +5,7 @@
 // Sección "Inscripción": edita config.registration.
 
 import { useState } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 import type { TournamentConfig, RegistrationConfig } from '@/lib/draft/types'
 
 export interface InscripcionSectionProps {
@@ -27,7 +28,7 @@ export function InscripcionSection({ config, applyChange }: InscripcionSectionPr
   const onCopy = async () => {
     if (!reg.code) return
     try {
-      await navigator.clipboard.writeText(reg.code)
+      await copyToClipboard(reg.code)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {

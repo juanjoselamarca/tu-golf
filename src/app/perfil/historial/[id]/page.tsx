@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
@@ -111,7 +112,7 @@ export default function HistorialDetallePage() {
         await navigator.share({ title: `Tarjeta - ${round?.course_name}`, url })
         trackEvent(supabase, round?.user_id ?? null, 'historial_round_shared', { method: 'native' })
       } else {
-        await navigator.clipboard.writeText(url)
+        await copyToClipboard(url)
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
         trackEvent(supabase, round?.user_id ?? null, 'historial_round_shared', { method: 'clipboard' })

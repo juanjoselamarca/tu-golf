@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 import { X, Copy, Share2, LinkIcon } from '@/components/icons'
 
 interface ShareSheetProps {
@@ -48,7 +49,7 @@ export function ShareSheet({
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(shareUrl)
+      await copyToClipboard(shareUrl)
       onClose()
     } catch {
       // fallback silencioso

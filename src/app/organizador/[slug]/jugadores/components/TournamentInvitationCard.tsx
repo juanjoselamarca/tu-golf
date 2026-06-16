@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 
 interface Props {
   slug: string
@@ -32,12 +33,12 @@ export function TournamentInvitationCard({ slug, codigo }: Props) {
       {/* Copy link button - primary action */}
       <button
         type="button"
-        onClick={() => {
+        onClick={async () => {
           const link = `${window.location.origin}/torneo/${slug}/unirse`
-          navigator.clipboard.writeText(link).then(() => {
+          if (await copyToClipboard(link)) {
             setLinkCopied(true)
             setTimeout(() => setLinkCopied(false), 2500)
-          })
+          }
         }}
         style={{
           background: linkCopied ? 'rgba(34,197,94,0.15)' : '#c4992a',
@@ -74,11 +75,11 @@ export function TournamentInvitationCard({ slug, codigo }: Props) {
         </span>
         <button
           type="button"
-          onClick={() => {
-            navigator.clipboard.writeText(codigo).then(() => {
+          onClick={async () => {
+            if (await copyToClipboard(codigo)) {
               setCodeCopied(true)
               setTimeout(() => setCodeCopied(false), 2000)
-            })
+            }
           }}
           style={{
             background: 'none',

@@ -1,6 +1,7 @@
 'use client'
 
 import { SITE_URL, SITE_DOMAIN } from '@/lib/site-url'
+import { copyToClipboard } from '@/lib/clipboard'
 
 interface Props {
   scoreGross: number
@@ -23,7 +24,7 @@ export default function ShareRoundButton({ scoreGross, scoreDiff, courseName, ro
     }
     // Fallback: copy to clipboard
     try {
-      await navigator.clipboard.writeText(`${text}\n${url}`)
+      await copyToClipboard(`${text}\n${url}`)
       alert('Copiado al portapapeles')
     } catch { /* ignore */ }
   }
