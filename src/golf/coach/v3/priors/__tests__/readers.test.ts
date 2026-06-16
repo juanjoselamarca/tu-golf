@@ -80,14 +80,18 @@ describe('getInternalPrior', () => {
     } as any;
   }
 
-  it('par3_avg_vs_par convierte strokes absolutos a vs-par (resta 3)', async () => {
+  it('par3_avg_vs_par convierte strokes absolutos a vs-par (resta 3) + trae varianzas', async () => {
     const prior = await getInternalPrior(mockClient([
       { percentile: 10, value: 3.4 },
       { percentile: 50, value: 3.9 },
       { percentile: 90, value: 4.5 },
     ]), '10-14', 'par3_avg_vs_par');
     expect(prior).not.toBeNull();
-    expect(prior!.mean).toBeCloseTo(0.9, 4); // 3.9 - 3
+    expect(prior!.priorMean).toBeCloseTo(0.9, 4); // 3.9 - 3
+    // tau2Between = sdTotal² ; sdTotal = (4.5-3.4)/2.563
+    const sd = (4.5 - 3.4) / 2.563;
+    expect(prior!.tau2Between).toBeCloseTo(sd * sd, 4);
+    expect(prior!.sigma2Within).toBeCloseTo(0.25, 4); // withinRoundSd 0.5² (preliminar)
   });
 
   it('metricKey sin mapeo → null', async () => {

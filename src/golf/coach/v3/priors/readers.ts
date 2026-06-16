@@ -100,23 +100,37 @@ export async function getBenchmarkPercentiles(
   return data.map((r) => ({ percentile: Number(r.percentile), value: Number(r.value) }));
 }
 
+/** Prior listo para shrink(), en escala interna del catálogo. */
+export interface InternalPrior {
+  priorMean: number;
+  /** varianza entre-jugadores (= sdTotal² del benchmark, que es entre-jugadores) */
+  tau2Between: number;
+  /** varianza ronda-a-ronda poblacional (de METRIC_PRIOR_MAP.withinRoundSd) */
+  sigma2Within: number;
+}
+
 /**
- * Prior en la escala INTERNA del catálogo para un metricKey de foco.
- * Aplica la conversión de unidades de METRIC_PRIOR_MAP. Devuelve null si el
- * metricKey no tiene benchmark mapeado o no hay data suficiente.
+ * Prior en la escala INTERNA del catálogo para un metricKey de foco, listo
+ * para shrink(). Aplica la conversión de unidades de METRIC_PRIOR_MAP. Devuelve
+ * null si el metricKey no tiene benchmark mapeado o no hay data suficiente.
  */
 export async function getInternalPrior(
   supabase: SupabaseClient,
   bucket: HandicapBucket,
   focusMetricKey: string,
-): Promise<PriorSummary | null> {
+): Promise<InternalPrior | null> {
   const mapping = priorMappingFor(focusMetricKey);
   if (!mapping) return null;
   const points = await getBenchmarkPercentiles(supabase, bucket, mapping.externalMetricKey);
   const summary = summarizeDistribution(points);
   if (!summary) return null;
-  // convertir media a escala interna; la sd es invariante ante el shift (resta de par)
-  return { mean: mapping.toInternal(summary.mean), sdTotal: summary.sdTotal };
+  // la sd es invariante ante el shift de unidades (resta de par); el benchmark
+  // es entre-jugadores ⇒ sdTotal² = tau2Between directo.
+  return {
+    priorMean: mapping.toInternal(summary.mean),
+    tau2Between: summary.sdTotal * summary.sdTotal,
+    sigma2Within: mapping.withinRoundSd * mapping.withinRoundSd,
+  };
 }
 
 export async function getPopulationPercentile(

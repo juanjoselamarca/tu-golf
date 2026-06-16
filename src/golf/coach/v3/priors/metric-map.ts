@@ -13,14 +13,23 @@ export interface PriorMapping {
   externalMetricKey: string;
   /** convierte el valor externo (unidades crudas) a la escala interna del baseline */
   toInternal: (externalValue: number) => number;
+  /**
+   * Desvío estándar ronda-a-ronda POBLACIONAL del bucket (no del jugador), en
+   * escala interna. Alimenta sigma2Within del shrinkage. PRELIMINAR: a verificar
+   * con la curaduría de números (mismo paso que reemplaza el seed preliminar).
+   */
+  withinRoundSd: number;
 }
 
 export const METRIC_PRIOR_MAP: Record<string, PriorMapping> = {
   // Catálogo: par3_avg_vs_par = promedio en par 3 RESPECTO a par (ej +0.6).
   // Externo: score_par3 = strokes absolutos (ej 3.6). Conversión: restar par (3).
+  // El benchmark de capa A es una distribución ENTRE-JUGADORES (promedios por
+  // jugador) ⇒ su spread es tau2Between directo, sin restar within.
   par3_avg_vs_par: {
     externalMetricKey: 'score_par3',
     toInternal: (v) => v - 3,
+    withinRoundSd: 0.5, // PRELIMINAR
   },
 };
 
