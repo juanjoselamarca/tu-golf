@@ -1,4 +1,4 @@
-# Estado Cerebro V3 — Actualizado 2026-06-16 — Ola 1b EN PROGRESO (fundación cerrada) · Ola 3 ✅ COMPLETA
+# Estado Cerebro V3 — Actualizado 2026-06-16 — Ola 1b EN PROGRESO (Tasks 1-6: shrinkage cableado y consumido) · Ola 3 ✅ COMPLETA
 
 ## ⏳ Ola 1b — "Priors externos por capas" — EN PROGRESO (branch `feat/cerebro-v3-ola1b-claude`)
 
@@ -14,12 +14,21 @@
 - Task 4 ✅ `ingest-priors.mjs` orquestador idempotente (fetcher pluggable). **Corrido en prod: 35/6/3 filas, idempotente** (2 corridas = mismo conteo). `status=ready`.
 - tsc 0 errores · 7 tests priors verdes.
 
-**PRÓXIMA SESIÓN — empezar en Task 5:**
-1. **Task 5** `readers.ts` + `metric-map.ts` (METRIC_PRIOR_MAP, unidades). Depende de firmas vivas de `round_metrics`.
-2. **Task 6** `shrinkage.ts` empirical-Bayes (varianzas POBLACIONALES, no del jugador — ver spec §5.1) + enchufe en `select-focus.ts` + regresión high-N. **ANTES: curar números verificados del seed** (reemplazar el preliminar).
-3. **Task 7** tool `field_context` (índice server-side). **Task 8** canario anti-huérfanos. **Task 9** banco + demo (regla #4) + code-reviewer + merge.
+**TASK 5 ✅ (readers + metric-map):** `readers.ts` (summarizeDistribution p10-p90/IQR + populationPercentileFromBins + fetchers con cliente inyectado) + `metric-map.ts` (`METRIC_PRIOR_MAP`: par3_avg_vs_par↔score_par3, resta par 3). 9 tests.
 
-**Estado prod:** las 3 tablas existen + seedeadas con data preliminar agregada. SIN consumidor aún (shrinkage/tool no cableados) → cero impacto en usuarios. El merge de 1b ocurre con la capa de consumo + demo, no antes (anti-decoración).
+**TASK 6 ✅ (shrinkage empirical-Bayes, CABLEADO Y CONSUMIDO):**
+- 6a `shrinkage.ts` puro: varianzas POBLACIONALES (no del jugador), λ crece con n, estable desde n=1, sin NaN, clamp τ². Regresión high-N. getInternalPrior devuelve priorMean+tau2Between+sigma2Within (8 tests).
+- 6b enchufe aditivo en `select-focus.ts`: `SelectFocusInput.priors` opcional ajusta el VALOR REPORTADO (no el ranking ni gates Ola 3). Sin priors = idéntico a pre-1b (4 tests).
+- 6c `get-focus.ts` orquestador: resuelve bucket (cascada WHS→onboarding→default), carga priors y los pasa a selectFocus. Degradación conservadora. **Cierra el loop anti-decoración** (3 tests end-to-end).
+- tsc 0 · 36 focus + 24 priors tests verdes.
+
+**PRÓXIMA SESIÓN — empezar en Task 7:**
+1. **Task 7** tool `field_context` (índice/cancha server-side, anti-alucinación) + registro en dispatcher.
+2. **Task 8** canario anti-huérfanos (tablas con data ⇒ field_context registrado + shrinkage invocado).
+3. **ANTES de Task 9:** curar **números verificados** del seed (reemplazar el preliminar `score_par3`; extender a más métricas de `METRIC_PRIOR_MAP` + within-round SD reales).
+4. **Task 9** banco + demo (regla #4) + code-reviewer + merge.
+
+**Estado prod:** las 3 tablas existen + seedeadas con data preliminar agregada. El shrinkage YA está cableado en el motor de foco pero **el flag sigue por usuario** (solo Juanjo) → impacto controlado. El merge de 1b ocurre con el tool + canario + demo + números curados, no antes.
 
 ---
 
