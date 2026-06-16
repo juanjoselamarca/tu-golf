@@ -137,8 +137,6 @@ scripts/cerebro-v3/
 - **Capa B:** distribución de hándicaps USGA/R&A (agregados poblacionales publicados), `region='GLOBAL'`.
 - **Capa C:** bandas de slope/rating de referencia.
 
-**Legalidad de fuentes (review 2026-06-15) — no asumir:** preferir fuentes **genuinamente públicas** — reportes anuales USGA/R&A, tablas de papers académicos publicados (ej. Broadie *Every Shot Counts*) — sobre números propietarios de blogs/apps comerciales (Shot Scope, Arccos, DECADE). Seedear estadísticas propietarias de un competidor y exponerlas vía coach es riesgo legal y reputacional (CERO FALLOS / lanzamiento con clubes chilenos). Cada fuente lleva `legal_basis` **verificado de verdad**, no de relleno; si una fuente es dudosa, no entra. La cita de origen queda disponible para el coach ("según datos de la USGA…").
-
 > Decisión de población: las fuentes externas son globales/por-skill, no chilenas. "Top X% del mundo" es honesto pero genérico para un usuario chileno. Se conserva `region` y el punto de extensión para computar la distribución chilena real desde nuestra data + FedeGolf más adelante (feature aparte).
 
 ---
@@ -248,7 +246,6 @@ Test que falla si: las tablas tienen filas pero `field_context` no está registr
 | Coach alucina hándicap/percentil | `field_context` lee índice y cancha server-side, no de args del LLM. |
 | Cold-start: índice inestable para elegir bucket | Cascada WHS → meta onboarding → bucket ancho por defecto. |
 | 1b regresa el foco de usuarios flag-on existentes | Test de regresión: high-N ⇒ `posterior ≈ media_jugador`, foco sin cambios. |
-| Fuente propietaria (legal/reputacional) | Preferir USGA/R&A/papers públicos; `legal_basis` verificado; fuente dudosa no entra. |
 | Priors globales poco relevantes para chilenos | `region` + hook a distribución chilena propia (feature futura). Honestidad en el copy ("a nivel mundial"). |
 | Migración en repo ≠ aplicada en prod | Verificar `pg_class.relrowsecurity` vivo (`reference_migraciones_repo_no_garantizan_prod`). |
 | Piezas construidas pero desconectadas | Canario anti-huérfanos en CI. |
@@ -279,4 +276,4 @@ Test que falla si: las tablas tienen filas pero `field_context` no está registr
 5. **`field_context` confía el hándicap al LLM** → lectura server-side (anti-alucinación).
 6. **Bucket de cold-start huevo-gallina** → cascada WHS → onboarding → default.
 7. **Sin regresión de usuarios existentes** → test high-N (foco de Juanjo sin cambios).
-Además: fuentes propietarias → preferir públicas (legal/reputacional); bucketing canónico único; costo `field_context` vigilado; esfuerzo re-estimado a 5-7 días.
+Además: bucketing canónico único; costo `field_context` vigilado; esfuerzo re-estimado a 5-7 días.
