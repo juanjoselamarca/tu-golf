@@ -19,6 +19,13 @@ export interface SelectFocusInput {
   catalog?: FocusCandidate[]
   /** Veredicto del validador anti-fantasía por patrón (Ola 3 chunk 2). */
   validation?: Record<string, PatternVerdict>
+  /**
+   * Priors externos por metricKey (capa A, Ola 1b), pre-cargados por el
+   * orquestador para el bucket de hándicap del jugador. Si está presente, el
+   * valor reportado de cada métrica se ajusta por shrinkage (cold-start).
+   * Ausente ⇒ comportamiento idéntico a pre-1b.
+   */
+  priors?: Record<string, import('../priors/readers').InternalPrior>
 }
 
 /** El foco elegido: la palanca de mayor impacto hacia la meta, con evidencia. */

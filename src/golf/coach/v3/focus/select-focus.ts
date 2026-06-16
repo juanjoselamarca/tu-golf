@@ -4,6 +4,7 @@ import { sum, type RoundData } from '@/golf/coach/metrics'
 import type { CerebroWeight } from '@/lib/cerebro/weights'
 import { FOCUS_CATALOG, type DetectInfo } from './catalog'
 import type { Focus, FocusResult, FocusTarget, SelectFocusInput } from './types'
+import { shrink } from '../priors/shrinkage'
 
 /** Mínimo de rondas para siquiera intentar un foco. Menos = cold start honesto. */
 export const MIN_ROUNDS_FOR_FOCUS = 3
@@ -91,6 +92,24 @@ export function selectFocus(input: SelectFocusInput): FocusResult {
 
     const peso = patternWeight(input.weights, c.patternId, c.defaultWeight)
     const impacto = Math.round(detected.confidence * peso * 10000) / 10000
+
+    // Shrinkage (Ola 1b): si hay prior externo para esta métrica, el valor
+    // REPORTADO se ajusta hacia "lo normal del bucket" según la precisión del
+    // jugador. No toca el ranking (impacto) ni los gates de Ola 3. Sin prior
+    // inyectado ⇒ valor sin cambios (backward-compatible).
+    const prior = input.priors?.[c.metricKey]
+    const valorReportado = prior
+      ? Math.round(
+          shrink({
+            playerMean: baseline.valor,
+            n: baseline.muestra,
+            priorMean: prior.priorMean,
+            sigma2Within: prior.sigma2Within,
+            tau2Between: prior.tau2Between,
+          }) * 100,
+        ) / 100
+      : baseline.valor
+
     candidates.push({
       kind: 'focus',
       patternId: c.patternId,
@@ -100,7 +119,7 @@ export function selectFocus(input: SelectFocusInput): FocusResult {
       impacto,
       confianza: detected.confidence,
       peso,
-      metrica: { key: c.metricKey, valor: baseline.valor, muestra: baseline.muestra },
+      metrica: { key: c.metricKey, valor: valorReportado, muestra: baseline.muestra },
       evidencia: detected.metadata,
       validacion: verdict
         ? { n: verdict.n, effectSize: verdict.effectSize, r2: verdict.r2, meanDeltaStrokes: verdict.meanDeltaStrokes }
