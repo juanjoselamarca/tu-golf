@@ -1,0 +1,5 @@
+[
+  { "region": "GLOBAL", "par": 70, "slope_rating": 113, "course_rating": 70.0, "course_name": "Banda referencia par 70" },
+  { "region": "GLOBAL", "par": 71, "slope_rating": 113, "course_rating": 71.0, "course_name": "Banda referencia par 71" },
+  { "region": "GLOBAL", "par": 72, "slope_rating": 113, "course_rating": 72.0, "course_name": "Banda referencia par 72" }
+]

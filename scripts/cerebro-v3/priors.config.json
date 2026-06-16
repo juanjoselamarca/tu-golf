@@ -1,0 +1,35 @@
+[
+  {
+    "source_key": "usga-handicap-distribution",
+    "title": "USGA/WHS Handicap Index Distribution (aggregate)",
+    "authors": ["USGA"],
+    "url_source": "https://www.usga.org/handicapping.html",
+    "jurisdiction": "external_prior",
+    "legal_basis": "public_aggregate_statistics_preliminary",
+    "layer": "B",
+    "fetcher": "file",
+    "path": "data/priors/handicap-dist.json"
+  },
+  {
+    "source_key": "amateur-skill-benchmarks",
+    "title": "Amateur skill benchmarks by handicap (aggregate percentiles)",
+    "authors": ["aggregate"],
+    "url_source": "https://www.usga.org/handicapping.html",
+    "jurisdiction": "external_prior",
+    "legal_basis": "public_aggregate_statistics_preliminary",
+    "layer": "A",
+    "fetcher": "file",
+    "path": "data/priors/amateur-benchmarks.json"
+  },
+  {
+    "source_key": "course-norm-bands",
+    "title": "Course difficulty reference bands (slope/rating by par)",
+    "authors": ["aggregate"],
+    "url_source": "https://www.usga.org/course-rating.html",
+    "jurisdiction": "external_prior",
+    "legal_basis": "public_aggregate_statistics_preliminary",
+    "layer": "C",
+    "fetcher": "file",
+    "path": "data/priors/course-norms.json"
+  }
+]
