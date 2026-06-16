@@ -137,6 +137,12 @@ scripts/cerebro-v3/
 - **Capa B:** distribución de hándicaps USGA/R&A (agregados poblacionales publicados), `region='GLOBAL'`.
 - **Capa C:** bandas de slope/rating de referencia.
 
+**Filtro de aceptación de datos (decisión PM 2026-06-15):** toda fuente confiable de la red que pase el filtro de la app sirve como data. "Pasa el filtro" es un gate concreto y enforced, no criterio subjetivo:
+1. **Trazabilidad:** autor/institución + URL + fecha registrados en `knowledge_sources` (nada anónimo o sin origen).
+2. **Consistencia interna:** percentiles monótonos, proporciones de capa B suman ~1.0, `sample_size` presente y razonable, sin valores imposibles (el normalizer Zod rechaza lo que no cumple).
+3. **Compatibilidad metodológica:** la métrica externa mapea a una métrica que computamos **igual** (`METRIC_PRIOR_MAP`). Si la definición o las unidades difieren, no entra al shrinkage — solo a contexto informativo en `field_context`. Esto es lo que evita envenenar el motor.
+4. **Umbral de confianza:** cada fuente lleva `confidence_level`; shrinkage y `field_context` consumen solo data sobre un piso, y por debajo degradan el peso de la capa (no rompen).
+
 > Decisión de población: las fuentes externas son globales/por-skill, no chilenas. "Top X% del mundo" es honesto pero genérico para un usuario chileno. Se conserva `region` y el punto de extensión para computar la distribución chilena real desde nuestra data + FedeGolf más adelante (feature aparte).
 
 ---
