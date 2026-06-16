@@ -38,6 +38,7 @@ export function useTournamentLifecycle({
 
   const [starting, setStarting] = useState(false)
   const [closing, setClosing] = useState(false)
+  const [opening, setOpening] = useState(false)
   const [allRoundsClosed, setAllRoundsClosed] = useState(false)
 
   // Check if all rounds in the latest round_number are closed
@@ -67,6 +68,51 @@ export function useTournamentLifecycle({
     }
     showSuccess('Torneo eliminado', 'El torneo fue eliminado.')
     router.push('/dashboard')
+  }
+
+  // Abre las inscripciones (draft → open) vía el orquestador /api/game, que
+  // valida organizador server-side y delega en lifecycle.openTournament. No
+  // hacemos el update directo acá (a diferencia de start/close) porque abrir
+  // inscripciones expone el torneo públicamente: la validación server-side es
+  // la barrera correcta.
+  const handleOpenInscriptions = async () => {
+    if (opening) return
+    setOpening(true)
+    const res = await fetch('/api/game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'open_inscriptions', tournament_id: tournament.id }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      showError('Error', data.error || 'No se pudieron abrir las inscripciones.')
+      setOpening(false)
+      return
+    }
+    setTournamentStatus('open')
+    showSuccess('Inscripciones abiertas', 'Compartí el link para que se inscriban. Podés iniciar el torneo cuando quieras.')
+    setOpening(false)
+  }
+
+  // Vuelve a borrador (open → draft) conservando los jugadores ya inscritos.
+  const handleRevertToDraft = async () => {
+    if (opening) return
+    if (!window.confirm('¿Volver a borrador? Las inscripciones se cierran pero los jugadores ya inscritos se conservan.')) return
+    setOpening(true)
+    const res = await fetch('/api/game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'revert_to_draft', tournament_id: tournament.id }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      showError('Error', data.error || 'No se pudo volver a borrador.')
+      setOpening(false)
+      return
+    }
+    setTournamentStatus('draft')
+    showSuccess('Inscripciones cerradas', 'El torneo volvió a borrador. Los jugadores inscritos se conservan.')
+    setOpening(false)
   }
 
   const handleStartTournament = async () => {
@@ -318,8 +364,9 @@ export function useTournamentLifecycle({
   }
 
   return {
-    starting, closing, allRoundsClosed,
+    starting, closing, opening, allRoundsClosed,
     checkAllRoundsClosed, handleStartTournament,
+    handleOpenInscriptions, handleRevertToDraft,
     handleCancelTournament, handleCloseTournament,
   }
 }

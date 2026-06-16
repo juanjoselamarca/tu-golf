@@ -65,8 +65,9 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   } = useGroups({ tournament, players })
 
   const {
-    starting, closing, allRoundsClosed,
+    starting, closing, opening, allRoundsClosed,
     checkAllRoundsClosed, handleStartTournament,
+    handleOpenInscriptions, handleRevertToDraft,
     handleCancelTournament, handleCloseTournament,
   } = useTournamentLifecycle({ tournament, players, groups, setTournamentStatus })
 
@@ -192,8 +193,11 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         playersCount={players.length}
         starting={starting}
         closing={closing}
+        opening={opening}
         allRoundsClosed={allRoundsClosed}
         onStart={handleStartTournament}
+        onOpenInscriptions={handleOpenInscriptions}
+        onRevertToDraft={handleRevertToDraft}
         onCancel={handleCancelTournament}
         onClose={handleCloseTournament}
       />

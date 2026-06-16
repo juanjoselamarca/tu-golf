@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { fetchJoinInfo, registerPlayerAndRound } from './joinFlow'
+import { fetchJoinInfo, registerPlayerAndRound, esInscribible } from './joinFlow'
 
 // Fabrica un SupabaseClient mockeado donde cada `.from(tabla)` devuelve un objeto
 // con los metodos chaining que usan fetchJoinInfo y registerPlayerAndRound.
@@ -93,6 +93,17 @@ describe('fetchJoinInfo — visibility rules (espejo de RLS, post-bypass)', () =
     })
     const r = await fetchJoinInfo(c, 's', 'guest')
     expect(r?.alreadyRegistered).toBe(true)
+  })
+})
+
+describe('esInscribible — fuente de verdad compartida UI/backend', () => {
+  it('SOLO open admite auto-inscripción', () => {
+    expect(esInscribible('open')).toBe(true)
+  })
+  it('draft / in_progress / closed / published / cancelled NO admiten auto-inscripción', () => {
+    for (const s of ['draft', 'in_progress', 'closed', 'published', 'cancelled', '']) {
+      expect(esInscribible(s)).toBe(false)
+    }
   })
 })
 
