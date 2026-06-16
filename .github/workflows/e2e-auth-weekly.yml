@@ -1,0 +1,86 @@
+name: E2E Auth (semanal)
+
+# Corre la suite E2E AUTENTICADA completa (flujos que mutan: crear ronda,
+# scoring, finalizar, organizar torneo, importar) contra producción.
+#
+# Por qué semanal y no en cada push: estos specs crean data efímera en la
+# cuenta de test de prod y tardan ~6 min. Origen (16-jun-2026): un QA manual
+# descubrió que 2 specs de este set (Stableford gross, import celebration)
+# llevaban semanas con asserts viejos sin que nadie lo notara — porque NINGÚN
+# workflow los ejecutaba. Un test que no corre da falsa confianza. Esto lo cierra.
+#
+# Triggers:
+#   - schedule: domingo → red de seguridad semanal de los flujos críticos.
+#   - workflow_dispatch → manual desde la UI.
+
+on:
+  schedule:
+    # Domingo 13:00 UTC (~09:00 Chile).
+    - cron: '0 13 * * 0'
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'URL contra la que correr'
+        required: false
+        type: string
+        default: 'https://golfersplus.vercel.app'
+
+concurrency:
+  group: e2e-auth-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  e2e-auth:
+    name: Playwright auth suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      PLAYWRIGHT_BASE_URL: ${{ inputs.base_url || 'https://golfersplus.vercel.app' }}
+      # Mismo mapeo de secrets que scorer-smoke.yml.
+      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+      E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cached browser path)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run authenticated E2E suite
+        run: npx playwright test --project=mobile-chromium-auth
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-auth-failure-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
