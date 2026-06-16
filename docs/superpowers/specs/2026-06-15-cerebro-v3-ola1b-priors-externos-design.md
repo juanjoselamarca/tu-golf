@@ -1,7 +1,7 @@
 # Cerebro V3 — Sub-ola 1b: Priors externos por capas (diseño)
 
 **Fecha:** 2026-06-15
-**Estado:** diseño aprobado en brainstorming, pendiente review de Juanjo → writing-plans
+**Estado:** diseño aprobado en brainstorming + self-review CTO aplicado, pendiente review de Juanjo → writing-plans
 **Spec maestro:** `docs/superpowers/specs/2026-05-26-cerebro-v3-diseño.md` (§8.2 migraciones Ola 1, §schema `external_priors_*`)
 **Estado vivo:** `docs/cerebro-v3-estado.md`
 **Pieza de la visión:** #5 "nutrición externa" + mitigación de cold-start (§riesgos del spec maestro)
@@ -81,7 +81,7 @@ created_at timestamptz
 ```
 id bigserial PK
 source_id uuid REFERENCES knowledge_sources(id)
-course_external_id text
+course_external_id text           -- bandas de referencia: clave sintética 'BAND:<region>:<par>' (nunca NULL, ver §4)
 course_name text
 region text
 par integer
@@ -119,8 +119,12 @@ scripts/cerebro-v3/
 3. **Loader** `upsertRows(table, rows, conflictKey)` idempotente (reusa `upsert-supabase.mjs`). Clave natural por capa:
    - A: `(source_id, handicap_bucket, metric_key, percentile)`
    - B: `(source_id, region, gender, age_bucket, handicap_bin, year)`
-   - C: `(source_id, course_external_id)` ó `(source_id, course_name, region)`
+   - C: `(source_id, course_external_id)` — **OJO (review 2026-06-15):** las bandas de referencia no tienen `course_external_id` real → un NULL en la clave de conflicto reproduce el bug 42P10 (`reference_partial_index_onconflict_42p10`: en Postgres los NULL son distintos y `ON CONFLICT` no agrupa). Solución: clave sintética NO-NULL `course_external_id = 'BAND:<region>:<par>'` para las bandas. Nunca NULL en columna de conflicto.
 4. **Source registrar:** upsert en `knowledge_sources` por `source_key` antes de cargar filas; cada fila referencia `source_id`.
+
+**Bucketing canónico (review 2026-06-15):** capa A usa `handicap_bucket`, capa B usa `handicap_bin` (nombres del spec maestro, no se cambian). Para evitar deriva, una **única** función `handicapToBucket(index)` en `src/golf/coach/v3/priors/buckets.ts` define los cortes y la usan ingesta, readers y shrinkage. Un solo lugar de verdad.
+
+**Mapeo métrica-externa ↔ métrica-del-jugador (review 2026-06-15):** el shrinkage y `field_context` mezclan el valor del jugador con el prior — deben ser la **misma métrica en las mismas unidades**. Registro explícito `METRIC_PRIOR_MAP` (patrón `MEASURE_BY_KEY` de Ola 3) que liga cada `metric_key` externo a cómo se computa esa métrica desde las rondas del jugador, con sus unidades. Si una métrica externa no tiene equivalente computable del jugador, NO se usa para shrinkage (solo para contexto informativo en `field_context`). Sin esto, se mezclan peras con manzanas.
 
 ### Propiedades
 - **Idempotente:** re-correr no duplica (upsert por clave natural).
@@ -129,9 +133,11 @@ scripts/cerebro-v3/
 - **Degradación honesta:** si una fuente falla, se marca `confidence_level` bajo en `knowledge_sources` y el consumo degrada el peso de esa capa (spec maestro §117), no rompe.
 
 ### Fuentes curadas (extraídas una vez, documentadas con URL + fecha)
-- **Capa A:** distribuciones por hándicap publicadas (ej. Lou Stagner / Shot Scope / DECADE — GIR%, putts, score por tipo de par, percentiles). `legal_basis` documentado por fuente.
+- **Capa A:** distribuciones por hándicap publicadas (GIR%, putts, score por tipo de par, percentiles).
 - **Capa B:** distribución de hándicaps USGA/R&A (agregados poblacionales publicados), `region='GLOBAL'`.
 - **Capa C:** bandas de slope/rating de referencia.
+
+**Legalidad de fuentes (review 2026-06-15) — no asumir:** preferir fuentes **genuinamente públicas** — reportes anuales USGA/R&A, tablas de papers académicos publicados (ej. Broadie *Every Shot Counts*) — sobre números propietarios de blogs/apps comerciales (Shot Scope, Arccos, DECADE). Seedear estadísticas propietarias de un competidor y exponerlas vía coach es riesgo legal y reputacional (CERO FALLOS / lanzamiento con clubes chilenos). Cada fuente lleva `legal_basis` **verificado de verdad**, no de relleno; si una fuente es dudosa, no entra. La cita de origen queda disponible para el coach ("según datos de la USGA…").
 
 > Decisión de población: las fuentes externas son globales/por-skill, no chilenas. "Top X% del mundo" es honesto pero genérico para un usuario chileno. Se conserva `region` y el punto de extensión para computar la distribución chilena real desde nuestra data + FedeGolf más adelante (feature aparte).
 
@@ -147,13 +153,25 @@ Ninguna pieza se declara completa sin prueba de consumo. Dos puntos:
 Formulación empirical-Bayes (sin corte fijo de N):
 ```
 posterior = λ · media_jugador + (1 − λ) · media_prior
-λ = (n / σ²_jugador) / (n / σ²_jugador + 1 / τ²_prior)
+λ = (n / σ²_within) / (n / σ²_within + 1 / τ²_between)
 ```
-- `media_prior`, `τ²_prior`: media y varianza entre-jugadores del bucket de hándicap (estimadas de los percentiles seedeados de capa A).
-- `media_jugador`, `σ²_jugador`, `n`: de las rondas del jugador (de `round_metrics` / `pattern_observations`).
-- A medida que el jugador acumula rondas y su varianza baja, `λ → 1` y su data manda sola. Sin umbral arbitrario.
 
-**Punto de enchufe:** `src/golf/coach/v3/focus/select-focus.ts`. Antes de que el motor saque conclusiones, las métricas del jugador con baja precisión se reemplazan por su posterior. Un patrón solo "muerde" si sobrevive al shrinkage. TDD: tests con jugador N=2 (prior domina), N=30 (jugador domina), varianza alta vs baja.
+**Corrección crítica (review 2026-06-15) — usar varianzas POBLACIONALES, no las del jugador:**
+
+La trampa: "que decida el dato" NO puede significar estimar `σ²` de las 2-3 rondas del jugador. Con N=2 la varianza propia es ruido (1 grado de libertad) y rompe la fórmula justo en el cold-start que queremos resolver. La formulación correcta usa varianzas **conocidas de la población**:
+
+- `σ²_within` = varianza ronda-a-ronda **típica del bucket de hándicap** (cuánto varía un jugador de ese nivel entre rondas). Conocida, de la población. NO se estima por jugador.
+- `τ²_between` = varianza **entre jugadores** del mismo bucket = `Var_total_población − σ²_within`. Los percentiles publicados de capa A describen la dispersión **total** (entre-jugadores + ruido ronda-a-ronda); hay que **restar** `σ²_within` o `τ²_between` queda sobreestimada y λ se va alto demasiado pronto (el prior se suelta antes de tiempo). Clamp `τ²_between ≥ ε` (nunca negativa).
+- `media_jugador`, `n`: del jugador (`round_metrics` / `pattern_observations`). Solo la media y el conteo salen del jugador; ambas varianzas son poblacionales.
+- A medida que `n` crece, `λ → 1` y la media del jugador manda. Sin umbral arbitrario, pero numéricamente estable desde N=1.
+
+**Fallback de fuentes sin percentiles:** si una fuente publica solo la media (caso común), se asume una dispersión paramétrica por coeficiente de variación documentado por métrica (en `priors.config.json`), marcada con `confidence_level` menor. El shrinkage degrada, no se cae.
+
+**Selección de bucket en cold-start (review 2026-06-15) — huevo y gallina:** elegimos el prior por bucket de hándicap, pero el índice del jugador con pocas rondas es justo el menos confiable. Cascada: (1) índice WHS si existe (la app ya lo tiene para imports Garmin/FedeGolf aun con pocas rondas en la app); (2) si no, la meta de onboarding (`set_target` de Ola 2); (3) si no, un bucket ancho por defecto (medio-alto, conservador). Nunca se bloquea por falta de índice.
+
+**Punto de enchufe:** `src/golf/coach/v3/focus/select-focus.ts`. Antes de que el motor saque conclusiones, las métricas del jugador con baja precisión se reemplazan por su posterior. Un patrón solo "muerde" si sobrevive al shrinkage.
+
+**TDD:** N=1 (prior domina, sin NaN), N=2 varianza-alta, N=30 (jugador domina), prior ausente (degrada a solo-jugador), `τ²_between` tras restar `σ²_within` nunca negativa (clamp ≥ ε). **Regresión obligatoria:** para un jugador high-N (Juanjo), `posterior ≈ media_jugador` y su foco actual de Ola 2/3 **no cambia** — 1b no debe regresar el comportamiento de usuarios flag-on existentes.
 
 ### 5.2 Tool del coach `field_context`
 `src/golf/coach/v3/tools/field-context-tool.ts` (patrón de `search-knowledge-chunks-tool.ts`, registrado en `handle-tool-use.ts`).
@@ -162,6 +180,8 @@ El LLM lo invoca y recibe, para una métrica/cancha dadas:
 - **Capa A:** "lo normal para tu hándicap" (percentil del valor del jugador dentro del bucket).
 - **Capa B:** percentil poblacional del índice del jugador ("top X%").
 - **Capa C:** dificultad relativa de la cancha vs la banda de referencia.
+
+**Anti-alucinación (review 2026-06-15):** el tool lee el índice y la cancha del **usuario autenticado server-side** (mismo patrón que `get_playing_handicap` de Fase 0), NO de argumentos del LLM. El LLM solo pasa *qué métrica* quiere contextualizar. Así el coach no puede inventar el hándicap ni el percentil.
 
 Salida en claves legibles (sin keys crudas), lista para que el coach la verbalice en las 6 piezas (`feedback_estilo_coach_comunicacion`).
 
@@ -178,22 +198,25 @@ Test que falla si: las tablas tienen filas pero `field_context` no está registr
 | `scripts/cerebro-v3/priors.config.json` | catálogo declarativo de fuentes | — |
 | `scripts/cerebro-v3/data/priors/*.json` | datos curados versionados | — |
 | `scripts/cerebro-v3/ingest-priors.mjs` | orquesta fetch→normalize→load idempotente | `lib/upsert-supabase.mjs` |
-| `src/golf/coach/v3/priors/readers.ts` | lecturas tipadas (percentil, prior por bucket, norma de cancha) | Supabase |
-| `src/golf/coach/v3/priors/shrinkage.ts` | shrinkage empirical-Bayes puro (función sin I/O, testeable) | readers |
-| `src/golf/coach/v3/tools/field-context-tool.ts` | tool del coach que expone A+B+C | readers |
-| `src/golf/coach/v3/focus/select-focus.ts` (mod) | aplica shrinkage antes de elegir foco | shrinkage |
+| `src/golf/coach/v3/priors/buckets.ts` | `handicapToBucket()` canónico (un solo lugar) | — |
+| `src/golf/coach/v3/priors/readers.ts` | lecturas tipadas (percentil, prior por bucket, norma de cancha) | Supabase, buckets |
+| `src/golf/coach/v3/priors/shrinkage.ts` | shrinkage empirical-Bayes puro (función sin I/O, testeable) | — |
+| `src/golf/coach/v3/priors/metric-map.ts` | `METRIC_PRIOR_MAP` (métrica externa ↔ métrica jugador + unidades) | — |
+| `src/golf/coach/v3/tools/field-context-tool.ts` | tool del coach que expone A+B+C (índice server-side) | readers, metric-map |
+| `src/golf/coach/v3/focus/select-focus.ts` (mod) | aplica shrinkage antes de elegir foco | shrinkage, readers, metric-map |
 
-`shrinkage.ts` es función pura (entra data, sale número) → testeable en aislamiento sin DB.
+`shrinkage.ts` y `buckets.ts` son funciones puras (entra data, sale número) → testeables en aislamiento sin DB.
 
 ---
 
 ## 7. Testing
 
-- **Unit `shrinkage.ts`:** N=2/varianza-alta (prior domina), N=30 (jugador domina), prior ausente (degrada a solo-jugador sin NaN), bucket sin match.
+- **Unit `shrinkage.ts`:** N=1 (prior domina sin NaN), N=2/varianza-alta, N=30 (jugador domina), prior ausente (degrada a solo-jugador), `τ²_between` clamp ≥ ε, **regresión high-N (foco de Juanjo sin cambios)**.
+- **Unit `buckets.ts`:** cortes correctos, índice negativo (scratch/+), índice fuera de rango.
 - **Unit `readers.ts`:** percentil correcto, interpolación entre percentiles seedeados, métrica/bucket inexistente.
-- **Unit normalizer:** rechaza filas malformadas, valida suma de proporciones de capa B.
+- **Unit normalizer:** rechaza filas malformadas, valida suma de proporciones de capa B, clave sintética de bandas no-NULL.
 - **Integration ingesta:** correr `ingest-priors.mjs` dos veces ⇒ mismo conteo (idempotencia).
-- **Tool `field_context`:** devuelve las tres capas con claves legibles.
+- **Tool `field_context`:** devuelve las tres capas con claves legibles; ignora un hándicap pasado por el LLM (usa el server-side).
 - **Canario anti-huérfanos:** descrito en §5.3.
 - **Banco de pruebas cerebro v3:** correr contra los 5 perfiles sintéticos + Juanjo (regla #10). Un perfil con pocas rondas debe mostrar el coach apoyándose en el prior; Juanjo (muchas rondas) debe mostrar su data dominando.
 
@@ -201,13 +224,13 @@ Test que falla si: las tablas tienen filas pero `field_context` no está registr
 
 ## 8. Plan de entrega (orden sugerido para writing-plans)
 
-1. Migración 3 tablas + RLS + verificación `relrowsecurity` viva en prod.
-2. `priors.config.json` + esquema Zod de las 3 capas + normalizer (TDD).
-3. Seed curado capa A (con percentiles) + ingesta idempotente + registrar fuentes.
-4. Seed capas B y C + ingesta.
-5. `readers.ts` (TDD).
-6. `shrinkage.ts` empirical-Bayes (TDD) + enchufe en `select-focus.ts`.
-7. Tool `field_context` + registro en dispatcher (TDD).
+1. Migración 3 tablas + índices únicos (claves naturales) + RLS + verificación `relrowsecurity` viva en prod.
+2. `buckets.ts` canónico (TDD) + `priors.config.json` + esquema Zod de las 3 capas + normalizer (TDD).
+3. Seed curado capa A (con percentiles + fuentes públicas verificadas) + ingesta idempotente + registrar fuentes.
+4. Seed capas B y C (bandas con clave sintética) + ingesta.
+5. `readers.ts` + `metric-map.ts` (TDD).
+6. `shrinkage.ts` empirical-Bayes con varianzas poblacionales (TDD) + enchufe en `select-focus.ts` + regresión high-N.
+7. Tool `field_context` (índice server-side) + registro en dispatcher (TDD).
 8. Canario anti-huérfanos.
 9. Banco de pruebas + demo a Juanjo (gate regla #4) + `/pre-push` + code-reviewer (>100 LOC) + merge. Flag sigue por usuario.
 
@@ -217,12 +240,23 @@ Test que falla si: las tablas tienen filas pero `field_context` no está registr
 
 | Riesgo | Mitigación |
 |---|---|
-| Coach asegura patrón falso a novato (CERO FALLOS) | Shrinkage empírico: con baja precisión, el prior domina y el coach habla en condicional. |
+| Coach asegura patrón falso a novato (CERO FALLOS) | Shrinkage empírico con varianzas poblacionales: con baja precisión el prior domina y el coach habla en condicional. |
+| Shrinkage estimado con varianza del propio jugador (N=2 = ruido) | **Corregido:** `σ²_within` y `τ²_between` son poblacionales, no del jugador. Solo media y `n` salen del jugador. |
+| `τ²_between` sobreestimada (percentiles incluyen ruido ronda-a-ronda) | **Corregido:** `τ²_between = Var_total − σ²_within`, clamp ≥ ε. |
+| Mezclar métrica externa con métrica del jugador en distintas unidades | `METRIC_PRIOR_MAP` explícito; métrica sin equivalente computable no entra al shrinkage. |
+| `ON CONFLICT` con `course_external_id` NULL (bug 42P10) | Clave sintética `BAND:<region>:<par>`, nunca NULL en columna de conflicto. |
+| Coach alucina hándicap/percentil | `field_context` lee índice y cancha server-side, no de args del LLM. |
+| Cold-start: índice inestable para elegir bucket | Cascada WHS → meta onboarding → bucket ancho por defecto. |
+| 1b regresa el foco de usuarios flag-on existentes | Test de regresión: high-N ⇒ `posterior ≈ media_jugador`, foco sin cambios. |
+| Fuente propietaria (legal/reputacional) | Preferir USGA/R&A/papers públicos; `legal_basis` verificado; fuente dudosa no entra. |
 | Priors globales poco relevantes para chilenos | `region` + hook a distribución chilena propia (feature futura). Honestidad en el copy ("a nivel mundial"). |
 | Migración en repo ≠ aplicada en prod | Verificar `pg_class.relrowsecurity` vivo (`reference_migraciones_repo_no_garantizan_prod`). |
 | Piezas construidas pero desconectadas | Canario anti-huérfanos en CI. |
+| `field_context` infla tokens/costo del coach | Ya instrumentado en PR-0 (`surface:'coach_chat'`); vigilar `/admin/costos` tras merge. |
 | Seed con números mal extraídos | Datos versionados + `sample_size` + `confidence_level` por fuente; auditables en el diff. |
 | Vitest en OneDrive | pool `vmThreads` (`feedback_vitest_onedrive`). |
+
+**Esfuerzo (review 2026-06-15):** el roadmap estimaba 1b en 3-4 días para "distribuciones". Con la capa A adelantada + shrinkage empírico hecho bien (descomposición de varianzas + mapeo de métricas + fallback de bucket), la estimación honesta sube a **5-7 días**. No quiero pagar esa deuda con un parche: el shrinkage mal hecho es peor que no tenerlo.
 
 ---
 
@@ -235,3 +269,14 @@ Test que falla si: las tablas tienen filas pero `field_context` no está registr
 - ✅ Población: externa global hoy, `region` + hook para distribución chilena propia después.
 - ✅ Capa C delgada (no duplica FedeGolf).
 - ✅ Consumo probado en runtime (tool + shrinkage) con canario anti-huérfanos.
+
+### Correcciones del self-review CTO (2026-06-15)
+7 errores anticipados y corregidos en el spec antes de planificar:
+1. **Shrinkage con varianza del jugador** → varianzas poblacionales (`σ²_within`, `τ²_between`); rompía justo en cold-start.
+2. **`τ²_between` sobreestimada** → restar `σ²_within` de la dispersión total + clamp.
+3. **Sin mapeo de métricas** → `METRIC_PRIOR_MAP` (unidades reconciliadas).
+4. **`ON CONFLICT` NULL en capa C** → clave sintética `BAND:<region>:<par>` (bug 42P10).
+5. **`field_context` confía el hándicap al LLM** → lectura server-side (anti-alucinación).
+6. **Bucket de cold-start huevo-gallina** → cascada WHS → onboarding → default.
+7. **Sin regresión de usuarios existentes** → test high-N (foco de Juanjo sin cambios).
+Además: fuentes propietarias → preferir públicas (legal/reputacional); bucketing canónico único; costo `field_context` vigilado; esfuerzo re-estimado a 5-7 días.
