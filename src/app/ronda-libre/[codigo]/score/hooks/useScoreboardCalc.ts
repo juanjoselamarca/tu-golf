@@ -47,6 +47,13 @@ export interface ScoreboardCalc {
     modoLabel: string
     showNet: boolean
     showStableford: boolean
+    /**
+     * true sólo en stroke play NETO. En esta modalidad el neto = bruto − hándicap
+     * total: la asignación de golpes por hoyo (por stroke index) NO cambia el
+     * resultado, así que NO se marcan golpes por hoyo (decisión Juanjo 17-jun).
+     * En match play y stableford los golpes por hoyo SÍ importan → false.
+     */
+    isStrokePlayNeto: boolean
   }
   current: {
     par: number
@@ -189,6 +196,9 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
       : 'Stroke Play'
     const showNet = modoJuego === 'neto' && formatoJuego !== 'stableford'
     const showStableford = formatoJuego === 'stableford'
+    // Stroke play neto: el hándicap se aplica al total, no por hoyo → sin marcas
+    // de golpes por hoyo. Match play neto mantiene showNet pero NO es esto.
+    const isStrokePlayNeto = formatoJuego === 'stroke_play' && modoJuego === 'neto'
     const displayOverUnder = showNet ? totalNetOverUnder : totalOverUnder
     const displayTotal = showStableford ? totalStableford : totalGross
 
@@ -196,7 +206,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     const isAboveDoubleBogey = score != null && score > par + 2
 
     return {
-      mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford },
+      mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford, isStrokePlayNeto },
       current: {
         par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
         currentNetScore, currentNetDiff, currentStablefordPts,

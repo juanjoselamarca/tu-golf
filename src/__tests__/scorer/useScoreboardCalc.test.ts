@@ -130,4 +130,38 @@ describe('useScoreboardCalc', () => {
     const { result } = renderHook(() => useScoreboardCalc(baseInput))
     expect(typeof result.current.strokeAdvantageOn).toBe('function')
   })
+
+  // ── isStrokePlayNeto: sin golpes por hoyo en stroke play neto ─────────────
+  // Reporte inbox 17-jun (Juanjo): en stroke play neto el hándicap se aplica al
+  // total, no por hoyo → no se marcan golpes por hoyo. En match play y stableford
+  // los golpes por hoyo SÍ importan, así que el flag debe quedar false ahí.
+  describe('isStrokePlayNeto', () => {
+    it('true sólo en stroke play + neto', () => {
+      const input = { ...baseInput, ronda: { ...baseInput.ronda, formato_juego: 'stroke_play' as const, modo_juego: 'neto' as const } }
+      const { result } = renderHook(() => useScoreboardCalc(input))
+      expect(result.current.mode.isStrokePlayNeto).toBe(true)
+      // showNet también true, pero isStrokePlayNeto lo distingue de match play neto.
+      expect(result.current.mode.showNet).toBe(true)
+    })
+
+    it('false en stroke play gross (no hay golpes que ocultar)', () => {
+      const input = { ...baseInput, ronda: { ...baseInput.ronda, formato_juego: 'stroke_play' as const, modo_juego: 'gross' as const } }
+      const { result } = renderHook(() => useScoreboardCalc(input))
+      expect(result.current.mode.isStrokePlayNeto).toBe(false)
+    })
+
+    it('false en match play neto (los golpes por hoyo deciden hoyos)', () => {
+      const input = { ...baseInput, ronda: { ...baseInput.ronda, formato_juego: 'match_play' as const, modo_juego: 'neto' as const } }
+      const { result } = renderHook(() => useScoreboardCalc(input))
+      expect(result.current.mode.isStrokePlayNeto).toBe(false)
+      // showNet sigue true en match play neto — por eso no se puede gatear con showNet.
+      expect(result.current.mode.showNet).toBe(true)
+    })
+
+    it('false en stableford (los golpes por hoyo dan los puntos)', () => {
+      const input = { ...baseInput, ronda: { ...baseInput.ronda, formato_juego: 'stableford' as const, modo_juego: 'neto' as const } }
+      const { result } = renderHook(() => useScoreboardCalc(input))
+      expect(result.current.mode.isStrokePlayNeto).toBe(false)
+    })
+  })
 })
