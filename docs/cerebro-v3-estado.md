@@ -1,8 +1,14 @@
-# Estado Cerebro V3 — Actualizado 2026-06-16 — Ola 1b CÓDIGO COMPLETO (Tasks 1-9), espera DEMO+MERGE · Ola 3 ✅ COMPLETA
+# Estado Cerebro V3 — Actualizado 2026-06-17 — Ola 1b ✅ MERGEADA Y EN PROD (PR #173) · Ola 3 ✅ COMPLETA
 
-## ⏳ Ola 1b — "Priors externos por capas" — CÓDIGO COMPLETO, gate de merge = demo a Juanjo (branch `feat/cerebro-v3-ola1b-claude`)
+## ✅ Ola 1b — "Priors externos por capas" — MERGEADA Y EN PRODUCCIÓN
 
-**ESTADO (sesión 16-jun PM):** Tasks 7-9 cerradas. Falta SOLO la demo en vivo a Juanjo (regla #4) → merge. code-reviewer ya pasó (PASS, cero críticos).
+**CERRADA 17-jun (PR #173 squash `25793d6`):** demo en vivo a Juanjo OK (regla #4) → merge → deploy Vercel `dpl_6yWEtdL5…` **READY** en producción (golfersplus.vercel.app) → smoke OK (`/` 200, `/coach` 307 auth-gated). Branch remota borrada. Flag `cerebro_v3_enabled` sigue por usuario (solo Juanjo). code-reviewer PASS (cero críticos, I1/I2/M1 aplicados).
+
+**Demo (regla #4):** el coach REAL (Sonnet) llamó `field_context` y verbalizó: índice 9.6 → "mejor que el 80% de los golfistas" (USGA real) + Los Leones slope 142 → "significativamente más difícil", sin claves crudas, sin inventar percentil de par-3 (gate). Script repetible: `scripts/cerebro-v3/demo-field-context.ts`.
+
+**Próximo en cerebro v3:** activar par-3 cuando tengamos distribución verificada (propia data o licencia); scoping por `source_id` en readers B/C antes de 2ª fuente. Sub-olas 1a/1c/1d pendientes (toparán la misma pared de "percentiles no publicados" — ver memoria `reference_priors_percentiles_no_publicados`).
+
+### (histórico) Camino al merge — Tasks 7-9
 
 **TASK 7 ✅ — tool `field_context` (3 capas, índice/cancha SERVER-SIDE):**
 - `field-context.ts` (composición pura: `betterThanPct`, `classifyVsNormal`, `classifyCourseDifficulty`, `buildFieldContext`) + 18 tests.
