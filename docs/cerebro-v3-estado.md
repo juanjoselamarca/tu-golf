@@ -1,4 +1,64 @@
-# Estado Cerebro V3 — Actualizado 2026-06-12 — Ola 3 ✅ COMPLETA EN PROD · Fórmula declarativa + PoC gen-1 verificado
+# Estado Cerebro V3 — Actualizado 2026-06-16 — Ola 1b CÓDIGO COMPLETO (Tasks 1-9), espera DEMO+MERGE · Ola 3 ✅ COMPLETA
+
+## ⏳ Ola 1b — "Priors externos por capas" — CÓDIGO COMPLETO, gate de merge = demo a Juanjo (branch `feat/cerebro-v3-ola1b-claude`)
+
+**ESTADO (sesión 16-jun PM):** Tasks 7-9 cerradas. Falta SOLO la demo en vivo a Juanjo (regla #4) → merge. code-reviewer ya pasó (PASS, cero críticos).
+
+**TASK 7 ✅ — tool `field_context` (3 capas, índice/cancha SERVER-SIDE):**
+- `field-context.ts` (composición pura: `betterThanPct`, `classifyVsNormal`, `classifyCourseDifficulty`, `buildFieldContext`) + 18 tests.
+- `field-context-tool.ts`: schema Anthropic + `fieldContext(ctx,input,deps)` con deps inyectables. Lee índice + cancha reciente del usuario AUTENTICADO server-side (anti-alucinación, patrón get_playing_handicap); el LLM solo pasa `metric_key`. + 6 tests.
+- `computePlayerBaseline` exportado de select-focus (reusa detect→measure, una sola fuente de verdad).
+- Wiring: despacho en `executeTool` (tools.ts) — NO en handle-tool-use (necesita el cliente RLS; desvío del plan, documentado) — + ofrecido en route.ts con el flag + label en coach-event-narrator + guía de uso en CONOCER_SECTION.
+
+**TASK 8 ✅ — canario anti-huérfanos** `orphans-1b.canary.test.ts`: 7 contratos estáticos (field_context en dispatcher + route, shrink en select-focus, getInternalPrior en get-focus, 3 readers + buildFieldContext, prompt) SIEMPRE enforced + capa DB-backed (con service-role) que prueba que el read-path real devuelve data del seed en prod.
+
+**CURADURÍA DE NÚMEROS (antes de Task 9) — decisión CTO clave:**
+- **Hallazgo:** las distribuciones de PERCENTILES por hándicap NO se publican (Shot Scope/Arccos/Stagner solo publican MEDIAS, además image-locked). La varianza que el shrinkage necesita no existe pública.
+- **Capa B curada a dato REAL/VERIFICADO:** distribución de índices USGA 2024 (GHIN, ~2.7M hombres): <5=9.77%, 5-9.9=20.2%, 10-14.9=26.7%, 15-19.9=27.0%, ≥20=16.33% (split 20-28/29+ prorrateado, documentado). Suma exacta 1.0. Validado: índice 9.6 de Juanjo → "mejor que 80% de golfistas" (real); índice 2 → top 5%; 30 → top 1%.
+- **Gate `benchmarkVerified`:** par-3 sigue PROVISIONAL (no hay distribución real). El gate corta su consumo en TODOS los caminos (shrinkage en get-focus + field_context capa A) → un número no verificado NUNCA llega al usuario. Se activa cuando computemos la distribución par-3 real desde nuestra propia data (historical_rounds) con N suficiente, o licenciemos un dataset con percentiles.
+- **Resultado neto:** capas B (población) y C (dificultad de cancha, slope 113 WHS neutro) están VIVAS y son verdaderas; capa A queda lista pero gateada hasta tener dato verificado. El shrinkage queda cableado + testeado, no-op hasta que un metricKey sea verificado.
+
+**TASK 9 ✅ (todo menos demo+merge):**
+- Banco `validate-field-context.ts`: capa B monótona ✅, capa C banda WHS ✅, E2E contra Juanjo real (ranking 80%, Los Leones slope 142 → "más difícil que referencia", gate corta par-3) ✅.
+- `/pre-push`: **tsc 0 · 2704 tests · build OK**.
+- **code-reviewer (regla #5): PASS, cero críticos.** 2 importantes + 3 menores. Aplicados antes del merge: I1 (year NOT NULL DEFAULT 0 — idempotencia capa B, migración nueva aplicada a prod), I2 (year-scoping en getPopulationPercentile + orden determinista en getCourseNorm), M1 (quitar `as never`).
+- **Follow-up anotado (I2 residual):** scoping por `source_id` en los readers de capa B/C ANTES de ingerir una 2ª fuente/año. Hoy 1 sola fuente por capa → no falla.
+- **M3 (review):** la cascada de bucket usa `targetHandicap` como proxy cuando no hay `currentHandicap` (per spec §5.1). Inerte hoy (gate off); revisar al activar si conviene el default conservador en su lugar.
+
+**PENDIENTE ÚNICO:** demo en vivo a Juanjo (regla #4) → `gh pr merge` + confirmar deploy Vercel `success`. Flag sigue por usuario.
+
+### (histórico) Fundación 1b — Tasks 1-6
+
+**Decisión PM (15-jun):** retomar cerebro v3 por las sub-olas 1a-1d de Ola 1. Se arrancó por **1b** (distribuciones + benchmark por skill + normas de cancha) por ser la pieza que habilita ranking + calibración cold-start.
+
+**Spec:** `docs/superpowers/specs/2026-06-15-cerebro-v3-ola1b-priors-externos-design.md` (con self-review CTO: 7 errores corregidos).
+**Plan:** `docs/superpowers/plans/2026-06-15-cerebro-v3-ola1b.md` (9 tasks).
+
+**FUNDACIÓN CERRADA E IMPECABLE (Tasks 1-4, sesión 15/16-jun):**
+- Task 1 ✅ Migración 3 tablas `external_priors_*` + RLS (lectura pública / service write). **Aplicada y verificada en prod** (`relrowsecurity=t` en las 3). Gotcha 42P10 resuelto (gender/age_bucket NOT NULL DEFAULT 'all'; bandas con `course_external_id` sintético). CHECK `jurisdiction` extendido con 'external_prior'.
+- Task 2 ✅ `src/golf/coach/v3/priors/buckets.ts` — `handicapToBucket()` canónico (2 tests).
+- Task 3 ✅ `priors.config.json` + seed curado (`data/priors/*.json`) + `normalize.ts` (Zod, 5 tests). **Seed PRELIMINAR** (`legal_basis *_preliminary`): solo `score_par3` × 7 buckets. La curaduría de números verificados es el paso previo a encender el shrinkage.
+- Task 4 ✅ `ingest-priors.mjs` orquestador idempotente (fetcher pluggable). **Corrido en prod: 35/6/3 filas, idempotente** (2 corridas = mismo conteo). `status=ready`.
+- tsc 0 errores · 7 tests priors verdes.
+
+**TASK 5 ✅ (readers + metric-map):** `readers.ts` (summarizeDistribution p10-p90/IQR + populationPercentileFromBins + fetchers con cliente inyectado) + `metric-map.ts` (`METRIC_PRIOR_MAP`: par3_avg_vs_par↔score_par3, resta par 3). 9 tests.
+
+**TASK 6 ✅ (shrinkage empirical-Bayes, CABLEADO Y CONSUMIDO):**
+- 6a `shrinkage.ts` puro: varianzas POBLACIONALES (no del jugador), λ crece con n, estable desde n=1, sin NaN, clamp τ². Regresión high-N. getInternalPrior devuelve priorMean+tau2Between+sigma2Within (8 tests).
+- 6b enchufe aditivo en `select-focus.ts`: `SelectFocusInput.priors` opcional ajusta el VALOR REPORTADO (no el ranking ni gates Ola 3). Sin priors = idéntico a pre-1b (4 tests).
+- 6c `get-focus.ts` orquestador: resuelve bucket (cascada WHS→onboarding→default), carga priors y los pasa a selectFocus. Degradación conservadora. **Cierra el loop anti-decoración** (3 tests end-to-end).
+- tsc 0 · 36 focus + 24 priors tests verdes.
+
+**PRÓXIMA SESIÓN — empezar en Task 7:**
+1. **Task 7** tool `field_context` (índice/cancha server-side, anti-alucinación) + registro en dispatcher.
+2. **Task 8** canario anti-huérfanos (tablas con data ⇒ field_context registrado + shrinkage invocado).
+3. **ANTES de Task 9:** curar **números verificados** del seed (reemplazar el preliminar `score_par3`; extender a más métricas de `METRIC_PRIOR_MAP` + within-round SD reales).
+4. **Task 9** banco + demo (regla #4) + code-reviewer + merge.
+
+**Estado prod:** las 3 tablas existen + seedeadas con data preliminar agregada. El shrinkage YA está cableado en el motor de foco pero **el flag sigue por usuario** (solo Juanjo) → impacto controlado. El merge de 1b ocurre con el tool + canario + demo + números curados, no antes.
+
+---
+
 
 ## ✅ Ola 3 COMPLETA — "El cerebro guarda y crece" (chunks 1-3 en prod)
 

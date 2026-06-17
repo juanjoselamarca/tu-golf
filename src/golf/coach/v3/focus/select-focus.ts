@@ -2,8 +2,9 @@ import { detectPatterns, type PatternRound } from '@/golf/coach/patterns'
 import { parPerHoleArray } from '@/golf/core/holes'
 import { sum, type RoundData } from '@/golf/coach/metrics'
 import type { CerebroWeight } from '@/lib/cerebro/weights'
-import { FOCUS_CATALOG, type DetectInfo } from './catalog'
+import { FOCUS_CATALOG, type DetectInfo, type Baseline, type FocusCandidate } from './catalog'
 import type { Focus, FocusResult, FocusTarget, SelectFocusInput } from './types'
+import { shrink } from '../priors/shrinkage'
 
 /** Mínimo de rondas para siquiera intentar un foco. Menos = cold start honesto. */
 export const MIN_ROUNDS_FOR_FOCUS = 3
@@ -27,6 +28,28 @@ export function patternWeight(weights: CerebroWeight[], patternId: string, defau
   if (w) return w.current_weight
   if (typeof defaultWeight === 'number') return defaultWeight
   return DEFAULT_PATTERN_WEIGHT
+}
+
+/**
+ * Valor baseline del jugador para un metricKey del catálogo, computado IGUAL que
+ * en selectFocus (detect → measure). Lo usa field_context (Ola 1b) para situar al
+ * jugador vs el benchmark de su bucket, reusando una sola fuente de verdad de la
+ * matemática. Devuelve null si el metricKey no está en el catálogo o no hay datos.
+ */
+export function computePlayerBaseline(
+  rounds: RoundData[],
+  metricKey: string,
+  catalog: FocusCandidate[] = FOCUS_CATALOG,
+): Baseline | null {
+  const cand = catalog.find((c) => c.metricKey === metricKey)
+  if (!cand) return null
+  const patternRounds = rounds.map(toPatternRound)
+  const detectedMap = new Map<string, DetectInfo>()
+  for (const d of detectPatterns(patternRounds)) {
+    detectedMap.set(d.pattern.id, { confidence: d.confidence, metadata: d.metadata ?? {} })
+  }
+  const detected = detectedMap.get(cand.patternId) ?? { confidence: 0, metadata: {} }
+  return cand.measure({ rounds, detected })
 }
 
 function toPatternRound(r: RoundData): PatternRound {
@@ -91,6 +114,24 @@ export function selectFocus(input: SelectFocusInput): FocusResult {
 
     const peso = patternWeight(input.weights, c.patternId, c.defaultWeight)
     const impacto = Math.round(detected.confidence * peso * 10000) / 10000
+
+    // Shrinkage (Ola 1b): si hay prior externo para esta métrica, el valor
+    // REPORTADO se ajusta hacia "lo normal del bucket" según la precisión del
+    // jugador. No toca el ranking (impacto) ni los gates de Ola 3. Sin prior
+    // inyectado ⇒ valor sin cambios (backward-compatible).
+    const prior = input.priors?.[c.metricKey]
+    const valorReportado = prior
+      ? Math.round(
+          shrink({
+            playerMean: baseline.valor,
+            n: baseline.muestra,
+            priorMean: prior.priorMean,
+            sigma2Within: prior.sigma2Within,
+            tau2Between: prior.tau2Between,
+          }) * 100,
+        ) / 100
+      : baseline.valor
+
     candidates.push({
       kind: 'focus',
       patternId: c.patternId,
@@ -100,7 +141,7 @@ export function selectFocus(input: SelectFocusInput): FocusResult {
       impacto,
       confianza: detected.confidence,
       peso,
-      metrica: { key: c.metricKey, valor: baseline.valor, muestra: baseline.muestra },
+      metrica: { key: c.metricKey, valor: valorReportado, muestra: baseline.muestra },
       evidencia: detected.metadata,
       validacion: verdict
         ? { n: verdict.n, effectSize: verdict.effectSize, r2: verdict.r2, meanDeltaStrokes: verdict.meanDeltaStrokes }

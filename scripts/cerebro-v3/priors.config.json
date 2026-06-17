@@ -1,0 +1,41 @@
+[
+  {
+    "source_key": "usga-handicap-distribution",
+    "title": "USGA Handicap Index Distribution (GHIN, men, 2024 Golf Scorecard)",
+    "authors": ["USGA"],
+    "url_source": "https://www.usga.org/content/usga/home-page/articles/2024/12/golf-scorecard-2024-statistics-golf-recreational-game.html",
+    "jurisdiction": "external_prior",
+    "legal_basis": "public_aggregate_statistics_verified",
+    "confidence": "high",
+    "provenance": "USGA GHIN 2024 (~2.7M hombres): 15-19.9=27.0%, 10-14.9=26.7%, 5-9.9=20.2%, <5=9.77%, avg index 14.2. El split de la cola >=20 (16.33% verificado) entre 20-28/29+ se prorratea por la forma tipica de la cola (modelado, no altera el agregado verificado). Poblacion masculina (mayoria de nuestros usuarios); gender/region reservados para extension.",
+    "layer": "B",
+    "fetcher": "file",
+    "path": "data/priors/handicap-dist.json"
+  },
+  {
+    "source_key": "amateur-skill-benchmarks",
+    "title": "Amateur skill benchmarks by handicap (par 3) — PROVISIONAL",
+    "authors": ["aggregate"],
+    "url_source": "https://shotscope.com/blog/practice-green/stats-and-data/par-3-par-4-and-par-5-average-score/",
+    "jurisdiction": "external_prior",
+    "legal_basis": "modeled_provisional",
+    "confidence": "low",
+    "provenance": "Las distribuciones de percentiles por handicap NO se publican (las fuentes — Shot Scope 100k+ golfistas, Arccos/Stagner — solo publican MEDIAS, ademas image-locked). Estos numeros son PROVISIONALES y NO se exponen al usuario: gate benchmarkVerified=false en METRIC_PRIOR_MAP corta el consumo (shrinkage + field_context Layer A). Se activan cuando computemos la distribucion real desde nuestra propia data (historical_rounds) con N suficiente por bucket, o licenciemos un dataset con percentiles reales.",
+    "layer": "A",
+    "fetcher": "file",
+    "path": "data/priors/amateur-benchmarks.json"
+  },
+  {
+    "source_key": "course-norm-bands",
+    "title": "Course difficulty reference bands (WHS neutral slope 113 / rating≈par)",
+    "authors": ["WHS"],
+    "url_source": "https://www.usga.org/content/usga/home-page/handicapping/world-handicap-system.html",
+    "jurisdiction": "external_prior",
+    "legal_basis": "public_aggregate_statistics_verified",
+    "confidence": "high",
+    "provenance": "Slope 113 es el valor NEUTRO definido por el World Handicap System (cancha de dificultad estandar); course rating de referencia ~= par. Banda de referencia para clasificar dificultad relativa de una cancha. Verificado contra la definicion oficial del WHS.",
+    "layer": "C",
+    "fetcher": "file",
+    "path": "data/priors/course-norms.json"
+  }
+]

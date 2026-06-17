@@ -11,6 +11,7 @@ import {
   getFocusTool,
   getProgress,
 } from '@/golf/coach/v3/tools/focus-tools'
+import { fieldContext } from '@/golf/coach/v3/tools/field-context-tool'
 import { projectScore, type Distribution } from './scoring'
 
 /**
@@ -322,6 +323,9 @@ export async function executeTool(
         return await getFocusTool(ctx)
       case 'get_progress':
         return await getProgress(ctx)
+      // Ola 1b "priors externos": contexto de campo (vs hándicap / población / cancha).
+      case 'field_context':
+        return await fieldContext(ctx, input)
       case 'compute_score_projection':
         return await computeScoreProjection(ctx, input)
       default:

@@ -6,6 +6,9 @@ import type { CerebroWeight } from '@/lib/cerebro/weights'
 import { selectFocus } from './select-focus'
 import { loadFocusCatalog } from './catalog-db'
 import type { FocusCandidate } from './catalog'
+import { handicapToBucket } from '../priors/buckets'
+import { getInternalPrior, type InternalPrior } from '../priors/readers'
+import { priorMappingFor } from '../priors/metric-map'
 import type { FocusResult, FocusTarget } from './types'
 import { loadObservationPairs } from '@/lib/data/pattern-observations'
 import { validatePattern, type PatternVerdict } from '../pattern-validator'
@@ -20,6 +23,15 @@ export interface GetFocusDeps {
   loadCatalog: () => Promise<FocusCandidate[]>
   /** Veredicto del validador anti-fantasía por patrón (Ola 3 chunk 2). */
   loadValidation: (userId: string) => Promise<Record<string, PatternVerdict>>
+  /**
+   * Priors externos (capa A, Ola 1b) para el bucket del jugador. handicapIndex
+   * null ⇒ bucket por defecto conservador. Sólo devuelve los metricKeys con
+   * benchmark mapeado en METRIC_PRIOR_MAP.
+   */
+  loadPriors?: (
+    handicapIndex: number | null,
+    metricKeys: string[],
+  ) => Promise<Record<string, InternalPrior>>
 }
 
 /** Deps reales sobre el cliente autenticado del request + cache de pesos. */
@@ -30,6 +42,37 @@ export function defaultFocusDeps(supabase: SupabaseClient): GetFocusDeps {
     loadWeights: () => getCachedWeights(),
     loadCatalog: () => loadFocusCatalog(supabase),
     loadValidation: (userId) => loadValidationFor(supabase, userId),
+    loadPriors: (handicapIndex, metricKeys) => loadPriorsFor(supabase, handicapIndex, metricKeys),
+  }
+}
+
+/** Bucket por defecto cuando no conocemos el índice (conservador, medio-alto). */
+const DEFAULT_BUCKET = '20-28' as const
+
+/**
+ * Carga los priors externos (capa A) para el bucket del jugador. Degradación
+ * conservadora (CERO FALLOS): si algo falla, devuelve {} y el motor opera sin
+ * shrinkage (idéntico a pre-1b). Sólo consulta los metricKeys con mapeo.
+ */
+async function loadPriorsFor(
+  supabase: SupabaseClient,
+  handicapIndex: number | null,
+  metricKeys: string[],
+): Promise<Record<string, InternalPrior>> {
+  try {
+    const bucket = handicapIndex != null ? handicapToBucket(handicapIndex) : DEFAULT_BUCKET
+    const out: Record<string, InternalPrior> = {}
+    for (const key of metricKeys) {
+      // Gate de calidad de dato: solo se consume el prior si su benchmark está
+      // VERIFICADO (no provisional). Hoy ningún metricKey lo está → shrinkage
+      // no-op idéntico a pre-1b. El día que se verifique uno, fluye solo.
+      if (!priorMappingFor(key)?.benchmarkVerified) continue
+      const prior = await getInternalPrior(supabase, bucket, key)
+      if (prior) out[key] = prior
+    }
+    return out
+  } catch {
+    return {}
   }
 }
 
@@ -65,5 +108,10 @@ export async function getFocus(userId: string, deps: GetFocusDeps): Promise<Focu
     deps.loadCatalog(),
     deps.loadValidation(userId),
   ])
-  return selectFocus({ rounds, weights, target, catalog, validation })
+  // Cascada de bucket (cold-start): índice WHS → meta de onboarding → default.
+  const hcpIndex = target?.currentHandicap ?? target?.targetHandicap ?? null
+  const priors = deps.loadPriors
+    ? await deps.loadPriors(hcpIndex, catalog.map((c) => c.metricKey))
+    : undefined
+  return selectFocus({ rounds, weights, target, catalog, validation, priors })
 }
