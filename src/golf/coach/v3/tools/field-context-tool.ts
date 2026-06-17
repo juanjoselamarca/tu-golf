@@ -133,8 +133,11 @@ export async function fieldContext(
   // ── Capa A: valor del jugador vs benchmark del bucket ──────────────────
   const mapping = metricKey ? priorMappingFor(metricKey) : null
   let benchmarkInternal: BenchmarkPoint[] = []
-  let playerValue: number | null = null
   let lowerIsBetter = true
+  // El valor del jugador se computa siempre que la métrica sea del catálogo, así
+  // el motivo de degradación es exacto (distingue "sin rondas" de "sin benchmark").
+  const playerBaseline = metricKey ? computePlayerBaseline(rounds, metricKey) : null
+  const playerValue = playerBaseline ? playerBaseline.valor : null
   // Gate CERO FALLOS: la capa A (percentil vs hándicap) solo se arma con un
   // benchmark VERIFICADO. Provisional ⇒ no se carga ⇒ la capa degrada honesta
   // (nunca un percentil inventado al usuario). Las capas B y C son independientes.
@@ -143,8 +146,6 @@ export async function fieldContext(
     const rawBench = await deps.loadBenchmark(bucket, mapping.externalMetricKey)
     benchmarkInternal = rawBench.map((p) => ({ percentile: p.percentile, value: mapping.toInternal(p.value) }))
     lowerIsBetter = mapping.lowerIsBetter
-    const baseline = computePlayerBaseline(rounds, metricKey)
-    playerValue = baseline ? baseline.valor : null
   }
 
   // ── Capa B: ranking poblacional del índice ────────────────────────────
