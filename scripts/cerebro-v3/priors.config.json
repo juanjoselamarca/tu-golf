@@ -14,13 +14,13 @@
   },
   {
     "source_key": "amateur-skill-benchmarks",
-    "title": "Amateur par-3 mean score-to-par by handicap (Shot Scope, verified means)",
+    "title": "Amateur par-3/4/5 mean score-to-par by handicap (Shot Scope, verified means)",
     "authors": ["Shot Scope"],
     "url_source": "https://shotscope.com/blog/practice-green/stats-and-data/par-3-par-4-and-par-5-average-score/",
     "jurisdiction": "external_prior",
     "legal_basis": "public_aggregate_statistics_verified",
     "confidence": "high",
-    "provenance": "MEDIAS de score-to-par en par-3 por handicap, publicadas por Shot Scope (>100.000 golfistas trackeados). Cita directa de la serie 'reduce your handicap Xhcp': hcp0=3.2 (/blog/stats/reduce-hcp-law-of-averages-0hcp/), hcp5=3.42 (/blog/stats/reduce-your-handicap-5hcp-averages/), hcp10=3.6 (/blog/practice-green/stats-and-data/reduce-your-handicap-10hcp-averages/), hcp15=3.83 (/blog/practice-green/game-improvement/reduce-your-handicap-15hcp/), hcp20=4.0 (/blog/practice-green/game-improvement/reduce-your-handicap-20hcp-averages/), hcp25=4.19 (/blog/practice-green/game-improvement/reduce-your-handicap-25hcp/). Sembradas como percentile=50 (la media del nivel) por punto de handicap; field_context interpola al indice exacto del jugador y da delta-vs-promedio (gate meanVerified=true). Los PERCENTILES/desviaciones por handicap NO se publican (Broadie las omite, DECADE las encierra en app de pago, USGA no las da por hoyo) => distributionVerified=false: el shrinkage y toda afirmacion de percentil de sub-metrica siguen apagados. Se activaran al computar la distribucion real desde nuestra data con N suficiente por bucket, o al licenciar un dataset con percentiles.",
+    "provenance": "MEDIAS de score-to-par en par-3/par-4/par-5 por handicap, publicadas por Shot Scope (>100.000 golfistas trackeados). Cita directa de la serie 'reduce your handicap Xhcp', cada URL trae los 3 par-types: hcp0 par3=3.2/par4=4.2/par5=4.8 (/blog/stats/reduce-hcp-law-of-averages-0hcp/), hcp5 3.42/4.53/5.36 (/blog/stats/reduce-your-handicap-5hcp-averages/), hcp10 3.6/4.67/5.52 (/blog/practice-green/stats-and-data/reduce-your-handicap-10hcp-averages/), hcp15 3.83/5.05/5.91 (/blog/practice-green/game-improvement/reduce-your-handicap-15hcp/), hcp20 4.0/5.31/6.23 (/blog/practice-green/game-improvement/reduce-your-handicap-20hcp-averages/), hcp25 4.19/5.87/6.98 (/blog/practice-green/game-improvement/reduce-your-handicap-25hcp/). Sembradas como percentile=50 (la media del nivel) por punto de handicap; field_context interpola al indice exacto del jugador y da delta-vs-promedio (gate meanVerified=true). Los PERCENTILES/desviaciones por handicap NO se publican (Broadie las omite, DECADE las encierra en app de pago, USGA no las da por hoyo) => distributionVerified=false: el shrinkage y toda afirmacion de percentil de sub-metrica siguen apagados. Se activaran al computar la distribucion real desde nuestra data con N suficiente por bucket, o al licenciar un dataset con percentiles.",
     "layer": "A",
     "fetcher": "file",
     "path": "data/priors/amateur-benchmarks.json"

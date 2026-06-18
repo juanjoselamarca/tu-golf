@@ -82,9 +82,11 @@ async function part1Deterministic() {
   log('PARTE 1 — Qué le entrega field_context al coach (datos reales prod)')
   log('═══════════════════════════════════════════════════════════════')
 
-  // Juanjo real
-  const real = await fieldContext({ supabase, userId: JUANJO }, { metric_key: 'par3_avg_vs_par' }, defaultFieldContextDeps(supabase))
-  showLayers('JUANJO (cuenta real, índice 9.6)', real)
+  // Juanjo real — los 3 tipos de hoyo (par-3/4/5), cada uno con su media verificada
+  for (const mk of ['par3_avg_vs_par', 'par4_avg_vs_par', 'par5_avg_vs_par']) {
+    const real = await fieldContext({ supabase, userId: JUANJO }, { metric_key: mk }, defaultFieldContextDeps(supabase))
+    showLayers(`JUANJO (cuenta real, índice 9.6) — ${mk}`, real)
+  }
 
   // Novato sintético: índice 24, sin rondas, sin cancha → degradación honesta total
   const novato = await fieldContext(

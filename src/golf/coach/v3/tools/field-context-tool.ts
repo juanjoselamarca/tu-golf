@@ -18,8 +18,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { RoundData } from '@/golf/coach/metrics'
 import { loadFocusRounds } from '@/lib/data/focus'
-import { computePlayerBaseline } from '@/golf/coach/v3/focus/select-focus'
-import { FOCUS_CATALOG } from '@/golf/coach/v3/focus/catalog'
+import { measureFieldMetric, fieldMetricLabel } from '@/golf/coach/v3/priors/field-metrics'
 import { priorMappingFor } from '@/golf/coach/v3/priors/metric-map'
 import {
   getBenchmarkMeanAtIndex,
@@ -43,7 +42,7 @@ export const FIELD_CONTEXT_TOOL: Anthropic.Tool = {
       metric_key: {
         type: 'string',
         description:
-          'Métrica de foco a contextualizar (ej "par3_avg_vs_par"). Si la omitís, igual devuelve el ranking poblacional y la dificultad de cancha.',
+          'Métrica a contextualizar: "par3_avg_vs_par", "par4_avg_vs_par" o "par5_avg_vs_par" (tu promedio respecto a par en ese tipo de hoyo). Si la omitís, igual devuelve el ranking poblacional y la dificultad de cancha.',
       },
     },
     required: [],
@@ -113,7 +112,7 @@ export function defaultFieldContextDeps(supabase: SupabaseClient): FieldContextD
 }
 
 function metricLabelFor(metricKey: string): string {
-  return FOCUS_CATALOG.find((c) => c.metricKey === metricKey)?.label ?? metricKey
+  return fieldMetricLabel(metricKey) ?? metricKey
 }
 
 /**
@@ -138,9 +137,10 @@ export async function fieldContext(
   const mapping = metricKey ? priorMappingFor(metricKey) : null
   let benchmarkInternal: BenchmarkPoint[] = []
   let lowerIsBetter = true
-  // El valor del jugador se computa siempre que la métrica sea del catálogo, así
-  // el motivo de degradación es exacto (distingue "sin rondas" de "sin benchmark").
-  const playerBaseline = metricKey ? computePlayerBaseline(rounds, metricKey) : null
+  // El valor del jugador se computa siempre que la métrica esté registrada en
+  // FIELD_METRICS (par-3/4/5), así el motivo de degradación es exacto (distingue
+  // "sin rondas" de "sin benchmark").
+  const playerBaseline = metricKey ? measureFieldMetric(rounds, metricKey) : null
   const playerValue = playerBaseline ? playerBaseline.valor : null
   // Gate CERO FALLOS: la capa A (vs tu hándicap) sólo se arma con una MEDIA
   // verificada (meanVerified). El valor es la media de Shot Scope interpolada al

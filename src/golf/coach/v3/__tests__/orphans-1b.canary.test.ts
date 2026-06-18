@@ -62,9 +62,9 @@ const ENFORCED: WiringContract[] = [
     needles: ['getBenchmarkMeanAtIndex', 'getPopulationPercentile', 'getCourseNorm', 'buildFieldContext'],
   },
   {
-    piece: 'field_context computa el valor del jugador con la misma matemática del foco',
+    piece: 'field_context computa el valor del jugador con la matemática de golf real',
     consumer: 'golf/coach/v3/tools/field-context-tool.ts',
-    needles: ['computePlayerBaseline'],
+    needles: ['measureFieldMetric'],
   },
   {
     piece: 'el coach sabe CUÁNDO usar field_context (prompt gated)',
