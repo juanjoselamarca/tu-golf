@@ -19,10 +19,9 @@ import type { RoundData } from '@/golf/coach/metrics'
 import { loadFocusRounds } from '@/lib/data/focus'
 import { computePlayerBaseline } from '@/golf/coach/v3/focus/select-focus'
 import { FOCUS_CATALOG } from '@/golf/coach/v3/focus/catalog'
-import { handicapToBucket, type HandicapBucket } from '@/golf/coach/v3/priors/buckets'
 import { priorMappingFor } from '@/golf/coach/v3/priors/metric-map'
 import {
-  getBenchmarkPercentiles,
+  getBenchmarkMeanAtIndex,
   getPopulationPercentile,
   getCourseNorm,
   type BenchmarkPoint,
@@ -55,8 +54,12 @@ export type FieldContextToolResult = { ok: true; data: FieldContextResult } | { 
 export interface FieldContextDeps {
   loadIndice: (userId: string) => Promise<number | null>
   loadRounds: (userId: string) => Promise<RoundData[]>
-  /** Benchmark del bucket en escala EXTERNA cruda (la conversión a interna se hace acá). */
-  loadBenchmark: (bucket: HandicapBucket, externalMetricKey: string) => Promise<BenchmarkPoint[]>
+  /**
+   * Media verificada del benchmark interpolada al índice EXACTO del jugador
+   * (escala EXTERNA cruda; la conversión a interna se hace acá). null = sin media
+   * sembrada. Sólo media (no percentiles): ver metric-map.distributionVerified.
+   */
+  loadBenchmarkMean: (externalMetricKey: string, indice: number) => Promise<number | null>
   loadPopulationBetterThanPct: (indice: number) => Promise<number | null>
   loadRecentCourse: (
     userId: string,
@@ -72,8 +75,8 @@ export function defaultFieldContextDeps(supabase: SupabaseClient): FieldContextD
       return typeof data?.indice === 'number' ? data.indice : null
     },
     loadRounds: (userId) => loadFocusRounds(supabase, userId),
-    loadBenchmark: (bucket, externalMetricKey) =>
-      getBenchmarkPercentiles(supabase, bucket, externalMetricKey),
+    loadBenchmarkMean: (externalMetricKey, indice) =>
+      getBenchmarkMeanAtIndex(supabase, externalMetricKey, indice),
     loadPopulationBetterThanPct: (indice) => getPopulationPercentile(supabase, indice),
     loadRecentCourse: async (userId) => {
       const { data: round } = await supabase
@@ -138,14 +141,19 @@ export async function fieldContext(
   // el motivo de degradación es exacto (distingue "sin rondas" de "sin benchmark").
   const playerBaseline = metricKey ? computePlayerBaseline(rounds, metricKey) : null
   const playerValue = playerBaseline ? playerBaseline.valor : null
-  // Gate CERO FALLOS: la capa A (percentil vs hándicap) solo se arma con un
-  // benchmark VERIFICADO. Provisional ⇒ no se carga ⇒ la capa degrada honesta
-  // (nunca un percentil inventado al usuario). Las capas B y C son independientes.
-  if (metricKey && mapping && mapping.benchmarkVerified && indice != null) {
-    const bucket = handicapToBucket(indice)
-    const rawBench = await deps.loadBenchmark(bucket, mapping.externalMetricKey)
-    benchmarkInternal = rawBench.map((p) => ({ percentile: p.percentile, value: mapping.toInternal(p.value) }))
-    lowerIsBetter = mapping.lowerIsBetter
+  // Gate CERO FALLOS: la capa A (vs tu hándicap) sólo se arma con una MEDIA
+  // verificada (meanVerified). El valor es la media de Shot Scope interpolada al
+  // índice EXACTO del jugador. Se pasa como único punto p50 ⇒ buildFieldContext
+  // da delta-vs-promedio y NO afirma percentil de sub-métrica (betterThanPct
+  // exige >=2 puntos → null). El percentil exigiría distributionVerified, que
+  // sigue en false (los percentiles por hándicap no se publican). Honesto por
+  // construcción. Capas B y C son independientes.
+  if (metricKey && mapping && mapping.meanVerified && indice != null) {
+    const mean = await deps.loadBenchmarkMean(mapping.externalMetricKey, indice)
+    if (mean != null) {
+      benchmarkInternal = [{ percentile: 50, value: mapping.toInternal(mean) }]
+      lowerIsBetter = mapping.lowerIsBetter
+    }
   }
 
   // ── Capa B: ranking poblacional del índice ────────────────────────────

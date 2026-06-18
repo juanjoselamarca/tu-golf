@@ -69,7 +69,7 @@ function syntheticDeps(over: Partial<FieldContextDeps>): FieldContextDeps {
   return {
     loadIndice: async () => 24,
     loadRounds: async () => [],
-    loadBenchmark: async () => [],
+    loadBenchmarkMean: async () => null,
     loadPopulationBetterThanPct: (idx) => getPopulationPercentile(supabase, idx),
     loadRecentCourse: async () => null,
     loadBand: async () => null,

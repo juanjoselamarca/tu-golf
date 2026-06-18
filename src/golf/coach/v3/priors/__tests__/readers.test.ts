@@ -3,8 +3,10 @@ import {
   summarizeDistribution,
   populationPercentileFromBins,
   getInternalPrior,
+  interpolateMeanAtIndex,
   type BenchmarkPoint,
   type DistBin,
+  type MeanPoint,
 } from '../readers';
 
 describe('summarizeDistribution', () => {
@@ -97,5 +99,53 @@ describe('getInternalPrior', () => {
   it('metricKey sin mapeo → null', async () => {
     const prior = await getInternalPrior(mockClient([]), '10-14', 'metrica_inexistente');
     expect(prior).toBeNull();
+  });
+});
+
+describe('interpolateMeanAtIndex', () => {
+  // Medias par-3 verificadas (Shot Scope) por punto de hándicap.
+  const par3: MeanPoint[] = [
+    { handicap: 0, mean: 3.2 },
+    { handicap: 5, mean: 3.42 },
+    { handicap: 10, mean: 3.6 },
+    { handicap: 15, mean: 3.83 },
+    { handicap: 20, mean: 4.0 },
+    { handicap: 25, mean: 4.19 },
+  ];
+
+  it('sin puntos → null', () => {
+    expect(interpolateMeanAtIndex([], 12)).toBeNull();
+  });
+
+  it('un solo punto → esa media para cualquier índice', () => {
+    expect(interpolateMeanAtIndex([{ handicap: 10, mean: 3.6 }], 2)).toBe(3.6);
+    expect(interpolateMeanAtIndex([{ handicap: 10, mean: 3.6 }], 40)).toBe(3.6);
+  });
+
+  it('en un punto exacto → su media exacta', () => {
+    expect(interpolateMeanAtIndex(par3, 10)).toBeCloseTo(3.6, 6);
+    expect(interpolateMeanAtIndex(par3, 15)).toBeCloseTo(3.83, 6);
+  });
+
+  it('interpola linealmente entre dos puntos (índice 12)', () => {
+    // 3.6 + (3.83 - 3.6) * (12 - 10) / 5 = 3.692
+    expect(interpolateMeanAtIndex(par3, 12)).toBeCloseTo(3.692, 6);
+  });
+
+  it('interpola al índice real de Juanjo (9.6)', () => {
+    // 3.42 + (3.6 - 3.42) * (9.6 - 5) / 5 = 3.5856
+    expect(interpolateMeanAtIndex(par3, 9.6)).toBeCloseTo(3.5856, 6);
+  });
+
+  it('satura en los extremos sin extrapolar (CERO FALLOS)', () => {
+    expect(interpolateMeanAtIndex(par3, -3)).toBe(3.2); // por debajo del mínimo → mínimo
+    expect(interpolateMeanAtIndex(par3, 0)).toBe(3.2);
+    expect(interpolateMeanAtIndex(par3, 30)).toBe(4.19); // por encima del máximo → máximo
+    expect(interpolateMeanAtIndex(par3, 25)).toBe(4.19);
+  });
+
+  it('no depende del orden de entrada', () => {
+    const shuffled: MeanPoint[] = [par3[3], par3[0], par3[5], par3[1], par3[4], par3[2]];
+    expect(interpolateMeanAtIndex(shuffled, 12)).toBeCloseTo(3.692, 6);
   });
 });

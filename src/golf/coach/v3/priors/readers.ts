@@ -51,6 +51,42 @@ export function summarizeDistribution(points: BenchmarkPoint[]): PriorSummary | 
   return { mean, sdTotal };
 }
 
+export interface MeanPoint {
+  /** hándicap exacto del punto publicado (ej 0, 5, 10, 15, 20, 25) */
+  handicap: number;
+  /** media verificada de la métrica en ese hándicap (unidades externas crudas) */
+  mean: number;
+}
+
+/**
+ * Interpola linealmente la MEDIA verificada en el índice EXACTO del jugador,
+ * sobre los puntos publicados (capa A, medias Shot Scope). En los extremos
+ * satura al punto más cercano: NO extrapola fuera del rango publicado, porque un
+ * número fuera de la evidencia violaría CERO FALLOS. Devuelve null sin puntos.
+ *
+ * Interpolar una media ENTRE dos medias verificadas, sobre la curva monótona por
+ * hándicap, es lectura transparente de la evidencia — no inventa la FORMA de la
+ * distribución (eso sería el percentil de sub-métrica, que NO derivamos; ver
+ * metric-map.distributionVerified).
+ */
+export function interpolateMeanAtIndex(points: MeanPoint[], index: number): number | null {
+  if (points.length === 0) return null;
+  const sorted = [...points].sort((a, b) => a.handicap - b.handicap);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  if (index <= first.handicap) return first.mean;
+  if (index >= last.handicap) return last.mean;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+    if (index >= a.handicap && index <= b.handicap) {
+      const span = b.handicap - a.handicap;
+      return span === 0 ? a.mean : a.mean + ((b.mean - a.mean) * (index - a.handicap)) / span;
+    }
+  }
+  return last.mean;
+}
+
 export interface DistBin {
   handicap_bin: string;
   proportion: number;
@@ -98,6 +134,35 @@ export async function getBenchmarkPercentiles(
     .order('percentile', { ascending: true });
   if (error || !data) return [];
   return data.map((r) => ({ percentile: Number(r.percentile), value: Number(r.value) }));
+}
+
+/**
+ * Media verificada del benchmark (capa A) interpolada al índice EXACTO del
+ * jugador. Lee las filas percentile=50 (medias por punto de hándicap, etiquetadas
+ * '0'/'5'/.../'25' en handicap_bucket) de un metricKey externo y las interpola.
+ * Devuelve null si no hay medias sembradas o el índice no es finito. SÓLO medias
+ * (percentile=50): los percentiles de sub-métricas NO se publican (ver
+ * metric-map.distributionVerified) — por eso este reader no asume forma alguna.
+ */
+export async function getBenchmarkMeanAtIndex(
+  supabase: SupabaseClient,
+  externalMetricKey: string,
+  index: number,
+): Promise<number | null> {
+  if (!Number.isFinite(index)) return null;
+  const { data, error } = await supabase
+    .from('external_priors_amateur_benchmarks')
+    .select('handicap_bucket, value')
+    .eq('metric_key', externalMetricKey)
+    .eq('percentile', 50);
+  if (error || !data) return null;
+  const points: MeanPoint[] = [];
+  for (const r of data as Array<{ handicap_bucket: string; value: number }>) {
+    const handicap = Number(r.handicap_bucket);
+    const mean = Number(r.value);
+    if (Number.isFinite(handicap) && Number.isFinite(mean)) points.push({ handicap, mean });
+  }
+  return interpolateMeanAtIndex(points, index);
 }
 
 /** Prior listo para shrink(), en escala interna del catálogo. */
