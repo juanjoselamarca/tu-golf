@@ -7,6 +7,7 @@
  * y detalles según formato.
  */
 
+import type { ReactNode } from 'react'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { formatOverUnder } from '@/golf/core/rules'
 import { getScoreColor } from '@/golf/core/colors'
@@ -30,6 +31,14 @@ interface Props {
   formatoJuego?: FormatoJuego
   totalHoles: number
   formato: 'best_ball' | 'scramble' | 'foursome'
+  /**
+   * Expand opt-in (fix 126). Si se pasan, cada fila de equipo es clickeable y
+   * despliega `renderTeamDetail`. Sin estas props el comportamiento es idéntico
+   * al previo (filas no clickeables) — los otros call sites no se ven afectados.
+   */
+  expandedTeamId?: string | null
+  onToggleTeam?: (teamId: string) => void
+  renderTeamDetail?: (teamId: string) => ReactNode
 }
 
 const FORMATO_LABEL: Record<string, string> = {
@@ -50,7 +59,7 @@ function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, h
   return formatOverUnder(modo === 'neto' ? team.overUnderNeto : team.overUnderGross)
 }
 
-export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stroke_play', totalHoles, formato }: Props) {
+export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stroke_play', totalHoles, formato, expandedTeamId, onToggleTeam, renderTeamDetail }: Props) {
   const hasCourse = teams.some(t => t.overUnderGross !== t.totalGross)
   const isStableford = formatoJuego === 'stableford'
   const sorted = [...teams].sort((a, b) => {
@@ -107,10 +116,15 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
         const isGood = isStableford ? score > 0 : score < 0
 
         return (
-          <div key={team.teamId} style={{
+          <div key={team.teamId} style={{ borderBottom: '1px solid #f3f4f6' }}>
+          <div
+            role={onToggleTeam ? 'button' : undefined}
+            onClick={onToggleTeam ? () => onToggleTeam(team.teamId) : undefined}
+            style={{
             display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px',
-            padding: '12px 16px', borderBottom: '1px solid #f3f4f6',
+            padding: '12px 16px',
             background: idx === 0 ? 'rgba(196,153,42,0.03)' : 'transparent',
+            cursor: onToggleTeam ? 'pointer' : 'default',
           }}>
             {/* Position */}
             <span style={{
@@ -124,6 +138,11 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
             <div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>
                 {team.teamNombre}
+                {onToggleTeam && (
+                  <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400, marginLeft: '6px' }}>
+                    {expandedTeamId === team.teamId ? '▲' : '▼'}
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
                 {team.jugadores.join(' · ')}
@@ -155,6 +174,10 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
             }}>
               {team.holesPlayed}/{totalHoles}
             </span>
+            </div>
+            {onToggleTeam && expandedTeamId === team.teamId && renderTeamDetail && (
+              <div>{renderTeamDetail(team.teamId)}</div>
+            )}
           </div>
         )
       })}
