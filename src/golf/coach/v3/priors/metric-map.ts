@@ -62,8 +62,8 @@ export const METRIC_PRIOR_MAP: Record<string, PriorMapping> = {
     // Percentiles por hándicap NO publicados → shrinkage y percentil siguen apagados.
     distributionVerified: false,
   },
-  // Catálogo: par4_avg_vs_par = promedio en par 4 RESPECTO a par. Externo:
-  // score_par4 = strokes absolutos (ej 4.67). Conversión: restar par (4).
+  // Field-metric (no es foco): par4_avg_vs_par = promedio en par 4 RESPECTO a par.
+  // Externo: score_par4 = strokes absolutos (ej 4.67). Conversión: restar par (4).
   par4_avg_vs_par: {
     externalMetricKey: 'score_par4',
     toInternal: (v) => v - 4,
@@ -72,8 +72,8 @@ export const METRIC_PRIOR_MAP: Record<string, PriorMapping> = {
     meanVerified: true, // Shot Scope publica la media de par-4 por hándicap, citada
     distributionVerified: false,
   },
-  // Catálogo: par5_avg_vs_par = promedio en par 5 RESPECTO a par. Externo:
-  // score_par5 = strokes absolutos (ej 5.52). Conversión: restar par (5).
+  // Field-metric (no es foco): par5_avg_vs_par = promedio en par 5 RESPECTO a par.
+  // Externo: score_par5 = strokes absolutos (ej 5.52). Conversión: restar par (5).
   par5_avg_vs_par: {
     externalMetricKey: 'score_par5',
     toInternal: (v) => v - 5,
