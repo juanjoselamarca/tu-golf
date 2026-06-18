@@ -55,9 +55,9 @@ La capa A se gateó porque el seed de `score_par3` era **provisional/inventado**
 
 Tocar: `metric-map.ts` (el tipo + las entradas), `get-focus.ts` (shrinkage gatea por `distributionVerified`), el wiring de field_context (capa A consume si `meanVerified`; nunca pasa percentil si `!distributionVerified`).
 
-### 5.3 Métricas
-- `metric-map.ts`: agregar `par4_avg_vs_par` (`score_par4`, `v-4`) y `par5_avg_vs_par` (`score_par5`, `v-5`), `meanVerified:true`, `distributionVerified:false`. Mantener `par3_avg_vs_par`.
-- Confirmar que el baseline del jugador (`computePlayerBaseline`) sabe medir par4/par5 avg vs par (mismo patrón que par3). Si no, agregarlo.
+### 5.3 Métricas — **Fase 1 ship: SOLO `par3_avg_vs_par`**
+- `metric-map.ts`: `par3_avg_vs_par` pasa a `meanVerified:true` / `distributionVerified:false`. Es el único metricKey del catálogo de foco con measure de par-type ya disponible (`computePar3VsPar`) → end-to-end demoable sin código de medición nuevo.
+- **`par4_avg_vs_par` / `par5_avg_vs_par` quedan FUERA de Fase 1 (fast-follow):** no son patrones del `FOCUS_CATALOG`, no tienen measure per-hoyo limpio, y `computePlayerBaseline` exige entrada de catálogo. Agregarlos requiere measure functions + generalizar el player-value path → su propio PR sobre la misma maquinaria (interpolación + gate split) que entrega Fase 1. Se siembran SUS medias recién cuando se wirea su consumo (no antes — evita data huérfana que el canario marca).
 
 ### 5.4 Tests (TDD)
 - Con solo `p50`: `betterThanPct` → `null`; `buildVsHandicap.mejor_que_pct` → `null`; `interpretacion` correcta (mejor/peor/en línea).

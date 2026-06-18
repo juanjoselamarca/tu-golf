@@ -1,7 +1,8 @@
 /**
  * Tool `field_context` (cerebro v3, Ola 1b §5.2). Le da al coach el "campo" donde
  * juega el jugador en TRES capas de priors externos:
- *   A) vs su hándicap: dónde cae su valor dentro del bucket (percentil + lo normal).
+ *   A) vs su hándicap: su valor vs la MEDIA verificada de su nivel (delta-vs-promedio,
+ *      NO percentil: las distribuciones por hándicap no se publican — ver metric-map).
  *   B) ranking poblacional: "mejor que X% de los golfistas con hándicap".
  *   C) dificultad de la cancha vs la banda de referencia de su par.
  *

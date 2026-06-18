@@ -65,9 +65,14 @@ async function main() {
     line(`  vs_handicap: ${JSON.stringify(d.vs_handicap)}`)
     line(`  ranking_poblacional: ${JSON.stringify(d.ranking_poblacional)}`)
     line(`  dificultad_cancha: ${JSON.stringify(d.dificultad_cancha)}`)
-    // Gate CERO FALLOS: par3 provisional ⇒ capa A NO disponible (no número inventado).
-    const gateOk = d.vs_handicap.disponible === false
-    line(`  → gate benchmarkVerified (capa A no expone provisional): ${gateOk ? 'OK ✅' : 'FALLA ❌'}`)
+    // Gate CERO FALLOS (Ola 1b.1): media verificada ⇒ capa A VIVA con
+    // delta-vs-promedio, pero NUNCA un percentil de sub-métrica (mejor_que_pct
+    // null: una sola media no permite afirmar percentil). Ambas condiciones.
+    const A = d.vs_handicap
+    const capaAViva = A.disponible === true
+    const sinPercentilInventado = !A.disponible || A.mejor_que_pct === null
+    const gateOk = capaAViva && sinPercentilInventado
+    line(`  → gate medias verificadas (capa A viva, sin percentil inventado): ${gateOk ? 'OK ✅' : 'FALLA ❌'}`)
   }
 
   line('\n═══════════════════════════════════════════════════════════════')
