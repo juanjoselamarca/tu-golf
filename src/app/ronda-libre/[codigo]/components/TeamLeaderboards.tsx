@@ -2,6 +2,7 @@
 // casi-duplicados del monolito en un componente con switch por formato. Verbatim
 // en la construcción de cada formato.
 import TeamLeaderboard from '@/components/TeamLeaderboard'
+import Scorecard from '@/components/Scorecard'
 import {
   calcularBestBall, ordenarEquiposBestBall,
   calcularScramble, ordenarEquiposScramble,
@@ -16,9 +17,14 @@ export interface TeamLeaderboardsProps {
   equipos: Equipo[]
   parMap: Record<number, number>
   siMap: Record<number, number>
+  courseHcpMap: Record<string, number>
+  fechaDisplay: string
+  /** Expand de tarjeta de equipo (fix 126) — solo best_ball. */
+  expandedTeam: string | null
+  onToggleTeam: (teamId: string) => void
 }
 
-export function TeamLeaderboards({ ronda, equipos, parMap, siMap }: TeamLeaderboardsProps) {
+export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, fechaDisplay, expandedTeam, onToggleTeam }: TeamLeaderboardsProps) {
   if (equipos.length === 0 || Object.keys(parMap).length === 0) return null
 
   const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
@@ -27,6 +33,35 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap }: TeamLeaderbo
     stroke_index: siMap[i + 1] ?? (i + 1),
   }))
   const parTotal = holeData.reduce((s, h) => s + h.par, 0)
+
+  // Fix 126: al expandir un equipo en best ball se muestran las tarjetas
+  // (Scorecard estándar) de cada miembro — igual que al tocar un jugador individual.
+  const modoSuffix = ronda.modo_juego === 'neto' ? 'Neto' : 'Gross'
+  const renderTeamDetail = (teamId: string) => {
+    const eq = equipos.find(e => e.id === teamId)
+    if (!eq) return null
+    const members = eq.jugadorIds
+      .map(jid => ronda.ronda_libre_jugadores.find(j => j.id === jid))
+      .filter((m): m is NonNullable<typeof m> => !!m)
+    return (
+      <div style={{ background: 'var(--bg)', padding: '4px 0 8px' }}>
+        {members.map(m => (
+          <Scorecard
+            key={m.id}
+            holes={holeData}
+            scores={m.scores}
+            courseHandicap={courseHcpMap[m.id] ?? Math.round(m.handicap ?? 0)}
+            modo={ronda.modo_juego as 'gross' | 'neto'}
+            formato="best_ball"
+            playerName={m.nombre}
+            courseName={ronda.course_name}
+            date={fechaDisplay}
+            formatLabel={`Best Ball ${modoSuffix}`}
+          />
+        ))}
+      </div>
+    )
+  }
 
   const nombresDe = (teamId: string) =>
     equipos.find(e => e.id === teamId)?.jugadorIds
@@ -69,6 +104,9 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap }: TeamLeaderbo
         formatoJuego={ronda.formato_juego}
         totalHoles={ronda.holes}
         formato="best_ball"
+        expandedTeamId={expandedTeam}
+        onToggleTeam={onToggleTeam}
+        renderTeamDetail={renderTeamDetail}
       />
     )
   }

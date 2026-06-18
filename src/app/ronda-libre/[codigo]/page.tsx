@@ -49,6 +49,7 @@ function RondaLibrePageContent() {
 
   // UI state local.
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [, forceRender] = useReducer((x: number) => x + 1, 0)
 
@@ -229,7 +230,16 @@ function RondaLibrePageContent() {
         <CourseInfoCard ronda={ronda} fechaDisplay={fechaDisplay} />
 
         {isTeamFormat && (
-          <TeamLeaderboards ronda={ronda} equipos={equipos} parMap={parMap} siMap={siMap} />
+          <TeamLeaderboards
+            ronda={ronda}
+            equipos={equipos}
+            parMap={parMap}
+            siMap={siMap}
+            courseHcpMap={courseHcpMap}
+            fechaDisplay={fechaDisplay}
+            expandedTeam={expandedTeam}
+            onToggleTeam={(id) => setExpandedTeam(prev => prev === id ? null : id)}
+          />
         )}
 
         <IndividualLeaderboard
