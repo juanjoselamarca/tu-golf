@@ -49,6 +49,10 @@ export function RoundHighlights({ data, scores, parMap, totalHoles }: Props) {
   const totalScore = sumScores(scores, 1, totalHoles)
   const totalDiff = sumDiff(scores, parMap, 1, totalHoles)
 
+  // Peor sólo se muestra si difiere del mejor. Si no, Mejor es la última fila
+  // (evita doble borde inferior — el contenedor ya dibuja borderBottom).
+  const showPeor = !!data.worstHole && data.worstHole.hole !== data.bestHole?.hole
+
   return (
     <div
       style={{
@@ -137,9 +141,10 @@ export function RoundHighlights({ data, scores, parMap, totalHoles }: Props) {
             par={data.bestHole.par}
             score={data.bestHole.score}
             diff={data.bestHole.diff}
+            last={!showPeor}
           />
         )}
-        {data.worstHole && data.worstHole.hole !== data.bestHole?.hole && (
+        {showPeor && data.worstHole && (
           <DataRow
             kind="Peor"
             hole={data.worstHole.hole}
@@ -315,10 +320,10 @@ function BreakdownCell({
       <span
         style={{
           fontFamily: 'var(--font-dm-mono)',
-          fontSize: '9px',
+          fontSize: '10px',
           fontWeight: 600,
           color: TEXT_3,
-          letterSpacing: '0.06em',
+          letterSpacing: '0.08em',
           textTransform: 'uppercase',
         }}
       >
