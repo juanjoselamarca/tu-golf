@@ -7,13 +7,20 @@ export function MatchDetailTable({ mr, nombreA, nombreB }: { mr: MatchResult; no
       <div style={{ fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 600 }}>
         Detalle
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+      {/* tableLayout fixed + colgroup: anchos estables (no saltan con el contenido). Fix 124. */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'fixed' }}>
+        <colgroup>
+          <col style={{ width: '36px' }} />
+          <col />
+          <col style={{ width: '56px' }} />
+          <col />
+        </colgroup>
         <thead>
           <tr style={{ background: '#111827', color: '#ffffff' }}>
-            <th style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 600, fontSize: '10px', width: '44px' }}>HOYO</th>
-            <th style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 600, fontSize: '10px' }}>{nombreA.split(' ')[0]}</th>
-            <th style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 600, fontSize: '10px', width: '52px' }}>ESTADO</th>
-            <th style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 600, fontSize: '10px' }}>{nombreB.split(' ')[0]}</th>
+            <th style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 600, fontSize: '10px' }}>HOYO</th>
+            <th style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 600, fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombreA.split(' ')[0]}</th>
+            <th style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 600, fontSize: '10px' }}>ESTADO</th>
+            <th style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 600, fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombreB.split(' ')[0]}</th>
           </tr>
         </thead>
         <tbody>
@@ -29,7 +36,6 @@ export function MatchDetailTable({ mr, nombreA, nombreB }: { mr: MatchResult; no
               }}>
                 <td style={{ padding: '7px 6px', fontWeight: 600, color: 'var(--text)', fontSize: '11px' }}>
                   {h.numero}
-                  <span style={{ fontSize: '9px', color: 'var(--text-3)', marginLeft: '3px' }}>P{h.par}</span>
                 </td>
                 <td style={{
                   padding: '7px 6px', textAlign: 'center', fontWeight: 700, fontSize: '13px',
