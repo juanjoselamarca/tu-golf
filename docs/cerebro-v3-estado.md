@@ -1,4 +1,25 @@
-# Estado Cerebro V3 — Actualizado 2026-06-17 — Ola 1b.1 ✅ MERGEADA Y EN PROD (PR #176) · Ola 1b ✅ (PR #173) · Ola 3 ✅ COMPLETA
+# Estado Cerebro V3 — Actualizado 2026-06-18 — Fase 0 examen-máquina 🟡 EN WORKTREE (esqueleto completo, pendiente demo+merge) · Ola 1b.1 ✅ EN PROD (PR #176) · Ola 1b ✅ (PR #173) · Ola 3 ✅ COMPLETA
+
+## 🟡 Fase 0 — Examen-máquina del coach (esqueleto completo) — EN WORKTREE
+
+**Branch:** `feat/fase0-examen-maquina-claude` (worktree `.claude/worktrees/fase0-examen-maquina`).
+**Plan:** `docs/superpowers/plans/2026-06-18-fase0-examen-maquina.md`.
+
+**Encuadre (verificar-antes-de-construir):** la Fase 0 del Combo IA **NO era greenfield** — ya existía el esqueleto del examen en prod (PR #153, `5adf390`): `tool-loop.ts` (espeja el loop real de prod), juez de correctness `judge.ts` (must/mustNot, Gemini, anti-falso-verde), `mock-executor.ts`, workflow nocturno `coach-exam.yml`, runner on-demand. Esta sesión lo **extendió** (no reconstruyó) a la Fase 0 completa que pedía el Combo.
+
+**Qué entregó esta sesión (6 commits, TDD):**
+1. **Banco golden 5 → 21 casos** (`fixtures.ts`): tipo `ExamCase` con `tags` + `sixPieces`. Cobertura: data-access, lenguaje golfístico, 6-piezas, cold-start, target, hostil-lite, progreso, 2ª cancha, ronda 9h.
+2. **Juez de la rúbrica de 6 piezas** (`quality-judge.ts`): puntúa identidad+hecho+veredicto+target+delta+acción (anclado a `conocer.ts`). Semántico (Gemini, rol evaluator, surface eval), inyectable, anti-falso-verde (lanza si faltan las 6 claves booleanas).
+3. **Trazas persistidas** (`coach_eval_traces` + `exam-traces.ts`): tabla aplicada y verificada en prod (RLS `relrowsecurity=t`, select anon=false, service-role escribe). El writer no traga errores. Solo se usa en el examen LIVE (build-time).
+4. **Gate puntuado** (`scorecard.ts` puro + `run-coach-exam.ts` reescrito): correctness pass-rate + promedio 6-piezas, comparado contra baseline committeado (`docs/cerebro-v3/exam-baseline.json`), exit≠0 si regresa. Flag `--update-baseline`. Tolerancias pass-rate 0.05 / 6-piezas 0.3.
+
+**Diseño del gate (CERO FALLOS):** dos capas. **Per-PR** = offline determinista (LLMs scripteados, sin créditos) → corre en `npm test`, protege el wiring + la lógica de jueces/scorecard. **LIVE** = coach real Anthropic + jueces Gemini, nocturno/on-demand (`coach-exam.yml`), skip honesto sin secrets. El runner puntuado (`run-coach-exam.ts`) escribe trazas + gatea vs baseline; queda **on-demand** hasta que vuelva saldo en `ANTHROPIC_API_KEY` (hoy 0 — credit-out 11-jun). Baseline arranca permisivo (0/0) → primera corrida LIVE con créditos lo fija con `--update-baseline`.
+
+**Estado verificación:** tsc 0 · suite del examen 42 pass / 1 skip (LIVE honest skip). Pendiente: `/pre-push` completo + demo (regla #4) + code-reviewer + merge.
+
+**Próximo tras merge:** sub-olas 1a/1c/1d (cada una validada contra el examen) → Fase 1 golfistas sintéticos (entrenamiento, gate día-1-pro) → Fase 2 GEPA. Ver `project_combo_ia_autonoma_coach` (memoria).
+
+---
 
 ## ✅ Ola 1b.1 — "Capa A viva con medias verificadas (Shot Scope)" — MERGEADA Y EN PROD
 

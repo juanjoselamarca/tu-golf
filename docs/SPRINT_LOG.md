@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-06-18 · Cerebro V3 Fase 0 — examen-máquina del coach (esqueleto completo)
+
+Combo IA Autónoma, Fase 0 (la vara que hace medibles a 1a/c/d y construibles a las
+Olas 4/5/6). **Encuadre:** no era greenfield — se extendió el examen ya en prod (PR
+#153) en vez de reconstruirlo.
+
+- **Banco golden 5 → 21 casos** (`exam/fixtures.ts`): `ExamCase` con `tags` +
+  `sixPieces`. Cubre data-access, lenguaje golfístico, 6-piezas, cold-start, target,
+  hostil-lite, progreso, 2ª cancha y ronda 9h.
+- **Juez de la rúbrica de 6 piezas** (`exam/quality-judge.ts`): puntúa
+  identidad+hecho+veredicto+target+delta+acción (anclado a `conocer.ts`); semántico
+  (Gemini), inyectable, anti-falso-verde.
+- **Trazas** (`coach_eval_traces` + `exam/exam-traces.ts`): tabla con RLS aplicada y
+  verificada en prod; writer service-role que no traga errores.
+- **Gate puntuado** (`exam/scorecard.ts` + `run-coach-exam.ts`): correctness pass-rate
+  + promedio 6-piezas vs baseline committeado (`docs/cerebro-v3/exam-baseline.json`),
+  exit≠0 si regresa. Per-PR determinista (sin créditos) + LIVE nocturno/on-demand.
+- tsc 0 · suite examen 42 pass / 1 skip (LIVE honest). Plan:
+  `docs/superpowers/plans/2026-06-18-fase0-examen-maquina.md`.
+
+---
+
 ## 2026-06-18 · Fix metadata/OG de ronda por equipos + layout al estándar (PR #180)
 
 Bug en `generateMetadata` de `ronda-libre/[codigo]/layout.tsx`: el query de equipos

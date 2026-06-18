@@ -84,14 +84,41 @@ describe('Examen coach — composición offline del harness (siempre)', () => {
     expect(verdict.pass).toBe(false)
     expect(verdict.reasons.length).toBeGreaterThan(0)
   })
+
+  it('un coach que presenta el foco en 6 piezas obtiene score 6 (offline)', async () => {
+    const { judgeSixPieces } = await import('../quality-judge')
+    // Juez scripteado: las 6 piezas presentes.
+    const sixLLM = vi.fn().mockResolvedValue({
+      text: JSON.stringify({ identidad: true, hecho: true, veredicto: true, target: true, delta: true, accion: true }),
+    })
+    const v = await judgeSixPieces({
+      userMessage: 'en qué me enfoco',
+      finalText:
+        'Juanjo, tus rondas muestran 67% de espirales post-bogey. Eso te cuesta strokes. ' +
+        'Para llegar a 7 es tu mayor fuga; te faltan ~2.6 de handicap. Esta semana: tras un bogey, juega el siguiente hoyo conservador a green en regulación.',
+      llm: sixLLM,
+    })
+    expect(v.score).toBe(6)
+    expect(v.missing).toEqual([])
+  })
+
+  it('un coach que omite delta y acción no llega al umbral de 6 piezas (offline)', async () => {
+    const { judgeSixPieces } = await import('../quality-judge')
+    const sixLLM = vi.fn().mockResolvedValue({
+      text: JSON.stringify({ identidad: true, hecho: true, veredicto: true, target: true, delta: false, accion: false }),
+    })
+    const v = await judgeSixPieces({ userMessage: 'x', finalText: 'foco sin delta ni acción', llm: sixLLM })
+    expect(v.score).toBe(4)
+    expect(v.missing).toEqual(['delta', 'accion'])
+  })
 })
 
 // ── Capa LIVE: coach real + juez Gemini real, por cada captura ────────────────
 const LIVE = process.env.COACH_EXAM_LIVE === '1'
 const hasKeys = !!process.env.ANTHROPIC_API_KEY && !!process.env.GEMINI_API_KEY
 
-describe.skipIf(!LIVE || !hasKeys)('Examen coach — LIVE (4 capturas + lenguaje, causa H)', () => {
-  it('todas las capturas pasan el juez semántico', async () => {
+describe.skipIf(!LIVE || !hasKeys)('Examen coach — LIVE (banco golden completo: correctness + 6 piezas)', () => {
+  it('todos los casos del banco pasan correctness y, si aplica, el umbral de 6 piezas', async () => {
     // Imports diferidos: solo cuando el bloque corre de verdad.
     const Anthropic = (await import('@anthropic-ai/sdk')).default
     const { makeAnthropicExamLLM } = await import('../anthropic-llm')
@@ -111,6 +138,14 @@ describe.skipIf(!LIVE || !hasKeys)('Examen coach — LIVE (4 capturas + lenguaje
         userMessage: caso.userMessage, finalText: turn.finalText, toolsUsed: turn.toolsUsed, rubric: caso.rubric,
       })
       if (!verdict.pass) failures.push(`[${caso.id}] ${verdict.reasons.join(' | ')} :: "${turn.finalText.slice(0, 160)}"`)
+      // 6 piezas (solo casos aplicables).
+      if (caso.sixPieces?.applicable) {
+        const { judgeSixPieces } = await import('../quality-judge')
+        const six = await judgeSixPieces({ userMessage: caso.userMessage, finalText: turn.finalText })
+        if (six.score < caso.sixPieces.minScore) {
+          failures.push(`[${caso.id}] 6-piezas ${six.score}/${caso.sixPieces.minScore} — faltan: ${six.missing.join(', ')}`)
+        }
+      }
     }
     expect(failures, `\n${failures.join('\n')}`).toEqual([])
   }, 120_000)
