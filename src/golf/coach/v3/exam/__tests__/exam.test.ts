@@ -117,8 +117,8 @@ describe('Examen coach — composición offline del harness (siempre)', () => {
 const LIVE = process.env.COACH_EXAM_LIVE === '1'
 const hasKeys = !!process.env.ANTHROPIC_API_KEY && !!process.env.GEMINI_API_KEY
 
-describe.skipIf(!LIVE || !hasKeys)('Examen coach — LIVE (4 capturas + lenguaje, causa H)', () => {
-  it('todas las capturas pasan el juez semántico', async () => {
+describe.skipIf(!LIVE || !hasKeys)('Examen coach — LIVE (banco golden completo: correctness + 6 piezas)', () => {
+  it('todos los casos del banco pasan correctness y, si aplica, el umbral de 6 piezas', async () => {
     // Imports diferidos: solo cuando el bloque corre de verdad.
     const Anthropic = (await import('@anthropic-ai/sdk')).default
     const { makeAnthropicExamLLM } = await import('../anthropic-llm')

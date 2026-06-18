@@ -26,6 +26,27 @@ describe('compareToBaseline', () => {
     expect(cmp.reasons.join(' ')).toMatch(/correctness/i)
   })
 
+  it('detecta colapso de cobertura: menos casos que el baseline (aunque suba el pass-rate)', () => {
+    const sc = buildScorecard([results[1]]) // 1 caso, pass-rate 1.0
+    const cmp = compareToBaseline(
+      sc,
+      { total: 21, correctnessPassRate: 1.0, sixPiecesAvg: 6.0, perCase: {} },
+      { passRateTol: 0.01, sixPiecesTol: 0.1 },
+    )
+    expect(cmp.regressed).toBe(true)
+    expect(cmp.reasons.join(' ')).toMatch(/casos bajó/i)
+  })
+
+  it('no marca colapso de cobertura cuando el baseline arranca en 0 (permisivo)', () => {
+    const sc = buildScorecard(results) // 3 casos
+    const cmp = compareToBaseline(
+      sc,
+      { total: 0, correctnessPassRate: 0, sixPiecesAvg: 0, perCase: {} },
+      { passRateTol: 0.05, sixPiecesTol: 0.3 },
+    )
+    expect(cmp.regressed).toBe(false)
+  })
+
   it('no marca regresión si está dentro de la tolerancia', () => {
     const sc = buildScorecard([results[1]]) // pass-rate 1.0, sixPieces 6
     const cmp = compareToBaseline(

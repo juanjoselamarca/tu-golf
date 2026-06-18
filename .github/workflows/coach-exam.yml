@@ -14,7 +14,7 @@ on:
 
 jobs:
   exam:
-    name: Examen live (5 capturas)
+    name: Examen live (banco golden completo)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -30,17 +30,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Examen semántico (live · correctness + 6 piezas)
+      # NOTA: la persistencia de trazas (coach_eval_traces) + el gate puntuado vs
+      # baseline los hace el runner ON-DEMAND scripts/cerebro-v3/run-coach-exam.ts
+      # (npx tsx --env-file=.env.local ...), que necesita NEXT_PUBLIC_SUPABASE_URL +
+      # SUPABASE_SERVICE_ROLE_KEY. Cuando vuelvan los créditos de Anthropic se puede
+      # agregar acá un step que lo corra; hasta entonces no se exponen esos secrets a
+      # un step que no los usa.
+      - name: Examen semántico (live · correctness + 6 piezas, banco completo)
         run: npx vitest run src/golf/coach/v3/exam/__tests__/exam.test.ts
         env:
           COACH_EXAM_LIVE: '1'
           # Si estos secrets no están seteados, el examen LIVE se salta honesto.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # Disponibles para el runner puntuado (trazas). El test LIVE no escribe
-          # trazas; eso lo hace scripts/cerebro-v3/run-coach-exam.ts, que hoy se
-          # corre ON-DEMAND (npx tsx --env-file=.env.local ...). Cuando vuelvan los
-          # créditos de Anthropic se puede agregar un step que lo corra y persista
-          # en coach_eval_traces + gatee contra docs/cerebro-v3/exam-baseline.json.
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

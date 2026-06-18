@@ -45,6 +45,14 @@ export function compareToBaseline(
   tol: { passRateTol: number; sixPiecesTol: number },
 ): BaselineComparison {
   const reasons: string[] = []
+  // Colapso de cobertura: si se borraron/renombraron casos golden, el pass-rate
+  // podría mantenerse alto mientras la cobertura se desploma — eso es una regresión.
+  // El guard baseline.total > 0 preserva el arranque permisivo (0/0) y agregar casos.
+  if (baseline.total > 0 && current.total < baseline.total) {
+    reasons.push(
+      `cantidad de casos bajó: ${current.total} < baseline ${baseline.total} (¿se borraron casos golden?)`,
+    )
+  }
   if (current.correctnessPassRate < baseline.correctnessPassRate - tol.passRateTol) {
     reasons.push(
       `correctness pass-rate cayó: ${current.correctnessPassRate.toFixed(3)} < baseline ${baseline.correctnessPassRate.toFixed(3)}`,

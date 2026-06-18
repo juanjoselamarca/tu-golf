@@ -113,6 +113,15 @@ async function main() {
   )
 
   if (updateBaseline) {
+    // Guard de cordura: no congelar un baseline degradado. Si el coach devolvió 0%
+    // con casos > 0 (típico de un credit-out de Anthropic → respuestas vacías),
+    // abortar en vez de grabar un piso falso que volvería verde cualquier regresión.
+    if (scorecard.total > 0 && scorecard.correctnessPassRate === 0) {
+      console.error(
+        '\n❌ No actualizo el baseline: correctness 0% con casos > 0 (¿credit-out / coach caído?). Corré el examen con un coach sano antes de fijar el piso.',
+      )
+      process.exit(1)
+    }
     const out: Scorecard = scorecard
     writeFileSync(BASELINE_PATH, JSON.stringify(out, null, 2) + '\n')
     console.log(`\n📌 Baseline actualizado en ${BASELINE_PATH}`)
