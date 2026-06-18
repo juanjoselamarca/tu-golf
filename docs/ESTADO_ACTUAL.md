@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-06-13 | Commit: `ed00d10`
+> Auto-generado: 2026-06-18 | Commit: `3267d66`
 
 ## Último deploy
 
-- **Commit:** `ed00d10` — feat(costos): PR-0 medición real de costo de IA por item (#161)
-- **Fecha:** 2026-06-13
-- **Branch:** docs/sprint-costos (1224 commits total)
+- **Commit:** `3267d66` — Resultados ronda-libre v2: refactor [codigo]/page.tsx (2038→275) + 4 fixes del cluster (128/120/124/126) (#178)
+- **Fecha:** 2026-06-19
+- **Branch:** main (1252 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (53 páginas)
@@ -84,25 +84,25 @@
 
 ---
 
-## 2026-06-12 · PR-0 Medición real de costo de IA por item — EN PROD (PR #161)
+## 2026-06-18 · Resultados ronda-libre v2 — refactor monstruo #2 + cluster de 4 fixes (PR #178)
 
-Cierre del agujero de observabilidad que dejó el credit-out del 11-jun: el coach
-llamaba a Anthropic **directo**, salteando el gateway que loguea en `ai_usage`. El
-mayor consumidor de tokens de la app no se medía. Este PR-0 hace medible el
-unit-economics ANTES de subir tokens/turno con el plan WOW del coach.
+Job del cluster `/inbox`: refactor de `src/app/ronda-libre/[codigo]/page.tsx` (vista
+pública del leaderboard en vivo, **monstruo #2**) al estándar, MÁS los 4 reportes que
+caían en él. `2038 → 275 LOC`. Squash-merge `3267d66`, deploy prod success, fix 128
+verificado en vivo.
 
-- **Migración aditiva a `ai_usage`** (`20260612_ai_usage_cost_tracking.sql`): `user_id`,
-  `surface`, `session_id`, `cache_read_tokens`, `cache_write_tokens` (+índices).
-  Backward-compatible, idempotente, **aplicada en prod** (columnas vivas).
-- **`estimateCostUsd` cache-aware** (`src/lib/ai/costs.ts`): cache write 1.25×, read
-  0.10× sobre la tarifa input; overload posicional legacy para el gateway. Sin esto el
-  costo del coach (caching ephemeral agresivo) salía mal.
-- **Coach instrumentado** (`chat-engine.ts` + `usage-accumulator.ts`): acumula
-  `message.usage` sobre TODO el tool-loop + la regeneración aritmética y loguea 1
-  row/turno `surface=coach_chat`. **Aditivo y fire-and-forget — no cambia ni bloquea
-  el turno** (CERO FALLOS).
-- **Surfaces tagueadas** vía `callLLM`: `import_insight`, `tournament_assistant`,
-  `coach_chat` (fallback degradado), `eval` (judge → `ai_env=dev`, excluido de prod).
+- **Refactor (behavior-preserving):** capa de datos `lib/data/ronda-libre.ts`
+  (`loadRondaLibre`, batch de `profiles` con `.in()` que elimina un N+1), hooks
+  (`useRondaLibreLive`/`useGWI`/`useViewer`), cálculos puros testeados
+  (`lib/ronda/leaderboard.ts` +test, `match.ts`, `share.ts`), ~17 componentes +
+  `matchplay/`. 0 `supabase.from` directo, 0 `console.*`. Eliminado código muerto
+  (modal de edición admin inalcanzable). Smoke visual before/after **pixel-idéntico**
+  en stroke/stableford/match_play/best_ball.
+- **128 (bug):** el cuadro GANADOR de modalidades por equipos usaba el ranking
+  individual → mostraba al jugador top en vez del equipo. Ahora usa `rankTeams()`,
+  consistente con el TeamLeaderboard.
+- **120:** pill de modalidad arriba del cuadro ganador.
+- **124:** tabla detalle match play con `tableLayout: fixed` + colgroup (anchos
 
 ---
 
