@@ -26,11 +26,14 @@ interface Props {
  * Bloque de highlights que aparece sobre el leaderboard en el espectador
  * cuando la ronda está finalizada y el usuario autenticado jugó la ronda.
  *
- * Layout:
- *   - eyebrow "Resumen de tu ronda"
- *   - big-bar en 2 filas (Ida 1–9 / Vuelta 10–18) con subtotal y diff
- *   - data-rows: Mejor · Peor con tag coloreado del resultado
- *   - breakdown: grilla de 5 columnas (Eagle Birdie Par Bogey Doble+)
+ * Layout (rediseño editorial-minimal, 17-jun — reporte inbox de Juanjo
+ * "el formato es raro, no elegante ni minimalista"):
+ *   - hero: eyebrow "Resumen de tu ronda" + score total (Playfair) con vs par
+ *   - strip Ida/Vuelta: barras de color por hoyo + subtotal alineado a la derecha
+ *   - Mejor · Peor: renglones tipográficos limpios con tag serif del resultado
+ *   - desglose: fila inline de 5 (Eagle Birdie Par Bogey Doble+), sin bordes de tabla
+ *
+ * El curso/fecha NO se repiten acá: ya viven en el header de la página de resultados.
  */
 export function RoundHighlights({ data, scores, parMap, totalHoles }: Props) {
   if (data.holesPlayed === 0) return null
@@ -43,61 +46,89 @@ export function RoundHighlights({ data, scores, parMap, totalHoles }: Props) {
   const vueltaDiff = sumDiff(scores, parMap, idaHoles + 1, totalHoles)
   const vueltaScore = sumScores(scores, idaHoles + 1, totalHoles)
 
+  const totalScore = sumScores(scores, 1, totalHoles)
+  const totalDiff = sumDiff(scores, parMap, 1, totalHoles)
+
   return (
     <div
       style={{
         background: '#fff',
         border: `1px solid ${BORDER}`,
         borderRadius: '14px',
-        padding: '24px',
+        padding: '26px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '22px',
+        gap: '26px',
         marginBottom: '16px',
       }}
     >
-      <div
-        style={{
-          fontFamily: 'var(--font-dm-mono)',
-          fontSize: '10px',
-          fontWeight: 700,
-          color: GOLD,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-        }}
-      >
-        Resumen de tu ronda
+      {/* Hero — eyebrow + score total */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div
+          style={{
+            fontFamily: 'var(--font-dm-mono)',
+            fontSize: '10px',
+            fontWeight: 700,
+            color: GOLD,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+          }}
+        >
+          Resumen de tu ronda
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-playfair)',
+              fontSize: '46px',
+              fontWeight: 700,
+              lineHeight: 0.9,
+              color: TEXT,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {totalScore || '—'}
+          </span>
+          {totalScore > 0 && (
+            <span
+              style={{
+                fontFamily: 'var(--font-dm-mono)',
+                fontSize: '15px',
+                fontWeight: 500,
+                color: TEXT_2,
+              }}
+            >
+              {totalDiff > 0 ? `+${totalDiff}` : totalDiff === 0 ? 'E' : totalDiff}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Big activity bar — 2 rows */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      {/* Strip Ida / Vuelta */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
         <BarRow
-          title={vueltaHoles > 0 ? 'Ida · 1–9' : `Hoyos 1–${idaHoles}`}
+          title={vueltaHoles > 0 ? 'Ida' : `Hoyos 1–${idaHoles}`}
           subtotal={idaScore}
           diff={idaDiff}
           scores={scores}
           parMap={parMap}
           from={1}
           to={idaHoles}
-          bestHole={data.bestHole?.hole ?? null}
-          worstHole={data.worstHole?.hole ?? null}
         />
         {vueltaHoles > 0 && (
           <BarRow
-            title={`Vuelta · ${idaHoles + 1}–${totalHoles}`}
+            title="Vuelta"
             subtotal={vueltaScore}
             diff={vueltaDiff}
             scores={scores}
             parMap={parMap}
             from={idaHoles + 1}
             to={totalHoles}
-            bestHole={data.bestHole?.hole ?? null}
-            worstHole={data.worstHole?.hole ?? null}
           />
         )}
       </div>
 
-      {/* Mejor / Peor rows */}
+      {/* Mejor / Peor */}
       <div style={{ borderTop: `1px solid ${BORDER_SOFT}`, borderBottom: `1px solid ${BORDER_SOFT}` }}>
         {data.bestHole && (
           <DataRow
@@ -120,13 +151,13 @@ export function RoundHighlights({ data, scores, parMap, totalHoles }: Props) {
         )}
       </div>
 
-      {/* Breakdown grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)' }}>
+      {/* Desglose — fila inline, sin bordes de tabla */}
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <BreakdownCell color={G_EAGLE} label="Eagle" count={data.desglose.eagles} />
         <BreakdownCell color={G_BIRDIE} label="Birdie" count={data.desglose.birdies} />
         <BreakdownCell color={G_PAR} label="Par" count={data.desglose.pares} />
         <BreakdownCell color={G_BOGEY} label="Bogey" count={data.desglose.bogeys} />
-        <BreakdownCell color={G_DOUBLE} label="Doble+" count={data.desglose.doublesPlus} last />
+        <BreakdownCell color={G_DOUBLE} label="Doble+" count={data.desglose.doublesPlus} />
       </div>
     </div>
   )
@@ -140,8 +171,6 @@ function BarRow({
   parMap,
   from,
   to,
-  bestHole,
-  worstHole,
 }: {
   title: string
   subtotal: number
@@ -150,48 +179,27 @@ function BarRow({
   parMap: Record<number, number>
   from: number
   to: number
-  bestHole: number | null
-  worstHole: number | null
 }) {
   const holes: number[] = []
   for (let h = from; h <= to; h++) holes.push(h)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      <div
+    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      <span
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
           fontFamily: 'var(--font-dm-mono)',
           fontSize: '10px',
-          letterSpacing: '0.12em',
+          letterSpacing: '0.1em',
           textTransform: 'uppercase',
           color: TEXT_3,
           fontWeight: 500,
+          width: '42px',
+          flexShrink: 0,
         }}
       >
-        <span>{title}</span>
-        <span>
-          <span
-            style={{
-              color: TEXT,
-              fontWeight: 600,
-              letterSpacing: '-0.005em',
-              textTransform: 'none',
-              fontSize: '12px',
-            }}
-          >
-            {subtotal || '—'}
-          </span>
-          {subtotal > 0 && (
-            <span style={{ color: TEXT_2, marginLeft: '8px', letterSpacing: '0.02em' }}>
-              {diff > 0 ? `+${diff}` : diff}
-            </span>
-          )}
-        </span>
-      </div>
-      <div style={{ display: 'flex', gap: '3px', height: '9px' }}>
+        {title}
+      </span>
+      <div style={{ display: 'flex', gap: '2px', height: '8px', flex: 1 }}>
         {holes.map(h => (
           <div
             key={h}
@@ -203,29 +211,24 @@ function BarRow({
           />
         ))}
       </div>
-      <div style={{ display: 'flex', gap: '3px' }}>
-        {holes.map(h => {
-          const isBest = bestHole === h
-          const isWorst = worstHole === h && !isBest
-          const color = isBest ? G_BIRDIE : isWorst ? G_DOUBLE : TEXT_3
-          const weight = isBest || isWorst ? 700 : 500
-          return (
-            <div
-              key={h}
-              style={{
-                flex: 1,
-                textAlign: 'center',
-                fontFamily: 'var(--font-dm-mono)',
-                fontSize: '10px',
-                fontWeight: weight,
-                color,
-              }}
-            >
-              {h}
-            </div>
-          )
-        })}
-      </div>
+      <span
+        style={{
+          fontFamily: 'var(--font-dm-mono)',
+          fontSize: '12px',
+          fontWeight: 500,
+          color: TEXT,
+          width: '56px',
+          textAlign: 'right',
+          flexShrink: 0,
+        }}
+      >
+        {subtotal || '—'}
+        {subtotal > 0 && (
+          <span style={{ color: TEXT_2, fontWeight: 400, marginLeft: '6px' }}>
+            {diff > 0 ? `+${diff}` : diff === 0 ? 'E' : diff}
+          </span>
+        )}
+      </span>
     </div>
   )
 }
@@ -251,10 +254,10 @@ function DataRow({
   return (
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: '110px 1fr auto',
+        display: 'flex',
         alignItems: 'baseline',
-        padding: '14px 0',
+        gap: '14px',
+        padding: '15px 0',
         borderBottom: last ? 'none' : `1px solid ${BORDER_SOFT}`,
       }}
     >
@@ -262,27 +265,22 @@ function DataRow({
         style={{
           fontFamily: 'var(--font-dm-mono)',
           fontSize: '10px',
-          fontWeight: 700,
+          fontWeight: 500,
           color: TEXT_3,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
+          width: '42px',
+          flexShrink: 0,
         }}
       >
         {kind}
       </span>
-      <span style={{ fontSize: '14px', color: TEXT, letterSpacing: '-0.005em' }}>
-        <span
-          style={{
-            fontFamily: 'var(--font-dm-mono)',
-            fontWeight: 600,
-            color: TEXT,
-            marginRight: '2px',
-          }}
-        >
+      <span style={{ flex: 1, fontSize: '14px', color: TEXT, letterSpacing: '-0.005em' }}>
+        <span style={{ fontFamily: 'var(--font-dm-mono)', fontWeight: 500, color: TEXT, marginRight: '2px' }}>
           Hoyo {hole}
         </span>
         <span style={{ color: TEXT_2, fontSize: '13px' }}>
-          {' · Par '}{par}{' · Score '}{score}
+          {' · Par '}{par}{' · '}{score}
         </span>
         <span
           style={{
@@ -298,16 +296,6 @@ function DataRow({
           {tagLabel}
         </span>
       </span>
-      <span
-        style={{
-          fontFamily: 'var(--font-dm-mono)',
-          fontSize: '12px',
-          fontWeight: 500,
-          color: TEXT_3,
-        }}
-      >
-        {diff > 0 ? `+${diff}` : diff}
-      </span>
     </div>
   )
 }
@@ -316,39 +304,30 @@ function BreakdownCell({
   color,
   label,
   count,
-  last,
 }: {
   color: string
   label: string
   count: number
-  last?: boolean
 }) {
   return (
-    <div
-      style={{
-        padding: '4px 8px 4px 0',
-        borderRight: last ? 'none' : `1px solid ${BORDER_SOFT}`,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-        <span style={{ width: '14px', height: '2px', background: color }} />
-        <span
-          style={{
-            fontFamily: 'var(--font-dm-mono)',
-            fontSize: '10px',
-            fontWeight: 600,
-            color: TEXT_3,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-          }}
-        >
-          {label}
-        </span>
-      </div>
-      <div
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <span style={{ width: '16px', height: '2px', background: color, borderRadius: '2px' }} />
+      <span
+        style={{
+          fontFamily: 'var(--font-dm-mono)',
+          fontSize: '9px',
+          fontWeight: 600,
+          color: TEXT_3,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {label}
+      </span>
+      <span
         style={{
           fontFamily: 'var(--font-playfair)',
-          fontSize: '24px',
+          fontSize: '26px',
           fontWeight: 700,
           color: count === 0 ? TEXT_3 : TEXT,
           lineHeight: 1,
@@ -356,7 +335,7 @@ function BreakdownCell({
         }}
       >
         {count}
-      </div>
+      </span>
     </div>
   )
 }
