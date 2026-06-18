@@ -1,0 +1,7 @@
+{
+  "_comment": "Baseline del examen del coach (Fase 0). Generado/actualizado con: npx tsx --env-file=.env.local scripts/cerebro-v3/run-coach-exam.ts --update-baseline. Arranca permisivo (0/0) hasta la 1a corrida LIVE con creditos de Anthropic.",
+  "total": 0,
+  "correctnessPassRate": 0,
+  "sixPiecesAvg": 0,
+  "perCase": {}
+}
