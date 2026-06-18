@@ -64,6 +64,40 @@ describe('fieldContext tool', () => {
     }
   })
 
+  it('contextualiza par-4 (métrica de field, no foco) con su propia media verificada', async () => {
+    // En par3HeavyRounds los par-4 se juegan a par ⇒ par4_avg_vs_par = 0.
+    // Media externa par-4 al índice 12 ≈ 4.69 ⇒ interno 0.69; el jugador (0) está mejor.
+    const deps = makeDeps({ loadBenchmarkMean: vi.fn(async () => 4.69) })
+    const res = await fieldContext(ctx, { metric_key: 'par4_avg_vs_par' }, deps)
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(deps.loadBenchmarkMean).toHaveBeenCalledWith('score_par4', 12)
+    expect(res.data.vs_handicap.disponible).toBe(true)
+    if (res.data.vs_handicap.disponible) {
+      expect(res.data.vs_handicap.tu_valor).toBe(0)
+      expect(res.data.vs_handicap.normal_para_tu_handicap).toBe(0.69) // 4.69 − 4
+      expect(res.data.vs_handicap.mejor_que_pct).toBeNull()
+      expect(res.data.vs_handicap.interpretacion).toMatch(/mejor que lo normal/)
+    }
+  })
+
+  it('contextualiza par-5 (espejo de par-4) con su propia media verificada', async () => {
+    // par-5 en par3HeavyRounds se juegan a par ⇒ par5_avg_vs_par = 0.
+    // Media externa par-5 al índice 12 ≈ 5.55 ⇒ interno 0.55; el jugador (0) está mejor.
+    const deps = makeDeps({ loadBenchmarkMean: vi.fn(async () => 5.55) })
+    const res = await fieldContext(ctx, { metric_key: 'par5_avg_vs_par' }, deps)
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(deps.loadBenchmarkMean).toHaveBeenCalledWith('score_par5', 12)
+    expect(res.data.vs_handicap.disponible).toBe(true)
+    if (res.data.vs_handicap.disponible) {
+      expect(res.data.vs_handicap.tu_valor).toBe(0)
+      expect(res.data.vs_handicap.normal_para_tu_handicap).toBe(0.55) // 5.55 − 5
+      expect(res.data.vs_handicap.mejor_que_pct).toBeNull()
+      expect(res.data.vs_handicap.interpretacion).toMatch(/mejor que lo normal/)
+    }
+  })
+
   it('capa A degrada honesta si no hay media sembrada para el índice', async () => {
     const deps = makeDeps({ loadBenchmarkMean: vi.fn(async () => null) })
     const res = await fieldContext(ctx, { metric_key: 'par3_avg_vs_par' }, deps)

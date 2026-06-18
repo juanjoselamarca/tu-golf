@@ -4,5 +4,19 @@
   { "handicap_bucket": "10", "metric_key": "score_par3", "percentile": 50, "value": 3.6 },
   { "handicap_bucket": "15", "metric_key": "score_par3", "percentile": 50, "value": 3.83 },
   { "handicap_bucket": "20", "metric_key": "score_par3", "percentile": 50, "value": 4.0 },
-  { "handicap_bucket": "25", "metric_key": "score_par3", "percentile": 50, "value": 4.19 }
+  { "handicap_bucket": "25", "metric_key": "score_par3", "percentile": 50, "value": 4.19 },
+
+  { "handicap_bucket": "0",  "metric_key": "score_par4", "percentile": 50, "value": 4.2 },
+  { "handicap_bucket": "5",  "metric_key": "score_par4", "percentile": 50, "value": 4.53 },
+  { "handicap_bucket": "10", "metric_key": "score_par4", "percentile": 50, "value": 4.67 },
+  { "handicap_bucket": "15", "metric_key": "score_par4", "percentile": 50, "value": 5.05 },
+  { "handicap_bucket": "20", "metric_key": "score_par4", "percentile": 50, "value": 5.31 },
+  { "handicap_bucket": "25", "metric_key": "score_par4", "percentile": 50, "value": 5.87 },
+
+  { "handicap_bucket": "0",  "metric_key": "score_par5", "percentile": 50, "value": 4.8 },
+  { "handicap_bucket": "5",  "metric_key": "score_par5", "percentile": 50, "value": 5.36 },
+  { "handicap_bucket": "10", "metric_key": "score_par5", "percentile": 50, "value": 5.52 },
+  { "handicap_bucket": "15", "metric_key": "score_par5", "percentile": 50, "value": 5.91 },
+  { "handicap_bucket": "20", "metric_key": "score_par5", "percentile": 50, "value": 6.23 },
+  { "handicap_bucket": "25", "metric_key": "score_par5", "percentile": 50, "value": 6.98 }
 ]

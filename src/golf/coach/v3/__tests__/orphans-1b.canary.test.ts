@@ -62,9 +62,9 @@ const ENFORCED: WiringContract[] = [
     needles: ['getBenchmarkMeanAtIndex', 'getPopulationPercentile', 'getCourseNorm', 'buildFieldContext'],
   },
   {
-    piece: 'field_context computa el valor del jugador con la misma matemática del foco',
+    piece: 'field_context computa el valor del jugador con la matemática de golf real',
     consumer: 'golf/coach/v3/tools/field-context-tool.ts',
-    needles: ['computePlayerBaseline'],
+    needles: ['measureFieldMetric'],
   },
   {
     piece: 'el coach sabe CUÁNDO usar field_context (prompt gated)',
@@ -107,10 +107,13 @@ describe('Canario 1b (DB): si las tablas tienen data, el read-path la devuelve',
 
       // Si todavía no hay seed, no hay nada que custodiar (la capa estática ya
       // protege el wiring). Si HAY filas, el consumo real debe funcionar: la
-      // media verificada interpolada al índice exacto (12) debe resolver.
+      // media verificada interpolada al índice exacto (12) debe resolver para
+      // las 3 métricas sembradas (par-3/4/5) — caza un seed parcial/faltante.
       if ((count ?? 0) > 0) {
-        const mean = await getBenchmarkMeanAtIndex(sb, 'score_par3', 12)
-        expect(mean, 'capa A sembrada pero la media interpolada salió null (huérfano)').not.toBeNull()
+        for (const key of ['score_par3', 'score_par4', 'score_par5']) {
+          const mean = await getBenchmarkMeanAtIndex(sb, key, 12)
+          expect(mean, `capa A: ${key} sin media interpolada (seed faltante/huérfano)`).not.toBeNull()
+        }
       }
 
       const { count: distCount } = await sb
