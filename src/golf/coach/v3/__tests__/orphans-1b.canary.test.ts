@@ -59,7 +59,7 @@ const ENFORCED: WiringContract[] = [
   {
     piece: 'field_context consume las TRES capas de readers',
     consumer: 'golf/coach/v3/tools/field-context-tool.ts',
-    needles: ['getBenchmarkPercentiles', 'getPopulationPercentile', 'getCourseNorm', 'buildFieldContext'],
+    needles: ['getBenchmarkMeanAtIndex', 'getPopulationPercentile', 'getCourseNorm', 'buildFieldContext'],
   },
   {
     piece: 'field_context computa el valor del jugador con la misma matemática del foco',
@@ -98,8 +98,7 @@ describe('Canario 1b (DB): si las tablas tienen data, el read-path la devuelve',
     'tablas external_priors_* sembradas ⇒ readers no-huérfanos devuelven data',
     async () => {
       const { createClient } = await import('@supabase/supabase-js')
-      const { getBenchmarkPercentiles, getPopulationPercentile } = await import('../priors/readers')
-      const { handicapToBucket } = await import('../priors/buckets')
+      const { getBenchmarkMeanAtIndex, getPopulationPercentile } = await import('../priors/readers')
       const sb = createClient(url!, serviceKey!)
 
       const { count } = await sb
@@ -107,10 +106,11 @@ describe('Canario 1b (DB): si las tablas tienen data, el read-path la devuelve',
         .select('*', { count: 'exact', head: true })
 
       // Si todavía no hay seed, no hay nada que custodiar (la capa estática ya
-      // protege el wiring). Si HAY filas, el consumo real debe funcionar.
+      // protege el wiring). Si HAY filas, el consumo real debe funcionar: la
+      // media verificada interpolada al índice exacto (12) debe resolver.
       if ((count ?? 0) > 0) {
-        const points = await getBenchmarkPercentiles(sb, handicapToBucket(12), 'score_par3')
-        expect(points.length, 'capa A sembrada pero el reader devolvió vacío (huérfano)').toBeGreaterThan(0)
+        const mean = await getBenchmarkMeanAtIndex(sb, 'score_par3', 12)
+        expect(mean, 'capa A sembrada pero la media interpolada salió null (huérfano)').not.toBeNull()
       }
 
       const { count: distCount } = await sb

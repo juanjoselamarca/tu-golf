@@ -26,15 +26,25 @@ export interface PriorMapping {
    */
   lowerIsBetter: boolean;
   /**
-   * Gate de calidad de dato (CERO FALLOS): el benchmark de percentiles por
-   * hándicap está VERIFICADO contra una distribución real publicada (no solo la
-   * media). Si es false, el seed es provisional/modelado y NO se consume:
-   * ni el shrinkage (get-focus) ni field_context Layer A lo usan, así no llega
-   * un número inventado al usuario. Hoy par_3 = false: las distribuciones de
-   * percentiles por hándicap NO se publican; se activará cuando computemos la
-   * distribución real desde nuestra propia data o licenciemos una con percentiles.
+   * Gate de calidad de dato (CERO FALLOS) — la MEDIA del bucket por hándicap está
+   * VERIFICADA y es citable (no provisional). Habilita SOLO el delta-vs-promedio
+   * de field_context capa A ("para tu hándicap lo normal es X; vos hacés Y").
+   * NUNCA habilita un percentil (eso requiere la distribución, gate aparte).
+   * par3 = true: medias por par-type publicadas por Shot Scope (N>100k), citadas.
    */
-  benchmarkVerified: boolean;
+  meanVerified: boolean;
+  /**
+   * Gate de calidad de dato (CERO FALLOS) — la DISTRIBUCIÓN/percentiles por
+   * hándicap está VERIFICADA contra dato real publicado (no solo la media, no
+   * derivada con un modelo). Habilita (a) el shrinkage empirical-Bayes en
+   * get-focus y (b) cualquier afirmación de PERCENTIL de sub-métrica en
+   * field_context. Hoy SIEMPRE false: las distribuciones por hándicap NO se
+   * publican (Broadie las omite, DECADE las encierra, USGA no las da por hoyo);
+   * derivar un percentil con un modelo sería precisión de teatro → prohibido. Se
+   * activará al computar la distribución real desde nuestra data con N suficiente
+   * por bucket, o al licenciar un dataset con percentiles reales.
+   */
+  distributionVerified: boolean;
 }
 
 export const METRIC_PRIOR_MAP: Record<string, PriorMapping> = {
@@ -45,9 +55,12 @@ export const METRIC_PRIOR_MAP: Record<string, PriorMapping> = {
   par3_avg_vs_par: {
     externalMetricKey: 'score_par3',
     toInternal: (v) => v - 3,
-    withinRoundSd: 0.5, // PRELIMINAR
+    withinRoundSd: 0.5, // PRELIMINAR — sólo alimentaría el shrinkage, hoy apagado
     lowerIsBetter: true,
-    benchmarkVerified: false, // distribución de percentiles por hándicap no publicada → no se expone
+    // Media por hándicap VERIFICADA (Shot Scope, medias por par-type) → delta-vs-promedio vivo.
+    meanVerified: true,
+    // Percentiles por hándicap NO publicados → shrinkage y percentil siguen apagados.
+    distributionVerified: false,
   },
 };
 

@@ -63,10 +63,12 @@ async function loadPriorsFor(
     const bucket = handicapIndex != null ? handicapToBucket(handicapIndex) : DEFAULT_BUCKET
     const out: Record<string, InternalPrior> = {}
     for (const key of metricKeys) {
-      // Gate de calidad de dato: solo se consume el prior si su benchmark está
-      // VERIFICADO (no provisional). Hoy ningún metricKey lo está → shrinkage
-      // no-op idéntico a pre-1b. El día que se verifique uno, fluye solo.
-      if (!priorMappingFor(key)?.benchmarkVerified) continue
+      // Gate de calidad de dato: el shrinkage empirical-Bayes necesita la
+      // DISTRIBUCIÓN verificada (varianza entre-jugadores), no sólo la media.
+      // Hoy ningún metricKey la tiene → shrinkage no-op idéntico a pre-1b. La
+      // media verificada (meanVerified) habilita el delta de field_context, NO
+      // esto. El día que se verifique una distribución real, fluye solo.
+      if (!priorMappingFor(key)?.distributionVerified) continue
       const prior = await getInternalPrior(supabase, bucket, key)
       if (prior) out[key] = prior
     }

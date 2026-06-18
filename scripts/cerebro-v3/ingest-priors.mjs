@@ -83,6 +83,11 @@ async function run() {
     const sourceId = await registerSource(cfg);
     const raw = await fetchSource(cfg);
     const rows = normalize(cfg.layer, raw).map((r) => ({ ...r, source_id: sourceId }));
+    // Declarativo: el seed es la ÚNICA verdad de las filas de esta fuente. Borrar
+    // primero evita que filas viejas (ej. el seed provisional de percentiles)
+    // sobrevivan al cambiar de esquema (point-labels) o quitar buckets. Idempotente.
+    const { error: delErr } = await sb.from(TABLE[cfg.layer]).delete().eq('source_id', sourceId);
+    if (delErr) throw delErr;
     for (let i = 0; i < rows.length; i += 200) {
       const slice = rows.slice(i, i + 200);
       const { error } = await sb
