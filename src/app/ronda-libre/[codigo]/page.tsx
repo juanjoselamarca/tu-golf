@@ -11,6 +11,7 @@ import { computeHighlights } from '@/lib/ronda/round-highlights'
 import { compartirLeaderboard } from '@/lib/share-card'
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import { buildMatchResult } from '@/lib/ronda/match'
+import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildLeaderboardShareData, buildShareText } from '@/lib/ronda/share'
 
 import { RoundHighlights } from '@/components/ronda/RoundHighlights'
@@ -102,6 +103,18 @@ function RondaLibrePageContent() {
     ? ronda.ronda_libre_jugadores.find(j => j.user_id === ronda.admin_user_id)?.nombre ?? 'El admin'
     : null
   const isTeamFormat = TEAM_FORMATS.includes(ronda.formato_juego)
+  // Ranking de equipos (fix 128): el cuadro ganador de modalidades por equipos
+  // muestra el equipo ganador, no el jugador top del leaderboard individual.
+  const teamRanking = isTeamFormat
+    ? rankTeams({
+        equipos,
+        jugadores: ronda.ronda_libre_jugadores,
+        parMap, siMap,
+        holes: ronda.holes,
+        formato: ronda.formato_juego,
+        modo: ronda.modo_juego,
+      })
+    : []
 
   /* ── Share handlers ── */
   const shareUrl = `${SITE_URL}/ronda-libre/${codigo}`
@@ -162,8 +175,18 @@ function RondaLibrePageContent() {
           )
         })()}
 
-        {isFinished && ronda.formato_juego !== 'match_play' && leaderboard.length > 0 && leaderboard[0].holesPlayed > 0 && (
-          <WinnerCelebration ronda={ronda} leaderboard={leaderboard} fechaDisplay={fechaDisplay} onShare={() => shareLeaderboard(true)} />
+        {isFinished && ronda.formato_juego !== 'match_play' && (
+          isTeamFormat
+            ? teamRanking.length > 0
+            : leaderboard.length > 0 && leaderboard[0].holesPlayed > 0
+        ) && (
+          <WinnerCelebration
+            ronda={ronda}
+            leaderboard={leaderboard}
+            fechaDisplay={fechaDisplay}
+            onShare={() => shareLeaderboard(true)}
+            teams={isTeamFormat ? teamRanking : undefined}
+          />
         )}
 
         {!isFinished && (
