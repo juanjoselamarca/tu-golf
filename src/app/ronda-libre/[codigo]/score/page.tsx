@@ -412,7 +412,7 @@ function ScorePageContent() {
     currentHoleIdx,
   })
   const {
-    mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford },
+    mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford, isStrokePlayNeto },
     current: {
       par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
       currentNetScore, currentNetDiff, currentStablefordPts,
@@ -567,6 +567,7 @@ function ScorePageContent() {
         totalGross={totalGross}
         totalNet={totalNet}
         showNet={showNet}
+        isStrokePlayNeto={isStrokePlayNeto}
         progressRowRef={progressRowRef}
         theme={theme}
       />
@@ -577,7 +578,7 @@ function ScorePageContent() {
           { label: 'PAR', value: String(par) },
           { label: 'SI', value: String(holeData.stroke_index) },
           { label: 'YDS', value: (() => { const y = getYardajeForTee(holeData, activePlayer?.tees || ronda.tees); return y ? String(y) : '—' })() },
-          ...((showNet || showStableford) ? [{ label: 'GOLPES', value: strokesOnHole > 0 ? `+${strokesOnHole}` : '0' }] : []),
+          ...((showNet || showStableford) && !isStrokePlayNeto ? [{ label: 'GOLPES', value: strokesOnHole > 0 ? `+${strokesOnHole}` : '0' }] : []),
         ].map((col, i) => (
           <div key={col.label} style={{
             flex: 1, textAlign: 'center', padding: '8px 2px',
@@ -649,7 +650,7 @@ function ScorePageContent() {
                 fontVariantNumeric: 'tabular-nums',
               }}
             >{score ?? par}</div>
-            {modoJuego !== 'gross' && strokeAdvantageOnHole && (
+            {modoJuego !== 'gross' && strokeAdvantageOnHole && !isStrokePlayNeto && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '3px',
                 alignSelf: 'flex-start', marginTop: '12px',
@@ -680,8 +681,8 @@ function ScorePageContent() {
           }}>{getChipLabel(score, par)}</div>
         )}
 
-        {/* Net / Stableford indicator */}
-        {score != null && (showNet || showStableford) && (
+        {/* Net / Stableford indicator — oculto en stroke play neto (sin golpes por hoyo) */}
+        {score != null && (showNet || showStableford) && !isStrokePlayNeto && (
           <div style={{ marginTop: '6px', fontSize: '12px', color: theme.textMuted, fontFamily: '"DM Mono", monospace' }}>
             {showNet && currentNetDiff != null && (
               <span>Neto: {currentNetDiff > 0 ? `+${currentNetDiff}` : currentNetDiff === 0 ? 'E' : currentNetDiff}</span>

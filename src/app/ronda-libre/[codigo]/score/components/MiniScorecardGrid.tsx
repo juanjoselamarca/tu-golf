@@ -34,6 +34,8 @@ interface MiniScorecardGridProps {
   totalGross: number
   totalNet: number
   showNet: boolean
+  /** Stroke play neto: sin marcas de golpes por hoyo (el hándicap va al total). */
+  isStrokePlayNeto: boolean
   progressRowRef: React.RefObject<HTMLDivElement>
   theme: ThemeTokens
 }
@@ -51,6 +53,7 @@ export function MiniScorecardGrid({
   totalGross,
   totalNet,
   showNet,
+  isStrokePlayNeto,
   progressRowRef,
   theme,
 }: MiniScorecardGridProps) {
@@ -60,7 +63,7 @@ export function MiniScorecardGrid({
     const isActive = h === currentHole
     const diff = s != null ? s - p : null
     const indicatorColor = s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff < 0 ? '#c4992a' : diff != null && diff > 0 ? '#EF4444' : 'transparent'
-    const holeStrokeCount = modoJuego !== 'gross' && hasStrokeAdvantage(holeDataMap[h]?.stroke_index ?? h) ? 1 : 0
+    const holeStrokeCount = modoJuego !== 'gross' && !isStrokePlayNeto && hasStrokeAdvantage(holeDataMap[h]?.stroke_index ?? h) ? 1 : 0
     return (
       <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative' }}>
         <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
