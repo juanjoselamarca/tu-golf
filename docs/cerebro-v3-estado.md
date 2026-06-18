@@ -1,4 +1,24 @@
-# Estado Cerebro V3 — Actualizado 2026-06-17 — Ola 1b ✅ MERGEADA Y EN PROD (PR #173) · Ola 3 ✅ COMPLETA
+# Estado Cerebro V3 — Actualizado 2026-06-17 — Ola 1b.1 ✅ MERGEADA Y EN PROD (PR #176) · Ola 1b ✅ (PR #173) · Ola 3 ✅ COMPLETA
+
+## ✅ Ola 1b.1 — "Capa A viva con medias verificadas (Shot Scope)" — MERGEADA Y EN PROD
+
+**CERRADA 17-jun (PR #176 squash `a36c3ef`):** demo en vivo a Juanjo OK (regla #4) → merge → deploy Vercel `dpl_AAY5msKA…` en producción. Flag sigue por usuario.
+
+**Qué entregó:** encendió la **capa A** de `field_context` (gateada en Ola 1b) con **medias verificadas de Shot Scope** (par-3 score-to-par por hándicap, N>100k, citadas por punto). El coach ahora dice *"para tu hándicap, en par-3 lo normal es 3.59; vos andás en 4.25 — 0.66 golpes de fuga"*. Verificado contra Juanjo real (9.6): normal 0.59 vs su 1.25.
+
+**Decisión CERO FALLOS (la importante):** la **pared de población es REAL** — en `historical_rounds` hay 539 rondas pero solo **2 jugadores reales con profundidad** (Nicolás 125, Juanjo 116); el resto son seeds de test. No hay población propia para percentiles. Y los **percentiles por hándicap NO se publican** (Broadie los omite, DECADE los encierra, USGA no los da por hoyo) — confirmado por 3ª vez. **Solución:** delta-vs-promedio con medias verificadas (Shot Scope publica medias), NO percentil. Derivar percentil con un modelo (Hardy) sería precisión de teatro → rechazado.
+
+**Implementación:**
+- Gate `benchmarkVerified` partido en `meanVerified` (habilita el delta de field_context) + `distributionVerified` (habilitaría shrinkage/percentil; sigue `false`).
+- `interpolateMeanAtIndex` + `getBenchmarkMeanAtIndex` (readers.ts): media interpolada al índice EXACTO del jugador, satura en extremos sin extrapolar. Un solo punto p50 ⇒ `mejor_que_pct` siempre null (percentil imposible por construcción).
+- Seed par-3 = 6 medias point-labeled (hcp 0/5/10/15/20/25); `ingest` ahora declarativo (borra-antes-de-insertar por fuente).
+- tsc 0 · 2743 tests · build OK · code-reviewer PASS (cero críticos, 3 findings aplicados) · banco `validate-field-context.ts` OK.
+
+**Maquinaria reutilizable:** la interpolación + el gate partido dejan listos par-4/par-5 + tasas dobles/ronda como **fast-follows cortos**, y el mismo patrón (medias verificadas, no percentiles) destraba **1a/1c/1d**. par-4/5 necesitan measure de catálogo; tasas/ronda necesitan fuente primaria (hoy solo secundaria, The Golf Wire).
+
+---
+
+
 
 ## ✅ Ola 1b — "Priors externos por capas" — MERGEADA Y EN PRODUCCIÓN
 
