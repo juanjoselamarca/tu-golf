@@ -30,9 +30,14 @@ describe('anti-decoración: garantía aritmética conectada de punta a punta', (
   })
 
   it('el cliente del chat consume score_projection y renderiza la tarjeta', () => {
-    const src = readFileSync(resolve(__dirname, '../../../app/coach/sesion/[id]/page.tsx'), 'utf8')
-    expect(src).toContain('score_projection')
-    expect(src).toContain('ScoreProjectionCard')
+    // Tras el refactor PR1 (18-jun) el chat se dividió en hooks/componentes:
+    // el parsing del evento SSE vive en sseParser.ts (consumido por useTaigerChat),
+    // y la tarjeta se renderiza en AssistantCard.tsx. Mismo wiring, otro archivo.
+    const base = resolve(__dirname, '../../../app/coach/sesion/[id]')
+    const parser = readFileSync(resolve(base, 'hooks/sseParser.ts'), 'utf8')
+    const card = readFileSync(resolve(base, 'components/AssistantCard.tsx'), 'utf8')
+    expect(parser).toContain('score_projection')
+    expect(card).toContain('ScoreProjectionCard')
   })
 
   it('el prompt aritmetica.ts manda usar la tool (no calcular en prosa)', () => {
