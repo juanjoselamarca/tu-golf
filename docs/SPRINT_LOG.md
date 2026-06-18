@@ -26,6 +26,16 @@ Olas 4/5/6). **Encuadre:** no era greenfield — se extendió el examen ya en pr
 
 ---
 
+## 2026-06-18 · Fix metadata/OG de ronda por equipos + layout al estándar (PR #180)
+
+Bug en `generateMetadata` de `ronda-libre/[codigo]/layout.tsx`: el query de equipos
+seleccionaba `ronda_equipos.jugador_ids` (columna inexistente) y filtraba `ronda_id`
+con el código en vez del UUID → el preview/OG de rondas por equipo perdía el conteo.
+Fix a estándar: nueva `lib/data/ronda-metadata.ts` (`loadRondaMetadata`, server-client
+por parámetro, count exacto por `ronda_id = ronda.id`) + layout 210→113 LOC, 0 supabase
+directo, helpers dedup (`getVsPar`/`getHolesPlayed`). code-reviewer PASS. Verificado en
+prod: "2 equipos en Best Ball…". Merge `33ff41f`.
+
 ## 2026-06-18 · Resultados ronda-libre v2 — refactor monstruo #2 + cluster de 4 fixes (PR #178)
 
 Job del cluster `/inbox`: refactor de `src/app/ronda-libre/[codigo]/page.tsx` (vista

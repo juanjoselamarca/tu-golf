@@ -199,21 +199,27 @@ describe('Canario tAIger+: chat coach (fixes 2026-05-06)', () => {
     ).toBe(true)
   })
 
+  // Tras el refactor PR1 (18-jun), la lógica del chat se extrajo de page.tsx a
+  // hooks/componentes en la misma ruta. Los canarios apuntan ahora al HOOK y al
+  // componente que son la fuente de verdad (mismo patrón que el canario del
+  // scorer, ver abajo). El comportamiento es idéntico — solo se movió código.
   it('chat coach renderiza botón Reintentar en errores de conexión', () => {
-    const page = readFile('app/coach/sesion/[id]/page.tsx')
+    const retryBar = readFile('app/coach/sesion/[id]/components/RetryBar.tsx')
+    const chatHook = readFile('app/coach/sesion/[id]/hooks/useTaigerChat.ts')
     expect(
-      page.includes('Reintentar') && /handleRetry/.test(page),
+      retryBar.includes('Reintentar') && /onRetry/.test(retryBar) && /handleRetry/.test(chatHook),
       'El banner de error del chat debe tener botón "Reintentar" cableado ' +
-      'a un handler que rellame sendFollowUp con el último turno del usuario.',
+      'a un handler (handleRetry) que rellame sendFollowUp con el último turno ' +
+      'del usuario.',
     ).toBe(true)
   })
 
   it('SSE reader del coach buffera chunks (multi-byte UTF-8 + frames partidos)', () => {
-    const page = readFile('app/coach/sesion/[id]/page.tsx')
+    const chatHook = readFile('app/coach/sesion/[id]/hooks/useTaigerChat.ts')
     // 1. decoder.decode debe usarse con {stream: true} para evitar romper
     //    acentos/emojis cuando un byte multi-byte UTF-8 cae al final del chunk.
     expect(
-      /decoder\.decode\(value,\s*\{\s*stream:\s*true\s*\}\)/.test(page),
+      /decoder\.decode\(value,\s*\{\s*stream:\s*true\s*\}\)/.test(chatHook),
       'TextDecoder.decode debe llamarse con {stream:true} en el loop del SSE ' +
       'para acumular bytes multi-byte UTF-8 incompletos entre reads. Sin esto, ' +
       'acentos y emojis del coach se rompen al azar.',
@@ -223,7 +229,7 @@ describe('Canario tAIger+: chat coach (fixes 2026-05-06)', () => {
     //    (separador SSE real). Sin buffer, frames partidos entre chunks TCP caen
     //    en el catch silencioso y el cliente pierde tokens.
     expect(
-      /let\s+buffer\s*=\s*['"]['"]/i.test(page) && /buffer\s*\+=\s*decoder\.decode/.test(page),
+      /let\s+buffer\s*=\s*['"]['"]/i.test(chatHook) && /buffer\s*\+=\s*decoder\.decode/.test(chatHook),
       'El loop del SSE debe acumular en un buffer string entre reads ' +
       '(let buffer = ""; buffer += decoder.decode(...)). Sin esto un frame ' +
       'partido a mitad de JSON falla parse silencioso y se pierde texto.',
