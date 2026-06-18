@@ -14,7 +14,11 @@
 - Seed par-3 = 6 medias point-labeled (hcp 0/5/10/15/20/25); `ingest` ahora declarativo (borra-antes-de-insertar por fuente).
 - tsc 0 · 2743 tests · build OK · code-reviewer PASS (cero críticos, 3 findings aplicados) · banco `validate-field-context.ts` OK.
 
-**Maquinaria reutilizable:** la interpolación + el gate partido dejan listos par-4/par-5 + tasas dobles/ronda como **fast-follows cortos**, y el mismo patrón (medias verificadas, no percentiles) destraba **1a/1c/1d**. par-4/5 necesitan measure de catálogo; tasas/ronda necesitan fuente primaria (hoy solo secundaria, The Golf Wire).
+**Fast-follow par-4/par-5 ✅ MERGEADO (PR #177 `b263e3d`):** field_context contextualiza ahora los **3 tipos de hoyo**. `field-metrics.ts` (registro `FIELD_METRICS` measure+label) DESACOPLADO del foco-catálogo — field_context contextualiza métricas que no son focos. +12 medias verificadas (par-4/5 × 6 buckets). Verificado vs Juanjo real: par-3 1.25/0.59, par-4 1.12/0.66, par-5 0.80/0.51 → par-3 es su mayor fuga. code-reviewer PASS.
+
+**Maquinaria reutilizable:** la interpolación + el gate partido + el registro field-metrics dejan listas las **tasas dobles/ronda** (necesitan fuente primaria — hoy solo secundaria The Golf Wire) y el mismo patrón (medias verificadas, no percentiles) destraba **1a/1c/1d**.
+
+**Decisión PM (17-jun): des-pausado el Combo IA Autónoma** (examen-máquina → golfistas sintéticos → GEPA). Los sintéticos pasan de fixtures a **sustrato de ENTRENAMIENTO**: gate "día-1-pro" antes del rollout. Secuencia integrada: par-4/5 ✅ → Fase 0 examen → 1a/1c/1d → Fase 1 sintéticos → Fase 2 GEPA → rollout. Ver `project_combo_ia_autonoma_coach` (memoria).
 
 ---
 
