@@ -13,13 +13,6 @@ export interface Equipo {
   scores: Record<string, number>
 }
 
-/** Score que el admin está editando en el modal. */
-export interface EditingScore {
-  jugadorId: string
-  hole: number
-  currentScore: number
-}
-
 /** Resultado del fetch de la ronda + datos derivados de cancha y handicaps. */
 export interface RondaLibreBundle {
   ronda: RondaLibre

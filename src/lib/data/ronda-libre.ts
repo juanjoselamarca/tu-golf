@@ -134,24 +134,3 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
     return { status: 'error' }
   }
 }
-
-/**
- * Guarda el score editado por el admin vía RPC (merge server-side; el delta es
- * solo el hoyo editado). Devuelve `{ error }` para que el caller maneje toasts
- * y actualización de estado local.
- */
-export async function saveAdminScore(params: {
-  jugadorId: string
-  codigo: string
-  hole: number
-  score: number
-}): Promise<{ error: unknown }> {
-  const { jugadorId, codigo, hole, score } = params
-  const supabase = createClient()
-  const { error } = await supabase.rpc('upsert_ronda_libre_scores', {
-    p_jugador_id: jugadorId,
-    p_codigo: codigo,
-    p_delta: { [String(hole)]: score },
-  })
-  return { error }
-}

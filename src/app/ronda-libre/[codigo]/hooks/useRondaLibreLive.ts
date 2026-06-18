@@ -36,8 +36,6 @@ export interface UseRondaLibreLiveResult {
   timeSinceUpdate: string
   /** Reintenta tras un error de carga (botón "Reintentar"). */
   retry: () => void
-  /** Actualiza el score de un jugador en memoria (tras guardado admin). */
-  applyLocalScore: (jugadorId: string, updatedScores: Record<string, number>) => void
 }
 
 /**
@@ -173,22 +171,10 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
     reload()
   }, [reload])
 
-  const applyLocalScore = useCallback((jugadorId: string, updatedScores: Record<string, number>) => {
-    setRonda(prev => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        ronda_libre_jugadores: prev.ronda_libre_jugadores.map(j =>
-          j.id === jugadorId ? { ...j, scores: updatedScores } : j,
-        ),
-      }
-    })
-  }, [])
-
   return {
     ronda, parMap, siMap, courseHcpMap, equipos,
     loading, notFound, fetchError, role,
     countdown, isRealtimeConnected, timeSinceUpdate,
-    retry, applyLocalScore,
+    retry,
   }
 }

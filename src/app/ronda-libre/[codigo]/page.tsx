@@ -178,7 +178,13 @@ function RondaLibrePageContent() {
 
         {isFinished && ronda.formato_juego !== 'match_play' && (
           isTeamFormat
-            ? teamRanking.length > 0
+            // Guard "alguien jugó": cubre best_ball (scores en jugadores) y
+            // scramble/foursome (scores en el equipo). Evita "Equipo ganador" a E
+            // en una ronda finalizada sin scores.
+            ? teamRanking.length > 0 && (
+                leaderboard.some(j => j.holesPlayed > 0) ||
+                equipos.some(e => Object.keys(e.scores).length > 0)
+              )
             : leaderboard.length > 0 && leaderboard[0].holesPlayed > 0
         ) && (
           <WinnerCelebration
