@@ -9,6 +9,7 @@ import { getNotifPrefs, setNotifPrefs, isPushSupported, requestPermission } from
 import { buildTimelineEvents } from '@/lib/ronda/helpers'
 import { buildMyHighlights } from '@/lib/ronda/round-highlights'
 import { compartirLeaderboard } from '@/lib/share-card'
+import { captureError } from '@/lib/error-tracking'
 import { buildLeaderboard, hasPlayData } from '@/lib/ronda/leaderboard'
 import { TEAM_FORMAT_KEYS } from '@/golf/formats'
 import { buildMatchResult } from '@/lib/ronda/match'
@@ -140,10 +141,15 @@ function RondaLibrePageContent() {
       window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`, '_blank')
     }
   }
-  const shareLeaderboard = (finished: boolean) =>
-    compartirLeaderboard(buildLeaderboardShareData({
-      ronda, leaderboard, equipos, parMap, siMap, courseHcpMap, fechaDisplay, codigo, isFinished: finished,
-    }))
+  const shareLeaderboard = async (finished: boolean) => {
+    try {
+      await compartirLeaderboard(buildLeaderboardShareData({
+        ronda, leaderboard, equipos, parMap, siMap, courseHcpMap, fechaDisplay, codigo, isFinished: finished,
+      }))
+    } catch (err) {
+      captureError(err, { context: 'ronda-libre.compartirLeaderboard', meta: { codigo, formato: ronda.formato_juego } })
+    }
+  }
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>

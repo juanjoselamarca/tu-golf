@@ -64,6 +64,10 @@ export interface LeaderboardShareData {
   fecha: string
   rondaCodigo: string
   isFinished: boolean
+  /** Hoyos de la ronda. Independiente de `players` — necesario para formatos por
+   *  equipo (scramble/foursome) donde `players` puede venir vacío (los scores
+   *  viven en el equipo, no en el jugador). */
+  totalHoles: number
   formato_juego?: FormatoJuego | string
   modo_juego?: ModoJuego | string | null
   /** Match Play: display string del resultado ("3&2", "1 UP", "All Square", etc.).
@@ -544,7 +548,7 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
     const allSquare = /all\s*square|^a\s*s$/i.test(data.matchResult)
     const cardData: ShareCardRondaLibre = {
       tipo: 'ronda_libre',
-      ganador: allSquare ? (data.players.map(p => p.nombre).join(' · ')) : (data.matchWinner ?? winner.nombre),
+      ganador: allSquare ? (data.players.map(p => p.nombre).join(' · ')) : (data.matchWinner ?? winner?.nombre ?? ''),
       esEmpate: allSquare,
       jugadores: allSquare ? data.players.map(p => p.nombre) : undefined,
       scoreGross: 0,
@@ -552,7 +556,7 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
       courseName: data.courseName, fecha: data.fecha,
       birdies: 0, eagles: 0,
       scoresByHole: {}, parsByHole: {},
-      holesPlayed: winner.totalHoles,
+      holesPlayed: data.totalHoles,
       formato_juego: data.formato_juego,
       modo_juego: data.modo_juego,
       matchResult: data.matchResult,
@@ -575,7 +579,7 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
       fecha: data.fecha,
       birdies: 0, eagles: 0,
       scoresByHole: {}, parsByHole: {},
-      holesPlayed: winner.totalHoles,
+      holesPlayed: data.totalHoles,
       formato_juego: data.formato_juego,
       modo_juego: data.modo_juego,
       teamNombre: winTeam.nombre,
