@@ -410,7 +410,7 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
 // STATS — mejora #2 y #6: front/back comparison + expandido desktop
 // ═══════════════════════════════════════════════════════════
 
-function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: boolean }) {
+function Stats({ st, wide }: { st: HS[]; wide: boolean }) {
   const c = countRes(st)
   const hasUnknownPar = st.some(s => s.hole.par == null)
 
@@ -429,12 +429,6 @@ function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: 
     { l: `Doble+${asterisk}`, n: c.d, c: c.d > 0 ? GARMIN_COLORS.double : K.tm },
   ]
 
-  // Mejora #2: front vs back comparison (solo si pares conocidos)
-  const hasBoth = bt != null && ft.g > 0 && bt.g > 0 && !ft.hasUnknownPar && !bt.hasUnknownPar
-  const fOu = ft.g - ft.p
-  const bOu = bt ? bt.g - bt.p : 0
-  const diff = hasBoth ? bOu - fOu : 0
-
   return (
     <div style={{ borderTop: `1px solid ${K.line}`, background: K.bgH, padding: wide ? '10px 20px' : '8px 14px' }}>
       {/* Score counts */}
@@ -447,33 +441,13 @@ function Stats({ st, ft, bt, wide }: { st: HS[]; ft: Tot; bt: Tot | null; wide: 
         ))}
       </div>
 
-      {/* Front vs Back — mejora #2
-          En golf, score menor = mejor. Si diff (back vs par - front vs par) < 0,
-          el back fue más bajo que el front → el score BAJÓ → mejoró.
-          Flecha sigue la dirección del score; etiqueta, el resultado deportivo. */}
-      {hasBoth && (
-        <div style={{
-          display: 'flex', justifyContent: 'center', gap: wide ? 20 : 12,
-          marginTop: 6, paddingTop: 6, borderTop: `1px solid ${K.line}`,
-          fontSize: wide ? 11 : 10, color: K.ts, fontFamily: MONO,
-        }}>
-          <span>Front: {ft.g} ({fmtOu(fOu)})</span>
-          <span>Back: {bt!.g} ({fmtOu(bOu)})</span>
-          {diff !== 0 && (
-            <span style={{ color: diff < 0 ? GARMIN_COLORS.birdie : GARMIN_COLORS.double, fontWeight: 600 }}>
-              {diff < 0 ? `↓ Mejoró ${Math.abs(diff)}` : `↑ Subió ${diff}`}
-            </span>
-          )}
-        </div>
-      )}
-
       {/* Nota honestidad: pares no confirmados */}
       {hasUnknownPar && (
         <div style={{
           marginTop: 6, paddingTop: 6, borderTop: `1px solid ${K.line}`,
           fontSize: wide ? 10 : 9, color: K.tm, textAlign: 'center', fontFamily: SANS,
         }}>
-          * Pares por hoyo no confirmados. Editá la cancha para completar el análisis.
+          * Pares por hoyo no confirmados. Edita la cancha para completar el análisis.
         </div>
       )}
     </div>
@@ -581,8 +555,8 @@ export default function Scorecard({
         )}
       </div>
 
-      {/* STATS — mejora #2 y #6 */}
-      {played > 0 && <Stats st={all} ft={ft} bt={bt} wide={wide} />}
+      {/* STATS — conteos de la ronda (eagles/birdies/pares/bogeys/doble+) */}
+      {played > 0 && <Stats st={all} wide={wide} />}
     </div>
   )
 }
