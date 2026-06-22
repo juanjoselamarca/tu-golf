@@ -2,6 +2,7 @@
 
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
+import { isTeamFormat } from '@/golf/formats'
 
 // ── Tipos ─────────────────────────────────────────────────────────
 
@@ -560,8 +561,7 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
   }
 
   // Team formats: show team ranking
-  const isTeamFormat = ['best_ball', 'scramble', 'foursome'].includes(data.formato_juego as string)
-  if (isTeamFormat && data.teams && data.teams.length > 0) {
+  if (isTeamFormat(data.formato_juego) && data.teams && data.teams.length > 0) {
     const winTeam = data.teams[0]
     const isTie = data.teams.length > 1 && data.teams[1].score === winTeam.score
     const cardData: ShareCardRondaLibre = {

@@ -10,6 +10,7 @@ import { buildTimelineEvents } from '@/lib/ronda/helpers'
 import { computeHighlights } from '@/lib/ronda/round-highlights'
 import { compartirLeaderboard } from '@/lib/share-card'
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
+import { TEAM_FORMAT_KEYS } from '@/golf/formats'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildLeaderboardShareData, buildShareText } from '@/lib/ronda/share'
@@ -38,7 +39,6 @@ import { ShareLeaderboardButton } from './components/ShareLeaderboardButton'
 import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, RegistrationBanner } from './components/FooterBars'
 import { LiveStyles } from './components/LiveStyles'
 
-const TEAM_FORMATS = ['best_ball', 'scramble', 'foursome']
 const SITE_URL = 'https://golfersplus.vercel.app'
 
 function RondaLibrePageContent() {
@@ -103,7 +103,7 @@ function RondaLibrePageContent() {
   const adminPlayerName = isAdminRound
     ? ronda.ronda_libre_jugadores.find(j => j.user_id === ronda.admin_user_id)?.nombre ?? 'El admin'
     : null
-  const isTeamFormat = TEAM_FORMATS.includes(ronda.formato_juego)
+  const isTeamFormat = TEAM_FORMAT_KEYS.includes(ronda.formato_juego)
   // Ranking de equipos (fix 128): el cuadro ganador de modalidades por equipos
   // muestra el equipo ganador, no el jugador top del leaderboard individual.
   const teamRanking = isTeamFormat

@@ -18,7 +18,7 @@
 // min+max para scramble y diverge en equipos de 3-4). De-dup del create route
 // queda como follow-up de bajo riesgo.
 
-import { calcularHandicapScramble, calcularHandicapFoursome } from '@/golf/formats'
+import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS, isTeamFormat } from '@/golf/formats'
 
 /**
  * Formatos por equipos con scoring en cancha FUNCIONAL: `score-grupo` carga
@@ -37,11 +37,12 @@ import { calcularHandicapScramble, calcularHandicapFoursome } from '@/golf/forma
  * él y el leaderboard público lo computa end-to-end. Antes quedaba fuera para no
  * dejar el scorer en blanco (cargaba 0 equipos y ocultaba el scoring individual).
  */
-export const PRODUCER_TEAM_FORMATS = ['scramble', 'foursome', 'best_ball'] as const
+/** Formatos que el productor materializa como equipos. Alias del canónico (golf/formats, category 'team'). */
+export const PRODUCER_TEAM_FORMATS = TEAM_FORMAT_KEYS
 
 /** True si el productor debe materializar equipos + setear formato_juego. */
 export function isProducerTeamFormat(format: string | null | undefined): boolean {
-  return !!format && (PRODUCER_TEAM_FORMATS as readonly string[]).includes(format)
+  return isTeamFormat(format)
 }
 
 /**

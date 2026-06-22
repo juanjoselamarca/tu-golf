@@ -11,7 +11,7 @@ import { getYardajeForTee } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
-import { calcularScramble, calcularFoursome, teePlayerEnHoyo } from '@/golf/formats'
+import { calcularScramble, calcularFoursome, teePlayerEnHoyo, isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import { getMissingHoles, fillMissingHolesWithPar } from '@/lib/ronda/helpers'
 import TeamLeaderboard from '@/components/TeamLeaderboard'
@@ -256,7 +256,7 @@ export default function ScoreGrupoPage() {
       // scramble/foursome usan equipo.scores (compartido); best_ball lee la
       // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo
       // (BestBallTeamCard toma la mejor bola neta por hoyo).
-      if (['scramble', 'foursome', 'best_ball'].includes(r.formato_juego)) {
+      if (isTeamFormat(r.formato_juego)) {
         const { data: eqData } = await supabase
           .from('ronda_equipos')
           .select('id, nombre, handicap_equipo, scores, ronda_equipo_jugadores(jugador_id, orden)')
@@ -596,7 +596,7 @@ export default function ScoreGrupoPage() {
       if (!j.user_id) continue // invitados sin cuenta: no tienen historial
       try {
         // Para Scramble/Foursome: usar score del equipo (es el score real de la ronda)
-        const isTeamSharedScore = ['scramble', 'foursome'].includes(ronda.formato_juego)
+        const isTeamSharedScore = isSharedBallFormat(ronda.formato_juego)
         let playerScores: Record<string | number, number> = filledScores[j.id] ?? {}
         if (isTeamSharedScore) {
           const equipoDelJugador = teamEquipos.find(eq => eq.jugadorIds.includes(j.id))
@@ -745,7 +745,7 @@ export default function ScoreGrupoPage() {
     if (!ronda) return
     haptic(30)
 
-    const isTeamScoring = ['scramble', 'foursome'].includes(formatoJuego)
+    const isTeamScoring = isSharedBallFormat(formatoJuego)
 
     if (isTeamScoring) {
       // Auto-fill teams without scores with par
@@ -959,7 +959,7 @@ export default function ScoreGrupoPage() {
           })()}
 
           {/* Team scoring for Scramble/Foursome */}
-          {['scramble', 'foursome'].includes(formatoJuego) && teamEquipos.length > 0 && teamEquipos.map(equipo => {
+          {isSharedBallFormat(formatoJuego) && teamEquipos.length > 0 && teamEquipos.map(equipo => {
             const teamScore = equipo.scores[String(currentHole)]
             const displayTeamScore = teamScore ?? par
             const teamDiff = teamScore != null ? teamScore - par : 0
@@ -1079,7 +1079,7 @@ export default function ScoreGrupoPage() {
           })}
 
           {/* Individual scoring (hidden for team scoring formats: scramble, foursome, best_ball) */}
-          {!['scramble', 'foursome', 'best_ball'].includes(formatoJuego) && jugadores.map(j => {
+          {!isTeamFormat(formatoJuego) && jugadores.map(j => {
             const playerScore = scores[j.id]?.[currentHole]
             const displayScore = playerScore ?? par
             const diff = playerScore != null ? playerScore - par : 0
