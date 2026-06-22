@@ -200,7 +200,11 @@ export function RoundCard({
             isExcluded={!!r.excluded_from_handicap}
             deleting={deleting}
             onClose={() => setMenuOpen(false)}
-            onEdit={() => router.push(`/perfil/historial/${r.id}?edit=1`)}
+            // Editar inline (expande la tarjeta + InlineEditScores), igual que el
+            // botón "Editar" del scorecard expandido. Antes navegaba a
+            // /perfil/historial/{id}?edit=1, pero ese detalle es SOLO-LECTURA e
+            // ignora ?edit=1 → el botón "no hacía nada" (bug inbox 37348220).
+            onEdit={onStartEdit}
             onToggleExcluded={onToggleExcluded}
             onRequestDelete={() => setConfirmDeleteOpen(true)}
           />
