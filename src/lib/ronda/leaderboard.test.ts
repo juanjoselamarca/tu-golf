@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildLeaderboard } from './leaderboard'
+import { buildLeaderboard, hasPlayData } from './leaderboard'
 import type { Jugador } from '@/types/ronda'
 
 const parMap = { 1: 4, 2: 4 }
@@ -90,5 +90,30 @@ describe('buildLeaderboard', () => {
     expect(lb[0].vsParGross).toBe(0)
     expect(lb[0].vsParNeto).toBe(0)
     expect(lb[0].courseHcp).toBe(0)
+  })
+})
+
+describe('hasPlayData — fuente única de "¿hay puntajes para mostrar?"', () => {
+  it('false cuando no jugó nadie (sin scores individuales ni de equipo)', () => {
+    expect(hasPlayData([{ holesPlayed: 0 }], [])).toBe(false)
+    expect(hasPlayData([], [])).toBe(false)
+  })
+
+  it('true si algún jugador tiene hoyos jugados (individual / best_ball)', () => {
+    expect(hasPlayData([{ holesPlayed: 0 }, { holesPlayed: 3 }], [])).toBe(true)
+  })
+
+  it('true si algún equipo tiene scores aunque ningún jugador tenga hoyos individuales (scramble/foursome)', () => {
+    // En scramble/foursome el puntaje vive en el equipo, no en el jugador.
+    expect(hasPlayData([{ holesPlayed: 0 }], [{ scores: { '1': 4 } }])).toBe(true)
+  })
+
+  it('false si los equipos existen pero sin ningún score cargado', () => {
+    expect(hasPlayData([{ holesPlayed: 0 }], [{ scores: {} }])).toBe(false)
+  })
+
+  it('no depende del orden del leaderboard (no usa [0])', () => {
+    // Un jugador que jugó en cualquier posición del array alcanza para true.
+    expect(hasPlayData([{ holesPlayed: 3 }, { holesPlayed: 0 }], [])).toBe(true)
   })
 })

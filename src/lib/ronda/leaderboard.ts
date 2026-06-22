@@ -73,3 +73,24 @@ export function buildLeaderboard({
       return a.vsPar - b.vsPar
     })
 }
+
+/**
+ * Fuente única de "¿hay puntajes para mostrar en esta ronda?".
+ *
+ * El puntaje puede vivir en DOS lugares según la modalidad:
+ *  - individual / best_ball → en cada jugador (`holesPlayed > 0`)
+ *  - scramble / foursome    → en el equipo (`equipos[].scores`), no en el jugador
+ *
+ * Reemplaza los 3 predicados inconsistentes que vivían inline en la pantalla
+ * de resultados (uno miraba `leaderboard[0]`, otro `leaderboard.some(...)`).
+ * NO depende del orden del leaderboard.
+ */
+export function hasPlayData(
+  leaderboard: ReadonlyArray<{ holesPlayed: number }>,
+  equipos: ReadonlyArray<{ scores: Record<string, number> }>,
+): boolean {
+  return (
+    leaderboard.some(j => j.holesPlayed > 0) ||
+    equipos.some(e => Object.keys(e.scores).length > 0)
+  )
+}
