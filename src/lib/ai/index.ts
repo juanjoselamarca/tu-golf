@@ -13,7 +13,7 @@
  *
  * Spec: docs/superpowers/specs/2026-05-30-ai-gateway-arquitectura-design.md
  */
-export { callLLM } from './gateway'
+export { callLLM, isTransient } from './gateway'
 export { resolveChain, currentAiEnv, STATIC_CHAINS } from './registry'
 export {
   AllProvidersFailedError,

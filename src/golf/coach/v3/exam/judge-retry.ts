@@ -1,3 +1,5 @@
+import { isTransient } from '@/lib/ai'
+
 /**
  * Paciencia del juez para el examen OFFLINE.
  *
@@ -12,9 +14,35 @@
  * mayor (backoff largo, varios reintentos) para sobrevivir spikes transitorios
  * sin tocar el comportamiento del gateway en prod. La llamada del juez es
  * idempotente (puntúa el mismo texto), así que reintentar es seguro.
+ *
+ * Solo reintenta errores TRANSITORIOS (reusa `isTransient` del gateway —
+ * un-concepto-una-fuente). El juez no ve el 503 crudo: ve un
+ * `AllProvidersFailedError` cuyo error real va en `.cause`, así que clasificamos
+ * el error y su causa. Ante un error permanente (key inválida, 401) falla rápido
+ * en vez de esperar todo el backoff.
  */
 
 const realSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+export interface JudgeRetryInfo {
+  attempt: number
+  maxRetries: number
+  waitMs: number
+  error: unknown
+}
+
+/** ¿El error —o su causa envuelta por el gateway— amerita reintento? */
+export function isRetryableJudgeError(err: unknown): boolean {
+  if (isTransient(err)) return true
+  const cause = (err as { cause?: unknown } | null)?.cause
+  return cause != null && isTransient(cause)
+}
+
+// Logger opcional inyectado por el runner (los libs no logean; el script sí).
+let _retryHook: ((info: JudgeRetryInfo) => void) | null = null
+export function setJudgeRetryHook(fn: ((info: JudgeRetryInfo) => void) | null): void {
+  _retryHook = fn
+}
 
 export interface JudgePatienceOptions {
   /** Reintentos tras el primer intento. Default 5 → hasta 6 intentos totales. */
@@ -23,13 +51,16 @@ export interface JudgePatienceOptions {
   baseMs?: number
   /** Seam de test: reemplaza el sleep real para no esperar en CI. */
   sleepFn?: (ms: number) => Promise<void>
-  /** Notificación opcional por reintento (los libs no logean; el runner sí puede). */
-  onRetry?: (info: { attempt: number; maxRetries: number; waitMs: number; error: unknown }) => void
+  /** Notificación por reintento. Si se omite, cae al hook global del runner. */
+  onRetry?: (info: JudgeRetryInfo) => void
+  /** Predicado de reintento. Default: transitorio (vía gateway `isTransient`, incl. `.cause`). */
+  isRetryable?: (err: unknown) => boolean
 }
 
 /**
- * Ejecuta `fn` y, ante cualquier error, reintenta con backoff exponencial hasta
- * `maxRetries` veces. Si se agotan, re-lanza el último error.
+ * Ejecuta `fn` y, ante error transitorio, reintenta con backoff exponencial
+ * hasta `maxRetries` veces. Falla rápido ante errores permanentes. Agotados los
+ * reintentos, re-lanza el último error.
  */
 export async function withJudgePatience<T>(
   fn: () => Promise<T>,
@@ -38,6 +69,8 @@ export async function withJudgePatience<T>(
   const maxRetries = opts.maxRetries ?? 5
   const baseMs = opts.baseMs ?? 2000
   const sleep = opts.sleepFn ?? realSleep
+  const retryable = opts.isRetryable ?? isRetryableJudgeError
+  const notify = opts.onRetry ?? ((info: JudgeRetryInfo) => _retryHook?.(info))
 
   let lastErr: unknown
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -45,9 +78,9 @@ export async function withJudgePatience<T>(
       return await fn()
     } catch (err) {
       lastErr = err
-      if (attempt === maxRetries) break
+      if (attempt === maxRetries || !retryable(err)) break
       const waitMs = baseMs * 2 ** attempt
-      opts.onRetry?.({ attempt, maxRetries, waitMs, error: err })
+      notify({ attempt, maxRetries, waitMs, error: err })
       await sleep(waitMs)
     }
   }
