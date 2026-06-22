@@ -78,39 +78,67 @@ export function parseSseLine(line: string): SseEvent[] {
 }
 
 /**
- * Driver del stream SSE byte-a-byte, EXTRAÍDO para test (E3). Replica
- * EXACTAMENTE el loop de useTaigerChat: buffer entre reads, decode con
- * {stream:true}, split por `\n\n` dejando el parcial en el buffer, y flush
- * final con decode().
+ * Decoder con ESTADO del stream SSE byte-a-byte. ÚNICA fuente del loop de bytes
+ * — antes estaba duplicado entre `useTaigerChat` y `decodeSseStream` (follow-up
+ * técnico de PR1). Encapsula EXACTAMENTE el protocolo con fix P0 del 11-may:
+ *   - buffer de bytes entre cada `push()` (= cada `reader.read()`),
+ *   - `decoder.decode(value, { stream: true })` (acumula multi-byte UTF-8),
+ *   - split por `\n\n` (separador SSE real), dejando el último parcial en buffer,
+ *   - `flush()` final con `decoder.decode()` para vaciar bytes pendientes.
  *
- * Recibe los chunks como vienen del `reader.read()` (Uint8Array) y devuelve
- * todos los eventos en orden. Permite testear el fix P0 del 11-may (frames
- * partidos + multi-byte UTF-8 cortado) sin un servidor real.
- *
- * El runtime (useTaigerChat) NO usa esta función — mantiene su propio loop con
- * los side-effects de React. Esta es la versión pura/equivalente para test.
+ * Tanto el runtime (useTaigerChat) como el test (decodeSseStream) consumen ESTE
+ * decoder, así el camino de bytes testeado es el MISMO que corre en producción.
  */
-export function decodeSseStream(chunks: Uint8Array[]): SseEvent[] {
+export function createSseDecoder() {
   const decoder = new TextDecoder()
-  const events: SseEvent[] = []
   let buffer = ''
 
-  const applyLine = (line: string) => {
-    for (const ev of parseSseLine(line)) events.push(ev)
-  }
-
-  for (const chunk of chunks) {
-    buffer += decoder.decode(chunk, { stream: true })
+  const drain = (): SseEvent[] => {
+    const events: SseEvent[] = []
     const frames = buffer.split('\n\n')
-    buffer = frames.pop() ?? ''
+    // En push() el último frame puede estar parcial → queda en el buffer.
+    // En flush() ya no hay más bytes, así que no reservamos parcial.
     for (const frame of frames) {
-      for (const line of frame.split('\n')) applyLine(line)
+      for (const line of frame.split('\n')) {
+        for (const ev of parseSseLine(line)) events.push(ev)
+      }
     }
-  }
-  buffer += decoder.decode()
-  for (const frame of buffer.split('\n\n')) {
-    for (const line of frame.split('\n')) applyLine(line)
+    return events
   }
 
+  return {
+    /** Procesa un chunk crudo del reader; devuelve los eventos de frames completos. */
+    push(chunk: Uint8Array): SseEvent[] {
+      buffer += decoder.decode(chunk, { stream: true })
+      const frames = buffer.split('\n\n')
+      buffer = frames.pop() ?? '' // el parcial vuelve al buffer hasta el próximo push
+      const events: SseEvent[] = []
+      for (const frame of frames) {
+        for (const line of frame.split('\n')) {
+          for (const ev of parseSseLine(line)) events.push(ev)
+        }
+      }
+      return events
+    },
+    /** Flush final: aplica el resto del buffer + bytes multi-byte pendientes. */
+    flush(): SseEvent[] {
+      buffer += decoder.decode()
+      const events = drain()
+      buffer = ''
+      return events
+    },
+  }
+}
+
+/**
+ * Driver puro del stream SSE byte-a-byte, para test (E3). Wrapper delgado sobre
+ * `createSseDecoder` — corre el MISMO loop que useTaigerChat. Permite testear el
+ * fix P0 del 11-may (frames partidos + multi-byte UTF-8 cortado) sin servidor.
+ */
+export function decodeSseStream(chunks: Uint8Array[]): SseEvent[] {
+  const sse = createSseDecoder()
+  const events: SseEvent[] = []
+  for (const chunk of chunks) events.push(...sse.push(chunk))
+  events.push(...sse.flush())
   return events
 }

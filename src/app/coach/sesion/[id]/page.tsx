@@ -5,13 +5,13 @@ import { useParams } from 'next/navigation'
 import { useTaigerSession } from './hooks/useTaigerSession'
 import { useTaigerIntro } from './hooks/useTaigerIntro'
 import { useTaigerChat } from './hooks/useTaigerChat'
-import { useTaigerFeedback } from './hooks/useTaigerFeedback'
+import { useMessageFeedback } from './hooks/useMessageFeedback'
+import { useVisualViewport } from './hooks/useVisualViewport'
 import { LoadingState, NotFoundState } from './components/SessionStates'
 import { SessionHeader } from './components/SessionHeader'
 import { MessageList } from './components/MessageList'
 import { ActivityLine } from './components/ActivityLine'
 import { RetryBar } from './components/RetryBar'
-import { SessionRating } from './components/SessionRating'
 import { ChatInput } from './components/ChatInput'
 import { ChatStyles } from './components/ChatStyles'
 
@@ -21,8 +21,10 @@ export default function SesionDetailPage() {
 
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollPendingRef = useRef(false)
+  const keyboardInset = useVisualViewport()
 
-  const { session, notFound, loadingSession, messages, setMessages, initialRating } =
+  const { session, notFound, loadingSession, messages, setMessages } =
     useTaigerSession(sessionId)
   const { opener, setOpener } = useTaigerIntro(loadingSession, messages.length)
   const {
@@ -30,15 +32,26 @@ export default function SesionDetailPage() {
     plansByMsgIdx, roundsByMsgIdx, projectionsByMsgIdx,
     handleSend, handleRetry,
   } = useTaigerChat({ session, sessionId, messages, setMessages, opener, setOpener })
-  const {
-    rating, setRating, ratingHover, setRatingHover,
-    ratingComment, setRatingComment, ratingSubmitted, ratingSubmitting,
-    handleRatingSubmit,
-  } = useTaigerFeedback(session, initialRating)
+  const { votesByMsgIdx, canVote, submitVote } = useMessageFeedback(sessionId)
 
+  // Autoscroll al fondo. Durante el stream: behavior 'auto' + throttle por frame
+  // (smooth por token genera jank — E6b). Fuera del stream y al abrir teclado:
+  // 'smooth'. keyboardInset en deps mantiene visible el último mensaje al subir
+  // el input sobre el teclado.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    const el = messagesEndRef.current
+    if (!el) return
+    if (streaming) {
+      if (scrollPendingRef.current) return
+      scrollPendingRef.current = true
+      requestAnimationFrame(() => {
+        scrollPendingRef.current = false
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+      })
+    } else {
+      el.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, streaming, keyboardInset])
 
   const onSend = () => {
     if (!input.trim() || streaming) return
@@ -49,20 +62,19 @@ export default function SesionDetailPage() {
   if (loadingSession) return <LoadingState />
   if (notFound) return <NotFoundState />
 
-  const hasAssistantResponse = messages.some(m => m.role === 'assistant' && m.content.length > 0)
-  const showRating = hasAssistantResponse && !streaming
   const sessionDate = session?.created_at
     ? new Date(session.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
     : ''
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 60px)' }}>
-      {/* Messages area */}
+      {/* Messages area. paddingBottom deja sitio para el input fijo + el teclado
+          (cuando sube el input) para que el último mensaje quede visible. */}
       <div style={{
         flex: 1,
         overflowY: 'auto',
         padding: '20px 16px',
-        paddingBottom: 100,
+        paddingBottom: 100 + keyboardInset,
       }}>
         <SessionHeader sessionType={session?.session_type || ''} sessionDate={sessionDate} />
 
@@ -73,8 +85,12 @@ export default function SesionDetailPage() {
           projectionsByMsgIdx={projectionsByMsgIdx}
           plansByMsgIdx={plansByMsgIdx}
           onChangeFocus={() =>
-            setInput('Ese plan no me convence, propone otro foco distinto basado en mis datos.')
+            setInput('Ese plan no me convence, proponé otro foco distinto basado en mis datos.')
           }
+          votesByMsgIdx={votesByMsgIdx}
+          canVote={canVote}
+          streaming={streaming}
+          onVote={submitVote}
         />
 
         {streaming && messages.length > 0 && !messages[messages.length - 1]?.content && (
@@ -83,24 +99,16 @@ export default function SesionDetailPage() {
 
         {error && <RetryBar error={error} streaming={streaming} onRetry={handleRetry} />}
 
-        {/* Session Rating — se oculta una vez enviada para no dejar pill ruidosa */}
-        {showRating && !ratingSubmitted && (
-          <SessionRating
-            rating={rating}
-            setRating={setRating}
-            ratingHover={ratingHover}
-            setRatingHover={setRatingHover}
-            ratingComment={ratingComment}
-            setRatingComment={setRatingComment}
-            ratingSubmitting={ratingSubmitting}
-            onSubmit={handleRatingSubmit}
-          />
-        )}
-
         <div ref={messagesEndRef} />
       </div>
 
-      <ChatInput value={input} onChange={setInput} onSend={onSend} streaming={streaming} />
+      <ChatInput
+        value={input}
+        onChange={setInput}
+        onSend={onSend}
+        streaming={streaming}
+        keyboardInset={keyboardInset}
+      />
 
       <ChatStyles />
     </div>

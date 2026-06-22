@@ -3,7 +3,7 @@
 import type { AssignedPlan } from '@/components/coach/PlanAssignedCard'
 import type { RoundSummary } from '@/components/coach/RoundMiniChart'
 import type { ScoreProjection } from '@/components/coach/ScoreProjectionCard'
-import type { ChatMessage } from '@/lib/data/taiger'
+import type { ChatMessage, MessageVote } from '@/lib/data/taiger'
 import { EmptyState } from './EmptyState'
 import { MessageBubble } from './MessageBubble'
 
@@ -14,12 +14,18 @@ interface MessageListProps {
   projectionsByMsgIdx: Record<number, ScoreProjection>
   plansByMsgIdx: Record<number, AssignedPlan>
   onChangeFocus: () => void
+  /** Votos 👍/👎 por índice de mensaje + handler. canVote=false oculta los pulgares. */
+  votesByMsgIdx: Record<number, MessageVote>
+  canVote: boolean
+  streaming: boolean
+  onVote: (messageIndex: number, clicked: MessageVote) => void
 }
 
 /**
- * Lista de mensajes del chat. Render idéntico al original:
- * - opener (estado vacío) cuando no hay mensajes (page.tsx:448-488).
- * - cada mensaje vía MessageBubble (page.tsx:490-557).
+ * Lista de mensajes del chat:
+ * - opener (estado vacío) cuando no hay mensajes.
+ * - cada mensaje vía MessageBubble, con 👍/👎 bajo las respuestas del coach que
+ *   ya tienen contenido (no la que se está streameando en este momento).
  */
 export function MessageList({
   messages,
@@ -28,21 +34,34 @@ export function MessageList({
   projectionsByMsgIdx,
   plansByMsgIdx,
   onChangeFocus,
+  votesByMsgIdx,
+  canVote,
+  streaming,
+  onVote,
 }: MessageListProps) {
+  const lastIdx = messages.length - 1
   return (
     <>
       {messages.length === 0 && opener && <EmptyState opener={opener} />}
 
-      {messages.map((msg, i) => (
-        <MessageBubble
-          key={i}
-          msg={msg}
-          round={roundsByMsgIdx[i]}
-          projection={projectionsByMsgIdx[i]}
-          plan={plansByMsgIdx[i]}
-          onChangeFocus={onChangeFocus}
-        />
-      ))}
+      {messages.map((msg, i) => {
+        const isStreamingThis = streaming && i === lastIdx
+        const showFeedback =
+          canVote && msg.role === 'assistant' && !!msg.content && !isStreamingThis
+        return (
+          <MessageBubble
+            key={i}
+            msg={msg}
+            round={roundsByMsgIdx[i]}
+            projection={projectionsByMsgIdx[i]}
+            plan={plansByMsgIdx[i]}
+            onChangeFocus={onChangeFocus}
+            showFeedback={showFeedback}
+            vote={votesByMsgIdx[i]}
+            onVote={(clicked) => onVote(i, clicked)}
+          />
+        )
+      })}
     </>
   )
 }

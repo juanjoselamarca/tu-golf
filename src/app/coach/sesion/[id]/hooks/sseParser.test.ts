@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseSseLine, decodeSseStream, type SseEvent } from './sseParser'
+import { parseSseLine, decodeSseStream, createSseDecoder, type SseEvent } from './sseParser'
 
 const enc = new TextEncoder()
 
@@ -129,5 +129,37 @@ describe('decodeSseStream — buffer de frames partidos (fix P0 11-may)', () => 
     const sse = 'data: {"event":"tool_done","round_summary":{"id":"r1"}}\n\n'
     const events = decodeSseStream([enc.encode(sse)])
     expect(events).toEqual([{ kind: 'tool_done', round: { id: 'r1' } }])
+  })
+})
+
+describe('createSseDecoder — decoder con estado (mismo loop que useTaigerChat)', () => {
+  it('push() emite solo frames completos y retiene el parcial hasta el siguiente push', () => {
+    const sse = createSseDecoder()
+    // Primer chunk: un frame completo + el inicio del segundo (sin cerrar).
+    const first = sse.push(enc.encode('data: {"text":"uno"}\n\ndata: {"text":"do'))
+    expect(textOf(first)).toBe('uno') // el parcial "do..." NO sale todavía
+    // Segundo chunk completa el segundo frame.
+    const second = sse.push(enc.encode('s"}\n\n'))
+    expect(textOf(second)).toBe('dos')
+  })
+
+  it('flush() vacía el último frame sin \\n\\n de cierre y no duplica nada', () => {
+    const sse = createSseDecoder()
+    const pushed = sse.push(enc.encode('data: {"text":"sin cierre"}'))
+    expect(pushed).toEqual([]) // sin \n\n todavía no hay frame completo
+    const flushed = sse.flush()
+    expect(textOf(flushed)).toBe('sin cierre')
+    // flush limpia el buffer: un segundo flush no re-emite.
+    expect(sse.flush()).toEqual([])
+  })
+
+  it('decodeSseStream y createSseDecoder producen el MISMO resultado (no divergen)', () => {
+    const sse = 'data: {"text":"a"}\n\ndata: {"event":"tool_start","label":"X"}\n\ndata: {"done":true,"session_id":"s"}\n\n'
+    const viaStream = decodeSseStream(chunkAt(sse, 7, 33))
+    const dec = createSseDecoder()
+    const viaDecoder: SseEvent[] = []
+    for (const c of chunkAt(sse, 7, 33)) viaDecoder.push(...dec.push(c))
+    viaDecoder.push(...dec.flush())
+    expect(viaDecoder).toEqual(viaStream)
   })
 })
