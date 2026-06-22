@@ -44,25 +44,25 @@ export type MessageVote = 1 | -1
 
 /**
  * Lee los votos 👍/👎 ya emitidos por el usuario en una sesión, indexados por la
- * posición del mensaje (message_index). RLS limita a las filas del propio
- * usuario, así que no hace falta filtrar por user_id acá. Lectura tolerante a
- * fallos: ante error devuelve `{}` (la UI simplemente no muestra votos previos,
- * nunca se cae — CERO FALLOS).
+ * clave estable del mensaje (`message_key` = hash del contenido). RLS limita a
+ * las filas del propio usuario, así que no hace falta filtrar por user_id acá.
+ * Lectura tolerante a fallos: ante error devuelve `{}` (la UI simplemente no
+ * muestra votos previos, nunca se cae — CERO FALLOS).
  */
 export async function fetchMessageFeedback(
   supabase: SupabaseClient,
   sessionId: string,
-): Promise<Record<number, MessageVote>> {
+): Promise<Record<string, MessageVote>> {
   const { data, error } = await supabase
     .from('taiger_message_feedback')
-    .select('message_index, vote')
+    .select('message_key, vote')
     .eq('session_id', sessionId)
 
   if (error || !data) return {}
 
-  const byIdx: Record<number, MessageVote> = {}
-  for (const row of data as { message_index: number; vote: number }[]) {
-    if (row.vote === 1 || row.vote === -1) byIdx[row.message_index] = row.vote
+  const byKey: Record<string, MessageVote> = {}
+  for (const row of data as { message_key: string; vote: number }[]) {
+    if (row.vote === 1 || row.vote === -1) byKey[row.message_key] = row.vote
   }
-  return byIdx
+  return byKey
 }

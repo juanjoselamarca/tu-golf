@@ -32,7 +32,7 @@ export default function SesionDetailPage() {
     plansByMsgIdx, roundsByMsgIdx, projectionsByMsgIdx,
     handleSend, handleRetry,
   } = useTaigerChat({ session, sessionId, messages, setMessages, opener, setOpener })
-  const { votesByMsgIdx, canVote, submitVote } = useMessageFeedback(sessionId)
+  const { votesByMsgIdx, canVote, submitVote } = useMessageFeedback(sessionId, messages)
 
   // Autoscroll al fondo. Durante el stream: behavior 'auto' + throttle por frame
   // (smooth por token genera jank — E6b). Fuera del stream y al abrir teclado:

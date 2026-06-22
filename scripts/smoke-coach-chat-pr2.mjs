@@ -85,7 +85,8 @@ const run = async () => {
     ok(`login OK (${EMAIL})`)
 
     await page.goto(`${BASE_URL}/coach/sesion/${seededId}`, { waitUntil: 'domcontentloaded' })
-    await page.waitForTimeout(2500)
+    // Espera a que el chat esté listo (no el placeholder "Cargando sesión…").
+    await page.waitForSelector('textarea', { timeout: 20000 })
     ok(`navegado a la sesión semilla`)
 
     await page.screenshot({ path: `${OUT}/01-sesion-390.png`, fullPage: true })
@@ -143,11 +144,20 @@ const run = async () => {
       else fail('no se observó POST a /api/taiger/message-feedback')
       await page.screenshot({ path: `${OUT}/02-feedback-voted-390.png` })
 
+      // RECARGA: el voto debe reaparecer marcado en el mensaje correcto. Prueba
+      // de la clave estable (message_key) — sobrevive aunque el backend reordene.
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.waitForSelector('button[aria-label="Me sirvió"]', { timeout: 20000 })
+      const thumbAfterReload = page.locator('button[aria-label="Me sirvió"]').first()
+      const pressedReload = await thumbAfterReload.getAttribute('aria-pressed')
+      if (pressedReload === 'true') ok('👍 persiste tras RECARGA (message_key estable, bug C1 cerrado)')
+      else fail(`👍 NO persistió tras recarga: aria-pressed=${pressedReload}`)
+
       // Toggle off: click de nuevo → aria-pressed=false (limpia el voto del test user).
-      await thumbUp.scrollIntoViewIfNeeded()
-      await thumbUp.click({ timeout: 8000 })
+      await thumbAfterReload.scrollIntoViewIfNeeded()
+      await thumbAfterReload.click({ timeout: 8000 })
       await page.waitForTimeout(600)
-      const pressed2 = await thumbUp.getAttribute('aria-pressed')
+      const pressed2 = await thumbAfterReload.getAttribute('aria-pressed')
       if (pressed2 === 'false') ok('👍 toggle off OK (voto retirado, no deja basura)')
       else fail(`toggle off falló: aria-pressed=${pressed2}`)
     } else {

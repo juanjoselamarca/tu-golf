@@ -9,8 +9,11 @@ export const dynamic = 'force-dynamic'
  * en taiger_message_feedback (-1/+1 por message_index).
  *
  * vote ∈ {-1, 1} → upsert (toggle / cambio de voto). vote === 0 → borra el voto.
- * Verifica que la sesión sea del usuario antes de escribir (mismo patrón que
- * /feedback): RLS cubre user_id, pero la pertenencia de la sesión es app-level.
+ * `message_key` es el hash del contenido del mensaje (lo calcula el cliente):
+ * identidad estable del mensaje, resistente al reslicing del backend. El server
+ * lo trata como string opaco. Verifica que la sesión sea del usuario antes de
+ * escribir (mismo patrón que /feedback): RLS cubre user_id, pero la pertenencia
+ * de la sesión es app-level.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -19,22 +22,22 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
 
     const body = await req.json()
-    const { session_id, message_index, vote } = body as {
+    const { session_id, message_key, vote } = body as {
       session_id?: string
-      message_index?: number
+      message_key?: string
       vote?: number
     }
 
     if (
       !session_id ||
-      typeof message_index !== 'number' ||
-      !Number.isInteger(message_index) ||
-      message_index < 0 ||
+      typeof message_key !== 'string' ||
+      message_key.length < 1 ||
+      message_key.length > 64 ||
       typeof vote !== 'number' ||
       ![-1, 0, 1].includes(vote)
     ) {
       return NextResponse.json(
-        { error: 'session_id, message_index (entero ≥0) y vote (-1, 0, 1) requeridos' },
+        { error: 'session_id, message_key (string 1-64) y vote (-1, 0, 1) requeridos' },
         { status: 400 },
       )
     }
@@ -57,7 +60,7 @@ export async function POST(req: NextRequest) {
         .from('taiger_message_feedback')
         .delete()
         .eq('session_id', session_id)
-        .eq('message_index', message_index)
+        .eq('message_key', message_key)
         .eq('user_id', user.id)
 
       if (delError) {
@@ -67,7 +70,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, vote: 0 })
     }
 
-    // Upsert sobre la constraint COMPLETA (session_id, message_index): registra o
+    // Upsert sobre la constraint COMPLETA (session_id, message_key): registra o
     // cambia el voto. updated_at se refresca explícitamente (no hay trigger).
     const { error: upsertError } = await supabase
       .from('taiger_message_feedback')
@@ -75,11 +78,11 @@ export async function POST(req: NextRequest) {
         {
           session_id,
           user_id: user.id,
-          message_index,
+          message_key,
           vote,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: 'session_id,message_index' },
+        { onConflict: 'session_id,message_key' },
       )
 
     if (upsertError) {

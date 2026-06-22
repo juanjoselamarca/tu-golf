@@ -40,14 +40,19 @@ export function MessageList({
   onVote,
 }: MessageListProps) {
   const lastIdx = messages.length - 1
+  // El primer mensaje 'user' marca dónde empieza la conversación real. El saludo
+  // proactivo (opener) aparece antes y NO es votable: el backend lo descarta al
+  // persistir, así que un voto sobre él se perdería al recargar.
+  const firstUserIdx = messages.findIndex(m => m.role === 'user')
   return (
     <>
       {messages.length === 0 && opener && <EmptyState opener={opener} />}
 
       {messages.map((msg, i) => {
         const isStreamingThis = streaming && i === lastIdx
+        const isReply = firstUserIdx !== -1 && i > firstUserIdx
         const showFeedback =
-          canVote && msg.role === 'assistant' && !!msg.content && !isStreamingThis
+          canVote && msg.role === 'assistant' && !!msg.content && !isStreamingThis && isReply
         return (
           <MessageBubble
             key={i}
