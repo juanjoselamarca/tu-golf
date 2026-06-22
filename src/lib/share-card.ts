@@ -3,6 +3,7 @@
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isTeamFormat } from '@/golf/formats'
+import { captureError } from '@/lib/error-tracking'
 
 // ── Tipos ─────────────────────────────────────────────────────────
 
@@ -588,6 +589,17 @@ export async function compartirLeaderboard(data: LeaderboardShareData): Promise<
       ranking: data.teams.map(t => ({ nombre: t.nombre, score: t.score, diff: t.diff })),
     }
     return compartirResultado(cardData)
+  }
+
+  // Sin ganador individual ni ranking de equipos no hay nada que compartir.
+  // Cierra en origen el crash de `winner` undefined en el branch stroke-play
+  // (ej: formato por equipos sin parMap → teams vacío → fallthrough acá).
+  if (!winner) {
+    void captureError(new Error('compartirLeaderboard sin ganador ni ranking de equipos'), {
+      context: 'share-card.compartirLeaderboard',
+      meta: { formato: data.formato_juego },
+    })
+    return { success: false, method: 'download' }
   }
 
   // Stroke Play / Stableford: ranking por vsPar
