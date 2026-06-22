@@ -44,10 +44,12 @@ export function RoundMenu({
 
   return (
     <>
-      {/* Backdrop click-outside */}
+      {/* Backdrop click-outside — dim sutil para que el menú resalte sobre las
+          tarjetas (menú blanco sobre card blanca se veía "roto", como texto
+          superpuesto a la tarjeta de abajo; bug visual inbox 37348220). */}
       <div
         onClick={(e) => { e.stopPropagation(); onClose() }}
-        style={{ position: 'fixed', inset: 0, zIndex: 49 }}
+        style={{ position: 'fixed', inset: 0, zIndex: 49, background: 'rgba(15,28,47,0.32)' }}
         aria-hidden
       />
       <div
@@ -61,7 +63,7 @@ export function RoundMenu({
           background: 'var(--bg-surface)',
           border: '1px solid var(--border)',
           borderRadius: '10px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06)',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.22), 0 3px 8px rgba(0,0,0,0.12)',
           padding: '4px',
           zIndex: 50,
         }}

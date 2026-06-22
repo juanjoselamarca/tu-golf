@@ -9,6 +9,9 @@
  * quede sin índice por saltarse esa pantalla.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getTeesForCourse } from './course-tees'
+import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
+import { TEE_COLOR_OPTIONS } from '@/golf/courses/tee-colors'
 
 export interface TeePromptStatus {
   /** Mostrar el banner: hay rondas recuperables y aún no fijó su tee. */
@@ -27,11 +30,36 @@ export interface TeePromptStatus {
 
 const NONE: TeePromptStatus = { show: false, recoverableRounds: 0, genero: null }
 
+/** Los colores que el banner ofrece elegir (decisión de producto, 1 vez). */
+const BANNER_COLORS = TEE_COLOR_OPTIONS.map(o => o.color)
+
+/**
+ * ¿Esta ronda sin tee es recuperable de verdad? Lo es si el catálogo de la
+ * cancha resuelve un CR/slope confiable para AL MENOS uno de los colores que el
+ * banner ofrece, dado el género del jugador. Si la cancha no tiene tees, o todos
+ * sus colores son ambiguos (multi-recorrido con ratings distintos), `resolveRatings`
+ * devuelve null para todos → la ronda NO se puede recuperar con este flujo.
+ *
+ * Esto evita que el banner prometa recuperar rondas que jamás va a poder tocar
+ * (Garmin sin tee en canchas fuera de catálogo, o loops Norte/Sur/Este sin saber
+ * cuál se jugó): el usuario elegía su color, el índice no cambiaba, y el banner
+ * "no funcionaba". Contar solo lo recuperable de verdad = promesa honesta.
+ */
+function isRoundRecoverable(
+  tees: TeeRow[],
+  holesPlayed: number | null,
+  genero: 'M' | 'F' | null,
+): boolean {
+  if (!Array.isArray(tees) || tees.length === 0) return false
+  return BANNER_COLORS.some(color => resolveRatings(tees, color, holesPlayed, genero) != null)
+}
+
 /**
  * `show` es true cuando: (1) el perfil NO tiene `default_tee_color`, y (2) existe
- * al menos una ronda con `tee_color IS NULL` y `course_id` vinculado (las que
- * `applyDefaultTeeToRounds` puede recuperar). Si el usuario ya fijó su tee, o no
- * tiene rondas recuperables, no se muestra nada.
+ * al menos una ronda con `tee_color IS NULL` y `course_id` vinculado que el
+ * catálogo puede recuperar de verdad (ver `isRoundRecoverable`). Si el usuario ya
+ * fijó su tee, no tiene rondas recuperables, o ninguna ronda sin tee es resoluble
+ * desde el catálogo, no se muestra nada — para no prometer un recálculo imposible.
  */
 export async function getTeePromptStatus(
   supabase: SupabaseClient,
@@ -46,16 +74,33 @@ export async function getTeePromptStatus(
   // Ya fijó su tee → nada que pedir.
   if (profile?.default_tee_color) return NONE
 
-  const { count } = await supabase
+  const generoRaw = (profile?.genero ?? '').toString().trim().toUpperCase()
+  const genero = generoRaw === 'M' || generoRaw === 'F' ? (generoRaw as 'M' | 'F') : null
+
+  // Candidatas: sin tee pero con cancha vinculada (las que el recompute mira).
+  const { data: rounds } = await supabase
     .from('historical_rounds')
-    .select('id', { count: 'exact', head: true })
+    .select('id, course_id, holes_played')
     .eq('user_id', userId)
     .is('tee_color', null)
     .not('course_id', 'is', null)
 
-  const generoRaw = (profile?.genero ?? '').toString().trim().toUpperCase()
-  const genero = generoRaw === 'M' || generoRaw === 'F' ? (generoRaw as 'M' | 'F') : null
+  if (!rounds || rounds.length === 0) return { ...NONE, genero }
 
-  const recoverableRounds = count ?? 0
+  // Cache de tees por cancha: muchas rondas comparten course_id → 1 query por
+  // cancha, no por ronda (escala para usuarios con cientos de tarjetas sin tee).
+  const teeCache = new Map<string, TeeRow[]>()
+  async function teesFor(courseId: string): Promise<TeeRow[]> {
+    if (!teeCache.has(courseId)) teeCache.set(courseId, await getTeesForCourse(supabase, courseId))
+    return teeCache.get(courseId)!
+  }
+
+  let recoverableRounds = 0
+  for (const r of rounds) {
+    if (!r.course_id) continue
+    const tees = await teesFor(r.course_id)
+    if (isRoundRecoverable(tees, r.holes_played ?? null, genero)) recoverableRounds++
+  }
+
   return { show: recoverableRounds > 0, recoverableRounds, genero }
 }

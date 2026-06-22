@@ -100,12 +100,12 @@ export function DefaultTeeBanner() {
             <Flag size={18} strokeWidth={2} style={{ color: 'var(--brand-on-bg, #c4992a)', flexShrink: 0, marginTop: '2px' }} />
             <div>
               <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', margin: '0 0 3px', lineHeight: 1.35 }}>
-                Calculá tu índice
+                Calcula tu índice
               </p>
               <p style={{ fontSize: '13.5px', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
                 {recoverable > 0
-                  ? `${recoverable} de tus ${recoverable === 1 ? 'ronda' : 'rondas'} entró sin el tee de salida. Elegí desde qué color jugás normalmente y calculamos tu índice al instante.`
-                  : 'Elegí desde qué tee jugás normalmente para calcular tu índice.'}
+                  ? `${recoverable} de tus ${recoverable === 1 ? 'rondas entró' : 'rondas entraron'} sin el tee de salida. Elige desde qué color juegas normalmente y calculamos tu índice al instante.`
+                  : 'Elige desde qué tee juegas normalmente para calcular tu índice.'}
               </p>
             </div>
           </div>
@@ -141,7 +141,7 @@ export function DefaultTeeBanner() {
                 key={t.color}
                 disabled={saving || !genero}
                 onClick={() => choose(t.color)}
-                title={!genero ? 'Elegí primero Varones o Damas' : undefined}
+                title={!genero ? 'Elige primero Varones o Damas' : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -175,7 +175,7 @@ export function DefaultTeeBanner() {
           </div>
           {error && (
             <p style={{ fontSize: '13px', color: '#dc2626', margin: '12px 0 0' }}>
-              No pudimos guardar. Probá de nuevo.
+              No pudimos guardar. Prueba de nuevo.
             </p>
           )}
         </>
