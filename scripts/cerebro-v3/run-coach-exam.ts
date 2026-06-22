@@ -28,11 +28,20 @@ import { TAIGER_TOOLS } from '@/golf/coach/tools'
 import { coachModel } from '@/golf/coach/model'
 import { writeExamTraces, type ExamTraceRow } from '@/golf/coach/v3/exam/exam-traces'
 import { buildScorecard, compareToBaseline, type CaseResult, type Scorecard } from '@/golf/coach/v3/exam/scorecard'
+import { setJudgeRetryHook } from '@/golf/coach/v3/exam/judge-retry'
 
 const BASELINE_PATH = resolve(process.cwd(), 'docs/cerebro-v3/exam-baseline.json')
 const TOL = { passRateTol: 0.05, sixPiecesTol: 0.3 }
 
 async function main() {
+  // Observabilidad: si el juez (Gemini) sufre un 503 transitorio y reintenta con
+  // paciencia, que no parezca colgado. El runner es un script → console permitido.
+  setJudgeRetryHook(({ attempt, maxRetries, waitMs, error }) => {
+    const msg = (error as Error)?.message?.slice(0, 120) ?? String(error)
+    console.warn(
+      `   ⏳ juez reintentando (${attempt + 1}/${maxRetries + 1}, espera ${Math.round(waitMs / 1000)}s): ${msg}`,
+    )
+  })
   const updateBaseline = process.argv.includes('--update-baseline')
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('Falta ANTHROPIC_API_KEY')

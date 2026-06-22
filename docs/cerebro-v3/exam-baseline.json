@@ -1,7 +1,91 @@
 {
-  "_comment": "Baseline del examen del coach (Fase 0). Generado/actualizado con: npx tsx --env-file=.env.local scripts/cerebro-v3/run-coach-exam.ts --update-baseline. Arranca permisivo (0/0) hasta la 1a corrida LIVE con creditos de Anthropic.",
-  "total": 0,
-  "correctnessPassRate": 0,
-  "sixPiecesAvg": 0,
-  "perCase": {}
+  "total": 21,
+  "correctnessPassRate": 0.7142857142857143,
+  "sixPiecesAvg": 3.8333333333333335,
+  "perCase": {
+    "captura1_indice_vs_hcp": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "captura2_pide_data": {
+      "correctnessPass": false,
+      "sixPiecesScore": null
+    },
+    "captura3_se_contradice": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "captura4_culpa_sistema": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "captura5_lenguaje_golfistico": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "seis_piezas_foco_completo": {
+      "correctnessPass": false,
+      "sixPiecesScore": 5
+    },
+    "seis_piezas_con_meta": {
+      "correctnessPass": false,
+      "sixPiecesScore": 5
+    },
+    "seis_piezas_otra_cancha": {
+      "correctnessPass": false,
+      "sixPiecesScore": 3
+    },
+    "cold_start_fallback_honesto": {
+      "correctnessPass": false,
+      "sixPiecesScore": 2
+    },
+    "cold_start_sin_rondas": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "target_propone_meta": {
+      "correctnessPass": true,
+      "sixPiecesScore": 5
+    },
+    "lenguaje_neto_vs_bruto": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "lenguaje_bajo_par_es_bueno": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "lenguaje_handicap_baja_es_mejor": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "hostil_exige_dato_inexistente": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "hostil_presiona_promesa": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "hostil_descalifica_al_coach": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "progreso_como_vengo": {
+      "correctnessPass": false,
+      "sixPiecesScore": 3
+    },
+    "data_access_dos_canchas": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "data_access_ronda_9h": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    },
+    "data_access_pregunta_scorecard": {
+      "correctnessPass": true,
+      "sixPiecesScore": null
+    }
+  }
 }

@@ -1,6 +1,8 @@
-# Estado Cerebro V3 — Actualizado 2026-06-18 — Fase 0 examen-máquina 🟡 EN WORKTREE (esqueleto completo, pendiente demo+merge) · Ola 1b.1 ✅ EN PROD (PR #176) · Ola 1b ✅ (PR #173) · Ola 3 ✅ COMPLETA
+# Estado Cerebro V3 — Actualizado 2026-06-22 — Fase 0 examen-máquina ✅ EN PROD (PR #181 `126d291`) · Ola 1b.1 ✅ EN PROD (PR #176) · Ola 1b ✅ (PR #173) · Ola 3 ✅ COMPLETA · PRÓXIMO: sub-olas 1a/1c/1d
 
-## 🟡 Fase 0 — Examen-máquina del coach (esqueleto completo) — EN WORKTREE
+## ✅ Fase 0 — Examen-máquina del coach — MERGEADA Y EN PROD (18-jun, PR #181 squash `126d291`)
+
+**Actualización 22-jun — primer baseline honesto fijado (`ANTHROPIC_API_KEY` recargada).** Corrida LIVE de los 21 casos → **correctness 71% (15/21) · 6-piezas 3.83/6**. Baseline en `docs/cerebro-v3/exam-baseline.json` (es el PISO; el gate flagea regresiones por debajo). **Diagnóstico con número:** el hueco del coach NO es conocimiento del mundo — es la **estructura de 6 piezas**. Casos que fallan repiten: falta *identidad* (no habla por nombre/como coach), falta *acción* concreta, y *da listas en vez de UN foco* (viola MUST-NOT). Lenguaje golfístico y hostiles: todos verdes. → próximo lever de día-1-pro = endurecer las 6 piezas en el prompt, re-medir contra el examen (loop measure→fix→re-measure). **Fix de robustez en el camino:** el examen abortaba ante 503 transitorio del juez Gemini; `withJudgePatience` (offline) lo hace resiliente sin tocar el gateway de prod (commit `a184f72`).
 
 **Branch:** `feat/fase0-examen-maquina-claude` (worktree `.claude/worktrees/fase0-examen-maquina`).
 **Plan:** `docs/superpowers/plans/2026-06-18-fase0-examen-maquina.md`.

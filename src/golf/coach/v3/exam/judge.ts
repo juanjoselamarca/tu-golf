@@ -1,4 +1,5 @@
 import { callLLM } from '@/lib/ai'
+import { withJudgePatience } from './judge-retry'
 
 /**
  * Juez semántico del examen del coach (causa H).
@@ -27,7 +28,9 @@ export interface JudgeVerdict {
 
 const defaultJudgeLLM: JudgeLLM = async ({ system, messages, responseJson }) => {
   // Banco de pruebas → surface 'eval' + ai_env 'dev': excluido del costo de prod.
-  const r = await callLLM({ role: 'evaluator', system, messages, responseJson, maxTokens: 600, surface: 'eval', aiEnv: 'dev' })
+  const r = await withJudgePatience(
+    () => callLLM({ role: 'evaluator', system, messages, responseJson, maxTokens: 600, surface: 'eval', aiEnv: 'dev' }),
+  )
   return { text: r.text }
 }
 

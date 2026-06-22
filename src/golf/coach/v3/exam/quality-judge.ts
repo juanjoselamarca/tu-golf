@@ -1,4 +1,5 @@
 import { callLLM } from '@/lib/ai'
+import { withJudgePatience } from './judge-retry'
 
 /**
  * Juez de la rúbrica de 6 piezas del coach (identidad+hecho+veredicto+target+
@@ -31,7 +32,9 @@ export interface SixPieceVerdict {
 
 const defaultLLM: SixPieceJudgeLLM = async ({ system, messages, responseJson }) => {
   // Banco de pruebas → surface 'eval' + ai_env 'dev': excluido del costo de prod.
-  const r = await callLLM({ role: 'evaluator', system, messages, responseJson, maxTokens: 500, surface: 'eval', aiEnv: 'dev' })
+  const r = await withJudgePatience(
+    () => callLLM({ role: 'evaluator', system, messages, responseJson, maxTokens: 500, surface: 'eval', aiEnv: 'dev' }),
+  )
   return { text: r.text }
 }
 
