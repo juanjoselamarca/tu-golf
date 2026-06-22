@@ -12,6 +12,7 @@
 // player-level full vive en el server por simplicidad MVP).
 
 import { useMemo, useState } from 'react'
+import { isTeamFormat } from '@/golf/formats'
 import type { LivePlayer, LiveTeam, LiveMatch, LiveTournament } from './types'
 import { useLiveScores } from './use-live-scores'
 import LiveHeader from './LiveHeader'
@@ -143,7 +144,7 @@ export default function LiveView({
         />
       )
     }
-    if (format === 'best_ball' || format === 'scramble' || format === 'foursome') {
+    if (isTeamFormat(format)) {
       return <TeamLeaderboard teams={filteredTeams} />
     }
     if (format === 'match_play') {

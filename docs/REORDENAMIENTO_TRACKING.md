@@ -110,6 +110,7 @@ Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones
 | `organizador/[slug]/jugadores/types.ts`, `organizador/nuevo/sections/EquiposSection.tsx` | ✅ migrado |
 | `lib/data/ronda-libre.ts`, `lib/data/ronda-metadata.ts`, `lib/data/tournaments/teamRounds.ts`, `lib/ronda/share.ts`, `lib/ronda/team-ranking.ts`, `lib/share-card.ts` | ✅ migrado |
 | `api/ronda-libre/create/route.ts` | ✅ migrado |
+| `torneo/[slug]/en-vivo/LiveView.tsx` (render path del torneo en vivo) | ✅ migrado (22-jun, cerró finding del code-reviewer) |
 
 ### Concepto "lista completa de formatos válidos" → `KNOWN_FORMAT_KEYS` en `src/golf/formats`
 
