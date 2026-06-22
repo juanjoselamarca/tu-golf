@@ -94,3 +94,33 @@ Actualizar al cierre de cada PR de refactor:
 | 22-may-2026 (baseline) | 9 | ~20 | 4 | 41 | 465 | 5-6/10 |
 
 Meta post-reordenamiento: **8/10** (nivel The Grint / V-Par).
+
+---
+
+## "Un concepto, una fuente" — duplicaciones de concepto (regla 22-jun-2026)
+
+Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones detectadas y su estado.
+
+### Concepto "formato por equipos" → `TEAM_FORMAT_KEYS` / `isTeamFormat()` en `src/golf/formats`
+
+| Sitio | Estado |
+|---|---|
+| `src/golf/formats/index.ts` (fuente canónica + `SHARED_BALL_FORMAT_KEYS`) | ✅ creado (22-jun) |
+| `[codigo]/page.tsx`, `[codigo]/layout.tsx`, `score/hooks/useRondaScoreData.ts`, `score-grupo/page.tsx`, `nueva/page.tsx` | ✅ migrado |
+| `organizador/[slug]/jugadores/types.ts`, `organizador/nuevo/sections/EquiposSection.tsx` | ✅ migrado |
+| `lib/data/ronda-libre.ts`, `lib/data/ronda-metadata.ts`, `lib/data/tournaments/teamRounds.ts`, `lib/ronda/share.ts`, `lib/ronda/team-ranking.ts`, `lib/share-card.ts` | ✅ migrado |
+| `api/ronda-libre/create/route.ts` | ✅ migrado |
+| `torneo/[slug]/en-vivo/LiveView.tsx` (render path del torneo en vivo) | ✅ migrado (22-jun, cerró finding del code-reviewer) |
+
+### Concepto "lista completa de formatos válidos" → `KNOWN_FORMAT_KEYS` en `src/golf/formats`
+
+| Sitio | Estado |
+|---|---|
+| `api/ronda-libre/create/route.ts` (`LATAM_FORMATOS`) | ⏳ pendiente — write-path crítico, migrar al tocar el flujo de creación |
+| `api/torneos/create/route.ts` (`FORMATOS`) | ⏳ pendiente — write-path crítico, migrar al tocar el flujo de creación |
+
+### Concepto "¿hay puntajes para mostrar?" (predicado de gating en pantalla de resultados)
+
+| Sitio | Estado |
+|---|---|
+| `[codigo]/page.tsx` — 3 definiciones inconsistentes (`leaderboard[0]` vs `leaderboard.some(...)`) | ⏳ pendiente — unificar en un `hasPlayData` único (PR siguiente, resultados) |

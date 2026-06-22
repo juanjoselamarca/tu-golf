@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
-import { calcularHandicapScramble, calcularHandicapFoursome } from '@/golf/formats'
+import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS } from '@/golf/formats'
 
 export const dynamic = 'force-dynamic'
 
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Team formats require min players and equipos
-    const isTeamFormat = ['best_ball', 'scramble', 'foursome'].includes(body.formato_juego)
+    const isTeamFormat = TEAM_FORMAT_KEYS.includes(body.formato_juego)
     if (isTeamFormat) {
       if (body.jugadores.length < 4) {
         return NextResponse.json({ error: 'Formatos de equipo requieren al menos 4 jugadores' }, { status: 400 })

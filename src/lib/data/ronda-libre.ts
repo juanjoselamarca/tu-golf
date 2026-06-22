@@ -12,8 +12,7 @@ import { parTotalEstandar } from '@/golf/core/round-score'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
-
-const TEAM_FORMATS = ['best_ball', 'scramble', 'foursome']
+import { isTeamFormat } from '@/golf/formats'
 
 /**
  * Carga la ronda por código + todos los datos derivados (par/SI por hoyo,
@@ -110,7 +109,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
 
     // Equipos (solo modalidades por equipo).
     let equipos: Equipo[] = []
-    if (TEAM_FORMATS.includes(ronda.formato_juego)) {
+    if (isTeamFormat(ronda.formato_juego)) {
       const { data: eqData } = await supabase
         .from('ronda_equipos')
         .select('id, nombre, handicap_equipo, scores, ronda_equipo_jugadores(jugador_id, orden)')

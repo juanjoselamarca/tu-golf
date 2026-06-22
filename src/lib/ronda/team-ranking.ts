@@ -1,4 +1,4 @@
-import { calcularBestBall, calcularScramble, calcularFoursome } from '@/golf/formats'
+import { calcularBestBall, calcularScramble, calcularFoursome, isTeamFormat } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego, Jugador } from '@/types/ronda'
 
 /**
@@ -44,7 +44,7 @@ export interface TeamShareRow {
 export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
   const { equipos, jugadores, parMap, siMap, holes, formato, modo } = input
 
-  if (!['best_ball', 'scramble', 'foursome'].includes(formato)) return []
+  if (!isTeamFormat(formato)) return []
   if (equipos.length === 0 || Object.keys(parMap).length === 0) return []
 
   const holeData = Array.from({ length: holes }, (_, i) => ({

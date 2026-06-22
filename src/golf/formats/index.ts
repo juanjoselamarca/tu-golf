@@ -111,6 +111,30 @@ export const FORMATS: Record<string, GolfFormat> = {
 export const KNOWN_FORMAT_KEYS = Object.keys(FORMATS) as ReadonlyArray<string>
 
 /**
+ * Claves de formatos POR EQUIPO (category 'team'): best_ball, scramble, foursome.
+ * Derivado del registry — fuente única. Reemplaza los `['best_ball','scramble','foursome']`
+ * que estaban duplicados por toda la app.
+ */
+export const TEAM_FORMAT_KEYS = KNOWN_FORMAT_KEYS.filter(k => FORMATS[k].category === 'team')
+
+/** True si el formato es por equipos (best_ball / scramble / foursome). */
+export function isTeamFormat(key: string | null | undefined): boolean {
+  return !!key && FORMATS[key]?.category === 'team'
+}
+
+/**
+ * Claves de formatos de BOLA COMPARTIDA: scramble y foursome (una sola bola por
+ * equipo). NO incluye best_ball (cada jugador juega su propia bola). Distinto de
+ * `TEAM_FORMAT_KEYS` — usado para el scoring compartido (un score por equipo/hoyo).
+ */
+export const SHARED_BALL_FORMAT_KEYS = ['scramble', 'foursome'] as const
+
+/** True si el formato usa una sola bola compartida por equipo (scramble / foursome). */
+export function isSharedBallFormat(key: string | null | undefined): boolean {
+  return key === 'scramble' || key === 'foursome'
+}
+
+/**
  * Devuelve el GolfFormat para `key`. Si `key` no está registrada,
  * cae a stroke_play PERO registra el caso vía captureError para que
  * el equipo lo vea en `error_logs` (antes se tragaba en silencio).

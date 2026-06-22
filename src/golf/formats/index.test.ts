@@ -8,6 +8,10 @@ import { captureError } from '@/lib/error-tracking'
 import {
   FORMATS,
   KNOWN_FORMAT_KEYS,
+  TEAM_FORMAT_KEYS,
+  SHARED_BALL_FORMAT_KEYS,
+  isTeamFormat,
+  isSharedBallFormat,
   getFormat,
   getFormatStrict,
 } from './index'
@@ -44,6 +48,44 @@ describe('FORMATS registry — canario de los 6 formatos soportados', () => {
     expect(FORMATS.best_ball.category).toBe('team')
     expect(FORMATS.scramble.category).toBe('team')
     expect(FORMATS.foursome.category).toBe('team')
+  })
+})
+
+describe('Helpers de formato por equipo — fuente única de verdad', () => {
+  it('TEAM_FORMAT_KEYS = exactamente los 3 formatos por equipo, derivados del registry', () => {
+    expect([...TEAM_FORMAT_KEYS]).toEqual(['best_ball', 'scramble', 'foursome'])
+  })
+
+  it('TEAM_FORMAT_KEYS se deriva de category === "team" (no es una lista hardcodeada paralela)', () => {
+    // Si alguien agrega un formato con category "team" al registry, debe entrar
+    // automáticamente acá. Esto pinea que la fuente es el registry, no un array suelto.
+    const esperado = KNOWN_FORMAT_KEYS.filter(k => FORMATS[k].category === 'team')
+    expect([...TEAM_FORMAT_KEYS]).toEqual(esperado)
+  })
+
+  it('isTeamFormat() reconoce los formatos por equipo y rechaza el resto', () => {
+    expect(isTeamFormat('best_ball')).toBe(true)
+    expect(isTeamFormat('scramble')).toBe(true)
+    expect(isTeamFormat('foursome')).toBe(true)
+    expect(isTeamFormat('stroke_play')).toBe(false)
+    expect(isTeamFormat('stableford')).toBe(false)
+    expect(isTeamFormat('match_play')).toBe(false)
+  })
+
+  it('isTeamFormat() es seguro ante null / undefined / desconocido', () => {
+    expect(isTeamFormat(null)).toBe(false)
+    expect(isTeamFormat(undefined)).toBe(false)
+    expect(isTeamFormat('')).toBe(false)
+    expect(isTeamFormat('formato_inventado')).toBe(false)
+  })
+
+  it('SHARED_BALL excluye best_ball (cada jugador su bola) e incluye scramble/foursome', () => {
+    expect([...SHARED_BALL_FORMAT_KEYS]).toEqual(['scramble', 'foursome'])
+    expect(isSharedBallFormat('scramble')).toBe(true)
+    expect(isSharedBallFormat('foursome')).toBe(true)
+    expect(isSharedBallFormat('best_ball')).toBe(false)
+    expect(isSharedBallFormat('stroke_play')).toBe(false)
+    expect(isSharedBallFormat(null)).toBe(false)
   })
 })
 

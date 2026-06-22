@@ -2,8 +2,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/utils/supabase/server'
 import { loadRondaMetadata } from '@/lib/data/ronda-metadata'
 import { getVsPar, getHolesPlayed } from '@/lib/ronda/helpers'
-
-const TEAM_FORMATS = ['best_ball', 'scramble', 'foursome']
+import { TEAM_FORMAT_KEYS } from '@/golf/formats'
 
 function calcGross(scores: Record<string, number> | null, holes: number): number {
   if (!scores) return 0
@@ -33,7 +32,7 @@ export async function generateMetadata({ params }: { params: { codigo: string } 
   const { ronda, parMap, teamCount } = bundle
   const jugadores = ronda.ronda_libre_jugadores
   const nJugadores = jugadores.length
-  const isTeamFormat = TEAM_FORMATS.includes(ronda.formato_juego)
+  const isTeamFormat = TEAM_FORMAT_KEYS.includes(ronda.formato_juego)
   const hasCourse = Object.keys(parMap).length > 0
 
   let leaderName = ''

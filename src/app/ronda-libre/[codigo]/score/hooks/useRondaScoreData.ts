@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { RondaLibre, HoleData } from '@/types/ronda'
+import { isTeamFormat } from '@/golf/formats'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { getTeeYardageColumn, generarOrdenHoyos } from '@/lib/ronda/helpers'
@@ -61,8 +62,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       // El scoring usa la UI real en /score, no queremos que toquen demo data.
       if (r.es_demo) { router.replace(`/ronda-libre/${codigo}`); return }
       // Team formats must use score-grupo (individual scoring doesn't support teams)
-      const teamFormats = ['best_ball', 'scramble', 'foursome']
-      if (teamFormats.includes(r.formato_juego)) {
+      if (isTeamFormat(r.formato_juego)) {
         router.replace(`/ronda-libre/${codigo}/score-grupo`)
         return
       }

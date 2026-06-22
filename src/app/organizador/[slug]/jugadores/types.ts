@@ -34,12 +34,11 @@ export interface Tournament {
   rounds?: Array<{ tee_assignment_mode?: string }>
 }
 
-/** Formatos donde el grupo de salida ES el equipo (modelo elegido por PM). */
-export const TEAM_FORMATS = ['best_ball', 'scramble', 'foursome'] as const
-
-export function isTeamFormat(format: string | undefined | null): boolean {
-  return !!format && (TEAM_FORMATS as readonly string[]).includes(format)
-}
+/**
+ * Formatos donde el grupo de salida ES el equipo (modelo elegido por PM).
+ * Re-export de la fuente canónica en `@/golf/formats` (derivada de category 'team').
+ */
+export { isTeamFormat, TEAM_FORMAT_KEYS as TEAM_FORMATS } from '@/golf/formats'
 
 export interface Category {
   id: string

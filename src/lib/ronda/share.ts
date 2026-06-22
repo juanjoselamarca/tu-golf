@@ -7,11 +7,10 @@ import type { LeaderboardShareData } from '@/lib/share-card'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import { isTeamFormat } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
-
-const TEAM_FORMATS = ['best_ball', 'scramble', 'foursome']
 
 export interface BuildShareDataArgs {
   ronda: RondaLibre
@@ -54,7 +53,7 @@ export function buildLeaderboardShareData({
   }
 
   // Formatos por equipo: ranking de equipos para la card.
-  if (TEAM_FORMATS.includes(ronda.formato_juego) && equipos.length > 0 && Object.keys(parMap).length > 0) {
+  if (isTeamFormat(ronda.formato_juego) && equipos.length > 0 && Object.keys(parMap).length > 0) {
     shareData.teams = rankTeams({
       equipos,
       jugadores: ronda.ronda_libre_jugadores,

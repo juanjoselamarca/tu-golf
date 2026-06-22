@@ -8,6 +8,7 @@
 // para no agregar queries en cada render de SSR.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { isTeamFormat } from '@/golf/formats'
 
 export interface RondaMetadataJugador {
   nombre: string
@@ -32,8 +33,6 @@ export interface RondaMetadataBundle {
   /** Cantidad de equipos (formatos por equipo). 0 en individuales. */
   teamCount: number
 }
-
-const TEAM_FORMATS = ['best_ball', 'scramble', 'foursome']
 
 export async function loadRondaMetadata(
   codigo: string,
@@ -73,7 +72,7 @@ export async function loadRondaMetadata(
 
   // Conteo de equipos por la FK correcta (ronda_id = id de la ronda, NO el código).
   let teamCount = 0
-  if (TEAM_FORMATS.includes(r.formato_juego)) {
+  if (isTeamFormat(r.formato_juego)) {
     const { count } = await supabase
       .from('ronda_equipos')
       .select('id', { count: 'exact', head: true })

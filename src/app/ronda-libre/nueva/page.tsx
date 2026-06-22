@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
+import { TEAM_FORMAT_KEYS } from '@/golf/formats'
 import { useToast } from '@/hooks/useToast'
 import CourseSelector from '@/components/CourseSelector'
 import { RoundCode } from '@/components/ui/RoundCode'
@@ -110,7 +111,7 @@ export default function NuevaRondaLibrePage() {
     }
   }
   const [formato, setFormato] = useState<'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'>('stroke_play')
-  const isTeamFormat = ['best_ball', 'scramble', 'foursome'].includes(formato)
+  const isTeamFormat = TEAM_FORMAT_KEYS.includes(formato)
   const [equipos, setEquipos] = useState<Array<{ nombre: string; jugadorIndices: number[] }>>([
     { nombre: 'Equipo 1', jugadorIndices: [] },
     { nombre: 'Equipo 2', jugadorIndices: [] },
@@ -312,7 +313,7 @@ export default function NuevaRondaLibrePage() {
     }
 
     // Validación equipos: team formats requieren asignación completa
-    if (['best_ball', 'scramble', 'foursome'].includes(formato)) {
+    if (TEAM_FORMAT_KEYS.includes(formato)) {
       if (jugadoresValidos.length < 4) {
         showError('Faltan jugadores', `${formato === 'foursome' ? 'Foursome' : formato === 'scramble' ? 'Scramble' : 'Best Ball'} necesita al menos 4 jugadores (2 equipos de 2)`)
         setLoading(false)
@@ -1040,7 +1041,7 @@ export default function NuevaRondaLibrePage() {
                           setAdminPlayers([{ tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null }])
                         }
                         // Team formats force admin mode with 3 rivals (min 4 players for 2 teams of 2)
-                        if (['best_ball', 'scramble', 'foursome'].includes(f.value) && !adminMode) {
+                        if (TEAM_FORMAT_KEYS.includes(f.value) && !adminMode) {
                           setAdminMode(true)
                           setAdminPlayers([
                             { tipo: 'invitado', nombre: '', telefono: '', handicap: null, tees: null },

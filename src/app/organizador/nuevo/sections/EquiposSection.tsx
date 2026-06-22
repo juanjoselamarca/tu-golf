@@ -7,13 +7,12 @@
 // Edita config.team_config.
 
 import type { TournamentConfig, TeamConfig } from '@/lib/draft/types'
+import { isTeamFormat } from '@/golf/formats'
 
 export interface EquiposSectionProps {
   config: TournamentConfig
   applyChange: (partial: Partial<TournamentConfig>) => void
 }
-
-const VISIBLE_FORMATS = ['best_ball', 'scramble', 'foursome'] as const
 
 const DEFAULT_TEAM_CONFIG: TeamConfig = {
   size: 2,
@@ -45,7 +44,7 @@ const HCP_OPTIONS = [
 ] as const
 
 export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
-  if (!VISIBLE_FORMATS.includes(config.format as typeof VISIBLE_FORMATS[number])) {
+  if (!isTeamFormat(config.format)) {
     return null
   }
 
