@@ -36,7 +36,7 @@ describe('DefaultTeeBanner — red de seguridad del tee', () => {
   it('renderiza el prompt con las 4 opciones cuando show=true', async () => {
     mockFetch({ show: true, recoverableRounds: 125 })
     render(<DefaultTeeBanner />)
-    expect(await screen.findByText('Calculá tu índice')).toBeTruthy()
+    expect(await screen.findByText('Calcula tu índice')).toBeTruthy()
     expect(screen.getByText('Azul')).toBeTruthy()
     expect(screen.getByText('Blanco')).toBeTruthy()
     expect(screen.getByText('Negro')).toBeTruthy()
