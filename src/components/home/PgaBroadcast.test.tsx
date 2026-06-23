@@ -21,11 +21,6 @@ async function mount() {
 }
 
 describe('PgaBroadcast — estados del widget', () => {
-  beforeEach(() => {
-    // El auto-crawl usa rAF; lo neutralizamos para que no corra en el test.
-    vi.stubGlobal('requestAnimationFrame', () => 0)
-    vi.stubGlobal('cancelAnimationFrame', () => {})
-  })
   afterEach(() => vi.restoreAllMocks())
 
   it('sin torneo y sin próximo evento → no renderiza nada (hero perfecto sin widget)', async () => {
