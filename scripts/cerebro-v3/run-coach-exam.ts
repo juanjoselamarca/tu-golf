@@ -65,8 +65,10 @@ async function main() {
     const turn = await runExamTurn({
       system: buildExamSystem(caso.seed),
       userMessage: caso.userMessage,
-      // Tools v3 expuestas (get_focus/set_target/… + field_context). El system sigue
-      // v2 hasta P4 (el flip que re-baselina); acá solo se cablea la maquinaria.
+      // Tools v3 vía el builder ÚNICO (D1) — get_focus/set_target/… + field_context
+      // + RAG. RAG queda EXPUESTA pero el mock la degrada honesto (sin corpus), así
+      // se cumple D4 "examen sin retrieval" sin partir la fuente canónica de tools.
+      // El system sigue v2 hasta P4 (el flip que re-baselina); acá solo se cablea.
       tools: buildCoachTools({ cerebroV3Enabled: true }) as unknown[],
       executeTool: exec,
       llm,

@@ -16,6 +16,9 @@
  *    depende solo de la confianza del detect, no del último slider que se tocó.
  *  - loadCatalog → `FOCUS_CATALOG` (constante de código), no `pattern_definitions`.
  *  - loadValidation → `{}` ⇒ los patrones seed operan por su gate de detect.
+ *  - loadPriors → omitido (opcional) ⇒ sin shrinkage externo. NO afecta la
+ *    SELECCIÓN ni los gates del foco (ver select-focus): solo el número de métrica
+ *    reportado podría diferir levemente de prod. Aceptable por D2 (determinismo).
  *
  * Spec: docs/superpowers/specs/2026-06-22-examen-v3-fidelidad-design.md (D2).
  */
