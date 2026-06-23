@@ -14,6 +14,13 @@ export function MatchPlayWinner({ ronda, mr, onShare }: MatchPlayWinnerProps) {
   const jug = ronda.ronda_libre_jugadores
   const ganador = mr.winner === 'a' ? jug[0] : mr.winner === 'b' ? jug[1] : null
   const isAllSquare = mr.state === 0
+  // mr.winner puede ser null sin ser empate: match force-cerrado incompleto
+  // (force-close de rondas viejas no exige hoyos completos). Nunca dejar el
+  // renglón de nombre vacío.
+  const etiqueta = isAllSquare ? 'All Square' : ganador ? 'Ganador' : 'Resultado'
+  const nombre = isAllSquare
+    ? `${jug[0].nombre} y ${jug[1].nombre}`
+    : ganador ? ganador.nombre : `${jug[0].nombre} vs ${jug[1].nombre}`
 
   return (
     <div style={{ marginBottom: '16px' }}>
@@ -36,10 +43,10 @@ export function MatchPlayWinner({ ronda, mr, onShare }: MatchPlayWinnerProps) {
             {isAllSquare ? <Handshake size={34} /> : <Trophy size={34} />}
           </div>
           <div style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '6px' }}>
-            {isAllSquare ? 'All Square' : 'Ganador'}
+            {etiqueta}
           </div>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '30px', fontWeight: 700, color: 'var(--text)', lineHeight: 1.05, marginBottom: '2px' }}>
-            {isAllSquare ? `${jug[0].nombre} y ${jug[1].nombre}` : ganador?.nombre}
+            {nombre}
           </div>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '40px', fontWeight: 700, color: '#c4992a', lineHeight: 1.1 }}>
             {mr.display}
