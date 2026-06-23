@@ -40,6 +40,7 @@ export function buildLeaderboardShareData({
     fecha: fechaDisplay,
     rondaCodigo: codigo,
     isFinished,
+    totalHoles: ronda.holes,
     formato_juego: ronda.formato_juego,
     modo_juego: ronda.modo_juego,
   }

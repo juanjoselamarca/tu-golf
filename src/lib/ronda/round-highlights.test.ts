@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeHighlights } from './round-highlights'
+import { computeHighlights, buildMyHighlights } from './round-highlights'
 
 describe('computeHighlights', () => {
   const parMap = (pars: number[]): Record<number, number> => {
@@ -83,5 +83,32 @@ describe('computeHighlights', () => {
       result.desglose.bogeys * 1 +
       result.desglose.doublesPlus * 2
     expect(sum).toBe(10)
+  })
+})
+
+describe('buildMyHighlights — highlights del jugador autenticado', () => {
+  const parMap = { 1: 4, 2: 4, 3: 4 }
+
+  it('null si el jugador no está en la ronda', () => {
+    const jugadores = [{ user_id: 'otro', scores: { '1': 4 } }]
+    expect(buildMyHighlights(jugadores, 'yo', parMap, 3)).toBeNull()
+  })
+
+  it('null si el jugador está pero no registró ningún hoyo', () => {
+    const jugadores = [{ user_id: 'yo', scores: {} }]
+    expect(buildMyHighlights(jugadores, 'yo', parMap, 3)).toBeNull()
+  })
+
+  it('parsea scores (string→number, descarta no-positivos) y arma highlights', () => {
+    const jugadores = [{ user_id: 'yo', scores: { '1': 3, '2': 0, '3': 5 } }]
+    const res = buildMyHighlights(jugadores, 'yo', parMap, 3)
+    expect(res).not.toBeNull()
+    expect(res!.scores).toEqual({ 1: 3, 3: 5 }) // el 0 se descarta
+    expect(res!.data.holesPlayed).toBe(2)
+  })
+
+  it('tolera scores null sin romper', () => {
+    const jugadores = [{ user_id: 'yo', scores: null }]
+    expect(buildMyHighlights(jugadores, 'yo', parMap, 3)).toBeNull()
   })
 })

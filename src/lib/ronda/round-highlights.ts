@@ -67,3 +67,29 @@ export function computeHighlights(
 
   return { bestHole, worstHole, desglose, holesPlayed }
 }
+
+/**
+ * Prepara los highlights del jugador autenticado para la pantalla de resultados.
+ * Encapsula el parseo de scores (string→number, descarta no-positivos) + el
+ * guard "jugó al menos un hoyo". Devuelve null si el jugador no está en la ronda
+ * o no registró scores. Antes vivía como un IIFE embebido en el render.
+ */
+export function buildMyHighlights(
+  jugadores: ReadonlyArray<{ user_id: string | null; scores: Record<string, number> | null }>,
+  currentUserId: string,
+  parMap: Record<number, number>,
+  totalHoles: number,
+): { data: RoundHighlightsData; scores: Record<number, number> } | null {
+  const myPlayer = jugadores.find(j => j.user_id === currentUserId)
+  if (!myPlayer) return null
+  const scores: Record<number, number> = {}
+  if (myPlayer.scores) {
+    for (const [k, v] of Object.entries(myPlayer.scores)) {
+      const n = typeof v === 'number' ? v : Number(v)
+      if (n > 0) scores[parseInt(k)] = n
+    }
+  }
+  const data = computeHighlights(scores, parMap, totalHoles)
+  if (data.holesPlayed === 0) return null
+  return { data, scores }
+}

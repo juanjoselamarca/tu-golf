@@ -112,6 +112,7 @@ describe('Score by format [CRITICAL peso 3]', () => {
         fecha: '12 abr 2026',
         rondaCodigo: 'ABC123',
         isFinished: true,
+        totalHoles: 18,
         formato_juego: 'stableford',
         modo_juego: 'neto',
       }
@@ -197,6 +198,7 @@ describe('Score by format [CRITICAL peso 3]', () => {
         fecha: '12 abr 2026',
         rondaCodigo: 'DEF456',
         isFinished: true,
+        totalHoles: 18,
         formato_juego: 'match_play',
         modo_juego: 'neto',
       }
@@ -552,6 +554,7 @@ describe('compartirLeaderboard [CRITICAL peso 3]', () => {
       fecha: '12 abr 2026',
       rondaCodigo: 'XYZ',
       isFinished: true,
+      totalHoles: 18,
       formato_juego: 'stroke_play',
       modo_juego: 'neto',
     }

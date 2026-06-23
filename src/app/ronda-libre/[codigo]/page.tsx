@@ -7,9 +7,10 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { setActiveRondaSession } from '@/components/LiveRoundIndicator'
 import { getNotifPrefs, setNotifPrefs, isPushSupported, requestPermission } from '@/lib/push-notifications'
 import { buildTimelineEvents } from '@/lib/ronda/helpers'
-import { computeHighlights } from '@/lib/ronda/round-highlights'
+import { buildMyHighlights } from '@/lib/ronda/round-highlights'
 import { compartirLeaderboard } from '@/lib/share-card'
-import { buildLeaderboard } from '@/lib/ronda/leaderboard'
+import { captureError } from '@/lib/error-tracking'
+import { buildLeaderboard, hasPlayData } from '@/lib/ronda/leaderboard'
 import { TEAM_FORMAT_KEYS } from '@/golf/formats'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { rankTeams } from '@/lib/ronda/team-ranking'
@@ -116,6 +117,14 @@ function RondaLibrePageContent() {
         modo: ronda.modo_juego,
       })
     : []
+  // Fuente única "¿hay puntajes para mostrar?" — cubre scores individuales
+  // (individual/best_ball) y scores de equipo (scramble/foursome). Antes vivía
+  // como 3 predicados inconsistentes inline. No depende del orden del leaderboard.
+  const hayDatos = hasPlayData(leaderboard, equipos)
+  // Highlights del jugador autenticado (null si no jugó o no está en la ronda).
+  const myHighlights = currentUserId
+    ? buildMyHighlights(ronda.ronda_libre_jugadores, currentUserId, parMap, ronda.holes)
+    : null
 
   /* ── Share handlers ── */
   const shareUrl = `${SITE_URL}/ronda-libre/${codigo}`
@@ -132,10 +141,15 @@ function RondaLibrePageContent() {
       window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`, '_blank')
     }
   }
-  const shareLeaderboard = (finished: boolean) =>
-    compartirLeaderboard(buildLeaderboardShareData({
-      ronda, leaderboard, equipos, parMap, siMap, courseHcpMap, fechaDisplay, codigo, isFinished: finished,
-    }))
+  const shareLeaderboard = async (finished: boolean) => {
+    try {
+      await compartirLeaderboard(buildLeaderboardShareData({
+        ronda, leaderboard, equipos, parMap, siMap, courseHcpMap, fechaDisplay, codigo, isFinished: finished,
+      }))
+    } catch (err) {
+      captureError(err, { context: 'ronda-libre.compartirLeaderboard', meta: { codigo, formato: ronda.formato_juego } })
+    }
+  }
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', fontFamily: 'DM Sans, sans-serif' }}>
@@ -159,34 +173,13 @@ function RondaLibrePageContent() {
         )}
 
         {/* RoundHighlights — solo para el jugador autenticado */}
-        {isFinished && currentUserId && (() => {
-          const myPlayer = ronda.ronda_libre_jugadores.find(j => j.user_id === currentUserId)
-          if (!myPlayer) return null
-          const myScores: Record<number, number> = {}
-          if (myPlayer.scores) {
-            for (const [k, v] of Object.entries(myPlayer.scores)) {
-              const n = typeof v === 'number' ? v : Number(v)
-              if (n > 0) myScores[parseInt(k)] = n
-            }
-          }
-          const hData = computeHighlights(myScores, parMap, ronda.holes)
-          if (hData.holesPlayed === 0) return null
-          return (
-            <RoundHighlights data={hData} scores={myScores} parMap={parMap} totalHoles={ronda.holes} />
-          )
-        })()}
+        {isFinished && myHighlights && (
+          <RoundHighlights data={myHighlights.data} scores={myHighlights.scores} parMap={parMap} totalHoles={ronda.holes} />
+        )}
 
-        {isFinished && ronda.formato_juego !== 'match_play' && (
-          isTeamFormat
-            // Guard "alguien jugó": cubre best_ball (scores en jugadores) y
-            // scramble/foursome (scores en el equipo). Evita "Equipo ganador" a E
-            // en una ronda finalizada sin scores.
-            ? teamRanking.length > 0 && (
-                leaderboard.some(j => j.holesPlayed > 0) ||
-                equipos.some(e => Object.keys(e.scores).length > 0)
-              )
-            : leaderboard.length > 0 && leaderboard[0].holesPlayed > 0
-        ) && (
+        {isFinished && ronda.formato_juego !== 'match_play' &&
+          (isTeamFormat ? teamRanking.length > 0 : leaderboard.length > 0) &&
+          hayDatos && (
           <WinnerCelebration
             ronda={ronda}
             leaderboard={leaderboard}
@@ -281,7 +274,7 @@ function RondaLibrePageContent() {
 
         <ShareButtons onShare={handleShare} onCopy={handleCopy} copied={copied} />
 
-        {!isFinished && leaderboard.length > 0 && leaderboard.some(j => j.holesPlayed > 0) && (
+        {!isFinished && hayDatos && (
           <ShareLeaderboardButton isFinished={isFinished} onShare={() => shareLeaderboard(isFinished)} />
         )}
 
