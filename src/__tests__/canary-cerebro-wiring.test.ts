@@ -46,7 +46,7 @@ const ENFORCED: WiringContract[] = [
   },
   {
     piece: 'Sección engagement v3 en el system prompt',
-    consumer: 'app/api/taiger/chat/route.ts',
+    consumer: 'golf/coach/build-system.ts',
     needles: ['ENGAGEMENT_SECTION'],
   },
   {
@@ -81,13 +81,13 @@ const ENFORCED: WiringContract[] = [
     needles: ['getFocusTool'],
   },
   {
-    piece: 'Tools de foco (Ola 2) ofrecidas al modelo por el route',
-    consumer: 'app/api/taiger/chat/route.ts',
+    piece: 'Tools de foco (Ola 2) ofrecidas al modelo por el builder compartido',
+    consumer: 'golf/coach/build-system.ts',
     needles: ['FOCUS_TOOLS'],
   },
   {
     piece: 'Sección "el coach te conoce" appendeada al system prompt (Ola 2)',
-    consumer: 'app/api/taiger/chat/route.ts',
+    consumer: 'golf/coach/build-system.ts',
     needles: ['CONOCER_SECTION'],
   },
   {
@@ -106,9 +106,9 @@ const ENFORCED: WiringContract[] = [
     needles: ['/coach/progreso'],
   },
   {
-    piece: 'Onboarding de 1ª sesión consumido por el route (gated por estado)',
-    consumer: 'app/api/taiger/chat/route.ts',
-    needles: ['getOnboardingState', 'ONBOARDING_SECTION'],
+    piece: 'Onboarding de 1ª sesión: estado leído por el route, sección gateada en el builder',
+    consumer: 'golf/coach/build-system.ts',
+    needles: ['ONBOARDING_SECTION', 'onboarded'],
   },
   {
     piece: 'Catálogo declarativo pattern_definitions leído por el motor de foco (Ola 3)',

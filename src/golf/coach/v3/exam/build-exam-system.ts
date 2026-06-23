@@ -1,17 +1,15 @@
-import { TAIGER_SYSTEM_PROMPT, TAIGER_SESSION_STARTER } from '@/golf/coach/prompts'
-import { TOOLS_INSTRUCTION } from '@/golf/coach/prompts/tools-instruction'
+import { buildCoachSystem } from '@/golf/coach/build-system'
 import type { ExamSeed } from './fixtures'
 
 /**
- * Construye el system prompt del examen IGUAL que el route de producción
- * (route.ts): reemplaza el placeholder `{PLAYER_CONTEXT}` con el contexto
- * sembrado, y appendea la instrucción de sesión (`TAIGER_SESSION_STARTER`) + la
- * `TOOLS_INSTRUCTION` compartida. Así el examen ejerce el MISMO prompt que ve el
- * coach real y un fallo por el session-starter o por el contexto no queda
- * invisible (finding code-review #1).
+ * Construye el system prompt del examen vía el builder ÚNICO compartido con el
+ * route de producción (`@/golf/coach/build-system`): reemplaza `{PLAYER_CONTEXT}`
+ * con el contexto sembrado. Al ser la MISMA función que usa el coach real, el
+ * examen no puede medir un prompt distinto al que se shippea (anti-divergencia).
  *
- * Se omite la sección RAG a propósito: está detrás del flag `cerebro_v3_enabled`
- * y es ortogonal a la causa H (acceso a la data propia del jugador).
+ * P1 del spec 2026-06-22: hoy pasa `cerebroV3Enabled: false` ⇒ arma el prompt v2,
+ * byte-idéntico al armado previo. El flip a v3 (con tools v3 + seeds con scorecard)
+ * es P2–P4; mientras tanto el examen sigue midiendo el coach v2.
  */
 
 /** Contexto sembrado del jugador (incluye el índice — central en la captura 1). */
@@ -28,6 +26,5 @@ export function buildExamContext(seed: ExamSeed): string {
 
 export function buildExamSystem(seed: ExamSeed): string {
   const context = buildExamContext(seed)
-  const systemWithContext = TAIGER_SYSTEM_PROMPT.replace('{PLAYER_CONTEXT}', context)
-  return `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${TAIGER_SESSION_STARTER}${TOOLS_INSTRUCTION}`
+  return buildCoachSystem({ contextString: context, cerebroV3Enabled: false, onboarded: true })
 }
