@@ -74,8 +74,7 @@
 .home-mkt .pgalive .phr{display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:0;max-width:56%}
 .home-mkt .pgalive .tour{font-family:var(--font-dm-mono),'DM Mono',monospace;font-size:10.5px;color:var(--ivory);font-weight:500;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .home-mkt .pgalive .rd{font-family:var(--font-dm-mono),'DM Mono',monospace;font-size:8.5px;color:var(--gold-ant);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.home-mkt .pgalive .pwin{position:relative;height:150px;overflow-y:auto;overscroll-behavior:contain;cursor:grab;scrollbar-width:thin;scrollbar-color:rgba(203,177,136,0.4) transparent}
-.home-mkt .pgalive .pwin.grabbing{cursor:grabbing}
+.home-mkt .pgalive .pwin{position:relative;height:150px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(203,177,136,0.4) transparent}
 .home-mkt .pgalive .pwin::-webkit-scrollbar{width:5px}
 .home-mkt .pgalive .pwin::-webkit-scrollbar-thumb{background:rgba(203,177,136,0.35);border-radius:99px}
 .home-mkt .pgalive .pwin::-webkit-scrollbar-track{background:transparent}

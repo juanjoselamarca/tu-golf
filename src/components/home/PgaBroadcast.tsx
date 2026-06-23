@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 
 /**
@@ -49,16 +49,18 @@ const dash = (s: string) => s.replace(/^-/, '−')
 // dd mmm — venue
 function fmtNext(ev: NextEvent): string {
   const f = (iso: string) => {
-    const [y, m, d] = iso.split('-').map(Number)
+    const [y, m, d] = (iso || '').split('-').map(Number)
+    if (!y || !m || !d) return ''
     return new Date(y, m - 1, d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
   }
-  return `${f(ev.start)}–${f(ev.end)} · ${ev.venue}`
+  const fecha = ev.start && ev.end ? `${f(ev.start)}–${f(ev.end)}` : (f(ev.start) || f(ev.end))
+  // Omite el "· sede" si ESPN no trae venue (no deja un "· " colgando).
+  return [fecha, ev.venue].filter(Boolean).join(' · ')
 }
 
 export default function PgaBroadcast() {
   const [data, setData] = useState<PgaData | null>(null)
   const pathname = usePathname()
-  const winRef = useRef<HTMLDivElement>(null)
 
   // ── Fetch + polling cada 30s (re-fetch al volver a "/") ──
   useEffect(() => {
@@ -77,50 +79,10 @@ export default function PgaBroadcast() {
     return () => { alive = false; clearInterval(t) }
   }, [pathname])
 
-  // ── Auto-crawl suave + scroll/drag manual del leaderboard ──
-  useEffect(() => {
-    const win = winRef.current
-    if (!win) return
-    let paused = false, raf = 0, last = 0
-    let resumeT: ReturnType<typeof setTimeout> | undefined
-    const soft = (ms = 3500) => { paused = true; if (resumeT) clearTimeout(resumeT); resumeT = setTimeout(() => { paused = false }, ms) }
-    // Una vuelta completa dura ~LOOP_MS sin importar cuántos jugadores haya: con el
-    // campo completo (~150) el crawl mantiene la misma sensación que con 10. Basado
-    // en delta-time (no px/frame fijos) → velocidad estable en cualquier refresh-rate.
-    const LOOP_MS = 38000
-    const loop = (now: number) => {
-      const max = win.scrollHeight - win.clientHeight
-      if (!paused && max > 0 && last) {
-        win.scrollTop += (max / LOOP_MS) * (now - last)
-        if (win.scrollTop >= max - 1) win.scrollTop = 0
-      }
-      last = now
-      raf = requestAnimationFrame(loop)
-    }
-    const onEnter = () => { paused = true; if (resumeT) clearTimeout(resumeT) }
-    const onLeave = () => soft(700)
-    const onWheel = () => soft()
-    let down = false, sy = 0, st = 0
-    const onDown = (e: PointerEvent) => { down = true; sy = e.clientY; st = win.scrollTop; paused = true; win.classList.add('grabbing'); try { win.setPointerCapture(e.pointerId) } catch { /* noop */ } }
-    const onMove = (e: PointerEvent) => { if (down) win.scrollTop = st - (e.clientY - sy) }
-    const onUp = () => { down = false; win.classList.remove('grabbing'); soft() }
-    win.addEventListener('mouseenter', onEnter)
-    win.addEventListener('mouseleave', onLeave)
-    win.addEventListener('wheel', onWheel, { passive: true })
-    win.addEventListener('pointerdown', onDown)
-    win.addEventListener('pointermove', onMove)
-    win.addEventListener('pointerup', onUp)
-    raf = requestAnimationFrame(loop)
-    return () => {
-      cancelAnimationFrame(raf); if (resumeT) clearTimeout(resumeT)
-      win.removeEventListener('mouseenter', onEnter)
-      win.removeEventListener('mouseleave', onLeave)
-      win.removeEventListener('wheel', onWheel)
-      win.removeEventListener('pointerdown', onDown)
-      win.removeEventListener('pointermove', onMove)
-      win.removeEventListener('pointerup', onUp)
-    }
-  }, [data])
+  // El leaderboard scrollea SOLO cuando el usuario lo mueve (wheel/touch nativo,
+  // vía `overflow-y:auto` en .pwin). Antes había un auto-crawl que lo desplazaba
+  // solo — se eliminó porque confundía (reporte inbox 22-jun): la lista no debe
+  // moverse sin que el usuario la toque.
 
   if (!data) return null
   const players = data.players ?? []
@@ -161,7 +123,7 @@ export default function PgaBroadcast() {
       {showBoard ? (
         <>
           <div className="pcols"><span /><span /><span /><span /><span>Hoy</span><span>Total</span></div>
-          <div className="pwin" ref={winRef}>
+          <div className="pwin">
             {players.map((p, i) => {
               const latam = LATAM.has(p.countryCode)
               const isChamp = data.complete && i === 0

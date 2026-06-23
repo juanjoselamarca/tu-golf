@@ -3,7 +3,7 @@
  * Prueba que la data real de /api/pga-live se mapee al diseño correcto y que
  * los estados CERO FALLOS (nada que mostrar → null) funcionen.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import PgaBroadcast from './PgaBroadcast'
 
@@ -21,11 +21,6 @@ async function mount() {
 }
 
 describe('PgaBroadcast — estados del widget', () => {
-  beforeEach(() => {
-    // El auto-crawl usa rAF; lo neutralizamos para que no corra en el test.
-    vi.stubGlobal('requestAnimationFrame', () => 0)
-    vi.stubGlobal('cancelAnimationFrame', () => {})
-  })
   afterEach(() => vi.restoreAllMocks())
 
   it('sin torneo y sin próximo evento → no renderiza nada (hero perfecto sin widget)', async () => {
