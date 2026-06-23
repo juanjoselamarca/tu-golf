@@ -235,7 +235,7 @@ function HeroVacio() {
       <div style={{ fontSize: '14px', color: TEXT, fontWeight: 500, marginBottom: '6px' }}>
         Sin torneos ni rondas en curso
       </div>
-      <div style={{ fontSize: '12px', color: TEXT_2 }}>¿Querés jugar hoy?</div>
+      <div style={{ fontSize: '12px', color: TEXT_2 }}>¿Quieres jugar hoy?</div>
     </div>
   )
 }

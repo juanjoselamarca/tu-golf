@@ -15,7 +15,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     .single()
   if (!d) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
   if (d.owner_id !== user.id) return NextResponse.json({ error: 'Solo owner puede remover' }, { status: 403 })
-  if (params.userId === d.owner_id) return NextResponse.json({ error: 'No podés removerte como owner' }, { status: 400 })
+  if (params.userId === d.owner_id) return NextResponse.json({ error: 'No puedes removerte como owner' }, { status: 400 })
 
   await supabase
     .from('tournament_draft_collaborators')

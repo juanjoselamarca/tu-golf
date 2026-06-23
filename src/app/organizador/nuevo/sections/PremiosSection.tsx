@@ -57,7 +57,7 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
 
       {prizes.length === 0 && (
         <p style={emptyStyle}>
-          Sin premios definidos. Podés agregar premios por categoría, closest-to-pin, long drive o especiales.
+          Sin premios definidos. Puedes agregar premios por categoría, closest-to-pin, long drive o especiales.
         </p>
       )}
 

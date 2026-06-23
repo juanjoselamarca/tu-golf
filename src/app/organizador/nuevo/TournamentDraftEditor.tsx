@@ -414,7 +414,7 @@ class AssistantErrorBoundary extends Component<
             Asistente no disponible.
           </p>
           <p style={{ margin: '8px 0 0' }}>
-            Podés seguir editando manualmente. Recargá la página para reintentar.
+            Puedes seguir editando manualmente. Recarga la página para reintentar.
           </p>
         </div>
       )

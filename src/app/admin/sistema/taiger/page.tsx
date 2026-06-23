@@ -228,7 +228,7 @@ export default function CerebroAgentePage() {
 
       {/* Hallucinations */}
       <Section title="¿El coach inventó datos?">
-        <Sub>Cada respuesta se chequea automáticamente: si el coach menciona un número de score o nombre de cancha que no aparece en los datos del jugador, se marca acá. Vos revisás cada caso. Cuando la tasa de falsas alarmas baje del 5%, el sistema empieza a corregir al coach en vivo.</Sub>
+        <Sub>Cada respuesta se chequea automáticamente: si el coach menciona un número de score o nombre de cancha que no aparece en los datos del jugador, se marca acá. Tú revisas cada caso. Cuando la tasa de falsas alarmas baje del 5%, el sistema empieza a corregir al coach en vivo.</Sub>
 
         <div style={{ display: 'flex', gap: 24, marginTop: 12, flexWrap: 'wrap' }}>
           <Stat label="Respuestas chequeadas" value={data.hallucination.total_checks} />

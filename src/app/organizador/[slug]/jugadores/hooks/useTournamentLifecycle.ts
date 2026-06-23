@@ -62,7 +62,7 @@ export function useTournamentLifecycle({
     // inscripciones en silencio). Si hay inscritos, sugerimos volver a borrador.
     const n = players.length
     const msg = n > 0
-      ? `Este torneo tiene ${n} jugador${n !== 1 ? 'es' : ''} inscrito${n !== 1 ? 's' : ''}. Eliminarlo borra sus inscripciones de forma PERMANENTE (esto no se puede deshacer). Si solo querés cerrar inscripciones, usá "Volver a borrador". ¿Eliminar igual?`
+      ? `Este torneo tiene ${n} jugador${n !== 1 ? 'es' : ''} inscrito${n !== 1 ? 's' : ''}. Eliminarlo borra sus inscripciones de forma PERMANENTE (esto no se puede deshacer). Si solo quieres cerrar inscripciones, usa "Volver a borrador". ¿Eliminar igual?`
       : 'Eliminar este torneo? Esta acción no se puede deshacer.'
     if (!window.confirm(msg)) return
     const res = await fetch('/api/game', {
@@ -102,7 +102,7 @@ export function useTournamentLifecycle({
         return
       }
       setTournamentStatus('open')
-      showSuccess('Inscripciones abiertas', 'Compartí el link para que se inscriban. Podés iniciar el torneo cuando quieras.')
+      showSuccess('Inscripciones abiertas', 'Comparte el link para que se inscriban. Puedes iniciar el torneo cuando quieras.')
     } catch {
       showError('Sin conexión', 'No se pudieron abrir las inscripciones. Revisá tu conexión e intentá de nuevo.')
     } finally {

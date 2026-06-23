@@ -178,8 +178,8 @@ async function handleStartHelp(msg: TelegramMessage, isStart: boolean): Promise<
         '',
         `Tu chat_id es: ${msg.chat.id}`,
         '',
-        'Agregalo a TELEGRAM_ALLOWED_CHAT_ID en Vercel y redeployea.',
-        'Después podés mandarme texto, fotos o audio con bugs/ideas.',
+        'Agrégalo a TELEGRAM_ALLOWED_CHAT_ID en Vercel y vuelve a desplegar.',
+        'Después puedes mandarme texto, fotos o audio con bugs/ideas.',
       ]
     : [
         'Comandos disponibles:',
@@ -207,7 +207,7 @@ async function handlePendientes(
     await sendMessage(chatId, '❌ no pude leer la BD');
     return;
   }
-  await sendMessage(chatId, `Tenés ${count ?? 0} pendiente${count === 1 ? '' : 's'}.`);
+  await sendMessage(chatId, `Tienes ${count ?? 0} pendiente${count === 1 ? '' : 's'}.`);
 }
 
 async function handleHistorial(

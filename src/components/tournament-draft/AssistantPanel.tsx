@@ -30,7 +30,7 @@ import type {
 const DEFAULT_GREETING: AssistantMessage = {
   id: 'init-greeting',
   role: 'assistant',
-  text: 'Hola. Decime el torneo en una frase y voy llenando la configuración. Vos confirmás lo que falte.',
+  text: 'Hola. Dime el torneo en una frase y voy llenando la configuración. Tú confirmas lo que falte.',
   timestamp: Date.now(),
 }
 
@@ -46,9 +46,9 @@ function endpointUrl(draftId: string, override?: string): string {
 function errorMessageForStatus(status: number, body: AssistantApiError | null): string {
   if (status === 429) {
     if (body?.error === 'loop_detected') {
-      return 'Mensaje repetido varias veces. Esperá 10 minutos y probá de nuevo.'
+      return 'Mensaje repetido varias veces. Espera 10 minutos y prueba de nuevo.'
     }
-    return 'Estás enviando muchos mensajes seguidos. Probá en unos minutos.'
+    return 'Estás enviando muchos mensajes seguidos. Prueba en unos minutos.'
   }
   if (status === 502) return 'El asistente no pudo procesar eso, reformulá.'
   if (status === 503) return 'El asistente no está disponible ahora. Editá manualmente.'
@@ -175,7 +175,7 @@ export default function AssistantPanel({
       appendMessage({
         id: makeId('s'),
         role: 'system',
-        text: 'Error de red. Probá de nuevo.',
+        text: 'Error de red. Prueba de nuevo.',
         timestamp: Date.now(),
         severity: 'error',
       })

@@ -50,7 +50,7 @@ const INSIGHTS: Insight[] = [
     id: 'fairways-fatiga',
     symbol: '🎯',
     title: 'Cansancio en la segunda vuelta',
-    summary: 'Pegás 73% de fairways en los primeros 10 hoyos, solo 48% del 11 al 18.',
+    summary: 'Pegas 73% de fairways en los primeros 10 hoyos, solo 48% del 11 al 18.',
     detail: {
       stat: '−25 puntos de precisión entre 9 y 18',
       example: 'Los Leones · 13-abr — 3 drives fuera en hoyos 13, 15 y 17. Ganaste el front 9 con +1, cediste el back 9 con +5.',
