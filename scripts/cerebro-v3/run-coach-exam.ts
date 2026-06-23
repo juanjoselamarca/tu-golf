@@ -24,7 +24,7 @@ import { judgeResponse } from '@/golf/coach/v3/exam/judge'
 import { judgeSixPieces } from '@/golf/coach/v3/exam/quality-judge'
 import { EXAM_CASES } from '@/golf/coach/v3/exam/fixtures'
 import { buildExamSystem } from '@/golf/coach/v3/exam/build-exam-system'
-import { TAIGER_TOOLS } from '@/golf/coach/tools'
+import { buildCoachTools } from '@/golf/coach/build-system'
 import { coachModel } from '@/golf/coach/model'
 import { writeExamTraces, type ExamTraceRow } from '@/golf/coach/v3/exam/exam-traces'
 import { buildScorecard, compareToBaseline, type CaseResult, type Scorecard } from '@/golf/coach/v3/exam/scorecard'
@@ -65,7 +65,11 @@ async function main() {
     const turn = await runExamTurn({
       system: buildExamSystem(caso.seed),
       userMessage: caso.userMessage,
-      tools: [...TAIGER_TOOLS] as unknown[],
+      // Tools v3 vía el builder ÚNICO (D1) — get_focus/set_target/… + field_context
+      // + RAG. RAG queda EXPUESTA pero el mock la degrada honesto (sin corpus), así
+      // se cumple D4 "examen sin retrieval" sin partir la fuente canónica de tools.
+      // El system sigue v2 hasta P4 (el flip que re-baselina); acá solo se cablea.
+      tools: buildCoachTools({ cerebroV3Enabled: true }) as unknown[],
       executeTool: exec,
       llm,
     })
