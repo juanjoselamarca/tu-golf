@@ -1,14 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { TAIGER_SYSTEM_PROMPT, buildContextString, TAIGER_SESSION_STARTER } from '@/golf/coach/prompts'
-import { TAIGER_TOOLS } from '@/golf/coach/tools'
-import { TOOLS_INSTRUCTION } from '@/golf/coach/prompts/tools-instruction'
-import { SEARCH_KNOWLEDGE_TOOL } from '@/golf/coach/v3/tools/search-knowledge-chunks-tool'
-import { FOCUS_TOOLS } from '@/golf/coach/v3/tools/focus-tools'
-import { FIELD_CONTEXT_TOOL } from '@/golf/coach/v3/tools/field-context-tool'
-import { RAG_SECTION, ENGAGEMENT_SECTION, CONOCER_SECTION } from '@/golf/coach/v3/prompts'
-import { getOnboardingState, ONBOARDING_SECTION } from '@/golf/coach/v3/onboarding'
+import { buildContextString } from '@/golf/coach/prompts'
+import { buildCoachSystem, buildCoachTools } from '@/golf/coach/build-system'
+import { getOnboardingState } from '@/golf/coach/v3/onboarding'
 import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
 import { runChatStream } from '@/golf/coach/chat-engine'
@@ -90,13 +85,7 @@ export async function POST(req: NextRequest) {
     const ctx = await buildPlayerContext(supabase, user.id)
     const contextString = buildContextString(ctx)
 
-    // System prompt final con contexto + starter + tools.
-    const systemWithContext = TAIGER_SYSTEM_PROMPT.replace('{PLAYER_CONTEXT}', contextString)
-    const sessionStarter = TAIGER_SESSION_STARTER
-    const toolsInstruction = TOOLS_INSTRUCTION
-
     // Feature flag cerebro v3 por usuario (profiles.cerebro_v3_enabled).
-    // Solo si está ON exponemos la tool RAG de reglas + la sección del prompt.
     // Coach v2 sigue idéntico para todos los demás (rollback seguro).
     let cerebroV3Enabled = false
     try {
@@ -107,29 +96,26 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
       cerebroV3Enabled = prof?.cerebro_v3_enabled === true
     } catch (flagErr) {
-      // Fail-closed: ante cualquier error, coach v2 sin RAG.
+      // Fail-closed: ante cualquier error, coach v2 sin secciones v3.
       void captureError(flagErr, { context: 'taiger.chat.cerebro_v3_flag', userId: user.id })
       cerebroV3Enabled = false
     }
 
     // Onboarding: en la 1ª sesión (sin meta ni hechos), el coach entrevista corto
-    // antes de avanzar. Solo con el flag y solo si todavía no está onboarded.
-    let onboardingSection = ''
+    // antes de avanzar. Solo con el flag; ante error se asume onboarded (sin sección).
+    let onboarded = true
     if (cerebroV3Enabled) {
       try {
         const ob = await getOnboardingState(supabase, user.id)
-        if (!ob.onboarded) onboardingSection = `\n\n${ONBOARDING_SECTION}`
+        onboarded = ob.onboarded
       } catch (obErr) {
         void captureError(obErr, { context: 'taiger.chat.onboarding_state', userId: user.id })
       }
     }
-    const ragSection = cerebroV3Enabled
-      ? `\n\n${ENGAGEMENT_SECTION}\n\n${CONOCER_SECTION}${onboardingSection}\n\n${RAG_SECTION}`
-      : ''
-    const systemFinal = `${systemWithContext}\n\nINSTRUCCIÓN DE SESIÓN:\n${sessionStarter}${toolsInstruction}${ragSection}`
-    const activeTools = cerebroV3Enabled
-      ? [...TAIGER_TOOLS, SEARCH_KNOWLEDGE_TOOL, ...FOCUS_TOOLS, FIELD_CONTEXT_TOOL]
-      : TAIGER_TOOLS
+
+    // Armado del system + tools: fuente ÚNICA compartida con el examen (build-system.ts).
+    const systemFinal = buildCoachSystem({ contextString, cerebroV3Enabled, onboarded })
+    const activeTools = buildCoachTools({ cerebroV3Enabled })
     const anthropic = new Anthropic({ apiKey })
 
     // Sesion activa pre-fetched: necesario para que save_plan pueda referenciar

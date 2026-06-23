@@ -42,8 +42,8 @@ const ENFORCED: WiringContract[] = [
     needles: ["case 'field_context'", 'fieldContext('],
   },
   {
-    piece: 'field_context ofrecido al modelo por el route (gated por el flag)',
-    consumer: 'app/api/taiger/chat/route.ts',
+    piece: 'field_context ofrecido al modelo por el builder compartido (gated por el flag)',
+    consumer: 'golf/coach/build-system.ts',
     needles: ['FIELD_CONTEXT_TOOL'],
   },
   {
