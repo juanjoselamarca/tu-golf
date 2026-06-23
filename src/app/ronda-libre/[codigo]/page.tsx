@@ -35,7 +35,6 @@ import { IndividualLeaderboard } from './components/IndividualLeaderboard'
 import { GwiPanel } from './components/GwiPanel'
 import { RecentTimeline } from './components/RecentTimeline'
 import { RefreshStatus } from './components/RefreshStatus'
-import { ShareButtons } from './components/ShareButtons'
 import { ShareLeaderboardButton } from './components/ShareLeaderboardButton'
 import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, RegistrationBanner } from './components/FooterBars'
 import { LiveStyles } from './components/LiveStyles'
@@ -169,7 +168,7 @@ function RondaLibrePageContent() {
         )}
 
         {isFinished && ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2 && mr && (
-          <MatchPlayWinner ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} onShare={handleShare} />
+          <MatchPlayWinner ronda={ronda} mr={mr} onShare={handleShare} />
         )}
 
         {/* RoundHighlights — solo para el jugador autenticado */}
@@ -276,17 +275,14 @@ function RondaLibrePageContent() {
 
         {!isFinished && <RefreshStatus isRealtimeConnected={isRealtimeConnected} countdown={countdown} />}
 
-        {/* Finalizada: el compartir primario vive en el cuadro ganador ("Compartir
-            resultado"). En curso (sin cuadro ganador) se mantienen los botones. */}
-        {!isFinished && <ShareButtons onShare={handleShare} onCopy={handleCopy} copied={copied} />}
-
+        {/* Compartir unificado en ambos estados: UN primario + ghost "Copiar link".
+            Finalizada: el primario vive en el cuadro ganador. En curso: el primario
+            es "Compartir resultado actual" (dorado). */}
         {!isFinished && hayDatos && (
           <ShareLeaderboardButton isFinished={isFinished} onShare={() => shareLeaderboard(isFinished)} />
         )}
 
-        {/* Finalizada: copiar link como acción secundaria (ghost). El compartir
-            primario (imagen del resultado) vive en el cuadro ganador. */}
-        {isFinished && hayDatos && (
+        {hayDatos && (
           <button
             onClick={handleCopy}
             aria-label="Copiar enlace de la ronda"
