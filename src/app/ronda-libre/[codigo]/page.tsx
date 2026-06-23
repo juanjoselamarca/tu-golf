@@ -11,7 +11,7 @@ import { buildMyHighlights } from '@/lib/ronda/round-highlights'
 import { compartirLeaderboard } from '@/lib/share-card'
 import { captureError } from '@/lib/error-tracking'
 import { buildLeaderboard, hasPlayData } from '@/lib/ronda/leaderboard'
-import { TEAM_FORMAT_KEYS } from '@/golf/formats'
+import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildLeaderboardShareData, buildShareText } from '@/lib/ronda/share'
@@ -241,18 +241,22 @@ function RondaLibrePageContent() {
           />
         )}
 
-        <IndividualLeaderboard
-          ronda={ronda}
-          leaderboard={leaderboard}
-          isNetoMode={isNetoMode}
-          hasCourse={hasCourse}
-          parMap={parMap}
-          siMap={siMap}
-          courseHcpMap={courseHcpMap}
-          fechaDisplay={fechaDisplay}
-          expanded={expanded}
-          onToggleExpand={(id) => setExpanded(prev => prev === id ? null : id)}
-        />
+        {/* En scramble/foursome los scores viven en el equipo: la tabla individual
+            mostraría todos en "—/0-18". Se oculta; la clasificación es la de equipos. */}
+        {!isSharedBallFormat(ronda.formato_juego) && (
+          <IndividualLeaderboard
+            ronda={ronda}
+            leaderboard={leaderboard}
+            isNetoMode={isNetoMode}
+            hasCourse={hasCourse}
+            parMap={parMap}
+            siMap={siMap}
+            courseHcpMap={courseHcpMap}
+            fechaDisplay={fechaDisplay}
+            expanded={expanded}
+            onToggleExpand={(id) => setExpanded(prev => prev === id ? null : id)}
+          />
+        )}
 
         {ronda.formato_juego !== 'match_play' && !isFinished && gwi.gwiInputs.length >= 2 && gwi.gwiInputs.some(j => j.hoyosCompletados >= 3) && (
           <GwiPanel ronda={ronda} gwiInputs={gwi.gwiInputs} />
@@ -272,7 +276,9 @@ function RondaLibrePageContent() {
 
         {!isFinished && <RefreshStatus isRealtimeConnected={isRealtimeConnected} countdown={countdown} />}
 
-        <ShareButtons onShare={handleShare} onCopy={handleCopy} copied={copied} />
+        {/* Finalizada: el compartir primario vive en el cuadro ganador ("Compartir
+            resultado"). En curso (sin cuadro ganador) se mantienen los botones. */}
+        {!isFinished && <ShareButtons onShare={handleShare} onCopy={handleCopy} copied={copied} />}
 
         {!isFinished && hayDatos && (
           <ShareLeaderboardButton isFinished={isFinished} onShare={() => shareLeaderboard(isFinished)} />
