@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextVote, messageKey } from './useMessageFeedback'
+import { nextVote, messageKey, mergeVotes } from './useMessageFeedback'
 
 describe('nextVote — toggle del voto por mensaje', () => {
   it('sin voto previo + 👍 → 👍', () => {
@@ -48,5 +48,33 @@ describe('messageKey — identidad estable del mensaje (resiste reslicing del ba
 
   it('maneja unicode/acentos/emoji sin romperse', () => {
     expect(messageKey('birdie en el hoyo 7 ⛳ pará el green')).toBeTruthy()
+  })
+})
+
+describe('mergeVotes — la carga inicial no pisa votos optimistas (carrera)', () => {
+  it('sin claves tocadas → gana lo que trae el server', () => {
+    expect(mergeVotes({ a: 1 }, {}, new Set())).toEqual({ a: 1 })
+  })
+
+  it('voto optimista emitido antes de que llegue el fetch vacío NO se pierde', () => {
+    // Server devuelve {} (no había votos), pero el usuario ya votó 👍 en 'a'.
+    const merged = mergeVotes({}, { a: 1 }, new Set(['a']))
+    expect(merged).toEqual({ a: 1 })
+  })
+
+  it('toggle-off local (clave tocada, sin valor) gana sobre un server stale', () => {
+    // El usuario retiró su voto; el fetch viejo todavía lo tenía.
+    const merged = mergeVotes({ a: 1 }, {}, new Set(['a']))
+    expect(merged).toEqual({})
+  })
+
+  it('claves NO tocadas se toman del server (votos de otra pestaña/sesión)', () => {
+    const merged = mergeVotes({ a: 1, b: -1 }, { a: 1 }, new Set(['a']))
+    expect(merged).toEqual({ a: 1, b: -1 })
+  })
+
+  it('combina: local gana en tocadas, server aporta el resto', () => {
+    const merged = mergeVotes({ a: 1, c: 1 }, { a: -1, b: 1 }, new Set(['a', 'b']))
+    expect(merged).toEqual({ a: -1, b: 1, c: 1 })
   })
 })
