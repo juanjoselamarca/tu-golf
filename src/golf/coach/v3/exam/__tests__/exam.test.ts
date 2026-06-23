@@ -123,7 +123,7 @@ describe.skipIf(!LIVE || !hasKeys)('Examen coach — LIVE (banco golden completo
     const Anthropic = (await import('@anthropic-ai/sdk')).default
     const { makeAnthropicExamLLM } = await import('../anthropic-llm')
     const { buildExamSystem } = await import('../build-exam-system')
-    const { TAIGER_TOOLS } = await import('@/golf/coach/tools')
+    const { buildCoachTools } = await import('@/golf/coach/build-system')
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
     const llm = makeAnthropicExamLLM(anthropic)
@@ -132,7 +132,7 @@ describe.skipIf(!LIVE || !hasKeys)('Examen coach — LIVE (banco golden completo
     for (const caso of EXAM_CASES) {
       const exec = buildMockExecuteTool(caso.seed)
       const turn = await runExamTurn({
-        system: buildExamSystem(caso.seed), userMessage: caso.userMessage, tools: [...TAIGER_TOOLS] as unknown[], executeTool: exec, llm,
+        system: buildExamSystem(caso.seed), userMessage: caso.userMessage, tools: buildCoachTools({ cerebroV3Enabled: true }) as unknown[], executeTool: exec, llm,
       })
       const verdict = await judgeResponse({
         userMessage: caso.userMessage, finalText: turn.finalText, toolsUsed: turn.toolsUsed, rubric: caso.rubric,
