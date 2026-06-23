@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-06-18 | Commit: `3267d66`
+> Auto-generado: 2026-06-23 | Commit: `231d292`
 
 ## Último deploy
 
-- **Commit:** `3267d66` — Resultados ronda-libre v2: refactor [codigo]/page.tsx (2038→275) + 4 fixes del cluster (128/120/124/126) (#178)
-- **Fecha:** 2026-06-19
-- **Branch:** main (1252 commits total)
+- **Commit:** `231d292` — Coach chat PR2 — fundación UX mobile (teclado, voseo/Shift+Enter, 👍/👎, degradación honesta) (#185)
+- **Fecha:** 2026-06-23
+- **Branch:** main (1262 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (53 páginas)
@@ -84,25 +84,25 @@
 
 ---
 
-## 2026-06-18 · Resultados ronda-libre v2 — refactor monstruo #2 + cluster de 4 fixes (PR #178)
+## 2026-06-22 · Coach chat PR2 — fundación UX mobile (#185)
 
-Job del cluster `/inbox`: refactor de `src/app/ronda-libre/[codigo]/page.tsx` (vista
-pública del leaderboard en vivo, **monstruo #2**) al estándar, MÁS los 4 reportes que
-caían en él. `2038 → 275 LOC`. Squash-merge `3267d66`, deploy prod success, fix 128
-verificado en vivo.
+Primer cambio **visible** del rediseño del chat del coach tAIger+ (plan
+`docs/superpowers/plans/2026-06-18-coach-chat-redesign-build.md`). Enfocado a uso
+real en cancha: una mano, guante, apuro. PR1 (refactor base) ya estaba en prod (#179).
 
-- **Refactor (behavior-preserving):** capa de datos `lib/data/ronda-libre.ts`
-  (`loadRondaLibre`, batch de `profiles` con `.in()` que elimina un N+1), hooks
-  (`useRondaLibreLive`/`useGWI`/`useViewer`), cálculos puros testeados
-  (`lib/ronda/leaderboard.ts` +test, `match.ts`, `share.ts`), ~17 componentes +
-  `matchplay/`. 0 `supabase.from` directo, 0 `console.*`. Eliminado código muerto
-  (modal de edición admin inalcanzable). Smoke visual before/after **pixel-idéntico**
-  en stroke/stableford/match_play/best_ball.
-- **128 (bug):** el cuadro GANADOR de modalidades por equipos usaba el ranking
-  individual → mostraba al jugador top en vez del equipo. Ahora usa `rankTeams()`,
-  consistente con el TeamLeaderboard.
-- **120:** pill de modalidad arriba del cuadro ganador.
-- **124:** tabla detalle match play con `tableLayout: fixed` + colgroup (anchos
+- **Teclado mobile (D7/E6):** `useVisualViewport` sube el input sobre el teclado
+  (visualViewport), con cleanup de listeners en unmount y guard contra doble offset
+  con `safe-area-inset-bottom`. `computeKeyboardInset` pura + testeada. Autoscroll en
+  streaming `behavior:'auto'` + throttle por frame (no smooth por token).
+- **Input:** `textarea` voseo ("Escribí tu mensaje…"), Enter envía / Shift+Enter salto
+  (`isSendKey` pura), font 16px (sin zoom iOS), auto-grow, touch 48px.
+- **👍/👎 por mensaje (D9/E2):** tabla nueva `taiger_message_feedback` + endpoint
+  `/api/taiger/message-feedback`. NO reusa el rating de estrellas (CHECK 1-5 por sesión).
+  Anclado a **hash de contenido** (`message_key`), NO a índice posicional — el
+  code-reviewer cazó que el backend reordena el array persistido (slice -20 + shift del
+  opener) y el voto se perdía al recargar. Verificado con recarga en smoke. Estrellas
+  retiradas de la UI; columna histórica intacta.
+- **Degradación honesta (D6):** distingue "no me pude conectar" de "la respuesta se
 
 ---
 

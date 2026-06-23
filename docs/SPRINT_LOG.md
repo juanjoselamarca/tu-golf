@@ -4,6 +4,34 @@
 
 ---
 
+## 2026-06-22 · Coach chat PR2 — fundación UX mobile (#185)
+
+Primer cambio **visible** del rediseño del chat del coach tAIger+ (plan
+`docs/superpowers/plans/2026-06-18-coach-chat-redesign-build.md`). Enfocado a uso
+real en cancha: una mano, guante, apuro. PR1 (refactor base) ya estaba en prod (#179).
+
+- **Teclado mobile (D7/E6):** `useVisualViewport` sube el input sobre el teclado
+  (visualViewport), con cleanup de listeners en unmount y guard contra doble offset
+  con `safe-area-inset-bottom`. `computeKeyboardInset` pura + testeada. Autoscroll en
+  streaming `behavior:'auto'` + throttle por frame (no smooth por token).
+- **Input:** `textarea` voseo ("Escribí tu mensaje…"), Enter envía / Shift+Enter salto
+  (`isSendKey` pura), font 16px (sin zoom iOS), auto-grow, touch 48px.
+- **👍/👎 por mensaje (D9/E2):** tabla nueva `taiger_message_feedback` + endpoint
+  `/api/taiger/message-feedback`. NO reusa el rating de estrellas (CHECK 1-5 por sesión).
+  Anclado a **hash de contenido** (`message_key`), NO a índice posicional — el
+  code-reviewer cazó que el backend reordena el array persistido (slice -20 + shift del
+  opener) y el voto se perdía al recargar. Verificado con recarga en smoke. Estrellas
+  retiradas de la UI; columna histórica intacta.
+- **Degradación honesta (D6):** distingue "no me pude conectar" de "la respuesta se
+  cortó"; el spinner nunca queda colgado; sin burbujas vacías.
+- **Follow-up técnico de PR1:** loop de bytes SSE unificado en
+  `sseParser.createSseDecoder` (única fuente, cubierta por test; canario repuntado).
+- tsc 0 · 2815 tests · build OK · smoke Playwright 390px (login E2E + sesión semilla
+  con recarga) verde, también contra prod. code-reviewer: cazó el bug del índice
+  (CRITICAL) → arreglado con hash de contenido. Deploy Vercel `READY` confirmado.
+
+---
+
 ## 2026-06-18 · Cerebro V3 Fase 0 — examen-máquina del coach (esqueleto completo)
 
 Combo IA Autónoma, Fase 0 (la vara que hace medibles a 1a/c/d y construibles a las
