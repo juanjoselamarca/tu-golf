@@ -73,7 +73,7 @@ export function ChatInput({ value, onChange, onSend, streaming, keyboardInset }:
           }
         }}
         rows={1}
-        placeholder={streaming ? 'tAIger+ está escribiendo…' : 'Escribí tu mensaje…'}
+        placeholder={streaming ? 'tAIger+ está escribiendo…' : 'Escribe tu mensaje…'}
         disabled={inputDisabled}
         style={{
           flex: 1,

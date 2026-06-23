@@ -96,8 +96,9 @@ const run = async () => {
     if (await ta.count() === 0) { fail('no se encontró el <textarea> del input'); }
     else {
       const ph = await ta.getAttribute('placeholder')
-      if (ph && /Escribí|escribiendo/i.test(ph)) ok(`placeholder voseo: "${ph}"`)
-      else fail(`placeholder no voseo: "${ph}"`)
+      // Copy chileno (tuteo) — sin voseo, alineado al barrido del PR #187.
+      if (ph && /Escribe|escribiendo/i.test(ph) && !/Escribí/.test(ph)) ok(`placeholder chileno: "${ph}"`)
+      else fail(`placeholder incorrecto (esperado tuteo "Escribe…"): "${ph}"`)
       const fontSize = await ta.evaluate(el => getComputedStyle(el).fontSize)
       if (parseFloat(fontSize) >= 16) ok(`font-size del textarea ${fontSize} (≥16px, sin zoom iOS)`)
       else fail(`font-size ${fontSize} < 16px → iOS hace zoom al enfocar`)

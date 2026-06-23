@@ -85,7 +85,7 @@ export default function SesionDetailPage() {
           projectionsByMsgIdx={projectionsByMsgIdx}
           plansByMsgIdx={plansByMsgIdx}
           onChangeFocus={() =>
-            setInput('Ese plan no me convence, proponé otro foco distinto basado en mis datos.')
+            setInput('Ese plan no me convence, propón otro foco distinto basado en mis datos.')
           }
           votesByMsgIdx={votesByMsgIdx}
           canVote={canVote}
