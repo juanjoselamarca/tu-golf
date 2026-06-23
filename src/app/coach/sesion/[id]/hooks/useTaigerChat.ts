@@ -176,8 +176,8 @@ export function useTaigerChat({
       // (no se pierde). Distinguimos corte a mitad de stream de fallo de conexión
       // para no mentir ("se cortó" implica que algo empezó a llegar).
       setError(receivedAny
-        ? 'La respuesta se cortó. Tocá reintentar.'
-        : 'No me pude conectar. Tocá reintentar.')
+        ? 'La respuesta se cortó. Toca reintentar.'
+        : 'No me pude conectar. Toca reintentar.')
     } finally {
       // Pase lo que pase, nunca dejamos el spinner colgado (CERO FALLOS en cancha).
       setStreaming(false)
