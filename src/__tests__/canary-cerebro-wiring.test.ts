@@ -111,6 +111,14 @@ const ENFORCED: WiringContract[] = [
     needles: ['ONBOARDING_SECTION', 'onboarded'],
   },
   {
+    // Contrato partido: el route LEE el estado (decide `onboarded`), el builder
+    // GATEA la sección. Sin este canario, borrar la lectura dejaría onboarded=true
+    // hardcodeado y nadie vería nunca la sección (decoración silenciosa).
+    piece: 'Estado de onboarding leído por el route (alimenta el gate del builder)',
+    consumer: 'app/api/taiger/chat/route.ts',
+    needles: ['getOnboardingState'],
+  },
+  {
     piece: 'Catálogo declarativo pattern_definitions leído por el motor de foco (Ola 3)',
     consumer: 'golf/coach/v3/focus/get-focus.ts',
     needles: ['loadFocusCatalog'],
