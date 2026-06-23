@@ -76,6 +76,8 @@ reports/
 
 # Coach visual review artifacts (worktree-local)
 screenshots-coach-visual/
+# Smoke visual del chat del coach (PR2): screenshots locales, no se commitean
+smoke-out/
 dev.log
 
 # graphify — knowledge graph del repo

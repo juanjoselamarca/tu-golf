@@ -11,8 +11,6 @@ interface UseTaigerSessionResult {
   loadingSession: boolean
   messages: ChatMessage[]
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
-  /** rating inicial de la sesión (estrellas, sin cambios — el switch a 👍/👎 es PR2). */
-  initialRating: number
 }
 
 /**
@@ -30,7 +28,6 @@ export function useTaigerSession(sessionId: string): UseTaigerSessionResult {
   const [notFound, setNotFound] = useState(false)
   const [loadingSession, setLoadingSession] = useState(true)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [initialRating, setInitialRating] = useState<number>(0)
 
   useEffect(() => {
     const loadSession = async () => {
@@ -63,14 +60,11 @@ export function useTaigerSession(sessionId: string): UseTaigerSessionResult {
 
       setSession(sessionData)
       setMessages(sessionData.messages || [])
-      if (sessionData.rating) {
-        setInitialRating(sessionData.rating)
-      }
       setLoadingSession(false)
     }
 
     loadSession()
   }, [sessionId, router])
 
-  return { session, notFound, loadingSession, messages, setMessages, initialRating }
+  return { session, notFound, loadingSession, messages, setMessages }
 }

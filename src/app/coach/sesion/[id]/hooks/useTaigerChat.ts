@@ -6,7 +6,7 @@ import type { AssignedPlan } from '@/components/coach/PlanAssignedCard'
 import type { RoundSummary } from '@/components/coach/RoundMiniChart'
 import type { ScoreProjection } from '@/components/coach/ScoreProjectionCard'
 import type { ChatMessage, TaigerSession } from '@/lib/data/taiger'
-import { parseSseLine } from './sseParser'
+import { createSseDecoder, type SseEvent } from './sseParser'
 
 interface UseTaigerChatArgs {
   session: TaigerSession | null
@@ -62,6 +62,10 @@ export function useTaigerChat({
     setStreaming(true)
     setError(null)
 
+    // ¿llegó algún token antes de un eventual corte? Distingue "no me pude
+    // conectar" de "la respuesta se cortó a la mitad" (D6 — degradación honesta).
+    let receivedAny = false
+
     try {
       // El backend siempre append a la sesion primaria del usuario (migration 017).
       // session_id es opcional ahora — solo informa al backend cual sesion esta abierta en UI.
@@ -99,7 +103,9 @@ export function useTaigerChat({
       }
 
       const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
+      // Decoder de bytes SSE compartido con decodeSseStream (test) — fix P0
+      // 11-may encapsulado en un solo lugar. Ver sseParser.createSseDecoder.
+      const sse = createSseDecoder()
       let assistantContent = ''
       let realSessionId: string | null = null
 
@@ -109,83 +115,55 @@ export function useTaigerChat({
         return next
       })
 
-      // Aplica los eventos decodificados de una línea SSE. El loop de bytes
-      // (más abajo) es dueño del buffer; acá solo reaccionamos a eventos ya
-      // parseados por `parseSseLine` (módulo puro). Mantiene el orden y la
-      // semántica multi-evento del handleSseLine original.
-      const applyLine = (line: string) => {
-        for (const ev of parseSseLine(line)) {
-          if (ev.kind === 'text') {
-            if (assistantContent === '') setActivity(null)
-            assistantContent += ev.text
-            setMessages(prev => {
-              const updated = [...prev]
-              updated[updated.length - 1] = {
-                role: 'assistant',
-                content: assistantContent,
-              }
-              return updated
-            })
-          } else if (ev.kind === 'tool_start') {
-            setActivity(ev.label)
-          } else if (ev.kind === 'tool_done') {
-            setActivity(null)
-            if (ev.round) {
-              const idx = currentAssistantIdxRef.current
-              if (idx >= 0) {
-                setRoundsByMsgIdx(prev => ({ ...prev, [idx]: ev.round as RoundSummary }))
-              }
+      // Reacciona a un evento SSE ya parseado. El decoder es dueño del buffer
+      // de bytes; acá solo aplicamos side-effects de React. Mantiene el orden y
+      // la semántica multi-evento del handleSseLine original.
+      const applyEvent = (ev: SseEvent) => {
+        if (ev.kind === 'text') {
+          if (assistantContent === '') setActivity(null)
+          receivedAny = true
+          assistantContent += ev.text
+          setMessages(prev => {
+            const updated = [...prev]
+            updated[updated.length - 1] = {
+              role: 'assistant',
+              content: assistantContent,
             }
-          } else if (ev.kind === 'plan_assigned') {
+            return updated
+          })
+        } else if (ev.kind === 'tool_start') {
+          setActivity(ev.label)
+        } else if (ev.kind === 'tool_done') {
+          setActivity(null)
+          if (ev.round) {
             const idx = currentAssistantIdxRef.current
             if (idx >= 0) {
-              setPlansByMsgIdx(prev => ({ ...prev, [idx]: ev.plan }))
+              setRoundsByMsgIdx(prev => ({ ...prev, [idx]: ev.round as RoundSummary }))
             }
-          } else if (ev.kind === 'score_projection') {
-            const idx = currentAssistantIdxRef.current
-            if (idx >= 0) {
-              setProjectionsByMsgIdx(prev => ({ ...prev, [idx]: ev.projection }))
-            }
-          } else if (ev.kind === 'done') {
-            realSessionId = ev.sessionId
-          } else if (ev.kind === 'error') {
-            setError(ev.message)
           }
+        } else if (ev.kind === 'plan_assigned') {
+          const idx = currentAssistantIdxRef.current
+          if (idx >= 0) {
+            setPlansByMsgIdx(prev => ({ ...prev, [idx]: ev.plan }))
+          }
+        } else if (ev.kind === 'score_projection') {
+          const idx = currentAssistantIdxRef.current
+          if (idx >= 0) {
+            setProjectionsByMsgIdx(prev => ({ ...prev, [idx]: ev.projection }))
+          }
+        } else if (ev.kind === 'done') {
+          realSessionId = ev.sessionId
+        } else if (ev.kind === 'error') {
+          setError(ev.message)
         }
       }
-
-      // Buffer entre `reader.read()` para soportar frames SSE partidos
-      // entre chunks TCP. Sin esto:
-      //   - `decoder.decode(value)` (sin {stream:true}) corrompe acentos/emojis
-      //     cuando un byte multi-byte UTF-8 cae al final del chunk.
-      //   - Un frame `data: {...}\n\n` partido a mitad del JSON cae al catch
-      //     silencioso y el cliente pierde tokens (texto con huecos).
-      // Procesamos frames separados por `\n\n` (separador SSE real) y
-      // dejamos el último parcial en el buffer hasta el próximo read.
-      let buffer = ''
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-
-        // {stream:true} acumula bytes multi-byte UTF-8 incompletos para el
-        // próximo decode. Sin esto, los acentos del coach se rompen al azar.
-        buffer += decoder.decode(value, { stream: true })
-
-        // Procesamos frames completos; el último puede estar parcial y queda
-        // en el buffer para el próximo iteración.
-        const frames = buffer.split('\n\n')
-        buffer = frames.pop() ?? ''
-        for (const frame of frames) {
-          for (const line of frame.split('\n')) applyLine(line)
-        }
+        for (const ev of sse.push(value)) applyEvent(ev)
       }
-      // Flush final: aplica el resto del buffer + cualquier byte multi-byte
-      // pendiente del último read.
-      buffer += decoder.decode()
-      for (const frame of buffer.split('\n\n')) {
-        for (const line of frame.split('\n')) applyLine(line)
-      }
+      for (const ev of sse.flush()) applyEvent(ev)
 
       // El backend (helper getOrCreateActiveSession) ya hizo el update sobre la sesion
       // primaria. Si veniamos como 'nueva', redirigimos al UUID real para que la URL
@@ -194,8 +172,14 @@ export function useTaigerChat({
         router.replace(`/coach/sesion/${realSessionId}`)
       }
     } catch {
-      setError('Error de conexión. Inténtalo de nuevo.')
+      // D6 — degradación honesta. La pregunta del usuario YA está en `messages`
+      // (no se pierde). Distinguimos corte a mitad de stream de fallo de conexión
+      // para no mentir ("se cortó" implica que algo empezó a llegar).
+      setError(receivedAny
+        ? 'La respuesta se cortó. Tocá reintentar.'
+        : 'No me pude conectar. Tocá reintentar.')
     } finally {
+      // Pase lo que pase, nunca dejamos el spinner colgado (CERO FALLOS en cancha).
       setStreaming(false)
     }
   }, [session, sessionId, router, setMessages])

@@ -215,12 +215,18 @@ describe('Canario tAIger+: chat coach (fixes 2026-05-06)', () => {
   })
 
   it('SSE reader del coach buffera chunks (multi-byte UTF-8 + frames partidos)', () => {
+    // Tras unificar el loop de bytes (PR2), el buffer SSE vive en el decoder
+    // compartido sseParser.createSseDecoder (única fuente de verdad, cubierto por
+    // sseParser.test.ts). El canario guarda el invariante del fix P0 11-may EN ESE
+    // módulo, y verifica que el hook lo consuma en vez de un loop inline propio.
+    const decoder = readFile('app/coach/sesion/[id]/hooks/sseParser.ts')
     const chatHook = readFile('app/coach/sesion/[id]/hooks/useTaigerChat.ts')
+
     // 1. decoder.decode debe usarse con {stream: true} para evitar romper
     //    acentos/emojis cuando un byte multi-byte UTF-8 cae al final del chunk.
     expect(
-      /decoder\.decode\(value,\s*\{\s*stream:\s*true\s*\}\)/.test(chatHook),
-      'TextDecoder.decode debe llamarse con {stream:true} en el loop del SSE ' +
+      /decoder\.decode\(\w+,\s*\{\s*stream:\s*true\s*\}\)/.test(decoder),
+      'TextDecoder.decode debe llamarse con {stream:true} en el decoder SSE ' +
       'para acumular bytes multi-byte UTF-8 incompletos entre reads. Sin esto, ' +
       'acentos y emojis del coach se rompen al azar.',
     ).toBe(true)
@@ -229,10 +235,20 @@ describe('Canario tAIger+: chat coach (fixes 2026-05-06)', () => {
     //    (separador SSE real). Sin buffer, frames partidos entre chunks TCP caen
     //    en el catch silencioso y el cliente pierde tokens.
     expect(
-      /let\s+buffer\s*=\s*['"]['"]/i.test(chatHook) && /buffer\s*\+=\s*decoder\.decode/.test(chatHook),
-      'El loop del SSE debe acumular en un buffer string entre reads ' +
-      '(let buffer = ""; buffer += decoder.decode(...)). Sin esto un frame ' +
-      'partido a mitad de JSON falla parse silencioso y se pierde texto.',
+      /let\s+buffer\s*=\s*['"]['"]/i.test(decoder) &&
+        /buffer\s*\+=\s*decoder\.decode/.test(decoder) &&
+        /split\(['"]\\n\\n['"]\)/.test(decoder),
+      'El decoder SSE debe acumular en un buffer string entre reads y partir por ' +
+      '"\\n\\n" (let buffer = ""; buffer += decoder.decode(...); buffer.split("\\n\\n")). ' +
+      'Sin esto un frame partido a mitad de JSON falla parse silencioso y se pierde texto.',
+    ).toBe(true)
+
+    // 3. El hook del chat DEBE consumir el decoder compartido — no reintroducir un
+    //    loop de buffer propio que podría regresar el bug (anti-decoración).
+    expect(
+      /createSseDecoder\(\)/.test(chatHook),
+      'useTaigerChat debe consumir createSseDecoder (decoder de bytes compartido) ' +
+      'en vez de un loop de buffer inline propio — evita regresar el fix P0 11-may.',
     ).toBe(true)
   })
 })
