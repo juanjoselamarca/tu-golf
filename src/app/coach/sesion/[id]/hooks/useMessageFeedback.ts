@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { fetchMessageFeedback, type ChatMessage, type MessageVote } from '@/lib/data/taiger'
 
@@ -20,6 +20,25 @@ export function nextVote(current: MessageVote | undefined, clicked: MessageVote)
  * de una sesión; una colisión solo haría que dos mensajes idénticos compartan
  * voto (inofensivo). Determinista (sin estado): mismo contenido → misma clave.
  */
+/**
+ * Combina los votos recién traídos del server con el estado local, sin pisar las
+ * claves que el usuario YA tocó en esta sesión (carrera carga-inicial vs voto
+ * optimista). Para una clave tocada: gana el valor local (su voto, o ausencia si
+ * lo retiró). Para el resto: lo que dice el server. Pura → testeable.
+ */
+export function mergeVotes(
+  fetched: Record<string, MessageVote>,
+  prev: Record<string, MessageVote>,
+  touched: Set<string>,
+): Record<string, MessageVote> {
+  const merged: Record<string, MessageVote> = { ...fetched }
+  touched.forEach(k => {
+    if (prev[k] !== undefined) merged[k] = prev[k]
+    else delete merged[k]
+  })
+  return merged
+}
+
 export function messageKey(content: string): string {
   let h1 = 0xdeadbeef
   let h2 = 0x41c6ce57
@@ -60,6 +79,8 @@ export function useMessageFeedback(
 ): UseMessageFeedbackResult {
   // Votos indexados por la clave estable del mensaje (hash de contenido).
   const [votesByKey, setVotesByKey] = useState<Record<string, MessageVote>>({})
+  // Claves que el usuario tocó en esta sesión. La carga inicial NO debe pisarlas.
+  const touchedRef = useRef<Set<string>>(new Set())
   const canVote = sessionId !== 'nueva'
 
   useEffect(() => {
@@ -68,7 +89,11 @@ export function useMessageFeedback(
     const load = async () => {
       const supabase = createClient()
       const votes = await fetchMessageFeedback(supabase, sessionId)
-      if (!cancelled) setVotesByKey(votes)
+      if (cancelled) return
+      // Merge en vez de reemplazar: si el usuario votó mientras el fetch estaba
+      // en vuelo (carrera real bajo latencia de prod), su voto optimista gana —
+      // el POST ya lo persistió, sería un parpadeo "no se registró" pisarlo.
+      setVotesByKey(prev => mergeVotes(votes, prev, touchedRef.current))
     }
     load()
     return () => { cancelled = true }
@@ -93,6 +118,9 @@ export function useMessageFeedback(
     const key = messageKey(msg.content)
     const prev = votesByKey[key]
     const target = nextVote(prev, clicked)
+
+    // Marca la clave como tocada: la carga inicial (si llega tarde) no la pisa.
+    touchedRef.current.add(key)
 
     // Optimista: aplicar de inmediato.
     setVotesByKey(curr => {
