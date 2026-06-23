@@ -284,6 +284,22 @@ function RondaLibrePageContent() {
           <ShareLeaderboardButton isFinished={isFinished} onShare={() => shareLeaderboard(isFinished)} />
         )}
 
+        {/* Finalizada: copiar link como acción secundaria (ghost). El compartir
+            primario (imagen del resultado) vive en el cuadro ganador. */}
+        {isFinished && hayDatos && (
+          <button
+            onClick={handleCopy}
+            aria-label="Copiar enlace de la ronda"
+            style={{
+              width: '100%', padding: '12px', marginBottom: '12px',
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: '#c4992a', fontWeight: 600, fontSize: '14px', minHeight: '44px',
+            }}
+          >
+            {copied ? '✓ Link copiado' : 'Copiar link'}
+          </button>
+        )}
+
         {isFinished && (
           <PostRondaLinks isAnonymous={isAnonymous} onRequireAuth={() => requireAuth('Ve tus estadísticas de golf')} />
         )}
