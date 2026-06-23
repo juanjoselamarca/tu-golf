@@ -212,7 +212,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
 
         {!loading && rounds && rounds.length === 0 && (
           <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0', lineHeight: 1.6 }}>
-            Aún no tenés rondas con diferencial calculado.<br />
+            Aún no tienes rondas con diferencial calculado.<br />
             Importá tu historial desde FedeGolf, Garmin o un CSV.
           </p>
         )}

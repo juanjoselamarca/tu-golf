@@ -205,7 +205,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
             ? ' '
             : totalRounds === 1
               ? 'Esta es tu primera ronda en Golfers+.'
-              : `Ya tenés ${totalRounds} rondas en tu historial.`}
+              : `Ya tienes ${totalRounds} rondas en tu historial.`}
         </p>
 
         {/* Pregunta de 1 vez: tee de salida para las tarjetas que no lo traían. */}
@@ -223,7 +223,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
             }}
           >
             <p style={{ fontSize: '14px', color: 'var(--text)', margin: '0 0 14px', lineHeight: 1.5, textAlign: 'center' }}>
-              Algunas tarjetas no traían el tee de salida. Para calcular bien tu hándicap, contanos cómo jugás.
+              Algunas tarjetas no traían el tee de salida. Para calcular bien tu hándicap, cuéntanos cómo juegas.
             </p>
 
             {/* Género — desambigua tees del mismo color por género. */}
@@ -252,7 +252,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
 
             {/* Color de tee habitual. */}
             <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 8px', textAlign: 'center' }}>
-              ¿Desde qué color salís normalmente?
+              ¿Desde qué color sales normalmente?
             </p>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
               {TEE_OPTIONS.map((t) => (
@@ -310,7 +310,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
             </button>
             {teeError && (
               <p style={{ fontSize: '13px', color: '#dc2626', margin: '12px 0 0', textAlign: 'center' }}>
-                No pudimos guardar. Probá de nuevo.
+                No pudimos guardar. Prueba de nuevo.
               </p>
             )}
           </div>

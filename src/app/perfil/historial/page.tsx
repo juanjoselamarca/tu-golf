@@ -89,7 +89,7 @@ function HistorialContent() {
     if (res.ok) {
       toast.showSuccess(
         `${res.deletedCount} ${res.deletedCount === 1 ? 'ronda eliminada' : 'rondas eliminadas'}`,
-        res.index != null ? `Tu índice ahora: ${res.index.toFixed(1)}` : 'Ya no tenés índice (sin rondas).',
+        res.index != null ? `Tu índice ahora: ${res.index.toFixed(1)}` : 'Ya no tienes índice (sin rondas).',
       )
     } else if (res.reason === 'noop') {
       toast.showWarning('No se eliminó nada', 'Recargá la página e intentá de nuevo.')

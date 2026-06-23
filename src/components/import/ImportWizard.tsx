@@ -215,13 +215,13 @@ export default function ImportWizard() {
           } else if (data.errors && data.errors.length > 0) {
             const firstError = data.errors[0]?.error || 'Error desconocido'
             const errorMsg = firstError === 'not_a_scorecard'
-              ? 'No se detecto una tarjeta de golf en la imagen. Asegurate de que sea un pantallazo de Garmin Golf.'
+              ? 'No se detectó una tarjeta de golf en la imagen. Asegúrate de que sea un pantallazo de Garmin Golf.'
               : firstError.includes('API')
                 ? 'Error conectando con el servicio de lectura de fotos. Intenta de nuevo en unos segundos.'
                 : `No se pudo leer la foto: ${firstError}`
             throw new Error(errorMsg)
           } else {
-            throw new Error('No se detectaron rondas en la imagen. Asegurate de subir un pantallazo de Garmin Golf (Activity o Scorecard).')
+            throw new Error('No se detectaron rondas en la imagen. Asegúrate de subir un pantallazo de Garmin Golf (Activity o Scorecard).')
           }
         } else {
           // CSV
