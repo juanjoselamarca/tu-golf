@@ -7,6 +7,8 @@ interface UseTaigerIntroResult {
   /** setter expuesto para limpiar el opener al materializarlo en el primer turno. */
   setOpener: React.Dispatch<React.SetStateAction<string | null>>
   openerLoading: boolean
+  /** Chips de arranque (preguntas sugeridas). Solo se muestran en el estado vacío. */
+  chips: string[]
 }
 
 /**
@@ -20,6 +22,7 @@ interface UseTaigerIntroResult {
 export function useTaigerIntro(loadingSession: boolean, messagesLength: number): UseTaigerIntroResult {
   const [opener, setOpener] = useState<string | null>(null)
   const [openerLoading, setOpenerLoading] = useState(false)
+  const [chips, setChips] = useState<string[]>([])
 
   useEffect(() => {
     if (loadingSession) return
@@ -28,10 +31,13 @@ export function useTaigerIntro(loadingSession: boolean, messagesLength: number):
     setOpenerLoading(true)
     fetch('/api/taiger/intro', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.opener) setOpener(d.opener) })
+      .then(d => {
+        if (d?.opener) setOpener(d.opener)
+        if (Array.isArray(d?.chips)) setChips(d.chips.filter((c: unknown): c is string => typeof c === 'string' && c.trim().length > 0))
+      })
       .catch(() => { /* fallback silencioso: queda el espacio vacio */ })
       .finally(() => setOpenerLoading(false))
   }, [loadingSession, messagesLength, opener, openerLoading])
 
-  return { opener, setOpener, openerLoading }
+  return { opener, setOpener, openerLoading, chips }
 }

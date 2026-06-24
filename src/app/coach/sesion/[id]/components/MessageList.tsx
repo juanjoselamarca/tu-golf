@@ -19,6 +19,9 @@ interface MessageListProps {
   canVote: boolean
   streaming: boolean
   onVote: (messageIndex: number, clicked: MessageVote) => void
+  /** Chips de arranque del estado vacío + handler (tocar = enviar). */
+  chips?: string[]
+  onChip?: (question: string) => void
 }
 
 /**
@@ -38,6 +41,8 @@ export function MessageList({
   canVote,
   streaming,
   onVote,
+  chips,
+  onChip,
 }: MessageListProps) {
   const lastIdx = messages.length - 1
   // El primer mensaje 'user' marca dónde empieza la conversación real. El saludo
@@ -46,7 +51,7 @@ export function MessageList({
   const firstUserIdx = messages.findIndex(m => m.role === 'user')
   return (
     <>
-      {messages.length === 0 && opener && <EmptyState opener={opener} />}
+      {messages.length === 0 && opener && <EmptyState opener={opener} chips={chips} onChip={onChip} />}
 
       {messages.map((msg, i) => {
         const isStreamingThis = streaming && i === lastIdx
