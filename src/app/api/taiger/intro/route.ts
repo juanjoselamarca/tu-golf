@@ -1,40 +1,21 @@
 /**
- * Opener proactivo de tAIger+ — primer mensaje cuando el usuario abre el chat
- * sin haber escrito nada. Determinístico: usa la data del jugador para armar
- * un hook concreto, sin llamar al LLM (cero costo, instantáneo).
+ * Opener proactivo de tAIger+ — primer mensaje cuando el usuario abre el chat sin
+ * haber escrito nada, + chips de arranque (preguntas sugeridas). Determinístico:
+ * usa la data del jugador, sin llamar al LLM (cero costo, instantáneo).
  *
- * Reglas de prioridad (primer match gana):
- *  1. Última ronda <24h           → "Vi que jugaste ayer en X. ¿Cómo te sentiste?"
- *  2. Última ronda 1-7d con score → "Hace N días jugaste 87 en X. ¿Qué pasó en el back?"
- *  3. Plan activo con outcomes    → "Tu plan de back_nine viene mejorando. ¿Cómo va?"
- *  4. Plan activo sin outcomes    → "Asignamos foco en X. ¿Pudiste salir esta semana?"
- *  5. >7d sin jugar pero hay data → "Hace N días que no juegas. ¿Cuándo sales?"
- *  6. <3 rondas                   → "Bienvenido. Cuéntame de tu última ronda."
- *  7. Fallback                    → "Hola {nombre}, ¿en qué te puedo ayudar hoy?"
+ * Handler DELGADO (regla "el que toca, ordena"): solo I/O (auth + 5 queries). La
+ * selección de opener/hook/chips vive en `src/golf/coach/intro.ts` (pura, testeada).
  *
- * NO persiste en taiger_sessions. Si el usuario responde, el opener se incluye
- * en el primer POST a /api/taiger/chat como contexto, pero la sesión real solo
- * captura los turnos que sí se enviaron.
+ * NO persiste en taiger_sessions. Si el usuario responde, el opener se materializa
+ * como primer turno en el primer POST a /api/taiger/chat (ver useTaigerChat).
  */
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { buildIntro, type IntroContext } from '@/golf/coach/intro'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-interface IntroResponse {
-  opener: string
-  hook_type:
-    | 'recent_round'
-    | 'last_round_with_score'
-    | 'plan_with_progress'
-    | 'plan_no_progress'
-    | 'long_absence'
-    | 'newcomer'
-    | 'fallback'
-  generated_at: string
-}
 
 function firstName(full: string | null | undefined): string {
   if (!full) return ''
@@ -81,92 +62,26 @@ export async function GET() {
       .eq('user_id', user.id),
   ])
 
-  const name = firstName(profileRes.data?.name)
-  const handle = name || 'jugador'
   const latest = latestRoundRes.data
   const plan = planRes.data
   const outcomes = outcomesCountRes.data ?? []
-  const outcomesCount = outcomes.length
-  const targetsReached = outcomes.filter(o => o.target_reached).length
-  const totalRounds = totalRoundsRes.count ?? 0
 
-  const round_days_ago = daysAgo(latest?.played_at)
-  const courseLabel = latest?.course_name ?? 'la cancha'
-
-  const now = new Date().toISOString()
-
-  // 1) Última ronda < 24h
-  if (latest && round_days_ago !== null && round_days_ago === 0) {
-    const hookText = name
-      ? `Vi que jugaste hoy en ${courseLabel}, ${name}. ¿Cómo te sentiste?`
-      : `Vi que jugaste hoy en ${courseLabel}. ¿Cómo te sentiste?`
-    return ok({ opener: hookText, hook_type: 'recent_round', generated_at: now })
+  const ctx: IntroContext = {
+    name: firstName(profileRes.data?.name),
+    roundDaysAgo: daysAgo(latest?.played_at),
+    courseLabel: latest?.course_name ?? 'la cancha',
+    lastGross: typeof latest?.total_gross === 'number' ? latest.total_gross : null,
+    hasPlan: !!plan,
+    planPatternId: plan?.pattern_id ?? null,
+    outcomesCount: outcomes.length,
+    targetsReached: outcomes.filter(o => o.target_reached).length,
+    totalRounds: totalRoundsRes.count ?? 0,
   }
 
-  // 2) Última ronda 1-7 días, con score
-  if (latest && round_days_ago !== null && round_days_ago >= 1 && round_days_ago <= 7 && typeof latest.total_gross === 'number') {
-    const dayWord = round_days_ago === 1 ? 'ayer' : `hace ${round_days_ago} días`
-    const greeting = name ? `${name}, ` : ''
-    const opener = `${greeting}${dayWord} jugaste ${latest.total_gross} en ${courseLabel}. ¿Quieres repasar la ronda o trabajar algo puntual?`
-    return ok({ opener, hook_type: 'last_round_with_score', generated_at: now })
-  }
+  const { opener, hook_type, chips } = buildIntro(ctx)
 
-  // 3) Plan activo con outcomes registrados
-  if (plan && outcomesCount > 0) {
-    const trend = targetsReached >= Math.ceil(outcomesCount / 2) ? 'viene mejorando' : 'todavía está en progreso'
-    const greeting = name ? `${name}, ` : ''
-    const opener = `${greeting}tu plan actual sobre ${humanPattern(plan.pattern_id)} ${trend} (${targetsReached}/${outcomesCount} rondas en target). ¿Cómo lo sentís?`
-    return ok({ opener, hook_type: 'plan_with_progress', generated_at: now })
-  }
-
-  // 4) Plan activo sin outcomes aún
-  if (plan && outcomesCount === 0) {
-    const greeting = name ? `${name}, ` : ''
-    const opener = `${greeting}arrancamos hace poco con foco en ${humanPattern(plan.pattern_id)}. ¿Pudiste salir a la cancha o practicar?`
-    return ok({ opener, hook_type: 'plan_no_progress', generated_at: now })
-  }
-
-  // 5) >7 días sin jugar
-  if (latest && round_days_ago !== null && round_days_ago > 7) {
-    const opener = name
-      ? `Hace ${round_days_ago} días que no anotas una ronda, ${name}. ¿Cuándo sales de nuevo?`
-      : `Hace ${round_days_ago} días que no anotas una ronda. ¿Cuándo sales de nuevo?`
-    return ok({ opener, hook_type: 'long_absence', generated_at: now })
-  }
-
-  // 6) Newcomer: <3 rondas en la app
-  if (totalRounds < 3) {
-    const opener = name
-      ? `Bienvenido, ${name}. Para arrancar fuerte: cuéntame cómo viene tu juego últimamente o pásame el score de tu última ronda.`
-      : `Bienvenido. Para arrancar fuerte: cuéntame cómo viene tu juego últimamente o pásame el score de tu última ronda.`
-    return ok({ opener, hook_type: 'newcomer', generated_at: now })
-  }
-
-  // 7) Fallback
-  const opener = name
-    ? `Hola ${name}, ¿en qué te puedo ayudar hoy?`
-    : `Hola, ¿en qué te puedo ayudar hoy?`
-  return ok({ opener, hook_type: 'fallback', generated_at: now })
-
-  // helper local para evitar repetir el headers
-  function ok(payload: IntroResponse) {
-    return NextResponse.json(payload, {
-      headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
-    })
-  }
-}
-
-function humanPattern(id: string): string {
-  const map: Record<string, string> = {
-    back_nine_collapse: 'el back nine',
-    front_nine_struggles: 'el front nine',
-    first_hole_anxiety: 'el primer hoyo',
-    par_3_weakness: 'los pares 3',
-    short_game_weakness: 'el juego corto',
-    post_bogey_spiral: 'la recuperación post-bogey',
-    three_putt_frequency: 'los three putts',
-    pressure_deterioration: 'el cierre bajo presión',
-    driving_inconsistency: 'la consistencia desde el tee',
-  }
-  return map[id] ?? 'tu plan activo'
+  return NextResponse.json(
+    { opener, hook_type, chips, generated_at: new Date().toISOString() },
+    { headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' } },
+  )
 }

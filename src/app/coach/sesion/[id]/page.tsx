@@ -22,11 +22,12 @@ export default function SesionDetailPage() {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollPendingRef = useRef(false)
+  const deepLinkSentRef = useRef(false)
   const keyboardInset = useVisualViewport()
 
   const { session, notFound, loadingSession, messages, setMessages } =
     useTaigerSession(sessionId)
-  const { opener, setOpener } = useTaigerIntro(loadingSession, messages.length)
+  const { opener, setOpener, chips } = useTaigerIntro(loadingSession, messages.length)
   const {
     streaming, error, activity,
     plansByMsgIdx, roundsByMsgIdx, projectionsByMsgIdx,
@@ -52,6 +53,20 @@ export default function SesionDetailPage() {
       el.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, streaming, keyboardInset])
+
+  // D4 — deep-link ?q=<pregunta>: arrancar el chat desde una ronda/landing con la
+  // pregunta ya enviada (cero fricción). Auto-envía SOLO texto, una vez, cuando la
+  // sesión cargó y no hay mensajes. El contexto de ronda lo resuelve el coach con
+  // su tool find_rounds desde el texto (no se extiende schema — enmienda E4).
+  useEffect(() => {
+    if (deepLinkSentRef.current) return
+    if (loadingSession || !session) return
+    if (messages.length > 0) return
+    const q = new URLSearchParams(window.location.search).get('q')?.trim()
+    if (!q) return
+    deepLinkSentRef.current = true
+    handleSend(q)
+  }, [loadingSession, session, messages.length, handleSend])
 
   const onSend = () => {
     if (!input.trim() || streaming) return
@@ -91,6 +106,8 @@ export default function SesionDetailPage() {
           canVote={canVote}
           streaming={streaming}
           onVote={submitVote}
+          chips={chips}
+          onChip={(q) => { if (!streaming) handleSend(q) }}
         />
 
         {streaming && messages.length > 0 && !messages[messages.length - 1]?.content && (
