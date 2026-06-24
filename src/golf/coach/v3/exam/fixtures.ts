@@ -71,6 +71,8 @@ const lomasHandicap = {
   slope: 133,
 }
 
+// Rondas Lomas SOLO-gross (sin scores por hoyo) a propósito: las usan los casos
+// data-access/lenguaje, que no presentan foco. Para foco real ver lomasDeepRounds.
 function lomasRounds(n: number, base = 84): ExamSeedRound[] {
   return Array.from({ length: n }, (_, i) => ({
     course: 'Club Golf Lomas de la Dehesa',
@@ -81,17 +83,61 @@ function lomasRounds(n: number, base = 84): ExamSeedRound[] {
   }))
 }
 
-// Seed con historial 18h profundo (el motor de foco necesita ~15+ rondas 18h).
-// Diferenciales que bajan con el tiempo (95→83) como el caso real de Juanjo.
+// ── Generadores de scorecards por hoyo (P3) ────────────────────────────────
+// El motor de foco (get_focus → detectPatterns) exige `scores[]` por hoyo que
+// crucen umbrales reales. Estos generadores producen tarjetas que disparan UN
+// patrón dominante y concreto (verificado por los tests de `fixtures-focus`),
+// para que el examen mida coaching v3 con foco real, no fallback (spec D5).
+// Las tarjetas son honestas (solo gross por hoyo): el banco NO modela putts, así
+// que `three_putt_frequency` queda fuera a propósito (coherente con el caso
+// hostil_exige_dato_inexistente, donde el coach NO tiene datos de putts).
+
+/** scores `{"1":n,…}` desde un over-par por hoyo; total = suma de los scores. */
+function roundScores(pares: number[], overPar: number[]): { scores: Record<string, number>; total: number } {
+  const scores: Record<string, number> = {}
+  let total = 0
+  for (let i = 0; i < pares.length; i++) {
+    const s = pares[i] + (overPar[i] ?? 0)
+    scores[String(i + 1)] = s
+    total += s
+  }
+  return { scores, total }
+}
+
+// Espiral post-bogey: prioridad de hoyos (0-idx) para sembrar bogeys en PARES
+// consecutivos (bogey→bogey) balanceados front/back, evitando hoyo 1 y los
+// últimos 4 hasta que el excess es alto. Más excess = ronda más vieja (peor).
+const POST_BOGEY_PRIORITY = [1, 2, 9, 10, 4, 5, 12, 13, 7, 8, 3, 11, 6, 0, 15, 16, 14, 17]
+// `excess` ≤ 18 (garantizado por LOMAS_EXCESS): la 1ª pasada hace bogeys, la 2ª
+// dobles. Si alguien subiera un valor >18, el doble loop empezaría a hacer triples
+// — mantener el tope para que los scores sigan siendo golfísticamente plausibles.
+function postBogeyOverPar(excess: number): number[] {
+  const op = Array(18).fill(0)
+  let e = excess
+  for (const h of POST_BOGEY_PRIORITY) { if (e <= 0) break; op[h] += 1; e-- }
+  for (const h of POST_BOGEY_PRIORITY) { if (e <= 0) break; op[h] += 1; e-- } // dobles si sobra
+  return op
+}
+// Excess decreciente (ronda vieja→nueva): el jugador "viene mejorando" (88→81).
+const LOMAS_EXCESS = [16, 15, 16, 14, 14, 13, 13, 12, 13, 11, 12, 11, 11, 10, 10, 9, 10, 9]
+
+// Seed 18h profundo de Juanjo → patrón dominante `post_bogey_spiral` (su fuga
+// real documentada). El historial baja con el tiempo (tendencia "mejorando").
 function lomasDeepRounds(): ExamSeedRound[] {
-  const totals = [95, 93, 96, 91, 92, 89, 90, 88, 91, 87, 88, 86, 87, 85, 86, 84, 85, 83]
-  return totals.map((total, i) => ({
-    course: 'Club Golf Lomas de la Dehesa',
-    course_id: LOMAS_ID,
-    total,
-    holes: 18,
-    played_at: `2025-${String((i % 12) + 1).padStart(2, '0')}-15`,
-  }))
+  return LOMAS_EXCESS.map((excess, i) => {
+    const { scores, total } = roundScores(LOMAS_PARES, postBogeyOverPar(excess))
+    return {
+      course: 'Club Golf Lomas de la Dehesa',
+      course_id: LOMAS_ID,
+      total,
+      holes: 18,
+      // Fecha ÚNICA y monótona (vieja→nueva con i): el orden temporal == el orden
+      // de mejora. Importa porque prod ordena por played_at desc (loadFocusRounds),
+      // así "viene mejorando" (88→81) se lee igual cronológicamente que en el array.
+      played_at: `2025-${String(Math.floor(i / 2) + 1).padStart(2, '0')}-${i % 2 === 0 ? '05' : '20'}`,
+      scores,
+    }
+  })
 }
 
 const lomasDeepSeed: ExamSeed = {
@@ -104,6 +150,16 @@ const lomasDeepSeed: ExamSeed = {
 const PRINCE_ID = '00000000-0000-4000-8000-0000000020b6'
 const PRINCE_PARES = [4, 4, 4, 3, 5, 4, 4, 3, 5, 4, 3, 4, 4, 5, 4, 4, 3, 4]
 const princeScorecard = { course: 'Prince of Wales Country Club', course_id: PRINCE_ID, par_total: 71, pares: PRINCE_PARES }
+const princeHandicap = {
+  cancha: 'Prince of Wales Country Club',
+  course_id: PRINCE_ID,
+  indice: 12,
+  handicap_de_juego: 15,
+  holes: 18,
+  tee: 'blanco',
+  course_rating: 71.2,
+  slope: 128,
+}
 function princeRounds(n: number, base = 90): ExamSeedRound[] {
   return Array.from({ length: n }, (_, i) => ({
     course: 'Prince of Wales Country Club',
@@ -112,6 +168,36 @@ function princeRounds(n: number, base = 90): ExamSeedRound[] {
     holes: 18,
     played_at: `2026-0${(i % 6) + 1}-20`,
   }))
+}
+
+// Caída en back nine: el back se desploma (+10 sobre par) en hoyos NO
+// consecutivos (10,12,14,18 → 0-idx 9,11,13,17), off par 3 (idx 3,7,10,16) y sin
+// cargar los últimos 4 — así dispara back_nine_collapse SIN espiral, sin par_3 ni
+// pressure. El front queda cerca de par con bogeys leves no consecutivos que
+// varían el total (82–84, realista para índice 12). Front9 ≈38, back9 ≈45, diff ≈7.
+function back9CollapseOverPar(i: number): number[] {
+  const op = Array(18).fill(0)
+  op[9] = 3; op[11] = 2; op[13] = 3; op[17] = 2 // back collapse, no consecutivo
+  const frontBogeys: number[][] = [[0, 4, 8], [1, 5], [0, 6, 8], [2, 4], [0, 5, 8], [1, 6], [4, 8], [0, 2, 5]]
+  const frontBirdies: number[][] = [[], [8], [4], [], [], [], [0], [8]]
+  for (const h of frontBogeys[i % 8]) op[h] += 1
+  for (const h of frontBirdies[i % 8]) op[h] -= 1
+  return op
+}
+// Seed 16h en Prince → patrón dominante `back_nine_collapse` (distinto de Lomas,
+// para que el banco mida focos DIVERSOS, no el mismo seis veces).
+function princeFocusRounds(): ExamSeedRound[] {
+  return Array.from({ length: 16 }, (_, i) => {
+    const { scores, total } = roundScores(PRINCE_PARES, back9CollapseOverPar(i))
+    return {
+      course: 'Prince of Wales Country Club',
+      course_id: PRINCE_ID,
+      total,
+      holes: 18,
+      played_at: `2026-${String(Math.floor(i / 2) + 1).padStart(2, '0')}-${i % 2 === 0 ? '07' : '21'}`, // únicas y monótonas
+      scores,
+    }
+  })
 }
 
 export const EXAM_CASES: ExamCase[] = [
@@ -218,7 +304,7 @@ export const EXAM_CASES: ExamCase[] = [
     id: 'seis_piezas_otra_cancha',
     tags: ['6-piezas', 'data-access'],
     userMessage: 'Juego casi siempre en Prince of Wales. ¿Qué es lo que más me cuesta?',
-    seed: { rounds: princeRounds(16, 88), scorecard: princeScorecard },
+    seed: { rounds: princeFocusRounds(), scorecard: princeScorecard, handicap: princeHandicap },
     rubric: {
       must: ['basa el foco en las rondas reales del jugador, no en generalidades'],
       mustNot: ['inventa una estadística que no surge de sus rondas', 'da una lista larga en vez de un foco'],
