@@ -33,7 +33,7 @@ export function useTaigerIntro(loadingSession: boolean, messagesLength: number):
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d?.opener) setOpener(d.opener)
-        if (Array.isArray(d?.chips)) setChips(d.chips.filter((c: unknown) => typeof c === 'string'))
+        if (Array.isArray(d?.chips)) setChips(d.chips.filter((c: unknown): c is string => typeof c === 'string' && c.trim().length > 0))
       })
       .catch(() => { /* fallback silencioso: queda el espacio vacio */ })
       .finally(() => setOpenerLoading(false))
