@@ -139,7 +139,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'save_plan',
     description:
-      'Asigna o actualiza un plan estructurado al jugador. ÚNICA forma de comprometer un plan — NUNCA escribir el plan en prosa sin llamar esta tool. Si la llamás, el sistema persiste el plan, marca cualquier plan activo previo como superseded, y el cerebro empieza a medir adherencia automáticamente. Llamala SOLO cuando tengas: (1) un patrón confirmado del jugador con datos reales, (2) hipótesis clara, (3) métrica medible, (4) target numérico realista para 2-12 semanas.',
+      'Asigna o actualiza un plan estructurado al jugador. ÚNICA forma de comprometer un plan — NUNCA escribir el plan en prosa sin llamar esta tool. Si la llamas, el sistema persiste el plan, marca cualquier plan activo previo como superseded, y el cerebro empieza a medir adherencia automáticamente. Llámala SOLO cuando tengas: (1) un patrón confirmado del jugador con datos reales, (2) hipótesis clara, (3) métrica medible, (4) target numérico realista para 2-12 semanas.',
     input_schema: {
       type: 'object',
       properties: {
@@ -715,7 +715,7 @@ async function getCourseScorecard(ctx: ToolExecutionContext, ref: string): Promi
   if (!match) {
     return {
       ok: false,
-      error: `No hay ninguna cancha que coincida con "${trimmed}" en el catálogo. NO le pidas los pares al jugador: la app no tiene esa cancha catalogada todavía. Ofrecé el mejor análisis posible con los scores que sí tengas.`,
+      error: `No hay ninguna cancha que coincida con "${trimmed}" en el catálogo. NO le pidas los pares al jugador: la app no tiene esa cancha catalogada todavía. Ofrece el mejor análisis posible con los scores que sí tengas.`,
     }
   }
 

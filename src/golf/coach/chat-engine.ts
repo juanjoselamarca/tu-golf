@@ -39,8 +39,8 @@ export function enforceFinalText(
   // información aunque la tarjeta no se haya persistido (P1 review 2026-06-05).
   const hint = opts.relativeHint
   const safe = hint
-    ? `Mejor te lo doy en "sobre par" para no jugarte un número sin verificar: apuntá a ${hint} sobre par. El desglose exacto está en la tarjeta de acá abajo 👇`
-    : 'Mejor te lo doy en "sobre par" para no jugarte un número sin verificar. Pedímelo de nuevo y te lo calculo exacto con los datos de la cancha.'
+    ? `Mejor te lo doy en "sobre par" para no jugarte un número sin verificar: apunta a ${hint} sobre par. El desglose exacto está en la tarjeta de acá abajo 👇`
+    : 'Mejor te lo doy en "sobre par" para no jugarte un número sin verificar. Pídemelo de nuevo y te lo calculo exacto con los datos de la cancha.'
   return { blocked: true, text: safe }
 }
 
@@ -56,7 +56,7 @@ async function regenerateRelativeOnly(
 ): Promise<{ text: string; usage: Anthropic.Usage }> {
   const strictSystem =
     systemFinal +
-    '\n\n[CORRECCIÓN OBLIGATORIA] Tu respuesta anterior incluyó un score absoluto que NO salió de la calculadora (compute_score_projection). Reescribí tu respuesta SIN ningún score absoluto: hablá solo en "+N sobre par" y referí al jugador a la tarjeta de objetivo (👇) para el número exacto. No inventes ni recalcules números.'
+    '\n\n[CORRECCIÓN OBLIGATORIA] Tu respuesta anterior incluyó un score absoluto que NO salió de la calculadora (compute_score_projection). Reescribe tu respuesta SIN ningún score absoluto: habla solo en "+N sobre par" y refiere al jugador a la tarjeta de objetivo (👇) para el número exacto. No inventes ni recalcules números.'
   const resp = await anthropic.messages.create({
     model: coachModel(),
     max_tokens: 1024,
