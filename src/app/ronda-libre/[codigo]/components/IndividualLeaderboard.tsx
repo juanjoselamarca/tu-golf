@@ -29,6 +29,17 @@ export function IndividualLeaderboard({
     return getScoreColorLight(vsPar)
   }
 
+  // Simetría Gross/Neto: mostrar columna HCP + el número secundario (el modo NO
+  // oficial) siempre que haya cancha, no sea stableford, y los hándicaps hagan
+  // diferir gross de neto. Así una ronda gross con hándicaps muestra el Neto de
+  // apoyo (igual que una neto muestra el Gross), y una gross casual sin hándicaps
+  // queda limpia (solo Gross). El número PRIMARIO sigue siendo el modo oficial.
+  const showSecondary =
+    hasCourse &&
+    ronda.formato_juego !== 'stableford' &&
+    leaderboard.some(j => j.vsParGross !== j.vsParNeto)
+  const secondaryLabel = isNetoMode ? 'Gross' : 'Neto'
+
   return (
     <div style={{
       background: 'var(--bg-surface)', border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px',
@@ -37,14 +48,14 @@ export function IndividualLeaderboard({
       {/* Table header — incluye columna HCP cuando modo = neto */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: isNetoMode && ronda.formato_juego !== 'stableford'
+        gridTemplateColumns: showSecondary
           ? '28px 1fr 40px 64px 52px'
           : '32px 1fr 72px 60px',
         padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--border)', gap: '4px',
       }}>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>#</span>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>Jugador</span>
-        {isNetoMode && ronda.formato_juego !== 'stableford' && (
+        {showSecondary && (
           <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'center' }}>HCP</span>
         )}
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'center' }}>
@@ -79,7 +90,7 @@ export function IndividualLeaderboard({
               style={{
                 width: '100%', background: 'var(--bg-surface)', border: 'none', cursor: 'pointer',
                 display: 'grid',
-                gridTemplateColumns: isNetoMode && !isStableford
+                gridTemplateColumns: showSecondary
                   ? '28px 1fr 40px 64px 52px'
                   : '32px 1fr 72px 60px',
                 padding: '13px 16px', alignItems: 'center', textAlign: 'left', gap: '4px',
@@ -94,7 +105,7 @@ export function IndividualLeaderboard({
                   </span>
                 )}
               </span>
-              {isNetoMode && !isStableford && (
+              {showSecondary && (
                 <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 700, textAlign: 'center', fontFamily: '"DM Mono", monospace' }}>
                   {j.courseHcp}
                 </span>
@@ -103,9 +114,9 @@ export function IndividualLeaderboard({
                 <span style={{ fontSize: '17px', fontWeight: 700, color: scoreColor, fontFamily: '"DM Mono", monospace' }}>
                   {vsParStr}
                 </span>
-                {isNetoMode && !isStableford && j.holesPlayed > 0 && (
+                {showSecondary && j.holesPlayed > 0 && j.vsParGross !== j.vsParNeto && (
                   <div style={{ fontSize: '10px', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace' }}>
-                    Gross {formatOverUnder(j.vsParGross)}
+                    {secondaryLabel} {formatOverUnder(isNetoMode ? j.vsParGross : j.vsParNeto)}
                   </div>
                 )}
               </div>
