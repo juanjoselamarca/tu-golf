@@ -127,7 +127,7 @@ export function buildMockExecuteTool(
         }
         return {
           ok: false,
-          error: `No hay ninguna cancha que coincida con "${courseRef ?? ''}" en el catálogo. NO le pidas los pares al jugador: ofrecé el mejor análisis con los scores que sí tengas.`,
+          error: `No hay ninguna cancha que coincida con "${courseRef ?? ''}" en el catálogo. NO le pidas los pares al jugador: ofrece el mejor análisis con los scores que sí tengas.`,
         }
       }
 

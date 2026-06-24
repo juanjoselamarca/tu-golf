@@ -8,8 +8,8 @@
  *  2. Última ronda 1-7d con score → "Hace N días jugaste 87 en X. ¿Qué pasó en el back?"
  *  3. Plan activo con outcomes    → "Tu plan de back_nine viene mejorando. ¿Cómo va?"
  *  4. Plan activo sin outcomes    → "Asignamos foco en X. ¿Pudiste salir esta semana?"
- *  5. >7d sin jugar pero hay data → "Hace N días que no jugás. ¿Cuándo salís?"
- *  6. <3 rondas                   → "Bienvenido. Contame de tu última ronda."
+ *  5. >7d sin jugar pero hay data → "Hace N días que no juegas. ¿Cuándo sales?"
+ *  6. <3 rondas                   → "Bienvenido. Cuéntame de tu última ronda."
  *  7. Fallback                    → "Hola {nombre}, ¿en qué te puedo ayudar hoy?"
  *
  * NO persiste en taiger_sessions. Si el usuario responde, el opener se incluye
@@ -107,7 +107,7 @@ export async function GET() {
   if (latest && round_days_ago !== null && round_days_ago >= 1 && round_days_ago <= 7 && typeof latest.total_gross === 'number') {
     const dayWord = round_days_ago === 1 ? 'ayer' : `hace ${round_days_ago} días`
     const greeting = name ? `${name}, ` : ''
-    const opener = `${greeting}${dayWord} jugaste ${latest.total_gross} en ${courseLabel}. ¿Querés repasar la ronda o trabajar algo puntual?`
+    const opener = `${greeting}${dayWord} jugaste ${latest.total_gross} en ${courseLabel}. ¿Quieres repasar la ronda o trabajar algo puntual?`
     return ok({ opener, hook_type: 'last_round_with_score', generated_at: now })
   }
 
@@ -129,16 +129,16 @@ export async function GET() {
   // 5) >7 días sin jugar
   if (latest && round_days_ago !== null && round_days_ago > 7) {
     const opener = name
-      ? `Hace ${round_days_ago} días que no anotás una ronda, ${name}. ¿Cuándo salís de nuevo?`
-      : `Hace ${round_days_ago} días que no anotás una ronda. ¿Cuándo salís de nuevo?`
+      ? `Hace ${round_days_ago} días que no anotas una ronda, ${name}. ¿Cuándo sales de nuevo?`
+      : `Hace ${round_days_ago} días que no anotas una ronda. ¿Cuándo sales de nuevo?`
     return ok({ opener, hook_type: 'long_absence', generated_at: now })
   }
 
   // 6) Newcomer: <3 rondas en la app
   if (totalRounds < 3) {
     const opener = name
-      ? `Bienvenido, ${name}. Para arrancar fuerte: contame cómo viene tu juego últimamente o pegame el score de tu última ronda.`
-      : `Bienvenido. Para arrancar fuerte: contame cómo viene tu juego últimamente o pegame el score de tu última ronda.`
+      ? `Bienvenido, ${name}. Para arrancar fuerte: cuéntame cómo viene tu juego últimamente o pásame el score de tu última ronda.`
+      : `Bienvenido. Para arrancar fuerte: cuéntame cómo viene tu juego últimamente o pásame el score de tu última ronda.`
     return ok({ opener, hook_type: 'newcomer', generated_at: now })
   }
 

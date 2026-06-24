@@ -11,7 +11,7 @@ describe('ANTI_HALLUCINATION — manejo de datos sin pedirle al jugador', () => 
   it('instruye usar las tools de datos primero', () => {
     expect(ANTI_HALLUCINATION).toContain('get_course_scorecard')
     expect(ANTI_HALLUCINATION).toContain('find_rounds')
-    expect(ANTI_HALLUCINATION).toMatch(/USÁ LAS TOOLS/i)
+    expect(ANTI_HALLUCINATION).toMatch(/USA LAS TOOLS/i)
   })
 
   it('PROHÍBE pedirle al jugador datos que la app ya tiene', () => {

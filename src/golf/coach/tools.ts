@@ -61,7 +61,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_course_details',
     description:
-      'Obtén información de una cancha: pares por hoyo, stroke index, par total. Úsala cuando necesites calcular strokes sobre par o analizar dificultad por hoyo. Requiere el UUID de la cancha. Si solo tenés el NOMBRE, usá get_course_scorecard.',
+      'Obtén información de una cancha: pares por hoyo, stroke index, par total. Úsala cuando necesites calcular strokes sobre par o analizar dificultad por hoyo. Requiere el UUID de la cancha. Si solo tienes el NOMBRE, usa get_course_scorecard.',
     input_schema: {
       type: 'object',
       properties: {
@@ -73,7 +73,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_course_scorecard',
     description:
-      'Obtén el scorecard de una cancha (pares y stroke index por hoyo, par total) por NOMBRE o por UUID. Usala cuando el jugador menciona una cancha por su nombre ("los pares de Lomas de la Dehesa"): NO necesitás el UUID, pasá el nombre y el sistema resuelve la cancha en el catálogo. Si la cancha no está en el catálogo, la tool te lo dice — en ese caso NUNCA le pidas los pares al jugador, ofrecé lo que puedas con lo que haya.',
+      'Obtén el scorecard de una cancha (pares y stroke index por hoyo, par total) por NOMBRE o por UUID. Úsala cuando el jugador menciona una cancha por su nombre ("los pares de Lomas de la Dehesa"): NO necesitas el UUID, pasa el nombre y el sistema resuelve la cancha en el catálogo. Si la cancha no está en el catálogo, la tool te lo dice — en ese caso NUNCA le pidas los pares al jugador, ofrece lo que puedas con lo que haya.',
     input_schema: {
       type: 'object',
       properties: {
@@ -108,7 +108,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'find_rounds',
     description:
-      'Busca rondas del jugador con filtros flexibles sobre TODO su historial (importado + jugado en la app, fuente única). Usala cuando el jugador menciona una cancha ("mis rondas en Lomas de la Dehesa"), un período ("este año", "marzo"), o quiere las recientes / su mejor / su peor ronda: NO necesitás la fecha exacta. Devuelve una lista de rondas con id, fecha, cancha, course_id, total y hoyos. Para el detalle hoyo-por-hoyo de una, después usá get_round_by_date o get_course_scorecard con el course_id que te devuelve.',
+      'Busca rondas del jugador con filtros flexibles sobre TODO su historial (importado + jugado en la app, fuente única). Úsala cuando el jugador menciona una cancha ("mis rondas en Lomas de la Dehesa"), un período ("este año", "marzo"), o quiere las recientes / su mejor / su peor ronda: NO necesitas la fecha exacta. Devuelve una lista de rondas con id, fecha, cancha, course_id, total y hoyos. Para el detalle hoyo-por-hoyo de una, después usa get_round_by_date o get_course_scorecard con el course_id que te devuelve.',
     input_schema: {
       type: 'object',
       properties: {
@@ -125,7 +125,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_playing_handicap',
     description:
-      'Calcula el HANDICAP DE JUEGO (course handicap WHS) del jugador en una cancha y tee concretos — los golpes que recibe en ESA cancha. Es DISTINTO del índice (el índice es uno solo; el handicap de juego depende de la cancha y el tee). Usala cuando el jugador pregunte "cuántos golpes me da X", "mi handicap de juego", "con qué handicap juego en Y". NUNCA inventes este número: si no llamás esta tool, hablá solo del índice y aclará que el de juego depende de la cancha.',
+      'Calcula el HANDICAP DE JUEGO (course handicap WHS) del jugador en una cancha y tee concretos — los golpes que recibe en ESA cancha. Es DISTINTO del índice (el índice es uno solo; el handicap de juego depende de la cancha y el tee). Úsala cuando el jugador pregunte "cuántos golpes me da X", "mi handicap de juego", "con qué handicap juego en Y". NUNCA inventes este número: si no llamas esta tool, habla solo del índice y aclara que el de juego depende de la cancha.',
     input_schema: {
       type: 'object',
       properties: {
@@ -139,7 +139,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'save_plan',
     description:
-      'Asigna o actualiza un plan estructurado al jugador. ÚNICA forma de comprometer un plan — NUNCA escribir el plan en prosa sin llamar esta tool. Si la llamás, el sistema persiste el plan, marca cualquier plan activo previo como superseded, y el cerebro empieza a medir adherencia automáticamente. Llamala SOLO cuando tengas: (1) un patrón confirmado del jugador con datos reales, (2) hipótesis clara, (3) métrica medible, (4) target numérico realista para 2-12 semanas.',
+      'Asigna o actualiza un plan estructurado al jugador. ÚNICA forma de comprometer un plan — NUNCA escribir el plan en prosa sin llamar esta tool. Si la llamas, el sistema persiste el plan, marca cualquier plan activo previo como superseded, y el cerebro empieza a medir adherencia automáticamente. Llámala SOLO cuando tengas: (1) un patrón confirmado del jugador con datos reales, (2) hipótesis clara, (3) métrica medible, (4) target numérico realista para 2-12 semanas.',
     input_schema: {
       type: 'object',
       properties: {
@@ -214,7 +214,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'compute_score_projection',
     description:
-      'Calcula un objetivo de score o un desglose de hoyos que SIEMPRE cierra aritméticamente. ÚSALA SIEMPRE que vayas a mostrar un score objetivo, un desglose ("X pares + Y bogeys") o una proyección. NUNCA hagas vos la aritmética del score: llamá esta tool y usá EXACTAMENTE su resultado. Para que devuelva un score ABSOLUTO (ej "79"), pasá course_id: la tool verifica el par real de la cancha hoyo por hoyo. Si no pasás course_id o la cancha no tiene par completo, devuelve solo el "+N sobre par" (nunca un absoluto adivinado).',
+      'Calcula un objetivo de score o un desglose de hoyos que SIEMPRE cierra aritméticamente. ÚSALA SIEMPRE que vayas a mostrar un score objetivo, un desglose ("X pares + Y bogeys") o una proyección. NUNCA hagas tú la aritmética del score: llama esta tool y usa EXACTAMENTE su resultado. Para que devuelva un score ABSOLUTO (ej "79"), pasa course_id: la tool verifica el par real de la cancha hoyo por hoyo. Si no pasas course_id o la cancha no tiene par completo, devuelve solo el "+N sobre par" (nunca un absoluto adivinado).',
     input_schema: {
       type: 'object',
       properties: {
@@ -715,7 +715,7 @@ async function getCourseScorecard(ctx: ToolExecutionContext, ref: string): Promi
   if (!match) {
     return {
       ok: false,
-      error: `No hay ninguna cancha que coincida con "${trimmed}" en el catálogo. NO le pidas los pares al jugador: la app no tiene esa cancha catalogada todavía. Ofrecé el mejor análisis posible con los scores que sí tengas.`,
+      error: `No hay ninguna cancha que coincida con "${trimmed}" en el catálogo. NO le pidas los pares al jugador: la app no tiene esa cancha catalogada todavía. Ofrece el mejor análisis posible con los scores que sí tengas.`,
     }
   }
 

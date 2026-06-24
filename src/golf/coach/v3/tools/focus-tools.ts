@@ -52,7 +52,7 @@ export const FOCUS_TOOLS = [
   {
     name: 'recall_facts',
     description:
-      'Trae los hechos que ya recordás del jugador (memoria episódica). Úsala al inicio de una conversación o cuando necesites contexto personal para afinar el consejo.',
+      'Trae los hechos que ya recuerdas del jugador (memoria episódica). Úsala al inicio de una conversación o cuando necesites contexto personal para afinar el consejo.',
     input_schema: {
       type: 'object',
       properties: {

@@ -283,7 +283,7 @@ Hipótesis: ${active_plan.hypothesis}
 Regla: ${active_plan.rule}
 Métrica: ${active_plan.metric} ${active_plan.target_op} ${active_plan.target_value}${active_plan.baseline_value != null ? ` (baseline ${active_plan.baseline_value})` : ''}
 Duración: ${active_plan.duration_days} días desde ${new Date(active_plan.created_at).toLocaleDateString('es-CL')}`
-  : 'Sin plan activo. Si el jugador necesita uno, llamá la tool save_plan con datos reales.'}
+  : 'Sin plan activo. Si el jugador necesita uno, llama la tool save_plan con datos reales.'}
 
 === ÚLTIMOS OUTCOMES DEL PLAN ===
 ${(recent_outcomes ?? []).length > 0
