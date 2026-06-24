@@ -270,7 +270,7 @@ describe('[peso:2] TAIGER_SESSION_STARTER — instrucción única para sesión c
   })
 
   it('El starter instruye al coach a detectar el modo automáticamente por el mensaje del jugador', () => {
-    expect(TAIGER_SESSION_STARTER).toContain('Detectá qué quiere')
+    expect(TAIGER_SESSION_STARTER).toContain('Detecta qué quiere')
     expect(TAIGER_SESSION_STARTER).toContain('mi última ronda')
     expect(TAIGER_SESSION_STARTER).toContain('plan de práctica')
   })
@@ -281,7 +281,7 @@ describe('[peso:2] TAIGER_SESSION_STARTER — instrucción única para sesión c
   })
 
   it('El starter PROHIBE preguntar datos que ya están en el contexto', () => {
-    expect(TAIGER_SESSION_STARTER).toContain('NUNCA preguntes datos que ya tenés en el contexto')
+    expect(TAIGER_SESSION_STARTER).toContain('NUNCA preguntes datos que ya tienes en el contexto')
   })
 
   it('El starter pide construir el perfil psicológico orgánicamente (no formulario)', () => {
@@ -290,7 +290,7 @@ describe('[peso:2] TAIGER_SESSION_STARTER — instrucción única para sesión c
   })
 
   it('El starter asume defaults razonables para plan semanal (no peloteo de datos)', () => {
-    expect(TAIGER_SESSION_STARTER).toContain('asumí 3-4 días')
+    expect(TAIGER_SESSION_STARTER).toContain('asume 3-4 días')
     expect(TAIGER_SESSION_STARTER).toContain('range + putting green')
   })
 })
