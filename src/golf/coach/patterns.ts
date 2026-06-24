@@ -299,7 +299,7 @@ export const PATTERNS: GolfPattern[] = [
     // El motor SOLO ve el total_gross por ronda — no hay datos de palo/driver.
     // La recomendación NO debe atribuir la dispersión al driver (sería inventar
     // una causa que los datos no soportan). Habla de consistencia general.
-    recommendation: 'Tus scores varían mucho de ronda a ronda. Trabajá una rutina pre-shot estable y enfocate en bajar los hoyos desastre (dobles+): la consistencia se gana evitando el golpe malo, no buscando el golpe perfecto.',
+    recommendation: 'Tus scores varían mucho de ronda a ronda. Trabaja una rutina pre-shot estable y enfócate en bajar los hoyos desastre (dobles+): la consistencia se gana evitando el golpe malo, no buscando el golpe perfecto.',
     detect(rounds) {
       const last10 = rounds.slice(-10).filter(r => typeof r.total_gross === 'number' && r.total_gross > 0)
       if (last10.length < 5) return { detected: false, confidence: 0 }

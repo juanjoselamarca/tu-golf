@@ -33,9 +33,9 @@ export const FIELD_CONTEXT_TOOL: Anthropic.Tool = {
   description:
     'Sitúa al jugador en su "campo": (A) cómo está esa métrica vs lo normal para SU hándicap, ' +
     '(B) en qué percentil poblacional está su índice ("mejor que X% de los golfistas"), y ' +
-    '(C) qué tan difícil es su cancha reciente vs una de referencia. Usala para dar perspectiva ' +
-    'realista ("para tu hándicap, esto ya es bueno" o "acá tenés margen"). NUNCA inventes percentiles ' +
-    'ni el hándicap: esta tool los calcula con datos reales del jugador. Vos sólo elegís QUÉ métrica contextualizar.',
+    '(C) qué tan difícil es su cancha reciente vs una de referencia. Úsala para dar perspectiva ' +
+    'realista ("para tu hándicap, esto ya es bueno" o "acá tienes margen"). NUNCA inventes percentiles ' +
+    'ni el hándicap: esta tool los calcula con datos reales del jugador. Tú solo eliges QUÉ métrica contextualizar.',
   input_schema: {
     type: 'object',
     properties: {
