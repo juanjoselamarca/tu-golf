@@ -137,6 +137,60 @@ export function validateCustomSI(si: Record<string, number>, holeCount: number):
 }
 
 /**
+ * ¿El siMap es una permutación válida 1..holeCount (sin duplicados, huecos ni nulls)?
+ * Si NO lo es, la alocación de golpes por `strokesRecibidosEnHoyo` pierde o duplica
+ * golpes silenciosamente (cuenta mal los hoyos con SI <= X). Bug de campo 24-jun-2026:
+ * 47/69 canchas chilenas tenían el SI con duplicados → net 18h salía +2/+3 de más.
+ */
+export function isValidStrokeIndexPermutation(
+  siMap: Record<number, number>,
+  holeCount: number,
+): boolean {
+  const seen = new Set<number>()
+  for (let h = 1; h <= holeCount; h++) {
+    const si = siMap[h]
+    if (si == null || !Number.isFinite(si) || si < 1 || si > holeCount) return false
+    if (seen.has(si)) return false
+    seen.add(si)
+  }
+  return seen.size === holeCount
+}
+
+/**
+ * Normaliza un siMap (posiblemente corrupto) a una permutación válida 1..holeCount
+ * por RANGO: ordena los hoyos por (SI crudo asc, número de hoyo asc) y reasigna
+ * rangos 1..N. Hoyos con SI null/inválido van al final.
+ *
+ * Garantía: con el resultado, `sum(strokesRecibidosEnHoyo(CH, rank, holes))` sobre
+ * los N hoyos == CH SIEMPRE (nunca se pierde ni duplica un golpe de hándicap),
+ * aunque el SI de catálogo tenga duplicados o huecos. Si el siMap YA es una
+ * permutación válida, esto es un no-op (rank == SI). Preserva el orden de dificultad
+ * existente; los empates se rompen por número de hoyo (determinista).
+ *
+ * NO reemplaza al SI oficial por hoyo (qué hoyo es el más difícil) — eso es data
+ * de catálogo. Solo asegura que el TOTAL de golpes alocados sea correcto.
+ */
+export function normalizeStrokeIndexMap(
+  siMap: Record<number, number>,
+  holeCount: number,
+): Record<number, number> {
+  const holes = Array.from({ length: holeCount }, (_, i) => i + 1)
+  const ranked = holes.slice().sort((a, b) => {
+    const sa = siMap[a]
+    const sb = siMap[b]
+    const va = sa == null || !Number.isFinite(sa) ? Infinity : sa
+    const vb = sb == null || !Number.isFinite(sb) ? Infinity : sb
+    if (va !== vb) return va - vb
+    return a - b
+  })
+  const out: Record<number, number> = {}
+  ranked.forEach((hole, i) => {
+    out[hole] = i + 1
+  })
+  return out
+}
+
+/**
  * Determine if SI warning should be shown based on format and course data.
  */
 export function shouldShowSIWarning(
