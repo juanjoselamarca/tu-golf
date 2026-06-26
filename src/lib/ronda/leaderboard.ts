@@ -64,7 +64,7 @@ export function buildLeaderboard({
         for (let h = 1; h <= holes; h++) {
           const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
           if (s != null) {
-            const si = siMapNorm[h] ?? h
+            const si = siMapNorm[h]
             const par = parMap[h] ?? 4
             stablefordPts += puntosStablefordHoyo(s, par, courseHcp, si, holes)
           }
