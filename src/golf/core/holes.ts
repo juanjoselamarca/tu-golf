@@ -110,3 +110,35 @@ export function parPerHoleArray(input: ParPerHoleInput): number[] | null {
 
   return null
 }
+
+/**
+ * Suma del par REAL de los hoyos JUGADOS, a partir de `par_per_hole`.
+ *
+ * Fuente única para "par de esta ronda" cuando hay datos por hoyo. Devuelve
+ * `null` si el shape es inválido/ausente — el caller decide el fallback
+ * (típicamente el estimado `getParForHoles` 36/72).
+ *
+ * `par_per_hole` en BD trae SIEMPRE los 18 hoyos del campo, aunque la ronda
+ * sea de 9. Por eso se recorta a `holesPlayed` (los primeros N). Sin
+ * `holesPlayed` suma el campo completo.
+ *
+ * LIMITACIÓN conocida: en rondas de 9 hoyos asume el FRONT nine (primeros N).
+ * `historical_rounds` no guarda qué 9 se jugaron, así que para un back-nine con
+ * front≠back par el total puede quedar off por algunos golpes. Es limitación de
+ * datos, no del helper; si en el futuro se suman los `scores` por número de hoyo
+ * real, indexar por esas keys lo cierra del todo.
+ *
+ * Cierra el bug P0 de la tarjeta OG: usaba par fijo 36/72 en vez del par real,
+ * mostrando vs-par incorrecto al compartir rondas en canchas par ≠ 72 (y −27
+ * en rondas de 9 hoyos al restar el par de los 18).
+ */
+export function parForRound(
+  input: ParPerHoleInput,
+  holesPlayed?: number | null,
+): number | null {
+  const arr = parPerHoleArray(input)
+  if (!arr) return null
+  if (holesPlayed == null) return arr.reduce((sum, p) => sum + p, 0)
+  if (holesPlayed <= 0) return null
+  return arr.slice(0, Math.min(holesPlayed, arr.length)).reduce((sum, p) => sum + p, 0)
+}

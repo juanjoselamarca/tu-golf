@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { inferHoles, parPerHoleArray } from './holes'
+import { inferHoles, parPerHoleArray, parForRound } from './holes'
 
 describe('inferHoles', () => {
   it('respeta holes_played cuando es 9 o 18', () => {
@@ -133,5 +133,48 @@ describe('parPerHoleArray — normalización JSONB / array', () => {
       }
       expect(parPerHoleArray(conKey0)).toBeNull()
     })
+  })
+})
+
+/**
+ * Tests del helper `parForRound` — par real de los hoyos jugados desde par_per_hole.
+ * Protege contra el bug P0 de la tarjeta OG: usaba par fijo 36/72 en vez del par
+ * real, mostrando vs-par incorrecto al compartir rondas en canchas par ≠ 72 y
+ * −27 en rondas de 9 hoyos (par_per_hole trae los 18, hay que recortar a los 9).
+ */
+describe('parForRound — par real de los hoyos jugados', () => {
+  // par_per_hole en BD SIEMPRE trae los 18 hoyos del campo (par 71 acá)
+  const campo18: Record<string, number> = {
+    '1': 4, '2': 4, '3': 3, '4': 4, '5': 5, '6': 4, '7': 3, '8': 4, '9': 5,
+    '10': 4, '11': 4, '12': 3, '13': 4, '14': 5, '15': 4, '16': 3, '17': 4, '18': 4,
+  }
+
+  it('18 hoyos jugados → par del campo completo (par 71, NO 72)', () => {
+    expect(parForRound(campo18, 18)).toBe(71)
+  })
+
+  it('9 hoyos jugados → SOLO los primeros 9 (no los 18)', () => {
+    // front 9 = 4+4+3+4+5+4+3+4+5 = 36 (acá coincide, pero por par real no fijo)
+    expect(parForRound(campo18, 9)).toBe(36)
+  })
+
+  it('9 hoyos en campo cuyo front 9 NO es 36 → par real, no estimado', () => {
+    const campoFront35: Record<string, number> = {
+      '1': 4, '2': 4, '3': 3, '4': 4, '5': 4, '6': 4, '7': 3, '8': 4, '9': 5, // = 35
+      '10': 4, '11': 4, '12': 3, '13': 4, '14': 5, '15': 4, '16': 3, '17': 4, '18': 4,
+    }
+    expect(parForRound(campoFront35, 9)).toBe(35) // el estimado 36/72 daría 36 (mal)
+  })
+
+  it('sin holesPlayed → suma el campo completo', () => {
+    expect(parForRound(campo18)).toBe(71)
+  })
+
+  it('shape inválido / null / holes inválido → null (caller usa fallback)', () => {
+    expect(parForRound(null, 18)).toBeNull()
+    expect(parForRound(undefined, 9)).toBeNull()
+    expect(parForRound({ '1': 4, '3': 4 }, 9)).toBeNull() // huecos
+    expect(parForRound(campo18, 0)).toBeNull()
+    expect(parForRound(campo18, -3)).toBeNull()
   })
 })
