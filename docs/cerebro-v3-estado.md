@@ -1,4 +1,27 @@
-# Estado Cerebro V3 — Actualizado 2026-06-24 — examen-v3-fidelidad: P1 ✅ (PR #189) + P2 ✅ (PR #193) + P3 ✅ EN PROD (PR #196 `fa43ebd4`) · Fase 0 examen-máquina ✅ EN PROD (PR #181) · Ola 1b.1 ✅ (PR #176) · Ola 3 ✅ COMPLETA · PRÓXIMO: P4 (flip examen a v3 + re-baseline LIVE) → P5 (hardening 6 piezas)
+# Estado Cerebro V3 — Actualizado 2026-06-26 — examen-v3-fidelidad: P1 ✅ (PR #189) + P2 ✅ (PR #193) + P3 ✅ (PR #196) + **P4 ✅ EN PROD (PR #201 `ab27755`)** · Fase 0 examen-máquina ✅ EN PROD (PR #181) · Ola 1b.1 ✅ (PR #176) · Ola 3 ✅ COMPLETA · PRÓXIMO: **P5 (hardening 6 piezas — captura2 data-access + cold-start/target)**
+
+---
+
+## ✅ P4 — examen-v3-fidelidad: flip a v3 + re-baseline honesto — MERGEADA Y EN PROD (26-jun, PR #201 squash `ab27755`)
+
+**Qué cerró:** el examen-máquina armaba el system prompt **v2** (sin CONOCER/ENGAGEMENT/RAG) pero ya exponía las **tools v3** — mismatch que subestimaba al coach v3 (medía el coach equivocado, hallazgo del 22-jun). P4 flipea el system a v3 y re-baselina.
+
+**Cambio (45/19 LOC, code-reviewer PASS):**
+- `build-exam-system.ts`: `buildExamSystem(seed, cerebroV3Enabled = true)` — flag parametrizado (antes hardcodeaba `false`). Default `true`.
+- `run-coach-exam.ts`: un único `const cerebroV3Enabled` gobierna **system Y tools** desde una sola fuente (un concepto, una fuente) — no pueden divergir.
+- 2 canarios nuevos: system v3 trae CONOCER+ENGAGEMENT+RAG; reproducción v2 con `false`.
+
+**Re-baseline LIVE (21 casos, coach sano) — el número honesto del coach v3:**
+- correctness **71% → 86%** (15/21 → 18/21)
+- 6-piezas **3.0 → 4.17 / 6**
+
+Confirma la hipótesis de P3: el baseline v2 subestimaba al coach v3. Los `seis_piezas_*` pasan a verde porque el prompt v3 enseña la estructura de 6 piezas.
+
+**Fallas restantes → blanco de P5 (hardening 6-piezas):**
+- `captura2_pide_data` (data-access P0): root-causeada vía traza — ante reclamo meta ("tienes la cancha, ¿por qué preguntas?") el coach v3 se disculpa y usa `recall_facts` pero **NO** llama `get_course_scorecard` para demostrar. Regresión real de v3 (más conversacional/disculpón), no bug del flip. **El coach debe DEMOSTRAR trayendo la data, no solo prometer.**
+- `cold_start_fallback_honesto` + `target_propone_meta`: estructura 6-piezas incompleta (faltan identidad/veredicto/target/delta/acción) en cold-start y al proponer meta.
+
+**Arranque P5:** worktree dedicado desde `main`. Foco: que el prompt v3 garantice (a) demostración con tool en reclamos de data-access, (b) las 6 piezas completas en cold-start y target. Cada cambio se mide re-corriendo el examen LIVE contra el baseline `ab27755` (gate: no regresar correctness <0.86 ni 6-piezas <4.17 menos tolerancias). Recordar: correctness es la métrica estable; 6-piezas tiene ruido ~0.8/corrida → usar CONTROL sobre base.
 
 ## ✅ Fase 0 — Examen-máquina del coach — MERGEADA Y EN PROD (18-jun, PR #181 squash `126d291`)
 
