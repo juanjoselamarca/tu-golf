@@ -46,4 +46,11 @@ describe('ANTI_HALLUCINATION — manejo de datos sin pedirle al jugador', () => 
   it('mantiene el ancla "MANEJO DE DATOS" del snapshot', () => {
     expect(ANTI_HALLUCINATION).toContain('MANEJO DE DATOS')
   })
+
+  it('ante un RECLAMO por un dato que debería tener, manda demostrar con la tool (P5 captura2)', () => {
+    expect(ANTI_HALLUCINATION).toMatch(/RECLAMA/i)
+    expect(ANTI_HALLUCINATION).toMatch(/DEMU[ÉE]STRALO/i)
+    // No alcanza con disculparse: debe traer y usar el dato en el mismo turno.
+    expect(ANTI_HALLUCINATION).toMatch(/no te limites a disculparte/i)
+  })
 })
