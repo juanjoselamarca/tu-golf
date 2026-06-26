@@ -7,9 +7,12 @@ import type { ExamSeed } from './fixtures'
  * con el contexto sembrado. Al ser la MISMA función que usa el coach real, el
  * examen no puede medir un prompt distinto al que se shippea (anti-divergencia).
  *
- * P1 del spec 2026-06-22: hoy pasa `cerebroV3Enabled: false` ⇒ arma el prompt v2,
- * byte-idéntico al armado previo. El flip a v3 (con tools v3 + seeds con scorecard)
- * es P2–P4; mientras tanto el examen sigue midiendo el coach v2.
+ * P4 del spec 2026-06-22 (flip a v3): el examen ahora arma el prompt **v3** por
+ * defecto (CONOCER + ENGAGEMENT + RAG), consistente con las tools v3 que el runner
+ * ya expone (P2) y los seeds con scorecard que disparan foco real (P3). El flag es
+ * un parámetro — no un hardcode — para que el runner lo gobierne desde UNA fuente y
+ * system+tools nunca diverjan (un concepto, una fuente). Default `true` = el coach
+ * "día-1-pro" que el examen debe medir; `false` reproduce el coach v2 legacy.
  */
 
 /** Contexto sembrado del jugador (incluye el índice — central en la captura 1). */
@@ -24,7 +27,7 @@ export function buildExamContext(seed: ExamSeed): string {
   return lines.join('\n')
 }
 
-export function buildExamSystem(seed: ExamSeed): string {
+export function buildExamSystem(seed: ExamSeed, cerebroV3Enabled = true): string {
   const context = buildExamContext(seed)
-  return buildCoachSystem({ contextString: context, cerebroV3Enabled: false, onboarded: true })
+  return buildCoachSystem({ contextString: context, cerebroV3Enabled, onboarded: true })
 }
