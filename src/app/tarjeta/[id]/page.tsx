@@ -13,6 +13,7 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { publishRound } from '@/lib/data/rounds'
 import Scorecard, { type ScorecardHole } from '@/components/Scorecard'
 import { ArrowLeft, Share2, Flag } from 'lucide-react'
 
@@ -48,6 +49,7 @@ export default function TarjetaPublicaPage() {
   const [notFound, setNotFound] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -71,6 +73,8 @@ export default function TarjetaPublicaPage() {
       }
 
       setRound(r as RoundData)
+      // Las notas son privadas: solo el dueño las ve, nunca un tercero con el link.
+      setIsOwner(!!user && user.id === r.user_id)
 
       // Fetch player name
       const { data: profile } = await supabase
@@ -103,6 +107,16 @@ export default function TarjetaPublicaPage() {
     const text = round
       ? `${playerName} jugó ${round.total_gross} en ${round.course_name} — Golfers+`
       : 'Tarjeta de golf — Golfers+'
+
+    // Compartir = publicar: hace visible la tarjeta al destinatario. Solo el
+    // dueño publica (RLS lo refuerza; el check evita un update inútil para otros).
+    if (round) {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user && user.id === round.user_id) {
+        await publishRound(supabase, id)
+      }
+    }
 
     if (navigator.share) {
       try { await navigator.share({ title: text, url }); return } catch { /* cancelled */ }
@@ -198,7 +212,7 @@ export default function TarjetaPublicaPage() {
         />
 
         {/* Notes */}
-        {round.notes && (
+        {isOwner && round.notes && (
           <div style={{ marginTop: 16, padding: '12px 16px', background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb' }}>
             <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 4 }}>Notas</div>
             <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{round.notes}</div>

@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { copyToClipboard } from '@/lib/clipboard'
+import { createClient } from '@/lib/supabase'
+import { publishRound } from '@/lib/data/rounds'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { compartirResultado } from '@/lib/share-card'
 import type { ShareCardData } from '@/lib/share-card'
@@ -68,6 +70,9 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
 
     // Si tenemos el ID de la tarjeta, compartir link a /tarjeta/[id]
     if (historicalRoundId) {
+      // Compartir = publicar: la tarjeta queda visible para el destinatario.
+      // RLS deja publicar solo al dueño; no bloquea el share si falla.
+      await publishRound(createClient(), historicalRoundId)
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
       const tarjetaUrl = `${siteUrl}/tarjeta/${historicalRoundId}`
       const text = isStableford
