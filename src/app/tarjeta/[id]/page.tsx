@@ -59,10 +59,11 @@ export default function TarjetaPublicaPage() {
       const { data: { user } } = await supabase.auth.getUser()
       setIsLoggedIn(!!user)
 
-      // Fetch round
+      // Fetch round — SIN `notes`: son privadas y no deben viajar al cliente de
+      // un tercero con el link. Se traen aparte solo si el viewer es el dueño.
       const { data: r, error } = await supabase
         .from('historical_rounds')
-        .select('id, course_name, course_id, total_gross, total_neto, holes_played, played_at, tee_color, scores, notes, user_id, formato_juego')
+        .select('id, course_name, course_id, total_gross, total_neto, holes_played, played_at, tee_color, scores, user_id, formato_juego')
         .eq('id', id)
         .single()
 
@@ -72,9 +73,20 @@ export default function TarjetaPublicaPage() {
         return
       }
 
-      setRound(r as RoundData)
-      // Las notas son privadas: solo el dueño las ve, nunca un tercero con el link.
-      setIsOwner(!!user && user.id === r.user_id)
+      const owner = !!user && user.id === r.user_id
+      setIsOwner(owner)
+
+      // Notas: segunda query SOLO para el dueño (RLS no filtra columnas).
+      let notes: string | null = null
+      if (owner) {
+        const { data: n } = await supabase
+          .from('historical_rounds')
+          .select('notes')
+          .eq('id', id)
+          .single()
+        notes = n?.notes ?? null
+      }
+      setRound({ ...(r as Omit<RoundData, 'notes'>), notes } as RoundData)
 
       // Fetch player name
       const { data: profile } = await supabase
