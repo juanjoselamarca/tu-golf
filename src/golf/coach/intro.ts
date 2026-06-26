@@ -169,7 +169,8 @@ export interface ActivePlanOutcome {
   played_at: string | null
 }
 
-export interface ActivePlanDot {
+/** Punto de adherencia por ronda en la card de plan activo (forma canónica). */
+export interface PlanDot {
   label: string
   state: 'on' | 'miss'
 }
@@ -179,22 +180,30 @@ export interface ActivePlanSummary {
   description: string
   status: PlanStatus
   /** Últimas (hasta 7) rondas con plan activo, cronológicas (antigua → nueva). */
-  dots: ActivePlanDot[]
+  dots: PlanDot[]
   /** Rondas en target sobre el total de outcomes (adherencia). */
   applied: number
   total: number
 }
 
 function dotLabel(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', timeZone: 'America/Santiago' })
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return '—'
+  return new Date(t).toLocaleDateString('es-CL', { day: '2-digit', timeZone: 'America/Santiago' })
 }
 
 /**
- * Resumen del plan activo para el estado vacío del chat. Devuelve null si no hay
- * plan (ausencia elegante — CERO FALLOS: sin plan, no se muestra card).
+ * Resumen del plan activo para la card "Tu plan activo" (PlanActiveCard).
+ * Fuente ÚNICA de esta derivación: la consumen tanto el estado vacío del chat
+ * como /coach (un concepto, una fuente). Devuelve null si no hay plan (ausencia
+ * elegante — CERO FALLOS).
  *
- * `dots`: las últimas 7 rondas con plan activo, cronológicas. `applied`/`total`:
- * adherencia sobre TODOS los outcomes (no solo los 7 visibles), igual que /coach.
+ * IMPORTANTE: `outcomes` debe venir YA SCOPEADO al plan activo (mismo plan_id +
+ * ventana que /coach), porque el copy de la card dice "rondas con plan activo".
+ * Pasar outcomes de otros planes produciría un número falso.
+ *
+ * `dots`: las últimas 7 rondas, cronológicas. `applied`/`total`: adherencia sobre
+ * TODOS los outcomes recibidos (no solo los 7 visibles).
  */
 export function buildActivePlanSummary(
   plan: ActivePlanRow | null | undefined,
@@ -204,9 +213,10 @@ export function buildActivePlanSummary(
   const list = outcomes ?? []
   const total = list.length
   const applied = list.filter(o => o.target_reached === true).length
-  const dots: ActivePlanDot[] = list
-    .filter((o): o is ActivePlanOutcome & { played_at: string } => typeof o.played_at === 'string' && o.played_at.length > 0)
-    .sort((a, b) => new Date(a.played_at).getTime() - new Date(b.played_at).getTime())
+  const dots: PlanDot[] = list
+    .filter((o): o is ActivePlanOutcome & { played_at: string } =>
+      typeof o.played_at === 'string' && o.played_at.length > 0 && !Number.isNaN(Date.parse(o.played_at)))
+    .sort((a, b) => Date.parse(a.played_at) - Date.parse(b.played_at))
     .slice(-7)
     .map(o => ({ label: dotLabel(o.played_at), state: o.target_reached ? 'on' : 'miss' }))
   const status: PlanStatus = PLAN_STATUSES.includes(plan.status as PlanStatus)

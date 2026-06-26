@@ -36,7 +36,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'auth' }, { status: 401 })
 
-  const [profileRes, latestRoundRes, planRes, outcomesCountRes, totalRoundsRes] = await Promise.all([
+  const [profileRes, latestRoundRes, planRes, totalRoundsRes] = await Promise.all([
     supabase.from('profiles').select('name, indice').eq('id', user.id).maybeSingle(),
     supabase
       .from('historical_rounds')
@@ -53,10 +53,6 @@ export async function GET() {
       .eq('status', 'active')
       .maybeSingle(),
     supabase
-      .from('plan_outcomes')
-      .select('id, target_reached, compliance, played_at', { count: 'exact', head: false })
-      .eq('user_id', user.id),
-    supabase
       .from('historical_rounds')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id),
@@ -64,7 +60,22 @@ export async function GET() {
 
   const latest = latestRoundRes.data
   const plan = planRes.data
-  const outcomes = outcomesCountRes.data ?? []
+
+  // Outcomes SCOPEADOS al plan activo + últimas 4 semanas — idéntico a /coach
+  // (page.tsx). El copy de la card dice "rondas con plan activo", así que NO se
+  // pueden contar outcomes de planes resueltos ni fuera de ventana. Depende de
+  // plan.id, por eso va encadenado y no en el Promise.all de arriba.
+  let outcomes: { target_reached: boolean | null; played_at: string | null }[] = []
+  if (plan) {
+    const fourWeeksAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString()
+    const outcomesRes = await supabase
+      .from('plan_outcomes')
+      .select('target_reached, played_at')
+      .eq('plan_id', plan.id)
+      .gte('played_at', fourWeeksAgo)
+      .order('played_at', { ascending: false })
+    outcomes = outcomesRes.data ?? []
+  }
 
   const ctx: IntroContext = {
     name: firstName(profileRes.data?.name),
@@ -80,9 +91,9 @@ export async function GET() {
 
   const { opener, hook_type, chips } = buildIntro(ctx)
 
-  // D3/E5 — surfacing del plan activo en el estado vacío. Reusa el mismo read de
-  // coach_plans/plan_outcomes que ya alimenta el opener (un concepto, una fuente):
-  // no se abre un 3er path de lectura del plan activo.
+  // D3/E5 — surfacing del plan activo en el estado vacío. Misma derivación canónica
+  // que /coach (buildActivePlanSummary) sobre outcomes scopeados igual → la card es
+  // idéntica en ambas pantallas (un concepto, una fuente).
   const active_plan = buildActivePlanSummary(plan ?? null, outcomes)
 
   return NextResponse.json(

@@ -76,7 +76,6 @@ export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProp
             description={activePlan.description}
             status={activePlan.status}
             dots={activePlan.dots}
-            appliedRatio={activePlan.total > 0 ? activePlan.applied / activePlan.total : 0}
             correlationLine={
               activePlan.total > 0 ? (
                 <>

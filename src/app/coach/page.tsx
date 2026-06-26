@@ -19,6 +19,7 @@ import {
   type MentalIndexResult,
   type MentalState,
 } from '@/golf/coach/mental-index'
+import { buildActivePlanSummary } from '@/golf/coach/intro'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { parPerHoleArray } from '@/golf/core/compare'
 
@@ -141,6 +142,12 @@ export default async function CoachDashboard() {
   const patterns = (patternsRes.data as PatternRow[]) || []
   const plan = (planRes.data as PlanRow | null) ?? null
   const totalRounds = totalRes.count ?? 0
+  // Card "Tu plan activo": misma derivación canónica que el estado vacío del chat
+  // (un concepto, una fuente). `outcomes` ya viene scopeado al plan + 4 semanas.
+  const planSummary = buildActivePlanSummary(plan, outcomes)
+  const planAppliedPct = planSummary && planSummary.total > 0
+    ? Math.round((planSummary.applied / planSummary.total) * 100)
+    : 0
 
   if (totalRounds === 0) {
     return (
@@ -334,24 +341,20 @@ export default async function CoachDashboard() {
         </div>
       )}
 
-      {plan && (
+      {planSummary && (
         <PlanActiveCard
-          title={plan.hypothesis}
-          description={plan.rule}
-          status={plan.status as 'active' | 'resolved' | 'expired' | 'superseded' | 'cancelled'}
-          dots={outcomes
-            .slice(0, 7)
-            .map(o => ({
-              label: new Date(o.played_at).toLocaleDateString('es-CL', { day: '2-digit', timeZone: 'America/Santiago' }),
-              state: o.target_reached ? 'on' as const : 'miss' as const,
-            }))
-            .reverse()
-          }
-          appliedRatio={outcomes.length > 0 ? outcomes.filter(o => o.target_reached).length / outcomes.length : 0}
+          title={planSummary.title}
+          description={planSummary.description}
+          status={planSummary.status}
+          dots={planSummary.dots}
           correlationLine={
-            <>
-              Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{outcomes.length > 0 ? Math.round(outcomes.filter(o => o.target_reached).length / outcomes.length * 100) : 0}%</span> de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{outcomes.length}</b> rondas con plan activo. <b style={{ color: 'var(--text)', fontWeight: 600 }}>El resto son donde la cabeza paga el precio.</b>
-            </>
+            planSummary.total > 0 ? (
+              <>
+                Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{planAppliedPct}%</span> de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{planSummary.total}</b> rondas con plan activo. <b style={{ color: 'var(--text)', fontWeight: 600 }}>El resto son donde la cabeza paga el precio.</b>
+              </>
+            ) : (
+              <>Aún no registras rondas con este plan. La próxima cuenta.</>
+            )
           }
         />
       )}

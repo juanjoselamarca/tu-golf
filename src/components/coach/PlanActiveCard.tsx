@@ -1,22 +1,17 @@
 'use client'
 
 import type { CSSProperties } from 'react'
-
-interface PlanDot {
-  label: string
-  state: 'on' | 'miss'
-}
+import type { PlanStatus, PlanDot } from '@/golf/coach/intro'
 
 interface Props {
   title: string
   description: string
-  status: 'active' | 'resolved' | 'expired' | 'superseded' | 'cancelled'
+  status: PlanStatus
   dots: PlanDot[]
-  appliedRatio: number
   correlationLine: React.ReactNode
 }
 
-const STATUS_LABEL: Record<Props['status'], string> = {
+const STATUS_LABEL: Record<PlanStatus, string> = {
   active: 'en curso',
   resolved: 'logrado',
   expired: 'expirado',
@@ -24,7 +19,7 @@ const STATUS_LABEL: Record<Props['status'], string> = {
   cancelled: 'cancelado',
 }
 
-const STATUS_TONE: Record<Props['status'], { fg: string; bg: string; border: string }> = {
+const STATUS_TONE: Record<PlanStatus, { fg: string; bg: string; border: string }> = {
   active: { fg: 'var(--coach-recovery-high)', bg: 'var(--coach-recovery-high-soft)', border: 'var(--coach-recovery-high)' },
   resolved: { fg: 'var(--coach-recovery-high)', bg: 'var(--coach-recovery-high-soft)', border: 'var(--coach-recovery-high)' },
   expired: { fg: 'var(--text-3)', bg: 'var(--bg-surface)', border: 'var(--line)' },
@@ -52,7 +47,7 @@ export function PlanActiveCard({ title, description, status, dots, correlationLi
   const tone = STATUS_TONE[status]
 
   return (
-    <div style={cardStyle}>
+    <div style={cardStyle} data-testid="plan-active-card">
       <div style={accent} aria-hidden />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
         <div>

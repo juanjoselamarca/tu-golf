@@ -128,6 +128,18 @@ describe('buildActivePlanSummary (D3 — surfacing plan activo)', () => {
     expect(r!.dots).toHaveLength(1)
   })
 
+  it('played_at no parseable se ignora para dots pero cuenta en total (CERO FALLOS)', () => {
+    const outcomes: ActivePlanOutcome[] = [
+      { target_reached: true, played_at: 'no-es-fecha' },
+      { target_reached: false, played_at: '2026-06-05T12:00:00Z' },
+    ]
+    const r = buildActivePlanSummary(plan, outcomes)
+    expect(r!.total).toBe(2)
+    expect(r!.dots).toHaveLength(1)
+    expect(r!.dots[0].state).toBe('miss')
+    expect(r!.dots.every(d => d.label !== '—' && !/Invalid/.test(d.label))).toBe(true)
+  })
+
   it('status desconocido cae a active; hypothesis vacía cae a "Plan activo"', () => {
     const r = buildActivePlanSummary({ hypothesis: '  ', rule: null, status: 'weird' }, [])
     expect(r!.status).toBe('active')
