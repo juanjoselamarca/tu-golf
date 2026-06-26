@@ -1,12 +1,16 @@
 'use client'
 
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
+import { PlanActiveCard } from '@/components/coach/PlanActiveCard'
+import type { ActivePlanSummary } from '@/golf/coach/intro'
 
 interface EmptyStateProps {
   opener: string
   /** Preguntas sugeridas (chips de arranque). Tocar una la envía al coach. */
   chips?: string[]
   onChip?: (question: string) => void
+  /** Plan activo (D3): se muestra como "Tu plan activo" bajo el opener. null = no hay. */
+  activePlan?: ActivePlanSummary | null
 }
 
 /**
@@ -14,7 +18,10 @@ interface EmptyStateProps {
  * (preguntas sugeridas que arrancan el chat de un toque). Los chips van bajo la
  * burbuja, alineados a ella; tocar uno lo envía como mensaje del usuario.
  */
-export function EmptyState({ opener, chips, onChip }: EmptyStateProps) {
+export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProps) {
+  const planPct = activePlan && activePlan.total > 0
+    ? Math.round((activePlan.applied / activePlan.total) * 100)
+    : 0
   return (
     <div style={{ marginBottom: 16 }}>
       <div
@@ -55,6 +62,35 @@ export function EmptyState({ opener, chips, onChip }: EmptyStateProps) {
           {opener}
         </div>
       </div>
+
+      {activePlan && (
+        <div style={{ marginTop: 16 }} data-testid="taiger-active-plan">
+          <div style={{
+            fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)',
+            fontWeight: 600, fontFamily: '"DM Mono", monospace', marginLeft: 40, marginBottom: 8,
+          }}>
+            Tu plan activo
+          </div>
+          <PlanActiveCard
+            title={activePlan.title}
+            description={activePlan.description}
+            status={activePlan.status}
+            dots={activePlan.dots}
+            appliedRatio={activePlan.total > 0 ? activePlan.applied / activePlan.total : 0}
+            correlationLine={
+              activePlan.total > 0 ? (
+                <>
+                  Aplicas el plan en{' '}
+                  <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{planPct}%</span>{' '}
+                  de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{activePlan.total}</b> rondas con plan activo.
+                </>
+              ) : (
+                <>Aún no registras rondas con este plan. La próxima cuenta.</>
+              )
+            }
+          />
+        </div>
+      )}
 
       {chips && chips.length > 0 && onChip && (
         <div

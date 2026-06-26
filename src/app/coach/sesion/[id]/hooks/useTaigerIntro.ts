@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { ActivePlanSummary } from '@/golf/coach/intro'
 
 interface UseTaigerIntroResult {
   opener: string | null
@@ -9,6 +10,8 @@ interface UseTaigerIntroResult {
   openerLoading: boolean
   /** Chips de arranque (preguntas sugeridas). Solo se muestran en el estado vacío. */
   chips: string[]
+  /** Plan activo del jugador (D3) para surfacing en el estado vacío. null si no hay. */
+  activePlan: ActivePlanSummary | null
 }
 
 /**
@@ -23,6 +26,7 @@ export function useTaigerIntro(loadingSession: boolean, messagesLength: number):
   const [opener, setOpener] = useState<string | null>(null)
   const [openerLoading, setOpenerLoading] = useState(false)
   const [chips, setChips] = useState<string[]>([])
+  const [activePlan, setActivePlan] = useState<ActivePlanSummary | null>(null)
 
   useEffect(() => {
     if (loadingSession) return
@@ -34,10 +38,11 @@ export function useTaigerIntro(loadingSession: boolean, messagesLength: number):
       .then(d => {
         if (d?.opener) setOpener(d.opener)
         if (Array.isArray(d?.chips)) setChips(d.chips.filter((c: unknown): c is string => typeof c === 'string' && c.trim().length > 0))
+        if (d?.active_plan && typeof d.active_plan === 'object') setActivePlan(d.active_plan as ActivePlanSummary)
       })
       .catch(() => { /* fallback silencioso: queda el espacio vacio */ })
       .finally(() => setOpenerLoading(false))
   }, [loadingSession, messagesLength, opener, openerLoading])
 
-  return { opener, setOpener, openerLoading, chips }
+  return { opener, setOpener, openerLoading, chips, activePlan }
 }

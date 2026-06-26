@@ -12,7 +12,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { buildIntro, type IntroContext } from '@/golf/coach/intro'
+import { buildIntro, buildActivePlanSummary, type IntroContext } from '@/golf/coach/intro'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -48,13 +48,13 @@ export async function GET() {
       .maybeSingle(),
     supabase
       .from('coach_plans')
-      .select('id, pattern_id, rule, baseline_value, target_value, target_op, created_at')
+      .select('id, pattern_id, hypothesis, rule, status, baseline_value, target_value, target_op, created_at')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .maybeSingle(),
     supabase
       .from('plan_outcomes')
-      .select('id, target_reached, compliance', { count: 'exact', head: false })
+      .select('id, target_reached, compliance, played_at', { count: 'exact', head: false })
       .eq('user_id', user.id),
     supabase
       .from('historical_rounds')
@@ -80,8 +80,13 @@ export async function GET() {
 
   const { opener, hook_type, chips } = buildIntro(ctx)
 
+  // D3/E5 — surfacing del plan activo en el estado vacío. Reusa el mismo read de
+  // coach_plans/plan_outcomes que ya alimenta el opener (un concepto, una fuente):
+  // no se abre un 3er path de lectura del plan activo.
+  const active_plan = buildActivePlanSummary(plan ?? null, outcomes)
+
   return NextResponse.json(
-    { opener, hook_type, chips, generated_at: new Date().toISOString() },
+    { opener, hook_type, chips, active_plan, generated_at: new Date().toISOString() },
     { headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' } },
   )
 }

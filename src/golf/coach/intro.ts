@@ -148,3 +148,76 @@ export function buildIntro(ctx: IntroContext): IntroResult {
     'fallback',
   )
 }
+
+// ── Surfacing del plan activo en el estado vacío del chat (D3 / enmienda E5) ──
+// Solo lectura: el plan ya está persistido (lifecycle de planes, Ola 2). Acá se
+// mapea la fila de coach_plans + sus outcomes a la forma que consume PlanActiveCard.
+// Derivación pura y testeable; el handler /intro solo provee los datos crudos.
+
+export type PlanStatus = 'active' | 'resolved' | 'expired' | 'superseded' | 'cancelled'
+
+const PLAN_STATUSES: PlanStatus[] = ['active', 'resolved', 'expired', 'superseded', 'cancelled']
+
+export interface ActivePlanRow {
+  hypothesis: string | null
+  rule: string | null
+  status: string | null
+}
+
+export interface ActivePlanOutcome {
+  target_reached: boolean | null
+  played_at: string | null
+}
+
+export interface ActivePlanDot {
+  label: string
+  state: 'on' | 'miss'
+}
+
+export interface ActivePlanSummary {
+  title: string
+  description: string
+  status: PlanStatus
+  /** Últimas (hasta 7) rondas con plan activo, cronológicas (antigua → nueva). */
+  dots: ActivePlanDot[]
+  /** Rondas en target sobre el total de outcomes (adherencia). */
+  applied: number
+  total: number
+}
+
+function dotLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', timeZone: 'America/Santiago' })
+}
+
+/**
+ * Resumen del plan activo para el estado vacío del chat. Devuelve null si no hay
+ * plan (ausencia elegante — CERO FALLOS: sin plan, no se muestra card).
+ *
+ * `dots`: las últimas 7 rondas con plan activo, cronológicas. `applied`/`total`:
+ * adherencia sobre TODOS los outcomes (no solo los 7 visibles), igual que /coach.
+ */
+export function buildActivePlanSummary(
+  plan: ActivePlanRow | null | undefined,
+  outcomes: ActivePlanOutcome[] | null | undefined,
+): ActivePlanSummary | null {
+  if (!plan) return null
+  const list = outcomes ?? []
+  const total = list.length
+  const applied = list.filter(o => o.target_reached === true).length
+  const dots: ActivePlanDot[] = list
+    .filter((o): o is ActivePlanOutcome & { played_at: string } => typeof o.played_at === 'string' && o.played_at.length > 0)
+    .sort((a, b) => new Date(a.played_at).getTime() - new Date(b.played_at).getTime())
+    .slice(-7)
+    .map(o => ({ label: dotLabel(o.played_at), state: o.target_reached ? 'on' : 'miss' }))
+  const status: PlanStatus = PLAN_STATUSES.includes(plan.status as PlanStatus)
+    ? (plan.status as PlanStatus)
+    : 'active'
+  return {
+    title: plan.hypothesis?.trim() || 'Plan activo',
+    description: plan.rule?.trim() || '',
+    status,
+    dots,
+    applied,
+    total,
+  }
+}
