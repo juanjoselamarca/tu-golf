@@ -132,7 +132,7 @@ describe.skipIf(!LIVE || !hasKeys)('Examen coach — LIVE (banco golden completo
     for (const caso of EXAM_CASES) {
       const exec = buildMockExecuteTool(caso.seed)
       const turn = await runExamTurn({
-        system: buildExamSystem(caso.seed), userMessage: caso.userMessage, tools: buildCoachTools({ cerebroV3Enabled: true }) as unknown[], executeTool: exec, llm,
+        system: buildExamSystem(caso.seed, true), userMessage: caso.userMessage, tools: buildCoachTools({ cerebroV3Enabled: true }) as unknown[], executeTool: exec, llm,
       })
       const verdict = await judgeResponse({
         userMessage: caso.userMessage, finalText: turn.finalText, toolsUsed: turn.toolsUsed, rubric: caso.rubric,

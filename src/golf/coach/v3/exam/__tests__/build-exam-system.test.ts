@@ -43,9 +43,12 @@ describe('buildExamSystem — fidelidad v3 (P4: flip a v3 por defecto)', () => {
   })
 
   it('con cerebroV3Enabled=false reproduce el coach v2 (sin secciones v3)', async () => {
-    const { CONOCER_SECTION, ENGAGEMENT_SECTION } = await import('@/golf/coach/v3/prompts')
+    const { CONOCER_SECTION, ENGAGEMENT_SECTION, RAG_SECTION } = await import(
+      '@/golf/coach/v3/prompts'
+    )
     const sys = buildExamSystem(captura1.seed, false)
     expect(sys).not.toContain(CONOCER_SECTION)
     expect(sys).not.toContain(ENGAGEMENT_SECTION)
+    expect(sys).not.toContain(RAG_SECTION)
   })
 })
