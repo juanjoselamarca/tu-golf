@@ -1,14 +1,14 @@
 {
   "total": 21,
-  "correctnessPassRate": 0.7142857142857143,
-  "sixPiecesAvg": 3,
+  "correctnessPassRate": 0.8571428571428571,
+  "sixPiecesAvg": 4.166666666666667,
   "perCase": {
     "captura1_indice_vs_hcp": {
       "correctnessPass": true,
       "sixPiecesScore": null
     },
     "captura2_pide_data": {
-      "correctnessPass": true,
+      "correctnessPass": false,
       "sixPiecesScore": null
     },
     "captura3_se_contradice": {
@@ -24,16 +24,16 @@
       "sixPiecesScore": null
     },
     "seis_piezas_foco_completo": {
-      "correctnessPass": false,
-      "sixPiecesScore": 5
+      "correctnessPass": true,
+      "sixPiecesScore": 6
     },
     "seis_piezas_con_meta": {
-      "correctnessPass": false,
-      "sixPiecesScore": 4
+      "correctnessPass": true,
+      "sixPiecesScore": 6
     },
     "seis_piezas_otra_cancha": {
-      "correctnessPass": false,
-      "sixPiecesScore": 3
+      "correctnessPass": true,
+      "sixPiecesScore": 5
     },
     "cold_start_fallback_honesto": {
       "correctnessPass": false,
@@ -72,8 +72,8 @@
       "sixPiecesScore": null
     },
     "progreso_como_vengo": {
-      "correctnessPass": false,
-      "sixPiecesScore": 2
+      "correctnessPass": true,
+      "sixPiecesScore": 4
     },
     "data_access_dos_canchas": {
       "correctnessPass": true,

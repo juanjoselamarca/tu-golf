@@ -43,6 +43,10 @@ async function main() {
     )
   })
   const updateBaseline = process.argv.includes('--update-baseline')
+  // P4 (flip a v3): UNA fuente para el flag — gobierna a la vez el system prompt
+  // (CONOCER/ENGAGEMENT/RAG) y el set de tools, así nunca pueden divergir. El examen
+  // mide el coach "día-1-pro" (v3 ON); el legacy v2 se reproduce con `false`.
+  const cerebroV3Enabled = true
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('Falta ANTHROPIC_API_KEY')
   if (!process.env.GEMINI_API_KEY) throw new Error('Falta GEMINI_API_KEY (jueces)')
@@ -63,13 +67,13 @@ async function main() {
   for (const caso of EXAM_CASES) {
     const exec = buildMockExecuteTool(caso.seed)
     const turn = await runExamTurn({
-      system: buildExamSystem(caso.seed),
+      system: buildExamSystem(caso.seed, cerebroV3Enabled),
       userMessage: caso.userMessage,
       // Tools v3 vía el builder ÚNICO (D1) — get_focus/set_target/… + field_context
       // + RAG. RAG queda EXPUESTA pero el mock la degrada honesto (sin corpus), así
       // se cumple D4 "examen sin retrieval" sin partir la fuente canónica de tools.
-      // El system sigue v2 hasta P4 (el flip que re-baselina); acá solo se cablea.
-      tools: buildCoachTools({ cerebroV3Enabled: true }) as unknown[],
+      // Mismo flag que el system (arriba): P4 flipea ambos juntos desde una fuente.
+      tools: buildCoachTools({ cerebroV3Enabled }) as unknown[],
       executeTool: exec,
       llm,
     })
