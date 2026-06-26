@@ -14,8 +14,9 @@
 // AbortError (usuario canceló el share nativo) = no-op silencioso: NO cae a los
 // siguientes pasos ni marca error.
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { SharePayload, ShareResult, ShareStatus } from '@/golf/share/types'
+import { copyToClipboard } from '@/lib/clipboard'
 
 const DEFAULT_IMAGE_FILENAME = 'golfers-tarjeta.png'
 
@@ -68,20 +69,21 @@ export async function runShareCascade(payload: SharePayload): Promise<ShareResul
 
   // 3. WhatsApp (wa.me). En desktop sin Web Share API es el camino natural.
   if (typeof window !== 'undefined' && typeof window.open === 'function') {
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(plainText(payload))}`
-    const opened = window.open(waUrl, '_blank')
-    if (opened) return { ok: true, method: 'whatsapp' }
-    // open bloqueado (popup blocker) → seguir a portapapeles
+    try {
+      const waUrl = `https://wa.me/?text=${encodeURIComponent(plainText(payload))}`
+      const opened = window.open(waUrl, '_blank')
+      if (opened) return { ok: true, method: 'whatsapp' }
+      // open bloqueado (popup blocker) → seguir a portapapeles
+    } catch {
+      // window.open lanzó (sandbox/extensión) → seguir a portapapeles
+    }
   }
 
-  // 4. Portapapeles. El caller decide mostrar el toast "Copiado".
-  if (nav?.clipboard && typeof nav.clipboard.writeText === 'function') {
-    try {
-      await nav.clipboard.writeText(plainText(payload))
-      return { ok: true, method: 'clipboard' }
-    } catch {
-      // cae al return final
-    }
+  // 4. Portapapeles. Vía el canónico `copyToClipboard` (fuente única), que cae a
+  // textarea+execCommand donde `navigator.clipboard` no existe/rechaza (webview
+  // iOS, contexto no-seguro). El caller decide mostrar el toast "Copiado".
+  if (await copyToClipboard(plainText(payload))) {
+    return { ok: true, method: 'clipboard' }
   }
 
   return { ok: false, method: 'clipboard' }
@@ -103,16 +105,26 @@ export interface UseShareReturn {
  */
 export function useShare(): UseShareReturn {
   const [status, setStatus] = useState<ShareStatus>('idle')
+  const statusRef = useRef<ShareStatus>('idle')
 
   const share = useCallback(async (payload: SharePayload): Promise<ShareResult> => {
+    // Guard de re-entrancia: si ya hay un share en curso (sheet nativo abierto),
+    // un segundo click no relanza la cascada (evita InvalidStateError + wa.me
+    // espurio sobre el sheet abierto).
+    if (statusRef.current === 'sharing') return { ok: false, method: 'aborted' }
+    statusRef.current = 'sharing'
     setStatus('sharing')
     const res = await runShareCascade(payload)
-    if (res.method === 'aborted') setStatus('idle')
-    else setStatus(res.ok ? 'done' : 'error')
+    const next: ShareStatus = res.method === 'aborted' ? 'idle' : res.ok ? 'done' : 'error'
+    statusRef.current = next
+    setStatus(next)
     return res
   }, [])
 
-  const reset = useCallback(() => setStatus('idle'), [])
+  const reset = useCallback(() => {
+    statusRef.current = 'idle'
+    setStatus('idle')
+  }, [])
 
   return { share, status, isSharing: status === 'sharing', reset }
 }

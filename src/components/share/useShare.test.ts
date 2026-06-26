@@ -159,6 +159,26 @@ describe('useShare (hook)', () => {
     expect(result.current.status).toBe('idle')
   })
 
+  it('guard de re-entrancia: segundo share mientras está sharing es no-op', async () => {
+    let resolveShare: () => void = () => {}
+    const share = vi.fn().mockImplementation(() => new Promise<void>((r) => { resolveShare = r }))
+    setNavigator({ share } as unknown as Navigator)
+
+    const { result } = renderHook(() => useShare())
+    let firstCall: Promise<unknown>
+    act(() => { firstCall = result.current.share(basePayload) })
+    expect(result.current.isSharing).toBe(true)
+
+    // segundo click mientras el primero sigue abierto → no relanza
+    let second: { method: string } | undefined
+    await act(async () => { second = await result.current.share(basePayload) })
+    expect(second!.method).toBe('aborted')
+    expect(share).toHaveBeenCalledTimes(1)
+
+    await act(async () => { resolveShare(); await firstCall })
+    expect(result.current.status).toBe('done')
+  })
+
   it('reset vuelve a idle', async () => {
     const share = vi.fn().mockResolvedValue(undefined)
     setNavigator({ share } as unknown as Navigator)
