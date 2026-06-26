@@ -148,3 +148,90 @@ export function buildIntro(ctx: IntroContext): IntroResult {
     'fallback',
   )
 }
+
+// ── Surfacing del plan activo en el estado vacío del chat (D3 / enmienda E5) ──
+// Solo lectura: el plan ya está persistido (lifecycle de planes, Ola 2). Acá se
+// mapea la fila de coach_plans + sus outcomes a la forma que consume PlanActiveCard.
+// Derivación pura y testeable; el handler /intro solo provee los datos crudos.
+
+export type PlanStatus = 'active' | 'resolved' | 'expired' | 'superseded' | 'cancelled'
+
+const PLAN_STATUSES: PlanStatus[] = ['active', 'resolved', 'expired', 'superseded', 'cancelled']
+
+export interface ActivePlanRow {
+  hypothesis: string | null
+  rule: string | null
+  status: string | null
+}
+
+export interface ActivePlanOutcome {
+  target_reached: boolean | null
+  played_at: string | null
+}
+
+/** Punto de adherencia por ronda en la card de plan activo (forma canónica). */
+export interface PlanDot {
+  label: string
+  state: 'on' | 'miss'
+}
+
+export interface ActivePlanSummary {
+  title: string
+  description: string
+  status: PlanStatus
+  /** Últimas (hasta 7) rondas con plan activo, cronológicas (antigua → nueva). */
+  dots: PlanDot[]
+  /** Rondas en target sobre el total de outcomes (adherencia). */
+  applied: number
+  total: number
+  /** % de adherencia ya redondeado (applied/total). 0 si no hay outcomes. Fuente
+   *  única del número que muestran ambas pantallas (chat + /coach). */
+  appliedPct: number
+}
+
+function dotLabel(iso: string): string {
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return '—'
+  return new Date(t).toLocaleDateString('es-CL', { day: '2-digit', timeZone: 'America/Santiago' })
+}
+
+/**
+ * Resumen del plan activo para la card "Tu plan activo" (PlanActiveCard).
+ * Fuente ÚNICA de esta derivación: la consumen tanto el estado vacío del chat
+ * como /coach (un concepto, una fuente). Devuelve null si no hay plan (ausencia
+ * elegante — CERO FALLOS).
+ *
+ * IMPORTANTE: `outcomes` debe venir YA SCOPEADO al plan activo (mismo plan_id +
+ * ventana que /coach), porque el copy de la card dice "rondas con plan activo".
+ * Pasar outcomes de otros planes produciría un número falso.
+ *
+ * `dots`: las últimas 7 rondas, cronológicas. `applied`/`total`: adherencia sobre
+ * TODOS los outcomes recibidos (no solo los 7 visibles).
+ */
+export function buildActivePlanSummary(
+  plan: ActivePlanRow | null | undefined,
+  outcomes: ActivePlanOutcome[] | null | undefined,
+): ActivePlanSummary | null {
+  if (!plan) return null
+  const list = outcomes ?? []
+  const total = list.length
+  const applied = list.filter(o => o.target_reached === true).length
+  const dots: PlanDot[] = list
+    .filter((o): o is ActivePlanOutcome & { played_at: string } =>
+      typeof o.played_at === 'string' && o.played_at.length > 0 && !Number.isNaN(Date.parse(o.played_at)))
+    .sort((a, b) => Date.parse(a.played_at) - Date.parse(b.played_at))
+    .slice(-7)
+    .map(o => ({ label: dotLabel(o.played_at), state: o.target_reached ? 'on' : 'miss' }))
+  const status: PlanStatus = PLAN_STATUSES.includes(plan.status as PlanStatus)
+    ? (plan.status as PlanStatus)
+    : 'active'
+  return {
+    title: plan.hypothesis?.trim() || 'Plan activo',
+    description: plan.rule?.trim() || '',
+    status,
+    dots,
+    applied,
+    total,
+    appliedPct: total > 0 ? Math.round((applied / total) * 100) : 0,
+  }
+}

@@ -4,6 +4,7 @@ import type { AssignedPlan } from '@/components/coach/PlanAssignedCard'
 import type { RoundSummary } from '@/components/coach/RoundMiniChart'
 import type { ScoreProjection } from '@/components/coach/ScoreProjectionCard'
 import type { ChatMessage, MessageVote } from '@/lib/data/taiger'
+import type { ActivePlanSummary } from '@/golf/coach/intro'
 import { EmptyState } from './EmptyState'
 import { MessageBubble } from './MessageBubble'
 
@@ -22,6 +23,8 @@ interface MessageListProps {
   /** Chips de arranque del estado vacío + handler (tocar = enviar). */
   chips?: string[]
   onChip?: (question: string) => void
+  /** Plan activo (D3): surfacing en el estado vacío. */
+  activePlan?: ActivePlanSummary | null
 }
 
 /**
@@ -43,6 +46,7 @@ export function MessageList({
   onVote,
   chips,
   onChip,
+  activePlan,
 }: MessageListProps) {
   const lastIdx = messages.length - 1
   // El primer mensaje 'user' marca dónde empieza la conversación real. El saludo
@@ -51,7 +55,7 @@ export function MessageList({
   const firstUserIdx = messages.findIndex(m => m.role === 'user')
   return (
     <>
-      {messages.length === 0 && opener && <EmptyState opener={opener} chips={chips} onChip={onChip} />}
+      {messages.length === 0 && opener && <EmptyState opener={opener} chips={chips} onChip={onChip} activePlan={activePlan} />}
 
       {messages.map((msg, i) => {
         const isStreamingThis = streaming && i === lastIdx
