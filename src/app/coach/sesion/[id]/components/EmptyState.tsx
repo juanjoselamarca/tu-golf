@@ -19,9 +19,6 @@ interface EmptyStateProps {
  * burbuja, alineados a ella; tocar uno lo envía como mensaje del usuario.
  */
 export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProps) {
-  const planPct = activePlan && activePlan.total > 0
-    ? Math.round((activePlan.applied / activePlan.total) * 100)
-    : 0
   return (
     <div style={{ marginBottom: 16 }}>
       <div
@@ -80,7 +77,7 @@ export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProp
               activePlan.total > 0 ? (
                 <>
                   Aplicas el plan en{' '}
-                  <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{planPct}%</span>{' '}
+                  <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{activePlan.appliedPct}%</span>{' '}
                   de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{activePlan.total}</b> rondas con plan activo.
                 </>
               ) : (

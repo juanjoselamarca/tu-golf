@@ -103,7 +103,18 @@ describe('buildActivePlanSummary (D3 — surfacing plan activo)', () => {
     const r = buildActivePlanSummary(plan, outcomes)
     expect(r!.total).toBe(10)
     expect(r!.applied).toBe(5)
+    expect(r!.appliedPct).toBe(50)
     expect(r!.dots).toHaveLength(7) // solo se muestran las 7 más recientes
+  })
+
+  it('appliedPct redondea y es 0 sin outcomes (fuente única del número)', () => {
+    expect(buildActivePlanSummary(plan, [])!.appliedPct).toBe(0)
+    const twoOfThree: ActivePlanOutcome[] = [
+      { target_reached: true, played_at: '2026-06-01T12:00:00Z' },
+      { target_reached: true, played_at: '2026-06-02T12:00:00Z' },
+      { target_reached: false, played_at: '2026-06-03T12:00:00Z' },
+    ]
+    expect(buildActivePlanSummary(plan, twoOfThree)!.appliedPct).toBe(67) // round(66.6)
   })
 
   it('dots quedan cronológicos (antigua → nueva) tomando las 7 más recientes', () => {

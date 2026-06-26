@@ -184,6 +184,9 @@ export interface ActivePlanSummary {
   /** Rondas en target sobre el total de outcomes (adherencia). */
   applied: number
   total: number
+  /** % de adherencia ya redondeado (applied/total). 0 si no hay outcomes. Fuente
+   *  única del número que muestran ambas pantallas (chat + /coach). */
+  appliedPct: number
 }
 
 function dotLabel(iso: string): string {
@@ -229,5 +232,6 @@ export function buildActivePlanSummary(
     dots,
     applied,
     total,
+    appliedPct: total > 0 ? Math.round((applied / total) * 100) : 0,
   }
 }
