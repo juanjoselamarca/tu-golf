@@ -8,7 +8,7 @@
 // `src/golf/share/vs-par.ts`).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ParPerHoleInput } from '@/golf/core/holes'
+import { inferHoles, type ParPerHoleInput } from '@/golf/core/holes'
 import { resolveParTotal, computeVsParGross, formatVsParLabel } from '@/golf/share/vs-par'
 
 export interface TarjetaOgData {
@@ -26,7 +26,7 @@ export async function loadTarjetaOgData(
 ): Promise<TarjetaOgData | null> {
   const { data: round } = await supabase
     .from('historical_rounds')
-    .select('total_gross, course_name, holes_played, user_id, par_per_hole')
+    .select('total_gross, course_name, holes_played, user_id, par_per_hole, scores')
     .eq('id', id)
     .single()
 
@@ -39,15 +39,20 @@ export async function loadTarjetaOgData(
     .single()
 
   const gross = round.total_gross ?? 0
+
+  // Un solo `holesPlayed` (fuente única): se infiere de holes_played o, si está
+  // ausente (~68% de rondas viejas), del `scores`. El MISMO valor alimenta el par
+  // y el texto de hoyos, para que nunca se contradigan (vs-par vs "N hoyos").
+  const holesPlayed = inferHoles({ holes_played: round.holes_played, scores: round.scores }) ?? 18
   const { parTotal } = resolveParTotal({
-    holesPlayed: round.holes_played,
+    holesPlayed,
     parPerHole: round.par_per_hole as ParPerHoleInput,
   })
 
   return {
     playerName: profile?.name ?? 'Jugador',
     gross,
-    holesPlayed: round.holes_played ?? 18,
+    holesPlayed,
     courseName: round.course_name,
     vsParLabel: formatVsParLabel(computeVsParGross(gross, parTotal)),
   }
