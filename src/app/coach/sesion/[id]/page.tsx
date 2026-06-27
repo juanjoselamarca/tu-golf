@@ -82,7 +82,12 @@ export default function SesionDetailPage() {
     : ''
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 60px)' }}>
+    // PR4 — lavado visual: el chat es una superficie de exhibición premium, se pina
+    // a dark navy (data-theme="dark") para que TODO el scroll sea coherente con el
+    // header siempre-oscuro del CoachShell (DESIGN.md §2: nunca dos modos en un mismo
+    // scroll). Scope = chat; el /coach dashboard sigue respetando el toggle. Los
+    // custom props del tema cascadean al subárbol; background pinta el navy.
+    <div data-theme="dark" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 60px)', background: 'var(--bg)', color: 'var(--text)' }}>
       {/* Messages area. paddingBottom deja sitio para el input fijo + el teclado
           (cuando sube el input) para que el último mensaje quede visible. */}
       <div style={{
