@@ -111,7 +111,7 @@ export function buildIntro(ctx: IntroContext): IntroResult {
   if (hasPlan && outcomesCount > 0) {
     const trend = targetsReached >= Math.ceil(outcomesCount / 2) ? 'viene mejorando' : 'todavía está en progreso'
     return make(
-      `${greeting}tu plan actual sobre ${pattern} ${trend} (${targetsReached}/${outcomesCount} rondas en target). ¿Cómo lo sentís?`,
+      `${greeting}tu plan actual sobre ${pattern} ${trend} (${targetsReached}/${outcomesCount} rondas en target). ¿Cómo lo sientes?`,
       'plan_with_progress',
     )
   }
