@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { runChatStream, enforceFinalText, runWithContinuation, buildContinuationRequest } from '../chat-engine'
+import { runChatStream, enforceFinalText, runWithContinuation, buildContinuationRequest, joinContinuation } from '../chat-engine'
 
 // PR1 (refactor puro): el seguro real es el smoke byte-idéntico del coach.
 // Este unit solo asegura que la firma pública existe tras la extracción.
@@ -136,19 +136,49 @@ describe('buildContinuationRequest (request válido aun con tool-context)', () =
 
   it('incluye tools y tool_choice:none (Anthropic exige tools si hay tool_use/tool_result)', () => {
     const req = buildContinuationRequest({
-      model: 'claude-x', systemFinal: 'SYS', loopMessages, activeTools, prefill: 'El swing al 80% te da más p',
+      model: 'claude-x', systemFinal: 'SYS', loopMessages, activeTools, partial: 'El swing al 80% te da más p',
     })
     // C1: sin `tools`, un request con bloques tool_use/tool_result tira 400 → se pierde la respuesta.
     expect(req.tools).toBe(activeTools)
     expect(req.tool_choice).toEqual({ type: 'none' })
   })
 
-  it('pone el prefill como último mensaje assistant para CONTINUAR el turno', () => {
+  it('la conversación TERMINA en un mensaje de usuario (el modelo no soporta assistant prefill)', () => {
     const req = buildContinuationRequest({
-      model: 'claude-x', systemFinal: 'SYS', loopMessages, activeTools, prefill: 'El swing al 80% te da más p',
+      model: 'claude-x', systemFinal: 'SYS', loopMessages, activeTools, partial: 'El swing al 80% te da más p',
     })
     const msgs = req.messages as Array<{ role: string; content: unknown }>
-    expect(msgs.length).toBe(4)
-    expect(msgs[msgs.length - 1]).toEqual({ role: 'assistant', content: 'El swing al 80% te da más p' })
+    // 3 de loopMessages + el parcial del coach (assistant) + el turno de usuario que pide continuar
+    expect(msgs.length).toBe(5)
+    // El parcial va como mensaje assistant normal…
+    expect(msgs[3]).toEqual({ role: 'assistant', content: 'El swing al 80% te da más p' })
+    // …y la conversación CIERRA con un turno de usuario (si cerrara en assistant → 400 "does not support assistant prefill").
+    expect(msgs[4].role).toBe('user')
+    expect(typeof msgs[4].content).toBe('string')
+  })
+})
+
+describe('joinContinuation (costura determinista de la continuación)', () => {
+  it('concatena tal cual cuando no hay muletilla ni repetición', () => {
+    expect(joinContinuation('Apuntá al centro del', ' green, siempre.')).toBe('Apuntá al centro del green, siempre.')
+  })
+
+  it('costura a media palabra exacta (el caso real)', () => {
+    expect(joinContinuation('no lo hag', 'as. Jugá la esquina')).toBe('no lo hagas. Jugá la esquina')
+  })
+
+  it('deduplica repetición verbatim del final (≥12 chars) que a veces emite el modelo', () => {
+    const acc = 'Bogey es tu par en este hoyo.'
+    const seg = 'Bogey es tu par en este hoyo. Hoyo 3: jugá conservador.'
+    expect(joinContinuation(acc, seg)).toBe('Bogey es tu par en este hoyo. Hoyo 3: jugá conservador.')
+  })
+
+  it('NO deduplica coincidencias cortas (<12 chars) — serían falsos positivos', () => {
+    expect(joinContinuation('abc', 'cde')).toBe('abccde')
+  })
+
+  it('quita muletillas de reintroducción ([CONTINUACIÓN], "Continúo:", "Sigo:")', () => {
+    expect(joinContinuation('El plan va así. ', '[CONTINUACIÓN] Hoyo 3: respira.')).toBe('El plan va así. Hoyo 3: respira.')
+    expect(joinContinuation('El plan va así. ', 'Continúo: Hoyo 3: respira.')).toBe('El plan va así. Hoyo 3: respira.')
   })
 })

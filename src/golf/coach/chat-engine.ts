@@ -22,12 +22,18 @@ import { currentAiEnv } from '@/lib/ai/registry'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
 
-// Tope de tokens de salida por llamada. Subido de 2048→4096 (auditoría 2026-06-27)
-// para que las respuestas largas de 6 piezas + desgloses no se trunquen tan seguido;
-// el residual lo cubre runWithContinuation.
-const MAX_OUTPUT_TOKENS = 4096
+// Tope de tokens de salida por llamada. Subido de 2048→8192 (auditoría 2026-06-27):
+// a 2048 las respuestas de 6 piezas + desgloses largos se cortaban a media frase. A
+// 8192 una respuesta normal nunca trunca; el residual (volcados enormes) lo cubre
+// runWithContinuation.
+const MAX_OUTPUT_TOKENS = 8192
 // Tope de auto-continuaciones ante truncación por max_tokens (cota de costo/latencia).
 const MAX_CONTINUATIONS = 3
+// Continuación de un turno truncado. OJO: el modelo (sonnet-4-6) NO soporta assistant
+// prefill — la conversación DEBE terminar en un mensaje de usuario. Por eso la
+// continuación se pide con un turno de usuario explícito tras el parcial del coach.
+const CONTINUE_INSTRUCTION =
+  '[CONTINUACIÓN] Tu mensaje anterior se cortó por límite de longitud. Continúalo EXACTAMENTE desde donde quedó, sin repetir NADA de lo ya escrito, sin saludar ni reintroducir el tema. Devolvé solo la continuación, como si no hubieras parado.'
 
 /**
  * Verifica el texto del turno FINAL contra el set autorizado (salidas de la tool
@@ -86,10 +92,8 @@ async function regenerateRelativeOnly(
  * Auto-continuación ante truncación por `max_tokens`. Dado el primer segmento ya
  * generado (`initial`), vuelve a pedirle al modelo que SIGA su propia respuesta
  * mientras el segmento previo haya cerrado por 'max_tokens' y no se exceda
- * `maxContinuations`. El prefill es el texto acumulado RECORTADO (Anthropic
- * rechaza un prefill de assistant con whitespace al final), y el modelo continúa
- * desde ahí — para cortes a media palabra ("…con más p") la costura es exacta.
- * Concatena todos los segmentos. `truncated` queda true si ni así llegó a cerrar.
+ * `maxContinuations`. `continueSegment` recibe el parcial acumulado y devuelve la
+ * continuación, que se concatena. `truncated` queda true si ni así llegó a cerrar.
  *
  * Esto cierra dos bugs de campo (auditoría 2026-06-27): la respuesta cortada a
  * media frase, y la "continuación alucinada" al pedir "retoma" — porque ya no
@@ -97,43 +101,64 @@ async function regenerateRelativeOnly(
  */
 export async function runWithContinuation(
   initial: { text: string; stopReason: string | null },
-  continueSegment: (prefill: string) => Promise<{ text: string; stopReason: string | null }>,
+  continueSegment: (partial: string) => Promise<{ text: string; stopReason: string | null }>,
   maxContinuations: number,
 ): Promise<{ text: string; truncated: boolean; continuations: number }> {
   let acc = initial.text
   let stop = initial.stopReason
   let continuations = 0
   while (stop === 'max_tokens' && continuations < maxContinuations) {
-    // Anthropic rechaza un prefill de assistant con whitespace al final (o vacío):
-    // recortamos SOLO el prefill que ve el modelo. El acumulado conserva el texto
-    // crudo que el usuario ya vio en vivo (modo !guard), para que lo persistido
-    // coincida 1:1 con lo mostrado. Para cortes a media palabra la costura es exacta.
-    const prefill = acc.trimEnd()
-    if (!prefill) break
+    // El parcial que ve el modelo va sin whitespace final (un assistant vacío o con
+    // whitespace al final rompe). El acumulado conserva el texto crudo que el usuario
+    // ya vio en vivo (modo !guard). La unión va por joinContinuation (determinista).
+    const partial = acc.trimEnd()
+    if (!partial) break
     continuations++
-    const seg = await continueSegment(prefill)
-    acc = acc + seg.text
+    const seg = await continueSegment(partial)
+    acc = joinContinuation(acc, seg.text)
     stop = seg.stopReason
   }
   return { text: acc, truncated: stop === 'max_tokens', continuations }
 }
 
+/**
+ * Une el acumulado con la continuación de forma DETERMINISTA, sin depender de que el
+ * modelo obedezca "no repitas / no reintroduzcas" (con continuación-vía-user-turn la
+ * costura ya no es un token-stream garantizado). (1) Quita muletillas de reintroducción
+ * al inicio del segmento ("[CONTINUACIÓN]", "Continúo:", "Sigo:"). (2) Deduplica
+ * repetición verbatim de ≥12 chars del final del acumulado (umbral para no comerse
+ * coincidencias cortas legítimas). Para cortes a media palabra sin overlap ni muletilla
+ * es concatenación exacta ("…no lo hag" + "as." = "…no lo hagas.").
+ */
+export function joinContinuation(acc: string, seg: string): string {
+  let s = seg.replace(/^\s*(?:\[continuaci[óo]n\]\s*|(?:continúo|continuo|sigo|continuando|continúa)\s*:\s*)/i, '')
+  const MIN_OVERLAP = 12
+  const max = Math.min(acc.length, s.length, 300)
+  for (let n = max; n >= MIN_OVERLAP; n--) {
+    if (acc.slice(-n) === s.slice(0, n)) { s = s.slice(n); break }
+  }
+  return acc + s
+}
+
 type ContinuationRequest = Parameters<Anthropic['messages']['stream']>[0]
 
 /**
- * Arma el request de la continuación de un turno truncado. CRÍTICO: incluye
- * `tools` + `tool_choice:'none'`. Si el turno usó tools, `loopMessages` ya trae
- * bloques tool_use/tool_result y Anthropic rechaza (400) un request con esos
- * bloques sin `tools` definidas — perdiendo la respuesta entera. `tool_choice:'none'`
- * impide además que el modelo llame una tool en la continuación (es prosa pura).
- * El `prefill` va como último mensaje assistant para que el modelo CONTINÚE desde ahí.
+ * Arma el request de la continuación de un turno truncado.
+ * - Este modelo NO soporta assistant prefill: la conversación DEBE terminar en un
+ *   mensaje de usuario. Por eso el parcial del coach (`partial`) va como mensaje
+ *   assistant normal seguido de un turno de usuario (CONTINUE_INSTRUCTION) que pide
+ *   continuar. (Terminar en assistant tira 400 "does not support assistant prefill").
+ * - CRÍTICO: incluye `tools` + `tool_choice:'none'`. Si el turno usó tools,
+ *   `loopMessages` trae bloques tool_use/tool_result y Anthropic rechaza (400) un
+ *   request con esos bloques sin `tools`. `tool_choice:'none'` impide además que el
+ *   modelo llame una tool en la continuación (es prosa pura).
  */
 export function buildContinuationRequest(opts: {
   model: string
   systemFinal: string
   loopMessages: unknown[]
   activeTools: readonly unknown[]
-  prefill: string
+  partial: string
 }): ContinuationRequest {
   return {
     model: opts.model,
@@ -143,7 +168,8 @@ export function buildContinuationRequest(opts: {
     tool_choice: { type: 'none' },
     messages: [
       ...(opts.loopMessages as Array<{ role: 'user' | 'assistant'; content: unknown }>),
-      { role: 'assistant', content: opts.prefill },
+      { role: 'assistant', content: opts.partial },
+      { role: 'user', content: CONTINUE_INSTRUCTION },
     ] as unknown as Anthropic.MessageParam[],
   }
 }
@@ -389,9 +415,9 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             // (auditoría 2026-06-27). La continuación es prosa pura → sin tools.
             const continued = await runWithContinuation(
               { text: iterText, stopReason: resp.stop_reason },
-              async (prefill) => {
+              async (partial) => {
                 const contStream = anthropic.messages.stream(
-                  buildContinuationRequest({ model: coachModel(), systemFinal, loopMessages, activeTools, prefill }),
+                  buildContinuationRequest({ model: coachModel(), systemFinal, loopMessages, activeTools, partial }),
                 )
                 let segText = ''
                 for await (const event of contStream) {
