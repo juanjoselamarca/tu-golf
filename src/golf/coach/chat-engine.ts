@@ -140,6 +140,21 @@ export function joinContinuation(acc: string, seg: string): string {
   return acc + s
 }
 
+/**
+ * Delta de un turno para persistencia NO destructiva: SOLO el último mensaje de
+ * usuario (el nuevo) + la respuesta del coach. El resto de `conversation` es la
+ * ventana del LLM y ya vive en la BD; appendear solo el delta (en vez de
+ * sobreescribir con `conversation`) evita borrar el historial completo del usuario
+ * en cada turno (auditoría 2026-06-27, H-03).
+ */
+export function buildTurnDelta(conversation: ChatMsg[], assistantText: string): ChatMsg[] {
+  const lastUser = [...conversation].reverse().find((m) => m.role === 'user')
+  const delta: ChatMsg[] = []
+  if (lastUser) delta.push({ role: 'user', content: lastUser.content })
+  delta.push({ role: 'assistant', content: assistantText })
+  return delta
+}
+
 type ContinuationRequest = Parameters<Anthropic['messages']['stream']>[0]
 
 /**
@@ -499,11 +514,23 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             void captureError(logErr, { context: 'taiger.chat.usage_log', userId })
           }
 
-          // Sesion continua: pre-fetched arriba como `active` (migracion 017).
-          const fullHistory: ChatMsg[] = [
-            ...conversation,
-            { role: 'assistant', content: fullResponse },
-          ]
+          // Persistencia NO destructiva (H-03, auditoría 2026-06-27): leemos el
+          // historial COMPLETO de la BD y le APPENDEAMOS solo el turno nuevo. Antes
+          // se sobreescribía con `conversation` —la ventana recortada del LLM— y eso
+          // BORRABA el historial real del usuario en cada turno. Si el read falla,
+          // caemos al comportamiento previo (no borra más de lo que ya hacía).
+          const { data: existingRow, error: readErr } = await supabase
+            .from('taiger_sessions')
+            .select('messages')
+            .eq('id', sessionId)
+            .single()
+          let fullHistory: ChatMsg[]
+          if (readErr || !existingRow) {
+            fullHistory = [...conversation, { role: 'assistant', content: fullResponse }]
+          } else {
+            const prior = Array.isArray(existingRow.messages) ? (existingRow.messages as ChatMsg[]) : []
+            fullHistory = [...prior, ...buildTurnDelta(conversation, fullResponse)]
+          }
           // El trigger BEFORE UPDATE de taiger_sessions setea updated_at = NOW()
           // automáticamente (migration 20260513). No mandar updated_at desde el
           // cliente — antes mandábamos uno y PostgREST devolvía 400 PGRST204
