@@ -1,4 +1,21 @@
-# Estado Cerebro V3 — Actualizado 2026-06-26 — examen-v3-fidelidad: P1 ✅ (PR #189) + P2 ✅ (PR #193) + P3 ✅ (PR #196) + **P4 ✅ EN PROD (PR #201 `ab27755`)** · Fase 0 examen-máquina ✅ EN PROD (PR #181) · Ola 1b.1 ✅ (PR #176) · Ola 3 ✅ COMPLETA · PRÓXIMO: **P5 (hardening 6 piezas — captura2 data-access + cold-start/target)**
+# Estado Cerebro V3 — Actualizado 2026-06-26 — examen-v3-fidelidad: P1 ✅ (#189) + P2 ✅ (#193) + P3 ✅ (#196) + P4 ✅ (#201 `ab27755`) + **P5 ✅ EN PROD (#205 `7399b87`)** · Fase 0 examen-máquina ✅ (#181) · Ola 1b.1 ✅ (#176) · Ola 3 ✅ COMPLETA · PRÓXIMO: **examen-v3-fidelidad CERRADO. Siguiente foco a elegir: sub-olas 1c/1d (RAG conocimiento) o arreglar el juez de 6-piezas (ruido + falso-0 en cold-start)**
+
+---
+
+## ✅ P5 — hardening 6-piezas + demostrar-en-reclamo — MERGEADA Y EN PROD (26-jun, PR #205 squash `7399b87`)
+
+**Demo aprobada por Juanjo (regla #4).** Cierra 2 de las 3 fallas del baseline honesto de P4. Fixes aditivos al prompt v3 (43 LOC):
+
+1. **captura2 (data-access P0)** → `anti_hallucination.ts`: ante un RECLAMO por un dato que debería tener ("tienes la cancha en tu base, ¿por qué preguntas?"), el coach **demuestra en el mismo turno** (llama la tool, trae el dato, lo usa) en vez de solo disculparse. Verificado: ahora trae la tabla de pares completa de Lomas.
+2. **target_propone_meta** → `conocer.ts`: al proponer meta, la enmarca con identidad + delta + acción, no como número pelado.
+3. **cold_start fallback** → `conocer.ts`: el fallback honesto mantiene identidad + veredicto + acción.
+
+**Validación LIVE (2 corridas para des-ruidar):** captura2 + target VERDES en ambas = **2 fixes estables**. Cero regresiones estables (run1 81% / run2 90% correctness; los rojos de run1 volvieron verdes en run2 = ruido del juez 6-piezas confirmado). Baseline NO bumpeado (se mantiene 86%/4.17 de P4 como piso).
+
+**Follow-ups abiertos (NO bloqueantes):**
+- **Juez de 6-piezas inconsistente:** a `cold_start_fallback_honesto` le da 0/6 cuando la respuesta es objetivamente buena (honesta + acción). El gate de 6-piezas tiene ruido ~0.8/corrida + falsos-0 en cold-start. Vale endurecer/estabilizar el juez (o medir con CONTROL sobre base) antes de confiar en el score de 6-piezas como gate fino.
+- **`lenguaje_bajo_par_es_bueno` flaky:** en run1 el coach dijo "4 en par 5 es un eagle" (es birdie) — slip de aritmética golfística run-to-run. Verde en run2. Es correctness (métrica estable) → vigilar; si reaparece, endurecer la regla de scoring vs par.
+- **Flaky pre-existente** `historial.integration.test.tsx`: traba el push intermitente (pasa aislado, flakea bajo carga del suite completo). Deuda CERO FALLOS — fix dedicado (fake timers / findBy timeout).
 
 ---
 
