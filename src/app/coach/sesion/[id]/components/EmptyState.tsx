@@ -2,6 +2,7 @@
 
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { PlanActiveCard } from '@/components/coach/PlanActiveCard'
+import { SuggestionChips } from './SuggestionChips'
 import type { ActivePlanSummary } from '@/golf/coach/intro'
 
 interface EmptyStateProps {
@@ -88,35 +89,13 @@ export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProp
         </div>
       )}
 
-      {chips && chips.length > 0 && onChip && (
-        <div
-          style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, marginLeft: 40 }}
-          role="group"
-          aria-label="Preguntas sugeridas"
-        >
-          {chips.map((q, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => onChip(q)}
-              style={{
-                minHeight: 44,
-                padding: '8px 14px',
-                background: 'rgba(196,153,42,0.10)',
-                border: '1px solid rgba(196,153,42,0.35)',
-                borderRadius: 999,
-                color: 'var(--text)',
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: 'pointer',
-                textAlign: 'left',
-                lineHeight: 1.3,
-              }}
-            >
-              {q}
-            </button>
-          ))}
-        </div>
+      {chips && onChip && (
+        <SuggestionChips
+          items={chips}
+          onPick={onChip}
+          ariaLabel="Preguntas sugeridas"
+          containerStyle={{ marginTop: 12, marginLeft: 40 }}
+        />
       )}
     </div>
   )
