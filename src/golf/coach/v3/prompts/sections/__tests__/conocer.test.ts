@@ -37,6 +37,17 @@ describe('CONOCER_SECTION', () => {
     expect(CONOCER_SECTION).toMatch(/fallback|honesto|no inventes|nunca inventes/i)
   })
 
+  it('fallback igual con forma humana: identidad + veredicto + acción (P5 cold_start)', () => {
+    // La rama de fallback no debe ser una respuesta pelada: mantiene la estructura.
+    expect(CONOCER_SECTION).toMatch(/la honestidad no te exime/i)
+    expect(CONOCER_SECTION).toMatch(/Identidad \+ veredicto \+ acci[oó]n/i)
+  })
+
+  it('al PROPONER una meta la enmarca en identidad + delta + acción (P5 target)', () => {
+    expect(CONOCER_SECTION).toMatch(/Cuando PROPONGAS una meta/i)
+    expect(CONOCER_SECTION).toMatch(/no la sueltes como un n[uú]mero/i)
+  })
+
   it('traduce métricas a lenguaje claro (cero métricas opacas)', () => {
     expect(CONOCER_SECTION).toMatch(/lenguaje claro|cero métricas opacas|sin jerga|no muestres.*clave|nunca.*metric/i)
   })
