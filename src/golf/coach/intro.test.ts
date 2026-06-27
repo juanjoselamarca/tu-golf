@@ -70,6 +70,24 @@ describe('buildIntro — opener + chips por contexto', () => {
     const r = buildIntro({ ...base, roundDaysAgo: 0, hasPlan: true, planPatternId: 'par_3_weakness', outcomesCount: 5, targetsReached: 5 })
     expect(r.hook_type).toBe('recent_round')
   })
+
+  it('el opener habla de TÚ, nunca voseo (identidad.ts: español chileno) — canario', () => {
+    // Branches que cubren todos los hook_type. El opener lo escribe el modelo en
+    // tú; estos son hardcodeados, así que no deben colarse formas en voseo.
+    const cases: IntroContext[] = [
+      { ...base, roundDaysAgo: 0 },                                              // recent_round
+      { ...base, roundDaysAgo: 2, lastGross: 88 },                               // last_round_with_score
+      { ...base, hasPlan: true, planPatternId: 'par_3_weakness', outcomesCount: 5, targetsReached: 3 }, // plan_with_progress
+      { ...base, hasPlan: true, planPatternId: 'par_3_weakness', outcomesCount: 0 }, // plan_no_progress
+      { ...base, roundDaysAgo: 20 },                                             // long_absence
+      { ...base, totalRounds: 1 },                                              // newcomer
+      base,                                                                      // fallback
+    ]
+    const voseo = /\b(tenés|podés|querés|hacé|mirá|fijate|sentís|armá|probá|jugás|andá|dale que)\b/i
+    for (const ctx of cases) {
+      expect(buildIntro(ctx).opener).not.toMatch(voseo)
+    }
+  })
 })
 
 describe('buildActivePlanSummary (D3 — surfacing plan activo)', () => {
