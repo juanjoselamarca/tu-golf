@@ -46,9 +46,16 @@ describe('parseFollowups', () => {
     expect(parseFollowups(JSON.stringify(42))).toEqual([])
   })
 
-  it('descarta vacíos, no-strings y preguntas > 90 chars; normaliza espacios', () => {
-    const raw = JSON.stringify({ questions: ['  ¿Hola   mundo?  ', '', 42, 'x'.repeat(120), null] })
+  it('descarta vacíos, no-strings y preguntas demasiado largas; normaliza espacios', () => {
+    const raw = JSON.stringify({ questions: ['  ¿Hola   mundo?  ', '', 42, 'x'.repeat(130), null] })
     expect(parseFollowups(raw)).toEqual(['¿Hola mundo?'])
+  })
+
+  it('acepta preguntas naturales en español de ~110 chars (Haiku no las cortaba en prod)', () => {
+    const q = '¿Cómo puedo practicar este enfoque de jugar al bogey en mi próxima ronda sin perder del todo la agresividad?'
+    expect(q.length).toBeGreaterThan(90)
+    expect(q.length).toBeLessThanOrEqual(120)
+    expect(parseFollowups(JSON.stringify({ questions: [q] }))).toEqual([q])
   })
 
   it('deduplica (case-insensitive) y corta en FOLLOWUPS_MAX', () => {

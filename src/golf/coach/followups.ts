@@ -10,10 +10,14 @@
 // salida JSON. El handler solo orquesta auth + rate-limit + callLLM.
 
 export const FOLLOWUPS_MAX = 3
-/** Largo máximo de una pregunta sugerida (se descartan las más largas). */
-export const FOLLOWUP_MAX_LEN = 90
+/** Largo máximo de una pregunta sugerida (se descartan las más largas). 120 da
+ *  aire a preguntas naturales en español — 90 cortaba TODO el set de Haiku en
+ *  prod (preguntas un poco más largas) → 0 chips, feature vacía. */
+export const FOLLOWUP_MAX_LEN = 120
 const MAX_QUESTION_CHARS = 600
-const MAX_ANSWER_CHARS = 1200
+// 700 (no 1200): el intercambio + system prompt debe quedar bajo el presupuesto
+// de <500 tokens/turno (E1). Con 1200 chars de answer, prod medía 596 tokens.
+const MAX_ANSWER_CHARS = 700
 
 export interface FollowupsRequest {
   system: string
@@ -26,7 +30,7 @@ que el jugador podría querer hacerle al coach a continuación, en su voz (prime
 persona) y en español chileno de TÚ — nunca voseo (escribe "¿Cómo entreno…?", jamás
 "¿Cómo entrenás…?").
 Reglas:
-- Cada pregunta < 90 caracteres, accionable y específica al tema del intercambio.
+- Cada pregunta CORTA (máx ~110 caracteres), accionable y específica al intercambio.
 - NO repitas lo que el coach ya respondió; abre un siguiente paso natural.
 - Si no hay un seguimiento útil y honesto, devuelve la lista vacía. No inventes.
 Responde SOLO con JSON válido, sin texto extra: {"questions": ["…", "…"]}`
