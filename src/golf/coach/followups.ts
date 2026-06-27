@@ -58,14 +58,34 @@ export function buildFollowupsRequest(userText: string, assistantText: string): 
  * Acepta tanto `{"questions": [...]}` como un array crudo `[...]`. Devuelve a lo
  * sumo FOLLOWUPS_MAX. Si algo no encaja, devuelve [] (no rompe el chat).
  */
+/**
+ * Intenta parsear JSON tolerando lo que los modelos agregan pese a pedir JSON puro:
+ * fences markdown (```json … ```) — Haiku los pone aunque Gemini no — y texto
+ * alrededor del objeto. Prueba varias formas; null si ninguna parsea.
+ */
+function tryParseJson(raw: string): unknown {
+  const t = raw.trim()
+  const candidates: string[] = [t]
+  const fence = t.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i)
+  if (fence) candidates.push(fence[1].trim())
+  // Último recurso: del primer "{" al último "}" (texto envolvente).
+  const first = t.indexOf('{')
+  const last = t.lastIndexOf('}')
+  if (first !== -1 && last > first) candidates.push(t.slice(first, last + 1))
+  for (const c of candidates) {
+    try {
+      return JSON.parse(c)
+    } catch {
+      /* siguiente candidato */
+    }
+  }
+  return null
+}
+
 export function parseFollowups(raw: string | null | undefined): string[] {
   if (!raw || typeof raw !== 'string') return []
-  let data: unknown
-  try {
-    data = JSON.parse(raw)
-  } catch {
-    return []
-  }
+  const data = tryParseJson(raw)
+  if (data == null) return []
   const arr: unknown[] = Array.isArray(data)
     ? data
     : (data && typeof data === 'object' && Array.isArray((data as { questions?: unknown }).questions))

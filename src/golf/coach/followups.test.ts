@@ -34,6 +34,19 @@ describe('parseFollowups', () => {
     expect(parseFollowups(JSON.stringify(['A?', 'B?']))).toEqual(['A?', 'B?'])
   })
 
+  it('JSON envuelto en fence markdown ```json (lo que Haiku devuelve en prod)', () => {
+    const raw = '```json\n{\n  "questions": [\n    "¿Cómo identifico cuándo jugar al bogey?",\n    "¿Qué ritual de reset me recomiendas?"\n  ]\n}\n```'
+    expect(parseFollowups(raw)).toEqual([
+      '¿Cómo identifico cuándo jugar al bogey?',
+      '¿Qué ritual de reset me recomiendas?',
+    ])
+  })
+
+  it('JSON con fence sin etiqueta y con texto alrededor', () => {
+    expect(parseFollowups('```\n{"questions":["¿A?"]}\n```')).toEqual(['¿A?'])
+    expect(parseFollowups('Claro, acá van:\n{"questions": ["¿B?"]}\n¡Suerte!')).toEqual(['¿B?'])
+  })
+
   it('JSON malformado → [] (no rompe el chat)', () => {
     expect(parseFollowups('no soy json {')).toEqual([])
     expect(parseFollowups('')).toEqual([])
