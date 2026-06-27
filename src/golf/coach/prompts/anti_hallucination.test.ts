@@ -53,4 +53,12 @@ describe('ANTI_HALLUCINATION — manejo de datos sin pedirle al jugador', () => 
     // No alcanza con disculparse: debe traer y usar el dato en el mismo turno.
     expect(ANTI_HALLUCINATION).toMatch(/no te limites a disculparte/i)
   })
+
+  it('prohíbe el claim falso "ronda importada sin desglose hoyo por hoyo" (inbox 27-jun)', () => {
+    // El coach decía "el sistema no tiene el desglose individual" de rondas importadas.
+    // Es falso: get_round_by_date trae el hoyo por hoyo de cualquier ronda del historial.
+    expect(ANTI_HALLUCINATION).toMatch(/get_round_by_date/i)
+    expect(ANTI_HALLUCINATION).toMatch(/hoyo por hoyo de una ronda IMPORTADA/i)
+    expect(ANTI_HALLUCINATION).toMatch(/no solo de las que vienen en el contexto|no te limites a las rondas del contexto/i)
+  })
 })
