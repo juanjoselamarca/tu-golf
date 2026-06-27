@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { runChatStream, enforceFinalText, runWithContinuation } from '../chat-engine'
+import { runChatStream, enforceFinalText, runWithContinuation, buildContinuationRequest } from '../chat-engine'
 
 // PR1 (refactor puro): el seguro real es el smoke byte-idéntico del coach.
 // Este unit solo asegura que la firma pública existe tras la extracción.
@@ -93,10 +93,23 @@ describe('runWithContinuation (auto-continuación ante truncación por max_token
       return { text: 'C', stopReason: 'end_turn' }
     }
     const r = await runWithContinuation({ text: 'A ', stopReason: 'max_tokens' }, cont, 3)
-    // 1ª continuación recibe 'A' (trailing space recortado); 2ª recibe 'AB'
-    expect(prefills).toEqual(['A', 'AB'])
-    expect(r.text).toBe('ABC')
+    // El prefill que ve el modelo va recortado ('A', luego 'A B'); el acumulado
+    // conserva el texto crudo ('A ' + 'B' + 'C') para coincidir con lo mostrado en vivo.
+    expect(prefills).toEqual(['A', 'A B'])
+    expect(r.text).toBe('A BC')
     expect(r.continuations).toBe(2)
+  })
+
+  it('no intenta continuar un assistant vacío (prefill quedaría vacío)', async () => {
+    let calls = 0
+    const cont = async () => {
+      calls++
+      return { text: 'x', stopReason: 'end_turn' }
+    }
+    const r = await runWithContinuation({ text: '   ', stopReason: 'max_tokens' }, cont, 3)
+    expect(calls).toBe(0)
+    expect(r.continuations).toBe(0)
+    expect(r.truncated).toBe(true)
   })
 
   it('corta en el tope de continuaciones y marca truncated=true', async () => {
@@ -110,5 +123,32 @@ describe('runWithContinuation (auto-continuación ante truncación por max_token
     expect(r.continuations).toBe(2)
     expect(r.truncated).toBe(true)
     expect(r.text).toBe('inicioxx')
+  })
+})
+
+describe('buildContinuationRequest (request válido aun con tool-context)', () => {
+  const loopMessages = [
+    { role: 'user', content: 'dame mi plan del Norte-Este' },
+    { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'get_latest_round', input: {} }] },
+    { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{"ok":true}' }] },
+  ]
+  const activeTools = [{ name: 'get_latest_round' }, { name: 'compute_score_projection' }]
+
+  it('incluye tools y tool_choice:none (Anthropic exige tools si hay tool_use/tool_result)', () => {
+    const req = buildContinuationRequest({
+      model: 'claude-x', systemFinal: 'SYS', loopMessages, activeTools, prefill: 'El swing al 80% te da más p',
+    })
+    // C1: sin `tools`, un request con bloques tool_use/tool_result tira 400 → se pierde la respuesta.
+    expect(req.tools).toBe(activeTools)
+    expect(req.tool_choice).toEqual({ type: 'none' })
+  })
+
+  it('pone el prefill como último mensaje assistant para CONTINUAR el turno', () => {
+    const req = buildContinuationRequest({
+      model: 'claude-x', systemFinal: 'SYS', loopMessages, activeTools, prefill: 'El swing al 80% te da más p',
+    })
+    const msgs = req.messages as Array<{ role: string; content: unknown }>
+    expect(msgs.length).toBe(4)
+    expect(msgs[msgs.length - 1]).toEqual({ role: 'assistant', content: 'El swing al 80% te da más p' })
   })
 })

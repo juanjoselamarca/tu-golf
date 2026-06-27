@@ -60,6 +60,7 @@ async function regenerateRelativeOnly(
   anthropic: Anthropic,
   systemFinal: string,
   loopMessages: unknown[],
+  activeTools: readonly unknown[],
 ): Promise<{ text: string; usage: Anthropic.Usage }> {
   const strictSystem =
     systemFinal +
@@ -68,6 +69,10 @@ async function regenerateRelativeOnly(
     model: coachModel(),
     max_tokens: 1024,
     system: [{ type: 'text', text: strictSystem, cache_control: { type: 'ephemeral' } }],
+    // Mismo requisito que la continuación: loopMessages puede traer tool_use/tool_result,
+    // así que las tools deben ir definidas (con tool_choice:'none' para no reusarlas).
+    tools: activeTools as unknown as Anthropic.Tool[],
+    tool_choice: { type: 'none' },
     messages: loopMessages as unknown as Anthropic.MessageParam[],
   })
   const text = resp.content
@@ -99,13 +104,48 @@ export async function runWithContinuation(
   let stop = initial.stopReason
   let continuations = 0
   while (stop === 'max_tokens' && continuations < maxContinuations) {
-    continuations++
+    // Anthropic rechaza un prefill de assistant con whitespace al final (o vacío):
+    // recortamos SOLO el prefill que ve el modelo. El acumulado conserva el texto
+    // crudo que el usuario ya vio en vivo (modo !guard), para que lo persistido
+    // coincida 1:1 con lo mostrado. Para cortes a media palabra la costura es exacta.
     const prefill = acc.trimEnd()
+    if (!prefill) break
+    continuations++
     const seg = await continueSegment(prefill)
-    acc = prefill + seg.text
+    acc = acc + seg.text
     stop = seg.stopReason
   }
   return { text: acc, truncated: stop === 'max_tokens', continuations }
+}
+
+type ContinuationRequest = Parameters<Anthropic['messages']['stream']>[0]
+
+/**
+ * Arma el request de la continuación de un turno truncado. CRÍTICO: incluye
+ * `tools` + `tool_choice:'none'`. Si el turno usó tools, `loopMessages` ya trae
+ * bloques tool_use/tool_result y Anthropic rechaza (400) un request con esos
+ * bloques sin `tools` definidas — perdiendo la respuesta entera. `tool_choice:'none'`
+ * impide además que el modelo llame una tool en la continuación (es prosa pura).
+ * El `prefill` va como último mensaje assistant para que el modelo CONTINÚE desde ahí.
+ */
+export function buildContinuationRequest(opts: {
+  model: string
+  systemFinal: string
+  loopMessages: unknown[]
+  activeTools: readonly unknown[]
+  prefill: string
+}): ContinuationRequest {
+  return {
+    model: opts.model,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    system: [{ type: 'text', text: opts.systemFinal, cache_control: { type: 'ephemeral' } }],
+    tools: opts.activeTools as unknown as Anthropic.Tool[],
+    tool_choice: { type: 'none' },
+    messages: [
+      ...(opts.loopMessages as Array<{ role: 'user' | 'assistant'; content: unknown }>),
+      { role: 'assistant', content: opts.prefill },
+    ] as unknown as Anthropic.MessageParam[],
+  }
 }
 
 export interface RunChatStreamParams {
@@ -350,15 +390,9 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             const continued = await runWithContinuation(
               { text: iterText, stopReason: resp.stop_reason },
               async (prefill) => {
-                const contStream = anthropic.messages.stream({
-                  model: coachModel(),
-                  max_tokens: MAX_OUTPUT_TOKENS,
-                  system: [{ type: 'text', text: systemFinal, cache_control: { type: 'ephemeral' } }],
-                  messages: [
-                    ...(loopMessages as LoopMsg[]),
-                    { role: 'assistant', content: prefill },
-                  ] as unknown as Anthropic.MessageParam[],
-                })
+                const contStream = anthropic.messages.stream(
+                  buildContinuationRequest({ model: coachModel(), systemFinal, loopMessages, activeTools, prefill }),
+                )
                 let segText = ''
                 for await (const event of contStream) {
                   if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
@@ -389,11 +423,13 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               let outText = enforced.text
               if (enforced.blocked) {
                 try {
-                  const retry = await regenerateRelativeOnly(anthropic, systemFinal, loopMessages)
+                  const retry = await regenerateRelativeOnly(anthropic, systemFinal, loopMessages, activeTools)
                   usageAcc.add(retry.usage)
                   llmCalls++
                   const r2 = enforceFinalText(retry.text, { authorized, relativeHint: lastProjectionRelative })
-                  if (!r2.blocked && retry.text.trim()) outText = retry.text
+                  // Si el retry produjo prosa segura, ESE es el texto mostrado: el flag de
+                  // truncación del intento original ya no aplica.
+                  if (!r2.blocked && retry.text.trim()) { outText = retry.text; turnTruncated = false }
                 } catch (rErr) {
                   void captureError(rErr, { context: 'taiger.chat.guard_retry', userId })
                 }
