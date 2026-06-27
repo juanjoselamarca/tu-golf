@@ -24,6 +24,7 @@ export type LLMRole = 'primary_chat' | 'reasoning' | 'evaluator'
  */
 export type AiSurface =
   | 'coach_chat'
+  | 'coach_followups'
   | 'import_vision'
   | 'import_insight'
   | 'rag_search'

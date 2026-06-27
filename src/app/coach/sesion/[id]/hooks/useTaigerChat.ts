@@ -24,6 +24,9 @@ interface UseTaigerChatResult {
   plansByMsgIdx: Record<number, AssignedPlan>
   roundsByMsgIdx: Record<number, RoundSummary>
   projectionsByMsgIdx: Record<number, ScoreProjection>
+  /** Follow-up chips (D1) del ÚLTIMO intercambio. Vacío mientras se streamea o si
+   *  el endpoint aislado no propuso nada. Tocar uno lo envía como nuevo mensaje. */
+  followups: string[]
   handleSend: (input: string) => void
   handleRetry: () => void
 }
@@ -55,7 +58,36 @@ export function useTaigerChat({
   const [plansByMsgIdx, setPlansByMsgIdx] = useState<Record<number, AssignedPlan>>({})
   const [roundsByMsgIdx, setRoundsByMsgIdx] = useState<Record<number, RoundSummary>>({})
   const [projectionsByMsgIdx, setProjectionsByMsgIdx] = useState<Record<number, ScoreProjection>>({})
+  const [followups, setFollowups] = useState<string[]>([])
   const currentAssistantIdxRef = useRef<number>(-1)
+  // Token de turno para los follow-ups: invalida peticiones en vuelo de turnos
+  // viejos. Sin esto, si la petición del turno N resuelve DESPUÉS de la del N+1
+  // (latencias similares de Haiku), los chips de N quedarían bajo la respuesta de
+  // N+1 (contenido equivocado anclado a un mensaje). Mismo patrón que el idx ref.
+  const followupTurnRef = useRef(0)
+
+  // Follow-up chips (D1 / E1): tras CERRAR el stream, pide preguntas de seguimiento
+  // a un endpoint AISLADO con Haiku. Fire-and-forget — nunca bloquea el chat ni el
+  // spinner; si falla o viene vacío, no se muestran chips (ausencia elegante).
+  const loadFollowups = useCallback(async (question: string, answer: string) => {
+    if (!question.trim() || !answer.trim()) return
+    const turn = ++followupTurnRef.current // este turno reclama el slot de followups
+    try {
+      const res = await fetch('/api/taiger/followups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: question.slice(0, 2000), answer: answer.slice(0, 8000) }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      if (turn !== followupTurnRef.current) return // llegó tarde: ya hay otro turno → descartar
+      if (Array.isArray(data?.followups)) {
+        setFollowups(data.followups.filter((x: unknown): x is string => typeof x === 'string'))
+      }
+    } catch {
+      /* silencioso: sin chips, el chat sigue intacto */
+    }
+  }, [])
 
   const sendFollowUp = useCallback(async (allMessages: ChatMessage[]) => {
     if (!session) return
@@ -165,6 +197,14 @@ export function useTaigerChat({
       }
       for (const ev of sse.flush()) applyEvent(ev)
 
+      // Follow-up chips (D1): el stream cerró bien y hay respuesta → pedir sugerencias
+      // al endpoint aislado. Fire-and-forget (no se await: las chips aparecen un
+      // instante después, sin demorar el cierre del turno — patrón Perplexity).
+      if (assistantContent.trim()) {
+        const lastUser = [...allMessages].reverse().find(m => m.role === 'user')?.content ?? ''
+        void loadFollowups(lastUser, assistantContent)
+      }
+
       // El backend (helper getOrCreateActiveSession) ya hizo el update sobre la sesion
       // primaria. Si veniamos como 'nueva', redirigimos al UUID real para que la URL
       // refleje la sesion persistente.
@@ -182,11 +222,15 @@ export function useTaigerChat({
       // Pase lo que pase, nunca dejamos el spinner colgado (CERO FALLOS en cancha).
       setStreaming(false)
     }
-  }, [session, sessionId, router, setMessages])
+  }, [session, sessionId, router, setMessages, loadFollowups])
 
   const handleSend = useCallback((input: string) => {
     if (!input.trim() || streaming) return
 
+    // Al empezar un turno nuevo: limpiar chips e invalidar cualquier petición de
+    // followups en vuelo del turno anterior (aunque todavía no haya un loadFollowups nuevo).
+    setFollowups([])
+    followupTurnRef.current++
     const userMessage: ChatMessage = { role: 'user', content: input.trim() }
     // Si hay opener y es el primer turno, materializarlo como mensaje del coach
     // antes del mensaje del usuario. Asi el LLM ve el contexto completo y la
@@ -204,6 +248,8 @@ export function useTaigerChat({
   // que quedó vacío/parcial y rellama sendFollowUp con el último user turn.
   const handleRetry = useCallback(() => {
     if (streaming) return
+    setFollowups([])
+    followupTurnRef.current++
     const last = messages[messages.length - 1]
     const cleaned = last?.role === 'assistant'
       ? messages.slice(0, -1)
@@ -219,6 +265,7 @@ export function useTaigerChat({
     plansByMsgIdx,
     roundsByMsgIdx,
     projectionsByMsgIdx,
+    followups,
     handleSend,
     handleRetry,
   }

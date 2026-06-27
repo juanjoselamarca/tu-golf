@@ -30,7 +30,7 @@ export default function SesionDetailPage() {
   const { opener, setOpener, chips, activePlan } = useTaigerIntro(loadingSession, messages.length)
   const {
     streaming, error, activity,
-    plansByMsgIdx, roundsByMsgIdx, projectionsByMsgIdx,
+    plansByMsgIdx, roundsByMsgIdx, projectionsByMsgIdx, followups,
     handleSend, handleRetry,
   } = useTaigerChat({ session, sessionId, messages, setMessages, opener, setOpener })
   const { votesByMsgIdx, canVote, submitVote } = useMessageFeedback(sessionId, messages)
@@ -109,6 +109,8 @@ export default function SesionDetailPage() {
           chips={chips}
           onChip={(q) => { if (!streaming) handleSend(q) }}
           activePlan={activePlan}
+          followups={followups}
+          onFollowup={(q) => { if (!streaming) handleSend(q) }}
         />
 
         {streaming && messages.length > 0 && !messages[messages.length - 1]?.content && (

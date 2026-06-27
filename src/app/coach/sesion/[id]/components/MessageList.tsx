@@ -7,6 +7,7 @@ import type { ChatMessage, MessageVote } from '@/lib/data/taiger'
 import type { ActivePlanSummary } from '@/golf/coach/intro'
 import { EmptyState } from './EmptyState'
 import { MessageBubble } from './MessageBubble'
+import { SuggestionChips } from './SuggestionChips'
 
 interface MessageListProps {
   messages: ChatMessage[]
@@ -25,6 +26,9 @@ interface MessageListProps {
   onChip?: (question: string) => void
   /** Plan activo (D3): surfacing en el estado vacío. */
   activePlan?: ActivePlanSummary | null
+  /** Follow-up chips (D1) del último intercambio + handler (tocar = enviar). */
+  followups?: string[]
+  onFollowup?: (question: string) => void
 }
 
 /**
@@ -47,6 +51,8 @@ export function MessageList({
   chips,
   onChip,
   activePlan,
+  followups,
+  onFollowup,
 }: MessageListProps) {
   const lastIdx = messages.length - 1
   // El primer mensaje 'user' marca dónde empieza la conversación real. El saludo
@@ -76,6 +82,18 @@ export function MessageList({
           />
         )
       })}
+
+      {/* Follow-up chips (D1): bajo la ÚLTIMA respuesta del coach, solo cuando ya
+          cerró el stream. marginLeft alinea con la burbuja del coach (avatar 32 + gap 8). */}
+      {!streaming && followups && followups.length > 0 && onFollowup &&
+        messages[lastIdx]?.role === 'assistant' && !!messages[lastIdx]?.content && (
+          <SuggestionChips
+            items={followups}
+            onPick={onFollowup}
+            ariaLabel="Seguir preguntando"
+            containerStyle={{ marginTop: 10, marginBottom: 4, marginLeft: 40 }}
+          />
+        )}
     </>
   )
 }
