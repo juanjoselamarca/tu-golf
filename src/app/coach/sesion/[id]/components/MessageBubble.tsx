@@ -65,7 +65,10 @@ export function MessageBubble({
             maxWidth: '80%',
             padding: '12px 16px',
             borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-            background: msg.role === 'user' ? 'rgba(196,153,42,0.12)' : 'var(--bg-surface)',
+            // Coach: panel sólido (var(--bg-surface)). Usuario: burbuja crisp con borde
+            // dorado fino + fill sutil — el gold plano al 12% sobre el navy se veía turbio.
+            background: msg.role === 'user' ? 'rgba(196,153,42,0.08)' : 'var(--bg-surface)',
+            border: msg.role === 'user' ? '1px solid rgba(196,153,42,0.30)' : '1px solid var(--line)',
             color: 'var(--text)',
             fontSize: 14,
             lineHeight: 1.6,
