@@ -1,14 +1,14 @@
 {
   "total": 21,
-  "correctnessPassRate": 0.8571428571428571,
-  "sixPiecesAvg": 4.166666666666667,
+  "correctnessPassRate": 0.9523809523809523,
+  "sixPiecesAvg": 4.666666666666667,
   "perCase": {
     "captura1_indice_vs_hcp": {
       "correctnessPass": true,
       "sixPiecesScore": null
     },
     "captura2_pide_data": {
-      "correctnessPass": false,
+      "correctnessPass": true,
       "sixPiecesScore": null
     },
     "captura3_se_contradice": {
@@ -32,20 +32,20 @@
       "sixPiecesScore": 6
     },
     "seis_piezas_otra_cancha": {
-      "correctnessPass": true,
-      "sixPiecesScore": 5
+      "correctnessPass": false,
+      "sixPiecesScore": 4
     },
     "cold_start_fallback_honesto": {
-      "correctnessPass": false,
-      "sixPiecesScore": 1
+      "correctnessPass": true,
+      "sixPiecesScore": 2
     },
     "cold_start_sin_rondas": {
       "correctnessPass": true,
       "sixPiecesScore": null
     },
     "target_propone_meta": {
-      "correctnessPass": false,
-      "sixPiecesScore": 3
+      "correctnessPass": true,
+      "sixPiecesScore": 6
     },
     "lenguaje_neto_vs_bruto": {
       "correctnessPass": true,

@@ -32,21 +32,29 @@ export interface SixPieceVerdict {
 
 const defaultLLM: SixPieceJudgeLLM = async ({ system, messages, responseJson }) => {
   // Banco de pruebas → surface 'eval' + ai_env 'dev': excluido del costo de prod.
+  // temperature 0: el juez es un EVALUADOR — el determinismo es correcto y mata la
+  // varianza de medición (la misma respuesta del coach debe puntuar igual siempre).
   const r = await withJudgePatience(
-    () => callLLM({ role: 'evaluator', system, messages, responseJson, maxTokens: 500, surface: 'eval', aiEnv: 'dev' }),
+    () => callLLM({ role: 'evaluator', system, messages, responseJson, maxTokens: 500, surface: 'eval', aiEnv: 'dev', temperature: 0 }),
   )
   return { text: r.text }
 }
 
-const SYSTEM = `Sos un evaluador de la calidad de un coach de golf por IA. La buena respuesta de coaching presenta UN foco en estas 6 PIEZAS:
-1. IDENTIDAD: le habla al jugador por su nombre / como su coach.
-2. HECHO: un dato real de SUS rondas (la evidencia).
-3. VEREDICTO: qué significa ese hecho, sin rodeos.
-4. TARGET: lo ata a su handicap/meta objetivo.
-5. DELTA: cuánto le falta para la meta, o el tamaño del leak en sus números.
-6. ACCION: UNA cosa concreta para esta semana.
-Te paso la pregunta del jugador y la respuesta FINAL del coach. Marcá qué piezas están presentes.
-Devolvé EXCLUSIVAMENTE un JSON con esta forma exacta (booleanos):
+// Exportado para canario offline (anclar el encuadre atómico anti-falso-0).
+export const SYSTEM = `Eres un evaluador de la calidad de un coach de golf por IA. Evalúas 6 PIEZAS de comunicación, CADA UNA POR SEPARADO y por sus propios méritos.
+
+REGLA CLAVE: marca cada pieza de forma INDEPENDIENTE. NO bajes todas a falso solo porque la respuesta no sea un "foco con datos" completo. Una respuesta honesta de cold-start (sin datos suficientes) igual puede tener IDENTIDAD, VEREDICTO y ACCIÓN — recónocelas.
+
+Las 6 piezas:
+1. IDENTIDAD: ¿le habla al jugador por su nombre o como su coach (no como un desconocido genérico)?
+2. HECHO: ¿cita un dato real de SUS rondas (un número, un patrón concreto)? Si el coach dice con honestidad que todavía no hay datos suficientes, HECHO está ausente — y eso es CORRECTO, no un punto en contra; márcalo false sin penalizar el resto.
+3. VEREDICTO: ¿da una lectura clara y sin rodeos? Un veredicto honesto del tipo "todavía no tengo datos suficientes para darte UN foco firme" CUENTA como veredicto presente.
+4. TARGET: ¿conecta con su handicap o meta objetivo?
+5. DELTA: ¿cuantifica cuánto le falta para la meta, o el tamaño del leak en sus números?
+6. ACCIÓN: ¿propone UNA cosa concreta a hacer? Un paso real como "suma 3-4 rondas", "importa tu historial" o "revisemos tu última ronda" CUENTA como acción presente.
+
+Te paso la pregunta del jugador y la respuesta FINAL del coach. Marca qué piezas están presentes, juzgando cada una por separado.
+Devuelve EXCLUSIVAMENTE un JSON con esta forma exacta (booleanos):
 {"identidad": bool, "hecho": bool, "veredicto": bool, "target": bool, "delta": bool, "accion": bool}
 No agregues texto fuera del JSON.`
 

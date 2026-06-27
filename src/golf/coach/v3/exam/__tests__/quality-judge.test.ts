@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { judgeSixPieces, type SixPieceJudgeLLM } from '../quality-judge'
+import { judgeSixPieces, SYSTEM, type SixPieceJudgeLLM } from '../quality-judge'
 
 const allTrue = {
   identidad: true, hecho: true, veredicto: true, target: true, delta: true, accion: true,
@@ -33,5 +33,24 @@ describe('judgeSixPieces', () => {
       .mockResolvedValue({ text: '```json\n' + JSON.stringify(allTrue) + '\n```' })
     const v = await judgeSixPieces({ userMessage: 'x', finalText: 'y', llm })
     expect(v.score).toBe(6)
+  })
+})
+
+describe('SYSTEM del juez — encuadre atómico (anti falso-0 en cold-start)', () => {
+  it('manda evaluar cada pieza por separado y NO colapsar todas a falso', () => {
+    expect(SYSTEM).toMatch(/INDEPENDIENTE/i)
+    expect(SYSTEM).toMatch(/NO bajes todas a falso/i)
+  })
+
+  it('reconoce que un cold-start honesto igual tiene veredicto y acción', () => {
+    // El veredicto honesto "no hay datos suficientes" cuenta.
+    expect(SYSTEM).toMatch(/no tengo datos suficientes/i)
+    // Pasos de cold-start (sumar rondas / revisar última ronda) cuentan como acción.
+    expect(SYSTEM).toMatch(/CUENTA como acci[oó]n/i)
+  })
+
+  it('está en español chileno (tú), no en voseo', () => {
+    expect(SYSTEM).toMatch(/Eres un evaluador/i)
+    expect(SYSTEM).not.toMatch(/\bSos\b|\bMarcá\b|\bDevolvé\b|\bsumá\b|\bimportá\b/)
   })
 })

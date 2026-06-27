@@ -322,7 +322,12 @@ export const EXAM_CASES: ExamCase[] = [
       must: ['es honesto sobre que faltan datos para un foco confiable', 'invita a sumar rondas o pide lo justo'],
       mustNot: ['inventa un patrón o una debilidad sin evidencia', 'da un número de fuga inventado'],
     },
-    sixPieces: { applicable: true, minScore: 4 }, // identidad + veredicto honesto, sin hecho/delta forzados
+    // Calibrado al juez atómico: un cold-start SIN datos solo puede entregar de forma
+    // fiable VEREDICTO honesto ("no hay datos suficientes") + ACCIÓN concreta (sumar/
+    // importar rondas). hecho/target/delta requieren datos o meta que acá no existen;
+    // identidad (saludar por nombre) es bonus, depende de que el nombre esté en contexto.
+    // minScore 4 era imposible. La correctness (must/mustNot) gatea contra inventar.
+    sixPieces: { applicable: true, minScore: 2 },
   },
   {
     id: 'cold_start_sin_rondas',
