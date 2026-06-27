@@ -51,6 +51,6 @@ describe('SYSTEM del juez — encuadre atómico (anti falso-0 en cold-start)', (
 
   it('está en español chileno (tú), no en voseo', () => {
     expect(SYSTEM).toMatch(/Eres un evaluador/i)
-    expect(SYSTEM).not.toMatch(/\bSos\b|\bMarcá\b|\bDevolvé\b/)
+    expect(SYSTEM).not.toMatch(/\bSos\b|\bMarcá\b|\bDevolvé\b|\bsumá\b|\bimportá\b/)
   })
 })

@@ -1,7 +1,7 @@
 {
   "total": 21,
-  "correctnessPassRate": 0.9047619047619048,
-  "sixPiecesAvg": 4.833333333333333,
+  "correctnessPassRate": 0.9523809523809523,
+  "sixPiecesAvg": 4.666666666666667,
   "perCase": {
     "captura1_indice_vs_hcp": {
       "correctnessPass": true,
@@ -24,8 +24,8 @@
       "sixPiecesScore": null
     },
     "seis_piezas_foco_completo": {
-      "correctnessPass": false,
-      "sixPiecesScore": 5
+      "correctnessPass": true,
+      "sixPiecesScore": 6
     },
     "seis_piezas_con_meta": {
       "correctnessPass": true,
@@ -37,7 +37,7 @@
     },
     "cold_start_fallback_honesto": {
       "correctnessPass": true,
-      "sixPiecesScore": 3
+      "sixPiecesScore": 2
     },
     "cold_start_sin_rondas": {
       "correctnessPass": true,
@@ -73,7 +73,7 @@
     },
     "progreso_como_vengo": {
       "correctnessPass": true,
-      "sixPiecesScore": 5
+      "sixPiecesScore": 4
     },
     "data_access_dos_canchas": {
       "correctnessPass": true,

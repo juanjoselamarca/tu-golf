@@ -28,8 +28,11 @@ export interface JudgeVerdict {
 
 const defaultJudgeLLM: JudgeLLM = async ({ system, messages, responseJson }) => {
   // Banco de pruebas → surface 'eval' + ai_env 'dev': excluido del costo de prod.
+  // temperature 0: el juez de correctness alimenta el gate MÁS estrecho (passRateTol
+  // 0.05); el determinismo es correcto para un evaluador y estabiliza ese gate (la
+  // misma respuesta del coach se juzga igual siempre — el ruido restante es coach-side).
   const r = await withJudgePatience(
-    () => callLLM({ role: 'evaluator', system, messages, responseJson, maxTokens: 600, surface: 'eval', aiEnv: 'dev' }),
+    () => callLLM({ role: 'evaluator', system, messages, responseJson, maxTokens: 600, surface: 'eval', aiEnv: 'dev', temperature: 0 }),
   )
   return { text: r.text }
 }

@@ -51,7 +51,7 @@ Las 6 piezas:
 3. VEREDICTO: ¿da una lectura clara y sin rodeos? Un veredicto honesto del tipo "todavía no tengo datos suficientes para darte UN foco firme" CUENTA como veredicto presente.
 4. TARGET: ¿conecta con su handicap o meta objetivo?
 5. DELTA: ¿cuantifica cuánto le falta para la meta, o el tamaño del leak en sus números?
-6. ACCIÓN: ¿propone UNA cosa concreta a hacer? Un paso real como "sumá 3-4 rondas", "importá tu historial" o "revisemos tu última ronda" CUENTA como acción presente.
+6. ACCIÓN: ¿propone UNA cosa concreta a hacer? Un paso real como "suma 3-4 rondas", "importa tu historial" o "revisemos tu última ronda" CUENTA como acción presente.
 
 Te paso la pregunta del jugador y la respuesta FINAL del coach. Marca qué piezas están presentes, juzgando cada una por separado.
 Devuelve EXCLUSIVAMENTE un JSON con esta forma exacta (booleanos):
