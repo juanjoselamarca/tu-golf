@@ -101,25 +101,43 @@ async function regenerateRelativeOnly(
  */
 export async function runWithContinuation(
   initial: { text: string; stopReason: string | null },
-  continueSegment: (prefill: string) => Promise<{ text: string; stopReason: string | null }>,
+  continueSegment: (partial: string) => Promise<{ text: string; stopReason: string | null }>,
   maxContinuations: number,
 ): Promise<{ text: string; truncated: boolean; continuations: number }> {
   let acc = initial.text
   let stop = initial.stopReason
   let continuations = 0
   while (stop === 'max_tokens' && continuations < maxContinuations) {
-    // Anthropic rechaza un prefill de assistant con whitespace al final (o vacío):
-    // recortamos SOLO el prefill que ve el modelo. El acumulado conserva el texto
-    // crudo que el usuario ya vio en vivo (modo !guard), para que lo persistido
-    // coincida 1:1 con lo mostrado. Para cortes a media palabra la costura es exacta.
-    const prefill = acc.trimEnd()
-    if (!prefill) break
+    // El parcial que ve el modelo va sin whitespace final (un assistant vacío o con
+    // whitespace al final rompe). El acumulado conserva el texto crudo que el usuario
+    // ya vio en vivo (modo !guard). La unión va por joinContinuation (determinista).
+    const partial = acc.trimEnd()
+    if (!partial) break
     continuations++
-    const seg = await continueSegment(prefill)
-    acc = acc + seg.text
+    const seg = await continueSegment(partial)
+    acc = joinContinuation(acc, seg.text)
     stop = seg.stopReason
   }
   return { text: acc, truncated: stop === 'max_tokens', continuations }
+}
+
+/**
+ * Une el acumulado con la continuación de forma DETERMINISTA, sin depender de que el
+ * modelo obedezca "no repitas / no reintroduzcas" (con continuación-vía-user-turn la
+ * costura ya no es un token-stream garantizado). (1) Quita muletillas de reintroducción
+ * al inicio del segmento ("[CONTINUACIÓN]", "Continúo:", "Sigo:"). (2) Deduplica
+ * repetición verbatim de ≥12 chars del final del acumulado (umbral para no comerse
+ * coincidencias cortas legítimas). Para cortes a media palabra sin overlap ni muletilla
+ * es concatenación exacta ("…no lo hag" + "as." = "…no lo hagas.").
+ */
+export function joinContinuation(acc: string, seg: string): string {
+  let s = seg.replace(/^\s*(?:\[continuaci[óo]n\]\s*|(?:continúo|continuo|sigo|continuando|continúa)\s*:\s*)/i, '')
+  const MIN_OVERLAP = 12
+  const max = Math.min(acc.length, s.length, 300)
+  for (let n = max; n >= MIN_OVERLAP; n--) {
+    if (acc.slice(-n) === s.slice(0, n)) { s = s.slice(n); break }
+  }
+  return acc + s
 }
 
 type ContinuationRequest = Parameters<Anthropic['messages']['stream']>[0]
@@ -397,9 +415,9 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             // (auditoría 2026-06-27). La continuación es prosa pura → sin tools.
             const continued = await runWithContinuation(
               { text: iterText, stopReason: resp.stop_reason },
-              async (prefill) => {
+              async (partial) => {
                 const contStream = anthropic.messages.stream(
-                  buildContinuationRequest({ model: coachModel(), systemFinal, loopMessages, activeTools, partial: prefill }),
+                  buildContinuationRequest({ model: coachModel(), systemFinal, loopMessages, activeTools, partial }),
                 )
                 let segText = ''
                 for await (const event of contStream) {
