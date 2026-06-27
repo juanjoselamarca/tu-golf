@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { runChatStream, enforceFinalText, runWithContinuation, buildContinuationRequest, joinContinuation } from '../chat-engine'
+import { runChatStream, enforceFinalText, runWithContinuation, buildContinuationRequest, joinContinuation, buildTurnDelta } from '../chat-engine'
 
 // PR1 (refactor puro): el seguro real es el smoke byte-idéntico del coach.
 // Este unit solo asegura que la firma pública existe tras la extracción.
@@ -180,5 +180,30 @@ describe('joinContinuation (costura determinista de la continuación)', () => {
   it('quita muletillas de reintroducción ([CONTINUACIÓN], "Continúo:", "Sigo:")', () => {
     expect(joinContinuation('El plan va así. ', '[CONTINUACIÓN] Hoyo 3: respira.')).toBe('El plan va así. Hoyo 3: respira.')
     expect(joinContinuation('El plan va así. ', 'Continúo: Hoyo 3: respira.')).toBe('El plan va así. Hoyo 3: respira.')
+  })
+})
+
+describe('buildTurnDelta (persistencia no-destructiva: solo el turno nuevo)', () => {
+  it('appendea el ÚLTIMO mensaje de usuario + la respuesta del coach', () => {
+    const conv = [
+      { role: 'user' as const, content: 'u1' },
+      { role: 'assistant' as const, content: 'a1' },
+      { role: 'user' as const, content: 'u2 (el nuevo)' },
+    ]
+    expect(buildTurnDelta(conv, 'respuesta del coach')).toEqual([
+      { role: 'user', content: 'u2 (el nuevo)' },
+      { role: 'assistant', content: 'respuesta del coach' },
+    ])
+  })
+
+  it('NO mete toda la conversación (esa es la ventana del LLM, ya está en la BD)', () => {
+    const conv = Array.from({ length: 20 }, (_, i) => ({ role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant', content: `m${i}` }))
+    // el último es índice 19 (assistant) → el último user es m18
+    const delta = buildTurnDelta(conv, 'X')
+    expect(delta).toEqual([{ role: 'user', content: 'm18' }, { role: 'assistant', content: 'X' }])
+  })
+
+  it('defensivo: si no hay user en la conversación, solo persiste la respuesta', () => {
+    expect(buildTurnDelta([], 'solo respuesta')).toEqual([{ role: 'assistant', content: 'solo respuesta' }])
   })
 })
