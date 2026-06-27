@@ -5,6 +5,8 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { publishRound } from '@/lib/data/rounds'
+import { SITE_URL } from '@/lib/site-url'
 import { formatLabel } from '@/golf/core/rules'
 import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components/Scorecard'
 import { trackEvent } from '@/lib/analytics'
@@ -105,14 +107,17 @@ export default function HistorialDetallePage() {
 
   /* ─── Share ─────────────────────────────────────────── */
   const handleShare = async () => {
-    const url = window.location.href
     const supabase = createClient()
+    // Se comparte el link PÚBLICO /tarjeta/[id], no esta ruta /perfil (protegida →
+    // el destinatario caería en /login). Compartir = publicar la ronda.
+    const tarjetaUrl = `${SITE_URL}/tarjeta/${id}`
     try {
+      await publishRound(supabase, id)
       if (navigator.share) {
-        await navigator.share({ title: `Tarjeta - ${round?.course_name}`, url })
+        await navigator.share({ title: `Tarjeta - ${round?.course_name}`, url: tarjetaUrl })
         trackEvent(supabase, round?.user_id ?? null, 'historial_round_shared', { method: 'native' })
       } else {
-        await copyToClipboard(url)
+        await copyToClipboard(tarjetaUrl)
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
         trackEvent(supabase, round?.user_id ?? null, 'historial_round_shared', { method: 'clipboard' })
