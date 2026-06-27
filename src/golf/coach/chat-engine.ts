@@ -22,6 +22,13 @@ import { currentAiEnv } from '@/lib/ai/registry'
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
 
+// Tope de tokens de salida por llamada. Subido de 2048→4096 (auditoría 2026-06-27)
+// para que las respuestas largas de 6 piezas + desgloses no se trunquen tan seguido;
+// el residual lo cubre runWithContinuation.
+const MAX_OUTPUT_TOKENS = 4096
+// Tope de auto-continuaciones ante truncación por max_tokens (cota de costo/latencia).
+const MAX_CONTINUATIONS = 3
+
 /**
  * Verifica el texto del turno FINAL contra el set autorizado (salidas de la tool
  * de este turno + valores exactos del contexto) ANTES de mostrarlo. Si trae un
@@ -68,6 +75,37 @@ async function regenerateRelativeOnly(
     .map((b) => b.text)
     .join('')
   return { text, usage: resp.usage }
+}
+
+/**
+ * Auto-continuación ante truncación por `max_tokens`. Dado el primer segmento ya
+ * generado (`initial`), vuelve a pedirle al modelo que SIGA su propia respuesta
+ * mientras el segmento previo haya cerrado por 'max_tokens' y no se exceda
+ * `maxContinuations`. El prefill es el texto acumulado RECORTADO (Anthropic
+ * rechaza un prefill de assistant con whitespace al final), y el modelo continúa
+ * desde ahí — para cortes a media palabra ("…con más p") la costura es exacta.
+ * Concatena todos los segmentos. `truncated` queda true si ni así llegó a cerrar.
+ *
+ * Esto cierra dos bugs de campo (auditoría 2026-06-27): la respuesta cortada a
+ * media frase, y la "continuación alucinada" al pedir "retoma" — porque ya no
+ * queda un parcial en el historial sobre el que el modelo confabule.
+ */
+export async function runWithContinuation(
+  initial: { text: string; stopReason: string | null },
+  continueSegment: (prefill: string) => Promise<{ text: string; stopReason: string | null }>,
+  maxContinuations: number,
+): Promise<{ text: string; truncated: boolean; continuations: number }> {
+  let acc = initial.text
+  let stop = initial.stopReason
+  let continuations = 0
+  while (stop === 'max_tokens' && continuations < maxContinuations) {
+    continuations++
+    const prefill = acc.trimEnd()
+    const seg = await continueSegment(prefill)
+    acc = prefill + seg.text
+    stop = seg.stopReason
+  }
+  return { text: acc, truncated: stop === 'max_tokens', continuations }
 }
 
 export interface RunChatStreamParams {
@@ -117,6 +155,8 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
           type LoopMsg = { role: 'user' | 'assistant'; content: unknown }
           const loopMessages: LoopMsg[] = conversation.map((m) => ({ role: m.role, content: m.content }))
           let fullResponse = ''
+          // ¿el turno terminó aún truncado tras agotar las auto-continuaciones?
+          let turnTruncated = false
           // MAX_TOOL_ITERS se importa de loop-config (compartido con el examen
           // runExamTurn) para que el examen no pueda divergir del coach real.
           // Acumulado de results de tool calls en TODAS las iters del loop —
@@ -132,7 +172,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             // baja ~80% via cache_read_input_tokens.
             const stream = anthropic.messages.stream({
               model: coachModel(),
-              max_tokens: 2048,
+              max_tokens: MAX_OUTPUT_TOKENS,
               system: [
                 {
                   type: 'text',
@@ -303,13 +343,49 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               continue
             }
 
-            // Turno FINAL (end_turn o max_tokens). Con guard activo, el texto se buffeó
-            // (iterText) y NO se mostró todavía: lo verificamos contra el set autorizado
-            // ANTES de flushear. Si trae un absoluto no respaldado → 1 retry acotado a
-            // "+N"; si reincide → prosa segura + tarjeta (el número correcto vive ahí).
+            // Turno FINAL. Si el modelo truncó por max_tokens, AUTO-CONTINUAR antes de
+            // verificar/mostrar/guardar: la respuesta nunca queda a media frase y no
+            // queda un parcial en el historial sobre el que "retoma" pueda alucinar
+            // (auditoría 2026-06-27). La continuación es prosa pura → sin tools.
+            const continued = await runWithContinuation(
+              { text: iterText, stopReason: resp.stop_reason },
+              async (prefill) => {
+                const contStream = anthropic.messages.stream({
+                  model: coachModel(),
+                  max_tokens: MAX_OUTPUT_TOKENS,
+                  system: [{ type: 'text', text: systemFinal, cache_control: { type: 'ephemeral' } }],
+                  messages: [
+                    ...(loopMessages as LoopMsg[]),
+                    { role: 'assistant', content: prefill },
+                  ] as unknown as Anthropic.MessageParam[],
+                })
+                let segText = ''
+                for await (const event of contStream) {
+                  if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+                    segText += event.delta.text
+                    if (!guardEnabled) {
+                      emittedContent = true
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`))
+                    }
+                  }
+                }
+                const segResp = await contStream.finalMessage()
+                usageAcc.add(segResp.usage)
+                llmCalls++
+                return { text: segText, stopReason: segResp.stop_reason }
+              },
+              MAX_CONTINUATIONS,
+            )
+            turnTruncated = continued.truncated
+            const finalText = continued.text
+
+            // Con guard activo, el texto (incl. continuaciones) se buffeó y NO se mostró:
+            // lo verificamos contra el set autorizado ANTES de flushear. Si trae un
+            // absoluto no respaldado → 1 retry acotado a "+N"; si reincide → prosa segura
+            // + tarjeta (el número correcto vive ahí).
             if (guardEnabled) {
               const authorized = collectAuthorizedNumbers(allToolResultStrings, contextString)
-              const enforced = enforceFinalText(iterText, { authorized, relativeHint: lastProjectionRelative })
+              const enforced = enforceFinalText(finalText, { authorized, relativeHint: lastProjectionRelative })
               let outText = enforced.text
               if (enforced.blocked) {
                 try {
@@ -328,8 +404,8 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               }
               fullResponse += outText
             } else {
-              // Sin guard: el texto del turno final ya se streameó live arriba.
-              fullResponse += iterText
+              // Sin guard: iterText + continuaciones ya se streamearon live arriba.
+              fullResponse += finalText
             }
             break
           }
@@ -426,6 +502,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
               done: true,
               session_id: sessionId,
               hallucination: hallucinationFlag,
+              truncated: turnTruncated,
             })}\n\n`,
           ))
           controller.close()
