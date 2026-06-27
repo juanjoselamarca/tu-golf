@@ -136,19 +136,24 @@ describe('buildContinuationRequest (request válido aun con tool-context)', () =
 
   it('incluye tools y tool_choice:none (Anthropic exige tools si hay tool_use/tool_result)', () => {
     const req = buildContinuationRequest({
-      model: 'claude-x', systemFinal: 'SYS', loopMessages, activeTools, prefill: 'El swing al 80% te da más p',
+      model: 'claude-x', systemFinal: 'SYS', loopMessages, activeTools, partial: 'El swing al 80% te da más p',
     })
     // C1: sin `tools`, un request con bloques tool_use/tool_result tira 400 → se pierde la respuesta.
     expect(req.tools).toBe(activeTools)
     expect(req.tool_choice).toEqual({ type: 'none' })
   })
 
-  it('pone el prefill como último mensaje assistant para CONTINUAR el turno', () => {
+  it('la conversación TERMINA en un mensaje de usuario (el modelo no soporta assistant prefill)', () => {
     const req = buildContinuationRequest({
-      model: 'claude-x', systemFinal: 'SYS', loopMessages, activeTools, prefill: 'El swing al 80% te da más p',
+      model: 'claude-x', systemFinal: 'SYS', loopMessages, activeTools, partial: 'El swing al 80% te da más p',
     })
     const msgs = req.messages as Array<{ role: string; content: unknown }>
-    expect(msgs.length).toBe(4)
-    expect(msgs[msgs.length - 1]).toEqual({ role: 'assistant', content: 'El swing al 80% te da más p' })
+    // 3 de loopMessages + el parcial del coach (assistant) + el turno de usuario que pide continuar
+    expect(msgs.length).toBe(5)
+    // El parcial va como mensaje assistant normal…
+    expect(msgs[3]).toEqual({ role: 'assistant', content: 'El swing al 80% te da más p' })
+    // …y la conversación CIERRA con un turno de usuario (si cerrara en assistant → 400 "does not support assistant prefill").
+    expect(msgs[4].role).toBe('user')
+    expect(typeof msgs[4].content).toBe('string')
   })
 })
