@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveRoundPars } from '@/golf/coach/hole-pars'
 import { savePlan, PATTERN_IDS, PLAN_METRICS, type SavePlanInput } from './plan-engine'
 import { inferHoles } from '@/golf/core/holes'
 import { matchCourseInDB } from '@/golf/courses/matching'
@@ -347,6 +348,7 @@ type HistoricalDetailRow = {
   scores: number[] | Record<string, number> | null
   total_gross: number | null
   holes_played: number | null
+  par_per_hole?: unknown
 }
 
 /** Carga los pares (numero→par) de una o varias canchas en un solo query. */
@@ -388,7 +390,10 @@ function mapHistoricalRoundDetail(
   row: HistoricalDetailRow,
   parsByCourse: Record<string, Record<number, number>>,
 ) {
-  const pars = row.course_id ? parsByCourse[row.course_id] ?? null : null
+  // Pares de la ronda: PREFIERE el par_per_hole importado (autoritativo, inmune al
+  // catálogo Damas/Varones sucio), cae a course_holes por los hoyos que falten.
+  const catalogPars = row.course_id ? parsByCourse[row.course_id] ?? null : null
+  const pars = resolveRoundPars(row.par_per_hole, catalogPars)
   const maxHole = row.holes_played && row.holes_played > 0 ? row.holes_played : 18
   const hoyos: Array<{ hoyo: number; par: number | null; strokes: number; vs_par: number | null }> = []
   let totalStrokes = 0
@@ -428,7 +433,7 @@ async function getLatestRound(ctx: ToolExecutionContext): Promise<ToolResult> {
   // "no tenés rondas" aunque tuviera cientos. Bug P0 de campo (inbox 09-jun).
   const { data, error } = await supabase
     .from('historical_rounds')
-    .select('id, course_id, course_name, played_at, scores, total_gross, holes_played')
+    .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, par_per_hole')
     .eq('user_id', userId)
     .not('total_gross', 'is', null)
     .order('played_at', { ascending: false })
@@ -549,7 +554,7 @@ async function getRoundByDate(
   const { supabase, userId } = ctx
   let query = supabase
     .from('historical_rounds')
-    .select('id, course_id, course_name, played_at, scores, total_gross, holes_played')
+    .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, par_per_hole')
     .eq('user_id', userId)
     .gte('played_at', `${date}T00:00:00`)
     .lt('played_at', `${date}T23:59:59`)
