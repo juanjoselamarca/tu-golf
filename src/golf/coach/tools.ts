@@ -552,12 +552,15 @@ async function getRoundByDate(
   courseName: string | null,
 ): Promise<ToolResult> {
   const { supabase, userId } = ctx
+  // `played_at` es columna DATE (no timestamp). Un rango con literales de
+  // timestamp (`${date}T00:00:00` / `T23:59:59`) los castea a DATE → trunca la
+  // hora → queda `played_at >= D AND played_at < D`, contradicción que devuelve
+  // CERO filas para CUALQUIER fecha. Se compara fecha contra fecha (igualdad).
   let query = supabase
     .from('historical_rounds')
     .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, par_per_hole')
     .eq('user_id', userId)
-    .gte('played_at', `${date}T00:00:00`)
-    .lt('played_at', `${date}T23:59:59`)
+    .eq('played_at', date)
     .order('played_at', { ascending: false })
 
   if (courseName) {
