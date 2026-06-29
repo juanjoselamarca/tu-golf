@@ -331,7 +331,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                       color: T.muted,
                       textAlign: 'center',
                     }}>
-                      {Math.round(p.hcp)}
+                      {Math.round(p.hcpDisplay ?? p.hcp)}
                     </span>
 
                     {/* THRU */}
@@ -382,6 +382,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                         holes={resolvedHoles}
                         scores={scoresRecord}
                         courseHandicap={Math.round(p.hcp)}
+                        displayHandicap={Math.round(p.hcpDisplay ?? p.hcp)}
                         modo={supportsDualLeaderboard ? viewMode : (modoJuego === 'neto' ? 'neto' : 'gross')}
                         formato={formato as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome' ?? 'stroke_play'}
                         playerName={p.name}
@@ -491,7 +492,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                           minWidth: 0,
                         }}>
                           {p.name}
-                          <span style={{ color: T.muted, fontWeight: 400 }}> ({Math.round(p.hcp)})</span>
+                          <span style={{ color: T.muted, fontWeight: 400 }}> ({Math.round(p.hcpDisplay ?? p.hcp)})</span>
                         </span>
 
                         {/* Score + THRU */}
@@ -563,7 +564,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                     color: T.muted,
                   }}>
                     {p.name}
-                    <span style={{ color: T.faint }}> ({Math.round(p.hcp)})</span>
+                    <span style={{ color: T.faint }}> ({Math.round(p.hcpDisplay ?? p.hcp)})</span>
                   </span>
                 </div>
               ))}

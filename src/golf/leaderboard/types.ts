@@ -8,7 +8,10 @@ import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 
 export interface LeaderboardEntry {
   name: string
+  /** Course handicap de SCORING (9h en rondas de 9h: reparte strokes/neto). */
   handicap: number
+  /** Course handicap COMPLETO (18h) para mostrar. Opcional: cae a `handicap`. */
+  hcpDisplay?: number
   grossTotal: number
   netTotal: number
   stablefordTotal: number

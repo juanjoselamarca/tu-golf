@@ -23,6 +23,9 @@ export interface Player {
   country: string
   cat:     string
   hcp:     number
+  /** Course handicap COMPLETO (18h) para la columna HCP. En 18h == hcp; en 9h
+   *  es el completo (no la mitad). Opcional: si falta, la UI cae a `hcp`. */
+  hcpDisplay?: number
   today:   number
   total:   number
   holes:   number

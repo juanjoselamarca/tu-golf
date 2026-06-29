@@ -75,6 +75,12 @@ export interface DBRondaLibreJugador {
    * Undefined en el fetch plano (el builder cae a `handicap`).
    */
   handicap_index?: number | null
+  /**
+   * Course handicap COMPLETO (18h) para MOSTRAR en la columna HCP del board.
+   * `...ConCourseHcp` lo resuelve a 18h aunque la ronda sea de 9h (el de scoring,
+   * `handicap`, se queda en 9h). Undefined en el fetch plano → la UI cae a `handicap`.
+   */
+  handicap_display?: number | null
   tees: string | null
   ronda_id: string
 }

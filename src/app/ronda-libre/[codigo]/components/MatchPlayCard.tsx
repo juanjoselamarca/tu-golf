@@ -9,10 +9,13 @@ import { MatchGwiPanel } from './matchplay/MatchGwiPanel'
 export interface MatchPlayCardProps {
   ronda: RondaLibre
   mr: MatchResult
+  /** Course handicap de SCORING (9h en rondas de 9h) — stroke math del GWI. */
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO (18h) — el que se muestra como "HCP" bajo cada nombre. */
+  displayHcpMap: Record<string, number>
 }
 
-export function MatchPlayCard({ ronda, mr, courseHcpMap }: MatchPlayCardProps) {
+export function MatchPlayCard({ ronda, mr, courseHcpMap, displayHcpMap }: MatchPlayCardProps) {
   const jug = ronda.ronda_libre_jugadores
 
   return (
@@ -24,12 +27,12 @@ export function MatchPlayCard({ ronda, mr, courseHcpMap }: MatchPlayCardProps) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <div style={{ textAlign: 'left' }}>
           <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>{jug[0].nombre}</div>
-          {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>HCP {courseHcpMap[jug[0].id] ?? '--'}</div>}
+          {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>HCP {displayHcpMap[jug[0].id] ?? courseHcpMap[jug[0].id] ?? '--'}</div>}
         </div>
         <div style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 600 }}>VS</div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>{jug[1].nombre}</div>
-          {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>HCP {courseHcpMap[jug[1].id] ?? '--'}</div>}
+          {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>HCP {displayHcpMap[jug[1].id] ?? courseHcpMap[jug[1].id] ?? '--'}</div>}
         </div>
       </div>
 

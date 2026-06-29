@@ -72,6 +72,7 @@ export function buildLeaderboardFromRondaLibre(
     return {
       name: j.nombre,
       handicap: hcp,
+      hcpDisplay: j.handicap_display ?? hcp,
       grossTotal,
       netTotal,
       stablefordTotal,

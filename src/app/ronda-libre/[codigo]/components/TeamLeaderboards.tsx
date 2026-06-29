@@ -18,13 +18,15 @@ export interface TeamLeaderboardsProps {
   parMap: Record<number, number>
   siMap: Record<number, number>
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO (18h) para la etiqueta HCP del scorecard expandido. */
+  displayHcpMap: Record<string, number>
   fechaDisplay: string
   /** Expand de tarjeta de equipo (fix 126) — solo best_ball. */
   expandedTeam: string | null
   onToggleTeam: (teamId: string) => void
 }
 
-export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, fechaDisplay, expandedTeam, onToggleTeam }: TeamLeaderboardsProps) {
+export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, displayHcpMap, fechaDisplay, expandedTeam, onToggleTeam }: TeamLeaderboardsProps) {
   if (equipos.length === 0 || Object.keys(parMap).length === 0) return null
 
   const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
@@ -51,6 +53,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
             holes={holeData}
             scores={m.scores}
             courseHandicap={courseHcpMap[m.id] ?? Math.round(m.handicap ?? 0)}
+            displayHandicap={displayHcpMap[m.id] ?? Math.round(m.handicap ?? 0)}
             modo={ronda.modo_juego as 'gross' | 'neto'}
             formato="best_ball"
             playerName={m.nombre}

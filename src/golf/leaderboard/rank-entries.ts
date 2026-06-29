@@ -121,6 +121,7 @@ export function rankEntries(
       country: 'CL',
       cat:     e.cat ?? 'General',
       hcp:     e.handicap,
+      hcpDisplay: e.hcpDisplay ?? e.handicap,
       today:   vsPar,
       total:   vsPar,
       holes:   e.holesPlayed,

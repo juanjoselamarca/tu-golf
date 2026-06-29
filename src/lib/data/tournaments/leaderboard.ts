@@ -21,6 +21,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   resolverCourseData,
   resolverCourseHandicap,
+  resolverCourseHandicapDisplay,
   type CourseData,
 } from '@/golf/core/course-handicap'
 
@@ -153,6 +154,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
     const ronda = rondaById.get(j.ronda_id)
     const courseId = (ronda?.course_id as string | null) ?? null
     let courseData: CourseData | null = null
+    let courseData18h: CourseData | null = null
     if (courseId) {
       const holesN = (ronda?.holes as number | null) ?? 18
       const recorridos = (ronda?.recorridos as string[] | null) ?? null
@@ -165,8 +167,33 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
         )
       }
       courseData = cache.get(key) ?? null
+      courseData18h = courseData
+
+      // Para MOSTRAR el HCP completo en rondas de 9h: cargamos los ratings de 18h
+      // del mismo tee (sin recorridos, para no re-dividir). `parTotal` ya es el par
+      // de 18h (sumParDedupByHole sobre course_holes completo). Con recorridos
+      // (multi-loop) no se puede derivar el par de 18h → cae a round(index).
+      if (courseData?.is9Hole) {
+        if (recorridos?.length) {
+          courseData18h = null
+        } else {
+          const key18 = `${courseId}|${tee}|18`
+          if (!cache.has(key18)) {
+            cache.set(
+              key18,
+              await resolverCourseData(supabase as unknown as SupabaseClient, courseId, tee, 18, parTotal, null),
+            )
+          }
+          courseData18h = cache.get(key18) ?? null
+        }
+      }
     }
-    out.push({ ...j, handicap_index: index, handicap: resolverCourseHandicap(index, courseData) })
+    out.push({
+      ...j,
+      handicap_index: index,
+      handicap: resolverCourseHandicap(index, courseData),
+      handicap_display: resolverCourseHandicapDisplay(index, courseData, courseData18h),
+    })
   }
   return out
 }
