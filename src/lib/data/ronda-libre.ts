@@ -113,22 +113,30 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
       const courseData9h = courseDataByTee[playerTee]
       courseHcpMap[j.id] = resolverCourseHandicap(index, courseData9h)
 
-      // Display: en rondas de 9h cargamos los ratings de 18h del MISMO tee (sin
-      // recorridos, para no re-dividir) y resolvemos el course handicap completo.
-      // `finalParTotal` ya es el par de 18h cuando la ronda no tiene recorridos
-      // (la query de course_holes trae los 18 hoyos). Cacheado por tee.
+      // Display: en rondas de 9h cargamos los ratings de 18h del MISMO tee y
+      // resolvemos el course handicap completo. `finalParTotal` ES el par de 18h
+      // SÓLO cuando la ronda NO tiene recorridos (la query de course_holes trae
+      // los 18 hoyos). En una cancha multi-recorrido jugada como un loop de 9h,
+      // `finalParTotal` es el par del loop (~36) y no podemos derivar el de 18h de
+      // forma confiable → mostramos round(index) (handicap completo aprox), nunca
+      // un valor inflado. Cacheado por tee.
       let courseData18h = courseData9h
       if (courseData9h?.is9Hole) {
-        if (!(playerTee in courseDataFullByTee)) {
-          courseDataFullByTee[playerTee] = await cargarCourseData(
-            ronda.course_id,
-            playerTee,
-            18,
-            finalParTotal,
-            null,
-          )
+        const tieneRecorridos = !!(ronda.recorridos as string[] | null)?.length
+        if (tieneRecorridos) {
+          courseData18h = null // → resolverCourseHandicapDisplay cae a round(index)
+        } else {
+          if (!(playerTee in courseDataFullByTee)) {
+            courseDataFullByTee[playerTee] = await cargarCourseData(
+              ronda.course_id,
+              playerTee,
+              18,
+              finalParTotal,
+              null,
+            )
+          }
+          courseData18h = courseDataFullByTee[playerTee]
         }
-        courseData18h = courseDataFullByTee[playerTee]
       }
       displayHcpMap[j.id] = resolverCourseHandicapDisplay(index, courseData9h, courseData18h)
     }

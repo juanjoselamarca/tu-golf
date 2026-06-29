@@ -111,8 +111,9 @@ export function IndividualLeaderboard({
               {showSecondary && (
                 <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 700, textAlign: 'center', fontFamily: '"DM Mono", monospace' }}>
                   {/* HCP COMPLETO (18h): una ronda de 9h muestra el handicap entero,
-                      no la mitad. El scoring sigue usando courseHcpMap (9h). */}
-                  {displayHcpMap[j.id] ?? j.courseHcp}
+                      no la mitad. El scoring sigue usando courseHcpMap (9h). Fallback
+                      al índice redondeado (NO j.courseHcp, que es la mitad en 9h). */}
+                  {displayHcpMap[j.id] ?? Math.round(j.handicap ?? 0)}
                 </span>
               )}
               <div style={{ textAlign: 'center' }}>
