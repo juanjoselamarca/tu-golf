@@ -141,6 +141,7 @@ export function IndividualLeaderboard({
                 }))}
                 scores={j.scores}
                 courseHandicap={courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)}
+                displayHandicap={displayHcpMap[j.id] ?? Math.round(j.handicap ?? 0)}
                 modo={ronda.modo_juego as 'gross' | 'neto'}
                 formato={ronda.formato_juego as ScorecardProps['formato']}
                 playerName={j.nombre}

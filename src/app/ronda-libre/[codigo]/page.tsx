@@ -222,7 +222,7 @@ function RondaLibrePageContent() {
         )}
 
         {ronda.formato_juego === 'match_play' && leaderboard.length === 2 && mr && (
-          <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} />
+          <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} displayHcpMap={displayHcpMap} />
         )}
 
         <CourseInfoCard ronda={ronda} fechaDisplay={fechaDisplay} />
@@ -234,6 +234,7 @@ function RondaLibrePageContent() {
             parMap={parMap}
             siMap={siMap}
             courseHcpMap={courseHcpMap}
+            displayHcpMap={displayHcpMap}
             fechaDisplay={fechaDisplay}
             expandedTeam={expandedTeam}
             onToggleTeam={(id) => setExpandedTeam(prev => prev === id ? null : id)}

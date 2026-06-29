@@ -35,7 +35,12 @@ export interface ScorecardHole {
 export interface ScorecardProps {
   holes: ScorecardHole[]
   scores: Record<string, number>
+  /** Course handicap de SCORING — reparte strokes/dots y calcula el neto.
+   *  En rondas de 9h es el de 9h (mitad). NO cambiar para display. */
   courseHandicap: number
+  /** Course handicap COMPLETO (18h) SOLO para la etiqueta "HCP" del header. Si se
+   *  omite, el header cae a `courseHandicap`. En 9h evita mostrar la mitad. */
+  displayHandicap?: number
   modo: 'gross' | 'neto'
   formato: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
   playerName?: string
@@ -459,7 +464,7 @@ function Stats({ st, wide }: { st: HS[]; wide: boolean }) {
 // ═══════════════════════════════════════════════════════════
 
 export default function Scorecard({
-  holes, scores, courseHandicap, modo, formato,
+  holes, scores, courseHandicap, displayHandicap, modo, formato,
   playerName, avatarUrl, showExtendedInfo = false,
   courseName, date, formatLabel,
 }: ScorecardProps) {
@@ -512,7 +517,7 @@ export default function Scorecard({
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 {playerName && <div style={{ fontSize: 14, fontWeight: 600, color: K.tp, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName}</div>}
-                {isN && courseHandicap !== 0 && <div style={{ fontSize: 10, color: K.tm, marginTop: 1 }}>HCP {courseHandicap}</div>}
+                {isN && courseHandicap !== 0 && <div style={{ fontSize: 10, color: K.tm, marginTop: 1 }}>HCP {displayHandicap ?? courseHandicap}</div>}
               </div>
               {played > 0 && (
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
