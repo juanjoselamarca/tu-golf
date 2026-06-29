@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ShareSheet } from './ShareSheet'
 import type { SharePayload } from '@/golf/share/types'
+
+/** Vacía microtasks + un macrotask (las acciones del sheet son async). */
+const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)) })
 
 const payload: SharePayload = {
   title: 'Mi ronda — Golfers+',
@@ -103,6 +106,59 @@ describe('ShareSheet', () => {
     expect(onCopied).toHaveBeenCalledTimes(1)
   })
 
+  it('"Compartir imagen" exitoso (native) cierra el sheet', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    setNavigator({ share } as unknown as Navigator)
+    const onClose = vi.fn()
+    render(<ShareSheet open onClose={onClose} payload={payload} />)
+    fireEvent.click(screen.getByRole('button', { name: /compartir imagen/i }))
+    await flush()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('"Compartir imagen" que degrada a portapapeles dispara onCopied (no falla en silencio)', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    setNavigator({ clipboard: { writeText } } as unknown as Navigator) // sin share
+    window.open = vi.fn().mockReturnValue(null) as unknown as typeof window.open // wa.me bloqueado
+    const onCopied = vi.fn()
+    render(<ShareSheet open onClose={() => {}} payload={payload} onCopied={onCopied} />)
+    fireEvent.click(screen.getByRole('button', { name: /compartir imagen/i }))
+    await flush()
+    expect(writeText).toHaveBeenCalled()
+    expect(onCopied).toHaveBeenCalledTimes(1)
+  })
+
+  it('"WhatsApp" que abre cierra el sheet', () => {
+    setNavigator({} as unknown as Navigator)
+    window.open = vi.fn().mockReturnValue({} as Window) as unknown as typeof window.open
+    const onClose = vi.fn()
+    render(<ShareSheet open onClose={onClose} payload={payload} />)
+    fireEvent.click(screen.getByRole('button', { name: /whatsapp/i }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('"WhatsApp" bloqueado cae a copiar link + onCopied (sin botón muerto)', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    setNavigator({ clipboard: { writeText } } as unknown as Navigator)
+    window.open = vi.fn().mockReturnValue(null) as unknown as typeof window.open
+    const onCopied = vi.fn()
+    render(<ShareSheet open onClose={() => {}} payload={payload} onCopied={onCopied} />)
+    fireEvent.click(screen.getByRole('button', { name: /whatsapp/i }))
+    await flush()
+    expect(writeText).toHaveBeenCalledWith(payload.url)
+    expect(onCopied).toHaveBeenCalledTimes(1)
+  })
+
+  it('"Más opciones" (native) exitoso cierra el sheet', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    setNavigator({ share } as unknown as Navigator)
+    const onClose = vi.fn()
+    render(<ShareSheet open onClose={onClose} payload={payload} />)
+    fireEvent.click(screen.getByRole('button', { name: /más opciones/i }))
+    await flush()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('Escape cierra (onClose)', () => {
     setNavigator({} as unknown as Navigator)
     const onClose = vi.fn()
@@ -125,6 +181,17 @@ describe('ShareSheet', () => {
     render(<ShareSheet open onClose={onClose} payload={payload} />)
     fireEvent.click(screen.getByRole('button', { name: /cerrar/i }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('atrapa el foco: Tab desde el último control vuelve al primero (aria-modal real)', () => {
+    setNavigator({ share: vi.fn() } as unknown as Navigator)
+    render(<ShareSheet open onClose={() => {}} payload={payload} />)
+    const buttons = screen.getAllByRole('button')
+    const first = buttons[0]
+    const last = buttons[buttons.length - 1]
+    last.focus()
+    fireEvent.keyDown(window, { key: 'Tab' })
+    expect(document.activeElement).toBe(first)
   })
 
   it('es un dialog modal accesible', () => {

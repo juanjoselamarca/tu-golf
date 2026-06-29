@@ -26,6 +26,15 @@ function isAbortError(e: unknown): boolean {
 }
 
 /**
+ * Predicado ÚNICO "¿el dispositivo soporta compartir nativo (Web Share API)?".
+ * Fuente de verdad para la cascada, `runNativeShare` y el ShareSheet (evita el
+ * smell de `'share' in navigator` vs truthy en lugares distintos).
+ */
+export function supportsNativeShare(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+}
+
+/**
  * Ejecuta la cascada de compartir. Pura respecto de React (lee `navigator` y
  * `window` globales) para poder testearla con esos globals mockeados.
  *
@@ -53,7 +62,7 @@ export async function runShareCascade(payload: SharePayload): Promise<ShareResul
   }
 
   // 2. Compartir nativo de texto + url.
-  if (nav?.share) {
+  if (supportsNativeShare() && nav?.share) {
     try {
       await nav.share({ title: payload.title, text: payload.text, url: payload.url })
       return { ok: true, method: 'webshare' }
@@ -91,10 +100,9 @@ export async function runShareCascade(payload: SharePayload): Promise<ShareResul
  * `{ ok: false }`.
  */
 export async function runNativeShare(payload: SharePayload): Promise<ShareResult> {
-  const nav = typeof navigator !== 'undefined' ? navigator : undefined
-  if (!nav?.share) return { ok: false, method: 'webshare' }
+  if (!supportsNativeShare()) return { ok: false, method: 'webshare' }
   try {
-    await nav.share({ title: payload.title, text: payload.text, url: payload.url })
+    await navigator.share({ title: payload.title, text: payload.text, url: payload.url })
     return { ok: true, method: 'webshare' }
   } catch (e) {
     if (isAbortError(e)) return { ok: false, method: 'aborted' }

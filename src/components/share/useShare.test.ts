@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { runShareCascade, runNativeShare, useShare } from './useShare'
+import { runShareCascade, runNativeShare, supportsNativeShare, useShare } from './useShare'
 import type { SharePayload } from '@/golf/share/types'
 
 /**
@@ -262,6 +262,18 @@ describe('runNativeShare (función pura)', () => {
     setNavigator({} as unknown as Navigator)
     const res = await runNativeShare(basePayload)
     expect(res.ok).toBe(false)
+  })
+})
+
+describe('supportsNativeShare (predicado único)', () => {
+  it('true cuando navigator.share es función', () => {
+    setNavigator({ share: vi.fn() } as unknown as Navigator)
+    expect(supportsNativeShare()).toBe(true)
+  })
+
+  it('false cuando no existe navigator.share', () => {
+    setNavigator({} as unknown as Navigator)
+    expect(supportsNativeShare()).toBe(false)
   })
 })
 

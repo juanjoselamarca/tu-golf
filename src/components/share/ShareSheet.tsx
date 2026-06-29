@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Share2, MessageCircle, LinkIcon, MoreVertical, X } from '@/components/icons'
 import type { SharePayload } from '@/golf/share/types'
-import { useShare } from './useShare'
+import { useShare, supportsNativeShare } from './useShare'
 
 interface ShareSheetProps {
   open: boolean
@@ -45,9 +45,12 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
     const url = URL.createObjectURL(payload.image.blob)
     setImageUrl(url)
     return () => URL.revokeObjectURL(url)
-  }, [open, payload.image])
+    // Dependemos del blob (no del objeto `image`) para no revocar/recrear el
+    // objectURL si el caller pasa un `payload` no memoizado.
+  }, [open, payload.image?.blob])
 
-  // Escape para cerrar + foco al abrir, restaurado al cerrar.
+  // Escape para cerrar + foco al abrir (restaurado al cerrar) + focus-trap real
+  // (aria-modal="true" obliga a que Tab no escape al fondo).
   useEffect(() => {
     if (!open) return
     const prev = document.activeElement as HTMLElement | null
@@ -55,7 +58,26 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
     // sin pintar un focus-ring sobre la X al abrir.
     dialogRef.current?.focus()
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (e.key !== 'Tab') return
+      const dialog = dialogRef.current
+      if (!dialog) return
+      const focusables = dialog.querySelectorAll<HTMLElement>(
+        'button, [href], input, [tabindex]:not([tabindex="-1"])',
+      )
+      if (focusables.length === 0) return
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => {
@@ -66,11 +88,42 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
 
   if (!open) return null
 
-  const canNativeShare = typeof navigator !== 'undefined' && 'share' in navigator
+  const canNativeShare = supportsNativeShare()
 
+  // Copia la url + notifica (toast "Copiado" + cierre, vía el caller).
   async function handleCopy() {
     const ok = await copyLink(payload.url)
     if (ok) onCopied?.()
+  }
+
+  // Botón primario: corre la cascada y REACCIONA a su resultado (no falla en
+  // silencio). aborted = usuario canceló (no-op); degradó a portapapeles =
+  // toast "Copiado"; cualquier otro éxito = cierra. Fallo total = deja el sheet
+  // abierto para reintentar.
+  async function handlePrimaryShare() {
+    const res = await share(payload)
+    if (res.method === 'aborted') return
+    if (res.ok && res.method === 'clipboard') {
+      onCopied?.()
+      return
+    }
+    if (res.ok) onClose()
+  }
+
+  // WhatsApp explícito: si el popup se bloquea, NO queda muerto — cae a copiar
+  // el link con feedback (mismo espíritu que la cascada).
+  function handleWhatsapp() {
+    if (whatsapp(payload)) {
+      onClose()
+      return
+    }
+    void handleCopy()
+  }
+
+  // "Más opciones": compartir nativo texto+url; cierra si tuvo éxito.
+  async function handleNative() {
+    const res = await native(payload)
+    if (res.ok) onClose()
   }
 
   return (
@@ -146,7 +199,7 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
             fullWidth
             loading={isSharing}
             leftIcon={<Share2 className="h-5 w-5" />}
-            onClick={() => void share(payload)}
+            onClick={() => void handlePrimaryShare()}
           >
             Compartir imagen
           </Button>
@@ -155,7 +208,7 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
             variant="nav"
             fullWidth
             leftIcon={<MessageCircle className="h-5 w-5" />}
-            onClick={() => whatsapp(payload)}
+            onClick={handleWhatsapp}
           >
             WhatsApp
           </Button>
@@ -164,7 +217,7 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
             variant="nav"
             fullWidth
             leftIcon={<LinkIcon className="h-5 w-5" />}
-            onClick={handleCopy}
+            onClick={() => void handleCopy()}
           >
             Copiar link
           </Button>
@@ -174,7 +227,7 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
               variant="ghost"
               fullWidth
               leftIcon={<MoreVertical className="h-5 w-5" />}
-              onClick={() => void native(payload)}
+              onClick={() => void handleNative()}
             >
               Más opciones
             </Button>
