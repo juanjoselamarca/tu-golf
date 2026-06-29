@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { resolverCourseHandicap, resolverCourseData, type CourseData } from './course-handicap'
+import { resolverCourseHandicap, resolverCourseHandicapDisplay, resolverCourseData, type CourseData } from './course-handicap'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -305,5 +305,47 @@ describe('resolverCourseData — par de 9h (regresión neto>gross, 11-jun-2026)'
     const supa = mockSupabase({ tee: teeAzulLosLeones, holes9: dup })
     const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 72, null)
     expect(cd?.par).toBe(36) // 4+5+4+3+4+4+4+4+4, sin duplicar
+  })
+})
+
+// ─── Suite N: HCP de display (completo / 18h) vs HCP de scoring (9h) ─────────
+// Regresión del bug de campo (28-jun-2026, inbox): la columna HCP de una ronda
+// de 9h mostraba la MITAD del handicap (8 en vez de 15). El scoring sí usa la
+// mitad (WHS-correcto), pero la columna debe mostrar el handicap COMPLETO.
+describe('resolverCourseHandicapDisplay — handicap completo en la columna HCP', () => {
+  // Los Leones azul (datos reales de course_tees):
+  //   18h: slope 136, CR 73.3, par 72   |   front-9: slope 132, CR 37.2, par 36
+  const losLeonesAzul9h: CourseData = { slope: 132, courseRating: 37.2, par: 36, is9Hole: true }
+  const losLeonesAzul18h: CourseData = { slope: 136, courseRating: 73.3, par: 72 }
+
+  it('ronda de 9h: scoring usa la mitad, display muestra el handicap completo', () => {
+    // Matías: índice 11 → scoring 9h = 8 (lo que repartía strokes), display = 15.
+    expect(resolverCourseHandicap(11, losLeonesAzul9h)).toBe(8)
+    expect(resolverCourseHandicapDisplay(11, losLeonesAzul9h, losLeonesAzul18h)).toBe(15)
+  })
+
+  it('ronda de 9h: el display NUNCA es la mitad del scoring (siempre mayor o igual)', () => {
+    for (const index of [5, 9.3, 11, 18, 22.9, 30]) {
+      const scoring = resolverCourseHandicap(index, losLeonesAzul9h)
+      const display = resolverCourseHandicapDisplay(index, losLeonesAzul9h, losLeonesAzul18h)
+      expect(display).toBeGreaterThan(scoring)
+    }
+  })
+
+  it('display de 9h = course handicap de 18h exacto (no 2× con error de redondeo)', () => {
+    // Paty: índice 22.9 rojo → 9h = 15. 2×15 = 30, pero el 18h EXACTO es 29.
+    const rojo9h: CourseData = { slope: 128, courseRating: 37.7, par: 36, is9Hole: true }
+    const rojo18h: CourseData = { slope: 131, courseRating: 74.8, par: 72 }
+    expect(resolverCourseHandicap(22.9, rojo9h)).toBe(15)
+    expect(resolverCourseHandicapDisplay(22.9, rojo9h, rojo18h)).toBe(29) // no 30
+  })
+
+  it('ronda de 18h: display == scoring (el courseData no es de 9h)', () => {
+    expect(resolverCourseHandicapDisplay(11, losLeonesAzul18h, losLeonesAzul18h))
+      .toBe(resolverCourseHandicap(11, losLeonesAzul18h))
+  })
+
+  it('fallback: 9h sin datos de 18h → round(index)', () => {
+    expect(resolverCourseHandicapDisplay(11, losLeonesAzul9h, null)).toBe(11)
   })
 })

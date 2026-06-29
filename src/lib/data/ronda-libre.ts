@@ -9,7 +9,7 @@
 
 import { createClient } from '@/lib/supabase'
 import { parTotalEstandar } from '@/golf/core/round-score'
-import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
+import { resolverCourseHandicap, resolverCourseHandicapDisplay, cargarCourseData } from '@/golf/core/course-handicap'
 import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
@@ -83,8 +83,14 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
       }
     }
 
+    // Dos handicaps por jugador (un concepto, una fuente — `course-handicap.ts`):
+    //  - courseHcpMap   → el de SCORING (9h en rondas de 9h: reparte strokes).
+    //  - displayHcpMap  → el COMPLETO (18h) que se MUESTRA en la columna HCP, para
+    //    que una ronda de 9h no muestre la mitad y pierda significado.
     const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
+    const courseDataFullByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
     const courseHcpMap: Record<string, number> = {}
+    const displayHcpMap: Record<string, number> = {}
     for (const j of ronda.ronda_libre_jugadores) {
       let index: number
       if (j.handicap != null) {
@@ -104,7 +110,35 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
           (ronda.recorridos as string[] | null) ?? null,
         )
       }
-      courseHcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee])
+      const courseData9h = courseDataByTee[playerTee]
+      courseHcpMap[j.id] = resolverCourseHandicap(index, courseData9h)
+
+      // Display: en rondas de 9h cargamos los ratings de 18h del MISMO tee y
+      // resolvemos el course handicap completo. `finalParTotal` ES el par de 18h
+      // SÓLO cuando la ronda NO tiene recorridos (la query de course_holes trae
+      // los 18 hoyos). En una cancha multi-recorrido jugada como un loop de 9h,
+      // `finalParTotal` es el par del loop (~36) y no podemos derivar el de 18h de
+      // forma confiable → mostramos round(index) (handicap completo aprox), nunca
+      // un valor inflado. Cacheado por tee.
+      let courseData18h = courseData9h
+      if (courseData9h?.is9Hole) {
+        const tieneRecorridos = !!(ronda.recorridos as string[] | null)?.length
+        if (tieneRecorridos) {
+          courseData18h = null // → resolverCourseHandicapDisplay cae a round(index)
+        } else {
+          if (!(playerTee in courseDataFullByTee)) {
+            courseDataFullByTee[playerTee] = await cargarCourseData(
+              ronda.course_id,
+              playerTee,
+              18,
+              finalParTotal,
+              null,
+            )
+          }
+          courseData18h = courseDataFullByTee[playerTee]
+        }
+      }
+      displayHcpMap[j.id] = resolverCourseHandicapDisplay(index, courseData9h, courseData18h)
     }
 
     // Equipos (solo modalidades por equipo).
@@ -128,7 +162,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
       }
     }
 
-    return { status: 'ok', ronda, parMap, siMap, courseHcpMap, equipos }
+    return { status: 'ok', ronda, parMap, siMap, courseHcpMap, displayHcpMap, equipos }
   } catch {
     return { status: 'error' }
   }

@@ -26,6 +26,7 @@ export interface UseRondaLibreLiveResult {
   parMap: Record<number, number>
   siMap: Record<number, number>
   courseHcpMap: Record<string, number>
+  displayHcpMap: Record<string, number>
   equipos: Equipo[]
   loading: boolean
   notFound: boolean
@@ -48,6 +49,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   const [parMap, setParMap] = useState<Record<number, number>>({})
   const [siMap, setSiMap] = useState<Record<number, number>>({})
   const [courseHcpMap, setCourseHcpMap] = useState<Record<string, number>>({})
+  const [displayHcpMap, setDisplayHcpMap] = useState<Record<string, number>>({})
   const [equipos, setEquipos] = useState<Equipo[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -75,6 +77,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
         setSiMap(res.siMap)
       }
       setCourseHcpMap(res.courseHcpMap)
+      setDisplayHcpMap(res.displayHcpMap)
       // No borrar equipos ante hiccup: solo actualizar si vinieron.
       if (res.equipos.length > 0) setEquipos(res.equipos)
     } else if (res.status === 'not_found') {
@@ -172,7 +175,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   }, [reload])
 
   return {
-    ronda, parMap, siMap, courseHcpMap, equipos,
+    ronda, parMap, siMap, courseHcpMap, displayHcpMap, equipos,
     loading, notFound, fetchError, role,
     countdown, isRealtimeConnected, timeSinceUpdate,
     retry,
