@@ -717,6 +717,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
   100% { transform: translateY(0); opacity: 1; }
 }
 
+/* ShareSheet "Vitrina": el bottom-sheet entra deslizando desde abajo. */
+@keyframes slideUp {
+  0%   { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+
 @keyframes fadeIn {
   0%   { opacity: 0; }
   100% { opacity: 1; }

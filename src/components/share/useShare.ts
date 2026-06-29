@@ -16,6 +16,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import type { SharePayload, ShareResult, ShareStatus } from '@/golf/share/types'
+import { shareableText, whatsappShareUrl } from '@/golf/share/whatsapp'
 import { copyToClipboard } from '@/lib/clipboard'
 
 const DEFAULT_IMAGE_FILENAME = 'golfers-tarjeta.png'
@@ -24,9 +25,13 @@ function isAbortError(e: unknown): boolean {
   return e instanceof Error && e.name === 'AbortError'
 }
 
-/** Texto plano para wa.me / portapapeles: el texto y el link, separados por espacio. */
-function plainText(payload: SharePayload): string {
-  return `${payload.text} ${payload.url}`.trim()
+/**
+ * Predicado ÚNICO "¿el dispositivo soporta compartir nativo (Web Share API)?".
+ * Fuente de verdad para la cascada, `runNativeShare` y el ShareSheet (evita el
+ * smell de `'share' in navigator` vs truthy en lugares distintos).
+ */
+export function supportsNativeShare(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 }
 
 /**
@@ -57,7 +62,7 @@ export async function runShareCascade(payload: SharePayload): Promise<ShareResul
   }
 
   // 2. Compartir nativo de texto + url.
-  if (nav?.share) {
+  if (supportsNativeShare() && nav?.share) {
     try {
       await nav.share({ title: payload.title, text: payload.text, url: payload.url })
       return { ok: true, method: 'webshare' }
@@ -70,8 +75,7 @@ export async function runShareCascade(payload: SharePayload): Promise<ShareResul
   // 3. WhatsApp (wa.me). En desktop sin Web Share API es el camino natural.
   if (typeof window !== 'undefined' && typeof window.open === 'function') {
     try {
-      const waUrl = `https://wa.me/?text=${encodeURIComponent(plainText(payload))}`
-      const opened = window.open(waUrl, '_blank')
+      const opened = window.open(whatsappShareUrl(payload), '_blank')
       if (opened) return { ok: true, method: 'whatsapp' }
       // open bloqueado (popup blocker) → seguir a portapapeles
     } catch {
@@ -82,18 +86,41 @@ export async function runShareCascade(payload: SharePayload): Promise<ShareResul
   // 4. Portapapeles. Vía el canónico `copyToClipboard` (fuente única), que cae a
   // textarea+execCommand donde `navigator.clipboard` no existe/rechaza (webview
   // iOS, contexto no-seguro). El caller decide mostrar el toast "Copiado".
-  if (await copyToClipboard(plainText(payload))) {
+  if (await copyToClipboard(shareableText(payload))) {
     return { ok: true, method: 'clipboard' }
   }
 
   return { ok: false, method: 'clipboard' }
 }
 
+/**
+ * Compartir nativo de SOLO texto+url (sin imagen), vía `navigator.share`. Es el
+ * paso 2 de la cascada aislado, para el botón explícito "Más opciones" del
+ * ShareSheet. Nunca lanza: cancelación → `aborted`, ausencia/otros fallos →
+ * `{ ok: false }`.
+ */
+export async function runNativeShare(payload: SharePayload): Promise<ShareResult> {
+  if (!supportsNativeShare()) return { ok: false, method: 'webshare' }
+  try {
+    await navigator.share({ title: payload.title, text: payload.text, url: payload.url })
+    return { ok: true, method: 'webshare' }
+  } catch (e) {
+    if (isAbortError(e)) return { ok: false, method: 'aborted' }
+    return { ok: false, method: 'webshare' }
+  }
+}
+
 export interface UseShareReturn {
-  /** Dispara la cascada. Devuelve el resultado por si el caller quiere reaccionar. */
+  /** Dispara la cascada completa (con imagen si la hay). Botón "Compartir imagen". */
   share: (payload: SharePayload) => Promise<ShareResult>
+  /** Abre WhatsApp (wa.me) directo. Devuelve `false` si el popup fue bloqueado. */
+  whatsapp: (payload: SharePayload) => boolean
+  /** Copia SOLO la url al portapapeles. Devuelve `true` si quedó copiada (toast). */
+  copyLink: (url: string) => Promise<boolean>
+  /** Compartir nativo texto+url (`navigator.share`). Botón "Más opciones". */
+  native: (payload: SharePayload) => Promise<ShareResult>
   status: ShareStatus
-  /** `true` mientras corre la cascada (deshabilitar el botón). */
+  /** `true` mientras corre un share nativo (deshabilitar los botones). */
   isSharing: boolean
   /** Vuelve a `idle` (p. ej. al cerrar el sheet). */
   reset: () => void
@@ -107,24 +134,47 @@ export function useShare(): UseShareReturn {
   const [status, setStatus] = useState<ShareStatus>('idle')
   const statusRef = useRef<ShareStatus>('idle')
 
-  const share = useCallback(async (payload: SharePayload): Promise<ShareResult> => {
-    // Guard de re-entrancia: si ya hay un share en curso (sheet nativo abierto),
-    // un segundo click no relanza la cascada (evita InvalidStateError + wa.me
-    // espurio sobre el sheet abierto).
+  // Guard de re-entrancia compartido: si ya hay un share nativo en curso (sheet
+  // del SO abierto), un segundo click no relanza nada (evita InvalidStateError +
+  // wa.me espurio sobre el sheet abierto). Lo usan `share` y `native`.
+  const runGuarded = useCallback(async (run: () => Promise<ShareResult>): Promise<ShareResult> => {
     if (statusRef.current === 'sharing') return { ok: false, method: 'aborted' }
     statusRef.current = 'sharing'
     setStatus('sharing')
-    const res = await runShareCascade(payload)
+    const res = await run()
     const next: ShareStatus = res.method === 'aborted' ? 'idle' : res.ok ? 'done' : 'error'
     statusRef.current = next
     setStatus(next)
     return res
   }, [])
 
+  const share = useCallback(
+    (payload: SharePayload) => runGuarded(() => runShareCascade(payload)),
+    [runGuarded],
+  )
+
+  const native = useCallback(
+    (payload: SharePayload) => runGuarded(() => runNativeShare(payload)),
+    [runGuarded],
+  )
+
+  // WhatsApp y Copiar-link son acciones instantáneas (no abren sheet del SO):
+  // no pasan por el guard de estado.
+  const whatsapp = useCallback((payload: SharePayload): boolean => {
+    if (typeof window === 'undefined' || typeof window.open !== 'function') return false
+    try {
+      return Boolean(window.open(whatsappShareUrl(payload), '_blank'))
+    } catch {
+      return false
+    }
+  }, [])
+
+  const copyLink = useCallback((url: string) => copyToClipboard(url), [])
+
   const reset = useCallback(() => {
     statusRef.current = 'idle'
     setStatus('idle')
   }, [])
 
-  return { share, status, isSharing: status === 'sharing', reset }
+  return { share, whatsapp, copyLink, native, status, isSharing: status === 'sharing', reset }
 }
