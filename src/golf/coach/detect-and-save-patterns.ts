@@ -65,18 +65,21 @@ export async function detectAndSavePatterns(
     // canchas no linkeadas, inválido en canchas par 70/71 (auditoría 2026-06-29).
     const resolved = resolveRoundParsArray((r as { par_per_hole?: unknown }).par_per_hole, catalogPars, 18)
     const allKnown = resolved.every((p) => p != null)
+    const hasSomePar = resolved.some((p) => p != null)
     return {
       scores: r.scores as (number | null)[],
       total_gross: r.total_gross,
-      // par_total real si conocemos los 18 pares; si no, el de la cancha; último: 72.
+      // par_total real si conocemos los 18; si no, el de la cancha. (par_total NO lo
+      // consume ningún detector hoy; se deja consistente por si se usa a futuro.)
       par_total: allKnown
         ? resolved.reduce<number>((s, p) => s + (p as number), 0)
         : (((r as Record<string, unknown>).courses as { par_total?: number } | null)?.par_total ?? 72),
       course_name: '',
       played_at: '',
-      // Solo pasamos hole_pars cuando conocemos los 18 (igual umbral que antes, pero
-      // ahora desde AMBAS fuentes). Parcial/desconocido → undefined → STANDARD_PARS.
-      hole_pars: allKnown ? (resolved as number[]) : undefined,
+      // Pasamos hole_pars si conocemos AL MENOS UN par real. parForHole cae a
+      // STANDARD_PARS POR HOYO, así que una ronda de 9 hoyos con par_per_hole conserva
+      // sus pares reales en vez de tirarlos todos (hallazgo del review 2026-06-29).
+      hole_pars: hasSomePar ? resolved : undefined,
       metadata: r.metadata as Record<string, unknown> | null,
     }
   })

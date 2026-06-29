@@ -30,8 +30,10 @@ export interface PatternRound {
   played_at: string
   /** Par por hoyo (18 elementos). Si se pasa, pisa STANDARD_PARS y detecta
    * patrones contra el par REAL de la cancha (para canchas par 70/71 o con
-   * layouts no estándar). */
-  hole_pars?: number[]
+   * layouts no estándar). Puede traer `null` por hoyo (par desconocido): `parForHole`
+   * cae a STANDARD_PARS POR HOYO, así que una ronda con pares reales parciales
+   * (ej. 9 hoyos) conserva los reales que tiene en vez de descartarlos todos. */
+  hole_pars?: (number | null)[]
   metadata?: Record<string, unknown> | null
 }
 

@@ -42,8 +42,9 @@ export function resolveRoundPars(
 /**
  * Misma resolución que resolveRoundPars pero devuelve un ARRAY 0-indexed (hoyo 1 =
  * índice 0) de largo `maxHoles`, con `null` en los hoyos sin par por ninguna fuente
- * (NO inventa par-4). Forma que consumen el detector de patrones, el índice mental y
- * el análisis. `catalogPars` se pasa como array 0-indexed (forma de course_holes).
+ * (NO inventa par-4). Forma de array que consume el detector de patrones (patterns.ts).
+ * `catalogPars` se pasa como array 0-indexed (forma de course_holes). Pendiente migrar
+ * a esta fuente única el índice mental, el análisis y core/compare (deuda anotada).
  */
 export function resolveRoundParsArray(
   parPerHole: unknown,
