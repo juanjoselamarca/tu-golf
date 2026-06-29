@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { runShareCascade, useShare } from './useShare'
+import { runShareCascade, runNativeShare, useShare } from './useShare'
 import type { SharePayload } from '@/golf/share/types'
 
 /**
@@ -190,3 +190,79 @@ describe('useShare (hook)', () => {
     expect(result.current.status).toBe('idle')
   })
 })
+
+describe('useShare · métodos granulares (botones explícitos del ShareSheet)', () => {
+  it('whatsapp() abre wa.me con texto+url y devuelve true', () => {
+    const open = vi.fn().mockReturnValue({} as Window)
+    window.open = open as unknown as typeof window.open
+
+    const { result } = renderHook(() => useShare())
+    let opened = false
+    act(() => { opened = result.current.whatsapp(basePayload) })
+
+    expect(open).toHaveBeenCalledTimes(1)
+    const url = open.mock.calls[0][0] as string
+    expect(url).toContain('https://wa.me/?text=')
+    expect(decodeURIComponent(url)).toContain(basePayload.text)
+    expect(decodeURIComponent(url)).toContain(basePayload.url)
+    expect(opened).toBe(true)
+  })
+
+  it('whatsapp() devuelve false si el popup fue bloqueado', () => {
+    window.open = vi.fn().mockReturnValue(null) as unknown as typeof window.open
+
+    const { result } = renderHook(() => useShare())
+    let opened = true
+    act(() => { opened = result.current.whatsapp(basePayload) })
+    expect(opened).toBe(false)
+  })
+
+  it('copyLink() copia SOLO la url (no el texto del share) y devuelve true', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    setNavigator({ clipboard: { writeText } } as unknown as Navigator)
+
+    const { result } = renderHook(() => useShare())
+    let ok = false
+    await act(async () => { ok = await result.current.copyLink(basePayload.url) })
+
+    expect(writeText).toHaveBeenCalledTimes(1)
+    expect(writeText).toHaveBeenCalledWith(basePayload.url)
+    expect(ok).toBe(true)
+  })
+
+  it('native() comparte texto+url vía navigator.share (sin imagen)', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    setNavigator({ share } as unknown as Navigator)
+
+    const { result } = renderHook(() => useShare())
+    let res: ShareResultLike | undefined
+    await act(async () => { res = await result.current.native(basePayload) })
+
+    expect(share).toHaveBeenCalledWith(
+      expect.objectContaining({ title: basePayload.title, text: basePayload.text, url: basePayload.url }),
+    )
+    expect(share).not.toHaveBeenCalledWith(expect.objectContaining({ files: expect.anything() }))
+    expect(res).toEqual({ ok: true, method: 'webshare' })
+  })
+
+  it('native() con cancelación (AbortError) devuelve aborted, no error', async () => {
+    const abort = Object.assign(new Error('x'), { name: 'AbortError' })
+    setNavigator({ share: vi.fn().mockRejectedValue(abort) } as unknown as Navigator)
+
+    const { result } = renderHook(() => useShare())
+    let res: ShareResultLike | undefined
+    await act(async () => { res = await result.current.native(basePayload) })
+    expect(res).toEqual({ ok: false, method: 'aborted' })
+    expect(result.current.status).toBe('idle') // cancelar no es error
+  })
+})
+
+describe('runNativeShare (función pura)', () => {
+  it('sin navigator.share devuelve no-ok sin lanzar', async () => {
+    setNavigator({} as unknown as Navigator)
+    const res = await runNativeShare(basePayload)
+    expect(res.ok).toBe(false)
+  })
+})
+
+type ShareResultLike = { ok: boolean; method: string }
