@@ -18,7 +18,10 @@ export interface RondaLibreBundle {
   ronda: RondaLibre
   parMap: Record<number, number>
   siMap: Record<number, number>
+  /** Course handicap de SCORING (9h en rondas de 9h: reparte strokes). */
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO (18h) para la columna HCP. En 18h == courseHcpMap. */
+  displayHcpMap: Record<string, number>
   equipos: Equipo[]
 }
 

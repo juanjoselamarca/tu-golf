@@ -14,14 +14,17 @@ export interface IndividualLeaderboardProps {
   hasCourse: boolean
   parMap: Record<number, number>
   siMap: Record<number, number>
+  /** Course handicap de SCORING (9h) — usado para los strokes del scorecard expandible. */
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO (18h) — el que se muestra en la columna HCP. */
+  displayHcpMap: Record<string, number>
   fechaDisplay: string
   expanded: string | null
   onToggleExpand: (id: string) => void
 }
 
 export function IndividualLeaderboard({
-  ronda, leaderboard, isNetoMode, hasCourse, parMap, siMap, courseHcpMap, fechaDisplay, expanded, onToggleExpand,
+  ronda, leaderboard, isNetoMode, hasCourse, parMap, siMap, courseHcpMap, displayHcpMap, fechaDisplay, expanded, onToggleExpand,
 }: IndividualLeaderboardProps) {
   // White theme score colors — paleta Garmin canónica (light variant).
   const whiteThemeScoreColor = (vsPar: number, played: number) => {
@@ -107,7 +110,9 @@ export function IndividualLeaderboard({
               </span>
               {showSecondary && (
                 <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 700, textAlign: 'center', fontFamily: '"DM Mono", monospace' }}>
-                  {j.courseHcp}
+                  {/* HCP COMPLETO (18h): una ronda de 9h muestra el handicap entero,
+                      no la mitad. El scoring sigue usando courseHcpMap (9h). */}
+                  {displayHcpMap[j.id] ?? j.courseHcp}
                 </span>
               )}
               <div style={{ textAlign: 'center' }}>

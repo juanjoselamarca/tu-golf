@@ -38,6 +38,32 @@ export function resolverCourseHandicap(
 }
 
 /**
+ * Course Handicap COMPLETO (18h) para MOSTRAR al usuario en la columna HCP.
+ *
+ * Una ronda de 9 hoyos SE PUNTÚA con el course handicap de 9h (mitad del índice,
+ * ratings del front-9) — eso es WHS-correcto y NO se toca. Pero el número que se
+ * MUESTRA como "el handicap del jugador" siempre debe ser el completo: si una ronda
+ * de 9h muestra la mitad (ej. 8 en vez de 15), pierde significado para quien la mira.
+ *
+ * Fuente única del concepto "handicap a mostrar":
+ *  - ronda de 18h → idéntico al de scoring (`courseData9h` no es 9Hole).
+ *  - ronda de 9h  → el course handicap de 18h (`courseData18h`), NO la mitad.
+ *
+ * @param handicapIndex Índice del jugador.
+ * @param courseData9h  CourseData con el que se PUNTÚA (is9Hole=true en rondas de 9h).
+ * @param courseData18h CourseData de 18h para el valor de display (mismo tee). Sólo
+ *   se usa cuando la ronda es de 9h; si es null, cae a `Math.round(index)`.
+ */
+export function resolverCourseHandicapDisplay(
+  handicapIndex: number,
+  courseData9h: CourseData | null,
+  courseData18h: CourseData | null
+): number {
+  if (!courseData9h?.is9Hole) return resolverCourseHandicap(handicapIndex, courseData9h)
+  return resolverCourseHandicap(handicapIndex, courseData18h)
+}
+
+/**
  * Par de los 9 hoyos jugados (front-9), para NO mezclar el CR de 9h con el par de 18h.
  *
  * Causa raíz del bug "neto peor que gross" (11-jun-2026): en una ronda de 9 hoyos

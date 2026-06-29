@@ -59,7 +59,7 @@ function RondaLibrePageContent() {
   const viewer = useViewer(codigo)
 
   const {
-    ronda, parMap, siMap, courseHcpMap, equipos,
+    ronda, parMap, siMap, courseHcpMap, displayHcpMap, equipos,
     loading, notFound, fetchError, role,
     countdown, isRealtimeConnected, timeSinceUpdate, retry,
   } = live
@@ -251,6 +251,7 @@ function RondaLibrePageContent() {
             parMap={parMap}
             siMap={siMap}
             courseHcpMap={courseHcpMap}
+            displayHcpMap={displayHcpMap}
             fechaDisplay={fechaDisplay}
             expanded={expanded}
             onToggleExpand={(id) => setExpanded(prev => prev === id ? null : id)}
