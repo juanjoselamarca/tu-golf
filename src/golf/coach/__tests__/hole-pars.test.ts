@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeParPerHole, resolveRoundPars } from '../hole-pars'
+import { normalizeParPerHole, resolveRoundPars, resolveRoundParsArray } from '../hole-pars'
 
 describe('normalizeParPerHole', () => {
   it('normaliza el objeto {"1":4,...} (forma de historical_rounds.par_per_hole)', () => {
@@ -40,5 +40,25 @@ describe('resolveRoundPars (prioridad: par_per_hole de la ronda > catálogo)', (
   it('null cuando no hay pares por ninguna fuente', () => {
     expect(resolveRoundPars(null, null)).toBeNull()
     expect(resolveRoundPars({}, {})).toBeNull()
+  })
+})
+
+describe('resolveRoundParsArray (forma array 0-indexed para patrones/análisis)', () => {
+  it('par_per_hole de la ronda PISA al catálogo (catálogo como array 0-indexed)', () => {
+    // catálogo dice 5 en hoyo 1 (ej. par-72 genérico o catálogo sucio); la ronda dice 4
+    const r = resolveRoundParsArray({ '1': 4, '2': 3 }, [5, 3, 4], 3)
+    expect(r).toEqual([4, 3, 4]) // own pisa hoyo 1; catálogo rellena hoyo 3
+  })
+
+  it('solo catálogo cuando la ronda no trae par_per_hole', () => {
+    expect(resolveRoundParsArray(null, [4, 3, 5], 3)).toEqual([4, 3, 5])
+  })
+
+  it('solo par_per_hole cuando no hay catálogo', () => {
+    expect(resolveRoundParsArray({ '1': 4, '2': 3 }, null, 4)).toEqual([4, 3, null, null])
+  })
+
+  it('null en los hoyos sin par por ninguna fuente (no inventa par-4)', () => {
+    expect(resolveRoundParsArray(null, null, 3)).toEqual([null, null, null])
   })
 })

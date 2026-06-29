@@ -8,6 +8,7 @@
  */
 
 import { detectPatterns, type PatternRound } from './patterns'
+import { resolveRoundParsArray } from './hole-pars'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 interface DetectResult {
@@ -26,7 +27,7 @@ export async function detectAndSavePatterns(
   // agregar paginacion. Hoy es prematuro.
   const { data: rounds } = await supabase
     .from('historical_rounds')
-    .select('scores, total_gross, holes_played, metadata, course_id, courses(par_total)')
+    .select('scores, total_gross, holes_played, metadata, course_id, par_per_hole, courses(par_total)')
     .eq('user_id', userId)
     .not('scores', 'is', null)
 
@@ -57,14 +58,28 @@ export async function detectAndSavePatterns(
   // El filtro por requires18Holes lo aplica detectPatterns por patron.
   const patternRounds: PatternRound[] = rounds.map(r => {
     const courseId = (r as { course_id?: string | null }).course_id ?? null
-    const holePars = courseId ? holeParsByCourse[courseId] : undefined
+    const catalogPars = courseId ? holeParsByCourse[courseId] ?? null : null
+    // FUENTE ÚNICA de pares (resolveRoundParsArray): par_per_hole de la ronda
+    // (autoritativo, del scorecard importado) ∪ catálogo course_holes. Antes se usaba
+    // SOLO el catálogo e se ignoraba par_per_hole → patrones contra par-72 falso en
+    // canchas no linkeadas, inválido en canchas par 70/71 (auditoría 2026-06-29).
+    const resolved = resolveRoundParsArray((r as { par_per_hole?: unknown }).par_per_hole, catalogPars, 18)
+    const allKnown = resolved.every((p) => p != null)
+    const hasSomePar = resolved.some((p) => p != null)
     return {
       scores: r.scores as (number | null)[],
       total_gross: r.total_gross,
-      par_total: ((r as Record<string, unknown>).courses as { par_total?: number } | null)?.par_total ?? 72,
+      // par_total real si conocemos los 18; si no, el de la cancha. (par_total NO lo
+      // consume ningún detector hoy; se deja consistente por si se usa a futuro.)
+      par_total: allKnown
+        ? resolved.reduce<number>((s, p) => s + (p as number), 0)
+        : (((r as Record<string, unknown>).courses as { par_total?: number } | null)?.par_total ?? 72),
       course_name: '',
       played_at: '',
-      hole_pars: holePars && holePars.length >= 18 ? holePars : undefined,
+      // Pasamos hole_pars si conocemos AL MENOS UN par real. parForHole cae a
+      // STANDARD_PARS POR HOYO, así que una ronda de 9 hoyos con par_per_hole conserva
+      // sus pares reales en vez de tirarlos todos (hallazgo del review 2026-06-29).
+      hole_pars: hasSomePar ? resolved : undefined,
       metadata: r.metadata as Record<string, unknown> | null,
     }
   })
