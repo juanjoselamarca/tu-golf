@@ -38,3 +38,26 @@ export function resolveRoundPars(
   // El catálogo rellena los huecos; el par_per_hole de la ronda pisa al catálogo.
   return { ...(catalogPars ?? {}), ...own }
 }
+
+/**
+ * Misma resolución que resolveRoundPars pero devuelve un ARRAY 0-indexed (hoyo 1 =
+ * índice 0) de largo `maxHoles`, con `null` en los hoyos sin par por ninguna fuente
+ * (NO inventa par-4). Forma que consumen el detector de patrones, el índice mental y
+ * el análisis. `catalogPars` se pasa como array 0-indexed (forma de course_holes).
+ */
+export function resolveRoundParsArray(
+  parPerHole: unknown,
+  catalogPars: Array<number | null | undefined> | null,
+  maxHoles = 18,
+): (number | null)[] {
+  const catalogRecord: Record<number, number> = {}
+  if (Array.isArray(catalogPars)) {
+    catalogPars.forEach((p, i) => {
+      if (typeof p === 'number' && p > 0) catalogRecord[i + 1] = p
+    })
+  }
+  const merged = resolveRoundPars(parPerHole, catalogRecord)
+  const out: (number | null)[] = []
+  for (let h = 1; h <= maxHoles; h++) out.push(merged?.[h] ?? null)
+  return out
+}
