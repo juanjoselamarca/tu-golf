@@ -1,4 +1,4 @@
-# Estado Cerebro V3 — Actualizado 2026-06-26 — examen-v3-fidelidad: P1 ✅ (#189) + P2 ✅ (#193) + P3 ✅ (#196) + P4 ✅ (#201 `ab27755`) + **P5 ✅ EN PROD (#205 `7399b87`)** · Fase 0 examen-máquina ✅ (#181) · Ola 1b.1 ✅ (#176) · Ola 3 ✅ COMPLETA · PRÓXIMO: **examen-v3-fidelidad CERRADO. Siguiente foco a elegir: sub-olas 1c/1d (RAG conocimiento) o arreglar el juez de 6-piezas (ruido + falso-0 en cold-start)**
+# Estado Cerebro V3 — Actualizado 2026-06-26 — examen-v3-fidelidad: P1 ✅ (#189) + P2 ✅ (#193) + P3 ✅ (#196) + P4 ✅ (#201 `ab27755`) + **P5 ✅ EN PROD (#205 `7399b87`)** · Fase 0 examen-máquina ✅ (#181) · Ola 1b.1 ✅ (#176) · Ola 3 ✅ COMPLETA · **Juez 6-piezas ✅ (#211 `f8ff4daa`) · Polish coach 6-piezas ✅ EN PROD (#219 `8ba321d4`)** · PRÓXIMO: **examen-v3-fidelidad CERRADO + gate confiable + coach hitea las 6 piezas. Siguiente foco a elegir: sub-olas 1c/1d (RAG conocimiento del mundo) o follow-up I1 (baseline mediana-de-N)**
 
 ---
 
@@ -14,7 +14,7 @@
 
 **Follow-ups abiertos (NO bloqueantes):**
 - ~~**Juez de 6-piezas inconsistente**~~ → **RESUELTO (PR juez-6piezas).** El SYSTEM enmarcaba las 6 piezas como componentes de "UN foco con datos" → colapsaba a 0/6 ante cold-start honesto. Fix: rúbrica ATÓMICA (cada pieza por separado; veredicto honesto + acción cuentan) + ambos jueces (6-piezas y correctness) a `temperature: 0` (determinismo) + cold_start minScore 4→2 (calibrado a lo alcanzable sin datos) + sixPiecesTol 0.3→0.5 (varianza coach-side). cold_start pasó de 0/6 falso a verde; 6-piezas 4.17→4.67 (fin del falso-0). **Pendiente I1 (chico): re-baselinar desde la MEDIANA de 3-5 corridas** — hoy sale de 1 corrida y congela 1 golden como fallo por varianza del coach (el gate compara agregados, así que es cosmético, pero conviene robustecer).
-- **Polish del coach en 6-piezas (coach-side, no juez):** `seis_piezas_*` a veces omiten *delta* (cuantificar la brecha) o *identidad* (saludar por nombre). Es varianza del coach, candidato a un endurecimiento de prompt tipo P5.
+- ~~**Polish del coach en 6-piezas (coach-side)**~~ → **RESUELTO (PR #219 `8ba321d4`).** Refuerzo en `conocer.ts`: rama foco "NO TE SALTES NINGUNA de las 6" (arranca por nombre, ata target al handicap, cuantifica delta) + rama `get_progress` apunta a las mismas 6 piezas. Validado en 3 corridas: `seis_piezas_otra_cancha` (identidad), `seis_piezas_foco_completo` (delta) y `progreso_como_vengo` verdes; 6-piezas avg hasta 5.00/6. Baseline no bumpeado (queda 95%/4.67 del juez como piso).
 - **`lenguaje_bajo_par_es_bueno` flaky:** en run1 el coach dijo "4 en par 5 es un eagle" (es birdie) — slip de aritmética golfística run-to-run. Verde en run2. Es correctness (métrica estable) → vigilar; si reaparece, endurecer la regla de scoring vs par.
 - **Flaky pre-existente** `historial.integration.test.tsx`: traba el push intermitente (pasa aislado, flakea bajo carga del suite completo). Deuda CERO FALLOS — fix dedicado (fake timers / findBy timeout).
 
