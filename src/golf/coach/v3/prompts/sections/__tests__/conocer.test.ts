@@ -48,6 +48,14 @@ describe('CONOCER_SECTION', () => {
     expect(CONOCER_SECTION).toMatch(/no la sueltes como un n[uú]mero/i)
   })
 
+  it('refuerza que NO se salte identidad/target/delta en el foco completo (polish 6-piezas)', () => {
+    expect(CONOCER_SECTION).toMatch(/NO TE SALTES NINGUNA/i)
+    // El modo de falla observado: arrancar directo a los números sin saludar por nombre.
+    expect(CONOCER_SECTION).toMatch(/ARRANCA por su NOMBRE/i)
+    // target no puede quedar en "es tu mayor leak"; delta debe cuantificar la brecha.
+    expect(CONOCER_SECTION).toMatch(/CUANTIFICA la brecha/i)
+  })
+
   it('traduce métricas a lenguaje claro (cero métricas opacas)', () => {
     expect(CONOCER_SECTION).toMatch(/lenguaje claro|cero métricas opacas|sin jerga|no muestres.*clave|nunca.*metric/i)
   })
