@@ -112,6 +112,35 @@ async function checkServices(admin: SupabaseClient): Promise<Category> {
 
 async function checkDataIntegrity(admin: SupabaseClient): Promise<Category> {
   const checks = await Promise.all([
+    // Coach: cobertura de pares por hoyo (auditoría 2026-06-29 — "el coach nunca se
+    // desconecta de la data"). Mide qué % de rondas con score hoyo-a-hoyo tienen una
+    // fuente de par (par_per_hole de la ronda O catálogo course_holes vía course_id).
+    // Si una ronda no tiene par, el coach ve golpes pero NO puede calcular vs-par ni
+    // detectar patrones. Si esta cobertura BAJA, algo rompió el import/linkeo → alarma.
+    safeCheck('Coach: cobertura de pares por hoyo', async () => {
+      const { data } = await admin.rpc('exec_sql', {
+        query: `SELECT
+                  COUNT(*) FILTER (WHERE scores IS NOT NULL AND total_gross IS NOT NULL) AS total,
+                  COUNT(*) FILTER (
+                    WHERE scores IS NOT NULL AND total_gross IS NOT NULL
+                    AND (par_per_hole IS NULL OR par_per_hole::text IN ('{}','[]','null'))
+                    AND (course_id IS NULL OR course_id NOT IN (SELECT DISTINCT course_id FROM course_holes))
+                  ) AS sin_par
+                FROM historical_rounds`,
+      })
+      const total = Number(data?.[0]?.total ?? 0)
+      const sinPar = Number(data?.[0]?.sin_par ?? 0)
+      const cobertura = total > 0 ? Math.round(((total - sinPar) / total) * 100) : 100
+      return {
+        name: 'Coach: cobertura de pares por hoyo',
+        status: cobertura >= 75 ? 'pass' : cobertura >= 60 ? 'warn' : 'fail',
+        message: total === 0
+          ? 'Sin rondas con score'
+          : `${cobertura}% de rondas con par resoluble — ${sinPar}/${total} sin fuente de par (el coach no puede calcular vs-par de esas)`,
+        details: { total, sin_par: sinPar, cobertura_pct: cobertura },
+      }
+    }),
+
     // Orphaned ronda_libre_jugadores
     safeCheck('Jugadores huérfanos (rondas libres)', async () => {
       const { data } = await admin.rpc('exec_sql', {
