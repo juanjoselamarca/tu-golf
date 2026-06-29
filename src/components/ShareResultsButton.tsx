@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { copyToClipboard } from '@/lib/clipboard'
-import { SITE_DOMAIN } from '@/lib/site-url'
+import { SITE_DOMAIN, SITE_URL } from '@/lib/site-url'
+import { useShare } from '@/components/share/useShare'
 
 interface ShareResultsProps {
   tournamentName: string
@@ -20,6 +20,7 @@ export default function ShareResultsButton({
   topPlayers,
 }: ShareResultsProps) {
   const [copied, setCopied] = useState(false)
+  const { share } = useShare()
 
   const generateText = () => {
     let text = `${tournamentName}\n`
@@ -35,23 +36,13 @@ export default function ShareResultsButton({
   }
 
   const handleShare = async () => {
-    const text = generateText()
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: tournamentName, text })
-        return
-      } catch {
-        // User cancelled or share failed — fall through
-      }
-    }
-
-    // WhatsApp fallback
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`
-    const opened = window.open(whatsappUrl, '_blank')
-
-    // If WhatsApp didn't open, copy to clipboard
-    if (!opened && (await copyToClipboard(text))) {
+    // Cascada única (native → wa.me → portapapeles) vía el canónico useShare.
+    // El link al leaderboard es la propia página (antes el share iba sin link).
+    const url = typeof window !== 'undefined' ? window.location.href : SITE_URL
+    const res = await share({ title: tournamentName, text: generateText(), url })
+    // Solo confirmar "Copiado" si la copia REALMENTE tuvo éxito (no mentir si el
+    // portapapeles fue denegado: ok=false con method='clipboard').
+    if (res.ok && res.method === 'clipboard') {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     }
