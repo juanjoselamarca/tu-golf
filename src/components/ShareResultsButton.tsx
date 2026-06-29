@@ -40,7 +40,9 @@ export default function ShareResultsButton({
     // El link al leaderboard es la propia página (antes el share iba sin link).
     const url = typeof window !== 'undefined' ? window.location.href : SITE_URL
     const res = await share({ title: tournamentName, text: generateText(), url })
-    if (res.method === 'clipboard') {
+    // Solo confirmar "Copiado" si la copia REALMENTE tuvo éxito (no mentir si el
+    // portapapeles fue denegado: ok=false con method='clipboard').
+    if (res.ok && res.method === 'clipboard') {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     }

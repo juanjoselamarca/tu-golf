@@ -41,10 +41,11 @@ describe('ShareResultsButton', () => {
     await flush()
 
     expect(share).toHaveBeenCalledTimes(1)
-    const arg = share.mock.calls[0][0] as { title: string; text: string }
+    const arg = share.mock.calls[0][0] as { title: string; text: string; url: string }
     expect(arg.title).toBe('Copa Verano')
     expect(arg.text).toContain('Pedro')
     expect(arg.text).toContain('Los Leones')
+    expect(arg.url).toBeTruthy() // ahora comparte CON el link del leaderboard
   })
 
   it('sin navigator.share cae a wa.me con el texto del leaderboard', async () => {
@@ -72,5 +73,18 @@ describe('ShareResultsButton', () => {
 
     expect(writeText).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('button').textContent).toMatch(/copiado/i)
+  })
+
+  it('wa.me bloqueado Y portapapeles falla → NO miente "Copiado" (CERO FALLOS)', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    setNavigator({ clipboard: { writeText } } as unknown as Navigator)
+    window.open = vi.fn().mockReturnValue(null) as unknown as typeof window.open
+    document.execCommand = vi.fn().mockReturnValue(false) // fallback textarea también falla
+    render(<ShareResultsButton {...props} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /compartir resultados/i }))
+    await flush()
+
+    expect(screen.getByRole('button').textContent).not.toMatch(/copiado/i)
   })
 })
