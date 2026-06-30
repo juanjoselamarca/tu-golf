@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { resolverCourseHandicap, resolverCourseHandicapDisplay, resolverCourseData, type CourseData } from './course-handicap'
+import { resolverCourseHandicap, resolverCourseHandicapDisplay, courseHandicapParaHoyos, resolverCourseData, type CourseData } from './course-handicap'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -347,5 +347,31 @@ describe('resolverCourseHandicapDisplay — handicap completo en la columna HCP'
 
   it('fallback: 9h sin datos de 18h → round(index)', () => {
     expect(resolverCourseHandicapDisplay(11, losLeonesAzul9h, null)).toBe(11)
+  })
+})
+
+// ─── Suite: courseHandicapParaHoyos (ajuste 9h de team handicaps) ────────────
+// Regresión P0 (29-jun-2026): scramble/foursome a 9 hoyos repartían el team
+// handicap COMPLETO (18h) → ~2× golpes. Fuente única del ajuste 9h para handicaps
+// ya en escala de course handicap (no pasan por resolverCourseHandicap).
+describe('courseHandicapParaHoyos', () => {
+  it('18 hoyos: devuelve el handicap sin tocar', () => {
+    expect(courseHandicapParaHoyos(12, 18)).toBe(12)
+    expect(courseHandicapParaHoyos(5.6, 18)).toBe(5.6)
+    expect(courseHandicapParaHoyos(0, 18)).toBe(0)
+  })
+
+  it('9 hoyos: reparte la mitad redondeada (WHS: CH9 = round(CH18 / 2))', () => {
+    expect(courseHandicapParaHoyos(12, 9)).toBe(6)
+    expect(courseHandicapParaHoyos(18, 9)).toBe(9)
+    expect(courseHandicapParaHoyos(11, 9)).toBe(6)  // round(5.5)
+    expect(courseHandicapParaHoyos(3, 9)).toBe(2)   // round(1.5)
+  })
+
+  it('coincide con el course handicap de 9h de un individual (cancha estándar)', () => {
+    const std9: CourseData = { slope: 113, courseRating: 36, par: 36, is9Hole: true }
+    for (const index of [8, 12, 18, 24]) {
+      expect(courseHandicapParaHoyos(index, 9)).toBe(resolverCourseHandicap(index, std9))
+    }
   })
 })

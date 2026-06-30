@@ -149,3 +149,38 @@ describe('Scramble', () => {
     })
   })
 })
+
+// ─── Regresión P0 (29-jun-2026): 9h repartía el team handicap COMPLETO ──────
+describe('calcularScramble — ronda de 9 hoyos reparte la MITAD (no 2×)', () => {
+  it('team handicap 18h 8.6 → en 9h se reparte ~4 (mitad), no 8', () => {
+    const team: ScrambleTeam = {
+      id: 't',
+      nombre: 'Padre e Hijo',
+      handicaps: [16, 20], // teamHcp = 0.35*16 + 0.15*20 = 8.6
+      scores: { '1': 5, '2': 4, '3': 6, '4': 5, '5': 5, '6': 4, '7': 6, '8': 5, '9': 5 },
+    }
+    const r = calcularScramble(team, HOLES_9, PAR_9)
+    const totalStrokes = r.holes.reduce((s, h) => s + h.strokesRecibidos, 0)
+    // El mostrado se conserva COMPLETO (18h).
+    expect(r.teamHandicap).toBeCloseTo(8.6, 1)
+    // 9h: courseHandicapParaHoyos(8.6,9)=round(4.3)=4 → SI≤4 (si 1,3) = 2 strokes.
+    // Antes (bug) repartía el 8.6 completo (SI≤8 = 4 strokes) → ~2× de más.
+    expect(totalStrokes).toBe(2)
+  })
+
+  it('la misma ronda a 18 hoyos NO se ajusta (control)', () => {
+    // 18 hoyos con los mismos SI 1-9 repetidos no aplica; control conceptual:
+    // courseHandicapParaHoyos no toca el handicap cuando roundHoles > 9.
+    const holes18 = Array.from({ length: 18 }, (_, i) => ({
+      numero: i + 1, par: 4, stroke_index: i + 1,
+    }))
+    const team: ScrambleTeam = {
+      id: 't', nombre: 'T', handicaps: [16, 20],
+      scores: Object.fromEntries(holes18.map(h => [String(h.numero), 5])),
+    }
+    const r = calcularScramble(team, holes18, 72)
+    const totalStrokes = r.holes.reduce((s, h) => s + h.strokesRecibidos, 0)
+    // 18h: teamHcp 8.6 → SI≤8 (8 hoyos) = 8 strokes (sin ajuste).
+    expect(totalStrokes).toBe(8)
+  })
+})

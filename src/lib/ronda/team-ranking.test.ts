@@ -17,10 +17,14 @@ const baseEquipos = [
   { id: 'e2', nombre: 'Team B', handicap_equipo: null, jugadorIds: ['j2', 'j3'], scores: { 1: 5, 2: 5, 3: 5, 4: 5, 5: 5, 6: 5, 7: 5, 8: 5, 9: 5 } },
 ]
 
+// Course handicaps RESUELTOS a 9h (≈ índice/2 en cancha estándar) — lo que best_ball
+// debe usar para no repartir el índice crudo (paridad con el board).
+const courseHcpMap = { j1: 5, j2: 10, j3: 8, j4: 4 }
+
 const baseInput: RankTeamsInput = {
   equipos: baseEquipos,
   jugadores: baseJugadores,
-  parMap, siMap, holes: 9,
+  parMap, siMap, courseHcpMap, holes: 9,
   formato: 'scramble',
   modo: 'gross',
 }
@@ -70,6 +74,21 @@ describe('rankTeams', () => {
     // Team B: Bruno (5s) mejor que Carla (6s) → 45 gross
     expect(rows[0].nombre).toBe('Team A')
     expect(rows[0].score).toBe(27)
+  })
+
+  it('best_ball neto 9h: usa el course handicap RESUELTO (courseHcpMap), no el índice crudo', () => {
+    // Bruno (j2): índice 20, course handicap 9h resuelto = 10 (courseHcpMap.j2).
+    // Gross 45 (todo 5). Con 10 → 9 strokes (SI 1-9) → neto 36.
+    // Con el índice crudo 20 (el bug del winner box / share) → 11 strokes → neto 34.
+    const rows = rankTeams({
+      ...baseInput,
+      formato: 'best_ball',
+      modo: 'neto',
+      equipos: [
+        { id: 'e1', nombre: 'Solo', handicap_equipo: null, jugadorIds: ['j2'], scores: {} },
+      ],
+    })
+    expect(rows[0].score).toBe(36) // neto con CH 10, NO 34 (índice 20)
   })
 
   it('foursome gross: usa scores de equipo (alternating)', () => {

@@ -110,7 +110,7 @@ function RondaLibrePageContent() {
     ? rankTeams({
         equipos,
         jugadores: ronda.ronda_libre_jugadores,
-        parMap, siMap,
+        parMap, siMap, courseHcpMap,
         holes: ronda.holes,
         formato: ronda.formato_juego,
         modo: ronda.modo_juego,

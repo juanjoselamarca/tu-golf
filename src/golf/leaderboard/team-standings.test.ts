@@ -61,7 +61,10 @@ describe('computeFoursomeStandings', () => {
       team('b', 'Cóndores', [2, 4], { '1': 4, '2': 4, '3': 4 }),  // gross 12
     ]
     const out = computeFoursomeStandings(teams, names, HOLES, 12, 'foursome', 'neto')
-    expect(out.map((t) => t.teamId)).toEqual(['b', 'a'])
+    // HOLES tiene 3 hoyos (≤9) → el team handicap se reparte a la mitad (WHS 9h),
+    // consistente con el scorer individual. a [10,12]→hcp 11→6 (2/hoyo)=6 strokes
+    // →neto 9; b [2,4]→hcp 3→2→2 strokes→neto 10. Gana 'a'.
+    expect(out.map((t) => t.teamId)).toEqual(['a', 'b'])
     expect(out[0].holesPlayed).toBe(3)
   })
 
