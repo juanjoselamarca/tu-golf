@@ -59,6 +59,71 @@ describe('guardNumbers', () => {
   })
 })
 
+// H-01 (auditoría 2026-06-27): el guard secuestraba turnos que NO piden un score.
+// El caso real de campo: el coach mapeaba números de hoyo a una ronda de 18 y
+// mencionó "par 72" → 72 cerca de "par", no trazable → BLOQUEADO con el mensaje
+// robótico "pídemelo de nuevo". Falsos positivos a matar SIN debilitar el guard.
+describe('guardNumbers — no secuestra turnos no-score (H-01)', () => {
+  it('"par 72" es un PAR (total de la cancha), no un score fabricado → NO bloquea', () => {
+    const r = guardNumbers({ text: 'Jugás en una cancha par 72, enfócate hoyo a hoyo.', allowedNumbers: [] })
+    expect(r.blocked).toBe(false)
+  })
+
+  it('"par 71" tampoco bloquea (canchas chilenas par 71)', () => {
+    const r = guardNumbers({ text: 'Los Leones es par 71, así que un bogey es par.', allowedNumbers: [] })
+    expect(r.blocked).toBe(false)
+  })
+
+  it('"comparar" contiene "par" pero NO es la palabra par → no dispara el guard', () => {
+    const r = guardNumbers({ text: 'Necesito comparar tu 88 con la media del grupo.', allowedNumbers: [] })
+    expect(r.blocked).toBe(false)
+  })
+
+  it('una distancia ("150 metros") cerca de "hoyo" no es un score → no bloquea', () => {
+    const r = guardNumbers({ text: 'El hoyo 4 mide 150 metros al green.', allowedNumbers: [] })
+    expect(r.blocked).toBe(false)
+  })
+
+  // El guard SIGUE intacto: un score absoluto fabricado se bloquea igual.
+  it('REGRESIÓN: un score fabricado ("terminás en 81") se sigue bloqueando', () => {
+    const r = guardNumbers({ text: 'Si seguís así terminás en 81.', allowedNumbers: [] })
+    expect(r.blocked).toBe(true)
+    expect(r.offending).toContain('81')
+  })
+
+  it('REGRESIÓN: un target fabricado no-par ("apuntá a 79") se sigue bloqueando', () => {
+    const r = guardNumbers({ text: 'Apuntá a 79 esta ronda.', allowedNumbers: [] })
+    expect(r.blocked).toBe(true)
+    expect(r.offending).toContain('79')
+  })
+
+  // BLOCKER del review: la exención de PAR no puede dejar pasar un score disfrazado
+  // de par. Un par real es ~70-73 (18h) o ~36 (9h), JAMÁS 85/95.
+  it('REGRESIÓN: "par 85" no es un par real (>73) → se bloquea como score fabricado', () => {
+    const r = guardNumbers({ text: 'Tu objetivo es par 85 esta ronda.', allowedNumbers: [] })
+    expect(r.blocked).toBe(true)
+    expect(r.offending).toContain('85')
+  })
+
+  it('"par 36" (9 hoyos) sigue exento (par real)', () => {
+    const r = guardNumbers({ text: 'Esa vuelta de 9 es par 36.', allowedNumbers: [] })
+    expect(r.blocked).toBe(false)
+  })
+
+  // Important del review: "pares" (plural) es palabra de golf legítima — un score
+  // fabricado adyacente NO debe escaparse por el cambio a palabra completa.
+  it('REGRESIÓN: score fabricado junto a "pares" (plural) se sigue bloqueando', () => {
+    const r = guardNumbers({ text: 'Hiciste 6 pares, total 85 golpes.', allowedNumbers: [] })
+    expect(r.blocked).toBe(true)
+    expect(r.offending).toContain('85')
+  })
+
+  it('"comparar" sigue sin disparar pese a "par(es)?"', () => {
+    const r = guardNumbers({ text: 'Necesito comparar tu 88 con la media.', allowedNumbers: [] })
+    expect(r.blocked).toBe(false)
+  })
+})
+
 describe('collectAuthorizedNumbers', () => {
   it('junta los números de los tool results y del contexto', () => {
     // El guard solo vigila absolutos de 2-3 dígitos y relativos de 2+ dígitos;
