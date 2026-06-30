@@ -82,7 +82,10 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
           return {
             id: j.id,
             nombre: j.nombre,
-            handicapIndex: j.handicap ?? 0,
+            // Course handicap RESUELTO al nº de hoyos (9h cuando 9h), no el índice
+            // crudo — paridad con el torneo (fetchBestBallTeams) y el scorer
+            // (score-grupo), que ya resuelven vía resolverCourseHandicap.
+            handicapIndex: courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0),
             scores: j.scores || {},
           } as BestBallPlayer
         })

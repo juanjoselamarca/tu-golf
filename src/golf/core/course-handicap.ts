@@ -64,6 +64,23 @@ export function resolverCourseHandicapDisplay(
 }
 
 /**
+ * Course handicap a APLICAR según los hoyos jugados (fuente única del ajuste 9h
+ * para handicaps que YA están en escala de course handicap de 18h).
+ *
+ * WHS: el course handicap de 9 hoyos = round(course handicap de 18h / 2). Lo usan
+ * los formatos por equipo scramble/foursome, cuyo team handicap (allowance USGA
+ * sobre los índices) está en escala de 18h y NO pasa por `resolverCourseHandicap`.
+ * Sin esto, una ronda de 9h repartía ~2× los golpes correctos. Para 18 hoyos
+ * devuelve el valor sin tocar. Distribuir con `strokesRecibidosEnHoyo(.., roundHoles)`.
+ *
+ * NO usar sobre handicaps que YA fueron resueltos a 9h por `resolverCourseHandicap`
+ * (ej. el dot handicap por jugador de best ball / score-grupo): los dividiría dos veces.
+ */
+export function courseHandicapParaHoyos(courseHandicap18h: number, roundHoles: number): number {
+  return roundHoles <= 9 ? Math.round(courseHandicap18h / 2) : courseHandicap18h
+}
+
+/**
  * Par de los 9 hoyos jugados (front-9), para NO mezclar el CR de 9h con el par de 18h.
  *
  * Causa raíz del bug "neto peor que gross" (11-jun-2026): en una ronda de 9 hoyos

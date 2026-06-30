@@ -17,6 +17,7 @@
  */
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
+import { courseHandicapParaHoyos } from '../core/course-handicap'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -116,6 +117,11 @@ export function calcularScramble(
 ): ScrambleTeamResult {
   const teamHandicap = team.teamHandicap ?? calcularHandicapScramble(team.handicaps)
   const sortedHoles = [...holes].sort((a, b) => a.numero - b.numero)
+  // Ajuste 9h: el team handicap está en escala de 18h; en rondas de ≤9 hoyos se
+  // reparte la mitad (WHS), sobre los `roundHoles` jugados. El valor que se
+  // MUESTRA (result.teamHandicap) se conserva COMPLETO (18h).
+  const roundHoles = sortedHoles.length
+  const teamHcpHoyos = courseHandicapParaHoyos(teamHandicap, roundHoles)
 
   let totalGross = 0
   let totalNeto = 0
@@ -128,7 +134,7 @@ export function calcularScramble(
     const gross = team.scores[key]
 
     if (!gross || gross <= 0) {
-      const strokes = strokesRecibidosEnHoyo(teamHandicap, hole.stroke_index)
+      const strokes = strokesRecibidosEnHoyo(teamHcpHoyos, hole.stroke_index, roundHoles)
       return {
         numero: hole.numero,
         par: hole.par,
@@ -144,9 +150,9 @@ export function calcularScramble(
 
     holesPlayed++
     parJugado += hole.par
-    const strokes = strokesRecibidosEnHoyo(teamHandicap, hole.stroke_index)
+    const strokes = strokesRecibidosEnHoyo(teamHcpHoyos, hole.stroke_index, roundHoles)
     const neto = gross - strokes
-    const stableford = puntosStablefordHoyo(gross, hole.par, teamHandicap, hole.stroke_index)
+    const stableford = puntosStablefordHoyo(gross, hole.par, teamHcpHoyos, hole.stroke_index, roundHoles)
 
     totalGross += gross
     totalNeto += neto
