@@ -96,6 +96,32 @@ describe('guardNumbers — no secuestra turnos no-score (H-01)', () => {
     expect(r.blocked).toBe(true)
     expect(r.offending).toContain('79')
   })
+
+  // BLOCKER del review: la exención de PAR no puede dejar pasar un score disfrazado
+  // de par. Un par real es ~70-73 (18h) o ~36 (9h), JAMÁS 85/95.
+  it('REGRESIÓN: "par 85" no es un par real (>73) → se bloquea como score fabricado', () => {
+    const r = guardNumbers({ text: 'Tu objetivo es par 85 esta ronda.', allowedNumbers: [] })
+    expect(r.blocked).toBe(true)
+    expect(r.offending).toContain('85')
+  })
+
+  it('"par 36" (9 hoyos) sigue exento (par real)', () => {
+    const r = guardNumbers({ text: 'Esa vuelta de 9 es par 36.', allowedNumbers: [] })
+    expect(r.blocked).toBe(false)
+  })
+
+  // Important del review: "pares" (plural) es palabra de golf legítima — un score
+  // fabricado adyacente NO debe escaparse por el cambio a palabra completa.
+  it('REGRESIÓN: score fabricado junto a "pares" (plural) se sigue bloqueando', () => {
+    const r = guardNumbers({ text: 'Hiciste 6 pares, total 85 golpes.', allowedNumbers: [] })
+    expect(r.blocked).toBe(true)
+    expect(r.offending).toContain('85')
+  })
+
+  it('"comparar" sigue sin disparar pese a "par(es)?"', () => {
+    const r = guardNumbers({ text: 'Necesito comparar tu 88 con la media.', allowedNumbers: [] })
+    expect(r.blocked).toBe(false)
+  })
 })
 
 describe('collectAuthorizedNumbers', () => {

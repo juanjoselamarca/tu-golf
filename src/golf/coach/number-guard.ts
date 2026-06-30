@@ -26,7 +26,9 @@ const PAR_VALUE_BEFORE = /\bpar\s*$/i
 // positivo que secuestraba turnos no-score (H-01). El resto va por substring (las
 // acentuadas como "apuntá" rompen \b en JS; no son propensas a falsos positivos).
 function windowHasScoreKeyword(win: string): boolean {
-  return SCORE_KEYWORDS.some((k) => (k === 'par' ? /\bpar\b/.test(win) : win.includes(k)))
+  // \bpar(es)?\b matchea "par" y "pares" (plural de golf legítimo) pero NO
+  // "para"/"comparar"/"separado"/"preparar".
+  return SCORE_KEYWORDS.some((k) => (k === 'par' ? /\bpar(es)?\b/.test(win) : win.includes(k)))
 }
 
 export interface GuardInput {
@@ -54,10 +56,12 @@ export function guardNumbers(input: GuardInput): GuardResult {
     const after = input.text.slice(at + m[1].length, at + m[1].length + 16)
     if (DURATION_UNIT_AFTER.test(after)) continue // es una duración, no un score
     if (DISTANCE_UNIT_AFTER.test(after)) continue // es una distancia, no un score
-    // Exención de PAR: el número es el par de la cancha ("par 72"), no un score fabricado.
-    const before = lower.slice(Math.max(0, at - 8), at)
-    if (PAR_VALUE_BEFORE.test(before)) continue
     const n = parseInt(num.replace('+', ''), 10)
+    // Exención de PAR: el número es el par de la cancha ("par 72"), no un score. CON
+    // TOPE DE MAGNITUD (≤73): un par real es ~70-73 (18h) o ~36 (9h); jamás 85/95. Sin
+    // el tope, un score fabricado disfrazado de "par 85" se colaría (BLOCKER del review).
+    const before = lower.slice(Math.max(0, at - 8), at)
+    if (PAR_VALUE_BEFORE.test(before) && n <= 73) continue
     if (n < 30 && !num.startsWith('+') && !num.startsWith('-')) continue // hoyos/handicaps chicos
     if (allowed.has(num) || allowed.has(num.replace('+', ''))) continue // trazable
     offending.push(num)
