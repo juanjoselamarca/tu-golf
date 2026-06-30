@@ -29,6 +29,9 @@ export interface RankTeamsInput {
   jugadores: JugadorRanking[]
   parMap: Record<number, number>
   siMap: Record<number, number>
+  /** Course handicap RESUELTO al nº de hoyos (9h cuando 9h) por jugador. Best ball
+   *  lo usa para no repartir el índice crudo — paridad con el board y el scorer. */
+  courseHcpMap: Record<string, number>
   holes: number
   formato: FormatoJuego
   modo: ModoJuego
@@ -42,7 +45,7 @@ export interface TeamShareRow {
 }
 
 export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
-  const { equipos, jugadores, parMap, siMap, holes, formato, modo } = input
+  const { equipos, jugadores, parMap, siMap, courseHcpMap, holes, formato, modo } = input
 
   if (!isTeamFormat(formato)) return []
   if (equipos.length === 0 || Object.keys(parMap).length === 0) return []
@@ -56,7 +59,7 @@ export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
     if (formato === 'best_ball') {
       const players = eq.jugadorIds.map(jid => {
         const j = jugadores.find(jj => jj.id === jid)
-        return j ? { id: j.id, nombre: j.nombre, handicapIndex: j.handicap ?? 0, scores: j.scores || {} } : null
+        return j ? { id: j.id, nombre: j.nombre, handicapIndex: courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0), scores: j.scores || {} } : null
       }).filter(Boolean) as Array<{ id: string; nombre: string; handicapIndex: number; scores: Record<string, number> }>
       return calcularBestBall({ id: eq.id, nombre: eq.nombre, jugadores: players }, holeData, parTotal)
     } else if (formato === 'scramble') {
