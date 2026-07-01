@@ -10,6 +10,7 @@
  */
 
 import type { ResultadoCPI } from '@/golf/stats/cpi'
+import { parForHoleWithFallback } from '@/golf/coach/hole-pars'
 
 const MENTAL_PATTERN_PENALTIES: Record<string, number> = {
   post_bogey_spiral: 25,       // critical
@@ -17,7 +18,6 @@ const MENTAL_PATTERN_PENALTIES: Record<string, number> = {
   first_hole_anxiety: 10,      // warning
 }
 
-const STANDARD_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
 
 export interface MentalIndexInput {
   activePatterns: Array<{ pattern_type: string; confidence: number }>
@@ -156,8 +156,8 @@ export function strokesEvitables(rounds: RoundForAnalysis[]): StrokesEvitablesRe
       const next = r.scores[i + 1]
       if (s == null || next == null) continue
 
-      const par_i = parForHole(r, i)
-      const par_next = parForHole(r, i + 1)
+      const par_i = parForHoleWithFallback(r.hole_pars, i)
+      const par_next = parForHoleWithFallback(r.hole_pars, i + 1)
       const isPostBogey = s >= par_i + 1
       const isFollowedByBogey = next >= par_next + 1
 
@@ -183,9 +183,9 @@ export function clasificarHoyo(round: RoundForAnalysis, i: number): MentalState 
   const score = round.scores[i]
   if (score == null) return null
 
-  const par = parForHole(round, i)
+  const par = parForHoleWithFallback(round.hole_pars, i)
   const prevScore = i > 0 ? round.scores[i - 1] : null
-  const prevPar = i > 0 ? parForHole(round, i - 1) : null
+  const prevPar = i > 0 ? parForHoleWithFallback(round.hole_pars, i - 1) : null
 
   const overPar = score - par
   const prevOverPar = prevScore != null && prevPar != null ? prevScore - prevPar : 0
@@ -201,9 +201,6 @@ export function clasificarHoyo(round: RoundForAnalysis, i: number): MentalState 
   return 'calm'
 }
 
-function parForHole(round: RoundForAnalysis, i: number): number {
-  return round.hole_pars?.[i] ?? STANDARD_PARS[i]
-}
 
 /**
  * Calcula todos los datos de la Costo Psicológico Card sobre UN SOLO universo
@@ -271,4 +268,4 @@ export function calcularCostoPsicologico(
 }
 
 // Expose para tests
-export const __testing__ = { parForHole, MENTAL_PATTERN_PENALTIES }
+export const __testing__ = { parForHole: (round: RoundForAnalysis, i: number) => parForHoleWithFallback(round.hole_pars, i), MENTAL_PATTERN_PENALTIES }

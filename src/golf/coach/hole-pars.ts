@@ -62,3 +62,27 @@ export function resolveRoundParsArray(
   for (let h = 1; h <= maxHoles; h++) out.push(merged?.[h] ?? null)
   return out
 }
+
+/**
+ * Layout de par estándar (par 72: P4/P3/P5 típico), 0-indexed (hoyo 1 = índice 0).
+ * Es la ÚNICA copia canónica de este fallback — antes estaba duplicada byte-a-byte
+ * en analysis.ts, mental-index.ts, patterns.ts y metrics/helpers.ts.
+ *
+ * OJO: es un fallback que MIENTE en canchas par 70/71 (Los Leones, Sport Francés,
+ * Prince of Wales). Solo debe usarse cuando NO hay par real por ninguna fuente y el
+ * consumidor NECESITA un número. Para la ruta honesta (que devuelve null donde no
+ * sabe) usar resolveRoundParsArray.
+ */
+export const STANDARD_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
+
+/**
+ * Par de un hoyo (índice 0): el real de `holePars` si existe, sino el estándar.
+ * Fuente única del patrón `round.hole_pars?.[i] ?? STANDARD_PARS[i]` que vivía
+ * idéntico e inline en mental-index.ts y patterns.ts.
+ */
+export function parForHoleWithFallback(
+  holePars: ReadonlyArray<number | null | undefined> | null | undefined,
+  i: number,
+): number {
+  return holePars?.[i] ?? STANDARD_PARS[i]
+}

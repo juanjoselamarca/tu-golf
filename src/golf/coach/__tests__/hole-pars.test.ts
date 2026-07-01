@@ -1,5 +1,28 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeParPerHole, resolveRoundPars, resolveRoundParsArray } from '../hole-pars'
+import {
+  normalizeParPerHole,
+  resolveRoundPars,
+  resolveRoundParsArray,
+  parForHoleWithFallback,
+  STANDARD_PARS,
+} from '../hole-pars'
+
+describe('parForHoleWithFallback (fuente única del fallback de par por hoyo)', () => {
+  it('devuelve el par REAL cuando hole_pars lo trae', () => {
+    expect(parForHoleWithFallback([4, 3, 5], 1)).toBe(3)
+  })
+  it('cae a STANDARD_PARS por hoyo cuando falta (null/undefined/fuera de rango)', () => {
+    expect(parForHoleWithFallback([4, null, 5], 1)).toBe(STANDARD_PARS[1]) // 4
+    expect(parForHoleWithFallback([4], 2)).toBe(STANDARD_PARS[2]) // 3 (par-3, NO 4)
+    expect(parForHoleWithFallback(undefined, 4)).toBe(STANDARD_PARS[4]) // 5
+    expect(parForHoleWithFallback(null, 8)).toBe(STANDARD_PARS[8]) // 5
+  })
+  it('el fallback por hoyo respeta el layout (par-3 → 3, par-5 → 5), no par-4 fijo', () => {
+    // Regresión del viejo `?? 4` de analysis.ts: el hoyo 3 (índice 2) es par-3.
+    expect(parForHoleWithFallback([], 2)).toBe(3)
+    expect(parForHoleWithFallback([], 4)).toBe(5)
+  })
+})
 
 describe('normalizeParPerHole', () => {
   it('normaliza el objeto {"1":4,...} (forma de historical_rounds.par_per_hole)', () => {

@@ -1,7 +1,10 @@
 import { parPerHoleArray } from '@/golf/core/holes'
+import { STANDARD_PARS } from '@/golf/coach/hole-pars'
 import type { RoundData } from './types'
 
-export const STANDARD_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
+// Re-export para consumidores que importan STANDARD_PARS desde metrics (fuente
+// canónica: hole-pars.ts). Ver metrics/index.ts.
+export { STANDARD_PARS }
 
 export function sum(xs: number[]): number {
   let s = 0

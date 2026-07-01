@@ -3,7 +3,7 @@
  * Genera insights concretos a partir de los scores de una ronda.
  */
 
-const STANDARD_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
+import { STANDARD_PARS } from '@/golf/coach/hole-pars'
 
 export interface RoundAnalysis {
   summary: string
@@ -27,7 +27,7 @@ export function analyzeRound(scores: number[], holeParsInput?: number[]): RoundA
   for (let i = 0; i < scores.length; i++) {
     if (scores[i] > 0) {
       total += scores[i]
-      parTotal += holePars[i] ?? 4
+      parTotal += holePars[i] ?? STANDARD_PARS[i]
     }
   }
   const vsPar = total - parTotal
