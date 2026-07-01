@@ -3,7 +3,7 @@
  * Genera insights concretos a partir de los scores de una ronda.
  */
 
-import { STANDARD_PARS } from '@/golf/coach/hole-pars'
+import { parForHoleWithFallback } from '@/golf/coach/hole-pars'
 
 export interface RoundAnalysis {
   summary: string
@@ -14,7 +14,9 @@ export interface RoundAnalysis {
 }
 
 export function analyzeRound(scores: number[], holeParsInput?: number[]): RoundAnalysis {
-  const holePars = holeParsInput ?? STANDARD_PARS.slice(0, scores.length)
+  // Denso y con fallback canónico por hoyo → todos los usos abajo (parTotal, diff,
+  // front/back nine, post-bogey) quedan robustos y consistentes, sin `?? 4` inline.
+  const holePars = scores.map((_, i) => parForHoleWithFallback(holeParsInput, i))
   if (scores.length === 0) {
     return { summary: '', strengths: [], weaknesses: [], recommendations: [], keyHoles: [] }
   }
@@ -27,7 +29,7 @@ export function analyzeRound(scores: number[], holeParsInput?: number[]): RoundA
   for (let i = 0; i < scores.length; i++) {
     if (scores[i] > 0) {
       total += scores[i]
-      parTotal += holePars[i] ?? STANDARD_PARS[i]
+      parTotal += holePars[i]
     }
   }
   const vsPar = total - parTotal

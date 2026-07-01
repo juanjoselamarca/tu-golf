@@ -124,3 +124,12 @@ Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones
 | Sitio | Estado |
 |---|---|
 | `[codigo]/page.tsx` — 3 definiciones inconsistentes (`leaderboard[0]` vs `leaderboard.some(...)`) | ⏳ pendiente — unificar en un `hasPlayData` único (PR siguiente, resultados) |
+
+### Concepto "par de un hoyo con fallback estándar" → `STANDARD_PARS` / `parForHoleWithFallback()` en `src/golf/coach/hole-pars.ts`
+
+| Sitio | Estado |
+|---|---|
+| `src/golf/coach/hole-pars.ts` (fuente canónica: `STANDARD_PARS` + `parForHoleWithFallback`) | ✅ creado (1-jul, PR #233) |
+| `coach/analysis.ts`, `coach/mental-index.ts`, `coach/patterns.ts` | ✅ migrado — borradas sus copias locales de `STANDARD_PARS` |
+| `coach/metrics/helpers.ts` | ✅ re-exporta la canónica (no rompe `import { STANDARD_PARS } from '@/golf/coach/metrics'`) |
+| `src/golf/core/compare.ts` (fallback `par_total ?? (holes<=9?36:72)` y `?? 4` / `push(4)`) | ⏳ pendiente — **write/scoring path app-wide** (leaderboards/resultados), y usa OTRO modelo de fallback (flat-4, no el layout estándar). Migrar/reconciliar al tocar ese flujo de scoring. Gap latente conocido: un hoyo sin par da vsPar layout-aware en el motor del coach pero flat-4 en leaderboards. |
