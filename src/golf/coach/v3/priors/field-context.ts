@@ -89,11 +89,11 @@ export function classifyVsNormal(
   tolerance: number,
 ): string {
   const diff = value - median
-  if (Math.abs(diff) <= tolerance) return 'en línea con lo normal de tu hándicap'
+  if (Math.abs(diff) <= tolerance) return 'en línea con lo normal de tu índice'
   const mejor = lowerIsBetter ? diff < 0 : diff > 0
   return mejor
-    ? 'mejor que lo normal de tu hándicap'
-    : 'por encima de lo normal de tu hándicap — hay margen de mejora ahí'
+    ? 'mejor que lo normal de tu índice'
+    : 'por encima de lo normal de tu índice — hay margen de mejora ahí'
 }
 
 /**
@@ -148,7 +148,7 @@ function buildVsHandicap(inp: BuildFieldContextInput): Layer<VsHandicap> {
   const byP = new Map(inp.benchmarkInternal.map((p) => [p.percentile, p.value]))
   const median = byP.get(50)
   if (median == null) {
-    return { disponible: false, motivo: 'No tengo un benchmark de tu hándicap para esta métrica.' }
+    return { disponible: false, motivo: 'No tengo un benchmark de tu índice para esta métrica.' }
   }
   const p25 = byP.get(25)
   const p75 = byP.get(75)
