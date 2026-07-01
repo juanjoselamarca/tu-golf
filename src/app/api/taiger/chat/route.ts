@@ -8,6 +8,12 @@ import { getOrCreateActiveSession } from '@/golf/coach/session'
 import { buildPlayerContext } from '@/golf/coach/context'
 import { runChatStream } from '@/golf/coach/chat-engine'
 import { closeExpiredPlans } from '@/golf/coach/plan-lifecycle'
+import {
+  prepareCoachHistory,
+  COACH_MSG_MAX_CHARS,
+  COACH_HISTORY_MAX_MESSAGES,
+  type ChatMsg,
+} from '@/golf/coach/history-window'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
@@ -23,8 +29,8 @@ const chatInputSchema = z.object({
   message: z.string().min(1).max(2000).optional(),
   messages: z.array(z.object({
     role: z.string(),
-    content: z.string().max(2000),
-  })).max(50).optional(),
+    content: z.string().max(COACH_MSG_MAX_CHARS),
+  })).max(COACH_HISTORY_MAX_MESSAGES).optional(),
   // session_id queda como informacion del cliente — el backend siempre append
   // a la sesion primaria del usuario (migration 017).
   session_id: z.string().uuid().optional(),
@@ -58,12 +64,14 @@ export async function POST(req: NextRequest) {
 
     // Build conversation history para multi-turn.
     // Acepta 'messages' (array completo, ideal) o 'message' (string suelto, legacy).
-    type ChatMsg = { role: 'user' | 'assistant'; content: string }
+    // El recorte (ventana por presupuesto de tokens + topes) vive en prepareCoachHistory
+    // (fuente única compartida con el cliente). Acá solo se filtra por rol.
     let conversation: ChatMsg[] = []
     if (Array.isArray(body.messages) && body.messages.length > 0) {
-      conversation = body.messages
-        .filter((m): m is ChatMsg => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim().length > 0)
-        .slice(-20) // últimos 20 turnos: balance entre memoria y costo
+      const roleFiltered = body.messages.filter(
+        (m): m is ChatMsg => m.role === 'user' || m.role === 'assistant',
+      )
+      conversation = prepareCoachHistory(roleFiltered)
     } else if (body.message && typeof body.message === 'string') {
       conversation = [{ role: 'user', content: body.message }]
     }
