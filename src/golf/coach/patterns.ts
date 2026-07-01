@@ -10,6 +10,8 @@
  * 3. El motor de análisis lo detecta automáticamente
  */
 
+import { parForHoleWithFallback } from '@/golf/coach/hole-pars'
+
 export interface GolfPattern {
   id: string
   name: string
@@ -30,20 +32,15 @@ export interface PatternRound {
   played_at: string
   /** Par por hoyo (18 elementos). Si se pasa, pisa STANDARD_PARS y detecta
    * patrones contra el par REAL de la cancha (para canchas par 70/71 o con
-   * layouts no estándar). Puede traer `null` por hoyo (par desconocido): `parForHole`
-   * cae a STANDARD_PARS POR HOYO, así que una ronda con pares reales parciales
-   * (ej. 9 hoyos) conserva los reales que tiene en vez de descartarlos todos. */
+   * layouts no estándar). Puede traer `null` por hoyo (par desconocido):
+   * `parForHoleWithFallback` cae a STANDARD_PARS POR HOYO, así que una ronda con
+   * pares reales parciales (ej. 9 hoyos) conserva los reales que tiene. */
   hole_pars?: (number | null)[]
   metadata?: Record<string, unknown> | null
 }
 
-// Par layout estándar (par 72: P4/P3/P5 típico). Solo se usa cuando la ronda
-// no trae el par real de la cancha en hole_pars.
-const STANDARD_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
-
-function parForHole(round: PatternRound, i: number): number {
-  return round.hole_pars?.[i] ?? STANDARD_PARS[i]
-}
+const parForHole = (round: PatternRound, i: number): number =>
+  parForHoleWithFallback(round.hole_pars, i)
 
 export const PATTERNS: GolfPattern[] = [
   {
