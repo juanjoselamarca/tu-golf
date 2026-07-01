@@ -7,6 +7,7 @@ import type { RoundSummary } from '@/components/coach/RoundMiniChart'
 import type { ScoreProjection } from '@/components/coach/ScoreProjectionCard'
 import type { ChatMessage, TaigerSession } from '@/lib/data/taiger'
 import { createSseDecoder, type SseEvent } from './sseParser'
+import { prepareCoachHistory } from '@/golf/coach/history-window'
 
 interface UseTaigerChatArgs {
   session: TaigerSession | null
@@ -101,19 +102,12 @@ export function useTaigerChat({
     try {
       // El backend siempre append a la sesion primaria del usuario (migration 017).
       // session_id es opcional ahora — solo informa al backend cual sesion esta abierta en UI.
-      // Sanitizamos el payload contra los límites del schema del backend:
-      //   - máximo 50 mensajes en el array (cap actual). Tomamos los últimos 30
-      //     para tener margen y que el backend pueda hacer su propio slice(-20).
-      //   - máximo 2000 chars por mensaje (truncamos defensivamente: respuestas
-      //     viejas largas del coach podrían exceder y romper el chat entero).
-      //   - filtramos vacíos para no mandar placeholder de assistant en blanco.
-      const safeMessages = allMessages
-        .filter(m => typeof m.content === 'string' && m.content.trim().length > 0)
-        .slice(-30)
-        .map(m => ({
-          role: m.role,
-          content: m.content.length > 2000 ? m.content.slice(0, 2000) : m.content,
-        }))
+      // El recorte del historial (filtra vacíos + ventana por presupuesto de tokens
+      // + topes de mensajes/chars) vive en prepareCoachHistory, la MISMA función que
+      // usa el backend (fuente única). Antes acá era slice(-30) + truncado a 2000
+      // chars, divergente del server slice(-20)/2000 → H-07 (perdía el hilo pasados
+      // ~10 turnos) y H-08 (sus planes largos llegaban mutilados como historial).
+      const safeMessages = prepareCoachHistory(allMessages)
 
       const res = await fetch('/api/taiger/chat', {
         method: 'POST',

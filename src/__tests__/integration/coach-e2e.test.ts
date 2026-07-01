@@ -25,6 +25,12 @@ import { decide, type PatternRow } from '@/golf/coach/decision-engine'
 import { PATTERNS } from '@/golf/coach/patterns'
 import { validateResponse } from '@/golf/coach/hallucination-validator'
 import { narrateEvent } from '@/lib/coach-event-narrator'
+import {
+  prepareCoachHistory,
+  COACH_MSG_MAX_CHARS,
+  COACH_HISTORY_MAX_MESSAGES,
+  type ChatMsg,
+} from '@/golf/coach/history-window'
 import { z } from 'zod'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -164,7 +170,7 @@ describe.skipIf(skipIfNoEnv)('Coach E2E — cerebro contra prod', () => {
   it('schema del endpoint acepta payload sanitizado de la sesión real', async () => {
     const schema = z.object({
       message: z.string().min(1).max(2000).optional(),
-      messages: z.array(z.object({ role: z.string(), content: z.string().max(2000) })).max(50).optional(),
+      messages: z.array(z.object({ role: z.string(), content: z.string().max(COACH_MSG_MAX_CHARS) })).max(COACH_HISTORY_MAX_MESSAGES).optional(),
       session_id: z.string().uuid().optional(),
     })
     const { data: session } = await admin
@@ -174,10 +180,9 @@ describe.skipIf(skipIfNoEnv)('Coach E2E — cerebro contra prod', () => {
       .eq('is_primary', true)
       .maybeSingle()
     const allMsgs = (Array.isArray(session?.messages) ? session.messages : []) as Array<{ role: string; content: string }>
-    const safeMessages = allMsgs
-      .filter(m => typeof m.content === 'string' && m.content.trim().length > 0)
-      .slice(-30)
-      .map(m => ({ role: m.role, content: m.content.length > 2000 ? m.content.slice(0, 2000) : m.content }))
+    // Sanitiza con la MISMA función que usa el cliente y el server (fuente única).
+    const typed = allMsgs.filter((m): m is ChatMsg => m.role === 'user' || m.role === 'assistant')
+    const safeMessages = prepareCoachHistory(typed)
     const result = schema.safeParse({ messages: [...safeMessages, { role: 'user', content: 'analiza mi última ronda' }] })
     if (!result.success) {
       console.error('Schema rechazó:', result.error.issues[0])
