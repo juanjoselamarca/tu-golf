@@ -67,8 +67,14 @@ const IDS = [
   'b3b7184d-d187-4e7e-9d32-570926bf2f1f','6f6324a3-490d-4e5c-b268-3412e667b83a',
 ]
 
-const { data: rows } = await sb.from('historical_rounds')
+const { data: rows, error: qErr } = await sb.from('historical_rounds')
   .select('id, course_id, course_name, played_at, scores, holes_played, par_per_hole').in('id', IDS)
+if (qErr) { console.error('Query falló:', qErr.message); process.exit(1) }
+if (rows.length !== IDS.length) {
+  const found = new Set(rows.map(r => r.id))
+  console.error(`✘ Faltan rondas: esperadas ${IDS.length}, encontradas ${rows.length}. Ausentes: ${IDS.filter(id => !found.has(id)).join(', ')}`)
+  process.exit(1)
+}
 const cids = Array.from(new Set(rows.map(r => r.course_id).filter(Boolean)))
 const parsByCourse = {}
 if (cids.length) { const { data: ch } = await sb.from('course_holes').select('course_id, numero, par').in('course_id', cids); for (const h of ch || []) { (parsByCourse[h.course_id] ||= {})[h.numero] = h.par } }

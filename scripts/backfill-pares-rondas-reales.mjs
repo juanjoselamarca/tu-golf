@@ -22,6 +22,8 @@
  *       Verificado: las 6 combinaciones 18h VARONES descomponen exacto en estos nueves.
  *     Rocas de Santo Domingo (club 17) — Roja [4,4,5,4,4,3,5,3,4],
  *       Azul [4,5,4,3,4,5,4,3,4], Blanca [4,4,3,5,4,4,4,3,5].
+ *     Prince of Wales / Polo San Cristóbal (ruiz) — FedeGolf VARONES; el par
+ *       escaneado por ruiz coincidió EXACTO con el catálogo.
  *   Canchas fuera de catálogo (investigadas 2026-06-30, Hole19 + GolfPass coinciden
  *   hoyo-a-hoyo; confirmadas por Juanjo, cruzadas con sus scores):
  *     Lima Golf Club — par 71.  La Planicie — par 72.  Gávea — par 69.
@@ -35,7 +37,9 @@
  *   - Escribe objeto {"1":p,...}. Salta solo si la fila YA tiene par en forma de
  *     OBJETO canónico; si está vacía o quedó como array, la (re)escribe correcto.
  *   - Verifica contra la fila viva: holes_played, largo de scores == largo de par,
- *     y suma de par == expectedSum del target. Si algo no calza, salta y reporta.
+ *     largo de par == holes esperados, y suma de par == `esum` (total DECLARADO
+ *     como literal independiente por target — NO derivado del array, así un typo en
+ *     un par literal hace fallar el chequeo). Si algo no calza, salta y reporta.
  *   - Dry-run por defecto. Escribe solo con --apply.
  *
  * Uso:
@@ -63,52 +67,53 @@ const BRISAS_NAME  = 'Club De Golf Las Brisas De Santo Domingo'
 
 const sum = (a) => a.reduce((x, y) => x + y, 0)
 
-// Rondas auditadas. expectedSum = total de par esperado (chequeo fuerte por target).
+// Rondas auditadas. `esum` = total de par DECLARADO como literal (chequeo independiente
+// del array: un typo en un par hace que sum(par) ≠ esum y el target se rechaza).
 const TARGETS = [
   // ── Juanjo — Las Brisas SD 9h (nueve delantero) ──
-  { id: '85ad1fdf-272d-400c-b1b2-aca151816812', holes: 9,  par: BRISAS_SD.sur },   // 2019-12-31 Sur-Este
-  { id: '221183e1-d679-485a-a52a-1a4a52fa0c39', holes: 9,  par: BRISAS_SD.norte }, // 2020-01-02 Norte-Este
-  { id: 'd405a40d-98ab-45ce-936d-871738b45252', holes: 9,  par: BRISAS_SD.norte }, // 2023-12-29 Norte-Este
-  { id: '9f59b424-a587-46b8-a18b-04ce91b3b29e', holes: 9,  par: BRISAS_SD.sur },   // 2023-12-29 Sur-Este
-  { id: 'a5c33ca0-b266-48bb-bb22-f8ce3b26a294', holes: 9,  par: BRISAS_SD.sur },   // 2024-02-25 Sur-Este
-  { id: '977a5c48-064d-47e2-9425-8f4a4f13ef5c', holes: 9,  par: BRISAS_SD.norte }, // 2024-02-25 Norte-Este
-  { id: '1e707061-9370-45c6-b199-04b4bbd8e3e7', holes: 9,  par: BRISAS_SD.sur },   // 2024-12-14 Sur-Este
-  { id: '0b6f2e35-6e81-4523-bc3a-eb1755df7149', holes: 9,  par: BRISAS_SD.norte }, // 2024-12-28 Norte-Este
-  { id: 'f97511a6-96e0-4df6-94f3-951c6abb8bba', holes: 9,  par: BRISAS_SD.sur },   // 2024-12-28 Sur-Este
-  { id: '7d8853e1-ce8a-4c5a-aa23-532fbe2f1a99', holes: 9,  par: BRISAS_SD.sur },   // 2024-12-28 Sur-Este
-  { id: 'cd720a0a-4c89-4da3-b248-c8142d65ceac', holes: 9,  par: BRISAS_SD.norte }, // 2025-02-12 Norte-Este
-  { id: '9ca0de2b-7b25-42ad-864d-14338d60e2bf', holes: 9,  par: BRISAS_SD.norte }, // 2025-02-13 Norte-Este
-  { id: '27ff6244-ea89-4935-af92-b63f82ee1dcc', holes: 9,  par: BRISAS_SD.sur },   // 2025-08-16 Sur-Este
-  { id: '772edd6e-5ee9-4076-8c19-86ff6a7e975d', holes: 9,  par: BRISAS_SD.sur },   // 2025-09-19 Sur-Este
-  { id: '21b43ffc-6b37-45e0-bda8-860cc06b80ef', holes: 9,  par: BRISAS_SD.sur },   // 2025-09-20 Sur-Este
-  { id: 'f913b438-62ad-4a62-98ef-4bb22b8c568a', holes: 9,  par: BRISAS_SD.norte }, // 2025-12-13 Norte-Sur (front=Norte; Norte≡Sur)
-  { id: 'eb565c58-f18c-4616-92dc-9c5b42b5858b', holes: 9,  par: BRISAS_SD.norte }, // 2026-01-03 Norte-Este
+  { id: '85ad1fdf-272d-400c-b1b2-aca151816812', holes: 9,  par: BRISAS_SD.sur,   esum: 36 }, // 2019-12-31 Sur-Este
+  { id: '221183e1-d679-485a-a52a-1a4a52fa0c39', holes: 9,  par: BRISAS_SD.norte, esum: 36 }, // 2020-01-02 Norte-Este
+  { id: 'd405a40d-98ab-45ce-936d-871738b45252', holes: 9,  par: BRISAS_SD.norte, esum: 36 }, // 2023-12-29 Norte-Este
+  { id: '9f59b424-a587-46b8-a18b-04ce91b3b29e', holes: 9,  par: BRISAS_SD.sur,   esum: 36 }, // 2023-12-29 Sur-Este
+  { id: 'a5c33ca0-b266-48bb-bb22-f8ce3b26a294', holes: 9,  par: BRISAS_SD.sur,   esum: 36 }, // 2024-02-25 Sur-Este
+  { id: '977a5c48-064d-47e2-9425-8f4a4f13ef5c', holes: 9,  par: BRISAS_SD.norte, esum: 36 }, // 2024-02-25 Norte-Este
+  { id: '1e707061-9370-45c6-b199-04b4bbd8e3e7', holes: 9,  par: BRISAS_SD.sur,   esum: 36 }, // 2024-12-14 Sur-Este
+  { id: '0b6f2e35-6e81-4523-bc3a-eb1755df7149', holes: 9,  par: BRISAS_SD.norte, esum: 36 }, // 2024-12-28 Norte-Este
+  { id: 'f97511a6-96e0-4df6-94f3-951c6abb8bba', holes: 9,  par: BRISAS_SD.sur,   esum: 36 }, // 2024-12-28 Sur-Este
+  { id: '7d8853e1-ce8a-4c5a-aa23-532fbe2f1a99', holes: 9,  par: BRISAS_SD.sur,   esum: 36 }, // 2024-12-28 Sur-Este
+  { id: 'cd720a0a-4c89-4da3-b248-c8142d65ceac', holes: 9,  par: BRISAS_SD.norte, esum: 36 }, // 2025-02-12 Norte-Este
+  { id: '9ca0de2b-7b25-42ad-864d-14338d60e2bf', holes: 9,  par: BRISAS_SD.norte, esum: 36 }, // 2025-02-13 Norte-Este
+  { id: '27ff6244-ea89-4935-af92-b63f82ee1dcc', holes: 9,  par: BRISAS_SD.sur,   esum: 36 }, // 2025-08-16 Sur-Este
+  { id: '772edd6e-5ee9-4076-8c19-86ff6a7e975d', holes: 9,  par: BRISAS_SD.sur,   esum: 36 }, // 2025-09-19 Sur-Este
+  { id: '21b43ffc-6b37-45e0-bda8-860cc06b80ef', holes: 9,  par: BRISAS_SD.sur,   esum: 36 }, // 2025-09-20 Sur-Este
+  { id: 'f913b438-62ad-4a62-98ef-4bb22b8c568a', holes: 9,  par: BRISAS_SD.norte, esum: 36 }, // 2025-12-13 Norte-Sur (front=Norte; Norte≡Sur)
+  { id: 'eb565c58-f18c-4616-92dc-9c5b42b5858b', holes: 9,  par: BRISAS_SD.norte, esum: 36 }, // 2026-01-03 Norte-Este
   // ── Juanjo — Las Brisas SD 18h Norte-Sur ──
-  { id: 'e4ce4a43-41ac-4a52-b267-f26d21398512', holes: 18, par: [...BRISAS_SD.norte, ...BRISAS_SD.sur] }, // 2025-02-22
+  { id: 'e4ce4a43-41ac-4a52-b267-f26d21398512', holes: 18, par: [...BRISAS_SD.norte, ...BRISAS_SD.sur], esum: 72 }, // 2025-02-22
   // ── Juanjo — Rocas SD 18h Roja-Azul ──
-  { id: 'c02396ac-c7d5-496e-b0d8-92e8915e3866', holes: 18, par: [...ROCAS_SD.roja, ...ROCAS_SD.azul] },   // 2025-09-17
+  { id: 'c02396ac-c7d5-496e-b0d8-92e8915e3866', holes: 18, par: [...ROCAS_SD.roja, ...ROCAS_SD.azul], esum: 72 },   // 2025-09-17
   // ── Juanjo — canchas fuera de catálogo (18h) ──
-  { id: '3432f884-a9ba-40c9-b636-0ddba924167e', holes: 18, par: LIMA_GC },     // 2025-11-21 Lima Golf Club (par 71)
-  { id: '2a9e45c4-4e93-4d67-bdf2-2db14ba9b1fa', holes: 18, par: LA_PLANICIE }, // 2025-11-22 Country Club La Planicie (par 72)
-  { id: '85fe015d-63be-4ad8-b15c-07e57c330349', holes: 18, par: GAVEA },       // 2025-12-02 Gávea Golf (par 69)
+  { id: '3432f884-a9ba-40c9-b636-0ddba924167e', holes: 18, par: LIMA_GC,     esum: 71 }, // 2025-11-21 Lima Golf Club
+  { id: '2a9e45c4-4e93-4d67-bdf2-2db14ba9b1fa', holes: 18, par: LA_PLANICIE, esum: 72 }, // 2025-11-22 Country Club La Planicie
+  { id: '85fe015d-63be-4ad8-b15c-07e57c330349', holes: 18, par: GAVEA,       esum: 69 }, // 2025-12-02 Gávea Golf
   // ── Juanjo — photo_scan Las Brisas SD sin recorrido en el nombre. El re-scan
   //    (import_job c6445242, nunca aplicado) capturó el par de la tarjeta: front
   //    Norte/Sur + back Este ⇒ recorrido {Sur|Norte}-Este. Par = [...Sur,...Este]
   //    coincide EXACTO con el par escaneado. Se corrige el nombre a "~ Sur-Este".
-  { id: '33f3124f-fdc3-407c-977d-1bc017b2396e', holes: 18, par: [...BRISAS_SD.sur, ...BRISAS_SD.este], courseName: `${BRISAS_NAME} ~ Sur-Este` }, // 2025-04-19
+  { id: '33f3124f-fdc3-407c-977d-1bc017b2396e', holes: 18, par: [...BRISAS_SD.sur, ...BRISAS_SD.este], esum: 72, courseName: `${BRISAS_NAME} ~ Sur-Este` }, // 2025-04-19
 
   // ── ruiz (usuario real) — todas photo_scan; par del scan cuando es coherente,
   //    catálogo/investigación cuando el scan fue basura. ──
   // Lima y La Planicie: el scan leyó par sum=78 (imposible) idéntico en ambas →
   // basura; se usa el par investigado (mismas canchas que Juanjo, par 71/72).
-  { id: 'd15a9521-13d3-47d9-97f6-8cf28b478917', holes: 18, par: LIMA_GC },     // 2025-11-21 Lima Golf Club (par 71)
-  { id: 'f9b4a94d-02d6-4f69-9d8d-b6c0d4bf5469', holes: 18, par: LA_PLANICIE }, // 2025-11-22 Country Club La Planicie (par 72)
+  { id: 'd15a9521-13d3-47d9-97f6-8cf28b478917', holes: 18, par: LIMA_GC,     esum: 71 }, // 2025-11-21 Lima Golf Club
+  { id: 'f9b4a94d-02d6-4f69-9d8d-b6c0d4bf5469', holes: 18, par: LA_PLANICIE, esum: 72 }, // 2025-11-22 Country Club La Planicie
   // Brisas: scan = [...Norte,...Sur] exacto ⇒ recorrido Norte-Sur. Se corrige nombre.
-  { id: 'a2fdf3d1-ab89-4d85-bea2-1f5741c3a520', holes: 18, par: [...BRISAS_SD.norte, ...BRISAS_SD.sur], courseName: `${BRISAS_NAME} ~ Norte-Sur` }, // 2026-01-10
+  { id: 'a2fdf3d1-ab89-4d85-bea2-1f5741c3a520', holes: 18, par: [...BRISAS_SD.norte, ...BRISAS_SD.sur], esum: 72, courseName: `${BRISAS_NAME} ~ Norte-Sur` }, // 2026-01-10
   // Prince of Wales y Polo San Cristóbal: el scan coincidió EXACTO con FedeGolf VARONES.
-  { id: 'b3b7184d-d187-4e7e-9d32-570926bf2f1f', holes: 18, par: PRINCE_WALES }, // 2025-11-27 Prince of Wales (par 72)
-  { id: '6f6324a3-490d-4e5c-b268-3412e667b83a', holes: 18, par: POLO_SC },      // 2025-12-24 Polo San Cristóbal (par 72)
-].map(t => ({ ...t, expectedSum: sum(t.par) }))
+  { id: 'b3b7184d-d187-4e7e-9d32-570926bf2f1f', holes: 18, par: PRINCE_WALES, esum: 72 }, // 2025-11-27 Prince of Wales
+  { id: '6f6324a3-490d-4e5c-b268-3412e667b83a', holes: 18, par: POLO_SC,      esum: 72 }, // 2025-12-24 Polo San Cristóbal
+]
 
 function scoresCount(s) {
   if (Array.isArray(s)) return s.filter(v => typeof v === 'number' && v > 0).length
@@ -128,6 +133,7 @@ function toObject(arr) {
 }
 
 const ids = TARGETS.map(t => t.id)
+if (new Set(ids).size !== ids.length) { console.error('IDs duplicados en TARGETS'); process.exit(1) }
 const { data: rows, error } = await sb.from('historical_rounds')
   .select('id, course_name, holes_played, scores, par_per_hole, user_id')
   .in('id', ids)
@@ -147,14 +153,14 @@ for (const t of TARGETS) {
   if (isCanonicalObject(r.par_per_hole)) { console.log(`• YA TIENE PAR (objeto canónico, skip): ${tag}`); skipCanonical++; continue }
   const wasArray = Array.isArray(r.par_per_hole) && parCount(r.par_per_hole) > 0
 
-  // safety: holes_played calza
+  // safety: el par declarado es coherente ANTES de mirar la fila (independiente de esum)
+  if (t.par.length !== t.holes) { console.log(`✘ par.length=${t.par.length} ≠ holes=${t.holes}: ${tag}`); errors++; continue }
+  if (sum(t.par) !== t.esum) { console.log(`✘ sum(par)=${sum(t.par)} ≠ esum declarado=${t.esum} (typo en par): ${tag}`); errors++; continue }
+  // safety: holes_played de la fila calza
   if ((r.holes_played || 0) !== t.holes) { console.log(`✘ holes_played=${r.holes_played} ≠ ${t.holes}: ${tag}`); errors++; continue }
   // safety: cantidad de scores == cantidad de pares
   const sc = scoresCount(r.scores)
   if (sc !== t.par.length) { console.log(`✘ scoresN=${sc} ≠ par.length=${t.par.length}: ${tag}`); errors++; continue }
-  // safety: suma de par == expectedSum del target
-  const s = sum(t.par)
-  if (s !== t.expectedSum) { console.log(`✘ sum par=${s} ≠ expectedSum=${t.expectedSum}: ${tag}`); errors++; continue }
 
   const parObj = toObject(t.par)
   const payload = { par_per_hole: parObj }
@@ -164,9 +170,9 @@ for (const t of TARGETS) {
   if (APPLY) {
     const { error: upErr } = await sb.from('historical_rounds').update(payload).eq('id', t.id)
     if (upErr) { console.log(`✘ UPDATE falló: ${tag} → ${upErr.message}`); errors++; continue }
-    console.log(`${wasArray ? '✔ REPARADO (array→objeto)' : '✔ ESCRITO'} par(sum ${s}): ${tag}${renameNote}`)
+    console.log(`${wasArray ? '✔ REPARADO (array→objeto)' : '✔ ESCRITO'} par(sum ${t.esum}): ${tag}${renameNote}`)
   } else {
-    console.log(`${wasArray ? '→ repararía (array→objeto)' : '→ escribiría'} par(sum ${s}) obj={"1":${t.par[0]},…}: ${tag}${renameNote}`)
+    console.log(`${wasArray ? '→ repararía (array→objeto)' : '→ escribiría'} par(sum ${t.esum}) obj={"1":${t.par[0]},…}: ${tag}${renameNote}`)
   }
   wasArray ? repaired++ : willWrite++
 }
