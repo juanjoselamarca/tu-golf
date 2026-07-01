@@ -61,6 +61,10 @@ const IDS = [
   'f913b438-62ad-4a62-98ef-4bb22b8c568a','eb565c58-f18c-4616-92dc-9c5b42b5858b','e4ce4a43-41ac-4a52-b267-f26d21398512',
   'c02396ac-c7d5-496e-b0d8-92e8915e3866',
   '3432f884-a9ba-40c9-b636-0ddba924167e','2a9e45c4-4e93-4d67-bdf2-2db14ba9b1fa','85fe015d-63be-4ad8-b15c-07e57c330349',
+  // Juanjo photo_scan + ruiz (5)
+  '33f3124f-fdc3-407c-977d-1bc017b2396e',
+  'd15a9521-13d3-47d9-97f6-8cf28b478917','f9b4a94d-02d6-4f69-9d8d-b6c0d4bf5469','a2fdf3d1-ab89-4d85-bea2-1f5741c3a520',
+  'b3b7184d-d187-4e7e-9d32-570926bf2f1f','6f6324a3-490d-4e5c-b268-3412e667b83a',
 ]
 
 const { data: rows } = await sb.from('historical_rounds')

@@ -56,6 +56,10 @@ const ROCAS_SD  = { roja: [4,4,5,4,4,3,5,3,4], azul: [4,5,4,3,4,5,4,3,4], blanca
 const LIMA_GC      = [5,5,4,3,4,4,3,4,3, 4,3,5,3,4,4,4,5,4] // par 71
 const LA_PLANICIE  = [4,4,3,4,5,4,4,3,4, 5,3,5,4,4,4,4,3,5] // par 72
 const GAVEA        = [4,3,5,3,4,3,4,3,5, 3,4,4,5,4,4,3,4,4] // par 69
+// Clubes chilenos en catálogo FedeGolf VARONES (verificados; el scan de ruiz coincidió exacto)
+const PRINCE_WALES = [4,4,5,3,4,4,3,4,5, 4,3,4,4,5,3,4,4,5] // par 72
+const POLO_SC      = [4,5,3,4,4,3,5,4,4, 4,4,5,3,4,4,3,5,4] // par 72
+const BRISAS_NAME  = 'Club De Golf Las Brisas De Santo Domingo'
 
 const sum = (a) => a.reduce((x, y) => x + y, 0)
 
@@ -87,6 +91,23 @@ const TARGETS = [
   { id: '3432f884-a9ba-40c9-b636-0ddba924167e', holes: 18, par: LIMA_GC },     // 2025-11-21 Lima Golf Club (par 71)
   { id: '2a9e45c4-4e93-4d67-bdf2-2db14ba9b1fa', holes: 18, par: LA_PLANICIE }, // 2025-11-22 Country Club La Planicie (par 72)
   { id: '85fe015d-63be-4ad8-b15c-07e57c330349', holes: 18, par: GAVEA },       // 2025-12-02 Gávea Golf (par 69)
+  // ── Juanjo — photo_scan Las Brisas SD sin recorrido en el nombre. El re-scan
+  //    (import_job c6445242, nunca aplicado) capturó el par de la tarjeta: front
+  //    Norte/Sur + back Este ⇒ recorrido {Sur|Norte}-Este. Par = [...Sur,...Este]
+  //    coincide EXACTO con el par escaneado. Se corrige el nombre a "~ Sur-Este".
+  { id: '33f3124f-fdc3-407c-977d-1bc017b2396e', holes: 18, par: [...BRISAS_SD.sur, ...BRISAS_SD.este], courseName: `${BRISAS_NAME} ~ Sur-Este` }, // 2025-04-19
+
+  // ── ruiz (usuario real) — todas photo_scan; par del scan cuando es coherente,
+  //    catálogo/investigación cuando el scan fue basura. ──
+  // Lima y La Planicie: el scan leyó par sum=78 (imposible) idéntico en ambas →
+  // basura; se usa el par investigado (mismas canchas que Juanjo, par 71/72).
+  { id: 'd15a9521-13d3-47d9-97f6-8cf28b478917', holes: 18, par: LIMA_GC },     // 2025-11-21 Lima Golf Club (par 71)
+  { id: 'f9b4a94d-02d6-4f69-9d8d-b6c0d4bf5469', holes: 18, par: LA_PLANICIE }, // 2025-11-22 Country Club La Planicie (par 72)
+  // Brisas: scan = [...Norte,...Sur] exacto ⇒ recorrido Norte-Sur. Se corrige nombre.
+  { id: 'a2fdf3d1-ab89-4d85-bea2-1f5741c3a520', holes: 18, par: [...BRISAS_SD.norte, ...BRISAS_SD.sur], courseName: `${BRISAS_NAME} ~ Norte-Sur` }, // 2026-01-10
+  // Prince of Wales y Polo San Cristóbal: el scan coincidió EXACTO con FedeGolf VARONES.
+  { id: 'b3b7184d-d187-4e7e-9d32-570926bf2f1f', holes: 18, par: PRINCE_WALES }, // 2025-11-27 Prince of Wales (par 72)
+  { id: '6f6324a3-490d-4e5c-b268-3412e667b83a', holes: 18, par: POLO_SC },      // 2025-12-24 Polo San Cristóbal (par 72)
 ].map(t => ({ ...t, expectedSum: sum(t.par) }))
 
 function scoresCount(s) {
@@ -136,12 +157,16 @@ for (const t of TARGETS) {
   if (s !== t.expectedSum) { console.log(`✘ sum par=${s} ≠ expectedSum=${t.expectedSum}: ${tag}`); errors++; continue }
 
   const parObj = toObject(t.par)
+  const payload = { par_per_hole: parObj }
+  const renaming = t.courseName && t.courseName !== r.course_name
+  if (renaming) payload.course_name = t.courseName
+  const renameNote = renaming ? ` | nombre → "${t.courseName}"` : ''
   if (APPLY) {
-    const { error: upErr } = await sb.from('historical_rounds').update({ par_per_hole: parObj }).eq('id', t.id)
+    const { error: upErr } = await sb.from('historical_rounds').update(payload).eq('id', t.id)
     if (upErr) { console.log(`✘ UPDATE falló: ${tag} → ${upErr.message}`); errors++; continue }
-    console.log(`${wasArray ? '✔ REPARADO (array→objeto)' : '✔ ESCRITO'} par(sum ${s}): ${tag}`)
+    console.log(`${wasArray ? '✔ REPARADO (array→objeto)' : '✔ ESCRITO'} par(sum ${s}): ${tag}${renameNote}`)
   } else {
-    console.log(`${wasArray ? '→ repararía (array→objeto)' : '→ escribiría'} par(sum ${s}) obj={"1":${t.par[0]},…}: ${tag}`)
+    console.log(`${wasArray ? '→ repararía (array→objeto)' : '→ escribiría'} par(sum ${s}) obj={"1":${t.par[0]},…}: ${tag}${renameNote}`)
   }
   wasArray ? repaired++ : willWrite++
 }
