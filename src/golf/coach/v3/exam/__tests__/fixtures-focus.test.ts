@@ -58,7 +58,7 @@ describe('P3 — seeds del banco disparan focos concretos y diversos', () => {
     expect(r.confianza).toBeGreaterThan(0)
   })
 
-  it('seis_piezas_con_meta ata el foco a la meta (delta hacia handicap objetivo)', async () => {
+  it('seis_piezas_con_meta ata el foco a la meta (delta hacia índice objetivo)', async () => {
     // El seed profundo trae índice 10; sin target en el seed el delta es null,
     // pero la métrica del foco existe igual (la meta la fija el coach con set_target).
     const r = (await focusOf('seis_piezas_con_meta')) as Focus

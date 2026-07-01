@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { ENGAGEMENT_SECTION } from '../engagement';
 
 describe('ENGAGEMENT_SECTION', () => {
-  it('fija el norte: herramientas mentales para bajar el handicap', () => {
-    expect(ENGAGEMENT_SECTION).toMatch(/handicap/i);
+  it('fija el norte: herramientas mentales para bajar el índice', () => {
+    expect(ENGAGEMENT_SECTION).toMatch(/bajar (el|su) índice/i);
     expect(ENGAGEMENT_SECTION).toMatch(/mentales/i);
   });
 

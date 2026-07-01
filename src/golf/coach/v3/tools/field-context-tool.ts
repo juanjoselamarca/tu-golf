@@ -31,11 +31,11 @@ import { buildFieldContext, type FieldContextResult } from '@/golf/coach/v3/prio
 export const FIELD_CONTEXT_TOOL: Anthropic.Tool = {
   name: 'field_context',
   description:
-    'Sitúa al jugador en su "campo": (A) cómo está esa métrica vs lo normal para SU hándicap, ' +
+    'Sitúa al jugador en su "campo": (A) cómo está esa métrica vs lo normal para SU índice, ' +
     '(B) en qué percentil poblacional está su índice ("mejor que X% de los golfistas"), y ' +
     '(C) qué tan difícil es su cancha reciente vs una de referencia. Úsala para dar perspectiva ' +
-    'realista ("para tu hándicap, esto ya es bueno" o "acá tienes margen"). NUNCA inventes percentiles ' +
-    'ni el hándicap: esta tool los calcula con datos reales del jugador. Tú solo eliges QUÉ métrica contextualizar.',
+    'realista ("para tu índice, esto ya es bueno" o "acá tienes margen"). NUNCA inventes percentiles ' +
+    'ni el índice: esta tool los calcula con datos reales del jugador. Tú solo eliges QUÉ métrica contextualizar.',
   input_schema: {
     type: 'object',
     properties: {
