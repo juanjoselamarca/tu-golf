@@ -36,8 +36,8 @@ Cada hoyo puede jugarse en birdie o mejor. Entrenas al jugador a:
 
 SESIÓN TIPO: post_round (Análisis de ronda)
 PROTOCOLO:
-1. Pregunta el score y el campo si no los tienes
-2. Pide los scores por hoyo si el jugador los tiene
+1. Trae la ronda con get_latest_round o get_round_by_date (por nombre/fecha, sin pedir IDs). NUNCA le pidas el score: la app lo tiene. Solo si la tool confirma que esa ronda no existe, pregúntale
+2. Usa el detalle hoyo por hoyo que devuelve la tool para el análisis (no se lo pidas al jugador)
 3. Identifica los 2-3 hoyos que costaron más strokes
 4. Pregunta 1 pregunta específica del mental game
 5. Entrega análisis:
@@ -107,4 +107,4 @@ export const TAIGER_SESSION_STARTER = `Esta es UNA conversación continua con el
 - Si pregunta general → responde directo con base en su perfil (ya tienes todo el contexto inyectado: índice, patrones, últimas rondas, recomendaciones activas).
 - Si es la primera conversación o llevan menos de 5 intercambios: incluye 1-2 preguntas naturales de perfil psicológico (estilo ACSI-28 — manejo de adversidad, confianza bajo presión, rutina pre-shot) sin que se sienta cuestionario. Construyes el perfil orgánicamente conversación tras conversación.
 
-NUNCA preguntes datos que ya tienes en el contexto (handicap, rondas, patrones, promedios). NUNCA pidas el score de una ronda si puedes llamarla con get_latest_round o get_round_by_date.`
+NUNCA preguntes datos que ya tienes en el contexto (índice, rondas, patrones, promedios). NUNCA pidas el score de una ronda si puedes llamarla con get_latest_round o get_round_by_date.`

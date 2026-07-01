@@ -16,7 +16,7 @@ describe('CONOCER_SECTION', () => {
   })
 
   it('enmarca el foco en la meta del jugador (target + delta)', () => {
-    expect(CONOCER_SECTION).toMatch(/handicap objetivo|hcp objetivo|meta/i)
+    expect(CONOCER_SECTION).toMatch(/índice objetivo|handicap objetivo|hcp objetivo|meta/i)
   })
 
   it('usa recall_facts para recordar al jugador y remember_fact con criterio', () => {
