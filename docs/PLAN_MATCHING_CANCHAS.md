@@ -61,6 +61,22 @@ vs catálogo `C.G. Las Brisas De Santo Domingo - Este - Norte (VARONES)`:
 - [ ] Cola de revisión admin para promover user_added → verificada.
 - [ ] Canario CI: desconocida-con-pares → crea user_added no-verificada; conocida → matchea, no duplica.
 
+## Follow-up trackeado — integridad de pares DAMAS vs VARONES (detectado 01-jul)
+
+El par por hoyo es INVARIANTE al género, pero un audit encontró **~18 canchas**
+FedeGolf donde la ficha DAMAS difiere de su gemela VARONES. Categorías:
+
+1. **DAMAS sin hoyos (11):** Osorno, Huinganal, Rio Blanco, Rio Lluta, Rocas Nueva,
+   Tocopilla, El Principal, Tumbes, Magallanes, Quinteros, Valdivia. → Copiar de
+   VARONES (seguro, gender-invariante). Batch pendiente de verificar VARONES sano.
+2. **DAMAS con 36 hoyos (duplicados):** Bahía Coique, Sta Martina Verde. → Dedup.
+3. **DAMAS con 18 hoyos equivocados:** Brisas Norte-Este (FIXEADO), El Alba, Papudo,
+   Rocas Blanca-Azul. → Requiere fuente oficial FedeGolf para saber qué género es
+   el correcto. NO sobrescribir a ciegas.
+
+Sólo se arregló Brisas Norte-Este (probado contra el front de "Este-Norte"). El
+resto necesita pasada dedicada con la fuente FedeGolf. Query de audit en el PR.
+
 ## Notas
 - Archivos protegidos NO se tocan.
 - El RPC es write-path crítico: migración nueva, no editar la vieja. Idempotente.

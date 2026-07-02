@@ -69,6 +69,12 @@ COMMENT ON FUNCTION course_name_canonical_ordered(text) IS
 COMMENT ON FUNCTION course_name_canonical(text) IS
   'Forma canónica alfabética (fallback insensible al orden). Espeja normalizeCourseName() en src/golf/courses/course-name.ts.';
 
+-- Nota de escala: el RPC computa la canónica por-fila sobre el catálogo (~60ms
+-- con 193 canchas, aceptable para un import puntual). Si el catálogo crece a
+-- miles, materializar con columnas GENERATED ... STORED (canon_ordered/canon_sorted)
+-- e indexarlas — no con índice de expresión sobre funciones anidadas (Postgres
+-- falla al inlinear course_name_tokens en CREATE INDEX).
+
 -- ============================================================
 -- 2. RPC v2 con desambiguación por género + normalización simétrica
 -- ============================================================
