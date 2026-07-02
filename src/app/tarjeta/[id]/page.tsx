@@ -9,13 +9,15 @@
  */
 
 import { useEffect, useState } from 'react'
-import { copyToClipboard } from '@/lib/clipboard'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { publishRound } from '@/lib/data/rounds'
 import Scorecard, { type ScorecardHole } from '@/components/Scorecard'
 import { ArrowLeft, Share2, Flag } from 'lucide-react'
+import { ShareSheet } from '@/components/share/ShareSheet'
+import { ShareToast } from '@/components/share/ShareToast'
+import { buildRoundShare } from '@/golf/share/payload'
 
 interface RoundData {
   id: string
@@ -47,7 +49,8 @@ export default function TarjetaPublicaPage() {
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
 
@@ -114,29 +117,15 @@ export default function TarjetaPublicaPage() {
     load()
   }, [id])
 
-  const handleShare = async () => {
-    const url = window.location.href
-    const text = round
-      ? `${playerName} jugó ${round.total_gross} en ${round.course_name} — Golfers+`
-      : 'Tarjeta de golf — Golfers+'
-
-    // Compartir = publicar: hace visible la tarjeta al destinatario. Solo el
-    // dueño publica (RLS lo refuerza; el check evita un update inútil para otros).
+  // Compartir = publicar la tarjeta (solo dueño; RLS lo refuerza). El ShareSheet
+  // maneja la cascada native → wa.me → portapapeles.
+  const openShare = async () => {
     if (round) {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (user && user.id === round.user_id) {
-        await publishRound(supabase, id)
-      }
+      if (user && user.id === round.user_id) await publishRound(supabase, id)
     }
-
-    if (navigator.share) {
-      try { await navigator.share({ title: text, url }); return } catch { /* cancelled */ }
-    }
-    if (await copyToClipboard(url)) {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2500)
-    }
+    setShareOpen(true)
   }
 
   // Loading
@@ -181,6 +170,17 @@ export default function TarjetaPublicaPage() {
     ? new Date(round.played_at + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
     : ''
 
+  // vs-par para el copy del share (solo cuando hay hoyos con par disponible)
+  const totalPar = courseHoles.reduce((sum: number, h: CourseHole) => sum + (h.par ?? 4), 0)
+  const rawDiff = round.total_gross != null && courseHoles.length > 0 ? round.total_gross - totalPar : null
+  const vsParLabel = rawDiff == null ? '' : rawDiff === 0 ? 'Par' : rawDiff > 0 ? `+${rawDiff}` : String(rawDiff)
+  const sharePayload = buildRoundShare({
+    gross: round.total_gross ?? 0,
+    vsParLabel,
+    courseName: round.course_name,
+    url: typeof window !== 'undefined' ? window.location.href : `https://golfersplus.vercel.app/tarjeta/${id}`,
+  })
+
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f8', fontFamily: '"DM Sans", sans-serif' }}>
       {/* Header */}
@@ -190,9 +190,9 @@ export default function TarjetaPublicaPage() {
             <ArrowLeft size={16} />
             {isLoggedIn ? 'Mi historial' : 'Golfers+'}
           </Link>
-          <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 12px', color: '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={() => void openShare()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 12px', color: '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             <Share2 size={14} />
-            {copied ? 'Enlace copiado' : 'Compartir'}
+            Compartir
           </button>
         </div>
       </div>
@@ -250,6 +250,14 @@ export default function TarjetaPublicaPage() {
           </div>
         )}
       </div>
+
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        payload={sharePayload}
+        onCopied={() => { setShareOpen(false); setShareCopied(true) }}
+      />
+      <ShareToast show={shareCopied} onDismiss={() => setShareCopied(false)} />
     </div>
   )
 }

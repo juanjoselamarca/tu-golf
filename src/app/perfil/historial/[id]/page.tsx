@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { copyToClipboard } from '@/lib/clipboard'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
@@ -9,7 +8,9 @@ import { publishRound } from '@/lib/data/rounds'
 import { SITE_URL } from '@/lib/site-url'
 import { formatLabel } from '@/golf/core/rules'
 import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components/Scorecard'
-import { trackEvent } from '@/lib/analytics'
+import { ShareSheet } from '@/components/share/ShareSheet'
+import { ShareToast } from '@/components/share/ShareToast'
+import { buildRoundShare } from '@/golf/share/payload'
 
 /* ─── Types ────────────────────────────────────────────── */
 interface HistoricalRound {
@@ -49,7 +50,8 @@ export default function HistorialDetallePage() {
   const [playerName, setPlayerName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -106,25 +108,12 @@ export default function HistorialDetallePage() {
   }, [id])
 
   /* ─── Share ─────────────────────────────────────────── */
-  const handleShare = async () => {
+  const openShare = async () => {
     const supabase = createClient()
     // Se comparte el link PÚBLICO /tarjeta/[id], no esta ruta /perfil (protegida →
     // el destinatario caería en /login). Compartir = publicar la ronda.
-    const tarjetaUrl = `${SITE_URL}/tarjeta/${id}`
-    try {
-      await publishRound(supabase, id)
-      if (navigator.share) {
-        await navigator.share({ title: `Tarjeta - ${round?.course_name}`, url: tarjetaUrl })
-        trackEvent(supabase, round?.user_id ?? null, 'historial_round_shared', { method: 'native' })
-      } else {
-        await copyToClipboard(tarjetaUrl)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-        trackEvent(supabase, round?.user_id ?? null, 'historial_round_shared', { method: 'clipboard' })
-      }
-    } catch {
-      // User cancelled share dialog — no-op
-    }
+    await publishRound(supabase, id)
+    setShareOpen(true)
   }
 
   /* ─── Loading state ─────────────────────────────────── */
@@ -194,6 +183,17 @@ export default function HistorialDetallePage() {
     round.formato_juego ?? 'stroke_play',
     round.modo_juego ?? null,
   )
+
+  // vs-par para el copy del share (solo cuando hay hoyos con par disponible)
+  const totalPar = courseHoles.reduce((sum: number, h: CourseHole) => sum + (h.par ?? 4), 0)
+  const rawDiff = round.total_gross != null && courseHoles.length > 0 ? round.total_gross - totalPar : null
+  const vsParLabel = rawDiff == null ? '' : rawDiff === 0 ? 'Par' : rawDiff > 0 ? `+${rawDiff}` : String(rawDiff)
+  const sharePayload = buildRoundShare({
+    gross: round.total_gross ?? 0,
+    vsParLabel,
+    courseName: round.course_name,
+    url: `${SITE_URL}/tarjeta/${id}`,
+  })
 
   /* ─── Render ────────────────────────────────────────── */
   return (
@@ -303,30 +303,29 @@ export default function HistorialDetallePage() {
           marginTop: '20px', display: 'flex', justifyContent: 'center',
         }}>
           <button
-            onClick={handleShare}
+            onClick={() => void openShare()}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
-              background: copied ? '#16a34a' : '#c4992a',
+              background: '#c4992a',
               color: '#ffffff', fontWeight: 700, fontSize: '14px',
               padding: '12px 28px', borderRadius: '10px',
               border: 'none', cursor: 'pointer',
               transition: 'background 0.2s',
             }}
           >
-            {copied ? (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                Enlace copiado
-              </>
-            ) : (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                Compartir tarjeta
-              </>
-            )}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            Compartir tarjeta
           </button>
         </div>
       </div>
+
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        payload={sharePayload}
+        onCopied={() => { setShareOpen(false); setShareCopied(true) }}
+      />
+      <ShareToast show={shareCopied} onDismiss={() => setShareCopied(false)} />
     </div>
   )
 }

@@ -1,14 +1,20 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { copyToClipboard } from '@/lib/clipboard'
 import { createClient } from '@/lib/supabase'
 import { publishRound } from '@/lib/data/rounds'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
-import { compartirResultado } from '@/lib/share-card'
+import { generarShareCard } from '@/lib/share-card'
 import type { ShareCardData } from '@/lib/share-card'
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { RondaLibre, Jugador, HoleData } from '@/types/ronda'
+import { ShareSheet } from '@/components/share/ShareSheet'
+import { ShareToast } from '@/components/share/ShareToast'
+import { buildRoundShare } from '@/golf/share/payload'
+import type { SharePayload } from '@/golf/share/types'
+import { SITE_URL, SITE_DOMAIN } from '@/lib/site-url'
+import { BRAND } from '@/golf/share/copy'
 
 interface FinishedRoundViewProps {
   ronda: RondaLibre
@@ -36,6 +42,11 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
     isMatchPlay, matchResult,
     onContinueScoring,
   } = props
+
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
+  const [shareLoading, setShareLoading] = useState(false)
+  const [pendingPayload, setPendingPayload] = useState<SharePayload | null>(null)
 
   const diff = finalScore.gross - finalScore.totalPar
   const diffLabel = diff === 0 ? 'Par' : diff > 0 ? `+${diff} sobre par` : `${diff} bajo par`
@@ -68,47 +79,49 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
     const playerName = jugador?.nombre ?? 'Jugador'
     const vsParStr = diff === 0 ? 'Par' : diff > 0 ? `+${diff}` : String(diff)
 
-    // Si tenemos el ID de la tarjeta, compartir link a /tarjeta/[id]
     if (historicalRoundId) {
-      // Compartir = publicar: la tarjeta queda visible para el destinatario.
-      // Sin check de owner a propósito: la RLS `own_rounds` es el portón real
-      // (un no-dueño afecta 0 filas). No bloquea el share si falla.
+      // Compartir = publicar la tarjeta. RLS `own_rounds` es el portón real.
       await publishRound(createClient(), historicalRoundId)
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
-      const tarjetaUrl = `${siteUrl}/tarjeta/${historicalRoundId}`
-      const text = isStableford
-        ? `${playerName} hizo ${totalStableford} pts en ${ronda.course_name}`
-        : `${playerName} jugó ${finalScore.gross} (${vsParStr}) en ${ronda.course_name}`
-
-      if (navigator.share) {
-        try { await navigator.share({ title: `${playerName} — Golfers+`, text, url: tarjetaUrl }); return } catch { /* cancelled */ }
-      }
-      await copyToClipboard(`${text}\n${tarjetaUrl}`)
+      const tarjetaUrl = `${SITE_URL}/tarjeta/${historicalRoundId}`
+      const payload: SharePayload = isStableford
+        ? { title: `Mi ronda — ${BRAND}`, text: `Jugué ${totalStableford} pts en ${ronda.course_name}. ${BRAND} — ${SITE_DOMAIN}`, url: tarjetaUrl }
+        : buildRoundShare({ gross: finalScore.gross, vsParLabel: vsParStr, courseName: ronda.course_name, url: tarjetaUrl })
+      setPendingPayload(payload)
+      setShareOpen(true)
       return
     }
 
-    // Fallback: compartir imagen canvas (si no hay ID de tarjeta)
-    const shareData: ShareCardData = {
-      tipo: 'ronda_libre',
-      ganador: playerName,
-      esEmpate: false,
-      scoreGross: isStableford ? totalStableford : finalScore.gross,
-      scoreDiff: isStableford ? 0 : diff,
-      courseName: ronda.course_name,
-      fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }),
-      birdies: birdieCount,
-      eagles: eagleCount,
-      scoresByHole: playerScores,
-      parsByHole: parMap,
-      holesPlayed: totalHoles,
-      formato_juego: ronda.formato_juego,
-      modo_juego: ronda.modo_juego,
-      // Match Play: pasar el display del resultado ("3&2", "All Square", etc.)
-      // para que el share card muestre eso en vez de score + vs-par.
-      matchResult: isMatchPlay && matchResult ? matchResult.display : undefined,
-      stablefordPoints: isStableford ? totalStableford : undefined,
+    // Fallback: sin ID de tarjeta, generamos imagen canvas y compartimos desde SITE_URL.
+    setShareLoading(true)
+    try {
+      const shareData: ShareCardData = {
+        tipo: 'ronda_libre',
+        ganador: playerName,
+        esEmpate: false,
+        scoreGross: isStableford ? totalStableford : finalScore.gross,
+        scoreDiff: isStableford ? 0 : diff,
+        courseName: ronda.course_name,
+        fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }),
+        birdies: birdieCount,
+        eagles: eagleCount,
+        scoresByHole: playerScores,
+        parsByHole: parMap,
+        holesPlayed: totalHoles,
+        formato_juego: ronda.formato_juego,
+        modo_juego: ronda.modo_juego,
+        matchResult: isMatchPlay && matchResult ? matchResult.display : undefined,
+        stablefordPoints: isStableford ? totalStableford : undefined,
+      }
+      const blob = await generarShareCard(shareData)
+      const image = { blob, filename: 'golfers-tarjeta.png' }
+      const payload: SharePayload = isStableford
+        ? { title: `Mi ronda — ${BRAND}`, text: `Jugué ${totalStableford} pts en ${ronda.course_name}. ${BRAND} — ${SITE_DOMAIN}`, url: SITE_URL, image }
+        : buildRoundShare({ gross: finalScore.gross, vsParLabel: vsParStr, courseName: ronda.course_name, url: SITE_URL, image })
+      setPendingPayload(payload)
+      setShareOpen(true)
+    } finally {
+      setShareLoading(false)
     }
-    await compartirResultado(shareData)
   }
 
   return (
@@ -279,21 +292,23 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
                   }}>
                     Ver leaderboard en vivo
                   </Link>
-                  <button onClick={handleShareCard} style={{
+                  <button onClick={() => void handleShareCard()} disabled={shareLoading} style={{
                     width: '100%', padding: '14px', background: '#f3f4f6',
                     border: '1px solid var(--border)', color: 'var(--text)',
-                    fontWeight: 600, fontSize: '14px', borderRadius: '12px', cursor: 'pointer',
+                    fontWeight: 600, fontSize: '14px', borderRadius: '12px',
+                    cursor: shareLoading ? 'wait' : 'pointer', opacity: shareLoading ? 0.7 : 1,
                   }}>
-                    Compartir mi score
+                    {shareLoading ? 'Preparando...' : 'Compartir mi score'}
                   </button>
                 </>
               ) : (
-                <button onClick={handleShareCard} style={{
+                <button onClick={() => void handleShareCard()} disabled={shareLoading} style={{
                   width: '100%', padding: '16px', background: 'linear-gradient(135deg, #c9a84c 0%, #d4a843 50%, #b8972f 100%)',
-                  color: '#0a1419', fontWeight: 700, fontSize: '16px', border: 'none', borderRadius: '14px', cursor: 'pointer',
+                  color: '#0a1419', fontWeight: 700, fontSize: '16px', border: 'none', borderRadius: '14px',
+                  cursor: shareLoading ? 'wait' : 'pointer', opacity: shareLoading ? 0.7 : 1,
                   boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
                 }}>
-                  Compartir resultado
+                  {shareLoading ? 'Preparando...' : 'Compartir resultado'}
                 </button>
               )}
               <Link href="/coach" style={{
@@ -336,6 +351,16 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
           100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
       `}</style>
+
+      {pendingPayload && (
+        <ShareSheet
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          payload={pendingPayload}
+          onCopied={() => { setShareOpen(false); setShareCopied(true) }}
+        />
+      )}
+      <ShareToast show={shareCopied} onDismiss={() => setShareCopied(false)} />
     </div>
   )
 }
