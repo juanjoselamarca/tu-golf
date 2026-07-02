@@ -78,10 +78,15 @@ COMMENT ON FUNCTION course_name_canonical(text) IS
 -- ============================================================
 -- 2. RPC v2 con desambiguación por género + normalización simétrica
 -- ============================================================
+-- CRÍTICO: dropear v1 (3 args). Sin esto, CREATE OR REPLACE con la firma nueva
+-- (4 args) crea un SEGUNDO overload en vez de reemplazar → una llamada de 3 args
+-- queda ambigua (rompe scripts/backfill-historical-rounds.mjs) o cae al v1 buggy.
+DROP FUNCTION IF EXISTS resolve_and_link_course(text, jsonb, real);
+
 CREATE OR REPLACE FUNCTION resolve_and_link_course(
   p_course_name text,
   p_par_per_hole jsonb DEFAULT NULL,
-  p_similarity_threshold real DEFAULT 0.6,
+  p_similarity_threshold real DEFAULT 0.8,  -- sólo aplica al fallback trigram (B)
   p_genero text DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE plpgsql
@@ -92,6 +97,7 @@ DECLARE
   v_canon text;          -- forma ordenada (primario)
   v_canon_sorted text;   -- forma alfabética (fallback)
   v_gender text;   -- 'V' | 'D' | NULL
+  v_exact_order boolean := false;  -- true sólo si el match vino de A0 (orden exacto)
   v_match_id uuid;
   v_match_score real;
   v_holes_count int;
@@ -142,6 +148,7 @@ BEGIN
     (datos_verificados IS TRUE) DESC,
     id
   LIMIT 1;
+  IF v_match_id IS NOT NULL THEN v_exact_order := true; END IF;
 
   -- (A1) Fallback insensible al orden: igualdad canónica ALFABÉTICA. Cubre
   --      convención de nombre distinta cuando el orden exacto no está en catálogo.
@@ -176,7 +183,10 @@ BEGIN
     -- Redirigir a la ficha canónica si existe (dedup).
     v_match_id := COALESCE((SELECT canonical_course_id FROM courses WHERE id = v_match_id), v_match_id);
 
-    IF p_par_per_hole IS NOT NULL THEN
+    -- Poblar pares SÓLO en match de orden exacto (A0): un match alfabético (A1,
+    -- orden de loop distinto) o trigram (B) tiene pares hoyo-a-hoyo que NO alinean
+    -- con la ficha destino → poblar metería el back-9 equivocado (bug I1).
+    IF v_exact_order AND p_par_per_hole IS NOT NULL THEN
       SELECT COUNT(*) INTO v_holes_count FROM course_holes WHERE course_id = v_match_id;
       IF v_holes_count = 0 THEN
         INSERT INTO course_holes (course_id, numero, par)
