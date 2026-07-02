@@ -5,6 +5,8 @@ export interface ResolveCourseInput {
   courseName: string
   parPerHole?: Record<string, number> | null
   similarityThreshold?: number
+  /** Género del jugador (M/F/masculino/femenino/V/D) — desambigua fichas VARONES/DAMAS. */
+  genero?: string | null
 }
 
 export interface ResolveCourseResult {
@@ -34,6 +36,7 @@ export async function resolveCourse(
     p_course_name: input.courseName,
     p_par_per_hole: input.parPerHole ?? null,
     p_similarity_threshold: input.similarityThreshold ?? 0.8,
+    p_genero: input.genero ?? null,
   })
 
   if (error) {
@@ -58,6 +61,11 @@ export async function resolveCourse(
   }
   if (result.holes_populated) {
     warnings.push(`Pares por hoyo enriquecidos en BD para: ${input.courseName}`)
+  }
+  // Match aproximado (fallback trigram, no igualdad canónica exacta): señalar
+  // baja confianza para que la UI pueda marcar "cancha aproximada" (I1).
+  if (result.course_id && result.match_score != null && result.match_score < 0.95) {
+    warnings.push(`Cancha vinculada por similitud aproximada (${result.match_score.toFixed(2)}) — verificar: ${input.courseName}`)
   }
 
   return {
