@@ -26,14 +26,23 @@ function makeImage(): SharePayload {
 let origNavigator: PropertyDescriptor | undefined
 let origOpen: typeof window.open
 
+const urlObj = URL as unknown as { createObjectURL?: unknown; revokeObjectURL?: unknown }
+let origCreateObjectURL: unknown
+let origRevokeObjectURL: unknown
+
 beforeEach(() => {
   origNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
   origOpen = window.open
+  origCreateObjectURL = urlObj.createObjectURL
+  origRevokeObjectURL = urlObj.revokeObjectURL
 })
 
 afterEach(() => {
   if (origNavigator) Object.defineProperty(globalThis, 'navigator', origNavigator)
   window.open = origOpen
+  // Restaurar URL.* (algunos tests los asignan directo, fuera del alcance de restoreAllMocks).
+  urlObj.createObjectURL = origCreateObjectURL
+  urlObj.revokeObjectURL = origRevokeObjectURL
   vi.restoreAllMocks()
 })
 
@@ -52,6 +61,36 @@ describe('runShareCascade', () => {
     expect(canShare).toHaveBeenCalledWith(expect.objectContaining({ files: expect.any(Array) }))
     expect(share).toHaveBeenCalledWith(expect.objectContaining({ files: expect.any(Array), text: basePayload.text }))
     expect(res).toEqual({ ok: true, method: 'files' })
+  })
+
+  it('imagen + desktop (sin navigator.share) → descarga el PNG + copia link (method download)', async () => {
+    const createObjectURL = vi.fn(() => 'blob:mock')
+    ;(URL as unknown as { createObjectURL: unknown }).createObjectURL = createObjectURL
+    ;(URL as unknown as { revokeObjectURL: unknown }).revokeObjectURL = vi.fn()
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    setNavigator({ clipboard: { writeText } } as unknown as Navigator) // sin share (desktop)
+
+    const res = await runShareCascade(makeImage())
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1) // se generó el archivo para bajar
+    expect(clickSpy).toHaveBeenCalledTimes(1) // se disparó la descarga
+    expect(writeText).toHaveBeenCalledWith(basePayload.url) // + copió el link
+    expect(res).toEqual({ ok: true, method: 'download' })
+  })
+
+  it('SIN imagen + desktop → NO descarga, sigue a wa.me (comportamiento intacto)', async () => {
+    const createObjectURL = vi.fn(() => 'blob:mock')
+    ;(URL as unknown as { createObjectURL: unknown }).createObjectURL = createObjectURL
+    setNavigator({} as unknown as Navigator)
+    const open = vi.fn().mockReturnValue({} as Window)
+    window.open = open as unknown as typeof window.open
+
+    const res = await runShareCascade(basePayload) // sin imagen
+
+    expect(createObjectURL).not.toHaveBeenCalled()
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(res).toEqual({ ok: true, method: 'whatsapp' })
   })
 
   it('2. con imagen pero canShare({files})=false → cae a share({text,url})', async () => {

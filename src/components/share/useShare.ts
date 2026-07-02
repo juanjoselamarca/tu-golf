@@ -9,8 +9,9 @@
 // Cascada:
 //   1. imagen + navigator.canShare({files})  → navigator.share({files, text})
 //   2. navigator.share existe                → navigator.share({title, text, url})
-//   3. wa.me (WhatsApp)
-//   4. clipboard.writeText                   → el caller muestra toast "Copiado"
+//   3. imagen sin share nativo (desktop)     → descargar PNG + copiar link
+//   4. wa.me (WhatsApp)
+//   5. clipboard.writeText                   → el caller muestra toast "Copiado"
 // AbortError (usuario canceló el share nativo) = no-op silencioso: NO cae a los
 // siguientes pasos ni marca error.
 
@@ -18,6 +19,7 @@ import { useCallback, useRef, useState } from 'react'
 import type { SharePayload, ShareResult, ShareStatus } from '@/golf/share/types'
 import { shareableText, whatsappShareUrl } from '@/golf/share/whatsapp'
 import { copyToClipboard } from '@/lib/clipboard'
+import { downloadBlob } from '@/lib/download'
 
 const DEFAULT_IMAGE_FILENAME = 'golfers-tarjeta.png'
 
@@ -72,7 +74,19 @@ export async function runShareCascade(payload: SharePayload): Promise<ShareResul
     }
   }
 
-  // 3. WhatsApp (wa.me). En desktop sin Web Share API es el camino natural.
+  // 3. Imagen sin compartir nativo (desktop): bajar el PNG para que el usuario
+  //    igual se lleve la tarjeta, + copiar el link. Decisión de producto 2026-07.
+  //    Solo aplica cuando hay imagen; las superficies de solo-link no pasan por acá.
+  if (payload.image) {
+    const filename = payload.image.filename ?? DEFAULT_IMAGE_FILENAME
+    if (downloadBlob(payload.image.blob, filename)) {
+      await copyToClipboard(payload.url)
+      return { ok: true, method: 'download' }
+    }
+    // si la descarga no fue posible, seguir a wa.me / portapapeles
+  }
+
+  // 4. WhatsApp (wa.me). En desktop sin Web Share API es el camino natural.
   if (typeof window !== 'undefined' && typeof window.open === 'function') {
     try {
       const opened = window.open(whatsappShareUrl(payload), '_blank')
@@ -83,7 +97,7 @@ export async function runShareCascade(payload: SharePayload): Promise<ShareResul
     }
   }
 
-  // 4. Portapapeles. Vía el canónico `copyToClipboard` (fuente única), que cae a
+  // 5. Portapapeles. Vía el canónico `copyToClipboard` (fuente única), que cae a
   // textarea+execCommand donde `navigator.clipboard` no existe/rechaza (webview
   // iOS, contexto no-seguro). El caller decide mostrar el toast "Copiado".
   if (await copyToClipboard(shareableText(payload))) {
