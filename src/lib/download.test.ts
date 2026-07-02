@@ -1,7 +1,13 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { downloadBlob } from './download'
 
-afterEach(() => vi.restoreAllMocks())
+// Snapshot de URL.* (los tests los sobreescriben por asignación directa, que
+// vi.restoreAllMocks NO restaura) para no contaminar otros tests.
+const u = URL as unknown as { createObjectURL?: unknown; revokeObjectURL?: unknown }
+let origCreate: unknown
+let origRevoke: unknown
+beforeEach(() => { origCreate = u.createObjectURL; origRevoke = u.revokeObjectURL })
+afterEach(() => { u.createObjectURL = origCreate; u.revokeObjectURL = origRevoke; vi.restoreAllMocks() })
 
 describe('downloadBlob', () => {
   it('crea un objectURL del blob y dispara la descarga con el filename', () => {

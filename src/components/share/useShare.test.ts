@@ -26,14 +26,23 @@ function makeImage(): SharePayload {
 let origNavigator: PropertyDescriptor | undefined
 let origOpen: typeof window.open
 
+const urlObj = URL as unknown as { createObjectURL?: unknown; revokeObjectURL?: unknown }
+let origCreateObjectURL: unknown
+let origRevokeObjectURL: unknown
+
 beforeEach(() => {
   origNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
   origOpen = window.open
+  origCreateObjectURL = urlObj.createObjectURL
+  origRevokeObjectURL = urlObj.revokeObjectURL
 })
 
 afterEach(() => {
   if (origNavigator) Object.defineProperty(globalThis, 'navigator', origNavigator)
   window.open = origOpen
+  // Restaurar URL.* (algunos tests los asignan directo, fuera del alcance de restoreAllMocks).
+  urlObj.createObjectURL = origCreateObjectURL
+  urlObj.revokeObjectURL = origRevokeObjectURL
   vi.restoreAllMocks()
 })
 

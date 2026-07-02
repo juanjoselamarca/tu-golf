@@ -27,7 +27,13 @@ export function downloadBlob(blob: Blob, filename: string): boolean {
     a.click()
     document.body.removeChild(a)
     // Revocar en el próximo tick para no cortar la descarga en curso.
-    setTimeout(() => URL.revokeObjectURL(url), 0)
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL?.(url)
+      } catch {
+        /* revoke opcional: no romper si no existe */
+      }
+    }, 0)
     return true
   } catch {
     return false

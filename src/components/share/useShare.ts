@@ -9,8 +9,9 @@
 // Cascada:
 //   1. imagen + navigator.canShare({files})  → navigator.share({files, text})
 //   2. navigator.share existe                → navigator.share({title, text, url})
-//   3. wa.me (WhatsApp)
-//   4. clipboard.writeText                   → el caller muestra toast "Copiado"
+//   3. imagen sin share nativo (desktop)     → descargar PNG + copiar link
+//   4. wa.me (WhatsApp)
+//   5. clipboard.writeText                   → el caller muestra toast "Copiado"
 // AbortError (usuario canceló el share nativo) = no-op silencioso: NO cae a los
 // siguientes pasos ni marca error.
 
@@ -96,7 +97,7 @@ export async function runShareCascade(payload: SharePayload): Promise<ShareResul
     }
   }
 
-  // 4. Portapapeles. Vía el canónico `copyToClipboard` (fuente única), que cae a
+  // 5. Portapapeles. Vía el canónico `copyToClipboard` (fuente única), que cae a
   // textarea+execCommand donde `navigator.clipboard` no existe/rechaza (webview
   // iOS, contexto no-seguro). El caller decide mostrar el toast "Copiado".
   if (await copyToClipboard(shareableText(payload))) {
