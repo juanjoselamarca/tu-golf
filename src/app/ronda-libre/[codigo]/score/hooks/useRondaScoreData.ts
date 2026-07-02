@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { RondaLibre, HoleData } from '@/types/ronda'
 import { isTeamFormat } from '@/golf/formats'
-import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
+import { resolverCourseHandicap, resolverCourseHandicapDisplay, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { getTeeYardageColumn, generarOrdenHoyos } from '@/lib/ronda/helpers'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
@@ -21,6 +21,8 @@ export interface RondaScoreData {
   setHoleDataMap: React.Dispatch<React.SetStateAction<Record<number, HoleData>>>
   playerHcp: Record<string, number>
   setPlayerHcp: React.Dispatch<React.SetStateAction<Record<string, number>>>
+  /** Course handicap COMPLETO (18h) por jugador — para MOSTRAR en badges (no para scoring). */
+  playerDisplayHcp: Record<string, number>
   activeJugadorId: string | null
   setActiveJugadorId: React.Dispatch<React.SetStateAction<string | null>>
   selectedPlayer: string | null
@@ -42,6 +44,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
   const [parMap, setParMap] = useState<Record<number, number>>({})
   const [holeDataMap, setHoleDataMap] = useState<Record<number, HoleData>>({})
   const [playerHcp, setPlayerHcp] = useState<Record<string, number>>({})
+  const [playerDisplayHcp, setPlayerDisplayHcp] = useState<Record<string, number>>({})
   const [adminRedirectMsg, setAdminRedirectMsg] = useState<string | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
 
@@ -137,9 +140,13 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
         } else { setHoleDataMap(hdm) }
       } else { setHoleDataMap(hdm) }
 
-      // Convertir índice → course handicap usando fórmula WHS (tee por jugador)
+      // Convertir índice → course handicap usando fórmula WHS (tee por jugador).
+      // Dos mapas: hcpMap = SCORING (9h en rondas de 9h, reparte golpes);
+      // displayMap = COMPLETO (18h) para MOSTRAR el handicap del jugador en badges.
       const hcpMap: Record<string, number> = {}
+      const displayMap: Record<string, number> = {}
       const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
+      const courseDataFullByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
       for (const j of r.ronda_libre_jugadores) {
         let index: number
         if (j.handicap != null) { index = j.handicap }
@@ -149,9 +156,28 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
         if (!courseDataByTee[playerTee]) {
           courseDataByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, r.holes, finalParTotal, (r.recorridos as string[] | null) ?? null)
         }
-        hcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee])
+        const courseData9h = courseDataByTee[playerTee]
+        hcpMap[j.id] = resolverCourseHandicap(index, courseData9h)
+
+        // Display: en rondas de 9h cargamos los ratings de 18h del mismo tee (sin
+        // recorridos, para no re-dividir); `finalParTotal` ya es el par de 18h. Con
+        // recorridos multi-loop no se puede derivar → cae a round(index). Cacheado.
+        let courseData18h = courseData9h
+        if (courseData9h?.is9Hole) {
+          const tieneRecorridos = !!(r.recorridos as string[] | null)?.length
+          if (tieneRecorridos) {
+            courseData18h = null
+          } else {
+            if (!(playerTee in courseDataFullByTee)) {
+              courseDataFullByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, 18, finalParTotal, null)
+            }
+            courseData18h = courseDataFullByTee[playerTee]
+          }
+        }
+        displayMap[j.id] = resolverCourseHandicapDisplay(index, courseData9h, courseData18h)
       }
       setPlayerHcp(hcpMap)
+      setPlayerDisplayHcp(displayMap)
 
       // Auto-detect player: if user is logged in and matches a jugador, auto-select
       const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -190,6 +216,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
     setHoleDataMap,
     playerHcp,
     setPlayerHcp,
+    playerDisplayHcp,
     activeJugadorId,
     setActiveJugadorId,
     selectedPlayer,

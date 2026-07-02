@@ -67,7 +67,7 @@ function ScorePageContent() {
   const jugadorParam = searchParams.get('j')
 
   const { ronda, setRonda, scores, setScores, parMap, setParMap,
-          holeDataMap, setHoleDataMap, playerHcp, setPlayerHcp,
+          holeDataMap, setHoleDataMap, playerHcp, setPlayerHcp, playerDisplayHcp,
           activeJugadorId, setActiveJugadorId, selectedPlayer, setSelectedPlayer,
           currentHole, setCurrentHole, loading, adminRedirectMsg } = useRondaScoreData(codigo, jugadorParam)
 
@@ -441,6 +441,7 @@ function ScorePageContent() {
       <PlayerSelectorScreen
         jugadores={jugadores}
         playerHcp={playerHcp}
+        playerDisplayHcp={playerDisplayHcp}
         scores={scores}
         hoyoInicio={ronda.hoyo_inicio ?? 1}
         holes={ronda.holes}
@@ -541,7 +542,7 @@ function ScorePageContent() {
                   {holesPlayed > 0 ? (showStableford ? `${totalStableford} pts` : displayOverUnder > 0 ? `+${displayOverUnder}` : displayOverUnder === 0 ? 'E' : displayOverUnder) : '—'}
                 </div>
                 <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>
-                  {showNet && <span style={{ color: '#C4992A', marginRight: '4px' }}>HCP {hcpForPlayer}</span>}
+                  {showNet && <span style={{ color: '#C4992A', marginRight: '4px' }}>HCP {(activeJugadorId ? playerDisplayHcp[activeJugadorId] : undefined) ?? hcpForPlayer}</span>}
                   THRU {holesPlayed}/{totalHoles}
                 </div>
               </>

@@ -67,6 +67,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/golf/core/course-handicap', () => ({
   resolverCourseHandicap: () => 11,
+  resolverCourseHandicapDisplay: () => 15,
   cargarCourseData: async () => ({ cr: 72, slope: 113, holes: 9, parTotal: 36 }),
 }))
 
@@ -86,6 +87,9 @@ describe('useRondaScoreData', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.ronda?.codigo).toBe('ABC123')
     expect(result.current.ronda?.ronda_libre_jugadores.length).toBe(1)
+    // playerHcp = scoring (9h); playerDisplayHcp = completo (18h) para mostrar.
+    expect(result.current.playerHcp.p1).toBe(11)
+    expect(result.current.playerDisplayHcp.p1).toBe(15)
   })
 
   it('devuelve activeJugadorId del jugador matched por user_id', async () => {
