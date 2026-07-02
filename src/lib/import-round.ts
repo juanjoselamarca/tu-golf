@@ -85,6 +85,13 @@ export async function importRound(
     warnings.push(`Total gross (${input.totalGross}) no coincide con suma de scores (${sumScores})`)
   }
 
+  // Perfil del usuario (género para desambiguar cancha, índice/tee para neto).
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('indice, default_tee_color, genero')
+    .eq('id', input.userId)
+    .single()
+
   // ── Resolver course (vincular + opcionalmente crear/enriquecer) ──
   let courseId = input.courseId || null
   if (!courseId && input.courseName) {
@@ -92,6 +99,7 @@ export async function importRound(
       supabase,
       courseName: input.courseName,
       parPerHole: input.parPerHole ?? null,
+      genero: profile?.genero ?? null,
     })
     courseId = resolveResult.courseId
     warnings.push(...resolveResult.warnings)
@@ -113,12 +121,6 @@ export async function importRound(
 
   // ── Calcular neto (si hay índice del usuario) ─────────────
   let totalNeto: number | null = null
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('indice, default_tee_color, genero')
-    .eq('id', input.userId)
-    .single()
-
   if (profile?.indice != null) {
     // Validate handicap index — negative values are invalid per USGA/R&A rules
     if (profile.indice < 0) {

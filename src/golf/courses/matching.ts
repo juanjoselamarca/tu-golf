@@ -10,32 +10,13 @@
 // REGLA: la cancha con MAS palabras significativas en comun gana.
 // ============================================================
 
-// Words that don't help distinguish between courses
-const COMMON_WORDS = new Set([
-  'club', 'de', 'golf', 'las', 'los', 'la', 'el', 'del', 'y',
-  'country', 'campo', 'and', 'the', 'links', 'course',
-  '18', '9', 'hole', 'holes', 'hoyos',
-])
+import { significantTokens, normalizeCourseName, canonicalOrdered } from './course-name'
 
-/**
- * Normalize a course name for matching:
- * - Lowercase
- * - Remove accents
- * - Remove ~ and everything after (Garmin combo names)
- * - Split into words
- * - Remove common/stop words
- */
+// Tokens significativos de un nombre de cancha. Delega en la fuente \u00fanica
+// `course-name.ts` (misma normalizaci\u00f3n que espeja el RPC). Antes cortaba
+// en `~`, tirando el loop (Norte-Este) \u2192 colapsaba variantes distintas.
 function getSignificantWords(name: string): string[] {
-  const clean = name
-    .split('~')[0] // Remove Garmin combo suffix
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents
-    .replace(/[^a-z0-9\s]/g, ' ') // Remove special chars
-    .trim()
-
-  return clean
-    .split(/\s+/)
-    .filter(w => w.length > 1 && !COMMON_WORDS.has(w))
+  return significantTokens(name)
 }
 
 /**
@@ -67,10 +48,11 @@ function matchScore(externalName: string, dbName: string): number {
     }
   }
 
-  // Bonus for normalized substring match
-  const extClean = externalName.split('~')[0].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-  const dbClean = dbName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-  if (extClean.includes(dbClean) || dbClean.includes(extClean)) {
+  // Bonus si las formas can\u00f3nicas (tokens significativos ordenados) coinciden
+  // o una contiene a la otra.
+  const extClean = normalizeCourseName(externalName)
+  const dbClean = normalizeCourseName(dbName)
+  if (extClean.length > 0 && (extClean.includes(dbClean) || dbClean.includes(extClean))) {
     score += 5
   }
 
@@ -149,20 +131,26 @@ export function findBestCourseMatch(
   if (!externalName || candidates.length === 0) return null
 
   const isFede = (c: CourseCandidate) => (c.fuente ?? '').toLowerCase() === 'fedegolf'
+  // Forma canónica ordenada del nombre externo: un candidato cuya forma ordenada
+  // coincide EXACTO es el match más fuerte (respeta el orden del loop: Norte-Este
+  // ≠ Este-Norte, cuyos pares hoyo-a-hoyo difieren).
+  const extOrd = canonicalOrdered(externalName)
 
-  let best: { c: CourseCandidate; score: number; ratio: number } | null = null
+  let best: { c: CourseCandidate; score: number; ratio: number; ord: boolean } | null = null
 
   for (const c of candidates) {
     const score = matchScore(externalName, c.nombre)
     if (score < minScore) continue
     const ratio = tokenSetRatio(externalName, c.nombre)
-    if (!best) { best = { c, score, ratio }; continue }
-    if (score > best.score) { best = { c, score, ratio }; continue }
+    const ord = extOrd !== '' && canonicalOrdered(c.nombre) === extOrd
+    const cand = { c, score, ratio, ord }
+    if (!best) { best = cand; continue }
+    if (score > best.score) { best = cand; continue }
     if (score === best.score) {
-      // Desempate: fedegolf primero, luego mayor ratio fuzzy.
-      const bf = isFede(best.c) ? 1 : 0
-      const cf = isFede(c) ? 1 : 0
-      if (cf > bf || (cf === bf && ratio > best.ratio)) best = { c, score, ratio }
+      // Desempate por prioridad: match ordenado exacto → fedegolf → mayor ratio.
+      const bk = (best.ord ? 4 : 0) + (isFede(best.c) ? 2 : 0)
+      const ck = (ord ? 4 : 0) + (isFede(c) ? 2 : 0)
+      if (ck > bk || (ck === bk && ratio > best.ratio)) best = cand
     }
   }
 
@@ -173,7 +161,7 @@ export function findBestCourseMatch(
     for (const c of candidates) {
       const ratio = tokenSetRatio(externalName, c.nombre)
       if (ratio >= FUZZY_FALLBACK_RATIO && (!best || ratio > best.ratio)) {
-        best = { c, score: minScore, ratio }
+        best = { c, score: minScore, ratio, ord: extOrd !== '' && canonicalOrdered(c.nombre) === extOrd }
       }
     }
   }

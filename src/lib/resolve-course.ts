@@ -5,6 +5,8 @@ export interface ResolveCourseInput {
   courseName: string
   parPerHole?: Record<string, number> | null
   similarityThreshold?: number
+  /** Género del jugador (M/F/masculino/femenino/V/D) — desambigua fichas VARONES/DAMAS. */
+  genero?: string | null
 }
 
 export interface ResolveCourseResult {
@@ -33,7 +35,8 @@ export async function resolveCourse(
   const { data, error } = await input.supabase.rpc('resolve_and_link_course', {
     p_course_name: input.courseName,
     p_par_per_hole: input.parPerHole ?? null,
-    p_similarity_threshold: input.similarityThreshold ?? 0.8,
+    p_similarity_threshold: input.similarityThreshold ?? 0.6,
+    p_genero: input.genero ?? null,
   })
 
   if (error) {
