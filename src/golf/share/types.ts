@@ -26,7 +26,7 @@ export interface SharePayload {
 }
 
 /** Vía por la que terminó el compartir (para telemetría/UX). */
-export type ShareMethod = 'files' | 'webshare' | 'whatsapp' | 'clipboard'
+export type ShareMethod = 'files' | 'webshare' | 'whatsapp' | 'clipboard' | 'download'
 
 /** Estado de la operación de compartir (para el hook de UI). */
 export type ShareStatus = 'idle' | 'sharing' | 'done' | 'error'
