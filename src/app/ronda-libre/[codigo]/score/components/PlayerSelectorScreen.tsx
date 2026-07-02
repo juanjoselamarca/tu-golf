@@ -6,13 +6,15 @@ import type { Jugador } from '@/types/ronda'
 interface PlayerSelectorScreenProps {
   jugadores: Jugador[]
   playerHcp: Record<string, number>
+  /** Course handicap COMPLETO (18h) para mostrar; cae a playerHcp si falta. */
+  playerDisplayHcp?: Record<string, number>
   scores: Record<string, Record<number, number>>
   hoyoInicio: number
   holes: number
   onSelect: (jugadorId: string, firstEmptyHole: number) => void
 }
 
-export function PlayerSelectorScreen({ jugadores, playerHcp, scores, hoyoInicio, holes, onSelect }: PlayerSelectorScreenProps) {
+export function PlayerSelectorScreen({ jugadores, playerHcp, playerDisplayHcp, scores, hoyoInicio, holes, onSelect }: PlayerSelectorScreenProps) {
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
@@ -38,7 +40,7 @@ export function PlayerSelectorScreen({ jugadores, playerHcp, scores, hoyoInicio,
             <div>
               <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{j.nombre}</div>
               {playerHcp[j.id] != null && (
-                <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>HCP {playerHcp[j.id]}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>HCP {playerDisplayHcp?.[j.id] ?? playerHcp[j.id]}</div>
               )}
             </div>
             <span style={{ color: '#c4992a', fontSize: '20px' }}>{'→'}</span>
