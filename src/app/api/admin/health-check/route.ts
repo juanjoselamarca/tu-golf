@@ -141,6 +141,61 @@ async function checkDataIntegrity(admin: SupabaseClient): Promise<Category> {
       }
     }),
 
+    // Catálogo: consistencia de pares (auditoría 2026-07-02). El coach calcula
+    // vs-par con el par POR HOYO del catálogo; si una cancha tiene par incoherente
+    // (par_total ≠ suma real, hoyos ≠ los que espera su tipo, filas duplicadas,
+    // par fuera de rango, o el par de DAMAS ≠ VARONES —que es INVARIANTE—) reporta
+    // un vs-par equivocado apenas alguien juegue ahí. Es "imperdonable": esta
+    // invariante suena la alarma ante cualquier corrupción nueva del catálogo.
+    // Complementa el medidor de cobertura (canchas SIN hoyos) de arriba.
+    safeCheck('Catálogo: consistencia de pares', async () => {
+      const { data } = await admin.rpc('exec_sql', {
+        query: `WITH agg AS (
+                  SELECT c.id, c.tipo_recorrido AS tipo, c.par_total,
+                    regexp_replace(c.nombre,'\\s*\\((DAMAS|VARONES)\\)\\s*$','','i') AS base,
+                    h.filas, h.nums, h.parsum, h.mn, h.mx
+                  FROM courses c
+                  LEFT JOIN (SELECT course_id, count(*) filas, count(DISTINCT numero) nums,
+                               sum(par) parsum, min(par) mn, max(par) mx
+                             FROM course_holes GROUP BY course_id) h ON h.course_id=c.id
+                  WHERE c.activa = true
+                ),
+                sib AS (
+                  SELECT a.id, (SELECT b.parsum FROM agg b
+                                WHERE b.base=a.base AND b.id<>a.id AND b.parsum IS NOT NULL LIMIT 1) AS herm
+                  FROM agg a
+                ),
+                flags AS (
+                  SELECT
+                    (a.filas IS NOT NULL AND a.filas<>a.nums) AS f_dup,
+                    (a.filas IS NOT NULL AND a.par_total IS NOT NULL AND a.parsum<>a.par_total) AS f_parsum,
+                    (a.filas IS NOT NULL AND (a.mn<3 OR a.mx>6)) AS f_rango,
+                    (a.nums IS NOT NULL AND ((a.tipo='9h' AND a.nums<>9) OR (a.tipo='18h' AND a.nums<>18) OR (a.tipo='27h' AND a.nums<>27))) AS f_conteo,
+                    (a.parsum IS NOT NULL AND s.herm IS NOT NULL AND a.parsum<>s.herm) AS f_genero
+                  FROM agg a JOIN sib s ON s.id=a.id
+                )
+                SELECT count(*) FILTER (WHERE f_dup) dup,
+                  count(*) FILTER (WHERE f_parsum) parsum_ne,
+                  count(*) FILTER (WHERE f_rango) rango,
+                  count(*) FILTER (WHERE f_conteo) conteo,
+                  count(*) FILTER (WHERE f_genero) genero_ne,
+                  count(*) FILTER (WHERE f_dup OR f_parsum OR f_rango OR f_conteo OR f_genero) total
+                FROM flags`,
+      })
+      const r = (data?.[0] ?? {}) as Record<string, number>
+      const total = Number(r.total ?? 0)
+      // pass en 0 (objetivo). warn con el backlog conocido (12 latentes al 2-jul,
+      // sin usuarios reales). fail si CRECE más allá del backlog = regresión nueva.
+      return {
+        name: 'Catálogo: consistencia de pares',
+        status: total === 0 ? 'pass' : total <= 12 ? 'warn' : 'fail',
+        message: total === 0
+          ? 'Todas las canchas activas con hoyos tienen par consistente'
+          : `${total} canchas con par inconsistente — parTotal≠suma:${Number(r.parsum_ne ?? 0)} · hoyos≠tipo:${Number(r.conteo ?? 0)} · DAMAS≠VARONES:${Number(r.genero_ne ?? 0)} · duplicadas:${Number(r.dup ?? 0)} · fuera de rango:${Number(r.rango ?? 0)}`,
+        details: { total, ...r },
+      }
+    }),
+
     // Orphaned ronda_libre_jugadores
     safeCheck('Jugadores huérfanos (rondas libres)', async () => {
       const { data } = await admin.rpc('exec_sql', {
