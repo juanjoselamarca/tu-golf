@@ -33,14 +33,14 @@ describe('ShareButton', () => {
     expect(screen.getByRole('button', { name: /compartir ronda/i })).toBeTruthy()
   })
 
-  it('el sheet arranca cerrado (no se ve "Compartir imagen")', () => {
+  it('el sheet arranca cerrado (no se ve el botón WhatsApp del sheet)', () => {
     render(<ShareButton payload={payload} />)
-    expect(screen.queryByRole('button', { name: /compartir imagen/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /whatsapp/i })).toBeNull()
   })
 
-  it('click en el trigger abre el sheet (aparece "Compartir imagen")', () => {
+  it('click en el trigger abre el sheet (aparece WhatsApp del sheet)', () => {
     render(<ShareButton payload={payload} label="Compartir ronda" />)
     fireEvent.click(screen.getByRole('button', { name: /compartir ronda/i }))
-    expect(screen.getByRole('button', { name: /compartir imagen/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /whatsapp/i })).toBeTruthy()
   })
 })
