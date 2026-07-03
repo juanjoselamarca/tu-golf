@@ -46,10 +46,24 @@ describe('ShareSheet', () => {
   it('open=true muestra título y los botones de la variante A', () => {
     setNavigator({ share: vi.fn() } as unknown as Navigator)
     render(<ShareSheet open onClose={() => {}} payload={payload} />)
-    expect(screen.getByText('Compartir')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /compartir imagen/i })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Compartir' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^compartir/i })).toBeTruthy()
     expect(screen.getByRole('button', { name: /whatsapp/i })).toBeTruthy()
     expect(screen.getByRole('button', { name: /copiar link/i })).toBeTruthy()
+  })
+
+  it('botón primario: "Compartir" cuando NO hay imagen (share de link)', () => {
+    setNavigator({ share: vi.fn() } as unknown as Navigator)
+    render(<ShareSheet open onClose={() => {}} payload={payload} />)
+    const primary = screen.getByRole('button', { name: /^compartir/i })
+    expect(primary.textContent).toBe('Compartir')
+    expect(screen.queryByRole('button', { name: /compartir imagen/i })).toBeNull()
+  })
+
+  it('botón primario: "Compartir imagen" cuando SÍ hay imagen', () => {
+    setNavigator({ share: vi.fn() } as unknown as Navigator)
+    render(<ShareSheet open onClose={() => {}} payload={withImage()} />)
+    expect(screen.getByRole('button', { name: /compartir imagen/i })).toBeTruthy()
   })
 
   it('"Más opciones" solo aparece si existe navigator.share', () => {
@@ -79,7 +93,7 @@ describe('ShareSheet', () => {
     const share = vi.fn().mockResolvedValue(undefined)
     setNavigator({ share } as unknown as Navigator)
     render(<ShareSheet open onClose={() => {}} payload={payload} />)
-    fireEvent.click(screen.getByRole('button', { name: /compartir imagen/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^compartir/i }))
     expect(share).toHaveBeenCalledTimes(1)
   })
 
@@ -111,7 +125,7 @@ describe('ShareSheet', () => {
     setNavigator({ share } as unknown as Navigator)
     const onClose = vi.fn()
     render(<ShareSheet open onClose={onClose} payload={payload} />)
-    fireEvent.click(screen.getByRole('button', { name: /compartir imagen/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^compartir/i }))
     await flush()
     expect(onClose).toHaveBeenCalledTimes(1)
   })
@@ -122,7 +136,7 @@ describe('ShareSheet', () => {
     window.open = vi.fn().mockReturnValue(null) as unknown as typeof window.open // wa.me bloqueado
     const onCopied = vi.fn()
     render(<ShareSheet open onClose={() => {}} payload={payload} onCopied={onCopied} />)
-    fireEvent.click(screen.getByRole('button', { name: /compartir imagen/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^compartir/i }))
     await flush()
     expect(writeText).toHaveBeenCalled()
     expect(onCopied).toHaveBeenCalledTimes(1)

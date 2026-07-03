@@ -201,7 +201,9 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
             leftIcon={<Share2 className="h-5 w-5" />}
             onClick={() => void handlePrimaryShare()}
           >
-            Compartir imagen
+            {/* "Compartir imagen" solo cuando hay imagen; si no, es un share de
+                link (modelo Strava) y "imagen" sería copy engañoso. */}
+            {payload.image ? 'Compartir imagen' : 'Compartir'}
           </Button>
 
           <Button
