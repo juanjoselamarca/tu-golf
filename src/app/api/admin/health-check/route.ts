@@ -144,8 +144,12 @@ async function checkDataIntegrity(admin: SupabaseClient): Promise<Category> {
     // Catálogo: consistencia de pares (auditoría 2026-07-02). El coach calcula
     // vs-par con el par POR HOYO del catálogo; si una cancha tiene par incoherente
     // (par_total ≠ suma real, hoyos ≠ los que espera su tipo, filas duplicadas,
-    // par fuera de rango, o el par de DAMAS ≠ VARONES —que es INVARIANTE—) reporta
-    // un vs-par equivocado apenas alguien juegue ahí. Es "imperdonable": esta
+    // par fuera de rango, o DAMAS y VARONES del mismo recorrido con distinto NÚMERO
+    // de hoyos —la cancha física es la misma—) reporta un vs-par equivocado apenas
+    // alguien juegue ahí. Es "imperdonable": esta
+    // OJO: el PAR sí puede diferir D vs V por hoyo (regla USGA: un hoyo medio-largo
+    // es par-4 hombres / par-5 damas), así que NO se compara el par entre géneros,
+    // solo el número de hoyos.
     // invariante suena la alarma ante cualquier corrupción nueva del catálogo.
     // Complementa el medidor de cobertura (canchas SIN hoyos) de arriba.
     safeCheck('Catálogo: consistencia de pares', async () => {
@@ -161,8 +165,8 @@ async function checkDataIntegrity(admin: SupabaseClient): Promise<Category> {
                   WHERE c.activa = true
                 ),
                 sib AS (
-                  SELECT a.id, (SELECT b.parsum FROM agg b
-                                WHERE b.base=a.base AND b.id<>a.id AND b.parsum IS NOT NULL LIMIT 1) AS herm
+                  SELECT a.id, (SELECT b.nums FROM agg b
+                                WHERE b.base=a.base AND b.id<>a.id AND b.nums IS NOT NULL LIMIT 1) AS herm
                   FROM agg a
                 ),
                 flags AS (
@@ -171,7 +175,7 @@ async function checkDataIntegrity(admin: SupabaseClient): Promise<Category> {
                     (a.filas IS NOT NULL AND a.par_total IS NOT NULL AND a.parsum<>a.par_total) AS f_parsum,
                     (a.filas IS NOT NULL AND (a.mn<3 OR a.mx>6)) AS f_rango,
                     (a.nums IS NOT NULL AND ((a.tipo='9h' AND a.nums<>9) OR (a.tipo='18h' AND a.nums<>18) OR (a.tipo='27h' AND a.nums<>27))) AS f_conteo,
-                    (a.parsum IS NOT NULL AND s.herm IS NOT NULL AND a.parsum<>s.herm) AS f_genero
+                    (a.nums IS NOT NULL AND s.herm IS NOT NULL AND a.nums<>s.herm) AS f_genero
                   FROM agg a JOIN sib s ON s.id=a.id
                 )
                 SELECT count(*) FILTER (WHERE f_dup) dup,
@@ -184,14 +188,14 @@ async function checkDataIntegrity(admin: SupabaseClient): Promise<Category> {
       })
       const r = (data?.[0] ?? {}) as Record<string, number>
       const total = Number(r.total ?? 0)
-      // pass en 0 (objetivo). warn con el backlog conocido (12 latentes al 2-jul,
-      // sin usuarios reales). fail si CRECE más allá del backlog = regresión nueva.
+      // Backlog limpio al 2-jul-2026 → cualquier violación es una regresión real
+      // ("imperdonable"). pass sólo en 0; fail si aparece cualquiera.
       return {
         name: 'Catálogo: consistencia de pares',
-        status: total === 0 ? 'pass' : total <= 12 ? 'warn' : 'fail',
+        status: total === 0 ? 'pass' : 'fail',
         message: total === 0
           ? 'Todas las canchas activas con hoyos tienen par consistente'
-          : `${total} canchas con par inconsistente — parTotal≠suma:${Number(r.parsum_ne ?? 0)} · hoyos≠tipo:${Number(r.conteo ?? 0)} · DAMAS≠VARONES:${Number(r.genero_ne ?? 0)} · duplicadas:${Number(r.dup ?? 0)} · fuera de rango:${Number(r.rango ?? 0)}`,
+          : `${total} canchas con par inconsistente — parTotal≠suma:${Number(r.parsum_ne ?? 0)} · hoyos≠tipo:${Number(r.conteo ?? 0)} · D/V nº hoyos:${Number(r.genero_ne ?? 0)} · duplicadas:${Number(r.dup ?? 0)} · fuera de rango:${Number(r.rango ?? 0)}`,
         details: { total, ...r },
       }
     }),
