@@ -42,6 +42,26 @@ describe('buildContextString — gate de stats', () => {
 
   it('nivela por índice computado cuando no hay oficial (no "sin índice registrado")', () => {
     const out = buildContextString(baseContext({ indice: null, indice_golfers: 7.9 }))
-    expect(out).toContain('Nivel: amateur bueno')
+    expect(out).toContain('Nivel (potencial, según índice): amateur bueno')
+  })
+
+  /**
+   * Potencial vs típico (jul-2026): el índice mide el TECHO (mejores 8 de 20 × 0.96),
+   * no el día normal. Un jugador de alta varianza (índice 7.9 pero promedio 93.9,
+   * caso real de Nicolás Claro) recibía "tu nivel índice 8" — falso para quien tira
+   * 90s. El contexto ahora expone la BRECHA para que el coach la trabaje.
+   */
+  it('expone la brecha potencial-vs-típico cuando el promedio está muy sobre el techo del índice', () => {
+    // índice 7.9 → techo ~79.9; promedio 93.9 → brecha ~14 golpes
+    const out = buildContextString(baseContext({ indice: null, indice_golfers: 7.9 }))
+    expect(out).toContain('POTENCIAL vs TÍPICO')
+    expect(out).toContain('14 golpes')
+    expect(out).toContain('cerrar la brecha')
+  })
+
+  it('NO expone brecha cuando el jugador es consistente (promedio cerca de su techo)', () => {
+    // índice 7.9 → techo ~79.9; promedio 82 → brecha ~2 (< umbral 4) → sin nota
+    const out = buildContextString(baseContext({ indice: null, indice_golfers: 7.9 }, { avg_score: 82 }))
+    expect(out).not.toContain('POTENCIAL vs TÍPICO')
   })
 })

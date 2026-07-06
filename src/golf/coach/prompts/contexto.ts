@@ -130,6 +130,24 @@ export function buildContextString(context: TaigerContext): string {
     anyIndice > 5 ? 'amateur bueno' :
     'single digit / élite amateur'
 
+  // POTENCIAL vs TÍPICO. El índice (WHS: mejores 8 de las últimas 20 × 0.96) mide
+  // el TECHO del jugador, no su día normal. En un jugador de alta varianza (una
+  // vuelta casi scratch + muchos hoyos-desastre), el índice queda muy por debajo
+  // de su score promedio. Sin este contraste, el coach aplana al jugador a su
+  // índice ("tu nivel índice 8") — algo que un jugador que promedia 94 sabe que
+  // es falso, y le rompe la confianza. Exponemos la BRECHA para que el coach la
+  // trabaje en vez de negarla. Heurística: un índice X rinde ~PAR_REF+X en su día
+  // típico; la brecha es cuánto se aleja su promedio real de ese techo.
+  const PAR_REF = 72
+  const typicalAvg = stats.avg_score ?? null
+  const expectedAtPotential = anyIndice != null ? PAR_REF + Number(anyIndice) : null
+  const gapStrokes = typicalAvg != null && expectedAtPotential != null
+    ? Math.round(typicalAvg - expectedAtPotential)
+    : null
+  const gapNote = gapStrokes != null && gapStrokes >= 4 && typicalAvg != null
+    ? `\nPOTENCIAL vs TÍPICO: el índice ${anyIndice} refleja sus MEJORES rondas (su techo), no su día normal. En una ronda típica promedia ${typicalAvg.toFixed(0)} — unos ${gapStrokes} golpes por sobre lo que rendiría un índice ${anyIndice}. Esa BRECHA es su mayor oportunidad. NO lo trates como "nivel ${indexLevel}" a secas ni le hables como si fuera un índice ${anyIndice} consistente: háblale de cerrar la brecha entre lo que PUEDE (potencial) y lo que RINDE (típico).`
+    : ''
+
   const trend = (recent_rounds ?? []).length >= 3
     ? (() => {
         const scores = recent_rounds.slice(0, 3).map(r => r.total_gross)
@@ -248,7 +266,7 @@ export function buildContextString(context: TaigerContext): string {
 === PERFIL DEL JUGADOR ===
 Nombre: ${player.name}
 Índice oficial: ${indice ?? (indiceGolfers != null ? `No registrado (estimado Golfers+: ${indiceGolfers})` : 'No registrado')}
-Nivel: ${indexLevel}
+Nivel (potencial, según índice): ${indexLevel}${gapNote}
 Rondas registradas: ${player.total_rounds ?? 0}
 Tendencia actual: ${trend}
 
