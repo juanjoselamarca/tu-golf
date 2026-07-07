@@ -18,6 +18,7 @@
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { courseHandicapParaHoyos } from '../core/course-handicap'
+import { normalizedStrokeIndexByHole } from '../core/stroke-index'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -122,6 +123,9 @@ export function calcularScramble(
   // MUESTRA (result.teamHandicap) se conserva COMPLETO (18h).
   const roundHoles = sortedHoles.length
   const teamHcpHoyos = courseHandicapParaHoyos(teamHandicap, roundHoles)
+  // Normalizar el SI a permutación 1..N para repartir EXACTAMENTE el course
+  // handicap (SI 18h-impares perdían golpes en 9h). No-op si el SI ya es válido.
+  const siAlloc = normalizedStrokeIndexByHole(sortedHoles)
 
   let totalGross = 0
   let totalNeto = 0
@@ -134,7 +138,7 @@ export function calcularScramble(
     const gross = team.scores[key]
 
     if (!gross || gross <= 0) {
-      const strokes = strokesRecibidosEnHoyo(teamHcpHoyos, hole.stroke_index, roundHoles)
+      const strokes = strokesRecibidosEnHoyo(teamHcpHoyos, siAlloc[hole.numero], roundHoles)
       return {
         numero: hole.numero,
         par: hole.par,
@@ -150,9 +154,9 @@ export function calcularScramble(
 
     holesPlayed++
     parJugado += hole.par
-    const strokes = strokesRecibidosEnHoyo(teamHcpHoyos, hole.stroke_index, roundHoles)
+    const strokes = strokesRecibidosEnHoyo(teamHcpHoyos, siAlloc[hole.numero], roundHoles)
     const neto = gross - strokes
-    const stableford = puntosStablefordHoyo(gross, hole.par, teamHcpHoyos, hole.stroke_index, roundHoles)
+    const stableford = puntosStablefordHoyo(gross, hole.par, teamHcpHoyos, siAlloc[hole.numero], roundHoles)
 
     totalGross += gross
     totalNeto += neto

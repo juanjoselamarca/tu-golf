@@ -191,6 +191,32 @@ export function normalizeStrokeIndexMap(
 }
 
 /**
+ * Devuelve un mapa `numero de hoyo → stroke index normalizado` (permutación 1..N
+ * por rango), reusando `normalizeStrokeIndexMap`. Se usa para ALOCAR golpes de
+ * hándicap: garantiza que `sum(strokesRecibidosEnHoyo)` reparta EXACTAMENTE el
+ * course handicap aunque el SI de catálogo sea 18h-impar o tenga duplicados/huecos
+ * (bug "net +12 Don Jorge"). No-op si el SI ya es una permutación válida.
+ *
+ * NO cambia el SI que se MUESTRA (eso es data de catálogo: qué hoyo es el más
+ * difícil) — sólo el valor usado para repartir golpes.
+ */
+export function normalizedStrokeIndexByHole(
+  holes: Array<{ numero: number; stroke_index: number }>,
+): Record<number, number> {
+  const ordered = [...holes].sort((a, b) => a.numero - b.numero)
+  const byPosition: Record<number, number> = {}
+  ordered.forEach((h, i) => {
+    byPosition[i + 1] = h.stroke_index
+  })
+  const normalized = normalizeStrokeIndexMap(byPosition, ordered.length)
+  const byHole: Record<number, number> = {}
+  ordered.forEach((h, i) => {
+    byHole[h.numero] = normalized[i + 1]
+  })
+  return byHole
+}
+
+/**
  * Determine if SI warning should be shown based on format and course data.
  */
 export function shouldShowSIWarning(

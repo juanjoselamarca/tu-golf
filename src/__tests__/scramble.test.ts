@@ -163,9 +163,11 @@ describe('calcularScramble — ronda de 9 hoyos reparte la MITAD (no 2×)', () =
     const totalStrokes = r.holes.reduce((s, h) => s + h.strokesRecibidos, 0)
     // El mostrado se conserva COMPLETO (18h).
     expect(r.teamHandicap).toBeCloseTo(8.6, 1)
-    // 9h: courseHandicapParaHoyos(8.6,9)=round(4.3)=4 → SI≤4 (si 1,3) = 2 strokes.
-    // Antes (bug) repartía el 8.6 completo (SI≤8 = 4 strokes) → ~2× de más.
-    expect(totalStrokes).toBe(2)
+    // 9h: courseHandicapParaHoyos(8.6,9)=round(4.3)=4 → reparte 4 golpes (los 4
+    // hoyos más difíciles). Los SI de HOLES_9 son 18h-impares (1..17), así que el
+    // motor los normaliza a permutación 1..9 antes de alocar: sin normalizar sólo
+    // repartía en SI≤4 (si 1,3) = 2 golpes → perdía 2 golpes de hándicap.
+    expect(totalStrokes).toBe(4)
   })
 
   it('la misma ronda a 18 hoyos NO se ajusta (control)', () => {
