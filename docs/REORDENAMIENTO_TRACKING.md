@@ -133,3 +133,14 @@ Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones
 | `coach/analysis.ts`, `coach/mental-index.ts`, `coach/patterns.ts` | ✅ migrado — borradas sus copias locales de `STANDARD_PARS` |
 | `coach/metrics/helpers.ts` | ✅ re-exporta la canónica (no rompe `import { STANDARD_PARS } from '@/golf/coach/metrics'`) |
 | `src/golf/core/compare.ts` (fallback `par_total ?? (holes<=9?36:72)` y `?? 4` / `push(4)`) | ⏳ pendiente — **write/scoring path app-wide** (leaderboards/resultados), y usa OTRO modelo de fallback (flat-4, no el layout estándar). Migrar/reconciliar al tocar ese flujo de scoring. Gap latente conocido: un hoyo sin par da vsPar layout-aware en el motor del coach pero flat-4 en leaderboards. |
+
+### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
+
+| Sitio | Estado |
+|---|---|
+| `src/golf/core/stroke-index.ts` (canónica: `normalizeStrokeIndexMap` + `isValidStrokeIndexPermutation`) | ✅ creado (7-jul, bug "net +12 Don Jorge") |
+| Data catálogo: `course_holes.stroke_index` de 31 canchas rank-normalizado a 1..N | ✅ migración `20260707_normalize_stroke_index.sql` (backup en `course_holes_si_backup`) — arregla los 18h en TODOS los caminos |
+| Health guard "Catálogo: stroke index válido" | ✅ anti-regresión de import |
+| `src/lib/data/ronda-libre.ts` (`loadRondaLibre` → siMap) | ✅ normaliza en la fuente → leaderboard/compartir/match/notif/detalle coherentes (incl. 9h) |
+| `src/lib/ronda/leaderboard.ts` (`buildLeaderboard`) | ✅ normaliza (defense-in-depth, idempotente) |
+| Torneo/equipos: `build-from-ronda-libre.ts`, `build-from-legacy.ts`, `torneo/[slug]/score/page.tsx`, formatos scramble/foursome/best-ball/match-play (`hole.stroke_index` crudo) | ⏳ pendiente — 18h ya correcto por la migración; gap latente SOLO en loops de 9h de canchas 18h (front-9 con SI>9, 166 canchas). Normalizar el `hole.stroke_index` en el loader del ctx de torneo al tocar ese flujo. Torneos 9h son raros. |

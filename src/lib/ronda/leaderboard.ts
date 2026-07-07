@@ -4,6 +4,7 @@
 
 import { getVsPar, getVsParNeto, getHolesPlayed } from '@/lib/ronda/helpers'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { Jugador, ModoJuego, FormatoJuego } from '@/types/ronda'
 
 /** Entrada del leaderboard: jugador + métricas derivadas. */
@@ -45,11 +46,17 @@ export function buildLeaderboard({
   const isNetoMode = modoJuego === 'neto'
   const isStableford = formatoJuego === 'stableford'
 
+  // Normaliza el stroke index a una permutación válida 1..holes. El catálogo de
+  // muchas canchas chilenas tiene el SI con duplicados/huecos (47/69 al 24-jun-2026);
+  // sin esto, la alocación de golpes (strokesRecibidosEnHoyo) cuenta mal los hoyos
+  // con SI bajo y el net 18h sale +2/+3 de más (bug de campo "net +12 Don Jorge").
+  const siMapNorm = normalizeStrokeIndexMap(siMap, holes)
+
   return [...jugadores]
     .map(j => {
       const vsParGross = getVsPar(j.scores, holes, parMap)
       const courseHcp = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)
-      const vsParNeto = getVsParNeto(j.scores, holes, parMap, siMap, courseHcp)
+      const vsParNeto = getVsParNeto(j.scores, holes, parMap, siMapNorm, courseHcp)
       const vsPar = isNetoMode ? vsParNeto : vsParGross
       const holesPlayed = getHolesPlayed(j.scores, holes)
       let stablefordPts = 0
@@ -57,7 +64,7 @@ export function buildLeaderboard({
         for (let h = 1; h <= holes; h++) {
           const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
           if (s != null) {
-            const si = siMap[h] ?? h
+            const si = siMapNorm[h]
             const par = parMap[h] ?? 4
             stablefordPts += puntosStablefordHoyo(s, par, courseHcp, si, holes)
           }
