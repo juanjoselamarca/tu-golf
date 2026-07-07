@@ -20,6 +20,7 @@
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { courseHandicapParaHoyos } from '../core/course-handicap'
+import { normalizedStrokeIndexByHole } from '../core/stroke-index'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -128,6 +129,9 @@ export function calcularFoursome(
   // mitad (WHS), sobre los `roundHoles` jugados. El mostrado se conserva completo.
   const roundHoles = sortedHoles.length
   const teamHcpHoyos = courseHandicapParaHoyos(teamHandicap, roundHoles)
+  // Normalizar el SI a permutación 1..N para repartir EXACTAMENTE el course
+  // handicap (SI 18h-impares perdían golpes en 9h). No-op si el SI ya es válido.
+  const siAlloc = normalizedStrokeIndexByHole(sortedHoles)
   const invertir = team.invertirOrden ?? false
 
   let totalGross = 0
@@ -140,7 +144,7 @@ export function calcularFoursome(
     const key = String(hole.numero)
     const gross = team.scores[key]
     const teePlayer = teePlayerEnHoyo(hole.numero, team.nombreA, team.nombreB, invertir)
-    const strokes = strokesRecibidosEnHoyo(teamHcpHoyos, hole.stroke_index, roundHoles)
+    const strokes = strokesRecibidosEnHoyo(teamHcpHoyos, siAlloc[hole.numero], roundHoles)
 
     if (!gross || gross <= 0) {
       return {
@@ -160,7 +164,7 @@ export function calcularFoursome(
     holesPlayed++
     parJugado += hole.par
     const neto = gross - strokes
-    const stableford = puntosStablefordHoyo(gross, hole.par, teamHcpHoyos, hole.stroke_index, roundHoles)
+    const stableford = puntosStablefordHoyo(gross, hole.par, teamHcpHoyos, siAlloc[hole.numero], roundHoles)
 
     totalGross += gross
     totalNeto += neto
