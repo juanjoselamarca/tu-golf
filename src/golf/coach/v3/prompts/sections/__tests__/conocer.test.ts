@@ -33,6 +33,18 @@ describe('CONOCER_SECTION', () => {
     expect(CONOCER_SECTION).toMatch(/get_progress/)
   })
 
+  /**
+   * Problema #3 (jul-2026): en el replay de Nicolás Claro, el coach detectó su
+   * espiral post-bogey y la ABANDONÓ apenas Nico cambió de tema a "los fierros",
+   * sin conectar que sus hoyos-desastre podían venir de esos approaches. El coach
+   * debe puentear el tema nuevo con el foco de datos, no saltar y olvidar.
+   */
+  it('no abandona el foco de datos cuando el jugador trae un tema nuevo (puentea)', () => {
+    expect(CONOCER_SECTION).toMatch(/NO SUELTES EL FOCO|no abandones el foco/i)
+    expect(CONOCER_SECTION).toMatch(/CAUSA o MANIFESTACIÓN/i)
+    expect(CONOCER_SECTION).toMatch(/deja VIVO el foco|ret[oó]malo/i)
+  })
+
   it('fallback honesto: nunca inventa un foco si no hay datos', () => {
     expect(CONOCER_SECTION).toMatch(/fallback|honesto|no inventes|nunca inventes/i)
   })
