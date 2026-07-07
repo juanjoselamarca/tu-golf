@@ -200,6 +200,43 @@ async function checkDataIntegrity(admin: SupabaseClient): Promise<Category> {
       }
     }),
 
+    // Catálogo: stroke index válido (bug de campo "net +12 Don Jorge", 24-jun-2026).
+    // El net/stableford reparte los golpes de hándicap por stroke_index; si el SI de
+    // una cancha no es una permutación 1..N (duplicados, huecos o nulls), los hoyos
+    // con SI bajo faltantes NO reciben su golpe → el net aloca MENOS golpes que el
+    // course handicap y sale inflado (+2/+3) en TODOS los caminos (leaderboard,
+    // compartir, anotador, equipos, torneo). Normalizado el 7-jul-2026 (migración
+    // 20260707_normalize_stroke_index) → backlog en 0. Cualquier violación nueva es
+    // una regresión de import. Solo canchas con 1 fila por hoyo (las duplicadas las
+    // cubre el guard de pares de arriba, no se cuentan dos veces).
+    safeCheck('Catálogo: stroke index válido', async () => {
+      const { data } = await admin.rpc('exec_sql', {
+        query: `WITH per AS (
+                  SELECT ch.course_id,
+                    count(*) n, count(DISTINCT ch.numero) ndist,
+                    count(*) FILTER (WHERE ch.stroke_index IS NULL) nulls,
+                    count(DISTINCT ch.stroke_index) si_distinct,
+                    min(ch.stroke_index) mn, max(ch.stroke_index) mx
+                  FROM course_holes ch
+                  JOIN courses c ON c.id = ch.course_id AND c.activa = true
+                  GROUP BY ch.course_id
+                )
+                SELECT count(*) total
+                FROM per
+                WHERE n = ndist
+                  AND (nulls > 0 OR si_distinct <> n OR mn <> 1 OR mx <> n)`,
+      })
+      const total = Number((data?.[0] as { total?: number } | undefined)?.total ?? 0)
+      return {
+        name: 'Catálogo: stroke index válido',
+        status: total === 0 ? 'pass' : 'fail',
+        message: total === 0
+          ? 'Todas las canchas activas tienen stroke index en permutación válida 1..N'
+          : `${total} canchas con stroke index inválido (duplicados/huecos/nulls) — el net reparte mal los golpes de hándicap`,
+        details: { total },
+      }
+    }),
+
     // Orphaned ronda_libre_jugadores
     safeCheck('Jugadores huérfanos (rondas libres)', async () => {
       const { data } = await admin.rpc('exec_sql', {
