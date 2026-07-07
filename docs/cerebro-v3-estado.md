@@ -2,6 +2,25 @@
 
 ---
 
+## 🚦 Rollout de v3 — modelo incremental + piloto (2026-07-07)
+
+**Para el agente que siga con las olas pendientes (1a/1c/1d, 4, 5, 6): NO hay que esperar a "completar" v3 para dar valor.** El rollout tiene DOS perillas independientes que no se bloquean:
+
+- **Perilla A — usuarios:** flag `cerebro_v3_enabled` por usuario (lectura por-request en `src/app/api/taiger/chat/route.ts`, fail-closed a v2; sin deploy ni update de app — es una casilla en `profiles`, efecto en el próximo mensaje, reversible al toque). Camino: piloto → cohortes (25/50/100%) → retiro de v2. **Al 7-jul: Fase 0 (piloto) con usuarios reales activos — Nicolás Claro + Matías Vergara.**
+- **Perilla B — capacidad (olas):** cada ola SUMA detrás del mismo flag, sin romper lo anterior. Se puede **ampliar usuarios y sumar olas en paralelo**; cada ola sube el techo para quien ya tiene el flag prendido.
+
+**Orden recomendado de olas pendientes:**
+1. **Primero conocimiento (1c estrategia Broadie/Decade, 1d psicología):** son las MÁS simples — solo poblar `knowledge_chunks` / `external_priors_*`; el RAG ya lee esas tablas, el coach empieza a citar sin cambio de código. Cierran el hueco real de hoy: `external_priors_player_stats` (1a) y `external_priors_strategy_rules` (1c) **ni existen** en prod → el "coach que sabe del mundo" está a medio cargar (verificado 6-jul: solo 372 `knowledge_chunks`, casi todo reglas de 1e).
+2. **Después motor (4 multivariable/ML, 5 loops de auto-mejora, 6 clusters):** más pesadas, requieren validación rigurosa (codex challenge + A/B + banco de pruebas).
+3. Cada ola se valida contra el mismo banco/replay antes de ampliar cohorte. Si no mejora medible, no se prende.
+
+**Mejoras a v3 SIN ola (7-jul — ejemplo vivo del modelo incremental):** dos fixes nacidos del replay de la conversación real de Nicolás Claro (índice 8.1 / promedio 93.9), ambos EN PROD:
+- **PR #241:** `buildContextString` expone la brecha **potencial-vs-típico** (el índice es el TECHO WHS = mejores 8 de 20 × 0.96, no el nivel típico) → el coach deja de aplanar al jugador a su índice. Umbral: brecha ≥ 4 golpes.
+- **PR #242:** `CONOCER_SECTION` — el coach **no abandona su foco de datos** cuando el jugador trae un tema nuevo; lo puentea con el patrón detectado (une SU dato con SU síntoma).
+- **Herramienta reutilizable:** `scripts/replay-nico-v3.ts` — replay de un usuario real contra v3 (system+tools reales de prod, reads reales, writes no-op, no toca su data). Es la base operativa del "piloto mirándolo".
+
+---
+
 ## ✅ P5 — hardening 6-piezas + demostrar-en-reclamo — MERGEADA Y EN PROD (26-jun, PR #205 squash `7399b87`)
 
 **Demo aprobada por Juanjo (regla #4).** Cierra 2 de las 3 fallas del baseline honesto de P4. Fixes aditivos al prompt v3 (43 LOC):
