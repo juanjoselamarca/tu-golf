@@ -75,6 +75,25 @@ describe('stroke index corrupto → normalización del net (bug Don Jorge)', () 
     expect(lb[0].vsParNeto).toBe(10) // 82 net (= 107 − 25), NO 12
   })
 
+  it('9h: el front-9 de una cancha 18h (SI 1..17 impares) normaliza a 1..9 y aloca el CH exacto', () => {
+    // Cancha de 18h jugada como loop de 9h "ida": el catálogo numera el SI 1..18
+    // sobre los 18 hoyos, así que el front-9 trae SI impares hasta 17 (pasa en 166
+    // canchas). Con roundHoles=9 y el SI crudo, los hoyos con SI>9 no reciben su
+    // golpe → el net 9h se infla. Normalizado por rango a 1..9, el reparto es exacto.
+    const SI_FRONT9: Record<number, number> = { 1: 1, 2: 3, 3: 5, 4: 7, 5: 9, 6: 11, 7: 13, 8: 15, 9: 17 }
+    const CH9 = 5
+    let crudo = 0
+    let norm = 0
+    const normMap = normalizeStrokeIndexMap(SI_FRONT9, 9)
+    for (let h = 1; h <= 9; h++) {
+      crudo += strokesRecibidosEnHoyo(CH9, SI_FRONT9[h], 9)
+      norm += strokesRecibidosEnHoyo(CH9, normMap[h], 9)
+    }
+    expect(isValidStrokeIndexPermutation(SI_FRONT9, 9)).toBe(false) // SI>9 presentes
+    expect(crudo).toBe(3) // ← el bug 9h: solo 3 de 5 golpes se alocaban
+    expect(norm).toBe(5) // ← fix: exactamente el course handicap de 9h
+  })
+
   it('invariante WHS: net 18h total = gross − courseHandicap, sin importar el SI', () => {
     // El mismo gross y CH con DOS stroke index distintos (uno corrupto, uno limpio)
     // deben dar el MISMO net total. Antes del fix, el corrupto daba +2.

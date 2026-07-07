@@ -10,6 +10,7 @@
 import { createClient } from '@/lib/supabase'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { resolverCourseHandicap, resolverCourseHandicapDisplay, cargarCourseData } from '@/golf/core/course-handicap'
+import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
@@ -41,7 +42,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
     const ronda = data as unknown as RondaLibre
     let finalParTotal = parTotalEstandar(ronda.holes)
     const parMap: Record<number, number> = {}
-    const siMap: Record<number, number> = {}
+    let siMap: Record<number, number> = {}
 
     // Par / stroke-index por hoyo (solo si la ronda está ligada a una cancha).
     if (ronda.course_id) {
@@ -65,6 +66,18 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
         })
         finalParTotal = Object.values(parMap).reduce((a, b) => a + b, 0)
       }
+    }
+
+    // Normaliza el stroke index a permutación válida 1..N en la FUENTE (un concepto,
+    // una fuente): TODOS los consumidores del siMap —leaderboard, tarjeta de
+    // compartir, match play, notificaciones y el detalle hoyo-a-hoyo— reparten los
+    // golpes de hándicap sobre el MISMO SI. Sin esto, un SI corrupto de catálogo, o
+    // el SI 1..18 de una cancha de 18h jugada como loop de 9h (front-9 con SI>9 en
+    // 166 canchas), haría que el leaderboard (que normaliza) y la tarjeta de
+    // compartir (que no) mostraran netos distintos para la MISMA ronda. Idempotente
+    // sobre un SI ya válido. Bug de campo "net +12 Don Jorge" (inbox e6408e3c).
+    if (Object.keys(siMap).length > 0) {
+      siMap = normalizeStrokeIndexMap(siMap, ronda.holes)
     }
 
     // Índice → course handicap (WHS, tee por jugador).

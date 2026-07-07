@@ -11,7 +11,9 @@
 -- equipo, leaderboards de torneo).
 --
 -- FIX: rank-normalizar el SI por (SI crudo asc, número de hoyo asc) → permutación
--- válida 1..N. Preserva el orden de dificultad existente; tie-break determinista por
+-- válida 1..N. MISMO tie-break que `normalizeStrokeIndexMap` (src/golf/core/stroke-index.ts),
+-- que hace la normalización en runtime como defense-in-depth.
+-- Preserva el orden de dificultad existente; tie-break determinista por
 -- número de hoyo. Idempotente: una cancha ya válida no cambia. Solo toca canchas con
 -- 1 fila por hoyo (las de filas duplicadas por numero son otro problema del guard de
 -- pares #239, fuera de alcance). El SI verdadero por hoyo (qué hoyo es el más difícil)
