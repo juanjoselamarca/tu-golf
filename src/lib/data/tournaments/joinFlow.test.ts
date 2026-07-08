@@ -7,6 +7,8 @@ import { fetchJoinInfo, registerPlayerAndRound, esInscribible } from './joinFlow
 // `tableData` maps tabla → respuesta de .maybeSingle()/.single().
 function makeMockClient(tableData: {
   tournaments?: { data: unknown; error?: { message: string; code?: string } | null }
+  tournaments_maxplayers?: { data: unknown; error?: null }
+  players_count?: number
   profiles?: { data: unknown; error?: null }
   players_select?: { data: unknown; error?: null }
   players_insert?: { data: unknown; error?: { message: string; code?: string } | null }
@@ -16,10 +18,14 @@ function makeMockClient(tableData: {
     from: vi.fn((tabla: string) => {
       if (tabla === 'tournaments') {
         const r = tableData.tournaments
+        // `.single()` sirve al fetch de max_players en registerPlayerAndRound;
+        // `.maybeSingle()` al de fetchJoinInfo. Default sin cupo (max_players null).
+        const maxp = tableData.tournaments_maxplayers ?? { data: { max_players: null }, error: null }
         return {
           select: () => ({
             eq: () => ({
               maybeSingle: () => Promise.resolve(r ?? { data: null, error: null }),
+              single: () => Promise.resolve(maxp),
             }),
           }),
         }
@@ -33,9 +39,23 @@ function makeMockClient(tableData: {
       if (tabla === 'players') {
         const sel = tableData.players_select ?? { data: null, error: null }
         const ins = tableData.players_insert ?? { data: null, error: null }
+        const cnt = tableData.players_count ?? 0
         return {
           select: () => ({
-            eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve(sel) }) }),
+            // `.eq().eq()` sirve a dos usos: `.maybeSingle()` (dup-check de
+            // fetchJoinInfo) y `await` directo (count query del cupo). El objeto
+            // es thenable y además expone maybeSingle.
+            eq: () => ({
+              eq: () => {
+                const obj: Record<string, unknown> = {
+                  maybeSingle: () => Promise.resolve(sel),
+                  count: cnt,
+                  error: null,
+                }
+                obj.then = (resolve: (v: unknown) => unknown) => resolve({ count: cnt, error: null })
+                return obj
+              },
+            }),
           }),
           insert: () => ({ select: () => ({ single: () => Promise.resolve(ins) }) }),
         }
@@ -132,6 +152,37 @@ describe('registerPlayerAndRound — status gating + error mapping', () => {
     const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.playerId).toBe('p1')
+  })
+
+  it('rechaza con tournament_full cuando el cupo está lleno (count >= max_players)', async () => {
+    const c = makeMockClient({
+      tournaments_maxplayers: { data: { max_players: 24 }, error: null },
+      players_count: 24, // ya hay 24 aprobados → la #25 se rechaza
+      players_insert: { data: { id: 'p25' }, error: null },
+    })
+    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.reason).toBe('tournament_full')
+  })
+
+  it('inscribe OK si hay cupo disponible (count < max_players)', async () => {
+    const c = makeMockClient({
+      tournaments_maxplayers: { data: { max_players: 24 }, error: null },
+      players_count: 23,
+      players_insert: { data: { id: 'p24' }, error: null },
+    })
+    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
+    expect(r.ok).toBe(true)
+  })
+
+  it('sin cupo definido (max_players null) no aplica tope', async () => {
+    const c = makeMockClient({
+      tournaments_maxplayers: { data: { max_players: null }, error: null },
+      players_count: 999,
+      players_insert: { data: { id: 'p1000' }, error: null },
+    })
+    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
+    expect(r.ok).toBe(true)
   })
 
   it('mapea PG 23505 (unique violation) a already_registered', async () => {

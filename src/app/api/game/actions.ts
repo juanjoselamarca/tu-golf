@@ -15,7 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
-import { openTournament, revertToDraft } from '@/lib/data/tournaments/lifecycle'
+import { openTournament, revertToDraft, closeTournament } from '@/lib/data/tournaments/lifecycle'
 
 function captureGameError(action: string, error: unknown, extra?: Record<string, unknown>) {
   void captureError(error, {
@@ -390,6 +390,32 @@ export async function revertInscriptions(
     return NextResponse.json({ error: 'No se pudo volver a borrador' }, { status: 500 })
   }
   return NextResponse.json({ success: true, status: 'draft' })
+}
+
+/**
+ * Cierra el torneo (in_progress → closed) y CONGELA sus rondas para que no se
+ * puedan editar scores tras el cierre. Server-side + service client: valida
+ * organizador acá (defensa en profundidad; el route ya lo exige) y evita depender
+ * del RLS del cliente para las escrituras de freeze (a diferencia del update
+ * directo que hacía el hook antes). Ver `closeTournament` en data/lifecycle.
+ */
+export async function closeTournamentAction(
+  svc: Svc, userId: string, tournamentId: string,
+  organizerId: string, status: string
+): Promise<NextResponse> {
+  if (organizerId !== userId) {
+    return NextResponse.json({ error: 'Solo el organizador puede cerrar el torneo' }, { status: 403 })
+  }
+  if (status !== 'in_progress') {
+    return NextResponse.json({ error: 'Solo se puede cerrar un torneo en curso' }, { status: 409 })
+  }
+  try {
+    await closeTournament(svc, tournamentId)
+  } catch (e) {
+    captureGameError('close_tournament', e, { tournamentId })
+    return NextResponse.json({ error: 'No se pudo cerrar el torneo' }, { status: 500 })
+  }
+  return NextResponse.json({ success: true, status: 'closed' })
 }
 
 export async function cancelTournament(

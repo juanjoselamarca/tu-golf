@@ -62,6 +62,21 @@ describe('mapTournamentForInsert — persistencia de team_config (P0 FTUE 22-may
   })
 })
 
+describe('mapTournamentForInsert — cupo máximo (P1 auditoría campeonato)', () => {
+  it('persiste registration.max_players (antes se perdía al publicar)', () => {
+    const row = mapTournamentForInsert(
+      config({ registration: { mode: 'open_with_code', max_players: 24 } }),
+      META,
+    )
+    expect(row.max_players).toBe(24)
+  })
+
+  it('max_players = null cuando el wizard no define cupo (sin tope)', () => {
+    const row = mapTournamentForInsert(config(), META)
+    expect(row.max_players).toBeNull()
+  })
+})
+
 describe('mapTournamentForInsert — mapeo de campos base', () => {
   it('mapea meta (slug/code/organizer) y format dual (format + formato_juego)', () => {
     const row = mapTournamentForInsert(config({ format: 'stableford', modo: 'gross' }), META)

@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer, disqualifyPlayer, openInscriptions, revertInscriptions } from './actions'
+import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer, disqualifyPlayer, openInscriptions, revertInscriptions, closeTournamentAction } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -94,6 +94,8 @@ export async function POST(request: NextRequest) {
       return openInscriptions(svc, user.id, tournament_id, tournament.organizer_id, tournament.status)
     case 'revert_to_draft':
       return revertInscriptions(svc, user.id, tournament_id, tournament.organizer_id, tournament.status)
+    case 'close_tournament':
+      return closeTournamentAction(svc, user.id, tournament_id, tournament.organizer_id, tournament.status)
     case 'cancel_tournament':
       return cancelTournament(svc, user.id, tournament_id, tournament.organizer_id, tournament.status)
     case 'withdraw_player':

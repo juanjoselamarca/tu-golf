@@ -51,6 +51,8 @@ export async function POST(_req: NextRequest, { params }: { params: { slug: stri
         ? 409
         : result.reason === 'not_inscribible'
         ? 409
+        : result.reason === 'tournament_full'
+        ? 409
         : result.reason === 'forbidden'
         ? 403
         : 400
