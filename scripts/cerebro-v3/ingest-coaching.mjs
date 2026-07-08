@@ -66,7 +66,14 @@ function hashChunk(breadcrumb, content) {
 const estimateTokens = (s) => Math.ceil(s.length / 4);
 
 async function resolveTargets() {
-  if (FILE_FILTER) return [FILE_FILTER];
+  if (FILE_FILTER) {
+    // Defensa barata: solo un basename .json dentro de DATA_DIR (sin path traversal).
+    if (!FILE_FILTER.endsWith('.json') || FILE_FILTER.includes('/') || FILE_FILTER.includes('\\')) {
+      console.error(`--file debe ser un .json dentro de data/coaching (ej: strategy.json). Recibido: ${FILE_FILTER}`);
+      process.exit(1);
+    }
+    return [FILE_FILTER];
+  }
   const entries = await readdir(DATA_DIR);
   return entries.filter((e) => e.endsWith('.json')).sort();
 }
