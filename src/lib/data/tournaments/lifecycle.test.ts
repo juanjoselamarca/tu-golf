@@ -18,12 +18,61 @@ describe('startTournament', () => {
 })
 
 describe('closeTournament', () => {
-  it('marca tournaments.status = closed', async () => {
-    const update = vi.fn().mockReturnThis()
-    const eq = vi.fn().mockResolvedValue({ data: null, error: null })
-    mockFrom.mockReturnValue({ update, eq })
+  // Builder chainable + thenable: cada método devuelve el builder; `await` resuelve
+  // al `result` de esa tabla. Permite auditar chains multi-tabla (rounds / groups /
+  // rondas_libres / tournaments) que congela el cierre.
+  function makeBuilder(result: { data?: unknown; error: unknown }) {
+    const b: Record<string, ReturnType<typeof vi.fn>> & { then?: unknown } = {}
+    for (const m of ['update', 'eq', 'neq', 'select', 'not', 'in']) b[m] = vi.fn(() => b)
+    ;(b as { then: unknown }).then = (resolve: (v: unknown) => unknown) => resolve(result)
+    return b
+  }
+
+  it('CONGELA al cerrar: rounds→closed, rondas_libres materializadas→finalizada, tournaments→closed', async () => {
+    const rounds = makeBuilder({ error: null })
+    const groups = makeBuilder({ data: [{ ronda_libre_id: 'r1' }, { ronda_libre_id: 'r2' }, { ronda_libre_id: null }], error: null })
+    const rondas = makeBuilder({ error: null })
+    const tournaments = makeBuilder({ error: null })
+    mockFrom.mockImplementation((table: string) => ({
+      rounds, tournament_groups: groups, rondas_libres: rondas, tournaments,
+    } as Record<string, unknown>)[table])
+
     await closeTournament(mockSupabase, 't1')
-    expect(update).toHaveBeenCalledWith({ status: 'closed' })
+
+    // Path individual: rondas del torneo cerradas.
+    expect(rounds.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'closed' }))
+    // Path de equipos: rondas_libres materializadas (r1, r2 — no el null) finalizadas.
+    expect(rondas.update).toHaveBeenCalledWith({ estado: 'finalizada' })
+    expect(rondas.in).toHaveBeenCalledWith('id', ['r1', 'r2'])
+    // El torneo queda 'closed'.
+    expect(tournaments.update).toHaveBeenCalledWith({ status: 'closed' })
+  })
+
+  it('no toca rondas_libres si el torneo no tiene grupos materializados', async () => {
+    const rounds = makeBuilder({ error: null })
+    const groups = makeBuilder({ data: [], error: null })
+    const rondas = makeBuilder({ error: null })
+    const tournaments = makeBuilder({ error: null })
+    mockFrom.mockImplementation((table: string) => ({
+      rounds, tournament_groups: groups, rondas_libres: rondas, tournaments,
+    } as Record<string, unknown>)[table])
+
+    await closeTournament(mockSupabase, 't1')
+    expect(rondas.update).not.toHaveBeenCalled()
+    expect(tournaments.update).toHaveBeenCalledWith({ status: 'closed' })
+  })
+
+  it('propaga error si falla el freeze de rondas de equipo', async () => {
+    const rounds = makeBuilder({ error: null })
+    const groups = makeBuilder({ data: [{ ronda_libre_id: 'r1' }], error: null })
+    const rondas = makeBuilder({ error: { message: 'rls denied' } })
+    const tournaments = makeBuilder({ error: null })
+    mockFrom.mockImplementation((table: string) => ({
+      rounds, tournament_groups: groups, rondas_libres: rondas, tournaments,
+    } as Record<string, unknown>)[table])
+    await expect(closeTournament(mockSupabase, 't1')).rejects.toThrow('rls denied')
+    // Si el freeze de equipos falla, el torneo NO queda 'closed' (reintentable).
+    expect(tournaments.update).not.toHaveBeenCalled()
   })
 })
 

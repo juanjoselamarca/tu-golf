@@ -368,19 +368,28 @@ export function useTournamentLifecycle({
   const handleCloseTournament = async () => {
     if (!window.confirm('Cerrar el torneo? Los resultados seran definitivos.')) return
     setClosing(true)
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('tournaments')
-      .update({ status: 'closed' })
-      .eq('id', tournament.id)
-
-    if (error) {
-      showError('Error', 'No se pudo cerrar el torneo.')
-    } else {
+    // Vía /api/game (como open/revert/cancel): el server valida organizador y
+    // CONGELA las rondas (individual + equipos) con el service client. El update
+    // directo anterior solo marcaba status y dependía 100% del RLS del cliente,
+    // dejando los scores de equipo editables tras el cierre (P0 de congelado).
+    try {
+      const res = await fetch('/api/game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'close_tournament', tournament_id: tournament.id }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        showError('Error', data.error || 'No se pudo cerrar el torneo.')
+        return
+      }
       setTournamentStatus('closed')
       showSuccess('Torneo cerrado', 'Los resultados son definitivos.')
+    } catch {
+      showError('Sin conexión', 'No se pudo cerrar el torneo. Revisá tu conexión e intentá de nuevo.')
+    } finally {
+      setClosing(false)
     }
-    setClosing(false)
   }
 
   return {
