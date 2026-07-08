@@ -1,0 +1,111 @@
+{
+  "source": {
+    "slug": "coaching-strategy-v1",
+    "title": "Estrategia de juego — gestión de campo y strokes gained (curado Golfers+)",
+    "authors": ["Golfers+"],
+    "url_source": "internal://coaching/strategy-v1",
+    "block_key": "strategy",
+    "jurisdiction": "coaching",
+    "priority_rank": 50,
+    "is_authoritative_for": ["course_management", "shot_strategy", "strokes_gained"],
+    "legal_basis": "original_editorial_curated"
+  },
+  "chunks": [
+    {
+      "breadcrumb": "Estrategia > Strokes gained > Dónde se ganan los golpes",
+      "content": "La investigación de strokes gained (analizando miles de rondas) muestra que la mayor parte de la diferencia entre un buen jugador y uno malo está en el juego largo y de aproximación, no en el putting. El putt explica alrededor del 15% de la ventaja a largo plazo. Traducción práctica: si querés bajar tu score, invertí más tiempo en tee-to-green (driver, maderas, hierros de approach) que en horas de putting green. El putting importa, pero rinde menos por hora de práctica."
+    },
+    {
+      "breadcrumb": "Estrategia > Strokes gained > El approach es el rey",
+      "content": "Los tiros de aproximación (entre 90 y 190 metros) son donde más golpes se ganan o pierden. Un jugador que mejora la calidad y el control de distancia de sus hierros de approach baja su score más rápido que uno que solo perfecciona el putt corto. Cuando pienses en qué practicar, prioriza dejar la bola en el green desde el fairway a distancias medias."
+    },
+    {
+      "breadcrumb": "Estrategia > Tee shot > Distancia vs precisión",
+      "content": "Dentro de lo razonable, pegar más lejos desde el tee gana golpes aunque sumes algo de dispersión. Estar 20 metros más adelante en rough liviano suele ser mejor que estar corto en el fairway. No sacrifiques distancia por miedo salvo que haya un hazard real en juego (agua, out of bounds, bunker que no cruzás). El driver conservador 'por seguridad' rara vez es la mejor decisión estadística."
+    },
+    {
+      "breadcrumb": "Estrategia > Aproximación > Apuntar al centro del green",
+      "content": "Apuntá al centro del green o a la parte más ancha, no al banderín. Los profesionales apuntan lejos de los pines peligrosos; el amateur que dispara siempre a bandera pierde golpes por quedar corto o errar al lado malo. Regla práctica: solo atacá el pin cuando esté a más de 5 pasos del borde peligroso del green."
+    },
+    {
+      "breadcrumb": "Estrategia > Target > Target conservador, swing agresivo",
+      "content": "El principio de gestión de campo tipo DECADE es 'target conservador, compromiso agresivo': elegí un objetivo prudente (centro del green, lado seguro del fairway) y una vez elegido, comprometete al 100% con el swing. El error del amateur es al revés: apunta agresivo al pin y después duda en el swing. Un objetivo prudente ejecutado con convicción supera a un objetivo ambicioso ejecutado con miedo."
+    },
+    {
+      "breadcrumb": "Estrategia > Dispersión > Jugá tu elipse, no tu punto",
+      "content": "Tu tiro no cae en un punto sino en un patrón con forma de elipse. Planificá cada tiro para que TODA esa elipse quede en zona segura, no solo el centro. Si tu dispersión es de 30 metros a cada lado, apuntá de modo que el borde peligroso quede fuera del alcance de tu peor golpe habitual. Conocer tu dispersión real es más útil que soñar con tu mejor golpe."
+    },
+    {
+      "breadcrumb": "Estrategia > Score > Evitá el número grande",
+      "content": "Los dobles bogeys o peor destruyen la tarjeta mucho más de lo que los birdies la salvan. La estrategia número uno para la mayoría de los jugadores es eliminar los desastres, no cazar birdies. Antes de cada tiro preguntate: '¿cuál es la peor cosa que puede pasar acá y cómo la evito?'. Un bogey tranquilo casi siempre es mejor decisión que arriesgar un par heroico que puede terminar en triple."
+    },
+    {
+      "breadcrumb": "Estrategia > Recuperación > Jugá el próximo tiro, no al héroe",
+      "content": "Después de un mal tiro, tu trabajo es recuperar posición con el próximo golpe, no rescatar el hoyo de una. El intento heroico desde los árboles o el hazard convierte un bogey en un triple. Buscá el tiro que te devuelve al fairway o a un approach cómodo; el 'milagro entre dos ramas' sale una de cada diez veces y las otras nueve cuestan carísimo."
+    },
+    {
+      "breadcrumb": "Estrategia > Par 5 > Decisión en el tee",
+      "content": "En un par 5, decidí en el tee si es alcanzable en dos golpes. Si no lo es (que es lo normal para la mayoría), planificá el layup a TU distancia favorita de wedge —por ejemplo 90 a 100 metros— en vez de pegarle lo más cerca posible del green. Dejar un wedge cómodo y completo produce mejores approaches que dejar 40 metros de media distancia incómoda."
+    },
+    {
+      "breadcrumb": "Estrategia > Layup > Jugá a tus gaps de distancia",
+      "content": "Un layup inteligente deja una distancia que dominás con un swing completo. Dejar 95 metros cómodos es mejor que 40 metros de flop incómodo. Conocé tus 'gaps': las distancias entre las que quedás sin un palo natural. Planificá los layups para caer en una distancia de palo lleno, no en tierra de nadie."
+    },
+    {
+      "breadcrumb": "Estrategia > Tee shot > Elegí el lado seguro",
+      "content": "Antes de pegar del tee, ubicá dónde está el peligro y jugá desde el lado opuesto. Si el agua está a la derecha, apuntá al borde izquierdo del fairway y dejá que tu curva natural traiga la bola al centro. Así, tu peor error (recto o poca curva) igual queda en juego. La estrategia del tee es tanto de dónde APUNTÁS como de dónde NO querés terminar."
+    },
+    {
+      "breadcrumb": "Estrategia > Hazards > Lado opuesto al peligro",
+      "content": "En hoyos con out of bounds o agua de un lado, la estrategia manda tomar el lado opuesto aunque el ángulo al green quede peor. Un golpe de penalidad cuesta cerca de un golpe pleno de score, mucho más que la ventaja de un ángulo lindo. Aceptá el approach más difícil a cambio de eliminar el riesgo del desastre."
+    },
+    {
+      "breadcrumb": "Estrategia > Selección de palo > Clubbeá al fondo del green",
+      "content": "Elegí el palo que llega al FONDO del green, no al borde de adelante. La mayoría de los amateurs queda corta porque calcula con la distancia de su MEJOR golpe en vez de su promedio. Sumá el palo que necesitás para tu carry promedio hasta el centro-fondo; quedar corto suele dejar bunker o cuesta arriba, mientras que pasarse un poco casi siempre es más benigno."
+    },
+    {
+      "breadcrumb": "Estrategia > Aproximación > Green en regulación primero",
+      "content": "Estar en el green a 12 metros es mejor que estar en el bunker a 5 metros del pin. Priorizá pegar green en regulación (GIR) por sobre 'pegarle cerca'. Un putt largo desde el green rara vez termina en desastre; un tiro corto agresivo que falla el green y deja short-side sí. La estadística premia estar EN el green, aunque sea lejos."
+    },
+    {
+      "breadcrumb": "Estrategia > Viento > Ajustá más en contra",
+      "content": "Con viento en contra, tomá más palo del que tu instinto sugiere: el viento infla el spin y frena la bola más de lo que parece. Con viento a favor, desconfiá del 'me ayuda': la bola vuela más pero aterriza más caliente y rueda impredecible. Regla práctica: en contra, clubbeá generoso y hacé un swing suave; a favor, contá con menos control al aterrizar."
+    },
+    {
+      "breadcrumb": "Estrategia > Lie > El lie manda",
+      "content": "Antes de elegir el tiro, leé el lie. Desde rough profundo, la prioridad es volver al fairway con un palo controlable, no forzar la distancia máxima. Un buen jugador ajusta la ambición del tiro a lo que el lie permite: mala carpeta = tiro conservador; lie perfecto = podés ir por más. Pelearle a un lie imposible es la fuente número uno de dobles evitables."
+    },
+    {
+      "breadcrumb": "Estrategia > Putting > Lag en putts largos",
+      "content": "En putts de más de 10 metros, tu objetivo no es embocar sino dejar la bola dentro de un radio de 'gimme' para asegurar el dos putts. Los tres putts casi siempre vienen de exceso de agresividad en el primer putt largo. Pensá el primer putt como un tiro de acercamiento: distancia primero, línea después."
+    },
+    {
+      "breadcrumb": "Estrategia > Juego corto > Bola rodando lo antes posible",
+      "content": "Alrededor del green, usá el palo que pone la bola a rodar como putt lo antes posible (bump-and-run) cuando tenés green para trabajar. Menos loft significa menos margen de error: un chip bajo que corre es más consistente que un flop alto. Reservá los tiros altos para cuando REALMENTE necesitás pasar un obstáculo o parar la bola rápido."
+    },
+    {
+      "breadcrumb": "Estrategia > Bunker > Salir primero, cercanía después",
+      "content": "En el bunker de green, el objetivo primario es SALIR en un solo golpe; la cercanía al pin es secundaria. Un bunker-shot dejado adentro cuesta un golpe completo de score. Abrí la cara, apuntá a una zona amplia del green y aseguráte de que la bola cruce el labio. Perdonarte la distancia perfecta a cambio de garantizar la salida es la decisión correcta."
+    },
+    {
+      "breadcrumb": "Estrategia > Riesgo/recompensa > Cuándo atacar el pin",
+      "content": "Atacá el pin solo cuando el downside sea bajo: sin agua, sin out of bounds y sin short-side peligroso. Regla práctica: si el pin está a menos de 5 pasos de un borde peligroso del green, jugá al centro. La agresividad se gana el derecho cuando el error no te cuesta caro; si el error te cuesta caro, la prudencia es la jugada matemáticamente ganadora."
+    },
+    {
+      "breadcrumb": "Estrategia > Distancias > Usá tus carries reales",
+      "content": "Clubbeá con tus distancias de carry REALES y promedio, no con las de tu mejor golpe de la vida. Sobrestimar la distancia es el error de selección de palo número uno del amateur y la razón por la que tantos approaches quedan cortos. Medí tus carries de verdad y usá esos números; el ego con el número del palo cuesta golpes cada ronda."
+    },
+    {
+      "breadcrumb": "Estrategia > Aproximación > Nunca dejes short-side",
+      "content": "Dejar la bola del lado del pin (short-side) tras errar el green es el peor resultado posible: te quedás sin green para trabajar y el up-and-down se vuelve casi imposible. Errá siempre hacia el lado ancho del green. Al elegir el approach, preguntate hacia qué lado es 'seguro' fallar y sesgá tu apuntado en esa dirección."
+    },
+    {
+      "breadcrumb": "Estrategia > Tee shot > El primer tiro define el hoyo",
+      "content": "La posición del tee shot condiciona todo el hoyo: un approach cómodo desde el fairway vale más que 15 metros extra de distancia desde una posición ciega o bloqueada. Priorizá poner la bola en juego en el lugar que te deja el mejor ángulo y distancia de approach, aunque eso signifique un palo menos que el driver en ciertos hoyos."
+    },
+    {
+      "breadcrumb": "Estrategia > Gestión por hándicap > Aceptá el bogey planificado",
+      "content": "Un jugador de índice medio o alto gana más golpes jugando 'bogey-golf planificado' —evitar dobles a toda costa— que intentando pars heroicos que a veces salen y a veces terminan en desastre. En los hoyos más difíciles de la cancha, aceptá de entrada que el bogey es un buen resultado: planificá tres tiros cómodos hacia el green en vez de dos arriesgados. La tarjeta la arruinan los grandes números, no los bogeys."
+    }
+  ]
+}
