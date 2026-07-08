@@ -18,6 +18,7 @@
  */
 import type React from 'react'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { calcBestBallHole, calcBestBallTotals } from '../hooks/useTeamScorecard'
 
 interface ThemeTokens {
@@ -93,7 +94,13 @@ export function BestBallTeamCard({
     modoJuego,
     playerDotHcps,
     strokeIndexByHole,
+    roundHoles: totalHoles,
   })
+  // SI normalizado del hoyo actual para el dot "recibe golpe": debe coincidir con
+  // la alocación real del scorer (SI 18h-impar en 9h perdía golpes). El tooltip
+  // sigue mostrando el SI de catálogo (qué hoyo es el más difícil), no el rango.
+  const siAllocCard = normalizeStrokeIndexMap(strokeIndexByHole, totalHoles)
+  const siCurrentAlloc = siAllocCard[currentHole] ?? strokeIndex
 
   return (
     <div
@@ -181,7 +188,7 @@ export function BestBallTeamCard({
           if (!j) return null
           const gross = scores[jid]?.[currentHole]
           const dotHcp = playerDotHcps[jid] ?? 0
-          const strokes = modoJuego === 'neto' ? strokesRecibidosEnHoyo(dotHcp, strokeIndex) : 0
+          const strokes = modoJuego === 'neto' ? strokesRecibidosEnHoyo(dotHcp, siCurrentAlloc, totalHoles) : 0
           const net = gross != null ? gross - strokes : null
           const recibeGolpe = strokes > 0
           const isWinner = holeWinner?.winnerJugadorId === jid

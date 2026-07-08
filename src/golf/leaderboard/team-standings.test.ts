@@ -208,4 +208,49 @@ describe('computeBestBallStandings', () => {
     expect(board.totalGross).toBe(scorer.total)
     expect(board.overUnderGross).toBe(scorer.vsPar)
   })
+
+  // ── P0 (07-jul-2026): SI 18h-impar en ronda de 9h sub-asignaba golpes ──────
+  //    Mismo bug "net +12 Don Jorge" que scramble/foursome (#245) e individual
+  //    (#244). best_ball pasaba stroke_index CRUDO y sin roundHoles → maxSI=18 →
+  //    un CH de 5 sobre SI {15,13,3,11,9,1,17,7,5} sólo recibía golpe donde SI≤5
+  //    (3 golpes) en vez de en los 5 hoyos más difíciles. Datos reales del
+  //    recorrido "Norte" (Brisas de Santo Domingo, migración 019).
+  describe('SI 9h normalización (P0 Norte)', () => {
+    // 9 hoyos par 4, SI reales de Norte: escala 18h, impares, NO permutación 1..9.
+    const NORTE_SI = [15, 13, 3, 11, 9, 1, 17, 7, 5]
+    const HOLES_9 = NORTE_SI.map((si, i) => ({ numero: i + 1, par: 4, stroke_index: si }))
+    const strokeIndexByHole9 = Object.fromEntries(HOLES_9.map((h) => [h.numero, h.stroke_index]))
+    const parMap9 = Object.fromEntries(HOLES_9.map((h) => [h.numero, h.par]))
+
+    it('INVARIANTE: Σ golpes de hándicap == course handicap 9h (equipo de 1 jugador)', () => {
+      // Equipo de 1 jugador con CH 9h = 5, todos los hoyos en par (gross 36).
+      // El neto del equipo = gross de su único jugador − golpes recibidos.
+      // Σ golpes DEBE ser 5 (los 5 hoyos más difíciles), no 3.
+      const solo = bbTeam('solo', 'Solo', [
+        { id: 'p', nombre: 'P', courseHcp: 5, scores: Object.fromEntries(HOLES_9.map((h) => [String(h.numero), 4])) },
+      ])
+      const board = computeBestBallStandings([solo], HOLES_9, 36, 'best_ball', 'neto')[0]
+      expect(board.totalGross).toBe(36)
+      expect(board.totalGross - board.totalNeto).toBe(5) // == course handicap 9h
+      expect(board.overUnderNeto).toBe(-5)
+    })
+
+    it('paridad bajo SI corrupto: board ≡ calcBestBallTotals del scorer (9h Norte)', () => {
+      const solo = bbTeam('solo', 'Solo', [
+        { id: 'p', nombre: 'P', courseHcp: 5, scores: Object.fromEntries(HOLES_9.map((h) => [String(h.numero), 4])) },
+      ])
+      const board = computeBestBallStandings([solo], HOLES_9, 36, 'best_ball', 'neto')[0]
+      const scorer = calcBestBallTotals({
+        equipoJugadorIds: ['p'],
+        totalHoles: 9,
+        scores: { p: Object.fromEntries(HOLES_9.map((h) => [h.numero, 4])) },
+        modoJuego: 'neto',
+        playerDotHcps: { p: 5 },
+        strokeIndexByHole: strokeIndexByHole9,
+        parMap: parMap9,
+      })
+      expect(board.totalNeto).toBe(scorer.total)
+      expect(board.overUnderNeto).toBe(scorer.vsPar)
+    })
+  })
 })

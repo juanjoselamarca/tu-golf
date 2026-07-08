@@ -13,6 +13,7 @@
  */
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
+import { normalizedStrokeIndexByHole } from '../core/stroke-index'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -85,6 +86,13 @@ export function calcularBestBall(
   parTotal: number
 ): BestBallTeamResult {
   const sortedHoles = [...holes].sort((a, b) => a.numero - b.numero)
+  // Ajuste 9h: el course handicap por jugador YA viene en escala de los hoyos
+  // jugados (`resolverCourseHandicap` divide el índice /2 cuando is9Hole), así que
+  // NO se re-parte aquí. Lo que faltaba era (a) normalizar el SI a permutación
+  // 1..N — SI 18h-impares (ej. "Norte") perdían golpes en 9h — y (b) pasar
+  // `roundHoles` para que el cap de golpes sea el nº de hoyos jugados, no 18.
+  const roundHoles = sortedHoles.length
+  const siAlloc = normalizedStrokeIndexByHole(sortedHoles)
 
   let totalGross = 0
   let totalNeto = 0
@@ -109,9 +117,10 @@ export function calcularBestBall(
         }
       }
 
-      const strokes = strokesRecibidosEnHoyo(player.handicapIndex, hole.stroke_index)
+      const siHoyo = siAlloc[hole.numero]
+      const strokes = strokesRecibidosEnHoyo(player.handicapIndex, siHoyo, roundHoles)
       const neto = gross - strokes
-      const stableford = puntosStablefordHoyo(gross, hole.par, player.handicapIndex, hole.stroke_index)
+      const stableford = puntosStablefordHoyo(gross, hole.par, player.handicapIndex, siHoyo, roundHoles)
 
       return {
         playerId: player.id,
