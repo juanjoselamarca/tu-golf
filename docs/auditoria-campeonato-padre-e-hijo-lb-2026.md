@@ -11,9 +11,9 @@
 | Subsistema | Estado | Escala (antes → después) |
 |---|---|---|
 | **Motor de neto de equipos 9h** (scramble/foursome/best_ball) | ✅ **GO** — fixes en prod (#245, #246) | **4/10 → 9/10** |
-| **Ciclo de torneo** (inscripción→cierre) | 🔴 **NO-GO** hasta cerrar el P0 de congelado | **5/10 → objetivo 9/10** |
+| **Ciclo de torneo** (inscripción→cierre) | 🟡 **casi-GO** — P0-1 + P1-1 cerrados (#248); quedan P2 (desempate + podio) | **5/10 → 8/10** |
 
-**Go/No-Go global: NO-GO** para correr el campeonato real hoy. El neto ya es correcto, pero **un torneo cerrado NO queda congelado** (P0-1) y **el "cupo máximo" del wizard no se respeta** (P1-1). Con esos dos cerrados + desempate de equipos, el ciclo pasa a GO.
+**Go/No-Go global (actualizado tras #248):** el **bloqueante P0-1 (congelado al cerrar) está resuelto y en prod**, igual que P1-1 (cupo). El neto ya es correcto. Quedan **P2-1 (desempate de equipos)** y **P2-2 (podio de parejas)** — mejoras, no bloqueantes. Con esos dos, el ciclo pasa a GO pleno.
 
 ---
 
@@ -72,13 +72,13 @@ Parent 27h: **Club de Golf Brisas de Santo Domingo** (`61f27ef3-…`). Tiene 3 c
 
 ## Hallazgos rankeados
 
-### 🔴 P0-1 — Un torneo cerrado NO queda congelado (scores de equipo editables post-cierre) · CONFIRMADO
+### 🔴 P0-1 — Un torneo cerrado NO queda congelado (scores de equipo editables post-cierre) · ✅ RESUELTO EN PROD (#248)
 - **Evidencia:** `handleCloseTournament` (`useTournamentLifecycle.ts:368-375`) solo hace `tournaments.update({status:'closed'})`. **Nunca** pone `rounds.status='closed'` ni `rondas_libres.estado='finalizada'`. El scoring de equipo va por la RPC `upsert_ronda_equipos_scores` (`migrations/20260522_…rpc.sql:32-34`), que **solo** bloquea con `estado='finalizada'`. Resultado: tras cerrar el torneo, cualquier scorer sigue editando scores de scramble/foursome/best_ball desde `/ronda-libre/[codigo]/score-grupo` (que solo bloquea con `estado==='finalizada'`, `score-grupo/page.tsx:161`).
 - **Asimetría:** el scoring **individual** sí se bloquea (el route `/api/game` valida `tournament.status ∉ ['active','in_progress']`, `route.ts:60-63`). El de **equipos** no consulta el torneo → queda abierto. Un campeonato scramble es 100% equipos → 100% editable tras "cerrar".
 - **Por qué es P0:** viola CERO FALLOS. "Resultados definitivos" que cambian tras el cierre = pérdida de confianza irreversible en torneo real.
 - **Fix propuesto (permanente, no parche):** al cerrar el torneo, `handleCloseTournament` debe finalizar **atómicamente** todas sus rondas: `rounds.status='closed'` **y** `rondas_libres.estado='finalizada'` para las materializadas del torneo. Idealmente vía RPC `close_tournament(tournament_id)` `security definer` que haga las 3 escrituras en transacción y valide organizador server-side (cierra también la dependencia 100%-RLS del punto 5). Test: cerrar → intentar `upsert_ronda_equipos_scores` → debe fallar `RONDA_FINALIZED`.
 
-### 🔴 P1-1 — El "cupo máximo" del wizard no se respeta (inscripción ilimitada) · CONFIRMADO
+### 🔴 P1-1 — El "cupo máximo" del wizard no se respeta (inscripción ilimitada) · ✅ RESUELTO EN PROD (#248, flujo público)
 - **Evidencia:** `max_players` existe solo en el draft (`lib/draft/schema.ts:64`, UI `InscripcionSection.tsx:109-112`). **Ninguna migración lo persiste en `tournaments`** y `joinFlow.registerPlayerAndRound` nunca cuenta inscritos. La inscripción #25 (y #100) tiene éxito con cap 24.
 - **Por qué importa:** el organizador configura "24 cupos" y la app no lo hace cumplir → parejas de más, caos el día del torneo.
 - **Fix (EN PROD):** `max_players` persistido (migración + `mapTournamentForInsert`) y validado en `registerPlayerAndRound` (409 `tournament_full`) — cubre el flujo público (#25 > 24). **Follow-up abierto:** el alta manual por organizador (`usePlayers.ts` `inscribirPlayer`/`inscribirGuest`) inserta directo sin chequear el cupo → el organizador puede pasarse del tope. Decisión de producto: override intencional (con warning suave) vs. enforce. Pendiente + reflejar "cupos llenos" en la UI de `unirse`.
@@ -125,7 +125,7 @@ Residual (ruta **individual**, no equipo): call-sites de SI crudo en `torneo/[sl
 
 ## Próximos pasos (orden)
 
-1. **Cerrar P0-1** (congelado al cerrar) — RPC `close_tournament` transaccional + tests. **Bloqueante para GO.**
-2. **Cerrar P1-1** (cap de jugadores) — persistir + validar `max_players`.
-3. **P2-1** desempate de equipos + **P2-2** podio de parejas.
+1. ✅ **P0-1** (congelado al cerrar) — RESUELTO en prod (#248): acción `close_tournament` server-side + freeze de rounds/rondas_libres.
+2. ✅ **P1-1** (cap de jugadores) — RESUELTO en prod (#248, flujo público). Follow-up: cupo en alta-por-organizador (override vs warn).
+3. **P2-1** desempate de equipos + **P2-2** podio de parejas (mejoras, no bloqueantes).
 4. **E2E live** con Playwright (slug `qa-padre-hijo-<ts>`) confirmando a/e empíricamente + limpieza.
