@@ -95,7 +95,13 @@ export async function searchKnowledgeChunks(
   const topK = opts.topK ?? 5;
   const topCandidates = opts.topCandidates ?? 20;
   const alpha = opts.alpha ?? 0.7;
-  const blockKey = opts.blockKey ?? 'rules';
+  // Corpus unificado (1c/1d): sin blockKey explícito buscamos en TODOS los
+  // bloques (rules + strategy + psychology). `hybridSearch` traduce undefined →
+  // block_filter=NULL en el RPC = "todos". Antes defaulteaba a 'rules', lo que
+  // hacía inalcanzable el corpus de coaching aunque estuviera sembrado. El piso
+  // de relevancia + rerank filtran ruido cross-dominio. Un caller puede acotar
+  // pasando opts.blockKey.
+  const blockKey = opts.blockKey;
 
   let totalCost = 0;
 

@@ -17,8 +17,15 @@ describe('SEARCH_KNOWLEDGE_TOOL', () => {
     expect(enumVals).toHaveLength(5);
   });
 
-  it('describe el propósito de consultar reglas oficiales', () => {
-    expect(SEARCH_KNOWLEDGE_TOOL.description).toMatch(/official golf rules/i);
-    expect(SEARCH_KNOWLEDGE_TOOL.description).toMatch(/FedeGolf Chile/);
+  it('describe los tres dominios del corpus: reglas + estrategia + psicología (1c/1d)', () => {
+    const desc = SEARCH_KNOWLEDGE_TOOL.description ?? '';
+    // sigue cubriendo reglas oficiales (dominio original 1e)
+    expect(desc).toMatch(/rules/i);
+    expect(desc).toMatch(/FedeGolf Chile/);
+    // ahora también estrategia (1c) y psicología (1d)
+    expect(desc).toMatch(/strategy/i);
+    expect(desc).toMatch(/psychology/i);
+    // ancla al jugador, no cita genérica (regla anti-book-to-skill)
+    expect(desc).toMatch(/player/i);
   });
 });

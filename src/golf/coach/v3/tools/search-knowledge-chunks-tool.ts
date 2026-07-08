@@ -14,9 +14,16 @@ import type Anthropic from '@anthropic-ai/sdk';
 export const SEARCH_KNOWLEDGE_TOOL: Anthropic.Tool = {
   name: 'search_knowledge_chunks',
   description:
-    'Search the official golf rules and regulations corpus (USGA, R&A, WHS, FedeGolf Chile). ' +
-    'Use this WHENEVER the user asks about a specific rule, handicap calculation, penalty, drop, ' +
-    'relief, or any other official ruling. Returns relevant chunks with breadcrumb citations.',
+    'Search the golf knowledge corpus. It covers THREE domains: ' +
+    '(1) official RULES & regulations (USGA, R&A, WHS, FedeGolf Chile) — for any rule, ' +
+    'handicap calculation, penalty, drop or relief question; ' +
+    '(2) STRATEGY & course management (strokes-gained principles, target selection, dispersion, ' +
+    'shot planning, when to attack vs play safe, avoiding big numbers); ' +
+    '(3) sports PSYCHOLOGY & mental game (pre-shot routine, commitment, focus, handling errors, ' +
+    'pressure, self-talk, first-tee nerves). ' +
+    'Use this WHENEVER a coaching answer would be grounded by an established rule, strategy ' +
+    'principle, or mental-game concept — anchor the retrieved principle to THIS player\'s own ' +
+    'pattern/data, never as a generic quote. Returns relevant chunks with breadcrumb citations.',
   input_schema: {
     type: 'object',
     properties: {

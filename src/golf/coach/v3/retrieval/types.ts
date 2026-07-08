@@ -3,7 +3,10 @@ export type Jurisdiction =
   | 'ra'
   | 'whs_global'
   | 'usga_committee'
-  | 'fedegolf_chile';
+  | 'fedegolf_chile'
+  // Corpus de coaching (1c estrategia + 1d psicología): conocimiento cualitativo
+  // citado, sin jurisdicción reglamentaria. El dominio fino lo da block_key.
+  | 'coaching';
 
 export interface SearchKnowledgeOptions {
   jurisdictions?: Jurisdiction[];

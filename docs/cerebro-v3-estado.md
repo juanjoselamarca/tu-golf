@@ -2,6 +2,24 @@
 
 ---
 
+## 🟡 Sub-olas 1c (estrategia) + 1d (psicología) — DATOS EN PROD, PENDIENTE demo+merge (2026-07-07)
+
+**Branch:** `feat/cerebro-1cd-claude`. **Plan:** `docs/superpowers/plans/2026-07-07-cerebro-v3-ola1cd.md`.
+
+**Qué cerró:** pobló el RAG con el **corpus de coaching** — conocimiento cualitativo citado de estrategia (strokes gained / gestión de campo tipo DECADE) y psicología del rendimiento (rutina, foco, presión). Antes prod tenía 372 `knowledge_chunks`, **todos `rules`**. Ahora **420** (372 rules + **24 strategy** + **24 psychology**), los 48 nuevos con embedding Gemini.
+
+**Hallazgo (verificado, no asumido):** la creencia "el RAG ya lee esas tablas → poblar y listo, sin código" era **inexacta**. El read-path `retrieval/index.ts` defaulteaba `blockKey='rules'` → el corpus de coaching quedaba inalcanzable aunque estuviera sembrado. Se destrabó con **3 ediciones quirúrgicas** (no motor nuevo): (A) descripción de la tool `search_knowledge_chunks` ahora anuncia los 3 dominios; (B) default `blockKey` → todos los bloques; (C) `RAG_SECTION` enseña estrategia+psicología. + `Jurisdiction` type suma `'coaching'`.
+
+**Fuente moat-safe:** contenido editorial **propio** (voz Golfers+, ES chileno) que cita el marco sin copiar el libro (regla `feedback_taiger_no_book_to_skill_v1`: RAG citado SÍ, book-to-skill NO). NO se ingirieron PDFs de libros con copyright.
+
+**NO se hizo (deferral explícito, anti-decoración):** `external_priors_strategy_rules` (parte cuantitativa de 1c). Sin fuente numérica verificada + sin read-path que la consuma = sería decoración. Espera una fuente verificada + un reader consumidor (ola posterior).
+
+**Validación:** tsc 0 · **3121 tests** verdes · build OK · **examen-máquina LIVE: correctness 100% (21/21) · 6-piezas 5.17/6 — SIN regresión** vs baseline (0.86/4.17). Demo `scripts/cerebro-v3/demo-coaching-knowledge.ts`: el coach REAL (Sonnet) llama `search_knowledge_chunks` para estrategia Y psicología y teje los principios curados en una respuesta on-voice.
+
+**PENDIENTE:** demo en vivo a Juanjo (regla #4) → `gh pr merge`. Flag sigue por usuario.
+
+---
+
 ## 🚦 Rollout de v3 — modelo incremental + piloto (2026-07-07)
 
 **Para el agente que siga con las olas pendientes (1a/1c/1d, 4, 5, 6): NO hay que esperar a "completar" v3 para dar valor.** El rollout tiene DOS perillas independientes que no se bloquean:
