@@ -110,7 +110,7 @@ export type RegisterResult =
   | { ok: true; playerId: string }
   | {
       ok: false
-      reason: 'already_registered' | 'not_inscribible' | 'forbidden' | 'invalid_data' | 'unknown'
+      reason: 'already_registered' | 'not_inscribible' | 'forbidden' | 'invalid_data' | 'tournament_full' | 'unknown'
       message: string
     }
 
@@ -131,6 +131,32 @@ export async function registerPlayerAndRound(
         args.tournamentStatus === 'draft'
           ? 'Este torneo todavía no está disponible para inscripciones.'
           : 'Este torneo ya no admite nuevas inscripciones.',
+    }
+  }
+
+  // Cupo máximo: si el torneo define `max_players`, no aceptar más inscritos que
+  // el tope (el wizard configura "cupo máximo" y antes no se respetaba). Sólo
+  // cuenta a los inscritos activos ('approved'); 'waitlist'/'withdrawn' no ocupan
+  // cupo. Chequeo no-atómico: bajo concurrencia extrema podría colarse 1 de más,
+  // despreciable a la cadencia de inscripción de un torneo (TODO ola 4: constraint DB).
+  const { data: tRow } = await admin
+    .from('tournaments')
+    .select('max_players')
+    .eq('id', args.tournamentId)
+    .single()
+  const maxPlayers = (tRow as { max_players: number | null } | null)?.max_players ?? null
+  if (maxPlayers != null && maxPlayers > 0) {
+    const { count } = await admin
+      .from('players')
+      .select('id', { count: 'exact', head: true })
+      .eq('tournament_id', args.tournamentId)
+      .eq('status', 'approved')
+    if ((count ?? 0) >= maxPlayers) {
+      return {
+        ok: false,
+        reason: 'tournament_full',
+        message: `El torneo alcanzó su cupo máximo (${maxPlayers} jugadores).`,
+      }
     }
   }
 
