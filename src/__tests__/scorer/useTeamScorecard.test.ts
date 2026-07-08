@@ -22,6 +22,7 @@ describe('calcBestBallHole — modo gross', () => {
       modoJuego: 'gross',
       playerDotHcps: { playerA: 18, playerB: 0 }, // HCP no influye en gross
       strokeIndexByHole: fullSI18,
+      roundHoles: 18,
     })
     expect(res).not.toBeNull()
     expect(res!.winnerJugadorId).toBe('playerB')
@@ -37,6 +38,7 @@ describe('calcBestBallHole — modo gross', () => {
       modoJuego: 'gross',
       playerDotHcps: { playerA: 12, playerB: 12 },
       strokeIndexByHole: fullSI18,
+      roundHoles: 18,
     })
     expect(res).toBeNull()
   })
@@ -49,6 +51,7 @@ describe('calcBestBallHole — modo gross', () => {
       modoJuego: 'gross',
       playerDotHcps: { playerA: 12, playerB: 12 },
       strokeIndexByHole: fullSI18,
+      roundHoles: 18,
     })
     expect(res!.winnerJugadorId).toBe('playerA')
     expect(res!.bestGross).toBe(5)
@@ -69,6 +72,7 @@ describe('calcBestBallHole — modo neto', () => {
       modoJuego: 'neto',
       playerDotHcps: { playerA: 12, playerB: 4 },
       strokeIndexByHole: fullSI18,
+      roundHoles: 18,
     })
     // playerA: net 5-1=4
     // playerB: net 5-0=5
@@ -86,6 +90,7 @@ describe('calcBestBallHole — modo neto', () => {
       modoJuego: 'neto',
       playerDotHcps: { playerA: 0, playerB: 0 },
       strokeIndexByHole: fullSI18,
+      roundHoles: 18,
     })
     expect(res!.bestGross).toBe(4)
     expect(res!.bestNet).toBe(4) // sin golpes
@@ -100,6 +105,7 @@ describe('calcBestBallHole — modo neto', () => {
       modoJuego: 'neto',
       playerDotHcps: { playerA: 18, playerB: 0 },
       strokeIndexByHole: fullSI18,
+      roundHoles: 18,
     })
     // A net = 5 - 1 = 4
     // B net = 5

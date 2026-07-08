@@ -78,8 +78,9 @@ describe('rankTeams', () => {
 
   it('best_ball neto 9h: usa el course handicap RESUELTO (courseHcpMap), no el índice crudo', () => {
     // Bruno (j2): índice 20, course handicap 9h resuelto = 10 (courseHcpMap.j2).
-    // Gross 45 (todo 5). Con 10 → 9 strokes (SI 1-9) → neto 36.
-    // Con el índice crudo 20 (el bug del winner box / share) → 11 strokes → neto 34.
+    // Gross 45 (todo 5). Con CH 10 sobre 9 hoyos = 10 golpes (1/hoyo + 1 en el más
+    // difícil, cap 9h) → neto 35. Usar el índice crudo 20 daría muchos más golpes
+    // (bug del winner box / share). El 36 previo perdía el 10º golpe (bug "net +12").
     const rows = rankTeams({
       ...baseInput,
       formato: 'best_ball',
@@ -88,7 +89,7 @@ describe('rankTeams', () => {
         { id: 'e1', nombre: 'Solo', handicap_equipo: null, jugadorIds: ['j2'], scores: {} },
       ],
     })
-    expect(rows[0].score).toBe(36) // neto con CH 10, NO 34 (índice 20)
+    expect(rows[0].score).toBe(35) // neto con CH 10 alocado sobre 9 hoyos (10 golpes)
   })
 
   it('foursome gross: usa scores de equipo (alternating)', () => {

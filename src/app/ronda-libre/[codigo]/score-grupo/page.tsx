@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getYardajeForTee } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
@@ -692,6 +693,16 @@ export default function ScoreGrupoPage() {
   const isLastHole = currentHoleIdx >= totalHoles - 1
   const par = parMap[currentHole] ?? 4
   const holeData = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole, yardaje: null }
+  // SI normalizado (permutación 1..totalHoles) SÓLO para alocar golpes en los
+  // indicadores del scorer de equipo (dot del progress row, hint "GOLPES"): SI de
+  // catálogo 18h-impar en 9h perdía golpes. El SI que se MUESTRA sigue siendo el de
+  // catálogo (holeData.stroke_index). Misma fuente canónica que board/scorer/card.
+  const siAllocByHole: Record<number, number> = normalizeStrokeIndexMap(
+    Object.fromEntries(
+      Array.from({ length: totalHoles }, (_, i) => [i + 1, holeDataMap[i + 1]?.stroke_index ?? i + 1]),
+    ),
+    totalHoles,
+  )
   const modoJuego = ronda.modo_juego || 'gross'
   const formatoJuego = ronda.formato_juego || 'stroke_play'
   const modoLabel = formatoJuego === 'match_play' ? 'Match Play Neto'
@@ -862,7 +873,7 @@ export default function ScoreGrupoPage() {
           {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
             const isActive = h === currentHole
             const allHaveScore = jugadores.every(j => scores[j.id]?.[h] != null)
-            const anyPlayerGetsStroke = showNetStableford && jugadores.some(j => strokesRecibidosEnHoyo(getDotHcp(j.id), holeDataMap[h]?.stroke_index ?? h) > 0)
+            const anyPlayerGetsStroke = showNetStableford && jugadores.some(j => strokesRecibidosEnHoyo(getDotHcp(j.id), siAllocByHole[h] ?? h, totalHoles) > 0)
             return (
               <div key={h} onClick={() => setCurrentHole(h)} style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative',
@@ -910,7 +921,7 @@ export default function ScoreGrupoPage() {
         ))}
         {showNetStableford && (() => {
           // Show max strokes received among players for context
-          const maxStrokes = Math.max(...jugadores.map(j => strokesRecibidosEnHoyo(getDotHcp(j.id), holeData.stroke_index)))
+          const maxStrokes = Math.max(...jugadores.map(j => strokesRecibidosEnHoyo(getDotHcp(j.id), siAllocByHole[currentHole] ?? holeData.stroke_index, totalHoles)))
           return (
             <div style={{ flex: 1, textAlign: 'center', padding: '6px 2px' }}>
               <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>GOLPES</div>

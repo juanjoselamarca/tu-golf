@@ -76,11 +76,13 @@ describe('Best Ball (Four-Ball)', () => {
       })
       const result = calcularBestBall(team, HOLES_9, PAR_9)
 
-      // Pedro tiene mismo gross pero recibe 1 stroke/hoyo → neto es 1 menos por hoyo
-      // Su neto total sería 45 - 9 = 36 (par), Juan es 45 gross (neto=45 sin strokes)
-      // Best neto: Pedro en todos los hoyos
-      expect(result.totalNeto).toBe(36)
-      expect(result.overUnderNeto).toBe(0)
+      // Pedro tiene mismo gross que Juan (scratch) pero recibe golpes de hándicap.
+      // handicapIndex es el COURSE HANDICAP de los hoyos jugados: 18 sobre una ronda
+      // de 9h ⇒ 2 golpes/hoyo (cap 9h, no 18) ⇒ 18 golpes en total. Su neto por hoyo
+      // (5-2=3) gana al de Juan (5) en todos ⇒ team neto 9×3 = 27, vs par −9.
+      // (Antes del fix 9h el motor asignaba sólo 9 golpes → 36: bug "net +12".)
+      expect(result.totalNeto).toBe(27)
+      expect(result.overUnderNeto).toBe(-9)
     })
 
     it('maneja hoyos sin score de un jugador', () => {
@@ -229,8 +231,11 @@ describe('Best Ball (Four-Ball)', () => {
       const resultB = calcularBestBall(teamB, HOLES_9, PAR_9)
 
       const sorted = ordenarEquiposBestBall([resultA, resultB], 'stableford', 'neto')
-      // Mayor stableford primero
-      expect(sorted[0].teamId).toBe('b')
+      // Propiedad del sort: mayor stableford primero (robusto a la alocación exacta).
+      expect(sorted[0].totalStableford).toBeGreaterThanOrEqual(sorted[1].totalStableford)
+      // Con el cap 9h correcto, Juan (CH9h 10) + Pedro (CH9h 18) suman 28 pts de
+      // stableford neto y superan al equipo scratch de Carlos (birdies gross = 27).
+      expect(sorted[0].teamId).toBe('a')
     })
   })
 })
