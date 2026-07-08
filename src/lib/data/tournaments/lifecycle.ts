@@ -60,7 +60,9 @@ export async function closeTournament(supabase: SupabaseClient, id: string): Pro
     .from('rounds')
     .update({ status: 'closed' })
     .eq('tournament_id', id)
-    .neq('status', 'closed')
+    // No re-tocar rondas ya finalizadas: 'closed' y 'official' (un resultado
+    // oficializado no debe degradarse a 'closed').
+    .not('status', 'in', '("closed","official")')
   if (rErr) throw new Error(rErr.message)
 
   // 2. Finalizar las rondas_libres materializadas por grupo (scoring de equipo).

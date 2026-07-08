@@ -81,7 +81,7 @@ Parent 27h: **Club de Golf Brisas de Santo Domingo** (`61f27ef3-…`). Tiene 3 c
 ### 🔴 P1-1 — El "cupo máximo" del wizard no se respeta (inscripción ilimitada) · CONFIRMADO
 - **Evidencia:** `max_players` existe solo en el draft (`lib/draft/schema.ts:64`, UI `InscripcionSection.tsx:109-112`). **Ninguna migración lo persiste en `tournaments`** y `joinFlow.registerPlayerAndRound` nunca cuenta inscritos. La inscripción #25 (y #100) tiene éxito con cap 24.
 - **Por qué importa:** el organizador configura "24 cupos" y la app no lo hace cumplir → parejas de más, caos el día del torneo.
-- **Fix:** persistir `max_players` en `tournaments` y validar en `registerPlayerAndRound` (contar `players` aprobados vs cap → 409 `tournament_full`). Reflejar "cupos llenos" en la UI de `unirse`.
+- **Fix (EN PROD):** `max_players` persistido (migración + `mapTournamentForInsert`) y validado en `registerPlayerAndRound` (409 `tournament_full`) — cubre el flujo público (#25 > 24). **Follow-up abierto:** el alta manual por organizador (`usePlayers.ts` `inscribirPlayer`/`inscribirGuest`) inserta directo sin chequear el cupo → el organizador puede pasarse del tope. Decisión de producto: override intencional (con warning suave) vs. enforce. Pendiente + reflejar "cupos llenos" en la UI de `unirse`.
 
 ### 🟠 P2-1 — Board de equipos sin desempate (empate de neto → orden arbitrario) · CONFIRMADO
 - **Evidencia:** `ordenarEquiposScramble` (`scramble.ts:208-218`) ordena solo por `scorePrimarioScramble`; en empate deja orden de entrada (sort estable). **No aplica `tournaments.tiebreak_rules`** (`back_9/6/3`), que sí existe para el path individual (`rank-entries.ts:85`).
