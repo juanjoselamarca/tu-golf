@@ -4,6 +4,7 @@ import {
   strokesRecibidosEnHoyo,
   puntosStablefordHoyo,
 } from '@/golf/core/scoring'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
@@ -111,14 +112,16 @@ export async function GET(
         if (prof?.indice != null) handicapIndex = prof.indice
       }
 
+      const siAlloc = normalizedStrokeIndexByHole(holes, totalHoyos)
       for (const h of holes) {
         const gross = scores[String(h.numero)]
         if (!gross) continue
         hoyosCompletados++
+        const siHoyo     = siAlloc[h.numero] ?? h.stroke_index
         overUnderGross  += gross - h.par
-        const strokes    = strokesRecibidosEnHoyo(handicapIndex, h.stroke_index)
+        const strokes    = strokesRecibidosEnHoyo(handicapIndex, siHoyo, totalHoyos)
         overUnderNeto   += (gross - strokes) - h.par
-        totalStableford += puntosStablefordHoyo(gross, h.par, handicapIndex, h.stroke_index)
+        totalStableford += puntosStablefordHoyo(gross, h.par, handicapIndex, siHoyo, totalHoyos)
       }
 
       const currentScore = formato === 'stableford' ? totalStableford

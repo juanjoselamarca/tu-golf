@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast'
 import { type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
 interface Round { id: string; status: string; total_gross: number; total_net: number; total_points: number; round_number: number }
@@ -206,7 +207,8 @@ export default function ScoringPage() {
 
     const hole         = courseHoles.find((h) => h.numero === holeNumber)
     const par          = hole?.par ?? 4
-    const strokeIndex  = hole?.stroke_index ?? holeNumber
+    // SI normalizado (permutación 1..N) para alocar golpes (idempotente). Persiste el neto correcto.
+    const strokeIndex  = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNumber] ?? hole?.stroke_index ?? holeNumber
     const courseHcp    = resolveScoringCourseHcp(tournament.hcp_calc_mode, player, tournament, courseTees, tournament.courses?.par_total ?? 72, tournament.hole_count || 18)
     const strokes      = strokesRecibidosEnHoyo(courseHcp, strokeIndex, tournament.hole_count || 18)
     const netScore     = gross - strokes
@@ -370,6 +372,8 @@ export default function ScoringPage() {
   const isMultiRound   = totalRounds > 1
   const holeCount      = tournament.hole_count || 18
   const holes          = Array.from({ length: holeCount }, (_, i) => i + 1)
+  // SI normalizado (permutación 1..N) para alocar golpes de neto/stableford (idempotente).
+  const siAllocByHole  = normalizedStrokeIndexByHole(courseHoles, holeCount)
   const selectedPlayer = players.find((p) => p.id === selectedId)
   const selectedRound  = getActiveRound(selectedPlayer)
 
@@ -432,7 +436,7 @@ export default function ScoringPage() {
     if (!currentScores[h]) return s
     const hole        = courseHoles.find((ch) => ch.numero === h)
     const par         = hole?.par ?? 4
-    const si          = hole?.stroke_index ?? h
+    const si          = siAllocByHole[h] ?? hole?.stroke_index ?? h
     const strokes     = strokesRecibidosEnHoyo(selectedCourseHcp, si, holeCount)
     return s + (currentScores[h] - strokes)
   }, 0)
@@ -803,7 +807,7 @@ export default function ScoringPage() {
                       placeholder="—"
                     />
                     {haScore && tournament?.format === 'stableford' && (() => {
-                      const strokes = strokesRecibidosEnHoyo(selectedCourseHcp, courseHoles.find(h => h.numero === holeNum)?.stroke_index ?? holeNum, holeCount)
+                      const strokes = strokesRecibidosEnHoyo(selectedCourseHcp, siAllocByHole[holeNum] ?? courseHoles.find(h => h.numero === holeNum)?.stroke_index ?? holeNum, holeCount)
                       const neto = gross - strokes
                       const pts = Math.max(0, 2 - (neto - par))
                       return (

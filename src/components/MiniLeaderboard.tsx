@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 
 interface JugadorLB {
@@ -41,6 +42,11 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
 
     if (!data) return
 
+    // SI normalizado a permutación 1..N para ALOCAR golpes (Σ == course handicap
+    // aunque el SI de catálogo sea 18h-impar en 9h). No-op si ya es válido. El SI
+    // que se muestra no se toca; esto sólo afecta el reparto de golpes de neto.
+    const siAllocMap = normalizeStrokeIndexMap(siMap, totalHoles)
+
     const jug: JugadorLB[] = (data.ronda_libre_jugadores ?? []).map((j: { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }) => {
       const sc = j.scores ?? {}
       const entries = Object.entries(sc).filter(([, s]) => Number(s) > 0)
@@ -57,10 +63,10 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
         for (const [h, s] of entries) {
           const hNum = parseInt(h)
           const par = parMap[hNum] ?? 4
-          const si = siMap[hNum] ?? hNum
-          const strokes = strokesRecibidosEnHoyo(hcp, si)
+          const si = siAllocMap[hNum] ?? siMap[hNum] ?? hNum
+          const strokes = strokesRecibidosEnHoyo(hcp, si, totalHoles)
           netSum += (Number(s) - strokes)
-          totalStableford += puntosStablefordHoyo(Number(s), par, hcp, si)
+          totalStableford += puntosStablefordHoyo(Number(s), par, hcp, si, totalHoles)
         }
         totalNetVsPar = netSum - parForPlayedHoles
       }

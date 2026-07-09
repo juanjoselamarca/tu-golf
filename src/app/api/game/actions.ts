@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { openTournament, revertToDraft, closeTournament } from '@/lib/data/tournaments/lifecycle'
 
@@ -74,27 +75,40 @@ export async function upsertScore(
       const tournId = rd.players.tournament_id
       const { data: chData } = await svc
         .from('tournaments')
-        .select('courses(id)')
+        .select('hole_count, courses(id)')
         .eq('id', tournId)
         .single()
-      const courseId = (chData as unknown as { courses: { id: string } | null } | null)?.courses?.id
+      const tournInfo = chData as unknown as { hole_count: number | null; courses: { id: string } | null } | null
+      const courseId = tournInfo?.courses?.id
+      const roundHoles = tournInfo?.hole_count ?? 18
 
+      // SI normalizado (permutación 1..N) para ALOCAR golpes: se traen TODOS los
+      // hoyos del recorrido (1..roundHoles) y se normaliza, en vez de leer el SI
+      // crudo de un solo hoyo. Garantiza que el neto persistido reparta EXACTAMENTE
+      // el course handicap aunque el SI de catálogo sea 18h-impar en una ronda de 9h
+      // (bug "net +12"). Fallback al SI crudo si no hay data → nunca peor que antes.
       let strokeIndex = hole_number as number
       if (courseId) {
-        const { data: holeRow } = await svc
+        const { data: holeRows } = await svc
           .from('course_holes')
-          .select('stroke_index')
+          .select('numero, stroke_index')
           .eq('course_id', courseId)
-          .eq('numero', hole_number)
-          .single()
-        if (holeRow) strokeIndex = (holeRow as unknown as { stroke_index: number }).stroke_index
+          .lte('numero', roundHoles)
+        const rows = (holeRows as Array<{ numero: number; stroke_index: number }> | null) ?? []
+        if (rows.length > 0) {
+          const siAlloc = normalizedStrokeIndexByHole(
+            rows.map((r) => ({ numero: r.numero, stroke_index: r.stroke_index })),
+            roundHoles
+          )
+          strokeIndex = siAlloc[hole_number as number] ?? strokeIndex
+        }
       }
 
       if (net_score == null) {
-        net_score = (gross_score as number) - strokesRecibidosEnHoyo(hcp, strokeIndex)
+        net_score = (gross_score as number) - strokesRecibidosEnHoyo(hcp, strokeIndex, roundHoles)
       }
       if (points == null) {
-        points = puntosStablefordHoyo(gross_score as number, par as number, hcp, strokeIndex)
+        points = puntosStablefordHoyo(gross_score as number, par as number, hcp, strokeIndex, roundHoles)
       }
     }
   }

@@ -1034,7 +1034,7 @@ export default function ScoreGrupoPage() {
                               const s = equipo.scores[String(h)]
                               if (s != null) {
                                 const hd = holeDataMap[h]
-                                pts += puntosStablefordHoyo(s, hd?.par ?? 4, equipo.handicap_equipo ?? 0, hd?.stroke_index ?? h)
+                                pts += puntosStablefordHoyo(s, hd?.par ?? 4, equipo.handicap_equipo ?? 0, siAllocByHole[h] ?? hd?.stroke_index ?? h, totalHoles)
                               }
                             }
                             return `${pts} pts`
@@ -1100,9 +1100,10 @@ export default function ScoreGrupoPage() {
             const chipStyle = scoreResult ? SCORE_STYLES[scoreResult] : null
             const hcp = playerHcp[j.id] ?? 0
             const dotHcp = getDotHcp(j.id)
-            const strokesThisHole = strokesRecibidosEnHoyo(dotHcp, holeData.stroke_index)
+            const siAllocThisHole = siAllocByHole[currentHole] ?? holeData.stroke_index
+            const strokesThisHole = strokesRecibidosEnHoyo(dotHcp, siAllocThisHole, totalHoles)
             const netScoreThisHole = playerScore != null ? playerScore - strokesThisHole : null
-            const stablefordPts = playerScore != null ? puntosStablefordHoyo(playerScore, par, hcp, holeData.stroke_index) : null
+            const stablefordPts = playerScore != null ? puntosStablefordHoyo(playerScore, par, hcp, siAllocThisHole, totalHoles) : null
 
             // Running net/stableford totals
             let runningStableford = 0
@@ -1113,9 +1114,9 @@ export default function ScoreGrupoPage() {
                 if (s != null) {
                   const hd = holeDataMap[h]
                   if (hd) {
-                    const si = hd.stroke_index
-                    runningStableford += puntosStablefordHoyo(s, hd.par, hcp, si)
-                    runningNetVsPar += (s - strokesRecibidosEnHoyo(hcp, si)) - hd.par
+                    const si = siAllocByHole[h] ?? hd.stroke_index
+                    runningStableford += puntosStablefordHoyo(s, hd.par, hcp, si, totalHoles)
+                    runningNetVsPar += (s - strokesRecibidosEnHoyo(hcp, si, totalHoles)) - hd.par
                   }
                 }
               }

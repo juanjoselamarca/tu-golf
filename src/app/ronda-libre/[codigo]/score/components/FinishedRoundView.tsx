@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { publishRound } from '@/lib/data/rounds'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { generarShareCard } from '@/lib/share-card'
 import type { ShareCardData } from '@/lib/share-card'
 import type { MatchResult } from '@/golf/formats/match-play'
@@ -57,12 +58,19 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
   const isStableford = ronda?.formato_juego === 'stableford'
   const isNeto = ronda?.modo_juego === 'neto'
   const shareHcp = activeJugadorId ? (playerHcp[activeJugadorId] ?? 0) : 0
+  // SI normalizado (permutación 1..N) para alocar golpes al contar birdies netos:
+  // el SI de catálogo puede ser 18h-impar en una ronda de 9h y perder golpes. No-op
+  // si ya es permutación válida. No cambia el SI que se muestra.
+  const siAllocMap = normalizedStrokeIndexByHole(
+    Object.entries(holeDataMap).map(([num, hd]) => ({ numero: Number(num), stroke_index: hd.stroke_index })),
+    ronda?.holes ?? 18
+  )
   let birdieCount = 0, eagleCount = 0
   Object.entries(playerScores).forEach(([h, s]) => {
     const p = parMap[parseInt(h)] ?? 4
     let scoreForStats = s
     if (isNeto && shareHcp != null) {
-      const si = holeDataMap[parseInt(h)]?.stroke_index ?? parseInt(h)
+      const si = siAllocMap[parseInt(h)] ?? holeDataMap[parseInt(h)]?.stroke_index ?? parseInt(h)
       scoreForStats = s - strokesRecibidosEnHoyo(shareHcp, si, ronda?.holes ?? 18)
     }
     if (scoreForStats === p - 1) birdieCount++

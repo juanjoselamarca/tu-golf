@@ -12,6 +12,7 @@
  */
 
 import { strokesRecibidosEnHoyo } from '../core/scoring'
+import { normalizedStrokeIndexByHole } from '../core/stroke-index'
 
 // ─── Types ───
 
@@ -220,6 +221,11 @@ export function calcularMatchPlay(
   let isFinished = false
   let finishedAtHole = totalHoles
 
+  // SI normalizado (permutación 1..N) para ALOCAR golpes de match play (SI 1 = más
+  // difícil recibe primero). Idempotente si el SI ya es válido. El strokeIndex que se
+  // MUESTRA en el detalle del hoyo se mantiene crudo (data de catálogo).
+  const siAlloc = normalizedStrokeIndexByHole(sortedHoles, totalHoles)
+
   const holeDetails: MatchHoleDetail[] = sortedHoles.map((hole) => {
     const keyStr = String(hole.numero)
     const rawA = scoresA[keyStr]
@@ -238,8 +244,8 @@ export function calcularMatchPlay(
         strokeIndex: hole.stroke_index,
         grossA: hasScoreA ? rawA : null,
         grossB: hasScoreB ? rawB : null,
-        strokesA: strokesMatchPlayEnHoyo(diffA, hole.stroke_index),
-        strokesB: strokesMatchPlayEnHoyo(diffB, hole.stroke_index),
+        strokesA: strokesMatchPlayEnHoyo(diffA, siAlloc[hole.numero] ?? hole.stroke_index),
+        strokesB: strokesMatchPlayEnHoyo(diffB, siAlloc[hole.numero] ?? hole.stroke_index),
         netoA: null,
         netoB: null,
         result: 'not_played' as HoleResult,
@@ -248,8 +254,8 @@ export function calcularMatchPlay(
       }
     }
 
-    const strkA = strokesMatchPlayEnHoyo(diffA, hole.stroke_index)
-    const strkB = strokesMatchPlayEnHoyo(diffB, hole.stroke_index)
+    const strkA = strokesMatchPlayEnHoyo(diffA, siAlloc[hole.numero] ?? hole.stroke_index)
+    const strkB = strokesMatchPlayEnHoyo(diffB, siAlloc[hole.numero] ?? hole.stroke_index)
 
     // Concesiones — R&A 3.2c: cuando un hoyo se concede, ningún score se registra
     if (concededA) {

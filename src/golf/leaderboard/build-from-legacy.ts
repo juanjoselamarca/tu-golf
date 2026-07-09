@@ -6,6 +6,7 @@
 // playerId→index del ranking primario (para mostrar grupos).
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
@@ -42,6 +43,10 @@ export function buildLeaderboardFromLegacy(
   const isMultiRound = tournamentTotalRounds > 1
   const withRounds = dbPlayers.filter((p) => p.rounds?.length > 0)
   const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
+  // SI normalizado a permutación 1..N para alocar golpes (mismo motivo que
+  // build-from-ronda-libre: SI 18h-impar en loop de 9h perdía golpes). No-op si
+  // el SI ya es permutación válida. No cambia el SI que se MUESTRA.
+  const siAlloc = normalizedStrokeIndexByHole(courseHoles, totalHoyos)
 
   // ── Entries crudos (multi-round aware). ──
   // Cada entry incluye también su dbPlayerId para reconstruir playerIdToIndex
@@ -87,7 +92,7 @@ export function buildLeaderboardFromLegacy(
           if (gross === 0) return 0
           const hole = holeMap.get(h)
           if (!hole) return 0
-          return puntosStablefordHoyo(gross, hole.par, hcp, hole.stroke_index)
+          return puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
         })
       : []
 
@@ -173,8 +178,8 @@ export function buildLeaderboardFromLegacy(
         if (!hole) continue
         hoyosComp++
         overUnderGross += hs.gross_score - hole.par
-        overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(hcp, hole.stroke_index)) - hole.par
-        totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, hole.stroke_index)
+        overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)) - hole.par
+        totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
       }
 
       const currentScore = formatoJuego === 'stableford'

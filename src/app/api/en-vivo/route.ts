@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularScoreRonda } from '@/golf/core/round-score'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,10 +107,12 @@ export async function GET(request: Request) {
         let stablefordPts = 0
         if (isStableford) {
           const hcp = Math.round(j.handicap ?? 0)
+          // SI normalizado (permutación 1..N) para alocar golpes de stableford (idempotente).
+          const siMapNorm = normalizeStrokeIndexMap(siMap, totalHoles)
           for (let h = 1; h <= totalHoles; h++) {
             const s = scores[String(h)] ?? (scores as Record<number, number>)[h]
             if (s != null && s > 0) {
-              stablefordPts += puntosStablefordHoyo(s, parMap[h] ?? 4, hcp, siMap[h] ?? h, totalHoles)
+              stablefordPts += puntosStablefordHoyo(s, parMap[h] ?? 4, hcp, siMapNorm[h] ?? siMap[h] ?? h, totalHoles)
             }
           }
         }
