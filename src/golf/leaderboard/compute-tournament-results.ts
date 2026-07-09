@@ -65,15 +65,6 @@ function formatVsPar(vsPar: number): string {
 }
 
 /**
- * Podio de parejas para torneos por equipos. Toma los standings YA ordenados y
- * con desempate aplicado (el mismo `ordered` del board, vía `computeScrambleStandings`
- * etc.) y arma el top-3 en el modo/formato del torneo. Fuente única del "quién ganó"
- * de equipos — evita el podio individual que mostraba `computeTournamentResults`.
- *
- * @returns TournamentResultados con `teamPodium` seteado y el podio individual en
- *          null, o `null` si ningún equipo jugó.
- */
-/**
  * Convierte standings de equipo YA ordenados (con desempate) en entradas de
  * podio, en el modo/formato del torneo. Fuente única del "quién ganó" de equipos:
  * la usan el podio de resultados (limit 3) y la tarjeta de compartir (limit 5).
@@ -99,6 +90,12 @@ export function buildTeamPodium(
     }))
 }
 
+/**
+ * Resultados de un torneo por equipos: arma el podio de parejas (top-3) desde
+ * los standings YA ordenados con desempate. Devuelve un TournamentResultados con
+ * `teamPodium` seteado y el podio individual en null, o `null` si ningún equipo
+ * jugó. Reemplaza al podio individual que mostraba `computeTournamentResults`.
+ */
 export function computeTeamTournamentResults(
   orderedTeams: TeamStandingForPodium[],
   memberNames: Record<string, string[]>,

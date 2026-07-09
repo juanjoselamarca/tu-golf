@@ -47,7 +47,7 @@ import {
   type TournamentLeaderboardContext,
   type TeamStandingForPodium,
 } from '@/golf/leaderboard'
-import { isTeamFormat } from '@/golf/formats'
+import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 
 import { TournamentHeader } from './components/TournamentHeader'
 import { TournamentResults } from './components/TournamentResults'
@@ -158,7 +158,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     //  - scramble/foursome: un score COMPARTIDO por equipo por hoyo (cambia el motor).
     //  - best_ball: score INDIVIDUAL por jugador; el motor toma la mejor bola
     //    neta por hoyo (paridad exacta con la tarjeta en cancha).
-    if (formatoJuego === 'scramble' || formatoJuego === 'foursome') {
+    if (isSharedBallFormat(formatoJuego)) {
       const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
       if (teams.length > 0) {
         const ordered = formatoJuego === 'foursome'
