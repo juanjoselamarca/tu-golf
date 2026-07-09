@@ -49,29 +49,11 @@ export async function setPlayerTeeId(
   if (error) throw new Error(error.message)
 }
 
-export interface InscribePlayerInput {
-  tournament_id: string
-  profile_id: string
-  category_id: string | null
-  handicap_at_registration: number | null
-}
-
-export async function inscribePlayer(
-  supabase: SupabaseClient,
-  input: InscribePlayerInput
-): Promise<{ id: string }> {
-  const { data, error } = await supabase
-    .from('players')
-    .insert([{
-      tournament_id: input.tournament_id,
-      profile_id: input.profile_id,
-      category_id: input.category_id,
-      handicap_at_registration: input.handicap_at_registration,
-      status: 'approved',
-    }])
-  if (error) throw new Error(error.message)
-  return { id: (data as unknown as Array<{ id: string }>)?.[0]?.id ?? '' }
-}
+// NOTA: la inscripción canónica (INSERT en `players` + `rounds` + validación de
+// cupo/status) vive en `./enrollPlayer.ts` (fuente única usada por los 3 caminos:
+// self-service, alta registrado del organizador, alta invitado). El antiguo
+// `inscribePlayer` de acá insertaba una columna inexistente (`profile_id`) y no
+// validaba cupo — era dead code que parecía la solución correcta. Eliminado.
 
 export async function withdrawPlayer(supabase: SupabaseClient, playerId: string): Promise<void> {
   const { error } = await supabase

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
-  listPlayers, setPlayerTeeId, inscribePlayer,
+  listPlayers, setPlayerTeeId,
   withdrawPlayer, disqualifyPlayer,
 } from './players'
 
@@ -52,20 +52,6 @@ describe('setPlayerTeeId', () => {
     const eq = vi.fn().mockResolvedValue({ data: null, error: { message: 'boom' } })
     mockFrom.mockReturnValue({ update, eq })
     await expect(setPlayerTeeId(mockSupabase, 'p1', 't-azul')).rejects.toThrow('boom')
-  })
-})
-
-describe('inscribePlayer', () => {
-  it('insert con tournament_id, profile_id, category_id, handicap_at_registration, status approved', async () => {
-    const insert = vi.fn().mockResolvedValue({ data: [{ id: 'p-new' }], error: null })
-    mockFrom.mockReturnValue({ insert })
-    await inscribePlayer(mockSupabase, {
-      tournament_id: 't1', profile_id: 'u1', category_id: 'cat1', handicap_at_registration: 12.3,
-    })
-    expect(insert).toHaveBeenCalledWith([{
-      tournament_id: 't1', profile_id: 'u1', category_id: 'cat1',
-      handicap_at_registration: 12.3, status: 'approved',
-    }])
   })
 })
 

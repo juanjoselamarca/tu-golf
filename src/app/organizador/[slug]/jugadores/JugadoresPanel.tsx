@@ -12,6 +12,7 @@ import { useTournamentLifecycle } from './hooks/useTournamentLifecycle'
 import { TeesAssignmentSection } from './components/TeesAssignmentSection'
 import { TournamentInvitationCard } from './components/TournamentInvitationCard'
 import { InscribirPlayerForm, type InscribirMode } from './components/InscribirPlayerForm'
+import { CupoSection } from './components/CupoSection'
 import { GroupsSection } from './components/GroupsSection'
 import { PlayersTable } from './components/PlayersTable'
 import { TournamentActionsBar } from './components/TournamentActionsBar'
@@ -135,6 +136,12 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         {tournament.codigo && (
           <TournamentInvitationCard slug={tournament.slug} codigo={tournament.codigo} />
         )}
+
+        <CupoSection
+          slug={tournament.slug}
+          initialMax={tournament.max_players ?? null}
+          approvedCount={players.filter((p) => p.status === 'approved').length}
+        />
 
         <InscribirPlayerForm
           dropdownRef={dropdownRef}

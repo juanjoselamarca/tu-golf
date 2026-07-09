@@ -15,12 +15,11 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { enrollPlayer, isInscribibleStatus, type EnrollResult } from './enrollPlayer'
 
 const PUBLIC_VISIBLE_STATUSES = ['open', 'in_progress', 'closed', 'published'] as const
-const INSCRIBIBLE_STATUSES = ['open'] as const
 
 type PublicStatus = (typeof PUBLIC_VISIBLE_STATUSES)[number]
-type InscribibleStatus = (typeof INSCRIBIBLE_STATUSES)[number]
 
 export interface JoinInfoCourse {
   nombre: string
@@ -59,17 +58,13 @@ function isVisibleToUser(t: { status: string; organizer_id: string }, userId: st
   return t.organizer_id === userId
 }
 
-function isInscribibleStatus(status: string): status is InscribibleStatus {
-  return (INSCRIBIBLE_STATUSES as readonly string[]).includes(status)
-}
-
 /**
  * ¿Un torneo en este estado acepta auto-inscripción? Fuente de verdad única
  * compartida con la UI (`/torneo/[slug]/unirse`) para que el botón nunca
- * contradiga al backend. Espejo booleano de `isInscribibleStatus`.
+ * contradiga al backend.
  */
 export function esInscribible(status: string): boolean {
-  return (INSCRIBIBLE_STATUSES as readonly string[]).includes(status)
+  return isInscribibleStatus(status)
 }
 
 export async function fetchJoinInfo(
@@ -106,14 +101,15 @@ export async function fetchJoinInfo(
   }
 }
 
-export type RegisterResult =
-  | { ok: true; playerId: string }
-  | {
-      ok: false
-      reason: 'already_registered' | 'not_inscribible' | 'forbidden' | 'invalid_data' | 'tournament_full' | 'unknown'
-      message: string
-    }
+/** @deprecated Usar `EnrollResult` de `./enrollPlayer`. Alias por compatibilidad. */
+export type RegisterResult = EnrollResult
 
+/**
+ * Inscripción self-service (jugador se anota solo desde `/torneo/[slug]/unirse`).
+ * Wrapper delgado sobre la fuente única `enrollPlayer`: aplica el gate de status
+ * ('open') y el cupo. El course handicap ya viene resuelto por el route handler
+ * con `resolverCourseHandicap` (misma fórmula que usa el organizador).
+ */
 export async function registerPlayerAndRound(
   admin: SupabaseClient,
   args: {
@@ -123,92 +119,11 @@ export async function registerPlayerAndRound(
     courseHandicap: number | null
   }
 ): Promise<RegisterResult> {
-  if (!isInscribibleStatus(args.tournamentStatus)) {
-    return {
-      ok: false,
-      reason: 'not_inscribible',
-      message:
-        args.tournamentStatus === 'draft'
-          ? 'Este torneo todavía no está disponible para inscripciones.'
-          : 'Este torneo ya no admite nuevas inscripciones.',
-    }
-  }
-
-  // Cupo máximo: si el torneo define `max_players`, no aceptar más inscritos que
-  // el tope (el wizard configura "cupo máximo" y antes no se respetaba). Sólo
-  // cuenta a los inscritos activos ('approved'); 'waitlist'/'withdrawn' no ocupan
-  // cupo. Chequeo no-atómico: bajo concurrencia extrema podría colarse 1 de más,
-  // despreciable a la cadencia de inscripción de un torneo (TODO ola 4: constraint DB).
-  const { data: tRow } = await admin
-    .from('tournaments')
-    .select('max_players')
-    .eq('id', args.tournamentId)
-    .single()
-  const maxPlayers = (tRow as { max_players: number | null } | null)?.max_players ?? null
-  if (maxPlayers != null && maxPlayers > 0) {
-    const { count } = await admin
-      .from('players')
-      .select('id', { count: 'exact', head: true })
-      .eq('tournament_id', args.tournamentId)
-      .eq('status', 'approved')
-    if ((count ?? 0) >= maxPlayers) {
-      return {
-        ok: false,
-        reason: 'tournament_full',
-        message: `El torneo alcanzó su cupo máximo (${maxPlayers} jugadores).`,
-      }
-    }
-  }
-
-  const { data: player, error: pErr } = await admin
-    .from('players')
-    .insert({
-      tournament_id: args.tournamentId,
-      user_id: args.userId,
-      handicap_at_registration: args.courseHandicap,
-      status: 'approved',
-    })
-    .select('id')
-    .single()
-
-  if (pErr || !player) {
-    const msg = pErr?.message?.toLowerCase() || ''
-    const code = pErr?.code
-    if (code === '23505' || msg.includes('duplicate') || msg.includes('unique'))
-      return { ok: false, reason: 'already_registered', message: 'Ya estás inscrito en este torneo.' }
-    if (code === '42501' || msg.includes('permission') || msg.includes('policy'))
-      return {
-        ok: false,
-        reason: 'forbidden',
-        message: 'No tienes permiso para inscribirte. Contacta al organizador del torneo.',
-      }
-    if (msg.includes('violates check') || msg.includes('not-null') || msg.includes('not null'))
-      return {
-        ok: false,
-        reason: 'invalid_data',
-        message: 'Faltan datos en tu perfil. Verifica que tengas nombre y handicap configurados.',
-      }
-    return {
-      ok: false,
-      reason: 'unknown',
-      message: `No se pudo completar la inscripción: ${pErr?.message || 'error desconocido'}. Intenta nuevamente.`,
-    }
-  }
-
-  const { error: rErr } = await admin.from('rounds').insert({
-    tournament_id: args.tournamentId,
-    player_id: (player as { id: string }).id,
-    status: 'in_progress',
+  return enrollPlayer(admin, {
+    tournamentId: args.tournamentId,
+    tournamentStatus: args.tournamentStatus,
+    identity: { kind: 'registered', userId: args.userId },
+    handicapAtRegistration: args.courseHandicap,
+    enforceStatusGate: true,
   })
-
-  // No abortamos si el round falla — el player ya quedó inscrito. El round se puede
-  // re-crear desde el endpoint de score o regenerar por el organizador. Loggeamos
-  // si Sentry está disponible; en otros contextos el error se propaga silencioso
-  // (mismo comportamiento que el page original). TODO ola 4: RPC atomica.
-  if (rErr) {
-    // eslint-disable-next-line no-console
-    console.warn('[joinFlow] rounds insert failed:', rErr.message)
-  }
-
-  return { ok: true, playerId: (player as { id: string }).id }
 }
