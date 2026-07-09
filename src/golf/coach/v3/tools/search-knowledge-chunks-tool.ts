@@ -23,13 +23,19 @@ export const SEARCH_KNOWLEDGE_TOOL: Anthropic.Tool = {
     'pressure, self-talk, first-tee nerves). ' +
     'Use this WHENEVER a coaching answer would be grounded by an established rule, strategy ' +
     'principle, or mental-game concept — anchor the retrieved principle to THIS player\'s own ' +
-    'pattern/data, never as a generic quote. Returns relevant chunks with breadcrumb citations.',
+    'pattern/data, never as a generic quote. Returns relevant chunks with breadcrumb citations. ' +
+    'IMPORTANT: the corpus is written in SPANISH prose, so the `query` MUST be in Spanish AND ' +
+    'phrased as a natural question or sentence (e.g. "¿cómo manejo los nervios en los últimos ' +
+    'hoyos?"), NOT a bag of keywords ("nervios presión últimos hoyos rutina") — an English query ' +
+    'or a keyword list returns zero results.',
   input_schema: {
     type: 'object',
     properties: {
       query: {
         type: 'string',
-        description: 'Natural language query in Spanish or English.',
+        description:
+          'Natural-language query. MUST be written in SPANISH — the corpus is Spanish, ' +
+          'so an English query returns zero results.',
       },
       jurisdictions: {
         type: 'array',
