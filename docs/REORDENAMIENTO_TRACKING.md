@@ -134,6 +134,24 @@ Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones
 | `coach/metrics/helpers.ts` | ✅ re-exporta la canónica (no rompe `import { STANDARD_PARS } from '@/golf/coach/metrics'`) |
 | `src/golf/core/compare.ts` (fallback `par_total ?? (holes<=9?36:72)` y `?? 4` / `push(4)`) | ⏳ pendiente — **write/scoring path app-wide** (leaderboards/resultados), y usa OTRO modelo de fallback (flat-4, no el layout estándar). Migrar/reconciliar al tocar ese flujo de scoring. Gap latente conocido: un hoyo sin par da vsPar layout-aware en el motor del coach pero flat-4 en leaderboards. |
 
+### Concepto "inscribir un jugador a un torneo" → `enrollPlayer()` en `src/lib/data/tournaments/enrollPlayer.ts`
+
+Antes: 3 caminos insertaban en `players`+`rounds` reimplementando la lógica, y el cupo (`max_players`) se validaba SOLO en self-service. Fuente única creada (feat/cupo-inscripcion, jul-2026); política de cupo "bloquear + ampliar" (decisión PM 2026-07-09).
+
+| Sitio | Estado |
+|---|---|
+| `src/lib/data/tournaments/enrollPlayer.ts` (canónica: `enrollPlayer` + `tournamentCapacity`) | ✅ creado — gate status + cupo + INSERT players/rounds en un lugar |
+| `src/lib/data/tournaments/cupo.ts` (`updateMaxPlayers`, valida no-bajar-de-inscritos) | ✅ creado |
+| Camino A — self-service (`joinFlow.registerPlayerAndRound`) | ✅ migrado — wrapper delgado sobre `enrollPlayer` |
+| Camino B — alta registrado del organizador (`usePlayers.inscribirPlayer`) | ✅ migrado — POST `/api/torneos/[slug]/players` → `enrollPlayer` (cupo enforced) |
+| Camino B — alta invitado del organizador (`usePlayers.inscribirGuest`) | ✅ migrado — mismo endpoint (cupo enforced) |
+| `players.ts::inscribePlayer` (dead code, insertaba `profile_id` inexistente) | ✅ eliminado (era trampa "parece canónico") |
+| `calcCourseHandicap` duplicado (18h only) en `usePlayers` | ✅ eliminado — course handicap ahora vía `resolverCourseHandicap` (fuente única 9h/18h) en el endpoint |
+| **Cupo atómico** (check-then-insert, race bajo concurrencia) | ⏳ pendiente — constraint/trigger DB `count(approved)<=max_players`. Riesgo bajo a cadencia de inscripción; documentado en `enrollPlayer.tournamentCapacity`. |
+| **RPC transaccional** players+rounds (hoy round es best-effort) | ⏳ pendiente — un jugador puede quedar sin `rounds` si el 2º insert falla (comportamiento preexistente, no regresión) |
+| **Gate de status en camino organizador** | ⏳ decisión PM pendiente — hoy `enforceStatusGate:false` (el organizador puede inscribir en draft/open; NO se bloquea en closed/published). Definir si el organizador debe bloquearse en algún status. |
+| Camino C — grupos/parejas (`useGroups` + `groups.ts::createGroup/assignPlayerToGroup` muertos) | ⏳ pendiente — no toca cupo; consolidar `useGroups` → endpoint sobre `groups.ts` al tocar ese flujo |
+
 ### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
 
 | Sitio | Estado |

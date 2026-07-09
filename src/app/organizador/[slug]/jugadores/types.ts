@@ -24,6 +24,8 @@ export interface Tournament {
   course_id: string
   status: string
   format?: string
+  /** Cupo máximo de inscritos. null = sin tope. Editable por el organizador. */
+  max_players?: number | null
   team_config?: TeamConfig | null
   courses: Course
   course_name?: string
