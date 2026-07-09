@@ -106,7 +106,12 @@ export function rankEntries(
     primaryScore: primaryScoreFor(s.entry, mode),
   }))
 
-  const cbResults = resolveLeaderboardTies(cbPlayers, cbMode)
+  // holeCount = nº de hoyos de la ronda (9 o 18). Los builders rellenan `scores`
+  // a `totalHoyos` con nulls, así que su largo es el nº de hoyos aunque haya
+  // hoyos sin jugar. Necesario para que el countback de 9h use back-6/3/1 en vez
+  // de caer al card-off desde el hoyo 1 (mismo motor hole-count-aware que equipos).
+  const holeCount = entries.reduce((mx, e) => Math.max(mx, e.scores.length), 0) || 18
+  const cbResults = resolveLeaderboardTies(cbPlayers, cbMode, holeCount)
 
   const players: Player[] = []
   const order: number[] = []

@@ -42,6 +42,17 @@ describe('rankEntries — canario del dual leaderboard', () => {
     expect(players[2].name.startsWith('B')).toBe(true)
   })
 
+  it('empate en torneo de 9 hoyos usa countback 9h (últimos 6/3/1), no card-off desde el 1', () => {
+    // Ambos gross 35 (empate). Card-off desde el hoyo 1 daría B (h1: 3<4).
+    // El countback USGA de 9h mira los últimos 6 (h4-9): A=23 < B=24 → A gana.
+    const nine = (name: string, scores: number[]) =>
+      entry({ name, grossTotal: 35, netTotal: 35, holesPlayed: 9, scores })
+    const a = nine('A', [4, 4, 4, 4, 4, 4, 3, 4, 4]) // últimos6 = 23
+    const b = nine('B', [3, 4, 4, 4, 4, 4, 4, 4, 4]) // últimos6 = 24
+    const { players } = rankEntries([b, a], 'gross', { parTotal: 36, formatoJuego: 'stroke_play' })
+    expect(players[0].name.startsWith('A')).toBe(true)
+  })
+
   it('ranking por stableford ordena por mayor puntos', () => {
     const { players } = rankEntries(baseEntries, 'stableford', opts)
     expect(players.map((p) => p.name.split(' ')[0])).toEqual(['C', 'A', 'B'])

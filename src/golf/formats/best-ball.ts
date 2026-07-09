@@ -14,6 +14,7 @@
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { normalizedStrokeIndexByHole } from '../core/stroke-index'
+import { rankTeamsWithCountback } from '../leaderboard/team-tiebreak'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -214,7 +215,8 @@ export function scorePrimarioBestBall(
 }
 
 /**
- * Ordena equipos best ball según formato y modo de juego.
+ * Ordena equipos best ball según formato y modo de juego, con desempate USGA
+ * por countback (mismo motor que el path individual — `team-tiebreak.ts`).
  * Stableford: mayor puntaje primero. Gross/Neto: menor over/under primero.
  */
 export function ordenarEquiposBestBall(
@@ -222,10 +224,10 @@ export function ordenarEquiposBestBall(
   formato: FormatoJuego,
   modo: ModoJuego
 ): BestBallTeamResult[] {
-  return [...teams].sort((a, b) => {
-    const sa = scorePrimarioBestBall(a, formato, modo)
-    const sb = scorePrimarioBestBall(b, formato, modo)
-    if (formato === 'stableford') return sb - sa // DESC
-    return sa - sb // ASC
+  const stableford = formato === 'stableford'
+  return rankTeamsWithCountback(teams, {
+    mode: stableford ? 'higher_wins' : 'lower_wins',
+    primaryScore: (t) => scorePrimarioBestBall(t, formato, modo),
+    holeScores: (t) => t.holes.map((h) => (stableford ? h.teamStableford : modo === 'neto' ? h.teamNeto : h.teamGross) ?? 0),
   })
 }

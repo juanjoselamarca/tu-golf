@@ -3,13 +3,38 @@
 // Resultados oficiales de un torneo cerrado: 1° y 2° gross/neto + stats
 // (promedio de campo, eagles, birdies). Layout compacto premium.
 
-import type { TournamentResultados } from '../types'
+import type { TournamentResultados, TeamPodiumEntry } from '../types'
 
 export interface TournamentResultsProps {
   resultados: TournamentResultados
 }
 
+/** Podio de parejas para torneos por equipos (scramble/foursome/best_ball). */
+function TeamPodium({ podium }: { podium: TeamPodiumEntry[] }) {
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div style={{ borderTop: '1px solid var(--border)', marginBottom: '24px' }} />
+      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>Podio de parejas</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {podium.map((t) => (
+          <div key={t.pos} style={{ display: 'flex', alignItems: 'center', gap: '14px', background: '#f8f9fa', border: `1px solid ${t.pos === 1 ? 'rgba(196,153,42,0.35)' : '#e2e8f0'}`, borderRadius: '10px', padding: '14px 16px' }}>
+            <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '24px', fontWeight: 700, color: t.pos === 1 ? '#c4992a' : '#94a3b8', minWidth: '30px' }}>{t.pos}°</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '15px', color: '#1a1a2e', fontWeight: 700 }}>{t.name}</div>
+              {t.members && <div style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{t.members}</div>}
+            </div>
+            <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '22px', color: '#c4992a', fontWeight: 700 }}>{t.score}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function TournamentResults({ resultados }: TournamentResultsProps) {
+  if (resultados.teamPodium && resultados.teamPodium.length > 0) {
+    return <TeamPodium podium={resultados.teamPodium} />
+  }
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div style={{ borderTop: '1px solid var(--border)', marginBottom: '24px' }} />

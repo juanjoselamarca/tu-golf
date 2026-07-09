@@ -93,6 +93,41 @@ describe('applyCountback', () => {
   })
 })
 
+describe('countback en rondas de 9 hoyos (holeCount)', () => {
+  // Countback USGA de 9h compara los últimos 6 / 3 / 1 hoyos (no back-9/6/3/18,
+  // que quedan fuera de la tarjeta). Sin `holeCount` el motor usaba los rangos
+  // de 18h → todos vacíos en 9h → caía directo al card-off desde el hoyo 1, que
+  // NO es el desempate USGA de 9 hoyos.
+  const make9 = (id: string, scores: number[], primaryScore: number): CountbackPlayer => ({
+    id, name: id.toUpperCase(), scores, primaryScore,
+  })
+
+  it('desempata por los últimos 6 hoyos, no por card-off desde el hoyo 1', () => {
+    // Ambos total 35 (empate). Card-off desde el hoyo 1 daría B (h1: 3<4).
+    // El desempate USGA de 9h mira los últimos 6 (hoyos 4-9): A=23 < B=24 → A gana.
+    const a = make9('a', [4,4,4,4,4,4,3,4,4], 35) // últimos6 (h4-9)=23
+    const b = make9('b', [3,4,4,4,4,4,4,4,4], 35) // últimos6 (h4-9)=24
+    const result = applyCountback([a, b], 'lower_wins', 9)
+    expect(result[0].id).toBe('a')
+    expect(result[0].resolvedByCountback).toBe(true)
+  })
+
+  it('stableford 9h: desempata por los últimos 3, higher wins', () => {
+    // Empate a 18 pts. Últimos 3 (hoyos 7-9): A=8 > B=6 → A gana.
+    const a = make9('a', [2,2,2,2,2,2,2,3,3], 18) // últimos3=8
+    const b = make9('b', [3,3,2,2,2,2,2,2,2], 18) // últimos3=6
+    const result = applyCountback([a, b], 'higher_wins', 9)
+    expect(result[0].id).toBe('a')
+  })
+
+  it('holeCount=18 explícito mantiene el comportamiento de 18h', () => {
+    const a = make9('a', [4,4,4,4,4,4,4,4,4, 4,4,4,4,4,4,4,4,3], 71) // back9=35
+    const b = make9('b', [4,4,4,4,4,4,4,4,4, 4,4,4,4,4,4,4,4,5], 73) // back9=37
+    const result = applyCountback([a, b], 'lower_wins', 18)
+    expect(result[0].id).toBe('a')
+  })
+})
+
 describe('resolveLeaderboardTies', () => {
   it('no toca jugadores sin empate', () => {
     const players = [

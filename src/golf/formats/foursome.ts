@@ -21,6 +21,7 @@
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { courseHandicapParaHoyos } from '../core/course-handicap'
 import { normalizedStrokeIndexByHole } from '../core/stroke-index'
+import { rankTeamsWithCountback } from '../leaderboard/team-tiebreak'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -214,17 +215,18 @@ export function scorePrimarioFoursome(
 }
 
 /**
- * Ordena equipos foursome según formato y modo de juego.
+ * Ordena equipos foursome según formato y modo de juego, con desempate USGA
+ * por countback (mismo motor que el path individual — `team-tiebreak.ts`).
  */
 export function ordenarEquiposFoursome(
   teams: FoursomeTeamResult[],
   formato: FormatoJuego,
   modo: ModoJuego
 ): FoursomeTeamResult[] {
-  return [...teams].sort((a, b) => {
-    const sa = scorePrimarioFoursome(a, formato, modo)
-    const sb = scorePrimarioFoursome(b, formato, modo)
-    if (formato === 'stableford') return sb - sa // DESC
-    return sa - sb // ASC — menor es mejor
+  const stableford = formato === 'stableford'
+  return rankTeamsWithCountback(teams, {
+    mode: stableford ? 'higher_wins' : 'lower_wins',
+    primaryScore: (t) => scorePrimarioFoursome(t, formato, modo),
+    holeScores: (t) => t.holes.map((h) => (stableford ? h.stableford : modo === 'neto' ? h.neto : h.gross) ?? 0),
   })
 }

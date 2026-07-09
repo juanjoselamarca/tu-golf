@@ -42,23 +42,34 @@ function sumRange(scores: number[], from: number, to: number): number {
 }
 
 /**
+ * Segmentos de countback USGA según el nº de hoyos de la ronda.
+ * Se comparan los últimos 9/6/3/1 hoyos (18h) o los últimos 6/3/1 (9h): un
+ * segmento igual o mayor que la ronda se descarta (repetiría la tarjeta entera,
+ * que es el empate mismo). En 18h da exactamente [10,18],[13,18],[16,18],[18,18].
+ */
+function countbackSegments(holeCount: number): [number, number][] {
+  return [9, 6, 3, 1]
+    .filter((k) => k < holeCount)
+    .map((k) => [holeCount - k + 1, holeCount] as [number, number])
+}
+
+/**
  * Compara dos jugadores empatados por countback.
  * Retorna <0 si a gana, >0 si b gana, 0 si siguen empatados.
+ *
+ * `holeCount` = nº de hoyos de la ronda (18 o 9). Determina los segmentos de
+ * back-count; por defecto 18 para no cambiar el path de 18 hoyos.
  */
 function compareCountback(
   a: CountbackPlayer,
   b: CountbackPlayer,
-  mode: CountbackMode
+  mode: CountbackMode,
+  holeCount: number = 18
 ): number {
   const sign = mode === 'higher_wins' ? -1 : 1
 
-  // Rangos de countback USGA
-  const ranges: [number, number][] = [
-    [10, 18], // back 9
-    [13, 18], // back 6
-    [16, 18], // back 3
-    [18, 18], // hole 18
-  ]
+  // Rangos de countback USGA relativos al nº de hoyos jugados.
+  const ranges = countbackSegments(holeCount)
 
   for (const [from, to] of ranges) {
     const sumA = sumRange(a.scores, from, to)
@@ -85,7 +96,8 @@ function compareCountback(
  */
 export function applyCountback(
   players: CountbackPlayer[],
-  mode: CountbackMode = 'lower_wins'
+  mode: CountbackMode = 'lower_wins',
+  holeCount: number = 18
 ): CountbackResult[] {
   if (players.length <= 1) {
     return players.map((p) => ({
@@ -97,13 +109,13 @@ export function applyCountback(
     }))
   }
 
-  const sorted = [...players].sort((a, b) => compareCountback(a, b, mode))
+  const sorted = [...players].sort((a, b) => compareCountback(a, b, mode, holeCount))
 
   return sorted.map((p, idx) => {
     // Verificar si realmente se separó de los demás
     const stillTied =
-      (idx > 0 && compareCountback(sorted[idx - 1], p, mode) === 0) ||
-      (idx < sorted.length - 1 && compareCountback(p, sorted[idx + 1], mode) === 0)
+      (idx > 0 && compareCountback(sorted[idx - 1], p, mode, holeCount) === 0) ||
+      (idx < sorted.length - 1 && compareCountback(p, sorted[idx + 1], mode, holeCount) === 0)
 
     const wasResolved = !stillTied && players.length > 1
 
@@ -127,7 +139,8 @@ export function applyCountback(
  */
 export function resolveLeaderboardTies(
   players: CountbackPlayer[],
-  mode: CountbackMode = 'lower_wins'
+  mode: CountbackMode = 'lower_wins',
+  holeCount: number = 18
 ): CountbackResult[] {
   const results: CountbackResult[] = []
 
@@ -149,7 +162,7 @@ export function resolveLeaderboardTies(
         annotation: '',
       })
     } else {
-      results.push(...applyCountback(tiedGroup, mode))
+      results.push(...applyCountback(tiedGroup, mode, holeCount))
     }
 
     i = j

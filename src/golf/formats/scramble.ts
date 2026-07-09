@@ -19,6 +19,7 @@
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 import { courseHandicapParaHoyos } from '../core/course-handicap'
 import { normalizedStrokeIndexByHole } from '../core/stroke-index'
+import { rankTeamsWithCountback } from '../leaderboard/team-tiebreak'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 
 // ─── Types ───
@@ -203,17 +204,18 @@ export function scorePrimarioScramble(
 }
 
 /**
- * Ordena equipos scramble según formato y modo de juego.
+ * Ordena equipos scramble según formato y modo de juego, con desempate USGA
+ * por countback (mismo motor que el path individual — `team-tiebreak.ts`).
  */
 export function ordenarEquiposScramble(
   teams: ScrambleTeamResult[],
   formato: FormatoJuego,
   modo: ModoJuego
 ): ScrambleTeamResult[] {
-  return [...teams].sort((a, b) => {
-    const sa = scorePrimarioScramble(a, formato, modo)
-    const sb = scorePrimarioScramble(b, formato, modo)
-    if (formato === 'stableford') return sb - sa
-    return sa - sb
+  const stableford = formato === 'stableford'
+  return rankTeamsWithCountback(teams, {
+    mode: stableford ? 'higher_wins' : 'lower_wins',
+    primaryScore: (t) => scorePrimarioScramble(t, formato, modo),
+    holeScores: (t) => t.holes.map((h) => (stableford ? h.stableford : modo === 'neto' ? h.neto : h.gross) ?? 0),
   })
 }
