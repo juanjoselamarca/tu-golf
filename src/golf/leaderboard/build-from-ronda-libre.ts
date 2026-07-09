@@ -6,6 +6,7 @@
 // de GWI para el live tracker.
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBRondaLibreJugador } from '@/app/torneo/[slug]/types'
@@ -33,6 +34,12 @@ export function buildLeaderboardFromRondaLibre(
 ): RondaLibreLeaderboardOutput {
   const { parTotal, totalHoyos, modoJuego, formatoJuego, courseHoles } = ctx
   const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
+  // Normaliza el stroke_index a permutación 1..N para ALOCAR golpes: garantiza
+  // que Σ golpes == course handicap de la ronda aunque el SI de catálogo sea
+  // 18h-impar en un loop de 9h (bug "net +12 Don Jorge" en el path de equipos,
+  // #245/#246 — aquí el gemelo individual). No cambia el SI que se MUESTRA.
+  // No-op si el SI ya es una permutación válida (18h post-migración de catálogo).
+  const siAlloc = normalizedStrokeIndexByHole(courseHoles, totalHoyos)
 
   // ── Entries crudos (cero sort, cero countback, cero conversión a Player). ──
   const entries: LeaderboardEntry[] = jugadores.map((j) => {
@@ -47,9 +54,9 @@ export function buildLeaderboardFromRondaLibre(
         scoreArr[h - 1] = gross
         grossTotal += gross
         const hole = holeMap.get(h)
-        const strokes = hole ? strokesRecibidosEnHoyo(hcp, hole.stroke_index) : 0
+        const strokes = hole ? strokesRecibidosEnHoyo(hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos) : 0
         netTotal += gross - strokes
-        if (hole) stablefordTotal += puntosStablefordHoyo(gross, hole.par, hcp, hole.stroke_index)
+        if (hole) stablefordTotal += puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
         holesPlayed++
       }
     }
@@ -65,7 +72,7 @@ export function buildLeaderboardFromRondaLibre(
           if (gross === 0) return 0
           const hole = holeMap.get(h)
           if (!hole) return 0
-          return puntosStablefordHoyo(gross, hole.par, hcp, hole.stroke_index)
+          return puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
         })
       : []
 
@@ -109,8 +116,8 @@ export function buildLeaderboardFromRondaLibre(
       if (!hole) continue
       hoyosComp++
       overUnderGross += gross - hole.par
-      overUnderNeto += (gross - strokesRecibidosEnHoyo(hcp, hole.stroke_index)) - hole.par
-      totalSF += puntosStablefordHoyo(gross, hole.par, hcp, hole.stroke_index)
+      overUnderNeto += (gross - strokesRecibidosEnHoyo(hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)) - hole.par
+      totalSF += puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
     }
 
     const currentScore = formatoJuego === 'stableford'

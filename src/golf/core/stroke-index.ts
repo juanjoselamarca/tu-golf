@@ -202,8 +202,17 @@ export function normalizeStrokeIndexMap(
  */
 export function normalizedStrokeIndexByHole(
   holes: Array<{ numero: number; stroke_index: number }>,
+  holeCount?: number,
 ): Record<number, number> {
-  const ordered = [...holes].sort((a, b) => a.numero - b.numero)
+  // Rankea SÓLO sobre los hoyos que se juegan en el round. Si se pasa `holeCount`
+  // y el array trae más hoyos que eso (ej. `courseHoles` = 18 filas en un torneo
+  // de 9h, o el snapshot de cancha completo), se descartan los hoyos con
+  // `numero > holeCount` ANTES de rankear. Sin esto, un stroke_index ya válido
+  // 1..18 es no-op y los hoyos del front-9 conservan sus valores esparcidos
+  // (1,3,5,…) → con el tope `roundHoles` el 9h sigue perdiendo golpes en silencio.
+  // Espejo del comportamiento de `normalizeStrokeIndexMap`, que sólo mira 1..holeCount.
+  const inRound = holeCount != null ? holes.filter((h) => h.numero <= holeCount) : holes
+  const ordered = [...inRound].sort((a, b) => a.numero - b.numero)
   const byPosition: Record<number, number> = {}
   ordered.forEach((h, i) => {
     byPosition[i + 1] = h.stroke_index

@@ -7,6 +7,7 @@ import type { LeaderboardShareData } from '@/lib/share-card'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { isTeamFormat } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
@@ -91,6 +92,9 @@ export function buildShareText(
   }
 
   const isStab = ronda.formato_juego === 'stableford'
+  // SI normalizado (permutación 1..N) para alocar golpes de stableford: Σ == course
+  // handicap aunque el SI de catálogo sea 18h-impar en 9h. Idempotente. No cambia el SI mostrado.
+  const siMapNorm = normalizeStrokeIndexMap(siMap, ronda.holes)
   const leader = [...jugadores]
     .map(j => {
       let gross = 0, parTotal = 0, holesPlayed = 0, stabPts = 0
@@ -99,7 +103,7 @@ export function buildShareText(
         const s = j.scores?.[String(h)] ?? j.scores?.[h]
         if (s != null) {
           gross += s; parTotal += parMap[h] ?? 4; holesPlayed++
-          if (isStab) stabPts += puntosStablefordHoyo(s, parMap[h] ?? 4, ch, siMap[h] ?? h, ronda.holes)
+          if (isStab) stabPts += puntosStablefordHoyo(s, parMap[h] ?? 4, ch, siMapNorm[h] ?? siMap[h] ?? h, ronda.holes)
         }
       }
       const vsPar = gross - parTotal

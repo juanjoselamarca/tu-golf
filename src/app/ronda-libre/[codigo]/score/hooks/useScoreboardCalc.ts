@@ -19,6 +19,7 @@
 
 import { useMemo } from 'react'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getMissingHoles } from '@/lib/ronda/helpers'
 
@@ -156,23 +157,28 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     }
 
     const hcpForPlayer = playerHcp[activeJugadorId] ?? 0
-    const strokesOnHole = strokesRecibidosEnHoyo(hcpForPlayer, holeData.stroke_index)
+    // SI normalizado (permutación 1..N) para ALOCAR golpes: Σ == course handicap
+    // aunque el SI de catálogo sea 18h-impar en un loop de 9h. No-op si ya es
+    // válido. El SI que se muestra (columna del scorecard) no cambia.
+    const siAlloc = normalizedStrokeIndexByHole(Object.values(holeDataMap), totalHoles)
+    const siCurrent = siAlloc[currentHole] ?? holeData.stroke_index
+    const strokesOnHole = strokesRecibidosEnHoyo(hcpForPlayer, siCurrent, totalHoles)
 
     const jug = rondaJugadores ?? jugadores
     const rivalId = jug.length === 2 ? jug.find(j => j.id !== activeJugadorId)?.id : null
     const rivalHcp = rivalId ? (playerHcp[rivalId] ?? 0) : 0
 
     const strokeAdvantageOn = (si: number): boolean => {
-      if (modoJuego === 'gross' || jug.length !== 2) return strokesRecibidosEnHoyo(hcpForPlayer, si) > 0
-      const myStrokes = strokesRecibidosEnHoyo(hcpForPlayer, si)
-      const theirStrokes = strokesRecibidosEnHoyo(rivalHcp, si)
+      if (modoJuego === 'gross' || jug.length !== 2) return strokesRecibidosEnHoyo(hcpForPlayer, si, totalHoles) > 0
+      const myStrokes = strokesRecibidosEnHoyo(hcpForPlayer, si, totalHoles)
+      const theirStrokes = strokesRecibidosEnHoyo(rivalHcp, si, totalHoles)
       return myStrokes > theirStrokes
     }
-    const strokeAdvantageOnHole = strokeAdvantageOn(holeData.stroke_index)
+    const strokeAdvantageOnHole = strokeAdvantageOn(siCurrent)
 
     const currentNetScore = score != null ? score - strokesOnHole : null
     const currentNetDiff = currentNetScore != null ? currentNetScore - par : null
-    const currentStablefordPts = score != null ? puntosStablefordHoyo(score, par, hcpForPlayer, holeData.stroke_index) : null
+    const currentStablefordPts = score != null ? puntosStablefordHoyo(score, par, hcpForPlayer, siCurrent, totalHoles) : null
 
     let totalNet = 0, totalNetPar = 0, totalStableford = 0
     let missingStrokeIndex = false
@@ -181,11 +187,11 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
       if (s != null) {
         const hd = holeDataMap[h]
         if (!hd?.stroke_index && (modoJuego === 'neto' || formatoJuego === 'stableford')) missingStrokeIndex = true
-        const si = hd?.stroke_index ?? h
-        const strk = strokesRecibidosEnHoyo(hcpForPlayer, si)
+        const si = siAlloc[h] ?? hd?.stroke_index ?? h
+        const strk = strokesRecibidosEnHoyo(hcpForPlayer, si, totalHoles)
         totalNet += s - strk
         totalNetPar += parMap[h] ?? 4
-        totalStableford += puntosStablefordHoyo(s, parMap[h] ?? 4, hcpForPlayer, si)
+        totalStableford += puntosStablefordHoyo(s, parMap[h] ?? 4, hcpForPlayer, si, totalHoles)
       }
     }
     const totalNetOverUnder = totalNet - totalNetPar

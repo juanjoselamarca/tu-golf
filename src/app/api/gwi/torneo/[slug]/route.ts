@@ -4,6 +4,7 @@ import {
   strokesRecibidosEnHoyo,
   puntosStablefordHoyo,
 } from '@/golf/core/scoring'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
@@ -114,15 +115,19 @@ export async function GET(
       const holeScores = round?.hole_scores ?? []
 
       let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0, hoyosCompletados = 0
+      // SI normalizado sobre los hoyos del round (idempotente). `totalHoyos` evita
+      // rankear sobre 18 cuando la cancha tiene 18 filas pero el torneo es de 9h.
+      const siAlloc = normalizedStrokeIndexByHole(holes, totalHoyos)
 
       for (const hs of holeScores) {
         if (!hs.gross_score) continue
         const hole = holes.find(h => h.numero === hs.hole_number)
         if (!hole) continue
         hoyosCompletados++
+        const siHoyo = siAlloc[hole.numero] ?? hole.stroke_index
         overUnderGross  += hs.gross_score - hole.par
-        overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(hcp, hole.stroke_index)) - hole.par
-        totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, hole.stroke_index)
+        overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(hcp, siHoyo, totalHoyos)) - hole.par
+        totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, siHoyo, totalHoyos)
       }
 
       const currentScore = formato === 'stableford' ? totalStableford

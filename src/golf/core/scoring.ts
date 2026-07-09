@@ -4,6 +4,7 @@
 
 import { type ModoJuego, type FormatoJuego, labelResultado } from './rules'
 import { strokesRecibidosEnHoyo } from './stableford-score'
+import { normalizedStrokeIndexByHole } from './stroke-index'
 export { strokesRecibidosEnHoyo } from './stableford-score'
 
 // ─── Score neto de un hoyo ───
@@ -90,6 +91,9 @@ export function calcularResumenRonda(
 ): ResumenRonda {
   void _parTotal
   const totalHoles = holeCount ?? holes.length
+  // SI normalizado (permutación 1..N) para ALOCAR golpes: Σ == course handicap
+  // aunque el SI de catálogo sea 18h-impar en un loop de 9h. No-op si ya es válido.
+  const siAlloc = normalizedStrokeIndexByHole(holes, totalHoles)
   let totalGross = 0, totalNeto = 0, totalStableford = 0
   let parJugado = 0, parTotalRonda = 0
   let albatros = 0, eagles = 0, birdiesGross = 0, birdiesNeto = 0
@@ -100,11 +104,12 @@ export function calcularResumenRonda(
       parTotalRonda += h.par
       const gross = scores[String(h.numero)]
       if (!gross || gross === 0) return null
-      const strokes    = strokesRecibidosEnHoyo(handicapIndex, h.stroke_index, totalHoles)
+      const siHoyo     = siAlloc[h.numero] ?? h.stroke_index
+      const strokes    = strokesRecibidosEnHoyo(handicapIndex, siHoyo, totalHoles)
       const neto       = gross - strokes
       const ouGross    = gross - h.par
       const ouNeto     = neto - h.par
-      const stableford = puntosStablefordHoyo(gross, h.par, handicapIndex, h.stroke_index, totalHoles)
+      const stableford = puntosStablefordHoyo(gross, h.par, handicapIndex, siHoyo, totalHoles)
 
       totalGross      += gross
       totalNeto       += neto

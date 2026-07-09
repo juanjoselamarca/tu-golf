@@ -17,6 +17,7 @@
 import { memo, useState, useEffect } from 'react'
 import ScoreSymbol, { GARMIN_COLORS } from './ScoreSymbol'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 
 const MONO = '"DM Mono", ui-monospace, SFMono-Regular, monospace'
 const SANS = '"DM Sans", system-ui, -apple-system, sans-serif'
@@ -81,13 +82,18 @@ interface HS {
 }
 
 function buildStats(h: ScorecardHole[], sc: Record<string, number>, ch: number, tH: number, fmt: string): HS[] {
+  // SI normalizado a permutación 1..N sólo para ALOCAR golpes (Σ == course
+  // handicap aunque el SI sea 18h-impar en 9h). El SI que se MUESTRA usa
+  // hole.stroke_index crudo (data de catálogo). No-op si el SI ya es válido.
+  const siAlloc = normalizedStrokeIndexByHole(h, tH)
   return h.map(hole => {
     const raw = sc[String(hole.numero)]
     const score = typeof raw === 'number' && raw > 0 ? raw : null
-    const strokes = strokesRecibidosEnHoyo(ch, hole.stroke_index, tH)
+    const siA = siAlloc[hole.numero] ?? hole.stroke_index
+    const strokes = strokesRecibidosEnHoyo(ch, siA, tH)
     const neto = score != null ? score - strokes : null
     const stabPts = score != null && fmt === 'stableford' && hole.par != null
-      ? puntosStablefordHoyo(score, hole.par, ch, hole.stroke_index, tH) : null
+      ? puntosStablefordHoyo(score, hole.par, ch, siA, tH) : null
     return { hole, score, strokes, neto, stabPts, diff: score != null && hole.par != null ? score - hole.par : 0 }
   })
 }

@@ -111,9 +111,16 @@ describe('useScoreboardCalc', () => {
       // currentHole apunta a un hoyo cuyo stroke_index cae en 6..11 (ventaja Juanjo).
       currentHole: 7,
       currentHoleIdx: 6,
-      holeDataMap: {
-        7: { numero: 7, par: 4, stroke_index: 6, yardaje: null },
-      } as Record<number, HoleData>,
+      // Mapa COMPLETO de 18 hoyos (como en prod: useRondaScoreData carga todo el
+      // recorrido). SI = numero con swap 6↔7 → permutación válida donde el hoyo 7
+      // tiene SI 6. La normalización de golpes es no-op sobre un SI ya válido.
+      holeDataMap: Object.fromEntries(
+        Array.from({ length: 18 }, (_, i) => {
+          const numero = i + 1
+          const stroke_index = numero === 6 ? 7 : numero === 7 ? 6 : numero
+          return [numero, { numero, par: 4, stroke_index, yardaje: null }]
+        })
+      ) as Record<number, HoleData>,
     }
     const { result } = renderHook(() => useScoreboardCalc(input))
     expect(result.current.current.strokeAdvantageOnHole).toBe(true)

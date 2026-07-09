@@ -9,6 +9,7 @@ import { addToast } from '@/hooks/useToast'
 import { useScoreSync } from '@/hooks/useScoreSync'
 import { formatLabel } from '@/golf/core/rules'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
@@ -124,7 +125,9 @@ export default function PlayerScoringPage() {
     if (!round) return
     const hole       = courseHoles.find(h => h.numero === holeNumber)
     const par        = hole?.par ?? 4
-    const si         = hole?.stroke_index ?? holeNumber
+    // SI normalizado (permutación 1..N) para alocar golpes: Σ == course handicap
+    // aunque el SI sea 18h-impar en un loop de 9h. El SI mostrado se mantiene crudo.
+    const si         = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNumber] ?? holeNumber
     const holeCount  = tournament.hole_count || 18
     const handicapIndex = player.handicap_at_registration ?? 0
     const strokes    = strokesRecibidosEnHoyo(handicapIndex, si, holeCount)
@@ -174,12 +177,13 @@ export default function PlayerScoringPage() {
           if (!pending) return
           const holeCount = tournament.hole_count || 18
           const handicapIndex = selectedPlayerEarly.handicap_at_registration ?? 0
+          const siAlloc = normalizedStrokeIndexByHole(courseHoles, holeCount)
           let failed = 0
           for (const [h, g] of Object.entries(pending)) {
             const holeNumber = Number(h)
             const hole = courseHoles.find(ch => ch.numero === holeNumber)
             const par = hole?.par ?? 4
-            const si = hole?.stroke_index ?? holeNumber
+            const si = siAlloc[holeNumber] ?? holeNumber
             const strokes = strokesRecibidosEnHoyo(handicapIndex, si, holeCount)
             const netScore = g - strokes
             let points = 0
@@ -299,7 +303,9 @@ export default function PlayerScoringPage() {
               {holes.map(holeNum => {
                 const hole    = courseHoles.find(h => h.numero === holeNum)
                 const par     = hole?.par ?? 4
-                const si      = hole?.stroke_index ?? holeNum
+                // SI normalizado sólo para alocar golpes (stableford); el SI que se
+                // muestra abajo usa hole.stroke_index crudo.
+                const si      = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNum] ?? holeNum
                 const gross   = currentScores[holeNum]
                 const isSaved = savedHoles.has(holeNum)
                 const diff    = gross != null ? gross - par : null

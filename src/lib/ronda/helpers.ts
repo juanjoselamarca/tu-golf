@@ -17,6 +17,7 @@ import type { CSSProperties } from 'react'
 import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult } from '@/golf/core/colors'
 import { calcularScoreRonda } from '@/golf/core/round-score'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { Jugador, TimelineEvent } from '@/types/ronda'
 
 /* ── score/page.tsx helpers ──────────────────────────────────────────── */
@@ -81,11 +82,15 @@ export function getVsParNeto(
   siMap: Record<number, number>,
   courseHandicap: number,
 ): number {
+  // Defensa en profundidad: normaliza el SI a permutación 1..holes para alocar
+  // golpes (Σ == course handicap aunque el SI de catálogo sea 18h-impar en 9h).
+  // Idempotente si el caller ya normalizó (ej. buildLeaderboard pasa siMapNorm).
+  const siMapNorm = normalizeStrokeIndexMap(siMap, holes)
   let total = 0
   for (let h = 1; h <= holes; h++) {
     const s = scores[String(h)] ?? scores[h]
     if (s == null) continue
-    const si = siMap[h] ?? h
+    const si = siMapNorm[h] ?? siMap[h] ?? h
     const strokes = strokesRecibidosEnHoyo(courseHandicap, si, holes)
     const neto = s - strokes
     total += neto - (parMap[h] ?? 4)
