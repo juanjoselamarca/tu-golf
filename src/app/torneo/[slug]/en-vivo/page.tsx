@@ -187,8 +187,8 @@ export default async function LivePage({ params }: PageProps) {
       const formato = liveTournament.format as FormatoJuego
       const modo = liveTournament.modo as ModoJuego
       const ordered = liveTournament.format === 'foursome'
-        ? computeFoursomeStandings(teams, memberNames, holes, parTotal, formato, modo)
-        : computeScrambleStandings(teams, holes, parTotal, formato, modo)
+        ? computeFoursomeStandings(teams, memberNames, holes, parTotal, formato, modo, holeCount)
+        : computeScrambleStandings(teams, holes, parTotal, formato, modo, holeCount)
       liveTeams = scrambleResultsToLiveTeams(ordered, memberNames, liveTournament.modo)
     }
   } else if (liveTournament.format === 'best_ball' && tournament.course_id) {
@@ -203,7 +203,7 @@ export default async function LivePage({ params }: PageProps) {
     if (teams.length > 0) {
       const formato = liveTournament.format as FormatoJuego
       const modo = liveTournament.modo as ModoJuego
-      const ordered = computeBestBallStandings(teams, holes, parTotal, formato, modo)
+      const ordered = computeBestBallStandings(teams, holes, parTotal, formato, modo, holeCount)
       liveTeams = bestBallResultsToLiveTeams(ordered, memberNames, liveTournament.modo)
     }
   }
