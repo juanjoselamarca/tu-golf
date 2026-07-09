@@ -21,10 +21,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 
-/** Estados que aceptan auto-inscripción (self-service). Espejo de joinFlow. */
-const INSCRIBIBLE_STATUSES = ['open'] as const
+/**
+ * Estados de torneo que aceptan auto-inscripción (self-service). FUENTE ÚNICA
+ * del predicado "¿es inscribible?" — `joinFlow.esInscribible` (que gobierna el
+ * botón de la UI `/torneo/[slug]/unirse`) delega acá para que backend y UI nunca
+ * se contradigan.
+ */
+export const INSCRIBIBLE_STATUSES = ['open'] as const
 
-function isInscribibleStatus(status: string): boolean {
+export function isInscribibleStatus(status: string): boolean {
   return (INSCRIBIBLE_STATUSES as readonly string[]).includes(status)
 }
 
@@ -92,16 +97,17 @@ export async function tournamentCapacity(
     .eq('id', tournamentId)
     .single()
   const maxPlayers = (tRow as { max_players: number | null } | null)?.max_players ?? null
-  if (maxPlayers == null || maxPlayers <= 0) {
-    return { full: false, maxPlayers, approved: 0 }
-  }
+  // Contamos SIEMPRE los inscritos activos, aunque no haya tope: `updateMaxPlayers`
+  // usa `approved` para impedir fijar el cupo por debajo de los ya inscritos, y ese
+  // caso ocurre justamente cuando el torneo hoy no tiene tope (max_players null).
   const { count } = await admin
     .from('players')
     .select('id', { count: 'exact', head: true })
     .eq('tournament_id', tournamentId)
     .eq('status', 'approved')
   const approved = count ?? 0
-  return { full: approved >= maxPlayers, maxPlayers, approved }
+  const full = maxPlayers != null && maxPlayers > 0 && approved >= maxPlayers
+  return { full, maxPlayers, approved }
 }
 
 /** Mapea el error de un INSERT en `players` a un EnrollResult tipado. */

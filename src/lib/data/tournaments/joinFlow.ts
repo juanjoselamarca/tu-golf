@@ -15,10 +15,9 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { enrollPlayer, type EnrollResult } from './enrollPlayer'
+import { enrollPlayer, isInscribibleStatus, type EnrollResult } from './enrollPlayer'
 
 const PUBLIC_VISIBLE_STATUSES = ['open', 'in_progress', 'closed', 'published'] as const
-const INSCRIBIBLE_STATUSES = ['open'] as const
 
 type PublicStatus = (typeof PUBLIC_VISIBLE_STATUSES)[number]
 
@@ -65,7 +64,7 @@ function isVisibleToUser(t: { status: string; organizer_id: string }, userId: st
  * contradiga al backend.
  */
 export function esInscribible(status: string): boolean {
-  return (INSCRIBIBLE_STATUSES as readonly string[]).includes(status)
+  return isInscribibleStatus(status)
 }
 
 export async function fetchJoinInfo(

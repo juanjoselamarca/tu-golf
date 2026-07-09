@@ -121,7 +121,10 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
       identity: { kind: 'registered', userId: body.userId },
       handicapAtRegistration: courseHandicap,
       categoryId: body.categoryId ?? null,
-      // El organizador gestiona el torneo: puede inscribir en 'draft'/'open'.
+      // El gate de status es para AUTO-inscripción (self-service, sólo 'open').
+      // El organizador gestiona el torneo y agrega jugadores en cualquier estado
+      // (draft antes de abrir, o walk-ins una vez empezado) → sin gate. El cupo
+      // sí se valida siempre. (Follow-up: definir si algún status debe bloquearlo.)
       enforceStatusGate: false,
     })
   } else {

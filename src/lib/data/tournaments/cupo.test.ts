@@ -76,6 +76,19 @@ describe('updateMaxPlayers — ampliar cupo', () => {
     expect(res.ok).toBe(true)
   })
 
+  it('torneo SIN tope (max_players null) con inscritos: no deja fijar por debajo → below_current', async () => {
+    // Regresión: antes tournamentCapacity devolvía approved=0 cuando no había tope,
+    // dejando fijar un cupo menor que los ya inscritos (sobre-cupo silencioso).
+    const { client, updated } = makeMock({ approvedCount: 30, currentMax: null })
+    const res = await updateMaxPlayers(client, 't1', 5)
+    expect(res.ok).toBe(false)
+    if (!res.ok) {
+      expect(res.reason).toBe('below_current')
+      expect(res.approved).toBe(30)
+    }
+    expect(updated).toEqual([])
+  })
+
   it('rechaza valores no enteros o < 1 → invalid_value', async () => {
     const { client } = makeMock({ approvedCount: 0 })
     expect((await updateMaxPlayers(client, 't1', 0)).ok).toBe(false)
