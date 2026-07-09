@@ -98,6 +98,15 @@ export interface WithdrawnEntry {
   reason: string | null
 }
 
+export interface TeamPodiumEntry {
+  pos: number
+  name: string
+  /** Integrantes del equipo formateados ("Juan / Pedro"). Vacío si no hay nombres. */
+  members: string
+  /** Score ya formateado en el modo del torneo: vs-par (E/+n/-n) o "N pts" (stableford). */
+  score: string
+}
+
 export interface TournamentResultados {
   grossWinner: { name: string; score: number } | null
   netoWinner:  { name: string; score: number } | null
@@ -106,4 +115,10 @@ export interface TournamentResultados {
   avgField: number
   totalEagles: number
   totalBirdies: number
+  /**
+   * Podio de parejas para torneos por equipos (scramble/foursome/best_ball).
+   * Si está presente, el podio individual (gross/neto) va nulo y la UI muestra
+   * el podio de equipos. `null`/`undefined` = torneo individual.
+   */
+  teamPodium?: TeamPodiumEntry[] | null
 }

@@ -40,10 +40,14 @@ import {
   buildLeaderboardFromRondaLibre,
   computeStats,
   computeTournamentResults,
+  computeTeamTournamentResults,
+  buildTeamPodium,
   type CourseHole,
   type TourneyStats,
   type TournamentLeaderboardContext,
+  type TeamStandingForPodium,
 } from '@/golf/leaderboard'
+import { isTeamFormat } from '@/golf/formats'
 
 import { TournamentHeader } from './components/TournamentHeader'
 import { TournamentResults } from './components/TournamentResults'
@@ -82,6 +86,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   let playerIdToIndex: Record<string, number> = {}
   let courseHoles: CourseHole[]               = []
   let teamStandings: LiveTeam[]               = []
+  let orderedTeams: TeamStandingForPodium[]   = []
+  let teamMemberNames: Record<string, string[]> = {}
 
   if (tournament) {
     tournamentName = tournament.name
@@ -159,6 +165,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
           ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, modoJuego)
           : computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego)
         teamStandings = scrambleResultsToLiveTeams(ordered, memberNames, modoJuego)
+        orderedTeams = ordered
+        teamMemberNames = memberNames
       }
     } else if (formatoJuego === 'best_ball') {
       // par para el course handicap = suma del par de course_holes deduplicado por
@@ -168,6 +176,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       if (teams.length > 0) {
         const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego)
         teamStandings = bestBallResultsToLiveTeams(ordered, memberNames, modoJuego)
+        orderedTeams = ordered
+        teamMemberNames = memberNames
       }
     }
   } else {
@@ -177,8 +187,15 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     isLive   = true
   }
 
-  if (isClosed && players.length > 0) {
-    resultados = computeTournamentResults(playersByGross, playersByNeto, parTotal, stats)
+  if (isClosed) {
+    // Torneo por equipos → podio de parejas (del mismo board ya ordenado + con
+    // desempate). Individual → podio gross/neto de jugadores. "Un concepto, una
+    // fuente": el ganador sale del board, no de un cálculo paralelo.
+    if (isTeamFormat(formatoJuego) && orderedTeams.length > 0) {
+      resultados = computeTeamTournamentResults(orderedTeams, teamMemberNames, modoJuego, formatoJuego)
+    } else if (players.length > 0) {
+      resultados = computeTournamentResults(playersByGross, playersByNeto, parTotal, stats)
+    }
   }
 
   return (
@@ -222,18 +239,23 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
       {resultados && <TournamentResults resultados={resultados} />}
 
-      {isClosed && players.length > 0 && (
+      {isClosed && (players.length > 0 || orderedTeams.length > 0) && (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 text-center">
           <ShareResultsButton
             tournamentName={tournamentName}
             courseName={tournament?.courses?.nombre ?? 'Cancha'}
             dateDisplay={dateDisplay}
             parTotal={parTotal}
-            topPlayers={players.slice(0, 5).map((p, i) => ({
-              pos: i + 1,
-              name: p.name,
-              score: p.total === 0 ? 'E' : p.total > 0 ? `+${p.total}` : `${p.total}`,
-            }))}
+            topPlayers={
+              isTeamFormat(formatoJuego) && orderedTeams.length > 0
+                ? buildTeamPodium(orderedTeams, teamMemberNames, modoJuego, formatoJuego, 5)
+                    .map((t) => ({ pos: t.pos, name: t.name, score: t.score }))
+                : players.slice(0, 5).map((p, i) => ({
+                    pos: i + 1,
+                    name: p.name,
+                    score: p.total === 0 ? 'E' : p.total > 0 ? `+${p.total}` : `${p.total}`,
+                  }))
+            }
           />
         </div>
       )}

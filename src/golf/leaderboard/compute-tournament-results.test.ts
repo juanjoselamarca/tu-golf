@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest'
 import type { Player } from '@/lib/golf-data'
-import { computeTournamentResults } from './compute-tournament-results'
+import { computeTournamentResults, computeTeamTournamentResults, type TeamStandingForPodium } from './compute-tournament-results'
 
 // Player mínimo para el podio. `scores` es un array cuyo SUM = strokes gross
 // (computeTournamentResults usa grossOf = suma de scores). `total` = vs-par
@@ -56,5 +56,50 @@ describe('computeTournamentResults — podio gross/neto independiente', () => {
     const n: Player[] = [mk('A', -2, 70), mk('B', 2, 74)]
     const r = computeTournamentResults(g, n, 72, null)
     expect(r!.avgField).toBe(72) // (70 + 74) / 2
+  })
+})
+
+describe('computeTeamTournamentResults — podio de parejas', () => {
+  const mkTeam = (
+    teamId: string, teamNombre: string, overUnderNeto: number,
+    over: Partial<TeamStandingForPodium> = {},
+  ): TeamStandingForPodium => ({
+    teamId, teamNombre, overUnderNeto, overUnderGross: 0, totalStableford: 0, holesPlayed: 9, ...over,
+  })
+
+  it('arma el podio top-3 en modo neto con integrantes y score vs-par', () => {
+    const ordered = [
+      mkTeam('a', 'Águilas', -3),
+      mkTeam('b', 'Cóndores', -1),
+      mkTeam('c', 'Halcones', 0),
+      mkTeam('d', 'Tordos', 2),
+    ]
+    const members = { a: ['Juan', 'Pedro'], b: ['Ana', 'Luis'], c: ['Nico', 'Tomás'], d: ['Pin', 'Pon'] }
+    const r = computeTeamTournamentResults(ordered, members, 'neto', 'scramble')
+    expect(r).not.toBeNull()
+    expect(r!.teamPodium).toHaveLength(3)
+    expect(r!.teamPodium![0]).toEqual({ pos: 1, name: 'Águilas', members: 'Juan / Pedro', score: '-3' })
+    expect(r!.teamPodium![1]).toEqual({ pos: 2, name: 'Cóndores', members: 'Ana / Luis', score: '-1' })
+    expect(r!.teamPodium![2]).toEqual({ pos: 3, name: 'Halcones', members: 'Nico / Tomás', score: 'E' })
+    // En torneo por equipos el podio individual va nulo.
+    expect(r!.grossWinner).toBeNull()
+    expect(r!.netoWinner).toBeNull()
+  })
+
+  it('modo gross usa el vs-par gross', () => {
+    const ordered = [mkTeam('a', 'A', -5, { overUnderGross: 3 })]
+    const r = computeTeamTournamentResults(ordered, { a: [] }, 'gross', 'scramble')
+    expect(r!.teamPodium![0].score).toBe('+3')
+  })
+
+  it('formato stableford: score en puntos', () => {
+    const ordered = [mkTeam('a', 'A', 0, { totalStableford: 40 }), mkTeam('b', 'B', 0, { totalStableford: 38 })]
+    const r = computeTeamTournamentResults(ordered, { a: [], b: [] }, 'neto', 'stableford')
+    expect(r!.teamPodium![0].score).toBe('40 pts')
+  })
+
+  it('devuelve null si ningún equipo jugó', () => {
+    const ordered = [mkTeam('a', 'A', -2, { holesPlayed: 0 })]
+    expect(computeTeamTournamentResults(ordered, { a: [] }, 'neto', 'scramble')).toBeNull()
   })
 })
