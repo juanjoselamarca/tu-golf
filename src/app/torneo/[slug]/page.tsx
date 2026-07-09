@@ -162,8 +162,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
       if (teams.length > 0) {
         const ordered = formatoJuego === 'foursome'
-          ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, modoJuego)
-          : computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego)
+          ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, modoJuego, totalHoyos)
+          : computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego, totalHoyos)
         teamStandings = scrambleResultsToLiveTeams(ordered, memberNames, modoJuego)
         orderedTeams = ordered
         teamMemberNames = memberNames
@@ -174,7 +174,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       const parForHcp = sumParDedupByHole(courseHoles)
       const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parForHcp)
       if (teams.length > 0) {
-        const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego)
+        const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego, totalHoyos)
         teamStandings = bestBallResultsToLiveTeams(ordered, memberNames, modoJuego)
         orderedTeams = ordered
         teamMemberNames = memberNames

@@ -9,18 +9,46 @@ import type {
 } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
+type Hole = { numero: number; par: number; stroke_index: number }
+
+/**
+ * Filtra el recorrido a los hoyos que se juegan en el round (numero <= roundHoles).
+ *
+ * FUENTE ÚNICA del "set de hoyos del round" para el board de equipos. En prod los
+ * torneos de 9h corren sobre canchas con `course_holes` numero 1..18, y los
+ * callers (torneo/[slug]/page.tsx, en-vivo) pasan las 18 filas. Sin este filtro
+ * los engines derivan `roundHoles = sortedHoles.length = 18` y entonces:
+ *  (a) el team handicap NO se divide para 9h (`courseHandicapParaHoyos(H, 18) = H`)
+ *      → reparten ~2× golpes en canchas donde el front-9 no es el split USGA impar;
+ *  (b) el SI se normaliza sobre 18 (no-op si ya es válido 1..18) → el front-9
+ *      conserva valores esparcidos y el 9h pierde golpes (bug "net +12");
+ *  (c) el countback del desempate (#249) ve `holeCount=18` → cae al card-off.
+ * `roundHoles` omitido = sin filtro (compat: el path ronda-libre ya pasa 9 hoyos).
+ *
+ * INVARIANTE: un torneo de 9h juega los hoyos 1..9 (front-9). La creación de
+ * torneo sólo persiste `hole_count` (9|18), sin selector de "qué nueve", y el
+ * write path (`api/game/actions.ts`, `.lte('numero', roundHoles)`) asume lo mismo.
+ * Si algún día se agrega selección de back-9 en la creación, ESTE filtro (y el
+ * write path) deben pasar a filtrar por el set real de hoyos jugados, no `1..N`.
+ */
+function holesDelRound(holes: Hole[], roundHoles?: number): Hole[] {
+  return roundHoles != null ? holes.filter((h) => h.numero <= roundHoles) : holes
+}
+
 /**
  * Compone el motor de scramble en standings ordenados de equipos.
  * Pura y defensiva: un equipo sin scores devuelve holesPlayed 0 sin crashear.
  */
 export function computeScrambleStandings(
   teams: ScrambleTeam[],
-  holes: Array<{ numero: number; par: number; stroke_index: number }>,
+  holes: Hole[],
   parTotal: number,
   formato: FormatoJuego,
   modo: ModoJuego,
+  roundHoles?: number,
 ): ScrambleTeamResult[] {
-  const results = teams.map((t) => calcularScramble(t, holes, parTotal))
+  const hs = holesDelRound(holes, roundHoles)
+  const results = teams.map((t) => calcularScramble(t, hs, parTotal))
   return ordenarEquiposScramble(results, formato, modo)
 }
 
@@ -40,11 +68,13 @@ export function computeScrambleStandings(
 export function computeFoursomeStandings(
   teams: ScrambleTeam[],
   memberNames: Record<string, string[]>,
-  holes: Array<{ numero: number; par: number; stroke_index: number }>,
+  holes: Hole[],
   parTotal: number,
   formato: FormatoJuego,
   modo: ModoJuego,
+  roundHoles?: number,
 ): FoursomeTeamResult[] {
+  const hs = holesDelRound(holes, roundHoles)
   const results = teams.map((t) => {
     const names = memberNames[t.id] ?? []
     return calcularFoursome(
@@ -61,7 +91,7 @@ export function computeFoursomeStandings(
         // divergen si el índice de un jugador cambia mid-torneo.
         teamHandicap: t.teamHandicap,
       },
-      holes,
+      hs,
       parTotal,
     )
   })
@@ -85,11 +115,13 @@ export function computeFoursomeStandings(
  */
 export function computeBestBallStandings(
   teams: BestBallTeam[],
-  holes: Array<{ numero: number; par: number; stroke_index: number }>,
+  holes: Hole[],
   parTotal: number,
   formato: FormatoJuego,
   modo: ModoJuego,
+  roundHoles?: number,
 ): BestBallTeamResult[] {
-  const results = teams.map((t) => calcularBestBall(t, holes, parTotal))
+  const hs = holesDelRound(holes, roundHoles)
+  const results = teams.map((t) => calcularBestBall(t, hs, parTotal))
   return ordenarEquiposBestBall(results, formato, modo)
 }
