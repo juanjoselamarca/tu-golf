@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildCourseParMap } from './parMap'
+import { buildCourseParMap } from './course-par-map'
 
 describe('buildCourseParMap — bug inbox 2268163d ("los eagles no me calzan")', () => {
   it('coloca cada par en su hoyo aunque el input llegue desordenado', () => {

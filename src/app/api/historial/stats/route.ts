@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { findBestCourseMatch } from '@/golf/courses/matching'
-import { buildCourseParMap } from './parMap'
+import { buildCourseParMap } from '@/golf/courses/course-par-map'
 
 export const dynamic = 'force-dynamic'
 
@@ -147,7 +147,7 @@ export async function GET() {
   const allHoles = allHolesAcc
 
   // Build course_id -> pars map, INDEXADO por `numero` (no por orden de push).
-  // Ver parMap.ts para el porqué (bug inbox 2268163d).
+  // Ver src/golf/courses/course-par-map.ts para el porqué (bug inbox 2268163d).
   const courseParMap = buildCourseParMap(allHoles)
 
   // Build course name matching cache

@@ -1,4 +1,10 @@
 /**
+ * FUENTE CANÓNICA del concepto "course_id → pares por número de hoyo".
+ * Regla "un concepto, una fuente": existen 3 re-derivaciones inline del mismo
+ * mapeo en el motor del coach (detect-and-save-patterns.ts, tools.ts, context.ts)
+ * que deben converger acá cuando se toque ese flujo (ver docs/REORDENAMIENTO_TRACKING.md).
+ * No se migran en este PR para no ensanchar el blast radius de un hotfix de datos.
+ *
  * buildCourseParMap — arma el mapa course_id → [par hoyo1, par hoyo2, …]
  * INDEXANDO por `numero`, no por orden de llegada.
  *

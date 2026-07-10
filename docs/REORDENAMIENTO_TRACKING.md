@@ -146,3 +146,12 @@ Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones
 | Formatos de equipo scramble/foursome (`hole.stroke_index` crudo) | ✅ normalizan en el motor (PR #245, `normalizedStrokeIndexByHole` + `roundHoles` en `calcularScramble`/`calcularFoursome`) |
 | Formato de equipo best_ball (motor board + scorer `useTeamScorecard` + `BestBallTeamCard` + hints team-visible de `score-grupo/page.tsx`) | ✅ normalizan (commit `d589a066`, misma fuente canónica; canario `team-standings.test.ts` invariante Σgolpes==CH9h) |
 | Residual SI crudo en ruta INDIVIDUAL (no-equipo): `build-from-ronda-libre.ts`, `build-from-legacy.ts`, `torneo/[slug]/score/page.tsx` (L127/182/302), `score-grupo/page.tsx` (bloque `!isTeamFormat`, L1092/1094/1107), `score/hooks/useScoreboardCalc.ts`, `api/gwi/*`, `MiniLeaderboard.tsx`, `Scorecard.tsx`, `api/game/actions.ts` (`hole.stroke_index`/`si` crudo, sin `roundHoles`) | ⏳ pendiente — 18h ya correcto por la migración de catálogo; gap latente SOLO en loops de 9h de canchas 18h (front-9 con SI>9, 166 canchas). Barrer con la fuente canónica al tocar cada flujo (o en el barrido final de la capa de datos). No afecta el board/scorer de EQUIPO (ya cerrado). |
+
+### Concepto "course_id → pares indexados por número de hoyo" → `buildCourseParMap()` en `src/golf/courses/course-par-map.ts`
+
+| Sitio | Estado |
+|---|---|
+| `src/golf/courses/course-par-map.ts` (canónica: `buildCourseParMap`) | ✅ creado (9-jul, bug inbox 2268163d "los eagles no me calzan") — indexa por `numero-1`, robusto a orden de fetch |
+| `src/app/api/historial/stats/route.ts` | ✅ usa la canónica (además arregla la causa raíz: paginaba `course_holes` con `.order('numero')` no-único → drops entre páginas `.range()`) |
+| `src/golf/coach/detect-and-save-patterns.ts:53` (`holeParsByCourse[cid][numero-1]=par`, idéntico byte-a-byte) | ⏳ pendiente — converger al tocar el flujo del coach. Sin bug de paginación (fetch acotado por `.in('course_id',…)`) |
+| `src/golf/coach/tools.ts:368` y `src/golf/coach/context.ts:217` (variante objeto 1-indexed `parsByCourse[cid][numero]=par`) | ⏳ pendiente — converger al tocar el flujo del coach. Sin bug de paginación (fetch acotado) |
