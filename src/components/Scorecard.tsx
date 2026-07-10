@@ -122,22 +122,26 @@ function countRes(st: HS[]) {
 // TOKENS
 // ═══════════════════════════════════════════════════════════
 
+// Paleta por TOKENS de tema — la tarjeta sigue el modo claro/oscuro (antes era
+// una paleta light fija + fondo blanco forzado con .scorecard-paper). Decisión
+// PM 2026-07-09 (reporte inbox 8c1d7780): pasar el scorecard a dark real en dark
+// mode en vez de mantener la metáfora "papel sobre mesa". Los recuadros de score
+// (birdie/bogey) siguen usando GARMIN_COLORS (semántico, sirve en ambos modos).
 const K = {
-  line: '#dfe2e6',
-  lineBold: '#c8cdd3',
-  bgH: '#f5f6f8',
-  bgS: '#ffffff',
-  bgTot: '#edf0f3',
-  tp: '#1a1a2e',
-  ts: '#5a6370',
-  tm: '#7c8594',
-  gold: '#c4992a',
-  dotColor: '#5a6370',
+  line: 'var(--border)',
+  lineBold: 'var(--border-md)',
+  bgH: 'var(--surface-soft)',   // fila header/total: overlay sutil sobre el surface
+  bgS: 'var(--bg-surface)',
+  bgTot: 'var(--surface-soft)', // columna total (se distingue por su borderLeft)
+  tp: 'var(--text)',
+  ts: 'var(--text-2)',
+  tm: 'var(--text-3)',
+  gold: '#c4992a',              // acento de marca: sirve en claro y oscuro
+  dotColor: 'var(--text-2)',
   dotSize: 4,
-  // H08: hover de columna muy sutil. Antes era dorado 8% y sugería que
-  // la celda era clickable (no lo es). Ahora gris 3%: guía visual al
-  // leer una columna sin parecer botón.
-  hoverBg: 'rgba(15,23,42,0.03)',
+  // Hover de columna muy sutil: overlay adaptativo (guía visual al leer una
+  // columna sin parecer botón; visible en ambos temas).
+  hoverBg: 'var(--surface-soft)',
 } as const
 
 // ═══════════════════════════════════════════════════════════
@@ -487,8 +491,8 @@ export default function Scorecard({
 
   return (
     <div className="scorecard-paper" style={{
-      background: '#fff', borderRadius: 8,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
+      background: 'var(--bg-surface)', borderRadius: 8,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px var(--border)',
       overflow: 'hidden', fontFamily: SANS, maxWidth: wide ? 960 : '100%',
     }}>
       {/* HEADER — mejora #1: contexto de ronda */}

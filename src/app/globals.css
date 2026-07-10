@@ -304,14 +304,14 @@
 [data-theme="light"] .labs-caption { border-top-color: rgba(0,0,0,0.06); }
 [data-theme="dark"]  .labs-caption { border-top-color: rgba(255,255,255,0.06); }
 
-/* â”€â”€ Scorecard "paper on table" â€” mantener interior blanco siempre.
-   En dark, enmarcar con anillo dorado tenue + sombra cÃ¡lida para que se lea
-   como decisiÃ³n skeumÃ³rfica (tarjeta fÃ­sica), no como bug de tema. */
+/* â”€â”€ Scorecard â€” en dark mode la tarjeta usa superficie oscura (var(--bg-surface))
+   como el resto de las cards (decisiÃ³n PM 2026-07-09, reporte inbox 8c1d7780:
+   se descartÃ³ la metÃ¡fora "papel sobre mesa" en favor de dark real). SÃ³lo se le
+   da una elevaciÃ³n sutil + hairline con tinte dorado (var(--border) en dark). */
 [data-theme="dark"] .scorecard-paper {
   box-shadow:
-    0 0 0 1px rgba(196,153,42,0.18),
-    0 12px 36px rgba(0,0,0,0.55),
-    0 2px 8px rgba(0,0,0,0.40) !important;
+    0 0 0 1px var(--border),
+    0 2px 12px rgba(0,0,0,0.35) !important;
 }
 
 /* SECTIONS LIGHT-CARD: en pantallas con fondo blanco/light, los componentes
