@@ -13,24 +13,46 @@
  */
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Pencil, Trash2 } from '@/components/icons'
 
 interface Props {
   open:                  boolean
   isExcluded:            boolean
   deleting:              boolean
+  /**
+   * Botón "…" que ancla el menú. El menú se posiciona con `position: fixed`
+   * calculado desde el rect de este botón y se renderiza vía portal en
+   * document.body — así ESCAPA el stacking context y el `overflow: hidden`
+   * de la tarjeta.
+   *
+   * Bug inbox 7ef9ebdb ("los desplegables no funcionan, solo si abro la
+   * tarjeta detallada primero"): cada RoundCard tiene `.card-animate`, cuya
+   * animación deja un `transform` retenido (fill-mode both). Un transform crea
+   * un stacking context POR tarjeta → el menú `position: absolute` de la card
+   * de arriba se PINTABA DEBAJO de las cards siguientes (contextos hermanos),
+   * así que los clicks caían en la card de abajo (que navega al detalle) en vez
+   * de en el ítem del menú. Con la tarjeta ya expandida el menú caía dentro de
+   * su propia card → por eso "solo funcionaba si abría el detalle antes".
+   * Además el contenedor del mes tiene `overflow: hidden`, que clippeaba el
+   * menú de la última tarjeta. El portal + fixed resuelve las dos cosas.
+   */
+  anchorRef:             React.RefObject<HTMLElement>
   onClose:               () => void
   onEdit:                () => void
   onToggleExcluded:      () => void
   onRequestDelete:       () => void
 }
 
+const MENU_WIDTH = 190
+const MENU_EST_HEIGHT = 152 // 3 ítems de 44px + padding; solo para decidir flip
+
 export function RoundMenu({
-  open, isExcluded, deleting,
+  open, isExcluded, deleting, anchorRef,
   onClose, onEdit, onToggleExcluded, onRequestDelete,
 }: Props) {
-  const menuRef = useRef<HTMLDivElement | null>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
   // Cerrar con Escape
   useEffect(() => {
@@ -40,32 +62,57 @@ export function RoundMenu({
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  if (!open) return null
+  // Posicionar el menú bajo el botón (o encima si no entra abajo).
+  useLayoutEffect(() => {
+    if (!open) return
+    const compute = () => {
+      const el = anchorRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      // Alinear el borde derecho del menú con el borde derecho del botón.
+      const left = Math.max(8, Math.min(r.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8))
+      const below = r.bottom + 4
+      const fitsBelow = below + MENU_EST_HEIGHT <= window.innerHeight - 8
+      const top = fitsBelow ? below : Math.max(8, r.top - MENU_EST_HEIGHT - 4)
+      setPos({ top, left })
+    }
+    compute()
+    // Reposicionar / cerrar en scroll o resize para no quedar desanclado.
+    const onScroll = () => onClose()
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', compute)
+    return () => {
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', compute)
+    }
+  }, [open, anchorRef, onClose])
 
-  return (
+  if (!open || typeof document === 'undefined' || !pos) return null
+
+  return createPortal(
     <>
       {/* Backdrop click-outside — dim sutil para que el menú resalte sobre las
           tarjetas (menú blanco sobre card blanca se veía "roto", como texto
-          superpuesto a la tarjeta de abajo; bug visual inbox 37348220). */}
+          superpuesto a la tarjeta de abajo; bug visual inbox 37348220).
+          En el portal (body), el `position: fixed` cubre TODO el viewport. */}
       <div
         onClick={(e) => { e.stopPropagation(); onClose() }}
-        style={{ position: 'fixed', inset: 0, zIndex: 49, background: 'rgba(15,28,47,0.32)' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(15,28,47,0.32)' }}
         aria-hidden
       />
       <div
-        ref={menuRef}
         role="menu"
         onClick={(e) => e.stopPropagation()}
         style={{
-          position: 'absolute',
-          top: 'calc(100% + 4px)', right: '4px',
-          minWidth: '180px',
+          position: 'fixed',
+          top: pos.top, left: pos.left,
+          width: MENU_WIDTH,
           background: 'var(--bg-surface)',
           border: '1px solid var(--border)',
           borderRadius: '10px',
           boxShadow: '0 12px 32px rgba(0,0,0,0.22), 0 3px 8px rgba(0,0,0,0.12)',
           padding: '4px',
-          zIndex: 50,
+          zIndex: 1000,
         }}
       >
         <MenuButton
@@ -97,7 +144,8 @@ export function RoundMenu({
           {deleting ? 'Eliminando…' : 'Eliminar'}
         </MenuButton>
       </div>
-    </>
+    </>,
+    document.body,
   )
 }
 

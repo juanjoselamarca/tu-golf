@@ -21,15 +21,16 @@ const round: HistoricalRound = {
 function setup() {
   const onToggleExcluded = vi.fn()
   const onDeleteRound = vi.fn()
+  const onStartEdit = vi.fn()
   render(
     <RoundCard
       round={round} isExpanded={false} isEditing={false} isLast
       deleting={false} savingEdit={false}
-      onToggleExpand={vi.fn()} onStartEdit={vi.fn()} onCancelEdit={vi.fn()} onSaveEdit={vi.fn()}
+      onToggleExpand={vi.fn()} onStartEdit={onStartEdit} onCancelEdit={vi.fn()} onSaveEdit={vi.fn()}
       onToggleExcluded={onToggleExcluded} onDeleteRound={onDeleteRound}
     />,
   )
-  return { onToggleExcluded, onDeleteRound }
+  return { onToggleExcluded, onDeleteRound, onStartEdit }
 }
 
 describe('RoundCard — menú de acciones', () => {
@@ -57,4 +58,39 @@ describe('RoundCard — menú de acciones', () => {
     await user.click(screen.getByTestId('historial-confirm-delete-confirm'))
     expect(onDeleteRound).toHaveBeenCalledTimes(1)
   })
+
+  // Bug inbox 7ef9ebdb: "Editar" del menú no hacía nada salvo que la tarjeta ya
+  // estuviera expandida. Editar debe disparar onStartEdit aunque isExpanded=false.
+  it('Editar → llama onStartEdit sin necesidad de expandir antes', async () => {
+    const user = userEvent.setup()
+    const { onStartEdit } = setup()
+    await user.click(screen.getByLabelText('Opciones de la tarjeta'))
+    await user.click(screen.getByTestId('historial-menu-editar'))
+    expect(onStartEdit).toHaveBeenCalledTimes(1)
+  })
+
+  // Guard estructural del fix de stacking: el menú se renderiza vía portal en
+  // document.body (fuera de la tarjeta con transform + overflow:hidden), no como
+  // descendiente del RoundCard. Si alguien revierte el portal, esto falla.
+  it('el menú se renderiza en un portal a document.body (fuera de la card)', async () => {
+    const user = userEvent.setup()
+    const { container } = renderCard()
+    await user.click(screen.getByLabelText('Opciones de la tarjeta'))
+    const menuItem = screen.getByTestId('historial-menu-editar')
+    // El ítem existe en el documento…
+    expect(menuItem).toBeTruthy()
+    // …pero NO como descendiente del árbol del RoundCard.
+    expect(container.contains(menuItem)).toBe(false)
+  })
 })
+
+function renderCard() {
+  return render(
+    <RoundCard
+      round={round} isExpanded={false} isEditing={false} isLast
+      deleting={false} savingEdit={false}
+      onToggleExpand={vi.fn()} onStartEdit={vi.fn()} onCancelEdit={vi.fn()} onSaveEdit={vi.fn()}
+      onToggleExcluded={vi.fn()} onDeleteRound={vi.fn()}
+    />,
+  )
+}

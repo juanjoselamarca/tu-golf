@@ -10,7 +10,7 @@
  */
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatLabel } from '@/golf/core/rules'
 import { parPerHoleArray } from '@/golf/core/compare'
@@ -57,6 +57,7 @@ export function RoundCard({
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const kebabRef = useRef<HTMLButtonElement>(null)
 
   const holePars = parPerHoleArray(r.par_per_hole, r.scores?.length ?? 0)
   const stats    = computeStats(r.scores, holePars)
@@ -164,6 +165,7 @@ export function RoundCard({
         {/* Right side — menú "..." + chevron */}
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
           <button
+            ref={kebabRef}
             type="button"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
             aria-label="Opciones de la tarjeta"
@@ -197,6 +199,7 @@ export function RoundCard({
 
           <RoundMenu
             open={menuOpen}
+            anchorRef={kebabRef}
             isExcluded={!!r.excluded_from_handicap}
             deleting={deleting}
             onClose={() => setMenuOpen(false)}
