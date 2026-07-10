@@ -14,13 +14,17 @@ import type { Nivel } from '@/lib/mi-golf/types'
  * (que tenía glow neón + heights inconsistentes). Usar este en /perfil.
  */
 
+// Paleta por tokens de tema — la carta sigue el modo claro/oscuro como el resto
+// de las cards de /perfil (CpiCard, AccountSection usan var(--bg-surface)).
+// Antes hardcodeaba blanco + grises light → en dark mode la carta salía blanca
+// sobre fondo oscuro (bug inbox 73e4d312 "fondo blanco en modo dark").
 const GOLD = '#c4992a'
 const GOLD_HALO = 'rgba(196,153,42,0.18)'
-const TEXT = '#1a1a2e'
-const TEXT_2 = '#4a5568'
-const TEXT_3 = '#94a3b8'
-const TRACK = '#e2e8f0'
-const RING = '#cbd5e1'
+const TEXT = 'var(--text)'
+const TEXT_2 = 'var(--text-2)'
+const TEXT_3 = 'var(--text-3)'
+const TRACK = 'var(--border)'
+const RING = 'var(--border)'
 
 export function LevelsBar({ nivel }: { nivel: Nivel }) {
   const currentIdx = NIVELES_ORDEN.indexOf(nivel.nombre)
@@ -29,7 +33,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
   return (
     <div
       style={{
-        background: '#ffffff',
+        background: 'var(--bg-surface)',
         border: '1px solid rgba(196,153,42,0.18)',
         borderRadius: '16px',
         padding: '20px 20px 24px',
@@ -155,7 +159,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
                   width: '12px',
                   height: '12px',
                   borderRadius: '50%',
-                  background: isPast || isCurrent ? GOLD : '#ffffff',
+                  background: isPast || isCurrent ? GOLD : 'var(--bg-surface)',
                   border: isPast || isCurrent ? 'none' : `1.5px solid ${RING}`,
                   boxShadow: isCurrent ? `0 1px 2px rgba(196,153,42,0.3)` : 'none',
                   position: 'relative',
