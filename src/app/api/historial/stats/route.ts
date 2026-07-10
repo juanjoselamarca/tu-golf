@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { findBestCourseMatch } from '@/golf/courses/matching'
+import { buildCourseParMap } from '@/golf/courses/course-par-map'
 
 export const dynamic = 'force-dynamic'
 
@@ -100,13 +101,23 @@ export async function GET() {
       .select('id, nombre, fuente, canonical_course_id'),
   ])
 
-  // Paginar course_holes
+  // Paginar course_holes.
+  // CRÍTICO: ordenar por (course_id, numero) — clave ÚNICA — no solo por `numero`.
+  // Con `.order('numero')` a secas, cientos de canchas comparten cada valor de
+  // numero (todas tienen un hoyo 1, un hoyo 2…), formando grupos de empate que
+  // Postgres NO ordena de forma estable entre requests `.range()` separados →
+  // filas dropeadas/duplicadas al cruzar límites de página. El array de pares de
+  // una cancha quedaba con 17 hoyos en vez de 18 y desalineado, y el conteo de
+  // eagles/birdies/pares/bogeys salía mal (bug inbox 2268163d: "los eagles no me
+  // calzan" — 11 mostrados vs 7 reales). (course_id, numero) es único → paginación
+  // determinista, sin drops.
   const allHolesAcc: Array<{ course_id: string; numero: number; par: number }> = []
   let holesError: unknown = null
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await supabase
       .from('course_holes')
       .select('course_id, numero, par')
+      .order('course_id')
       .order('numero')
       .range(offset, offset + PAGE_SIZE - 1)
     if (error) { holesError = error; break }
@@ -135,14 +146,9 @@ export async function GET() {
   const allCourses = (coursesRes.data ?? []) as Array<{ id: string; nombre: string; fuente?: string | null; canonical_course_id?: string | null }>
   const allHoles = allHolesAcc
 
-  // Build course_id -> pars map (sorted by numero)
-  const courseParMap = new Map<string, number[]>()
-  for (const h of allHoles) {
-    if (!courseParMap.has(h.course_id)) {
-      courseParMap.set(h.course_id, [])
-    }
-    courseParMap.get(h.course_id)!.push(h.par)
-  }
+  // Build course_id -> pars map, INDEXADO por `numero` (no por orden de push).
+  // Ver src/golf/courses/course-par-map.ts para el porqué (bug inbox 2268163d).
+  const courseParMap = buildCourseParMap(allHoles)
 
   // Build course name matching cache
   const courseMatchCache = new Map<string, string | null>()
