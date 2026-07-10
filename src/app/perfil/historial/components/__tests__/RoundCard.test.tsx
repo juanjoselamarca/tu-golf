@@ -82,6 +82,19 @@ describe('RoundCard — menú de acciones', () => {
     // …pero NO como descendiente del árbol del RoundCard.
     expect(container.contains(menuItem)).toBe(false)
   })
+
+  // El ConfirmDeleteSheet (position:fixed inset:0) también debe portalearse:
+  // dentro de .card-animate su inset:0 mapea a la card, no al viewport → salía
+  // como tira en vez de bottom-sheet full-screen desde una card colapsada.
+  it('el sheet de confirmación se renderiza en un portal (fuera de la card)', async () => {
+    const user = userEvent.setup()
+    const { container } = renderCard()
+    await user.click(screen.getByLabelText('Opciones de la tarjeta'))
+    await user.click(screen.getByTestId('historial-menu-eliminar'))
+    const sheet = screen.getByTestId('historial-confirm-delete-sheet')
+    expect(sheet).toBeTruthy()
+    expect(container.contains(sheet)).toBe(false)
+  })
 })
 
 function renderCard() {
