@@ -13,43 +13,112 @@
  */
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Pencil, Trash2 } from '@/components/icons'
 
 interface Props {
   open:                  boolean
   isExcluded:            boolean
   deleting:              boolean
+  /**
+   * Botón "…" que ancla el menú. El menú se posiciona con `position: fixed`
+   * calculado desde el rect de este botón y se renderiza vía portal en
+   * document.body — así ESCAPA el stacking context y el `overflow: hidden`
+   * de la tarjeta.
+   *
+   * Bug inbox 7ef9ebdb ("los desplegables no funcionan, solo si abro la
+   * tarjeta detallada primero"): cada RoundCard tiene `.card-animate`, cuya
+   * animación deja un `transform` retenido (fill-mode both). Un transform crea
+   * un stacking context POR tarjeta → el menú `position: absolute` de la card
+   * de arriba se PINTABA DEBAJO de las cards siguientes (contextos hermanos),
+   * así que los clicks caían en la card de abajo (que navega al detalle) en vez
+   * de en el ítem del menú. Con la tarjeta ya expandida el menú caía dentro de
+   * su propia card → por eso "solo funcionaba si abría el detalle antes".
+   * Además el contenedor del mes tiene `overflow: hidden`, que clippeaba el
+   * menú de la última tarjeta. El portal + fixed resuelve las dos cosas.
+   */
+  anchorRef:             React.RefObject<HTMLElement>
   onClose:               () => void
   onEdit:                () => void
   onToggleExcluded:      () => void
   onRequestDelete:       () => void
 }
 
+const MENU_WIDTH = 190
+const MENU_EST_HEIGHT = 152 // 3 ítems de 44px + padding; solo para decidir flip
+
 export function RoundMenu({
-  open, isExcluded, deleting,
+  open, isExcluded, deleting, anchorRef,
   onClose, onEdit, onToggleExcluded, onRequestDelete,
 }: Props) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  // onClose cambia de identidad en cada render del padre (arrow inline). Un ref
+  // lo mantiene estable para no re-registrar listeners en cada render.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  const computePos = useCallback(() => {
+    const el = anchorRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    // Alinear el borde derecho del menú con el borde derecho del botón.
+    const left = Math.max(8, Math.min(r.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8))
+    const below = r.bottom + 4
+    const fitsBelow = below + MENU_EST_HEIGHT <= window.innerHeight - 8
+    const top = fitsBelow ? below : Math.max(8, r.top - MENU_EST_HEIGHT - 4)
+    setPos({ top, left })
+  }, [anchorRef])
 
   // Cerrar con Escape
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open])
 
-  if (!open) return null
+  // Posicionar el menú bajo el botón (o encima si no entra abajo).
+  useLayoutEffect(() => {
+    if (!open) { setPos(null); return }
+    computePos()
+    // Reposicionar en resize; cerrar en scroll para no quedar desanclado.
+    const onScroll = () => onCloseRef.current()
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', computePos)
+    return () => {
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', computePos)
+    }
+  }, [open, computePos])
 
-  return (
+  // Foco de teclado: al abrir, foco al primer ítem; al cerrar, restaurar al
+  // botón "…" que ancla (patrón estándar de menú portaleado — sin esto el
+  // usuario de teclado no puede tabular al menú, que ahora vive al final del body).
+  useEffect(() => {
+    if (!open) return
+    const anchor = anchorRef.current
+    const raf = requestAnimationFrame(() => {
+      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+    })
+    return () => {
+      cancelAnimationFrame(raf)
+      anchor?.focus?.()
+    }
+  }, [open, anchorRef])
+
+  if (!open || typeof document === 'undefined' || !pos) return null
+
+  return createPortal(
     <>
       {/* Backdrop click-outside — dim sutil para que el menú resalte sobre las
           tarjetas (menú blanco sobre card blanca se veía "roto", como texto
-          superpuesto a la tarjeta de abajo; bug visual inbox 37348220). */}
+          superpuesto a la tarjeta de abajo; bug visual inbox 37348220).
+          En el portal (body), el `position: fixed` cubre TODO el viewport. */}
       <div
         onClick={(e) => { e.stopPropagation(); onClose() }}
-        style={{ position: 'fixed', inset: 0, zIndex: 49, background: 'rgba(15,28,47,0.32)' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(15,28,47,0.32)' }}
         aria-hidden
       />
       <div
@@ -57,15 +126,15 @@ export function RoundMenu({
         role="menu"
         onClick={(e) => e.stopPropagation()}
         style={{
-          position: 'absolute',
-          top: 'calc(100% + 4px)', right: '4px',
-          minWidth: '180px',
+          position: 'fixed',
+          top: pos.top, left: pos.left,
+          width: MENU_WIDTH,
           background: 'var(--bg-surface)',
           border: '1px solid var(--border)',
           borderRadius: '10px',
           boxShadow: '0 12px 32px rgba(0,0,0,0.22), 0 3px 8px rgba(0,0,0,0.12)',
           padding: '4px',
-          zIndex: 50,
+          zIndex: 1000,
         }}
       >
         <MenuButton
@@ -97,7 +166,8 @@ export function RoundMenu({
           {deleting ? 'Eliminando…' : 'Eliminar'}
         </MenuButton>
       </div>
-    </>
+    </>,
+    document.body,
   )
 }
 
@@ -170,9 +240,15 @@ export function ConfirmDeleteSheet({
     setMounted(false)
   }, [open, deleting, onCancel])
 
-  if (!open && !mounted) return null
+  if ((!open && !mounted) || typeof document === 'undefined') return null
 
-  return (
+  // Portal a document.body: igual que RoundMenu, el ConfirmDeleteSheet es
+  // position:fixed inset:0 pero vive dentro de .card-animate (transform →
+  // containing block), así que su inset:0 mapeaba a la CAJA DE LA CARD, no al
+  // viewport. Desde una card COLAPSADA el sheet salía como una tira pegada a la
+  // tarjeta corta en vez de bottom-sheet full-screen. El portal lo ancla al
+  // viewport (bug inbox 7ef9ebdb, hallado por code-review del portal del menú).
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -181,7 +257,7 @@ export function ConfirmDeleteSheet({
       style={{
         position: 'fixed', inset: 0,
         background: 'rgba(0,0,0,0.45)',
-        zIndex: 100,
+        zIndex: 1001,
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       }}
       onClick={(e) => { if (e.target === e.currentTarget && !deleting) onCancel() }}
@@ -265,6 +341,7 @@ export function ConfirmDeleteSheet({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
