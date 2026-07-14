@@ -82,10 +82,13 @@ export interface CapacityInfo {
 
 /**
  * ¿El torneo llegó a su cupo? Cuenta SÓLO inscritos activos ('approved');
- * 'waitlist'/'withdrawn'/'disqualified' no ocupan cupo. Chequeo no-atómico:
- * bajo concurrencia extrema podría colarse 1 de más (despreciable a la cadencia
- * de inscripción de un torneo). Fix atómico real = constraint/trigger en DB
- * (follow-up rastreado). Fuente ÚNICA del predicado "¿hay cupo?".
+ * 'waitlist'/'withdrawn'/'disqualified' no ocupan cupo.
+ *
+ * OJO: esta función es sólo para DISPLAY y para el guard de `updateMaxPlayers`
+ * (cupo.ts, no bajar el tope por debajo de los ya inscritos). El enforcement
+ * REAL y ATÓMICO del cupo vive en el RPC `enroll_player`
+ * (migrations/20260713_enroll_player_rpc.sql), que cuenta bajo `FOR UPDATE`.
+ * Si cambia la regla de "qué status ocupa cupo", hay que tocar AMBOS lados.
  */
 export async function tournamentCapacity(
   admin: SupabaseClient,

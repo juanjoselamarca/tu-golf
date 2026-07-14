@@ -83,7 +83,7 @@ BEGIN
   EXCEPTION
     WHEN unique_violation THEN
       RETURN jsonb_build_object('ok', false, 'reason', 'already_registered', 'message', 'Ya estás inscrito en este torneo.');
-    WHEN check_violation THEN
+    WHEN check_violation OR not_null_violation THEN
       RETURN jsonb_build_object('ok', false, 'reason', 'invalid_data', 'message', 'Faltan datos en el perfil. Verifica que haya nombre y handicap configurados.');
   END;
 
