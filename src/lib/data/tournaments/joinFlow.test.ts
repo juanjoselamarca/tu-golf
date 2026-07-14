@@ -13,6 +13,8 @@ function makeMockClient(tableData: {
   players_select?: { data: unknown; error?: null }
   players_insert?: { data: unknown; error?: { message: string; code?: string } | null }
   rounds_insert?: { error?: { message: string } | null }
+  rpc_result?: unknown
+  rpc_error?: { message: string } | null
 }): SupabaseClient {
   return {
     from: vi.fn((tabla: string) => {
@@ -68,6 +70,13 @@ function makeMockClient(tableData: {
       }
       throw new Error('unmocked table: ' + tabla)
     }),
+    // Cupo + INSERT players + INSERT rounds viven en el RPC atómico `enroll_player`.
+    rpc: vi.fn(() =>
+      Promise.resolve({
+        data: tableData.rpc_result ?? { ok: true, player_id: 'p1' },
+        error: tableData.rpc_error ?? null,
+      })
+    ),
   } as unknown as SupabaseClient
 }
 
@@ -146,69 +155,41 @@ describe('registerPlayerAndRound — status gating + error mapping', () => {
   })
 
   it('inscribe OK si status=open y todo va bien', async () => {
-    const c = makeMockClient({
-      players_insert: { data: { id: 'p1' }, error: null },
-    })
+    const c = makeMockClient({ rpc_result: { ok: true, player_id: 'p1' } })
     const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.playerId).toBe('p1')
   })
 
-  it('rechaza con tournament_full cuando el cupo está lleno (count >= max_players)', async () => {
-    const c = makeMockClient({
-      tournaments_maxplayers: { data: { max_players: 24 }, error: null },
-      players_count: 24, // ya hay 24 aprobados → la #25 se rechaza
-      players_insert: { data: { id: 'p25' }, error: null },
-    })
+  // El cupo + los INSERT (players/rounds) + el mapeo de violaciones viven ahora
+  // en el RPC atómico `enroll_player` (SQL, verificado contra prod y cubierto por
+  // el canario e2e #255). En JS sólo verificamos que registerPlayerAndRound
+  // propague el resultado tipado del RPC sin alterarlo.
+  it('propaga tournament_full del RPC (cupo lleno)', async () => {
+    const c = makeMockClient({ rpc_result: { ok: false, reason: 'tournament_full', message: 'lleno' } })
     const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('tournament_full')
   })
 
-  it('inscribe OK si hay cupo disponible (count < max_players)', async () => {
-    const c = makeMockClient({
-      tournaments_maxplayers: { data: { max_players: 24 }, error: null },
-      players_count: 23,
-      players_insert: { data: { id: 'p24' }, error: null },
-    })
-    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
-    expect(r.ok).toBe(true)
-  })
-
-  it('sin cupo definido (max_players null) no aplica tope', async () => {
-    const c = makeMockClient({
-      tournaments_maxplayers: { data: { max_players: null }, error: null },
-      players_count: 999,
-      players_insert: { data: { id: 'p1000' }, error: null },
-    })
-    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
-    expect(r.ok).toBe(true)
-  })
-
-  it('mapea PG 23505 (unique violation) a already_registered', async () => {
-    const c = makeMockClient({
-      players_insert: { data: null, error: { message: 'duplicate key value', code: '23505' } },
-    })
+  it('propaga already_registered del RPC (duplicado)', async () => {
+    const c = makeMockClient({ rpc_result: { ok: false, reason: 'already_registered', message: 'dup' } })
     const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('already_registered')
   })
 
-  it('mapea PG 42501 (RLS deny) a forbidden', async () => {
-    const c = makeMockClient({
-      players_insert: { data: null, error: { message: 'new row violates RLS policy', code: '42501' } },
-    })
-    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.reason).toBe('forbidden')
-  })
-
-  it('mapea NOT NULL / check violation a invalid_data', async () => {
-    const c = makeMockClient({
-      players_insert: { data: null, error: { message: 'null value in column violates not-null constraint' } },
-    })
+  it('propaga invalid_data del RPC (check / not-null violation)', async () => {
+    const c = makeMockClient({ rpc_result: { ok: false, reason: 'invalid_data', message: 'faltan datos' } })
     const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('invalid_data')
+  })
+
+  it('un error de postgres del RPC → reason unknown', async () => {
+    const c = makeMockClient({ rpc_result: null, rpc_error: { message: 'deadlock detected' } })
+    const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.reason).toBe('unknown')
   })
 })

@@ -110,37 +110,27 @@ export async function tournamentCapacity(
   return { full, maxPlayers, approved }
 }
 
-/** Mapea el error de un INSERT en `players` a un EnrollResult tipado. */
-function mapInsertError(pErr: { message?: string; code?: string } | null): EnrollResult {
-  const msg = pErr?.message?.toLowerCase() || ''
-  const code = pErr?.code
-  if (code === '23505' || msg.includes('duplicate') || msg.includes('unique'))
-    return { ok: false, reason: 'already_registered', message: 'Ya estás inscrito en este torneo.' }
-  if (code === '42501' || msg.includes('permission') || msg.includes('policy'))
-    return {
-      ok: false,
-      reason: 'forbidden',
-      message: 'No tienes permiso para inscribirte. Contacta al organizador del torneo.',
-    }
-  if (msg.includes('violates check') || msg.includes('not-null') || msg.includes('not null'))
-    return {
-      ok: false,
-      reason: 'invalid_data',
-      message: 'Faltan datos en el perfil. Verifica que haya nombre y handicap configurados.',
-    }
-  return {
-    ok: false,
-    reason: 'unknown',
-    message: `No se pudo completar la inscripción: ${pErr?.message || 'error desconocido'}. Intenta nuevamente.`,
-  }
+/** Forma cruda del jsonb que devuelve el RPC `enroll_player`. */
+type EnrollRpcResult = {
+  ok: boolean
+  player_id?: string
+  reason?: 'tournament_full' | 'already_registered' | 'invalid_data'
+  message?: string
 }
 
 /**
  * Inscribe un jugador (registrado o invitado) al torneo. Fuente única del
  * gate de status + cupo + INSERT players + INSERT rounds.
+ *
+ * El gate de status vive acá (predicado `isInscribibleStatus`, compartido con la
+ * UI). El cupo + los dos INSERT viven en el RPC `enroll_player`
+ * (migrations/20260713_enroll_player_rpc.sql): una sola transacción con lock de
+ * fila del torneo → cupo atómico y CERO orphan-rounds (si la ronda falla, el
+ * jugador se revierte con ella).
  */
 export async function enrollPlayer(admin: SupabaseClient, args: EnrollArgs): Promise<EnrollResult> {
-  // (a) Gate de status (self-service: sólo 'open').
+  // (a) Gate de status (self-service: sólo 'open'). Fuente única del predicado:
+  // `isInscribibleStatus` — la UI (joinFlow.esInscribible) delega en el mismo.
   if ((args.enforceStatusGate ?? true) && !isInscribibleStatus(args.tournamentStatus)) {
     return {
       ok: false,
@@ -152,56 +142,32 @@ export async function enrollPlayer(admin: SupabaseClient, args: EnrollArgs): Pro
     }
   }
 
-  // (b) Cupo máximo — SIEMPRE, en todos los caminos (correctness fix).
-  const cap = await tournamentCapacity(admin, args.tournamentId)
-  if (cap.full) {
+  // (b) Cupo + INSERT players + INSERT rounds — ATÓMICO en el RPC.
+  const { data, error } = await admin.rpc('enroll_player', {
+    p_tournament_id: args.tournamentId,
+    p_kind: args.identity.kind,
+    p_user_id: args.identity.kind === 'registered' ? args.identity.userId : null,
+    p_guest_name: args.identity.kind === 'guest' ? args.identity.guestName : null,
+    p_handicap: args.handicapAtRegistration,
+    p_category_id: args.categoryId ?? null,
+  })
+
+  if (error) {
+    void captureError(error, { context: 'enrollPlayer.rpc', level: 'error' })
     return {
       ok: false,
-      reason: 'tournament_full',
-      message: `El torneo alcanzó su cupo máximo (${cap.maxPlayers} jugadores). Amplía el cupo máximo del torneo para agregar más.`,
+      reason: 'unknown',
+      message: `No se pudo completar la inscripción: ${error.message}. Intenta nuevamente.`,
     }
   }
 
-  // (c) INSERT players — registrado (user_id) XOR invitado (pending_user_id + player_name).
-  const row: Record<string, unknown> = {
-    tournament_id: args.tournamentId,
-    handicap_at_registration: args.handicapAtRegistration,
-    status: 'approved',
+  const res = data as EnrollRpcResult | null
+  if (res?.ok && res.player_id) {
+    return { ok: true, playerId: res.player_id }
   }
-  if (args.categoryId != null) row.category_id = args.categoryId
-  if (args.identity.kind === 'registered') {
-    row.user_id = args.identity.userId
-  } else {
-    row.user_id = null
-    // CHECK players_identity_check (migración 029): una fila sin user_id DEBE
-    // llevar pending_user_id (o el insert se rechaza con 23514). UNIQUE(tournament_id,
-    // pending_user_id) evita choques; si el invitado reclama su cuenta se linkea acá.
-    row.pending_user_id = crypto.randomUUID()
-    row.player_name = args.identity.guestName
+  return {
+    ok: false,
+    reason: res?.reason ?? 'unknown',
+    message: res?.message ?? 'No se pudo completar la inscripción. Intenta nuevamente.',
   }
-
-  const { data: player, error: pErr } = await admin
-    .from('players')
-    .insert(row)
-    .select('id')
-    .single()
-
-  if (pErr || !player) {
-    return mapInsertError(pErr as { message?: string; code?: string } | null)
-  }
-
-  const playerId = (player as { id: string }).id
-
-  // (d) INSERT rounds — best-effort (no abortamos si falla; el player ya quedó
-  // inscrito y la ronda se re-crea desde score/organizador). TODO: RPC atómica.
-  const { error: rErr } = await admin.from('rounds').insert({
-    tournament_id: args.tournamentId,
-    player_id: playerId,
-    status: 'in_progress',
-  })
-  if (rErr) {
-    void captureError(rErr, { context: 'enrollPlayer.crearRonda', level: 'warning' })
-  }
-
-  return { ok: true, playerId }
 }
