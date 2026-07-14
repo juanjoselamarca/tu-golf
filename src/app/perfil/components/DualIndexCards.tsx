@@ -1,14 +1,17 @@
 'use client'
 import type { Profile } from '@/lib/data/perfil'
 import { formatRelativeTime } from '@/lib/format'
+import { LinkIcon, Check } from '@/components/icons'
 
 interface Props {
   profile: Profile
   fedegolf: { refreshing: boolean; msg: { kind: 'ok' | 'warn' | 'error'; text: string } | null; refresh: () => void }
+  vinculado: boolean
+  onOpenVincular: () => void
   onOpenBreakdown: () => void
 }
 
-export function DualIndexCards({ profile, fedegolf, onOpenBreakdown }: Props) {
+export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, onOpenBreakdown }: Props) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '100ms' }}>
       {/* Índice Federación */}
@@ -22,54 +25,102 @@ export function DualIndexCards({ profile, fedegolf, onOpenBreakdown }: Props) {
         <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
           Oficial USGA · torneos federados
         </p>
-        {/* Botón "Actualizar" — inbox 25366393. Trigger manual al sync FedeGolf
-            (cooldown 4h server-side). No se muestra mientras refresca para evitar
-            doble-click. Mensaje de resultado debajo, auto-clear a los 6s. */}
-        <button
-          type="button"
-          onClick={fedegolf.refresh}
-          disabled={fedegolf.refreshing}
-          aria-label="Actualizar índice FedeGolf"
-          style={{
-            marginTop: '12px',
-            minHeight: '32px',
-            padding: '6px 10px',
-            background: 'transparent',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            fontSize: '11px',
-            fontWeight: 600,
-            fontFamily: '"DM Sans", system-ui, sans-serif',
-            color: fedegolf.refreshing ? 'var(--text-3)' : '#c4992a',
-            cursor: fedegolf.refreshing ? 'wait' : 'pointer',
-            letterSpacing: '0.02em',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-          }}
-        >
-          <span aria-hidden style={{
-            display: 'inline-block',
-            width: '11px', height: '11px',
-            animation: fedegolf.refreshing ? 'fedegolfSpin 800ms linear infinite' : 'none',
-          }}>↻</span>
-          {fedegolf.refreshing ? 'Actualizando…' : 'Actualizar'}
-        </button>
-        {fedegolf.msg && (
-          <p
-            role="status"
-            aria-live="polite"
+        {vinculado ? (
+          <>
+            {/* Botón "Actualizar" — inbox 25366393. Trigger manual al sync FedeGolf
+                (cooldown 4h server-side). No se muestra mientras refresca para evitar
+                doble-click. Mensaje de resultado debajo, auto-clear a los 6s. */}
+            <button
+              type="button"
+              onClick={fedegolf.refresh}
+              disabled={fedegolf.refreshing}
+              aria-label="Actualizar índice FedeGolf"
+              style={{
+                marginTop: '12px',
+                minHeight: '32px',
+                padding: '6px 10px',
+                background: 'transparent',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                color: fedegolf.refreshing ? 'var(--text-3)' : '#c4992a',
+                cursor: fedegolf.refreshing ? 'wait' : 'pointer',
+                letterSpacing: '0.02em',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <span aria-hidden style={{
+                display: 'inline-block',
+                width: '11px', height: '11px',
+                animation: fedegolf.refreshing ? 'fedegolfSpin 800ms linear infinite' : 'none',
+              }}>↻</span>
+              {fedegolf.refreshing ? 'Actualizando…' : 'Actualizar'}
+            </button>
+            {fedegolf.msg && (
+              <p
+                role="status"
+                aria-live="polite"
+                style={{
+                  marginTop: '8px',
+                  marginBottom: 0,
+                  fontSize: '10px',
+                  lineHeight: 1.4,
+                  color: fedegolf.msg.kind === 'error' ? '#dc2626' : fedegolf.msg.kind === 'warn' ? 'var(--text-2)' : '#16a34a',
+                }}
+              >
+                {fedegolf.msg.text}
+              </p>
+            )}
+            {/* Acceso a gestionar/desvincular la cuenta ya vinculada */}
+            <button
+              type="button"
+              onClick={onOpenVincular}
+              style={{
+                marginTop: '8px', background: 'transparent', border: 'none', padding: '2px',
+                fontSize: '10px', color: 'var(--text-3)', cursor: 'pointer',
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+              }}
+            >
+              <Check size={11} strokeWidth={2.5} color="#16a34a" />
+              FedeGolf vinculada
+            </button>
+          </>
+        ) : (
+          /* Sin cuenta vinculada: punto de entrada al flujo de vinculación
+             (inbox 2f76dcaf — antes "Actualizar" mostraba "Vincula tu cuenta
+             FedeGolf primero" sin dónde hacerlo). */
+          <button
+            type="button"
+            onClick={onOpenVincular}
+            aria-label="Vincular cuenta FedeGolf"
             style={{
-              marginTop: '8px',
-              marginBottom: 0,
-              fontSize: '10px',
-              lineHeight: 1.4,
-              color: fedegolf.msg.kind === 'error' ? '#dc2626' : fedegolf.msg.kind === 'warn' ? 'var(--text-2)' : '#16a34a',
+              marginTop: '12px',
+              minHeight: '32px',
+              padding: '6px 12px',
+              background: 'rgba(196,153,42,0.1)',
+              border: '1px solid rgba(196,153,42,0.35)',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontWeight: 600,
+              fontFamily: '"DM Sans", system-ui, sans-serif',
+              color: '#c4992a',
+              cursor: 'pointer',
+              letterSpacing: '0.02em',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
             }}
           >
-            {fedegolf.msg.text}
-          </p>
+            <LinkIcon size={11} strokeWidth={2.5} />
+            Vincular FedeGolf
+          </button>
         )}
         <style jsx>{`
           @keyframes fedegolfSpin {

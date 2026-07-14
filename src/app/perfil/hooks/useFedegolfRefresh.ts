@@ -19,11 +19,11 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
         | { ok?: boolean; indice?: number; cambio?: boolean; cached?: boolean; error?: string }
         | null
       if (res.status === 404 || body?.error === 'No hay cuenta FedeGolf vinculada') {
-        setMsg({ kind: 'warn', text: 'Vinculá tu cuenta FedeGolf primero.' })
+        setMsg({ kind: 'warn', text: 'Vincula tu cuenta FedeGolf primero.' })
       } else if (!res.ok) {
-        setMsg({ kind: 'error', text: body?.error || 'No se pudo actualizar. Intentá más tarde.' })
+        setMsg({ kind: 'error', text: body?.error || 'No se pudo actualizar. Intenta más tarde.' })
       } else if (body?.cached) {
-        setMsg({ kind: 'warn', text: 'Ya está actualizado. Probá de nuevo en 4 horas.' })
+        setMsg({ kind: 'warn', text: 'Ya está actualizado. Prueba de nuevo en 4 horas.' })
       } else if (body?.cambio === false) {
         setMsg({ kind: 'ok', text: 'Tu índice no cambió.' })
       } else {
@@ -36,7 +36,7 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
         if (updated) onProfile(updated as Profile)
       }
     } catch {
-      setMsg({ kind: 'error', text: 'Error de red. Probá de nuevo.' })
+      setMsg({ kind: 'error', text: 'Error de red. Prueba de nuevo.' })
     } finally {
       setRefreshing(false)
       setTimeout(() => setMsg(null), 6000)

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
+import { captureError } from '@/lib/error-tracking'
 
 export interface Profile {
   id: string
@@ -19,6 +20,41 @@ export const PROFILE_COLS =
   'id, name, indice, avatar_url, indice_golfers, indice_golfers_updated_at, nivel, nivel_updated_at, nivel_expires_at'
 
 export type { ResultadoCPI }
+
+/**
+ * Estado de vinculación con FedeGolf. Lo resuelve el server component del perfil
+ * (RSC) y lo pasa a la UI para pintar el estado correcto sin round-trip client.
+ * `vinculado` refleja que existe una fila activa en fedegolf_credentials del
+ * usuario. La UI cliente lo mantiene en sync tras vincular/desvincular.
+ */
+export interface FedegolfStatus {
+  vinculado: boolean
+  ultimoIndice: number | null
+  ultimoSync: string | null
+}
+
+export async function fetchFedegolfStatus(supabase: SupabaseClient, userId: string): Promise<FedegolfStatus> {
+  const { data, error } = await supabase
+    .from('fedegolf_credentials')
+    .select('ultimo_indice, ultimo_sync, activo')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  // Fail-safe: si la query falla (DB/RLS), tratamos como "no vinculado" para no
+  // romper el perfil, pero NO perdemos la señal — la reportamos.
+  if (error) {
+    captureError(error, { context: 'fetchFedegolfStatus', meta: { userId } })
+    return { vinculado: false, ultimoIndice: null, ultimoSync: null }
+  }
+  if (!data || data.activo === false) {
+    return { vinculado: false, ultimoIndice: null, ultimoSync: null }
+  }
+  return {
+    vinculado: true,
+    ultimoIndice: data.ultimo_indice ?? null,
+    ultimoSync: data.ultimo_sync ?? null,
+  }
+}
 
 export async function fetchProfile(supabase: SupabaseClient, userId: string): Promise<Profile | null> {
   const { data, error } = await supabase.from('profiles').select(PROFILE_COLS).eq('id', userId).single()
