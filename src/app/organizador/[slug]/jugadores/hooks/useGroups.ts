@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
+import {
+  listGroups,
+  createGroup,
+  deleteGroup,
+  setGroupTeeTime,
+  assignPlayerToGroup,
+} from '@/lib/data/tournaments/groups'
 import type { Player, Tournament, TournamentGroup } from '../types'
 
 interface UseGroupsArgs {
@@ -10,13 +17,12 @@ interface UseGroupsArgs {
 
 /**
  * Estado + operaciones sobre los grupos del torneo (crear / borrar / generar
- * horarios de salida / asignar jugador a grupo). Extraído verbatim de
- * JugadoresPanel — sin cambio de comportamiento. El effect que dispara
- * `fetchGroups` lo mantiene el componente (orquesta con checkAllRoundsClosed).
- *
- * Nota: usa el SELECT inline (incluye el id de la membresía, usado como key en
- * el JSX) y no la data-layer listGroups, que tiene otro shape. Migrar a la capa
- * de datos es una pasada separada y verificada (no en este refactor).
+ * horarios de salida / asignar jugador a grupo). El acceso a datos vive en la
+ * capa `src/lib/data/tournaments/groups.ts` (fuente única del SELECT + las
+ * mutaciones). Este hook sólo orquesta el estado de la UI y mapea las filas a
+ * la vista (resuelve nombres desde el prop `players` ya cargado). El effect que
+ * dispara `fetchGroups` lo mantiene el componente (orquesta con
+ * checkAllRoundsClosed).
  */
 export function useGroups({ tournament, players }: UseGroupsArgs) {
   const { showError, showWarning, showSuccess } = useToast()
@@ -30,63 +36,58 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
   const [generatingTees, setGeneratingTees] = useState(false)
 
   const fetchGroups = async () => {
-    const supabase = createClient()
-    const { data: gData } = await supabase
-      .from('tournament_groups')
-      .select('id, name, tee_time, sort_order, ronda_libre_id, tournament_group_players(id, player_id)')
-      .eq('tournament_id', tournament.id)
-      .order('sort_order')
-
-    if (!gData) { setGroups([]); return }
-
-    const mapped: TournamentGroup[] = gData.map((g: Record<string, unknown>) => {
-      const gPlayers = (g.tournament_group_players as Array<{ id: string; player_id: string }>) || []
-      return {
-        id: g.id as string,
-        name: g.name as string,
-        tee_time: g.tee_time as string | null,
-        sort_order: (g.sort_order as number) || 0,
-        ronda_libre_id: g.ronda_libre_id as string | null,
-        players: gPlayers.map((gp) => {
+    try {
+      const rows = await listGroups(createClient(), tournament.id)
+      const mapped: TournamentGroup[] = rows.map((g) => ({
+        id: g.id,
+        name: g.name,
+        tee_time: g.tee_time,
+        sort_order: g.sort_order || 0,
+        ronda_libre_id: g.ronda_libre_id,
+        players: (g.tournament_group_players ?? []).map((gp) => {
           const p = players.find((pl) => pl.id === gp.player_id)
           return { id: gp.id, player_id: gp.player_id, playerName: p?.profiles?.name || 'Jugador' }
         }),
-      }
-    })
-    setGroups(mapped)
+      }))
+      setGroups(mapped)
+    } catch {
+      setGroups([])
+    }
   }
 
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) { showWarning('Nombre requerido', 'Escribe un nombre para el grupo.'); return }
     setCreatingGroup(true)
-    const supabase = createClient()
-    // Convert time string "HH:MM" to full TIMESTAMPTZ using tournament date
+    // Convierte "HH:MM" a TIMESTAMPTZ usando la fecha del torneo.
     let teeTimeValue: string | null = null
     if (newGroupTeeTime) {
       const dateBase = tournament.date_start || new Date().toISOString().split('T')[0]
       teeTimeValue = `${dateBase}T${newGroupTeeTime}:00`
     }
-
-    const { error } = await supabase.from('tournament_groups').insert({
-      tournament_id: tournament.id,
-      name: newGroupName.trim(),
-      tee_time: teeTimeValue,
-      sort_order: groups.length,
-    })
-    if (error) {
-      showError('Error al crear grupo', error.message)
-    } else {
+    try {
+      await createGroup(createClient(), {
+        tournamentId: tournament.id,
+        name: newGroupName.trim(),
+        teeTime: teeTimeValue,
+        sortOrder: groups.length,
+      })
       showSuccess('Grupo creado', `"${newGroupName.trim()}" agregado.`)
       setNewGroupName('')
       setNewGroupTeeTime('')
       await fetchGroups()
+    } catch (e) {
+      showError('Error al crear grupo', e instanceof Error ? e.message : 'No se pudo crear el grupo.')
+    } finally {
+      setCreatingGroup(false)
     }
-    setCreatingGroup(false)
   }
 
   const handleDeleteGroup = async (groupId: string) => {
-    const supabase = createClient()
-    await supabase.from('tournament_groups').delete().eq('id', groupId)
+    try {
+      await deleteGroup(createClient(), groupId)
+    } catch (e) {
+      showError('Error', e instanceof Error ? e.message : 'No se pudo borrar el grupo.')
+    }
     await fetchGroups()
   }
 
@@ -96,37 +97,29 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
     const supabase = createClient()
     const dateBase = tournament.date_start || new Date().toISOString().split('T')[0]
     const [startH, startM] = teeStartTime.split(':').map(Number)
-
-    for (let i = 0; i < groups.length; i++) {
-      const totalMinutes = startH * 60 + startM + (i * teeInterval)
-      const h = Math.floor(totalMinutes / 60).toString().padStart(2, '0')
-      const m = (totalMinutes % 60).toString().padStart(2, '0')
-      const teeTimeValue = `${dateBase}T${h}:${m}:00`
-
-      await supabase
-        .from('tournament_groups')
-        .update({ tee_time: teeTimeValue })
-        .eq('id', groups[i].id)
+    try {
+      for (let i = 0; i < groups.length; i++) {
+        const totalMinutes = startH * 60 + startM + (i * teeInterval)
+        const h = Math.floor(totalMinutes / 60).toString().padStart(2, '0')
+        const m = (totalMinutes % 60).toString().padStart(2, '0')
+        await setGroupTeeTime(supabase, groups[i].id, `${dateBase}T${h}:${m}:00`)
+      }
+      await fetchGroups()
+      showSuccess('Horarios generados', `${groups.length} grupos con horarios desde las ${teeStartTime} cada ${teeInterval} min.`)
+    } catch (e) {
+      showError('Error', e instanceof Error ? e.message : 'No se pudieron generar los horarios.')
+    } finally {
+      setGeneratingTees(false)
     }
-
-    await fetchGroups()
-    setGeneratingTees(false)
-    showSuccess('Horarios generados', `${groups.length} grupos con horarios desde las ${teeStartTime} cada ${teeInterval} min.`)
   }
 
   const handleAssignPlayer = async (playerId: string, groupId: string) => {
-    const supabase = createClient()
-    // Remove from any current group first
-    await supabase.from('tournament_group_players').delete().eq('player_id', playerId)
-    if (groupId) {
-      const { error } = await supabase.from('tournament_group_players').insert({
-        group_id: groupId,
-        player_id: playerId,
-      })
-      if (error && !error.message.includes('duplicate')) {
-        showError('Error', 'No se pudo asignar al grupo.')
-        return
-      }
+    try {
+      // groupId vacío ('') = quitar del grupo → null.
+      await assignPlayerToGroup(createClient(), playerId, groupId || null)
+    } catch {
+      showError('Error', 'No se pudo asignar al grupo.')
+      return
     }
     await fetchGroups()
   }
