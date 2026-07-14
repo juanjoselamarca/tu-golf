@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
-import { fetchProfile, countTournaments, fetchCpi } from '@/lib/data/perfil'
+import { fetchProfile, countTournaments, fetchCpi, fetchFedegolfStatus } from '@/lib/data/perfil'
 import { PerfilView } from './components/PerfilView'
 
 export const metadata: Metadata = { title: 'Perfil — Golfers+' }
@@ -21,10 +21,11 @@ export default async function PerfilPage() {
   const user = await getPageUser(supabase)
   if (!user) redirect('/login?redirect=/perfil')
 
-  const [profile, tourneysPlayed, cpiData] = await Promise.all([
+  const [profile, tourneysPlayed, cpiData, fedegolfStatus] = await Promise.all([
     fetchProfile(supabase, user.id),
     countTournaments(supabase, user.id),
     fetchCpi(supabase, user.id),
+    fetchFedegolfStatus(supabase, user.id),
   ])
 
   if (!profile) {
@@ -40,6 +41,7 @@ export default async function PerfilPage() {
       userEmail={user.email ?? null}
       tourneysPlayed={tourneysPlayed}
       cpiData={cpiData}
+      initialFedegolfStatus={fedegolfStatus}
     />
   )
 }

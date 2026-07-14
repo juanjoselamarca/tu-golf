@@ -6,9 +6,11 @@ import { LevelsBar } from '@/components/perfil/LevelsBar'
 import { getNivel } from '@/lib/mi-golf/niveles'
 import IndiceBreakdownModal from '@/components/IndiceBreakdownModal'
 import InstallAppCard from '@/components/InstallAppCard'
-import type { Profile, ResultadoCPI } from '@/lib/data/perfil'
+import type { Profile, ResultadoCPI, FedegolfStatus } from '@/lib/data/perfil'
 import { useProfileEdit } from '../hooks/useProfileEdit'
 import { useFedegolfRefresh } from '../hooks/useFedegolfRefresh'
+import { useFedegolfVincular } from '../hooks/useFedegolfVincular'
+import { FedegolfVincularModal } from './FedegolfVincularModal'
 import { ProfileHeaderCard } from './ProfileHeaderCard'
 import { DefaultTeeBanner } from '@/components/DefaultTeeBanner'
 import { DualIndexCards } from './DualIndexCards'
@@ -22,13 +24,26 @@ interface Props {
   userEmail: string | null
   tourneysPlayed: number
   cpiData: ResultadoCPI | null
+  initialFedegolfStatus: FedegolfStatus
 }
 
-export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData }: Props) {
+export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData, initialFedegolfStatus }: Props) {
   const [profile, setProfile] = useState<Profile>(initialProfile)
   const [breakdownOpen, setBreakdownOpen] = useState(false)
+  const [fedegolfStatus, setFedegolfStatus] = useState<FedegolfStatus>(initialFedegolfStatus)
+  const [vincularOpen, setVincularOpen] = useState(false)
   const edit = useProfileEdit(profile, setProfile)
   const fedegolf = useFedegolfRefresh(profile, setProfile)
+
+  // Vincular/desvincular FedeGolf. Al vincular, el backend ya guardó el índice
+  // oficial en profiles.indice; lo reflejamos en la UI sin recargar.
+  const fedegolfVincular = useFedegolfVincular({
+    onLinked: (indice) => {
+      setFedegolfStatus({ vinculado: true, ultimoIndice: indice, ultimoSync: new Date().toISOString() })
+      if (indice != null) setProfile((p) => ({ ...p, indice }))
+    },
+    onUnlinked: () => setFedegolfStatus({ vinculado: false, ultimoIndice: null, ultimoSync: null }),
+  })
 
   // Niveles Golfers+ por skill (handicap). Prioriza Índice Golfers+
   // si está calculado (rendimiento real); fallback a Federación.
@@ -60,7 +75,13 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData 
           onAddIndice={() => { edit.setEditing(true); setTimeout(() => document.getElementById('edit-form')?.scrollIntoView({ behavior: 'smooth' }), 100) }}
         />
 
-        <DualIndexCards profile={profile} fedegolf={fedegolf} onOpenBreakdown={() => setBreakdownOpen(true)} />
+        <DualIndexCards
+          profile={profile}
+          fedegolf={fedegolf}
+          vinculado={fedegolfStatus.vinculado}
+          onOpenVincular={() => setVincularOpen(true)}
+          onOpenBreakdown={() => setBreakdownOpen(true)}
+        />
 
         {/* P18: link explicativo — "¿Cuándo uso cuál?" */}
         <div style={{ marginBottom: '12px', textAlign: 'center', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '180ms' }}>
@@ -109,6 +130,19 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData 
 
       {/* Modal "¿Qué rondas cuentan?" — inbox 82af3d48 */}
       <IndiceBreakdownModal isOpen={breakdownOpen} onClose={() => setBreakdownOpen(false)} />
+
+      {/* Modal vincular/gestionar FedeGolf — inbox 2f76dcaf */}
+      <FedegolfVincularModal
+        open={vincularOpen}
+        onClose={() => setVincularOpen(false)}
+        status={fedegolfStatus}
+        vincular={fedegolfVincular.vincular}
+        desvincular={fedegolfVincular.desvincular}
+        submitting={fedegolfVincular.submitting}
+        unlinking={fedegolfVincular.unlinking}
+        error={fedegolfVincular.error}
+        clearError={fedegolfVincular.clearError}
+      />
     </div>
   )
 }

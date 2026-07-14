@@ -12,4 +12,5 @@ export {
   MoreVertical, Pencil, Trash2,
   Link as LinkIcon,
   Loader2,
+  ShieldCheck, Lock,
 } from 'lucide-react'

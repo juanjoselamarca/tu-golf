@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fetchProfile, countTournaments, fetchCpi } from './perfil'
+import { fetchProfile, countTournaments, fetchCpi, fetchFedegolfStatus } from './perfil'
 
 // Cliente Supabase mockeado con builder chainable (cast a never para el tipo).
 function mockSupabase(handlers: unknown) {
@@ -75,5 +75,30 @@ describe('fetchCpi', () => {
   it('devuelve null si la query falla', async () => {
     const supabase = { from: () => ({ select: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: null, error: { message: 'boom' } }) }) }) }) }) }
     expect(await fetchCpi(mockSupabase(supabase), 'u1')).toBeNull()
+  })
+})
+
+describe('fetchFedegolfStatus', () => {
+  const withRow = (row: unknown) =>
+    mockSupabase({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row, error: null }) }) }) }) })
+
+  it('reporta vinculado con índice y sync cuando hay fila activa', async () => {
+    const s = await fetchFedegolfStatus(withRow({ ultimo_indice: 9.6, ultimo_sync: '2026-07-13T00:00:00Z', activo: true }), 'u1')
+    expect(s).toEqual({ vinculado: true, ultimoIndice: 9.6, ultimoSync: '2026-07-13T00:00:00Z' })
+  })
+
+  it('reporta NO vinculado cuando no hay fila', async () => {
+    const s = await fetchFedegolfStatus(withRow(null), 'u1')
+    expect(s).toEqual({ vinculado: false, ultimoIndice: null, ultimoSync: null })
+  })
+
+  it('reporta NO vinculado cuando la fila está inactiva (activo=false)', async () => {
+    const s = await fetchFedegolfStatus(withRow({ ultimo_indice: 9.6, ultimo_sync: '2026-07-13T00:00:00Z', activo: false }), 'u1')
+    expect(s.vinculado).toBe(false)
+  })
+
+  it('vinculado sin índice aún: índice y sync en null', async () => {
+    const s = await fetchFedegolfStatus(withRow({ ultimo_indice: null, ultimo_sync: null, activo: true }), 'u1')
+    expect(s).toEqual({ vinculado: true, ultimoIndice: null, ultimoSync: null })
   })
 })
