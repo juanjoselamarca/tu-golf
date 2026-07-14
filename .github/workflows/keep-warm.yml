@@ -1,0 +1,46 @@
+name: Keep Warm
+
+# Mantiene caliente la función serverless de Golfers+ (región gru1, São Paulo).
+#
+# Por qué existe: en plan Hobby con tráfico bajo, Vercel escala las instancias a
+# cero tras un rato sin uso. La primera visita después paga un "cold start"
+# (~1s de pantalla blanca antes de que arranque la función Node). Ese golpe pega
+# JUSTO en el peor momento — cuando Juanjo le muestra la app a alguien, que es
+# precisamente cuando llevaba rato sin uso y está fría. Mala primera impresión.
+#
+# Fix: pegarle a /api/keep-warm cada 5 min (el intervalo más corto que permite
+# GitHub Actions) despierta la función y la mantiene viva, así el arranque en
+# frío casi nunca le toca a un usuario real. /api/keep-warm NO toca la base de
+# datos a propósito — solo tiene que arrancar el runtime.
+#
+# Costo: cero (GitHub Actions es gratis en repos, y el endpoint no hace trabajo).
+# Alternativa "correcta" a futuro: cron nativo de Vercel cada 5 min (requiere
+# plan Pro; Hobby solo permite crons diarios) o PPR con Next 15.
+#
+# Nota: el scheduler de GitHub Actions puede atrasarse varios minutos bajo carga
+# y no es exacto — para keep-warm da igual, no necesitamos precisión.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Ping keep-warm
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping /api/keep-warm
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+            https://golfersplus.vercel.app/api/keep-warm)
+          echo "keep-warm HTTP $code"
+          # No fallamos el workflow si el ping no da 200: un cold start puntual o
+          # un deploy en curso no debe ensuciar el historial con rojos. El único
+          # objetivo es generar tráfico para que la función no escale a cero.
+          exit 0
