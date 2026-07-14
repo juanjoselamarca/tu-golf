@@ -41,6 +41,16 @@ export function bestRoundByVsPar<T extends RoundForCompare>(rounds: T[]): T | nu
 }
 
 /**
+ * Encuentra la peor ronda por vsPar (mayor diferencial = peor).
+ * Espejo de bestRoundByVsPar; en empates gana la primera en orden original
+ * (misma semántica que el sort estable descendente que reemplaza).
+ */
+export function worstRoundByVsPar<T extends RoundForCompare>(rounds: T[]): T | null {
+  if (rounds.length === 0) return null
+  return rounds.reduce((worst, r) => vsPar(r) > vsPar(worst) ? r : worst)
+}
+
+/**
  * Ordena rondas por rendimiento (mejor primero = menor vsPar).
  */
 export function sortRoundsByPerformance<T extends RoundForCompare>(rounds: T[]): T[] {
