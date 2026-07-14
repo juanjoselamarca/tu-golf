@@ -35,21 +35,37 @@ Detalle expandido en `feedback_rol_cto.md` (memoria).
 
 ---
 
-## MODELOS — routing por tarea (sugerencia, no auto-switch)
+## MODELOS — routing automático por tarea (vigente desde 13-jul-2026)
 
-El modelo de la sesión lo cambia Juanjo con `/model`. Claude NO se auto-cambia
-mid-sesión; solo sugiere con "Sugiero `/model <X>` porque <razón>" y espera.
+Juanjo NO tiene que tocar `/model`. El modelo correcto se aplica solo, por dos vías:
 
-- **Opus 4.8 (default):** ejecutar planes, features, fixes acotados, el día a día.
-  Es el caballo de batalla.
-- **Fable 5:** arquitectura, refactors transversales, planes de sprint, y bugs con
-  2+ intentos fallidos (gatillo: si `systematic-debugging` ya falló 2 veces en el
-  mismo bug, sugerir Fable). Más capaz; reservarlo por ser más pesado/lento y con
-  cupo por fases — NO por costo (Fable $10/$50 por 1M es más barato que Opus 4.7).
-- **Sonnet 4.6:** tareas mecánicas y verificables (renombres, datos de prueba, docs,
-  scripts triviales).
-- **UI/copy NO baja a Sonnet:** mantiene la barra premium con las skills de diseño
-  (design-shotgun → frontend-design → design-review).
+**1. Hilo principal (esta conversación) = Opus 4.8, siempre.** Es el caballo de batalla:
+ejecutar planes, features, fixes acotados, UI/copy premium, el día a día. Límite duro del
+harness: el modelo del hilo principal SOLO cambia con `/model` (acción de Juanjo) — Claude
+no puede auto-cambiarlo mid-sesión. Casi nunca hace falta cambiarlo, porque el trabajo que
+pide otro modelo se **delega** (abajo).
+
+**2. Trabajo delegado = modelo pineado por subagente, automático.** Cuando la tarea encaja
+en un carril especializado, el hilo principal (Opus) la despacha vía `Agent` con el
+`subagent_type` correspondiente. El subagente corre en SU modelo sin importar el modelo de
+la sesión. Claude enruta solo, sin pedir permiso ni pedirle a Juanjo que cambie de modelo:
+
+| Carril | `subagent_type` | Modelo | Cuándo despachar |
+|---|---|---|---|
+| Refactor pesado / arquitectura / plan de sprint | `refactor-arquitecto` | Fable 5 | Archivo "sucio" >600 LOC al estándar, diseño cross-módulo, plan de ola |
+| Bug con 2+ intentos fallidos | `debug-profundo` | Fable 5 | `systematic-debugging` ya falló 2× sobre el mismo bug en el hilo principal |
+| Tarea mecánica verificable | `tarea-mecanica` | Sonnet | Renombres, seed data, docs, scripts triviales, boilerplate 1:1 |
+
+Definiciones en `.claude/agents/*.md`. Fable se reserva por ser más pesado/lento y con
+cupo por fases — NO por costo (ya es más barato que Opus). Un descuento temporal de Fable
+NO cambia el ruteo; solo es buena semana para adelantar trabajo Fable-shaped ya en cola.
+
+**UI/copy NO baja a Sonnet ni se delega:** queda en el hilo principal (Opus) con las skills
+de diseño (design-shotgun → frontend-design → design-review). Mantiene la barra premium.
+
+**Único caso que aún requiere `/model` de Juanjo:** una sesión entera que deba SER Fable de
+punta a punta (ej. un brainstorm largo de arquitectura 100% interactivo, no delegable). Raro.
+Si pasa, Claude avisa: "Sugiero `/model` → Fable porque <razón>" y espera.
 
 ---
 
