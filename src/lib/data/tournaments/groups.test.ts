@@ -111,4 +111,12 @@ describe('assignPlayerToGroup', () => {
     mockFrom.mockReturnValue({ delete: del, insert })
     await expect(assignPlayerToGroup(mockSupabase, 'p1', 'g1')).rejects.toThrow('permission denied')
   })
+
+  it('un error del delete SÍ se propaga (no intenta insertar)', async () => {
+    const insert = vi.fn()
+    const del = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: { message: 'rls denied' } }) })
+    mockFrom.mockReturnValue({ delete: del, insert })
+    await expect(assignPlayerToGroup(mockSupabase, 'p1', 'g1')).rejects.toThrow('rls denied')
+    expect(insert).not.toHaveBeenCalled()
+  })
 })
