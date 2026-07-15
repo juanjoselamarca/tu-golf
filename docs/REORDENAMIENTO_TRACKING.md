@@ -23,7 +23,7 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 |---|---|---|---|---|---|---|
 | 1 | `src/app/ronda-libre/nueva/page.tsx` | 2118 | — | ⏳ Pendiente | — | — |
 | 2 | `src/app/ronda-libre/[codigo]/page.tsx` | 2038 | 275 | ✅ Hecho | `3267d66` | 17-18 jun |
-| 3 | `src/app/perfil/historial/page.tsx` | 1408 | — | ⏳ Pendiente | — | — |
+| 3 | `src/app/perfil/historial/page.tsx` | 1408 | 54 | ✅ Hecho | PR #75 (hooks/components) + RSC jul-2026 (Server Component, capa `lib/data/historial.ts`, golf en `src/golf/stats/historial.ts`) | 28 may / 15 jul |
 | 4 | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | 1305 | — | ⏳ Pendiente | — | — |
 | 5 | `src/app/organizador/[slug]/jugadores/JugadoresPanel.tsx` | 1112 | — | ⏳ Pendiente | — | — |
 | 6 | `src/components/import/ImportGuide.tsx` | 1077 | — | ⏳ Pendiente | — | — |
@@ -170,6 +170,6 @@ Antes: 3 caminos insertaban en `players`+`rounds` reimplementando la lógica, y 
 | Sitio | Estado |
 |---|---|
 | `src/golf/courses/course-par-map.ts` (canónica: `buildCourseParMap`) | ✅ creado (9-jul, bug inbox 2268163d "los eagles no me calzan") — indexa por `numero-1`, robusto a orden de fetch |
-| `src/app/api/historial/stats/route.ts` | ✅ usa la canónica (además arregla la causa raíz: paginaba `course_holes` con `.order('numero')` no-único → drops entre páginas `.range()`) |
+| `src/app/api/historial/stats/route.ts` | ✅ usa la canónica (además arregla la causa raíz: paginaba `course_holes` con `.order('numero')` no-único → drops entre páginas `.range()`). Jul-2026: la lógica se movió intacta a `src/golf/stats/historial.ts` (compute) + `src/lib/data/historial.ts` (paginación determinista) — misma fuente para el route Y el RSC `/perfil/historial` |
 | `src/golf/coach/detect-and-save-patterns.ts:53` (`holeParsByCourse[cid][numero-1]=par`, idéntico byte-a-byte) | ⏳ pendiente — converger al tocar el flujo del coach. Sin bug de paginación (fetch acotado por `.in('course_id',…)`) |
 | `src/golf/coach/tools.ts:368` y `src/golf/coach/context.ts:217` (variante objeto 1-indexed `parsByCourse[cid][numero]=par`) | ⏳ pendiente — converger al tocar el flujo del coach. Sin bug de paginación (fetch acotado) |
