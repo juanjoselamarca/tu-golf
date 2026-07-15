@@ -7,6 +7,25 @@
 
 export interface FedegolfSession {
   cookie: string // PHPSESSID=...
+  /**
+   * Datos del socio devueltos por el login (nombre, género, etc.). Presente
+   * cuando la sesión se obtuvo con credenciales frescas; ausente si solo se
+   * reusó una cookie. Se usa para autocompletar el perfil al vincular.
+   */
+  perfil?: FedegolfPerfil
+}
+
+/**
+ * Subconjunto útil del perfil del socio que expone fedegolf.cl en la respuesta
+ * del login. Solo mapeamos lo que la app puede consumir hoy (name + genero).
+ */
+export interface FedegolfPerfil {
+  usuarioId: number | null
+  nombreCompleto: string | null
+  /** Género normalizado a la convención de la app: 'M' | 'F' (o null si no se pudo mapear). */
+  genero: 'M' | 'F' | null
+  /** Valor crudo de `sexo` que vino de FedeGolf (ej. "Varon", "Dama"), para trazabilidad. */
+  sexoRaw: string | null
 }
 
 // ─── Login ───────────────────────────────────────────────────────────

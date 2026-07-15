@@ -14,6 +14,7 @@ import {
   type FedegolfIndice,
   type FedegolfInfoCancha,
   type FedegolfMiembro,
+  type FedegolfPerfil,
   type FedegolfSession,
   type FedegolfTeeColor,
   type FedegolfTeeInfo,
@@ -46,12 +47,56 @@ function extractPhpSessionId(headers: Headers): string | null {
   return null
 }
 
+// ─── Perfil del socio ────────────────────────────────────────────────
+
+/**
+ * Normaliza el `sexo` de FedeGolf ("Varon"/"Dama"/…) a la convención de la app
+ * (`profiles.genero` = 'M' | 'F'). Robusto a variantes; null si no reconoce.
+ * Fuente única del mapeo sexo→genero para el flujo de vinculación.
+ */
+export function fedegolfSexoToGenero(sexo: unknown): 'M' | 'F' | null {
+  if (typeof sexo !== 'string') return null
+  const s = sexo.trim().toLowerCase()
+  if (!s) return null
+  if (/^(var|masc|hom|m$)/.test(s)) return 'M'
+  if (/^(dam|muj|fem|f$)/.test(s)) return 'F'
+  return null
+}
+
+/**
+ * Extrae el subconjunto útil del `data` del login (nombre completo + género).
+ * No asume que todos los campos vengan — todo es best-effort y null-safe.
+ */
+export function parseFedegolfPerfil(data: Record<string, unknown> | null | undefined): FedegolfPerfil {
+  const d = data ?? {}
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+  const nombreCompleto =
+    [str(d.Nombres), str(d.Apellido_Paterno), str(d.Apellido_Materno)].filter(Boolean).join(' ') || null
+  const usuarioRaw = d.Usuario
+  const usuarioId =
+    typeof usuarioRaw === 'number'
+      ? usuarioRaw
+      : typeof usuarioRaw === 'string' && usuarioRaw.trim() !== '' && Number.isFinite(Number(usuarioRaw))
+        ? Number(usuarioRaw)
+        : null
+  return {
+    usuarioId,
+    nombreCompleto,
+    genero: fedegolfSexoToGenero(d.sexo),
+    sexoRaw: str(d.sexo) || null,
+  }
+}
+
 // ─── Login ───────────────────────────────────────────────────────────
 
 /**
  * Autentica contra fedegolf.cl en dos pasos:
  * 1. GET / para obtener PHPSESSID
  * 2. POST services.php con credenciales (responde 302 en éxito)
+ *
+ * En éxito devuelve la cookie de sesión + el perfil del socio (nombre, género)
+ * parseado del body del login, que la ruta de vinculación usa para
+ * autocompletar el perfil del usuario.
  */
 export async function fedegolfLogin(
   rut: string,
@@ -93,7 +138,17 @@ export async function fedegolfLogin(
   const newSessionId = extractPhpSessionId(loginRes.headers)
   const cookie = `PHPSESSID=${newSessionId ?? sessionId}`
 
-  return { cookie }
+  // El body del 302 trae { data: { Nombres, sexo, ... } }. Best-effort: si no
+  // parsea, la vinculación igual funciona (solo no autocompleta el perfil).
+  let perfil: FedegolfPerfil | undefined
+  try {
+    const body = (await loginRes.json()) as { data?: Record<string, unknown> } | null
+    if (body?.data) perfil = parseFedegolfPerfil(body.data)
+  } catch {
+    // body no-JSON o vacío — perfil queda undefined
+  }
+
+  return { cookie, perfil }
 }
 
 // ─── Canchas de un club ──────────────────────────────────────────────
