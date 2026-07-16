@@ -26,6 +26,12 @@ export interface FedegolfPerfil {
   genero: 'M' | 'F' | null
   /** Valor crudo de `sexo` que vino de FedeGolf (ej. "Varon", "Dama"), para trazabilidad. */
   sexoRaw: string | null
+  /**
+   * Fecha de nacimiento del socio en formato ISO `YYYY-MM-DD`, o null si FedeGolf
+   * no la trae o viene malformada. Se persiste en `profiles.fecha_nacimiento`
+   * (fill-if-null) para habilitar edad → tees senior / segmentación por edad.
+   */
+  fechaNacimiento: string | null
 }
 
 // ─── Login ───────────────────────────────────────────────────────────
