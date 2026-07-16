@@ -84,3 +84,11 @@ Existe un hook en `.git/hooks/pre-push` que bloquea push si:
 - Build falla
 
 Este hook NO se puede desactivar sin aprobación explícita de Juanjo. Si pre-push bloquea por tests de código ajeno (otra sesión trabajó en paralelo), `git fetch + pull --rebase` antes de saltar el hook.
+
+## Keep-warm — evitar cold starts (pg_cron, no GitHub Actions)
+
+En Vercel Hobby la función escala a cero con tráfico bajo y la primera visita paga un cold start (~1s de pantalla blanca), justo cuando se demuestra la app. Para evitarlo, un job **pg_cron en Supabase** (`keep-warm-golfers`) pinguea `/api/keep-warm` cada 2 min vía pg_net.
+
+**Por qué NO GitHub Actions:** su scheduler estrangula los cron de repos de bajo tráfico — corría cada 1-3h en vez de cada 5 min (medido 16-jul-2026), así que no mantenía nada caliente. Supabase sí respeta el schedule. El workflow `keep-warm.yml` quedó solo como `workflow_dispatch` (ping manual de respaldo).
+
+**Fuente de verdad / re-provisión:** `scripts/keep-warm-cron.sql` (idempotente). Verificar con `select * from cron.job where jobname='keep-warm-golfers'` y `select status_code from net._http_response order by created desc limit 5`.
