@@ -1,9 +1,11 @@
 /**
  * Estados vacíos y de error para /perfil/historial:
- *   - LoadingScreen           → spinner full-screen mientras se verifica auth
+ *   - LoadingScreen           → spinner full-screen (fallback de streaming en loading.tsx)
  *   - FatalErrorScreen        → falla total cargando, sin rondas (botón Reintentar)
- *   - RoundsSkeleton          → 4 cards skeleton mientras llega la lista de rondas
  *   - EmptyHistorialState     → "Tu historial está vacío" + CTAs
+ *
+ * Post-RSC: RoundsSkeleton murió — la lista llega renderizada desde el server,
+ * no hay gap client entre auth y rondas.
  */
 'use client'
 
@@ -74,27 +76,6 @@ export function FatalErrorScreen({ onRetry }: FatalErrorScreenProps) {
       >
         &#8592; Volver al dashboard
       </Link>
-    </div>
-  )
-}
-
-export function RoundsSkeleton() {
-  return (
-    <div aria-busy="true" aria-live="polite" style={{ padding: '24px 16px' }}>
-      <span className="sr-only">Cargando historial…</span>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            height: '80px',
-            marginBottom: '12px',
-            borderRadius: '12px',
-            background: 'linear-gradient(90deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.07) 50%, rgba(0,0,0,0.04) 100%)',
-            backgroundSize: '200% 100%',
-            animation: 'historial-skel 1.4s ease-in-out infinite',
-          }}
-        />
-      ))}
     </div>
   )
 }

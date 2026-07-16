@@ -100,13 +100,20 @@ describe('Canario: Páginas client-side tienen timeout de seguridad o loading co
     expect(perfil).toContain('PerfilView')
   })
 
-  it('historial page tiene loading state con fallback', () => {
-    // Post-refactor: loading state lives in useHistorialRounds hook, not page.tsx.
-    // The page imports and uses the hook; the canary validates the pattern exists.
+  it('historial page es Server Component sin spinner client (datos server-side)', () => {
+    // Post-refactor RSC (jul-2026, mismo patrón que /perfil y /perfil/stats):
+    // page.tsx fetchea rondas + stats server-side y pinta con datos al instante.
+    // Murió el waterfall hidratar → auth.getUser() → query rondas →
+    // fetch('/api/historial/stats'). El canario blinda que la page NO
+    // reintroduzca fetching client-side y que exista loading.tsx como fallback
+    // de streaming (paridad perceptual con el spinner viejo).
     const historial = readFile('app/perfil/historial/page.tsx')
-      + '\n' + readFile('app/perfil/historial/hooks/useHistorialRounds.ts')
-    expect(historial).toContain('loading')
-    expect(historial).toContain('setLoading(false)')
+    expect(historial).not.toContain("'use client'")
+    expect(historial).not.toContain('useEffect')
+    expect(historial).not.toContain('setLoading')
+    expect(historial).toContain('HistorialView')
+    const loading = readFile('app/perfil/historial/loading.tsx')
+    expect(loading).toContain('LoadingScreen')
   })
 })
 

@@ -22,6 +22,11 @@ import * as path from 'path'
 const ROOT = path.resolve(__dirname, '../../../')
 const HISTORIAL_PAGE       = path.join(ROOT, 'src/app/perfil/historial/page.tsx')
 const HISTORIAL_STATS      = path.join(ROOT, 'src/app/api/historial/stats/route.ts')
+// Post-RSC (jul-2026): el route de stats quedó delgado — queries en la capa de
+// datos y matemática en src/golf/stats/historial.ts. Los tests de patrones
+// sobre "stats" leen las 3 fuentes combinadas.
+const HISTORIAL_DATA       = path.join(ROOT, 'src/lib/data/historial.ts')
+const HISTORIAL_STATS_GOLF = path.join(ROOT, 'src/golf/stats/historial.ts')
 const SCORE_PAGE           = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score/page.tsx')
 const FINALIZE_RONDA_HOOK  = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda.ts')
 const GAME_ACTIONS         = path.join(ROOT, 'src/app/api/game/actions.ts')
@@ -48,7 +53,15 @@ function readHistorialModule(): string {
       }
     }
   }
+  // Post-RSC: SELECT_COLUMNS + interface HistoricalRound viven en la capa de
+  // datos (src/lib/data/historial.ts) — parte del módulo a efectos del audit.
+  combined += '\n' + readSrc(HISTORIAL_DATA)
   return combined
+}
+
+/** Read the stats sources: thin route + data layer + golf math (post-RSC split). */
+function readStatsModule(): string {
+  return [HISTORIAL_STATS, HISTORIAL_DATA, HISTORIAL_STATS_GOLF].map(readSrc).join('\n')
 }
 
 // ─── DB snapshots (verified live via Supabase Management API) ─────────────────
@@ -231,7 +244,7 @@ describe('F6 | Query (peso 2)', () => {
   beforeAll(() => {
     // Post-refactor: queries/types live in hooks/ and lib/, not just page.tsx
     pageSource  = readHistorialModule()
-    statsSource = readSrc(HISTORIAL_STATS)
+    statsSource = readStatsModule()
   })
 
   it('[Q-1] Supabase query in historial page includes formato_juego', () => {
@@ -279,7 +292,7 @@ describe('F6 | Stats (peso 2)', () => {
   let statsSource: string
 
   beforeAll(() => {
-    statsSource = readSrc(HISTORIAL_STATS)
+    statsSource = readStatsModule()
   })
 
   it('[ST-1] Stats route returns meaningful aggregates (totalRounds, bestRound18, totalBirdies)', () => {
