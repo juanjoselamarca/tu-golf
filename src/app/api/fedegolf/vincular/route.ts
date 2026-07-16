@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { fedegolfLogin, fedegolfGetIndice } from '@/lib/fedegolf/client'
+import { fedegolfLogin, fedegolfGetIndice, fedegolfGetUsuario } from '@/lib/fedegolf/client'
 import { encrypt } from '@/lib/fedegolf/crypto'
 import { captureError } from '@/lib/error-tracking'
 import { createAdminClient } from '@/lib/supabaseAdmin'
@@ -86,18 +86,44 @@ export async function POST(request: Request) {
     //    y el update condicional `.is('genero', null)` necesita leer la columna para
     //    evaluar el filtro. Solo toca la propia fila del usuario (user.id de getUser).
     //  - name: NO se autocompleta — la columna es NOT NULL (nunca está vacía).
+    //  - fecha_nacimiento: fill-if-null desde la fuente PÚBLICA verificada
+    //    (getUserByRut), no del body del login. Habilita edad → tees senior.
+    //
+    // Nota sobre la fuente dividida (decisión consciente, no inconsistencia): el
+    // género se sigue tomando de `session.perfil` (body del login) porque ese
+    // camino está verificado en prod (#266) y cambiarlo ensancharía el blast
+    // radius. La fecha usa `getUserByRut` — fuente más confiable — sin tocar el
+    // camino del género. Unificar ambos a `getUserByRut` queda como follow-up.
     const perfil = session.perfil
     if (perfil?.nombreCompleto) nombre = perfil.nombreCompleto
+
+    // Enriquecimiento verificado por RUT (best-effort; no bloquea la vinculación).
+    let fechaNacimiento: string | null = null
+    try {
+      fechaNacimiento = (await fedegolfGetUsuario(session, rut)).fechaNacimiento
+    } catch {
+      // getUserByRut no disponible — se vincula igual sin enriquecer nacimiento.
+    }
 
     if (indice !== null) {
       const { error } = await supabase.from('profiles').update({ indice }).eq('id', user.id)
       if (error) await captureError(error, { context: 'fedegolf/vincular:update-indice', userId: user.id })
     }
-    if (perfil?.genero) {
+    // genero y fecha_nacimiento: fill-if-null vía service-role (mismo motivo que
+    // genero — el rol autenticado no tiene SELECT sobre profiles y el filtro
+    // `.is(col, null)` necesita leer la columna). Solo tocan la fila del usuario.
+    if (perfil?.genero || fechaNacimiento) {
       const admin = createAdminClient()
-      const { error } = await admin
-        .from('profiles').update({ genero: perfil.genero }).eq('id', user.id).is('genero', null)
-      if (error) await captureError(error, { context: 'fedegolf/vincular:fill-genero', userId: user.id })
+      if (perfil?.genero) {
+        const { error } = await admin
+          .from('profiles').update({ genero: perfil.genero }).eq('id', user.id).is('genero', null)
+        if (error) await captureError(error, { context: 'fedegolf/vincular:fill-genero', userId: user.id })
+      }
+      if (fechaNacimiento) {
+        const { error } = await admin
+          .from('profiles').update({ fecha_nacimiento: fechaNacimiento }).eq('id', user.id).is('fecha_nacimiento', null)
+        if (error) await captureError(error, { context: 'fedegolf/vincular:fill-nacimiento', userId: user.id })
+      }
     }
 
     // Registrar el índice en el historial solo si vino uno nuevo

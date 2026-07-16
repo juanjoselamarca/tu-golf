@@ -5,8 +5,13 @@ import { decrypt } from '@/lib/fedegolf/crypto'
 
 export const dynamic = 'force-dynamic'
 
-/** Mínimo 4 horas entre syncs para no saturar fedegolf.cl */
-const SYNC_COOLDOWN_MS = 4 * 60 * 60 * 1000
+/**
+ * Mínimo 24 horas entre syncs. El índice WHS se recalcula ~diario, así que
+ * sincronizar más seguido no aporta dato nuevo y solo carga fedegolf.cl (esto
+ * corre en CADA carga de página de todo usuario vinculado). El botón "Actualizar"
+ * manual comparte este cooldown.
+ */
+const SYNC_COOLDOWN_MS = 24 * 60 * 60 * 1000
 
 export async function POST() {
   try {
@@ -44,7 +49,7 @@ export async function POST() {
       )
     }
 
-    // Rate limit: si el último sync fue hace menos de 4 horas, devolver cacheado
+    // Rate limit: si el último sync fue hace menos de SYNC_COOLDOWN_MS, devolver cacheado
     if (creds.ultimo_sync) {
       const lastSync = new Date(creds.ultimo_sync).getTime()
       const now = Date.now()
