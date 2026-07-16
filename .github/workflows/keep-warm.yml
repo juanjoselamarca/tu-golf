@@ -1,28 +1,24 @@
 name: Keep Warm
 
-# Mantiene caliente la función serverless de Golfers+ (región gru1, São Paulo).
+# Ping manual (backup) a /api/keep-warm de Golfers+ (región gru1, São Paulo).
 #
-# Por qué existe: en plan Hobby con tráfico bajo, Vercel escala las instancias a
-# cero tras un rato sin uso. La primera visita después paga un "cold start"
-# (~1s de pantalla blanca antes de que arranque la función Node). Ese golpe pega
-# JUSTO en el peor momento — cuando Juanjo le muestra la app a alguien, que es
-# precisamente cuando llevaba rato sin uso y está fría. Mala primera impresión.
+# HISTORIA: este workflow tenía un `schedule: */5 * * * *` para mantener caliente
+# la función serverless (evitar el cold start de ~1s en Hobby, que pega justo
+# cuando se demuestra la app). NO FUNCIONABA: el scheduler de GitHub Actions
+# estrangula y saltea los cron de repos de bajo tráfico — en la práctica corría
+# cada 1-3 horas, no cada 5 min (medido 16-jul-2026: ~5 pings en 8h de noche).
+# Con Vercel Hobby escalando a cero a los pocos minutos, eso no mantiene NADA
+# caliente. El primer visitante seguía pagando el cold start.
 #
-# Fix: pegarle a /api/keep-warm cada 5 min (el intervalo más corto que permite
-# GitHub Actions) despierta la función y la mantiene viva, así el arranque en
-# frío casi nunca le toca a un usuario real. /api/keep-warm NO toca la base de
-# datos a propósito — solo tiene que arrancar el runtime.
+# FUENTE DE VERDAD ACTUAL: un job pg_cron en Supabase ('keep-warm-golfers')
+# pinguea /api/keep-warm cada 2 min vía pg_net. Supabase sí respeta el schedule
+# (no lo estrangula como GitHub), así que ES confiable. Ver
+# scripts/keep-warm-cron.sql y docs/CONVENCIONES_TECNICAS.md.
 #
-# Costo: cero (GitHub Actions es gratis en repos, y el endpoint no hace trabajo).
-# Alternativa "correcta" a futuro: cron nativo de Vercel cada 5 min (requiere
-# plan Pro; Hobby solo permite crons diarios) o PPR con Next 15.
-#
-# Nota: el scheduler de GitHub Actions puede atrasarse varios minutos bajo carga
-# y no es exacto — para keep-warm da igual, no necesitamos precisión.
+# Por eso acá queda SOLO workflow_dispatch: sirve como ping manual de respaldo
+# (ej. tras un deploy), sin schedule automático que engañe al que lo lea.
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 concurrency:
