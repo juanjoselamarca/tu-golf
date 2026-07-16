@@ -200,3 +200,101 @@ Cualquier PR que viola una regla acá tiene que:
 1. Proponer cambio al DESIGN.md primero.
 2. Tener approval del CTO.
 3. Actualizar este archivo en el mismo PR.
+
+---
+
+## Jurisprudencia (precedentes 15-may → 28-jun 2026)
+
+Las secciones 1–12 son la constitución y no se tocan. Esta sección recoge los precedentes de `docs/design-decisions/` que las aplicaron a casos concretos, destilados al criterio transferible: lo que un auditor puede aplicar a una pantalla **distinta** de la que originó la decisión. Un precedente no crea regla nueva. Donde dos precedentes tiran para lados opuestos, la tensión se anota como tensión — no se resuelve acá.
+
+### P1 · Una superficie brand-locked se compromete entera; un token theme-aware adentro es un leak
+Origen: `2026-05-15-pga-widget-light-mode.md`
+
+Hay superficies exentas del toggle de tema (widgets que reproducen branding externo, hero cards oscuras embebidas en páginas claras). El contrato lo declara el comentario `SECTIONS LIGHT-CARD` en `globals.css`. En una superficie así, un solo `var(--text)` sobreviviente **es** el bug: la superficie queda inconsistente consigo misma en uno de los dos modos. El fix es completar el compromiso (constante hardcodeada + comentario de contrato), no convertir la superficie a theme-aware.
+
+**Señal del rechazo:** volverla theme-aware era *peor* que el bug — la habría dejado clara dentro de un hero siempre oscuro, y sus colores de score fallan WCAG sobre fondo claro. Corolario: a igual corrección, gana el menor blast radius (CERO FALLOS).
+
+### P2 · `rgba(255,255,255,α)` en una superficie con toggle es dark mode de contrabando
+Origen: `2026-05-19-light-mode-labs-contraste.md`
+
+En una superficie que respeta el tema, todo color de texto sale de tokens (`--text`, `--text-2`, `--text-3`). Un blanco semitransparente hardcodeado se acerca al fondo claro y desaparece.
+
+**Señal del rechazo:** resolverlo con condicionales de tema en JS se descartó por over-engineering — si el token CSS ya lo resuelve, la decisión no sube a JS. Corolario: el ratio se verifica con número, no a ojo (text-2 = 5.67, text-3 = 4.62 sobre `#fafaf7`).
+
+### P3 · Un tono ya cargado de significado está tomado; la intensidad escala con la magnitud del logro
+Origen: `2026-05-21-holebar-par-verde.md`
+
+Elegir un color no es elegir un tono lindo: es ocupar un hueco semántico libre.
+
+**Señal del rechazo:** el verde celebración (`#16a34a`) cayó no por feo, sino porque ya significa birdie en `LeaderboardTable`/`BirdieCelebration`, y porque un resultado menor no puede gritar más fuerte que uno mayor — la jerarquía visual replica la jerarquía semántica (par < birdie < eagle). El pastel cayó por lo opuesto: sutil no es invisible; bajo el sol, un componente UI que no llega a 3:1 no existe.
+
+**Alcance antes de sistematizar:** ante un pedido de "estandarizar en toda la app", se hace `grep` del valor literal para medir el alcance real antes de proponer token global. Con un solo call site: constante nombrada en el archivo. Se promueve a token global cuando aparece el segundo.
+
+### P4 · Cuando dos vistas muestran el mismo objeto, la vista canónica manda la forma
+Origen: `2026-05-22-wizard-card-alineado-historial.md`
+
+Misma entidad (una ronda) en dos contextos = misma silueta de tarjeta. Las affordances que solo tiene una vista se agregan como sub-componentes (tag compacto, row de acciones con border-top) **sin reorganizar la estructura**.
+
+**Señal del rechazo:** una necesidad informativa legítima (destacar el estado del scan) no compra permiso para romper la simetría — se re-aloja, no se prioriza. Y el diseño nuevo y llamativo cayó porque un score gigante lee como showcase: novedad visual no es valor.
+
+**Corolario:** cuando el dato es feedback de confianza (¿el OCR acertó?), se muestra siempre; no se esconde tras un expand.
+
+### P5 · Contenido generado por LLM se renderiza sin asumir su semántica
+Origen: `2026-06-02-tabla-coach-mobile.md`
+
+El render debe ser robusto a forma arbitraria y preservar la forma que el generador eligió.
+
+**Señal del rechazo:** colapsar la tabla a cards key→value exigiría conocer el significado de cada columna — imposible con markdown genérico, y rompe la metáfora que el coach eligió. El segundo rechazo es el más transferible: **achicar la tipografía nunca es una variable de ajuste de layout.** Legibilidad en cancha, con guante y con apuro, es piso duro. Lo ancho scrollea en su propio contenedor (`overflow-x:auto` + `nowrap`); la página nunca.
+
+**Nota de proceso:** un fix estructural con respuesta objetiva no gatilla `design-shotgun` — no era exploración estética.
+
+### P6 · Dos representaciones del mismo dato en una pantalla es redundancia, aunque la segunda sea la más linda
+Origen: `2026-06-17-resumen-ronda-editorial.md`
+
+**Señal del rechazo:** la variante scorecard-premium ganaba visualmente y cayó igual, porque duplicaba el `Scorecard` que ya vive en esa página. "Un concepto, una fuente" también aplica a lo visual. Segundo rechazo: los chips con borde siguen leyendo como cajas — en bloques resumen/stat, fila inline con divisor de 2px por sobre grilla con bordes.
+
+**Ancla editorial:** un único número narrativo en Playfair arriba, el resto en DM Mono (§4). Y no se repite en el bloque lo que ya da el header de la página (curso/fecha): el contexto lo aporta el contenedor.
+
+### P7 · El artefacto es el héroe; el dorado enmarca, no rellena
+Origen: `2026-06-28-sharesheet-vitrina.md`
+
+La jerarquía §5 se aplica literal: un único `commit` dorado sólido, el resto `nav` outline, el terciario `ghost`. El dorado sobrante va a marco hairline alrededor del artefacto (el PNG), no a más relleno.
+
+**Señal del rechazo:** una variante entera cayó por targets bajo 44px — el touch no se negocia contra estética.
+
+**Fallback:** sin imagen se oculta el marco; nunca marco vacío. **Arquitectura:** el sheet expone acciones granulares reusando los canónicos (`useShare`, `lib/clipboard`); el formato `wa.me` se extrae al dominio en vez de duplicarse.
+
+---
+
+### Tensiones abiertas (no resueltas — requieren decisión de PM)
+
+**T1 · El par tiene dos colores según la pantalla.** §3 fija `--par` = `#6B7280` gris, "solo en Scorecard". `2026-05-21` pinta el par verde `#86EFAC` en `HoleBar`, y de paso usa birdie celeste `#14B3D9` donde el Scorecard usa el rojo Garmin `#EF4444`. No hay violación literal (los tokens están scopeados al Scorecard), pero el usuario ve el mismo concepto de dos colores en dos pantallas. Ningún documento dice cuál manda.
+
+**T2 · ¿La asignación de modo de §2 es default o candado?** §2 lista Educación (`/indices`, WHS, LABS) como dark surface. `2026-05-19` declinó explícitamente forzar dark ahí "porque rompería el toggle Auto/Light/Dark que tienen las páginas educativas". Las dos lecturas siguen vivas: o §2 asigna el modo por defecto y el toggle del usuario gana, o §2 es un candado y el toggle es el error.
+
+**T3 · ¿Hardcodear un color es el bug o el fix?** `2026-05-19` trata el hardcode como causa raíz; `2026-05-15` lo declara la solución correcta. El criterio que las separa existe (branding externo + contrato declarado in-source + superficie ya always-dark), pero **no hay test para una superficie nueva**: nada dice cómo se decide que algo nace brand-locked, ni quién lo aprueba.
+
+**T4 · ¿El par es éxito o es neutro?** `2026-05-21` justifica el verde porque §3 lo reserva para "éxito" y un par "es un éxito mínimo" — y en el mismo documento rechaza el verde celebración porque "el par es resultado neutral". El precedente se apoya en las dos lecturas a la vez.
+
+---
+
+### Silencios (nadie ha legislado — no inventar criterio)
+
+Ni §1–12 ni los 7 precedentes dicen nada sobre:
+
+1. **Modo de modales, sheets y toasts lanzados desde la superficie del modo contrario.** `ShareSheet` es dark navy y se abre desde historial/resultados, que son light. §2 prohíbe "dos modos en mismo scroll" pero no dice si un overlay cuenta.
+2. **El toggle tri-state Auto/Light/Dark.** §2 asigna modos por superficie y nunca menciona que exista un toggle de usuario. Solo lo sabemos porque `2026-05-19` lo cita de pasada. Ver T2.
+3. **Escala de espaciado, radios, sombras y grosores de borde.** §4 tiene escala tipográfica; no hay equivalente para el resto. Los precedentes fijan valores caso a caso ("radius 16", "hairline 1px", "divisor 2px", "border-top sutil") y ninguno se canonizó.
+4. **Estados vacíos.** Ni forma, ni copy, ni si llevan CTA — y si lo llevan, si ese CTA consume el único `commit` por vista que permite §5.
+5. **Carga.** Skeleton vs spinner vs nada. El widget PGA tiene "loading skeleton"; el patrón no está escrito.
+6. **Errores de campo y validación.** §2 solo resuelve de qué modo es un error. Nada sobre error inline, validación de formulario ni copy del mensaje.
+7. **Toasts y feedback de éxito.** Posición, duración, si conviven con el bottom nav de 64px. `ShareToast` figura como pendiente en `2026-06-28`.
+8. **Movimiento.** Cero: duración, easing, qué se anima, `prefers-reduced-motion`. `BirdieCelebration` se cita como excepción de emoji, no como contrato de motion.
+9. **Tokens de texto.** §3 lista brand/bg/scorecard pero no `--text`, `--text-2`, `--text-3` ni `--bg-surface` — justamente los que la jurisprudencia usa como autoridad para decidir contraste.
+10. **Colores de resultado fuera del Scorecard.** §3 los scopea a "Solo en Scorecard" y ahí termina. `HoleBar` construyó su propia paleta sin token ni doc. Ver T1.
+11. **Tablas fuera del chat del coach.** `2026-06-02` resolvió las del coach. Leaderboard, historial y admin no tienen regla.
+12. **Resto del markdown del coach.** Listas, headings, links, citas de fuente, longitud, streaming. Solo se legislaron las tablas.
+13. **La tarjeta PNG que se comparte.** `2026-06-28` la declara "el héroe" pero no especifica tipografía, marca, aspect ratio ni safe areas de la imagen misma.
+14. **Gráficos y dataviz** (`/perfil/stats` usa recharts): color de series, ejes, leyendas, estado sin data.
+15. **Accesibilidad más allá de contraste y touch.** Foco visible, orden de tab, teclado, screen readers, ARIA.
+16. **Tamaño y grosor de los iconos.** §10 fija el origen (`@/components/icons`), no la métrica.
