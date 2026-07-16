@@ -64,8 +64,35 @@ export function fedegolfSexoToGenero(sexo: unknown): 'M' | 'F' | null {
 }
 
 /**
- * Extrae el subconjunto útil del `data` del login (nombre completo + género).
- * No asume que todos los campos vengan — todo es best-effort y null-safe.
+ * Normaliza `fecha_nacimiento` de FedeGolf a ISO `YYYY-MM-DD`, o null si viene
+ * ausente / malformada / con fecha imposible. Acepta el formato que entrega el
+ * servidor ("1997-05-19"); rechaza placeholders como "0000-00-00" y basura.
+ */
+export function fedegolfFechaNacimiento(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const s = value.trim()
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  const [, y, mo, da] = m
+  const year = Number(y)
+  const month = Number(mo)
+  const day = Number(da)
+  // Fecha real (no 0000-00-00 ni 2020-13-40) y rango de nacimiento plausible.
+  // Cota superior = año actual: un nacimiento futuro daría edad negativa aguas
+  // abajo (edad → tees senior), así que se descarta.
+  const currentYear = new Date().getUTCFullYear()
+  if (year < 1900 || year > currentYear || month < 1 || month > 12 || day < 1 || day > 31) return null
+  const iso = `${y}-${mo}-${da}`
+  const dt = new Date(`${iso}T00:00:00Z`)
+  if (Number.isNaN(dt.getTime()) || dt.getUTCMonth() + 1 !== month || dt.getUTCDate() !== day) return null
+  return iso
+}
+
+/**
+ * Extrae el subconjunto útil del `data` del socio (nombre, género, nacimiento).
+ * Sirve tanto para el `data` del login como para la respuesta de `getUserByRut`
+ * (mismo registro de usuario). No asume que todos los campos vengan — todo es
+ * best-effort y null-safe.
  */
 export function parseFedegolfPerfil(data: Record<string, unknown> | null | undefined): FedegolfPerfil {
   const d = data ?? {}
@@ -84,6 +111,7 @@ export function parseFedegolfPerfil(data: Record<string, unknown> | null | undef
     nombreCompleto,
     genero: fedegolfSexoToGenero(d.sexo),
     sexoRaw: str(d.sexo) || null,
+    fechaNacimiento: fedegolfFechaNacimiento(d.fecha_nacimiento),
   }
 }
 
@@ -300,6 +328,48 @@ export async function fedegolfGetIndice(
   return {
     rut,
     indice: isNaN(indice) ? null : indice,
+  }
+}
+
+// ─── Perfil del socio por RUT (fuente verificada de enriquecimiento) ──
+
+/**
+ * Obtiene el registro completo del socio por RUT desde el endpoint unificado
+ * `code/ajax/services.php` (service `usuario`, action `getUserByRut`). Es la
+ * fuente PÚBLICA y verificada del perfil (nombre, sexo, fecha_nacimiento) — más
+ * confiable que reparsear el `data` del login. Devuelve un `FedegolfPerfil`;
+ * best-effort: si algo falla, devuelve un perfil con todos los campos en null.
+ */
+export async function fedegolfGetUsuario(
+  session: FedegolfSession,
+  rut: string
+): Promise<FedegolfPerfil> {
+  const empty: FedegolfPerfil = {
+    usuarioId: null,
+    nombreCompleto: null,
+    genero: null,
+    sexoRaw: null,
+    fechaNacimiento: null,
+  }
+
+  const res = await fetch(`${BASE_URL}/code/ajax/services.php`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: session.cookie,
+    },
+    body: JSON.stringify({ service: 'usuario', action: 'getUserByRut', rut }),
+    redirect: 'manual', // 302 con body JSON en éxito
+  })
+
+  if (!res.ok && res.status !== 302) return empty
+
+  try {
+    const body = (await res.json()) as { data?: Record<string, unknown> | null }
+    if (!body?.data) return empty
+    return parseFedegolfPerfil(body.data)
+  } catch {
+    return empty
   }
 }
 
