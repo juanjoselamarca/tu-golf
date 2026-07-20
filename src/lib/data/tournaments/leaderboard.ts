@@ -38,11 +38,20 @@ export async function fetchTournamentBySlug(
   supabase: Client,
   slug: string,
 ): Promise<DBTournament | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('tournaments')
     .select(TOURNAMENT_SELECT)
     .eq('slug', slug)
     .single()
+
+  // "No existe" y "no pude preguntar" NO son lo mismo. El caller hace
+  // notFound() sobre null, y un 404 no invita a reintentar — invita a cerrar la
+  // app. Un blip de red durante un torneo en vivo NO puede convertirse en
+  // "esta página no existe" (CERO FALLOS). PGRST116 = 0 filas → null legítimo
+  // (inexistente, o invisible por RLS). Cualquier otro error se propaga para
+  // que Next renderice error.tsx, que sí ofrece reintento.
+  if (error && error.code !== 'PGRST116') throw error
+
   return (data as unknown as DBTournament | null) ?? null
 }
 

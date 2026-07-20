@@ -17,6 +17,7 @@ import { GroupsSection } from './components/GroupsSection'
 import { PlayersTable } from './components/PlayersTable'
 import { TournamentActionsBar } from './components/TournamentActionsBar'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
+import { tournamentStatusBadge } from '@/golf/tournament-status'
 
 import type { Tournament, Category, Player } from './types'
 import { isTeamFormat } from './types'
@@ -38,6 +39,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
   const [selectedCat] = useState(categories[0]?.id || '')
   const [tournamentStatus, setTournamentStatus] = useState(tournament.status)
+  const statusBadge = tournamentStatusBadge(tournamentStatus, 'organizer')
 
   // Inscripción: modo búsqueda de perfil existente vs invitado sin cuenta.
   const [mode, setMode] = useState<InscribirMode>('search')
@@ -121,12 +123,12 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
             </span>
           )}
           <span style={{
-            background: tournamentStatus === 'closed' ? 'rgba(220,38,38,0.15)' : tournamentStatus === 'in_progress' ? 'rgba(34,197,94,0.15)' : tournamentStatus === 'open' ? 'rgba(196,153,42,0.15)' : 'rgba(26,79,214,0.15)',
-            color: tournamentStatus === 'closed' ? '#fca5a5' : tournamentStatus === 'in_progress' ? '#22c55e' : tournamentStatus === 'open' ? '#c4992a' : '#7a9ef5',
-            border: `1px solid ${tournamentStatus === 'closed' ? 'rgba(220,38,38,0.3)' : tournamentStatus === 'in_progress' ? 'rgba(34,197,94,0.3)' : tournamentStatus === 'open' ? 'rgba(196,153,42,0.3)' : 'rgba(26,79,214,0.3)'}`,
+            background: statusBadge.bg,
+            color: statusBadge.fg,
+            border: `1px solid ${statusBadge.bg}`,
             padding: '3px 10px', borderRadius: '20px', fontSize: '12px',
           }}>
-            {tournamentStatus === 'closed' ? 'Cerrado' : tournamentStatus === 'in_progress' ? 'En curso' : tournamentStatus === 'open' ? 'Inscripciones abiertas' : 'Borrador'}
+            {statusBadge.label}
           </span>
         </div>
       </div>

@@ -9,6 +9,36 @@ import type {
   JoinInfoProfile,
 } from '@/lib/data/tournaments/joinFlow'
 
+/**
+ * `fetch` con timeout duro. Sin esto, una conexión que abre pero nunca responde
+ * (típico de señal móvil pobre en cancha) deja la promesa colgada para siempre
+ * y la UI atrapada en su estado de carga. CERO FALLOS: siempre resolvemos a
+ * algo que el jugador pueda accionar.
+ */
+const FETCH_TIMEOUT_MS = 12_000
+
+/**
+ * Devuelve el cuerpo YA parseado, no el `Response`. Es deliberado: si sólo
+ * cubriéramos hasta los headers, un servidor que responde 200 y después estanca
+ * el body dejaría colgado el `res.json()` — el mismo síntoma que esto viene a
+ * matar, un paso más adelante. El deadline cubre headers + cuerpo.
+ */
+async function fetchJsonConTimeout(
+  url: string,
+  init?: RequestInit,
+): Promise<{ status: number; ok: boolean; body: unknown }> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
+  try {
+    const res = await fetch(url, { ...init, signal: ctrl.signal })
+    // 204/205 no traen cuerpo; y un proxy de club puede devolver HTML con 200.
+    const body = res.status === 204 || res.status === 205 ? null : await res.json()
+    return { status: res.status, ok: res.ok, body }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('es-CL', {
     weekday: 'long',
@@ -42,22 +72,42 @@ export default function UnirsePage() {
   const [inscribing, setInscribing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  /** La carga falló y no hay torneo que mostrar → ofrecer reintento, no una
+   *  pantalla en blanco con un banner rojo huérfano. */
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const loadData = useCallback(async () => {
-    const res = await fetch(`/api/torneos/${encodeURIComponent(slug)}/join-info`, {
-      cache: 'no-store',
-    })
+    setError(null)
+    let res: Awaited<ReturnType<typeof fetchJsonConTimeout>>
+    try {
+      res = await fetchJsonConTimeout(`/api/torneos/${encodeURIComponent(slug)}/join-info`, {
+        cache: 'no-store',
+      })
+    } catch {
+      // Sin red, timeout, o cuerpo ilegible (proxy de club que inyecta HTML).
+      // El escenario real es el jugador en la cancha con señal mala: antes la
+      // promesa quedaba sin capturar y la pantalla se congelaba en
+      // "Cargando..." para siempre.
+      setError('No pudimos cargar el torneo. Revisa tu señal y vuelve a intentarlo.')
+      setLoadFailed(true)
+      setLoading(false)
+      return
+    }
+
     if (res.status === 404) {
-      setError('Torneo no encontrado')
+      setError('Este torneo no existe o el link es incorrecto.')
+      setLoadFailed(true)
       setLoading(false)
       return
     }
     if (!res.ok) {
       setError('No se pudo cargar la información del torneo. Intenta nuevamente.')
+      setLoadFailed(true)
       setLoading(false)
       return
     }
-    const data = (await res.json()) as {
+
+    const data = res.body as {
       tournament: JoinInfoTournament
       profile: JoinInfoProfile | null
       alreadyRegistered: boolean
@@ -67,8 +117,9 @@ export default function UnirsePage() {
     setProfile(data.profile)
     setAlreadyRegistered(data.alreadyRegistered)
     setAuthenticated(data.authenticated ?? false)
+    setLoadFailed(false)
     setLoading(false)
-  }, [slug, router])
+  }, [slug])
 
   useEffect(() => {
     loadData()
@@ -80,9 +131,20 @@ export default function UnirsePage() {
     setInscribing(true)
     setError(null)
 
-    const res = await fetch(`/api/torneos/${encodeURIComponent(slug)}/inscribirse`, {
-      method: 'POST',
-    })
+    let res: Awaited<ReturnType<typeof fetchJsonConTimeout>>
+    try {
+      res = await fetchJsonConTimeout(`/api/torneos/${encodeURIComponent(slug)}/inscribirse`, {
+        method: 'POST',
+      })
+    } catch {
+      // El botón quedaba en "Inscribiendo..." para siempre. Peor todavía: el
+      // jugador no sabía si quedó inscrito o no. Lo dejamos reintentar — la
+      // inscripción es idempotente: si el POST sí llegó, el backend responde
+      // already_registered y la UI lo trata como éxito.
+      setError('No pudimos confirmar tu inscripción. Revisa tu señal y vuelve a intentarlo.')
+      setInscribing(false)
+      return
+    }
 
     if (res.ok) {
       setSuccess(true)
@@ -90,7 +152,7 @@ export default function UnirsePage() {
       return
     }
 
-    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+    const body = (res.body ?? {}) as { error?: string; message?: string }
     if (body.error === 'already_registered') {
       setAlreadyRegistered(true)
       setError(body.message ?? 'Ya estás inscrito en este torneo.')
@@ -216,6 +278,38 @@ export default function UnirsePage() {
         {loading && (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-2)', fontSize: '14px' }}>
             Cargando...
+          </div>
+        )}
+
+        {!loading && loadFailed && (
+          <div style={{ textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true)
+                setLoadFailed(false)
+                loadData()
+              }}
+              style={{
+                width: '100%',
+                background: '#c4992a',
+                color: 'var(--brand-dark)',
+                fontWeight: 700,
+                fontSize: '16px',
+                padding: '16px',
+                borderRadius: '10px',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Reintentar
+            </button>
+            <Link
+              href="/"
+              style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '3px', marginTop: '14px', display: 'inline-block' }}
+            >
+              Ir al inicio →
+            </Link>
           </div>
         )}
 
@@ -378,7 +472,7 @@ export default function UnirsePage() {
                 </div>
                 <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
                   {tournament.status === 'draft'
-                    ? 'El organizador todavía no abrió las inscripciones. Volvé a intentarlo más tarde.'
+                    ? 'El organizador todavía no abrió las inscripciones. Vuelve a intentarlo más tarde.'
                     : 'Ya no se puede inscribir en este torneo.'}
                 </div>
                 <Link

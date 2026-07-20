@@ -95,6 +95,8 @@
   --status-draft-fg:  #1a4fd6;
   --status-closed-bg: rgba(220, 38, 38, 0.10);
   --status-closed-fg: #b91c1c;
+  --status-open-bg:   rgba(196, 153, 42, 0.12);
+  --status-open-fg:   #8a6a16;
 }
 
 [data-theme="light"] {
@@ -151,6 +153,8 @@
   --status-draft-fg:  #93b4ff;
   --status-closed-bg: rgba(220, 38, 38, 0.22);
   --status-closed-fg: #fca5a5;
+  --status-open-bg:   rgba(196, 153, 42, 0.20);
+  --status-open-fg:   #d9b350;
   --border:      rgba(196,153,42,0.12);
   --border-md:   rgba(196,153,42,0.2);
   --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);

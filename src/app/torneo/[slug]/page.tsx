@@ -19,7 +19,7 @@ import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStan
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
 import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
 import ShareResultsButton from '@/components/ShareResultsButton'
-import { PLAYERS, PAR } from '@/lib/golf-data'
+import { notFound } from 'next/navigation'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
 import { formatLabel, type ModoJuego, type FormatoJuego } from '@/golf/core/rules'
@@ -66,18 +66,24 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   } = await supabase.auth.getUser()
   const tournament = await fetchTournamentBySlug(supabase, params.slug)
 
-  // ── Defaults para fallback demo (cuando slug no existe) ─────────────
+  // Slug inexistente → 404 honesto. Antes caía a un leaderboard DEMO
+  // hardcodeado (PLAYERS/PAR): el invitado con un link mal pegado veía nombres
+  // inventados y creía estar en otro torneo. Una app que inventa datos es peor
+  // que una que dice "no existe" (CERO FALLOS, 20-jul-2026).
+  if (!tournament) notFound()
+
+  // ── Defaults ────────────────────────────────────────────────────────
   let players: Player[]                       = []
   let playersByGross: Player[]                = []
   let playersByNeto: Player[]                 = []
   let gwiInputs: JugadorGWIInput[]            = []
   let withdrawnPlayers: WithdrawnEntry[]      = []
-  let tournamentName                          = 'TPC Sawgrass Amateur 2025'
+  let tournamentName                          = tournament.name
   let parTotal                                = 72
   let modoJuego: ModoJuego                    = 'gross'
   let formatoJuego: FormatoJuego              = 'stroke_play'
   let totalHoyos                              = 18
-  let dateDisplay                             = '12 Mar 2025'
+  let dateDisplay                             = ''
   let isLive                                  = false
   let isClosed                                = false
   let stats: TourneyStats | null              = null
@@ -89,8 +95,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   let orderedTeams: TeamStandingForPodium[]   = []
   let teamMemberNames: Record<string, string[]> = {}
 
-  if (tournament) {
-    tournamentName = tournament.name
+  {
     parTotal       = tournament.courses?.par_total ?? 72
     modoJuego      = tournament.modo_juego ?? 'gross'
     formatoJuego   = tournament.formato_juego ?? 'stroke_play'
@@ -180,11 +185,6 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         teamMemberNames = memberNames
       }
     }
-  } else {
-    // Demo fallback (slug no encontrado)
-    players  = PLAYERS
-    parTotal = PAR.reduce((s: number, p: number) => s + p, 0)
-    isLive   = true
   }
 
   if (isClosed) {
