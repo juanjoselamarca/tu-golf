@@ -305,9 +305,12 @@ export function calcularMatchPlay(
       }
     }
 
-    // Ambos tienen score → calcular resultado
-    const netA = netoMatchPlay(rawA, diffA, hole.stroke_index)
-    const netB = netoMatchPlay(rawB, diffB, hole.stroke_index)
+    // Ambos tienen score → calcular resultado.
+    // Repartir los golpes con el MISMO SI normalizado que muestra el detalle del hoyo
+    // (siAlloc), no el stroke_index crudo del catálogo: en 9 hoyos sobre cancha de 18 el
+    // crudo no es permutación 1..9 y la decisión divergía del display. Un concepto, una fuente.
+    const netA = netoMatchPlay(rawA, diffA, siAlloc[hole.numero] ?? hole.stroke_index)
+    const netB = netoMatchPlay(rawB, diffB, siAlloc[hole.numero] ?? hole.stroke_index)
     const result = resultadoHoyo(netA, netB)
 
     holesPlayed++

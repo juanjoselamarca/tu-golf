@@ -308,6 +308,34 @@ describe('resolverCourseData — par de 9h (regresión neto>gross, 11-jun-2026)'
   })
 })
 
+// ─── P0 Máquina de Verdad (16-jul-2026): tee 9h SIN ratings de front-9 ──────
+// Un tee con rating/slope de 18h pero front_course_rating/front_slope_rating NULL
+// (288 de 477 tees del catálogo, ~60%) caía al return del branch tee-específico
+// SIN is9Hole. Sin ese flag, resolverCourseHandicap NO divide el índice por 2 →
+// el jugador recibe ~2× los golpes. Prod real: ronda 2B204V, tee 'rojo' (72.3/124,
+// front NULL), Paty índice 27 → CH 30 en vez de 15. Mismo fallback que el branch
+// courses (línea ~251): slope18≈slope9, CR9=CR18/2, par del front-9 real.
+describe('resolverCourseData — tee 9h sin front ratings (P0 16-jul)', () => {
+  const teeRojoSinFront = {
+    rating: 72.3, slope: 124,
+    front_course_rating: null, front_slope_rating: null,
+  }
+
+  it('9h sin front ratings: aproxima CR/2, marca is9Hole y NO da el doble de golpes', async () => {
+    const supa = mockSupabase({ tee: teeRojoSinFront, holes9: frontNine })
+    const cd = await resolverCourseData(supa, 'course-1', 'rojo', 9, 72, null)
+    expect(cd).toEqual({ slope: 124, courseRating: 72.3 / 2, par: 36, is9Hole: true })
+    // CH 9h WHS = round((27/2)×(124/113) + (36.15−36)) = round(14.96) = 15, no 30.
+    expect(resolverCourseHandicap(27, cd)).toBe(15)
+  })
+
+  it('18h con el mismo tee sin front: intacto (no divide, no is9Hole)', async () => {
+    const supa = mockSupabase({ tee: teeRojoSinFront, holes9: frontNine })
+    const cd = await resolverCourseData(supa, 'course-1', 'rojo', 18, 72, null)
+    expect(cd).toEqual({ slope: 124, courseRating: 72.3, par: 72 })
+  })
+})
+
 // ─── Suite N: HCP de display (completo / 18h) vs HCP de scoring (9h) ─────────
 // Regresión del bug de campo (28-jun-2026, inbox): la columna HCP de una ronda
 // de 9h mostraba la MITAD del handicap (8 en vez de 15). El scoring sí usa la

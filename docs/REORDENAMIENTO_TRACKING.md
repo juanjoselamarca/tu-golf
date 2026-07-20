@@ -173,3 +173,13 @@ Antes: 3 caminos insertaban en `players`+`rounds` reimplementando la lógica, y 
 | `src/app/api/historial/stats/route.ts` | ✅ usa la canónica (además arregla la causa raíz: paginaba `course_holes` con `.order('numero')` no-único → drops entre páginas `.range()`). Jul-2026: la lógica se movió intacta a `src/golf/stats/historial.ts` (compute) + `src/lib/data/historial.ts` (paginación determinista) — misma fuente para el route Y el RSC `/perfil/historial` |
 | `src/golf/coach/detect-and-save-patterns.ts:53` (`holeParsByCourse[cid][numero-1]=par`, idéntico byte-a-byte) | ⏳ pendiente — converger al tocar el flujo del coach. Sin bug de paginación (fetch acotado por `.in('course_id',…)`) |
 | `src/golf/coach/tools.ts:368` y `src/golf/coach/context.ts:217` (variante objeto 1-indexed `parsByCourse[cid][numero]=par`) | ⏳ pendiente — converger al tocar el flujo del coach. Sin bug de paginación (fetch acotado) |
+
+### Follow-ups del PR #269 (P0 scorer — Máquina de Verdad 16-jul)
+
+Marcados por el `code-reviewer` como no-bloqueantes; se registran acá en vez de ensanchar el PR.
+
+| Follow-up | Estado |
+|---|---|
+| `generarOrdenHoyos`: el default `courseHoles=18` es correcto para el 100% de los inputs alcanzables hoy (multi-loop siempre juega 18h por combos de 2 loops; single-course 9h tiene shotgun deshabilitado → `hoyoInicio ∈ {1,10}`). Si alguna vez se habilita jugar un loop único de ≤9 hoyos con shotgun (start>9), el caller DEBE pasar el `courseHoles` real. | ⏳ latente (documentado en el JSDoc + test `courseHoles` explícito). No reachable hoy |
+| Match play sobre un **back-9** de cancha single 18h: `calcularMatchPlay` hace `slice(0, totalHoles)` que toma los 9 hoyos de MENOR número (front-9), no los realmente jugados (10-18). Pregunta de correctitud PREVIA al PR #269 (no la introdujo). | ⏳ pendiente — probar en la re-corrida de la Máquina de Verdad (P0 scorer). Data prod: 1 sola ronda match_play 9h y es GROSS, no se dispara |
+| Ronda `OI1KQY` (única back-9 de 9h en prod, test de Juanjo): scores guardados bajo hoyos 1-9; con el fix el scorer muestra 10-18. Re-mapeo 1-9→10-18 pendiente de decisión de PM (su data, reversible). | ⏳ decisión PM |

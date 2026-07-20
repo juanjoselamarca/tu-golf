@@ -21,7 +21,7 @@ const mockResults: Array<{ data: unknown }> = []
 
 function makeChain(finalResult: { data: unknown }) {
   const chain: Record<string, unknown> = {}
-  const methods = ['select', 'eq', 'ilike', 'in', 'limit']
+  const methods = ['select', 'eq', 'ilike', 'in', 'limit', 'order']
   methods.forEach(m => { chain[m] = vi.fn(() => chain) })
   chain.single = vi.fn(() => Promise.resolve(finalResult))
   // maybeSingle: como single pero sin error si no hay rows. Usado en
@@ -80,16 +80,20 @@ describe('cargarCourseData', () => {
     })
   })
 
-  it('tee-specific sin front_* en 9 hoyos → usa slope/rating de 18', async () => {
+  it('tee-specific sin front_* en 9 hoyos → aproxima CR/2 y marca is9Hole (P0 16-jul)', async () => {
     mockResults.push({
       data: { rating: 71.2, slope: 128, front_course_rating: null, front_slope_rating: null },
     })
+    // Segunda query (course_holes) para el par de 9h: sin data → cae a 36.
     const result = await cargarCourseData('course-abc', 'azul', 9)
-    // No hay front_*, cae al bloque normal: usa rating/slope de 18h
+    // Sin ratings de front-9, aprox WHS: slope9≈slope18, CR9=CR18/2, is9Hole=true.
+    // Antes devolvía {slope:128, CR:71.2, par:72} SIN is9Hole → resolverCourseHandicap
+    // no dividía el índice y el jugador recibía ~2× los golpes (P0-5/#6 Máquina de Verdad).
     expect(result).toEqual({
       slope: 128,
-      courseRating: 71.2,
-      par: 72,
+      courseRating: 35.6, // 71.2 / 2
+      par: 36,
+      is9Hole: true,
     })
   })
 

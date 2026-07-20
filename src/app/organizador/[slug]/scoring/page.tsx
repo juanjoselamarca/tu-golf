@@ -18,7 +18,6 @@ interface Player {
   handicap_at_registration: number | null
   tee_id: string | null
   profiles: { name: string }
-  categories: { default_tee_color: string | null } | null
   rounds: Round[]
 }
 interface Tournament {
@@ -102,7 +101,9 @@ export default function ScoringPage() {
 
       const { data: p } = await supabase
         .from('players')
-        .select('id, handicap_at_registration, tee_id, profiles(name), categories(default_tee_color), rounds(id, status, total_gross, total_net, total_points, round_number)')
+        // categories(default_tee_color) NO existe en prod → PostgREST 400 → players=[] (pantalla vacía).
+        // El default de tee por categoría nunca se cableó a la BD; se quita el embed roto.
+        .select('id, handicap_at_registration, tee_id, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
         .eq('tournament_id', t.id)
         .order('created_at')
 
@@ -296,7 +297,8 @@ export default function ScoringPage() {
     const supabase = createClient()
     const { data: p } = await supabase
       .from('players')
-      .select('id, handicap_at_registration, tee_id, profiles(name), categories(default_tee_color), rounds(id, status, total_gross, total_net, total_points, round_number)')
+      // categories(default_tee_color) NO existe en prod → PostgREST 400 → players=[] (pantalla vacía).
+      .select('id, handicap_at_registration, tee_id, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
       .eq('tournament_id', tournament.id)
       .order('created_at')
     setPlayers((p as unknown as Player[]) || [])
@@ -405,7 +407,9 @@ export default function ScoringPage() {
       const supabase = createClient()
       const { data: p } = await supabase
         .from('players')
-        .select('id, handicap_at_registration, tee_id, profiles(name), categories(default_tee_color), rounds(id, status, total_gross, total_net, total_points, round_number)')
+        // categories(default_tee_color) NO existe en prod → PostgREST 400 → players=[] (pantalla vacía).
+        // El default de tee por categoría nunca se cableó a la BD; se quita el embed roto.
+        .select('id, handicap_at_registration, tee_id, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
         .eq('tournament_id', tournament.id)
         .order('created_at')
       setPlayers((p as unknown as Player[]) || [])
