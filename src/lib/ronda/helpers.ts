@@ -40,6 +40,12 @@ export function getTeeYardageColumn(tee: string): string {
  * sobre la cantidad de hoyos jugados. Confundir ambos rompía el Back 9: `(10, 9)`
  * con módulo 9 colapsaba a [1..9] (jugaba el front en vez del back). Con módulo 18:
  * front `(1,9)`→[1..9], back `(10,9)`→[10..18], shotgun 18h `(10,18)`→[10..18,1..9].
+ *
+ * Por qué el default 18 es seguro hoy: una ronda con `holes=9` sólo se crea en cancha
+ * single-loop (el selector multi-loop sólo ofrece combos de 2 loops → siempre 18h), y
+ * ahí el shotgun está deshabilitado, así que `hoyoInicio ∈ {1, 10}` sobre una cancha de
+ * 18. Si algún día se juega una cancha de ≤9 hoyos con shotgun (start > 9), el caller
+ * DEBE pasar el `courseHoles` real, o el wrap generaría hoyos inexistentes.
  */
 export function generarOrdenHoyos(hoyoInicio: number, totalHoles: number, courseHoles = 18): number[] {
   const orden: number[] = []

@@ -31,6 +31,13 @@ describe('generarOrdenHoyos', () => {
   it('Back 9: (10,9) juega los hoyos 10-18, NO el front 9', () => {
     expect(generarOrdenHoyos(10, 9)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])
   })
+  it('shotgun 18h desde hoyo 12 (multi-loop combinado): rota sobre los 18', () => {
+    expect(generarOrdenHoyos(12, 18)).toEqual([12, 13, 14, 15, 16, 17, 18, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+  })
+  it('cancha de ≤9 hoyos con shotgun: courseHoles explícito evita hoyos inexistentes', () => {
+    // Único caso donde el default 18 no sirve — el caller pasa el tamaño real.
+    expect(generarOrdenHoyos(5, 9, 9)).toEqual([5, 6, 7, 8, 9, 1, 2, 3, 4])
+  })
 })
 
 describe('getTeeYardageColumn', () => {
