@@ -19,7 +19,7 @@ import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStan
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './en-vivo/scrambleTeamsToLive'
 import { TournamentBottomSheet } from '@/components/TournamentBottomSheet'
 import ShareResultsButton from '@/components/ShareResultsButton'
-import { PLAYERS, PAR } from '@/lib/golf-data'
+import { notFound } from 'next/navigation'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
 import { formatLabel, type ModoJuego, type FormatoJuego } from '@/golf/core/rules'
@@ -66,7 +66,13 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   } = await supabase.auth.getUser()
   const tournament = await fetchTournamentBySlug(supabase, params.slug)
 
-  // ── Defaults para fallback demo (cuando slug no existe) ─────────────
+  // Slug inexistente → 404 honesto. Antes caía a un leaderboard DEMO
+  // hardcodeado (PLAYERS/PAR): el invitado con un link mal pegado veía nombres
+  // inventados y creía estar en otro torneo. Una app que inventa datos es peor
+  // que una que dice "no existe" (CERO FALLOS, 20-jul-2026).
+  if (!tournament) notFound()
+
+  // ── Defaults ────────────────────────────────────────────────────────
   let players: Player[]                       = []
   let playersByGross: Player[]                = []
   let playersByNeto: Player[]                 = []
@@ -180,11 +186,6 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         teamMemberNames = memberNames
       }
     }
-  } else {
-    // Demo fallback (slug no encontrado)
-    players  = PLAYERS
-    parTotal = PAR.reduce((s: number, p: number) => s + p, 0)
-    isLive   = true
   }
 
   if (isClosed) {

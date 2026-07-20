@@ -17,6 +17,7 @@ import { GroupsSection } from './components/GroupsSection'
 import { PlayersTable } from './components/PlayersTable'
 import { TournamentActionsBar } from './components/TournamentActionsBar'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
+import { tournamentStatusLabel } from '@/golf/tournament-status'
 
 import type { Tournament, Category, Player } from './types'
 import { isTeamFormat } from './types'
@@ -126,7 +127,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
             border: `1px solid ${tournamentStatus === 'closed' ? 'rgba(220,38,38,0.3)' : tournamentStatus === 'in_progress' ? 'rgba(34,197,94,0.3)' : tournamentStatus === 'open' ? 'rgba(196,153,42,0.3)' : 'rgba(26,79,214,0.3)'}`,
             padding: '3px 10px', borderRadius: '20px', fontSize: '12px',
           }}>
-            {tournamentStatus === 'closed' ? 'Cerrado' : tournamentStatus === 'in_progress' ? 'En curso' : tournamentStatus === 'open' ? 'Inscripciones abiertas' : 'Borrador'}
+            {tournamentStatusLabel(tournamentStatus, 'organizer')}
           </span>
         </div>
       </div>

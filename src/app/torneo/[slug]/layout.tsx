@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/utils/supabase/server'
+import { tournamentStatusLabel } from '@/golf/tournament-status'
 
 interface TournamentRow {
   name: string
@@ -7,14 +8,16 @@ interface TournamentRow {
   status: string
   date_start: string | null
   courses: { nombre: string } | null
-  tournament_players: { id: string }[]
+  /** La tabla es `players`. NO existe `tournament_players` — pedirla devolvía
+   *  PGRST200 y tumbaba TODO el metadata al fallback genérico (bug 20-jul). */
+  players: { id: string }[]
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const supabase = await createClient()
   const { data: torneo } = await supabase
     .from('tournaments')
-    .select('name, format, status, date_start, courses(nombre), tournament_players(id)')
+    .select('name, format, status, date_start, courses(nombre), players(id)')
     .eq('slug', params.slug)
     .single<TournamentRow>()
 
@@ -25,13 +28,13 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     }
   }
 
-  const nJugadores = torneo.tournament_players?.length ?? 0
+  const nJugadores = torneo.players?.length ?? 0
   const courseName = torneo.courses?.nombre ?? ''
   const fecha = torneo.date_start
     ? new Date(torneo.date_start + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
     : ''
 
-  const statusLabel = torneo.status === 'finished' ? 'Finalizado' : torneo.status === 'active' ? 'En vivo' : 'Inscripciones abiertas'
+  const statusLabel = tournamentStatusLabel(torneo.status)
 
   const parts = [courseName, fecha].filter(Boolean).join(' · ')
   const title = `${torneo.name} — Golfers+`

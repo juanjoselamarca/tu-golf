@@ -9,6 +9,24 @@ import type {
   JoinInfoProfile,
 } from '@/lib/data/tournaments/joinFlow'
 
+/**
+ * `fetch` con timeout duro. Sin esto, una conexión que abre pero nunca responde
+ * (típico de señal móvil pobre en cancha) deja la promesa colgada para siempre
+ * y la UI atrapada en su estado de carga. CERO FALLOS: siempre resolvemos a
+ * algo que el jugador pueda accionar.
+ */
+const FETCH_TIMEOUT_MS = 12_000
+
+async function fetchConTimeout(url: string, init?: RequestInit): Promise<Response> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('es-CL', {
     weekday: 'long',
@@ -42,33 +60,58 @@ export default function UnirsePage() {
   const [inscribing, setInscribing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  /** La carga falló y no hay torneo que mostrar → ofrecer reintento, no una
+   *  pantalla en blanco con un banner rojo huérfano. */
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const loadData = useCallback(async () => {
-    const res = await fetch(`/api/torneos/${encodeURIComponent(slug)}/join-info`, {
-      cache: 'no-store',
-    })
+    setError(null)
+    let res: Response
+    try {
+      res = await fetchConTimeout(`/api/torneos/${encodeURIComponent(slug)}/join-info`, {
+        cache: 'no-store',
+      })
+    } catch {
+      // Sin red / timeout — el escenario real es el jugador en la cancha con
+      // señal mala. Antes la promesa quedaba sin capturar y la pantalla se
+      // congelaba en "Cargando..." para siempre.
+      setError('Sin conexión. Revisa tu señal y vuelve a intentarlo.')
+      setLoadFailed(true)
+      setLoading(false)
+      return
+    }
     if (res.status === 404) {
-      setError('Torneo no encontrado')
+      setError('Este torneo no existe o el link es incorrecto.')
+      setLoadFailed(true)
       setLoading(false)
       return
     }
     if (!res.ok) {
       setError('No se pudo cargar la información del torneo. Intenta nuevamente.')
+      setLoadFailed(true)
       setLoading(false)
       return
     }
-    const data = (await res.json()) as {
-      tournament: JoinInfoTournament
-      profile: JoinInfoProfile | null
-      alreadyRegistered: boolean
-      authenticated: boolean
+    try {
+      const data = (await res.json()) as {
+        tournament: JoinInfoTournament
+        profile: JoinInfoProfile | null
+        alreadyRegistered: boolean
+        authenticated: boolean
+      }
+      setTournament(data.tournament)
+      setProfile(data.profile)
+      setAlreadyRegistered(data.alreadyRegistered)
+      setAuthenticated(data.authenticated ?? false)
+      setLoadFailed(false)
+    } catch {
+      // Respuesta 200 pero cuerpo ilegible (proxy de hotel/club que inyecta
+      // HTML, respuesta truncada). No es un caso teórico en redes de club.
+      setError('No se pudo leer la respuesta del servidor. Intenta nuevamente.')
+      setLoadFailed(true)
     }
-    setTournament(data.tournament)
-    setProfile(data.profile)
-    setAlreadyRegistered(data.alreadyRegistered)
-    setAuthenticated(data.authenticated ?? false)
     setLoading(false)
-  }, [slug, router])
+  }, [slug])
 
   useEffect(() => {
     loadData()
@@ -80,9 +123,19 @@ export default function UnirsePage() {
     setInscribing(true)
     setError(null)
 
-    const res = await fetch(`/api/torneos/${encodeURIComponent(slug)}/inscribirse`, {
-      method: 'POST',
-    })
+    let res: Response
+    try {
+      res = await fetchConTimeout(`/api/torneos/${encodeURIComponent(slug)}/inscribirse`, {
+        method: 'POST',
+      })
+    } catch {
+      // El botón quedaba en "Inscribiendo..." para siempre. Peor todavía: el
+      // jugador no sabía si quedó inscrito o no. Lo dejamos reintentar — la
+      // inscripción es idempotente (el backend devuelve already_registered).
+      setError('Sin conexión. No pudimos confirmar tu inscripción — vuelve a intentarlo.')
+      setInscribing(false)
+      return
+    }
 
     if (res.ok) {
       setSuccess(true)
@@ -216,6 +269,38 @@ export default function UnirsePage() {
         {loading && (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-2)', fontSize: '14px' }}>
             Cargando...
+          </div>
+        )}
+
+        {!loading && loadFailed && (
+          <div style={{ textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true)
+                setLoadFailed(false)
+                loadData()
+              }}
+              style={{
+                width: '100%',
+                background: '#c4992a',
+                color: 'var(--brand-dark)',
+                fontWeight: 700,
+                fontSize: '16px',
+                padding: '16px',
+                borderRadius: '10px',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Reintentar
+            </button>
+            <Link
+              href="/"
+              style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '3px', marginTop: '14px', display: 'inline-block' }}
+            >
+              Ir al inicio →
+            </Link>
           </div>
         )}
 
@@ -378,7 +463,7 @@ export default function UnirsePage() {
                 </div>
                 <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
                   {tournament.status === 'draft'
-                    ? 'El organizador todavía no abrió las inscripciones. Volvé a intentarlo más tarde.'
+                    ? 'El organizador todavía no abrió las inscripciones. Vuelve a intentarlo más tarde.'
                     : 'Ya no se puede inscribir en este torneo.'}
                 </div>
                 <Link
