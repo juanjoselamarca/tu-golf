@@ -9,7 +9,11 @@ import { courseHandicap18h, courseHandicap9h } from '@/golf/core/stroke-index'
 export interface PlayerForCourseHcp {
   handicap_at_registration: number | null
   tee_id: string | null
-  categories: { default_tee_color: string | null } | null
+  // Reservado: default de tee por categoría. La columna categories.default_tee_color
+  // NO existe en prod hoy (el feature nunca se cableó a la BD), así que este paso del
+  // fallback está latente. Opcional para que los callers que no lo traen no revienten
+  // el tipo — ver scoring/page.tsx, que dejó de pedir el embed que causaba HTTP 400.
+  categories?: { default_tee_color: string | null } | null
 }
 
 export interface TournamentForCourseHcp {
