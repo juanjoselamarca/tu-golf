@@ -111,7 +111,11 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
 
         <AccountSection profile={profile} userEmail={userEmail} edit={edit} />
 
-        <SyncHistorialBlock />
+        {/* Un solo CTA de "Importar historial" por pantalla (DESIGN.md P6): en el
+            estado vacío la CpiCard ("Activa tu CPI™") ya lo ofrece — no se duplica.
+            Cuando el CPI está activo (o no hay data), la CpiCard no muestra botón y
+            este bloque queda como el único punto de importación. */}
+        {cpiData?.status !== 'insufficient_data' && <SyncHistorialBlock />}
 
         {/* Notification settings */}
         <div style={{ marginTop: '16px', background: 'var(--bg-surface)', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden' }}>
