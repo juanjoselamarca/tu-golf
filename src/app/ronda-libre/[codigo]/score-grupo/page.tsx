@@ -14,7 +14,7 @@ import { parTotalEstandar } from '@/golf/core/round-score'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { calcularScramble, calcularFoursome, teePlayerEnHoyo, isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
-import { getMissingHoles, fillMissingHolesWithPar } from '@/lib/ronda/helpers'
+import { getMissingHoles, fillMissingHolesWithPar, generarOrdenHoyos } from '@/lib/ronda/helpers'
 import TeamLeaderboard from '@/components/TeamLeaderboard'
 import { BestBallTeamCard } from './components/BestBallTeamCard'
 
@@ -27,14 +27,6 @@ function getTeeYardageColumn(tee: string): string {
   if (t === 'white' || t === 'blanco') return 'yardaje_blanco'
   if (t === 'red' || t === 'rojo') return 'yardaje_rojo'
   return 'yardaje_azul'
-}
-
-function generarOrdenHoyos(hoyoInicio: number, totalHoles: number): number[] {
-  const orden: number[] = []
-  for (let i = 0; i < totalHoles; i++) {
-    orden.push(((hoyoInicio - 1 + i) % totalHoles) + 1)
-  }
-  return orden
 }
 
 function lsKey(c: string) { return `ronda_grupo_${c}` }

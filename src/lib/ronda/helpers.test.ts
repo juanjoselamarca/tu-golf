@@ -25,6 +25,12 @@ describe('generarOrdenHoyos', () => {
   it('rota correctamente desde hoyo 4 en 18 hoyos', () => {
     expect(generarOrdenHoyos(4, 18)).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 1, 2, 3])
   })
+  // P0 Máquina de Verdad (16-jul): 'Back 9 (10-18)' jugaba y puntuaba el FRONT 9.
+  // El módulo usaba totalHoles (9, los jugados) en vez del tamaño de la cancha (18),
+  // así que (10,9) colapsaba a [1..9]. Debe ser [10..18].
+  it('Back 9: (10,9) juega los hoyos 10-18, NO el front 9', () => {
+    expect(generarOrdenHoyos(10, 9)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])
+  })
 })
 
 describe('getTeeYardageColumn', () => {

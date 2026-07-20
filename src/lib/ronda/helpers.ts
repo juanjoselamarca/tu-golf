@@ -33,11 +33,18 @@ export function getTeeYardageColumn(tee: string): string {
   return 'yardaje_azul' // default
 }
 
-/** Genera orden circular de hoyos. hoyoInicio=4, holes=18 → [4,5,...,18,1,2,3] */
-export function generarOrdenHoyos(hoyoInicio: number, totalHoles: number): number[] {
+/**
+ * Genera el orden de hoyos jugados. hoyoInicio=4, holes=18 → [4,5,...,18,1,2,3].
+ *
+ * El wrap circular es sobre el TAMAÑO DE LA CANCHA (`courseHoles`, default 18), no
+ * sobre la cantidad de hoyos jugados. Confundir ambos rompía el Back 9: `(10, 9)`
+ * con módulo 9 colapsaba a [1..9] (jugaba el front en vez del back). Con módulo 18:
+ * front `(1,9)`→[1..9], back `(10,9)`→[10..18], shotgun 18h `(10,18)`→[10..18,1..9].
+ */
+export function generarOrdenHoyos(hoyoInicio: number, totalHoles: number, courseHoles = 18): number[] {
   const orden: number[] = []
   for (let i = 0; i < totalHoles; i++) {
-    orden.push(((hoyoInicio - 1 + i) % totalHoles) + 1)
+    orden.push(((hoyoInicio - 1 + i) % courseHoles) + 1)
   }
   return orden
 }
