@@ -139,8 +139,8 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
 
       {permState === 'denied' && (
         <div style={{
-          background: '#fee2e2', border: '1px solid #fecaca', borderRadius: '12px',
-          padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: '#991b1b',
+          background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px',
+          padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: '#92400e',
         }}>
           Las notificaciones están bloqueadas en tu navegador. Ve a Configuración → Golfers+ → Permitir notificaciones.
         </div>
