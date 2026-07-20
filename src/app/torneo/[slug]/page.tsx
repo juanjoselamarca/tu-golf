@@ -78,12 +78,12 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   let playersByNeto: Player[]                 = []
   let gwiInputs: JugadorGWIInput[]            = []
   let withdrawnPlayers: WithdrawnEntry[]      = []
-  let tournamentName                          = 'TPC Sawgrass Amateur 2025'
+  let tournamentName                          = tournament.name
   let parTotal                                = 72
   let modoJuego: ModoJuego                    = 'gross'
   let formatoJuego: FormatoJuego              = 'stroke_play'
   let totalHoyos                              = 18
-  let dateDisplay                             = '12 Mar 2025'
+  let dateDisplay                             = ''
   let isLive                                  = false
   let isClosed                                = false
   let stats: TourneyStats | null              = null
@@ -95,8 +95,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   let orderedTeams: TeamStandingForPodium[]   = []
   let teamMemberNames: Record<string, string[]> = {}
 
-  if (tournament) {
-    tournamentName = tournament.name
+  {
     parTotal       = tournament.courses?.par_total ?? 72
     modoJuego      = tournament.modo_juego ?? 'gross'
     formatoJuego   = tournament.formato_juego ?? 'stroke_play'

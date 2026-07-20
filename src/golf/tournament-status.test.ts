@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tournamentStatusLabel } from './tournament-status'
+import { tournamentStatusLabel, tournamentStatusTone, tournamentStatusBadge } from './tournament-status'
 
 describe('tournamentStatusLabel', () => {
   it('NO anuncia inscripciones abiertas sobre un borrador (bug del preview 20-jul)', () => {
@@ -32,6 +32,41 @@ describe('tournamentStatusLabel', () => {
     for (const s of ['', 'cualquier_cosa', null, undefined]) {
       expect(tournamentStatusLabel(s)).toBe('Torneo')
       expect(tournamentStatusLabel(s, 'organizer')).toBe('Borrador')
+    }
+  })
+})
+
+describe('tournamentStatusTone', () => {
+  it('da un tono distinto a cada situación que el jugador debe distinguir', () => {
+    expect(tournamentStatusTone('in_progress')).toBe('live')
+    expect(tournamentStatusTone('open')).toBe('open')
+    expect(tournamentStatusTone('closed')).toBe('closed')
+    expect(tournamentStatusTone('draft')).toBe('neutral')
+  })
+
+  it('status desconocido cae a neutral, nunca a "en vivo"', () => {
+    // Pintar de verde-vivo algo que no está en vivo es peor que no pintarlo.
+    expect(tournamentStatusTone('lo_que_sea')).toBe('neutral')
+    expect(tournamentStatusTone(null)).toBe('neutral')
+  })
+})
+
+describe('tournamentStatusBadge', () => {
+  it('devuelve label + tokens CSS, nunca hex inline', () => {
+    const badge = tournamentStatusBadge('in_progress', 'organizer')
+    expect(badge.label).toBe('En curso')
+    expect(badge.bg).toBe('var(--status-live-bg)')
+    expect(badge.fg).toBe('var(--status-live-fg)')
+  })
+
+  it('todos los status reales resuelven a tokens, no a undefined', () => {
+    // Regresión: el switch de LiveHeader no era exhaustivo y devolvía undefined
+    // si el status se ensanchaba a open/published.
+    for (const s of ['draft', 'open', 'in_progress', 'closed', 'published']) {
+      const badge = tournamentStatusBadge(s)
+      expect(badge.bg).toMatch(/^var\(--status-/)
+      expect(badge.fg).toMatch(/^var\(--status-/)
+      expect(badge.label).toBeTruthy()
     }
   })
 })

@@ -17,11 +17,23 @@ import type {
  */
 const FETCH_TIMEOUT_MS = 12_000
 
-async function fetchConTimeout(url: string, init?: RequestInit): Promise<Response> {
+/**
+ * Devuelve el cuerpo YA parseado, no el `Response`. Es deliberado: si sólo
+ * cubriéramos hasta los headers, un servidor que responde 200 y después estanca
+ * el body dejaría colgado el `res.json()` — el mismo síntoma que esto viene a
+ * matar, un paso más adelante. El deadline cubre headers + cuerpo.
+ */
+async function fetchJsonConTimeout(
+  url: string,
+  init?: RequestInit,
+): Promise<{ status: number; ok: boolean; body: unknown }> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
   try {
-    return await fetch(url, { ...init, signal: ctrl.signal })
+    const res = await fetch(url, { ...init, signal: ctrl.signal })
+    // 204/205 no traen cuerpo; y un proxy de club puede devolver HTML con 200.
+    const body = res.status === 204 || res.status === 205 ? null : await res.json()
+    return { status: res.status, ok: res.ok, body }
   } finally {
     clearTimeout(timer)
   }
@@ -66,20 +78,22 @@ export default function UnirsePage() {
 
   const loadData = useCallback(async () => {
     setError(null)
-    let res: Response
+    let res: Awaited<ReturnType<typeof fetchJsonConTimeout>>
     try {
-      res = await fetchConTimeout(`/api/torneos/${encodeURIComponent(slug)}/join-info`, {
+      res = await fetchJsonConTimeout(`/api/torneos/${encodeURIComponent(slug)}/join-info`, {
         cache: 'no-store',
       })
     } catch {
-      // Sin red / timeout — el escenario real es el jugador en la cancha con
-      // señal mala. Antes la promesa quedaba sin capturar y la pantalla se
-      // congelaba en "Cargando..." para siempre.
-      setError('Sin conexión. Revisa tu señal y vuelve a intentarlo.')
+      // Sin red, timeout, o cuerpo ilegible (proxy de club que inyecta HTML).
+      // El escenario real es el jugador en la cancha con señal mala: antes la
+      // promesa quedaba sin capturar y la pantalla se congelaba en
+      // "Cargando..." para siempre.
+      setError('No pudimos cargar el torneo. Revisa tu señal y vuelve a intentarlo.')
       setLoadFailed(true)
       setLoading(false)
       return
     }
+
     if (res.status === 404) {
       setError('Este torneo no existe o el link es incorrecto.')
       setLoadFailed(true)
@@ -92,24 +106,18 @@ export default function UnirsePage() {
       setLoading(false)
       return
     }
-    try {
-      const data = (await res.json()) as {
-        tournament: JoinInfoTournament
-        profile: JoinInfoProfile | null
-        alreadyRegistered: boolean
-        authenticated: boolean
-      }
-      setTournament(data.tournament)
-      setProfile(data.profile)
-      setAlreadyRegistered(data.alreadyRegistered)
-      setAuthenticated(data.authenticated ?? false)
-      setLoadFailed(false)
-    } catch {
-      // Respuesta 200 pero cuerpo ilegible (proxy de hotel/club que inyecta
-      // HTML, respuesta truncada). No es un caso teórico en redes de club.
-      setError('No se pudo leer la respuesta del servidor. Intenta nuevamente.')
-      setLoadFailed(true)
+
+    const data = res.body as {
+      tournament: JoinInfoTournament
+      profile: JoinInfoProfile | null
+      alreadyRegistered: boolean
+      authenticated: boolean
     }
+    setTournament(data.tournament)
+    setProfile(data.profile)
+    setAlreadyRegistered(data.alreadyRegistered)
+    setAuthenticated(data.authenticated ?? false)
+    setLoadFailed(false)
     setLoading(false)
   }, [slug])
 
@@ -123,16 +131,17 @@ export default function UnirsePage() {
     setInscribing(true)
     setError(null)
 
-    let res: Response
+    let res: Awaited<ReturnType<typeof fetchJsonConTimeout>>
     try {
-      res = await fetchConTimeout(`/api/torneos/${encodeURIComponent(slug)}/inscribirse`, {
+      res = await fetchJsonConTimeout(`/api/torneos/${encodeURIComponent(slug)}/inscribirse`, {
         method: 'POST',
       })
     } catch {
       // El botón quedaba en "Inscribiendo..." para siempre. Peor todavía: el
       // jugador no sabía si quedó inscrito o no. Lo dejamos reintentar — la
-      // inscripción es idempotente (el backend devuelve already_registered).
-      setError('Sin conexión. No pudimos confirmar tu inscripción — vuelve a intentarlo.')
+      // inscripción es idempotente: si el POST sí llegó, el backend responde
+      // already_registered y la UI lo trata como éxito.
+      setError('No pudimos confirmar tu inscripción. Revisa tu señal y vuelve a intentarlo.')
       setInscribing(false)
       return
     }
@@ -143,7 +152,7 @@ export default function UnirsePage() {
       return
     }
 
-    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+    const body = (res.body ?? {}) as { error?: string; message?: string }
     if (body.error === 'already_registered') {
       setAlreadyRegistered(true)
       setError(body.message ?? 'Ya estás inscrito en este torneo.')

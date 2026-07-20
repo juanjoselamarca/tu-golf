@@ -4,6 +4,7 @@
 // Card horizontal con identidad del torneo + badge de status + ultima actualizacion.
 
 import type { LiveTournament } from './types'
+import { tournamentStatusBadge } from '@/golf/tournament-status'
 
 export interface LiveHeaderProps {
   tournament: LiveTournament
@@ -24,23 +25,6 @@ const MODO_LABEL: Record<LiveTournament['modo'], string> = {
   neto: 'Neto',
 }
 
-interface StatusBadge {
-  label: string
-  bg: string
-  fg: string
-}
-
-function statusBadge(status: LiveTournament['status']): StatusBadge {
-  switch (status) {
-    case 'in_progress':
-      return { label: 'En curso', bg: 'var(--status-live-bg)', fg: 'var(--status-live-fg)' }
-    case 'draft':
-      return { label: 'Borrador', bg: 'var(--status-draft-bg)', fg: 'var(--status-draft-fg)' }
-    case 'closed':
-      return { label: 'Cerrado', bg: 'var(--status-closed-bg)', fg: 'var(--status-closed-fg)' }
-  }
-}
-
 function formatLastUpdate(ts: number): string {
   const diffSec = Math.max(0, Math.round((Date.now() - ts) / 1000))
   if (diffSec < 5) return 'recién actualizado'
@@ -53,7 +37,8 @@ function formatLastUpdate(ts: number): string {
 }
 
 export default function LiveHeader({ tournament, lastUpdate }: LiveHeaderProps) {
-  const badge = statusBadge(tournament.status)
+  // Vocabulario de organizador: esta vista la mira quien corre el torneo.
+  const badge = tournamentStatusBadge(tournament.status, 'organizer')
   const subline = [FORMAT_LABEL[tournament.format], MODO_LABEL[tournament.modo], tournament.course_name]
     .filter(Boolean)
     .join(' · ')
