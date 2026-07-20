@@ -225,10 +225,16 @@ export async function resolverCourseData(
     .maybeSingle()
 
   if (teeData?.rating && teeData?.slope) {
-    if (holes <= 9 && teeData.front_course_rating && teeData.front_slope_rating) {
+    if (holes <= 9) {
+      // Ronda de 9h. Con ratings de front-9 publicados, usarlos tal cual. Sin
+      // ellos (288 de 477 tees del catálogo, ~60%), aproximación WHS: slope9≈slope18,
+      // CR9=CR18/2, par del front-9 real. En AMBOS caminos is9Hole=true, para que
+      // resolverCourseHandicap divida el índice por 2 (Rule 6.1). Sin el flag el
+      // jugador recibía ~2× los golpes — mismo criterio que el fallback courses (abajo).
+      const hasFront9 = teeData.front_course_rating != null && teeData.front_slope_rating != null
       return {
-        slope: teeData.front_slope_rating,
-        courseRating: teeData.front_course_rating,
+        slope: hasFront9 ? teeData.front_slope_rating! : teeData.slope,
+        courseRating: hasFront9 ? teeData.front_course_rating! : teeData.rating / 2,
         par: await resolveNineHolePar(supabase, courseId, parTotal),
         is9Hole: true,
       }
