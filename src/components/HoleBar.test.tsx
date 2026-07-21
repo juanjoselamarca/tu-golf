@@ -25,8 +25,9 @@ function getSegmentColors(container: HTMLElement): string[] {
   return segs.map(s => (s as HTMLElement).style.background).filter(Boolean).map(hexToRgb)
 }
 
-// Verde sutil para par — inbox 129d8e22 cambió "par gris" → "par verde".
-const COLOR_PAR = hexToRgb('#86EFAC')
+// Par = neutro (Garmin real: birdie celeste, par neutro). Antes era verde #86EFAC
+// bajo un error de dominio de DESIGN.md; corregido en la pasada de elegancia del scorer.
+const COLOR_PAR = hexToRgb('#b4bcc7')
 // Gris neutro: solo cuando NO hay dato confiable de par para el hoyo.
 const COLOR_NO_DATA = hexToRgb('#d0d5dc')
 const COLOR_BIRDIE = hexToRgb(GARMIN_COLORS.birdie)
