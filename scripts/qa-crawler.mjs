@@ -116,10 +116,26 @@ const norm = (u) => {
   } catch { return null }
 }
 
+/**
+ * Ruido de consola benigno que NO debe contar como finding.
+ *
+ * "Failed to fetch RSC payload for X. Falling back to browser navigation" es
+ * comportamiento esperado de Next 14: un prefetch de <Link> en vuelo se aborta
+ * (net::ERR_ABORTED) cuando el usuario navega antes de que termine, y Next cae a
+ * navegación de browser (la ruta igual carga). El bottom-nav prefetchea ~8 rutas
+ * por página, así que el crawler —que clickea rápido— lo dispara seguido. No es
+ * un bug. Verificado 20-jul: navegación tranquila → 0 errores + RSC 200; rápida →
+ * 100% net::ERR_ABORTED en todas las rutas. Filtramos SOLO este patrón exacto
+ * (incluye "Falling back to browser navigation"), no "Failed to fetch" genérico.
+ */
+const BENIGN_CONSOLE = /Failed to fetch RSC payload.*Falling back to browser navigation/s
+
 /** Listener de errores reseteable por página. */
 function attachErrorSink(page) {
   const sink = { console: [], pageerror: [], bad: [] }
-  page.on('console', (m) => { if (m.type() === 'error') sink.console.push(m.text().slice(0, 300)) })
+  page.on('console', (m) => {
+    if (m.type() === 'error' && !BENIGN_CONSOLE.test(m.text())) sink.console.push(m.text().slice(0, 300))
+  })
   page.on('pageerror', (e) => sink.pageerror.push(String(e.message || e).slice(0, 300)))
   page.on('response', (r) => {
     const s = r.status()
