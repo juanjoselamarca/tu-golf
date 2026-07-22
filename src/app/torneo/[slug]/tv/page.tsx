@@ -214,26 +214,9 @@ export default function TVPage() {
   return (
     <div style={{ background: '#070d18', minHeight: '100vh', padding: '40px 32px', position: 'relative' }}>
 
-      {/* ── Codigo badge (top-right) ────────────────────── */}
-      {tournament?.codigo && (
-        <div style={{
-          position: 'absolute',
-          top: '20px',
-          right: '24px',
-          background: 'rgba(196,153,42,0.12)',
-          border: '1px solid rgba(196,153,42,0.3)',
-          borderRadius: '10px',
-          padding: '10px 16px',
-          textAlign: 'center',
-        }}>
-          <div style={{ fontSize: '10px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
-            Código para unirse
-          </div>
-          <div style={{ fontFamily: 'monospace', fontSize: '22px', fontWeight: 700, color: '#c4992a', letterSpacing: '0.15em' }}>
-            {tournament.codigo}
-          </div>
-        </div>
-      )}
+      {/* El código del torneo NO se muestra al jugador: no existe pantalla para
+          ingresarlo (media promesa). El camino de unirse es el link compartible.
+          Decisión PM 2026-07-22. */}
 
       {/* ── Header ──────────────────────────────────────── */}
       <div style={{ textAlign: 'center', marginBottom: '48px' }}>

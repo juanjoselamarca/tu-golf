@@ -15,7 +15,13 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { enrollPlayer, isInscribibleStatus, type EnrollResult } from './enrollPlayer'
+import {
+  enrollPlayer,
+  isInscribibleStatus,
+  tournamentCapacity,
+  type EnrollResult,
+  type CapacityInfo,
+} from './enrollPlayer'
 
 const PUBLIC_VISIBLE_STATUSES = ['open', 'in_progress', 'closed', 'published'] as const
 
@@ -51,6 +57,10 @@ export interface JoinInfoPayload {
   tournament: JoinInfoTournament
   profile: JoinInfoProfile | null
   alreadyRegistered: boolean
+  /** Cupo del torneo (full/maxPlayers/approved). Fuente única `tournamentCapacity`
+   *  — para que la UI muestre "torneo completo" ANTES de que el jugador choque
+   *  contra el 409 del RPC (cuyo mensaje está escrito para el organizador). */
+  capacity: CapacityInfo
 }
 
 function isVisibleToUser(t: { status: string; organizer_id: string }, userId: string): boolean {
@@ -84,7 +94,7 @@ export async function fetchJoinInfo(
   const t = tournament as unknown as JoinInfoTournament
   if (!isVisibleToUser(t, userId)) return null
 
-  const [{ data: profile }, { data: existing }] = await Promise.all([
+  const [{ data: profile }, { data: existing }, capacity] = await Promise.all([
     admin.from('profiles').select('name, indice').eq('id', userId).maybeSingle(),
     admin
       .from('players')
@@ -92,12 +102,14 @@ export async function fetchJoinInfo(
       .eq('tournament_id', t.id)
       .eq('user_id', userId)
       .maybeSingle(),
+    tournamentCapacity(admin, t.id),
   ])
 
   return {
     tournament: t,
     profile: (profile as JoinInfoProfile | null) ?? null,
     alreadyRegistered: !!existing,
+    capacity,
   }
 }
 

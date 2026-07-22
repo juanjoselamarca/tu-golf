@@ -123,6 +123,38 @@ describe('fetchJoinInfo — visibility rules (espejo de RLS, post-bypass)', () =
     const r = await fetchJoinInfo(c, 's', 'guest')
     expect(r?.alreadyRegistered).toBe(true)
   })
+
+  // Cupo: la UI (/unirse) debe poder mostrar "torneo completo" ANTES de que el
+  // jugador choque contra el 409 del RPC. fetchJoinInfo lo trae vía tournamentCapacity.
+  it('reporta capacity.full cuando los inscritos alcanzan el cupo', async () => {
+    const c = makeMockClient({
+      tournaments: { data: open },
+      tournaments_maxplayers: { data: { max_players: 2 }, error: null },
+      players_count: 2,
+    })
+    const r = await fetchJoinInfo(c, 's', 'guest')
+    expect(r?.capacity).toEqual({ full: true, maxPlayers: 2, approved: 2 })
+  })
+
+  it('reporta capacity con lugar disponible (inscritos < cupo)', async () => {
+    const c = makeMockClient({
+      tournaments: { data: open },
+      tournaments_maxplayers: { data: { max_players: 4 }, error: null },
+      players_count: 2,
+    })
+    const r = await fetchJoinInfo(c, 's', 'guest')
+    expect(r?.capacity).toEqual({ full: false, maxPlayers: 4, approved: 2 })
+  })
+
+  it('sin tope (max_players null) nunca reporta full aunque haya muchos inscritos', async () => {
+    const c = makeMockClient({
+      tournaments: { data: open },
+      tournaments_maxplayers: { data: { max_players: null }, error: null },
+      players_count: 10,
+    })
+    const r = await fetchJoinInfo(c, 's', 'guest')
+    expect(r?.capacity.full).toBe(false)
+  })
 })
 
 describe('esInscribible — fuente de verdad compartida UI/backend', () => {
