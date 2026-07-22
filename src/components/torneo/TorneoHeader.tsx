@@ -15,7 +15,7 @@
 // [[feedback_un_concepto_una_fuente]].
 
 import type { ReactNode } from 'react'
-import { getFormat } from '@/golf/formats'
+import { getFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
 import { tournamentStatusBadge, tournamentStatusTone } from '@/golf/tournament-status'
 import type { StatusAudience } from '@/golf/tournament-status'
 
@@ -39,7 +39,10 @@ export interface TorneoHeaderProps {
 }
 
 function metaLine(p: TorneoHeaderProps): string {
-  const formatName = getFormat(p.format)?.name ?? p.format
+  // Guardar el lookup: getFormat() dispara captureError sobre keys desconocidas y
+  // este componente re-renderiza en cada tick de lastUpdate. Solo resolvemos vía la
+  // fuente canónica si la key es válida; si no, mostramos el valor crudo sin ruido.
+  const formatName = KNOWN_FORMAT_KEYS.includes(p.format) ? getFormat(p.format).name : p.format
   return [
     p.courseName || null,
     p.holeCount ? `${p.holeCount} hoyos` : null,
@@ -104,7 +107,7 @@ export function TorneoHeader(props: TorneoHeaderProps) {
           {right ?? <StatusChip label={badge.label} bg={badge.bg} fg={badge.fg} tone={tone} onDark />}
         </div>
         {meta && <div style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.66)' }}>{meta}</div>}
-        {note && <div style={{ marginTop: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>{note}</div>}
+        {note && <div style={{ marginTop: '6px', fontSize: '12px', color: 'rgba(255,255,255,0.56)' }}>{note}</div>}
       </section>
     )
   }
