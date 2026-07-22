@@ -23,6 +23,21 @@ export async function POST(_req: NextRequest, { params }: { params: { slug: stri
       { status: 409 }
     )
 
+  // Invariante CERO FALLOS: sin índice de handicap el neto sale corrupto (net = gross).
+  // La UI ya bloquea el caso normal, pero el write-path es la puerta real — igual que
+  // el cupo, que se enforcea en la UI Y atómicamente en el RPC. Se rechaza acá también
+  // (POST directo / estado rancio / carrera). `== null` deja pasar índice 0 y plus (<0)
+  // legítimos. Sólo aplica a la auto-inscripción del jugador: el organizador inscribe
+  // invitados sin índice por otras rutas (por eso el guard vive acá, no en enrollPlayer).
+  if (info.profile?.indice == null)
+    return NextResponse.json(
+      {
+        error: 'missing_index',
+        message: 'Necesitas tu índice de handicap para inscribirte. Cárgalo en tu perfil y vuelve por este link.',
+      },
+      { status: 400 }
+    )
+
   const course = info.tournament.courses
   const courseHandicap =
     info.profile?.indice != null

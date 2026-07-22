@@ -8,6 +8,7 @@ import type {
   JoinInfoTournament,
   JoinInfoProfile,
 } from '@/lib/data/tournaments/joinFlow'
+import type { CapacityInfo } from '@/lib/data/tournaments/enrollPlayer'
 
 /**
  * `fetch` con timeout duro. Sin esto, una conexión que abre pero nunca responde
@@ -68,6 +69,7 @@ export default function UnirsePage() {
   const [tournament, setTournament] = useState<JoinInfoTournament | null>(null)
   const [profile, setProfile] = useState<JoinInfoProfile | null>(null)
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
+  const [capacity, setCapacity] = useState<CapacityInfo | null>(null)
   const [authenticated, setAuthenticated] = useState(false)
   const [inscribing, setInscribing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -112,10 +114,12 @@ export default function UnirsePage() {
       profile: JoinInfoProfile | null
       alreadyRegistered: boolean
       authenticated: boolean
+      capacity?: CapacityInfo | null
     }
     setTournament(data.tournament)
     setProfile(data.profile)
     setAlreadyRegistered(data.alreadyRegistered)
+    setCapacity(data.capacity ?? null)
     setAuthenticated(data.authenticated ?? false)
     setLoadFailed(false)
     setLoading(false)
@@ -193,26 +197,6 @@ export default function UnirsePage() {
         <div style={{ fontSize: '14px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '24px' }}>
           Estás inscrito en {tournament.name}
         </div>
-
-        {tournament.codigo && (
-          <div
-            style={{
-              background: 'var(--surface-soft)',
-              border: '1px solid var(--surface-border-strong)',
-              borderRadius: '14px',
-              padding: '20px 32px',
-              textAlign: 'center',
-              marginBottom: '24px',
-            }}
-          >
-            <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-              Código del torneo
-            </div>
-            <div style={{ fontFamily: 'monospace', fontSize: '32px', fontWeight: 700, color: '#c4992a', letterSpacing: '0.15em' }}>
-              {tournament.codigo}
-            </div>
-          </div>
-        )}
 
         <Link
           href={`/torneo/${slug}`}
@@ -480,6 +464,71 @@ export default function UnirsePage() {
                   style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '3px' }}
                 >
                   Ver leaderboard →
+                </Link>
+              </div>
+            ) : capacity?.full ? (
+              /* Guard CERO FALLOS: el torneo llegó a su cupo. El RPC rechaza con
+                 un 409 cuyo mensaje ("Amplía el cupo máximo...") está escrito para
+                 el ORGANIZADOR. Al jugador le mostramos un estado honesto ANTES. */
+              <div
+                style={{
+                  background: 'var(--surface-soft)',
+                  border: '1px solid var(--surface-border)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  textAlign: 'center',
+                  marginBottom: '16px',
+                }}
+              >
+                <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600, marginBottom: '6px' }}>
+                  Torneo completo
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
+                  {capacity.maxPlayers != null
+                    ? `Este torneo llegó a su cupo de ${capacity.maxPlayers} jugadores. Habla con el organizador para que lo amplíe.`
+                    : 'Este torneo ya no admite más inscritos. Habla con el organizador.'}
+                </div>
+                <Link
+                  href={`/torneo/${slug}`}
+                  style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                >
+                  Ver leaderboard →
+                </Link>
+              </div>
+            ) : profile && profile.indice == null ? (
+              /* Guard CERO FALLOS: sin índice de handicap el score NETO sale
+                 corrupto (caso garantizado del recién registrado). Lo mandamos a
+                 cargar el índice ANTES de inscribirse, en vez de dejarlo entrar mal. */
+              <div
+                style={{
+                  background: 'var(--surface-soft)',
+                  border: '1px solid var(--surface-border)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  textAlign: 'center',
+                  marginBottom: '16px',
+                }}
+              >
+                <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600, marginBottom: '6px' }}>
+                  Necesitas tu índice de handicap
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px' }}>
+                  Sin índice, tu score neto sale mal en el torneo. Cárgalo en tu perfil y vuelve por este mismo link.
+                </div>
+                <Link
+                  href="/perfil"
+                  style={{
+                    display: 'inline-block',
+                    background: '#c4992a',
+                    color: 'var(--brand-dark)',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    padding: '12px 24px',
+                    borderRadius: '10px',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Cargar mi índice
                 </Link>
               </div>
             ) : (
