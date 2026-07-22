@@ -18,9 +18,11 @@
      Usar siempre que el oro sea texto, no superficie ni borde. */
   --brand-text:  #8A6A16;
 
-  /* Score colors â€” paleta Garmin Golf verificada (mismo en ambos modos) */
-  --eagle:  #3B82F6;
-  --birdie: #EF4444;
+  /* Score colors — espejo de GARMIN_COLORS (src/components/ScoreSymbol.tsx), que es la
+     fuente canónica en runtime. Garmin REAL: birdie celeste, doble+ rojo (el viejo
+     --birdie #EF4444 rojo era un error de dominio; corregido a celeste). Mismo en ambos modos. */
+  --eagle:  #0B6BA6;
+  --birdie: #14B3D9;
   --par:    #6B7280;
   --bogey:  #C4992A;
   --double: #DC2626;

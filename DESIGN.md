@@ -61,11 +61,13 @@ Definida en `src/app/globals.css` como CSS custom properties. NO inventar colore
 | `--brand` | `#C4992A` | Gold. Acciones primarias, marca, métrica héroe, indicador activo único. Uso rationed — ver § 5. |
 | `--bg` | `#070d18` | Deep navy. Fondo dark surfaces. |
 | `--bg-surface` | `#0e1c2f` | Card / panel dark. |
-| `--eagle` | `#3B82F6` | Scorecard eagle (-2+). **Solo en Scorecard**. |
-| `--birdie` | `#EF4444` | Scorecard birdie (-1). **Solo en Scorecard**. Nota: el rojo acá es histórico Garmin-compliant — no es error. |
-| `--par` | `#6B7280` | Scorecard par. Sin borde. |
-| `--bogey` | `#C4992A` | Scorecard bogey (+1). Mismo gold que brand. |
-| `--double` | `#DC2626` | Scorecard doble bogey+ (+2+). |
+| `--eagle` | `#0B6BA6` | Eagle (-2+). Azul profundo. |
+| `--birdie` | `#14B3D9` | Birdie (-1). **Celeste** — Garmin real. (El viejo `#EF4444` rojo era un error de dominio: en Garmin el birdie es celeste y el rojo es doble bogey. Corregido 19-jul, ver T1 resuelta.) |
+| `--par` | `#6B7280` | Par. Neutro, sin borde. |
+| `--bogey` | `#C4992A` | Bogey (+1). Mismo gold que brand. |
+| `--double` | `#DC2626` | Doble bogey+ (+2+). Rojo. |
+
+**Fuente única de color+forma por resultado:** `getScoreIndicator(gross, par)` y `GARMIN_COLORS` en `src/components/ScoreSymbol.tsx`. Lo consumen Scorecard, HoleBar y MiniScorecardGrid. Los CSS vars de arriba son un espejo (no una segunda fuente): si divergen, gana ScoreSymbol.
 
 **Verde sólo para `en vivo / éxito`.** NO usar verde como "ON" de toggles (el audit P6 encontró verde + dorado para mismo estado). Ver § 5.
 
@@ -268,7 +270,7 @@ La jerarquía §5 se aplica literal: un único `commit` dorado sólido, el resto
 
 ### Tensiones abiertas (no resueltas — requieren decisión de PM)
 
-**T1 · El par tiene dos colores según la pantalla.** §3 fija `--par` = `#6B7280` gris, "solo en Scorecard". `2026-05-21` pinta el par verde `#86EFAC` en `HoleBar`, y de paso usa birdie celeste `#14B3D9` donde el Scorecard usa el rojo Garmin `#EF4444`. No hay violación literal (los tokens están scopeados al Scorecard), pero el usuario ve el mismo concepto de dos colores en dos pantallas. Ningún documento dice cuál manda.
+**T1 · RESUELTA (19-jul-2026, decisión PM Juanjo — usuario Garmin).** El conflicto: el par se pintaba verde `#86EFAC` en `HoleBar` y gris en `Scorecard`; el birdie, celeste en unos lados y rojo `#EF4444` en el token `--birdie`. Al ver el scorer real apareció una tercera fuente: `MiniScorecardGrid` con birdie DORADO y sobre-par rojo (invertido). **Juanjo cortó el nudo con la convención Garmin real: birdie = celeste, par = neutro, doble+ = rojo.** El token `--birdie` rojo era un error de dominio (la nota "rojo Garmin-compliant" estaba mal). Fuente única: `getScoreIndicator`/`GARMIN_COLORS` en `ScoreSymbol.tsx`, que ahora consumen Scorecard, HoleBar y MiniScorecardGrid. HoleBar par verde→neutro; MiniScorecardGrid re-cableada a la canónica; §3 reconciliado.
 
 **T2 · ¿La asignación de modo de §2 es default o candado?** §2 lista Educación (`/indices`, WHS, LABS) como dark surface. `2026-05-19` declinó explícitamente forzar dark ahí "porque rompería el toggle Auto/Light/Dark que tienen las páginas educativas". Las dos lecturas siguen vivas: o §2 asigna el modo por defecto y el toggle del usuario gana, o §2 es un candado y el toggle es el error.
 

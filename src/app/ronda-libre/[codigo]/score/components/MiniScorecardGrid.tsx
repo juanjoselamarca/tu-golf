@@ -2,6 +2,7 @@
 
 import type React from 'react'
 import type { HoleData } from '@/types/ronda'
+import { getScoreIndicator } from '@/components/ScoreSymbol'
 
 /**
  * Mini scorecard horizontal con indicadores PGA (eagle, birdie, bogey, etc.)
@@ -61,8 +62,15 @@ export function MiniScorecardGrid({
     const s = activeJugadorId ? scores[activeJugadorId]?.[h] : undefined
     const p = parMap[h] ?? 4
     const isActive = h === currentHole
-    const diff = s != null ? s - p : null
-    const indicatorColor = s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff < 0 ? '#c4992a' : diff != null && diff > 0 ? '#EF4444' : 'transparent'
+    // Fuente única del color+forma por resultado (Garmin): birdie celeste/círculo,
+    // bogey dorado/cuadrado, doble+ rojo/doble-cuadrado, eagle azul/doble-círculo,
+    // par neutro. Antes esta grilla hardcodeaba su propia escala (birdie dorado,
+    // sobre-par rojo — invertida) con umbrales buggy (-3/+3 en vez de -2/+2).
+    const ind = s != null ? getScoreIndicator(s, p) : null
+    const isAce = s === 1 // hoyo en uno: celebración dorada, marca aparte del lenguaje de resultado
+    const isCircle = ind?.shape === 'circle' || ind?.shape === 'double-circle'
+    const isDoubleMark = ind?.shape === 'double-circle' || ind?.shape === 'double-square'
+    const hasMark = ind != null && ind.shape !== 'none'
     const holeStrokeCount = modoJuego !== 'gross' && !isStrokePlayNeto && hasStrokeAdvantage(holeDataMap[h]?.stroke_index ?? h) ? 1 : 0
     return (
       <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative' }}>
@@ -71,13 +79,13 @@ export function MiniScorecardGrid({
           <div style={{
             width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '11px', fontWeight: 600, lineHeight: 1,
-            color: s === 1 ? '#c4992a' : diff != null && diff >= 3 ? '#fff' : theme.textMuted,
-            background: s === 1 ? '#c4992a' : diff != null && diff <= -3 ? '#60A5FA' : diff != null && diff >= 3 ? '#DC2626' : 'transparent',
-            border: indicatorColor !== 'transparent' && !((s === 1) || (diff != null && diff <= -3) || (diff != null && diff >= 3)) ? `1.5px solid ${indicatorColor}` : 'none',
-            borderRadius: diff != null && diff < 0 ? '50%' : '2px',
-            boxShadow: isActive ? '0 0 0 1.5px #C4992A' : 'none',
+            color: isAce ? '#ffffff' : hasMark ? ind!.color : theme.textMuted,
+            background: isAce ? '#c4992a' : 'transparent',
+            border: !isAce && hasMark ? `1.5px solid ${ind!.color}` : 'none',
+            borderRadius: isAce || isCircle ? '50%' : '3px',
+            boxShadow: isActive ? '0 0 0 1.5px #C4992A' : (!isAce && isDoubleMark ? `inset 0 0 0 1.5px ${ind!.color}` : 'none'),
           }}>
-            {s === 1 ? <span style={{ color: '#ffffff', fontWeight: 800 }}>1</span> : s}
+            {isAce ? <span style={{ color: '#ffffff', fontWeight: 800 }}>1</span> : s}
           </div>
         ) : (
           <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : theme.badgeBg, border: isActive ? '1.5px solid #C4992A' : `1px solid ${theme.badgeBorder}` }} />

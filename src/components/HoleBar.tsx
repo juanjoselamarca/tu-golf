@@ -10,14 +10,13 @@
  * - Sin hover, sin tooltips: la barra es un resumen visual puro
  */
 
-import { GARMIN_COLORS } from './ScoreSymbol'
+import { GARMIN_COLORS, getScoreIndicator } from './ScoreSymbol'
 
-// Verde sutil para par — alineado con DESIGN.md "verde sólo para en vivo/éxito".
-// Hacer el par par es un éxito, así que merece color verde (no gris invisible) pero
-// suficientemente claro para no competir con birdie (celeste) ni bogey (dorado).
-// Tono Tailwind green-300 (#86EFAC) — saturación media, contraste WCAG AA sobre fondo
-// claro y oscuro (verificado pre-merge).
-const COLOR_PAR = '#86EFAC'
+// Par = neutro (convención Garmin real: par no es "éxito", es la línea base).
+// Antes era verde #86EFAC bajo una lectura de DESIGN.md que resultó ser un error de
+// dominio: en Garmin el birdie es celeste y el par neutro. Gris suave, legible en
+// claro y oscuro, sin competir con birdie (celeste) ni leerse como "logro".
+const COLOR_PAR = '#b4bcc7'
 // Cuando NO hay dato confiable de par para un hoyo, no asumimos resultado:
 // renderizamos gris neutro para que no parezca un par cuando podría ser otra cosa.
 const COLOR_NO_DATA = '#d0d5dc'
@@ -41,11 +40,12 @@ export interface HoleBarProps {
 function getColor(score: number | null | undefined, par: number | null): string {
   if (score == null || score === 0) return 'transparent'
   if (par == null) return COLOR_NO_DATA // sin dato de par confiable → neutro, no asumir resultado
-  const d = score - par
-  if (d <= -1) return GARMIN_COLORS.birdie
-  if (d === 0) return COLOR_PAR // par = verde sutil (inbox 129d8e22)
-  if (d === 1) return GARMIN_COLORS.bogey
-  return GARMIN_COLORS.double
+  // Fuente única del color por resultado (Garmin): eagle azul, birdie celeste,
+  // bogey dorado, doble+ rojo. Par → neutro. Antes esta función lumpeaba eagle en
+  // birdie y pintaba el par verde; ahora deriva del mismo getScoreIndicator que la
+  // tarjeta y la mini-grilla.
+  const { color, shape } = getScoreIndicator(score, par)
+  return shape === 'none' ? COLOR_PAR : color
 }
 
 function getS(scores: HoleBarProps['scores'], h: number): number | null {
