@@ -1,28 +1,17 @@
 'use client'
 
 // src/app/torneo/[slug]/en-vivo/LiveHeader.tsx
-// Card horizontal con identidad del torneo + badge de status + ultima actualizacion.
+// Cabecera del marcador en vivo. Delega en <TorneoHeader> (fuente única de la
+// identidad visual del torneo) — antes tenía su propia maqueta + FORMAT_LABEL
+// hardcodeado (duplicaba src/golf/formats). Ahora solo aporta la "última
+// actualización" y el vocabulario de organizador (quien corre el torneo).
 
 import type { LiveTournament } from './types'
-import { tournamentStatusBadge } from '@/golf/tournament-status'
+import { TorneoHeader } from '@/components/torneo/TorneoHeader'
 
 export interface LiveHeaderProps {
   tournament: LiveTournament
   lastUpdate: number
-}
-
-const FORMAT_LABEL: Record<LiveTournament['format'], string> = {
-  stroke_play: 'Stroke Play',
-  stableford: 'Stableford',
-  best_ball: 'Best Ball',
-  scramble: 'Scramble',
-  match_play: 'Match Play',
-  foursome: 'Foursome',
-}
-
-const MODO_LABEL: Record<LiveTournament['modo'], string> = {
-  gross: 'Bruto',
-  neto: 'Neto',
 }
 
 function formatLastUpdate(ts: number): string {
@@ -37,69 +26,16 @@ function formatLastUpdate(ts: number): string {
 }
 
 export default function LiveHeader({ tournament, lastUpdate }: LiveHeaderProps) {
-  // Vocabulario de organizador: esta vista la mira quien corre el torneo.
-  const badge = tournamentStatusBadge(tournament.status, 'organizer')
-  const subline = [FORMAT_LABEL[tournament.format], MODO_LABEL[tournament.modo], tournament.course_name]
-    .filter(Boolean)
-    .join(' · ')
-
   return (
-    <section
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        padding: '20px 24px',
-        background: 'var(--bg-surface, #ffffff)',
-        border: '1px solid var(--border, rgba(26,29,36,0.08))',
-        borderRadius: '12px',
-        boxShadow: 'var(--shadow-card, 0 1px 3px rgba(20,25,35,0.04), 0 4px 12px rgba(20,25,35,0.04))',
-        fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: '24px',
-            fontWeight: 700,
-            lineHeight: 1.2,
-            color: 'var(--text, #1a1d24)',
-          }}
-        >
-          {tournament.name}
-        </h1>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '4px 10px',
-            borderRadius: '999px',
-            fontSize: '12px',
-            fontWeight: 600,
-            background: badge.bg,
-            color: badge.fg,
-          }}
-        >
-          {badge.label}
-        </span>
-      </div>
-      <div
-        style={{
-          fontSize: '14px',
-          color: 'var(--text-2, #5a6573)',
-        }}
-      >
-        {subline}
-      </div>
-      <div
-        style={{
-          fontSize: '12px',
-          color: 'var(--text-3, #6B7280)',
-        }}
-      >
-        {formatLastUpdate(lastUpdate)}
-      </div>
-    </section>
+    <TorneoHeader
+      name={tournament.name}
+      format={tournament.format}
+      modo={tournament.modo}
+      status={tournament.status}
+      courseName={tournament.course_name}
+      holeCount={tournament.hole_count}
+      audience="organizer"
+      note={formatLastUpdate(lastUpdate)}
+    />
   )
 }
