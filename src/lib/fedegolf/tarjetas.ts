@@ -66,11 +66,11 @@ function textOf(cell: string): string {
  */
 export function parseTarjetas(html: string): TarjetaCruda[] {
   const filas: TarjetaCruda[] = []
-  for (const tr of html.matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/gi)) {
+  for (const tr of Array.from(html.matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/gi))) {
     const rowAttrs = tr[1]
     const rowInner = tr[2]
     if (!/\d{4}-\d{2}-\d{2}/.test(rowInner)) continue // saltar header y filas sin fecha
-    const cells = [...rowInner.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((c) => c[1])
+    const cells = Array.from(rowInner.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)).map((c) => c[1])
     if (cells.length < 10) continue
     const ticketRaw = textOf(cells[9])
     filas.push({

@@ -82,7 +82,7 @@ export async function capturarTarjetas(
   if (tarjetas.length === 0) return { total: 0 }
 
   // Resolver course_id una vez por cancha distinta (best-effort).
-  const canchas = [...new Set(tarjetas.map((t) => t.clubCancha))]
+  const canchas = Array.from(new Set(tarjetas.map((t) => t.clubCancha)))
   const courseIdByCancha = new Map<string, string | null>()
   for (const cancha of canchas) {
     try {
