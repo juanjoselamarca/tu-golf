@@ -221,7 +221,11 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                 {hero != null ? hero.toFixed(1) : '—'}
               </p>
               <p style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.55, maxWidth: '300px', margin: '0 auto' }}>
-                El promedio de tus <strong style={{ color: 'var(--text)' }}>{diffsCuentan.length} mejores diferenciales</strong> de la ventana oficial FedeGolf.
+                {formulaCuadra ? (
+                  <>El promedio de tus <strong style={{ color: 'var(--text)' }}>{diffsCuentan.length} mejores diferenciales</strong> de la ventana oficial FedeGolf.</>
+                ) : (
+                  <>Tu índice oficial de la Federación Chilena de Golf.</>
+                )}
               </p>
 
               {diffsCuentan.length > 0 && formulaCuadra && (
@@ -266,7 +270,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
               )}
             </div>
 
-            {tarjetas.length > 0 && (
+            {tarjetas.length > 0 && formulaCuadra && (
               <p style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', margin: '0 2px 12px', lineHeight: 1.5 }}>
                 {data.slotsVentana ?? tarjetas.length} diferenciales en tu ventana · los{' '}
                 <strong style={{ color: 'var(--text-2)' }}>{diffsCuentan.length} mejores</strong> definen tu índice.

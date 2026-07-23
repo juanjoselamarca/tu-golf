@@ -57,6 +57,15 @@ export async function POST() {
       return NextResponse.json({ ok: false, error: 'credenciales' }, { status: 200 })
     }
 
+    // Sellar el cooldown ANTES de pegarle a fedegolf.cl (M3): así un fallo
+    // transitorio (login/parse) NO deja que cada carga de página re-dispare un
+    // login al sitio externo con las credenciales del socio (riesgo ToS/rate-limit).
+    // El sync de índice va por su cuenta; refrescar tarjetas no es urgente.
+    await supabase
+      .from('fedegolf_credentials')
+      .update({ ultimo_sync_tarjetas: new Date().toISOString() })
+      .eq('user_id', user.id)
+
     // Login de PÁGINA (con lva). Si falla, fail-soft: NO tocamos `activo`
     // (podría seguir sirviendo para el sync de índice vía services.php).
     let session
@@ -68,11 +77,6 @@ export async function POST() {
 
     const tarjetas = await fedegolfGetTarjetasIndice(session)
     const { total } = await capturarTarjetas(supabase, user.id, tarjetas)
-
-    await supabase
-      .from('fedegolf_credentials')
-      .update({ ultimo_sync_tarjetas: new Date().toISOString() })
-      .eq('user_id', user.id)
 
     return NextResponse.json({ ok: true, cached: false, capturadas: total })
   } catch (err) {
