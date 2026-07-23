@@ -48,14 +48,12 @@ export interface HistoricalRound {
 export const SELECT_COLUMNS =
   'id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego, par_per_hole, excluded_from_handicap, diferencial'
 
-/**
- * Filtro canónico (D8): las tarjetas oficiales FedeGolf (import_source='fedegolf')
- * son score-only (sin hoyo-a-hoyo) → NO se muestran en el listado genérico ni
- * cuentan en las stats del historial; su hogar es el modal "Tu índice oficial,
- * explicado". Null-safe: conserva rondas sin import_source (no todas lo tienen).
- * Fuente única — la usan el fetch server-side, las stats y el reload client.
- */
-export const OR_EXCLUDE_FEDEGOLF = 'import_source.is.null,import_source.neq.fedegolf'
+// D8: las tarjetas FedeGolf no se muestran en el listado genérico ni cuentan en
+// las stats del historial (su hogar es el modal "Índice oficial explicado").
+// Filtro canónico compartido con el resto de lecturas genéricas (coach, stats,
+// CPI, dashboard) — definido una sola vez en historical-rounds-filters.
+export { OR_EXCLUDE_FEDEGOLF } from './historical-rounds-filters'
+import { OR_EXCLUDE_FEDEGOLF } from './historical-rounds-filters'
 
 export interface HistorialRoundsResult {
   rounds: HistoricalRound[]

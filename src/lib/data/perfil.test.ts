@@ -54,14 +54,18 @@ describe('fetchCpi', () => {
     const supabase = {
       from: () => ({
         select: () => ({
-          eq: () => ({
-            order: () => ({
-              limit: async () => ({
-                data: [{ played_at: '2026-01-01', total_gross: 85, course_rating: 72, slope_rating: 120, holes_played: 18 }],
-                error: null,
+          eq: () => {
+            const b: Record<string, unknown> = {
+              or: () => b,
+              order: () => ({
+                limit: async () => ({
+                  data: [{ played_at: '2026-01-01', total_gross: 85, course_rating: 72, slope_rating: 120, holes_played: 18 }],
+                  error: null,
+                }),
               }),
-            }),
-          }),
+            }
+            return b
+          },
         }),
       }),
     }
@@ -73,7 +77,7 @@ describe('fetchCpi', () => {
   })
 
   it('devuelve null si la query falla', async () => {
-    const supabase = { from: () => ({ select: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: null, error: { message: 'boom' } }) }) }) }) }) }
+    const supabase = { from: () => ({ select: () => ({ eq: () => { const b: Record<string, unknown> = { or: () => b, order: () => ({ limit: async () => ({ data: null, error: { message: 'boom' } }) }) }; return b } }) }) }
     expect(await fetchCpi(mockSupabase(supabase), 'u1')).toBeNull()
   })
 })

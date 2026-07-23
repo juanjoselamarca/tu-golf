@@ -11,6 +11,7 @@
  * Acá se busca por cancha (nombre o UUID), rango de fechas, hole-count y orden.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { inferHoles } from '@/golf/core/holes'
 import { matchCourseInDB } from '@/golf/courses/matching'
 
@@ -112,6 +113,7 @@ export async function findRoundsForCoach(
     .from('historical_rounds')
     .select('id, course_id, course_name, played_at, total_gross, holes_played, scores, import_source')
     .eq('user_id', userId)
+    .or(OR_EXCLUDE_FEDEGOLF) // no doble-contar las tarjetas FedeGolf (score-only)
     .not('total_gross', 'is', null)
   if (filters.desde) q = q.gte('played_at', `${filters.desde}T00:00:00`)
   if (filters.hasta) q = q.lte('played_at', `${filters.hasta}T23:59:59`)

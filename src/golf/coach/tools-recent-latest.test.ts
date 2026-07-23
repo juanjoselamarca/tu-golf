@@ -15,7 +15,7 @@ import { executeTool, type ToolExecutionContext } from './tools'
 function makeBuilder(result: { data: unknown; error: unknown }) {
   const builder: Record<string, unknown> = {}
   const chain = () => builder
-  for (const m of ['select', 'eq', 'not', 'order', 'limit', 'in', 'gte', 'lte', 'ilike']) {
+  for (const m of ['select', 'eq', 'or', 'not', 'order', 'limit', 'in', 'gte', 'lte', 'ilike']) {
     builder[m] = chain
   }
   builder.then = (resolve: (v: unknown) => unknown) => resolve(result)

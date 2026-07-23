@@ -63,6 +63,7 @@ function makeCtx(rounds: Round[]): ToolExecutionContext {
           return builder
         },
         ilike: () => builder,
+        or: () => builder, // OR_EXCLUDE_FEDEGOLF (no afecta el fixture: sin filas fedegolf)
         order: () => Promise.resolve({ data: rounds.filter((r) => filters.every((f) => f(r))), error: null }),
       }
       return builder

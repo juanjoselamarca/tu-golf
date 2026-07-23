@@ -1,6 +1,7 @@
 // ─── Capa de datos para /perfil/stats ────────────────────────────────────────
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { parPlayedFromRound } from '@/golf/core/compare'
 import { captureError } from '@/lib/error-tracking'
 
@@ -40,6 +41,7 @@ export async function fetchStatsRounds(supabase: SupabaseClient, userId: string)
     .from('historical_rounds')
     .select(STATS_ROUND_COLS)
     .eq('user_id', userId)
+    .or(OR_EXCLUDE_FEDEGOLF) // tarjetas FedeGolf viven solo en el modal de índice oficial
     .order('played_at', { ascending: true })
 
   if (error) {
