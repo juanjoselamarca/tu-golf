@@ -11,6 +11,18 @@
 
 import type { FedegolfTarjeta } from './types'
 
+/**
+ * `historical_rounds.holes_played` es NOT NULL, pero el listado no expone el n°
+ * de hoyos (parse deja `holes = null`, spec D-9h: no fabricar). Al persistir hay
+ * que dar un valor: heurística por gross (una vuelta de 9h ronda 40–52; una de
+ * 18h nunca baja de ~62). Es fidelidad-only — la tarjeta es excluded_from_handicap,
+ * así que holes_played no alimenta ningún cálculo; un raro misclasificado es inocuo.
+ */
+function inferirHoles(t: FedegolfTarjeta): number {
+  if (t.holes === 9 || t.holes === 18) return t.holes
+  return Number.isFinite(t.scoreGross) && t.scoreGross < 60 ? 9 : 18
+}
+
 /** Fila que insertamos en historical_rounds para una tarjeta FedeGolf. */
 export interface HistoricalRoundFedegolfRow {
   user_id: string
@@ -22,7 +34,7 @@ export interface HistoricalRoundFedegolfRow {
   course_rating: number
   slope_rating: number
   diferencial: number
-  holes_played: number | null
+  holes_played: number
   import_source: 'fedegolf'
   excluded_from_handicap: true
   fedegolf_ticket: string
@@ -58,7 +70,7 @@ export function tarjetaToRow(
     course_rating: t.courseRating,
     slope_rating: t.slope,
     diferencial: t.diferencial,
-    holes_played: t.holes,
+    holes_played: inferirHoles(t),
     import_source: 'fedegolf',
     excluded_from_handicap: true,
     fedegolf_ticket: t.ticket,

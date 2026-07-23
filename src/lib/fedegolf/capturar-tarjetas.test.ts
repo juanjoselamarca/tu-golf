@@ -29,7 +29,7 @@ describe('tarjetaToRow', () => {
       course_rating: 73.3,
       slope_rating: 136,
       diferencial: 8.8,
-      holes_played: null,
+      holes_played: 18, // gross 84 ≥ 60 → 18h (holes_played es NOT NULL en BD)
       import_source: 'fedegolf',
       excluded_from_handicap: true, // D7: NO alimenta indice_golfers
       fedegolf_ticket: '6902341',
@@ -38,6 +38,13 @@ describe('tarjetaToRow', () => {
       formato_juego: 'stroke_play',
       modo_juego: 'gross',
     })
+  })
+
+  it('holes_played: usa holes si viene, si no infiere por gross (9h si <60, 18h si no)', () => {
+    // NOT NULL en BD → siempre un número. Fidelidad-only (excluded_from_handicap).
+    expect(tarjetaToRow('u', { ...tarjeta, holes: null, scoreGross: 84 }).holes_played).toBe(18)
+    expect(tarjetaToRow('u', { ...tarjeta, holes: null, scoreGross: 46 }).holes_played).toBe(9)
+    expect(tarjetaToRow('u', { ...tarjeta, holes: 9, scoreGross: 84 }).holes_played).toBe(9)
   })
 
   it('propaga vale_doble y course_id resuelto', () => {
