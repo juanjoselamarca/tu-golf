@@ -52,7 +52,7 @@ export function GroupsSection({
       </h2>
       {isTeam && (
         <div style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 20px' }}>
-          Cada grupo es un equipo. Arma equipos de {teamSize} jugador{teamSize !== 1 ? 'es' : ''} y asigná cada jugador desde la tabla de abajo.
+          Cada grupo es un equipo. Arma equipos de {teamSize} jugador{teamSize !== 1 ? 'es' : ''} y asigna cada jugador desde la tabla de abajo.
         </div>
       )}
 
@@ -83,8 +83,8 @@ export function GroupsSection({
             onClick={onCreateGroup}
             disabled={creatingGroup || !newGroupName.trim()}
             style={{
-              background: '#1a4fd6',
-              color: 'white',
+              background: 'var(--brand)',
+              color: 'var(--brand-dark)',
               fontWeight: 600,
               fontSize: '14px',
               padding: '10px 20px',
@@ -140,7 +140,7 @@ export function GroupsSection({
               whiteSpace: 'nowrap',
             }}
           >
-            {generatingTees ? 'Generando...' : `Generar horarios (${groups.length} ${noun}s)`}
+            {generatingTees ? 'Generando...' : `Generar horarios (${groups.length} ${noun}${groups.length !== 1 ? 's' : ''})`}
           </button>
         </div>
       )}

@@ -8,6 +8,8 @@ import {
   setGroupTeeTime,
   assignPlayerToGroup,
 } from '@/lib/data/tournaments/groups'
+import { isTeamFormat } from '@/golf/formats'
+import { captureError } from '@/lib/error-tracking'
 import type { Player, Tournament, TournamentGroup } from '../types'
 
 interface UseGroupsArgs {
@@ -105,7 +107,10 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
         await setGroupTeeTime(supabase, groups[i].id, `${dateBase}T${h}:${m}:00`)
       }
       await fetchGroups()
-      showSuccess('Horarios generados', `${groups.length} grupos con horarios desde las ${teeStartTime} cada ${teeInterval} min.`)
+      // noun canónico (equipo/grupo) desde isTeamFormat — regla "un concepto, una fuente".
+      const noun = isTeamFormat(tournament.format) ? 'equipo' : 'grupo'
+      const plural = groups.length !== 1 ? 's' : ''
+      showSuccess('Horarios generados', `${groups.length} ${noun}${plural} con horarios desde las ${teeStartTime} cada ${teeInterval} min.`)
     } catch (e) {
       showError('Error', e instanceof Error ? e.message : 'No se pudieron generar los horarios.')
     } finally {
@@ -117,8 +122,25 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
     try {
       // groupId vacío ('') = quitar del grupo → null.
       await assignPlayerToGroup(createClient(), playerId, groupId || null)
-    } catch {
-      showError('Error', 'No se pudo asignar al grupo.')
+    } catch (e) {
+      // NO tragamos el error (histórico: un `catch {}` ciego dejó 4 fallos de campo
+      // sin traza — reporte inbox e637b979). Lo mandamos a error_logs con contexto y
+      // refrescamos la lista: la causa típica es un jugador stale (fila fantasma en la
+      // UI cuya inscripción ya no existe → viola el FK a `players`). El refetch la
+      // elimina en vez de dejar al organizador reintentando contra una fila muerta.
+      const msg = e instanceof Error ? e.message : String(e)
+      void captureError(e, {
+        context: 'useGroups.handleAssignPlayer',
+        meta: { playerId, groupId: groupId || null, tournamentId: tournament.id, dbMessage: msg },
+      })
+      await fetchGroups()
+      const isStale = /foreign key|violates|not present/i.test(msg)
+      showError(
+        'No se pudo asignar',
+        isStale
+          ? 'Ese jugador ya no está inscrito. Actualizamos la lista.'
+          : 'No se pudo asignar al grupo. Intenta de nuevo.',
+      )
       return
     }
     await fetchGroups()

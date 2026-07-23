@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         : 'assistant.ai-unexpected',
       userId: user.id,
     })
-    return NextResponse.json({ error: 'IA no disponible, editá manualmente' }, { status: 503 })
+    return NextResponse.json({ error: 'IA no disponible, edítalo manualmente' }, { status: 503 })
   }
   const latencyMs = llm.latencyMs
 
@@ -110,11 +110,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const end = textValue.lastIndexOf('}')
     json = JSON.parse(textValue.slice(start, end + 1))
   } catch {
+    // Observabilidad: el usuario ve un 502 genérico, pero necesitamos ver el output
+    // crudo del LLM para diagnosticar por qué un input válido termina rechazado
+    // (reporte inbox e637b979: input coherente → 502 sin traza).
+    await captureError('assistant: IA devolvió formato inválido (JSON no parseable)', {
+      context: 'assistant.parse-invalid-json', userId: user.id,
+      meta: { userMessage: message, rawText: textValue.slice(0, 2000) },
+    })
     return NextResponse.json({ error: 'IA devolvió formato inválido' }, { status: 502 })
   }
 
   const parsed = aiResponseSchema.safeParse(json)
   if (!parsed.success) {
+    await captureError('assistant: IA devolvió estructura inválida', {
+      context: 'assistant.schema-invalid', userId: user.id,
+      meta: { userMessage: message, issues: parsed.error.issues, rawText: textValue.slice(0, 2000) },
+    })
     return NextResponse.json({ error: 'IA devolvió estructura inválida', details: parsed.error.issues }, { status: 502 })
   }
 
@@ -126,6 +137,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Validar config_partial contra schema parcial
   const partialResult = tournamentConfigPartialSchema.safeParse(normalizedPartial)
   if (!partialResult.success) {
+    await captureError('assistant: IA propuso campos inválidos (config_partial)', {
+      context: 'assistant.partial-invalid', userId: user.id,
+      meta: { userMessage: message, issues: partialResult.error.issues, configPartial: normalizedPartial },
+    })
     return NextResponse.json({ error: 'IA propuso campos inválidos', details: partialResult.error.issues }, { status: 502 })
   }
 
@@ -156,6 +171,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const fullResult = tournamentConfigSchema.safeParse(nextConfig)
   if (!fullResult.success) {
+    await captureError('assistant: config fusionada produciría estado inválido', {
+      context: 'assistant.merged-invalid', userId: user.id,
+      meta: { userMessage: message, issues: fullResult.error.issues, nextConfig },
+    })
     return NextResponse.json({ error: 'Config IA produciría inválido', details: fullResult.error.issues }, { status: 502 })
   }
 
