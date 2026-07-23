@@ -121,7 +121,12 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', backgroundImage: 'url(https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1920&q=80)', backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', padding: '40px 16px' }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(7,13,24,0.85)' }} />
-      <div style={{ position: 'relative', zIndex: 10, background: 'rgba(14,28,47,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '16px', padding: '40px', maxWidth: '600px', width: '100%' }}>
+      {/* La card es un hero oscuro intencional (foto de cancha + overlay navy). Los
+          tokens de texto (var(--text), var(--text-2)…) resuelven al tema del usuario;
+          en tema claro se volvían oscuros e ilegibles sobre el navy. data-theme="dark"
+          fuerza que TODOS los tokens hijos resuelvan a la paleta dark, coherente con el
+          diseño hero. Fix sistémico (sin hardcodear colores). Reporte inbox e637b979. */}
+      <div data-theme="dark" style={{ position: 'relative', zIndex: 10, background: 'rgba(14,28,47,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '16px', padding: '40px', maxWidth: '600px', width: '100%' }}>
         <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>← Volver al dashboard</Link>
         <div style={{ marginBottom: '28px' }}>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>Golfers+</div>

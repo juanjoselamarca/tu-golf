@@ -83,7 +83,7 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
               {title}
             </div>
             {message && (
-              <div style={{ color: 'rgba(237,234,228,0.75)', fontSize: '13px', lineHeight: 1.4 }}>
+              <div style={{ color: 'var(--text-2)', fontSize: '13px', lineHeight: 1.4 }}>
                 {message}
               </div>
             )}
@@ -96,7 +96,7 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
             style={{
               background: 'none',
               border:     'none',
-              color:      'rgba(237,234,228,0.45)',
+              color:      'var(--text-3)',
               cursor:     'pointer',
               fontSize:   '18px',
               padding:    '0 0 0 6px',
@@ -105,7 +105,7 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
               transition:  'color 150ms',
             }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text)')}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text-3)')}
           >
             ×
           </button>
