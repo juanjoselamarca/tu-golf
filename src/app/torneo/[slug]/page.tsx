@@ -202,13 +202,13 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     <div className="min-h-screen" style={{ background: '#ffffff' }}>
       <TournamentHeader
         tournamentName={tournamentName}
-        slug={tournament?.slug ?? null}
         courseName={tournament?.courses?.nombre ?? null}
         totalHoyos={totalHoyos}
-        formatLabel={formatLabel(formatoJuego, modoJuego)}
+        format={formatoJuego}
+        modo={modoJuego}
+        status={tournament?.status ?? null}
+        live={isLive}
         dateDisplay={dateDisplay}
-        isLive={isLive}
-        isClosed={isClosed}
         coverImageUrl={tournament?.cover_image_url ?? null}
         codigo={tournament?.codigo ?? null}
       />
