@@ -36,6 +36,14 @@ export interface TorneoHeaderProps {
   audience?: StatusAudience
   /** Slot opcional a la derecha (acciones). En vivo suele ir el chip solo. */
   right?: ReactNode
+  /**
+   * Override de "en vivo" (decide V2 navy vs V1 claro). Por defecto se deriva del
+   * tono del estado (`in_progress`). Los callers con noción de fecha (ej. /torneo
+   * usa `torneoEnVivo(status, fechas)`) lo pasan explícito para que la cabecera
+   * coincida con el resto de la página — un torneo in_progress pero pasado de
+   * fecha no debe verse "en vivo" en un lado y cerrado en otro.
+   */
+  live?: boolean
 }
 
 function metaLine(p: TorneoHeaderProps): string {
@@ -78,13 +86,14 @@ export function TorneoHeader(props: TorneoHeaderProps) {
   const { name, status, audience = 'player', note, right } = props
   const tone = tournamentStatusTone(status)
   const badge = tournamentStatusBadge(status, audience)
-  const live = tone === 'live'
+  // "en vivo" (V2 navy) = override explícito del caller, o el tono del estado.
+  const isNavy = props.live ?? (tone === 'live')
   const meta = metaLine(props)
 
   const serif = "var(--font-playfair, Georgia, serif)"
   const sans = "var(--font-dm-sans, 'DM Sans', sans-serif)"
 
-  if (live) {
+  if (isNavy) {
     // ── V2 · Broadcast navy ──
     return (
       <section
