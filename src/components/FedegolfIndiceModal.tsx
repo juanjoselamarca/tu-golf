@@ -104,6 +104,11 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
   const hero = indiceOficial ?? promedio
   const notLinked = data?.ok === false && data?.linked === false
   const failed = data?.ok === false && !notLinked
+  // Defensa: si el promedio derivado NO cuadra con el índice oficial (señal de que
+  // fedegolf.cl cambió el HTML y el parseo quedó mal), no mostramos la fórmula —
+  // el número oficial manda, no una derivación rota (chips que no suman al hero).
+  const formulaCuadra =
+    promedio != null && (indiceOficial == null || Math.abs(promedio - indiceOficial) <= 0.1)
 
   return createPortal(
     <div
@@ -219,7 +224,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                 El promedio de tus <strong style={{ color: 'var(--text)' }}>{diffsCuentan.length} mejores diferenciales</strong> de la ventana oficial FedeGolf.
               </p>
 
-              {diffsCuentan.length > 0 && (
+              {diffsCuentan.length > 0 && formulaCuadra && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', justifyContent: 'center', marginTop: '12px' }}>
                   {diffsCuentan.map((d, i) => (
                     <span
