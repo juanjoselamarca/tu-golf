@@ -69,7 +69,7 @@ export function TeesAssignmentSection({
         <h3 style={captionStyle}>Asignación de tees</h3>
         <div style={{ ...emptyStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 24 }}>
           <Users size={32} color="#6b7280" />
-          <span>Inscribí jugadores en la sección de arriba. Después asigná sus tees.</span>
+          <span>Inscribe jugadores en la sección de arriba. Después asigna sus tees.</span>
         </div>
       </section>
     )

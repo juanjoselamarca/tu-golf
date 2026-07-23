@@ -21,7 +21,7 @@ const MAX_HEIGHT_PX = 150
 export default function AssistantInput({
   onSend,
   disabled = false,
-  placeholder = 'Describí el torneo...',
+  placeholder = 'Describe el torneo...',
 }: AssistantInputProps) {
   const [text, setText] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)

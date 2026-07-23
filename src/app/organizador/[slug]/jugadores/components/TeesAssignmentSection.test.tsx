@@ -129,7 +129,7 @@ describe('TeesAssignmentSection', () => {
         onAssign={vi.fn()}
       />
     )
-    expect(screen.getByText(/Inscribí jugadores/)).toBeTruthy()
+    expect(screen.getByText(/Inscribe jugadores/)).toBeTruthy()
   })
 
   it('empty state cuando NO hay courseTees', () => {

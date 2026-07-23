@@ -50,12 +50,12 @@ function errorMessageForStatus(status: number, body: AssistantApiError | null): 
     }
     return 'Estás enviando muchos mensajes seguidos. Prueba en unos minutos.'
   }
-  if (status === 502) return 'El asistente no pudo procesar eso, reformulá.'
-  if (status === 503) return 'El asistente no está disponible ahora. Editá manualmente.'
-  if (status === 401) return 'Sesión expirada. Volvé a entrar.'
-  if (status === 404) return 'No encuentro este borrador. Recargá la página.'
-  if (status === 409) return 'Otro admin editó este borrador. Recargá la página.'
-  return 'Error inesperado. Intentá de nuevo.'
+  if (status === 502) return 'El asistente no pudo procesar eso, reformúlalo.'
+  if (status === 503) return 'El asistente no está disponible ahora. Edítalo manualmente.'
+  if (status === 401) return 'Sesión expirada. Vuelve a entrar.'
+  if (status === 404) return 'No encuentro este borrador. Recarga la página.'
+  if (status === 409) return 'Otro admin editó este borrador. Recarga la página.'
+  return 'Error inesperado. Intenta de nuevo.'
 }
 
 export default function AssistantPanel({
@@ -139,7 +139,7 @@ export default function AssistantPanel({
         appendMessage({
           id: makeId('s'),
           role: 'system',
-          text: 'Respuesta inesperada del servidor. Intentá de nuevo.',
+          text: 'Respuesta inesperada del servidor. Intenta de nuevo.',
           timestamp: Date.now(),
           severity: 'error',
         })
