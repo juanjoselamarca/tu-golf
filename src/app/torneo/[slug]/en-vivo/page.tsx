@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import LiveView from './LiveView'
 import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveStatus, LiveTeam } from './types'
+import { normalizeStatus } from './normalize-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
 import { fetchCourseHoles, buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
@@ -30,14 +31,6 @@ function normalizeFormat(raw: unknown): LiveFormat {
 function normalizeModo(raw: unknown): LiveMode {
   if (raw === 'neto' || raw === 'gross') return raw
   return 'gross'
-}
-
-function normalizeStatus(raw: unknown): LiveStatus {
-  if (raw === 'draft' || raw === 'in_progress' || raw === 'closed') return raw
-  // 'pending', 'approved', 'finished', etc., los mapeamos defensivamente:
-  if (raw === 'finished') return 'closed'
-  if (raw === 'open' || raw === 'active') return 'in_progress'
-  return 'draft'
 }
 
 export default async function LivePage({ params }: PageProps) {

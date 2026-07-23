@@ -14,7 +14,8 @@ export type LiveFormat =
 
 export type LiveMode = 'gross' | 'neto'
 
-export type LiveStatus = 'draft' | 'in_progress' | 'closed'
+// 'open' = inscripciones abiertas, torneo aún no arrancado (NO es "en vivo").
+export type LiveStatus = 'draft' | 'open' | 'in_progress' | 'closed'
 
 export interface LivePlayer {
   id: string
