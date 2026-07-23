@@ -9,9 +9,11 @@ interface Props {
   vinculado: boolean
   onOpenVincular: () => void
   onOpenBreakdown: () => void
+  /** Abre el modal "Tu índice oficial, explicado" (tarjetas FedeGolf). */
+  onOpenOficial: () => void
 }
 
-export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, onOpenBreakdown }: Props) {
+export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, onOpenBreakdown, onOpenOficial }: Props) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '100ms' }}>
       {/* Índice Federación */}
@@ -27,6 +29,24 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
         </p>
         {vinculado ? (
           <>
+            {/* CTA educativo — abre el desglose de las tarjetas oficiales que
+                componen el índice (simétrico al "Ver qué rondas cuentan →" de
+                Golfers+). Solo si hay índice oficial que explicar. */}
+            {profile.indice != null && (
+              <button
+                type="button"
+                onClick={onOpenOficial}
+                aria-label="Ver cómo se calcula tu índice oficial"
+                style={{
+                  marginTop: '10px', background: 'transparent', border: 'none', padding: '2px',
+                  fontSize: '11px', color: '#c4992a', cursor: 'pointer', fontWeight: 600,
+                  fontFamily: '"DM Sans", system-ui, sans-serif',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                }}
+              >
+                Ver cómo se calcula →
+              </button>
+            )}
             {/* Botón "Actualizar" — inbox 25366393. Trigger manual al sync FedeGolf
                 (cooldown 4h server-side). No se muestra mientras refresca para evitar
                 doble-click. Mensaje de resultado debajo, auto-clear a los 6s. */}

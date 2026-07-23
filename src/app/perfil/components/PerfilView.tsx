@@ -5,6 +5,7 @@ import { ExperiencePanel } from '@/components/ExperienceSetup'
 import { LevelsBar } from '@/components/perfil/LevelsBar'
 import { getNivel } from '@/lib/mi-golf/niveles'
 import IndiceBreakdownModal from '@/components/IndiceBreakdownModal'
+import FedegolfIndiceModal from '@/components/FedegolfIndiceModal'
 import InstallAppCard from '@/components/InstallAppCard'
 import type { Profile, ResultadoCPI, FedegolfStatus } from '@/lib/data/perfil'
 import { useProfileEdit } from '../hooks/useProfileEdit'
@@ -30,6 +31,7 @@ interface Props {
 export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData, initialFedegolfStatus }: Props) {
   const [profile, setProfile] = useState<Profile>(initialProfile)
   const [breakdownOpen, setBreakdownOpen] = useState(false)
+  const [oficialOpen, setOficialOpen] = useState(false)
   const [fedegolfStatus, setFedegolfStatus] = useState<FedegolfStatus>(initialFedegolfStatus)
   const [vincularOpen, setVincularOpen] = useState(false)
   const edit = useProfileEdit(profile, setProfile)
@@ -81,6 +83,7 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
           vinculado={fedegolfStatus.vinculado}
           onOpenVincular={() => setVincularOpen(true)}
           onOpenBreakdown={() => setBreakdownOpen(true)}
+          onOpenOficial={() => setOficialOpen(true)}
         />
 
         {/* P18: link explicativo — "¿Cuándo uso cuál?" */}
@@ -134,6 +137,13 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
 
       {/* Modal "¿Qué rondas cuentan?" — inbox 82af3d48 */}
       <IndiceBreakdownModal isOpen={breakdownOpen} onClose={() => setBreakdownOpen(false)} />
+
+      {/* Modal "Tu índice oficial, explicado" — tarjetas FedeGolf (Release 1) */}
+      <FedegolfIndiceModal
+        isOpen={oficialOpen}
+        onClose={() => setOficialOpen(false)}
+        indiceOficial={profile.indice ?? null}
+      />
 
       {/* Modal vincular/gestionar FedeGolf — inbox 2f76dcaf */}
       <FedegolfVincularModal
