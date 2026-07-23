@@ -48,6 +48,15 @@ export interface HistoricalRound {
 export const SELECT_COLUMNS =
   'id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego, par_per_hole, excluded_from_handicap, diferencial'
 
+/**
+ * Filtro canónico (D8): las tarjetas oficiales FedeGolf (import_source='fedegolf')
+ * son score-only (sin hoyo-a-hoyo) → NO se muestran en el listado genérico ni
+ * cuentan en las stats del historial; su hogar es el modal "Tu índice oficial,
+ * explicado". Null-safe: conserva rondas sin import_source (no todas lo tienen).
+ * Fuente única — la usan el fetch server-side, las stats y el reload client.
+ */
+export const OR_EXCLUDE_FEDEGOLF = 'import_source.is.null,import_source.neq.fedegolf'
+
 export interface HistorialRoundsResult {
   rounds: HistoricalRound[]
   /** true si la query falló — la UI muestra FatalErrorScreen con Reintentar (paridad con el flujo client previo). */
@@ -70,6 +79,7 @@ export async function fetchHistorialRounds(
     .from('historical_rounds')
     .select(SELECT_COLUMNS)
     .eq('user_id', userId)
+    .or(OR_EXCLUDE_FEDEGOLF)
     .order('played_at', { ascending: false })
     .limit(500)
 
@@ -108,6 +118,7 @@ export async function fetchHistorialStats(
       .from('historical_rounds')
       .select('id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, garmin_scorecard_id, metadata')
       .eq('user_id', userId)
+      .or(OR_EXCLUDE_FEDEGOLF)
       .order('played_at', { ascending: false }),
     supabase
       .from('courses')
