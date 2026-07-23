@@ -1,0 +1,1215 @@
+<script  type="text/javascript">
+    if(typeof window.ReactNativeWebView !== "undefined") { 
+        window.ReactNativeWebView.postMessage( 
+            JSON.stringify( {"action":"showLoading","message":"Obteniendo Detalle Indice...","duration":2000} ) 
+        );
+    }
+</script><!DOCTYPE html>
+<html lang="es-cl">
+<head>
+  <meta charset="latin-1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- favicon -->
+  <link rel="icon" href="/code/img/logocg.png" type="image/png">
+
+  <!-- publico/layout.html -->
+  <!-- react_native -->
+
+  <script src="/code/js/main.js?v=20260720214107" ></script>
+  <script src="/code/js/react_native.js"></script>
+  
+  <!-- Google tag (gtag.js) -->
+  <script  async src="https://www.googletagmanager.com/gtag/js?id=G-XEN4Q3Z56N"></script>
+  <script async src="/code/js/layout_init_tag.js"> </script>
+
+  <!-- jQuery -->
+  <script src="/sistema/publico/../libs/jquery-3.4.1/jquery-3.4.1.js"></script>
+
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+  <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+
+  <!-- Bootstrap -->
+  <link rel="stylesheet" href="/sistema/publico/../libs/bootstrap-4.3.1/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/sistema/publico/../libs/bootstrap-4.3.1/css/bootstrap-custom.css">
+  <script src="/sistema/publico/../libs/bootstrap-4.3.1/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Bootstrap Select -->
+  <link rel="stylesheet" href="/sistema/publico/../libs/bootstrap-select-1.13.9/dist/css/bootstrap-select.min.css">
+  <script src="/sistema/publico/../libs/bootstrap-select-1.13.9/dist/js/bootstrap-select.min.js"></script>
+  <script src="/sistema/publico/../libs/bootstrap-select-1.13.9/dist/js/i18n/defaults-es_CL.min.js"></script>
+
+  <!-- Font Awesome JS -->
+  <script src="/sistema/publico/../libs/fontawesome-5.0.13/solid.js"></script>
+  <script src="/sistema/publico/../libs/fontawesome-5.0.13/fontawesome.js"></script>
+
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <script src="/code/js/modal.js?v=20260720214107" ></script>
+  <script src="/code/js/bar-processing.js?v=20260720214107"></script>
+  <script src="/code/js/GraphQLRequest.js?v=20260720214107" ></script>
+  <script src="/code/js/DynamicGraphQL.js?v=20260720214107" ></script>
+
+  <link rel="stylesheet" href="/code/css/jui-dialog.css?v=20260720214107">
+  <script src="/code/js/jui-dialog.js?v=20260720214107"></script>
+  <script src="/code/js/jquery.beauty.component.js?v=20260720214107"></script>
+
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css">
+
+
+  <script src="/code/ajax/services.js?v=20260720214107"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/utc.min.js"></script>
+  <script>dayjs.extend(dayjs_plugin_utc)</script>
+
+  <!-- Layout -->
+  <link rel="stylesheet" href="/sistema/publico/layout.css">
+  <script src="/sistema/publico/layout.js?20260720214107"></script>
+
+<style>
+  .dev-env {
+      height: 30px;
+      width: 100%;
+      font-size: 12px !important;
+      border-radius: 0 !important;
+      display: block !important;
+      padding: 7px 0 0 0 !important;
+      background: red !important;
+      color: white !important;
+  }
+
+  .cell-clubes{
+    max-height: 50px;
+    overflow-y: scroll;
+  }
+  /* .cell-clubes slim scrollbar, always visible */
+  .cell-clubes::-webkit-scrollbar {
+    width: 4px;
+    background: #f1f1f1;
+  }
+  .cell-clubes::-webkit-scrollbar-thumb {
+    background: #6a6a6a;
+  }
+  .cell-clubes::-webkit-scrollbar-thumb:hover {
+    background: #000;
+  }
+
+
+  .lds-dual-ring {
+    /* display: inline-block; */
+    display: none;
+    width: 140px;
+    height: 37px;
+    background: #337c99ba;
+    position: absolute;
+    border-radius: 4px;
+  }
+  .lds-dual-ring:after {
+    content: " ";
+    display: block;
+    width: 30px;
+    height: 30px;
+    margin: 4px 50px;
+    border-radius: 50%;
+    border: 1px solid #fff;
+    border-color: #fff transparent #fff transparent;
+    animation: lds-dual-ring 1.2s linear infinite;
+  }
+  @keyframes lds-dual-ring {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  div:has(#table-loading){
+    position: relative;
+  }
+
+  #table-loading{
+    display: none;
+    justify-content: center;
+    background-color: #4556b69c;
+    position: absolute;
+    width: 100%;
+    height: auto;
+    top: 0px;
+    bottom: 0px;
+    z-index: 9999;
+  }
+  .table-loading-v{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .table-loading-v label{
+    color: black;
+    text-align: center;
+    margin-top: 40px;
+    background: white;
+    border-radius: 20px;
+    font-weight: bold;
+    width: 400px;
+  }
+  .lds-ellipsis {
+    display: inline-block;
+    position: relative;
+    width: 80px;
+    height: 80px;
+  }
+  .lds-ellipsis div {
+    position: absolute;
+    top: 33px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #fff;
+    animation-timing-function: cubic-bezier(0, 1, 1, 0);
+  }
+  .lds-ellipsis div:nth-child(1) {
+    left: 8px;
+    animation: lds-ellipsis1 0.6s infinite;
+  }
+  .lds-ellipsis div:nth-child(2) {
+    left: 8px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .lds-ellipsis div:nth-child(3) {
+    left: 32px;
+    animation: lds-ellipsis2 0.6s infinite;
+  }
+  .lds-ellipsis div:nth-child(4) {
+    left: 56px;
+    animation: lds-ellipsis3 0.6s infinite;
+  }
+  @keyframes lds-ellipsis1 {
+    0% {
+      transform: scale(0);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes lds-ellipsis3 {
+    0% {
+      transform: scale(1);
+    }
+    100% {
+      transform: scale(0);
+    }
+  }
+  @keyframes lds-ellipsis2 {
+    0% {
+      transform: translate(0, 0);
+    }
+    100% {
+      transform: translate(24px, 0);
+    }
+  }
+  
+/*print media query */
+@media print {
+  .printable-block {
+    display: block;
+  }
+  .non-printable-block {
+    display: none;
+  }
+  .dataTables_wrapper > .row{
+    display: none;
+  }
+  .dataTables_wrapper > .row:nth-child(2){
+    display: block;
+  }
+}
+
+.action-modal{
+  display: none;
+  height: 100%;
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+  color: white;
+  text-align: center;
+  font-size: 2em;
+  /* padding-top: 20%; */
+  z-index: 1;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 40px;
+}
+.badge-menu{
+  margin-left: 4px;
+  padding: 5px 8px;
+  max-width: 40px;
+}
+.badge-menu-round{
+    text-align: center;
+    border-radius: 20px !important;
+    padding: 4px 10px !important;
+}
+.ui-dialog-titlebar-close{
+  background: none !important;
+}
+
+
+.ringing-bell {
+  font-size: 16px;
+  color: #f39c12;
+  /*animation: ring 1s infinite;*/
+  animation: ring 1s linear 10; /* 1s duration, 10 iterations */
+
+  transform-origin: top center;
+}
+
+@keyframes ring {
+  0%   { transform: rotate(0); }
+  10%  { transform: rotate(15deg); }
+  20%  { transform: rotate(-10deg); }
+  30%  { transform: rotate(15deg); }
+  40%  { transform: rotate(-5deg); }
+  50%  { transform: rotate(10deg); }
+  60%  { transform: rotate(-3deg); }
+  70%  { transform: rotate(6deg); }
+  80%  { transform: rotate(-2deg); }
+  90%  { transform: rotate(4deg); }
+  100% { transform: rotate(0); }
+}
+</style>
+<script>
+  $(document).ready(function () {
+    let prod = ['www.fedegolf.cl', 'fedegolf.cl', 'staging.fedegolf.cl'];
+    let ambiente = window.location.hostname;
+    if (!prod.includes(ambiente)) {
+      $('#ambiente').html('<span class="badge badge-danger dev-env">Ambiente de Desarrollo</span>');
+    }
+  });
+</script>
+
+<!-- Custom HEAD -->  
+<link rel="stylesheet" href="/code/css/base.css?v=20260720214107">
+<script src="/code/js/feedback.js?v=20260720214107"></script>
+
+  <title>Mi Indice</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+  <script  type="text/javascript">
+      if(typeof window.ReactNativeWebView !== "undefined") { 
+          window.ReactNativeWebView.postMessage( 
+              JSON.stringify( { action: "hideLoading" }) 
+          );
+      }
+  </script>
+  <!-- Custom Files -->
+  <script src="eventos.js?v=20260720214107&number=01"></script>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .flex{
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .code-title {
+      font-size: 1.5em;
+      color: #03356b;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .code-btn{
+      min-width: 100px;
+      margin-right: 10px;
+    }
+    .spinner-fix {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      top: 37px;
+      right: 22px;
+    }
+    .tbl-salidas{
+      th:nth-child(3){
+        width: 110px;
+      }
+      th:nth-child(4){
+        width:200px;
+      }
+
+      /** text overflow ... */
+
+      td:nth-child(4){
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+      }
+    }
+
+  /** media query mobile **/
+    @media (max-width: 576px) {
+      html, body {
+        overscroll-behavior: none;
+        margin: 0;
+        padding: 0;
+        touch-action: none;
+        height: 100vh;
+        width: 100vw;
+      }
+      html,body,main{
+        background-color: #fffa !important;
+
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      #ambiente{
+        max-width: 100% !important;
+        overflow: hidden !important;
+      }
+      header,footer, aside,.layout-title{
+        display: none !important;
+      }
+      .container-fluid{
+        padding: 8px !important;
+        background-color: #0000 !important;
+      }
+      .fede-disclaimer{
+        margin-top: 10px !important;
+        font-size: 10px !important;
+        color: #03356b;
+        text-align: justify !important;
+      }
+      .fede-indice{
+        font-size: 16px !important;
+        color: #03356b;
+        text-align: center !important;
+      }
+      td,th{
+        font-size: 12px !important;
+        padding: 10px 6px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+      }
+      th:nth-child(3){
+        width: 75px;
+      }
+      thead{
+      
+      }
+      .btn-group{
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 10px;
+
+        .code-btn{
+          margin-right: 0px !important;
+          margin-left: 0px !important;
+          width: 100% !important;
+          height: 40px !important;
+          input{
+            width: 100% !important;
+            height: 40px !important;
+          }
+        }
+      }
+
+      .chart-action{
+        margin-bottom: 20px;
+        button{
+          width: calc(50% - 2px) !important;
+          height: 40px !important;
+        }
+      }
+    }
+      .code-subtitle {
+        font-size: 0.9em;
+        color: #03356b;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .gauges-all{
+        display: flex;
+        justify-content: space-evenly;
+        flex-wrap: wrap;
+      }
+      .score_canvas {
+        min-height: 400px;
+      }
+      .chart-block{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        
+        .gauge-title {
+          font-size: 1.2em;
+          color: #4c4c4c;
+          font-weight: bold;
+          margin: 14px 0 4px 0;
+          max-width: 200px;
+        }
+        .gauge-xplain {
+          font-size: 0.9em;
+          color: #777;
+          text-align: center;
+          max-width: 200px;
+          margin-bottom: 14px;
+        }
+      }
+      .chart-container {
+        position: relative;
+        margin: auto;
+      }
+      .chart-gauge {
+   
+      }
+      .gauge_canvas {
+        min-height: 200px;
+        max-height: 200px;
+        max-width: 200px;
+      }
+      
+  </style>
+
+<script src="/code/js/models/BaseModel.js?v=20260720214107"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.28.5/babel.js"></script>
+</head>
+
+<body>
+<div id="ambiente"  class="non-printable-block d-flex justify-center" style="display: none !important;"></div>
+<div id="action-modal" class="action-modal" >
+  <span id="action-modal-text">Cambiando de club...</span>
+  <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
+</div>
+<header class="navbar navbar-expand navbar-light flex-column flex-md-row py-1" style="display: none;">
+  <div class="container-fluid justify-content-center justify-content-md-between">
+    <div class="row row-header align-items-center">
+      <div class="col">
+        <a class="navbar-brand d-flex align-items-center" href="/" aria-label="Chilegolf">
+          <img class="img-fluid" style="max-height: 40px;margin:10px" src="/sistema/publico/../skin/img/header_logoB.png" alt="logo">
+          <label id="layout_logo_label" class="mb-0 ml-3">Federaci&oacute;n Chilena de Golf <br>Sistema Nacional de &Iacute;ndice</label>
+        </a>
+      </div>
+      <div class="col-auto d-flex align-items-center">
+        <a href="https://www.scotiabankchile.cl/" target="_blank">
+          <img class="img-fluid" style="max-height: 36px" src="/skin/img/header_scotia_red.png?v=2" alt="logo">
+        </a>
+        <span class="text-danger ml-3">Jorge Juan José</span>
+        <a href="#" onclick="return layoutDestruirSesion('/sistema/publico')" class="ml-2">
+          <i class="fas fa-power-off fa-1x" style="color: red;"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container-fluid">
+  <div class="row">
+    <input type="hidden" id="layout_desplegar_menu" name="layout_desplegar_menu" value="si">
+    <aside class="col-12 col-md-3 col-xl-2 non-printable-block" id="layout_sidebar" style="display: none;">
+      <nav class="navbar navbar-expand-md navbar-light flex-md-column flex-row align-items-start">
+        <div class="sidebar-header" style='display: block;'>
+          <label for="layout_clubes">Seleccione Club</label>
+          <select class="selectpicker form-control" id="layout_clubes" name="layout_clubes" title="Seleccione Club"
+                  onchange="layoutCambiarClub(this.value, '/sistema/publico')" data-live-search="false" disabled>
+            
+            <option value="5" selected>C.G. Los Leones</option>
+            
+          </select>
+        </div>
+
+        <button class="navbar-toggler align-self-end ml-auto" type="button" data-toggle="collapse"
+                data-target="#layout_collapse_menu" aria-controls="collapse-menu" aria-expanded="false"
+                aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <a class="toggle-sidebar" id="layout_hide_sidebar" href="#">
+          <i class="fa fa-chevron-left fa-lg"></i>
+        </a>
+
+        <div class="collapse navbar-collapse" id="layout_collapse_menu">
+          <ul class="navbar-nav flex-column">
+
+            
+            <li class="nav-item">
+              <a data-id="1" class="nav-link dropdown-toggle" href="#layout_menu1" aria-expanded="false" data-toggle="collapse">
+                <i class="fas fa-user fa-fw"></i>
+                <span>Movimientos Jugador</span>
+              </a>
+              <ul class="collapse" id="layout_menu1">
+                
+                <li><a data-id="sub-14" href="/code/modules/handicap"  >Handicap</a></li>
+                
+                <li><a data-id="sub-61" href="/publico/modIngresoScore/marker/solicitudes/solicitudesMarker.php"  >Solicitudes Marker</a></li>
+                
+                <li><a data-id="sub-28" href="/publico/modVeinteMejoresPalos/listadoMejoresPalos.php"  >Ver Detalle Indices</a></li>
+                
+                <li><a data-id="sub-46" href="/publico/modCertificado/seleccionCertificado.php"  >Certificado de Indice</a></li>
+                
+                <li><a data-id="sub-25" href="/code/modules/ingreso_score"  >Salidas pendientes</a></li>
+                
+                <li><a data-id="sub-36" href="/publico/modVerIndicesMasivoClub/verIndicesMasivoClub.php"  >Ver Listado de Indices de Usuarios del Club</a></li>
+                
+                <li><a data-id="sub-21" href="/admin/modConsultaPalosMasivos/consultaPalosMasivo.php"  >Score de socios de mi club</a></li>
+                
+                <li><a data-id="sub-35" href="/publico/modMantenedorUsuariosPersonal/mantenedorUsuariosPersonal.php"  >Modificar mis datos</a></li>
+                
+              </ul>
+            </li>
+            
+
+            <li class="layout-line"></li>
+
+            <li class="nav-item">
+              <!--
+              <a class="nav-link"
+                 href="mailto:soporte@fedegolf.cl?subject=Consulta Problemas tecnicos desde Sistema FEDEGOLF">
+                <i class="fa fa-envelope fa-fw"></i>
+                <span>Soporte</span>
+              </a>
+              -->
+              <a class="nav-link" href="mailto:handicap@chilegolf.cl?subject=Consulta Scores desde Sistema FEDEGOLF">
+                <i class="fa fa-envelope fa-fw"></i>
+                <span>Soporte &Iacute;ndice</span>
+              </a>
+              <!--
+              <a class="nav-link" href="http://www.chilegolf.cl/manual/usuarios.pdf">
+                <i class="fa fa-question-circle fa-fw"></i>
+                <span>Manual Usuario</span>
+              </a>
+              -->
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="col" id="layout_main">
+      <a class="toggle-sidebar" id="layout_show_sidebar" href="#">
+        <i class="fa fa-chevron-right fa-lg"></i>
+      </a>
+
+      <div class="layout-title align-items-center" style="display: none;">
+       Movimientos Jugador &gt; Ver Detalle Indices
+      </div>
+      
+  <input type="hidden" id="can_update_indice" value="no">
+  <input type="hidden" id="id_club_selected" value="">
+  <input type="hidden" id="id_jugador_selected" value="28086">
+  <input type="hidden" id="error" value="">
+<!-- Body -->
+<!-- Filtros -->
+<!-- Bloque buscar jugador -->
+<div class="container border mb-1 py-2 d-none">
+  <div class="row justify-content-center">
+    <h3 class="code-title">BUSCAR JUGADOR</h3>
+  </div>
+  <form class="" name="form-jugador" method="post">
+    <div class="col">
+      <div class="row justify-content-center">
+        <div class="col-md-4 form-group">
+          <label for="rut_jugador">Rut jugador</label>
+          <input type="text" class="form-control" id="rut_jugador" name="rut_jugador" placeholder="Rut jugador" value="">
+        </div>
+        <div class="col-md-4 form-group">
+          <label for="id_club">Seleccione club</label>
+          <select class="selectpicker form-control" id="id_club" name="id_club" data-live-search="true"
+                  onchange="reqGetUsuariosDeClubes(this.value);">
+            <option value="">- Seleccione club -</option>
+            
+            <option value="5">C.G. Los Leones</option>
+            
+          </select>
+        </div>
+        <div class="col-md-4 form-group">
+          <label for="id_jugador">Seleccione jugador</label>
+          <select class="selectpicker form-control" id="id_jugador" name="id_jugador" data-live-search="true">
+            <option value="">- Seleccione jugador -</option>
+          </select>
+          <div class="spinner-border spinner-fix" role="status" style="display: none;">
+            <span class="sr-only">Loading...</span>
+          </div>
+        </div>
+      </div>
+      <div class="row justify-content-center">
+        <div class="code-btn">
+          <input class="btn btn-wild-sand" id="ver" name="accion" type="submit" value="Ver" style="width:100%;">
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Bloque actualizar índice -->
+<div id="bloque_admin" class="container border mb-1 py-2 d-none" style="background-color:#f8f9fa;">
+  <div class="row justify-content-center">
+    <h3 class="code-title">ACTUALIZAR ÍNDICE</h3>
+  </div>
+  <div class="col">
+    <div class="row justify-content-center">
+      <div class="col-md-4 form-group">
+        <label for="fecha_reproceso">Reprocesar desde fecha</label>
+        <input type="date" class="form-control" id="fecha_reproceso">
+        <small class="form-text text-muted">Elimina y recalcula índices desde la fecha indicada.</small>
+      </div>
+    </div>
+    <div class="row justify-content-center">
+      <div class="code-btn">
+        <button class="btn btn-wild-sand" id="actualizar" type="button" style="width:100%;">Actualizar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- indice -->
+<div class="container border mt-2 mb-2 py-2">
+  <div class="row justify-content-center">
+    <h3 class="code-title">ÍNDICE ACTUAL</h3>
+  </div>
+  <div class="row justify-content-center mb-2 d-none">
+      <strong class="">Jugador Seleccionado: &nbsp;&nbsp;&nbsp;</strong> <br>
+  </div>
+  <div class="row justify-content-center">
+      <strong class="h5">9.1&nbsp;&nbsp;&nbsp;</strong>
+      <!--<strong>Fecha: </strong>Agosto 2026 <br>-->
+  </div>
+  <div class="row justify-content-center">
+      <span style="color: red; font-size: 1.1em" class="fede-disclaimer"></span>
+  </div>
+  <div class="row justify-content-center">
+      <span style="color: red; font-size: 1.1em" class="fede-disclaimer"></span>
+  </div>
+</div>
+
+
+<!-- chart Indice -->
+<div class="container border mt-2 mb-2 py-2" >
+  <div class="col justify-content-center ">
+    <h3 class="code-title mr-4">EVOLUCIÓN ÍNDICE </h3>
+    <div class="col-md-4 form-group">
+          <label for="id_club">Rango</label>
+          <select id="last_months" class="selectpicker form-control" style=""max-width: 200px; margin-right: 10px;">
+                  <option value="">- Seleccione úlltimos meses -</option>
+          </select>
+    </div>
+  </div>
+  <div class="chart-container">
+    <canvas class="score_canvas" id="myChart"></canvas>
+  </div>
+
+  
+  <div class="chart-action col align-self-center text-center mt-4 d-none" >
+    <button id="btn-fix" class="btn btn-wild-sand" >Mostrar Ajustes</button>
+    <button id="btn-chart-gap" class="btn btn-wild-sand" >Gap Off</button>
+  </div>
+  <div class="col">
+    <span id="score_count" class="row fw-lighter text-secondary">SCORE ITEMS:0</span>
+    <span id="indice_count" class="row fw-lighter text-secondary">ÍNDICE ITEMS:0</span>
+  </div>
+</div>
+
+<!-- chart Indice -->
+<div class="container border mt-2 mb-2 py-2" >
+  <div class="col justify-content-center ">
+    <h3 class="code-title mr-4">MIS INDICADORES</h3>
+    <h5 class="code-subtitle mr-4">(Últimos 12 meses)</h5>
+  </div>
+  <div class="gauges-all" >
+    <div class="chart-block">
+      <div class="chart-container chart-gauge">
+        <canvas class="gauge_canvas" id="tasa_2"></canvas>
+      </div>
+      <span class="gauge-title">ACTUALIZACIÓN</span>
+      <span class="gauge-xplain" >Proximidad de último score respecto de hoy.</span>
+    </div>
+    <div class="chart-block">
+      <div class="chart-container chart-gauge">
+        <canvas class="gauge_canvas" id="tasa_0"></canvas>
+      </div>
+      <span class="gauge-title">SCORES</span>
+      <span class="gauge-xplain" >Scores cargados Vs total de vueltas jugadas.</span>
+    </div>
+    <div class="chart-block">
+      <div class="chart-container chart-gauge">
+        <canvas class="gauge_canvas" id="tasa_1"></canvas>
+      </div>
+      <span class="gauge-title">CAMPEONATOS</span>
+      <span class="gauge-xplain" > Scores campeonatos Vs total de scores cargados.</span>
+    </div>
+  </div>
+  <div class="row justify-content-center mb-2">
+    <span class="fede-disclaimer">CONSIDERA <span id="num_salidas"></span> SALIDAS DE LOS ÚLTIMOS 12 MESES.</span>
+  </div>  
+</div>
+
+
+<!-- selector user -->
+<div class="container border mt-2 mb-2  py-2">
+  
+
+  
+
+<!-- Tabla Tarjetas -->
+<div class="container  mt-2 mb-2 py-2">
+  <div class="row justify-content-center">
+    <h3 class="code-title">TARJETAS </h3>
+  </div>
+  <!-- MSG Tarjetas -->
+
+  <div class="row border fede-disclaimer p-2 mt-2" style="font-size: 0.9em; color: #777;">
+    <div class="col-md-12">
+     <!--El siguiente listado corresponde a las &uacute;ltimas tarjetas
+      ingresadas, en las cuales se visualizan de manera destacada las utilizadas
+      para su c&aacute;lculo de &Iacute;ndice (ingresadas antes de la fecha de
+      corte para c&aacute;lculo). -->
+      Resumen de hasta las &uacute;ltimas 20 tarjetas ingresadas, destac&aacute;ndose en azul 
+      las aplicadas para el c&aacute;lculo del &iacute;ndice. A partir de mayo 2020 las tarjetas 
+      de Campeonato se duplican para el c&aacute;lculo.  .
+    </div>
+    <div class="col-md-12" style="color:red">
+      ** Los registros exhibidos son a la fecha de corte de actualizaci&oacute;n de &iacute;ndice: 2026-07-13
+    </div>
+  </div>
+</div>
+  <table class="table table-responsive-md tbl-salidas">
+    <thead>
+    <tr>
+      <th scope="col"></th>
+      <th scope="col">Nro</th>
+      <th scope="col">Fecha</th>
+      <th scope="col">Club / Cancha</th>
+      <th scope="col">Score</th>
+      <th scope="col">Course</th>
+      <th scope="col">Slope</th>
+      <th scope="col">Tee</th>
+      <th scope="col">Diff</th>
+      <th scope="col">Ticket</th>
+      <th scope="col"><i class="fa-solid fa-comment"></i></th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+    <tr class="selected-row">
+      <td></td>
+      <td>1</td>
+      <td>2026-07-11</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>84</td>
+      <td>73.3</td>
+      <td>136.0</td>
+      <td>Azul</td>
+      <td>8.8</td>
+      <td>6902341</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>2</td>
+      <td>2026-06-29</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>96</td>
+      <td>73.3</td>
+      <td>136.0</td>
+      <td>Azul</td>
+      <td>18.8</td>
+      <td>6885600</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>3</td>
+      <td>2026-06-28</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>90</td>
+      <td>73.3</td>
+      <td>136.0</td>
+      <td>Azul</td>
+      <td>13.8</td>
+      <td>6883596</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="selected-row">
+      <td></td>
+      <td>4</td>
+      <td>2026-06-27</td>
+      <td>C.G. Las Brisas De Santo Domingo / Norte - Este (VARONES)</td>
+      <td>85</td>
+      <td>72.0</td>
+      <td>128.0</td>
+      <td>Azul</td>
+      <td>11.4</td>
+      <td>6879515</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>5</td>
+      <td>2026-06-26</td>
+      <td>C.G. Las Brisas De Santo Domingo / Norte - Este (VARONES)</td>
+      <td>90</td>
+      <td>72.0</td>
+      <td>128.0</td>
+      <td>Azul</td>
+      <td>15.8</td>
+      <td>6879111</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="selected-row">
+      <td></td>
+      <td>6</td>
+      <td>2026-06-24</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>86</td>
+      <td>73.3</td>
+      <td>136.0</td>
+      <td>Azul</td>
+      <td>10.5</td>
+      <td>6875388</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>7</td>
+      <td>2026-06-21</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>92</td>
+      <td>73.3</td>
+      <td>136.0</td>
+      <td>Azul</td>
+      <td>15.5</td>
+      <td>6872784</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>8</td>
+      <td>2026-06-17</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>88</td>
+      <td>73.3</td>
+      <td>136.0</td>
+      <td>Azul</td>
+      <td>12.2</td>
+      <td>6865767</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="selected-row">
+      <td></td>
+      <td>9</td>
+      <td>2026-06-16</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>85</td>
+      <td>73.3</td>
+      <td>136.0</td>
+      <td>Azul</td>
+      <td>9.7</td>
+      <td>6864922</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="selected-row">
+      <td></td>
+      <td>10</td>
+      <td>2026-06-12</td>
+      <td>C.G. Las Brisas De Santo Domingo / Norte - Sur (VARONES)</td>
+      <td>83</td>
+      <td>71.9</td>
+      <td>132.0</td>
+      <td>Azul</td>
+      <td>9.5</td>
+      <td>6858741</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>11</td>
+      <td>2026-05-13</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>88</td>
+      <td>73.3</td>
+      <td>136.0</td>
+      <td>Azul</td>
+      <td>12.2</td>
+      <td>6814462</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>12</td>
+      <td>2026-05-10</td>
+      <td>C.G. Las Brisas De Santo Domingo / Sur - Norte (VARONES)</td>
+      <td>104</td>
+      <td>71.9</td>
+      <td>132.0</td>
+      <td>Azul</td>
+      <td>27.4</td>
+      <td>6811185</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>13</td>
+      <td>2026-05-03</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>96</td>
+      <td>73.3</td>
+      <td>136</td>
+      <td>Azul</td>
+      <td>18.8</td>
+      <td>6801685</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>14</td>
+      <td>2026-05-02</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>97</td>
+      <td>73.3</td>
+      <td>136</td>
+      <td>Azul</td>
+      <td>19.6</td>
+      <td>6799214</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>15</td>
+      <td>2026-04-29</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>100</td>
+      <td>73.3</td>
+      <td>136</td>
+      <td>Azul</td>
+      <td>22.1</td>
+      <td>6792411</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>16</td>
+      <td>2026-04-21</td>
+      <td>C.G. Lomas De La Dehesa / Lomas de La Dehesa (VARONES)</td>
+      <td>97</td>
+      <td>72.6</td>
+      <td>145</td>
+      <td>Azul</td>
+      <td>19</td>
+      <td>6779693</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="selected-row">
+      <td></td>
+      <td>17</td>
+      <td>2026-04-15</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>82</td>
+      <td>73.3</td>
+      <td>136</td>
+      <td>Azul</td>
+      <td>7.2</td>
+      <td>6770846</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="selected-row">
+      <td><i class="fas fa-trophy" style="color:yellow"></i></td>
+      <td>18</td>
+      <td>2026-04-12</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>83</td>
+      <td>73.3</td>
+      <td>136</td>
+      <td>A</td>
+      <td>8</td>
+      <td></td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="selected-row">
+      <td><i class="fas fa-trophy" style="color:yellow"></i></td>
+      <td>19</td>
+      <td>2026-04-12</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>83</td>
+      <td>73.3</td>
+      <td>136</td>
+      <td>A</td>
+      <td>8</td>
+      <td>6766119</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    <tr class="">
+      <td></td>
+      <td>20</td>
+      <td>2026-04-11</td>
+      <td>C.G. Los Leones / Los Leones (VARONES)</td>
+      <td>92</td>
+      <td>73.3</td>
+      <td>136</td>
+      <td>Azul</td>
+      <td>15.5</td>
+      <td>6764139</td>
+      <td data-comentario=" " ><i class="fa-solid fa-comment" style="display:none"></i></td>
+    </tr>
+    
+    </tbody>
+  </table>
+</div>
+  <script src="/publico/modVeinteMejoresPalos/utilchart.js"></script>
+  <script src="/publico/modVeinteMejoresPalos/chart_palos.js?v=20260720214107"></script>
+  <script src="/publico/modVeinteMejoresPalos/chart_gauge.js?v=20260720214107"></script>
+
+      <div id="root-react"></div>
+      <script type="text/babel">
+        if (typeof reactInitContext === 'function'){
+          reactInitContext();
+        }
+      </script>
+    </main>
+  </div>
+</div>
+
+<footer class="non-printable-block" style="display: none;">
+  <div class="container">
+    <div class="gallery row justify-content-center">
+      <div class="col-auto text-center align-self-center">
+        
+        <a href="https://www.scotiabankchile.cl/	" target="new">
+          <img class="img-thumbnail my-1" src="/publicidad/Scotiabank-240724_3.jpg" alt="Scotiabank 240724">
+        </a>
+        
+        <a href="https://www.mitta.cl" target="new">
+          <img class="img-thumbnail my-1" src="/publicidad/mitta3.png" alt="Mitta">
+        </a>
+        
+        <a href="https://www.afphabitat.cl/" target="new">
+          <img class="img-thumbnail my-1" src="/publicidad/Habitat-230724.jpg" alt="Habitat 230724">
+        </a>
+        
+        <a href="https://www.pfalimentos.cl/" target="new">
+          <img class="img-thumbnail my-1" src="/publicidad/RECETA DEL ABUELO.png" alt="RECETA DEL ABUELO">
+        </a>
+        
+        <a href="https://www.tesla.com/es_cl	" target="new">
+          <img class="img-thumbnail my-1" src="/publicidad/Tesla-webchico.jpg" alt="Tesla 2025">
+        </a>
+        
+      </div>
+    </div>
+
+    <div class="gallery row justify-content-center">
+      <div class="ccol-auto text-center">
+        <a href="https://www.whs.com/" target="_blank" title="WHS">
+          <img class="my-1" src="/sistema/publico/skin/img/WHS_logo.jpg" alt="WHS" height="85">
+        </a>
+        <!--<a href="http://www.mindep.cl/" target="_blank" title="Ministerio del Deporte">
+          <img class="my-1" src="/sistema/publico/skin/img/logo-mindep.png" alt="Ministerio del Deporte" height="72">
+        </a>
+        <a href="http://www.coch.cl/" target="_blank" title="Comit&eacute; Ol&uacute;mpico de Chile">
+          <img class="my-1" src="/sistema/publico/skin/img/logo-comite.png" alt="Comit&eacute; Ol&uacute;mpico de Chile" height="72">
+        </a>-->
+      </div>
+    </div>
+
+    <div class="gallery row justify-content-around">
+      <div class="col-auto text-center py-2 align-self-center">
+        <span class="img-label">S&iacute;guenos en </span>
+  
+         <a href="https://www.facebook.com/golfistas.dechile" target="_blank" title="Facebook">
+          <img src="/sistema/publico/skin/img/header_facebook_circle.png" alt="Facebook" height="32">
+        </a>
+        <a href="https://www.instagram.com/chilegolf" target="_blank" title="Instagram">
+          <img src="/sistema/publico/skin/img/header_instagram_circle.png" alt="Instagram" height="32">
+        
+          <a href="https://www.youtube.com/channel/UCGYZvEf2P7yA507XJq3hMGg" target="_blank" title="Youtube">
+          <img src="/sistema/publico/skin/img/header_youtube_circle.png" alt="Youtube" height="32">
+      </div>
+
+      <div class="col-auto text-center py-2 align-self-center" id="layout_download_mobile">
+        <a href="https://play.google.com/store/apps/details?id=cl.aescobar.FedeGolf&hl=es-cl">
+          <img class="my-1" src="/sistema/publico/skin/img/google_play.png" alt="Descarga la aplicacion en Google Play">
+        </a>
+        <a href="https://apps.apple.com/cl/app/fedegolf-chile/id1399227844">
+          <img class="my-1" src="/sistema/publico/skin/img/app_store.png" alt="Descarga la aplicacion en la App Store">
+        </a>
+      </div>
+    </div>
+
+    <div class="row mb-3">
+      <div class="col text-center py-2" style="font-size: 0.9rem;">
+        Avenida del Parque 4680A, Edificio Europa Of. 201-202, Huechuraba, Santiago, #8580644<br>
+		    +56 9 3181 1682 / fchg@chilegolf.cl<br>
+        <a href="https://www.codeits.cl" style="color: inherit; text-decoration: none;" target="_blank" rel="noopener noreferrer">
+          Developed By www.codeits.cl
+        </a> 
+        <br>
+        <span style="font-size: 0.5rem;color: #e0e0e0;">Version: 20260720214107</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+
+
+<script>
+  const urlParams = document?.location?.search ? Object.fromEntries(new URLSearchParams(document.location.search)) : null;
+  const isReactEmbed = urlParams?.react_embed == 'true' || urlParams?.react_embed === '1';
+
+  if (!isReactEmbed) {
+      // find and hide header tag
+      document.querySelectorAll('header').forEach(header => {
+          header.style.removeProperty('display');
+      });
+      // find and hide footer tag
+      document.querySelectorAll('footer').forEach(footer => {
+          footer.style.removeProperty('display');
+      });
+      // find and hide aside tag
+      document.querySelectorAll('aside').forEach(aside => {
+          aside.style.removeProperty('display');
+      });
+      // find layout-title and show it
+      document.querySelectorAll('.layout-title').forEach(title => {
+          title.style.removeProperty('display');
+      });
+      // ambiente
+      document.querySelectorAll('#ambiente').forEach(ambiente => {
+          ambiente.style.removeProperty('display');
+      });
+  }
+</script>
+</body>
+</html>

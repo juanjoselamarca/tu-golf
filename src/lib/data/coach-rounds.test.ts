@@ -28,7 +28,7 @@ function fakeSupabase(): SupabaseClient {
         const q: Record<string, unknown> = {}
         const chain = () => q
         Object.assign(q, {
-          select: chain, eq: chain, not: chain, gte: chain, lte: chain, order: chain,
+          select: chain, eq: chain, or: chain, not: chain, gte: chain, lte: chain, order: chain,
           then: (resolve: (v: unknown) => void) => resolve({ data: ROUNDS, error: null }),
         })
         return q

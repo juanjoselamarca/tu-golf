@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { resolveRoundPars } from '@/golf/coach/hole-pars'
 import { savePlan, PATTERN_IDS, PLAN_METRICS, type SavePlanInput } from './plan-engine'
 import { inferHoles } from '@/golf/core/holes'
@@ -435,6 +436,7 @@ async function getLatestRound(ctx: ToolExecutionContext): Promise<ToolResult> {
     .from('historical_rounds')
     .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, par_per_hole')
     .eq('user_id', userId)
+    .or(OR_EXCLUDE_FEDEGOLF) // tarjetas FedeGolf (score-only) no son "la última ronda" del coach
     .not('total_gross', 'is', null)
     .order('played_at', { ascending: false })
     .limit(1)
@@ -560,6 +562,7 @@ async function getRoundByDate(
     .from('historical_rounds')
     .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, par_per_hole')
     .eq('user_id', userId)
+    .or(OR_EXCLUDE_FEDEGOLF) // no matchear una tarjeta FedeGolf al buscar la ronda de una fecha
     .eq('played_at', date)
     .order('played_at', { ascending: false })
 
@@ -643,6 +646,7 @@ async function getAllRoundsSummary(ctx: ToolExecutionContext): Promise<ToolResul
     .from('historical_rounds')
     .select('total_gross, course_id, course_name, played_at, holes_played, scores')
     .eq('user_id', userId)
+    .or(OR_EXCLUDE_FEDEGOLF) // tarjetas FedeGolf (score-only) fuera del análisis del coach
     .not('total_gross', 'is', null)
     .order('played_at', { ascending: false })
 

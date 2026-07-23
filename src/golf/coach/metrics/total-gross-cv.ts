@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { inferHoles } from '@/golf/core/holes'
 import type { ComputedMetric, RoundData } from './types'
 
@@ -31,6 +32,7 @@ export async function computeTotalGrossCV(
     .from('historical_rounds')
     .select('total_gross, played_at, holes_played, scores')
     .eq('user_id', userId)
+    .or(OR_EXCLUDE_FEDEGOLF) // CV de gross sin las tarjetas FedeGolf (espejo score-only)
     .order('played_at', { ascending: false })
     .limit(20)
 

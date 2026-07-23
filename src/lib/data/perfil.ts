@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { captureError } from '@/lib/error-tracking'
 
@@ -76,6 +77,7 @@ export async function fetchCpi(supabase: SupabaseClient, userId: string): Promis
     .from('historical_rounds')
     .select('played_at, total_gross, course_rating, slope_rating, holes_played')
     .eq('user_id', userId)
+    .or(OR_EXCLUDE_FEDEGOLF) // el CPI no cuenta las tarjetas FedeGolf (espejo score-only)
     .order('played_at', { ascending: false })
     .limit(50)
 

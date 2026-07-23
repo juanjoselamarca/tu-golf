@@ -4,6 +4,41 @@
 
 ---
 
+## 2026-07-23 · Tarjetas del índice FedeGolf — Release 1 (Fase 1 datos + Fase 2 UI)
+
+Espeja las ~20 tarjetas oficiales que componen el índice FedeGolf de un socio
+vinculado, y las convierte en una vista "explicada". Spec
+`docs/superpowers/specs/2026-07-21-tarjetas-indice-fedegolf.md`. Ancla de valor: el
+índice deja de ser un número muerto y se muestra **explicado y cuadrado** con
+fedegolf.cl.
+
+- **Fase 2 — modal "Tu índice oficial, explicado" (`FedegolfIndiceModal`):** gemelo
+  de `IndiceBreakdownModal`. La card "Federación" de /perfil gana un CTA "Ver cómo se
+  calcula →" que abre un bottom-sheet con las ~20 tarjetas, resalta las que cuentan
+  (re-derivadas del **fetch en vivo**, `cuenta`/`selected-row` de la fede) y muestra la
+  fórmula: promedio simple de los 8 mejores diferenciales = índice oficial (verificado
+  contra la cuenta real: 9.1375 → **9.1**, sin ×0.96). Campeonato chileno = trofeo +
+  "cuenta ×2". Pipeline de diseño: mockups 390px (design-shotgun fallback sin OpenAI) →
+  Variante A (dato a la derecha + strip de la fórmula) → design-review light/dark.
+- **Fase 1 — captura (`sync-tarjetas`):** login de página (token `lva`, sin navegador) →
+  parseo + filtro por diferencial + campeonato ×2 → upsert idempotente en
+  `historical_rounds` (`import_source='fedegolf'`, `excluded_from_handicap=TRUE`).
+- **Concepto canónico:** `resumenIndiceOficial()` (matemática del índice oficial) en
+  `src/golf`… `lib/fedegolf/tarjetas.ts`; filtro `OR_EXCLUDE_FEDEGOLF` en
+  `src/lib/data/historical-rounds-filters.ts` (fuente única).
+- **code-reviewer (obligatorio, R1 completo):** cazó **C1** (índice único PARCIAL →
+  `onConflict` no infería, `42P10`, write-path muerto en silencio — gotcha ya en
+  memoria) e **I2** (el filtro D8 solo cubría el historial → las tarjetas
+  contaminaban coach/stats/CPI/dashboard/focus, doble conteo). Ambos resueltos:
+  migración correctiva a índice completo + filtro canónico en los 8 lectores. El probe
+  real contra prod destapó además `holes_played NOT NULL` (fix: `inferirHoles()`).
+- **Verificado contra prod** (upsert real + rollback): 19 tarjetas, 1 campeonato,
+  idempotente, 0 basura, e **índice Golfers+ 6.3 → 6.3 intacto** (D7).
+- tsc 0 · 3301 tests · build OK · design-review 390px light/dark. Migraciones
+  aplicadas a prod: columnas + índice único completo.
+
+---
+
 ## 2026-06-22 · Coach chat PR2 — fundación UX mobile (#185)
 
 Primer cambio **visible** del rediseño del chat del coach tAIger+ (plan

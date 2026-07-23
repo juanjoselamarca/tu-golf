@@ -4,6 +4,7 @@
  * sólo trae filas y las normaliza al shape RoundData / FocusTarget.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import type { ParPerHoleInput } from '@/golf/core/holes'
 import type { RoundData } from '@/golf/coach/metrics'
 import type { FocusTarget } from '@/golf/coach/v3/focus/types'
@@ -45,6 +46,7 @@ export async function loadFocusRounds(
     .from('historical_rounds')
     .select('id, scores, total_gross, par_per_hole, played_at, metadata')
     .eq('user_id', userId)
+    .or(OR_EXCLUDE_FEDEGOLF) // tarjetas FedeGolf sin hoyo-a-hoyo → fuera del motor de foco
     .order('played_at', { ascending: false })
   if (error) throw error
   return (data ?? []).map((r) => ({

@@ -7,7 +7,7 @@
  *    (course_id, numero) — clave única, fix #254 — y loop hasta página corta.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { fetchHistorialRounds, fetchHistorialStats, SELECT_COLUMNS } from './historial'
+import { fetchHistorialRounds, fetchHistorialStats, SELECT_COLUMNS, OR_EXCLUDE_FEDEGOLF } from './historial'
 
 vi.mock('@/lib/error-tracking', () => ({
   captureError: vi.fn(async () => {}),
@@ -36,9 +36,14 @@ describe('fetchHistorialRounds', () => {
               expect(col).toBe('user_id')
               expect(val).toBe('u1')
               return {
-                order: () => ({
-                  limit: async () => ({ data: [{ id: 'r1', course_name: 'X' }], error: null }),
-                }),
+                or: (filter: string) => {
+                  expect(filter).toBe(OR_EXCLUDE_FEDEGOLF)
+                  return {
+                    order: () => ({
+                      limit: async () => ({ data: [{ id: 'r1', course_name: 'X' }], error: null }),
+                    }),
+                  }
+                },
               }
             },
           }
@@ -55,8 +60,10 @@ describe('fetchHistorialRounds', () => {
       from: () => ({
         select: () => ({
           eq: () => ({
-            order: () => ({
-              limit: async () => ({ data: null, error: { message: 'boom' } }),
+            or: () => ({
+              order: () => ({
+                limit: async () => ({ data: null, error: { message: 'boom' } }),
+              }),
             }),
           }),
         }),
@@ -83,6 +90,7 @@ describe('fetchHistorialStats', () => {
           return {
             select: () => ({
               eq: () => ({
+                or: () => ({
                 order: async () => opts.roundsError
                   ? { data: null, error: { message: 'boom' } }
                   : {
@@ -93,6 +101,7 @@ describe('fetchHistorialStats', () => {
                       }],
                       error: null,
                     },
+                }),
               }),
             }),
           }

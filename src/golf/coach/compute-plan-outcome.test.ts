@@ -105,12 +105,16 @@ function makeSupabase(stub: UserSupabaseStub) {
         return {
           select: () => ({
             eq: (_col: string, _val: string) => ({
-              order: () => ({
-                limit: () => Promise.resolve({
-                  data: (stub.historicalGrosses ?? []).map(g => ({ total_gross: g, played_at: '2026-04-01', holes_played: 18, scores: Array(18).fill(4) })),
-                  error: null,
+              // computeTotalGrossCV: eq(user_id).or(EXCLUDE_FEDEGOLF).order().limit()
+              or: () => ({
+                order: () => ({
+                  limit: () => Promise.resolve({
+                    data: (stub.historicalGrosses ?? []).map(g => ({ total_gross: g, played_at: '2026-04-01', holes_played: 18, scores: Array(18).fill(4) })),
+                    error: null,
+                  }),
                 }),
               }),
+              // loadRound: eq(user_id).eq(id).maybeSingle() — sin filtro fedegolf
               eq: () => ({
                 maybeSingle: () => Promise.resolve({
                   data: round

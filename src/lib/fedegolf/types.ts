@@ -34,6 +34,42 @@ export interface FedegolfPerfil {
   fechaNacimiento: string | null
 }
 
+// ─── Tarjetas del índice ─────────────────────────────────────────────
+
+/**
+ * Una tarjeta oficial de las ~20 que componen el índice del socio, parseada de
+ * `listadoMejoresPalos.php`. Corresponde a UNA ronda física con ticket único.
+ *
+ * La modalidad chilena de campeonato hace que un torneo aporte DOS diferenciales
+ * al índice: en el HTML aparece como dos filas con trofeo (una con ticket, una
+ * sin). La fila sin ticket (casilla fantasma) se descarta; la ticketeada se
+ * marca `valeDoble`. Ver spec `docs/superpowers/specs/2026-07-21-...md` D2/D7.
+ */
+export interface FedegolfTarjeta {
+  /** Fecha de JUEGO (no de ingreso) en ISO `YYYY-MM-DD`. */
+  fechaJuego: string
+  /** Ej: 'C.G. Los Leones / Los Leones (VARONES)' (crudo, tal cual la fede). */
+  clubCancha: string
+  /** Score bruto total. */
+  scoreGross: number
+  /** Course Rating de la tarjeta. */
+  courseRating: number
+  /** Slope de la tarjeta. */
+  slope: number
+  /** Tee normalizado ('Azul', 'Blanco', …) o null si no viene. */
+  tee: string | null
+  /** Diferencial WHS ya calculado por la fede (para 9h ya viene escalado a 18h). */
+  diferencial: number
+  /** Ticket único de la tarjeta (identidad para dedup). Siempre presente. */
+  ticket: string
+  /** true si es una de las que cuentan hoy (`selected-row`). No se persiste — varía por sync. */
+  cuenta: boolean
+  /** true si es una tarjeta de campeonato (trofeo) → vale por 2 en el índice. */
+  valeDoble: boolean
+  /** 9 | 18 si se detecta; null si el HTML no lo indica (NO asumir 18). */
+  holes: 9 | 18 | null
+}
+
 // ─── Login ───────────────────────────────────────────────────────────
 
 export interface FedegolfLoginRequest {

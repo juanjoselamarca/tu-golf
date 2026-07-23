@@ -14,18 +14,22 @@ describe('fetchStatsRounds', () => {
     const supabase = {
       from: () => ({
         select: () => ({
-          eq: () => ({
-            order: async () => ({
-              data: [{
-                id: 'r1', course_name: 'Los Leones', tee_color: null,
-                played_at: '2026-01-10', scores: [4, 3, 5], total_gross: 12,
-                notes: null, privacy: 'private', created_at: '2026-01-10',
-                holes_played: null,
-                par_per_hole: { '1': 4, '2': 3, '3': 5 },
-              }],
-              error: null,
-            }),
-          }),
+          eq: () => {
+            const b: Record<string, unknown> = {
+              or: () => b,
+              order: async () => ({
+                data: [{
+                  id: 'r1', course_name: 'Los Leones', tee_color: null,
+                  played_at: '2026-01-10', scores: [4, 3, 5], total_gross: 12,
+                  notes: null, privacy: 'private', created_at: '2026-01-10',
+                  holes_played: null,
+                  par_per_hole: { '1': 4, '2': 3, '3': 5 },
+                }],
+                error: null,
+              }),
+            }
+            return b
+          },
         }),
       }),
     }
@@ -38,17 +42,21 @@ describe('fetchStatsRounds', () => {
     const supabase = {
       from: () => ({
         select: () => ({
-          eq: () => ({
-            order: async () => ({
-              data: [{
-                id: 'r1', course_name: 'X', tee_color: null,
-                played_at: '2026-01-10', scores: [4, 3], total_gross: 7,
-                notes: null, privacy: 'private', created_at: '2026-01-10',
-                holes_played: null, par_per_hole: null,
-              }],
-              error: null,
-            }),
-          }),
+          eq: () => {
+            const b: Record<string, unknown> = {
+              or: () => b,
+              order: async () => ({
+                data: [{
+                  id: 'r1', course_name: 'X', tee_color: null,
+                  played_at: '2026-01-10', scores: [4, 3], total_gross: 7,
+                  notes: null, privacy: 'private', created_at: '2026-01-10',
+                  holes_played: null, par_per_hole: null,
+                }],
+                error: null,
+              }),
+            }
+            return b
+          },
         }),
       }),
     }
@@ -60,9 +68,13 @@ describe('fetchStatsRounds', () => {
     const supabase = {
       from: () => ({
         select: () => ({
-          eq: () => ({
-            order: async () => ({ data: null, error: { message: 'boom' } }),
-          }),
+          eq: () => {
+            const b: Record<string, unknown> = {
+              or: () => b,
+              order: async () => ({ data: null, error: { message: 'boom' } }),
+            }
+            return b
+          },
         }),
       }),
     }

@@ -34,6 +34,12 @@ export default function FedegolfSync() {
         .catch(() => {
           // Silent — if it fails, nothing happens
         })
+
+      // Sync de tarjetas del índice — INDEPENDIENTE (spec D4): no encadenado al
+      // de índice, así uno no bloquea ni afecta al otro. Fire-and-forget, silencioso.
+      fetch('/api/fedegolf/sync-tarjetas', { method: 'POST' }).catch(() => {
+        // Silent — fail-soft
+      })
     }).catch(() => {
       // Silent
     })

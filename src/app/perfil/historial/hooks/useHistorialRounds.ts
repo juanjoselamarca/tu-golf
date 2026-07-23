@@ -13,7 +13,7 @@
 
 import { useCallback, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { SELECT_COLUMNS } from '@/lib/data/historial'
+import { SELECT_COLUMNS, OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historial'
 import type { HistoricalRound } from '../lib/types'
 
 export interface UseHistorialRoundsParams {
@@ -43,6 +43,7 @@ export function useHistorialRounds({ initialRounds, initialLoadError }: UseHisto
       const { data, error } = await supabase
         .from('historical_rounds')
         .select(SELECT_COLUMNS)
+        .or(OR_EXCLUDE_FEDEGOLF)
         .order('played_at', { ascending: false })
         .limit(500)
       if (error) { setLoadError(true); return }

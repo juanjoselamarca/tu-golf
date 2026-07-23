@@ -10,6 +10,7 @@
  * ver `loadUltimaRondaDetalle`.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import type { Tournament, RondaLibre, HistoricalRound } from '@/lib/mi-golf/types'
 import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
 import { normalizeScores } from '@/lib/data/focus'
@@ -59,7 +60,7 @@ export async function loadCompetenciaData(
     supabase.from('players').select('tournaments(id, name, slug, status, date_start, courses(nombre))').eq('user_id', userId).order('created_at', { ascending: false }),
     supabase.from('players').select('tournaments!inner(id, name, slug, status, date_start, courses(nombre))').eq('user_id', userId).in('tournaments.status', ['open', 'in_progress']),
     supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado').eq('creador_id', userId).order('created_at', { ascending: false }).limit(5),
-    supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).order('played_at', { ascending: false }).limit(50),
+    supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).limit(50),
     supabase.from('profiles').select('indice_golfers').eq('id', userId).single(),
   ])
 
@@ -117,10 +118,10 @@ export async function loadIdentidadData(
     { data: historicoRaw },
   ] = await Promise.all([
     supabase.from('profiles').select('indice_golfers').eq('id', userId).single(),
-    supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', userId),
-    supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', userId).not('diferencial', 'is', null),
+    supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF),
+    supabase.from('historical_rounds').select('*', { count: 'exact', head: true }).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).not('diferencial', 'is', null),
     supabase.from('taiger_sessions').select('*', { count: 'exact', head: true }).eq('user_id', userId),
-    supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).order('played_at', { ascending: false }).limit(50),
+    supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).limit(50),
   ])
 
   return {
