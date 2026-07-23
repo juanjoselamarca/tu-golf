@@ -4,6 +4,7 @@ import { decrypt } from '@/lib/fedegolf/crypto'
 import { fedegolfPageLogin } from '@/lib/fedegolf/page-login'
 import { fedegolfGetTarjetasIndice } from '@/lib/fedegolf/tarjetas'
 import { capturarTarjetas } from '@/lib/fedegolf/capturar-tarjetas'
+import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,7 +77,7 @@ export async function POST() {
     return NextResponse.json({ ok: true, cached: false, capturadas: total })
   } catch (err) {
     // Fail-soft total: cualquier cambio de fedegolf.cl no debe romper la app.
-    console.error('sync-tarjetas fallo (no bloqueante):', err)
+    await captureError(err, { context: 'fedegolf/sync-tarjetas' })
     return NextResponse.json({ ok: false, error: 'sync-tarjetas' }, { status: 200 })
   }
 }

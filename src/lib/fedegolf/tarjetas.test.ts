@@ -6,6 +6,7 @@ import {
   normalizarTee,
   filtrarSanidad,
   procesarTarjetas,
+  resumenIndiceOficial,
   fedegolfGetTarjetasIndice,
 } from './tarjetas'
 
@@ -86,6 +87,32 @@ describe('procesarTarjetas', () => {
     const t = procesarTarjetas(fixtureHtml)
     const normal = t.find((x) => x.ticket === '6902341')!
     expect(normal.valeDoble).toBe(false)
+  })
+})
+
+describe('resumenIndiceOficial', () => {
+  it('el promedio de los diferenciales que cuentan cuadra con el índice oficial (9.1)', () => {
+    const { promedio } = resumenIndiceOficial(procesarTarjetas(fixtureHtml))
+    expect(promedio).toBe(9.1)
+  })
+
+  it('el campeonato aporta su diferencial dos veces (8 slots que cuentan sobre 20)', () => {
+    const r = resumenIndiceOficial(procesarTarjetas(fixtureHtml))
+    // 7 rondas físicas cuentan; una es campeonato → 8 diferenciales.
+    expect(r.rondasQueCuentan).toBe(7)
+    expect(r.diferencialesQueCuentan).toHaveLength(8)
+    expect(r.slotsVentana).toBe(20)
+    // el 8.0 del campeonato aparece dos veces
+    expect(r.diferencialesQueCuentan.filter((d) => d === 8)).toHaveLength(2)
+    // ordenados ascendente (el mejor primero)
+    expect(r.diferencialesQueCuentan[0]).toBe(7.2)
+  })
+
+  it('sin tarjetas que cuenten → promedio null, sin crash', () => {
+    const r = resumenIndiceOficial([])
+    expect(r.promedio).toBeNull()
+    expect(r.diferencialesQueCuentan).toEqual([])
+    expect(r.slotsVentana).toBe(0)
   })
 })
 

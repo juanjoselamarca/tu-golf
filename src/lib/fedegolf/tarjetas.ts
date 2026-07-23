@@ -119,6 +119,57 @@ export function procesarTarjetas(html: string): FedegolfTarjeta[] {
 }
 
 /**
+ * Resumen del índice oficial: cómo las tarjetas componen el número de la fede.
+ *
+ * Regla WHS chilena (verificada contra la cuenta real, promedio == índice
+ * oficial al decimal): el índice es el **promedio simple de los diferenciales
+ * que cuentan** (los `cuenta:true` que trae el listado, `selected-row`), SIN
+ * factor 0.96. Una tarjeta de campeonato (`valeDoble`) aporta su diferencial
+ * DOS veces — tanto al promedio como al conteo de la ventana de 20.
+ */
+export interface ResumenIndiceOficial {
+  /** Rondas físicas de la ventana, orden del listado (más nueva primero). */
+  tarjetas: FedegolfTarjeta[]
+  /** Promedio de los diferenciales que cuentan (campeonato ×2), 1 decimal. null si no hay ninguna que cuente. */
+  promedio: number | null
+  /** Diferenciales que cuentan, expandidos (campeonato dos veces) y ordenados asc — para mostrar la fórmula. */
+  diferencialesQueCuentan: number[]
+  /** Total de diferenciales en la ventana (campeonato cuenta 2) — normalmente 20. */
+  slotsVentana: number
+  /** Rondas físicas que aportan al índice (una de campeonato sigue siendo 1 ronda). */
+  rondasQueCuentan: number
+}
+
+/** Diferenciales que aporta una tarjeta: 2 si es campeonato, 1 si no. */
+function slotsDe(t: FedegolfTarjeta): number {
+  return t.valeDoble ? 2 : 1
+}
+
+/**
+ * Deriva el desglose del índice oficial a partir de las tarjetas ya procesadas
+ * (`procesarTarjetas`). Fuente ÚNICA de la matemática del índice FedeGolf en la
+ * app — la UI no re-deriva por su cuenta (regla "un concepto, una fuente").
+ */
+export function resumenIndiceOficial(tarjetas: FedegolfTarjeta[]): ResumenIndiceOficial {
+  const cuentan = tarjetas.filter((t) => t.cuenta)
+  const diferencialesQueCuentan = cuentan
+    .flatMap((t) => Array<number>(slotsDe(t)).fill(t.diferencial))
+    .sort((a, b) => a - b)
+  const slotsCuentan = diferencialesQueCuentan.length
+  const promedio =
+    slotsCuentan > 0
+      ? Math.round((diferencialesQueCuentan.reduce((a, b) => a + b, 0) / slotsCuentan) * 10) / 10
+      : null
+  return {
+    tarjetas,
+    promedio,
+    diferencialesQueCuentan,
+    slotsVentana: tarjetas.reduce((s, t) => s + slotsDe(t), 0),
+    rondasQueCuentan: cuentan.length,
+  }
+}
+
+/**
  * Trae las ~20 tarjetas del índice del socio logueado. El GET auto-scopea al
  * socio de la sesión (verificado) — no necesita club/usuario.
  */
