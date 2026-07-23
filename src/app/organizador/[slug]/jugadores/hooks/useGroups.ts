@@ -129,7 +129,7 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
       // UI cuya inscripción ya no existe → viola el FK a `players`). El refetch la
       // elimina en vez de dejar al organizador reintentando contra una fila muerta.
       const msg = e instanceof Error ? e.message : String(e)
-      captureError(e, {
+      void captureError(e, {
         context: 'useGroups.handleAssignPlayer',
         meta: { playerId, groupId: groupId || null, tournamentId: tournament.id, dbMessage: msg },
       })
