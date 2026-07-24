@@ -175,12 +175,64 @@ export async function cleanupAllE2ERondas(testUserId: string): Promise<number> {
   return ids.length
 }
 
+/**
+ * Resuelve el user id del usuario de prueba.
+ *
+ * OJO con el manejo de error: antes esto hacía `const { data } = await listUsers()`
+ * y descartaba el `error`. Cuando la Auth Admin API devolvía un 5xx transitorio,
+ * `data` venía null y el test moría con "Test user no encontrado: <email>" — un
+ * mensaje que MIENTE (el usuario existe) y manda a buscar el bug al lado equivocado.
+ * Pasó el 2026-07-24 en el Import Canary programado. Ahora: el error de la API se
+ * propaga tal cual, y se reintenta 3× con backoff antes de rendirse.
+ */
 export async function getTestUserId(): Promise<string> {
   const admin = adminClient()
   const email = process.env.E2E_TEST_USER_EMAIL
   if (!email) throw new Error('E2E_TEST_USER_EMAIL no configurado')
-  const { data: users } = await admin.auth.admin.listUsers({ perPage: 1000 })
-  const u = users?.users.find(x => x.email === email)
-  if (!u) throw new Error(`Test user no encontrado: ${email}`)
-  return u.id
+
+  let lastApiError: string | null = null
+  for (let intento = 1; intento <= 3; intento++) {
+    const { data: users, error } = await admin.auth.admin.listUsers({ perPage: 1000 })
+    if (error || !users) {
+      lastApiError = error?.message ?? 'respuesta vacía sin error'
+      if (intento < 3) {
+        await new Promise(r => setTimeout(r, intento * 1000))
+        continue
+      }
+      throw new Error(
+        `Auth Admin API falló al listar usuarios (${intento} intentos): ${lastApiError}. ` +
+          'Esto NO significa que el usuario de prueba no exista — revisá credenciales o estado de Supabase.'
+      )
+    }
+    const u = users.users.find(x => x.email === email)
+    if (!u) throw new Error(`Test user no encontrado: ${email} (la API respondió OK con ${users.users.length} usuarios)`)
+    return u.id
+  }
+  throw new Error(`Auth Admin API falló al listar usuarios: ${lastApiError}`)
+}
+
+/**
+ * Crea un usuario efímero para tests que necesitan MUTAR el perfil (ej: fijar
+ * `default_tee_color`). Nunca usar el usuario compartido para eso: dos corridas
+ * de CI simultáneas (push a main + PR) se pisan el perfil y el canario falla con
+ * asserts imposibles. Pasó el 2026-07-23. El trigger `on_auth_user_created` crea
+ * la fila en `profiles` automáticamente.
+ */
+export async function createEphemeralUser(prefix: string): Promise<string> {
+  const admin = adminClient()
+  const email = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@golfersplus-test.local`
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password: `Ef1mero-${Math.random().toString(36).slice(2, 10)}!`,
+    email_confirm: true,
+  })
+  if (error || !data.user) throw new Error(`No se pudo crear usuario efímero: ${error?.message ?? 'sin usuario'}`)
+  return data.user.id
+}
+
+/** Borra el usuario efímero y todo lo que colgaba de él (cascade en profiles). */
+export async function deleteEphemeralUser(userId: string): Promise<void> {
+  const admin = adminClient()
+  await admin.from('historical_rounds').delete().eq('user_id', userId)
+  await admin.auth.admin.deleteUser(userId)
 }
