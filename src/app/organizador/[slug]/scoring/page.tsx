@@ -446,7 +446,11 @@ export default function ScoringPage() {
   }, 0)
 
   return (
-    <div style={{ background: 'var(--bg-surface)', minHeight: '100vh' }}>
+    // La pantalla de scoring del organizador se diseñó dark-first (header + cards navy,
+    // estética "sala de control" broadcast). data-theme="dark" en el root la fija oscura
+    // y coherente en AMBOS temas: idéntica en dark, y en tema claro deja de romper el
+    // texto var(--text) que quedaba invisible sobre las islas navy. Reporte inbox e637b979.
+    <div data-theme="dark" style={{ background: 'var(--bg-surface)', minHeight: '100vh' }}>
 
       {/* Header */}
       <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>

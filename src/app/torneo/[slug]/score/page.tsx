@@ -222,8 +222,10 @@ export default function PlayerScoringPage() {
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '40px' }}>
-      {/* Header */}
-      <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '16px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
+      {/* Header — superficie navy fija (hero broadcast): data-theme="dark" para que
+          los tokens de texto (nombre del torneo, link) resuelvan claros en tema claro
+          del usuario. Sin esto quedaban oscuros e invisibles sobre el navy. */}
+      <div data-theme="dark" style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '16px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
           <Link href={`/torneo/${tournament.slug}`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Leaderboard</Link>
           {saveStatus !== 'idle' && (() => {
@@ -274,9 +276,9 @@ export default function PlayerScoringPage() {
       </div>
 
       <div style={{ padding: '24px 16px', maxWidth: '500px', margin: '0 auto' }}>
-        {/* Player select */}
+        {/* Player select — card navy: data-theme="dark" para legibilidad en tema claro. */}
         {!selectedId && (
-          <div style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '14px', padding: '24px', marginBottom: '24px' }}>
+          <div data-theme="dark" style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '14px', padding: '24px', marginBottom: '24px' }}>
             <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: '0 0 16px' }}>¿Quién eres?</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {players.map(p => (
@@ -311,7 +313,10 @@ export default function PlayerScoringPage() {
                 const diff    = gross != null ? gross - par : null
                 const sr = getScoreResult(gross, par)
                 const ss = SCORE_STYLES[sr]
-                const bg = gross != null ? ss.bg : 'rgba(14,28,47,0.9)'
+                // Hoyo sin score: superficie neutra theme-aware (no navy hardcodeado —
+                // rompía el texto var(--text) en tema claro). En dark, --bg-surface ≈ el
+                // navy anterior, así que el look oscuro se preserva.
+                const bg = gross != null ? ss.bg : 'var(--bg-surface)'
                 const border = gross != null ? `${ss.borderWidth} solid ${ss.border}` : '1px solid rgba(122,143,168,0.2)'
 
                 // Calculate Stableford points if it's stableford format and we have a score
