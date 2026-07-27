@@ -60,6 +60,12 @@ export interface LiveTournament {
   par_total: number
   course_name?: string
   status: LiveStatus
+  /**
+   * "En vivo" con noción de fecha (torneoEnVivo) — fuente única de liveness,
+   * la misma que usa /torneo. El status por sí solo no alcanza: un torneo futuro
+   * o uno olvidado en in_progress NO está en vivo. Decide navy vs claro.
+   */
+  live: boolean
 }
 
 // Forma generica de un score "crudo" tal como viene de la tabla hole_scores en Supabase.

@@ -32,6 +32,7 @@ export default function LiveHeader({ tournament, lastUpdate }: LiveHeaderProps) 
       format={tournament.format}
       modo={tournament.modo}
       status={tournament.status}
+      live={tournament.live}
       courseName={tournament.course_name}
       holeCount={tournament.hole_count}
       audience="organizer"
