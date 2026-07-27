@@ -34,6 +34,7 @@ export default function QRModal({ slug }: { slug: string }) {
           onClick={() => setOpen(false)}
         >
           <div
+            data-theme="dark"
             style={{
               background: 'linear-gradient(180deg, rgba(20,39,33,0.96) 0%, rgba(14,28,47,0.94) 100%)',
               borderRadius: '18px',

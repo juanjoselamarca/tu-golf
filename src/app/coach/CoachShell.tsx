@@ -7,7 +7,7 @@ import Link from 'next/link'
 export function CoachShell({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
-      <header style={{
+      <header data-theme="dark" style={{
         background: 'rgba(14,28,47,0.97)',
         borderBottom: '1px solid rgba(196,153,42,0.15)',
         padding: '14px 20px',
