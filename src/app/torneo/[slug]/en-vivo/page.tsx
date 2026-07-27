@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation'
 import LiveView from './LiveView'
 import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveStatus, LiveTeam } from './types'
 import { normalizeStatus } from './normalize-status'
+import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
 import { fetchCourseHoles, buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
@@ -41,7 +42,7 @@ export default async function LivePage({ params }: PageProps) {
   const { data: tournamentRaw } = await supabase
     .from('tournaments')
     .select(
-      'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, course_id, courses(nombre, par_total), categories(id, name), tournament_groups(id, name)'
+      'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, course_id, courses(nombre, par_total), categories(id, name), tournament_groups(id, name)'
     )
     .eq('slug', resolvedParams.slug)
     .single()
@@ -57,6 +58,8 @@ export default async function LivePage({ params }: PageProps) {
     hole_count: number | null
     total_rounds: number | null
     status: string | null
+    date_start: string | null
+    date_end: string | null
     course_id: string | null
     courses: { nombre: string | null; par_total: number | null } | null
     categories: Array<{ id: string; name: string }> | null
@@ -163,6 +166,8 @@ export default async function LivePage({ params }: PageProps) {
     par_total: parTotal,
     course_name: tournament.courses?.nombre ?? undefined,
     status: normalizeStatus(tournament.status),
+    // Fuente única de liveness (misma que /torneo): date-aware, no solo status.
+    live: torneoEnVivo(tournament.status, tournament.date_start, tournament.date_end, new Date()),
   }
 
   // 7) Equipos: standings desde grupos + ronda_equipos.
