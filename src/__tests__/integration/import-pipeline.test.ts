@@ -19,7 +19,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { importRound } from '@/lib/import-round'
 import { calcularDiferencial } from '@/lib/indice-golfers'
-import { getTestUserId } from '../../../e2e/helpers/ronda-fixture'
+import { getTestUserId, createEphemeralUser, deleteEphemeralUser } from '../../../e2e/helpers/ronda-fixture'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -153,10 +153,16 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
   it('tarjeta SIN tee + default del usuario → resuelve CR/slope del default', async () => {
     // El usuario fijó su tee habitual una sola vez (Punto 3). Una tarjeta sin
     // tee debe caer a ese default y resolver igual.
-    await admin.from('profiles').update({ default_tee_color: 'azul' }).eq('id', userId)
+    //
+    // Usuario EFÍMERO a propósito: este es el único test que MUTA el perfil. Con
+    // el usuario compartido, dos corridas simultáneas del canario (push a main +
+    // PR, ambas contra la misma BD) se pisaban `default_tee_color` y fallaban con
+    // asserts imposibles ("expected 73.3 to be null"). Pasó el 2026-07-23.
+    const efimeroId = await createEphemeralUser('canary-default-tee')
+    await admin.from('profiles').update({ default_tee_color: 'azul' }).eq('id', efimeroId)
     try {
       const res = await importRound(admin, {
-        userId,
+        userId: efimeroId,
         courseId: COURSE_ID,
         courseName: 'Los Leones',
         teeColor: null, // tarjeta sin tee
@@ -167,7 +173,6 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
         holesPlayed: 18,
       })
       expect(res.success).toBe(true)
-      insertedIds.push(res.roundId!)
 
       const { data: saved } = await admin
         .from('historical_rounds')
@@ -179,8 +184,8 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
       expect(Number(saved!.slope_rating)).toBe(teeSlope)
       expect(saved!.diferencial).not.toBeNull()
     } finally {
-      // Reset: que el default no contamine los otros tests ni al usuario real.
-      await admin.from('profiles').update({ default_tee_color: null }).eq('id', userId)
+      // El usuario efímero se va con sus rondas — no queda basura en prod.
+      await deleteEphemeralUser(efimeroId)
     }
   })
 })
