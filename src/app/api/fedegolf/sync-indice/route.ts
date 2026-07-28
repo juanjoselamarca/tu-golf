@@ -2,16 +2,13 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { fedegolfLogin, fedegolfGetIndice } from '@/lib/fedegolf/client'
 import { decrypt } from '@/lib/fedegolf/crypto'
+import { captureError } from '@/lib/error-tracking'
+import { SYNC_INDICE_COOLDOWN_MS } from '@/lib/fedegolf/sync-cooldown'
 
 export const dynamic = 'force-dynamic'
 
-/**
- * Mínimo 24 horas entre syncs. El índice WHS se recalcula ~diario, así que
- * sincronizar más seguido no aporta dato nuevo y solo carga fedegolf.cl (esto
- * corre en CADA carga de página de todo usuario vinculado). El botón "Actualizar"
- * manual comparte este cooldown.
- */
-const SYNC_COOLDOWN_MS = 24 * 60 * 60 * 1000
+// Cooldown y su texto para el usuario viven en src/lib/fedegolf/sync-cooldown.ts
+// (fuente única — antes el route decía 24h y /perfil le decía "4 horas" al usuario).
 
 export async function POST() {
   try {
@@ -49,14 +46,15 @@ export async function POST() {
       )
     }
 
-    // Rate limit: si el último sync fue hace menos de SYNC_COOLDOWN_MS, devolver cacheado
+    // Rate limit: si el último sync fue hace menos de SYNC_INDICE_COOLDOWN_MS, devolver cacheado
     if (creds.ultimo_sync) {
       const lastSync = new Date(creds.ultimo_sync).getTime()
       const now = Date.now()
-      if (now - lastSync < SYNC_COOLDOWN_MS) {
+      if (now - lastSync < SYNC_INDICE_COOLDOWN_MS) {
         return NextResponse.json({
           ok: true,
           indice: creds.ultimo_indice,
+          indice_anterior: null,
           cambio: false,
           cached: true,
         })
@@ -70,7 +68,11 @@ export async function POST() {
       rut = decrypt(creds.rut_encrypted)
       password = decrypt(creds.password_encrypted)
     } catch (err) {
-      console.error('Error desencriptando credenciales FedeGolf:', err)
+      await captureError(err, {
+        context: 'fedegolf/sync-indice',
+        userId: user.id,
+        meta: { paso: 'decrypt_credenciales' },
+      })
       return NextResponse.json(
         { error: 'Error con las credenciales almacenadas' },
         { status: 500 }
@@ -82,7 +84,12 @@ export async function POST() {
     try {
       session = await fedegolfLogin(rut, password)
     } catch (err) {
-      console.error('Error login FedeGolf durante sync:', err)
+      await captureError(err, {
+        context: 'fedegolf/sync-indice',
+        userId: user.id,
+        level: 'warning',
+        meta: { paso: 'login_fedegolf', accion: 'vinculacion_desactivada' },
+      })
       // Marcar como inactivo si las credenciales ya no funcionan
       await supabase
         .from('fedegolf_credentials')
@@ -111,7 +118,11 @@ export async function POST() {
       .eq('user_id', user.id)
 
     if (updateError) {
-      console.error('Error actualizando sync FedeGolf:', updateError)
+      await captureError(updateError, {
+        context: 'fedegolf/sync-indice',
+        userId: user.id,
+        meta: { paso: 'update_credenciales' },
+      })
     }
 
     // Actualizar perfil
@@ -122,7 +133,11 @@ export async function POST() {
         .eq('id', user.id)
 
       if (profileError) {
-        console.error('Error actualizando índice en perfil:', profileError)
+        await captureError(profileError, {
+          context: 'fedegolf/sync-indice',
+          userId: user.id,
+          meta: { paso: 'update_perfil', indice: nuevoIndice },
+        })
       }
     }
 
@@ -137,18 +152,26 @@ export async function POST() {
         })
 
       if (historialError) {
-        console.error('Error registrando historial de índice:', historialError)
+        await captureError(historialError, {
+          context: 'fedegolf/sync-indice',
+          userId: user.id,
+          meta: { paso: 'insert_historial', indice: nuevoIndice, anterior: indiceAnterior },
+        })
       }
     }
 
     return NextResponse.json({
       ok: true,
       indice: nuevoIndice,
+      // El anterior viaja para que el cliente pueda AVISARLE al usuario el cambio
+      // concreto ("9.1 → 9.3") en vez de solo saber que hubo uno. Sin esto, el
+      // dato existía en el server y se perdía en el camino.
+      indice_anterior: cambio ? indiceAnterior : null,
       cambio,
       cached: false,
     })
   } catch (err) {
-    console.error('Error en POST /api/fedegolf/sync-indice:', err)
+    await captureError(err, { context: 'fedegolf/sync-indice' })
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }

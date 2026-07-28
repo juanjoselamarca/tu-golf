@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { construirAvisoIndice } from '@/lib/fedegolf/aviso-indice'
+import { addToast } from '@/hooks/useToast'
 
 /**
  * Sync silencioso de índice FedeGolf cuando el usuario tiene cuenta vinculada.
@@ -27,8 +29,19 @@ export default function FedegolfSync() {
       fetch('/api/fedegolf/sync-indice', { method: 'POST' })
         .then(res => res.json())
         .then(data => {
+          // El índice cambió: AVISARLE al usuario. Antes esto era un console.log
+          // que nadie veía — el índice de un jugador pasaba de 9.1 a 9.3 y se
+          // enteraba de casualidad (reporte inbox f7b63d1d).
           if (data.ok && data.cambio) {
-            console.log(`[FedegolfSync] Índice actualizado: ${data.indice}`)
+            const aviso = construirAvisoIndice(data.indice, data.indice_anterior)
+            if (aviso) {
+              addToast({
+                type:     aviso.type,
+                title:    aviso.title,
+                message:  aviso.message,
+                duration: 7000,
+              })
+            }
           }
         })
         .catch(() => {
