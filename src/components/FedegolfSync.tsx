@@ -6,7 +6,9 @@ import { construirAvisoIndice } from '@/lib/fedegolf/aviso-indice'
 import { addToast } from '@/hooks/useToast'
 
 /**
- * Sync silencioso de índice FedeGolf cuando el usuario tiene cuenta vinculada.
+ * Sync de índice FedeGolf cuando el usuario tiene cuenta vinculada. Silencioso
+ * mientras el índice NO cambia; cuando cambia, avisa con un toast (antes eso era
+ * un console.log que nadie veía — ver aviso-indice.ts).
  * Se monta en TODAS las páginas (layout root) así que DEBE chequear sesión
  * antes de tocar el endpoint — si no, dispara 401 en consola para visitantes
  * pre-login (FTUE audit 22-may-2026).

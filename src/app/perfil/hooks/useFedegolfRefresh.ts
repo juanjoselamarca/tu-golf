@@ -32,9 +32,12 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
       } else if (!res.ok) {
         setMsg({ kind: 'error', text: body?.error || 'No se pudo actualizar. Intenta más tarde.' })
       } else if (body?.cached) {
+        // NO prometer un plazo ("prueba en X horas"): el cooldown se cuenta desde
+        // el último sync, no desde ahora, así que cualquier plazo que demos acá es
+        // mentira para quien sincronizó hace 23h. Explicamos el ritmo, que sí es cierto.
         setMsg({
           kind: 'warn',
-          text: `Ya está actualizado. Prueba de nuevo en ${SYNC_INDICE_COOLDOWN_LABEL}.`,
+          text: `Ya está actualizado. Tu índice se sincroniza cada ${SYNC_INDICE_COOLDOWN_LABEL}.`,
         })
       } else if (body?.cambio === false) {
         setMsg({ kind: 'ok', text: 'Tu índice no cambió.' })
