@@ -12,7 +12,7 @@ import {
   type HistorialStats,
   type RawStatsRound,
 } from '@/golf/stats/historial'
-import type { CourseCandidate } from '@/golf/courses/matching'
+import { findBestCourseMatch, type CourseCandidate } from '@/golf/courses/matching'
 
 /**
  * Fila de historical_rounds tal como la consume la lista del historial.
@@ -123,31 +123,54 @@ export async function fetchHistorialStats(
       .select('id, nombre, fuente, canonical_course_id'),
   ])
 
-  // Paginar course_holes con orden determinista (course_id, numero) — fix #254.
+  const rawRounds = (roundsRes.data ?? []) as unknown as RawStatsRound[]
+  // Paridad con el route original: un error en courses NO es fatal — el
+  // matching por nombre simplemente no encuentra candidatos.
+  const allCourses = (coursesRes.data ?? []) as CourseCandidate[]
+
+  // Solo se necesitan los hoyos de las canchas que las rondas del usuario
+  // matchean: por course_id directo, o por nombre vía el MISMO matcher que usa
+  // computeHistorialStats (findCourseId → findBestCourseMatch, que ya resuelve
+  // canonical). El set resultante es un SUPERSET exacto de lo que ese matcher
+  // puede devolver → paridad de stats garantizada, pero evita paginar las ~3200
+  // filas de course_holes de TODAS las canchas del catálogo en cada carga.
+  const neededCourseIds = new Set<string>()
+  const nameMatch = new Map<string, string | null>()
+  for (const r of rawRounds) {
+    if (r.course_id) neededCourseIds.add(r.course_id)
+    const name = r.course_name
+    if (name) {
+      if (!nameMatch.has(name)) nameMatch.set(name, findBestCourseMatch(name, allCourses)?.id ?? null)
+      const mid = nameMatch.get(name)
+      if (mid) neededCourseIds.add(mid)
+    }
+  }
+
+  // Paginar course_holes (acotado a las canchas del usuario) con orden
+  // determinista (course_id, numero) — fix #254. Sin canchas → sin query.
   const allHoles: CourseHoleRow[] = []
   let holesError: unknown = null
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from('course_holes')
-      .select('course_id, numero, par')
-      .order('course_id')
-      .order('numero')
-      .range(offset, offset + PAGE_SIZE - 1)
-    if (error) { holesError = error; break }
-    if (!data || data.length === 0) break
-    allHoles.push(...(data as CourseHoleRow[]))
-    if (data.length < PAGE_SIZE) break
+  if (neededCourseIds.size > 0) {
+    const ids = Array.from(neededCourseIds)
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('course_holes')
+        .select('course_id, numero, par')
+        .in('course_id', ids)
+        .order('course_id')
+        .order('numero')
+        .range(offset, offset + PAGE_SIZE - 1)
+      if (error) { holesError = error; break }
+      if (!data || data.length === 0) break
+      allHoles.push(...(data as CourseHoleRow[]))
+      if (data.length < PAGE_SIZE) break
+    }
   }
 
   if (roundsRes.error || holesError) {
     await captureError(roundsRes.error ?? holesError, { context: 'fetchHistorialStats', userId })
     return null
   }
-
-  const rawRounds = (roundsRes.data ?? []) as unknown as RawStatsRound[]
-  // Paridad con el route original: un error en courses NO es fatal — el
-  // matching por nombre simplemente no encuentra candidatos.
-  const allCourses = (coursesRes.data ?? []) as CourseCandidate[]
 
   return computeHistorialStats(rawRounds, allCourses, allHoles)
 }

@@ -82,6 +82,7 @@ describe('fetchHistorialStats', () => {
   }) {
     const holeOrderCalls: string[][] = []
     const holeRangeCalls: Array<[number, number]> = []
+    const holeInCalls: string[][] = []
     let pageIdx = 0
 
     const supabase = {
@@ -115,6 +116,7 @@ describe('fetchHistorialStats', () => {
         const orders: string[] = []
         const chain = {
           select: () => chain,
+          in: (_col: string, ids: string[]) => { holeInCalls.push([...ids]); return chain },
           order: (col: string) => { orders.push(col); return chain },
           range: async (from: number, to: number) => {
             holeOrderCalls.push([...orders])
@@ -127,7 +129,7 @@ describe('fetchHistorialStats', () => {
         return chain
       },
     }
-    return { supabase, holeOrderCalls, holeRangeCalls }
+    return { supabase, holeOrderCalls, holeRangeCalls, holeInCalls }
   }
 
   it('pagina course_holes ordenando por (course_id, numero) — clave única, fix #254', async () => {
@@ -158,5 +160,18 @@ describe('fetchHistorialStats', () => {
     const { supabase } = buildSupabase({ holePages: [[]], roundsError: true })
     const stats = await fetchHistorialStats(mockSupabase(supabase), 'u1')
     expect(stats).toBeNull()
+  })
+
+  it('acota course_holes a las canchas de las rondas del usuario (.in course_id), no todo el catálogo', async () => {
+    const { supabase, holeInCalls } = buildSupabase({
+      holePages: [[{ course_id: 'cA', numero: 1, par: 4 }, { course_id: 'cA', numero: 2, par: 4 }, { course_id: 'cA', numero: 3, par: 5 }]],
+    })
+    const stats = await fetchHistorialStats(mockSupabase(supabase), 'u1')
+    // La ronda es en cA (course_id directo + name-match 'Club A'→cA) → solo se
+    // piden los hoyos de cA, no una paginación de TODO course_holes.
+    expect(holeInCalls).toEqual([['cA']])
+    // Y la paridad de stats se mantiene (birdie + par + par con pares 4,4,5).
+    expect(stats!.totalBirdies).toBe(1)
+    expect(stats!.totalPars).toBe(2)
   })
 })
