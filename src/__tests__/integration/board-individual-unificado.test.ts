@@ -10,6 +10,12 @@
 // así que el `vitest run` de pre-push lo saltea limpio.
 //
 // Correr: npm run test:integration
+//
+// FIXTURE: los torneos de `GATE_SLUGS` son filas reales de prod, sembradas por
+// `node scripts/seed-gate-scorer.mjs` (`--limpiar` para borrarlas). Nada las
+// protege de una limpieza de torneos viejos: si el test empieza a fallar con
+// "el torneo del gate no existe en prod" o "sin jugadores", re-sembralos con ese
+// script antes de buscar el bug en el motor.
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
