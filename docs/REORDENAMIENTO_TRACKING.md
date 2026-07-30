@@ -198,3 +198,23 @@ radius de golpe hacia las páginas gigantes):
 | `src/app/torneo/[slug]/page.tsx` (cabecera serif + pill dorada + wordmark "Golfers +" redundante) | ⏳ pendiente — migrar al tocar el flujo del torneo público |
 | `src/app/organizador/[slug]/scoring/page.tsx` (bloque navy propio) | ⏳ pendiente — migrar al tocar scoring |
 | `src/app/ronda-libre/[codigo]` en-vivo (título genérico "Marcador en vivo", no el nombre del torneo) | ⏳ pendiente — migrar al tocar ronda-libre |
+
+### Board individual de torneo — motor único (fix 30-jul)
+
+`src/golf/leaderboard/individual-score.ts` = fuente única del score individual
+(neto derivado de gross + course handicap + SI; vs par contra el par de los hoyos
+JUGADOS). Acompañan `player-name.ts` (nombre visible) y `scoring-handicap.ts`
+(el mismo handicap que persiste el organizador). Las tres vistas —
+`/torneo/[slug]`, `/tv`, `/en-vivo` — lo consumen. Canario:
+`src/__tests__/canary/board-individual.canary.test.ts`.
+
+Lo que el `code-reviewer` marcó como no-bloqueante y se dejó FUERA del PR para no
+ensanchar el blast radius:
+
+| Follow-up | Estado |
+|---|---|
+| `src/app/torneo/[slug]/tv/page.tsx` es **client component haciendo `supabase.from()` directo** (`course_holes`, `course_tees`, `players`) — criterio #2 de "el que toca, ordena". Además importa `@/lib/data/tournaments/leaderboard` (módulo server-side) sólo por `buildFallbackCourseHoles`/`sumParDedupByHole`, arrastrándolo al bundle del navegador. | ⏳ pendiente — migrar a un hook + capa de datos al tocar el TV |
+| `buildFallbackCourseHoles` y `sumParDedupByHole` viven en `src/lib/data/` pero son dominio de golf (criterio #4) → deberían estar en `src/golf/leaderboard/`. | ⏳ pendiente |
+| `/api/gwi/torneo/[slug]` sigue leyendo `total_net`/`total_points` por su cuenta en vez de derivar con el motor. | ⏳ pendiente — converger al tocar el GWI |
+| `src/app/torneo/[slug]/page.tsx:~256` (share card) conserva una copia inline del formateador de vs par, sin caso "sin datos". Quinta copia del concepto. | ⏳ pendiente |
+| Columna "Hcp": en torneos WHS ahora muestra el course handicap, no el índice. En rondas de 9h `hcpDisplay` cae a `handicap` (el CH de 9h) porque el builder legacy no lo setea — contradice el doc de `hcpDisplay` ("course handicap COMPLETO 18h para mostrar"). | ⏳ decisión PM + hueco de implementación |

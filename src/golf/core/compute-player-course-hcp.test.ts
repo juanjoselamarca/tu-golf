@@ -61,11 +61,15 @@ describe('computePlayerCourseHcp', () => {
   })
 
   it('uses 9h formula with halved 18h CR when no front_course_rating', () => {
+    // WHS 9h: el índice que entra es el de 9 HOYOS = índice 18h / 2 = 7.5.
+    // Sin esa división el jugador recibía ~2× los golpes (los 9 hoyos sólo
+    // reparten hasta SI 9). Misma regla que `resolverCourseHandicap` en el
+    // camino de ronda libre desde el 11-jun-2026.
     // No front ratings → CR_9h = 68.5 / 2 = 34.25, slope stays 119
-    // CH_9h = 15 × (119/113) + (34.25 - 36) = 15 × 1.053 + (-1.75) = 15.80 - 1.75 = 14.05 → round = 14
+    // CH_9h = 7.5 × (119/113) + (34.25 - 36) = 7.90 - 1.75 = 6.15 → round = 6
     const player = { ...basePlayer, tee_id: 'tee-rojo' }
     const ch = computePlayerCourseHcp(player, baseTournament, allTees, 36, 9)
-    expect(ch).toBe(14)
+    expect(ch).toBe(6)
   })
 
   it('uses front_course_rating and front_slope_rating for 9-hole when available', () => {
@@ -74,10 +78,10 @@ describe('computePlayerCourseHcp', () => {
       front_course_rating: 34.5,
       front_slope_rating: 115,
     }
-    // CH_9h = 15 × (115/113) + (34.5 - 36) = 15 × 1.018 + (-1.5) = 15.27 - 1.5 = 13.77 → round = 14
+    // CH_9h = 7.5 × (115/113) + (34.5 - 36) = 7.63 - 1.5 = 6.13 → round = 6
     const player = { ...basePlayer, tee_id: 'tee-rojo' }
     const ch = computePlayerCourseHcp(player, baseTournament, [teeWith9h], 36, 9)
-    expect(ch).toBe(14)
+    expect(ch).toBe(6)
   })
 
   it('manual tee overrides category and global', () => {
@@ -102,9 +106,22 @@ describe('computePlayerCourseHcp', () => {
   it('course-level fallback halves CR for 9-hole', () => {
     const tournament = { tees: null, courses: { par_total: 72, slope_rating: 131, course_rating: 72.1 } }
     // CR_9h = 72.1 / 2 = 36.05, slope = 131
-    // CH_9h = 15 × (131/113) + (36.05 - 36) = 15 × 1.159 + 0.05 = 17.39 + 0.05 = 17.44 → round = 17
+    // CH_9h = 7.5 × (131/113) + (36.05 - 36) = 8.69 + 0.05 = 8.75 → round = 9
     const ch = computePlayerCourseHcp(basePlayer, tournament, [], 36, 9)
-    expect(ch).toBe(17)
+    expect(ch).toBe(9)
+  })
+
+  // Bug 30-jul-2026 (COPA LB PADRE E HIJO 2026, prod): los callers pasan el par
+  // de la cancha COMPLETA aunque la ronda sea de 9 hoyos. Con el CR del front-9
+  // (~36) eso daba (CR − par) ≈ −36 y course handicaps NEGATIVOS: el motor
+  // trataba al jugador como plus y le QUITABA golpes.
+  it('un par de 18 hoyos en una ronda de 9 NO produce un handicap negativo', () => {
+    const tournament = { tees: null, courses: { par_total: 72, slope_rating: 132, course_rating: 72 } }
+    const player = { ...basePlayer, handicap_at_registration: 12 }
+
+    const ch = computePlayerCourseHcp(player, tournament, [], 72, 9) // ← par de 18
+
+    expect(ch).toBeGreaterThan(0)
   })
 })
 

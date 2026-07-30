@@ -5,8 +5,6 @@
 // (gross, neto, primario por modo del torneo) + inputs GWI + mapping
 // playerId→index del ranking primario (para mostrar grupos).
 
-import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
-import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { computeIndividualScore, sumIndividualScores } from './individual-score'
 import { resolvePlayerName } from './player-name'
 import { scoringHandicapOf, type ScoringHandicaps } from './scoring-handicap'
@@ -48,11 +46,6 @@ export function buildLeaderboardFromLegacy(
 
   const isMultiRound = tournamentTotalRounds > 1
   const withRounds = dbPlayers.filter((p) => p.rounds?.length > 0)
-  const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
-  // SI normalizado a permutación 1..N para alocar golpes (mismo motivo que
-  // build-from-ronda-libre: SI 18h-impar en loop de 9h perdía golpes). No-op si
-  // el SI ya es permutación válida. No cambia el SI que se MUESTRA.
-  const siAlloc = normalizedStrokeIndexByHole(courseHoles, totalHoyos)
 
   // ── Entries crudos (multi-round aware). ──
   // Cada entry incluye también su dbPlayerId para reconstruir playerIdToIndex
@@ -151,6 +144,7 @@ export function buildLeaderboardFromLegacy(
       hcp:     scoringHandicapOf(scoringHandicaps, p.id, p.handicap_at_registration),
       today:   0,
       total:   0,
+      netStrokes: 0,
       holes:   0,
       status:  'live',
       scores:  new Array(totalHoyos).fill(null),

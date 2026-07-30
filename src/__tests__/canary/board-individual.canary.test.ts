@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest'
 import { calcularScoreRonda } from '@/golf/core/round-score'
 import { computeIndividualScore, formatScoreVsPar } from '@/golf/leaderboard/individual-score'
 import { rankEntries } from '@/golf/leaderboard/rank-entries'
+import { buildScoringHandicaps } from '@/golf/leaderboard/scoring-handicap'
 import type { CourseHole, LeaderboardEntry } from '@/golf/leaderboard/types'
 
 const PAR_MAP_18: Record<number, number> = {
@@ -156,6 +157,106 @@ describe('Canario — el leaderboard no queda al revés durante la ronda', () =>
     expect(players[1].name.startsWith('Sin Empezar')).toBe(true)
     expect(players[1].holes).toBe(0)
     expect(formatScoreVsPar(players[1].total, players[1].holes > 0)).toBe('—')
+  })
+})
+
+describe('Canario — course handicap de 9 hoyos NUNCA es negativo', () => {
+  // Bug 30-jul-2026 (COPA LB PADRE E HIJO 2026, prod): la rama de 9h de
+  // `computePlayerCourseHcp` mezclaba el Course Rating del front-9 (~36) con el
+  // par de la cancha COMPLETA (72), así que `(CR − par) ≈ −36`. Un índice 12
+  // resolvía a course handicap −22: el motor trataba al jugador como plus y le
+  // QUITABA un golpe por hoyo. Par bruto en los 9 salía "+9".
+  //
+  // El mismo bug se había arreglado el 11-jun-2026 en el camino de ronda libre
+  // (`course-handicap.ts`); el camino de torneos nunca recibió el fix porque
+  // cada uno resolvía el par por su cuenta.
+
+  /** Cancha de 18 hoyos par 4 (par 72) jugada en formato 9 hoyos. */
+  const HOLES_CANCHA_18: CourseHole[] = Array.from({ length: 18 }, (_, i) => ({
+    numero: i + 1,
+    par: 4,
+    stroke_index: i + 1,
+  }))
+
+  const TEE_CON_RATINGS_9H = {
+    id: 'tee-azul',
+    nombre: 'Azul',
+    rating: 72.0,
+    slope: 132,
+    yardaje_total: 6000,
+    genero: 'varones',
+    front_course_rating: 36,
+    front_slope_rating: 132,
+    back_course_rating: 36,
+    back_slope_rating: 132,
+  }
+
+  const TORNEO_9H_WHS = {
+    hcp_calc_mode: 'whs',
+    tees: 'Azul',
+    courses: { par_total: 72, slope_rating: 132, course_rating: 72 },
+  }
+
+  it('índice 12 en torneo de 9 hoyos da un handicap positivo y razonable', () => {
+    const hcps = buildScoringHandicaps(
+      [{ id: 'p1', handicap_at_registration: 12, tee_id: 'tee-azul' }],
+      TORNEO_9H_WHS,
+      [TEE_CON_RATINGS_9H],
+      HOLES_CANCHA_18,
+      9,
+    )
+    const ch = hcps.get('p1') as number
+
+    expect(ch).toBeGreaterThan(0) // antes: −22
+    // (12/2) × (132/113) + (36 − 36) = 7.01 → 7. La mitad del índice, no el doble.
+    expect(ch).toBe(7)
+  })
+
+  it('sin tee resuelto tampoco cae en negativo', () => {
+    const hcps = buildScoringHandicaps(
+      [{ id: 'p1', handicap_at_registration: 12, tee_id: null }],
+      { ...TORNEO_9H_WHS, tees: null },
+      [],
+      HOLES_CANCHA_18,
+      9,
+    )
+    expect(hcps.get('p1') as number).toBeGreaterThan(0) // antes: −24
+  })
+
+  it('un jugador que hace par bruto en los 9 NO sale sobre par en neto', () => {
+    const hcps = buildScoringHandicaps(
+      [{ id: 'p1', handicap_at_registration: 12, tee_id: 'tee-azul' }],
+      TORNEO_9H_WHS,
+      [TEE_CON_RATINGS_9H],
+      HOLES_CANCHA_18,
+      9,
+    )
+    const enPar: Record<number, number> = {}
+    for (let h = 1; h <= 9; h++) enPar[h] = 4
+
+    const s = computeIndividualScore(enPar, HOLES_CANCHA_18, hcps.get('p1') as number, 9)
+
+    expect(s.vsParGross).toBe(0)
+    expect(s.vsParNet).toBeLessThanOrEqual(0) // antes: +9
+    expect(s.netTotal).toBe(29) // 36 − 7 golpes recibidos
+  })
+
+  it('el índice NO se aplica entero en 9 hoyos (recibiría el doble de golpes)', () => {
+    // Cancha de 9 hoyos bien configurada (par 36, slope 113, CR 36): índice 18
+    // debe dar 9 golpes, no 18.
+    const holes9: CourseHole[] = Array.from({ length: 9 }, (_, i) => ({
+      numero: i + 1,
+      par: 4,
+      stroke_index: i + 1,
+    }))
+    const hcps = buildScoringHandicaps(
+      [{ id: 'p1', handicap_at_registration: 18, tee_id: 'tee-9' }],
+      { hcp_calc_mode: 'whs', tees: 'Único', courses: { par_total: 36, slope_rating: 113, course_rating: 36 } },
+      [{ ...TEE_CON_RATINGS_9H, id: 'tee-9', nombre: 'Único', rating: 36, slope: 113, front_course_rating: 36, front_slope_rating: 113 }],
+      holes9,
+      9,
+    )
+    expect(hcps.get('p1')).toBe(9)
   })
 })
 

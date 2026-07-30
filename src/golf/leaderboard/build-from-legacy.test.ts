@@ -22,7 +22,7 @@ function hcpsCrudos(players: DBPlayer[]) {
     players.map((p) => ({ id: p.id, handicap_at_registration: p.handicap_at_registration, tee_id: p.tee_id })),
     { hcp_calc_mode: 'raw', tees: null, courses: null },
     [],
-    72,
+    COURSE_HOLES,
     18,
   )
 }
@@ -170,7 +170,7 @@ describe('buildLeaderboardFromLegacy — handicap de scoring (torneos WHS)', () 
       [{ id: 'p1', handicap_at_registration: 12, tee_id: 'tee-azul' }],
       TORNEO_WHS,
       [TEE_AZUL],
-      72,
+      COURSE_HOLES,
       18,
     )
     expect(handicaps.get('p1')).toBe(18)
@@ -189,7 +189,7 @@ describe('buildLeaderboardFromLegacy — handicap de scoring (torneos WHS)', () 
       [{ id: 'p1', handicap_at_registration: 12, tee_id: 'tee-azul' }],
       { ...TORNEO_WHS, hcp_calc_mode: 'raw' },
       [TEE_AZUL],
-      72,
+      COURSE_HOLES,
       18,
     )
     expect(handicaps.get('p1')).toBe(12)

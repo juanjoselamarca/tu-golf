@@ -170,7 +170,7 @@ export default function TVPage() {
     const dbPlayers = (rawPlayers as unknown as DBPlayerRaw[]) || []
 
     const scoringHandicaps = buildScoringHandicaps(
-      dbPlayers, t, courseTees, sumParDedupByHole(holesForScoring), holeCount,
+      dbPlayers, t, courseTees, holesForScoring, holeCount,
     )
 
     const mapped: TVPlayer[] = dbPlayers

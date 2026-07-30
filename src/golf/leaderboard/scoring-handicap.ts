@@ -18,6 +18,7 @@ import {
   resolveScoringCourseHcp,
   type TournamentForCourseHcp,
 } from '@/golf/core/compute-player-course-hcp'
+import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 
 /** playerId → course handicap de SCORING (el que reparte golpes por hoyo). */
@@ -48,16 +49,22 @@ export interface TournamentForScoringHcp extends TournamentForCourseHcp {
  * @param players     jugadores con `id`, `handicap_at_registration` y `tee_id`
  * @param tournament  modo de cálculo + tee global + ratings de la cancha
  * @param courseTees  tees de la cancha (slope/CR por tee). Vacío → índice crudo
- * @param parTotal    par de la cancha usado por la fórmula WHS
- * @param holeCount   hoyos de la ronda (9 → usa ratings de 9h)
+ * @param courseHoles hoyos de la cancha; de acá sale el par REAL de la ronda
+ * @param holeCount   hoyos de la ronda (9 → usa índice/2 y ratings de 9h)
  */
 export function buildScoringHandicaps(
   players: readonly PlayerForScoringHcp[],
   tournament: TournamentForScoringHcp,
   courseTees: CourseTeeRow[],
-  parTotal: number,
+  courseHoles: Array<{ numero: number; par: number | null }>,
   holeCount: number,
 ): ScoringHandicaps {
+  // Par de los hoyos que se juegan, NO el par de la cancha completa: con el CR
+  // de 9h y el par de 18 la fórmula WHS devuelve handicaps negativos.
+  const par = courseHoles.length > 0
+    ? parDeLosHoyosJugados(courseHoles, holeCount)
+    : (tournament.courses?.par_total ?? 72)
+
   const out = new Map<string, number>()
   for (const p of players) {
     const forHcp = {
@@ -66,7 +73,7 @@ export function buildScoringHandicaps(
     }
     out.set(
       p.id,
-      resolveScoringCourseHcp(tournament.hcp_calc_mode, forHcp, tournament, courseTees, parTotal, holeCount),
+      resolveScoringCourseHcp(tournament.hcp_calc_mode, forHcp, tournament, courseTees, par, holeCount),
     )
   }
   return out

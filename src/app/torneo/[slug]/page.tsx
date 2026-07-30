@@ -161,7 +161,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         ? await fetchCourseTees(supabase, tournament.courses.id)
         : []
       const scoringHandicaps = buildScoringHandicaps(
-        dbPlayers, tournament, courseTees, parParaHcp, totalHoyos,
+        dbPlayers, tournament, courseTees, courseHoles, totalHoyos,
       )
       const out = buildLeaderboardFromLegacy(dbPlayers, ctx, tournament.total_rounds ?? 1, scoringHandicaps)
       players = out.players

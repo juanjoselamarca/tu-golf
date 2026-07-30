@@ -96,10 +96,22 @@ export function computeIndividualScore(
     if (h.numero >= 1 && h.numero <= totalHoles) holeMap.set(h.numero, h)
   }
 
+  // Catálogo incompleto (cancha con menos hoyos cargados que la ronda): se
+  // rellena con par 4 / SI = nº de hoyo, el MISMO fallback que
+  // `buildFallbackCourseHoles`. Se hace ANTES de normalizar el SI: un hoyo
+  // sintético agregado después conservaría su stroke_index crudo, colisionaría
+  // con la permutación y repartiría un golpe de más — justo lo que
+  // `normalizedStrokeIndexByHole` existe para impedir ("net +12 Don Jorge").
+  for (let h = 1; h <= totalHoles; h++) {
+    if (!holeMap.has(h)) holeMap.set(h, { numero: h, par: 4, stroke_index: h })
+  }
+
+  const holesDeLaRonda = Array.from(holeMap.values()).sort((a, b) => a.numero - b.numero)
+
   // SI normalizado a permutación 1..N SÓLO para alocar golpes: un SI de catálogo
   // 18h-impar en un loop de 9h repartiría de menos y el neto saldría alto.
   // No-op si el SI ya es permutación válida. No cambia el SI que se MUESTRA.
-  const siAlloc = normalizedStrokeIndexByHole(Array.from(holeMap.values()), totalHoles)
+  const siAlloc = normalizedStrokeIndexByHole(holesDeLaRonda, totalHoles)
   const hcp = Number.isFinite(courseHandicap) ? courseHandicap : 0
 
   const scoreArr = new Array<number | null>(totalHoles).fill(null)
@@ -114,11 +126,8 @@ export function computeIndividualScore(
     const gross = grossAtHole(scores, h)
     if (gross == null) continue
 
-    // Catálogo incompleto (cancha con menos hoyos cargados que la ronda): se
-    // asume par 4 / SI = nº de hoyo, el MISMO fallback que
-    // `buildFallbackCourseHoles`. Contar el gross sin sumar su par inflaría el
-    // vs par ~4 golpes por hoyo huérfano y el jugador saldría peor de lo que va.
-    const hole = holeMap.get(h) ?? { numero: h, par: 4, stroke_index: h }
+    // `holeMap` ya cubre 1..totalHoles (rellenado arriba), así que nunca falta.
+    const hole = holeMap.get(h) as CourseHole
 
     scoreArr[h - 1] = gross
     grossTotal += gross

@@ -22,6 +22,35 @@ export interface TournamentForCourseHcp {
 }
 
 /**
+ * Índice de 9 hoyos = índice 18h / 2 (WHS).
+ *
+ * `strokesRecibidosEnHoyo` reparte el course handicap sobre los 9 hoyos que se
+ * juegan (maxSI=9), así que el CH tiene que ser el de 9h. Sin esta división la
+ * ronda de 9h recibía ~2× los golpes que corresponden. Es la misma regla que
+ * `resolverCourseHandicap` aplica en el camino de ronda libre desde el 11-jun-2026.
+ */
+function indice9h(handicapIndex: number): number {
+  return handicapIndex / 2
+}
+
+/**
+ * Par de 9 hoyos, defensivo contra el par de 18.
+ *
+ * Los callers históricos pasan `courses.par_total` (72) aunque la ronda sea de
+ * 9 hoyos. Combinado con el Course Rating de 9h (~36) eso da `(CR − par) ≈ −36`
+ * y devuelve course handicaps NEGATIVOS: en COPA LB PADRE E HIJO 2026 un índice
+ * 12 resolvía a −22, y un jugador que hacía par bruto salía "+9" porque el motor
+ * lo trataba como jugador plus. Un par ≤50 nunca es un par de 18 hoyos, así que
+ * se respeta; uno mayor se interpreta como par de 18 y se parte al medio.
+ *
+ * Los callers que tienen `course_holes` a mano deberían pasar el par REAL de la
+ * ronda con `parDeLosHoyosJugados` — esto es el piso, no el camino ideal.
+ */
+function par9h(par: number): number {
+  return par > 50 ? Math.round(par / 2) : par
+}
+
+/**
  * Compute course handicap for a player using their resolved tee's slope/CR.
  * Fallback chain:
  *   1. Resolved tee slope/CR (manual → category → global)
@@ -50,7 +79,7 @@ export function computePlayerCourseHcp(
         // Use 9-hole specific ratings if available, otherwise halve the 18h CR
         const slope9 = tee.front_slope_rating ?? tee.slope
         const cr9 = tee.front_course_rating ?? tee.rating / 2
-        return courseHandicap9h(index, slope9, cr9, parTotal)
+        return courseHandicap9h(indice9h(index), slope9, cr9, par9h(parTotal))
       }
       return courseHandicap18h(index, tee.slope, tee.rating, parTotal)
     }
@@ -61,7 +90,7 @@ export function computePlayerCourseHcp(
   if (course?.slope_rating && course?.course_rating) {
     if (holeCount <= 9) {
       // Halve course-level CR for 9-hole estimate
-      return courseHandicap9h(index, course.slope_rating, course.course_rating / 2, parTotal)
+      return courseHandicap9h(indice9h(index), course.slope_rating, course.course_rating / 2, par9h(parTotal))
     }
     return courseHandicap18h(index, course.slope_rating, course.course_rating, parTotal)
   }

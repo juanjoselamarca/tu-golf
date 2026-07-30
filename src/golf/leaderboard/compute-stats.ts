@@ -57,18 +57,25 @@ export function computeStats(
         }
         return computeIndividualScore(byHole, courseHoles, hcp, totalHoles)
       })
-    return { player: p, score: sumIndividualScores(perRound) }
+    return { player: p, perRound, score: sumIndividualScores(perRound) }
   })
 
   // "Terminado" = completó al menos una ronda entera.
   const finished = scored.filter((s) => s.score.holesPlayed >= totalHoles)
 
-  const bySortedNet = [...finished].sort((a, b) => a.score.netTotal - b.score.netTotal)
-  const best = bySortedNet[0]
+  // "Mejor tarjeta" = la mejor RONDA completa, no el acumulado: en un torneo de
+  // dos vueltas, comparar el acumulado de quien lleva una (72) contra el de
+  // quien lleva dos (144) siempre corona al que va más atrasado.
+  const rondasCompletas = finished.flatMap((s) =>
+    s.perRound
+      .filter((r) => r.holesPlayed >= totalHoles)
+      .map((r) => ({ player: s.player, net: r.netTotal })),
+  )
+  const best = [...rondasCompletas].sort((a, b) => a.net - b.net)[0]
   const bestName = best
     ? resolvePlayerName(best.player.profiles?.name, best.player.player_name)
     : '—'
-  const bestNet = best?.score.netTotal ?? 0
+  const bestNet = best?.net ?? 0
 
   const avgNet = finished.length > 0
     ? finished.reduce((sum, s) => sum + s.score.vsParNet, 0) / finished.length

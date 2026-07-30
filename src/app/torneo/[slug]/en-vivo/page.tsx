@@ -163,7 +163,7 @@ export default async function LivePage({ params }: PageProps) {
     playerRows,
     tournament,
     courseTees,
-    sumParDedupByHole(holesForScoring),
+    holesForScoring,
     holeCount,
   )
 
