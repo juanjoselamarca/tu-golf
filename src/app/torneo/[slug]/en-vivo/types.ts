@@ -22,12 +22,18 @@ export interface LivePlayer {
   name: string
   category_name?: string
   handicap_index: number
-  scores_per_hole: number[] // length = hole_count; usar NaN/0 para holes no jugados segun convencion del caller
+  scores_per_hole: number[] // length = hole_count; 0 en los hoyos no jugados
   gross_total: number
   net_total?: number // si modo = neto
   points_total?: number // si formato = stableford
   vs_par: number
   thru: number // hoyos jugados (0..hole_count)
+  /**
+   * `false` = inscrito pero sin ningún hoyo cargado. La tabla muestra "—" en
+   * bruto/neto/a-par: un jugador sin datos NO es un jugador en cero, y pintarlo
+   * como tal lo mandaba al tope del leaderboard.
+   */
+  has_data?: boolean
 }
 
 export interface LiveTeam {

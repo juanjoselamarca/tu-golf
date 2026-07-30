@@ -8,6 +8,7 @@ import type { ModoJuego } from '@/golf/core/rules'
 import Scorecard from '@/components/Scorecard'
 import type { ScorecardHole } from '@/components/Scorecard'
 import { ChevronDown } from '@/components/icons'
+import { EMPTY_LABEL, formatScoreVsPar } from '@/golf/leaderboard/individual-score'
 
 /* ── Types ────────────────────────────────────────────────── */
 export interface GroupData {
@@ -58,9 +59,9 @@ const T = {
 } as const
 
 /* ── Helpers ──────────────────────────────────────────────── */
+/** Copia local eliminada: el string de vs par lo fija `formatScoreVsPar`. */
 function formatScore(n: number) {
-  if (n === 0) return 'E'
-  return n > 0 ? `+${n}` : `${n}`
+  return formatScoreVsPar(n, true)
 }
 
 function scoreColor(n: number) {
@@ -71,18 +72,28 @@ function scoreColor(n: number) {
 
 function thruLabel(p: Player, totalHoyos: number) {
   if (p.status === 'F') return 'F'
-  if (p.holes === 0) return '-'
+  if (p.holes === 0) return EMPTY_LABEL
   return `${p.holes}`
 }
 
-/** Compute tied positions: players with same score get "T3" style labels */
+/**
+ * Posiciones con empates estilo golf ("T3").
+ *
+ * Quien no cargó ningún hoyo NO empata con nadie: su `total` es 0 por defecto y
+ * antes aparecía "T1" junto a los que iban realmente en par. Va sin posición.
+ */
 function computePositions(players: Player[]): string[] {
   if (players.length === 0) return []
   const positions: string[] = []
   let i = 0
   while (i < players.length) {
+    if (players[i].holes === 0) {
+      positions.push(EMPTY_LABEL)
+      i++
+      continue
+    }
     let j = i + 1
-    while (j < players.length && players[j].total === players[i].total) j++
+    while (j < players.length && players[j].holes > 0 && players[j].total === players[i].total) j++
     const tied = j - i > 1
     for (let k = i; k < j; k++) {
       positions.push(tied ? `T${i + 1}` : `${i + 1}`)
@@ -354,7 +365,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                         color: p.holes > 0 ? scoreColor(p.total) : T.faint,
                         lineHeight: 1,
                       }}>
-                        {p.holes > 0 ? formatScore(p.total) : '-'}
+                        {formatScoreVsPar(p.total, p.holes > 0)}
                       </span>
                       {hasScores && (
                         <span
@@ -504,7 +515,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                             color: p.holes > 0 ? scoreColor(p.total) : T.faint,
                             lineHeight: 1,
                           }}>
-                            {p.holes > 0 ? formatScore(p.total) : '-'}
+                            {formatScoreVsPar(p.total, p.holes > 0)}
                           </span>
                           <span style={{
                             fontFamily: '"DM Mono", monospace',

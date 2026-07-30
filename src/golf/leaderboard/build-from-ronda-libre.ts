@@ -7,6 +7,8 @@
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { computeIndividualScore } from './individual-score'
+import { resolvePlayerName } from './player-name'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBRondaLibreJugador } from '@/app/torneo/[slug]/types'
@@ -32,7 +34,7 @@ export function buildLeaderboardFromRondaLibre(
   jugadores: DBRondaLibreJugador[],
   ctx: TournamentLeaderboardContext,
 ): RondaLibreLeaderboardOutput {
-  const { parTotal, totalHoyos, modoJuego, formatoJuego, courseHoles } = ctx
+  const { totalHoyos, modoJuego, formatoJuego, courseHoles } = ctx
   const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
   // Normaliza el stroke_index a permutación 1..N para ALOCAR golpes: garantiza
   // que Σ golpes == course handicap de la ronda aunque el SI de catálogo sea
@@ -44,56 +46,26 @@ export function buildLeaderboardFromRondaLibre(
   // ── Entries crudos (cero sort, cero countback, cero conversión a Player). ──
   const entries: LeaderboardEntry[] = jugadores.map((j) => {
     const hcp = j.handicap ?? 0
-    const scoresMap = j.scores || {}
-    const scoreArr = new Array(totalHoyos).fill(null) as (number | null)[]
-    let grossTotal = 0, netTotal = 0, stablefordTotal = 0, holesPlayed = 0
-
-    for (let h = 1; h <= totalHoyos; h++) {
-      const gross = scoresMap[String(h)]
-      if (gross != null) {
-        scoreArr[h - 1] = gross
-        grossTotal += gross
-        const hole = holeMap.get(h)
-        const strokes = hole ? strokesRecibidosEnHoyo(hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos) : 0
-        netTotal += gross - strokes
-        if (hole) stablefordTotal += puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
-        holesPlayed++
-      }
-    }
-
-    const parPlayed = courseHoles
-      .filter((ch) => scoresMap[String(ch.numero)] != null)
-      .reduce((sum, ch) => sum + ch.par, 0)
-
-    const stablefordScores: number[] = formatoJuego === 'stableford'
-      ? Array.from({ length: totalHoyos }, (_, i) => {
-          const h = i + 1
-          const gross = scoreArr[i] ?? 0
-          if (gross === 0) return 0
-          const hole = holeMap.get(h)
-          if (!hole) return 0
-          return puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
-        })
-      : []
+    const s = computeIndividualScore(j.scores || {}, courseHoles, hcp, totalHoyos)
 
     return {
-      name: j.nombre,
+      name: resolvePlayerName(j.nombre),
       handicap: hcp,
       hcpDisplay: j.handicap_display ?? hcp,
-      grossTotal,
-      netTotal,
-      stablefordTotal,
-      stablefordScores,
-      vsPar: holesPlayed > 0 ? grossTotal - parPlayed : 0,
-      holesPlayed,
+      grossTotal: s.grossTotal,
+      netTotal: s.netTotal,
+      stablefordTotal: s.stablefordTotal,
+      stablefordScores: formatoJuego === 'stableford' ? [...s.stablefordScores] : [],
+      parPlayed: s.parPlayed,
+      holesPlayed: s.holesPlayed,
       roundsPlayed: 1,
-      scores: scoreArr,
-      status: (holesPlayed >= totalHoyos ? 'F' : 'live') as 'F' | 'live',
+      scores: [...s.scores],
+      status: (s.holesPlayed >= totalHoyos ? 'F' : 'live') as 'F' | 'live',
     }
   })
 
   const primaryMode: RankingMode = formatoJuego === 'stableford' ? 'stableford' : modoJuego
-  const rankOpts = { parTotal, formatoJuego }
+  const rankOpts = { formatoJuego }
 
   const players = rankEntries(entries, primaryMode, rankOpts).players
   const playersByGross = rankEntries(entries, 'gross', rankOpts).players

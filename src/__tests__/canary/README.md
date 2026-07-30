@@ -15,3 +15,5 @@ test canario antes de arreglarse.
 - Match Play: dormie, capitalización de nombres
 - Share card: par 72 hardcoded
 - en-vivo API: sort por gross vs vsPar
+- Board individual: paridad board↔tarjeta, "−36" mid-ronda, leaderboard al
+  revés durante la ronda, neto leído de columna (barrido 27-jul)

@@ -7,6 +7,8 @@
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { computeIndividualScore, sumIndividualScores } from './individual-score'
+import { resolvePlayerName } from './player-name'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
@@ -27,7 +29,7 @@ export function buildLeaderboardFromLegacy(
   ctx: TournamentLeaderboardContext,
   tournamentTotalRounds: number,
 ): LegacyLeaderboardOutput {
-  const { totalHoyos, parTotal, modoJuego, formatoJuego, courseHoles } = ctx
+  const { totalHoyos, modoJuego, formatoJuego, courseHoles } = ctx
   const playerIdToIndex: Record<string, number> = {}
 
   if (dbPlayers.length === 0) {
@@ -60,62 +62,50 @@ export function buildLeaderboardFromLegacy(
     const hcp = p.handicap_at_registration ?? 0
     const sortedRounds = [...(p.rounds || [])].sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
 
-    let cumulGross = 0, cumulNet = 0, cumulPoints = 0, totalHolesPlayed = 0
-    let latestScores = new Array(totalHoyos).fill(null) as (number | null)[]
-    let allFinished = true
+    // Gross/neto/stableford se DERIVAN de `hole_scores` con el motor canónico.
+    // Antes se leían de `rounds.total_gross/total_net/total_points`, columnas que
+    // sólo escribe `/api/game` al scorear: cualquier otro camino de entrada las
+    // deja en 0 y el board pintaba al jugador como líder bajo par.
+    const perRound = sortedRounds.map((round) => {
+      const byHole: Record<string, number> = {}
+      for (const hs of round.hole_scores || []) {
+        if (hs.gross_score != null) byHole[String(hs.hole_number)] = hs.gross_score
+      }
+      return computeIndividualScore(byHole, courseHoles, hcp, totalHoyos)
+    })
 
-    for (const round of sortedRounds) {
-      cumulGross += round.total_gross ?? 0
-      cumulNet += round.total_net ?? 0
-      cumulPoints += round.total_points ?? 0
-
-      const scores = new Array(totalHoyos).fill(null) as (number | null)[]
-      ;(round.hole_scores || []).forEach((hs) => {
-        if (hs.gross_score != null) scores[hs.hole_number - 1] = hs.gross_score
-      })
-      const roundHoles = scores.filter((s) => s !== null).length
-      totalHolesPlayed += roundHoles
-
-      if (round.status !== 'closed' && round.status !== 'official') allFinished = false
-      latestScores = scores
-    }
-
+    const agg = sumIndividualScores(perRound)
     const roundsPlayed = sortedRounds.length
-    const netVsPar = totalHolesPlayed > 0 ? cumulNet - (parTotal * roundsPlayed) : 0
-    const latestRound = sortedRounds[sortedRounds.length - 1]
-    const todayNet = latestRound ? (latestRound.total_net ?? 0) - parTotal : 0
+    const allFinished = sortedRounds.every((r) => r.status === 'closed' || r.status === 'official')
+    const vsParDelModo = (s: { vsParNet: number; vsParGross: number }) =>
+      modoJuego === 'neto' ? s.vsParNet : s.vsParGross
 
-    const stablefordScores: number[] = formatoJuego === 'stableford'
-      ? Array.from({ length: totalHoyos }, (_, i) => {
-          const h = i + 1
-          const gross = latestScores[i] ?? 0
-          if (gross === 0) return 0
-          const hole = holeMap.get(h)
-          if (!hole) return 0
-          return puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
-        })
-      : []
+    // Multi-ronda: "today" es la ronda EN CURSO (la última con datos), no el
+    // acumulado. Single-round: today == total.
+    const ultimaConDatos = [...perRound].reverse().find((s) => s.hasData)
 
     return {
-      name: p.profiles?.name || 'Jugador',
+      name: resolvePlayerName(p.profiles?.name, p.player_name),
       cat: p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
       handicap: hcp,
-      grossTotal: cumulGross,
-      netTotal: cumulNet,
-      stablefordTotal: cumulPoints,
-      stablefordScores,
-      vsPar: netVsPar,
-      holesPlayed: totalHolesPlayed,
+      grossTotal: agg.grossTotal,
+      netTotal: agg.netTotal,
+      stablefordTotal: agg.stablefordTotal,
+      stablefordScores: formatoJuego === 'stableford' ? [...agg.stablefordScores] : [],
+      parPlayed: agg.parPlayed,
+      holesPlayed: agg.holesPlayed,
       roundsPlayed,
-      scores: latestScores,
+      scores: agg.scores.length ? [...agg.scores] : new Array(totalHoyos).fill(null),
       status: (allFinished ? 'F' : 'live') as 'F' | 'live',
       dbPlayerId: p.id,
-      todayVsPar: isMultiRound ? todayNet : netVsPar,
+      todayVsPar: isMultiRound
+        ? (ultimaConDatos ? vsParDelModo(ultimaConDatos) : 0)
+        : vsParDelModo(agg),
     }
   })
 
   const primaryMode: RankingMode = formatoJuego === 'stableford' ? 'stableford' : modoJuego
-  const rankOpts = { parTotal, formatoJuego }
+  const rankOpts = { formatoJuego }
 
   // rankEntries devuelve { players, order } donde order[i] es el índice del
   // entry original cuyo Player quedó en posición final i (POST-countback).
@@ -151,7 +141,7 @@ export function buildLeaderboardFromLegacy(
     const playerIdx = primaryPlayers.length
     primaryPlayers.push({
       pos:     withRounds.length + i + 1,
-      name:    p.profiles?.name ?? p.player_name ?? 'Jugador',
+      name:    resolvePlayerName(p.profiles?.name, p.player_name),
       country: 'CL',
       cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
       hcp:     p.handicap_at_registration ?? 0,
@@ -188,7 +178,7 @@ export function buildLeaderboardFromLegacy(
 
       return {
         id:                   p.id,
-        nombre:               p.profiles?.name ?? p.player_name ?? 'Jugador',
+        nombre:               resolvePlayerName(p.profiles?.name, p.player_name),
         handicapIndex:        hcp,
         currentScore,
         hoyosCompletados:     hoyosComp,

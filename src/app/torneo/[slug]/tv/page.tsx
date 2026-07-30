@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Trophy } from '@/components/icons'
+import { computeIndividualScore, sumIndividualScores, formatScoreVsPar } from '@/golf/leaderboard/individual-score'
+import { resolvePlayerName } from '@/golf/leaderboard/player-name'
+import { buildFallbackCourseHoles } from '@/lib/data/tournaments/leaderboard'
+import type { CourseHole } from '@/golf/leaderboard/types'
 
 /* ── Types ─────────────────────────────────────────────── */
 interface TVPlayer {
@@ -36,11 +40,6 @@ const scoreColor = (diff: number): string => {
   return '#dc2626'
 }
 
-const fmtVsPar = (n: number): string => {
-  if (n === 0) return 'E'
-  return n > 0 ? `+${n}` : String(n)
-}
-
 interface DBPlayerRaw {
   id: string
   handicap_at_registration: number | null
@@ -48,18 +47,19 @@ interface DBPlayerRaw {
   profiles: { name: string } | null
   categories: { name: string } | null
   rounds: {
-    total_net: number
-    total_gross: number
+    round_number: number | null
     hole_scores: { hole_number: number; gross_score: number | null }[]
   }[]
 }
 
 interface DBTournamentRaw {
+  id: string
   name: string
   date_start: string | null
   codigo: string | null
   total_rounds: number | null
   hole_count: number | null
+  course_id: string | null
   courses: { nombre: string; par_total: number } | null
 }
 
@@ -85,7 +85,7 @@ export default function TVPage() {
 
     const { data: rawT } = await supabase
       .from('tournaments')
-      .select('name, date_start, codigo, total_rounds, hole_count, courses(nombre, par_total)')
+      .select('id, name, date_start, codigo, total_rounds, hole_count, course_id, courses(nombre, par_total)')
       .eq('slug', slug)
       .single()
 
@@ -105,15 +105,19 @@ export default function TVPage() {
       hole_count: t.hole_count ?? 18,
     })
 
-    // Get tournament id
-    const { data: rawId } = await supabase
-      .from('tournaments')
-      .select('id')
-      .eq('slug', slug)
-      .single()
+    const tournamentId = t.id
+    const holeCount = t.hole_count ?? 18
 
-    if (!rawId) { setLoading(false); return }
-    const tournamentId = (rawId as { id: string }).id
+    // Par + stroke_index por hoyo: el neto y el vs par se DERIVAN acá, no se
+    // leen de `rounds.total_net` (columna que sólo escribe /api/game al scorear).
+    const { data: rawHoles } = t.course_id
+      ? await supabase
+          .from('course_holes')
+          .select('numero, par, stroke_index')
+          .eq('course_id', t.course_id)
+      : { data: null }
+    const courseHoles = ((rawHoles as CourseHole[] | null) ?? [])
+    const holesForScoring = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(holeCount)
 
     const { data: rawPlayers } = await supabase
       .from('players')
@@ -121,7 +125,7 @@ export default function TVPage() {
         id, handicap_at_registration, player_name,
         profiles(name),
         categories(name),
-        rounds(total_net, total_gross, hole_scores(hole_number, gross_score))
+        rounds(round_number, hole_scores(hole_number, gross_score))
       `)
       .eq('tournament_id', tournamentId)
       .in('status', ['pending', 'approved', 'waitlist'])
@@ -143,24 +147,29 @@ export default function TVPage() {
     const mapped: TVPlayer[] = dbPlayers
       .filter((p) => p.rounds?.length > 0)
       .map((p) => {
-        // Aggregate across all rounds (multi-round tournaments)
-        const totalNet   = p.rounds.reduce((sum, r) => sum + r.total_net, 0)
-        const totalGross = p.rounds.reduce((sum, r) => sum + r.total_gross, 0)
-        const holesPlayed = p.rounds.reduce(
-          (sum, r) => sum + (r.hole_scores || []).filter((hs) => hs.gross_score != null).length,
-          0,
-        )
-        const roundsPlayed = p.rounds.length
-        const netVsPar     = holesPlayed > 0 ? totalNet - (parTotal * roundsPlayed) : 0
+        const hcp = p.handicap_at_registration ?? 0
+        // Motor ÚNICO, el mismo de /torneo y /en-vivo. `netVsPar` se compara
+        // contra el par de los hoyos JUGADOS: antes usaba el par de la cancha
+        // completa y un jugador en par thru 9 salía "−36" liderando el TV.
+        const perRound = [...p.rounds]
+          .sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
+          .map((r) => {
+            const byHole: Record<string, number> = {}
+            for (const hs of r.hole_scores || []) {
+              if (hs.gross_score != null) byHole[String(hs.hole_number)] = hs.gross_score
+            }
+            return computeIndividualScore(byHole, holesForScoring, hcp, holeCount)
+          })
+        const agg = sumIndividualScores(perRound)
 
         return {
           id:          p.id,
-          name:        p.profiles?.name ?? p.player_name ?? 'Jugador',
-          handicap:    p.handicap_at_registration ?? 0,
-          total_net:   totalNet,
-          total_gross: totalGross,
-          holesPlayed,
-          netVsPar,
+          name:        resolvePlayerName(p.profiles?.name, p.player_name),
+          handicap:    hcp,
+          total_net:   agg.netTotal,
+          total_gross: agg.grossTotal,
+          holesPlayed: agg.holesPlayed,
+          netVsPar:    agg.vsParNet,
           category:    p.categories?.name || '',
         }
       })
@@ -168,7 +177,10 @@ export default function TVPage() {
         if (a.holesPlayed === 0 && b.holesPlayed === 0) return 0
         if (a.holesPlayed === 0) return 1
         if (b.holesPlayed === 0) return -1
-        return a.total_net - b.total_net
+        // Por vs par, NO por golpes netos totales: comparar totales crudos entre
+        // jugadores con distinto `thru` pone arriba al que menos hoyos lleva
+        // (net 12 thru 3 le "ganaba" a net 72 thru 18). Desempate: más avanzado.
+        return a.netVsPar - b.netVsPar || b.holesPlayed - a.holesPlayed
       })
       .slice(0, 10)
 
@@ -287,7 +299,7 @@ export default function TVPage() {
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: highlight ? '30px' : '24px', fontWeight: 700, color, fontFamily: '"Playfair Display", serif', lineHeight: 1 }}>
-                      {p.holesPlayed > 0 ? fmtVsPar(p.netVsPar) : '—'}
+                      {formatScoreVsPar(p.netVsPar, p.holesPlayed > 0)}
                     </div>
                     {p.holesPlayed > 0 && (
                       <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{p.total_net}</div>

@@ -17,11 +17,15 @@ export interface LeaderboardEntry {
   stablefordTotal: number
   /** Puntos stableford por hoyo (solo formato stableford). */
   stablefordScores?: number[]
-  /** Score vs par para el modo elegido por el torneo (mostrado en TournamentTabs). */
-  vsPar: number
   holesPlayed: number
-  /** Cantidad de rondas con datos para este jugador. Multi-round: vsPar =
-   *  cumulNet - parTotal * roundsPlayed. Default 1 para torneos single-round. */
+  /**
+   * Suma del par de los hoyos EFECTIVAMENTE JUGADOS (acumulada entre rondas en
+   * multi-ronda). Es el denominador de vs par: un jugador thru 9 se compara
+   * contra 36, no contra el par de la cancha completa. Lo produce
+   * `computeIndividualScore` — no re-derivarlo.
+   */
+  parPlayed: number
+  /** Cantidad de rondas con datos para este jugador. Default 1 (single-round). */
   roundsPlayed?: number
   /** Categoría legible para Player.cat. Si no se especifica, 'General'. */
   cat?: string

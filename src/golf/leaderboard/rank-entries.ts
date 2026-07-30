@@ -29,27 +29,49 @@ export interface RankedOutput {
 
 /** Score vs par del entry según el modo de ranking. Es el número que
  *  termina en Player.total (la columna SCORE del leaderboard).
- *  En ronda libre `holesPlayed < totalHoyos` se compara contra par parcial
- *  (eso lo resuelve el builder antes de llegar acá vía `e.vsPar`); pero
- *  para los rankings forzados gross/neto reconstruimos vsPar desde totales
- *  con parTotal * roundsPlayed (mismo cálculo que el código legacy). */
-function vsParFor(e: LeaderboardEntry, mode: RankingMode, parTotal: number): number {
+ *
+ *  Se compara SIEMPRE contra `e.parPlayed` — el par de los hoyos jugados, que
+ *  ya viene acumulado entre rondas. Antes se reconstruía como
+ *  `parTotal * roundsPlayed` (par de la cancha completa): un jugador en par
+ *  thru 9 salía "−36" y el board quedaba al revés durante toda la ronda,
+ *  liderado por el que menos hoyos llevaba. Ver `individual-score.ts`. */
+function vsParFor(e: LeaderboardEntry, mode: RankingMode): number {
   if (mode === 'stableford') return e.stablefordTotal
   if (e.holesPlayed === 0) return 0
   const total = mode === 'gross' ? e.grossTotal : e.netTotal
-  const rp = e.roundsPlayed ?? 1
-  return total - parTotal * Math.max(1, rp)
+  return total - e.parPlayed
 }
 
-/** primaryScore para countback: lower-is-better en gross/neto, higher-is-better en stableford. */
-function primaryScoreFor(e: LeaderboardEntry, mode: RankingMode): number {
-  if (mode === 'stableford') return e.stablefordTotal
-  return mode === 'gross' ? (e.grossTotal || 999) : (e.netTotal || 999)
+/**
+ * Métrica que ORDENA y que agrupa empates para el countback. Es la MISMA que se
+ * muestra (`vsParFor`) — antes ordenaba por golpes crudos mientras mostraba vs
+ * par, así que mid-ronda el board quedaba ordenado al revés: con todos en par,
+ * el que iba thru 3 sumaba 12 golpes y le "ganaba" al que iba thru 15 con 60.
+ * Terminado el torneo (todos thru 18) ambas métricas ordenan igual.
+ */
+function rankValueFor(e: LeaderboardEntry, mode: RankingMode): number {
+  return vsParFor(e, mode)
+}
+
+/** Mayor que cualquier `holesPlayed` posible (18 × rondas). */
+const STAGE_WEIGHT = 1000
+
+/**
+ * Clave de agrupación del countback: mismo vs par Y mismo avance.
+ *
+ * El countback compara tarjetas hoyo a hoyo, así que sólo tiene sentido entre
+ * jugadores en la misma etapa de la ronda. Empaquetar `holesPlayed` en la clave
+ * evita que el desempate reordene a dos jugadores que empatan en vs par pero
+ * van por hoyos distintos — ese caso ya lo resolvió el sort (gana el más
+ * avanzado) y el countback no debe deshacerlo.
+ */
+function countbackScoreFor(e: LeaderboardEntry, mode: RankingMode): number {
+  const value = rankValueFor(e, mode) * STAGE_WEIGHT
+  // lower_wins (gross/neto) → restar hoyos; higher_wins (stableford) → sumarlos.
+  return mode === 'stableford' ? value + e.holesPlayed : value - e.holesPlayed
 }
 
 export interface RankEntriesOptions {
-  /** parTotal de la(s) ronda(s). Solo se usa para calcular vsPar en gross/neto. */
-  parTotal: number
   /** Formato del torneo (gobierna el modo del countback). */
   formatoJuego: FormatoJuego
   /** Función para extraer el nombre. Permite que un mismo `entries` produzca varios
@@ -77,18 +99,25 @@ export function rankEntries(
 ): RankedOutput {
   if (entries.length === 0) return { players: [], order: [] }
 
-  const { parTotal } = opts
   const nameOf = opts.nameOf ?? ((e) => e.name)
 
-  // Sort por el modo elegido. stableford siempre higher-wins.
+  // Los que no empezaron NO compiten: un jugador sin hoyos cargados está en
+  // "—", no en "E", y no puede ocupar el podio por delante de quien sí jugó.
+  // Van al fondo, en el orden en que llegaron, sin countback.
+  const indexed = entries.map((e, i) => ({ entry: e, originalIndex: i }))
+  const conDatos = indexed.filter((x) => x.entry.holesPlayed > 0)
+  const sinDatos = indexed.filter((x) => x.entry.holesPlayed === 0)
+
+  // Sort por la métrica de la vista. stableford siempre higher-wins.
   // Llevamos también el índice original del entry para que el countback
   // pueda devolver el orden final POST-tiebreak con el dato preservado.
-  const indexed = entries.map((e, i) => ({ entry: e, originalIndex: i }))
-  const sorted = [...indexed].sort((a, b) => {
-    if (mode === 'stableford') return (b.entry.stablefordTotal || 0) - (a.entry.stablefordTotal || 0)
-    const aVal = mode === 'gross' ? (a.entry.grossTotal || 999) : (a.entry.netTotal || 999)
-    const bVal = mode === 'gross' ? (b.entry.grossTotal || 999) : (b.entry.netTotal || 999)
-    return aVal - bVal
+  const sorted = [...conDatos].sort((a, b) => {
+    const aVal = rankValueFor(a.entry, mode)
+    const bVal = rankValueFor(b.entry, mode)
+    if (aVal !== bVal) return mode === 'stableford' ? bVal - aVal : aVal - bVal
+    // Mismo vs par con distinto avance: primero el que lleva más hoyos. Sostener
+    // el par en 15 hoyos vale más que sostenerlo en 3.
+    return b.entry.holesPlayed - a.entry.holesPlayed
   })
 
   // Countback: dirección la decide el MODO de la vista, no el formato del
@@ -103,7 +132,7 @@ export function rankEntries(
     scores: mode === 'stableford'
       ? (s.entry.stablefordScores ?? s.entry.scores.map((v) => v ?? 0))
       : s.entry.scores.map((v) => v ?? 0),
-    primaryScore: primaryScoreFor(s.entry, mode),
+    primaryScore: countbackScoreFor(s.entry, mode),
   }))
 
   // holeCount = nº de hoyos de la ronda (9 o 18). Los builders rellenan `scores`
@@ -118,7 +147,7 @@ export function rankEntries(
   cbResults.forEach((r, idx) => {
     const sortedIdx = parseInt(r.id)
     const { entry: e, originalIndex } = sorted[sortedIdx]
-    const vsPar = vsParFor(e, mode, parTotal)
+    const vsPar = vsParFor(e, mode)
     const annotatedName = r.annotation ? `${nameOf(e, idx)} ${r.annotation}` : nameOf(e, idx)
     players.push({
       pos:     idx + 1,
@@ -130,6 +159,26 @@ export function rankEntries(
       today:   vsPar,
       total:   vsPar,
       holes:   e.holesPlayed,
+      status:  e.status,
+      scores:  e.scores,
+    })
+    order.push(originalIndex)
+  })
+
+  // Los que aún no cargaron nada, al fondo: posición correlativa, score en 0
+  // (`holes: 0` es la señal para que la UI muestre "—") y sin anotación de
+  // countback, que no desempata a quien no jugó.
+  sinDatos.forEach(({ entry: e, originalIndex }) => {
+    players.push({
+      pos:     players.length + 1,
+      name:    nameOf(e, players.length),
+      country: 'CL',
+      cat:     e.cat ?? 'General',
+      hcp:     e.handicap,
+      hcpDisplay: e.hcpDisplay ?? e.handicap,
+      today:   0,
+      total:   0,
+      holes:   0,
       status:  e.status,
       scores:  e.scores,
     })

@@ -10,7 +10,8 @@ function entry(over: Partial<LeaderboardEntry> & { name: string }): LeaderboardE
     netTotal: over.netTotal ?? 0,
     stablefordTotal: over.stablefordTotal ?? 0,
     stablefordScores: over.stablefordScores,
-    vsPar: over.vsPar ?? 0,
+    // Par de los hoyos jugados. Default: 18 hoyos par 4 = 72.
+    parPlayed: over.parPlayed ?? 72,
     holesPlayed: over.holesPlayed ?? 18,
     roundsPlayed: over.roundsPlayed,
     cat: over.cat,
@@ -25,7 +26,7 @@ describe('rankEntries — canario del dual leaderboard', () => {
     entry({ name: 'B', handicap: 18, grossTotal: 90, netTotal: 72, stablefordTotal: 36 }),
     entry({ name: 'C', handicap: 12, grossTotal: 82, netTotal: 70, stablefordTotal: 39 }),
   ]
-  const opts = { parTotal: 72, formatoJuego: 'stroke_play' as const }
+  const opts = { formatoJuego: 'stroke_play' as const }
 
   it('ranking por gross ordena por menor strokes totales', () => {
     const { players } = rankEntries(baseEntries, 'gross', opts)
@@ -46,10 +47,10 @@ describe('rankEntries — canario del dual leaderboard', () => {
     // Ambos gross 35 (empate). Card-off desde el hoyo 1 daría B (h1: 3<4).
     // El countback USGA de 9h mira los últimos 6 (h4-9): A=23 < B=24 → A gana.
     const nine = (name: string, scores: number[]) =>
-      entry({ name, grossTotal: 35, netTotal: 35, holesPlayed: 9, scores })
+      entry({ name, grossTotal: 35, netTotal: 35, holesPlayed: 9, parPlayed: 36, scores })
     const a = nine('A', [4, 4, 4, 4, 4, 4, 3, 4, 4]) // últimos6 = 23
     const b = nine('B', [3, 4, 4, 4, 4, 4, 4, 4, 4]) // últimos6 = 24
-    const { players } = rankEntries([b, a], 'gross', { parTotal: 36, formatoJuego: 'stroke_play' })
+    const { players } = rankEntries([b, a], 'gross', { formatoJuego: 'stroke_play' })
     expect(players[0].name.startsWith('A')).toBe(true)
   })
 
@@ -72,16 +73,33 @@ describe('rankEntries — canario del dual leaderboard', () => {
     expect(out.order).toEqual([])
   })
 
-  it('multi-round: usa roundsPlayed del entry para calcular vsPar', () => {
+  it('multi-round: vsPar usa el par ACUMULADO de las rondas jugadas', () => {
     const multi: LeaderboardEntry[] = [
-      entry({ name: 'Multi', netTotal: 145, grossTotal: 160, roundsPlayed: 2 }),
+      entry({ name: 'Multi', netTotal: 145, grossTotal: 160, roundsPlayed: 2, parPlayed: 144 }),
     ]
-    const { players } = rankEntries(multi, 'neto', { parTotal: 72, formatoJuego: 'stroke_play' })
+    const { players } = rankEntries(multi, 'neto', { formatoJuego: 'stroke_play' })
     expect(players[0].total).toBe(1)
   })
 
+  it('mid-ronda: vsPar contra el par JUGADO, no contra el par de la cancha', () => {
+    // Thru 9 de 18, en par. El bug histórico daba 36 − 72 = −36 y este jugador
+    // lideraba el board por ir atrasado.
+    const midRound: LeaderboardEntry[] = [
+      entry({ name: 'Thru9', grossTotal: 36, netTotal: 36, holesPlayed: 9, parPlayed: 36, status: 'live' }),
+    ]
+    const { players } = rankEntries(midRound, 'gross', opts)
+    expect(players[0].total).toBe(0)
+  })
+
+  it('el atrasado no le gana al adelantado cuando ambos van en par', () => {
+    const thru3 = entry({ name: 'Thru3', grossTotal: 12, netTotal: 12, holesPlayed: 3, parPlayed: 12, status: 'live' })
+    const thru15 = entry({ name: 'Thru15', grossTotal: 60, netTotal: 60, holesPlayed: 15, parPlayed: 60, status: 'live' })
+    const { players } = rankEntries([thru3, thru15], 'gross', opts)
+    expect(players.map((p) => p.total)).toEqual([0, 0])
+  })
+
   it('jugador sin hoyos jugados tiene vsPar 0 incluso si grossTotal/netTotal son 0', () => {
-    const empty: LeaderboardEntry[] = [entry({ name: 'Nuevo', holesPlayed: 0, status: 'live' })]
+    const empty: LeaderboardEntry[] = [entry({ name: 'Nuevo', holesPlayed: 0, parPlayed: 0, status: 'live' })]
     const { players } = rankEntries(empty, 'gross', opts)
     expect(players[0].total).toBe(0)
   })

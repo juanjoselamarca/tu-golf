@@ -5,7 +5,8 @@
 // Sin click-expandir (eso es follow-up de Wave 3 tanda 2).
 
 import type { LivePlayer } from '../types'
-import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-format'
+import { formatThru, vsParColor, computePositions } from './golf-format'
+import { EMPTY_LABEL, formatScoreVsPar } from '@/golf/leaderboard/individual-score'
 
 export interface IndividualLeaderboardProps {
   players: LivePlayer[]
@@ -13,21 +14,43 @@ export interface IndividualLeaderboardProps {
   modo: 'gross' | 'neto'
 }
 
+/** ¿Cargó al menos un hoyo? Sin datos NO es cero: va al fondo y se muestra "—". */
+function tieneDatos(p: LivePlayer): boolean {
+  return p.has_data ?? p.thru > 0
+}
+
+/** Métrica que ordena y que decide los empates, según formato y modo. */
+function valorDeRanking(
+  p: LivePlayer,
+  format: 'stroke_play' | 'stableford',
+  modo: 'gross' | 'neto',
+): number {
+  if (format === 'stableford') return p.points_total ?? 0
+  return modo === 'neto' ? (p.net_total ?? 0) : p.gross_total
+}
+
+/**
+ * Ordena por la métrica del torneo y manda al fondo a los que no empezaron.
+ *
+ * El `?? Infinity` anterior sólo protegía el neto: en bruto, un jugador sin
+ * cargar nada tenía `gross_total = 0` y lideraba la tabla.
+ */
 function sortPlayers(
   players: LivePlayer[],
   format: 'stroke_play' | 'stableford',
   modo: 'gross' | 'neto'
-): LivePlayer[] {
-  const copy = [...players]
-  if (format === 'stableford') {
-    // Mas puntos = mejor.
-    copy.sort((a, b) => (b.points_total ?? 0) - (a.points_total ?? 0))
-  } else if (modo === 'neto') {
-    copy.sort((a, b) => (a.net_total ?? Number.POSITIVE_INFINITY) - (b.net_total ?? Number.POSITIVE_INFINITY))
-  } else {
-    copy.sort((a, b) => a.gross_total - b.gross_total)
-  }
-  return copy
+): { ranked: LivePlayer[]; sinDatos: LivePlayer[] } {
+  const ranked = players.filter(tieneDatos)
+  const sinDatos = players.filter((p) => !tieneDatos(p))
+
+  ranked.sort((a, b) => {
+    const va = valorDeRanking(a, format, modo)
+    const vb = valorDeRanking(b, format, modo)
+    // Stableford: más puntos es mejor. Bruto/neto: menos golpes es mejor.
+    return format === 'stableford' ? vb - va : va - vb
+  })
+
+  return { ranked, sinDatos }
 }
 
 export default function IndividualLeaderboard({
@@ -35,17 +58,12 @@ export default function IndividualLeaderboard({
   format,
   modo,
 }: IndividualLeaderboardProps) {
-  const sorted = sortPlayers(players, format, modo)
+  const { ranked, sinDatos } = sortPlayers(players, format, modo)
+  const sorted = [...ranked, ...sinDatos]
   // Empates estilo golf por la misma métrica que ordenó (puntos / neto / bruto).
-  const positions = computePositions(
-    sorted.map((p) =>
-      format === 'stableford'
-        ? (p.points_total ?? 0)
-        : modo === 'neto'
-          ? (p.net_total ?? Number.POSITIVE_INFINITY)
-          : p.gross_total,
-    ),
-  )
+  // Sólo entre los que tienen datos: los que no empezaron no comparten posición
+  // con nadie, muestran "—".
+  const positions = computePositions(ranked.map((p) => valorDeRanking(p, format, modo)))
   const isStableford = format === 'stableford'
 
   // Estilos inline para tokens con fallback hex (sin tocar Tailwind config).
@@ -116,24 +134,33 @@ export default function IndividualLeaderboard({
           </tr>
         </thead>
         <tbody>
-          {sorted.map((p, idx) => (
-            <tr key={p.id}>
-              <td style={tdNumStyle}>{positions[idx]}</td>
-              <td style={{ ...tdStyle, fontWeight: 500 }}>{p.name}</td>
-              <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{p.category_name ?? '-'}</td>
-              <td style={tdNumStyle}>{p.gross_total}</td>
-              <td style={tdNumStyle}>{p.handicap_index}</td>
-              {isStableford ? (
-                <td style={{ ...tdNumStyle, fontWeight: 600 }}>{p.points_total ?? 0}</td>
-              ) : (
-                <>
-                  <td style={tdNumStyle}>{modo === 'neto' ? (p.net_total ?? '-') : '-'}</td>
-                  <td style={{ ...tdNumStyle, fontWeight: 600, color: vsParColor(p.vs_par) }}>{formatVsPar(p.vs_par)}</td>
-                </>
-              )}
-              <td style={{ ...tdNumStyle, color: 'var(--text-2, #5a6573)' }}>{formatThru(p.thru)}</td>
-            </tr>
-          ))}
+          {sorted.map((p, idx) => {
+            const conDatos = tieneDatos(p)
+            return (
+              <tr key={p.id}>
+                <td style={tdNumStyle}>{conDatos ? positions[idx] : EMPTY_LABEL}</td>
+                <td style={{ ...tdStyle, fontWeight: 500 }}>{p.name}</td>
+                <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{p.category_name ?? '-'}</td>
+                <td style={tdNumStyle}>{conDatos ? p.gross_total : EMPTY_LABEL}</td>
+                <td style={tdNumStyle}>{p.handicap_index}</td>
+                {isStableford ? (
+                  <td style={{ ...tdNumStyle, fontWeight: 600 }}>
+                    {conDatos ? (p.points_total ?? 0) : EMPTY_LABEL}
+                  </td>
+                ) : (
+                  <>
+                    <td style={tdNumStyle}>
+                      {modo === 'neto' && conDatos ? (p.net_total ?? EMPTY_LABEL) : EMPTY_LABEL}
+                    </td>
+                    <td style={{ ...tdNumStyle, fontWeight: 600, color: conDatos ? vsParColor(p.vs_par) : undefined }}>
+                      {formatScoreVsPar(p.vs_par, conDatos)}
+                    </td>
+                  </>
+                )}
+                <td style={{ ...tdNumStyle, color: 'var(--text-2, #5a6573)' }}>{formatThru(p.thru)}</td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

@@ -4,12 +4,12 @@
 // signo menos tipográfico que alinea con el "+" bajo tabular-nums, y color de
 // bajo-par para que el líder resalte (convención de marca: negativo en dorado).
 
-const MINUS = '−' // − (U+2212): mismo ancho que "+", alinea la columna "A par"
+import { formatScoreVsPar } from '@/golf/leaderboard/individual-score'
 
-/** "+3" / "E" / "−1" (menos tipográfico para bajo par). */
+/** "+3" / "E" / "−1" para un competidor que YA tiene datos.
+ *  Sin datos, el caller usa `formatScoreVsPar(vsPar, false)` → "—". */
 export function formatVsPar(vsPar: number): string {
-  if (vsPar === 0) return 'E'
-  return vsPar > 0 ? `+${vsPar}` : `${MINUS}${Math.abs(vsPar)}`
+  return formatScoreVsPar(vsPar, true)
 }
 
 /** "F" terminado · "—" sin empezar · número de hoyos jugados. El em dash evita

@@ -11,6 +11,8 @@ import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
 import { fetchCourseHoles, buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
+import { computeIndividualScore, sumIndividualScores } from '@/golf/leaderboard/individual-score'
+import { resolvePlayerName } from '@/golf/leaderboard/player-name'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './scrambleTeamsToLive'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
@@ -127,26 +129,54 @@ export default async function LivePage({ params }: PageProps) {
     }
   }
 
-  // 5) Agregar players con sus scores totales.
+  // 5) Agregar players con sus scores. Motor ÚNICO (`computeIndividualScore`),
+  //    el mismo que /torneo y /tv: neto derivado de gross + hcp + SI, y vs par
+  //    contra el par de los hoyos JUGADOS. Antes esta vista comparaba contra el
+  //    par de la cancha completa (thru 9 en par → "−36") y nunca computaba el
+  //    neto ni los puntos stableford: las columnas salían en blanco / en cero.
+  const individualCourseHoles = tournament.course_id
+    ? await fetchCourseHoles(supabase, tournament.course_id)
+    : []
+  const holesForIndividual =
+    individualCourseHoles.length > 0 ? individualCourseHoles : buildFallbackCourseHoles(holeCount)
+
+  const scoresByRound = new Map<string, ScoreRow[]>()
+  for (const s of scores) {
+    const bucket = scoresByRound.get(s.round_id)
+    if (bucket) bucket.push(s)
+    else scoresByRound.set(s.round_id, [s])
+  }
+
+  const modoTorneo = normalizeModo(tournament.modo_juego)
+
   const players: LivePlayer[] = playerRows.map((p) => {
-    const roundsOfPlayer = rounds.filter((r) => r.player_id === p.id)
-    const playerScores = scores.filter((s) => roundsOfPlayer.some((r) => r.id === s.round_id))
-    const scoresPerHole = playerScores
-      .map((s) => s.gross_score ?? 0)
-      .filter((v): v is number => Number.isFinite(v))
-    const grossTotal = scoresPerHole.reduce((a, b) => a + b, 0)
-    const thru = playerScores.filter((s) => s.gross_score !== null).length
+    const roundsOfPlayer = rounds
+      .filter((r) => r.player_id === p.id)
+      .sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
+    const hcp = Number(p.handicap_at_registration ?? 0)
+
+    const perRound = roundsOfPlayer.map((r) => {
+      const byHole: Record<string, number> = {}
+      for (const s of scoresByRound.get(r.id) ?? []) {
+        if (s.gross_score != null) byHole[String(s.hole_number)] = s.gross_score
+      }
+      return computeIndividualScore(byHole, holesForIndividual, hcp, holeCount)
+    })
+    const agg = sumIndividualScores(perRound)
 
     // Atributos extendidos (group_id, category_id) que viajan en el shape pero no son parte de LiveBase.
     const ext: LivePlayer & { group_id?: string | null; category_id?: string | null } = {
       id: p.id,
-      name: p.profiles?.name ?? 'Sin nombre',
+      name: resolvePlayerName(p.profiles?.name),
       category_name: p.categories?.name ?? undefined,
-      handicap_index: Number(p.handicap_at_registration ?? 0),
-      scores_per_hole: scoresPerHole,
-      gross_total: grossTotal,
-      vs_par: grossTotal > 0 ? grossTotal - parTotal : 0,
-      thru,
+      handicap_index: hcp,
+      scores_per_hole: agg.scores.map((v) => v ?? 0),
+      gross_total: agg.grossTotal,
+      net_total: agg.netTotal,
+      points_total: agg.stablefordTotal,
+      has_data: agg.hasData,
+      vs_par: modoTorneo === 'neto' ? agg.vsParNet : agg.vsParGross,
+      thru: agg.holesPlayed,
       group_id: playerGroupMap.get(p.id) ?? null,
       category_id: p.category_id ?? null,
     }
