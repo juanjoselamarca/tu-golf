@@ -12,6 +12,20 @@ import { buildScoringHandicaps } from './scoring-handicap'
 import type { CourseHole, TournamentLeaderboardContext } from './types'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
 
+const COURSE_HOLES: CourseHole[] = Array.from({ length: 18 }, (_, i) => ({
+  numero: i + 1,
+  par: 4,
+  stroke_index: i + 1,
+}))
+
+const CTX: TournamentLeaderboardContext = {
+  parTotal: 72,
+  totalHoyos: 18,
+  modoJuego: 'gross',
+  formatoJuego: 'stroke_play',
+  courseHoles: COURSE_HOLES,
+}
+
 /**
  * Handicaps de scoring en modo NO-whs (índice crudo) — el comportamiento
  * histórico de los torneos existentes. Los tests que necesitan WHS lo arman
@@ -30,20 +44,6 @@ function hcpsCrudos(players: DBPlayer[]) {
 /** Atajo: corre el builder con los handicaps crudos de esos jugadores. */
 function build(players: DBPlayer[], ctx = CTX, rondas = 1) {
   return buildLeaderboardFromLegacy(players, ctx, rondas, hcpsCrudos(players))
-}
-
-const COURSE_HOLES: CourseHole[] = Array.from({ length: 18 }, (_, i) => ({
-  numero: i + 1,
-  par: 4,
-  stroke_index: i + 1,
-}))
-
-const CTX: TournamentLeaderboardContext = {
-  parTotal: 72,
-  totalHoyos: 18,
-  modoJuego: 'gross',
-  formatoJuego: 'stroke_play',
-  courseHoles: COURSE_HOLES,
 }
 
 /**

@@ -132,10 +132,28 @@ export function parDeLosHoyosJugados(
   for (const h of holes) {
     if (!parByNumero.has(h.numero)) parByNumero.set(h.numero, h.par ?? 4)
   }
-  return Array.from(parByNumero.entries())
+  const cargados = Array.from(parByNumero.entries())
     .sort((a, b) => a[0] - b[0])
     .slice(0, roundHoles)
-    .reduce((sum, [, par]) => sum + par, 0)
+  const suma = cargados.reduce((sum, [, par]) => sum + par, 0)
+  // Catálogo incompleto (menos hoyos cargados que los de la ronda): completar a
+  // par 4, el mismo fallback que `buildFallbackCourseHoles` y
+  // `computeIndividualScore`. Devolver un par CORTO sería el bug espejo del que
+  // esta función existe para matar: con un catálogo de 9 hoyos y ronda de 18,
+  // `(CR − 36)` inflaría el course handicap ~36 golpes.
+  const faltantes = Math.max(0, roundHoles - cargados.length)
+  return suma + faltantes * 4
+}
+
+/**
+ * Índice de 9 hoyos = índice 18h / 2 (WHS).
+ *
+ * Fuente única de la mitad: `strokesRecibidosEnHoyo` reparte el course handicap
+ * sobre los 9 hoyos jugados (maxSI=9), así que el CH tiene que ser el de 9h.
+ * Sin la división la ronda de 9h recibe ~2× los golpes que corresponden.
+ */
+export function indiceDe9Hoyos(handicapIndex: number): number {
+  return handicapIndex / 2
 }
 
 /**

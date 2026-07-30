@@ -127,8 +127,11 @@ describe('computePlayingHandicapForCoach — handicap de juego real, sin inventa
     const r = await computePlayingHandicapForCoach(sb, 'u1', { course: 'Lomas', holes: 9 })
     expect(r.ok).toBe(true)
     if (r.ok) {
-      // WHS 9h: redondeo(9.6 × 128/113 + (36.2 − 36)) = redondeo(10.87 + 0.2) = 11
-      expect(r.handicap_de_juego).toBe(11)
+      // WHS 9h: el índice que entra es el de 9 HOYOS = 9.6/2 = 4.8.
+      // redondeo(4.8 × 128/113 + (36.2 − 36)) = redondeo(5.44 + 0.2) = 6.
+      // Antes se pasaba el índice entero y el coach prometía el DOBLE de
+      // golpes de los que el scorer da en cancha.
+      expect(r.handicap_de_juego).toBe(6)
       expect(r.holes).toBe(9)
       expect(r.course_rating).toBe(36.2)
     }

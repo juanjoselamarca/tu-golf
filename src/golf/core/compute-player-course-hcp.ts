@@ -5,6 +5,7 @@
 
 import { resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { courseHandicap18h, courseHandicap9h } from '@/golf/core/stroke-index'
+import { indiceDe9Hoyos } from '@/golf/core/course-handicap'
 
 export interface PlayerForCourseHcp {
   handicap_at_registration: number | null
@@ -19,18 +20,6 @@ export interface PlayerForCourseHcp {
 export interface TournamentForCourseHcp {
   tees: string | null
   courses: { par_total: number; slope_rating: number; course_rating: number } | null
-}
-
-/**
- * Índice de 9 hoyos = índice 18h / 2 (WHS).
- *
- * `strokesRecibidosEnHoyo` reparte el course handicap sobre los 9 hoyos que se
- * juegan (maxSI=9), así que el CH tiene que ser el de 9h. Sin esta división la
- * ronda de 9h recibía ~2× los golpes que corresponden. Es la misma regla que
- * `resolverCourseHandicap` aplica en el camino de ronda libre desde el 11-jun-2026.
- */
-function indice9h(handicapIndex: number): number {
-  return handicapIndex / 2
 }
 
 /**
@@ -79,7 +68,7 @@ export function computePlayerCourseHcp(
         // Use 9-hole specific ratings if available, otherwise halve the 18h CR
         const slope9 = tee.front_slope_rating ?? tee.slope
         const cr9 = tee.front_course_rating ?? tee.rating / 2
-        return courseHandicap9h(indice9h(index), slope9, cr9, par9h(parTotal))
+        return courseHandicap9h(indiceDe9Hoyos(index), slope9, cr9, par9h(parTotal))
       }
       return courseHandicap18h(index, tee.slope, tee.rating, parTotal)
     }
@@ -90,7 +79,7 @@ export function computePlayerCourseHcp(
   if (course?.slope_rating && course?.course_rating) {
     if (holeCount <= 9) {
       // Halve course-level CR for 9-hole estimate
-      return courseHandicap9h(indice9h(index), course.slope_rating, course.course_rating / 2, par9h(parTotal))
+      return courseHandicap9h(indiceDe9Hoyos(index), course.slope_rating, course.course_rating / 2, par9h(parTotal))
     }
     return courseHandicap18h(index, course.slope_rating, course.course_rating, parTotal)
   }

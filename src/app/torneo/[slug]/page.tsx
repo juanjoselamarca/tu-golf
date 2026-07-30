@@ -156,7 +156,6 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       // (`resolveScoringCourseHcp`). En torneos `hcp_calc_mode='whs'` es el
       // course handicap por tee; en el resto, el índice crudo. Sin esto la tabla
       // pública contradice a la pantalla del organizador por varios golpes.
-      const parParaHcp = sumParDedupByHole(courseHoles)
       const courseTees = tournament.courses?.id
         ? await fetchCourseTees(supabase, tournament.courses.id)
         : []
