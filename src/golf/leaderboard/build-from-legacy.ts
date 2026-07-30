@@ -12,6 +12,7 @@ import type { Player } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
 import type { LeaderboardEntry, TournamentLeaderboardContext } from './types'
 import { rankEntries, type RankingMode } from './rank-entries'
+import { resolveLegacyPlayerName, parOfPlayedHoles } from './board-rules'
 
 export interface LegacyLeaderboardOutput {
   players: Player[]
@@ -61,29 +62,59 @@ export function buildLeaderboardFromLegacy(
     const sortedRounds = [...(p.rounds || [])].sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
 
     let cumulGross = 0, cumulNet = 0, cumulPoints = 0, totalHolesPlayed = 0
+    let cumulParPlayed = 0
+    let todayNet = 0
     let latestScores = new Array(totalHoyos).fill(null) as (number | null)[]
     let allFinished = true
 
     for (const round of sortedRounds) {
-      cumulGross += round.total_gross ?? 0
-      cumulNet += round.total_net ?? 0
-      cumulPoints += round.total_points ?? 0
-
       const scores = new Array(totalHoyos).fill(null) as (number | null)[]
       ;(round.hole_scores || []).forEach((hs) => {
         if (hs.gross_score != null) scores[hs.hole_number - 1] = hs.gross_score
       })
-      const roundHoles = scores.filter((s) => s !== null).length
-      totalHolesPlayed += roundHoles
+      const playedHoles: number[] = []
+      scores.forEach((s, i) => { if (s !== null) playedHoles.push(i + 1) })
+
+      // Con detalle por hoyo el neto se DERIVA de los scores (mismo cálculo que
+      // el scorer y que build-from-ronda-libre). No se confía en `total_net`
+      // almacenado: es una columna denormalizada que escribe /api/game y que
+      // queda en 0 si los scores entraron por cualquier otro camino — de ahí
+      // salían los "líderes" a −72 que nadie había jugado.
+      let roundGross: number, roundNet: number, roundPoints: number, roundPar: number
+      if (playedHoles.length > 0) {
+        roundGross = 0; roundNet = 0; roundPoints = 0
+        for (const h of playedHoles) {
+          const gross = scores[h - 1] as number
+          const hole = holeMap.get(h)
+          const si = siAlloc[h] ?? hole?.stroke_index ?? h
+          roundGross += gross
+          roundNet += gross - strokesRecibidosEnHoyo(hcp, si, totalHoyos)
+          if (hole) roundPoints += puntosStablefordHoyo(gross, hole.par, hcp, si, totalHoyos)
+        }
+        roundPar = parOfPlayedHoles(courseHoles, playedHoles)
+      } else {
+        // Ronda sin detalle por hoyo (sólo totales cargados): se usa lo
+        // almacenado y se asume vuelta completa para la referencia de par.
+        roundGross = round.total_gross ?? 0
+        roundNet = round.total_net ?? 0
+        roundPoints = round.total_points ?? 0
+        roundPar = roundGross > 0 ? parTotal : 0
+      }
+
+      cumulGross += roundGross
+      cumulNet += roundNet
+      cumulPoints += roundPoints
+      cumulParPlayed += roundPar
+      totalHolesPlayed += playedHoles.length
+      todayNet = roundPar > 0 ? roundNet - roundPar : 0
 
       if (round.status !== 'closed' && round.status !== 'official') allFinished = false
       latestScores = scores
     }
 
     const roundsPlayed = sortedRounds.length
-    const netVsPar = totalHolesPlayed > 0 ? cumulNet - (parTotal * roundsPlayed) : 0
-    const latestRound = sortedRounds[sortedRounds.length - 1]
-    const todayNet = latestRound ? (latestRound.total_net ?? 0) - parTotal : 0
+    // "A par" contra los hoyos jugados, no contra la vuelta entera.
+    const netVsPar = totalHolesPlayed > 0 ? cumulNet - cumulParPlayed : 0
 
     const stablefordScores: number[] = formatoJuego === 'stableford'
       ? Array.from({ length: totalHoyos }, (_, i) => {
@@ -97,7 +128,8 @@ export function buildLeaderboardFromLegacy(
       : []
 
     return {
-      name: p.profiles?.name || 'Jugador',
+      id: p.id,
+      name: resolveLegacyPlayerName(p),
       cat: p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
       handicap: hcp,
       grossTotal: cumulGross,
@@ -105,6 +137,7 @@ export function buildLeaderboardFromLegacy(
       stablefordTotal: cumulPoints,
       stablefordScores,
       vsPar: netVsPar,
+      parPlayed: cumulParPlayed,
       holesPlayed: totalHolesPlayed,
       roundsPlayed,
       scores: latestScores,
@@ -151,7 +184,7 @@ export function buildLeaderboardFromLegacy(
     const playerIdx = primaryPlayers.length
     primaryPlayers.push({
       pos:     withRounds.length + i + 1,
-      name:    p.profiles?.name ?? p.player_name ?? 'Jugador',
+      name:    resolveLegacyPlayerName(p),
       country: 'CL',
       cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
       hcp:     p.handicap_at_registration ?? 0,
@@ -188,7 +221,7 @@ export function buildLeaderboardFromLegacy(
 
       return {
         id:                   p.id,
-        nombre:               p.profiles?.name ?? p.player_name ?? 'Jugador',
+        nombre:               resolveLegacyPlayerName(p),
         handicapIndex:        hcp,
         currentScore,
         hoyosCompletados:     hoyosComp,

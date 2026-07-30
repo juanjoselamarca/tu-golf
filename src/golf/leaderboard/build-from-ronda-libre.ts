@@ -77,6 +77,7 @@ export function buildLeaderboardFromRondaLibre(
       : []
 
     return {
+      id: j.id,
       name: j.nombre,
       handicap: hcp,
       hcpDisplay: j.handicap_display ?? hcp,
@@ -85,6 +86,7 @@ export function buildLeaderboardFromRondaLibre(
       stablefordTotal,
       stablefordScores,
       vsPar: holesPlayed > 0 ? grossTotal - parPlayed : 0,
+      parPlayed,
       holesPlayed,
       roundsPlayed: 1,
       scores: scoreArr,
