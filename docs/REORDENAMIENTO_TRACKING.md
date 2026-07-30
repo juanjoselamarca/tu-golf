@@ -297,3 +297,22 @@ radius de golpe hacia las páginas gigantes):
 | `src/app/torneo/[slug]/page.tsx` (cabecera serif + pill dorada + wordmark "Golfers +" redundante) | ⏳ pendiente — migrar al tocar el flujo del torneo público |
 | `src/app/organizador/[slug]/scoring/page.tsx` (bloque navy propio) | ⏳ pendiente — migrar al tocar scoring |
 | `src/app/ronda-libre/[codigo]` en-vivo (título genérico "Marcador en vivo", no el nombre del torneo) | ⏳ pendiente — migrar al tocar ronda-libre |
+
+---
+
+## Deuda anotada por PR #289 (handicap 9 hoyos) — 30-jul-2026
+
+El PR cerró el bug de los course handicaps negativos en vueltas de 9 hoyos y
+unificó la decisión de escala (`esEscalaDe18Hoyos` / `parEnEscalaDe9` /
+`courseRatingEnEscalaDe9` / `parDeLosHoyosJugados` / `indiceDe9Hoyos` en
+`src/golf/core/course-handicap.ts`). Lo que quedó FUERA de alcance, en orden de
+prioridad, con el motivo:
+
+| # | Deuda | Dónde | Por qué quedó fuera |
+|---|---|---|---|
+| 1 | **P0 — El board público no aplica el course handicap.** `buildLeaderboardFromLegacy` deriva el neto desde los gross con `handicap_at_registration` crudo: sin conversión WHS, sin mitad de 9h, sin gate de `hcp_calc_mode`. El scorer persiste un neto y `/torneo`, `/tv` y `/en-vivo` muestran otro. | `src/golf/leaderboard/build-from-legacy.ts:61`, `:199`, `:214` | Es la unificación del board del PR #288, deliberadamente excluida de este PR para no mezclar el arreglo de handicap con un refactor de display. **Bloquea correr un torneo de 9 hoyos.** |
+| 2 | **P0 — `handicap_at_registration` carga dos conceptos distintos.** Para jugadores registrados guarda un course handicap de 18h ya resuelto; para invitados, el índice crudo. `computePlayerCourseHcp` lo trata como índice y le aplica la fórmula WHS de nuevo (doble conversión, conocida desde el 8-jun) y ahora también la mitad de 9h. | `src/app/api/torneos/[slug]/inscribirse/route.ts:44`, `.../players/route.ts:107`, `src/golf/core/compute-player-course-hcp.ts` | Arreglarlo toca el motor de INSCRIPCIÓN de torneos. CLAUDE.md: "nunca se ensancha el blast radius de un PR de display hacia el motor de creación". Se migra al tocar ese flujo (ver `project_inscripcion_unificacion`). |
+| 3 | **P1 — "Qué hoyos se juegan" contestado de dos formas.** `normalizedStrokeIndexByHole` filtra por `numero <= holeCount` SIN deduplicar; `parDeLosHoyosJugados` deduplica y hace `slice`. Sobre un catálogo con filas repetidas por recorrido operan sobre conjuntos distintos. | `src/golf/core/stroke-index.ts:224` vs `src/golf/core/course-handicap.ts` | Cambiar la normalización del SI altera el reparto de golpes en TODOS los torneos, incluidos los de 18h en curso. Necesita su propio PR con canario. |
+| 4 | **Datos sucios — C.G. Río Blanco.** `par_total` 35 con `rating` 55 en sus 4 tees y 0 filas en `course_holes`. La fórmula ahora es coherente, pero con esos datos devuelve 26 golpes para un índice 12. Es catálogo, no código. | tabla `courses` / `course_tees` | Corrección de datos, no de código. Requiere el CR real de 9 hoyos del club. |
+| 5 | **`scoring/page.tsx` sigue "sucio"** (1005 LOC, `supabase.from()` directo desde `src/app/` fuera de `api/`). | `src/app/organizador/[slug]/scoring/page.tsx` | Aplicó la excepción de bug bloqueante: el cambio fueron 3 líneas dentro del cálculo de handicap. Refactor pendiente. |
+

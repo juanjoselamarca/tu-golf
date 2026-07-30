@@ -127,6 +127,38 @@ describe('computePlayerCourseHcp', () => {
     expect(ch).toBeGreaterThan(0)
   })
 
+  // Segundo hallazgo del review: la defensa había quedado de un solo lado. El
+  // par se protegía contra la escala de 18, el Course Rating no. En una cancha
+  // de 9 hoyos REALES el rating ya es de 9, y partirlo al medio devolvía otra
+  // vez un negativo — el mismo síntoma por el lado contrario.
+  // Caso real de prod: C.G. Río Blanco, par_total 35, rating 55, slope 113,
+  // sin front ratings. Índice 12 daba −1.
+  it('una cancha de 9 hoyos REALES no parte el CR al medio (Río Blanco, par 35)', () => {
+    const tournament = { tees: null, courses: { par_total: 35, slope_rating: 113, course_rating: 55 } }
+    const player = { ...basePlayer, handicap_at_registration: 12 }
+
+    const ch = computePlayerCourseHcp(player, tournament, [], 35, 9)
+
+    // ANTES: round(6 × 113/113 + (55/2 − 35)) = round(6 − 7.5) = −1.
+    // AHORA: round(6 × 113/113 + (55 − 35)) = round(26) = 26.
+    expect(ch).toBe(26)
+    expect(ch).toBeGreaterThan(0)
+  })
+
+  it('un tee de cancha de 9 hoyos reales tampoco parte su rating', () => {
+    const tee = {
+      id: 'tee-9h', course_id: 'c1', nombre: 'Azul', rating: 35.5, slope: 118,
+      front_course_rating: null, front_slope_rating: null, genero: null,
+    }
+    const tournament = { tees: null, courses: { par_total: 35, slope_rating: 113, course_rating: 55 } }
+    const player = { ...basePlayer, handicap_at_registration: 12, tee_id: 'tee-9h' }
+
+    const ch = computePlayerCourseHcp(player, tournament, [tee as never], 35, 9)
+
+    // round(6 × 118/113 + (35.5 − 35)) = round(6.27 + 0.5) = 7 — sin partir 35.5.
+    expect(ch).toBe(7)
+  })
+
   // El índice del jugador es SIEMPRE el de 18 hoyos y no se toca: la mitad vive
   // dentro de la fórmula, no en el dato. Si algún día alguien "arregla" esto
   // guardando el índice a la mitad, el de 18 hoyos se rompe y este test lo caza.

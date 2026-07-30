@@ -33,7 +33,7 @@ export function resolverCourseHandicap(
   // combinado con el slope/CR/par de 9h. `strokesRecibidosEnHoyo` reparte este CH
   // sobre los 9 hoyos jugados (maxSI=9), así que el CH debe ser el de 9h, no el de
   // 18h. Sin esta división, una ronda de 9h recibía ~2× los golpes correctos.
-  const idx = courseData.is9Hole ? handicapIndex / 2 : handicapIndex
+  const idx = courseData.is9Hole ? indiceDe9Hoyos(handicapIndex) : handicapIndex
   return Math.round(idx * (slope / 113) + (courseRating - par))
 }
 
@@ -94,9 +94,8 @@ async function resolveNineHolePar(
   courseId: string,
   parTotal: number | undefined,
 ): Promise<number> {
-  // Si el caller ya pasó un par de 9 hoyos (≤50, nunca confundible con un par de 18h),
-  // es correcto: respetarlo.
-  if (parTotal != null && parTotal <= 50) return parTotal
+  // Si el caller ya pasó un par de 9 hoyos, es correcto: respetarlo.
+  if (parTotal != null && !esEscalaDe18Hoyos(parTotal)) return parTotal
   // El caller pasó el par de 18 (o nada): derivar el par del front-9 real.
   const { data } = await supabase
     .from('course_holes')
@@ -108,7 +107,7 @@ async function resolveNineHolePar(
     if (par9 > 0) return par9
   }
   // Sin datos de hoyos: mitad del par-18 si lo tenemos (aprox. simétrica), si no 36.
-  return parTotal != null ? Math.round(parTotal / 2) : 36
+  return parTotal != null ? parEnEscalaDe9(parTotal) : 36
 }
 
 /**
@@ -154,6 +153,51 @@ export function parDeLosHoyosJugados(
  */
 export function indiceDe9Hoyos(handicapIndex: number): number {
   return handicapIndex / 2
+}
+
+/**
+ * ¿El par y el Course Rating de esta cancha vienen en escala de 18 hoyos?
+ *
+ * FUENTE ÚNICA de la decisión de escala. El par es la señal confiable: es un
+ * entero duro (35-36 en una cancha de 9, 70-72 en una de 18) y nunca ambiguo.
+ * El Course Rating es un float que puede venir sucio del catálogo, así que NO
+ * decide — obedece.
+ *
+ * Existe porque esta pregunta estaba contestada en tres lugares con tres
+ * criterios distintos: `resolveNineHolePar` guardaba el par con `≤50`, los dos
+ * caminos de `resolverCourseData` partían el CR SIN guarda, y el coach partía
+ * el par SIN guarda. Con criterios que no coinciden, el par y el CR terminan en
+ * escalas distintas dentro de la MISMA fórmula — que es exactamente el bug de
+ * los course handicaps negativos, sólo que por el otro lado.
+ */
+export function esEscalaDe18Hoyos(par: number): boolean {
+  return par > 50
+}
+
+/**
+ * Par de la vuelta de 9 hoyos, desde el par de la cancha.
+ *
+ * Un par ≤50 ya es de 9 hoyos y se respeta tal cual (C.G. Río Blanco: par 35).
+ * Uno mayor es de 18 y se parte al medio.
+ */
+export function parEnEscalaDe9(par: number): number {
+  return esEscalaDe18Hoyos(par) ? Math.round(par / 2) : par
+}
+
+/**
+ * Course Rating de la vuelta de 9 hoyos, en la MISMA escala que `parEnEscalaDe9`.
+ *
+ * ⚠️ Toma el par de la cancha como señal de escala, no su propia magnitud. Un
+ * umbral propio sobre el CR (`rating > 50 ? /2 : rating`) parece razonable y es
+ * falso: C.G. Río Blanco tiene par 35 (9 hoyos) con rating 55, así que un
+ * umbral sobre el rating lo partiría a 27.5 contra un par de 35 y devolvería
+ * `(27.5 − 35)` → course handicap NEGATIVO para un jugador de índice 12.
+ *
+ * Si el tee publica `front_course_rating` usá ESE valor y no esta función: ya
+ * es un CR de 9 hoyos medido, no una aproximación.
+ */
+export function courseRatingEnEscalaDe9(courseRating: number, parDeLaCancha: number): number {
+  return esEscalaDe18Hoyos(parDeLaCancha) ? courseRating / 2 : courseRating
 }
 
 /**
@@ -270,9 +314,18 @@ export async function resolverCourseData(
       // resolverCourseHandicap divida el índice por 2 (Rule 6.1). Sin el flag el
       // jugador recibía ~2× los golpes — mismo criterio que el fallback courses (abajo).
       const hasFront9 = teeData.front_course_rating != null && teeData.front_slope_rating != null
+      // Señal de escala del rating del tee: el par PROPIO de la cancha. El
+      // `parTotal` que llega es el par de la RONDA y puede venir ya dividido
+      // (36), así que no distingue media cancha de 72 de una cancha de 9 hoyos
+      // reales. Sin la fila de courses se asume 18h — el comportamiento previo.
+      const { data: courseRow } = hasFront9
+        ? { data: null }
+        : await supabase.from('courses').select('par_total').eq('id', courseId).maybeSingle()
       return {
         slope: hasFront9 ? teeData.front_slope_rating! : teeData.slope,
-        courseRating: hasFront9 ? teeData.front_course_rating! : teeData.rating / 2,
+        courseRating: hasFront9
+          ? teeData.front_course_rating!
+          : courseRatingEnEscalaDe9(teeData.rating, courseRow?.par_total ?? 72),
         par: await resolveNineHolePar(supabase, courseId, parTotal),
         is9Hole: true,
       }
@@ -297,8 +350,10 @@ export async function resolverCourseData(
       // que indice-golfers.ts. El par debe ser de 9 hoyos, NO de 18.
       return {
         slope: course.slope_rating,
-        courseRating: course.course_rating / 2,
-        par: await resolveNineHolePar(supabase, courseId, parTotal),
+        // Acá sí tenemos el par PROPIO de la cancha en la mano: esa es la señal
+        // de escala, y tiene prioridad sobre el `parTotal` de la ronda.
+        courseRating: courseRatingEnEscalaDe9(course.course_rating, course.par_total ?? parTotal ?? 72),
+        par: await resolveNineHolePar(supabase, courseId, parTotal ?? course.par_total ?? undefined),
         is9Hole: true,
       }
     }

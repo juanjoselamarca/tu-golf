@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { resolverCourseHandicap, resolverCourseHandicapDisplay, courseHandicapParaHoyos, resolverCourseData, parDeLosHoyosJugados, indiceDe9Hoyos, type CourseData } from './course-handicap'
+import { resolverCourseHandicap, resolverCourseHandicapDisplay, courseHandicapParaHoyos, resolverCourseData, parDeLosHoyosJugados, indiceDe9Hoyos, esEscalaDe18Hoyos, parEnEscalaDe9, courseRatingEnEscalaDe9, type CourseData } from './course-handicap'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -464,5 +464,40 @@ describe('indiceDe9Hoyos — la mitad vive en la fórmula, NO en el índice', ()
     const std18: CourseData = { slope: 113, courseRating: 72, par: 72 }
     expect(resolverCourseHandicap(12, std18)).toBe(12)
     expect(resolverCourseHandicap(12, std9)).toBe(6)
+  })
+})
+
+describe('escala de 9 hoyos — el par decide, el CR obedece', () => {
+  it('reconoce la escala por el par, no por el rating', () => {
+    expect(esEscalaDe18Hoyos(72)).toBe(true)
+    expect(esEscalaDe18Hoyos(70)).toBe(true)
+    expect(esEscalaDe18Hoyos(36)).toBe(false)
+    expect(esEscalaDe18Hoyos(35)).toBe(false) // C.G. Río Blanco
+  })
+
+  it('par: parte el de 18, respeta el de 9', () => {
+    expect(parEnEscalaDe9(72)).toBe(36)
+    expect(parEnEscalaDe9(71)).toBe(36) // round(35.5)
+    expect(parEnEscalaDe9(36)).toBe(36)
+    expect(parEnEscalaDe9(35)).toBe(35)
+  })
+
+  it('CR: usa el PAR como señal de escala, no su propia magnitud', () => {
+    // Río Blanco: par 35 (9 hoyos) con rating 55. Un umbral sobre el rating
+    // (55 > 50 → partir) daría 27.5 contra par 35 → handicap NEGATIVO.
+    expect(courseRatingEnEscalaDe9(55, 35)).toBe(55)
+    // Cancha de 18 normal: el rating sí se parte.
+    expect(courseRatingEnEscalaDe9(72, 72)).toBe(36)
+  })
+
+  it('par y CR quedan SIEMPRE en la misma escala (la invariante que mata el negativo)', () => {
+    for (const [par, cr] of [[72, 72.1], [70, 69.5], [36, 36.2], [35, 55]] as const) {
+      const par9 = parEnEscalaDe9(par)
+      const cr9 = courseRatingEnEscalaDe9(cr, par)
+      // Un jugador de índice 12 nunca puede recibir golpes negativos en una
+      // cancha cuyo CR no está por debajo de su par en más de ~6 golpes.
+      const ch = Math.round(indiceDe9Hoyos(12) * (113 / 113) + (cr9 - par9))
+      expect(ch).toBeGreaterThan(0)
+    }
   })
 })

@@ -15,7 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { matchCourseInDB } from '@/golf/courses/matching'
 import { resolveTeeRatingsForCourse } from '@/lib/data/course-tees'
 import { courseHandicap18h, courseHandicap9h } from '@/golf/core/stroke-index'
-import { indiceDe9Hoyos } from '@/golf/core/course-handicap'
+import { indiceDe9Hoyos, parEnEscalaDe9 } from '@/golf/core/course-handicap'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -121,8 +121,10 @@ export async function computePlayingHandicapForCoach(
     cr = ratings.nineHoleRatings.cr9h
     slope = ratings.nineHoleRatings.slope9h
     // Índice de 9 hoyos, no el de 18: si no, el coach le dice al jugador el DOBLE
-    // de golpes que le va a dar el scorer en cancha.
-    handicapDeJuego = courseHandicap9h(indiceDe9Hoyos(indice), slope, cr, Math.round(parTotal / 2))
+    // de golpes que le va a dar el scorer en cancha. Y el par por la fuente
+    // canónica: `parTotal / 2` a mano convertía el par 36 de una cancha de 9
+    // hoyos reales en 18, inflando el handicap ~18 golpes.
+    handicapDeJuego = courseHandicap9h(indiceDe9Hoyos(indice), slope, cr, parEnEscalaDe9(parTotal))
   } else {
     cr = ratings.cr
     slope = ratings.slope
