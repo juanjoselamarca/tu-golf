@@ -14,6 +14,7 @@ import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 import {
   fetchCourseHoles,
+  fetchLegacyHcpContext,
   fetchLegacyPlayers,
   buildFallbackCourseHoles,
   sumParDedupByHole,
@@ -129,6 +130,9 @@ export default async function LivePage({ params }: PageProps) {
     modoJuego: liveTournament.modo as ModoJuego,
     formatoJuego: normalizeFormat(rawFormat) as FormatoJuego,
     courseHoles: boardHoles,
+    // Course handicap por tee (mitad en vueltas de 9h), igual que /torneo, /tv y
+    // la tarjeta del organizador. Fuente única: fetchLegacyHcpContext.
+    hcp: await fetchLegacyHcpContext(supabase, tournament.id),
   }
   const board = buildLeaderboardFromLegacy(dbPlayers, boardCtx, liveTournament.total_rounds)
   const playerMetaById = new Map(

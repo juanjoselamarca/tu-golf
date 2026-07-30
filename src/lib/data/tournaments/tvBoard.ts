@@ -8,9 +8,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
-import type { CourseHole } from '@/golf/leaderboard/types'
+import type { CourseHole, LegacyHcpContext } from '@/golf/leaderboard/types'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { captureError } from '@/lib/error-tracking'
+import { fetchLegacyHcpContext, type Client } from './leaderboard'
 
 export interface TVWithdrawnEntry {
   name: string
@@ -35,10 +36,13 @@ export interface TVBoardData {
   dbPlayers: DBPlayer[]
   courseHoles: CourseHole[]
   withdrawn: TVWithdrawnEntry[]
+  /** Contexto para el course handicap por jugador — el TV pinta el MISMO neto
+   *  que /torneo y que la tarjeta en cancha, no uno propio. */
+  hcp: LegacyHcpContext
 }
 
 const TV_PLAYER_SELECT =
-  'id, handicap_at_registration, player_name, category_id, ' +
+  'id, handicap_at_registration, player_name, category_id, tee_id, ' +
   'profiles(name, indice), categories(name), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number, ' +
   'hole_scores(hole_number, gross_score))'
@@ -80,7 +84,7 @@ export async function fetchTVBoardData(
   if (!rawT) return null
   const t = rawT as unknown as TVTournamentRow
 
-  const [playersRes, withdrawnRes, holesRes] = await Promise.all([
+  const [playersRes, withdrawnRes, holesRes, hcp] = await Promise.all([
     supabase
       .from('players')
       .select(TV_PLAYER_SELECT)
@@ -94,6 +98,10 @@ export async function fetchTVBoardData(
     t.course_id
       ? supabase.from('course_holes').select('numero, par, stroke_index').eq('course_id', t.course_id)
       : Promise.resolve({ data: [] as CourseHole[], error: null }),
+    // Mismo helper que usan /torneo y /en-vivo (un concepto, una fuente). El cast
+    // es sólo de tipos: `fetchLegacyHcpContext` está tipado contra el cliente de
+    // servidor, pero la query es idéntica desde el navegador.
+    fetchLegacyHcpContext(supabase as unknown as Client, t.id),
   ])
 
   // Si los hoyos no cargan, el board cae a par-4 plano con SI = nº de hoyo: el
@@ -125,5 +133,6 @@ export async function fetchTVBoardData(
     dbPlayers: ((playersRes.data ?? []) as unknown) as DBPlayer[],
     courseHoles: ((holesRes.data ?? []) as unknown) as CourseHole[],
     withdrawn,
+    hcp,
   }
 }

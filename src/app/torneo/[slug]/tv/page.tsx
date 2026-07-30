@@ -51,7 +51,7 @@ export default function TVPage() {
     const data = await fetchTVBoardData(createClient(), slug)
     if (!data) { setLoading(false); return }
 
-    const { tournament: t, dbPlayers, courseHoles, withdrawn: wd } = data
+    const { tournament: t, dbPlayers, courseHoles, withdrawn: wd, hcp } = data
     setTournament(t)
     setWithdrawn(wd)
 
@@ -66,6 +66,10 @@ export default function TVPage() {
       modoJuego: t.modo_juego,
       formatoJuego: t.formato_juego,
       courseHoles: holes,
+      // Golpes de handicap con la cuenta del scorer (course handicap por tee,
+      // mitad en 9h). Sin esto la pantalla grande mostraba un neto distinto al
+      // de la landing y al de la tarjeta del jugador.
+      hcp,
     }
     const board = buildLeaderboardFromLegacy(dbPlayers, ctx, t.total_rounds)
 

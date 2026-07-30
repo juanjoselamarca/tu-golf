@@ -204,25 +204,30 @@ flujo.
 | `src/golf/formats` — falta `isStablefordFormat()` | ⏳ pendiente — crear la canónica al tocar el primer flujo |
 | ~10 call-sites productivos con el predicado inline | ⏳ pendiente — migrar al tocar cada flujo |
 
-### P0 ABIERTO — el board legacy usa `handicap_at_registration` crudo como course handicap
+### P0 CERRADO (30-jul) — el board legacy usaba `handicap_at_registration` crudo como course handicap
 
 Detectado el 29-jul al verificar el board unificado contra la data real del gate.
-`build-from-legacy.ts` (líneas 61 / 190 / 204) toma `handicap_at_registration` tal cual
-para repartir golpes. Esa columna guarda **dos unidades distintas**: course handicap para
-inscritos con cuenta, e **índice crudo** para invitados. Además nunca se ajusta a 9h ni
-por slope del tee.
+`build-from-legacy.ts` tomaba `handicap_at_registration` tal cual para repartir golpes,
+sin ajuste a 9h ni por slope del tee — mientras la tarjeta del organizador ya repartía el
+course handicap WHS (PR #289). Las dos pantallas del mismo torneo mostraban netos
+distintos; en una vuelta de 9 hoyos el board daba **el doble** de golpes.
 
-Evidencia (prod, `gate-scorer-9h-individual`): Paty Demo índice 30 → el board reparte
-**30 golpes** y la muestra en **−9 neto**; su course handicap 9h correcto es **16**
-(verificado por `gate-scorer-handicap.test.ts`, P0-5), lo que la deja en **+2**.
+Evidencia (Las Brisas Norte-Sur, par 72 / slope 113 / CR 71.9, vuelta de 9h): índice 12 →
+el board repartía **12 golpes**; el course handicap 9h correcto es **6**
+(`round(12/2 × 113/113 + (35.95 − 36))`).
 
-El camino de ronda libre YA lo resuelve bien con `fetchRondaLibreJugadoresConCourseHcp`
-(`resolverCourseData` + `resolverCourseHandicap` por tee). Falta el gemelo para el camino
-legacy `players`.
+Cerrado en `fix/board-publico-hcp-9h-claude` (va DESPUÉS de #289): el board llama a
+`resolveScoringCourseHcp` — la MISMA función que el scorer — con el contexto que arma
+`fetchLegacyHcpContext` (fuente única para `/torneo`, `/tv` y `/en-vivo`). El gate
+`hcp_calc_mode` se respeta: los torneos que no son `'whs'` siguen con el índice crudo.
+El ÍNDICE que se MUESTRA (`hcpDisplay`) no se toca: sigue siendo el de inscripción.
 
 | Sitio | Estado |
 |---|---|
-| `build-from-legacy.ts` + capa de datos del board legacy | ⏳ **P0 pendiente** — resolver course handicap por jugador/tee antes del campeonato |
+| `build-from-legacy.ts` (golpes vía `resolveScoringCourseHcp`, display vía índice) | ✅ migrado (30-jul) |
+| `leaderboard.ts::fetchLegacyHcpContext` (canónica del contexto de handicap del board) | ✅ creada (30-jul) |
+| `/torneo`, `/torneo/tv`, `/torneo/en-vivo` | ✅ los tres consumen la canónica |
+| **Catálogo: 9 de 11 canchas de 9 hoyos tienen `course_rating` de 18h** | ⏳ **P1 abierto** — `(CR − par)` infla el course handicap ~36 golpes en el scorer Y en el board (misma clase que el negativo de #289, por el otro lado). Hoy sólo apunta ahí el torneo semilla `gate-scorer-9h-individual`; ningún torneo real. Es data, no motor: se arregla en el catálogo, no acá. |
 
 ### Concepto "par de un hoyo con fallback estándar" → `STANDARD_PARS` / `parForHoleWithFallback()` en `src/golf/coach/hole-pars.ts`
 

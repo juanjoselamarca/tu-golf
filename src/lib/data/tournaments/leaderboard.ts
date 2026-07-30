@@ -15,7 +15,8 @@ import type {
   DBWithdrawnPlayer,
   WithdrawnEntry,
 } from '@/app/torneo/[slug]/types'
-import type { CourseHole } from '@/golf/leaderboard/types'
+import type { CourseHole, LegacyHcpContext } from '@/golf/leaderboard/types'
+import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { createClient } from '@/utils/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
@@ -27,8 +28,10 @@ import {
 import { PAR_FALLBACK } from '@/golf/leaderboard/board-rules'
 
 /** Cliente Supabase server-side. Atado al createClient real para que el
- *  tipo coincida 1:1 con lo que devuelve `createClient()` en page.tsx. */
-type Client = Awaited<ReturnType<typeof createClient>>
+ *  tipo coincida 1:1 con lo que devuelve `createClient()` en page.tsx.
+ *  Exportado para que el gemelo de navegador (`tvBoard.ts`) pueda reusar los
+ *  helpers de acá con un solo cast, en vez de duplicar la query. */
+export type Client = Awaited<ReturnType<typeof createClient>>
 
 const TOURNAMENT_SELECT =
   'id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, ' +
@@ -88,6 +91,72 @@ export function sumParDedupByHole(holes: CourseHole[]): number {
   const parByHole = new Map<number, number>()
   for (const h of holes) parByHole.set(h.numero, h.par)
   return Array.from(parByHole.values()).reduce((s, p) => s + p, 0)
+}
+
+/** Columnas de `course_tees` que necesita `resolvePlayerTee` + la fórmula WHS.
+ *  `id` es obligatorio: es contra lo que matchea `players.tee_id`. */
+const COURSE_TEE_COLUMNS =
+  'id, nombre, rating, slope, yardaje_total, genero, ' +
+  'front_course_rating, front_slope_rating, back_course_rating, back_slope_rating'
+
+interface HcpContextRow {
+  tees: string | null
+  hcp_calc_mode: string | null
+  courses: {
+    par_total: number | null
+    slope_rating: number | null
+    course_rating: number | null
+    course_tees: CourseTeeRow[] | null
+  } | null
+}
+
+/**
+ * FUENTE ÚNICA del contexto de course handicap del board público.
+ *
+ * Las tres pantallas del torneo (`/torneo`, `/tv`, `/en-vivo`) comparten motor
+ * (`buildLeaderboardFromLegacy`) pero cada una arma sus propias queries. Si cada
+ * una resolviera el tee/los ratings por su cuenta, volveríamos al problema que
+ * este fix cierra: la misma pregunta ("¿con qué handicap se reparten los golpes
+ * de este jugador?") contestada de N formas. Acá se contesta una vez.
+ *
+ * Una sola ida a la BD: el embed anidado trae los ratings de la cancha y su
+ * catálogo de tees junto al torneo.
+ *
+ * Ante cualquier fallo devuelve el contexto vacío (`mode: null`), que hace que el
+ * board caiga al índice crudo — el comportamiento histórico. Un blip de red no
+ * puede cambiar el neto que se muestra en una pantalla pública.
+ */
+export async function fetchLegacyHcpContext(
+  supabase: Client,
+  tournamentId: string,
+): Promise<LegacyHcpContext> {
+  const vacio: LegacyHcpContext = { mode: null, tees: null, course: null, courseTees: [] }
+
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select(
+      'tees, hcp_calc_mode, ' +
+        `courses(par_total, slope_rating, course_rating, course_tees(${COURSE_TEE_COLUMNS}))`,
+    )
+    .eq('id', tournamentId)
+    .maybeSingle()
+
+  if (error || !data) return vacio
+  const row = data as unknown as HcpContextRow
+  const c = row.courses
+
+  return {
+    mode: row.hcp_calc_mode,
+    tees: row.tees,
+    // Los tres ratings van juntos o no van: `computePlayerCourseHcp` sólo usa el
+    // fallback de cancha cuando tiene slope Y course rating, y con `par_total`
+    // ausente no hay señal de escala para decidir si el CR es de 9 o de 18.
+    course:
+      c?.slope_rating != null && c?.course_rating != null && c?.par_total != null
+        ? { par_total: c.par_total, slope_rating: c.slope_rating, course_rating: c.course_rating }
+        : null,
+    courseTees: c?.course_tees ?? [],
+  }
 }
 
 export async function fetchTournamentGroups(
@@ -211,7 +280,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
 }
 
 const LEGACY_PLAYER_SELECT =
-  'id, handicap_at_registration, player_name, category_id, ' +
+  'id, handicap_at_registration, player_name, category_id, tee_id, ' +
   'profiles(name, indice), categories(name), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number, ' +
   'hole_scores(hole_number, gross_score))'
