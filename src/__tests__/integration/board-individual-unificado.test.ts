@@ -66,12 +66,13 @@ describe.skipIf(!hasCreds)('board individual unificado — data real de prod', (
   }, 60_000)
 
   async function loadTournament(sb: SB, slug: string): Promise<void> {
-    const { data: t } = await sb
+    const { data: t, error: tErr } = await sb
       .from('tournaments')
       .select('id, hole_count, total_rounds, course_id, modo_juego, formato_juego, format, courses(par_total)')
       .eq('slug', slug)
       .single()
-    if (!t) return
+    if (tErr) throw new Error(`tournaments: ${tErr.message}`)
+    if (!t) throw new Error('el torneo del gate no existe en prod')
 
     const row = t as unknown as {
       id: string
@@ -83,17 +84,19 @@ describe.skipIf(!hasCreds)('board individual unificado — data real de prod', (
       format: string | null
     }
 
-    const { data: holesRaw } = await sb
+    const { data: holesRaw, error: hErr } = await sb
       .from('course_holes')
       .select('numero, par, stroke_index')
       .eq('course_id', row.course_id as string)
+    if (hErr) throw new Error(`course_holes: ${hErr.message}`)
     const holes = ((holesRaw ?? []) as unknown) as CourseHole[]
 
-    const { data: playersRaw } = await sb
+    const { data: playersRaw, error: pErr } = await sb
       .from('players')
       .select(PLAYER_SELECT)
       .eq('tournament_id', row.id)
       .in('status', ['pending', 'approved', 'waitlist'])
+    if (pErr) throw new Error(`players: ${pErr.message}`)
 
     const parByHole = new Map<number, number>()
     for (const h of holes) parByHole.set(h.numero, h.par)
@@ -116,8 +119,17 @@ describe.skipIf(!hasCreds)('board individual unificado — data real de prod', (
     expect(loadErrors).toEqual([])
   })
 
-  it('encuentra los torneos del gate en prod', () => {
-    expect(loaded.length).toBeGreaterThan(0)
+  it('encuentra los torneos del gate en prod, CON jugadores', () => {
+    // Sin este guard las seis aserciones de abajo pasan en vacío: iteran sobre
+    // `loaded` y sobre `board.players`, así que un cambio de RLS o una columna
+    // renombrada las dejaría verdes sobre cero datos. supabase-js no lanza en
+    // error de query — devuelve `{ data: null, error }` —, de ahí que cada
+    // query chequee su `error` explícitamente.
+    expect(loaded.length, 'no se cargó ningún torneo del gate').toBe(GATE_SLUGS.length)
+    for (const l of loaded) {
+      expect(l.dbPlayers.length, `${l.slug}: sin jugadores`).toBeGreaterThan(0)
+      expect(l.ctx.courseHoles.length, `${l.slug}: sin hoyos de cancha`).toBeGreaterThan(0)
+    }
   })
 
   it('el "a par" es coherente con los hoyos jugados (el bug del −36/−72)', () => {

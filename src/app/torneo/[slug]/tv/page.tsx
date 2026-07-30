@@ -30,20 +30,6 @@ interface TVPlayer {
   stablefordTotal: number
 }
 
-/* ── Score helpers ─────────────────────────────────────── */
-const scoreColor = (diff: number): string => {
-  if (diff <= -2) return '#3b82f6'
-  if (diff === -1) return '#22c55e'
-  if (diff === 0)  return '#edeae4'
-  if (diff === 1)  return '#c4992a'
-  return '#dc2626'
-}
-
-const fmtVsPar = (n: number): string => {
-  if (n === 0) return 'E'
-  return n > 0 ? `+${n}` : String(n)
-}
-
 const TV_KEYFRAMES = `
 @keyframes tvPulse {
   0%, 100% { opacity: 1; }
@@ -188,7 +174,7 @@ export default function TVPage() {
             players.map((p, idx) => {
               const played = hasPlayData({ holesPlayed: p.holesPlayed })
               const color = played && tournament
-                ? primaryScoreColor(p, tournament, scoreColor)
+                ? primaryScoreColor(p, tournament)
                 : '#94a8c0'
               const secundario = played && tournament ? secondaryScoreText(p, tournament) : null
               const highlight = idx === 0
@@ -217,7 +203,7 @@ export default function TVPage() {
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: highlight ? '30px' : '24px', fontWeight: 700, color, fontFamily: '"Playfair Display", serif', lineHeight: 1 }}>
-                      {played && tournament ? primaryScoreText(p, tournament, fmtVsPar) : '—'}
+                      {played && tournament ? primaryScoreText(p, tournament) : '—'}
                     </div>
                     {secundario !== null && (
                       <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{secundario}</div>
