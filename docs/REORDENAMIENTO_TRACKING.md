@@ -126,7 +126,7 @@ Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones
 | `src/golf/leaderboard/board-rules.ts` (fuente canónica) | ✅ creado (29-jul, board individual unificado) |
 | `torneo/[slug]/en-vivo/formats/IndividualLeaderboard.tsx` | ✅ migrado (29-jul) |
 | `torneo/[slug]/tv/page.tsx` | ✅ migrado (29-jul) |
-| `components/TournamentTabs.tsx` — 6 copias inline (`p.holes > 0` / `=== 0`) | ✅ migrado (29-jul, finding I2 del code-reviewer) |
+| `components/TournamentTabs.tsx` — 6 copias inline (`p.holes > 0` / `=== 0`) + la columna Pos, que mostraba `T1` para el field entero con el torneo recién abierto | ✅ migrado (29-jul, findings I2 y F3 del code-reviewer) |
 | `[codigo]/page.tsx` — 3 definiciones inconsistentes (`leaderboard[0]` vs `leaderboard.some(...)`) | ⏳ pendiente — migrar a `hasPlayData` al tocar resultados de ronda libre |
 
 ### Concepto "nombre del jugador de torneo" → `resolveLegacyPlayerName()` en `src/golf/leaderboard/board-rules.ts`
@@ -163,6 +163,22 @@ desempate se lo llevaba siempre el que menos había jugado — el P0 reaparecía
 puerta — y además el 100% del field quedaba con "(empate)" pegado al nombre.
 `rankEntries` ahora aplica countback **sólo** dentro de grupos donde todas las tarjetas
 están completas; los empates en vuelta se ordenan por hoyos jugados (desc) y no se anotan.
+
+**Sub-decisión — el gate mira la TARJETA, no el contador.** `cardIsComplete` cuenta los
+hoyos con score en `entry.scores` (la tarjeta que el countback efectivamente lee) y no
+`holesPlayed`. No son lo mismo: una ronda con sólo los totales cargados suma al contador
+pero llega con la tarjeta vacía, y esos nulls se leen como ceros que barren todos los
+segmentos — el jugador sin tarjeta le ganaba a una vuelta real del mismo score. Además el
+orden desempata por hoyos jugados y, si persiste, por hoyos en tarjeta.
+
+**Follow-ups conocidos del countback (no bloquean, anotados para no re-diagnosticarlos):**
+
+| Caso | Estado |
+|---|---|
+| `holeCount` se deriva de `max(scores.length)` en vez del `ctx.totalHoyos` autoritativo. Una ronda de 9h guardada en los hoyos 10-18 daría `holeCount=18` y el countback no dispararía. **No existe hoy en prod** (los torneos de 9h usan hoyos 1-9). | ⏳ latente — arreglar pasando `totalHoyos` a `rankEntries` |
+| Multi-ronda de largos distintos (18 + 9): `cardIsComplete` mira la última tarjeta, así que funciona; pero el `holeCount` global sigue saliendo del máximo. | ⏳ latente — mismo fix |
+| Una sola tarjeta incompleta en un grupo empatado desactiva el countback para todo el grupo. Correcto mientras se juega; al cierre de un torneo, un hoyo faltante por hueco de data deja el podio sin resolver. | ⏳ pendiente — decidir si al cerrar el torneo se fuerza el countback |
+| `Player.today` muestra el score NETO también en el tab GROSS (`applyToday` lo pisa en `playersByGross`). Preexistente, se renderiza en `LeaderboardTable.tsx`. | ⏳ pendiente — fuera del alcance de este PR |
 
 **Decisión asociada — `PAR_FALLBACK`.** El par asumido para un hoyo ausente del catálogo
 vive una sola vez en `board-rules.ts` y lo consume también `buildFallbackCourseHoles`.

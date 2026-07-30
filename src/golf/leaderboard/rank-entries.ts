@@ -48,13 +48,27 @@ const NO_DATA_SORT = 9999
 
 /**
  * ¿La tarjeta está terminada? Sólo entre tarjetas completas corresponde el
- * countback: compara los últimos 9/6/3/1 hoyos, y un hoyo sin jugar entra a esa
+ * countback: compara los últimos 9/6/3/1 hoyos, y un hoyo sin score entra a esa
  * suma como 0 golpes — con vueltas a medias el desempate se lo lleva siempre el
- * que menos jugó. Multi-ronda: hay que tener completas todas las rondas jugadas.
+ * que menos jugó.
+ *
+ * Se mide sobre `scores`, que es EXACTAMENTE la tarjeta que el countback va a
+ * leer, y no sobre el contador `holesPlayed`. No son lo mismo: una ronda con
+ * sólo los totales cargados suma hoyos al contador pero llega con la tarjeta
+ * vacía, y esos nulls se leen como ceros que barren todos los segmentos — el
+ * jugador sin tarjeta le ganaba a una vuelta real del mismo score.
  */
 function cardIsComplete(e: LeaderboardEntry, holeCount: number): boolean {
   if (e.holesPlayed === 0) return false
-  return e.holesPlayed >= holeCount * Math.max(1, e.roundsPlayed ?? 1)
+  return cardHoleCount(e) >= holeCount
+}
+
+/** Hoyos con score en la tarjeta. Puede ser menor que `holesPlayed` cuando la
+ *  ronda trae sólo totales cargados, sin detalle por hoyo. */
+function cardHoleCount(e: LeaderboardEntry): number {
+  let n = 0
+  for (const s of e.scores) if (s != null) n++
+  return n
 }
 
 /**
@@ -124,7 +138,11 @@ export function rankEntries(
     if (byScore !== 0) return byScore
     // Empatados en score: arriba el que lleva MÁS hoyos. Convención de board en
     // vivo, y evita que una vuelta apenas empezada encabece por casualidad.
-    return b.entry.holesPlayed - a.entry.holesPlayed
+    const byHoles = b.entry.holesPlayed - a.entry.holesPlayed
+    if (byHoles !== 0) return byHoles
+    // Sigue el empate: arriba el que tiene tarjeta hoyo a hoyo. Una ronda con
+    // sólo los totales cargados no puede ponerse sobre una vuelta detallada.
+    return cardHoleCount(b.entry) - cardHoleCount(a.entry)
   })
 
   // Countback: dirección la decide el MODO de la vista, no el formato del

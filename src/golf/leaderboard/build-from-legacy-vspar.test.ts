@@ -252,6 +252,31 @@ describe('buildLeaderboardFromLegacy — el countback es para tarjetas terminada
   })
 })
 
+describe('buildLeaderboardFromLegacy — una tarjeta sin hoyos no puede ganar el countback', () => {
+  it('el que sólo tiene totales cargados no le gana a una tarjeta real del mismo score', () => {
+    // El countback lee `scores` hoyo a hoyo. Una ronda sin detalle tiene la
+    // tarjeta vacía, que se lee como 18 ceros y barre todos los segmentos: el
+    // jugador sin tarjeta ganaba el torneo, y encima anotado "(desempate)".
+    const scoresFull: Array<[number, number]> = Array.from({ length: 18 }, (_, i) => [i + 1, 4])
+    const out = buildLeaderboardFromLegacy(
+      [
+        player({
+          id: 'p1',
+          profiles: { name: 'SoloTotales', indice: null },
+          rounds: [round([], { gross: 72, net: 72 })],
+        }),
+        player({ id: 'p2', profiles: { name: 'TarjetaReal', indice: null }, rounds: [round(scoresFull)] }),
+      ],
+      CTX,
+      1,
+    )
+    expect(out.players[0].name).toBe('TarjetaReal')
+    for (const p of out.players) {
+      expect(p.name).not.toMatch(/\(empate\)|\(desempate\)/)
+    }
+  })
+})
+
 describe('buildLeaderboardFromLegacy — todo jugador sale con su id', () => {
   it('también los inscritos que todavía no tienen ronda', () => {
     const out = buildLeaderboardFromLegacy(

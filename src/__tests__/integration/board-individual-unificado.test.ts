@@ -39,57 +39,81 @@ interface Loaded {
 }
 
 const loaded: Loaded[] = []
+const loadErrors: string[] = []
+
+/** Tipo exacto del cliente que devuelve `createClient` acá (los genéricos por
+ *  defecto de `ReturnType<typeof createClient>` no coinciden). */
+function makeClient() {
+  return createClient(supabaseUrl as string, supabaseKey as string)
+}
+type SB = ReturnType<typeof makeClient>
 
 describe.skipIf(!hasCreds)('board individual unificado — data real de prod', () => {
+  // Este beforeAll habla con prod por red. Si una llamada rechaza y la excepción
+  // escapa, Vitest marca el ARCHIVO como failed y sus tests como skipped — un
+  // rojo intermitente que no dice nada. Los errores se juntan y los reporta un
+  // test, así una caída de red se lee como lo que es.
   beforeAll(async () => {
-    const sb = createClient(supabaseUrl as string, supabaseKey as string)
+    const sb = makeClient()
 
     for (const slug of GATE_SLUGS) {
-      const { data: t } = await sb
-        .from('tournaments')
-        .select('id, hole_count, total_rounds, course_id, modo_juego, formato_juego, format, courses(par_total)')
-        .eq('slug', slug)
-        .single()
-      if (!t) continue
-
-      const row = t as unknown as {
-        id: string
-        hole_count: number | null
-        total_rounds: number | null
-        course_id: string | null
-        modo_juego: string | null
-        formato_juego: string | null
-        format: string | null
+      try {
+        await loadTournament(sb, slug)
+      } catch (err) {
+        loadErrors.push(`${slug}: ${err instanceof Error ? err.message : String(err)}`)
       }
-
-      const { data: holesRaw } = await sb
-        .from('course_holes')
-        .select('numero, par, stroke_index')
-        .eq('course_id', row.course_id as string)
-      const holes = ((holesRaw ?? []) as unknown) as CourseHole[]
-
-      const { data: playersRaw } = await sb
-        .from('players')
-        .select(PLAYER_SELECT)
-        .eq('tournament_id', row.id)
-        .in('status', ['pending', 'approved', 'waitlist'])
-
-      const parByHole = new Map<number, number>()
-      for (const h of holes) parByHole.set(h.numero, h.par)
-
-      loaded.push({
-        slug,
-        ctx: {
-          parTotal: Array.from(parByHole.values()).reduce((s, p) => s + p, 0),
-          totalHoyos: row.hole_count ?? 18,
-          modoJuego: (row.modo_juego === 'neto' ? 'neto' : 'gross') as ModoJuego,
-          formatoJuego: ((row.formato_juego ?? row.format ?? 'stroke_play') as FormatoJuego),
-          courseHoles: holes,
-        },
-        dbPlayers: ((playersRaw ?? []) as unknown) as DBPlayer[],
-        totalRounds: row.total_rounds ?? 1,
-      })
     }
+  }, 60_000)
+
+  async function loadTournament(sb: SB, slug: string): Promise<void> {
+    const { data: t } = await sb
+      .from('tournaments')
+      .select('id, hole_count, total_rounds, course_id, modo_juego, formato_juego, format, courses(par_total)')
+      .eq('slug', slug)
+      .single()
+    if (!t) return
+
+    const row = t as unknown as {
+      id: string
+      hole_count: number | null
+      total_rounds: number | null
+      course_id: string | null
+      modo_juego: string | null
+      formato_juego: string | null
+      format: string | null
+    }
+
+    const { data: holesRaw } = await sb
+      .from('course_holes')
+      .select('numero, par, stroke_index')
+      .eq('course_id', row.course_id as string)
+    const holes = ((holesRaw ?? []) as unknown) as CourseHole[]
+
+    const { data: playersRaw } = await sb
+      .from('players')
+      .select(PLAYER_SELECT)
+      .eq('tournament_id', row.id)
+      .in('status', ['pending', 'approved', 'waitlist'])
+
+    const parByHole = new Map<number, number>()
+    for (const h of holes) parByHole.set(h.numero, h.par)
+
+    loaded.push({
+      slug,
+      ctx: {
+        parTotal: Array.from(parByHole.values()).reduce((s, p) => s + p, 0),
+        totalHoyos: row.hole_count ?? 18,
+        modoJuego: (row.modo_juego === 'neto' ? 'neto' : 'gross') as ModoJuego,
+        formatoJuego: ((row.formato_juego ?? row.format ?? 'stroke_play') as FormatoJuego),
+        courseHoles: holes,
+      },
+      dbPlayers: ((playersRaw ?? []) as unknown) as DBPlayer[],
+      totalRounds: row.total_rounds ?? 1,
+    })
+  }
+
+  it('la carga desde prod no tuvo errores', () => {
+    expect(loadErrors).toEqual([])
   })
 
   it('encuentra los torneos del gate en prod', () => {

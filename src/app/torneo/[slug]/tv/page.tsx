@@ -9,32 +9,25 @@ import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy
 import { buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
+import {
+  scoreLabelFor,
+  primaryScoreText,
+  primaryScoreColor,
+  secondaryScoreText,
+} from './score-display'
 
 /* ── Types ─────────────────────────────────────────────── */
 interface TVPlayer {
   id: string
   name: string
   handicap: number
-  /** Total en la unidad del torneo: puntos, golpes netos o golpes brutos. */
-  total: number
   holesPlayed: number
-  vsPar: number
   category: string
-}
-
-/** La columna de score del TV sigue el modo/formato del torneo, igual que el
- *  ranking. Un podio por neto sobre un torneo gross contradice a /torneo. */
-function scoreLabelFor(t: TVTournamentInfo): string {
-  if (t.formato_juego === 'stableford') return 'Puntos'
-  return t.modo_juego === 'neto' ? 'Score (net)' : 'Score (gross)'
-}
-
-function scoreTotalFor(
-  p: { stablefordTotal?: number; netTotal?: number; grossTotal?: number },
-  t: TVTournamentInfo,
-): number {
-  if (t.formato_juego === 'stableford') return p.stablefordTotal ?? 0
-  return (t.modo_juego === 'neto' ? p.netTotal : p.grossTotal) ?? 0
+  /** Score a par en la unidad del ranking (puntos en stableford). */
+  vsPar: number
+  grossTotal: number
+  netTotal: number
+  stablefordTotal: number
 }
 
 /* ── Score helpers ─────────────────────────────────────── */
@@ -98,10 +91,12 @@ export default function TVPage() {
         id: p.id ?? p.name,
         name: p.name,
         handicap: p.hcpDisplay ?? p.hcp,
-        total: scoreTotalFor(p, t),
         holesPlayed: p.holes,
-        vsPar: p.total,
         category: p.cat && p.cat !== 'General' ? p.cat : '',
+        vsPar: p.total,
+        grossTotal: p.grossTotal ?? 0,
+        netTotal: p.netTotal ?? 0,
+        stablefordTotal: p.stablefordTotal ?? 0,
       })),
     )
     setLastUpdate(new Date())
@@ -191,7 +186,11 @@ export default function TVPage() {
             </div>
           ) : (
             players.map((p, idx) => {
-              const color = hasPlayData({ holesPlayed: p.holesPlayed }) ? scoreColor(p.vsPar) : '#94a8c0'
+              const played = hasPlayData({ holesPlayed: p.holesPlayed })
+              const color = played && tournament
+                ? primaryScoreColor(p, tournament, scoreColor)
+                : '#94a8c0'
+              const secundario = played && tournament ? secondaryScoreText(p, tournament) : null
               const highlight = idx === 0
               return (
                 <div
@@ -218,10 +217,10 @@ export default function TVPage() {
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: highlight ? '30px' : '24px', fontWeight: 700, color, fontFamily: '"Playfair Display", serif', lineHeight: 1 }}>
-                      {hasPlayData({ holesPlayed: p.holesPlayed }) ? fmtVsPar(p.vsPar) : '—'}
+                      {played && tournament ? primaryScoreText(p, tournament, fmtVsPar) : '—'}
                     </div>
-                    {hasPlayData({ holesPlayed: p.holesPlayed }) && (
-                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{p.total}</div>
+                    {secundario !== null && (
+                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{secundario}</div>
                     )}
                   </div>
                   <div style={{ textAlign: 'center', fontSize: '18px', color: '#94a8c0' }}>

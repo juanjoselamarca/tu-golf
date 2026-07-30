@@ -308,7 +308,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                       color: isLeader ? T.gold : idx < 3 ? T.ivory : T.muted,
                       textAlign: 'center',
                     }}>
-                      {positions[idx] || idx + 1}
+                      {/* Sin datos no hay posición: con el torneo recién abierto
+                          todos están en 0 y la tabla mostraba "T1" para el field
+                          entero. /en-vivo ya muestra "—" — misma regla acá. */}
+                      {hasScores ? (positions[idx] || idx + 1) : '—'}
                     </span>
 
                     {/* JUGADOR */}
