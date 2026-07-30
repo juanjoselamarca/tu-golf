@@ -4,6 +4,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Trophy } from '@/components/icons'
+import { fetchTVBoardData, type TVTournamentInfo, type TVWithdrawnEntry } from '@/lib/data/tournaments/tvBoard'
+import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy'
+import { buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
+import { hasPlayData } from '@/golf/leaderboard/board-rules'
+import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 
 /* ── Types ─────────────────────────────────────────────── */
 interface TVPlayer {
@@ -11,20 +16,9 @@ interface TVPlayer {
   name: string
   handicap: number
   total_net: number
-  total_gross: number
   holesPlayed: number
   netVsPar: number
   category: string
-}
-
-interface TournamentInfo {
-  name: string
-  course_name: string
-  par_total: number
-  date_start: string | null
-  codigo: string | null
-  total_rounds: number
-  hole_count: number
 }
 
 /* ── Score helpers ─────────────────────────────────────── */
@@ -41,28 +35,6 @@ const fmtVsPar = (n: number): string => {
   return n > 0 ? `+${n}` : String(n)
 }
 
-interface DBPlayerRaw {
-  id: string
-  handicap_at_registration: number | null
-  player_name: string | null
-  profiles: { name: string } | null
-  categories: { name: string } | null
-  rounds: {
-    total_net: number
-    total_gross: number
-    hole_scores: { hole_number: number; gross_score: number | null }[]
-  }[]
-}
-
-interface DBTournamentRaw {
-  name: string
-  date_start: string | null
-  codigo: string | null
-  total_rounds: number | null
-  hole_count: number | null
-  courses: { nombre: string; par_total: number } | null
-}
-
 const TV_KEYFRAMES = `
 @keyframes tvPulse {
   0%, 100% { opacity: 1; }
@@ -75,104 +47,44 @@ export default function TVPage() {
   const slug   = params.slug as string
 
   const [players,    setPlayers]    = useState<TVPlayer[]>([])
-  const [tournament, setTournament] = useState<TournamentInfo | null>(null)
+  const [tournament, setTournament] = useState<TVTournamentInfo | null>(null)
   const [loading,    setLoading]    = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
-  const [withdrawn,  setWithdrawn]  = useState<Array<{ name: string; status: 'withdrawn' | 'disqualified'; reason: string | null }>>([])
+  const [withdrawn,  setWithdrawn]  = useState<TVWithdrawnEntry[]>([])
 
   const fetchData = useCallback(async () => {
-    const supabase = createClient()
+    const data = await fetchTVBoardData(createClient(), slug)
+    if (!data) { setLoading(false); return }
 
-    const { data: rawT } = await supabase
-      .from('tournaments')
-      .select('name, date_start, codigo, total_rounds, hole_count, courses(nombre, par_total)')
-      .eq('slug', slug)
-      .single()
+    const { tournament: t, dbPlayers, courseHoles, withdrawn: wd } = data
+    setTournament(t)
+    setWithdrawn(wd)
 
-    if (!rawT) { setLoading(false); return }
+    // El TV no calcula: delega en el MISMO motor que /torneo y /en-vivo. Antes
+    // tenía su propio agregado (leía `rounds.total_net` almacenado y medía
+    // contra el par de la vuelta completa), y por eso mostraba un ranking
+    // distinto al de la landing durante la vuelta.
+    const holes = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(t.hole_count)
+    const ctx: TournamentLeaderboardContext = {
+      parTotal: sumParDedupByHole(holes),
+      totalHoyos: t.hole_count,
+      modoJuego: t.modo_juego,
+      formatoJuego: t.formato_juego,
+      courseHoles: holes,
+    }
+    const board = buildLeaderboardFromLegacy(dbPlayers, ctx, t.total_rounds)
 
-    const t = rawT as unknown as DBTournamentRaw
-    const parTotal = t.courses?.par_total ?? 72
-    const totalRounds = t.total_rounds ?? 1
-
-    setTournament({
-      name: t.name,
-      course_name: t.courses?.nombre ?? '',
-      par_total: parTotal,
-      date_start: t.date_start,
-      codigo: t.codigo ?? null,
-      total_rounds: totalRounds,
-      hole_count: t.hole_count ?? 18,
-    })
-
-    // Get tournament id
-    const { data: rawId } = await supabase
-      .from('tournaments')
-      .select('id')
-      .eq('slug', slug)
-      .single()
-
-    if (!rawId) { setLoading(false); return }
-    const tournamentId = (rawId as { id: string }).id
-
-    const { data: rawPlayers } = await supabase
-      .from('players')
-      .select(`
-        id, handicap_at_registration, player_name,
-        profiles(name),
-        categories(name),
-        rounds(total_net, total_gross, hole_scores(hole_number, gross_score))
-      `)
-      .eq('tournament_id', tournamentId)
-      .in('status', ['pending', 'approved', 'waitlist'])
-
-    // WD/DQ en paralelo — footer del TV con badge
-    const { data: rawWithdrawn } = await supabase
-      .from('players')
-      .select('status, status_reason, player_name, profiles(name)')
-      .eq('tournament_id', tournamentId)
-      .in('status', ['withdrawn', 'disqualified'])
-    setWithdrawn(
-      ((rawWithdrawn as unknown) as Array<{ status: 'withdrawn' | 'disqualified'; status_reason: string | null; player_name: string | null; profiles: { name: string } | null }> | null)
-        ?.map(p => ({ name: p.profiles?.name ?? p.player_name ?? '', status: p.status, reason: p.status_reason }))
-        .filter(p => p.name) || []
+    setPlayers(
+      board.playersByNeto.slice(0, 10).map((p) => ({
+        id: p.id ?? p.name,
+        name: p.name,
+        handicap: p.hcpDisplay ?? p.hcp,
+        total_net: p.netTotal ?? 0,
+        holesPlayed: p.holes,
+        netVsPar: p.total,
+        category: p.cat && p.cat !== 'General' ? p.cat : '',
+      })),
     )
-
-    const dbPlayers = (rawPlayers as unknown as DBPlayerRaw[]) || []
-
-    const mapped: TVPlayer[] = dbPlayers
-      .filter((p) => p.rounds?.length > 0)
-      .map((p) => {
-        // Aggregate across all rounds (multi-round tournaments)
-        const totalNet   = p.rounds.reduce((sum, r) => sum + r.total_net, 0)
-        const totalGross = p.rounds.reduce((sum, r) => sum + r.total_gross, 0)
-        const holesPlayed = p.rounds.reduce(
-          (sum, r) => sum + (r.hole_scores || []).filter((hs) => hs.gross_score != null).length,
-          0,
-        )
-        const roundsPlayed = p.rounds.length
-        const netVsPar     = holesPlayed > 0 ? totalNet - (parTotal * roundsPlayed) : 0
-
-        return {
-          id:          p.id,
-          name:        p.profiles?.name ?? p.player_name ?? 'Jugador',
-          handicap:    p.handicap_at_registration ?? 0,
-          total_net:   totalNet,
-          total_gross: totalGross,
-          holesPlayed,
-          netVsPar,
-          category:    p.categories?.name || '',
-        }
-      })
-      .sort((a, b) => {
-        if (a.holesPlayed === 0 && b.holesPlayed === 0) return 0
-        if (a.holesPlayed === 0) return 1
-        if (b.holesPlayed === 0) return -1
-        return a.total_net - b.total_net
-      })
-      .slice(0, 10)
-
-    setPlayers(mapped)
     setLastUpdate(new Date())
     setLoading(false)
   }, [slug])
@@ -260,7 +172,7 @@ export default function TVPage() {
             </div>
           ) : (
             players.map((p, idx) => {
-              const color = p.holesPlayed > 0 ? scoreColor(p.netVsPar) : '#94a8c0'
+              const color = hasPlayData({ holesPlayed: p.holesPlayed }) ? scoreColor(p.netVsPar) : '#94a8c0'
               const highlight = idx === 0
               return (
                 <div
@@ -282,14 +194,14 @@ export default function TVPage() {
                       {p.name}
                     </div>
                     {p.category && (
-                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>Cat. {p.category}</div>
+                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{p.category}</div>
                     )}
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: highlight ? '30px' : '24px', fontWeight: 700, color, fontFamily: '"Playfair Display", serif', lineHeight: 1 }}>
-                      {p.holesPlayed > 0 ? fmtVsPar(p.netVsPar) : '—'}
+                      {hasPlayData({ holesPlayed: p.holesPlayed }) ? fmtVsPar(p.netVsPar) : '—'}
                     </div>
-                    {p.holesPlayed > 0 && (
+                    {hasPlayData({ holesPlayed: p.holesPlayed }) && (
                       <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{p.total_net}</div>
                     )}
                   </div>

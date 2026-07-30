@@ -208,7 +208,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
 }
 
 const LEGACY_PLAYER_SELECT =
-  'id, handicap_at_registration, player_name, ' +
+  'id, handicap_at_registration, player_name, category_id, ' +
   'profiles(name, indice), categories(name), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number, ' +
   'hole_scores(hole_number, gross_score))'

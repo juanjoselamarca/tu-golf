@@ -119,11 +119,59 @@ Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones
 | `api/ronda-libre/create/route.ts` (`LATAM_FORMATOS`) | ⏳ pendiente — write-path crítico, migrar al tocar el flujo de creación |
 | `api/torneos/create/route.ts` (`FORMATOS`) | ⏳ pendiente — write-path crítico, migrar al tocar el flujo de creación |
 
-### Concepto "¿hay puntajes para mostrar?" (predicado de gating en pantalla de resultados)
+### Concepto "¿hay puntajes para mostrar?" → `hasPlayData()` en `src/golf/leaderboard/board-rules.ts`
 
 | Sitio | Estado |
 |---|---|
-| `[codigo]/page.tsx` — 3 definiciones inconsistentes (`leaderboard[0]` vs `leaderboard.some(...)`) | ⏳ pendiente — unificar en un `hasPlayData` único (PR siguiente, resultados) |
+| `src/golf/leaderboard/board-rules.ts` (fuente canónica) | ✅ creado (29-jul, board individual unificado) |
+| `torneo/[slug]/en-vivo/formats/IndividualLeaderboard.tsx` | ✅ migrado (29-jul) |
+| `torneo/[slug]/tv/page.tsx` | ✅ migrado (29-jul) |
+| `[codigo]/page.tsx` — 3 definiciones inconsistentes (`leaderboard[0]` vs `leaderboard.some(...)`) | ⏳ pendiente — migrar a `hasPlayData` al tocar resultados de ronda libre |
+
+### Concepto "nombre del jugador de torneo" → `resolveLegacyPlayerName()` en `src/golf/leaderboard/board-rules.ts`
+
+Antes el mismo invitado se llamaba distinto en cada pantalla: `"Sin nombre"` en /en-vivo,
+`"Jugador"` en el board de la landing y su `player_name` real en el TV.
+
+| Sitio | Estado |
+|---|---|
+| `src/golf/leaderboard/board-rules.ts` (fuente canónica) | ✅ creado (29-jul) |
+| `build-from-legacy.ts` (entries + `noRound` + gwiInputs) | ✅ migrado (29-jul) |
+| `torneo/[slug]/en-vivo/page.tsx`, `torneo/[slug]/tv/page.tsx` | ✅ migrado — consumen el motor, ya no resuelven nombre |
+
+### Concepto "¿contra qué par se mide *a par*?" → `parOfPlayedHoles()` en `src/golf/leaderboard/board-rules.ts`
+
+P0 cerrado el 29-jul: las tres pantallas medían contra el par de la vuelta COMPLETA
+mientras la vuelta estaba a medias, así que el jugador con menos hoyos encabezaba el
+leaderboard (−60 con 3 hoyos en 18h). El orden tenía el mismo defecto: `rankEntries`
+ordenaba por golpes crudos, no por score a par.
+
+| Sitio | Estado |
+|---|---|
+| `src/golf/leaderboard/board-rules.ts` (fuente canónica) | ✅ creado (29-jul) |
+| `build-from-legacy.ts` (`parPlayed`, neto derivado de `hole_scores`) | ✅ migrado (29-jul) |
+| `build-from-ronda-libre.ts` (ya lo calculaba; ahora lo expone en el entry) | ✅ migrado (29-jul) |
+| `rank-entries.ts` (`vsParFor` + orden + countback sobre score a par) | ✅ migrado (29-jul) |
+
+### P0 ABIERTO — el board legacy usa `handicap_at_registration` crudo como course handicap
+
+Detectado el 29-jul al verificar el board unificado contra la data real del gate.
+`build-from-legacy.ts` (líneas 61 / 190 / 204) toma `handicap_at_registration` tal cual
+para repartir golpes. Esa columna guarda **dos unidades distintas**: course handicap para
+inscritos con cuenta, e **índice crudo** para invitados. Además nunca se ajusta a 9h ni
+por slope del tee.
+
+Evidencia (prod, `gate-scorer-9h-individual`): Paty Demo índice 30 → el board reparte
+**30 golpes** y la muestra en **−9 neto**; su course handicap 9h correcto es **16**
+(verificado por `gate-scorer-handicap.test.ts`, P0-5), lo que la deja en **+2**.
+
+El camino de ronda libre YA lo resuelve bien con `fetchRondaLibreJugadoresConCourseHcp`
+(`resolverCourseData` + `resolverCourseHandicap` por tee). Falta el gemelo para el camino
+legacy `players`.
+
+| Sitio | Estado |
+|---|---|
+| `build-from-legacy.ts` + capa de datos del board legacy | ⏳ **P0 pendiente** — resolver course handicap por jugador/tee antes del campeonato |
 
 ### Concepto "par de un hoyo con fallback estándar" → `STANDARD_PARS` / `parForHoleWithFallback()` en `src/golf/coach/hole-pars.ts`
 

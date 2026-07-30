@@ -10,6 +10,8 @@ export interface DBPlayer {
   handicap_at_registration: number | null
   player_name: string | null
   profiles: { name: string; indice: number | null } | null
+  /** FK de categoría — la usa el filtro por categoría del board en vivo. */
+  category_id?: string | null
   categories: { name: string } | null
   rounds: {
     id: string
