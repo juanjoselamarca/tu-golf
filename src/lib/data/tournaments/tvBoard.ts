@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
+import { captureError } from '@/lib/error-tracking'
 
 export interface TVWithdrawnEntry {
   name: string
@@ -92,8 +93,18 @@ export async function fetchTVBoardData(
       .in('status', ['withdrawn', 'disqualified']),
     t.course_id
       ? supabase.from('course_holes').select('numero, par, stroke_index').eq('course_id', t.course_id)
-      : Promise.resolve({ data: [] as CourseHole[] }),
+      : Promise.resolve({ data: [] as CourseHole[], error: null }),
   ])
+
+  // Si los hoyos no cargan, el board cae a par-4 plano con SI = nº de hoyo: el
+  // neto y el "a par" salen mal en una pantalla pública sin ninguna señal. No
+  // se puede arreglar acá, pero sí dejar rastro para verlo en Sentry.
+  if (t.course_id && holesRes.error) {
+    void captureError(holesRes.error, {
+      context: 'tvBoard.fetchTVBoardData.courseHoles',
+      meta: { slug, courseId: t.course_id },
+    })
+  }
 
   const withdrawn: TVWithdrawnEntry[] = (((withdrawnRes.data ?? []) as unknown) as TVWithdrawnRow[])
     .map((p) => ({ name: p.profiles?.name ?? p.player_name ?? '', status: p.status, reason: p.status_reason }))

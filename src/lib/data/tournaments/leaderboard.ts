@@ -24,6 +24,7 @@ import {
   resolverCourseHandicapDisplay,
   type CourseData,
 } from '@/golf/core/course-handicap'
+import { PAR_FALLBACK } from '@/golf/leaderboard/board-rules'
 
 /** Cliente Supabase server-side. Atado al createClient real para que el
  *  tipo coincida 1:1 con lo que devuelve `createClient()` en page.tsx. */
@@ -66,11 +67,13 @@ export async function fetchCourseHoles(
   return (data as CourseHole[] | null) ?? []
 }
 
-/** Genera fallback par-4 / SI=índice cuando la cancha no tiene course_holes cargados. */
+/** Genera fallback par-4 / SI=índice cuando la cancha no tiene course_holes cargados.
+ *  El par sale de `PAR_FALLBACK` — la misma constante que usa `parOfPlayedHoles`
+ *  para un hoyo suelto ausente, así los dos caminos puntúan igual. */
 export function buildFallbackCourseHoles(totalHoyos: number): CourseHole[] {
   const holes: CourseHole[] = []
   for (let i = 1; i <= totalHoyos; i++) {
-    holes.push({ numero: i, par: 4, stroke_index: i })
+    holes.push({ numero: i, par: PAR_FALLBACK, stroke_index: i })
   }
   return holes
 }

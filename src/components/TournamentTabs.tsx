@@ -8,6 +8,7 @@ import type { ModoJuego } from '@/golf/core/rules'
 import Scorecard from '@/components/Scorecard'
 import type { ScorecardHole } from '@/components/Scorecard'
 import { ChevronDown } from '@/components/icons'
+import { hasPlayData } from '@/golf/leaderboard/board-rules'
 
 /* ── Types ────────────────────────────────────────────────── */
 export interface GroupData {
@@ -71,7 +72,7 @@ function scoreColor(n: number) {
 
 function thruLabel(p: Player, totalHoyos: number) {
   if (p.status === 'F') return 'F'
-  if (p.holes === 0) return '-'
+  if (!hasPlayData({ holesPlayed: p.holes })) return '-'
   return `${p.holes}`
 }
 
@@ -96,7 +97,7 @@ function computePositions(players: Player[]): string[] {
 function groupStatusDot(groupPlayers: Player[], totalHoyos: number): { dot: string; color: string } {
   if (groupPlayers.length === 0) return { dot: '\u26AA', color: '#94a8c0' }
   const allFinished = groupPlayers.every(p => p.status === 'F')
-  const anyStarted = groupPlayers.some(p => p.holes > 0)
+  const anyStarted = groupPlayers.some(p => hasPlayData({ holesPlayed: p.holes }))
   if (allFinished) return { dot: '\uD83D\uDFE2', color: T.green }
   if (anyStarted) return { dot: '\uD83D\uDFE1', color: T.gold }
   return { dot: '\u26AA', color: '#94a8c0' }
@@ -271,9 +272,9 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
 
             {/* Player rows */}
             {activePlayers.map((p, idx) => {
-              const isLeader = idx === 0 && p.holes > 0
+              const isLeader = idx === 0 && hasPlayData({ holesPlayed: p.holes })
               const isExpanded = expandedIdx === idx
-              const hasScores = p.holes > 0
+              const hasScores = hasPlayData({ holesPlayed: p.holes })
 
               // Convert scores array to Record<string, number> for Scorecard
               const scoresRecord: Record<string, number> = {}
@@ -351,10 +352,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                         fontFamily: '"Cormorant Garamond", serif',
                         fontSize: '20px',
                         fontWeight: 700,
-                        color: p.holes > 0 ? scoreColor(p.total) : T.faint,
+                        color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total) : T.faint,
                         lineHeight: 1,
                       }}>
-                        {p.holes > 0 ? formatScore(p.total) : '-'}
+                        {hasPlayData({ holesPlayed: p.holes }) ? formatScore(p.total) : '-'}
                       </span>
                       {hasScores && (
                         <span
@@ -501,10 +502,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                             fontFamily: '"Cormorant Garamond", serif',
                             fontSize: '18px',
                             fontWeight: 700,
-                            color: p.holes > 0 ? scoreColor(p.total) : T.faint,
+                            color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total) : T.faint,
                             lineHeight: 1,
                           }}>
-                            {p.holes > 0 ? formatScore(p.total) : '-'}
+                            {hasPlayData({ holesPlayed: p.holes }) ? formatScore(p.total) : '-'}
                           </span>
                           <span style={{
                             fontFamily: '"DM Mono", monospace',

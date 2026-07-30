@@ -126,6 +126,7 @@ Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones
 | `src/golf/leaderboard/board-rules.ts` (fuente canónica) | ✅ creado (29-jul, board individual unificado) |
 | `torneo/[slug]/en-vivo/formats/IndividualLeaderboard.tsx` | ✅ migrado (29-jul) |
 | `torneo/[slug]/tv/page.tsx` | ✅ migrado (29-jul) |
+| `components/TournamentTabs.tsx` — 6 copias inline (`p.holes > 0` / `=== 0`) | ✅ migrado (29-jul, finding I2 del code-reviewer) |
 | `[codigo]/page.tsx` — 3 definiciones inconsistentes (`leaderboard[0]` vs `leaderboard.some(...)`) | ⏳ pendiente — migrar a `hasPlayData` al tocar resultados de ronda libre |
 
 ### Concepto "nombre del jugador de torneo" → `resolveLegacyPlayerName()` en `src/golf/leaderboard/board-rules.ts`
@@ -152,6 +153,22 @@ ordenaba por golpes crudos, no por score a par.
 | `build-from-legacy.ts` (`parPlayed`, neto derivado de `hole_scores`) | ✅ migrado (29-jul) |
 | `build-from-ronda-libre.ts` (ya lo calculaba; ahora lo expone en el entry) | ✅ migrado (29-jul) |
 | `rank-entries.ts` (`vsParFor` + orden + countback sobre score a par) | ✅ migrado (29-jul) |
+
+**Decisión asociada — el countback es sólo para tarjetas terminadas.** Pasar el orden a
+"score a par" tuvo un efecto de segundo orden que cazó el code-reviewer: los empates
+pasaron de raros (requerían colisión exacta de golpes) a ser la norma (enteros chicos
+alrededor de 0), y el countback empezó a correr sobre todo el field. Como
+`compareCountback` suma los hoyos sin jugar como **0 golpes**, con `lower_wins` el
+desempate se lo llevaba siempre el que menos había jugado — el P0 reaparecía por otra
+puerta — y además el 100% del field quedaba con "(empate)" pegado al nombre.
+`rankEntries` ahora aplica countback **sólo** dentro de grupos donde todas las tarjetas
+están completas; los empates en vuelta se ordenan por hoyos jugados (desc) y no se anotan.
+
+**Decisión asociada — `PAR_FALLBACK`.** El par asumido para un hoyo ausente del catálogo
+vive una sola vez en `board-rules.ts` y lo consume también `buildFallbackCourseHoles`.
+NO se reusa `STANDARD_PARS` de `golf/coach/hole-pars`: es un layout par-72 concreto (su
+propio doc avisa que miente en canchas par 70/71, varias de las nuestras) y no cubre los
+hoyos >18 de canchas multi-recorrido. Conceptos parecidos, no el mismo.
 
 ### P0 ABIERTO — el board legacy usa `handicap_at_registration` crudo como course handicap
 

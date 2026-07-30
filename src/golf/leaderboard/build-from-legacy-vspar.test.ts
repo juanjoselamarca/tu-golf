@@ -188,6 +188,85 @@ describe('buildLeaderboardFromLegacy — el que no scoreó nunca lidera', () => 
   })
 })
 
+describe('buildLeaderboardFromLegacy — el countback es para tarjetas terminadas', () => {
+  // El countback USGA compara los últimos 9/6/3/1 hoyos. Aplicarlo a vueltas a
+  // medias premia al que menos jugó (sus hoyos vacíos suman 0 golpes) y encima
+  // le cuelga "(empate)" a todo el field, porque a mitad de torneo el empate en
+  // "a par" es la norma, no la excepción.
+  const scoresFull: Array<[number, number]> = Array.from({ length: 18 }, (_, i) => [i + 1, 4])
+
+  it('entre dos empatados a medio jugar, primero va el que MÁS hoyos lleva', () => {
+    const out = buildLeaderboardFromLegacy(
+      [
+        player({ id: 'p1', profiles: { name: 'Thru3', indice: null }, rounds: [round([[1, 4], [2, 4], [3, 4]])] }),
+        player({ id: 'p2', profiles: { name: 'Thru12', indice: null }, rounds: [round(scoresFull.slice(0, 12))] }),
+      ],
+      CTX,
+      1,
+    )
+    expect(out.players[0].name).toBe('Thru12')
+    expect(out.players[1].name).toBe('Thru3')
+  })
+
+  it('un empate a medio jugar NO se anota como desempate', () => {
+    const out = buildLeaderboardFromLegacy(
+      [
+        player({ id: 'p1', profiles: { name: 'Thru3', indice: null }, rounds: [round([[1, 4], [2, 4], [3, 4]])] }),
+        player({ id: 'p2', profiles: { name: 'Thru12', indice: null }, rounds: [round(scoresFull.slice(0, 12))] }),
+      ],
+      CTX,
+      1,
+    )
+    for (const p of out.players) {
+      expect(p.name, 'nombre con anotación de countback a mitad de vuelta').not.toMatch(/\(empate\)|\(desempate\)/)
+    }
+  })
+
+  it('con el torneo recién abierto nadie queda anotado', () => {
+    const out = buildLeaderboardFromLegacy(
+      [
+        player({ id: 'p1', profiles: { name: 'Ana', indice: null }, rounds: [round([], { gross: 0, net: 0 })] }),
+        player({ id: 'p2', profiles: { name: 'Beto', indice: null }, rounds: [round([], { gross: 0, net: 0 })] }),
+        player({ id: 'p3', player_name: 'Caro' }),
+      ],
+      CTX,
+      1,
+    )
+    expect(out.players.map((p) => p.name)).toEqual(['Ana', 'Beto', 'Caro'])
+  })
+
+  it('entre tarjetas TERMINADAS el countback sí desempata y se anota', () => {
+    // Mismo total (72) pero distinto reparto: A cierra mejor los últimos 9.
+    const a: Array<[number, number]> = Array.from({ length: 18 }, (_, i) => [i + 1, i < 9 ? 5 : 3])
+    const b: Array<[number, number]> = Array.from({ length: 18 }, (_, i) => [i + 1, i < 9 ? 3 : 5])
+    const out = buildLeaderboardFromLegacy(
+      [
+        player({ id: 'p1', profiles: { name: 'CierraMal', indice: null }, rounds: [round(b)] }),
+        player({ id: 'p2', profiles: { name: 'CierraBien', indice: null }, rounds: [round(a)] }),
+      ],
+      CTX,
+      1,
+    )
+    expect(out.players[0].name).toMatch(/^CierraBien/)
+    expect(out.players[0].name).toContain('(desempate)')
+  })
+})
+
+describe('buildLeaderboardFromLegacy — todo jugador sale con su id', () => {
+  it('también los inscritos que todavía no tienen ronda', () => {
+    const out = buildLeaderboardFromLegacy(
+      [
+        player({ id: 'p1', profiles: { name: 'Jugando', indice: null }, rounds: [round([[1, 4]])] }),
+        player({ id: 'p2', player_name: 'Sin ronda' }),
+      ],
+      CTX,
+      1,
+    )
+    // Sin id, /en-vivo pierde el filtro por grupo y por categoría de ese jugador.
+    expect(out.players.map((p) => p.id)).toEqual(['p1', 'p2'])
+  })
+})
+
 describe('buildLeaderboardFromLegacy — nombre único del jugador', () => {
   it('un INVITADO que scoreó muestra su nombre de inscripción, no "Jugador"', () => {
     const out = buildLeaderboardFromLegacy(

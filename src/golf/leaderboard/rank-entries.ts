@@ -9,8 +9,8 @@
 // gross pueden romperse al revés que en neto, y está bien — son tablas
 // distintas.
 
-import { resolveLeaderboardTies } from '@/golf/core/countback'
-import type { CountbackMode, CountbackPlayer } from '@/golf/core/countback'
+import { applyCountback } from '@/golf/core/countback'
+import type { CountbackMode, CountbackPlayer, CountbackResult } from '@/golf/core/countback'
 import type { FormatoJuego } from '@/golf/core/rules'
 import type { Player } from '@/lib/golf-data'
 import type { LeaderboardEntry } from './types'
@@ -45,6 +45,17 @@ function vsParFor(e: LeaderboardEntry, mode: RankingMode, parTotal: number): num
 /** Sentinela de "sin datos": ordena al final sin romper la aritmética del
  *  countback (un Infinity sí la rompería). */
 const NO_DATA_SORT = 9999
+
+/**
+ * ¿La tarjeta está terminada? Sólo entre tarjetas completas corresponde el
+ * countback: compara los últimos 9/6/3/1 hoyos, y un hoyo sin jugar entra a esa
+ * suma como 0 golpes — con vueltas a medias el desempate se lo lleva siempre el
+ * que menos jugó. Multi-ronda: hay que tener completas todas las rondas jugadas.
+ */
+function cardIsComplete(e: LeaderboardEntry, holeCount: number): boolean {
+  if (e.holesPlayed === 0) return false
+  return e.holesPlayed >= holeCount * Math.max(1, e.roundsPlayed ?? 1)
+}
 
 /**
  * Valor por el que se ORDENA (y por el que el countback detecta empates).
@@ -109,7 +120,11 @@ export function rankEntries(
     const av = primaryScoreFor(a.entry, mode, parTotal)
     const bv = primaryScoreFor(b.entry, mode, parTotal)
     // stableford: más alto primero. gross/neto ("a par"): más bajo primero.
-    return mode === 'stableford' ? bv - av : av - bv
+    const byScore = mode === 'stableford' ? bv - av : av - bv
+    if (byScore !== 0) return byScore
+    // Empatados en score: arriba el que lleva MÁS hoyos. Convención de board en
+    // vivo, y evita que una vuelta apenas empezada encabece por casualidad.
+    return b.entry.holesPlayed - a.entry.holesPlayed
   })
 
   // Countback: dirección la decide el MODO de la vista, no el formato del
@@ -132,7 +147,36 @@ export function rankEntries(
   // hoyos sin jugar. Necesario para que el countback de 9h use back-6/3/1 en vez
   // de caer al card-off desde el hoyo 1 (mismo motor hole-count-aware que equipos).
   const holeCount = entries.reduce((mx, e) => Math.max(mx, e.scores.length), 0) || 18
-  const cbResults = resolveLeaderboardTies(cbPlayers, cbMode, holeCount)
+
+  // Countback SÓLO dentro de grupos de empatados con todas las tarjetas
+  // terminadas. Si algún empatado sigue en cancha, el grupo conserva el orden
+  // por hoyos jugados y NO se anota: un empate a mitad de vuelta es provisorio,
+  // no un empate que haya que resolver. Antes se anotaba el field entero con
+  // "(empate)" porque a mitad de torneo casi todos comparten score a par.
+  const cbResults: CountbackResult[] = []
+  let i = 0
+  while (i < cbPlayers.length) {
+    let j = i + 1
+    while (j < cbPlayers.length && cbPlayers[j].primaryScore === cbPlayers[i].primaryScore) j++
+
+    const group = cbPlayers.slice(i, j)
+    const todasTerminadas = group.every((g) => cardIsComplete(sorted[Number(g.id)].entry, holeCount))
+
+    if (group.length > 1 && todasTerminadas) {
+      cbResults.push(...applyCountback(group, cbMode, holeCount))
+    } else {
+      cbResults.push(
+        ...group.map((g) => ({
+          id: g.id,
+          name: g.name,
+          primaryScore: g.primaryScore,
+          resolvedByCountback: false,
+          annotation: '',
+        })),
+      )
+    }
+    i = j
+  }
 
   const players: Player[] = []
   const order: number[] = []

@@ -15,10 +15,26 @@ interface TVPlayer {
   id: string
   name: string
   handicap: number
-  total_net: number
+  /** Total en la unidad del torneo: puntos, golpes netos o golpes brutos. */
+  total: number
   holesPlayed: number
-  netVsPar: number
+  vsPar: number
   category: string
+}
+
+/** La columna de score del TV sigue el modo/formato del torneo, igual que el
+ *  ranking. Un podio por neto sobre un torneo gross contradice a /torneo. */
+function scoreLabelFor(t: TVTournamentInfo): string {
+  if (t.formato_juego === 'stableford') return 'Puntos'
+  return t.modo_juego === 'neto' ? 'Score (net)' : 'Score (gross)'
+}
+
+function scoreTotalFor(
+  p: { stablefordTotal?: number; netTotal?: number; grossTotal?: number },
+  t: TVTournamentInfo,
+): number {
+  if (t.formato_juego === 'stableford') return p.stablefordTotal ?? 0
+  return (t.modo_juego === 'neto' ? p.netTotal : p.grossTotal) ?? 0
 }
 
 /* ── Score helpers ─────────────────────────────────────── */
@@ -74,14 +90,17 @@ export default function TVPage() {
     }
     const board = buildLeaderboardFromLegacy(dbPlayers, ctx, t.total_rounds)
 
+    // Ranking PRIMARIO (el del modo/formato del torneo), no uno fijo por neto:
+    // si el torneo se juega gross o stableford, un podio por neto en la pantalla
+    // grande contradice al de la landing.
     setPlayers(
-      board.playersByNeto.slice(0, 10).map((p) => ({
+      board.players.slice(0, 10).map((p) => ({
         id: p.id ?? p.name,
         name: p.name,
         handicap: p.hcpDisplay ?? p.hcp,
-        total_net: p.netTotal ?? 0,
+        total: scoreTotalFor(p, t),
         holesPlayed: p.holes,
-        netVsPar: p.total,
+        vsPar: p.total,
         category: p.cat && p.cat !== 'General' ? p.cat : '',
       })),
     )
@@ -160,7 +179,7 @@ export default function TVPage() {
         }}>
           <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pos</span>
           <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nombre</span>
-          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Score (net)</span>
+          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>{tournament ? scoreLabelFor(tournament) : 'Score'}</span>
           <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Hcp</span>
           <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>Hoyos</span>
         </div>
@@ -172,7 +191,7 @@ export default function TVPage() {
             </div>
           ) : (
             players.map((p, idx) => {
-              const color = hasPlayData({ holesPlayed: p.holesPlayed }) ? scoreColor(p.netVsPar) : '#94a8c0'
+              const color = hasPlayData({ holesPlayed: p.holesPlayed }) ? scoreColor(p.vsPar) : '#94a8c0'
               const highlight = idx === 0
               return (
                 <div
@@ -199,10 +218,10 @@ export default function TVPage() {
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: highlight ? '30px' : '24px', fontWeight: 700, color, fontFamily: '"Playfair Display", serif', lineHeight: 1 }}>
-                      {hasPlayData({ holesPlayed: p.holesPlayed }) ? fmtVsPar(p.netVsPar) : '—'}
+                      {hasPlayData({ holesPlayed: p.holesPlayed }) ? fmtVsPar(p.vsPar) : '—'}
                     </div>
                     {hasPlayData({ holesPlayed: p.holesPlayed }) && (
-                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{p.total_net}</div>
+                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{p.total}</div>
                     )}
                   </div>
                   <div style={{ textAlign: 'center', fontSize: '18px', color: '#94a8c0' }}>

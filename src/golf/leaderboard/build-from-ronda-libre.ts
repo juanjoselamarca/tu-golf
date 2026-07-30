@@ -15,6 +15,7 @@ import type {
   TournamentLeaderboardContext,
 } from './types'
 import { rankEntries, type RankingMode } from './rank-entries'
+import { parOfPlayedHoles } from './board-rules'
 
 export interface RondaLibreLeaderboardOutput {
   /** Ranking primario: stableford-points si formatoJuego === 'stableford',
@@ -61,9 +62,13 @@ export function buildLeaderboardFromRondaLibre(
       }
     }
 
-    const parPlayed = courseHoles
-      .filter((ch) => scoresMap[String(ch.numero)] != null)
-      .reduce((sum, ch) => sum + ch.par, 0)
+    // Mismo concepto que el board de torneo → misma función. La versión inline
+    // que vivía acá no deduplicaba por nº de hoyo, así que una cancha
+    // multi-recorrido (filas repetidas en `course_holes`) inflaba el par.
+    const parPlayed = parOfPlayedHoles(
+      courseHoles,
+      scoreArr.map((s, i) => (s != null ? i + 1 : 0)).filter((n) => n > 0),
+    )
 
     const stablefordScores: number[] = formatoJuego === 'stableford'
       ? Array.from({ length: totalHoyos }, (_, i) => {

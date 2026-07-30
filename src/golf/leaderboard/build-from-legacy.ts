@@ -94,18 +94,24 @@ export function buildLeaderboardFromLegacy(
         roundPar = parOfPlayedHoles(courseHoles, playedHoles)
       } else {
         // Ronda sin detalle por hoyo (sólo totales cargados): se usa lo
-        // almacenado y se asume vuelta completa para la referencia de par.
+        // almacenado y se asume vuelta completa, tanto para la referencia de
+        // par como para los hoyos jugados. Sin lo segundo el jugador quedaba en
+        // `holesPlayed = 0` y todo el pipeline lo trataba como "sin datos": se
+        // mostraba en "—" y caía al fondo del ranking teniendo tarjeta.
         roundGross = round.total_gross ?? 0
         roundNet = round.total_net ?? 0
         roundPoints = round.total_points ?? 0
         roundPar = roundGross > 0 ? parTotal : 0
       }
+      const roundHolesPlayed = playedHoles.length > 0
+        ? playedHoles.length
+        : (roundGross > 0 ? totalHoyos : 0)
 
       cumulGross += roundGross
       cumulNet += roundNet
       cumulPoints += roundPoints
       cumulParPlayed += roundPar
-      totalHolesPlayed += playedHoles.length
+      totalHolesPlayed += roundHolesPlayed
       todayNet = roundPar > 0 ? roundNet - roundPar : 0
 
       if (round.status !== 'closed' && round.status !== 'official') allFinished = false
@@ -184,10 +190,14 @@ export function buildLeaderboardFromLegacy(
     const playerIdx = primaryPlayers.length
     primaryPlayers.push({
       pos:     withRounds.length + i + 1,
+      // Sin `id` la fila no matchea ningún filtro de /en-vivo (grupo, categoría,
+      // "solo mi grupo") y todas comparten key="" en React.
+      id:      p.id,
       name:    resolveLegacyPlayerName(p),
       country: 'CL',
       cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
       hcp:     p.handicap_at_registration ?? 0,
+      hcpDisplay: p.handicap_at_registration ?? 0,
       today:   0,
       total:   0,
       holes:   0,
