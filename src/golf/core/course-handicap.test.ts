@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { resolverCourseHandicap, resolverCourseHandicapDisplay, courseHandicapParaHoyos, resolverCourseData, type CourseData } from './course-handicap'
+import { resolverCourseHandicap, resolverCourseHandicapDisplay, courseHandicapParaHoyos, resolverCourseData, parDeLosHoyosJugados, indiceDe9Hoyos, type CourseData } from './course-handicap'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -401,5 +401,68 @@ describe('courseHandicapParaHoyos', () => {
     for (const index of [8, 12, 18, 24]) {
       expect(courseHandicapParaHoyos(index, 9)).toBe(resolverCourseHandicap(index, std9))
     }
+  })
+})
+
+// ─── Fuentes únicas del camino de 9 hoyos (bug 30-jul-2026) ─────────────────
+//
+// Las dos formas de arruinar el course handicap de 9h, cada una con su fuente
+// única. Prod (COPA LB PADRE E HIJO 2026): índice 12 resolvía a −22 golpes.
+
+describe('parDeLosHoyosJugados — el par que va en la fórmula WHS', () => {
+  const front9 = Array.from({ length: 9 }, (_, i) => ({ numero: i + 1, par: 4 }))
+  const completa18 = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4 }))
+
+  it('ronda de 9 sobre catálogo de 18: devuelve el par del front-9, no el de la cancha', () => {
+    expect(parDeLosHoyosJugados(completa18, 9)).toBe(36)
+    expect(parDeLosHoyosJugados(completa18, 18)).toBe(72)
+  })
+
+  it('deduplica por nº de hoyo (canchas 27/36h traen filas repetidas por recorrido)', () => {
+    const conDuplicados = [...front9, ...front9.map(h => ({ ...h, par: 5 }))]
+    // Sin dedup el slice(0,9) agarraría 1,1,2,2,… y sumaría menos de 9 hoyos.
+    expect(parDeLosHoyosJugados(conDuplicados, 9)).toBe(36)
+  })
+
+  it('catálogo incompleto: completa a par 4 en vez de devolver un par CORTO', () => {
+    // El bug espejo: 9 hoyos cargados + ronda de 18 → (CR − 36) inflaba el
+    // course handicap ~36 golpes.
+    expect(parDeLosHoyosJugados(front9, 18)).toBe(36 + 9 * 4)
+    expect(parDeLosHoyosJugados([], 9)).toBe(36)
+  })
+
+  it('respeta el par real de cada hoyo (par 3 y par 5 no se aplanan a 4)', () => {
+    const mixto = [
+      { numero: 1, par: 3 }, { numero: 2, par: 5 }, { numero: 3, par: 4 },
+      { numero: 4, par: 4 }, { numero: 5, par: 3 }, { numero: 6, par: 5 },
+      { numero: 7, par: 4 }, { numero: 8, par: 4 }, { numero: 9, par: 4 },
+    ]
+    expect(parDeLosHoyosJugados(mixto, 9)).toBe(36)
+  })
+
+  it('hoyo sin par cargado: asume 4 (mismo fallback que el resto del motor)', () => {
+    expect(parDeLosHoyosJugados([{ numero: 1, par: null }], 1)).toBe(4)
+  })
+})
+
+describe('indiceDe9Hoyos — la mitad vive en la fórmula, NO en el índice', () => {
+  it('devuelve la mitad del índice de 18 hoyos (WHS)', () => {
+    expect(indiceDe9Hoyos(12)).toBe(6)
+    expect(indiceDe9Hoyos(15)).toBe(7.5)
+    expect(indiceDe9Hoyos(0)).toBe(0)
+  })
+
+  it('es pura: no toca el índice del jugador', () => {
+    const indiceDelJugador = 12.0
+    indiceDe9Hoyos(indiceDelJugador)
+    // El índice que la app muestra y guarda sigue siendo el de 18 hoyos.
+    expect(indiceDelJugador).toBe(12.0)
+  })
+
+  it('el camino de 18 hoyos NO divide — el mismo jugador recibe el doble', () => {
+    const std9: CourseData = { slope: 113, courseRating: 36, par: 36, is9Hole: true }
+    const std18: CourseData = { slope: 113, courseRating: 72, par: 72 }
+    expect(resolverCourseHandicap(12, std18)).toBe(12)
+    expect(resolverCourseHandicap(12, std9)).toBe(6)
   })
 })

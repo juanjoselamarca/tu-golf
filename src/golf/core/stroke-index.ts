@@ -89,16 +89,26 @@ export function buildCourseSnapshot(
 }
 
 /**
- * Calculate course handicap for 9 holes using 9-hole CR/slope.
- * WHS formula: CH = index × (slope_9h / 113) + (CR_9h - par_9h)
+ * Course handicap de 9 hoyos.
+ *
+ * WHS: `CH = índice_9h × (slope_9h / 113) + (CR_9h − par_9h)`
+ *
+ * ⚠️ El primer argumento es el **índice de 9 HOYOS** = índice 18h / 2. Pasarle
+ * el índice de 18h reparte el DOBLE de golpes: los 9 hoyos sólo llegan hasta
+ * SI 9. Derivalo con `indiceDe9Hoyos()` (`@/golf/core/course-handicap`), no a
+ * mano — dos de los tres callers lo pasaban entero hasta el 30-jul-2026.
+ *
+ * ⚠️ `par9h` es el par de los 9 hoyos que se juegan, no el de la cancha.
+ * Mezclarlo con el CR del front-9 da `(CR − par) ≈ −36` y course handicaps
+ * NEGATIVOS. Derivalo con `parDeLosHoyosJugados()`.
  */
 export function courseHandicap9h(
-  handicapIndex: number,
+  handicapIndex9h: number,
   slope9h: number,
   cr9h: number,
   par9h: number
 ): number {
-  return Math.round(handicapIndex * (slope9h / 113) + (cr9h - par9h))
+  return Math.round(handicapIndex9h * (slope9h / 113) + (cr9h - par9h))
 }
 
 /**

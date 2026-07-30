@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 
@@ -210,7 +211,10 @@ export default function ScoringPage() {
     const par          = hole?.par ?? 4
     // SI normalizado (permutación 1..N) para alocar golpes (idempotente). Persiste el neto correcto.
     const strokeIndex  = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNumber] ?? hole?.stroke_index ?? holeNumber
-    const courseHcp    = resolveScoringCourseHcp(tournament.hcp_calc_mode, player, tournament, courseTees, tournament.courses?.par_total ?? 72, tournament.hole_count || 18)
+    // Par de los hoyos que se juegan (no el de la cancha): con el CR de 9h y el
+    // par de 18 la fórmula WHS devolvía course handicaps NEGATIVOS.
+    const parDeLaRonda = parDeLosHoyosJugados(courseHoles, tournament.hole_count || 18)
+    const courseHcp    = resolveScoringCourseHcp(tournament.hcp_calc_mode, player, tournament, courseTees, parDeLaRonda || (tournament.courses?.par_total ?? 72), tournament.hole_count || 18)
     const strokes      = strokesRecibidosEnHoyo(courseHcp, strokeIndex, tournament.hole_count || 18)
     const netScore     = gross - strokes
 
@@ -434,7 +438,7 @@ export default function ScoringPage() {
   const outGross   = holes.filter(h => h <= 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
   const inGross    = holes.filter(h => h > 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
   const selectedCourseHcp = selectedPlayer
-    ? resolveScoringCourseHcp(tournament.hcp_calc_mode, selectedPlayer, tournament, courseTees, parTotalRecorrido, holeCount)
+    ? resolveScoringCourseHcp(tournament.hcp_calc_mode, selectedPlayer, tournament, courseTees, parDeLosHoyosJugados(courseHoles, holeCount) || parTotalRecorrido, holeCount)
     : 0
   const netTotal   = holes.reduce((s, h) => {
     if (!currentScores[h]) return s
