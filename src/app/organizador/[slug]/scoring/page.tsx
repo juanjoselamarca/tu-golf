@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Flag, PersonStanding } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
-import { type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
@@ -128,7 +128,9 @@ export default function ScoringPage() {
             .order('numero'),
           supabase
             .from('course_tees')
-            .select('id, nombre, rating, slope, yardaje_total, genero, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating')
+            // Fuente única de las columnas: si el scorer y el board pidieran
+            // listas distintas, calcularían el handicap con datos distintos.
+            .select(COURSE_TEE_COLUMNS)
             .eq('course_id', courseId),
         ])
         setCourseHoles((holes as CourseHole[]) || [])

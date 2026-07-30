@@ -12,6 +12,10 @@ export interface DBPlayer {
   profiles: { name: string; indice: number | null } | null
   /** FK de categoría — la usa el filtro por categoría del board en vivo. */
   category_id?: string | null
+  /** Tee asignado por el organizador. Define el slope/CR con el que se resuelve
+   *  el course handicap del jugador (mismo fallback que usa el scorer en cancha).
+   *  Opcional: los fetch que no lo traen caen al tee global / ratings de cancha. */
+  tee_id?: string | null
   categories: { name: string } | null
   rounds: {
     id: string

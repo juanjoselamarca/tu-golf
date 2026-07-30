@@ -5,12 +5,25 @@
 // (vía tab Gross/Neto, salvo match_play donde el modo es exclusivo).
 
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
+import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 
 export interface LeaderboardEntry {
   name: string
   /** Course handicap de SCORING (9h en rondas de 9h: reparte strokes/neto). */
   handicap: number
-  /** Course handicap COMPLETO (18h) para mostrar. Opcional: cae a `handicap`. */
+  /**
+   * El número que el jugador RECONOCE como su handicap — el que va en la columna
+   * HCP. Nunca es el de scoring: en una vuelta de 9 hoyos mostrar la mitad (8 en
+   * vez de 15) no significa nada para quien mira el board.
+   *
+   * Qué es concretamente depende de qué guarda cada camino como "su" handicap:
+   *  - ronda libre → el course handicap COMPLETO (18h) del tee, porque ahí lo que
+   *    se guarda por jugador ya es un course handicap.
+   *  - torneo (`players`) → el ÍNDICE de inscripción, que es lo que muestran la
+   *    ficha del scorer y la lista de inscritos.
+   * En los dos casos el contrato es el mismo y es el que importa: este campo NO
+   * se mueve cuando cambia el reparto de golpes. Opcional: cae a `handicap`.
+   */
   hcpDisplay?: number
   grossTotal: number
   netTotal: number
@@ -55,10 +68,35 @@ export interface TourneyStats {
   easiestHole: { hole: number; avg: number } | null
 }
 
+/**
+ * Todo lo que hace falta para resolver el COURSE HANDICAP de un jugador de torneo
+ * con el MISMO motor que el scorer del organizador (`resolveScoringCourseHcp`).
+ *
+ * Existe porque el board público repartía golpes con el ÍNDICE crudo mientras la
+ * tarjeta en cancha ya repartía con el course handicap WHS: en una vuelta de 9
+ * hoyos el board daba ~2× los golpes de la tarjeta y las dos pantallas del mismo
+ * torneo mostraban netos distintos. Un concepto, una fuente: acá viajan los datos,
+ * la CUENTA es la de `@/golf/core/compute-player-course-hcp`, sin copiarla.
+ */
+export interface LegacyHcpContext {
+  /** `tournaments.hcp_calc_mode`. Sólo 'whs' convierte; cualquier otro valor deja
+   *  el índice crudo — es el gate que congela los torneos viejos/en curso. */
+  mode: string | null
+  /** `tournaments.tees` — tee global del torneo (último escalón del fallback). */
+  tees: string | null
+  /** Ratings de la cancha del torneo (fallback si el tee del jugador no resuelve). */
+  course: { par_total: number; slope_rating: number; course_rating: number } | null
+  /** Tees del catálogo de esa cancha, para resolver el tee por jugador. */
+  courseTees: CourseTeeRow[]
+}
+
 export interface TournamentLeaderboardContext {
   parTotal: number
   totalHoyos: number
   modoJuego: ModoJuego
   formatoJuego: FormatoJuego
   courseHoles: CourseHole[]
+  /** Datos para el course handicap por jugador. Si falta, el board cae al índice
+   *  crudo — exactamente el comportamiento de un torneo con `hcp_calc_mode` ≠ 'whs'. */
+  hcp?: LegacyHcpContext | null
 }

@@ -14,6 +14,7 @@ import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 import {
   fetchCourseHoles,
+  fetchLegacyHcpContext,
   fetchLegacyPlayers,
   buildFallbackCourseHoles,
   sumParDedupByHole,
@@ -119,9 +120,10 @@ export default async function LivePage({ params }: PageProps) {
   //     ya resuelve nombre (invitados incluidos), neto con stroke index normalizado,
   //     "a par" contra los hoyos jugados, orden y countback. Acá sólo se proyecta su
   //     salida al shape que consume LiveView, sin recalcular nada.
-  const individualHoles = tournament.course_id
-    ? await fetchCourseHoles(supabase, tournament.course_id)
-    : []
+  const [individualHoles, hcpContext] = await Promise.all([
+    tournament.course_id ? fetchCourseHoles(supabase, tournament.course_id) : Promise.resolve([]),
+    fetchLegacyHcpContext(supabase, tournament.id),
+  ])
   const boardHoles = individualHoles.length > 0 ? individualHoles : buildFallbackCourseHoles(holeCount)
   const boardCtx: TournamentLeaderboardContext = {
     parTotal: sumParDedupByHole(boardHoles),
@@ -129,6 +131,9 @@ export default async function LivePage({ params }: PageProps) {
     modoJuego: liveTournament.modo as ModoJuego,
     formatoJuego: normalizeFormat(rawFormat) as FormatoJuego,
     courseHoles: boardHoles,
+    // Course handicap por tee (mitad en vueltas de 9h), igual que /torneo, /tv y
+    // la tarjeta del organizador. Fuente única: fetchLegacyHcpContext.
+    hcp: hcpContext,
   }
   const board = buildLeaderboardFromLegacy(dbPlayers, boardCtx, liveTournament.total_rounds)
   const playerMetaById = new Map(
@@ -142,7 +147,8 @@ export default async function LivePage({ params }: PageProps) {
         id: p.id ?? '',
         name: p.name,
         category_name: meta?.categoryName,
-        // Columna "HCP Cancha": el course handicap COMPLETO (18h), igual que /torneo.
+        // Columna "HCP": el handicap que el jugador reconoce como suyo (en torneo,
+        // su índice de inscripción), NO el de scoring. Igual que /torneo y /tv.
         handicap_index: p.hcpDisplay ?? p.hcp,
         scores_per_hole: p.scores.map((s) => s ?? 0),
         gross_total: p.grossTotal ?? 0,

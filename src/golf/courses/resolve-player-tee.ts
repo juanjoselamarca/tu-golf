@@ -20,6 +20,22 @@ export interface CourseTeeRow {
   back_slope_rating?: number | null
 }
 
+/**
+ * Columnas de `course_tees` que hay que traer para poder construir un `CourseTeeRow`.
+ *
+ * Vive acá, pegada al tipo, porque es de lo que depende que el scorer y la tabla
+ * pública repartan los MISMOS golpes: si una pantalla deja de pedir
+ * `front_course_rating`, su course handicap de 9 hoyos se calcula con otra
+ * fórmula que el de la otra y los netos se separan en silencio. `id` es
+ * obligatorio: es contra lo que matchea `players.tee_id`.
+ *
+ * Una sola literal, sin concatenar: supabase-js infiere el tipo de la fila desde
+ * el string literal del `select()`, y un `'a' + 'b'` lo ensancha a `string` y le
+ * hace perder el tipado de la respuesta.
+ */
+export const COURSE_TEE_COLUMNS =
+  'id, nombre, rating, slope, yardaje_total, genero, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating'
+
 export type TeeSource = 'manual' | 'category' | 'global' | 'none'
 
 export interface ResolvePlayerTeeInput {

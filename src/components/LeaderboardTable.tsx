@@ -694,7 +694,9 @@ export default function LeaderboardTable({ players, modoJuego, formatoJuego }: {
                       </td>
 
                       {/* HCP — DM Mono tabular (DESIGN.md §4: data en cancha sin ambigüedad 1/I, 0/O, 8/B) */}
-                      <td className="py-3.5 px-4 text-center font-mono text-dataSm tabular-nums text-gray-soft">{player.hcp}</td>
+                      {/* `hcpDisplay`, no `hcp`: la columna muestra el handicap que el
+                          jugador reconoce como suyo; `hcp` es el de scoring (mitad en 9h). */}
+                      <td className="py-3.5 px-4 text-center font-mono text-dataSm tabular-nums text-gray-soft">{Math.round(player.hcpDisplay ?? player.hcp)}</td>
 
                       {/* PAR */}
                       <td className="py-3.5 px-4 text-center">

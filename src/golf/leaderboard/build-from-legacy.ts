@@ -7,6 +7,8 @@
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
@@ -43,6 +45,33 @@ export function buildLeaderboardFromLegacy(
 
   const isMultiRound = tournamentTotalRounds > 1
   const withRounds = dbPlayers.filter((p) => p.rounds?.length > 0)
+
+  // ── Course handicap por jugador: MISMA cuenta que la tarjeta en cancha. ──
+  // `strokesRecibidosEnHoyo` reparte un COURSE HANDICAP, no un índice. El scorer
+  // del organizador ya le pasa el course handicap WHS del tee del jugador; este
+  // board le pasaba el índice crudo, así que las dos pantallas del mismo torneo
+  // mostraban netos distintos. En 18 hoyos sobre cancha estándar (slope 113,
+  // CR ≈ par) la diferencia es ~0; en 9 hoyos el índice reparte el DOBLE de los
+  // golpes que corresponden (WHS: el course handicap de 9h sale del índice/2).
+  //
+  // El par que entra a la fórmula es el de los hoyos que se JUEGAN
+  // (`parDeLosHoyosJugados`), no el de la cancha: mezclar el CR de 9h con el par
+  // de 18 da course handicaps negativos. Idéntico a scoring/page.tsx.
+  const parDeLaRonda = parDeLosHoyosJugados(courseHoles, totalHoyos)
+  const hcpCtx = ctx.hcp ?? null
+  const courseHcpDe = (p: DBPlayer): number =>
+    resolveScoringCourseHcp(
+      hcpCtx?.mode ?? null,
+      { handicap_at_registration: p.handicap_at_registration, tee_id: p.tee_id ?? null },
+      { tees: hcpCtx?.tees ?? null, courses: hcpCtx?.course ?? null },
+      hcpCtx?.courseTees ?? [],
+      parDeLaRonda,
+      totalHoyos,
+    )
+  /** El ÍNDICE del jugador, tal cual quedó inscrito. Es lo que se MUESTRA en la
+   *  columna HCP (12.0 sigue siendo 12.0) y nunca lo toca la corrección de golpes. */
+  const indiceDe = (p: DBPlayer): number => p.handicap_at_registration ?? 0
+
   const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
   // SI normalizado a permutación 1..N para alocar golpes (mismo motivo que
   // build-from-ronda-libre: SI 18h-impar en loop de 9h perdía golpes). No-op si
@@ -58,7 +87,7 @@ export function buildLeaderboardFromLegacy(
   }
 
   const entries: LegacyEntryWithMeta[] = withRounds.map((p) => {
-    const hcp = p.handicap_at_registration ?? 0
+    const hcp = courseHcpDe(p)
     const sortedRounds = [...(p.rounds || [])].sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
 
     let cumulGross = 0, cumulNet = 0, cumulPoints = 0, totalHolesPlayed = 0
@@ -138,6 +167,10 @@ export function buildLeaderboardFromLegacy(
       name: resolveLegacyPlayerName(p),
       cat: p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
       handicap: hcp,
+      // La columna HCP del board sigue mostrando el ÍNDICE del jugador, igual que
+      // antes de este fix y que la ficha del scorer. Sólo cambian los GOLPES que
+      // se reparten (`handicap`), nunca el número a la vista.
+      hcpDisplay: indiceDe(p),
       grossTotal: cumulGross,
       netTotal: cumulNet,
       stablefordTotal: cumulPoints,
@@ -196,8 +229,8 @@ export function buildLeaderboardFromLegacy(
       name:    resolveLegacyPlayerName(p),
       country: 'CL',
       cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
-      hcp:     p.handicap_at_registration ?? 0,
-      hcpDisplay: p.handicap_at_registration ?? 0,
+      hcp:     courseHcpDe(p),
+      hcpDisplay: indiceDe(p),
       today:   0,
       total:   0,
       holes:   0,
@@ -211,6 +244,10 @@ export function buildLeaderboardFromLegacy(
   const gwiInputs: JugadorGWIInput[] = dbPlayers
     .filter((p) => p.rounds?.length > 0)
     .map((p) => {
+      // Los golpes se reparten con el COURSE handicap (igual que el board), pero el
+      // GWI modela la varianza por ÍNDICE de skill — por eso `handicapIndex` abajo
+      // conserva el índice crudo. Misma separación que en el camino de ronda libre.
+      const courseHcp = courseHcpDe(p)
       const hcp = p.handicap_at_registration ?? 18
       const holeScores = p.rounds[0].hole_scores ?? []
       let overUnderGross = 0, overUnderNeto = 0, totalSF = 0, hoyosComp = 0
@@ -221,8 +258,8 @@ export function buildLeaderboardFromLegacy(
         if (!hole) continue
         hoyosComp++
         overUnderGross += hs.gross_score - hole.par
-        overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)) - hole.par
-        totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
+        overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(courseHcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)) - hole.par
+        totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, courseHcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
       }
 
       const currentScore = formatoJuego === 'stableford'

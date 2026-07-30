@@ -8,6 +8,7 @@ import { fetchTVBoardData, type TVTournamentInfo, type TVWithdrawnEntry } from '
 import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy'
 import { buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
+import { captureError } from '@/lib/error-tracking'
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 import {
   scoreLabelFor,
@@ -48,10 +49,20 @@ export default function TVPage() {
   const [withdrawn,  setWithdrawn]  = useState<TVWithdrawnEntry[]>([])
 
   const fetchData = useCallback(async () => {
-    const data = await fetchTVBoardData(createClient(), slug)
+    // Si la carga falla no se pinta nada nuevo: se deja el board anterior (o la
+    // pantalla de "Cargando" en el primer intento) y se reintenta en 30s. Un
+    // board con números viejos es recuperable; uno con el handicap degradado a
+    // índice crudo se ve normal y miente en una pantalla pública.
+    let data: Awaited<ReturnType<typeof fetchTVBoardData>>
+    try {
+      data = await fetchTVBoardData(createClient(), slug)
+    } catch (e) {
+      void captureError(e, { context: 'tv.fetchData', meta: { slug } })
+      return
+    }
     if (!data) { setLoading(false); return }
 
-    const { tournament: t, dbPlayers, courseHoles, withdrawn: wd } = data
+    const { tournament: t, dbPlayers, courseHoles, withdrawn: wd, hcp } = data
     setTournament(t)
     setWithdrawn(wd)
 
@@ -66,6 +77,10 @@ export default function TVPage() {
       modoJuego: t.modo_juego,
       formatoJuego: t.formato_juego,
       courseHoles: holes,
+      // Golpes de handicap con la cuenta del scorer (course handicap por tee,
+      // mitad en 9h). Sin esto la pantalla grande mostraba un neto distinto al
+      // de la landing y al de la tarjeta del jugador.
+      hcp,
     }
     const board = buildLeaderboardFromLegacy(dbPlayers, ctx, t.total_rounds)
 

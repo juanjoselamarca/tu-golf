@@ -28,6 +28,7 @@ import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import {
   buildFallbackCourseHoles,
   fetchCourseHoles,
+  fetchLegacyHcpContext,
   fetchLegacyPlayers,
   fetchRondaLibreJugadoresConCourseHcp,
   fetchTournamentBySlug,
@@ -148,9 +149,17 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
     } else {
-      withdrawnPlayers = await fetchWithdrawnPlayers(supabase, tournament.id)
-      const dbPlayers = await fetchLegacyPlayers(supabase, tournament.id)
-      const out = buildLeaderboardFromLegacy(dbPlayers, ctx, tournament.total_rounds ?? 1)
+      // Golpes de handicap con la MISMA cuenta que la tarjeta en cancha (course
+      // handicap WHS por tee, mitad en vueltas de 9h). Sin esto la tabla pública
+      // repartía el índice crudo y no coincidía con el marcador del organizador.
+      // Las tres queries son independientes: van juntas, no en fila.
+      const [withdrawn, dbPlayers, hcp] = await Promise.all([
+        fetchWithdrawnPlayers(supabase, tournament.id),
+        fetchLegacyPlayers(supabase, tournament.id),
+        fetchLegacyHcpContext(supabase, tournament.id),
+      ])
+      withdrawnPlayers = withdrawn
+      const out = buildLeaderboardFromLegacy(dbPlayers, { ...ctx, hcp }, tournament.total_rounds ?? 1)
       players = out.players
       playersByGross = out.playersByGross
       playersByNeto = out.playersByNeto
