@@ -20,6 +20,15 @@ export interface LeaderboardEntry {
   /** Score vs par para el modo elegido por el torneo (mostrado en TournamentTabs). */
   vsPar: number
   holesPlayed: number
+  /**
+   * Par acumulado de los hoyos REALMENTE jugados (`parOfPlayedHoles`). Es la
+   * referencia contra la que se mide "a par" mientras la vuelta está a medias:
+   * usar el par de la vuelta completa pinta al que jugó menos como líder.
+   * Opcional por compatibilidad; si falta, `rankEntries` cae a `parTotal`.
+   */
+  parPlayed?: number
+  /** ID del jugador en su tabla de origen. Permite a la UI enlazar/filtrar. */
+  id?: string
   /** Cantidad de rondas con datos para este jugador. Multi-round: vsPar =
    *  cumulNet - parTotal * roundsPlayed. Default 1 para torneos single-round. */
   roundsPlayed?: number

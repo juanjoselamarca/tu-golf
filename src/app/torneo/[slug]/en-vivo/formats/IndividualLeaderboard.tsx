@@ -5,7 +5,11 @@
 // Sin click-expandir (eso es follow-up de Wave 3 tanda 2).
 
 import type { LivePlayer } from '../types'
+import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-format'
+
+/** Celda sin dato. Em dash, el mismo que usa `formatThru`. */
+const EMPTY = '—'
 
 export interface IndividualLeaderboardProps {
   players: LivePlayer[]
@@ -13,40 +17,27 @@ export interface IndividualLeaderboardProps {
   modo: 'gross' | 'neto'
 }
 
-function sortPlayers(
-  players: LivePlayer[],
-  format: 'stroke_play' | 'stableford',
-  modo: 'gross' | 'neto'
-): LivePlayer[] {
-  const copy = [...players]
-  if (format === 'stableford') {
-    // Mas puntos = mejor.
-    copy.sort((a, b) => (b.points_total ?? 0) - (a.points_total ?? 0))
-  } else if (modo === 'neto') {
-    copy.sort((a, b) => (a.net_total ?? Number.POSITIVE_INFINITY) - (b.net_total ?? Number.POSITIVE_INFINITY))
-  } else {
-    copy.sort((a, b) => a.gross_total - b.gross_total)
-  }
-  return copy
-}
-
 export default function IndividualLeaderboard({
   players,
   format,
   modo,
 }: IndividualLeaderboardProps) {
-  const sorted = sortPlayers(players, format, modo)
-  // Empates estilo golf por la misma métrica que ordenó (puntos / neto / bruto).
-  const positions = computePositions(
-    sorted.map((p) =>
-      format === 'stableford'
-        ? (p.points_total ?? 0)
-        : modo === 'neto'
-          ? (p.net_total ?? Number.POSITIVE_INFINITY)
-          : p.gross_total,
-    ),
-  )
+  // El orden lo decide el motor (`buildLeaderboardFromLegacy` → `rankEntries`),
+  // que ya aplicó countback y dejó a los que no scorearon al final. Re-ordenar
+  // acá por golpes crudos era el bug que ponía primero al que menos hoyos
+  // llevaba, y en modo neto dejaba la tabla sin orden.
+  const sorted = players
   const isStableford = format === 'stableford'
+
+  // Empates estilo golf sobre la MISMA métrica que ordenó: puntos en
+  // stableford, "a par" en el resto. Quien no jugó no empata con quien está en
+  // par — va aparte, al final.
+  const positions = computePositions(
+    sorted.map((p) => {
+      if (!hasPlayData({ holesPlayed: p.thru })) return Number.POSITIVE_INFINITY
+      return isStableford ? (p.points_total ?? 0) : p.vs_par
+    }),
+  )
 
   // Estilos inline para tokens con fallback hex (sin tocar Tailwind config).
   const tableStyle: React.CSSProperties = {
@@ -116,24 +107,31 @@ export default function IndividualLeaderboard({
           </tr>
         </thead>
         <tbody>
-          {sorted.map((p, idx) => (
-            <tr key={p.id}>
-              <td style={tdNumStyle}>{positions[idx]}</td>
-              <td style={{ ...tdStyle, fontWeight: 500 }}>{p.name}</td>
-              <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{p.category_name ?? '-'}</td>
-              <td style={tdNumStyle}>{p.gross_total}</td>
-              <td style={tdNumStyle}>{p.handicap_index}</td>
-              {isStableford ? (
-                <td style={{ ...tdNumStyle, fontWeight: 600 }}>{p.points_total ?? 0}</td>
-              ) : (
-                <>
-                  <td style={tdNumStyle}>{modo === 'neto' ? (p.net_total ?? '-') : '-'}</td>
-                  <td style={{ ...tdNumStyle, fontWeight: 600, color: vsParColor(p.vs_par) }}>{formatVsPar(p.vs_par)}</td>
-                </>
-              )}
-              <td style={{ ...tdNumStyle, color: 'var(--text-2, #5a6573)' }}>{formatThru(p.thru)}</td>
-            </tr>
-          ))}
+          {sorted.map((p, idx) => {
+            // Sin hoyos jugados no hay score: se muestra "—", nunca un número
+            // derivado de totales en cero (así aparecía un líder a −60).
+            const played = hasPlayData({ holesPlayed: p.thru })
+            return (
+              <tr key={p.id}>
+                <td style={tdNumStyle}>{played ? positions[idx] : EMPTY}</td>
+                <td style={{ ...tdStyle, fontWeight: 500 }}>{p.name}</td>
+                <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{p.category_name ?? EMPTY}</td>
+                <td style={tdNumStyle}>{played ? p.gross_total : EMPTY}</td>
+                <td style={tdNumStyle}>{p.handicap_index}</td>
+                {isStableford ? (
+                  <td style={{ ...tdNumStyle, fontWeight: 600 }}>{played ? (p.points_total ?? 0) : EMPTY}</td>
+                ) : (
+                  <>
+                    <td style={tdNumStyle}>{played && p.net_total != null ? p.net_total : EMPTY}</td>
+                    <td style={{ ...tdNumStyle, fontWeight: 600, color: played ? vsParColor(p.vs_par) : undefined }}>
+                      {played ? formatVsPar(p.vs_par) : EMPTY}
+                    </td>
+                  </>
+                )}
+                <td style={{ ...tdNumStyle, color: 'var(--text-2, #5a6573)' }}>{formatThru(p.thru)}</td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

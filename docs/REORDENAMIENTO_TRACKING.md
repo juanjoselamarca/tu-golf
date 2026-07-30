@@ -119,11 +119,110 @@ Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones
 | `api/ronda-libre/create/route.ts` (`LATAM_FORMATOS`) | ⏳ pendiente — write-path crítico, migrar al tocar el flujo de creación |
 | `api/torneos/create/route.ts` (`FORMATOS`) | ⏳ pendiente — write-path crítico, migrar al tocar el flujo de creación |
 
-### Concepto "¿hay puntajes para mostrar?" (predicado de gating en pantalla de resultados)
+### Concepto "¿hay puntajes para mostrar?" → `hasPlayData()` en `src/golf/leaderboard/board-rules.ts`
 
 | Sitio | Estado |
 |---|---|
-| `[codigo]/page.tsx` — 3 definiciones inconsistentes (`leaderboard[0]` vs `leaderboard.some(...)`) | ⏳ pendiente — unificar en un `hasPlayData` único (PR siguiente, resultados) |
+| `src/golf/leaderboard/board-rules.ts` (fuente canónica) | ✅ creado (29-jul, board individual unificado) |
+| `torneo/[slug]/en-vivo/formats/IndividualLeaderboard.tsx` | ✅ migrado (29-jul) |
+| `torneo/[slug]/tv/page.tsx` | ✅ migrado (29-jul) |
+| `components/TournamentTabs.tsx` — 6 copias inline (`p.holes > 0` / `=== 0`) + la columna Pos, que mostraba `T1` para el field entero con el torneo recién abierto | ✅ migrado (29-jul, findings I2 y F3 del code-reviewer) |
+| `[codigo]/page.tsx` — 3 definiciones inconsistentes (`leaderboard[0]` vs `leaderboard.some(...)`) | ⏳ pendiente — migrar a `hasPlayData` al tocar resultados de ronda libre |
+
+### Concepto "nombre del jugador de torneo" → `resolveLegacyPlayerName()` en `src/golf/leaderboard/board-rules.ts`
+
+Antes el mismo invitado se llamaba distinto en cada pantalla: `"Sin nombre"` en /en-vivo,
+`"Jugador"` en el board de la landing y su `player_name` real en el TV.
+
+| Sitio | Estado |
+|---|---|
+| `src/golf/leaderboard/board-rules.ts` (fuente canónica) | ✅ creado (29-jul) |
+| `build-from-legacy.ts` (entries + `noRound` + gwiInputs) | ✅ migrado (29-jul) |
+| `torneo/[slug]/en-vivo/page.tsx`, `torneo/[slug]/tv/page.tsx` | ✅ migrado — consumen el motor, ya no resuelven nombre |
+
+### Concepto "¿contra qué par se mide *a par*?" → `parOfPlayedHoles()` en `src/golf/leaderboard/board-rules.ts`
+
+P0 cerrado el 29-jul: las tres pantallas medían contra el par de la vuelta COMPLETA
+mientras la vuelta estaba a medias, así que el jugador con menos hoyos encabezaba el
+leaderboard (−60 con 3 hoyos en 18h). El orden tenía el mismo defecto: `rankEntries`
+ordenaba por golpes crudos, no por score a par.
+
+| Sitio | Estado |
+|---|---|
+| `src/golf/leaderboard/board-rules.ts` (fuente canónica) | ✅ creado (29-jul) |
+| `build-from-legacy.ts` (`parPlayed`, neto derivado de `hole_scores`) | ✅ migrado (29-jul) |
+| `build-from-ronda-libre.ts` (ya lo calculaba; ahora lo expone en el entry) | ✅ migrado (29-jul) |
+| `rank-entries.ts` (`vsParFor` + orden + countback sobre score a par) | ✅ migrado (29-jul) |
+
+**Decisión asociada — el countback es sólo para tarjetas terminadas.** Pasar el orden a
+"score a par" tuvo un efecto de segundo orden que cazó el code-reviewer: los empates
+pasaron de raros (requerían colisión exacta de golpes) a ser la norma (enteros chicos
+alrededor de 0), y el countback empezó a correr sobre todo el field. Como
+`compareCountback` suma los hoyos sin jugar como **0 golpes**, con `lower_wins` el
+desempate se lo llevaba siempre el que menos había jugado — el P0 reaparecía por otra
+puerta — y además el 100% del field quedaba con "(empate)" pegado al nombre.
+`rankEntries` ahora aplica countback **sólo** dentro de grupos donde todas las tarjetas
+están completas; los empates en vuelta se ordenan por hoyos jugados (desc) y no se anotan.
+
+**Sub-decisión — el gate mira la TARJETA, no el contador.** `cardIsComplete` cuenta los
+hoyos con score en `entry.scores` (la tarjeta que el countback efectivamente lee) y no
+`holesPlayed`. No son lo mismo: una ronda con sólo los totales cargados suma al contador
+pero llega con la tarjeta vacía, y esos nulls se leen como ceros que barren todos los
+segmentos — el jugador sin tarjeta le ganaba a una vuelta real del mismo score. Además el
+orden desempata por hoyos jugados y, si persiste, por hoyos en tarjeta.
+
+**Follow-ups conocidos del countback (no bloquean, anotados para no re-diagnosticarlos):**
+
+| Caso | Estado |
+|---|---|
+| `holeCount` se deriva de `max(scores.length)` en vez del `ctx.totalHoyos` autoritativo. Una ronda de 9h guardada en los hoyos 10-18 daría `holeCount=18` y el countback no dispararía. **No existe hoy en prod** (los torneos de 9h usan hoyos 1-9). | ⏳ latente — arreglar pasando `totalHoyos` a `rankEntries` |
+| Multi-ronda de largos distintos (18 + 9): `cardIsComplete` mira la última tarjeta, así que funciona; pero el `holeCount` global sigue saliendo del máximo. | ⏳ latente — mismo fix |
+| Una sola tarjeta incompleta en un grupo empatado desactiva el countback para todo el grupo. Correcto mientras se juega; al cierre de un torneo, un hoyo faltante por hueco de data deja el podio sin resolver. | ⏳ pendiente — decidir si al cerrar el torneo se fuerza el countback |
+| `Player.today` muestra el score NETO también en el tab GROSS (`applyToday` lo pisa en `playersByGross`). Preexistente, se renderiza en `LeaderboardTable.tsx`. | ⏳ pendiente — fuera del alcance de este PR |
+
+**Decisión asociada — `PAR_FALLBACK`.** El par asumido para un hoyo ausente del catálogo
+vive una sola vez en `board-rules.ts` y lo consume también `buildFallbackCourseHoles`.
+NO se reusa `STANDARD_PARS` de `golf/coach/hole-pars`: es un layout par-72 concreto (su
+propio doc avisa que miente en canchas par 70/71, varias de las nuestras) y no cubre los
+hoyos >18 de canchas multi-recorrido. Conceptos parecidos, no el mismo.
+
+### Concepto "¿es stableford?" — pendiente de fuente canónica
+
+Detectado el 30-jul por el code-reviewer. El predicado `formato_juego === 'stableford'`
+está reescrito inline en ~10 archivos productivos (`TeamLeaderboard`,
+`compute-tournament-results`, `lib/ronda/leaderboard`, `share-card`, `api/en-vivo`, los
+dos `IndividualLeaderboard`, entre otros). Es el mismo smell que `TEAM_FORMAT_KEYS`
+resolvió para los formatos por equipo: corresponde un `isStablefordFormat()` en
+`src/golf/formats`, derivado del registry.
+
+NO se migró en el PR del board individual a propósito: habría ensanchado el blast radius
+de un PR de display hacia el motor de share cards y el de equipos. Migrar al tocar cada
+flujo.
+
+| Sitio | Estado |
+|---|---|
+| `src/golf/formats` — falta `isStablefordFormat()` | ⏳ pendiente — crear la canónica al tocar el primer flujo |
+| ~10 call-sites productivos con el predicado inline | ⏳ pendiente — migrar al tocar cada flujo |
+
+### P0 ABIERTO — el board legacy usa `handicap_at_registration` crudo como course handicap
+
+Detectado el 29-jul al verificar el board unificado contra la data real del gate.
+`build-from-legacy.ts` (líneas 61 / 190 / 204) toma `handicap_at_registration` tal cual
+para repartir golpes. Esa columna guarda **dos unidades distintas**: course handicap para
+inscritos con cuenta, e **índice crudo** para invitados. Además nunca se ajusta a 9h ni
+por slope del tee.
+
+Evidencia (prod, `gate-scorer-9h-individual`): Paty Demo índice 30 → el board reparte
+**30 golpes** y la muestra en **−9 neto**; su course handicap 9h correcto es **16**
+(verificado por `gate-scorer-handicap.test.ts`, P0-5), lo que la deja en **+2**.
+
+El camino de ronda libre YA lo resuelve bien con `fetchRondaLibreJugadoresConCourseHcp`
+(`resolverCourseData` + `resolverCourseHandicap` por tee). Falta el gemelo para el camino
+legacy `players`.
+
+| Sitio | Estado |
+|---|---|
+| `build-from-legacy.ts` + capa de datos del board legacy | ⏳ **P0 pendiente** — resolver course handicap por jugador/tee antes del campeonato |
 
 ### Concepto "par de un hoyo con fallback estándar" → `STANDARD_PARS` / `parForHoleWithFallback()` en `src/golf/coach/hole-pars.ts`
 

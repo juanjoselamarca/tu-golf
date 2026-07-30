@@ -10,7 +10,14 @@ import { normalizeStatus } from './normalize-status'
 import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
-import { fetchCourseHoles, buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
+import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy'
+import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
+import {
+  fetchCourseHoles,
+  fetchLegacyPlayers,
+  buildFallbackCourseHoles,
+  sumParDedupByHole,
+} from '@/lib/data/tournaments/leaderboard'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './scrambleTeamsToLive'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
@@ -69,52 +76,16 @@ export default async function LivePage({ params }: PageProps) {
   const parTotal = tournament.courses?.par_total ?? 72
   const holeCount = tournament.hole_count ?? 18
 
-  // 2) Players (activos)
-  const { data: playersRaw } = await supabase
-    .from('players')
-    .select(
-      'id, user_id, handicap_at_registration, status, profiles(name), category_id, categories(name)'
-    )
-    .eq('tournament_id', tournament.id)
-    .in('status', ['pending', 'approved', 'waitlist'])
-
-  type PlayerRow = {
-    id: string
-    user_id: string | null
-    handicap_at_registration: number | null
-    status: string
-    profiles: { name: string | null } | null
-    category_id: string | null
-    categories: { name: string | null } | null
-  }
-  const playerRows = ((playersRaw ?? []) as unknown) as PlayerRow[]
-
-  // 3) Rondas + hole_scores (chain players -> rounds -> hole_scores)
-  const playerIds = playerRows.map((p) => p.id)
-
-  type RoundRow = { id: string; player_id: string; round_number: number | null }
-  let rounds: RoundRow[] = []
-  if (playerIds.length > 0) {
-    const { data: roundsRaw } = await supabase
-      .from('rounds')
-      .select('id, player_id, round_number')
-      .in('player_id', playerIds)
-    rounds = ((roundsRaw ?? []) as unknown) as RoundRow[]
-  }
-
-  type ScoreRow = { id: string; round_id: string; hole_number: number; gross_score: number | null }
-  let scores: ScoreRow[] = []
-  const roundIds = rounds.map((r) => r.id)
-  if (roundIds.length > 0) {
-    const { data: scoresRaw } = await supabase
-      .from('hole_scores')
-      .select('id, round_id, hole_number, gross_score')
-      .in('round_id', roundIds)
-    scores = ((scoresRaw ?? []) as unknown) as ScoreRow[]
-  }
+  // 2) Players (activos) — MISMA query y MISMO motor que el board de /torneo.
+  //    Antes esta pantalla agregaba los scores por su cuenta y divergía: medía
+  //    "a par" contra la vuelta completa (thru 3 salía líder a −60), nunca
+  //    calculaba el neto (la columna quedaba vacía y el orden en modo neto era
+  //    arbitrario) y los invitados aparecían como "Sin nombre".
+  const dbPlayers = await fetchLegacyPlayers(supabase, tournament.id)
+  const playerIds = dbPlayers.map((p) => p.id)
 
   // 4) Mapping player_id -> group_id desde tournament_group_players (filtro "solo mi grupo").
-  let playerGroupMap = new Map<string, string>()
+  const playerGroupMap = new Map<string, string>()
   if (playerIds.length > 0) {
     const { data: groupPlayersRaw } = await supabase
       .from('tournament_group_players')
@@ -126,32 +97,6 @@ export default async function LivePage({ params }: PageProps) {
       })
     }
   }
-
-  // 5) Agregar players con sus scores totales.
-  const players: LivePlayer[] = playerRows.map((p) => {
-    const roundsOfPlayer = rounds.filter((r) => r.player_id === p.id)
-    const playerScores = scores.filter((s) => roundsOfPlayer.some((r) => r.id === s.round_id))
-    const scoresPerHole = playerScores
-      .map((s) => s.gross_score ?? 0)
-      .filter((v): v is number => Number.isFinite(v))
-    const grossTotal = scoresPerHole.reduce((a, b) => a + b, 0)
-    const thru = playerScores.filter((s) => s.gross_score !== null).length
-
-    // Atributos extendidos (group_id, category_id) que viajan en el shape pero no son parte de LiveBase.
-    const ext: LivePlayer & { group_id?: string | null; category_id?: string | null } = {
-      id: p.id,
-      name: p.profiles?.name ?? 'Sin nombre',
-      category_name: p.categories?.name ?? undefined,
-      handicap_index: Number(p.handicap_at_registration ?? 0),
-      scores_per_hole: scoresPerHole,
-      gross_total: grossTotal,
-      vs_par: grossTotal > 0 ? grossTotal - parTotal : 0,
-      thru,
-      group_id: playerGroupMap.get(p.id) ?? null,
-      category_id: p.category_id ?? null,
-    }
-    return ext
-  })
 
   // 6) Determinar formato canonico. Priorizamos `formato_juego` (canonico nuevo) y caemos a `format` legacy.
   const rawFormat = tournament.formato_juego ?? tournament.format ?? 'stroke_play'
@@ -169,6 +114,46 @@ export default async function LivePage({ params }: PageProps) {
     // Fuente única de liveness (misma que /torneo): date-aware, no solo status.
     live: torneoEnVivo(tournament.status, tournament.date_start, tournament.date_end, new Date()),
   }
+
+  // 6b) Board individual: UNA sola computación, la del motor. `buildLeaderboardFromLegacy`
+  //     ya resuelve nombre (invitados incluidos), neto con stroke index normalizado,
+  //     "a par" contra los hoyos jugados, orden y countback. Acá sólo se proyecta su
+  //     salida al shape que consume LiveView, sin recalcular nada.
+  const individualHoles = tournament.course_id
+    ? await fetchCourseHoles(supabase, tournament.course_id)
+    : []
+  const boardHoles = individualHoles.length > 0 ? individualHoles : buildFallbackCourseHoles(holeCount)
+  const boardCtx: TournamentLeaderboardContext = {
+    parTotal: sumParDedupByHole(boardHoles),
+    totalHoyos: holeCount,
+    modoJuego: liveTournament.modo as ModoJuego,
+    formatoJuego: normalizeFormat(rawFormat) as FormatoJuego,
+    courseHoles: boardHoles,
+  }
+  const board = buildLeaderboardFromLegacy(dbPlayers, boardCtx, liveTournament.total_rounds)
+  const playerMetaById = new Map(
+    dbPlayers.map((p) => [p.id, { categoryId: p.category_id ?? null, categoryName: p.categories?.name ?? undefined }]),
+  )
+
+  const players: Array<LivePlayer & { group_id?: string | null; category_id?: string | null }> =
+    board.players.map((p) => {
+      const meta = p.id ? playerMetaById.get(p.id) : undefined
+      return {
+        id: p.id ?? '',
+        name: p.name,
+        category_name: meta?.categoryName,
+        // Columna "HCP Cancha": el course handicap COMPLETO (18h), igual que /torneo.
+        handicap_index: p.hcpDisplay ?? p.hcp,
+        scores_per_hole: p.scores.map((s) => s ?? 0),
+        gross_total: p.grossTotal ?? 0,
+        net_total: p.netTotal,
+        points_total: p.stablefordTotal,
+        vs_par: p.total,
+        thru: p.holes,
+        group_id: (p.id && playerGroupMap.get(p.id)) || null,
+        category_id: meta?.categoryId ?? null,
+      }
+    })
 
   // 7) Equipos: standings desde grupos + ronda_equipos.
   //    - scramble/foursome: un score COMPARTIDO por equipo por hoyo (cambia el

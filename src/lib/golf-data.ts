@@ -19,6 +19,9 @@ export type Category   = 'General' | 'Categoría A' | 'Categoría B'
 
 export interface Player {
   pos:     number
+  /** ID del jugador en su tabla de origen. Presente cuando el ranking viene
+   *  del motor (`rankEntries`); ausente en los datos mock de abajo. */
+  id?:     string
   name:    string
   country: string
   cat:     string
@@ -29,6 +32,13 @@ export interface Player {
   today:   number
   total:   number
   holes:   number
+  /** Golpes brutos acumulados. Lo emite el motor; la UI que muestre la columna
+   *  BRUTO debe leer esto y no re-sumar `scores`. */
+  grossTotal?: number
+  /** Golpes netos acumulados (bruto − golpes recibidos, SI normalizado). */
+  netTotal?: number
+  /** Puntos stableford acumulados. */
+  stablefordTotal?: number
   status:  Status
   /** 18 entries; null = hole not yet played */
   scores:  (number | null)[]
