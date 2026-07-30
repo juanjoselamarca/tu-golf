@@ -8,6 +8,8 @@ import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 export interface DBPlayer {
   id: string
   handicap_at_registration: number | null
+  /** Tee asignado por el organizador. Entra en el course handicap WHS. */
+  tee_id: string | null
   player_name: string | null
   profiles: { name: string; indice: number | null } | null
   categories: { name: string } | null
@@ -38,6 +40,10 @@ export interface DBTournament {
   afecta_estadisticas: boolean | null
   es_demo: boolean | null
   cover_image_url: string | null
+  /** Tee global del torneo (fallback cuando el jugador no tiene `tee_id`). */
+  tees: string | null
+  /** Gate del cálculo de neto: 'whs' → course handicap por tee; otro → índice crudo. */
+  hcp_calc_mode: string | null
   courses: {
     id: string
     nombre: string

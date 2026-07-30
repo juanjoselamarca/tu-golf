@@ -9,6 +9,7 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { computeIndividualScore, sumIndividualScores } from './individual-score'
 import { resolvePlayerName } from './player-name'
+import { scoringHandicapOf, type ScoringHandicaps } from './scoring-handicap'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
@@ -28,6 +29,9 @@ export function buildLeaderboardFromLegacy(
   dbPlayers: DBPlayer[],
   ctx: TournamentLeaderboardContext,
   tournamentTotalRounds: number,
+  /** playerId → course handicap de scoring. El MISMO que persiste el organizador
+   *  (`resolveScoringCourseHcp`), o la tabla pública lo contradice en torneos WHS. */
+  scoringHandicaps: ScoringHandicaps,
 ): LegacyLeaderboardOutput {
   const { totalHoyos, modoJuego, formatoJuego, courseHoles } = ctx
   const playerIdToIndex: Record<string, number> = {}
@@ -59,7 +63,7 @@ export function buildLeaderboardFromLegacy(
   }
 
   const entries: LegacyEntryWithMeta[] = withRounds.map((p) => {
-    const hcp = p.handicap_at_registration ?? 0
+    const hcp = scoringHandicapOf(scoringHandicaps, p.id, p.handicap_at_registration)
     const sortedRounds = [...(p.rounds || [])].sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
 
     // Gross/neto/stableford se DERIVAN de `hole_scores` con el motor canónico.
@@ -144,7 +148,7 @@ export function buildLeaderboardFromLegacy(
       name:    resolvePlayerName(p.profiles?.name, p.player_name),
       country: 'CL',
       cat:     p.categories?.name ? `Cat. ${p.categories.name}` : 'General',
-      hcp:     p.handicap_at_registration ?? 0,
+      hcp:     scoringHandicapOf(scoringHandicaps, p.id, p.handicap_at_registration),
       today:   0,
       total:   0,
       holes:   0,
@@ -155,42 +159,36 @@ export function buildLeaderboardFromLegacy(
   })
 
   // ── GWI inputs (independientes del orden). ──
-  const gwiInputs: JugadorGWIInput[] = dbPlayers
-    .filter((p) => p.rounds?.length > 0)
-    .map((p) => {
-      const hcp = p.handicap_at_registration ?? 18
-      const holeScores = p.rounds[0].hole_scores ?? []
-      let overUnderGross = 0, overUnderNeto = 0, totalSF = 0, hoyosComp = 0
+  // Reutilizan el score YA computado del board: antes re-derivaban neto y
+  // stableford inline con OTRO handicap (`?? 18` en vez de `?? 0`) y mirando
+  // sólo `rounds[0]`, así que el live tracker y la tabla podían discrepar en un
+  // torneo multi-ronda o con handicap nulo.
+  const scoreByPlayerId = new Map(entries.map((e) => [e.dbPlayerId, e]))
+  const gwiInputs: JugadorGWIInput[] = withRounds.map((p) => {
+    const e = scoreByPlayerId.get(p.id)
+    const currentScore = formatoJuego === 'stableford'
+      ? (e?.stablefordTotal ?? 0)
+      : modoJuego === 'neto'
+        ? (e ? e.netTotal - e.parPlayed : 0)
+        : (e ? e.grossTotal - e.parPlayed : 0)
 
-      for (const hs of holeScores) {
-        if (!hs.gross_score) continue
-        const hole = holeMap.get(hs.hole_number)
-        if (!hole) continue
-        hoyosComp++
-        overUnderGross += hs.gross_score - hole.par
-        overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)) - hole.par
-        totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
-      }
-
-      const currentScore = formatoJuego === 'stableford'
-        ? totalSF
-        : modoJuego === 'neto' ? overUnderNeto : overUnderGross
-
-      return {
-        id:                   p.id,
-        nombre:               resolvePlayerName(p.profiles?.name, p.player_name),
-        handicapIndex:        hcp,
-        currentScore,
-        hoyosCompletados:     hoyosComp,
-        modoJuego,
-        formatoJuego,
-        historicalAvg:        null,
-        historicalRoundsCount: 0,
-        courseAvg:            null,
-        courseRoundsCount:    0,
-        patterns:             null,
-      } satisfies JugadorGWIInput
-    })
+    return {
+      id:                   p.id,
+      nombre:               resolvePlayerName(p.profiles?.name, p.player_name),
+      // El GWI modela varianza por SKILL: sin handicap declarado asume bogey
+      // golfer (18), no scratch. Es el único número que NO comparte con el board.
+      handicapIndex:        p.handicap_at_registration ?? 18,
+      currentScore,
+      hoyosCompletados:     e?.holesPlayed ?? 0,
+      modoJuego,
+      formatoJuego,
+      historicalAvg:        null,
+      historicalRoundsCount: 0,
+      courseAvg:            null,
+      courseRoundsCount:    0,
+      patterns:             null,
+    } satisfies JugadorGWIInput
+  })
 
   return {
     players: primaryPlayers,

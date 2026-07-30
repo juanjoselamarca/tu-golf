@@ -29,6 +29,7 @@ import {
   buildFallbackCourseHoles,
   fetchCourseHoles,
   fetchLegacyPlayers,
+  fetchCourseTees,
   fetchRondaLibreJugadoresConCourseHcp,
   fetchTournamentBySlug,
   fetchTournamentGroups,
@@ -37,6 +38,7 @@ import {
 } from '@/lib/data/tournaments/leaderboard'
 import {
   buildLeaderboardFromLegacy,
+  buildScoringHandicaps,
   buildLeaderboardFromRondaLibre,
   computeStats,
   computeTournamentResults,
@@ -150,13 +152,26 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
     } else {
       withdrawnPlayers = await fetchWithdrawnPlayers(supabase, tournament.id)
       const dbPlayers = await fetchLegacyPlayers(supabase, tournament.id)
-      const out = buildLeaderboardFromLegacy(dbPlayers, ctx, tournament.total_rounds ?? 1)
+      // Handicap de scoring por jugador: el MISMO que persiste el organizador
+      // (`resolveScoringCourseHcp`). En torneos `hcp_calc_mode='whs'` es el
+      // course handicap por tee; en el resto, el índice crudo. Sin esto la tabla
+      // pública contradice a la pantalla del organizador por varios golpes.
+      const parParaHcp = sumParDedupByHole(courseHoles)
+      const courseTees = tournament.courses?.id
+        ? await fetchCourseTees(supabase, tournament.courses.id)
+        : []
+      const scoringHandicaps = buildScoringHandicaps(
+        dbPlayers, tournament, courseTees, parParaHcp, totalHoyos,
+      )
+      const out = buildLeaderboardFromLegacy(dbPlayers, ctx, tournament.total_rounds ?? 1, scoringHandicaps)
       players = out.players
       playersByGross = out.playersByGross
       playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
       playerIdToIndex = out.playerIdToIndex
-      stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, parTotal) : null
+      stats = dbPlayers.length > 0
+        ? computeStats(dbPlayers, courseHoles, totalHoyos, scoringHandicaps)
+        : null
     }
 
     // Standings de equipos: el grupo de salida ES el equipo.

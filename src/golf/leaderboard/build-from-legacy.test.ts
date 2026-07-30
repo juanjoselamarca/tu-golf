@@ -8,8 +8,29 @@
 
 import { describe, it, expect } from 'vitest'
 import { buildLeaderboardFromLegacy } from './build-from-legacy'
+import { buildScoringHandicaps } from './scoring-handicap'
 import type { CourseHole, TournamentLeaderboardContext } from './types'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
+
+/**
+ * Handicaps de scoring en modo NO-whs (índice crudo) — el comportamiento
+ * histórico de los torneos existentes. Los tests que necesitan WHS lo arman
+ * explícito con `buildScoringHandicaps`.
+ */
+function hcpsCrudos(players: DBPlayer[]) {
+  return buildScoringHandicaps(
+    players.map((p) => ({ id: p.id, handicap_at_registration: p.handicap_at_registration, tee_id: p.tee_id })),
+    { hcp_calc_mode: 'raw', tees: null, courses: null },
+    [],
+    72,
+    18,
+  )
+}
+
+/** Atajo: corre el builder con los handicaps crudos de esos jugadores. */
+function build(players: DBPlayer[], ctx = CTX, rondas = 1) {
+  return buildLeaderboardFromLegacy(players, ctx, rondas, hcpsCrudos(players))
+}
 
 const COURSE_HOLES: CourseHole[] = Array.from({ length: 18 }, (_, i) => ({
   numero: i + 1,
@@ -68,7 +89,7 @@ function jugador(opts: {
 
 describe('buildLeaderboardFromLegacy — vs par contra hoyos jugados (P0)', () => {
   it('jugador en par thru 9 marca E, no −36', () => {
-    const out = buildLeaderboardFromLegacy([jugador({ id: 'p1', holes: 9 })], CTX, 1)
+    const out = build([jugador({ id: 'p1', holes: 9 })])
 
     expect(out.players[0].total).toBe(0)
     expect(out.players[0].holes).toBe(9)
@@ -79,7 +100,7 @@ describe('buildLeaderboardFromLegacy — vs par contra hoyos jugados (P0)', () =
     const atrasado = jugador({ id: 'atrasado', nombre: 'Atrasado', holes: 3 })
     const adelantado = jugador({ id: 'adelantado', nombre: 'Adelantado', holes: 15 })
 
-    const out = buildLeaderboardFromLegacy([atrasado, adelantado], CTX, 1)
+    const out = build([atrasado, adelantado])
 
     expect(out.players.map((p) => p.total)).toEqual([0, 0])
   })
@@ -88,7 +109,7 @@ describe('buildLeaderboardFromLegacy — vs par contra hoyos jugados (P0)', () =
     const bueno = jugador({ id: 'bueno', nombre: 'Bueno', holes: 18, gross: 4 })   // E
     const malo = jugador({ id: 'malo', nombre: 'Malo', holes: 9, gross: 6 })       // +18
 
-    const out = buildLeaderboardFromLegacy([bueno, malo], CTX, 1)
+    const out = build([bueno, malo])
 
     expect(out.players[0].name.startsWith('Bueno')).toBe(true)
     expect(out.players[0].total).toBe(0)
@@ -102,7 +123,7 @@ describe('buildLeaderboardFromLegacy — neto derivado, no leído de la columna'
     const p = jugador({ id: 'p1', hcp: 18, holes: 18, gross: 5, totalNet: 0, totalGross: 0 })
     const ctxNeto: TournamentLeaderboardContext = { ...CTX, modoJuego: 'neto' }
 
-    const out = buildLeaderboardFromLegacy([p], ctxNeto, 1)
+    const out = build([p], ctxNeto)
 
     expect(out.playersByNeto[0].total).toBe(0)
   })
@@ -112,9 +133,70 @@ describe('buildLeaderboardFromLegacy — neto derivado, no leído de la columna'
     const p = jugador({ id: 'p1', hcp: 0, holes: 18, gross: 4, totalNet: 60 })
     const ctxNeto: TournamentLeaderboardContext = { ...CTX, modoJuego: 'neto' }
 
-    const out = buildLeaderboardFromLegacy([p], ctxNeto, 1)
+    const out = build([p], ctxNeto)
 
     expect(out.playersByNeto[0].total).toBe(0)
+  })
+})
+
+describe('buildLeaderboardFromLegacy — handicap de scoring (torneos WHS)', () => {
+  // Los Leones: slope 142, CR 75.1, par 72. Índice 12.0 → course handicap 18.
+  const TEE_AZUL = {
+    id: 'tee-azul',
+    nombre: 'Azul',
+    rating: 75.1,
+    slope: 142,
+    yardaje_total: 6300,
+    genero: 'varones',
+    front_course_rating: null,
+    front_slope_rating: null,
+    back_course_rating: null,
+    back_slope_rating: null,
+  }
+
+  const TORNEO_WHS = {
+    hcp_calc_mode: 'whs',
+    tees: 'Azul',
+    courses: { par_total: 72, slope_rating: 142, course_rating: 75.1 },
+  }
+
+  it('reparte golpes con el course handicap por tee, no con el índice crudo', () => {
+    // Índice 12 → CH 18 en esta cancha. 18 hoyos de bogey (90 gross) → neto 72 = E.
+    // Con el índice crudo (12) el neto daría 78 → +6, seis golpes de diferencia.
+    const p = { ...jugador({ id: 'p1', hcp: 12, holes: 18, gross: 5 }), tee_id: 'tee-azul' } as DBPlayer
+    const ctxNeto: TournamentLeaderboardContext = { ...CTX, modoJuego: 'neto' }
+
+    const handicaps = buildScoringHandicaps(
+      [{ id: 'p1', handicap_at_registration: 12, tee_id: 'tee-azul' }],
+      TORNEO_WHS,
+      [TEE_AZUL],
+      72,
+      18,
+    )
+    expect(handicaps.get('p1')).toBe(18)
+
+    const out = buildLeaderboardFromLegacy([p], ctxNeto, 1, handicaps)
+
+    expect(out.playersByNeto[0].total).toBe(0)
+    expect(out.playersByNeto[0].netStrokes).toBe(72)
+  })
+
+  it('modo distinto de whs conserva el índice crudo (torneos históricos)', () => {
+    const p = { ...jugador({ id: 'p1', hcp: 12, holes: 18, gross: 5 }), tee_id: 'tee-azul' } as DBPlayer
+    const ctxNeto: TournamentLeaderboardContext = { ...CTX, modoJuego: 'neto' }
+
+    const handicaps = buildScoringHandicaps(
+      [{ id: 'p1', handicap_at_registration: 12, tee_id: 'tee-azul' }],
+      { ...TORNEO_WHS, hcp_calc_mode: 'raw' },
+      [TEE_AZUL],
+      72,
+      18,
+    )
+    expect(handicaps.get('p1')).toBe(12)
+
+    const out = buildLeaderboardFromLegacy([p], ctxNeto, 1, handicaps)
+
+    expect(out.playersByNeto[0].netStrokes).toBe(78) // 90 − 12
   })
 })
 
@@ -122,7 +204,7 @@ describe('buildLeaderboardFromLegacy — jugador sin scorear', () => {
   it('con ronda abierta pero cero hoyos no aparece bajo par', () => {
     const sinScore = jugador({ id: 'p1', nombre: 'Sin Score', holes: 0 })
 
-    const out = buildLeaderboardFromLegacy([sinScore], CTX, 1)
+    const out = build([sinScore])
 
     expect(out.players[0].total).toBe(0)
     expect(out.players[0].holes).toBe(0)
@@ -132,7 +214,7 @@ describe('buildLeaderboardFromLegacy — jugador sin scorear', () => {
     const sinScore = jugador({ id: 'sin', nombre: 'Sin Score', holes: 0 })
     const jugando = jugador({ id: 'jug', nombre: 'Jugando', holes: 12, gross: 4 })
 
-    const out = buildLeaderboardFromLegacy([sinScore, jugando], CTX, 1)
+    const out = build([sinScore, jugando])
 
     // Ambos en 0: el desempate lo resuelve el countback, pero lo que NO puede
     // pasar es que el que no jugó aparezca bajo par.
@@ -144,7 +226,7 @@ describe('buildLeaderboardFromLegacy — nombre del jugador', () => {
   it('cae a player_name cuando el perfil no tiene nombre', () => {
     const p = jugador({ id: 'p1', nombre: null, playerName: 'Invitado Pérez', holes: 9 })
 
-    const out = buildLeaderboardFromLegacy([p], CTX, 1)
+    const out = build([p])
 
     expect(out.players[0].name.startsWith('Invitado Pérez')).toBe(true)
   })
@@ -152,7 +234,7 @@ describe('buildLeaderboardFromLegacy — nombre del jugador', () => {
   it('un nombre de perfil en blanco NO deja la celda vacía', () => {
     const p = jugador({ id: 'p1', nombre: '   ', playerName: 'Respaldo', holes: 9 })
 
-    const out = buildLeaderboardFromLegacy([p], CTX, 1)
+    const out = build([p])
 
     expect(out.players[0].name.startsWith('Respaldo')).toBe(true)
   })
@@ -160,7 +242,7 @@ describe('buildLeaderboardFromLegacy — nombre del jugador', () => {
   it('sin ningún nombre usable muestra "Jugador"', () => {
     const p = jugador({ id: 'p1', nombre: null, playerName: null, holes: 9 })
 
-    const out = buildLeaderboardFromLegacy([p], CTX, 1)
+    const out = build([p])
 
     expect(out.players[0].name.startsWith('Jugador')).toBe(true)
   })
@@ -186,7 +268,7 @@ describe('buildLeaderboardFromLegacy — multi-ronda', () => {
       ],
     } as unknown as DBPlayer
 
-    const out = buildLeaderboardFromLegacy([p], CTX, 2)
+    const out = build([p], CTX, 2)
 
     // 27 hoyos en par → E contra 108 de par jugado (no contra 144).
     expect(out.players[0].total).toBe(0)

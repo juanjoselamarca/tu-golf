@@ -19,35 +19,34 @@ function tieneDatos(p: LivePlayer): boolean {
   return p.has_data ?? p.thru > 0
 }
 
-/** Métrica que ordena y que decide los empates, según formato y modo. */
-function valorDeRanking(
-  p: LivePlayer,
-  format: 'stroke_play' | 'stableford',
-  modo: 'gross' | 'neto',
-): number {
-  if (format === 'stableford') return p.points_total ?? 0
-  return modo === 'neto' ? (p.net_total ?? 0) : p.gross_total
+/**
+ * Métrica que ordena y que decide los empates.
+ *
+ * Es vs par (`vs_par`, ya calculado en el modo del torneo), NO golpes crudos.
+ * Ordenar por totales entre jugadores con distinto `thru` pone arriba al que
+ * menos hoyos lleva: dos jugadores en par, uno thru 9 (36 golpes) y otro thru
+ * 18 (72), salían 1° y 2° en vez de empatados. Es el mismo criterio que usa
+ * `TeamLeaderboard` en esta misma pantalla y `rank-entries` en /torneo.
+ */
+function valorDeRanking(p: LivePlayer, format: 'stroke_play' | 'stableford'): number {
+  return format === 'stableford' ? (p.points_total ?? 0) : p.vs_par
 }
 
-/**
- * Ordena por la métrica del torneo y manda al fondo a los que no empezaron.
- *
- * El `?? Infinity` anterior sólo protegía el neto: en bruto, un jugador sin
- * cargar nada tenía `gross_total = 0` y lideraba la tabla.
- */
+/** Ordena por la métrica del torneo y manda al fondo a los que no empezaron. */
 function sortPlayers(
   players: LivePlayer[],
   format: 'stroke_play' | 'stableford',
-  modo: 'gross' | 'neto'
 ): { ranked: LivePlayer[]; sinDatos: LivePlayer[] } {
   const ranked = players.filter(tieneDatos)
   const sinDatos = players.filter((p) => !tieneDatos(p))
 
   ranked.sort((a, b) => {
-    const va = valorDeRanking(a, format, modo)
-    const vb = valorDeRanking(b, format, modo)
-    // Stableford: más puntos es mejor. Bruto/neto: menos golpes es mejor.
-    return format === 'stableford' ? vb - va : va - vb
+    const va = valorDeRanking(a, format)
+    const vb = valorDeRanking(b, format)
+    // Stableford: más puntos es mejor. Stroke play: menos vs par es mejor.
+    if (va !== vb) return format === 'stableford' ? vb - va : va - vb
+    // A igual score, primero el más avanzado.
+    return b.thru - a.thru
   })
 
   return { ranked, sinDatos }
@@ -58,12 +57,12 @@ export default function IndividualLeaderboard({
   format,
   modo,
 }: IndividualLeaderboardProps) {
-  const { ranked, sinDatos } = sortPlayers(players, format, modo)
+  const { ranked, sinDatos } = sortPlayers(players, format)
   const sorted = [...ranked, ...sinDatos]
-  // Empates estilo golf por la misma métrica que ordenó (puntos / neto / bruto).
+  // Empates estilo golf por la misma métrica que ordenó (puntos / vs par).
   // Sólo entre los que tienen datos: los que no empezaron no comparten posición
   // con nadie, muestran "—".
-  const positions = computePositions(ranked.map((p) => valorDeRanking(p, format, modo)))
+  const positions = computePositions(ranked.map((p) => valorDeRanking(p, format)))
   const isStableford = format === 'stableford'
 
   // Estilos inline para tokens con fallback hex (sin tocar Tailwind config).

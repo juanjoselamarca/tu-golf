@@ -158,6 +158,7 @@ export function rankEntries(
       hcpDisplay: e.hcpDisplay ?? e.handicap,
       today:   vsPar,
       total:   vsPar,
+      netStrokes: e.netTotal,
       holes:   e.holesPlayed,
       status:  e.status,
       scores:  e.scores,

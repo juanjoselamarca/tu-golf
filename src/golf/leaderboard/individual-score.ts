@@ -114,16 +114,15 @@ export function computeIndividualScore(
     const gross = grossAtHole(scores, h)
     if (gross == null) continue
 
-    const hole = holeMap.get(h)
-    // Sin fila de cancha no hay par ni SI: cuenta el gross pero no puede aportar
-    // par jugado ni golpes (evita inventar un par 4 que descuadre el vs par).
+    // Catálogo incompleto (cancha con menos hoyos cargados que la ronda): se
+    // asume par 4 / SI = nº de hoyo, el MISMO fallback que
+    // `buildFallbackCourseHoles`. Contar el gross sin sumar su par inflaría el
+    // vs par ~4 golpes por hoyo huérfano y el jugador saldría peor de lo que va.
+    const hole = holeMap.get(h) ?? { numero: h, par: 4, stroke_index: h }
+
     scoreArr[h - 1] = gross
     grossTotal += gross
     holesPlayed++
-    if (!hole) {
-      netTotal += gross
-      continue
-    }
 
     const si = siAlloc[hole.numero] ?? hole.stroke_index
     parPlayed += hole.par

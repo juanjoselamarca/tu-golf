@@ -6,18 +6,22 @@ import { createClient } from '@/lib/supabase'
 import { Trophy } from '@/components/icons'
 import { computeIndividualScore, sumIndividualScores, formatScoreVsPar } from '@/golf/leaderboard/individual-score'
 import { resolvePlayerName } from '@/golf/leaderboard/player-name'
-import { buildFallbackCourseHoles } from '@/lib/data/tournaments/leaderboard'
+import { buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
+import { buildScoringHandicaps, scoringHandicapOf } from '@/golf/leaderboard/scoring-handicap'
 import type { CourseHole } from '@/golf/leaderboard/types'
+import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 
 /* ── Types ─────────────────────────────────────────────── */
 interface TVPlayer {
   id: string
   name: string
   handicap: number
-  total_net: number
+  /** Golpes en el MODO del torneo (netos si modo=neto, brutos si modo=gross). */
+  scoreStrokes: number
   total_gross: number
   holesPlayed: number
-  netVsPar: number
+  /** Vs par en el modo del torneo. Es lo que ordena y lo que se muestra grande. */
+  scoreVsPar: number
   category: string
 }
 
@@ -29,6 +33,8 @@ interface TournamentInfo {
   codigo: string | null
   total_rounds: number
   hole_count: number
+  /** El TV mostraba siempre el neto; ahora respeta el modo, igual que /torneo. */
+  modo: 'gross' | 'neto'
 }
 
 /* ── Score helpers ─────────────────────────────────────── */
@@ -43,6 +49,7 @@ const scoreColor = (diff: number): string => {
 interface DBPlayerRaw {
   id: string
   handicap_at_registration: number | null
+  tee_id: string | null
   player_name: string | null
   profiles: { name: string } | null
   categories: { name: string } | null
@@ -59,8 +66,11 @@ interface DBTournamentRaw {
   codigo: string | null
   total_rounds: number | null
   hole_count: number | null
+  modo_juego: string | null
   course_id: string | null
-  courses: { nombre: string; par_total: number } | null
+  tees: string | null
+  hcp_calc_mode: string | null
+  courses: { nombre: string; par_total: number; slope_rating: number; course_rating: number } | null
 }
 
 const TV_KEYFRAMES = `
@@ -85,7 +95,7 @@ export default function TVPage() {
 
     const { data: rawT } = await supabase
       .from('tournaments')
-      .select('id, name, date_start, codigo, total_rounds, hole_count, course_id, courses(nombre, par_total)')
+      .select('id, name, date_start, codigo, total_rounds, hole_count, modo_juego, course_id, tees, hcp_calc_mode, courses(nombre, par_total, slope_rating, course_rating)')
       .eq('slug', slug)
       .single()
 
@@ -94,6 +104,7 @@ export default function TVPage() {
     const t = rawT as unknown as DBTournamentRaw
     const parTotal = t.courses?.par_total ?? 72
     const totalRounds = t.total_rounds ?? 1
+    const modo: 'gross' | 'neto' = t.modo_juego === 'neto' ? 'neto' : 'gross'
 
     setTournament({
       name: t.name,
@@ -103,6 +114,7 @@ export default function TVPage() {
       codigo: t.codigo ?? null,
       total_rounds: totalRounds,
       hole_count: t.hole_count ?? 18,
+      modo,
     })
 
     const tournamentId = t.id
@@ -119,10 +131,23 @@ export default function TVPage() {
     const courseHoles = ((rawHoles as CourseHole[] | null) ?? [])
     const holesForScoring = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(holeCount)
 
+    // Tees de la cancha: insumo del course handicap WHS. Mismo cálculo que usa
+    // el organizador al persistir el neto, o el TV contradice a su pantalla.
+    const { data: rawTees } = t.course_id
+      ? await supabase
+          .from('course_tees')
+          .select(
+            'id, nombre, rating, slope, yardaje_total, genero, ' +
+            'front_course_rating, front_slope_rating, back_course_rating, back_slope_rating',
+          )
+          .eq('course_id', t.course_id)
+      : { data: null }
+    const courseTees = (rawTees as CourseTeeRow[] | null) ?? []
+
     const { data: rawPlayers } = await supabase
       .from('players')
       .select(`
-        id, handicap_at_registration, player_name,
+        id, handicap_at_registration, tee_id, player_name,
         profiles(name),
         categories(name),
         rounds(round_number, hole_scores(hole_number, gross_score))
@@ -144,10 +169,14 @@ export default function TVPage() {
 
     const dbPlayers = (rawPlayers as unknown as DBPlayerRaw[]) || []
 
+    const scoringHandicaps = buildScoringHandicaps(
+      dbPlayers, t, courseTees, sumParDedupByHole(holesForScoring), holeCount,
+    )
+
     const mapped: TVPlayer[] = dbPlayers
       .filter((p) => p.rounds?.length > 0)
       .map((p) => {
-        const hcp = p.handicap_at_registration ?? 0
+        const hcp = scoringHandicapOf(scoringHandicaps, p.id, p.handicap_at_registration)
         // Motor ÚNICO, el mismo de /torneo y /en-vivo. `netVsPar` se compara
         // contra el par de los hoyos JUGADOS: antes usaba el par de la cancha
         // completa y un jugador en par thru 9 salía "−36" liderando el TV.
@@ -166,10 +195,10 @@ export default function TVPage() {
           id:          p.id,
           name:        resolvePlayerName(p.profiles?.name, p.player_name),
           handicap:    hcp,
-          total_net:   agg.netTotal,
+          scoreStrokes: modo === 'neto' ? agg.netTotal : agg.grossTotal,
           total_gross: agg.grossTotal,
           holesPlayed: agg.holesPlayed,
-          netVsPar:    agg.vsParNet,
+          scoreVsPar:  modo === 'neto' ? agg.vsParNet : agg.vsParGross,
           category:    p.categories?.name || '',
         }
       })
@@ -180,7 +209,7 @@ export default function TVPage() {
         // Por vs par, NO por golpes netos totales: comparar totales crudos entre
         // jugadores con distinto `thru` pone arriba al que menos hoyos lleva
         // (net 12 thru 3 le "ganaba" a net 72 thru 18). Desempate: más avanzado.
-        return a.netVsPar - b.netVsPar || b.holesPlayed - a.holesPlayed
+        return a.scoreVsPar - b.scoreVsPar || b.holesPlayed - a.holesPlayed
       })
       .slice(0, 10)
 
@@ -260,7 +289,7 @@ export default function TVPage() {
         }}>
           <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pos</span>
           <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nombre</span>
-          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Score (net)</span>
+          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>{tournament?.modo === 'neto' ? 'Score (neto)' : 'Score (bruto)'}</span>
           <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Hcp</span>
           <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>Hoyos</span>
         </div>
@@ -272,7 +301,7 @@ export default function TVPage() {
             </div>
           ) : (
             players.map((p, idx) => {
-              const color = p.holesPlayed > 0 ? scoreColor(p.netVsPar) : '#94a8c0'
+              const color = p.holesPlayed > 0 ? scoreColor(p.scoreVsPar) : '#94a8c0'
               const highlight = idx === 0
               return (
                 <div
@@ -299,10 +328,10 @@ export default function TVPage() {
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: highlight ? '30px' : '24px', fontWeight: 700, color, fontFamily: '"Playfair Display", serif', lineHeight: 1 }}>
-                      {formatScoreVsPar(p.netVsPar, p.holesPlayed > 0)}
+                      {formatScoreVsPar(p.scoreVsPar, p.holesPlayed > 0)}
                     </div>
                     {p.holesPlayed > 0 && (
-                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{p.total_net}</div>
+                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{p.scoreStrokes}</div>
                     )}
                   </div>
                   <div style={{ textAlign: 'center', fontSize: '18px', color: '#94a8c0' }}>

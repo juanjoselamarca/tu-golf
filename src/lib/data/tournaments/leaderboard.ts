@@ -16,6 +16,7 @@ import type {
   WithdrawnEntry,
 } from '@/app/torneo/[slug]/types'
 import type { CourseHole } from '@/golf/leaderboard/types'
+import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { createClient } from '@/utils/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
@@ -32,6 +33,7 @@ type Client = Awaited<ReturnType<typeof createClient>>
 const TOURNAMENT_SELECT =
   'id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, ' +
   'date_start, date_end, status, codigo, afecta_estadisticas, es_demo, cover_image_url, ' +
+  'tees, hcp_calc_mode, ' +
   'courses(id, nombre, ciudad, par_total, slope_rating, course_rating)'
 
 export async function fetchTournamentBySlug(
@@ -63,7 +65,25 @@ export async function fetchCourseHoles(
     .from('course_holes')
     .select('numero, par, stroke_index')
     .eq('course_id', courseId)
+    // Orden explícito: sin ORDER BY, PostgREST no garantiza el orden de las
+    // filas y el dedup por nº de hoyo (canchas 27/36h) sería no determinista.
+    .order('numero')
   return (data as CourseHole[] | null) ?? []
+}
+
+/** Tees de la cancha (slope/CR por tee) — insumo del course handicap WHS. */
+export async function fetchCourseTees(
+  supabase: Client,
+  courseId: string,
+): Promise<CourseTeeRow[]> {
+  const { data } = await supabase
+    .from('course_tees')
+    .select(
+      'id, nombre, rating, slope, yardaje_total, genero, ' +
+      'front_course_rating, front_slope_rating, back_course_rating, back_slope_rating',
+    )
+    .eq('course_id', courseId)
+  return (data as CourseTeeRow[] | null) ?? []
 }
 
 /** Genera fallback par-4 / SI=índice cuando la cancha no tiene course_holes cargados. */
@@ -208,7 +228,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
 }
 
 const LEGACY_PLAYER_SELECT =
-  'id, handicap_at_registration, player_name, ' +
+  'id, handicap_at_registration, tee_id, player_name, ' +
   'profiles(name, indice), categories(name), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number, ' +
   'hole_scores(hole_number, gross_score))'

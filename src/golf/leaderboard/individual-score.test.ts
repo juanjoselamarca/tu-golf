@@ -203,6 +203,19 @@ describe('computeIndividualScore — stableford', () => {
   })
 })
 
+describe('computeIndividualScore — catálogo de cancha incompleto', () => {
+  it('un hoyo sin fila de cancha asume par 4 y NO infla el vs par', () => {
+    // Sólo 9 hoyos cargados en el catálogo, ronda de 18.
+    const soloNueve = HOLES_18.slice(0, 9)
+    const r = computeIndividualScore(played(12, 4), soloNueve, 0, 18)
+
+    expect(r.holesPlayed).toBe(12)
+    expect(r.grossTotal).toBe(48)
+    expect(r.parPlayed).toBe(48) // 9 reales + 3 huérfanos a par 4
+    expect(r.vsParGross).toBe(0) // antes daba +12
+  })
+})
+
 describe('computeIndividualScore — acepta array además de mapa', () => {
   it('array indexado desde 0 equivale al mapa 1-based', () => {
     const arr = [4, 4, 4, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]

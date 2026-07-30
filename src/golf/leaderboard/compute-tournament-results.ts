@@ -29,10 +29,13 @@ export function computeTournamentResults(
 
   const grossScore1 = byGross[0] ? grossOf(byGross[0]) : 0
   const grossScore2 = byGross[1] ? grossOf(byGross[1]) : 0
-  // Player.total del ranking neto = net vs-par; el score neto en strokes es
-  // net-vs-par + parTotal (misma fórmula que el código legacy).
-  const netoScore1  = byNeto[0]  ? byNeto[0].total + parTotal : 0
-  const netoScore2  = byNeto[1]  ? byNeto[1].total + parTotal : 0
+  // Golpes netos absolutos. Se leen de `netStrokes`, NO se reconstruyen como
+  // `total + parTotal`: `total` es vs par de los hoyos JUGADOS, así que en un
+  // torneo de 9 hoyos sobre una cancha de par 72 esa suma inflaba el podio en
+  // 36 golpes. `parTotal` queda sólo como fallback de datos sin `netStrokes`.
+  const netStrokesOf = (p: Player) => p.netStrokes ?? p.total + parTotal
+  const netoScore1  = byNeto[0]  ? netStrokesOf(byNeto[0]) : 0
+  const netoScore2  = byNeto[1]  ? netStrokesOf(byNeto[1]) : 0
 
   const avgGross = byGross.reduce((sum, p) => sum + grossOf(p), 0) / byGross.length
 

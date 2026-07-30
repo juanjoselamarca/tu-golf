@@ -10,9 +10,10 @@ import { normalizeStatus } from './normalize-status'
 import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
-import { fetchCourseHoles, buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
+import { fetchCourseHoles, fetchCourseTees, buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
 import { computeIndividualScore, sumIndividualScores } from '@/golf/leaderboard/individual-score'
 import { resolvePlayerName } from '@/golf/leaderboard/player-name'
+import { buildScoringHandicaps, scoringHandicapOf } from '@/golf/leaderboard/scoring-handicap'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './scrambleTeamsToLive'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
@@ -44,7 +45,7 @@ export default async function LivePage({ params }: PageProps) {
   const { data: tournamentRaw } = await supabase
     .from('tournaments')
     .select(
-      'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, course_id, courses(nombre, par_total), categories(id, name), tournament_groups(id, name)'
+      'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, course_id, tees, hcp_calc_mode, courses(nombre, par_total, slope_rating, course_rating), categories(id, name), tournament_groups(id, name)'
     )
     .eq('slug', resolvedParams.slug)
     .single()
@@ -63,7 +64,16 @@ export default async function LivePage({ params }: PageProps) {
     date_start: string | null
     date_end: string | null
     course_id: string | null
-    courses: { nombre: string | null; par_total: number | null } | null
+    /** Tee global del torneo (fallback del course handicap por tee). */
+    tees: string | null
+    /** 'whs' → course handicap por tee; otro → índice crudo. */
+    hcp_calc_mode: string | null
+    courses: {
+      nombre: string | null
+      par_total: number
+      slope_rating: number
+      course_rating: number
+    } | null
     categories: Array<{ id: string; name: string }> | null
     tournament_groups: Array<{ id: string; name: string }> | null
   }
@@ -75,7 +85,7 @@ export default async function LivePage({ params }: PageProps) {
   const { data: playersRaw } = await supabase
     .from('players')
     .select(
-      'id, user_id, handicap_at_registration, status, profiles(name), category_id, categories(name)'
+      'id, user_id, handicap_at_registration, tee_id, player_name, status, profiles(name), category_id, categories(name)'
     )
     .eq('tournament_id', tournament.id)
     .in('status', ['pending', 'approved', 'waitlist'])
@@ -84,6 +94,8 @@ export default async function LivePage({ params }: PageProps) {
     id: string
     user_id: string | null
     handicap_at_registration: number | null
+    tee_id: string | null
+    player_name: string | null
     status: string
     profiles: { name: string | null } | null
     category_id: string | null
@@ -134,11 +146,26 @@ export default async function LivePage({ params }: PageProps) {
   //    contra el par de los hoyos JUGADOS. Antes esta vista comparaba contra el
   //    par de la cancha completa (thru 9 en par → "−36") y nunca computaba el
   //    neto ni los puntos stableford: las columnas salían en blanco / en cero.
-  const individualCourseHoles = tournament.course_id
+  // Hoyos de la cancha: se resuelven UNA vez y los reusan el board individual y
+  // los motores de equipo más abajo (antes cada rama hacía su propio fetch).
+  const courseHolesRaw = tournament.course_id
     ? await fetchCourseHoles(supabase, tournament.course_id)
     : []
-  const holesForIndividual =
-    individualCourseHoles.length > 0 ? individualCourseHoles : buildFallbackCourseHoles(holeCount)
+  const holesForScoring =
+    courseHolesRaw.length > 0 ? courseHolesRaw : buildFallbackCourseHoles(holeCount)
+
+  // Handicap de scoring: el MISMO que persiste el organizador. En torneos
+  // `hcp_calc_mode='whs'` es course handicap por tee, no el índice crudo.
+  const courseTees = tournament.course_id
+    ? await fetchCourseTees(supabase, tournament.course_id)
+    : []
+  const scoringHandicaps = buildScoringHandicaps(
+    playerRows,
+    tournament,
+    courseTees,
+    sumParDedupByHole(holesForScoring),
+    holeCount,
+  )
 
   const scoresByRound = new Map<string, ScoreRow[]>()
   for (const s of scores) {
@@ -153,21 +180,24 @@ export default async function LivePage({ params }: PageProps) {
     const roundsOfPlayer = rounds
       .filter((r) => r.player_id === p.id)
       .sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
-    const hcp = Number(p.handicap_at_registration ?? 0)
+    const hcp = scoringHandicapOf(scoringHandicaps, p.id, p.handicap_at_registration)
 
     const perRound = roundsOfPlayer.map((r) => {
       const byHole: Record<string, number> = {}
       for (const s of scoresByRound.get(r.id) ?? []) {
         if (s.gross_score != null) byHole[String(s.hole_number)] = s.gross_score
       }
-      return computeIndividualScore(byHole, holesForIndividual, hcp, holeCount)
+      return computeIndividualScore(byHole, holesForScoring, hcp, holeCount)
     })
     const agg = sumIndividualScores(perRound)
 
     // Atributos extendidos (group_id, category_id) que viajan en el shape pero no son parte de LiveBase.
     const ext: LivePlayer & { group_id?: string | null; category_id?: string | null } = {
       id: p.id,
-      name: resolvePlayerName(p.profiles?.name),
+      // El 53% de los `players` de prod no tiene perfil vinculado (invitados
+      // inscritos por el organizador): sin `player_name` salían todos "Jugador"
+      // acá y con su nombre real en /torneo y /tv.
+      name: resolvePlayerName(p.profiles?.name, p.player_name),
       category_name: p.categories?.name ?? undefined,
       handicap_index: hcp,
       scores_per_hole: agg.scores.map((v) => v ?? 0),
@@ -210,8 +240,7 @@ export default async function LivePage({ params }: PageProps) {
   if ((liveTournament.format === 'scramble' || liveTournament.format === 'foursome') && tournament.course_id) {
     const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
     if (teams.length > 0) {
-      const courseHoles = await fetchCourseHoles(supabase, tournament.course_id)
-      const holes = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(holeCount)
+      const holes = holesForScoring
       const formato = liveTournament.format as FormatoJuego
       const modo = liveTournament.modo as ModoJuego
       const ordered = liveTournament.format === 'foursome'
@@ -220,8 +249,7 @@ export default async function LivePage({ params }: PageProps) {
       liveTeams = scrambleResultsToLiveTeams(ordered, memberNames, liveTournament.modo)
     }
   } else if (liveTournament.format === 'best_ball' && tournament.course_id) {
-    const courseHoles = await fetchCourseHoles(supabase, tournament.course_id)
-    const holes = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(holeCount)
+    const holes = holesForScoring
     // par para el course handicap = suma del par real de course_holes, deduplicado
     // por nº de hoyo (igual que el scorer: pm[numero]=par). Evita inflar el par en
     // canchas multi-recorrido (27/36h) con filas repetidas → mismo course handicap

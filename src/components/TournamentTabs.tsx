@@ -59,11 +59,6 @@ const T = {
 } as const
 
 /* ── Helpers ──────────────────────────────────────────────── */
-/** Copia local eliminada: el string de vs par lo fija `formatScoreVsPar`. */
-function formatScore(n: number) {
-  return formatScoreVsPar(n, true)
-}
-
 function scoreColor(n: number) {
   if (n < 0) return T.green
   if (n > 0) return T.red

@@ -30,6 +30,13 @@ export interface Player {
   total:   number
   holes:   number
   status:  Status
+  /**
+   * Golpes NETOS totales (no vs par). El podio necesita el número absoluto y no
+   * puede reconstruirlo como `total + parTotal`: `total` se mide contra el par
+   * de los hoyos jugados, que en un torneo de 9 hoyos sobre una cancha de par
+   * 72 no es `parTotal`. Opcional: los datos mock no lo traen.
+   */
+  netStrokes?: number
   /** 18 entries; null = hole not yet played */
   scores:  (number | null)[]
 }

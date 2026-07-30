@@ -1,19 +1,32 @@
 // src/golf/leaderboard/compute-stats.ts
 //
-// Estadísticas agregadas del torneo (best card, avg neto, eagles, birdies,
-// hoyo más difícil/fácil). Las stats vs par SOLO usan rondas terminadas:
-// una ronda parcial tiene total_gross/net parciales, y compararlos contra
-// parTotal completo produce números absurdos del tipo "líder a -28" cuando
-// en realidad nadie terminó. Las stats por hoyo (eagles, birdies, hole
-// difficulty) sí usan rondas parciales porque se calculan hoyo a hoyo.
+// Estadísticas agregadas del torneo (mejor tarjeta, promedio neto, eagles,
+// birdies, hoyo más difícil/fácil).
+//
+// Las stats vs par SOLO usan rondas terminadas: una ronda parcial comparada
+// contra el par completo produce números absurdos ("líder a −28" sin que nadie
+// haya terminado). Las stats por hoyo (eagles, birdies, dificultad) sí usan
+// rondas parciales, porque se calculan hoyo a hoyo.
+//
+// El neto se DERIVA con el mismo motor que el board (`computeIndividualScore`).
+// Antes se leía de `rounds.total_net`, la columna que sólo escribe /api/game al
+// scorear: en los mismos torneos que el board arregla (seed, import, edición
+// manual) esa columna queda en 0, así que la landing mostraba "mejor tarjeta 0"
+// al lado de un board correcto — dos respuestas distintas a "cuál es el neto"
+// en una misma pantalla.
 
+import { computeIndividualScore, sumIndividualScores } from './individual-score'
+import { resolvePlayerName } from './player-name'
+import { scoringHandicapOf, type ScoringHandicaps } from './scoring-handicap'
 import type { CourseHole, TourneyStats } from './types'
 
 interface DBPlayerWithRounds {
+  id: string
+  handicap_at_registration: number | null
+  player_name?: string | null
   profiles: { name: string } | null
   rounds: {
-    total_gross: number
-    total_net: number
+    round_number?: number | null
     hole_scores: { hole_number: number; gross_score: number | null }[]
   }[]
 }
@@ -21,41 +34,62 @@ interface DBPlayerWithRounds {
 export function computeStats(
   dbPlayers: DBPlayerWithRounds[],
   courseHoles: CourseHole[],
-  parTotal: number,
+  totalHoles: number,
+  scoringHandicaps?: ScoringHandicaps,
 ): TourneyStats | null {
-  const withScores = dbPlayers.filter((p) => p.rounds?.[0]?.hole_scores?.some((hs) => hs.gross_score != null))
+  const withScores = dbPlayers.filter((p) =>
+    p.rounds?.some((r) => r.hole_scores?.some((hs) => hs.gross_score != null)),
+  )
   if (withScores.length === 0) return null
 
   const parMap = new Map<number, number>()
   courseHoles.forEach((h) => parMap.set(h.numero, h.par))
 
-  const totalHoles = courseHoles.length || 18
-  const finished = withScores.filter((p) =>
-    (p.rounds[0].hole_scores?.length ?? 0) >= totalHoles
-    && p.rounds[0].total_net != null,
-  )
+  // Score derivado por jugador, acumulando todas sus rondas.
+  const scored = withScores.map((p) => {
+    const hcp = scoringHandicapOf(scoringHandicaps, p.id, p.handicap_at_registration)
+    const perRound = [...p.rounds]
+      .sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
+      .map((r) => {
+        const byHole: Record<string, number> = {}
+        for (const hs of r.hole_scores || []) {
+          if (hs.gross_score != null) byHole[String(hs.hole_number)] = hs.gross_score
+        }
+        return computeIndividualScore(byHole, courseHoles, hcp, totalHoles)
+      })
+    return { player: p, score: sumIndividualScores(perRound) }
+  })
 
-  const bySortedNet = [...finished].sort((a, b) => (a.rounds[0].total_net ?? 999) - (b.rounds[0].total_net ?? 999))
-  const bestName = bySortedNet[0]?.profiles?.name ?? '—'
-  const bestNet  = bySortedNet[0]?.rounds[0].total_net ?? 0
+  // "Terminado" = completó al menos una ronda entera.
+  const finished = scored.filter((s) => s.score.holesPlayed >= totalHoles)
 
-  const netVals = finished.map((p) => (p.rounds[0].total_net ?? 0) - parTotal)
-  const avgNet  = netVals.length > 0 ? netVals.reduce((s, v) => s + v, 0) / netVals.length : 0
+  const bySortedNet = [...finished].sort((a, b) => a.score.netTotal - b.score.netTotal)
+  const best = bySortedNet[0]
+  const bestName = best
+    ? resolvePlayerName(best.player.profiles?.name, best.player.player_name)
+    : '—'
+  const bestNet = best?.score.netTotal ?? 0
+
+  const avgNet = finished.length > 0
+    ? finished.reduce((sum, s) => sum + s.score.vsParNet, 0) / finished.length
+    : 0
 
   let eagles = 0, birdies = 0
   const holeSums: Record<number, { total: number; count: number }> = {}
 
   withScores.forEach((p) => {
-    p.rounds[0].hole_scores.forEach((hs) => {
-      if (hs.gross_score == null) return
-      const par = parMap.get(hs.hole_number)
-      if (par == null) return
-      const diff = hs.gross_score - par
-      if (diff <= -2) eagles++
-      if (diff === -1) birdies++
-      if (!holeSums[hs.hole_number]) holeSums[hs.hole_number] = { total: 0, count: 0 }
-      holeSums[hs.hole_number].total += diff
-      holeSums[hs.hole_number].count++
+    p.rounds.forEach((r) => {
+      ;(r.hole_scores || []).forEach((hs) => {
+        if (hs.gross_score == null) return
+        const par = parMap.get(hs.hole_number)
+        if (par == null) return
+        const diff = hs.gross_score - par
+        if (diff <= -2) eagles++
+        if (diff === -1) birdies++
+        if (!holeSums[hs.hole_number]) holeSums[hs.hole_number] = { total: 0, count: 0 }
+        holeSums[hs.hole_number].total += diff
+        holeSums[hs.hole_number].count++
+      })
     })
   })
 
