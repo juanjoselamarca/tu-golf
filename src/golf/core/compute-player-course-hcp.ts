@@ -5,6 +5,7 @@
 
 import { resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { courseHandicap18h, courseHandicap9h } from '@/golf/core/stroke-index'
+import { indiceDe9Hoyos, parEnEscalaDe9, courseRatingEnEscalaDe9 } from '@/golf/core/course-handicap'
 
 export interface PlayerForCourseHcp {
   handicap_at_registration: number | null
@@ -37,6 +38,14 @@ export function computePlayerCourseHcp(
 ): number {
   const index = player.handicap_at_registration ?? 0
 
+  // Señal de escala para el Course Rating: el par PROPIO de la cancha, no el
+  // argumento `parTotal`. `parTotal` es el par de la RONDA y algunos callers ya
+  // lo pasan dividido (36 para una vuelta de 9 en una cancha de 18), así que un
+  // 36 es ambiguo: puede ser media cancha de 72 o una cancha de 9 hoyos reales.
+  // `courses.par_total` nunca es ambiguo — es la escala en la que están
+  // publicados el rating del tee y el de la cancha.
+  const parDeLaCancha = tournament.courses?.par_total ?? parTotal
+
   if (courseTees.length > 0) {
     const { tee } = resolvePlayerTee({
       playerTeeId: player.tee_id,
@@ -49,8 +58,8 @@ export function computePlayerCourseHcp(
       if (holeCount <= 9) {
         // Use 9-hole specific ratings if available, otherwise halve the 18h CR
         const slope9 = tee.front_slope_rating ?? tee.slope
-        const cr9 = tee.front_course_rating ?? tee.rating / 2
-        return courseHandicap9h(index, slope9, cr9, parTotal)
+        const cr9 = tee.front_course_rating ?? courseRatingEnEscalaDe9(tee.rating, parDeLaCancha)
+        return courseHandicap9h(indiceDe9Hoyos(index), slope9, cr9, parEnEscalaDe9(parTotal))
       }
       return courseHandicap18h(index, tee.slope, tee.rating, parTotal)
     }
@@ -60,8 +69,13 @@ export function computePlayerCourseHcp(
   const course = tournament.courses
   if (course?.slope_rating && course?.course_rating) {
     if (holeCount <= 9) {
-      // Halve course-level CR for 9-hole estimate
-      return courseHandicap9h(index, course.slope_rating, course.course_rating / 2, parTotal)
+      // Halve course-level CR for 9-hole estimate — salvo que la cancha ya sea de 9.
+      return courseHandicap9h(
+        indiceDe9Hoyos(index),
+        course.slope_rating,
+        courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha),
+        parEnEscalaDe9(parTotal),
+      )
     }
     return courseHandicap18h(index, course.slope_rating, course.course_rating, parTotal)
   }

@@ -182,6 +182,9 @@ describe('courseHandicap18h', () => {
   })
 })
 
+// OJO: el primer argumento es el índice de 9 HOYOS (índice 18h / 2), no el
+// índice del jugador. Un 10.5 acá es un jugador de índice 21. Estos tests
+// ejercitan la fórmula pura; quién divide es `indiceDe9Hoyos()`.
 describe('courseHandicap9h', () => {
   it('WHS 9h: 10.5 × (120/113) + (35.5 − 36) → round 11', () => {
     // 10.5 * 1.06195 - 0.5 = 11.150 - 0.5 = 10.650 → 11

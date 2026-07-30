@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { matchCourseInDB } from '@/golf/courses/matching'
 import { resolveTeeRatingsForCourse } from '@/lib/data/course-tees'
 import { courseHandicap18h, courseHandicap9h } from '@/golf/core/stroke-index'
+import { indiceDe9Hoyos, parEnEscalaDe9 } from '@/golf/core/course-handicap'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -119,7 +120,11 @@ export async function computePlayingHandicapForCoach(
     }
     cr = ratings.nineHoleRatings.cr9h
     slope = ratings.nineHoleRatings.slope9h
-    handicapDeJuego = courseHandicap9h(indice, slope, cr, Math.round(parTotal / 2))
+    // Índice de 9 hoyos, no el de 18: si no, el coach le dice al jugador el DOBLE
+    // de golpes que le va a dar el scorer en cancha. Y el par por la fuente
+    // canónica: `parTotal / 2` a mano convertía el par 36 de una cancha de 9
+    // hoyos reales en 18, inflando el handicap ~18 golpes.
+    handicapDeJuego = courseHandicap9h(indiceDe9Hoyos(indice), slope, cr, parEnEscalaDe9(parTotal))
   } else {
     cr = ratings.cr
     slope = ratings.slope
@@ -137,6 +142,6 @@ export async function computePlayingHandicapForCoach(
     handicap_de_juego: handicapDeJuego,
     course_rating: cr,
     slope,
-    nota: `El handicap de juego (${handicapDeJuego}) es DISTINTO del índice (${indice}): se calcula por cancha y tee${holes === 9 ? ', a 9 hoyos,' : ''} con la fórmula WHS redondeo(índice × slope/113 + (CR − par)), con el CR y el par de ${holes} hoyos.`,
+    nota: `El handicap de juego (${handicapDeJuego}) es DISTINTO del índice (${indice}): se calcula por cancha y tee${holes === 9 ? ', a 9 hoyos,' : ''} con la fórmula WHS ${holes === 9 ? 'redondeo((índice/2) × slope/113 + (CR − par))' : 'redondeo(índice × slope/113 + (CR − par))'}, con el CR y el par de ${holes} hoyos.`,
   }
 }
