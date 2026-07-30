@@ -186,6 +186,24 @@ NO se reusa `STANDARD_PARS` de `golf/coach/hole-pars`: es un layout par-72 concr
 propio doc avisa que miente en canchas par 70/71, varias de las nuestras) y no cubre los
 hoyos >18 de canchas multi-recorrido. Conceptos parecidos, no el mismo.
 
+### Concepto "¿es stableford?" — pendiente de fuente canónica
+
+Detectado el 30-jul por el code-reviewer. El predicado `formato_juego === 'stableford'`
+está reescrito inline en ~10 archivos productivos (`TeamLeaderboard`,
+`compute-tournament-results`, `lib/ronda/leaderboard`, `share-card`, `api/en-vivo`, los
+dos `IndividualLeaderboard`, entre otros). Es el mismo smell que `TEAM_FORMAT_KEYS`
+resolvió para los formatos por equipo: corresponde un `isStablefordFormat()` en
+`src/golf/formats`, derivado del registry.
+
+NO se migró en el PR del board individual a propósito: habría ensanchado el blast radius
+de un PR de display hacia el motor de share cards y el de equipos. Migrar al tocar cada
+flujo.
+
+| Sitio | Estado |
+|---|---|
+| `src/golf/formats` — falta `isStablefordFormat()` | ⏳ pendiente — crear la canónica al tocar el primer flujo |
+| ~10 call-sites productivos con el predicado inline | ⏳ pendiente — migrar al tocar cada flujo |
+
 ### P0 ABIERTO — el board legacy usa `handicap_at_registration` crudo como course handicap
 
 Detectado el 29-jul al verificar el board unificado contra la data real del gate.
