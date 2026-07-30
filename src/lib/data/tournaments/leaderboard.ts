@@ -16,7 +16,7 @@ import type {
   WithdrawnEntry,
 } from '@/app/torneo/[slug]/types'
 import type { CourseHole, LegacyHcpContext } from '@/golf/leaderboard/types'
-import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { createClient } from '@/utils/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
@@ -67,6 +67,12 @@ export async function fetchCourseHoles(
     .from('course_holes')
     .select('numero, par, stroke_index')
     .eq('course_id', courseId)
+    // Orden explícito (igual que el scorer). Las canchas 27/36h traen varias filas
+    // por nº de hoyo y los consumidores dedupean con criterios opuestos: el mapa de
+    // pares se queda con la ÚLTIMA fila y `parDeLosHoyosJugados` con la PRIMERA. Sin
+    // ORDER BY el orden lo decide Postgres, así que el par contra el que se puntúa y
+    // el que entra a la fórmula del handicap podían salir de recorridos distintos.
+    .order('numero')
   return (data as CourseHole[] | null) ?? []
 }
 
@@ -93,12 +99,6 @@ export function sumParDedupByHole(holes: CourseHole[]): number {
   return Array.from(parByHole.values()).reduce((s, p) => s + p, 0)
 }
 
-/** Columnas de `course_tees` que necesita `resolvePlayerTee` + la fórmula WHS.
- *  `id` es obligatorio: es contra lo que matchea `players.tee_id`. */
-const COURSE_TEE_COLUMNS =
-  'id, nombre, rating, slope, yardaje_total, genero, ' +
-  'front_course_rating, front_slope_rating, back_course_rating, back_slope_rating'
-
 interface HcpContextRow {
   tees: string | null
   hcp_calc_mode: string | null
@@ -122,16 +122,18 @@ interface HcpContextRow {
  * Una sola ida a la BD: el embed anidado trae los ratings de la cancha y su
  * catálogo de tees junto al torneo.
  *
- * Ante cualquier fallo devuelve el contexto vacío (`mode: null`), que hace que el
- * board caiga al índice crudo — el comportamiento histórico. Un blip de red no
- * puede cambiar el neto que se muestra en una pantalla pública.
+ * "El torneo no tiene fila" y "no pude preguntar" NO son lo mismo — misma política
+ * que `fetchTournamentBySlug`. Sin fila devuelve el contexto vacío (el board cae al
+ * índice crudo, que es el comportamiento correcto de un torneo sin gate WHS). Un
+ * ERROR se propaga: degradarlo a contexto vacío haría que el neto de una vuelta de
+ * 9 hoyos salte al DOBLE de golpes y vuelva solo al siguiente refresh — el board
+ * de un torneo en vivo parpadeando entre dos rankings es peor que una pantalla de
+ * error con reintento.
  */
 export async function fetchLegacyHcpContext(
   supabase: Client,
   tournamentId: string,
 ): Promise<LegacyHcpContext> {
-  const vacio: LegacyHcpContext = { mode: null, tees: null, course: null, courseTees: [] }
-
   const { data, error } = await supabase
     .from('tournaments')
     .select(
@@ -141,19 +143,33 @@ export async function fetchLegacyHcpContext(
     .eq('id', tournamentId)
     .maybeSingle()
 
-  if (error || !data) return vacio
+  if (error) throw error
+  if (!data) return { mode: null, tees: null, course: null, courseTees: [] }
   const row = data as unknown as HcpContextRow
   const c = row.courses
 
   return {
     mode: row.hcp_calc_mode,
     tees: row.tees,
-    // Los tres ratings van juntos o no van: `computePlayerCourseHcp` sólo usa el
-    // fallback de cancha cuando tiene slope Y course rating, y con `par_total`
-    // ausente no hay señal de escala para decidir si el CR es de 9 o de 18.
+    // `par_total` es lo único imprescindible: NO es un rating de fallback, es la
+    // SEÑAL DE ESCALA del #289 (`esEscalaDe18Hoyos`) y la usa también la rama del
+    // TEE, que corre aunque la cancha no tenga slope/CR propios. Si acá se
+    // devolviera `null` por falta de un rating, el par de la cancha se perdería y
+    // `computePlayerCourseHcp` caería al par de la RONDA (36) — justo el valor
+    // ambiguo que #289 existe para no usar — dejando el CR del tee sin partir:
+    // course handicap ~+36 y el board otra vez peleado con la tarjeta.
+    //
+    // Los ratings ausentes viajan como 0, que es falsy: `computePlayerCourseHcp`
+    // ya trata eso como "esta cancha no tiene ratings" y no usa el fallback de
+    // cancha — el mismo comportamiento que tiene hoy el scorer, que recibe esas
+    // columnas en null.
     course:
-      c?.slope_rating != null && c?.course_rating != null && c?.par_total != null
-        ? { par_total: c.par_total, slope_rating: c.slope_rating, course_rating: c.course_rating }
+      c?.par_total != null
+        ? {
+            par_total: c.par_total,
+            slope_rating: c.slope_rating ?? 0,
+            course_rating: c.course_rating ?? 0,
+          }
         : null,
     courseTees: c?.course_tees ?? [],
   }
@@ -279,7 +295,11 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
   return out
 }
 
-const LEGACY_PLAYER_SELECT =
+/** Columnas de `players` que consume `buildLeaderboardFromLegacy`. Exportada
+ *  porque el gemelo de navegador (`tvBoard.ts`) alimenta el MISMO motor: dos
+ *  copias de esta lista significan que un día `/tv` reparte un handicap distinto
+ *  que `/torneo` — exactamente el bug que este board vino a cerrar. */
+export const LEGACY_PLAYER_SELECT =
   'id, handicap_at_registration, player_name, category_id, tee_id, ' +
   'profiles(name, indice), categories(name), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number, ' +

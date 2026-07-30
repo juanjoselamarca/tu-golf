@@ -46,6 +46,15 @@ const TEE_DORADO: CourseTeeRow = {
   back_course_rating: 33.9, back_slope_rating: 121,
 }
 
+/** Tee de 18h SIN front ratings publicados — 288 de los 477 tees del catálogo.
+ *  En una vuelta de 9h su CR se parte al medio, y quien decide si hay que
+ *  partirlo es el par PROPIO de la cancha, no el de la ronda. */
+const TEE_SIN_FRONT: CourseTeeRow = {
+  id: 'tee-azul', nombre: 'azul', rating: 71.9, slope: 132, yardaje_total: 6395,
+  genero: 'M', front_course_rating: null, front_slope_rating: null,
+  back_course_rating: null, back_slope_rating: null,
+}
+
 function hcpCtx(over: Partial<LegacyHcpContext> = {}): LegacyHcpContext {
   return {
     mode: 'whs',
@@ -208,6 +217,21 @@ describe('buildLeaderboardFromLegacy — paridad con la tarjeta del organizador'
     { nombre: '9h gate raw',              holes: 9,  hcp: hcpCtx({ mode: 'raw' }) },
     { nombre: '9h sin catálogo de tees',  holes: 9,  hcp: hcpCtx({ courseTees: [] }) },
     { nombre: '9h sin ratings de cancha', holes: 9,  hcp: hcpCtx({ course: null, courseTees: [] }) },
+    // Cancha SIN slope/CR propios pero CON par_total, y tees sin front ratings:
+    // acá el course handicap sale por la rama del TEE, y el `par_total` de la
+    // cancha es la única señal de escala que decide si el CR del tee se parte al
+    // medio. Si la capa de datos colapsara `course` a null por faltar un rating,
+    // esa señal se perdería y el board se separaría del scorer ~36 golpes. Este
+    // escenario existe porque los dos de arriba apagan las DOS ramas a la vez y
+    // por eso no muerden. 51 canchas de prod caen en esta forma.
+    {
+      nombre: '9h cancha sin slope/CR pero con par_total (señal de escala vía tee)',
+      holes: 9,
+      hcp: hcpCtx({
+        course: { par_total: PAR_18, slope_rating: 0, course_rating: 0 },
+        courseTees: [TEE_SIN_FRONT],
+      }),
+    },
   ]
 
   for (const { nombre, holes, hcp } of escenarios) {

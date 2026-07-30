@@ -11,7 +11,19 @@ export interface LeaderboardEntry {
   name: string
   /** Course handicap de SCORING (9h en rondas de 9h: reparte strokes/neto). */
   handicap: number
-  /** Course handicap COMPLETO (18h) para mostrar. Opcional: cae a `handicap`. */
+  /**
+   * El número que el jugador RECONOCE como su handicap — el que va en la columna
+   * HCP. Nunca es el de scoring: en una vuelta de 9 hoyos mostrar la mitad (8 en
+   * vez de 15) no significa nada para quien mira el board.
+   *
+   * Qué es concretamente depende de qué guarda cada camino como "su" handicap:
+   *  - ronda libre → el course handicap COMPLETO (18h) del tee, porque ahí lo que
+   *    se guarda por jugador ya es un course handicap.
+   *  - torneo (`players`) → el ÍNDICE de inscripción, que es lo que muestran la
+   *    ficha del scorer y la lista de inscritos.
+   * En los dos casos el contrato es el mismo y es el que importa: este campo NO
+   * se mueve cuando cambia el reparto de golpes. Opcional: cae a `handicap`.
+   */
   hcpDisplay?: number
   grossTotal: number
   netTotal: number

@@ -11,7 +11,7 @@ import type { DBPlayer } from '@/app/torneo/[slug]/types'
 import type { CourseHole, LegacyHcpContext } from '@/golf/leaderboard/types'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { captureError } from '@/lib/error-tracking'
-import { fetchLegacyHcpContext, type Client } from './leaderboard'
+import { fetchLegacyHcpContext, LEGACY_PLAYER_SELECT, type Client } from './leaderboard'
 
 export interface TVWithdrawnEntry {
   name: string
@@ -40,12 +40,6 @@ export interface TVBoardData {
    *  que /torneo y que la tarjeta en cancha, no uno propio. */
   hcp: LegacyHcpContext
 }
-
-const TV_PLAYER_SELECT =
-  'id, handicap_at_registration, player_name, category_id, tee_id, ' +
-  'profiles(name, indice), categories(name), ' +
-  'rounds(id, status, total_gross, total_net, total_points, round_number, ' +
-  'hole_scores(hole_number, gross_score))'
 
 interface TVTournamentRow {
   id: string
@@ -87,7 +81,7 @@ export async function fetchTVBoardData(
   const [playersRes, withdrawnRes, holesRes, hcp] = await Promise.all([
     supabase
       .from('players')
-      .select(TV_PLAYER_SELECT)
+      .select(LEGACY_PLAYER_SELECT)
       .eq('tournament_id', t.id)
       .in('status', ['pending', 'approved', 'waitlist']),
     supabase

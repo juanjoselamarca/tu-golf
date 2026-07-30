@@ -218,15 +218,19 @@ el board repartía **12 golpes**; el course handicap 9h correcto es **6**
 
 Cerrado en `fix/board-publico-hcp-9h-claude` (va DESPUÉS de #289): el board llama a
 `resolveScoringCourseHcp` — la MISMA función que el scorer — con el contexto que arma
-`fetchLegacyHcpContext` (fuente única para `/torneo`, `/tv` y `/en-vivo`). El gate
-`hcp_calc_mode` se respeta: los torneos que no son `'whs'` siguen con el índice crudo.
-El ÍNDICE que se MUESTRA (`hcpDisplay`) no se toca: sigue siendo el de inscripción.
+`fetchLegacyHcpContext` (fuente única para `/torneo`, `/tv` y `/en-vivo`). En **el board
+individual legacy** el gate `hcp_calc_mode` se respeta: los torneos que no son `'whs'`
+siguen con el índice crudo. El ÍNDICE que se MUESTRA (`hcpDisplay`) no se toca: sigue
+siendo el de inscripción.
 
 | Sitio | Estado |
 |---|---|
 | `build-from-legacy.ts` (golpes vía `resolveScoringCourseHcp`, display vía índice) | ✅ migrado (30-jul) |
 | `leaderboard.ts::fetchLegacyHcpContext` (canónica del contexto de handicap del board) | ✅ creada (30-jul) |
 | `/torneo`, `/torneo/tv`, `/torneo/en-vivo` | ✅ los tres consumen la canónica |
+| `COURSE_TEE_COLUMNS` en `resolve-player-tee.ts` (columnas de las que depende que board y scorer coincidan) | ✅ canónica creada — la consumen el board y `scoring/page.tsx` |
+| `LEGACY_PLAYER_SELECT` compartido `leaderboard.ts` ↔ `tvBoard.ts` | ✅ una sola copia (eran dos listas byte-idénticas) |
+| **El gate `hcp_calc_mode` NO se consulta en los caminos hermanos** | ⏳ **abierto** — `fetchRondaLibreJugadoresConCourseHcp` y los standings por equipo (best_ball/scramble/foursome) convierten índice → course handicap incondicionalmente, en `/torneo` y en `/en-vivo`. Deuda preexistente, no la introduce este PR. Migrar al tocar cada flujo. |
 | **Catálogo: 9 de 11 canchas de 9 hoyos tienen `course_rating` de 18h** | ⏳ **P1 abierto** — `(CR − par)` infla el course handicap ~36 golpes en el scorer Y en el board (misma clase que el negativo de #289, por el otro lado). Hoy sólo apunta ahí el torneo semilla `gate-scorer-9h-individual`; ningún torneo real. Es data, no motor: se arregla en el catálogo, no acá. |
 
 ### Concepto "par de un hoyo con fallback estándar" → `STANDARD_PARS` / `parForHoleWithFallback()` en `src/golf/coach/hole-pars.ts`
