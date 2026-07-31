@@ -125,9 +125,10 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
               {avisoBloqueante && (
                 <div style={avisoCanchaStyle} role="alert">
                   <span style={avisoIconStyle} aria-hidden="true">!</span>
+                  {/* El mensaje del dominio es el único texto: ya dice qué pasa
+                      y qué hacer. Prefijarlo repetía la mitad de la frase. */}
                   <span>
-                    <strong>{selectedCourse?.nombre}</strong> no se puede usar en un torneo de{' '}
-                    {round.hole_count} hoyos. {avisoBloqueante}
+                    <strong>{selectedCourse?.nombre}</strong> — {avisoBloqueante}
                   </span>
                 </div>
               )}

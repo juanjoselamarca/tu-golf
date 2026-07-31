@@ -568,6 +568,17 @@ describe('resolverCourseHandicap — guardarrail de dato incoherente', () => {
     expect(resolverCourseHandicap(12, null)).toBe(12)
   })
 
+  it('si `roundHoles` es lo único que dice que es de 9, la FÓRMULA también lo obedece', () => {
+    // Regresión: la validación de escala leía `roundHoles` y la fórmula leía
+    // `courseData.is9Hole`. Con un CourseData sin ese flag (lo arma cualquier
+    // caller a mano), la vuelta se validaba como de 9 y se calculaba como de
+    // 18 — el índice entero sobre 9 hoyos, o sea el doble de golpes.
+    const sin9h: CourseData = { slope: 113, courseRating: 35.5, par: 36 }
+    // round(6 × 113/113 + (35.5 − 36)) = round(5.5) = 6. ANTES devolvía 12.
+    expect(resolverCourseHandicap(12, sin9h, 9)).toBe(6)
+    expect(resolverCourseHandicap(12, { ...sin9h, is9Hole: true })).toBe(6)
+  })
+
   it('`is9Hole` de courseData manda sobre `roundHoles` (es el que usó la fórmula)', () => {
     const sana9h: CourseData = { slope: 113, courseRating: 35.5, par: 36, is9Hole: true }
     expect(resolverCourseHandicap(12, sana9h, 18)).toBe(resolverCourseHandicap(12, sana9h))

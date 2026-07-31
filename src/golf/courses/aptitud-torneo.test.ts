@@ -7,6 +7,7 @@ import {
   evaluarAptitudTorneo,
   evaluarAptitudRecorridos,
   aptitudPorHoyos,
+  bloqueaRondaLibre,
   requiereRatingDeCancha,
   MENSAJE_SIN_RATING_9H,
   MENSAJE_RATING_MAL_CARGADO,
@@ -237,6 +238,70 @@ describe('evaluarAptitudRecorridos — canchas multi-recorrido (Brisas / Marbell
   it('si algún recorrido no tiene rating, el motor no usa esta rama y no se bloquea', () => {
     const r = evaluarAptitudRecorridos([LOOPS_SANOS[0], { par_total: 36, course_rating: null }])
     expect(r.apta).toBe(true)
+  })
+
+  it('un recorrido SIN rating propio pero con el tee roto se bloquea igual', () => {
+    // El agujero que tenía este gate: sin `course_rating` el motor no suma, se
+    // cae al lookup por tee de ESE hijo — y ahí estaba el 72 sobre par 36. Si
+    // sólo se mirara la suma, este caso pasaba y el torneo se armaba sobre el
+    // dato roto.
+    const r = evaluarAptitudRecorridos([
+      { par_total: 36, course_rating: null, tees: [{ rating: 72, front_course_rating: null }] },
+    ])
+    expect(r.apta).toBe(false)
+    expect(r.motivo).toBe('rating_incoherente')
+    expect(r.mensaje).toBe(MENSAJE_SIN_RATING_9H)
+  })
+
+  it('la SUMA de los recorridos se juzga aunque cada uno pase por separado', () => {
+    // Sin `par_total` no hay nada que desmentir recorrido por recorrido (el par
+    // es la señal de escala), pero la suma sí es juzgable contra el par por
+    // defecto: CR 144 sobre par 72 es absurdo y el motor la usaría tal cual.
+    const r = evaluarAptitudRecorridos([
+      { par_total: null, course_rating: 72, slope_rating: 130 },
+      { par_total: null, course_rating: 72, slope_rating: 130 },
+    ])
+    expect(r.apta).toBe(false)
+    expect(r.mensaje).toBe(MENSAJE_RATING_MAL_CARGADO)
+  })
+
+  it('sin slope el motor no entra por la suma, y este gate tampoco', () => {
+    // `resolverCourseData` exige `course_rating && slope_rating` en TODOS los
+    // hijos para combinar. Bloquear acá sería bloquear una rama que no corre.
+    const r = evaluarAptitudRecorridos([
+      { par_total: null, course_rating: 72, slope_rating: null },
+      { par_total: null, course_rating: 72, slope_rating: 130 },
+    ])
+    expect(r.apta).toBe(true)
+  })
+})
+
+describe('el veredicto APTA no se puede contaminar', () => {
+  it('mutar el resultado de una cancha sana no afecta a la siguiente', () => {
+    // `APTA` se devuelve por referencia desde varios caminos: sin congelarlo,
+    // un caller que le escriba encima envenena todos los veredictos del proceso.
+    const primero = evaluarAptitudTorneo(LOS_LEONES, 18)
+    expect(() => {
+      ;(primero as { apta: boolean }).apta = false
+    }).toThrow()
+    expect(evaluarAptitudTorneo(LOS_LEONES, 18).apta).toBe(true)
+  })
+})
+
+describe('bloqueaRondaLibre — qué frena una ronda libre y qué no', () => {
+  it('el rating que miente frena el neto', () => {
+    expect(bloqueaRondaLibre(evaluarAptitudTorneo(RIO_BLANCO_VARONES, 9))).toBe(true)
+  })
+
+  it('una cancha de 9 en vuelta de 18 NO frena: eso es regla de torneo', () => {
+    const v = evaluarAptitudTorneo(LOS_LEONES_9H_SANO, 18)
+    expect(v.motivo).toBe('cancha_de_9_en_vuelta_de_18')
+    expect(bloqueaRondaLibre(v)).toBe(false)
+  })
+
+  it('una cancha apta y una cancha que no está en la BD no frenan', () => {
+    expect(bloqueaRondaLibre(evaluarAptitudTorneo(LOS_LEONES, 18))).toBe(false)
+    expect(bloqueaRondaLibre(null)).toBe(false)
   })
 })
 

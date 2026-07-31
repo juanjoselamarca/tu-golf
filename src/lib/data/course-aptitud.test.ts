@@ -274,6 +274,27 @@ describe('evaluarCanchaDeRondaLibre — recorridos sueltos', () => {
     expect(r).not.toBeUndefined()
   })
 
+  it('trae los tees de los HIJOS: un loop sin rating propio pero con tee roto se bloquea', async () => {
+    // Sin los tees de los hijos este gate quedaba ciego justo en la rama a la
+    // que cae el motor cuando un loop no tiene `course_rating`.
+    const sinRatingConTeeRoto = {
+      courses: [{ id: 'este', nombre: 'Este', par_total: 36, course_rating: null }],
+      course_tees: [{ course_id: 'este', rating: 72, front_course_rating: null }],
+    }
+    const r = await evaluarCanchaDeRondaLibre(fakeSupabase(sinRatingConTeeRoto), PADRE, 9, ['Este'])
+    expect(r!.apta).toBe(false)
+    expect(r!.mensaje).toBe(MENSAJE_SIN_RATING_9H)
+  })
+
+  it('un loop sin rating y con los tees sanos no se bloquea', async () => {
+    const sano = {
+      courses: [{ id: 'este', nombre: 'Este', par_total: 36, course_rating: null }],
+      course_tees: [{ course_id: 'este', rating: 71.2, front_course_rating: 35.8 }],
+    }
+    const r = await evaluarCanchaDeRondaLibre(fakeSupabase(sano), PADRE, 9, ['Este'])
+    expect(r!.apta).toBe(true)
+  })
+
   it('una cancha que no está en la BD no tiene rating que desmentir', async () => {
     const r = await evaluarCanchaDeRondaLibre(fakeSupabase({ courses: [], course_tees: [] }), PADRE, 18, null)
     expect(r).toBeNull()

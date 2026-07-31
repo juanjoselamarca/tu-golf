@@ -66,7 +66,10 @@ export function resolverCourseHandicap(
   // combinado con el slope/CR/par de 9h. `strokesRecibidosEnHoyo` reparte este CH
   // sobre los 9 hoyos jugados (maxSI=9), así que el CH debe ser el de 9h, no el de
   // 18h. Sin esta división, una ronda de 9h recibía ~2× los golpes correctos.
-  const idx = courseData.is9Hole ? indiceDe9Hoyos(handicapIndex) : handicapIndex
+  // `is9Hole` (no `courseData.is9Hole`): tiene que ser LA MISMA lectura que usó
+  // la validación de arriba. Con dos lecturas distintas, una vuelta de 9 podía
+  // validarse como de 9 y calcularse como de 18 — el doble de golpes.
+  const idx = is9Hole ? indiceDe9Hoyos(handicapIndex) : handicapIndex
   return Math.round(idx * (slope / 113) + (courseRating - par))
 }
 

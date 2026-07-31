@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
 import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS } from '@/golf/formats'
 import { evaluarCanchaDeRondaLibre } from '@/lib/data/course-aptitud'
+import { bloqueaRondaLibre } from '@/golf/courses/aptitud-torneo'
 
 export const dynamic = 'force-dynamic'
 
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
       // se bloquea el NETO sobre ella, porque el neto es lo único que depende
       // del rating. En Gross la ronda se juega igual — a diferencia de un
       // torneo, acá no hay premio en juego y el jugador elige.
+      // Qué causa frena y cuál no lo decide `bloqueaRondaLibre`, no esta ruta.
       if (body.course_id) {
         const veredicto = await evaluarCanchaDeRondaLibre(
           supabase,
@@ -95,7 +97,7 @@ export async function POST(req: NextRequest) {
           body.holes,
           body.recorridos ?? null,
         )
-        if (veredicto && !veredicto.apta) {
+        if (bloqueaRondaLibre(veredicto)) {
           return NextResponse.json({
             error: `${veredicto.mensaje} Mientras tanto puedes jugarla en modo Gross (sin handicap).`,
           }, { status: 400 })

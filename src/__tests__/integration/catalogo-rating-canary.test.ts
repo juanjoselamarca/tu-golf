@@ -118,16 +118,12 @@ describe('canario de catálogo — rating coherente con el par', () => {
     expect(courses.length).toBeGreaterThanOrEqual(MINIMO_CANCHAS)
 
     const nuevos: Hallazgo[] = []
-    const deudaVista = new Set<string>()
 
     for (const c of courses) {
       const holes = c.par_total != null && !esEscalaDe18Hoyos(c.par_total) ? 9 : 18
       const v = evaluarRating({ courseRating: c.course_rating, par: c.par_total, holes })
       if (!v.esIncoherente) continue
-      if (DEUDA_CONOCIDA_RATING_9H[c.id]) {
-        deudaVista.add(c.id)
-        continue
-      }
+      if (DEUDA_CONOCIDA_RATING_9H[c.id]) continue
       nuevos.push({
         courseId: c.id,
         detalle: `${c.nombre} (${c.id}) — par ${c.par_total}, rating ${c.course_rating}, `
@@ -138,14 +134,11 @@ describe('canario de catálogo — rating coherente con el par', () => {
     // El canario tiene que MORDER. La prueba de que muerde es SINTÉTICA a
     // propósito: si dependiera de encontrar deuda real en prod, el día que el
     // Frente B cargue los ratings buenos el CI se pondría rojo por tener el
-    // catálogo sano. `deudaVista` sólo se usa para reportar, no para afirmar.
+    // catálogo sano.
     expect(
       evaluarRating({ courseRating: 72, par: 36, holes: 9 }).esIncoherente,
       'el detector dejó de marcar un rating de 18h sobre un par de 9 — revisá la tolerancia',
     ).toBe(true)
-    // `deudaVista` no puede tener nada que NO esté declarado — si aparece, es
-    // que el Record y la realidad se desincronizaron.
-    deudaVista.forEach((id) => expect(DEUDA_CONOCIDA_RATING_9H[id]).toBeTruthy())
 
     expect(
       nuevos.map((n) => n.detalle),
@@ -179,6 +172,16 @@ describe('canario de catálogo — rating coherente con el par', () => {
 
     const nuevos: string[] = []
     let evaluados = 0
+    /** Canchas donde SÍ se sigue viendo un rating roto, por cualquiera de las
+     *  dos fuentes. Se usa para detectar entradas de la lista que sobran. */
+    const deudaVigente = new Set<string>()
+
+    for (const c of courses) {
+      const holes = c.par_total != null && !esEscalaDe18Hoyos(c.par_total) ? 9 : 18
+      if (evaluarRating({ courseRating: c.course_rating, par: c.par_total, holes }).esIncoherente) {
+        deudaVigente.add(c.id)
+      }
+    }
 
     for (const t of tees) {
       const c = porId.get(t.course_id)
@@ -191,8 +194,11 @@ describe('canario de catálogo — rating coherente con el par', () => {
       const parTee = esCancha9h ? parEnEscalaDe9(c.par_total) : c.par_total
       const vTee = evaluarRating({ courseRating: t.rating, par: parTee, holes: holesTee })
       if (t.rating != null) evaluados++
-      if (vTee.esIncoherente && !conDeuda[c.id]) {
-        nuevos.push(`${etiqueta} — rating ${t.rating} vs par ${parTee} (delta ${vTee.delta?.toFixed(1)})`)
+      if (vTee.esIncoherente) {
+        deudaVigente.add(c.id)
+        if (!conDeuda[c.id]) {
+          nuevos.push(`${etiqueta} — rating ${t.rating} vs par ${parTee} (delta ${vTee.delta?.toFixed(1)})`)
+        }
       }
 
       // 2. Los ratings de 9 hoyos publicados, contra el par de 9 hoyos.
@@ -203,8 +209,11 @@ describe('canario de catálogo — rating coherente con el par', () => {
       ] as const) {
         const v9 = evaluarRating({ courseRating: valor, par: par9, holes: 9 })
         if (valor != null) evaluados++
-        if (v9.esIncoherente && !conDeuda[c.id]) {
-          nuevos.push(`${etiqueta} — ${campo} ${valor} vs par9 ${par9} (delta ${v9.delta?.toFixed(1)})`)
+        if (v9.esIncoherente) {
+          deudaVigente.add(c.id)
+          if (!conDeuda[c.id]) {
+            nuevos.push(`${etiqueta} — ${campo} ${valor} vs par9 ${par9} (delta ${v9.delta?.toFixed(1)})`)
+          }
         }
       }
     }
@@ -216,6 +225,19 @@ describe('canario de catálogo — rating coherente con el par', () => {
       nuevos,
       'Hay tees de canchas ACTIVAS con rating incoherente sin documentar. '
         + 'Corregí el dato o agregá la cancha a DEUDA_CONOCIDA_TEES con su motivo.',
+    ).toEqual([])
+
+    // La lista tampoco puede quedarse con basura: una entrada declarada cuya
+    // cancha sigue activa pero YA no tiene ningún rating roto es una entrada
+    // que hay que borrar. Es lo que va a pasar cuando el Frente B cargue los
+    // ratings buenos, cancha por cancha.
+    const idsActivos = new Set(courses.map((c) => c.id))
+    const yaNoAplican = Object.entries(conDeuda)
+      .filter(([id]) => idsActivos.has(id) && !deudaVigente.has(id))
+      .map(([id, nombre]) => `${nombre} (${id})`)
+    expect(
+      yaNoAplican,
+      'Estas canchas ya NO tienen ningún rating incoherente: borralas de la lista de deuda conocida.',
     ).toEqual([])
   })
 

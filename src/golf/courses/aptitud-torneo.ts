@@ -57,6 +57,8 @@ export interface TeeParaAptitud {
 export interface CanchaParaAptitud {
   par_total: number | null
   course_rating: number | null
+  /** Sólo lo usa la combinación de recorridos, para espejar `allHaveRatings`. */
+  slope_rating?: number | null
   tees?: TeeParaAptitud[] | null
 }
 
@@ -75,7 +77,14 @@ export interface AptitudTorneo {
   advertencia: string | null
 }
 
-const APTA: AptitudTorneo = { apta: true, motivo: null, mensaje: null, advertencia: null }
+// Congelado: se devuelve por referencia desde varios caminos y una mutación
+// accidental contaminaría todos los veredictos a la vez.
+const APTA: AptitudTorneo = Object.freeze({
+  apta: true,
+  motivo: null,
+  mensaje: null,
+  advertencia: null,
+})
 
 const ADVERTENCIA_TEE_ROTO =
   'Algún tee de esta cancha tiene el rating mal cargado. Los jugadores de ese tee van a puntuar con el rating general de la cancha.'
@@ -92,6 +101,24 @@ export function requiereRatingDeCancha(torneo: {
   use_handicap?: boolean | null
 }): boolean {
   return torneo.use_handicap === true || torneo.modo === 'neto'
+}
+
+/**
+ * ¿Este veredicto frena una RONDA LIBRE?
+ *
+ * Sólo el dato que MIENTE. `cancha_de_9_en_vuelta_de_18` es una restricción de
+ * TORNEO: ahí hay premios en juego y el resultado tiene que ser justo. Una
+ * ronda entre amigos que da dos vueltas a una cancha de 9 se juega igual — el
+ * costo de equivocarse es cero y el de no poder crearla es alto.
+ *
+ * Vive acá y no inline en la ruta porque es una decisión de producto sobre el
+ * dominio, no un detalle de una ruta: si mañana hay un segundo camino de
+ * creación de ronda libre, tiene que contestar lo mismo.
+ */
+export function bloqueaRondaLibre(
+  veredicto: AptitudTorneo | null | undefined,
+): veredicto is AptitudTorneo {
+  return veredicto?.motivo === 'rating_incoherente'
 }
 
 /** ¿El par de esta cancha es el de una vuelta de 9 hoyos? */
@@ -192,14 +219,32 @@ export function evaluarAptitudRecorridos(loops: CanchaParaAptitud[]): AptitudTor
   if (loops.length === 0) return APTA
 
   const holes: 9 | 18 = loops.length === 1 ? 9 : 18
-  const conRating = loops.filter((l) => l.course_rating != null)
-  // Si algún loop no tiene rating, el motor ni siquiera entra por esta rama
-  // (`allHaveRatings`): cae al lookup por tee y de ahí al camino seguro.
-  if (conRating.length !== loops.length) return APTA
+  const mensaje = holes === 9 ? MENSAJE_SIN_RATING_9H : MENSAJE_RATING_MAL_CARGADO
+
+  // 1. Cada recorrido contra su PROPIO par, a 9 hoyos. Cubre las dos ramas del
+  //    motor de una sola vez: la que suma los `course_rating` de los hijos y la
+  //    que se cae al lookup por tee sobre esos mismos hijos
+  //    (`resolverCourseData` paso 0). Sin esto, un loop sin `course_rating`
+  //    pero con el tee roto pasaba: exactamente el mismo agujero que el gate
+  //    tenía con la cancha padre, un nivel más abajo.
+  for (const loop of loops) {
+    const v = evaluarAptitudTorneo(loop, 9)
+    if (!v.apta) return { apta: false, motivo: 'rating_incoherente', mensaje, advertencia: null }
+  }
+
+  // 2. La suma que arma el motor cuando TODOS los hijos tienen rating y slope
+  //    (`children.every(c => c.course_rating && c.slope_rating)` — misma
+  //    truthiness, a propósito: un rating 0 manda al motor a la rama de tees).
+  //    El error de escala se propaga a la suma y hay que verlo ahí también.
+  if (!loops.every((l) => l.course_rating && l.slope_rating)) return APTA
 
   const parSum = loops.reduce((s, l) => s + (l.par_total ?? 36), 0)
   const crSum = loops.reduce((s, l) => s + (l.course_rating ?? 0), 0)
 
+  // ⚠️ El motor prefiere el par de la RONDA (`parTotal ?? parSum`), derivado de
+  // `course_holes`. Acá sólo tenemos `courses.par_total`. Coinciden mientras
+  // las dos tablas estén sincronizadas; si se desincronizan, el canario del
+  // catálogo es el que lo tiene que gritar.
   return veredictoDeRatings([crSum], parSum, holes)
 }
 

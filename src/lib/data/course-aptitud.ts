@@ -19,8 +19,12 @@ import {
   type MotivoNoApta,
 } from '@/golf/courses/aptitud-torneo'
 
-/** Columnas de `courses` que necesita el veredicto. Fuente única del SELECT. */
-export const COLUMNAS_APTITUD_COURSES = 'par_total, course_rating'
+/**
+ * Columnas de `courses` que necesita el veredicto. Fuente única del SELECT.
+ * `slope_rating` es sólo para espejar el `allHaveRatings` del motor en las
+ * canchas multi-recorrido.
+ */
+export const COLUMNAS_APTITUD_COURSES = 'par_total, course_rating, slope_rating'
 
 /** Columnas de `course_tees` que necesita el veredicto. */
 export const COLUMNAS_APTITUD_TEES = 'course_id, rating, front_course_rating'
@@ -38,6 +42,7 @@ export interface CourseRowParaAptitud {
   nombre?: string | null
   par_total: number | null
   course_rating: number | null
+  slope_rating?: number | null
 }
 
 export interface TeeRowParaAptitud {
@@ -70,6 +75,7 @@ export function armarCanchasParaAptitud(
       nombre: c.nombre ?? '',
       par_total: c.par_total ?? null,
       course_rating: c.course_rating ?? null,
+      slope_rating: c.slope_rating ?? null,
       tees: [],
     })
   }
@@ -165,7 +171,7 @@ export async function fetchRecorridosParaAptitud(
   supabase: MinimalClient,
   parentId: string,
   loopNombres: string[],
-): Promise<CourseRowParaAptitud[]> {
+): Promise<CanchaConRatings[]> {
   if (loopNombres.length === 0) return []
   const res = await supabase
     .from('courses')
@@ -176,7 +182,22 @@ export async function fetchRecorridosParaAptitud(
   // El motor sólo entra por la rama multi-recorrido cuando encuentra TODOS los
   // loops pedidos (`children.length === recorridos.length`). Si faltan, cae al
   // camino de cancha simple y este veredicto no aplica.
-  return hijos.length === loopNombres.length ? hijos : []
+  if (hijos.length !== loopNombres.length) return []
+
+  // Los tees de los HIJOS: el motor los usa como segundo intento cuando algún
+  // loop no tiene `course_rating`. Sin ellos el gate se quedaba ciego en esa
+  // rama (mismo agujero que tenía con la cancha padre, un nivel más abajo).
+  const resTees = await supabase
+    .from('course_tees')
+    .select(COLUMNAS_APTITUD_TEES)
+    .in('course_id', hijos.map((h) => h.id))
+    .range(0, MAX_TEES - 1)
+
+  const conTees = armarCanchasParaAptitud(
+    hijos,
+    exigirFilas<TeeRowParaAptitud>(resTees, 'los tees de los recorridos'),
+  )
+  return hijos.map((h) => conTees.get(h.id)!)
 }
 
 /**
