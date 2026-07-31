@@ -237,7 +237,7 @@ export default function ScoreGrupoPage() {
       // una vuelta de 9: se puntúa con la mitad (WHS) y se muestra el completo.
       const displayMap: Record<string, number> = {}
       const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
-      const courseData18hByTee: Record<string, CourseData | null> = {}
+      const courseData18hByTee = new Map<string, CourseData | null>()
       for (const j of r.ronda_libre_jugadores) {
         let index: number
         if (j.handicap != null) { index = j.handicap }

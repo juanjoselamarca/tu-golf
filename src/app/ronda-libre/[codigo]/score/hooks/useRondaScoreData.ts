@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { RondaLibre, HoleData } from '@/types/ronda'
 import { isTeamFormat } from '@/golf/formats'
-import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData } from '@/golf/core/course-handicap'
+import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData, type CourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { getTeeYardageColumn, generarOrdenHoyos } from '@/lib/ronda/helpers'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
@@ -146,7 +146,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       const hcpMap: Record<string, number> = {}
       const displayMap: Record<string, number> = {}
       const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
-      const courseDataFullByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
+      const courseDataFullByTee = new Map<string, CourseData | null>()
       for (const j of r.ronda_libre_jugadores) {
         let index: number
         if (j.handicap != null) { index = j.handicap }

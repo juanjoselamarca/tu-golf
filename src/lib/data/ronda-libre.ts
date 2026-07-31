@@ -9,7 +9,7 @@
 
 import { createClient } from '@/lib/supabase'
 import { parTotalEstandar } from '@/golf/core/round-score'
-import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData } from '@/golf/core/course-handicap'
+import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData, type CourseData } from '@/golf/core/course-handicap'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
@@ -101,7 +101,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
     //  - displayHcpMap  → el COMPLETO (18h) que se MUESTRA en la columna HCP, para
     //    que una ronda de 9h no muestre la mitad y pierda significado.
     const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
-    const courseDataFullByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
+    const courseDataFullByTee = new Map<string, CourseData | null>()
     const courseHcpMap: Record<string, number> = {}
     const displayHcpMap: Record<string, number> = {}
     for (const j of ronda.ronda_libre_jugadores) {

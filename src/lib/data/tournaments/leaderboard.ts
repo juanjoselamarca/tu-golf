@@ -23,6 +23,7 @@ import {
   resolverCourseData,
   resolverCourseHandicap,
   resolverCourseHandicapDisplay,
+  resolverHandicapDisplayDeRonda,
   type CourseData,
 } from '@/golf/core/course-handicap'
 import { PAR_FALLBACK } from '@/golf/leaderboard/board-rules'
@@ -254,7 +255,9 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
     // saber si la vuelta es de 9 hoyos incluso cuando no hay cancha vinculada.
     const holesN = (ronda?.holes as number | null) ?? 18
     let courseData: CourseData | null = null
-    let courseData18h: CourseData | null = null
+    // Sin cancha vinculada el número a mostrar es el índice entero, aunque la
+    // vuelta sea de 9. Se deriva de la fuente única, no a mano.
+    let handicapDisplay = resolverCourseHandicapDisplay(index, null, null)
     if (courseId) {
       const recorridos = (ronda?.recorridos as string[] | null) ?? null
       const tee = (j.tees || (ronda?.tees as string | null) || 'azul').toLowerCase()
@@ -266,32 +269,29 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
         )
       }
       courseData = cache.get(key) ?? null
-      courseData18h = courseData
 
-      // Para MOSTRAR el HCP completo en rondas de 9h: cargamos los ratings de 18h
-      // del mismo tee (sin recorridos, para no re-dividir). `parTotal` ya es el par
-      // de 18h (sumParDedupByHole sobre course_holes completo). Con recorridos
-      // (multi-loop) no se puede derivar el par de 18h → cae a round(index).
-      if (courseData?.is9Hole) {
-        if (recorridos?.length) {
-          courseData18h = null
-        } else {
-          const key18 = `${courseId}|${tee}|18`
-          if (!cache.has(key18)) {
-            cache.set(
-              key18,
-              await resolverCourseData(supabase as unknown as SupabaseClient, courseId, tee, 18, parTotal, null),
-            )
-          }
-          courseData18h = cache.get(key18) ?? null
-        }
-      }
+      // El HCP a MOSTRAR sale de la fuente única que usan las tres pantallas de
+      // ronda libre. Acá corre server-side, así que se le inyecta el loader con
+      // el cliente del request en vez del cliente browser.
+      handicapDisplay = await resolverHandicapDisplayDeRonda(
+        index,
+        courseData,
+        {
+          courseId,
+          tee,
+          finalParTotal: parTotal,
+          tieneRecorridos: !!recorridos?.length,
+        },
+        cache,
+        (cid, t, holes, par) =>
+          resolverCourseData(supabase as unknown as SupabaseClient, cid!, t, holes, par, null),
+      )
     }
     out.push({
       ...j,
       handicap_index: index,
       handicap: resolverCourseHandicap(index, courseData, holesN),
-      handicap_display: resolverCourseHandicapDisplay(index, courseData, courseData18h),
+      handicap_display: handicapDisplay,
     })
   }
   return out

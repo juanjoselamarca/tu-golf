@@ -117,8 +117,13 @@ export function resolverCourseHandicapDisplay(
  * `useRondaScoreData.ts`, y `score-grupo` — la única pantalla que nunca lo
  * adoptó — mostraba la MITAD del handicap.
  *
- * @param cache18h Cache por tee, compartido entre los jugadores de la ronda
- *   para no repetir la consulta. El caller lo crea vacío y lo reusa.
+ * @param cache18h Cache compartido entre los jugadores, para no repetir la
+ *   consulta. La clave lleva la CANCHA además del tee: un torneo puede tener
+ *   rondas en canchas distintas, y cachear sólo por tee devolvería el
+ *   CourseData de la cancha equivocada.
+ * @param cargar Inyectable porque hay dos clientes de Supabase: las pantallas
+ *   de ronda libre corren en el browser y el board de torneo corre en el
+ *   servidor con el cliente del request.
  */
 export async function resolverHandicapDisplayDeRonda(
   handicapIndex: number,
@@ -129,27 +134,34 @@ export async function resolverHandicapDisplayDeRonda(
     finalParTotal?: number
     tieneRecorridos: boolean
   },
-  cache18h: Record<string, CourseData | null>,
+  cache18h: Map<string, CourseData | null>,
+  cargar: CargadorDeCourseData = cargarCourseData,
 ): Promise<number> {
   let courseData18h = courseData9h
   if (courseData9h?.is9Hole) {
     if (ronda.tieneRecorridos) {
       courseData18h = null
     } else {
-      if (!(ronda.tee in cache18h)) {
-        cache18h[ronda.tee] = await cargarCourseData(
-          ronda.courseId,
-          ronda.tee,
-          18,
-          ronda.finalParTotal,
-          null,
+      const clave = `${ronda.courseId}|${ronda.tee}|18`
+      if (!cache18h.has(clave)) {
+        cache18h.set(
+          clave,
+          await cargar(ronda.courseId, ronda.tee, 18, ronda.finalParTotal),
         )
       }
-      courseData18h = cache18h[ronda.tee]
+      courseData18h = cache18h.get(clave) ?? null
     }
   }
   return resolverCourseHandicapDisplay(handicapIndex, courseData9h, courseData18h)
 }
+
+/** Cómo se trae un CourseData. Ver `resolverHandicapDisplayDeRonda`. */
+export type CargadorDeCourseData = (
+  courseId: string | null,
+  tee: string,
+  holes: number,
+  parTotal?: number,
+) => Promise<CourseData | null>
 
 /**
  * Course handicap a APLICAR según los hoyos jugados (fuente única del ajuste 9h

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS } from '@/golf/formats'
 import { evaluarCanchaDeRondaLibre } from '@/lib/data/course-aptitud'
 import { bloqueaRondaLibre } from '@/golf/courses/aptitud-torneo'
+import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
 
@@ -102,7 +103,16 @@ export async function POST(req: NextRequest) {
           body.course_id,
           body.holes,
           body.recorridos ?? null,
-        ).catch(() => null)
+        ).catch((err) => {
+          // Se reporta SIEMPRE: este catch no distingue "se cayó PostgREST" de
+          // "nuestro código está roto", y sin rastro el guardarrail se apaga en
+          // silencio — que es peor que no tenerlo.
+          captureError(err, {
+            context: 'ronda-libre.gate-aptitud',
+            meta: { courseId: body.course_id },
+          })
+          return null
+        })
         if (bloqueaRondaLibre(veredicto)) {
           return NextResponse.json({
             error: `${veredicto.mensaje} Mientras tanto puedes jugarla en modo Gross (sin handicap).`,
