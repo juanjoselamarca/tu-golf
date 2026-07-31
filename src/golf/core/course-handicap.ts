@@ -9,6 +9,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { ratingEsCreible } from '@/golf/courses/rating-coherente'
 
 export interface CourseData {
   slope: number
@@ -18,17 +19,42 @@ export interface CourseData {
 }
 
 /**
+ * FUENTE ÚNICA del camino seguro: qué handicap se reparte cuando la cancha no
+ * aporta un rating utilizable (no hay dato, o el que hay es incoherente).
+ *
+ * WHS: sin CR/slope el course handicap es el índice del jugador. En una vuelta
+ * de 9 hoyos es la MITAD, porque `strokesRecibidosEnHoyo` reparte el número
+ * sobre 9 hoyos (maxSI=9) — devolver el índice entero le daría el doble de
+ * golpes, el mismo bug que arregló el PR #289 por el otro lado.
+ *
+ * Nunca produce un negativo ni un +36 para un índice normal: es el índice, y
+ * nada más que el índice.
+ */
+export function handicapSinDatosDeCancha(handicapIndex: number, is9Hole: boolean): number {
+  return Math.round(is9Hole ? indiceDe9Hoyos(handicapIndex) : handicapIndex)
+}
+
+/**
  * Calcula Course Handicap a partir de Handicap Index y datos de cancha.
  * Siempre devuelve un entero (no existen "0.5 golpes").
+ *
+ * GUARDARRAIL: si el rating de la cancha es incoherente con su par (ver
+ * `@/golf/courses/rating-coherente`), NO se inventa un número — se cae al
+ * camino seguro. Sin esto, C.G. Río Blanco (par 35, rating 55 cargado en
+ * escala de 18) le daba +26 golpes a un jugador de índice 12.
  */
 export function resolverCourseHandicap(
   handicapIndex: number,
   courseData: CourseData | null
 ): number {
+  const is9Hole = courseData?.is9Hole === true
   if (!courseData || !courseData.slope || !courseData.courseRating) {
-    return Math.round(handicapIndex)
+    return handicapSinDatosDeCancha(handicapIndex, is9Hole)
   }
   const { slope, courseRating, par } = courseData
+  if (!ratingEsCreible({ courseRating, par, holes: is9Hole ? 9 : 18 })) {
+    return handicapSinDatosDeCancha(handicapIndex, is9Hole)
+  }
   // 9 hoyos: el Course Handicap WHS usa el ÍNDICE DE 9 HOYOS = índice 18h / 2,
   // combinado con el slope/CR/par de 9h. `strokesRecibidosEnHoyo` reparte este CH
   // sobre los 9 hoyos jugados (maxSI=9), así que el CH debe ser el de 9h, no el de

@@ -501,3 +501,66 @@ describe('escala de 9 hoyos — el par decide, el CR obedece', () => {
     }
   })
 })
+
+// ─── GUARDARRAIL de rating incoherente (Frente A) ───────────────────────────
+//
+// `resolverCourseHandicap` no le cree a un rating que no cuadra con su par.
+// Los números "antes" son los que producía main con los datos REALES de prod.
+
+describe('resolverCourseHandicap — guardarrail de dato incoherente', () => {
+  it('C.G. Río Blanco (par 35, rating 55, 9h): +26 golpes → índice/2', () => {
+    const rioBlanco: CourseData = { slope: 113, courseRating: 55, par: 35, is9Hole: true }
+    // ANTES: round(6 × 113/113 + (55 − 35)) = 26.
+    expect(resolverCourseHandicap(12, rioBlanco)).toBe(6)
+  })
+
+  it('los 9 recorridos con rating de 18h (par 36, CR 72): +45 golpes → índice/2', () => {
+    const loop: CourseData = { slope: 120, courseRating: 72, par: 36, is9Hole: true }
+    // ANTES: round(9 × 120/113 + (72 − 36)) = round(9.56 + 36) = 46.
+    expect(resolverCourseHandicap(18, loop)).toBe(9)
+  })
+
+  it('ningún jugador recibe un negativo ni un +36 con los datos rotos reales', () => {
+    const rotos: CourseData[] = [
+      { slope: 113, courseRating: 55, par: 35, is9Hole: true },
+      { slope: 120, courseRating: 72, par: 36, is9Hole: true },
+    ]
+    for (const cd of rotos) {
+      for (const index of [0, 5.4, 12, 18.3, 28, 36, 54]) {
+        const ch = resolverCourseHandicap(index, cd)
+        expect(ch).toBeGreaterThanOrEqual(0)
+        expect(ch).toBeLessThanOrEqual(27) // la mitad del índice máximo (54)
+        expect(Number.isInteger(ch)).toBe(true)
+      }
+    }
+  })
+
+  it('un rating SANO se sigue usando con la fórmula WHS (no hay sobre-bloqueo)', () => {
+    const sana9h: CourseData = { slope: 118, courseRating: 35.5, par: 36, is9Hole: true }
+    // round(6 × 118/113 + (35.5 − 36)) = round(6.27 − 0.5) = 6.
+    expect(resolverCourseHandicap(12, sana9h)).toBe(6)
+
+    const sana18h: CourseData = { slope: 131, courseRating: 72.1, par: 72 }
+    // round(15 × 131/113 + 0.1) = round(17.49) = 17.
+    expect(resolverCourseHandicap(15, sana18h)).toBe(17)
+  })
+
+  it('un tee adelantado legítimo de 18h (par 72, CR 64.4) NO se bloquea', () => {
+    // C.G. La Serena tee dorado: el delta legítimo más grande del catálogo.
+    const laSerena: CourseData = { slope: 118, courseRating: 64.4, par: 72 }
+    expect(resolverCourseHandicap(12, laSerena)).toBe(5)
+  })
+
+  it('el camino "sin datos" reparte la mitad del índice en 9 hoyos', () => {
+    // Sin CR pero sabiendo que la vuelta es de 9: el índice entero le daría
+    // el doble de golpes (`strokesRecibidosEnHoyo` reparte sobre maxSI=9).
+    expect(resolverCourseHandicap(12, { slope: 113, courseRating: 0, par: 36, is9Hole: true })).toBe(6)
+    expect(resolverCourseHandicap(12, null)).toBe(12)
+  })
+
+  it('un jugador plus conserva su handicap negativo cuando el dato es sano', () => {
+    // El guardarrail no clampea: −2 es un handicap legítimo, no un síntoma.
+    const sana: CourseData = { slope: 113, courseRating: 70, par: 72 }
+    expect(resolverCourseHandicap(-2, sana)).toBe(-4)
+  })
+})

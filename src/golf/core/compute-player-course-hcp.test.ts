@@ -131,18 +131,62 @@ describe('computePlayerCourseHcp', () => {
   // par se protegía contra la escala de 18, el Course Rating no. En una cancha
   // de 9 hoyos REALES el rating ya es de 9, y partirlo al medio devolvía otra
   // vez un negativo — el mismo síntoma por el lado contrario.
-  // Caso real de prod: C.G. Río Blanco, par_total 35, rating 55, slope 113,
-  // sin front ratings. Índice 12 daba −1.
-  it('una cancha de 9 hoyos REALES no parte el CR al medio (Río Blanco, par 35)', () => {
+  it('una cancha de 9 hoyos REALES no parte el CR al medio (par 35, rating de 9h)', () => {
+    // Rating de 9 hoyos COHERENTE con el par: la fórmula se aplica tal cual,
+    // sin dividir el CR. Es el caso que tendrá C.G. Río Blanco cuando el club
+    // publique su rating oficial de 9 hoyos.
+    const tournament = { tees: null, courses: { par_total: 35, slope_rating: 113, course_rating: 35.4 } }
+    const player = { ...basePlayer, handicap_at_registration: 12 }
+
+    const ch = computePlayerCourseHcp(player, tournament, [], 35, 9)
+
+    // round(6 × 113/113 + (35.4 − 35)) = round(6.4) = 6.
+    expect(ch).toBe(6)
+  })
+
+  // Guardarrail (Frente A): el dato REAL de prod hoy no es de 9 hoyos.
+  // C.G. Río Blanco tiene par_total 35 con rating 55 — cargado en escala de 18
+  // porque la validación de la base rechaza el rating real de 9 (~35).
+  it('un rating incoherente NO se usa: Río Blanco (par 35, rating 55) cae al camino seguro', () => {
     const tournament = { tees: null, courses: { par_total: 35, slope_rating: 113, course_rating: 55 } }
     const player = { ...basePlayer, handicap_at_registration: 12 }
 
     const ch = computePlayerCourseHcp(player, tournament, [], 35, 9)
 
-    // ANTES: round(6 × 113/113 + (55/2 − 35)) = round(6 − 7.5) = −1.
-    // AHORA: round(6 × 113/113 + (55 − 35)) = round(26) = 26.
-    expect(ch).toBe(26)
+    // ANTES del guardarrail: round(6 × 113/113 + (55 − 35)) = 26 golpes.
+    // AHORA: el rating miente (delta +20) → handicap = índice / 2 = 6.
+    expect(ch).toBe(6)
     expect(ch).toBeGreaterThan(0)
+    expect(ch).toBeLessThan(36)
+  })
+
+  it('los 9 recorridos con rating de 18h (Brisas/Marbella/Rocas) caen al camino seguro', () => {
+    // par_total 36 con course_rating 72: delta +36. Índice 18 daba +45 golpes.
+    const tournament = { tees: null, courses: { par_total: 36, slope_rating: 120, course_rating: 72 } }
+    const player = { ...basePlayer, handicap_at_registration: 18 }
+
+    const ch = computePlayerCourseHcp(player, tournament, [], 36, 9)
+
+    expect(ch).toBe(9)
+  })
+
+  it('si el tee miente pero la cancha no, usa el de la cancha (no el camino seguro)', () => {
+    // Caso Rinconada: el front-9 del tee (29.3) no cuadra con su par (36),
+    // pero el rating de la cancha sí. El motor baja un eslabón, no dos.
+    const teeRoto = {
+      id: 'tee-roto', course_id: 'c1', nombre: 'Azul', rating: 72.8, slope: 136,
+      yardaje_total: null, genero: null,
+      front_course_rating: 29.3, front_slope_rating: 101,
+      back_course_rating: null, back_slope_rating: null,
+    }
+    const tournament = { tees: 'Azul', courses: { par_total: 72, slope_rating: 113, course_rating: 70.4 } }
+    const player = { ...basePlayer, handicap_at_registration: 12 }
+
+    const ch = computePlayerCourseHcp(player, tournament, [teeRoto], 72, 9)
+
+    // Cancha: CR18/2 = 35.2 contra par 36 → creíble.
+    // round(6 × 113/113 + (35.2 − 36)) = round(5.2) = 5.
+    expect(ch).toBe(5)
   })
 
   it('un tee de cancha de 9 hoyos reales tampoco parte su rating', () => {
