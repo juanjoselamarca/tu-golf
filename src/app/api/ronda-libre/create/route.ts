@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
 import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS } from '@/golf/formats'
+import { fetchCanchasParaAptitud } from '@/lib/data/course-aptitud'
+import { evaluarAptitudTorneo } from '@/golf/courses/aptitud-torneo'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,6 +83,21 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           error: `Faltan handicap: ${nombres}. Modo neto requiere HCP para todos.`,
         }, { status: 400 })
+      }
+
+      // Guardarrail de datos de cancha. En ronda libre NO se bloquea la cancha:
+      // se bloquea el NETO sobre ella, porque el neto es lo único que depende
+      // del rating. En Gross la ronda se juega igual — a diferencia de un
+      // torneo, acá no hay premio en juego y el jugador elige.
+      if (body.course_id) {
+        const canchas = await fetchCanchasParaAptitud(supabase, [body.course_id])
+        const cancha = canchas.get(body.course_id)
+        const veredicto = cancha ? evaluarAptitudTorneo(cancha, body.holes) : null
+        if (veredicto && !veredicto.apta) {
+          return NextResponse.json({
+            error: `${veredicto.mensaje} Mientras tanto puedes jugarla en modo Gross (sin handicap).`,
+          }, { status: 400 })
+        }
       }
     }
 

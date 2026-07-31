@@ -8,11 +8,9 @@ import { useMemo } from 'react'
 import CourseSelector from '@/components/CourseSelector'
 import type { TournamentConfig, RoundConfig } from '@/lib/draft/types'
 
-export interface CourseOption {
-  id: string
-  nombre: string
-  ciudad?: string | null
-}
+import type { CourseOption } from '../types'
+
+export type { CourseOption }
 
 export interface RondasSectionProps {
   config: TournamentConfig
@@ -64,6 +62,10 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
       <div style={listStyle}>
         {rounds.map((round, idx) => {
           const selectedCourse = round.course_id ? courseMap.get(round.course_id) : null
+          // Guardarrail de rating: el veredicto depende de los hoyos elegidos,
+          // así que se relee en cada render del selector de hoyos.
+          const noApta = selectedCourse?.aptitud?.[round.hole_count]
+          const avisoCancha = noApta && !noApta.apta ? noApta.mensaje : null
           return (
             <div key={`r-${round.round_number}-${idx}`} style={rowStyle}>
               <div style={rowHeaderStyle}>
@@ -116,6 +118,16 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
                   </select>
                 </div>
               </div>
+
+              {avisoCancha && (
+                <div style={avisoCanchaStyle} role="alert">
+                  <span style={avisoIconStyle} aria-hidden="true">!</span>
+                  <span>
+                    <strong>{selectedCourse?.nombre}</strong> no se puede usar en un torneo de{' '}
+                    {round.hole_count} hoyos. {avisoCancha}
+                  </span>
+                </div>
+              )}
             </div>
           )
         })}
@@ -222,6 +234,35 @@ const removeBtnStyle: React.CSSProperties = {
   fontFamily: '"DM Sans", sans-serif',
   fontSize: 12,
   cursor: 'pointer',
+}
+
+// Aviso de cancha no apta. Ámbar y no rojo: no es un error del organizador,
+// es un dato que le falta al club. Mismo lenguaje visual que el panel de
+// blockers del footer, que muestra este mismo motivo.
+const avisoCanchaStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 8,
+  padding: '10px 12px',
+  borderRadius: 8,
+  background: 'rgba(217, 119, 6, 0.10)',
+  border: '1px solid rgba(217, 119, 6, 0.35)',
+  color: 'var(--text-primary, #111827)',
+  fontSize: 12,
+  lineHeight: 1.4,
+}
+
+const avisoIconStyle: React.CSSProperties = {
+  flexShrink: 0,
+  width: 16,
+  height: 16,
+  borderRadius: 999,
+  background: '#d97706',
+  color: '#fff',
+  fontWeight: 700,
+  fontSize: 11,
+  lineHeight: '16px',
+  textAlign: 'center',
 }
 
 const addBtnStyle: React.CSSProperties = {

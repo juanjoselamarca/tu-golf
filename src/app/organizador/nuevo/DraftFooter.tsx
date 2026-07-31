@@ -9,24 +9,50 @@
 import { useMemo, useState } from 'react'
 import type { TournamentConfig } from '@/lib/draft/types'
 import { validateGolfRules, type ValidationError } from '@/golf/tournament-config-validator'
+import type { CourseOption } from './types'
 
 export interface DraftFooterProps {
   draftId: string
   config: TournamentConfig
+  /** Catálogo con la aptitud precalculada. Opcional para no romper callers viejos. */
+  courses?: CourseOption[]
   onPreview: () => void
   onCreate: () => Promise<void>
 }
 
-export function DraftFooter({ config, onPreview, onCreate }: DraftFooterProps) {
+export function DraftFooter({ config, courses, onPreview, onCreate }: DraftFooterProps) {
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const validation = useMemo(() => validateGolfRules(config), [config])
-  const ready = validation.isReadyToCreate && validation.errors.length === 0
+
+  // Guardarrail de rating: espeja el gate duro del servidor
+  // (`api/torneos/draft/[id]/create-tournament`) para que el organizador vea el
+  // motivo ANTES de apretar "Crear torneo", no como error después.
+  const canchasNoAptas = useMemo<ValidationError[]>(() => {
+    if (!courses?.length) return []
+    const porId = new Map(courses.map((c) => [c.id, c]))
+    const out: ValidationError[] = []
+    for (const r of config.rounds) {
+      if (!r.course_id) continue
+      const veredicto = porId.get(r.course_id)?.aptitud?.[r.hole_count]
+      if (veredicto && !veredicto.apta && veredicto.mensaje) {
+        out.push({
+          code: 'round_course_not_apt',
+          field: `rounds[${r.round_number}].course_id`,
+          message: `Ronda ${r.round_number}: ${veredicto.mensaje}`,
+        })
+      }
+    }
+    return out
+  }, [config.rounds, courses])
+
+  const ready =
+    validation.isReadyToCreate && validation.errors.length === 0 && canchasNoAptas.length === 0
 
   // Lista de motivos por los cuales el botón está bloqueado.
   const blockers = useMemo<ValidationError[]>(() => {
-    const out: ValidationError[] = [...validation.errors]
+    const out: ValidationError[] = [...validation.errors, ...canchasNoAptas]
     if (!config.name?.trim()) {
       out.push({
         code: 'name_required',
@@ -58,7 +84,7 @@ export function DraftFooter({ config, onPreview, onCreate }: DraftFooterProps) {
       }
     })
     return out
-  }, [config, validation.errors])
+  }, [config, validation.errors, canchasNoAptas])
 
   const handleCreate = async () => {
     if (!ready || submitting) return
