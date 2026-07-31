@@ -15,8 +15,12 @@ export function computeTournamentResults(
   parTotal: number,
   stats: TourneyStats | null,
 ): TournamentResultados | null {
+  // Golpes brutos ACUMULADOS. `p.scores` es la tarjeta de la última ronda, así
+  // que re-sumarla en un torneo multi-ronda devuelve sólo la vuelta final. El
+  // motor ya emite el acumulado en `grossTotal`; la suma queda de respaldo para
+  // los datos mock, que no lo traen.
   const grossOf = (p: Player) =>
-    (p.scores || []).reduce((sum: number, s: number | null) => sum + (s ?? 0), 0)
+    p.grossTotal ?? (p.scores || []).reduce((sum: number, s: number | null) => sum + (s ?? 0), 0)
 
   // Ambos rankings llegan YA ordenados con countback por modo desde
   // `rankEntries` (gross asc por strokes, neto asc por net-vs-par). NO se
@@ -29,10 +33,16 @@ export function computeTournamentResults(
 
   const grossScore1 = byGross[0] ? grossOf(byGross[0]) : 0
   const grossScore2 = byGross[1] ? grossOf(byGross[1]) : 0
-  // Player.total del ranking neto = net vs-par; el score neto en strokes es
-  // net-vs-par + parTotal (misma fórmula que el código legacy).
-  const netoScore1  = byNeto[0]  ? byNeto[0].total + parTotal : 0
-  const netoScore2  = byNeto[1]  ? byNeto[1].total + parTotal : 0
+  // Golpes netos ABSOLUTOS, leídos del motor. NO se reconstruyen como
+  // `total + parTotal`: desde que `total` es vs par de los hoyos JUGADOS, esa
+  // suma sólo acierta cuando el jugador completó la vuelta entera de una cancha
+  // cuyo par coincide con `parTotal`. En un torneo de 9 hoyos sobre una cancha
+  // de par 72 (COPA LB PADRE E HIJO 2026) inflaba el podio en 36 golpes, y en
+  // multi-ronda sumaba un solo par por varias vueltas. La fórmula vieja queda
+  // de respaldo para rankings sin `netTotal` (datos mock).
+  const netoStrokesOf = (p: Player) => p.netTotal ?? p.total + parTotal
+  const netoScore1  = byNeto[0]  ? netoStrokesOf(byNeto[0]) : 0
+  const netoScore2  = byNeto[1]  ? netoStrokesOf(byNeto[1]) : 0
 
   const avgGross = byGross.reduce((sum, p) => sum + grossOf(p), 0) / byGross.length
 
