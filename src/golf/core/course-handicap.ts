@@ -102,6 +102,56 @@ export function resolverCourseHandicapDisplay(
 }
 
 /**
+ * Course handicap PARA MOSTRAR de un jugador de ronda libre. FUENTE ÚNICA.
+ *
+ * Envuelve `resolverCourseHandicapDisplay` con la parte incómoda: cuando la
+ * vuelta es de 9 hoyos hay que ir a buscar el CourseData de 18h del MISMO tee,
+ * porque el número que se muestra siempre es el completo.
+ *
+ * `finalParTotal` es el par de 18h SÓLO si la ronda no tiene recorridos (ahí la
+ * query de `course_holes` trae los 18). En una cancha multi-recorrido jugada
+ * como un loop de 9, ese par es el del loop (~36) y no se puede derivar el de
+ * 18 de forma confiable: se devuelve `round(index)`, nunca un valor inflado.
+ *
+ * Existe porque este bloque estaba copiado en `lib/data/ronda-libre.ts` y en
+ * `useRondaScoreData.ts`, y `score-grupo` — la única pantalla que nunca lo
+ * adoptó — mostraba la MITAD del handicap.
+ *
+ * @param cache18h Cache por tee, compartido entre los jugadores de la ronda
+ *   para no repetir la consulta. El caller lo crea vacío y lo reusa.
+ */
+export async function resolverHandicapDisplayDeRonda(
+  handicapIndex: number,
+  courseData9h: CourseData | null,
+  ronda: {
+    courseId: string | null
+    tee: string
+    finalParTotal?: number
+    tieneRecorridos: boolean
+  },
+  cache18h: Record<string, CourseData | null>,
+): Promise<number> {
+  let courseData18h = courseData9h
+  if (courseData9h?.is9Hole) {
+    if (ronda.tieneRecorridos) {
+      courseData18h = null
+    } else {
+      if (!(ronda.tee in cache18h)) {
+        cache18h[ronda.tee] = await cargarCourseData(
+          ronda.courseId,
+          ronda.tee,
+          18,
+          ronda.finalParTotal,
+          null,
+        )
+      }
+      courseData18h = cache18h[ronda.tee]
+    }
+  }
+  return resolverCourseHandicapDisplay(handicapIndex, courseData9h, courseData18h)
+}
+
+/**
  * Course handicap a APLICAR según los hoyos jugados (fuente única del ajuste 9h
  * para handicaps que YA están en escala de course handicap de 18h).
  *
@@ -401,7 +451,10 @@ export async function resolverCourseData(
       // que hace `computePlayerCourseHcp`. Los dos motores tienen que contestar
       // lo mismo a "¿qué hago cuando un rating miente?", o el mismo jugador en
       // la misma cancha recibe dos handicaps distintos según la pantalla.
-    } else if (ratingEsCreible({ courseRating: teeData.rating, par: parTotal ?? 72, holes: 18 })) {
+      // `holes` y no un 18 fijo: `computePlayerCourseHcp` pasa los hoyos reales
+      // y la tolerancia escala con ellos. Dos números distintos para el mismo
+      // predicado harían que los motores clasifiquen distinto el mismo rating.
+    } else if (ratingEsCreible({ courseRating: teeData.rating, par: parTotal ?? 72, holes })) {
       return {
         slope: teeData.slope,
         courseRating: teeData.rating,

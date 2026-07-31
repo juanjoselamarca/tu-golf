@@ -9,7 +9,7 @@
 
 import { createClient } from '@/lib/supabase'
 import { parTotalEstandar } from '@/golf/core/round-score'
-import { resolverCourseHandicap, resolverCourseHandicapDisplay, cargarCourseData } from '@/golf/core/course-handicap'
+import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData } from '@/golf/core/course-handicap'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
@@ -133,25 +133,17 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
       // `finalParTotal` es el par del loop (~36) y no podemos derivar el de 18h de
       // forma confiable → mostramos round(index) (handicap completo aprox), nunca
       // un valor inflado. Cacheado por tee.
-      let courseData18h = courseData9h
-      if (courseData9h?.is9Hole) {
-        const tieneRecorridos = !!(ronda.recorridos as string[] | null)?.length
-        if (tieneRecorridos) {
-          courseData18h = null // → resolverCourseHandicapDisplay cae a round(index)
-        } else {
-          if (!(playerTee in courseDataFullByTee)) {
-            courseDataFullByTee[playerTee] = await cargarCourseData(
-              ronda.course_id,
-              playerTee,
-              18,
-              finalParTotal,
-              null,
-            )
-          }
-          courseData18h = courseDataFullByTee[playerTee]
-        }
-      }
-      displayHcpMap[j.id] = resolverCourseHandicapDisplay(index, courseData9h, courseData18h)
+      displayHcpMap[j.id] = await resolverHandicapDisplayDeRonda(
+        index,
+        courseData9h,
+        {
+          courseId: ronda.course_id,
+          tee: playerTee,
+          finalParTotal,
+          tieneRecorridos: !!(ronda.recorridos as string[] | null)?.length,
+        },
+        courseDataFullByTee,
+      )
     }
 
     // Equipos (solo modalidades por equipo).

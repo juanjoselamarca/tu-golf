@@ -90,13 +90,19 @@ export async function POST(req: NextRequest) {
       // del rating. En Gross la ronda se juega igual — a diferencia de un
       // torneo, acá no hay premio en juego y el jugador elige.
       // Qué causa frena y cuál no lo decide `bloqueaRondaLibre`, no esta ruta.
+      //
+      // Falla ABIERTO, al revés que el gate de creación de torneos. Ese gate se
+      // usa desde un escritorio y se puede reintentar; este corre con el jugador
+      // parado en el tee 1. Un hipo de PostgREST no puede ser el motivo de que
+      // no pueda empezar a jugar — y el guardarrail de `resolverCourseHandicap`
+      // ya evita el número absurdo que este aviso sólo se adelanta a contar.
       if (body.course_id) {
         const veredicto = await evaluarCanchaDeRondaLibre(
           supabase,
           body.course_id,
           body.holes,
           body.recorridos ?? null,
-        )
+        ).catch(() => null)
         if (bloqueaRondaLibre(veredicto)) {
           return NextResponse.json({
             error: `${veredicto.mensaje} Mientras tanto puedes jugarla en modo Gross (sin handicap).`,

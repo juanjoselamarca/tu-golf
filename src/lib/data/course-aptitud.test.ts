@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest'
 import {
   armarCanchasParaAptitud,
   aptitudDeCatalogo,
+  COLUMNAS_APTITUD_COURSES,
   canchasNoAptasParaTorneo,
   evaluarCanchaDeRondaLibre,
   fetchCanchasParaAptitud,
@@ -69,6 +70,17 @@ function fakeSupabase(
     },
   }
 }
+
+describe('COLUMNAS_APTITUD_COURSES — el SELECT canónico', () => {
+  it('pide slope_rating: sin él, el eslabón de cancha queda muerto y el veredicto cambia', () => {
+    // `armarCanchasParaAptitud` normaliza el campo ausente a null, y null
+    // significa "el motor no puede usar este eslabón". Si alguien saca la
+    // columna del SELECT, el gate empieza a contestar otra cosa en silencio.
+    expect(COLUMNAS_APTITUD_COURSES).toContain('slope_rating')
+    expect(COLUMNAS_APTITUD_COURSES).toContain('course_rating')
+    expect(COLUMNAS_APTITUD_COURSES).toContain('par_total')
+  })
+})
 
 describe('armarCanchasParaAptitud', () => {
   it('cuelga cada tee de su cancha y descarta los huérfanos', () => {
@@ -230,16 +242,20 @@ describe('canchasNoAptasParaTorneo — el gate del servidor', () => {
 describe('evaluarCanchaDeRondaLibre — recorridos sueltos', () => {
   // El selector sólo ofrece la cancha PADRE (sana) y los loops viajan aparte.
   const PADRE = 'brisas-padre'
+  // `slope_rating` va en todos los fixtures porque va en todas las filas reales
+  // (0 canchas activas lo tienen nulo). Sin él, el eslabón de cancha está muerto
+  // para el motor y el veredicto no lo mira — que es correcto, pero no es el
+  // caso que estas pruebas quieren describir.
   const CATALOGO = {
     courses: [
-      { id: PADRE, nombre: 'Club de Golf Brisas de Santo Domingo', par_total: 72, course_rating: 72.6 },
+      { id: PADRE, nombre: 'Club de Golf Brisas de Santo Domingo', par_total: 72, course_rating: 72.6, slope_rating: 130 },
     ],
     course_tees: [],
   }
   const HIJOS = {
     courses: [
-      { id: 'este', nombre: 'Este', par_total: 36, course_rating: 72 },
-      { id: 'norte', nombre: 'Norte', par_total: 36, course_rating: 72 },
+      { id: 'este', nombre: 'Este', par_total: 36, course_rating: 72, slope_rating: 130 },
+      { id: 'norte', nombre: 'Norte', par_total: 36, course_rating: 72, slope_rating: 130 },
     ],
     course_tees: [],
   }

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { RondaLibre, HoleData } from '@/types/ronda'
 import { isTeamFormat } from '@/golf/formats'
-import { resolverCourseHandicap, resolverCourseHandicapDisplay, cargarCourseData } from '@/golf/core/course-handicap'
+import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { getTeeYardageColumn, generarOrdenHoyos } from '@/lib/ronda/helpers'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
@@ -162,19 +162,17 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
         // Display: en rondas de 9h cargamos los ratings de 18h del mismo tee (sin
         // recorridos, para no re-dividir); `finalParTotal` ya es el par de 18h. Con
         // recorridos multi-loop no se puede derivar → cae a round(index). Cacheado.
-        let courseData18h = courseData9h
-        if (courseData9h?.is9Hole) {
-          const tieneRecorridos = !!(r.recorridos as string[] | null)?.length
-          if (tieneRecorridos) {
-            courseData18h = null
-          } else {
-            if (!(playerTee in courseDataFullByTee)) {
-              courseDataFullByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, 18, finalParTotal, null)
-            }
-            courseData18h = courseDataFullByTee[playerTee]
-          }
-        }
-        displayMap[j.id] = resolverCourseHandicapDisplay(index, courseData9h, courseData18h)
+        displayMap[j.id] = await resolverHandicapDisplayDeRonda(
+          index,
+          courseData9h,
+          {
+            courseId: r.course_id ?? null,
+            tee: playerTee,
+            finalParTotal,
+            tieneRecorridos: !!(r.recorridos as string[] | null)?.length,
+          },
+          courseDataFullByTee,
+        )
       }
       setPlayerHcp(hcpMap)
       setPlayerDisplayHcp(displayMap)

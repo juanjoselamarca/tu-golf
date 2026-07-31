@@ -214,12 +214,41 @@ describe('evaluarAptitudTorneo — 18 hoyos con rating que miente', () => {
     expect(evaluarAptitudTorneo({ par_total: 72, course_rating: 35.8, tees: [] }, 18).apta).toBe(false)
   })
 
-  it('si al menos un tee es creíble la cancha pasa, aunque el de courses mienta', () => {
+  it('un tee creíble NO salva un rating de cancha que miente', () => {
+    // No se puede garantizar que el jugador llegue al tee sano:
+    // `resolvePlayerTee` exige match EXACTO del nombre, y hoy 15 de 27 torneos
+    // con cancha en producción no matchean ninguno. Esos jugadores caminan el
+    // eslabón de cancha, que es el que miente.
     const r = evaluarAptitudTorneo(
       { par_total: 72, course_rating: 107, tees: [{ rating: 71.2, front_course_rating: null }] },
       18,
     )
-    expect(r.apta).toBe(true)
+    expect(r.apta).toBe(false)
+    expect(r.motivo).toBe('rating_incoherente')
+  })
+
+  it('un rating de cancha sin slope no es un eslabón: no salva ni condena', () => {
+    // Los dos motores exigen `course_rating && slope_rating` juntos. Con el
+    // slope en null ese escalón no existe y el jugador cae al camino seguro.
+    const sinSlope = {
+      par_total: 72,
+      course_rating: 71.5,
+      slope_rating: null,
+      tees: [
+        { rating: 71.2, front_course_rating: null },
+        { rating: 40, front_course_rating: null },
+      ],
+    }
+    // El rating de cancha parecía sano, pero no se puede usar: queda el tee
+    // roto sin red debajo → bloquea, en vez de prometer una advertencia falsa.
+    const r = evaluarAptitudTorneo(sinSlope, 18)
+    expect(r.apta).toBe(false)
+    expect(r.advertencia).toBeNull()
+
+    // Con el slope cargado, el mismo caso pasa a ser advertencia.
+    const conSlope = evaluarAptitudTorneo({ ...sinSlope, slope_rating: 130 }, 18)
+    expect(conSlope.apta).toBe(true)
+    expect(conSlope.advertencia).toBe(ADVERTENCIA_TEE_ROTO)
   })
 })
 

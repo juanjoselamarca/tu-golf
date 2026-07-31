@@ -23,8 +23,13 @@
 // - Tee roto SIN rating de cancha sano debajo: SÍ se bloquea. Esos jugadores
 //   caen al índice mientras los del tee sano puntúan con WHS — dos handicaps
 //   distintos en el mismo torneo neto, en silencio.
-// - Rating de cancha que miente y ningún tee que lo tape: SÍ se bloquea. El club
-//   publicó un número, el motor lo ignora y los tees dejan de diferenciarse.
+// - Rating de cancha que MIENTE: SÍ se bloquea, tenga o no un tee sano arriba.
+//   No se puede garantizar que un jugador llegue a un tee (`resolvePlayerTee`
+//   exige match EXACTO de nombre), así que ese eslabón es el que muchos
+//   jugadores van a caminar de verdad.
+//
+// ⚠️ El eslabón "rating de cancha" sólo cuenta si tiene `slope_rating`: los dos
+// motores lo exigen junto al `course_rating`. Sin slope, ese escalón no existe.
 //
 // ⚠️ Este módulo tiene que leer la escala IGUAL que el motor, o se bloquea algo
 // que funcionaría / se deja pasar algo que falla. La regla del motor es
@@ -151,11 +156,18 @@ function ratingsQueUsariaElMotor(
     return holes === 9 && par != null ? courseRatingEnEscalaDe9(rating, par) : rating
   }
 
+  // El eslabón terminal está VIVO sólo si el motor lo puede usar, y los dos
+  // motores exigen `course_rating && slope_rating` juntos. Con el slope en
+  // null ese escalón no existe y el jugador cae directo al camino seguro.
+  // `undefined` = el caller no pidió la columna; se asume presente (el SELECT
+  // canónico `COLUMNAS_APTITUD_COURSES` sí la pide).
+  const terminalVivo = cancha.slope_rating !== null
+
   return {
     tees: (cancha.tees ?? []).map((t) =>
       holes === 9 ? (t.front_course_rating ?? enEscala(t.rating)) : t.rating,
     ),
-    terminal: enEscala(cancha.course_rating),
+    terminal: terminalVivo ? enEscala(cancha.course_rating) : null,
   }
 }
 
@@ -188,7 +200,6 @@ function veredictoDeRatings(
     .filter((v) => v.motivo !== 'sin_rating' && v.motivo !== 'sin_par')
   const terminal = evaluar(candidatos.terminal)
   const teesRotos = tees.filter((v) => v.esIncoherente).length
-  const teesCreibles = tees.filter((v) => v.esCreible).length
 
   const noApta: AptitudTorneo = {
     apta: false,
@@ -201,6 +212,17 @@ function veredictoDeRatings(
   // de forma predecible (todos reciben su índice) y se deja pasar.
   if (tees.length === 0 && !terminal.esCreible && !terminal.esIncoherente) return APTA
 
+  // El eslabón terminal MIENTE. Bloquea siempre, tenga o no un tee sano arriba,
+  // porque no se puede garantizar que un jugador llegue a un tee: `resolvePlayerTee`
+  // devuelve null si el tee del torneo no matchea EXACTO el nombre en `course_tees`,
+  // y hoy en producción 15 de 27 torneos con cancha están en esa situación (y los
+  // 95 jugadores tienen `tee_id` nulo). Ahí el terminal es el único eslabón que
+  // corre. Si además algunos sí resuelven tee, conviven dos handicaps distintos
+  // en el mismo torneo neto. Medido contra el catálogo: esta regla no bloquea
+  // NINGUNA cancha activa hoy — el rating de cancha que miente siempre viene
+  // acompañado de tees que también mienten.
+  if (terminal.esIncoherente) return noApta
+
   // Con el último eslabón sano, un tee roto no deja a nadie sin cancha: esos
   // jugadores caen al rating general y siguen puntuando con WHS. Pierden
   // precisión de tee, así que se avisa, pero no se bloquea el club entero.
@@ -208,17 +230,11 @@ function veredictoDeRatings(
     return teesRotos === 0 ? APTA : { ...APTA, advertencia: ADVERTENCIA_TEE_ROTO }
   }
 
-  // Sin un rating de cancha creíble debajo, cada tee roto manda a SUS jugadores
-  // al camino seguro (índice) mientras los del tee sano puntúan con WHS. Dos
-  // handicaps distintos en el mismo torneo neto, en silencio: eso es
-  // exactamente el resultado injusto que este módulo existe para evitar.
-  if (teesRotos > 0) return noApta
-
-  // Un rating de cancha que miente y ningún tee que lo tape: el club publicó un
-  // número, el motor lo ignora y todos juegan como si la cancha fuera neutra.
-  if (terminal.esIncoherente && teesCreibles === 0) return noApta
-
-  return APTA
+  // Queda el caso "no hay rating de cancha" (o su slope está en null) con algún
+  // tee roto. Los jugadores de ESE tee caen al camino seguro. Si algún otro tee
+  // es creíble conviven dos handicaps; si ninguno lo es, todos quedan planos
+  // sobre una cancha cuyo club SÍ publicó números. Las dos cosas se bloquean.
+  return teesRotos > 0 ? noApta : APTA
 }
 
 /**
