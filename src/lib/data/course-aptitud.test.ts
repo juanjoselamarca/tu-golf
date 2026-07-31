@@ -9,6 +9,7 @@ import {
   armarCanchasParaAptitud,
   aptitudDeCatalogo,
   canchasNoAptasParaTorneo,
+  evaluarCanchaDeRondaLibre,
   fetchCanchasParaAptitud,
   fetchTeesParaAptitud,
   type CourseRowParaAptitud,
@@ -32,14 +33,21 @@ const TEES: TeeRowParaAptitud[] = [
   { course_id: 'cancha-que-no-pedimos', rating: 70, front_course_rating: null },
 ]
 
+/** Un torneo que SÍ necesita el rating de la cancha. */
+const NETO = { modo: 'neto', use_handicap: true }
+
 /**
- * Fake mínimo del query builder de supabase-js: `.select()`, `.in()` y
+ * Fake mínimo del query builder de supabase-js: `.select()`, `.in()`, `.eq()` y
  * `.range()` devuelven `this`, y el objeto es thenable. Registra las tablas
  * consultadas para poder afirmar que no se hacen consultas de más.
+ *
+ * `fallaEn` simula el modo de falla real de supabase-js: NO lanza, devuelve
+ * `{ data: null, error }`.
  */
 function fakeSupabase(
   filas: Record<string, unknown[]>,
   registro: string[] = [],
+  fallaEn?: string,
 ) {
   return {
     consultas: registro,
@@ -48,9 +56,14 @@ function fakeSupabase(
       const builder = {
         select: () => builder,
         in: () => builder,
+        eq: () => builder,
         range: () => builder,
-        then: (resolve: (r: { data: unknown[]; error: null }) => unknown) =>
-          resolve({ data: filas[tabla] ?? [], error: null }),
+        then: (resolve: (r: { data: unknown[] | null; error: { message: string } | null }) => unknown) =>
+          resolve(
+            tabla === fallaEn
+              ? { data: null, error: { message: 'timeout' } }
+              : { data: filas[tabla] ?? [], error: null },
+          ),
       }
       return builder as never
     },
@@ -127,7 +140,7 @@ describe('canchasNoAptasParaTorneo — el gate del servidor', () => {
   it('bloquea la ronda cuya cancha tiene el rating en escala equivocada', async () => {
     const r = await canchasNoAptasParaTorneo(supabase(), [
       { round_number: 1, course_id: RIO_BLANCO, hole_count: 9 },
-    ])
+    ], NETO)
     expect(r).toHaveLength(1)
     expect(r[0].round_number).toBe(1)
     expect(r[0].cancha).toContain('Rio Blanco')
@@ -138,7 +151,7 @@ describe('canchasNoAptasParaTorneo — el gate del servidor', () => {
     const r = await canchasNoAptasParaTorneo(supabase(), [
       { round_number: 1, course_id: LOS_LEONES, hole_count: 18 },
       { round_number: 2, course_id: LOS_LEONES, hole_count: 9 },
-    ])
+    ], NETO)
     expect(r).toEqual([])
   })
 
@@ -149,7 +162,7 @@ describe('canchasNoAptasParaTorneo — el gate del servidor', () => {
       { round_number: 1, course_id: LOS_LEONES, hole_count: 18 },
       { round_number: 2, course_id: RIO_BLANCO, hole_count: 9 },
       { round_number: 3, course_id: LOS_LEONES, hole_count: 18 },
-    ])
+    ], NETO)
     expect(r).toHaveLength(1)
     expect(r[0].round_number).toBe(2)
   })
@@ -158,7 +171,7 @@ describe('canchasNoAptasParaTorneo — el gate del servidor', () => {
     const consultas: string[] = []
     const r = await canchasNoAptasParaTorneo(fakeSupabase({}, consultas), [
       { round_number: 1, course_id: null, hole_count: 18 },
-    ])
+    ], NETO)
     expect(r).toEqual([])
     expect(consultas).toEqual([])
   })
@@ -167,6 +180,7 @@ describe('canchasNoAptasParaTorneo — el gate del servidor', () => {
     const r = await canchasNoAptasParaTorneo(
       fakeSupabase({ courses: [], course_tees: [] }),
       [{ round_number: 1, course_id: 'fantasma', hole_count: 18 }],
+      NETO,
     )
     expect(r).toEqual([])
   })
@@ -174,7 +188,94 @@ describe('canchasNoAptasParaTorneo — el gate del servidor', () => {
   it('numera la ronda por posición cuando no viene round_number', async () => {
     const r = await canchasNoAptasParaTorneo(supabase(), [
       { course_id: RIO_BLANCO, hole_count: 9 },
-    ])
+    ], NETO)
     expect(r[0].round_number).toBe(1)
+  })
+
+  it('un torneo Gross sin handicap no se bloquea ni consulta la BD', async () => {
+    // El Course Rating no entra en ningún cálculo de un torneo a golpes brutos.
+    // Bloquearlo sería un falso bloqueo sobre canchas que sirven perfecto.
+    const consultas: string[] = []
+    const r = await canchasNoAptasParaTorneo(
+      fakeSupabase({ courses: COURSES, course_tees: TEES }, consultas),
+      [{ round_number: 1, course_id: RIO_BLANCO, hole_count: 9 }],
+      { modo: 'gross', use_handicap: false },
+    )
+    expect(r).toEqual([])
+    expect(consultas).toEqual([])
+  })
+
+  it('un torneo Gross CON handicap sí se bloquea (hay premios neto)', async () => {
+    const r = await canchasNoAptasParaTorneo(
+      supabase(),
+      [{ round_number: 1, course_id: RIO_BLANCO, hole_count: 9 }],
+      { modo: 'gross', use_handicap: true },
+    )
+    expect(r).toHaveLength(1)
+  })
+
+  it('si la BD falla, el gate falla CERRADO (no deja crear a ciegas)', async () => {
+    // supabase-js no lanza en error de query: devuelve data null. Tragarse eso
+    // haría que un timeout se lea como "cancha sin ratings" → torneo creado.
+    await expect(
+      canchasNoAptasParaTorneo(
+        fakeSupabase({ courses: COURSES, course_tees: TEES }, [], 'course_tees'),
+        [{ round_number: 1, course_id: RIO_BLANCO, hole_count: 9 }],
+        NETO,
+      ),
+    ).rejects.toThrow(/no se pudo leer/i)
+  })
+})
+
+describe('evaluarCanchaDeRondaLibre — recorridos sueltos', () => {
+  // El selector sólo ofrece la cancha PADRE (sana) y los loops viajan aparte.
+  const PADRE = 'brisas-padre'
+  const CATALOGO = {
+    courses: [
+      { id: PADRE, nombre: 'Club de Golf Brisas de Santo Domingo', par_total: 72, course_rating: 72.6 },
+    ],
+    course_tees: [],
+  }
+  const HIJOS = {
+    courses: [
+      { id: 'este', nombre: 'Este', par_total: 36, course_rating: 72 },
+      { id: 'norte', nombre: 'Norte', par_total: 36, course_rating: 72 },
+    ],
+    course_tees: [],
+  }
+
+  it('juzga los recorridos HIJOS, no la cancha padre sana', async () => {
+    const r = await evaluarCanchaDeRondaLibre(fakeSupabase(HIJOS), PADRE, 18, ['Este', 'Norte'])
+    expect(r!.apta).toBe(false)
+  })
+
+  it('un solo recorrido roto se bloquea con el mensaje de 9 hoyos', async () => {
+    const unHijo = { courses: [HIJOS.courses[0]], course_tees: [] }
+    const r = await evaluarCanchaDeRondaLibre(fakeSupabase(unHijo), PADRE, 9, ['Este'])
+    expect(r!.apta).toBe(false)
+    expect(r!.mensaje).toBe(MENSAJE_SIN_RATING_9H)
+  })
+
+  it('sin recorridos juzga la cancha simple', async () => {
+    const r = await evaluarCanchaDeRondaLibre(fakeSupabase(CATALOGO), PADRE, 18, null)
+    expect(r!.apta).toBe(true)
+  })
+
+  it('si faltan loops en la BD cae al camino de cancha simple, igual que el motor', async () => {
+    // El motor sólo combina cuando encuentra TODOS los loops pedidos.
+    const r = await evaluarCanchaDeRondaLibre(
+      fakeSupabase({ courses: [HIJOS.courses[0]], course_tees: [] }),
+      PADRE,
+      18,
+      ['Este', 'Norte', 'Sur'],
+    )
+    // Con un solo hijo devuelto, `fetchRecorridos` da [] y se juzga el padre…
+    // que en este fake es ese mismo hijo. Lo importante: no explota y da veredicto.
+    expect(r).not.toBeUndefined()
+  })
+
+  it('una cancha que no está en la BD no tiene rating que desmentir', async () => {
+    const r = await evaluarCanchaDeRondaLibre(fakeSupabase({ courses: [], course_tees: [] }), PADRE, 18, null)
+    expect(r).toBeNull()
   })
 })

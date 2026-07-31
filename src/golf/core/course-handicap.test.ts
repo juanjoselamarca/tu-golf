@@ -555,7 +555,28 @@ describe('resolverCourseHandicap — guardarrail de dato incoherente', () => {
     // Sin CR pero sabiendo que la vuelta es de 9: el índice entero le daría
     // el doble de golpes (`strokesRecibidosEnHoyo` reparte sobre maxSI=9).
     expect(resolverCourseHandicap(12, { slope: 113, courseRating: 0, par: 36, is9Hole: true })).toBe(6)
+  })
+
+  it('sin cancha vinculada, `roundHoles` es lo único que sabe que la vuelta es de 9', () => {
+    // `courseData` null no puede llevar `is9Hole`. Sin el parámetro, una ronda
+    // de 9 hoyos sin cancha repartía el índice ENTERO sobre 9 hoyos — el doble.
+    // Hay 50 canchas activas sin rating utilizable en el catálogo, más las
+    // rondas con `course_id` nulo.
+    expect(resolverCourseHandicap(12, null, 9)).toBe(6)
+    expect(resolverCourseHandicap(12, null, 18)).toBe(12)
+    // Sin el dato se conserva el comportamiento histórico (índice entero).
     expect(resolverCourseHandicap(12, null)).toBe(12)
+  })
+
+  it('`is9Hole` de courseData manda sobre `roundHoles` (es el que usó la fórmula)', () => {
+    const sana9h: CourseData = { slope: 113, courseRating: 35.5, par: 36, is9Hole: true }
+    expect(resolverCourseHandicap(12, sana9h, 18)).toBe(resolverCourseHandicap(12, sana9h))
+  })
+
+  it('el display de una ronda de 9h sin datos de 18h sigue mostrando el índice ENTERO', () => {
+    // Invariante del pedido: el número que se MUESTRA es siempre de 18 hoyos.
+    const cd9: CourseData = { slope: 113, courseRating: 35.5, par: 36, is9Hole: true }
+    expect(resolverCourseHandicapDisplay(12, cd9, null)).toBe(12)
   })
 
   it('un jugador plus conserva su handicap negativo cuando el dato es sano', () => {

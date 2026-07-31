@@ -14,8 +14,11 @@ import type { CourseOption } from './types'
 export interface DraftFooterProps {
   draftId: string
   config: TournamentConfig
-  /** Catálogo con la aptitud precalculada. Opcional para no romper callers viejos. */
-  courses?: CourseOption[]
+  /**
+   * Catálogo con la aptitud precalculada. Requerido: si fuera opcional, dejar
+   * de pasarlo apagaría el blocker sin que TypeScript diga nada.
+   */
+  courses: CourseOption[]
   onPreview: () => void
   onCreate: () => Promise<void>
 }
@@ -30,7 +33,7 @@ export function DraftFooter({ config, courses, onPreview, onCreate }: DraftFoote
   // (`api/torneos/draft/[id]/create-tournament`) para que el organizador vea el
   // motivo ANTES de apretar "Crear torneo", no como error después.
   const canchasNoAptas = useMemo<ValidationError[]>(() => {
-    if (!courses?.length) return []
+    if (!courses.length) return []
     const porId = new Map(courses.map((c) => [c.id, c]))
     const out: ValidationError[] = []
     for (const r of config.rounds) {

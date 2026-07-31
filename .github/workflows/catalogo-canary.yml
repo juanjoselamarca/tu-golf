@@ -49,6 +49,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Sin secrets el test se SALTEA y el job quedaría verde: el centinela
+      # apagado sin que nadie se entere. Si el secret se rota, se renombra o el
+      # PR viene de un fork, esto falla acá y se ve.
+      - name: Verificar que hay credenciales reales
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Faltan los secrets de Supabase — el canario del catálogo NO corrió."
+            exit 1
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:

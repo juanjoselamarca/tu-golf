@@ -58,7 +58,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   // pero acá pasan todos los caminos (wizard, draft duplicado, POST directo).
   // Una cancha cuyo rating miente produce un torneo con handicaps injustos —
   // el organizador se entera ahora, no en el hoyo 7.
-  const noAptas = await canchasNoAptasParaTorneo(supabase, config.rounds)
+  const noAptas = await canchasNoAptasParaTorneo(supabase, config.rounds, config)
   if (noAptas.length > 0) {
     return NextResponse.json(
       { error: noAptas[0].mensaje, details: noAptas },

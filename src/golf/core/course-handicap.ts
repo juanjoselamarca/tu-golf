@@ -42,12 +42,19 @@ export function handicapSinDatosDeCancha(handicapIndex: number, is9Hole: boolean
  * `@/golf/courses/rating-coherente`), NO se inventa un número — se cae al
  * camino seguro. Sin esto, C.G. Río Blanco (par 35, rating 55 cargado en
  * escala de 18) le daba +26 golpes a un jugador de índice 12.
+ *
+ * @param roundHoles Hoyos que se juegan. Sólo hace falta para el camino
+ *   seguro: cuando `courseData` es null, ese objeto no puede decir si la
+ *   vuelta es de 9, y sin el dato se reparte el índice ENTERO sobre 9 hoyos —
+ *   el doble de golpes. Pasarlo siempre que se conozca. Cuando `courseData`
+ *   trae `is9Hole`, ese campo manda (es el que usó la fórmula).
  */
 export function resolverCourseHandicap(
   handicapIndex: number,
-  courseData: CourseData | null
+  courseData: CourseData | null,
+  roundHoles?: number
 ): number {
-  const is9Hole = courseData?.is9Hole === true
+  const is9Hole = courseData?.is9Hole ?? (roundHoles != null && roundHoles <= 9)
   if (!courseData || !courseData.slope || !courseData.courseRating) {
     return handicapSinDatosDeCancha(handicapIndex, is9Hole)
   }
@@ -86,6 +93,8 @@ export function resolverCourseHandicapDisplay(
   courseData18h: CourseData | null
 ): number {
   if (!courseData9h?.is9Hole) return resolverCourseHandicap(handicapIndex, courseData9h)
+  // A propósito SIN `roundHoles`: el número que se muestra es el de 18 hoyos
+  // aunque la vuelta sea de 9, así que su camino seguro es el índice entero.
   return resolverCourseHandicap(handicapIndex, courseData18h)
 }
 

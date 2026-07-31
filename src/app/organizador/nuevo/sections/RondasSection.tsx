@@ -63,9 +63,12 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
         {rounds.map((round, idx) => {
           const selectedCourse = round.course_id ? courseMap.get(round.course_id) : null
           // Guardarrail de rating: el veredicto depende de los hoyos elegidos,
-          // así que se relee en cada render del selector de hoyos.
-          const noApta = selectedCourse?.aptitud?.[round.hole_count]
-          const avisoCancha = noApta && !noApta.apta ? noApta.mensaje : null
+          // así que se relee en cada render del selector de hoyos. Una cancha
+          // creada durante la sesión no está en `courses` (viene del SSR): ahí
+          // no hay aviso y manda el gate del servidor.
+          const veredictoCancha = selectedCourse?.aptitud?.[round.hole_count]
+          const avisoBloqueante = veredictoCancha && !veredictoCancha.apta ? veredictoCancha.mensaje : null
+          const avisoLeve = veredictoCancha?.apta ? veredictoCancha.advertencia : null
           return (
             <div key={`r-${round.round_number}-${idx}`} style={rowStyle}>
               <div style={rowHeaderStyle}>
@@ -119,13 +122,20 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
                 </div>
               </div>
 
-              {avisoCancha && (
+              {avisoBloqueante && (
                 <div style={avisoCanchaStyle} role="alert">
                   <span style={avisoIconStyle} aria-hidden="true">!</span>
                   <span>
                     <strong>{selectedCourse?.nombre}</strong> no se puede usar en un torneo de{' '}
-                    {round.hole_count} hoyos. {avisoCancha}
+                    {round.hole_count} hoyos. {avisoBloqueante}
                   </span>
+                </div>
+              )}
+
+              {avisoLeve && (
+                <div style={avisoCanchaStyle}>
+                  <span style={avisoIconStyle} aria-hidden="true">!</span>
+                  <span>{avisoLeve}</span>
                 </div>
               )}
             </div>

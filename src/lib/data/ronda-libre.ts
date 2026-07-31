@@ -124,7 +124,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
         )
       }
       const courseData9h = courseDataByTee[playerTee]
-      courseHcpMap[j.id] = resolverCourseHandicap(index, courseData9h)
+      courseHcpMap[j.id] = resolverCourseHandicap(index, courseData9h, ronda.holes)
 
       // Display: en rondas de 9h cargamos los ratings de 18h del MISMO tee y
       // resolvemos el course handicap completo. `finalParTotal` ES el par de 18h

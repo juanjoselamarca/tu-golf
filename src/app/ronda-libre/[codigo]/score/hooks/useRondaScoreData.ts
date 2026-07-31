@@ -157,7 +157,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
           courseDataByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, r.holes, finalParTotal, (r.recorridos as string[] | null) ?? null)
         }
         const courseData9h = courseDataByTee[playerTee]
-        hcpMap[j.id] = resolverCourseHandicap(index, courseData9h)
+        hcpMap[j.id] = resolverCourseHandicap(index, courseData9h, r.holes)
 
         // Display: en rondas de 9h cargamos los ratings de 18h del mismo tee (sin
         // recorridos, para no re-dividir); `finalParTotal` ya es el par de 18h. Con

@@ -241,7 +241,7 @@ export default function ScoreGrupoPage() {
         if (!courseDataByTee[playerTee]) {
           courseDataByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, r.holes, finalParTotal, (r.recorridos as string[] | null) ?? null)
         }
-        hcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee])
+        hcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee], r.holes)
       }
       setPlayerHcp(hcpMap)
 

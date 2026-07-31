@@ -10,9 +10,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   evaluarAptitudTorneo,
+  evaluarAptitudRecorridos,
   aptitudPorHoyos,
+  requiereRatingDeCancha,
   type AptitudPorHoyos,
+  type AptitudTorneo,
   type CanchaParaAptitud,
+  type MotivoNoApta,
 } from '@/golf/courses/aptitud-torneo'
 
 /** Columnas de `courses` que necesita el veredicto. Fuente única del SELECT. */
@@ -94,7 +98,27 @@ export function aptitudDeCatalogo(
   return out
 }
 
-/** Todos los tees del catálogo, sin el corte silencioso de PostgREST. */
+/**
+ * `supabase-js` NO lanza cuando la query falla: devuelve `{ data: null, error }`.
+ * Tragarse ese error acá haría que el gate falle ABIERTO — un timeout de
+ * PostgREST o un cambio de RLS devolvería "cancha sin ratings", que es
+ * justamente el caso que se deja pasar. Los caminos de gate usan esto.
+ */
+function exigirFilas<T>(
+  { data, error }: { data: unknown; error: { message?: string } | null },
+  que: string,
+): T[] {
+  if (error) throw new Error(`No se pudo leer ${que}: ${error.message ?? 'error desconocido'}`)
+  return (data ?? []) as T[]
+}
+
+/**
+ * Todos los tees del catálogo, sin el corte silencioso de PostgREST.
+ *
+ * Camino ADVISORY (el aviso del wizard): si la consulta falla se devuelve vacío
+ * y el wizard no pinta el aviso. No se rompe la página por eso — el gate del
+ * servidor sigue siendo la puerta dura y ése sí falla cerrado.
+ */
 export async function fetchTeesParaAptitud(
   supabase: MinimalClient,
 ): Promise<TeeRowParaAptitud[]> {
@@ -108,8 +132,8 @@ export async function fetchTeesParaAptitud(
 /**
  * Trae par + ratings (cancha y tees) de las canchas pedidas.
  *
- * Devuelve un Map por id. Las canchas que no existen simplemente no aparecen:
- * el caller decide si eso es un error suyo o no.
+ * Camino de GATE: lanza si la BD falla. Las canchas que no existen simplemente
+ * no aparecen — eso no es un error de acá (la FK lo caza).
  */
 export async function fetchCanchasParaAptitud(
   supabase: MinimalClient,
@@ -118,15 +142,66 @@ export async function fetchCanchasParaAptitud(
   const ids = Array.from(new Set(courseIds.filter((id): id is string => !!id)))
   if (ids.length === 0) return new Map()
 
-  const [{ data: courses }, { data: tees }] = await Promise.all([
+  const [resCourses, resTees] = await Promise.all([
     supabase.from('courses').select(`id, nombre, ${COLUMNAS_APTITUD_COURSES}`).in('id', ids),
-    supabase.from('course_tees').select(COLUMNAS_APTITUD_TEES).in('course_id', ids),
+    supabase.from('course_tees').select(COLUMNAS_APTITUD_TEES).in('course_id', ids).range(0, MAX_TEES - 1),
   ])
 
   return armarCanchasParaAptitud(
-    (courses ?? []) as unknown as CourseRowParaAptitud[],
-    (tees ?? []) as unknown as TeeRowParaAptitud[],
+    exigirFilas<CourseRowParaAptitud>(resCourses, 'las canchas'),
+    exigirFilas<TeeRowParaAptitud>(resTees, 'los tees de la cancha'),
   )
+}
+
+/**
+ * Los recorridos (hijos) de una cancha multi-recorrido, para el caso en que el
+ * jugador elige loops sueltos. El selector sólo ofrece la cancha PADRE, así que
+ * sin esto el guardarrail juzga al padre — que en producción está sano — y deja
+ * pasar los 9 loops rotos de Brisas / Marbella / Rocas.
+ *
+ * Camino de GATE: lanza si la BD falla.
+ */
+export async function fetchRecorridosParaAptitud(
+  supabase: MinimalClient,
+  parentId: string,
+  loopNombres: string[],
+): Promise<CourseRowParaAptitud[]> {
+  if (loopNombres.length === 0) return []
+  const res = await supabase
+    .from('courses')
+    .select(`id, nombre, ${COLUMNAS_APTITUD_COURSES}`)
+    .eq('parent_id', parentId)
+    .in('loop_nombre', loopNombres)
+  const hijos = exigirFilas<CourseRowParaAptitud>(res, 'los recorridos de la cancha')
+  // El motor sólo entra por la rama multi-recorrido cuando encuentra TODOS los
+  // loops pedidos (`children.length === recorridos.length`). Si faltan, cae al
+  // camino de cancha simple y este veredicto no aplica.
+  return hijos.length === loopNombres.length ? hijos : []
+}
+
+/**
+ * Veredicto para una ronda libre, que a diferencia de un torneo puede elegir
+ * recorridos sueltos de una cancha multi-recorrido.
+ *
+ * Devuelve `null` cuando la cancha no está en la BD (cancha libre escrita a
+ * mano): ahí no hay rating que desmentir.
+ */
+export async function evaluarCanchaDeRondaLibre(
+  supabase: MinimalClient,
+  courseId: string,
+  holes: number,
+  recorridos: string[] | null,
+): Promise<AptitudTorneo | null> {
+  if (recorridos && recorridos.length > 0) {
+    const loops = await fetchRecorridosParaAptitud(supabase, courseId, recorridos)
+    // `[]` = el motor no va a usar la rama multi-recorrido (le faltan loops):
+    // se juzga la cancha simple, igual que hará él.
+    if (loops.length > 0) return evaluarAptitudRecorridos(loops)
+  }
+
+  const canchas = await fetchCanchasParaAptitud(supabase, [courseId])
+  const cancha = canchas.get(courseId)
+  return cancha ? evaluarAptitudTorneo(cancha, holes) : null
 }
 
 /** Lo mínimo que hace falta de una ronda para juzgar su cancha. */
@@ -140,6 +215,7 @@ export interface RondaNoApta {
   round_number: number
   course_id: string
   cancha: string
+  motivo: MotivoNoApta
   mensaje: string
 }
 
@@ -148,11 +224,18 @@ export interface RondaNoApta {
  *
  * Vacío = se puede crear. Las rondas sin `course_id` no se juzgan acá — de eso
  * ya se ocupa `validateGolfRules` (`round_course_required`).
+ *
+ * `torneo` es obligatorio a propósito: un torneo Gross no usa el Course Rating
+ * para nada y bloquearlo sería un falso bloqueo. Que el caller tenga que
+ * declararlo evita que una ruta nueva se olvide del matiz.
  */
 export async function canchasNoAptasParaTorneo(
   supabase: MinimalClient,
   rounds: RondaParaAptitud[],
+  torneo: { modo?: string | null; use_handicap?: boolean | null },
 ): Promise<RondaNoApta[]> {
+  if (!requiereRatingDeCancha(torneo)) return []
+
   const conCancha = rounds.filter((r): r is RondaParaAptitud & { course_id: string } => !!r.course_id)
   if (conCancha.length === 0) return []
 
@@ -164,11 +247,12 @@ export async function canchasNoAptasParaTorneo(
     // Cancha inexistente: no es asunto de este guardarrail (la FK lo caza).
     if (!cancha) return
     const veredicto = evaluarAptitudTorneo(cancha, ronda.hole_count)
-    if (!veredicto.apta && veredicto.mensaje) {
+    if (!veredicto.apta && veredicto.motivo && veredicto.mensaje) {
       out.push({
         round_number: ronda.round_number ?? idx + 1,
         course_id: ronda.course_id,
         cancha: cancha.nombre,
+        motivo: veredicto.motivo,
         mensaje: veredicto.mensaje,
       })
     }

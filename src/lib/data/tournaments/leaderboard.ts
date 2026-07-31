@@ -250,10 +250,12 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
 
     const ronda = rondaById.get(j.ronda_id)
     const courseId = (ronda?.course_id as string | null) ?? null
+    // Fuera del `if`: el camino seguro de `resolverCourseHandicap` necesita
+    // saber si la vuelta es de 9 hoyos incluso cuando no hay cancha vinculada.
+    const holesN = (ronda?.holes as number | null) ?? 18
     let courseData: CourseData | null = null
     let courseData18h: CourseData | null = null
     if (courseId) {
-      const holesN = (ronda?.holes as number | null) ?? 18
       const recorridos = (ronda?.recorridos as string[] | null) ?? null
       const tee = (j.tees || (ronda?.tees as string | null) || 'azul').toLowerCase()
       const key = `${courseId}|${tee}|${holesN}`
@@ -288,7 +290,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
     out.push({
       ...j,
       handicap_index: index,
-      handicap: resolverCourseHandicap(index, courseData),
+      handicap: resolverCourseHandicap(index, courseData, holesN),
       handicap_display: resolverCourseHandicapDisplay(index, courseData, courseData18h),
     })
   }

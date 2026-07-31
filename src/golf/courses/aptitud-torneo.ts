@@ -14,8 +14,12 @@
 // podría usar son incoherentes (ver `./rating-coherente`). Una cancha sin
 // rating NO se bloquea — ese caso ya degrada solo y de forma predecible, y hay
 // 51 canchas así en el catálogo. Un tee suelto con typo tampoco bloquea al
-// club entero: el motor baja al siguiente eslabón y el canario de catálogo lo
-// reporta igual.
+// club entero: el motor baja al siguiente eslabón. Pero eso último no pasa en
+// silencio, sale como `advertencia`.
+//
+// ⚠️ Este módulo tiene que leer la escala IGUAL que el motor, o se bloquea algo
+// que funcionaría / se deja pasar algo que falla. La regla del motor es
+// `holeCount <= 9`, y es la que se usa acá.
 
 import {
   esEscalaDe18Hoyos,
@@ -35,6 +39,16 @@ export const MENSAJE_SIN_RATING_9H =
 export const MENSAJE_RATING_MAL_CARGADO =
   'Esta cancha tiene el rating oficial mal cargado. Contacta al club o elige otra.'
 
+/**
+ * Una cancha de 9 hoyos jugada como 18 (dos vueltas) hoy no se puede puntuar
+ * bien: el motor completa el par de los 9 hoyos que faltan a par 4 y lo compara
+ * contra un Course Rating que es de 9 — la resta `(CR − par)` queda ~36 golpes
+ * corrida. El resultado no explota (el guardarrail lo degrada al índice), pero
+ * el torneo se juega sin diferenciación de tees y nadie se entera.
+ */
+export const MENSAJE_CANCHA_9H_EN_VUELTA_18 =
+  'Esta cancha es de 9 hoyos: no se puede armar un torneo de 18 sobre ella. Elige 9 hoyos, o elige otra cancha.'
+
 export interface TeeParaAptitud {
   rating: number | null
   front_course_rating?: number | null
@@ -46,27 +60,43 @@ export interface CanchaParaAptitud {
   tees?: TeeParaAptitud[] | null
 }
 
-export type MotivoNoApta = 'rating_incoherente'
+export type MotivoNoApta = 'rating_incoherente' | 'cancha_de_9_en_vuelta_de_18'
 
 export interface AptitudTorneo {
   apta: boolean
   motivo: MotivoNoApta | null
   /** Mensaje listo para mostrarle al organizador. Null si la cancha es apta. */
   mensaje: string | null
+  /**
+   * La cancha pasa, pero alguna de las fuentes que el motor podría usar tiene
+   * el rating roto (típicamente un tee suelto). No bloquea — avisa, para que el
+   * club lo corrija antes de que a esos jugadores les toque el eslabón de abajo.
+   */
+  advertencia: string | null
 }
 
-const APTA: AptitudTorneo = { apta: true, motivo: null, mensaje: null }
+const APTA: AptitudTorneo = { apta: true, motivo: null, mensaje: null, advertencia: null }
+
+const ADVERTENCIA_TEE_ROTO =
+  'Algún tee de esta cancha tiene el rating mal cargado. Los jugadores de ese tee van a puntuar con el rating general de la cancha.'
 
 /**
- * Hoyos con los que hay que evaluar el rating.
+ * ¿Este torneo necesita que la cancha tenga rating?
  *
- * Una cancha de 9 hoyos reales (par ≤ 50) se juega a 9 aunque el organizador
- * haya dejado el selector en 18: su rating siempre está en escala de 9.
- * `esEscalaDe18Hoyos` es la fuente única de esa lectura del par.
+ * Un torneo Gross no usa el Course Rating para nada: se juega a golpes brutos.
+ * Bloquear una cancha ahí sería un falso bloqueo — y hay 9 torneos Gross en
+ * producción sobre canchas que igual servirían.
  */
-function hoyosEfectivos(parDeLaCancha: number | null, holeCount: number): 9 | 18 {
-  if (parDeLaCancha != null && !esEscalaDe18Hoyos(parDeLaCancha)) return 9
-  return holeCount <= 9 ? 9 : 18
+export function requiereRatingDeCancha(torneo: {
+  modo?: string | null
+  use_handicap?: boolean | null
+}): boolean {
+  return torneo.use_handicap === true || torneo.modo === 'neto'
+}
+
+/** ¿El par de esta cancha es el de una vuelta de 9 hoyos? */
+function esCanchaDe9Hoyos(parDeLaCancha: number | null): boolean {
+  return parDeLaCancha != null && !esEscalaDe18Hoyos(parDeLaCancha)
 }
 
 /**
@@ -92,29 +122,85 @@ function ratingsQueUsariaElMotor(
 }
 
 /**
- * ¿Se puede armar un torneo con handicap en esta cancha, jugando `holeCount`?
+ * Veredicto a partir de los ratings candidatos, ya en la escala de `holes`.
+ * Compartido por la cancha simple y por la combinación de recorridos.
  */
-export function evaluarAptitudTorneo(
-  cancha: CanchaParaAptitud,
-  holeCount: number,
+function veredictoDeRatings(
+  candidatos: Array<number | null | undefined>,
+  par: number | null,
+  holes: 9 | 18,
 ): AptitudTorneo {
-  const holes = hoyosEfectivos(cancha.par_total, holeCount)
-  const par = cancha.par_total == null ? null : holes === 9 ? parEnEscalaDe9(cancha.par_total) : cancha.par_total
-
-  const veredictos = ratingsQueUsariaElMotor(cancha, holes)
+  const veredictos = candidatos
     .map((courseRating) => evaluarRating({ courseRating, par, holes }))
     .filter((v) => v.motivo !== 'sin_rating' && v.motivo !== 'sin_par')
 
   // Sin ningún rating comparable no hay nada que desmentir: la cancha degrada
   // de forma predecible (handicap = índice) y se deja pasar.
   if (veredictos.length === 0) return APTA
-  if (veredictos.some((v) => v.esCreible)) return APTA
+
+  if (veredictos.some((v) => v.esCreible)) {
+    const rotos = veredictos.filter((v) => v.esIncoherente).length
+    return rotos === 0 ? APTA : { ...APTA, advertencia: ADVERTENCIA_TEE_ROTO }
+  }
 
   return {
     apta: false,
     motivo: 'rating_incoherente',
     mensaje: holes === 9 ? MENSAJE_SIN_RATING_9H : MENSAJE_RATING_MAL_CARGADO,
+    advertencia: null,
   }
+}
+
+/**
+ * ¿Se puede armar un torneo con handicap en esta cancha, jugando `holeCount`?
+ */
+export function evaluarAptitudTorneo(
+  cancha: CanchaParaAptitud,
+  holeCount: number,
+): AptitudTorneo {
+  if (esCanchaDe9Hoyos(cancha.par_total) && holeCount > 9) {
+    return {
+      apta: false,
+      motivo: 'cancha_de_9_en_vuelta_de_18',
+      mensaje: MENSAJE_CANCHA_9H_EN_VUELTA_18,
+      advertencia: null,
+    }
+  }
+
+  // Misma lectura de escala que el motor (`holeCount <= 9`), a propósito.
+  const holes: 9 | 18 = holeCount <= 9 ? 9 : 18
+  const par =
+    cancha.par_total == null ? null : holes === 9 ? parEnEscalaDe9(cancha.par_total) : cancha.par_total
+
+  return veredictoDeRatings(ratingsQueUsariaElMotor(cancha, holes), par, holes)
+}
+
+/**
+ * Aptitud de una cancha multi-recorrido (Brisas 27h, Marbella, Rocas), donde el
+ * jugador elige N loops y el motor COMBINA los recorridos hijos.
+ *
+ * Existe porque el selector de canchas sólo ofrece la cancha PADRE y los loops
+ * viajan aparte. Juzgar al padre no sirve: en producción el padre tiene el
+ * rating sano (72.6 sobre par 72) y sus 9 hijos lo tienen roto (72 sobre par
+ * 36). Mirar sólo al padre dejaba pasar exactamente las 9 canchas que motivaron
+ * este guardarrail.
+ *
+ * Espeja `resolverCourseData` paso 0: suma los Course Rating y los pares de los
+ * hijos, y trata la vuelta como de 9 hoyos sólo cuando hay UN loop.
+ */
+export function evaluarAptitudRecorridos(loops: CanchaParaAptitud[]): AptitudTorneo {
+  if (loops.length === 0) return APTA
+
+  const holes: 9 | 18 = loops.length === 1 ? 9 : 18
+  const conRating = loops.filter((l) => l.course_rating != null)
+  // Si algún loop no tiene rating, el motor ni siquiera entra por esta rama
+  // (`allHaveRatings`): cae al lookup por tee y de ahí al camino seguro.
+  if (conRating.length !== loops.length) return APTA
+
+  const parSum = loops.reduce((s, l) => s + (l.par_total ?? 36), 0)
+  const crSum = loops.reduce((s, l) => s + (l.course_rating ?? 0), 0)
+
+  return veredictoDeRatings([crSum], parSum, holes)
 }
 
 export interface AptitudPorHoyos {

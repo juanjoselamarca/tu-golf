@@ -68,6 +68,13 @@ const DEUDA_CONOCIDA_TEES: Record<string, string> = {
 const MINIMO_CANCHAS = 150
 const MINIMO_TEES = 400
 
+/**
+ * PostgREST corta en 1.000 filas por defecto y NO avisa. Un catálogo que crece
+ * dejaría filas sin mirar y el canario seguiría verde — el modo de falla que
+ * este test existe para no tener. Se pide el rango explícito.
+ */
+const MAX_FILAS = 10_000
+
 interface CourseRow {
   id: string
   nombre: string
@@ -103,6 +110,7 @@ describe('canario de catálogo — rating coherente con el par', () => {
       .from('courses')
       .select('id, nombre, par_total, course_rating, activa')
       .eq('activa', true)
+      .range(0, MAX_FILAS - 1)
     expect(error, `error leyendo courses: ${error?.message}`).toBeNull()
 
     const courses = (data ?? []) as CourseRow[]
@@ -127,13 +135,17 @@ describe('canario de catálogo — rating coherente con el par', () => {
       })
     }
 
-    // El canario tiene que MORDER: si no ve ni una sola de las canchas con
-    // deuda conocida, es que el criterio dejó de detectar y no que se arregló.
-    // Al bajar la deuda a cero (Frente B), esta línea se borra junto con el Record.
+    // El canario tiene que MORDER. La prueba de que muerde es SINTÉTICA a
+    // propósito: si dependiera de encontrar deuda real en prod, el día que el
+    // Frente B cargue los ratings buenos el CI se pondría rojo por tener el
+    // catálogo sano. `deudaVista` sólo se usa para reportar, no para afirmar.
     expect(
-      deudaVista.size,
-      'el detector no encontró NINGUNA de las canchas con deuda conocida — revisá la tolerancia',
-    ).toBeGreaterThan(0)
+      evaluarRating({ courseRating: 72, par: 36, holes: 9 }).esIncoherente,
+      'el detector dejó de marcar un rating de 18h sobre un par de 9 — revisá la tolerancia',
+    ).toBe(true)
+    // `deudaVista` no puede tener nada que NO esté declarado — si aparece, es
+    // que el Record y la realidad se desincronizaron.
+    deudaVista.forEach((id) => expect(DEUDA_CONOCIDA_RATING_9H[id]).toBeTruthy())
 
     expect(
       nuevos.map((n) => n.detalle),
@@ -144,10 +156,15 @@ describe('canario de catálogo — rating coherente con el par', () => {
 
   it('ningún tee de una cancha ACTIVA tiene un rating incoherente fuera de la deuda conocida', async () => {
     const [{ data: courseData, error: cErr }, { data: teeData, error: tErr }] = await Promise.all([
-      supabase.from('courses').select('id, nombre, par_total, course_rating, activa').eq('activa', true),
+      supabase
+        .from('courses')
+        .select('id, nombre, par_total, course_rating, activa')
+        .eq('activa', true)
+        .range(0, MAX_FILAS - 1),
       supabase
         .from('course_tees')
-        .select('course_id, nombre, genero, rating, front_course_rating, back_course_rating'),
+        .select('course_id, nombre, genero, rating, front_course_rating, back_course_rating')
+        .range(0, MAX_FILAS - 1),
     ])
     expect(cErr, `error leyendo courses: ${cErr?.message}`).toBeNull()
     expect(tErr, `error leyendo course_tees: ${tErr?.message}`).toBeNull()
