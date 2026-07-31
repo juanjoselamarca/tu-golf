@@ -10,12 +10,21 @@
 //
 // Por eso el organizador se entera ANTES de crear el torneo, no en el hoyo 7.
 //
-// Criterio: se bloquea SÓLO cuando hay rating cargado y TODOS los que el motor
-// podría usar son incoherentes (ver `./rating-coherente`). Una cancha sin
-// rating NO se bloquea — ese caso ya degrada solo y de forma predecible, y hay
-// 51 canchas así en el catálogo. Un tee suelto con typo tampoco bloquea al
-// club entero: el motor baja al siguiente eslabón. Pero eso último no pasa en
-// silencio, sale como `advertencia`.
+// Criterio: el motor NO elige entre los ratings disponibles. Ata a cada jugador
+// a SU tee (`resolvePlayerTee`) y sólo tiene un escalón debajo: el rating a
+// nivel de cancha. Así que la pregunta no es "¿alguno sirve?" sino "¿la cadena
+// que va a caminar ESTE jugador termina en un rating creíble?".
+//
+// - Cancha sin ningún rating: NO se bloquea. Degrada predecible y parejo (todos
+//   reciben su índice), y hay 51 canchas así en el catálogo.
+// - Tee roto CON rating de cancha sano: NO se bloquea. Esos jugadores caen al
+//   rating general y siguen puntuando con WHS; se pierde precisión de tee, así
+//   que sale como `advertencia`.
+// - Tee roto SIN rating de cancha sano debajo: SÍ se bloquea. Esos jugadores
+//   caen al índice mientras los del tee sano puntúan con WHS — dos handicaps
+//   distintos en el mismo torneo neto, en silencio.
+// - Rating de cancha que miente y ningún tee que lo tape: SÍ se bloquea. El club
+//   publicó un número, el motor lo ignora y los tees dejan de diferenciarse.
 //
 // ⚠️ Este módulo tiene que leer la escala IGUAL que el motor, o se bloquea algo
 // que funcionaría / se deja pasar algo que falla. La regla del motor es
@@ -86,7 +95,7 @@ const APTA: AptitudTorneo = Object.freeze({
   advertencia: null,
 })
 
-const ADVERTENCIA_TEE_ROTO =
+export const ADVERTENCIA_TEE_ROTO =
   'Algún tee de esta cancha tiene el rating mal cargado. Los jugadores de ese tee van a puntuar con el rating general de la cancha.'
 
 /**
@@ -135,17 +144,31 @@ function esCanchaDe9Hoyos(parDeLaCancha: number | null): boolean {
 function ratingsQueUsariaElMotor(
   cancha: CanchaParaAptitud,
   holes: 9 | 18,
-): Array<number | null | undefined> {
+): CandidatosDelMotor {
   const par = cancha.par_total
   const enEscala = (rating: number | null | undefined): number | null | undefined => {
     if (rating == null) return rating
     return holes === 9 && par != null ? courseRatingEnEscalaDe9(rating, par) : rating
   }
 
-  const deTees = (cancha.tees ?? []).map((t) =>
-    holes === 9 ? (t.front_course_rating ?? enEscala(t.rating)) : t.rating,
-  )
-  return [...deTees, enEscala(cancha.course_rating)]
+  return {
+    tees: (cancha.tees ?? []).map((t) =>
+      holes === 9 ? (t.front_course_rating ?? enEscala(t.rating)) : t.rating,
+    ),
+    terminal: enEscala(cancha.course_rating),
+  }
+}
+
+/**
+ * Los ratings candidatos SEPARADOS por eslabón, porque el motor no elige entre
+ * ellos: a cada jugador lo ata a SU tee (`resolvePlayerTee`) y sólo tiene un
+ * escalón debajo, el rating a nivel de cancha.
+ */
+interface CandidatosDelMotor {
+  /** Un rating por tee. Cada uno lo usan sólo los jugadores de ESE tee. */
+  tees: Array<number | null | undefined>
+  /** El último eslabón: `courses.course_rating`. Lo comparten todos. */
+  terminal: number | null | undefined
 }
 
 /**
@@ -153,29 +176,49 @@ function ratingsQueUsariaElMotor(
  * Compartido por la cancha simple y por la combinación de recorridos.
  */
 function veredictoDeRatings(
-  candidatos: Array<number | null | undefined>,
+  candidatos: CandidatosDelMotor,
   par: number | null,
   holes: 9 | 18,
 ): AptitudTorneo {
-  const veredictos = candidatos
-    .map((courseRating) => evaluarRating({ courseRating, par, holes }))
+  const evaluar = (courseRating: number | null | undefined) =>
+    evaluarRating({ courseRating, par, holes })
+
+  const tees = candidatos.tees
+    .map(evaluar)
     .filter((v) => v.motivo !== 'sin_rating' && v.motivo !== 'sin_par')
+  const terminal = evaluar(candidatos.terminal)
+  const teesRotos = tees.filter((v) => v.esIncoherente).length
+  const teesCreibles = tees.filter((v) => v.esCreible).length
 
-  // Sin ningún rating comparable no hay nada que desmentir: la cancha degrada
-  // de forma predecible (handicap = índice) y se deja pasar.
-  if (veredictos.length === 0) return APTA
-
-  if (veredictos.some((v) => v.esCreible)) {
-    const rotos = veredictos.filter((v) => v.esIncoherente).length
-    return rotos === 0 ? APTA : { ...APTA, advertencia: ADVERTENCIA_TEE_ROTO }
-  }
-
-  return {
+  const noApta: AptitudTorneo = {
     apta: false,
     motivo: 'rating_incoherente',
     mensaje: holes === 9 ? MENSAJE_SIN_RATING_9H : MENSAJE_RATING_MAL_CARGADO,
     advertencia: null,
   }
+
+  // Sin ningún rating comparable no hay nada que desmentir: la cancha degrada
+  // de forma predecible (todos reciben su índice) y se deja pasar.
+  if (tees.length === 0 && !terminal.esCreible && !terminal.esIncoherente) return APTA
+
+  // Con el último eslabón sano, un tee roto no deja a nadie sin cancha: esos
+  // jugadores caen al rating general y siguen puntuando con WHS. Pierden
+  // precisión de tee, así que se avisa, pero no se bloquea el club entero.
+  if (terminal.esCreible) {
+    return teesRotos === 0 ? APTA : { ...APTA, advertencia: ADVERTENCIA_TEE_ROTO }
+  }
+
+  // Sin un rating de cancha creíble debajo, cada tee roto manda a SUS jugadores
+  // al camino seguro (índice) mientras los del tee sano puntúan con WHS. Dos
+  // handicaps distintos en el mismo torneo neto, en silencio: eso es
+  // exactamente el resultado injusto que este módulo existe para evitar.
+  if (teesRotos > 0) return noApta
+
+  // Un rating de cancha que miente y ningún tee que lo tape: el club publicó un
+  // número, el motor lo ignora y todos juegan como si la cancha fuera neutra.
+  if (terminal.esIncoherente && teesCreibles === 0) return noApta
+
+  return APTA
 }
 
 /**
@@ -245,7 +288,7 @@ export function evaluarAptitudRecorridos(loops: CanchaParaAptitud[]): AptitudTor
   // `course_holes`. Acá sólo tenemos `courses.par_total`. Coinciden mientras
   // las dos tablas estén sincronizadas; si se desincronizan, el canario del
   // catálogo es el que lo tiene que gritar.
-  return veredictoDeRatings([crSum], parSum, holes)
+  return veredictoDeRatings({ tees: [], terminal: crSum }, parSum, holes)
 }
 
 export interface AptitudPorHoyos {

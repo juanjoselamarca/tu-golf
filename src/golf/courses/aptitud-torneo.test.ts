@@ -12,6 +12,7 @@ import {
   MENSAJE_SIN_RATING_9H,
   MENSAJE_RATING_MAL_CARGADO,
   MENSAJE_CANCHA_9H_EN_VUELTA_18,
+  ADVERTENCIA_TEE_ROTO,
 } from './aptitud-torneo'
 
 // ─── Canchas reales, tal como están en la BD hoy ────────────────────────────
@@ -139,6 +140,39 @@ describe('evaluarAptitudTorneo — canchas que NO se pueden bloquear', () => {
     // No bloquea, pero tampoco pasa en silencio: los jugadores de ese tee van a
     // caer al rating general de la cancha.
     expect(r.advertencia).toContain('mal cargado')
+  })
+
+  it('un tee roto SIN rating de cancha debajo sí bloquea: sería handicap mixto', () => {
+    // El motor ata a cada jugador a SU tee y sólo tiene un escalón debajo. Sin
+    // rating de cancha creíble, los del tee roto reciben su índice y los del
+    // tee sano puntúan con WHS: dos handicaps en el mismo torneo neto.
+    const mixta = {
+      par_total: 72,
+      course_rating: null,
+      tees: [
+        { rating: 71.2, front_course_rating: 35.8 },
+        { rating: 72, front_course_rating: null }, // 9h: 36 sano; 18h: sano
+        { rating: 107, front_course_rating: null }, // el swap CR↔slope
+      ],
+    }
+    expect(evaluarAptitudTorneo(mixta, 18).apta).toBe(false)
+    expect(evaluarAptitudTorneo(mixta, 18).motivo).toBe('rating_incoherente')
+  })
+
+  it('el MISMO tee roto no bloquea si la cancha tiene un rating sano debajo', () => {
+    // Contraprueba del caso de arriba: acá el eslabón terminal existe y es
+    // creíble, así que los jugadores del tee roto caen ahí y siguen con WHS.
+    const conRed = {
+      par_total: 72,
+      course_rating: 71.6,
+      tees: [
+        { rating: 71.2, front_course_rating: 35.8 },
+        { rating: 107, front_course_rating: null },
+      ],
+    }
+    const r = evaluarAptitudTorneo(conRed, 18)
+    expect(r.apta).toBe(true)
+    expect(r.advertencia).toBe(ADVERTENCIA_TEE_ROTO)
   })
 
   it('una cancha con TODOS los tees sanos no genera advertencia', () => {

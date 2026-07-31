@@ -182,6 +182,38 @@ export function parDeLosHoyosJugados(
   return suma + faltantes * 4
 }
 
+/** Lo que un tee publica sobre su rating. Forma común a los dos motores. */
+export interface TeeRatings {
+  rating: number
+  slope: number
+  front_course_rating?: number | null
+  front_slope_rating?: number | null
+}
+
+/**
+ * CR y slope de 9 hoyos de un tee. FUENTE ÚNICA.
+ *
+ * Cada campo se decide por separado a propósito: un club puede publicar el CR
+ * de 9 hoyos MEDIDO sin publicar el slope de 9. Exigir los dos juntos tiraba
+ * ese CR medido a la basura y volvía a la aproximación CR/2 — peor dato
+ * teniendo el bueno en la mano. Para el slope la aproximación slope9≈slope18
+ * es la que recomienda WHS; para el CR no hay tal cosa.
+ *
+ * `parDeLaCancha` es la señal de escala del `rating` de 18h, y tiene que ser el
+ * par PROPIO de la cancha (`courses.par_total`), nunca el par de la ronda: ese
+ * último puede venir ya dividido y no distingue media cancha de 72 de una
+ * cancha de 9 hoyos reales.
+ */
+export function ratingsDe9DelTee(
+  tee: TeeRatings,
+  parDeLaCancha: number,
+): { slope: number; courseRating: number } {
+  return {
+    slope: tee.front_slope_rating ?? tee.slope,
+    courseRating: tee.front_course_rating ?? courseRatingEnEscalaDe9(tee.rating, parDeLaCancha),
+  }
+}
+
 /**
  * Índice de 9 hoyos = índice 18h / 2 (WHS).
  *
@@ -351,27 +383,30 @@ export async function resolverCourseData(
       // CR9=CR18/2, par del front-9 real. En AMBOS caminos is9Hole=true, para que
       // resolverCourseHandicap divida el índice por 2 (Rule 6.1). Sin el flag el
       // jugador recibía ~2× los golpes — mismo criterio que el fallback courses (abajo).
-      const hasFront9 = teeData.front_course_rating != null && teeData.front_slope_rating != null
-      // Señal de escala del rating del tee: el par PROPIO de la cancha. El
-      // `parTotal` que llega es el par de la RONDA y puede venir ya dividido
-      // (36), así que no distingue media cancha de 72 de una cancha de 9 hoyos
-      // reales. Sin la fila de courses se asume 18h — el comportamiento previo.
-      const { data: courseRow } = hasFront9
-        ? { data: null }
-        : await supabase.from('courses').select('par_total').eq('id', courseId).maybeSingle()
-      return {
-        slope: hasFront9 ? teeData.front_slope_rating! : teeData.slope,
-        courseRating: hasFront9
-          ? teeData.front_course_rating!
-          : courseRatingEnEscalaDe9(teeData.rating, courseRow?.par_total ?? 72),
-        par: await resolveNineHolePar(supabase, courseId, parTotal),
-        is9Hole: true,
+      // La escala del `rating` de 18h sólo hace falta si el tee NO publica su
+      // CR de 9 medido. Sin la fila de courses se asume 18h — comportamiento previo.
+      const { data: courseRow } =
+        teeData.front_course_rating == null
+          ? await supabase.from('courses').select('par_total').eq('id', courseId).maybeSingle()
+          : { data: null }
+      const { slope, courseRating } = ratingsDe9DelTee(
+        teeData as TeeRatings,
+        courseRow?.par_total ?? 72,
+      )
+      const par = await resolveNineHolePar(supabase, courseId, parTotal)
+      if (ratingEsCreible({ courseRating, par, holes: 9 })) {
+        return { slope, courseRating, par, is9Hole: true }
       }
-    }
-    return {
-      slope: teeData.slope,
-      courseRating: teeData.rating,
-      par: parTotal ?? 72,
+      // El tee MIENTE: se baja al siguiente eslabón (la tabla `courses`), igual
+      // que hace `computePlayerCourseHcp`. Los dos motores tienen que contestar
+      // lo mismo a "¿qué hago cuando un rating miente?", o el mismo jugador en
+      // la misma cancha recibe dos handicaps distintos según la pantalla.
+    } else if (ratingEsCreible({ courseRating: teeData.rating, par: parTotal ?? 72, holes: 18 })) {
+      return {
+        slope: teeData.slope,
+        courseRating: teeData.rating,
+        par: parTotal ?? 72,
+      }
     }
   }
 

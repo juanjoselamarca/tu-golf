@@ -135,13 +135,15 @@ describe('computePlayerCourseHcp', () => {
     // Rating de 9 hoyos COHERENTE con el par: la fórmula se aplica tal cual,
     // sin dividir el CR. Es el caso que tendrá C.G. Río Blanco cuando el club
     // publique su rating oficial de 9 hoyos.
-    const tournament = { tees: null, courses: { par_total: 35, slope_rating: 113, course_rating: 35.4 } }
+    // Slope 140 a propósito: con 113 la fórmula da 6 y el camino seguro también,
+    // así que el test pasaría igual con la cancha bloqueada.
+    const tournament = { tees: null, courses: { par_total: 35, slope_rating: 140, course_rating: 37 } }
     const player = { ...basePlayer, handicap_at_registration: 12 }
 
     const ch = computePlayerCourseHcp(player, tournament, [], 35, 9)
 
-    // round(6 × 113/113 + (35.4 − 35)) = round(6.4) = 6.
-    expect(ch).toBe(6)
+    // round(6 × 140/113 + (37 − 35)) = round(9.43) = 9. Camino seguro: 6.
+    expect(ch).toBe(9)
   })
 
   // Guardarrail (Frente A): el dato REAL de prod hoy no es de 9 hoyos.

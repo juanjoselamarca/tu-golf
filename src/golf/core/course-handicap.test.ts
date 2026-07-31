@@ -282,6 +282,46 @@ describe('resolverCourseData — par de 9h (regresión neto>gross, 11-jun-2026)'
     expect(cd).toEqual({ slope: 130, courseRating: 35.5, par: 36, is9Hole: true })
   })
 
+  it('si el tee MIENTE baja al rating de la cancha, igual que computePlayerCourseHcp', async () => {
+    // Los dos motores tienen que contestar lo mismo a "¿qué hago cuando un
+    // rating miente?". Antes `resolverCourseData` devolvía el tee roto tal cual
+    // y `resolverCourseHandicap` lo mandaba al camino seguro (índice/2), así que
+    // el mismo jugador en la misma cancha sacaba dos handicaps según la pantalla.
+    const teeRoto = { rating: 72, slope: 130, front_course_rating: null, front_slope_rating: null }
+    const supa = mockSupabase({
+      tee: teeRoto,
+      holes9: frontNine,
+      // La cancha es de 9 hoyos REALES (par 36): el 72 del tee es el error de
+      // escala de las 11 canchas del catálogo.
+      course: { slope_rating: 128, course_rating: 35.6, par_total: 36 },
+    })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 36, null)
+    expect(cd).toEqual({ slope: 128, courseRating: 35.6, par: 36, is9Hole: true })
+  })
+
+  it('si el tee miente Y la cancha también, no se inventa nada: camino seguro', async () => {
+    const teeRoto = { rating: 72, slope: 130, front_course_rating: null, front_slope_rating: null }
+    const supa = mockSupabase({
+      tee: teeRoto,
+      holes9: frontNine,
+      course: { slope_rating: 128, course_rating: 55, par_total: 35 },
+    })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 36, null)
+    // Devuelve el último eslabón, y el guardarrail de la fórmula lo descarta.
+    expect(resolverCourseHandicap(12, cd, 9)).toBe(6)
+  })
+
+  it('un tee de 18h que miente tampoco se usa: baja a la cancha', async () => {
+    const teeRoto = { rating: 107, slope: 130, front_course_rating: null, front_slope_rating: null }
+    const supa = mockSupabase({
+      tee: teeRoto,
+      holes9: frontNine,
+      course: { slope_rating: 128, course_rating: 71.4, par_total: 72 },
+    })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 18, 72, null)
+    expect(cd).toEqual({ slope: 128, courseRating: 71.4, par: 72 })
+  })
+
   it('sin course_holes ni par-9 del caller: cae a la mitad del par-18', async () => {
     const supa = mockSupabase({ tee: teeAzulLosLeones, holes9: [] })
     const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 72, null)
@@ -536,9 +576,12 @@ describe('resolverCourseHandicap — guardarrail de dato incoherente', () => {
   })
 
   it('un rating SANO se sigue usando con la fórmula WHS (no hay sobre-bloqueo)', () => {
-    const sana9h: CourseData = { slope: 118, courseRating: 35.5, par: 36, is9Hole: true }
-    // round(6 × 118/113 + (35.5 − 36)) = round(6.27 − 0.5) = 6.
-    expect(resolverCourseHandicap(12, sana9h)).toBe(6)
+    // Los números están elegidos para que la fórmula y el camino seguro NO
+    // coincidan: con slope 118 y CR 35.5 ambos dan 6, así que ese caso pasaría
+    // igual con la cancha bloqueada y no probaría nada.
+    const sana9h: CourseData = { slope: 140, courseRating: 38, par: 36, is9Hole: true }
+    // round(6 × 140/113 + (38 − 36)) = round(7.43 + 2) = 9. Camino seguro: 6.
+    expect(resolverCourseHandicap(12, sana9h)).toBe(9)
 
     const sana18h: CourseData = { slope: 131, courseRating: 72.1, par: 72 }
     // round(15 × 131/113 + 0.1) = round(17.49) = 17.
@@ -573,10 +616,12 @@ describe('resolverCourseHandicap — guardarrail de dato incoherente', () => {
     // `courseData.is9Hole`. Con un CourseData sin ese flag (lo arma cualquier
     // caller a mano), la vuelta se validaba como de 9 y se calculaba como de
     // 18 — el índice entero sobre 9 hoyos, o sea el doble de golpes.
-    const sin9h: CourseData = { slope: 113, courseRating: 35.5, par: 36 }
-    // round(6 × 113/113 + (35.5 − 36)) = round(5.5) = 6. ANTES devolvía 12.
-    expect(resolverCourseHandicap(12, sin9h, 9)).toBe(6)
-    expect(resolverCourseHandicap(12, { ...sin9h, is9Hole: true })).toBe(6)
+    // Slope 140 / CR 38 a propósito: la fórmula da 9 y el camino seguro 6, así
+    // que el test distingue las tres cosas (9h vs 18h, y fórmula vs degradado).
+    const sin9h: CourseData = { slope: 140, courseRating: 38, par: 36 }
+    // round(6 × 140/113 + 2) = 9. ANTES daba round(12 × 140/113 + 2) = 17.
+    expect(resolverCourseHandicap(12, sin9h, 9)).toBe(9)
+    expect(resolverCourseHandicap(12, { ...sin9h, is9Hole: true })).toBe(9)
   })
 
   it('`is9Hole` de courseData manda sobre `roundHoles` (es el que usó la fórmula)', () => {

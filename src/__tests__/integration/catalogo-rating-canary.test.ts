@@ -227,18 +227,23 @@ describe('canario de catálogo — rating coherente con el par', () => {
         + 'Corregí el dato o agregá la cancha a DEUDA_CONOCIDA_TEES con su motivo.',
     ).toEqual([])
 
-    // La lista tampoco puede quedarse con basura: una entrada declarada cuya
-    // cancha sigue activa pero YA no tiene ningún rating roto es una entrada
-    // que hay que borrar. Es lo que va a pasar cuando el Frente B cargue los
-    // ratings buenos, cancha por cancha.
+    // Una entrada declarada cuya cancha sigue activa pero YA no tiene ningún
+    // rating roto es una entrada que sobra. Se REPORTA, no se falla: el dato lo
+    // carga el Frente B por SQL directo (`run-sql.mjs`), no por un PR, así que
+    // nada acopla ese write con la edición de esta lista. Si esto fallara, el
+    // día que Río Blanco quede sano se pondrían rojos el cron diario, todos los
+    // push a main y todos los PRs abiertos — culpando al que pasaba por ahí.
+    // Rojo por buenas noticias es la forma más rápida de que un canario se
+    // vuelva ruido que nadie mira.
     const idsActivos = new Set(courses.map((c) => c.id))
     const yaNoAplican = Object.entries(conDeuda)
       .filter(([id]) => idsActivos.has(id) && !deudaVigente.has(id))
       .map(([id, nombre]) => `${nombre} (${id})`)
-    expect(
-      yaNoAplican,
-      'Estas canchas ya NO tienen ningún rating incoherente: borralas de la lista de deuda conocida.',
-    ).toEqual([])
+    if (yaNoAplican.length > 0) {
+      process.stdout.write(
+        `\n✅ Deuda saldada — ya se pueden borrar de DEUDA_CONOCIDA_TEES:\n  · ${yaNoAplican.join('\n  · ')}\n`,
+      )
+    }
   })
 
   it('la deuda conocida no crece: sólo puede achicarse', () => {

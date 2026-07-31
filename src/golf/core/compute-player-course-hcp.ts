@@ -10,6 +10,8 @@ import {
   parEnEscalaDe9,
   courseRatingEnEscalaDe9,
   handicapSinDatosDeCancha,
+  ratingsDe9DelTee,
+  type TeeRatings,
 } from '@/golf/core/course-handicap'
 import { ratingEsCreible } from '@/golf/courses/rating-coherente'
 
@@ -72,9 +74,8 @@ export function computePlayerCourseHcp(
 
     if (tee?.slope && tee?.rating) {
       if (holeCount <= 9) {
-        // Use 9-hole specific ratings if available, otherwise halve the 18h CR
-        const slope9 = tee.front_slope_rating ?? tee.slope
-        const cr9 = tee.front_course_rating ?? courseRatingEnEscalaDe9(tee.rating, parDeLaCancha)
+        // Fuente única con `resolverCourseData`: mismo criterio campo por campo.
+        const { slope: slope9, courseRating: cr9 } = ratingsDe9DelTee(tee as TeeRatings, parDeLaCancha)
         const par9 = parEnEscalaDe9(parTotal)
         if (ratingEsCreible({ courseRating: cr9, par: par9, holes: 9 })) {
           return courseHandicap9h(indiceDe9Hoyos(index), slope9, cr9, par9)
