@@ -89,3 +89,36 @@ export function parOfPlayedHoles(courseHoles: CourseHole[], playedHoleNumbers: n
 export function hasPlayData(entry: { holesPlayed: number }): boolean {
   return entry.holesPlayed > 0
 }
+
+/**
+ * ¿Esta tarjeta se puede comparar con las demás? FUENTE ÚNICA del predicado.
+ *
+ * Es el portero de todo lo que rankea jugadores entre sí para un resultado
+ * definitivo: el podio del torneo cerrado y las stats agregadas. Una tarjeta a
+ * medias comparada contra una entera produce el error de siempre — el que jugó
+ * menos parece mejor.
+ *
+ * Pide DOS cosas, porque ninguna alcanza sola:
+ *
+ *  1. `status === 'F'` — el jugador terminó. Necesario: sin esto, alguien que
+ *     va por el hoyo 18 entraría al podio.
+ *  2. Tarjeta COMPLETA — se cargaron todos los hoyos de la vuelta. Necesario
+ *     porque `status` significa cosas distintas según el origen: en ronda libre
+ *     lo pone la propia completitud, pero en el path legacy sale de
+ *     `rounds.status ∈ {closed, official}`, que es una acción del organizador y
+ *     no dice nada sobre cuántos hoyos se cargaron. En prod hay 3 rondas
+ *     `closed` con 9 de 18 hoyos: sólo con `status` entraban con media tarjeta.
+ *
+ * `scores` viene relleno a los hoyos de la vuelta (nulls incluidos), así que su
+ * largo ES el largo de la vuelta. En multi-ronda `holes` acumula y queda por
+ * encima — de ahí el `>=`.
+ */
+export function isFinishedCard(p: {
+  status: string
+  holes: number
+  scores: ReadonlyArray<unknown>
+}): boolean {
+  if (p.status !== 'F' || p.holes <= 0) return false
+  const holesOfRound = p.scores.length
+  return holesOfRound === 0 ? false : p.holes >= holesOfRound
+}

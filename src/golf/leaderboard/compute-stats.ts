@@ -8,17 +8,25 @@
 // que nadie haya terminado. Las stats por hoyo (eagles, birdies, dificultad) sí
 // usan rondas parciales, porque se calculan hoyo a hoyo.
 //
+// QUÉ SE RENDERIZA HOY, para no confundir al próximo que lea esto:
+// de todo lo que devuelve `TourneyStats`, la UI sólo consume `eagles` y
+// `birdies`, vía `computeTournamentResults`. La tarjeta de stats que mostraba
+// "mejor tarjeta / promedio neto / hoyo más difícil" se sacó en `a002ba12`, así
+// que `bestName`, `bestNet`, `avgNet`, `hardestHole` y `easiestHole` se
+// calculan y no se pintan en ninguna pantalla. Se mantienen correctos igual —
+// si la tarjeta vuelve, vuelve bien — pero NINGÚN usuario vio nunca un número
+// malo de estos campos.
+//
 // De dónde sale cada número:
 //  - Neto (mejor tarjeta, promedio): del RANKING que ya produjo el motor. Antes
 //    se leía de `rounds[0].total_net`, la columna denormalizada que sólo escribe
-//    /api/game: si los scores entraron por cualquier otro camino queda en 0 y la
-//    landing mostraba "mejor tarjeta 0" al lado de un board correcto — dos
-//    respuestas distintas al mismo concepto en una sola pantalla. Además sólo
-//    miraba la ronda 1, así que en multi-ronda ignoraba el resto.
+//    /api/game y que queda en 0 si los scores entraron por otro camino. Además
+//    sólo miraba la ronda 1, así que en multi-ronda ignoraba el resto.
 //  - Por hoyo (eagles, birdies, dificultad): de `hole_scores`, que es el dato
 //    crudo y no depende de ninguna columna derivada. Ahora recorre TODAS las
-//    rondas del jugador, no sólo la primera.
+//    rondas del jugador, no sólo la primera — este sí llega a pantalla.
 
+import { isFinishedCard } from './board-rules'
 import type { Player } from '@/lib/golf-data'
 import type { CourseHole, TourneyStats } from './types'
 
@@ -41,13 +49,19 @@ export function computeStats(
   if (withScores.length === 0) return null
 
   // ── Neto: sale del ranking, no de una columna ──
-  // Mismo predicado de "terminado" que usa el podio (`compute-tournament-results`).
-  const finished = playersByNeto.filter((p) => p.status === 'F' && p.holes > 0)
+  // `isFinishedCard` es el MISMO portero que usa el podio: una sola definición
+  // de "tarjeta terminada" para las dos superficies que comparan jugadores.
+  const finished = playersByNeto.filter(isFinishedCard)
 
   // `netTotal` son golpes netos absolutos; `total` es esos mismos golpes vs el
-  // par de los hoyos jugados. El ranking ya viene ordenado por neto, así que el
-  // primero terminado ES la mejor tarjeta.
-  const best = finished[0]
+  // par de los hoyos jugados. NO se toma `finished[0]`: el ranking está ordenado
+  // por vs par, no por neto absoluto, y el countback puede reordenar dentro de
+  // un empate. Con tarjetas de distinto largo el primero vs-par no es el de
+  // menos golpes. Se busca el mínimo explícito.
+  const best = finished.reduce<Player | null>(
+    (mejor, p) => (mejor == null || (p.netTotal ?? Infinity) < (mejor.netTotal ?? Infinity) ? p : mejor),
+    null,
+  )
   const bestName = best?.name ?? '—'
   const bestNet = best?.netTotal ?? 0
 

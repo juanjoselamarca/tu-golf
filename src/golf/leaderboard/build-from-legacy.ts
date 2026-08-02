@@ -128,8 +128,13 @@ export function buildLeaderboardFromLegacy(
         // `holesPlayed = 0` y todo el pipeline lo trataba como "sin datos": se
         // mostraba en "—" y caía al fondo del ranking teniendo tarjeta.
         roundGross = round.total_gross ?? 0
-        roundNet = round.total_net ?? 0
         roundPoints = round.total_points ?? 0
+        // `total_net` en 0 NO es "hizo 0 golpes netos": es la columna sin
+        // escribir (19 de 77 rondas de prod están así). `??` no lo atrapa
+        // porque 0 no es null. Sin detalle por hoyo no hay de dónde derivarlo,
+        // así que se cae al bruto — peor tarjeta que la real, nunca mejor. Con
+        // el neto en 0 el jugador salía a −72 y lideraba el board neto.
+        roundNet = round.total_net && round.total_net > 0 ? round.total_net : roundGross
         roundPar = roundGross > 0 ? parTotal : 0
       }
       const roundHolesPlayed = playedHoles.length > 0

@@ -34,9 +34,10 @@ describe('computeTournamentResults — golpes netos del podio', () => {
   it('torneo de 9 hoyos sobre cancha de par 72: NO infla el podio en 36 golpes', () => {
     // El jugador hizo 40 golpes netos en 9 hoyos (par jugado 36) → total = +4.
     // La fórmula vieja `total + parTotal` daba 4 + 72 = 76.
+    // Torneo de 9 hoyos: la tarjeta tiene 9 casillas, todas jugadas.
     const p = jugador({
       name: 'Nueve', total: 4, netTotal: 40, grossTotal: 40, holes: 9,
-      scores: [...new Array(9).fill(4), ...new Array(9).fill(null)] as (number | null)[],
+      scores: new Array(9).fill(4) as (number | null)[],
     })
 
     const r = computeTournamentResults([p], [p], 72, null)
@@ -73,6 +74,36 @@ describe('computeTournamentResults — golpes netos del podio', () => {
 
     expect(r?.grossWinner?.score).toBe(145)
     expect(r?.grossWinner?.score).not.toBe(72)
+  })
+})
+
+describe('isFinishedCard — cerrada Y completa', () => {
+  it('una ronda cerrada por el organizador con media tarjeta NO entra al podio', () => {
+    // Caso real de prod (copa-lb-test): 3 rondas `closed` con 9 de 18 hoyos.
+    // Con el predicado viejo (`status === 'F'`) entraban y ganaban por vs par:
+    // 9 hoyos en par contra 18 en par empatan, y desempata el countback.
+    const media = jugador({
+      name: 'Media', total: -4, netTotal: 32, grossTotal: 32, holes: 9, status: 'F',
+      scores: [...new Array(9).fill(4), ...new Array(9).fill(null)] as (number | null)[],
+    })
+    const entera = jugador({
+      name: 'Entera', total: 1, netTotal: 73, grossTotal: 73, holes: 18, status: 'F',
+      scores: new Array(18).fill(4),
+    })
+
+    const r = computeTournamentResults([media, entera], [media, entera], 72, null)
+
+    expect(r?.netoWinner?.name).toBe('Entera')
+    expect(r?.grossWinner?.name).toBe('Entera')
+  })
+
+  it('si nadie completó la vuelta no hay podio', () => {
+    const media = jugador({
+      name: 'Media', total: -4, netTotal: 32, holes: 9, status: 'F',
+      scores: [...new Array(9).fill(4), ...new Array(9).fill(null)] as (number | null)[],
+    })
+
+    expect(computeTournamentResults([media], [media], 72, null)).toBeNull()
   })
 })
 

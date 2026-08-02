@@ -4,6 +4,7 @@
 // de campo, eagles, birdies). Solo se invoca cuando status === 'closed'
 // o 'published' y hay al menos 1 jugador con ronda terminada.
 
+import { isFinishedCard } from './board-rules'
 import type { Player } from '@/lib/golf-data'
 import type { TournamentResultados, TeamPodiumEntry } from '@/app/torneo/[slug]/types'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
@@ -27,8 +28,13 @@ export function computeTournamentResults(
   // re-ordena: re-inferir el neto desde el ranking primario rompía el podio
   // en torneos gross-mode (el primario trae vsPar del modo, no net). Solo
   // filtramos finished preservando el orden.
-  const byGross = playersByGross.filter((p) => p.status === 'F' && p.holes > 0)
-  const byNeto  = playersByNeto.filter((p) => p.status === 'F' && p.holes > 0)
+  // "Terminado" lo define `isFinishedCard`: cerrada Y completa. Antes bastaba
+  // `status === 'F'`, que en el path legacy sale de `rounds.status` — una acción
+  // del organizador que no dice nada sobre cuántos hoyos se cargaron. Prod tiene
+  // 3 rondas `closed` con 9 de 18 hoyos: entraban al podio con media tarjeta y
+  // ganaban por haber jugado menos.
+  const byGross = playersByGross.filter(isFinishedCard)
+  const byNeto  = playersByNeto.filter(isFinishedCard)
   if (byGross.length === 0) return null
 
   const grossScore1 = byGross[0] ? grossOf(byGross[0]) : 0
