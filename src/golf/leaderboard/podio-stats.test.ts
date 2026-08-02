@@ -107,6 +107,19 @@ describe('isFinishedCard — cerrada Y completa', () => {
   })
 })
 
+describe('isFinishedCard — el largo de la tarjeta importa', () => {
+  it('una tarjeta más larga que los hoyos jugados NO cuenta como terminada', () => {
+    // Cubre la condición de largo, que la suite preexistente no ejercía
+    // (sus fixtures usan `scores: [gross]`, largo 1, y pasaban por `18 >= 1`).
+    const p = jugador({
+      name: 'Corto', total: 0, netTotal: 36, grossTotal: 36, holes: 9, status: 'F',
+      scores: new Array(18).fill(null).map((_, i) => (i < 9 ? 4 : null)) as (number | null)[],
+    })
+
+    expect(computeTournamentResults([p], [p], 72, null)).toBeNull()
+  })
+})
+
 describe('computeStats — el neto sale del ranking, no de la columna', () => {
   const COURSE_HOLES: CourseHole[] = Array.from({ length: 18 }, (_, i) => ({
     numero: i + 1,
