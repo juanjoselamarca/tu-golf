@@ -135,6 +135,17 @@ export function isSharedBallFormat(key: string | null | undefined): boolean {
 }
 
 /**
+ * True si el formato puntúa por puntos Stableford (neto por hoyo → puntos).
+ *
+ * Fuente canónica del predicado "¿es stableford?" (tracking 30-jul-2026): estaba
+ * reescrito inline en ~10 archivos productivos. Se migra cada call-site al tocar
+ * su flujo — primero el scorer del organizador y su Resumen.
+ */
+export function isStablefordFormat(key: string | null | undefined): boolean {
+  return key === 'stableford'
+}
+
+/**
  * Devuelve el GolfFormat para `key`. Si `key` no está registrada,
  * cae a stroke_play PERO registra el caso vía captureError para que
  * el equipo lo vea en `error_logs` (antes se tragaba en silencio).
