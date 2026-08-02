@@ -309,6 +309,34 @@ radius de golpe hacia las páginas gigantes):
 
 ---
 
+## Corrección de #289 — la escala se decide por la RELACIÓN rating↔par (PR #293, 2-ago-2026)
+
+#289 cambió la señal de escala a "el par decide, el CR obedece". Eso rompió las
+9 filas del catálogo que guardan `par_total = 36` con `course_rating = 72`: no se
+partía el rating y quedaba `(72 − 36)` = **+36 golpes** en cada course handicap
+de 9 hoyos. En el gate, un índice 30 recibía 52 golpes en vez de 16, y como el
+reparto por hoyo topea en 3 los cuatro jugadores terminaban con 27 golpes
+iguales, un plus incluido.
+
+Esas 9 filas NO son canchas de 9 hoyos: son los **loops hijos** de Rocas de
+Santo Domingo, Brisas y Marbella (clubes de 27), sin tees propios.
+
+Ahora `courseRatingEnEscalaDe9` prueba "ya viene en 9" (`|cr − par9| ≤ 6`),
+después "viene en 18" (`|cr/2 − par9| ≤ 6`), y si ninguna cierra devuelve `par9`
+para anular el término. Las dos ventanas no se solapan mientras `par9 > 18`
+(test explícito).
+
+| Punto | Estado |
+|---|---|
+| `courseRatingEnEscalaDe9` decide por relación, no por par solo | ✅ (#293) |
+| `resolverCourseData` paso 0 (multi-recorrido) normaliza el rating de CADA loop antes de sumar — sumarlos crudos daba +36 con un loop y **+72 con dos**, y la UI preselecciona dos loops sola | ✅ (#293, finding bloqueante del code-reviewer) |
+| Canario del catálogo: las 600+ filas de `courses` + `course_tees` pasan por la función; el conjunto "imposible" queda fijado | ✅ (#293, `src/__tests__/integration/catalogo-escala-rating.test.ts`) |
+| **La degradación por rating imposible es MUDA** — una cancha nueva mal cargada sirve handicaps aproximados sin avisar. Falta un check en `/api/admin/health-check` que liste los ratings que no cierran en ninguna escala. | ⏳ pendiente |
+| `src/lib/data/tee-resolver.ts:148-165` es una **cuarta** derivación de "rating de 9 hoyos" (usa `front_course_rating` o `cr − back_course_rating`, y devuelve `null` si no puede — es segura, pero es otra fuente del mismo concepto) | ⏳ pendiente — converger al tocar el flujo del coach |
+| `esEscalaDe18Hoyos(par) = par > 50` tiene borde en 50 exacto (un par-50 daría "es de 9"). No hay filas en 50. | ⏳ latente |
+| Los tests de integración **skipean en CI** (sin service-role key), que es por lo que #289 llegó a prod con la regresión. Decisión de producto/infra: exponerlos. | ⏳ decisión de Juanjo |
+| `gate-scorer-handicap.test.ts` no envuelve su carga desde prod en try/catch: un rechazo de red marca el archivo failed con los tests skipped (rojo intermitente que no dice nada). Mismo patrón ya arreglado en los otros dos. | ⏳ pendiente |
+
 ## Deuda anotada por PR #289 (handicap 9 hoyos) — 30-jul-2026
 
 El PR cerró el bug de los course handicaps negativos en vueltas de 9 hoyos y

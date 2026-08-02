@@ -236,6 +236,54 @@ function mockSupabase(opts: { tee?: unknown; holes9?: unknown[]; course?: unknow
   } as unknown as SupabaseClient
 }
 
+/** Mock para el paso 0 (multi-recorrido): `courses` devuelve los loops hijos. */
+function mockSupabaseLoops(children: unknown[], tees: unknown[] = []): SupabaseClient {
+  return {
+    from(table: string) {
+      if (table === 'courses') return makeQuery({ data: children })
+      if (table === 'course_tees') return makeQuery({ data: tees })
+      return makeQuery({ data: null })
+    },
+  } as unknown as SupabaseClient
+}
+
+// Los 3 loops de Rocas de Santo Domingo, tal cual están en prod: par de 9 hoyos
+// (36) con course_rating en escala de 18 (72), y sin tees propios.
+const loopsRocas = [
+  { id: 'l-azul', loop_nombre: 'Azul', course_rating: 72, slope_rating: 120, par_total: 36 },
+  { id: 'l-blanca', loop_nombre: 'Blanca', course_rating: 72, slope_rating: 120, par_total: 36 },
+]
+
+describe('resolverCourseData — multi-recorrido: el rating de cada loop se normaliza antes de sumar', () => {
+  it('UN loop (9 hoyos) no suma el rating de 18 crudo', async () => {
+    const supa = mockSupabaseLoops([loopsRocas[0]])
+    const cd = await resolverCourseData(supa, 'rocas-padre', 'azul', 9, 36, ['Azul'])
+    expect(cd?.courseRating).toBe(36)
+    expect(cd?.par).toBe(36)
+    expect(cd?.is9Hole).toBe(true)
+    // Índice 30 → 15 × (120/113) + 0 ≈ 16. Sumando crudo daba 52.
+    expect(resolverCourseHandicap(30, cd)).toBe(16)
+  })
+
+  it('DOS loops (18 hoyos) tampoco: 144 contra par 72 daba +72 golpes', async () => {
+    const supa = mockSupabaseLoops(loopsRocas)
+    const cd = await resolverCourseData(supa, 'rocas-padre', 'azul', 18, 72, ['Azul', 'Blanca'])
+    expect(cd?.courseRating).toBe(72)
+    expect(cd?.par).toBe(72)
+    expect(cd?.is9Hole).toBe(false)
+    expect(resolverCourseHandicap(12, cd)).toBe(13)
+  })
+
+  it('un loop con rating de 9 hoyos REAL se respeta (catálogo sano)', async () => {
+    const sanos = [
+      { id: 'a', loop_nombre: 'A', course_rating: 35.8, slope_rating: 120, par_total: 36 },
+      { id: 'b', loop_nombre: 'B', course_rating: 36.4, slope_rating: 120, par_total: 36 },
+    ]
+    const cd = await resolverCourseData(mockSupabaseLoops(sanos), 'padre', 'azul', 18, 72, ['A', 'B'])
+    expect(cd?.courseRating).toBeCloseTo(72.2, 5)
+  })
+})
+
 // Tee azul real de Los Leones (verificado en prod 2026-06-11).
 const teeAzulLosLeones = {
   rating: 73.3,
@@ -515,6 +563,16 @@ describe('escala de 9 hoyos — el par decide, el CR obedece', () => {
       expect(ch, `par ${par} / cr ${cr}`).toBeGreaterThan(0)
       // Ni desmedidos por el otro lado: el término de rating queda acotado.
       expect(Math.abs(cr9 - par9), `par ${par} / cr ${cr}`).toBeLessThanOrEqual(6)
+    }
+  })
+
+  it('las dos hipótesis de escala no se solapan (la premisa que sostiene el diseño)', () => {
+    // Ventanas: [par9−6, par9+6] para "ya viene en 9" y [2·par9−12, 2·par9+12]
+    // para "viene en 18". Se tocarían sólo si par9 ≤ 18, o sea nueve hoyos de
+    // par 2. Mientras eso no pase, el orden en que se prueban da igual y un
+    // rating no puede caer en las dos.
+    for (const par9 of [30, 34, 35, 36, 37, 40]) {
+      expect(par9 + 6, `par9=${par9}`).toBeLessThan(2 * par9 - 12)
     }
   })
 

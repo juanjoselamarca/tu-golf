@@ -147,6 +147,9 @@ describe('computePlayerCourseHcp', () => {
     // 6 × (113/113) = 6.
     expect(ch).toBe(6)
     expect(ch).toBeGreaterThan(0)
+    // Con techo, no sólo con piso: el bug de #289 daba 26 y pasaba un
+    // `toBeGreaterThan(0)` sin despeinarse.
+    expect(ch).toBeLessThanOrEqual(8)
   })
 
   it('un tee de cancha de 9 hoyos reales tampoco parte su rating', () => {
