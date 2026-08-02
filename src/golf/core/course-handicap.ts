@@ -306,7 +306,12 @@ export async function resolverCourseData(
         return {
           slope: slopeAvg,
           courseRating: crSum,
-          par: parTotal ?? parSum,
+          // Un solo loop es una vuelta de 9: el par tiene que estar en esa
+          // escala. Este paso era el ÚNICO camino que confiaba en `parTotal` a
+          // ciegas (los otros dos pasan por `resolveNineHolePar`). Mientras el
+          // CR tampoco se normalizaba, un `parTotal` de 72 se cancelaba solo
+          // contra el CR de 72; al arreglar el CR quedó a la vista.
+          par: recorridos.length === 1 ? parEnEscalaDe9(parTotal ?? parSum) : (parTotal ?? parSum),
           is9Hole: recorridos.length === 1,
         }
       }
@@ -335,7 +340,7 @@ export async function resolverCourseData(
           return {
             slope: slopeAvgTee,
             courseRating: crSumTee,
-            par: parTotal ?? parSum,
+            par: recorridos.length === 1 ? parEnEscalaDe9(parTotal ?? parSum) : (parTotal ?? parSum),
             is9Hole: recorridos.length === 1,
           }
         }

@@ -23,8 +23,15 @@ const hasCreds = Boolean(supabaseUrl && supabaseKey)
 
 /** Ratings que hoy no cierran en ninguna escala. C.G. Río Blanco: par 35 con
  *  rating 55 repetido igual en sus 4 tees y slope 113 neutro — firma de carga a
- *  mano, no de una medición. Si esta lista cambia, alguien cargó datos nuevos. */
-const IMPOSIBLES_CONOCIDOS = 4
+ *  mano, no de una medición. Se fija el CONJUNTO, no la cantidad: si sólo se
+ *  contara, arreglar Río Blanco y romper otra cancha el mismo día pasaría en
+ *  verde. */
+const IMPOSIBLES_CONOCIDOS = [
+  'course_tees · C.G. Rio Blanco - Rio Blanco (DAMAS) / rojo',
+  'course_tees · C.G. Rio Blanco - Rio Blanco (VARONES) / azul',
+  'course_tees · C.G. Rio Blanco - Rio Blanco (VARONES) / blanco',
+  'course_tees · C.G. Rio Blanco - Rio Blanco (VARONES) / rojo',
+]
 
 interface Fila {
   etiqueta: string
@@ -51,8 +58,10 @@ describe.skipIf(!hasCreds)('catálogo — todo rating cierra en alguna escala', 
       if (cErr) throw new Error(`courses: ${cErr.message}`)
 
       const parPorCancha = new Map<string, number>()
+      const nombrePorCancha = new Map<string, string>()
       for (const c of (courses ?? []) as Array<{ id: string; nombre: string; par_total: number; course_rating: number | null }>) {
         parPorCancha.set(c.id, c.par_total)
+        nombrePorCancha.set(c.id, c.nombre)
         if (c.course_rating != null) {
           filas.push({ etiqueta: `courses · ${c.nombre}`, rating: c.course_rating, parDeLaCancha: c.par_total })
         }
@@ -68,7 +77,8 @@ describe.skipIf(!hasCreds)('catálogo — todo rating cierra en alguna escala', 
 
       for (const t of (tees ?? []) as Array<{ course_id: string; nombre: string; rating: number }>) {
         filas.push({
-          etiqueta: `course_tees · ${t.course_id} / ${t.nombre}`,
+          // Nombre del club, no el UUID: el día que salte se tiene que leer solo.
+          etiqueta: `course_tees · ${nombrePorCancha.get(t.course_id) ?? t.course_id} / ${t.nombre}`,
           rating: t.rating,
           parDeLaCancha: parPorCancha.get(t.course_id) ?? 72,
         })
@@ -100,7 +110,7 @@ describe.skipIf(!hasCreds)('catálogo — todo rating cierra en alguna escala', 
         && Math.abs(f.rating / 2 - par9) > 6
     })
     expect(imposibles.map((f) => f.etiqueta).sort(), 'cambió el conjunto de ratings imposibles')
-      .toHaveLength(IMPOSIBLES_CONOCIDOS)
+      .toEqual(IMPOSIBLES_CONOCIDOS)
   })
 
   it('ningún jugador de índice 12 recibe golpes NEGATIVOS en 9 hoyos, en ninguna cancha', () => {

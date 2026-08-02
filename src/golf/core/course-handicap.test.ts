@@ -274,6 +274,18 @@ describe('resolverCourseData — multi-recorrido: el rating de cada loop se norm
     expect(resolverCourseHandicap(12, cd)).toBe(13)
   })
 
+  it('UN loop con parTotal de 18 lo baja a escala de 9 (no se lo come el CR)', async () => {
+    // Mientras el CR tampoco se normalizaba, un parTotal de 72 se cancelaba
+    // solo contra un CR de 72 y el resultado salía bien por accidente. Al
+    // arreglar el CR, ese desalineado queda expuesto: CR 36 contra par 72 daría
+    // −36 y un índice 12 recibiría −30 golpes.
+    const supa = mockSupabaseLoops([loopsRocas[0]])
+    const cd = await resolverCourseData(supa, 'rocas-padre', 'azul', 9, 72, ['Azul'])
+    expect(cd?.par).toBe(36)
+    expect(cd?.courseRating).toBe(36)
+    expect(resolverCourseHandicap(12, cd)).toBe(6)
+  })
+
   it('un loop con rating de 9 hoyos REAL se respeta (catálogo sano)', async () => {
     const sanos = [
       { id: 'a', loop_nombre: 'A', course_rating: 35.8, slope_rating: 120, par_total: 36 },
