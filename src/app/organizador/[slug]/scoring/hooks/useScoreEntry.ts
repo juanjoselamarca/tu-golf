@@ -11,7 +11,7 @@ import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { isStablefordFormat } from '@/golf/formats'
+import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import {
@@ -208,7 +208,7 @@ export function useScoreEntry({
       const strokes = strokesRecibidosEnHoyo(courseHcp, si, holeCount)
       const netScore = gross - strokes
       // Puntos con la canónica (capea albatross-o-mejor en 5, igual que el board).
-      const points = isStablefordFormat(tournament.format)
+      const points = isStablefordFormat(resolveFormatoJuego(tournament))
         ? puntosStablefordHoyo(gross, par, courseHcp, si, holeCount)
         : 0
 

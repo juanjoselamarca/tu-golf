@@ -2,7 +2,7 @@
 // stats opcionales (colapsable) y finalización de la ronda.
 
 import { useState } from 'react'
-import { isStablefordFormat } from '@/golf/formats'
+import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { ScoringTournament } from '@/lib/data/tournaments/scoring'
 import { isClosedRoundStatus } from '../hooks/useScoringData'
@@ -130,7 +130,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: Sc
                 }}
                 placeholder="—"
               />
-              {haScore && isStablefordFormat(tournament.format) && (() => {
+              {haScore && isStablefordFormat(resolveFormatoJuego(tournament)) && (() => {
                 const pts = stablefordPtsAt(holeNum, gross)
                 return (
                   <div style={{ fontSize: '10px', color: pts >= 2 ? '#16a34a' : pts === 1 ? '#c4992a' : '#94a3b8', fontWeight: 600, marginTop: '2px' }}>

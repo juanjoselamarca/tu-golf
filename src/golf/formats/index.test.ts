@@ -12,6 +12,8 @@ import {
   SHARED_BALL_FORMAT_KEYS,
   isTeamFormat,
   isSharedBallFormat,
+  isStablefordFormat,
+  resolveFormatoJuego,
   getFormat,
   getFormatStrict,
 } from './index'
@@ -150,5 +152,29 @@ describe('getFormatStrict() — boundary estricto', () => {
         expect(msg).toContain(key)
       }
     }
+  })
+})
+
+describe('resolveFormatoJuego — una sola respuesta a "qué formato juega"', () => {
+  it('gana formato_juego cuando las dos columnas discrepan', () => {
+    // Caso real de prod: 3 torneos con format='stableford' y
+    // formato_juego='stroke_play'. El scorer escribía puntos stableford
+    // mientras su propio Resumen rankeaba stroke play.
+    expect(resolveFormatoJuego({ format: 'stableford', formato_juego: 'stroke_play' })).toBe('stroke_play')
+  })
+
+  it('cae a format cuando formato_juego no está (filas viejas)', () => {
+    expect(resolveFormatoJuego({ format: 'stableford', formato_juego: null })).toBe('stableford')
+  })
+
+  it('sin ninguna de las dos, stroke play', () => {
+    expect(resolveFormatoJuego({})).toBe('stroke_play')
+    expect(resolveFormatoJuego({ format: null, formato_juego: null })).toBe('stroke_play')
+  })
+
+  it('el scorer y el board leen lo MISMO', () => {
+    const t = { format: 'stableford', formato_juego: 'stroke_play' }
+    // Write path (puntos) y read path (ranking) parten del mismo valor.
+    expect(isStablefordFormat(resolveFormatoJuego(t))).toBe(false)
   })
 })

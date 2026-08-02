@@ -22,6 +22,7 @@ import {
   type LegacyLeaderboardOutput,
   type ResumenCards,
 } from '@/golf/leaderboard'
+import { resolveFormatoJuego } from '@/golf/formats'
 import { buildFallbackCourseHoles } from '@/lib/data/tournaments/leaderboard'
 import { fetchResumenBoardInputs, type ScoringTournament } from '@/lib/data/tournaments/scoring'
 import type { CourseHole } from '@/golf/leaderboard/types'
@@ -73,7 +74,7 @@ export function useResumenBoard({
           parTotal,
           totalHoyos,
           modoJuego: tournament.modo_juego ?? 'gross',
-          formatoJuego: tournament.formato_juego ?? 'stroke_play',
+          formatoJuego: resolveFormatoJuego(tournament) as TournamentLeaderboardContext['formatoJuego'],
           courseHoles: courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(totalHoyos),
           hcp,
         }
