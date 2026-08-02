@@ -185,19 +185,41 @@ export function parEnEscalaDe9(par: number): number {
 }
 
 /**
+ * Cuánto puede alejarse del par un Course Rating real. Los ratings USGA caen a
+ * pocos golpes del par; más que esto no es una cancha difícil, es un dato en
+ * otra escala o directamente roto.
+ */
+const BANDA_RATING_VS_PAR = 6
+
+/**
  * Course Rating de la vuelta de 9 hoyos, en la MISMA escala que `parEnEscalaDe9`.
  *
- * ⚠️ Toma el par de la cancha como señal de escala, no su propia magnitud. Un
- * umbral propio sobre el CR (`rating > 50 ? /2 : rating`) parece razonable y es
- * falso: C.G. Río Blanco tiene par 35 (9 hoyos) con rating 55, así que un
- * umbral sobre el rating lo partiría a 27.5 contra un par de 35 y devolvería
- * `(27.5 − 35)` → course handicap NEGATIVO para un jugador de índice 12.
+ * El par de la cancha NO alcanza como señal de escala, porque el catálogo tiene
+ * las dos columnas escaladas por separado: las 9 canchas de 9 hoyos que hay hoy
+ * (Rocas de Santo Domingo, Brisas, Marbella) guardan `par_total = 36` junto a
+ * `course_rating = 72`. Mirando sólo el par se concluye "ya es de 9" y el
+ * rating queda sin partir → `(72 − 36)` = **+36 golpes** en cada course
+ * handicap. Tampoco alcanza un umbral sobre la magnitud del rating: partir todo
+ * lo que pase de 50 devuelve `(27.5 − 35)` en una cancha par 35 → handicaps
+ * NEGATIVOS.
+ *
+ * La señal que sí sirve es la RELACIÓN entre los dos: un rating válido queda a
+ * menos de `BANDA_RATING_VS_PAR` golpes de su par. Se prueba la hipótesis
+ * "ya viene en 9" y después "viene en 18"; si ninguna cierra, el dato es
+ * imposible (C.G. Río Blanco: par 35 con rating 55, que no es válido en
+ * ninguna escala) y se devuelve el par para que el término `(CR − par)` se
+ * anule. Un handicap sin el ajuste de rating queda levemente aproximado; uno
+ * calculado sobre un rating imposible queda catastrófico.
  *
  * Si el tee publica `front_course_rating` usá ESE valor y no esta función: ya
  * es un CR de 9 hoyos medido, no una aproximación.
  */
 export function courseRatingEnEscalaDe9(courseRating: number, parDeLaCancha: number): number {
-  return esEscalaDe18Hoyos(parDeLaCancha) ? courseRating / 2 : courseRating
+  const par9 = parEnEscalaDe9(parDeLaCancha)
+  if (Math.abs(courseRating - par9) <= BANDA_RATING_VS_PAR) return courseRating
+  const mitad = courseRating / 2
+  if (Math.abs(mitad - par9) <= BANDA_RATING_VS_PAR) return mitad
+  return par9
 }
 
 /**

@@ -482,22 +482,48 @@ describe('escala de 9 hoyos — el par decide, el CR obedece', () => {
     expect(parEnEscalaDe9(35)).toBe(35)
   })
 
-  it('CR: usa el PAR como señal de escala, no su propia magnitud', () => {
-    // Río Blanco: par 35 (9 hoyos) con rating 55. Un umbral sobre el rating
-    // (55 > 50 → partir) daría 27.5 contra par 35 → handicap NEGATIVO.
-    expect(courseRatingEnEscalaDe9(55, 35)).toBe(55)
-    // Cancha de 18 normal: el rating sí se parte.
+  it('CR: la escala se decide contra el PAR, no por la magnitud del rating', () => {
+    // Cancha de 18 normal: el rating se parte.
     expect(courseRatingEnEscalaDe9(72, 72)).toBe(36)
+    // Cancha de 9 con rating coherente: se respeta.
+    expect(courseRatingEnEscalaDe9(36.2, 36)).toBe(36.2)
+  })
+
+  it('par de 9 con rating de 18: parte el rating (las 9 canchas de 9h del catálogo)', () => {
+    // Rocas de Santo Domingo, Brisas, Marbella: `par_total` en escala de 9 (36)
+    // pero `course_rating` en escala de 18 (72). Mirando SÓLO el par se
+    // concluye "ya es de 9 hoyos" y el rating queda sin partir → (72 − 36) =
+    // +36 golpes de más en cada handicap de cancha.
+    expect(courseRatingEnEscalaDe9(72, 36)).toBe(36)
+  })
+
+  it('rating imposible: cae al par → el término (CR − par) se anula, nunca envenena', () => {
+    // Río Blanco: par 35 con rating 55. No es válido en ninguna escala (+20
+    // sobre el par si es de 9; −15 si fuera de 18). Partirlo da −7.5 → golpes
+    // negativos; dejarlo da +20 → golpes de más. Con dato imposible, la única
+    // respuesta honesta es no usar el término.
+    expect(courseRatingEnEscalaDe9(55, 35)).toBe(35)
   })
 
   it('par y CR quedan SIEMPRE en la misma escala (la invariante que mata el negativo)', () => {
-    for (const [par, cr] of [[72, 72.1], [70, 69.5], [36, 36.2], [35, 55]] as const) {
+    for (const [par, cr] of [[72, 72.1], [70, 69.5], [36, 36.2], [35, 55], [36, 72]] as const) {
       const par9 = parEnEscalaDe9(par)
       const cr9 = courseRatingEnEscalaDe9(cr, par)
       // Un jugador de índice 12 nunca puede recibir golpes negativos en una
       // cancha cuyo CR no está por debajo de su par en más de ~6 golpes.
       const ch = Math.round(indiceDe9Hoyos(12) * (113 / 113) + (cr9 - par9))
-      expect(ch).toBeGreaterThan(0)
+      expect(ch, `par ${par} / cr ${cr}`).toBeGreaterThan(0)
+      // Ni desmedidos por el otro lado: el término de rating queda acotado.
+      expect(Math.abs(cr9 - par9), `par ${par} / cr ${cr}`).toBeLessThanOrEqual(6)
     }
+  })
+
+  it('el handicap de 9h de una cancha con rating de 18 vuelve a ser el correcto', () => {
+    // Paty en Rocas Azul: índice 30, slope 120, par 36, rating de catálogo 72.
+    // Correcto: 15 × (120/113) + 0 ≈ 16. Con el rating sin partir daban 52.
+    const par9 = parEnEscalaDe9(36)
+    const cr9 = courseRatingEnEscalaDe9(72, 36)
+    const ch = Math.round(indiceDe9Hoyos(30) * (120 / 113) + (cr9 - par9))
+    expect(ch).toBe(16)
   })
 })
