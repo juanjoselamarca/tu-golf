@@ -4,6 +4,7 @@
 // de campo, eagles, birdies). Solo se invoca cuando status === 'closed'
 // o 'published' y hay al menos 1 jugador con ronda terminada.
 
+import { isFinishedCard } from './board-rules'
 import type { Player } from '@/lib/golf-data'
 import type { TournamentResultados, TeamPodiumEntry } from '@/app/torneo/[slug]/types'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
@@ -15,24 +16,39 @@ export function computeTournamentResults(
   parTotal: number,
   stats: TourneyStats | null,
 ): TournamentResultados | null {
+  // Golpes brutos ACUMULADOS. `p.scores` es la tarjeta de la última ronda, así
+  // que re-sumarla en un torneo multi-ronda devuelve sólo la vuelta final. El
+  // motor ya emite el acumulado en `grossTotal`; la suma queda de respaldo para
+  // los datos mock, que no lo traen.
   const grossOf = (p: Player) =>
-    (p.scores || []).reduce((sum: number, s: number | null) => sum + (s ?? 0), 0)
+    p.grossTotal ?? (p.scores || []).reduce((sum: number, s: number | null) => sum + (s ?? 0), 0)
 
   // Ambos rankings llegan YA ordenados con countback por modo desde
   // `rankEntries` (gross asc por strokes, neto asc por net-vs-par). NO se
   // re-ordena: re-inferir el neto desde el ranking primario rompía el podio
   // en torneos gross-mode (el primario trae vsPar del modo, no net). Solo
   // filtramos finished preservando el orden.
-  const byGross = playersByGross.filter((p) => p.status === 'F' && p.holes > 0)
-  const byNeto  = playersByNeto.filter((p) => p.status === 'F' && p.holes > 0)
+  // "Terminado" lo define `isFinishedCard`: cerrada Y completa. Antes bastaba
+  // `status === 'F'`, que en el path legacy sale de `rounds.status` — una acción
+  // del organizador que no dice nada sobre cuántos hoyos se cargaron. Prod tiene
+  // 3 rondas `closed` con 9 de 18 hoyos: entraban al podio con media tarjeta y
+  // ganaban por haber jugado menos.
+  const byGross = playersByGross.filter(isFinishedCard)
+  const byNeto  = playersByNeto.filter(isFinishedCard)
   if (byGross.length === 0) return null
 
   const grossScore1 = byGross[0] ? grossOf(byGross[0]) : 0
   const grossScore2 = byGross[1] ? grossOf(byGross[1]) : 0
-  // Player.total del ranking neto = net vs-par; el score neto en strokes es
-  // net-vs-par + parTotal (misma fórmula que el código legacy).
-  const netoScore1  = byNeto[0]  ? byNeto[0].total + parTotal : 0
-  const netoScore2  = byNeto[1]  ? byNeto[1].total + parTotal : 0
+  // Golpes netos ABSOLUTOS, leídos del motor. NO se reconstruyen como
+  // `total + parTotal`: desde que `total` es vs par de los hoyos JUGADOS, esa
+  // suma sólo acierta cuando el jugador completó la vuelta entera de una cancha
+  // cuyo par coincide con `parTotal`. En un torneo de 9 hoyos sobre una cancha
+  // de par 72 (COPA LB PADRE E HIJO 2026) inflaba el podio en 36 golpes, y en
+  // multi-ronda sumaba un solo par por varias vueltas. La fórmula vieja queda
+  // de respaldo para rankings sin `netTotal` (datos mock).
+  const netoStrokesOf = (p: Player) => p.netTotal ?? p.total + parTotal
+  const netoScore1  = byNeto[0]  ? netoStrokesOf(byNeto[0]) : 0
+  const netoScore2  = byNeto[1]  ? netoStrokesOf(byNeto[1]) : 0
 
   const avgGross = byGross.reduce((sum, p) => sum + grossOf(p), 0) / byGross.length
 

@@ -128,8 +128,21 @@ export function buildLeaderboardFromLegacy(
         // `holesPlayed = 0` y todo el pipeline lo trataba como "sin datos": se
         // mostraba en "—" y caía al fondo del ranking teniendo tarjeta.
         roundGross = round.total_gross ?? 0
-        roundNet = round.total_net ?? 0
         roundPoints = round.total_points ?? 0
+        // `total_net` en 0 NO es "hizo 0 golpes netos": es la columna sin
+        // escribir (19 de 77 rondas de prod están así). `??` no lo atrapa
+        // porque 0 no es null, y con el neto en 0 el jugador salía a −72 y
+        // lideraba el board neto.
+        //
+        // Se deriva del bruto MENOS su course handicap, no se iguala al bruto:
+        // esta rama ya asume vuelta completa (`roundPar = parTotal`), así que el
+        // jugador recibe exactamente sus golpes. Igualarlo al bruto sería tratar
+        // a todos como handicap 0 — que castiga en silencio al de handicap alto
+        // y, en un jugador PLUS, lo FAVORECE: por WHS Apéndice E el plus
+        // DEVUELVE golpes (`strokesRecibidosEnHoyo` lo implementa), así que su
+        // neto real es mayor que su bruto. Prod tiene un plus (−2.0 en
+        // `gate-scorer-9h-individual`).
+        roundNet = round.total_net && round.total_net > 0 ? round.total_net : roundGross - hcp
         roundPar = roundGross > 0 ? parTotal : 0
       }
       const roundHolesPlayed = playedHoles.length > 0

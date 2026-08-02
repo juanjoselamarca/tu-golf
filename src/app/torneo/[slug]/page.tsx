@@ -165,7 +165,9 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
       playerIdToIndex = out.playerIdToIndex
-      stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, parTotal) : null
+      // El neto de las stats sale del MISMO ranking que el board (no de
+      // `rounds.total_net`), así que la landing no puede contradecirse a sí misma.
+      stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, playersByNeto) : null
     }
 
     // Standings de equipos: el grupo de salida ES el equipo.
