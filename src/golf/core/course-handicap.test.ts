@@ -274,6 +274,38 @@ describe('resolverCourseData — multi-recorrido: el rating de cada loop se norm
     expect(resolverCourseHandicap(12, cd)).toBe(13)
   })
 
+  it('DOS loops con parTotal en escala de 9 usan el par de los loops (daba +108)', async () => {
+    // Espejo del caso anterior. La guarda tiene que cerrar las dos direcciones,
+    // no sólo la que apareció primero.
+    const supa = mockSupabaseLoops(loopsRocas)
+    const cd = await resolverCourseData(supa, 'rocas-padre', 'azul', 18, 36, ['Azul', 'Blanca'])
+    expect(cd?.par).toBe(72)
+    expect(cd?.courseRating).toBe(72)
+    expect(resolverCourseHandicap(12, cd)).toBe(13)
+  })
+
+  it('fallback por tee: mezcla un front-9 medido con un rating de 18 sin sumar escalas', async () => {
+    // Rama que corre cuando los children NO tienen rating propio. Es el caso
+    // mixto: un loop publica `front_course_rating` (medición real de 9 hoyos) y
+    // el otro sólo su `rating` genérico de 18. Sumarlos crudos daba 35.5 + 72 =
+    // 107.5 contra par 72 → +35.5, con las dos escalas dentro de la misma cuenta.
+    const sinRating = [
+      { id: 'a', loop_nombre: 'Azul', course_rating: null, slope_rating: 120, par_total: 36 },
+      { id: 'b', loop_nombre: 'Blanca', course_rating: null, slope_rating: 120, par_total: 36 },
+    ]
+    const tees = [
+      { course_id: 'a', rating: 72, slope: 120, front_course_rating: null, front_slope_rating: null },
+      { course_id: 'b', rating: 71, slope: 120, front_course_rating: 35.5, front_slope_rating: 118 },
+    ]
+    const cd = await resolverCourseData(
+      mockSupabaseLoops(sinRating, tees), 'rocas-padre', 'azul', 18, 72, ['Azul', 'Blanca'],
+    )
+    // 36 (72 normalizado contra su par de 36) + 35.5 (front-9 medido, tal cual).
+    expect(cd?.courseRating).toBeCloseTo(71.5, 5)
+    expect(cd?.par).toBe(72)
+    expect(resolverCourseHandicap(12, cd)).toBe(12)
+  })
+
   it('UN loop con parTotal de 18 lo baja a escala de 9 (no se lo come el CR)', async () => {
     // Mientras el CR tampoco se normalizaba, un parTotal de 72 se cancelaba
     // solo contra un CR de 72 y el resultado salía bien por accidente. Al

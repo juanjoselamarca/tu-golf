@@ -298,6 +298,20 @@ export async function resolverCourseData(
         0,
       )
       const parSum = children.reduce((s, c) => s + (c.par_total ?? 36), 0)
+
+      // `parSum` es el par AUTORITATIVO de los loops elegidos: sale de las
+      // filas hijas, así que ya está en la escala del recorrido. `parTotal`
+      // (derivado de course_holes) es más fino, pero sólo sirve si viene en
+      // la MISMA escala — y no siempre viene. Este paso era el único de los
+      // tres que lo tomaba a ciegas; mientras el CR tampoco se normalizaba,
+      // un par de 72 se cancelaba solo contra un CR de 72 y salía bien por
+      // accidente. Comparar las dos escalas cierra las DOS direcciones: un
+      // parTotal de 18 en un recorrido de 9 (daba −30) y uno de 9 en un
+      // recorrido de 18 (daba +108).
+      const parDeLosLoops =
+        parTotal != null && esEscalaDe18Hoyos(parTotal) === esEscalaDe18Hoyos(parSum)
+          ? parTotal
+          : parSum
       const slopeAvg = children.length > 0
         ? Math.round(children.reduce((s, c) => s + (c.slope_rating ?? 113), 0) / children.length)
         : 113
@@ -311,7 +325,7 @@ export async function resolverCourseData(
           // ciegas (los otros dos pasan por `resolveNineHolePar`). Mientras el
           // CR tampoco se normalizaba, un `parTotal` de 72 se cancelaba solo
           // contra el CR de 72; al arreglar el CR quedó a la vista.
-          par: recorridos.length === 1 ? parEnEscalaDe9(parTotal ?? parSum) : (parTotal ?? parSum),
+          par: parDeLosLoops,
           is9Hole: recorridos.length === 1,
         }
       }
@@ -340,7 +354,7 @@ export async function resolverCourseData(
           return {
             slope: slopeAvgTee,
             courseRating: crSumTee,
-            par: recorridos.length === 1 ? parEnEscalaDe9(parTotal ?? parSum) : (parTotal ?? parSum),
+            par: parDeLosLoops,
             is9Hole: recorridos.length === 1,
           }
         }

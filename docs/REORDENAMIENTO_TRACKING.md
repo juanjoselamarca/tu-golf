@@ -330,7 +330,9 @@ para anular el término. Las dos ventanas no se solapan mientras `par9 > 18`
 |---|---|
 | `courseRatingEnEscalaDe9` decide por relación, no por par solo | ✅ (#293) |
 | `resolverCourseData` paso 0 (multi-recorrido) normaliza el rating de CADA loop antes de sumar — sumarlos crudos daba +36 con un loop y **+72 con dos**, y la UI preselecciona dos loops sola | ✅ (#293, finding bloqueante del code-reviewer) |
-| Canario del catálogo: las 600+ filas de `courses` + `course_tees` pasan por la función; el conjunto "imposible" queda fijado | ✅ (#293, `src/__tests__/integration/catalogo-escala-rating.test.ts`) |
+| Canario del catálogo: las 600+ filas de `courses` + `course_tees` pasan por la función; el conjunto "imposible" queda fijado con `toEqual` (contarlas dejaba pasar un swap) | ✅ (#293, `src/__tests__/integration/catalogo-escala-rating.test.ts`) |
+| El paso 0 tomaba `parTotal` a ciegas — el único de los tres caminos. Ahora `parDeLosLoops` sólo lo acepta si viene en la MISMA escala que `parSum`; si no, manda el par de los loops. Cierra las dos direcciones: parTotal de 18 en recorrido de 9 (daba −30) y de 9 en recorrido de 18 (daba +108) | ✅ (#293) |
+| La rama de fallback por tee del paso 0 no la ejercitaba ningún test — y es la que corre con el catálogo degradado (children sin rating propio). Cubierta con el caso mixto: un loop con `front_course_rating` medido de 9h y otro con `rating` de 18h, que sumados crudos daban 107.5 contra par 72 | ✅ (#293) |
 | **La degradación por rating imposible es MUDA** — una cancha nueva mal cargada sirve handicaps aproximados sin avisar. Falta un check en `/api/admin/health-check` que liste los ratings que no cierran en ninguna escala. | ⏳ pendiente |
 | `src/lib/data/tee-resolver.ts:148-165` es una **cuarta** derivación de "rating de 9 hoyos" (usa `front_course_rating` o `cr − back_course_rating`, y devuelve `null` si no puede — es segura, pero es otra fuente del mismo concepto) | ⏳ pendiente — converger al tocar el flujo del coach |
 | `esEscalaDe18Hoyos(par) = par > 50` tiene borde en 50 exacto (un par-50 daría "es de 9"). No hay filas en 50. | ⏳ latente |
