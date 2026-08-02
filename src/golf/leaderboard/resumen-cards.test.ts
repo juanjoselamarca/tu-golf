@@ -120,8 +120,8 @@ describe('computeResumenCards — las dos mentiras de prod', () => {
       jugadorCerrado('b', 'Beto Rojas', 80, 2), // neto 78
     ])
     // La lógica vieja (guard `n !== 0` sobre la columna) rendía "--" acá.
-    expect(cards.mejorNeto).toEqual({ name: 'Ana Silva', score: 75 })
-    expect(cards.mejorGross).toEqual({ name: 'Beto Rojas', score: 80 })
+    expect(cards.mejorNeto).toMatchObject({ name: 'Ana Silva', score: 75, enCurso: false })
+    expect(cards.mejorGross).toMatchObject({ name: 'Beto Rojas', score: 80, enCurso: false })
   })
 
   it('ronda cerrada SOLO con totales (sin hole_scores): neto derivado gross − hcp, no "--"', () => {
@@ -141,17 +141,21 @@ describe('computeResumenCards — las dos mentiras de prod', () => {
     }
     const { cards } = cardsDe([soloTotales])
     expect(cards.completos).toBe(1)
-    expect(cards.mejorNeto).toEqual({ name: 'Ana Silva', score: 75 })
+    expect(cards.mejorNeto).toMatchObject({ name: 'Ana Silva', score: 75, enCurso: false })
   })
 })
 
 describe('computeResumenCards — porteros canónicos', () => {
-  it('una vuelta a medias NO es "completo" ni entra a Mejor Gross/Neto', () => {
+  it('una vuelta a medias NO es "completo", pero SÍ es líder parcial etiquetado', () => {
     const { cards } = cardsDe([jugadorEnJuego('c', 'Caro Díaz', 9)])
     expect(cards.completos).toBe(0)
     expect(cards.conScore).toBe(1)
-    expect(cards.mejorGross).toBeNull()
-    expect(cards.mejorNeto).toBeNull()
+    // Decisión de producto (2-ago-2026): el organizador ve la señal mientras se
+    // juega, marcada `enCurso` y con el thru. No cuenta como "completo".
+    expect(cards.completos).toBe(0)
+    expect(cards.mejorGross?.enCurso).toBe(true)
+    expect(cards.mejorNeto?.enCurso).toBe(true)
+    expect(cards.mejorGross?.thru).toBeGreaterThan(0)
   })
 
   it('el inscrito sin ronda cuenta en el total pero no en conScore', () => {
@@ -167,7 +171,8 @@ describe('computeResumenCards — porteros canónicos', () => {
       jugadorEnJuego('c', 'Caro Díaz', 9),
     ])
     const podio = computeTournamentResults(out.playersByGross, out.playersByNeto, CTX.parTotal, null)
-    expect(cards.mejorGross).toEqual(podio?.grossWinner)
-    expect(cards.mejorNeto).toEqual(podio?.netoWinner)
+    // Con tarjetas terminadas, el Resumen muestra LITERALMENTE el podio público.
+    expect(cards.mejorGross).toMatchObject({ ...podio!.grossWinner!, enCurso: false })
+    expect(cards.mejorNeto).toMatchObject({ ...podio!.netoWinner!, enCurso: false })
   })
 })

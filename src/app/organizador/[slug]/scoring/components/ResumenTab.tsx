@@ -4,6 +4,7 @@
 // `hasPlayData`, los mismos porteros del podio.
 
 import { isFinishedCard, hasPlayData } from '@/golf/leaderboard'
+import type { ResumenLider } from '@/golf/leaderboard/resumen-cards'
 import type { Player } from '@/lib/golf-data'
 import type { ScoringPlayer } from '@/lib/data/tournaments/scoring'
 import type { UseResumenBoardReturn } from '../hooks/useResumenBoard'
@@ -13,6 +14,21 @@ interface ResumenTabProps {
   board: UseResumenBoardReturn
   roster: ScoringPlayer[]
   hcpEditor: UseHcpEditorReturn
+}
+
+/** "Mejor Gross" cuando terminó · "Mejor Gross · en curso" mientras se juega. */
+function liderLabel(base: string, l: ResumenLider | null): string {
+  return l?.enCurso ? `${base} · en curso` : base
+}
+
+/** Golpes. Con el torneo a medias va el thru al lado: sin él el número miente. */
+function liderValue(l: ResumenLider | null): string {
+  if (!l) return '--'
+  return l.enCurso ? `${l.score} (${l.thru})` : String(l.score)
+}
+
+function liderSub(l: ResumenLider | null): string {
+  return l?.name?.split(' ')[0] || ''
 }
 
 const CARD_STYLE: React.CSSProperties = {
@@ -52,9 +68,12 @@ export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
 
   const statCards = cards
     ? [
+        // Con el torneo a medias se muestra el líder PARCIAL, rotulado y con su
+        // thru: sin el "en curso" un 68 thru 12 se lee como un resultado, y sin
+        // el thru no es comparable con un 68 thru 18.
         { label: 'Jugadores', value: `${cards.conScore}/${cards.totalJugadores}`, sub: `${cards.completos} completos` },
-        { label: 'Mejor Gross', value: cards.mejorGross ? String(cards.mejorGross.score) : '--', sub: cards.mejorGross?.name?.split(' ')[0] || '' },
-        { label: 'Mejor Neto', value: cards.mejorNeto ? String(cards.mejorNeto.score) : '--', sub: cards.mejorNeto?.name?.split(' ')[0] || '' },
+        { label: liderLabel('Mejor Gross', cards.mejorGross), value: liderValue(cards.mejorGross), sub: liderSub(cards.mejorGross) },
+        { label: liderLabel('Mejor Neto', cards.mejorNeto), value: liderValue(cards.mejorNeto), sub: liderSub(cards.mejorNeto) },
       ]
     : []
 

@@ -87,8 +87,8 @@ describe('useResumenBoard', () => {
     // Con la lógica vieja: completos=0 ('completed' no existe) y mejorNeto='--'
     // (guard n!==0 sobre la columna). Con el motor:
     expect(result.current.cards?.completos).toBe(2)
-    expect(result.current.cards?.mejorNeto).toEqual({ name: 'Ana Silva', score: 5 * 18 - 10 })
-    expect(result.current.cards?.mejorGross).toEqual({ name: 'Ana Silva', score: 5 * 18 })
+    expect(result.current.cards?.mejorNeto).toMatchObject({ name: 'Ana Silva', score: 5 * 18 - 10, enCurso: false })
+    expect(result.current.cards?.mejorGross).toMatchObject({ name: 'Ana Silva', score: 5 * 18, enCurso: false })
     // Filas en el orden del ranking del board público.
     expect(result.current.rows.map((r) => r.name)).toEqual(['Ana Silva', 'Beto Rojas'])
   })
