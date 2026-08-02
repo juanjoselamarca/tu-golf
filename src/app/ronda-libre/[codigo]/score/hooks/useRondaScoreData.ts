@@ -7,6 +7,7 @@ import type { RondaLibre, HoleData } from '@/types/ronda'
 import { isTeamFormat } from '@/golf/formats'
 import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData, type CourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
+import { hoyosDeLaVuelta, vueltasDeLaRonda } from '@/golf/courses/vueltas'
 import { getTeeYardageColumn, generarOrdenHoyos } from '@/lib/ronda/helpers'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
 
@@ -113,28 +114,40 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
           const pm2: Record<number, number> = {}; const hdm2: Record<number, HoleData> = {}
           const teeCol = getTeeYardageColumn(r.tees || 'azul')
           const isMultiLoop = recorridos && recorridos.length > 1
-          let holeNum = 1
-          for (const h of holes) {
-            const num = isMultiLoop ? holeNum : h.numero
-            pm2[num] = h.par
-            hdm2[num] = {
-              numero: num,
+          // Los hoyos del catálogo, en el orden en que se juegan.
+          const base = holes.map((h, i) => ({
+            numero: isMultiLoop ? i + 1 : h.numero,
+            par: h.par,
+            stroke_index: h.stroke_index,
+            // Solo exponer yardajes auditados contra fuente primaria. Si no
+            // está verificado, la UI muestra '–' en lugar de un metro sospechoso.
+            yardaje: (h as Record<string, unknown>).yardaje_verificado_at
+              ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
+              : null,
+            yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {
+              negras: (h as Record<string, unknown>).yardaje_negras as number | null ?? null,
+              azul: h.yardaje_azul ?? null,
+              blanco: h.yardaje_blanco ?? null,
+              rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
+            } : undefined,
+          }))
+          // Una cancha de 9 hoyos jugada a 18 se recorre DOS VECES: los hoyos
+          // 10-18 son los 1-9 otra vez, con su par y su dificultad reales. Sin
+          // esto el mapa quedaba con 9 entradas para una ronda de 18 y
+          // `finalParTotal` salía 35 en vez de 70 — con ese par el Course Rating
+          // de la cancha parecía incoherente y el jugador perdía el handicap WHS.
+          const vueltas = vueltasDeLaRonda(base.length, r.holes)
+          hoyosDeLaVuelta(base, r.holes).forEach((h, i) => {
+            const origen = i < base.length * vueltas ? base[i % base.length] : null
+            pm2[h.numero] = h.par
+            hdm2[h.numero] = {
+              numero: h.numero,
               par: h.par,
               stroke_index: h.stroke_index,
-              // Solo exponer yardajes auditados contra fuente primaria. Si no
-              // está verificado, la UI muestra '–' en lugar de un metro sospechoso.
-              yardaje: (h as Record<string, unknown>).yardaje_verificado_at
-                ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
-                : null,
-              yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {
-                negras: (h as Record<string, unknown>).yardaje_negras as number | null ?? null,
-                azul: h.yardaje_azul ?? null,
-                blanco: h.yardaje_blanco ?? null,
-                rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
-              } : undefined,
+              yardaje: origen?.yardaje ?? null,
+              yardajes: origen?.yardajes,
             }
-            holeNum++
-          }
+          })
           setParMap(pm2); setHoleDataMap(hdm2)
           finalParTotal = Object.values(pm2).reduce((a, b) => a + b, 0)
         } else { setHoleDataMap(hdm) }

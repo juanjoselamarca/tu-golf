@@ -11,7 +11,6 @@ import {
   requiereRatingDeCancha,
   MENSAJE_SIN_RATING_9H,
   MENSAJE_RATING_MAL_CARGADO,
-  MENSAJE_CANCHA_9H_EN_VUELTA_18,
   ADVERTENCIA_TEE_ROTO,
 } from './aptitud-torneo'
 
@@ -105,15 +104,43 @@ describe('evaluarAptitudTorneo — las canchas rotas del catálogo', () => {
     expect(r.mensaje).toBe(MENSAJE_SIN_RATING_9H)
   })
 
-  it('una cancha de 9 hoyos no se puede usar en un torneo de 18, sea cual sea su rating', () => {
-    // El motor completa a par 4 los 9 hoyos que faltan y compara contra un CR
-    // de 9: degrada en silencio. Se avisa en vez de dejarlo pasar.
-    for (const cancha of [RIO_BLANCO_VARONES, RECORRIDO_9H_CON_RATING_18H, LOS_LEONES_9H_SANO]) {
+  it('una cancha de 9 con el rating ROTO sigue bloqueada en un torneo de 18', () => {
+    // Dos vueltas a un dato que miente sigue siendo un dato que miente.
+    for (const cancha of [RIO_BLANCO_VARONES, RECORRIDO_9H_CON_RATING_18H]) {
       const r = evaluarAptitudTorneo(cancha, 18)
       expect(r.apta).toBe(false)
-      expect(r.motivo).toBe('cancha_de_9_en_vuelta_de_18')
-      expect(r.mensaje).toBe(MENSAJE_CANCHA_9H_EN_VUELTA_18)
+      expect(r.motivo).toBe('rating_incoherente')
+      // El dato que falta es el de 9 hoyos, aunque el torneo sea de 18.
+      expect(r.mensaje).toBe(MENSAJE_SIN_RATING_9H)
     }
+  })
+
+  it('una cancha de 9 SANA sí se puede usar en un torneo de 18 (dos vueltas)', () => {
+    // Hasta el 1-ago-2026 esto se bloqueaba sin mirar el dato: el motor rellenaba
+    // los hoyos 10-18 a par 4 y no sabía repetir la vuelta. Ahora la repite, así
+    // que el guardarrail sólo frena canchas con DATOS ROTOS.
+    expect(evaluarAptitudTorneo(LOS_LEONES_9H_SANO, 18).apta).toBe(true)
+    expect(evaluarAptitudTorneo(LOS_LEONES_9H_SANO, 9).apta).toBe(true)
+  })
+
+  it('un tee de 9 hoyos sano no se bloquea a 18, y uno roto sí', () => {
+    const sano = { par_total: 35, course_rating: null, tees: [{ rating: 34.8, front_course_rating: null }] }
+    const roto = { par_total: 35, course_rating: null, tees: [{ rating: 55, front_course_rating: null }] }
+    expect(evaluarAptitudTorneo(sano, 18).apta).toBe(true)
+    expect(evaluarAptitudTorneo(roto, 18).apta).toBe(false)
+  })
+
+  it('una cancha de 9 se juzga con la tolerancia de 9, aunque el torneo sea de 18', () => {
+    // Delta 7: pasa la tolerancia de 18 hoyos (±10) y NO la de 9 (±5). El dato
+    // publicado es de 9 hoyos, así que la tolerancia que corresponde es la de 9
+    // — dar dos vueltas no vuelve más creíble un rating que ya no lo era.
+    const delta7 = { par_total: 35, course_rating: null, tees: [{ rating: 42, front_course_rating: null }] }
+    expect(evaluarAptitudTorneo(delta7, 9).apta).toBe(false)
+    expect(evaluarAptitudTorneo(delta7, 18).apta).toBe(false)
+    // La misma distancia sobre una cancha de 18 hoyos SÍ es legítima
+    // (C.G. La Serena, tee dorado: par 72, CR 64.4 → delta 7.6).
+    const laSerena = { par_total: 72, course_rating: null, tees: [{ rating: 64.4, front_course_rating: null }] }
+    expect(evaluarAptitudTorneo(laSerena, 18).apta).toBe(true)
   })
 
   it('el mensaje es el copy aprobado, en español chileno', () => {
@@ -356,9 +383,9 @@ describe('bloqueaRondaLibre — qué frena una ronda libre y qué no', () => {
     expect(bloqueaRondaLibre(evaluarAptitudTorneo(RIO_BLANCO_VARONES, 9))).toBe(true)
   })
 
-  it('una cancha de 9 en vuelta de 18 NO frena: eso es regla de torneo', () => {
+  it('una cancha de 9 SANA jugada a 18 no frena — ni debería: se juega en dos vueltas', () => {
     const v = evaluarAptitudTorneo(LOS_LEONES_9H_SANO, 18)
-    expect(v.motivo).toBe('cancha_de_9_en_vuelta_de_18')
+    expect(v.apta).toBe(true)
     expect(bloqueaRondaLibre(v)).toBe(false)
   })
 

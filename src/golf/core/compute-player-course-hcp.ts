@@ -7,12 +7,17 @@ import { resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-play
 import { courseHandicap18h, courseHandicap9h } from '@/golf/core/stroke-index'
 import {
   indiceDe9Hoyos,
-  parEnEscalaDe9,
-  courseRatingEnEscalaDe9,
   handicapSinDatosDeCancha,
   ratingsDe9DelTee,
   type TeeRatings,
 } from '@/golf/core/course-handicap'
+import {
+  courseRatingEnEscalaDe9,
+  hoyosDeUnaVuelta,
+  parEnEscalaDe9,
+  sumaDeVueltas,
+  vueltasDeLaRonda,
+} from '@/golf/courses/vueltas'
 import { ratingEsCreible } from '@/golf/courses/rating-coherente'
 
 export interface PlayerForCourseHcp {
@@ -64,6 +69,21 @@ export function computePlayerCourseHcp(
   // publicados el rating del tee y el de la cancha.
   const parDeLaCancha = tournament.courses?.par_total ?? parTotal
 
+  // Una cancha de 9 hoyos jugada a 18 se recorre DOS VECES. Su Course Rating y
+  // su par son los de UNA vuelta: hay que sumarlos, no medirlos contra 18 hoyos
+  // de score. Antes esta rama comparaba el rating de 9 contra un par de 18
+  // inflado a par 4, el guardarrail lo leía como dato incoherente y toda la
+  // cancha caía al índice crudo — aunque su dato estuviera perfecto.
+  const vueltas = vueltasDeLaRonda(hoyosDeUnaVuelta(parDeLaCancha), holeCount)
+  // El par de la ronda entera. Los callers lo derivan de `course_holes` con
+  // `parDeLosHoyosJugados`, que ya repite la vuelta; si viniera de una cancha sin
+  // catálogo, se reconstruye desde el par propio de la cancha. Se prefiere el del
+  // caller para que este motor y `resolverCourseData` contesten SIEMPRE lo mismo:
+  // si cada uno derivara el par por su lado, el board y la tarjeta volverían a
+  // mostrar netos distintos para el mismo jugador.
+  const parDeLaRonda =
+    parTotal > 0 ? parTotal : sumaDeVueltas(parEnEscalaDe9(parDeLaCancha), vueltas)
+
   if (courseTees.length > 0) {
     const { tee } = resolvePlayerTee({
       playerTeeId: player.tee_id,
@@ -80,6 +100,14 @@ export function computePlayerCourseHcp(
         if (ratingEsCreible({ courseRating: cr9, par: par9, holes: 9 })) {
           return courseHandicap9h(indiceDe9Hoyos(index), slope9, cr9, par9)
         }
+      } else if (vueltas > 1) {
+        // Cancha de 9 jugada a 18: CR de una vuelta, sumado. El índice va ENTERO
+        // (es una vuelta de 18) y el slope no se escala (es adimensional).
+        const unaVuelta = ratingsDe9DelTee(tee as TeeRatings, parDeLaCancha)
+        const cr = sumaDeVueltas(unaVuelta.courseRating, vueltas)
+        if (ratingEsCreible({ courseRating: cr, par: parDeLaRonda, holes: holeCount })) {
+          return courseHandicap18h(index, unaVuelta.slope, cr, parDeLaRonda)
+        }
       } else if (ratingEsCreible({ courseRating: tee.rating, par: parTotal, holes: holeCount })) {
         return courseHandicap18h(index, tee.slope, tee.rating, parTotal)
       }
@@ -95,6 +123,11 @@ export function computePlayerCourseHcp(
       const par9 = parEnEscalaDe9(parTotal)
       if (ratingEsCreible({ courseRating: cr9, par: par9, holes: 9 })) {
         return courseHandicap9h(indiceDe9Hoyos(index), course.slope_rating, cr9, par9)
+      }
+    } else if (vueltas > 1) {
+      const cr = sumaDeVueltas(courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha), vueltas)
+      if (ratingEsCreible({ courseRating: cr, par: parDeLaRonda, holes: holeCount })) {
+        return courseHandicap18h(index, course.slope_rating, cr, parDeLaRonda)
       }
     } else if (
       ratingEsCreible({ courseRating: course.course_rating, par: parTotal, holes: holeCount })

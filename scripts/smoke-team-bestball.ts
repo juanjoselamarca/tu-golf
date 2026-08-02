@@ -16,7 +16,7 @@ import { createClient } from '@supabase/supabase-js'
 import { fetchBestBallTeams } from '../src/lib/data/tournaments/teamLeaderboard'
 import { computeBestBallStandings } from '../src/golf/leaderboard/team-standings'
 import { calcBestBallTotals } from '../src/app/ronda-libre/[codigo]/score-grupo/hooks/useTeamScorecard'
-import { fetchCourseHoles, buildFallbackCourseHoles } from '../src/lib/data/tournaments/leaderboard'
+import { fetchCourseHoles, hoyosDelTorneo } from '../src/lib/data/tournaments/leaderboard'
 import type { FormatoJuego, ModoJuego } from '../src/golf/core/rules'
 
 const ORGANIZER = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
@@ -31,7 +31,7 @@ function assert(cond: boolean, msg: string) {
 
 async function holesFor(courseId: string, holeCount: number) {
   const real = await fetchCourseHoles(supabase, courseId)
-  return real.length > 0 ? real : buildFallbackCourseHoles(holeCount)
+  return hoyosDelTorneo(real, holeCount)
 }
 
 async function cleanupTournament(tournamentId: string) {

@@ -26,7 +26,7 @@ import {
   resolverHandicapDisplayDeRonda,
   type CourseData,
 } from '@/golf/core/course-handicap'
-import { PAR_FALLBACK } from '@/golf/leaderboard/board-rules'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 
 /** Cliente Supabase server-side. Atado al createClient real para que el
  *  tipo coincida 1:1 con lo que devuelve `createClient()` en page.tsx.
@@ -77,15 +77,20 @@ export async function fetchCourseHoles(
   return (data as CourseHole[] | null) ?? []
 }
 
-/** Genera fallback par-4 / SI=índice cuando la cancha no tiene course_holes cargados.
- *  El par sale de `PAR_FALLBACK` — la misma constante que usa `parOfPlayedHoles`
- *  para un hoyo suelto ausente, así los dos caminos puntúan igual. */
-export function buildFallbackCourseHoles(totalHoyos: number): CourseHole[] {
-  const holes: CourseHole[] = []
-  for (let i = 1; i <= totalHoyos; i++) {
-    holes.push({ numero: i, par: PAR_FALLBACK, stroke_index: i })
-  }
-  return holes
+/**
+ * Los hoyos que se juegan en esta ronda, con par y stroke index resueltos.
+ *
+ * Reemplaza al viejo `buildFallbackCourseHoles`, que sólo sabía inventar una
+ * cancha entera a par 4 y obligaba a cada pantalla a escribir el mismo
+ * `courseHoles.length > 0 ? courseHoles : fallback(n)`. Ahora hay UNA función y
+ * además cubre el caso que ninguna de esas copias cubría: una cancha de 9 hoyos
+ * en un torneo de 18 se recorre DOS VECES (los hoyos 10-18 son los 1-9 otra
+ * vez), en vez de rellenarse a par 4 con stroke index inventado.
+ *
+ * Ver `@/golf/courses/vueltas` para el detalle del modelo.
+ */
+export function hoyosDelTorneo(courseHoles: CourseHole[], totalHoyos: number): CourseHole[] {
+  return hoyosDeLaVuelta(courseHoles, totalHoyos)
 }
 
 /**

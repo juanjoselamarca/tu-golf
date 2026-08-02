@@ -40,6 +40,21 @@
 //     Tolerancia ±5: atrapa los 11 casos reales (delta 20 y 36) con 4× de
 //     margen y no toca ningún dato sano.
 //
+// MÁXIMO REAL MEDIDO — barrido del catálogo del 1-ago-2026
+// --------------------------------------------------------
+// Sobre las 186 canchas activas y sus 477 tees, mirando SÓLO los ratings que hoy
+// entran en tolerancia (o sea, el catálogo válido; la deuda conocida queda fuera
+// por definición), el |CR − par| más grande que existe es:
+//
+//   · 18 hoyos → 7.6   C.G. La Serena (VARONES), tee dorado: par 72, CR 64.4
+//   ·  9 hoyos → 3.9   Club de Golf Marbella, tee dorado_andes pro_pacifico
+//                      norte, back_course_rating 32.1 contra par 36
+//
+// O sea: la tolerancia de 18h tiene 2.4 golpes de aire sobre el peor caso real,
+// y la de 9h tiene 1.1. El dato roto más benigno del catálogo está en delta 20
+// (Río Blanco) — 2.6× por encima del techo de 9h. Hay margen para las dos cosas:
+// no marcar sano lo que es sano, y no dejar pasar lo que miente.
+//
 // Si mañana el catálogo suma canchas con deltas legítimos mayores, se sube la
 // tolerancia ACÁ y en ningún otro lado.
 

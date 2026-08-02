@@ -32,14 +32,12 @@
 // motores lo exigen junto al `course_rating`. Sin slope, ese escalón no existe.
 //
 // ⚠️ Este módulo tiene que leer la escala IGUAL que el motor, o se bloquea algo
-// que funcionaría / se deja pasar algo que falla. La regla del motor es
-// `holeCount <= 9`, y es la que se usa acá.
+// que funcionaría / se deja pasar algo que falla. La escala es la de UNA vuelta
+// a la cancha (`@/golf/courses/vueltas`): `holeCount <= 9` en una cancha de 18,
+// y siempre 9 en una cancha de 9 — aunque el torneo sea de 18, porque ahí el
+// motor da dos vueltas y multiplica rating y par por igual.
 
-import {
-  esEscalaDe18Hoyos,
-  parEnEscalaDe9,
-  courseRatingEnEscalaDe9,
-} from '@/golf/core/course-handicap'
+import { esEscalaDe18Hoyos, parEnEscalaDe9, courseRatingEnEscalaDe9 } from './vueltas'
 import { evaluarRating } from './rating-coherente'
 
 /**
@@ -52,16 +50,6 @@ export const MENSAJE_SIN_RATING_9H =
 /** Mismo problema en una vuelta de 18: el rating cargado no es creíble. */
 export const MENSAJE_RATING_MAL_CARGADO =
   'Esta cancha tiene el rating oficial mal cargado. Contacta al club o elige otra.'
-
-/**
- * Una cancha de 9 hoyos jugada como 18 (dos vueltas) hoy no se puede puntuar
- * bien: el motor completa el par de los 9 hoyos que faltan a par 4 y lo compara
- * contra un Course Rating que es de 9 — la resta `(CR − par)` queda ~36 golpes
- * corrida. El resultado no explota (el guardarrail lo degrada al índice), pero
- * el torneo se juega sin diferenciación de tees y nadie se entera.
- */
-export const MENSAJE_CANCHA_9H_EN_VUELTA_18 =
-  'Esta cancha es de 9 hoyos: no se puede armar un torneo de 18 sobre ella. Elige 9 hoyos, o elige otra cancha.'
 
 export interface TeeParaAptitud {
   rating: number | null
@@ -76,7 +64,15 @@ export interface CanchaParaAptitud {
   tees?: TeeParaAptitud[] | null
 }
 
-export type MotivoNoApta = 'rating_incoherente' | 'cancha_de_9_en_vuelta_de_18'
+/**
+ * Hasta el 1-ago-2026 existía además `cancha_de_9_en_vuelta_de_18`: una cancha
+ * de 9 hoyos no podía usarse para un torneo de 18. No era una regla de golf —
+ * era una limitación del motor, que rellenaba los hoyos 10-18 a par 4 en vez de
+ * repetir la vuelta. Con `@/golf/courses/vueltas` la segunda vuelta se modela
+ * de verdad (par, stroke index, Course Rating y slope correctos), así que una
+ * cancha de 9 SANA sirve para 18 hoyos y sólo queda el bloqueo por dato roto.
+ */
+export type MotivoNoApta = 'rating_incoherente'
 
 export interface AptitudTorneo {
   apta: boolean
@@ -120,10 +116,11 @@ export function requiereRatingDeCancha(torneo: {
 /**
  * ¿Este veredicto frena una RONDA LIBRE?
  *
- * Sólo el dato que MIENTE. `cancha_de_9_en_vuelta_de_18` es una restricción de
- * TORNEO: ahí hay premios en juego y el resultado tiene que ser justo. Una
- * ronda entre amigos que da dos vueltas a una cancha de 9 se juega igual — el
- * costo de equivocarse es cero y el de no poder crearla es alto.
+ * Sólo el dato que MIENTE, que hoy es el único motivo que existe. Se mantiene
+ * como función con nombre (y no como `!veredicto.apta` inline) porque torneo y
+ * ronda libre NO tienen por qué frenar por lo mismo: un torneo reparte premios
+ * y una ronda entre amigos no. Si mañana vuelve a haber un motivo que sólo
+ * aplica a torneos, se agrega acá y ninguna ruta se entera.
  *
  * Vive acá y no inline en la ruta porque es una decisión de producto sobre el
  * dominio, no un detalle de una ruta: si mañana hay un segundo camino de
@@ -239,22 +236,22 @@ function veredictoDeRatings(
 
 /**
  * ¿Se puede armar un torneo con handicap en esta cancha, jugando `holeCount`?
+ *
+ * La cancha se juzga sobre UNA vuelta, que es la escala en la que el club
+ * publica sus números. Si la ronda da dos vueltas (cancha de 9 en un torneo de
+ * 18), el motor suma el Course Rating y el par de las dos: el delta `(CR − par)`
+ * se duplica y la tolerancia también (±5 a 9 hoyos, ±10 a 18), así que el
+ * veredicto es idéntico. Juzgar la vuelta y no la ronda evita el falso bloqueo
+ * que tenía este gate hasta el 1-ago-2026, cuando una cancha de 9 SANA quedaba
+ * fuera de cualquier torneo de 18.
  */
 export function evaluarAptitudTorneo(
   cancha: CanchaParaAptitud,
   holeCount: number,
 ): AptitudTorneo {
-  if (esCanchaDe9Hoyos(cancha.par_total) && holeCount > 9) {
-    return {
-      apta: false,
-      motivo: 'cancha_de_9_en_vuelta_de_18',
-      mensaje: MENSAJE_CANCHA_9H_EN_VUELTA_18,
-      advertencia: null,
-    }
-  }
-
-  // Misma lectura de escala que el motor (`holeCount <= 9`), a propósito.
-  const holes: 9 | 18 = holeCount <= 9 ? 9 : 18
+  // Misma lectura de escala que el motor: los hoyos de UNA vuelta, topeados por
+  // los que se juegan (media cancha de 18 = 9).
+  const holes: 9 | 18 = holeCount <= 9 || esCanchaDe9Hoyos(cancha.par_total) ? 9 : 18
   const par =
     cancha.par_total == null ? null : holes === 9 ? parEnEscalaDe9(cancha.par_total) : cancha.par_total
 
@@ -273,6 +270,11 @@ export function evaluarAptitudTorneo(
  *
  * Espeja `resolverCourseData` paso 0: suma los Course Rating y los pares de los
  * hijos, y trata la vuelta como de 9 hoyos sólo cuando hay UN loop.
+ *
+ * No recibe los hoyos de la RONDA a propósito: si el jugador da dos vueltas al
+ * mismo loop, el motor multiplica el Course Rating y el par por igual, así que
+ * el delta y la tolerancia se duplican los dos y el veredicto no cambia. Lo que
+ * se juzga es la escala en la que el club publicó el dato: la de los loops.
  */
 export function evaluarAptitudRecorridos(loops: CanchaParaAptitud[]): AptitudTorneo {
   if (loops.length === 0) return APTA

@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 
@@ -133,7 +134,10 @@ export default function ScoringPage() {
             .select(COURSE_TEE_COLUMNS)
             .eq('course_id', courseId),
         ])
-        setCourseHoles((holes as CourseHole[]) || [])
+        // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en
+        // un torneo de 18 se recorre dos veces y los hoyos 10-18 son los 1-9
+        // otra vez, con su par y su dificultad reales (`@/golf/courses/vueltas`).
+        setCourseHoles(hoyosDeLaVuelta((holes as CourseHole[]) || [], t.hole_count || 18))
         setCourseTees((tees as CourseTeeRow[]) || [])
       }
 

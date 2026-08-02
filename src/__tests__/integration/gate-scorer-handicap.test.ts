@@ -25,7 +25,7 @@ import {
 import {
   fetchCourseHoles,
   sumParDedupByHole,
-  buildFallbackCourseHoles,
+  hoyosDelTorneo,
 } from '@/lib/data/tournaments/leaderboard'
 import { calcularMatchPlay } from '@/golf/formats/match-play'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
@@ -79,7 +79,7 @@ async function resolverGate(
 
   // parTotal = suma del par real por hoyo deduplicado (idéntico al board).
   const holes = await fetchCourseHoles(supabase as unknown as HolesClient, courseId)
-  const courseHoles = holes.length > 0 ? holes : buildFallbackCourseHoles(holeCount)
+  const courseHoles = hoyosDelTorneo(holes, holeCount)
   const parTotal = sumParDedupByHole(courseHoles)
 
   const { data: players } = await supabase

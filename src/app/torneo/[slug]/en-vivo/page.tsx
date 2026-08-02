@@ -16,7 +16,7 @@ import {
   fetchCourseHoles,
   fetchLegacyHcpContext,
   fetchLegacyPlayers,
-  buildFallbackCourseHoles,
+  hoyosDelTorneo,
   sumParDedupByHole,
 } from '@/lib/data/tournaments/leaderboard'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './scrambleTeamsToLive'
@@ -124,7 +124,7 @@ export default async function LivePage({ params }: PageProps) {
     tournament.course_id ? fetchCourseHoles(supabase, tournament.course_id) : Promise.resolve([]),
     fetchLegacyHcpContext(supabase, tournament.id),
   ])
-  const boardHoles = individualHoles.length > 0 ? individualHoles : buildFallbackCourseHoles(holeCount)
+  const boardHoles = hoyosDelTorneo(individualHoles, holeCount)
   const boardCtx: TournamentLeaderboardContext = {
     parTotal: sumParDedupByHole(boardHoles),
     totalHoyos: holeCount,
@@ -172,7 +172,7 @@ export default async function LivePage({ params }: PageProps) {
     const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
     if (teams.length > 0) {
       const courseHoles = await fetchCourseHoles(supabase, tournament.course_id)
-      const holes = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(holeCount)
+      const holes = hoyosDelTorneo(courseHoles, holeCount)
       const formato = liveTournament.format as FormatoJuego
       const modo = liveTournament.modo as ModoJuego
       const ordered = liveTournament.format === 'foursome'
@@ -182,7 +182,7 @@ export default async function LivePage({ params }: PageProps) {
     }
   } else if (liveTournament.format === 'best_ball' && tournament.course_id) {
     const courseHoles = await fetchCourseHoles(supabase, tournament.course_id)
-    const holes = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(holeCount)
+    const holes = hoyosDelTorneo(courseHoles, holeCount)
     // par para el course handicap = suma del par real de course_holes, deduplicado
     // por nº de hoyo (igual que el scorer: pm[numero]=par). Evita inflar el par en
     // canchas multi-recorrido (27/36h) con filas repetidas → mismo course handicap

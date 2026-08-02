@@ -26,7 +26,7 @@ import { formatLabel, type ModoJuego, type FormatoJuego } from '@/golf/core/rule
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 
 import {
-  buildFallbackCourseHoles,
+  hoyosDelTorneo,
   fetchCourseHoles,
   fetchLegacyHcpContext,
   fetchLegacyPlayers,
@@ -110,12 +110,10 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       })
     }
 
-    courseHoles = tournament.courses?.id
-      ? await fetchCourseHoles(supabase, tournament.courses.id)
-      : []
-    if (courseHoles.length === 0) {
-      courseHoles = buildFallbackCourseHoles(totalHoyos)
-    }
+    courseHoles = hoyosDelTorneo(
+      tournament.courses?.id ? await fetchCourseHoles(supabase, tournament.courses.id) : [],
+      totalHoyos,
+    )
 
     const groups = await fetchTournamentGroups(supabase, tournament.id)
     const hasRondaLibreGroups = groups.some((g) => g.ronda_libre_id != null)

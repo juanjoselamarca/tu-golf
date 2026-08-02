@@ -17,7 +17,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Queue de respuestas mock para cada llamada Supabase en orden.
 // cargarCourseData hace entre 1 y 4 queries según el path.
+//
+// ⚠️ ORDEN (cambió el 1-ago-2026): la fila de `courses` se lee PRIMERO, antes que
+// los tees. Su `par_total` es la señal de escala que necesitan los dos eslabones
+// para saber si la cancha es de 9 hoyos y si esta ronda la recorre dos veces —
+// el eslabón de 18 hoyos no la leía nunca y por eso no podía enterarse.
+// Secuencia del camino de cancha simple: courses → course_tees → course_holes.
+// El camino multi-recorrido arranca antes con su propia query de children.
 const mockResults: Array<{ data: unknown }> = []
+
+/** Fila de `courses` de una cancha de 18 hoyos sin ratings propios. */
+const COURSES_18_SIN_RATING = { data: { slope_rating: null, course_rating: null, par_total: 72 } }
 
 function makeChain(finalResult: { data: unknown }) {
   const chain: Record<string, unknown> = {}
@@ -56,6 +66,7 @@ describe('cargarCourseData', () => {
   })
 
   it('tee-specific rating encontrado (18 hoyos) → usa slope/CR del tee', async () => {
+    mockResults.push(COURSES_18_SIN_RATING)
     mockResults.push({
       data: { rating: 71.2, slope: 128, front_course_rating: 35.5, front_slope_rating: 120 },
     })
@@ -68,6 +79,7 @@ describe('cargarCourseData', () => {
   })
 
   it('tee-specific rating en 9 hoyos → usa front_course_rating y front_slope_rating', async () => {
+    mockResults.push(COURSES_18_SIN_RATING)
     mockResults.push({
       data: { rating: 71.2, slope: 128, front_course_rating: 35.5, front_slope_rating: 120 },
     })
@@ -81,10 +93,12 @@ describe('cargarCourseData', () => {
   })
 
   it('tee-specific sin front_* en 9 hoyos → aproxima CR/2 y marca is9Hole (P0 16-jul)', async () => {
+    // Sin fila de `courses` la escala se asume de 18 hoyos (comportamiento previo).
+    mockResults.push({ data: null })
     mockResults.push({
       data: { rating: 71.2, slope: 128, front_course_rating: null, front_slope_rating: null },
     })
-    // Segunda query (course_holes) para el par de 9h: sin data → cae a 36.
+    // Tercera query (course_holes) para el par de 9h: sin data → cae a 36.
     const result = await cargarCourseData('course-abc', 'azul', 9)
     // Sin ratings de front-9, aprox WHS: slope9≈slope18, CR9=CR18/2, is9Hole=true.
     // Antes devolvía {slope:128, CR:71.2, par:72} SIN is9Hole → resolverCourseHandicap
@@ -98,12 +112,12 @@ describe('cargarCourseData', () => {
   })
 
   it('tee no encontrado → fallback a tabla courses', async () => {
-    // Primera query (course_tees): sin data
-    mockResults.push({ data: null })
-    // Segunda query (courses): con data
+    // Primera query (courses): con data
     mockResults.push({
       data: { slope_rating: 130, course_rating: 72.5, par_total: 72 },
     })
+    // Segunda query (course_tees): sin data
+    mockResults.push({ data: null })
     const result = await cargarCourseData('course-abc', 'roja', 18)
     expect(result).toEqual({
       slope: 130,
@@ -120,19 +134,19 @@ describe('cargarCourseData', () => {
   })
 
   it('parTotal override respeta el parámetro en fallback a courses', async () => {
-    mockResults.push({ data: null })
     mockResults.push({
       data: { slope_rating: 130, course_rating: 72.5, par_total: 72 },
     })
+    mockResults.push({ data: null })
     const result = await cargarCourseData('course-abc', 'azul', 18, 71) // override par
     expect(result?.par).toBe(71)
   })
 
   it('courses con slope_rating pero sin course_rating → null', async () => {
-    mockResults.push({ data: null })
     mockResults.push({
       data: { slope_rating: 130, course_rating: null, par_total: 72 },
     })
+    mockResults.push({ data: null })
     const result = await cargarCourseData('course-abc', 'azul', 18)
     expect(result).toBeNull()
   })
@@ -167,7 +181,8 @@ describe('cargarCourseData', () => {
   it('multi-recorrido con children que no matchean por length → cae a single-course', async () => {
     // Pide 2 loops pero solo devuelve 1 child → no match, cae a single-course
     mockResults.push({ data: [{ id: 'c1', loop_nombre: 'LOOP_A', course_rating: 36, slope_rating: 120, par_total: 36 }] })
-    // Luego fallback a tee-specific
+    // Camino de cancha simple: primero `courses` (escala), después el tee.
+    mockResults.push(COURSES_18_SIN_RATING)
     mockResults.push({ data: { rating: 71.2, slope: 128 } })
     const result = await cargarCourseData('parent-xyz', 'azul', 18, 72, ['LOOP_A', 'LOOP_B'])
     expect(result).toEqual({

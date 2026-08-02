@@ -17,7 +17,7 @@ import { createClient } from '@supabase/supabase-js'
 import { computeStoredTeamHandicap } from '../src/lib/data/tournaments/teamRounds'
 import { fetchScrambleTeams } from '../src/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings } from '../src/golf/leaderboard/team-standings'
-import { fetchCourseHoles, buildFallbackCourseHoles } from '../src/lib/data/tournaments/leaderboard'
+import { fetchCourseHoles, hoyosDelTorneo } from '../src/lib/data/tournaments/leaderboard'
 import type { FormatoJuego, ModoJuego } from '../src/golf/core/rules'
 
 const SCRAMBLE_TOURNAMENT = '138eb381-484d-4733-91f2-0e6a081f8bb1' // torneo "a" (real, descartable)
@@ -33,7 +33,7 @@ function assert(cond: boolean, msg: string) {
 
 async function holesFor(courseId: string, holeCount: number) {
   const real = await fetchCourseHoles(supabase, courseId)
-  return real.length > 0 ? real : buildFallbackCourseHoles(holeCount)
+  return hoyosDelTorneo(real, holeCount)
 }
 
 function printBoard(label: string, rows: Array<{ teamNombre: string; teamHandicap: number; totalGross: number; totalNeto: number; overUnderNeto: number; holesPlayed: number }>) {
