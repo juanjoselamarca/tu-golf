@@ -2,14 +2,17 @@
 
 // Scorer del organizador — orquestador delgado (regla "el que toca, ordena").
 //   - Datos:   src/lib/data/tournaments/scoring.ts (cero supabase.from acá)
-//   - Lógica:  hooks/ (useScoringData, useScoreEntry, useHcpEditor)
+//   - Lógica:  hooks/ (useScoringData, useScoreEntry, useResumenBoard, useHcpEditor)
 //   - Vista:   components/
+// El tab Resumen consume el MISMO motor que el board público
+// (`buildLeaderboardFromLegacy`), no recalcula nada por su cuenta.
 
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Flag, PersonStanding } from '@/components/icons'
 import { useScoringData } from './hooks/useScoringData'
 import { useScoreEntry } from './hooks/useScoreEntry'
+import { useResumenBoard } from './hooks/useResumenBoard'
 import { useHcpEditor } from './hooks/useHcpEditor'
 import { ScoringHeader } from './components/ScoringHeader'
 import { MultiRoundControls } from './components/MultiRoundControls'
@@ -46,8 +49,18 @@ export default function ScoringPage() {
     reloadRoster: data.reloadRoster,
   })
 
+  const resumen = useResumenBoard({
+    tournament,
+    courseHoles,
+    active: activeTab === 'resumen',
+  })
+
   const hcpEditor = useHcpEditor({
-    onSaved: (playerId, value) => data.setPlayerHandicap(playerId, value),
+    onSaved: (playerId, value) => {
+      data.setPlayerHandicap(playerId, value)
+      // El board reparte golpes con este número: se rearma con el motor.
+      resumen.reload()
+    },
   })
 
   if (loading) {
@@ -157,7 +170,7 @@ export default function ScoringPage() {
         )}
 
         {activeTab === 'resumen' && (
-          <ResumenTab roster={players} hcpEditor={hcpEditor} />
+          <ResumenTab board={resumen} roster={players} hcpEditor={hcpEditor} />
         )}
 
         {activeTab === 'scoring' && (

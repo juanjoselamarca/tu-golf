@@ -1,43 +1,69 @@
-// Tab "Resumen" del scorer del organizador.
-//
-// NOTA: este componente conserva (a propósito, para no mezclar scopes en el
-// commit de refactor) la lógica HISTÓRICA de la página: tarjetas y tabla leídas
-// de `rounds[0]` y sus columnas denormalizadas. Esa lógica MIENTE en prod
-// ('completed' no existe como status; total_net queda en 0) y se reemplaza por
-// el motor del board público en el commit siguiente.
+// Tab "Resumen" del scorer del organizador. NO calcula golf: proyecta el board
+// del motor (`useResumenBoard`) — mismo motor y mismos números que la vista
+// pública del torneo. "Terminado" es `isFinishedCard` y "¿tiene datos?" es
+// `hasPlayData`, los mismos porteros del podio.
 
+import { isFinishedCard, hasPlayData } from '@/golf/leaderboard'
+import type { Player } from '@/lib/golf-data'
 import type { ScoringPlayer } from '@/lib/data/tournaments/scoring'
+import type { UseResumenBoardReturn } from '../hooks/useResumenBoard'
 import type { UseHcpEditorReturn } from '../hooks/useHcpEditor'
 
 interface ResumenTabProps {
+  board: UseResumenBoardReturn
   roster: ScoringPlayer[]
   hcpEditor: UseHcpEditorReturn
 }
 
-export function ResumenTab({ roster, hcpEditor }: ResumenTabProps) {
-  const completed = roster.filter((p) => p.rounds?.[0]?.status === 'completed').length
-  const withScores = roster.filter((p) => p.rounds?.[0]?.total_gross > 0).length
-  const bestGross = roster.reduce((best, p) => {
-    const g = p.rounds?.[0]?.total_gross
-    return g && g > 0 && (!best || g < best.score) ? { name: p.profiles?.name ?? '', score: g } : best
-  }, null as { name: string; score: number } | null)
-  const bestNet = roster.reduce((best, p) => {
-    const n = p.rounds?.[0]?.total_net
-    return n != null && n !== 0 && (!best || n < best.score) ? { name: p.profiles?.name ?? '', score: n } : best
-  }, null as { name: string; score: number } | null)
+const CARD_STYLE: React.CSSProperties = {
+  background: 'rgba(14,28,47,0.92)',
+  border: '1px solid rgba(196,153,42,0.15)',
+  borderRadius: '12px',
+  padding: '16px',
+  textAlign: 'center',
+}
 
-  const cards = [
-    { label: 'Jugadores', value: `${withScores}/${roster.length}`, sub: `${completed} completos` },
-    { label: 'Mejor Gross', value: bestGross ? String(bestGross.score) : '--', sub: bestGross?.name?.split(' ')[0] || '' },
-    { label: 'Mejor Neto', value: bestNet ? String(bestNet.score) : '--', sub: bestNet?.name?.split(' ')[0] || '' },
-  ]
+function estadoDe(row: Player): { label: string; done: boolean } {
+  if (isFinishedCard(row)) return { label: 'Completo', done: true }
+  if (hasPlayData({ holesPlayed: row.holes })) return { label: 'En juego', done: false }
+  return { label: 'Sin iniciar', done: false }
+}
+
+export function ResumenTab({ board, roster, hcpEditor }: ResumenTabProps) {
+  const { cards, rows, loading, error, reload } = board
+
+  if (error) {
+    return (
+      <div style={{ ...CARD_STYLE, padding: '32px' }}>
+        <div style={{ color: 'var(--text)', marginBottom: '12px' }}>No pudimos cargar el resumen.</div>
+        <button
+          onClick={reload}
+          style={{ background: 'rgba(196,153,42,0.12)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.3)', padding: '8px 20px', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}
+        >
+          Reintentar
+        </button>
+      </div>
+    )
+  }
+
+  if (loading && !cards) {
+    return <div style={{ ...CARD_STYLE, padding: '32px', color: 'var(--text-2)' }}>Cargando resumen...</div>
+  }
+
+  const statCards = cards
+    ? [
+        { label: 'Jugadores', value: `${cards.conScore}/${cards.totalJugadores}`, sub: `${cards.completos} completos` },
+        { label: 'Mejor Gross', value: cards.mejorGross ? String(cards.mejorGross.score) : '--', sub: cards.mejorGross?.name?.split(' ')[0] || '' },
+        { label: 'Mejor Neto', value: cards.mejorNeto ? String(cards.mejorNeto.score) : '--', sub: cards.mejorNeto?.name?.split(' ')[0] || '' },
+      ]
+    : []
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Stats cards */}
+      {/* Stats cards — números del MISMO motor que el board público */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-        {cards.map((c) => (
-          <div key={c.label} style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+        {statCards.map((c) => (
+          <div key={c.label} style={CARD_STYLE}>
             <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
             <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif' }}>{c.value}</div>
             {c.sub && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>{c.sub}</div>}
@@ -45,7 +71,7 @@ export function ResumenTab({ roster, hcpEditor }: ResumenTabProps) {
         ))}
       </div>
 
-      {/* Tabla de jugadores con handicap editable */}
+      {/* Tabla de jugadores (orden del ranking del board) con handicap editable */}
       <div style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(196,153,42,0.1)' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: 'var(--text)' }}>Jugadores</span>
@@ -61,15 +87,16 @@ export function ResumenTab({ roster, hcpEditor }: ResumenTabProps) {
               </tr>
             </thead>
             <tbody>
-              {roster.map((p) => {
-                const round = p.rounds?.[0]
-                const isDone = round?.status === 'completed'
-                const isEditingThis = hcpEditor.editingId === p.id
+              {rows.map((row) => {
+                const rosterPlayer = roster.find((p) => p.id === row.id)
+                const played = hasPlayData({ holesPlayed: row.holes })
+                const estado = estadoDe(row)
+                const isEditingThis = hcpEditor.editingId === row.id
                 return (
-                  <tr key={p.id} style={{ borderBottom: '1px solid rgba(122,143,168,0.06)' }}>
-                    <td style={{ padding: '10px 12px', color: 'var(--text)', fontWeight: 500 }}>{p.profiles?.name || '--'}</td>
+                  <tr key={row.id ?? row.name} style={{ borderBottom: '1px solid rgba(122,143,168,0.06)' }}>
+                    <td style={{ padding: '10px 12px', color: 'var(--text)', fontWeight: 500 }}>{row.name}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                      {isEditingThis ? (
+                      {isEditingThis && row.id ? (
                         <input
                           type="number"
                           step="0.1"
@@ -78,36 +105,42 @@ export function ResumenTab({ roster, hcpEditor }: ResumenTabProps) {
                           autoFocus
                           value={hcpEditor.editValue}
                           onChange={(e) => hcpEditor.setEditValue(e.target.value)}
-                          onBlur={() => hcpEditor.save(p.id)}
+                          onBlur={() => hcpEditor.save(row.id!)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') hcpEditor.save(p.id)
+                            if (e.key === 'Enter') hcpEditor.save(row.id!)
                             if (e.key === 'Escape') hcpEditor.cancel()
                           }}
                           style={{ width: '56px', background: 'var(--bg)', border: '1px solid #c4992a', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none' }}
                         />
                       ) : (
                         <button
-                          onClick={() => hcpEditor.startEdit(p.id, p.handicap_at_registration)}
+                          onClick={() => row.id && hcpEditor.startEdit(row.id, rosterPlayer?.handicap_at_registration ?? null)}
                           style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#c4992a', cursor: 'pointer', padding: '4px 8px', fontSize: '13px', fontWeight: 600 }}
                           title="Editar handicap"
                         >
-                          {p.handicap_at_registration ?? '--'}
+                          {rosterPlayer?.handicap_at_registration ?? row.hcpDisplay ?? '--'}
                         </button>
                       )}
                     </td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)', fontWeight: 600 }}>{round?.total_gross || '--'}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)' }}>{round?.total_net || '--'}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)' }}>{round?.total_points || '--'}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)', fontWeight: 600 }}>
+                      {played ? row.grossTotal ?? '--' : '--'}
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)' }}>
+                      {played ? row.netTotal ?? '--' : '--'}
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)' }}>
+                      {played && row.stablefordTotal ? row.stablefordTotal : '--'}
+                    </td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       <span style={{
                         fontSize: '11px',
                         padding: '3px 8px',
                         borderRadius: '12px',
-                        background: isDone ? 'rgba(22,163,74,0.15)' : 'rgba(122,143,168,0.1)',
-                        color: isDone ? '#4ade80' : '#4a5568',
-                        border: `1px solid ${isDone ? 'rgba(22,163,74,0.3)' : 'rgba(122,143,168,0.2)'}`,
+                        background: estado.done ? 'rgba(22,163,74,0.15)' : 'rgba(122,143,168,0.1)',
+                        color: estado.done ? '#4ade80' : '#4a5568',
+                        border: `1px solid ${estado.done ? 'rgba(22,163,74,0.3)' : 'rgba(122,143,168,0.2)'}`,
                       }}>
-                        {isDone ? 'Completo' : 'En juego'}
+                        {estado.label}
                       </span>
                     </td>
                   </tr>
