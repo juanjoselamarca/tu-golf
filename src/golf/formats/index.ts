@@ -135,6 +135,39 @@ export function isSharedBallFormat(key: string | null | undefined): boolean {
 }
 
 /**
+ * True si el formato puntúa por puntos Stableford (neto por hoyo → puntos).
+ *
+ * Fuente canónica del predicado "¿es stableford?" (tracking 30-jul-2026): estaba
+ * reescrito inline en ~10 archivos productivos. Se migra cada call-site al tocar
+ * su flujo — primero el scorer del organizador y su Resumen.
+ */
+export function isStablefordFormat(key: string | null | undefined): boolean {
+  return key === 'stableford'
+}
+
+/**
+ * FUENTE ÚNICA de "¿qué formato juega este torneo?".
+ *
+ * `tournaments` guarda el formato en DOS columnas: `formato_juego` (la canónica
+ * nueva) y `format` (la legacy). Cuando discrepan, gana `formato_juego`; `format`
+ * queda de respaldo para las filas viejas que sólo lo tienen a él.
+ *
+ * Por qué existe: el scorer del organizador decidía si escribir puntos
+ * stableford mirando `format`, mientras su propio tab Resumen y toda la vista
+ * pública rankeaban mirando `formato_juego`. En prod hay 4 torneos donde los dos
+ * campos discrepan (3 con `format='stableford'` y `formato_juego='stroke_play'`),
+ * así que la misma pantalla escribía puntos de un formato y ordenaba por otro.
+ * Los 4 son de prueba y en borrador, con cero hoyos con puntos: unificar no
+ * altera ningún dato persistido.
+ */
+export function resolveFormatoJuego(t: {
+  formato_juego?: string | null
+  format?: string | null
+}): string {
+  return t.formato_juego ?? t.format ?? 'stroke_play'
+}
+
+/**
  * Devuelve el GolfFormat para `key`. Si `key` no está registrada,
  * cae a stroke_play PERO registra el caso vía captureError para que
  * el equipo lo vea en `error_logs` (antes se tragaba en silencio).

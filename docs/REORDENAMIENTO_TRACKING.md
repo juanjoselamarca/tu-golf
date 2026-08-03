@@ -186,7 +186,7 @@ NO se reusa `STANDARD_PARS` de `golf/coach/hole-pars`: es un layout par-72 concr
 propio doc avisa que miente en canchas par 70/71, varias de las nuestras) y no cubre los
 hoyos >18 de canchas multi-recorrido. Conceptos parecidos, no el mismo.
 
-### Concepto "¿es stableford?" — pendiente de fuente canónica
+### Concepto "¿es stableford?" → `isStablefordFormat()` en `src/golf/formats`
 
 Detectado el 30-jul por el code-reviewer. El predicado `formato_juego === 'stableford'`
 está reescrito inline en ~10 archivos productivos (`TeamLeaderboard`,
@@ -201,8 +201,9 @@ flujo.
 
 | Sitio | Estado |
 |---|---|
-| `src/golf/formats` — falta `isStablefordFormat()` | ⏳ pendiente — crear la canónica al tocar el primer flujo |
-| ~10 call-sites productivos con el predicado inline | ⏳ pendiente — migrar al tocar cada flujo |
+| `src/golf/formats` — `isStablefordFormat()` | ✅ creada (2-ago, refactor del scorer del organizador) |
+| Scorer del organizador (`useScoreEntry` + `ScorecardPanel`; además los puntos salen de `puntosStablefordHoyo`, no de la fórmula inline) | ✅ migrado (2-ago) |
+| ~8 call-sites productivos restantes con el predicado inline (`TeamLeaderboard`, `compute-tournament-results`, `lib/ronda/leaderboard`, `share-card`, `api/en-vivo`, los dos `IndividualLeaderboard`, …) | ⏳ pendiente — migrar al tocar cada flujo |
 
 ### P0 CERRADO (30-jul) — el board legacy usaba `handicap_at_registration` crudo como course handicap
 
@@ -304,7 +305,7 @@ radius de golpe hacia las páginas gigantes):
 |---|---|
 | `src/app/torneo/[slug]/en-vivo/LiveHeader.tsx` | ✅ cableado — elimina su maqueta propia + `FORMAT_LABEL` hardcodeado (duplicaba `src/golf/formats`) |
 | `src/app/torneo/[slug]/page.tsx` (cabecera serif + pill dorada + wordmark "Golfers +" redundante) | ⏳ pendiente — migrar al tocar el flujo del torneo público |
-| `src/app/organizador/[slug]/scoring/page.tsx` (bloque navy propio) | ⏳ pendiente — migrar al tocar scoring |
+| `src/app/organizador/[slug]/scoring/page.tsx` (bloque navy propio, hoy `components/ScoringHeader.tsx`) | ⏳ pendiente — el refactor 2-ago lo aisló en su componente, pero NO lo migró: lleva controles operativos (EN VIVO, Rn/N, guardando, deshacer) que `TorneoHeader` no modela, y el swap visual es decisión de diseño del hilo principal |
 | `src/app/ronda-libre/[codigo]` en-vivo (título genérico "Marcador en vivo", no el nombre del torneo) | ⏳ pendiente — migrar al tocar ronda-libre |
 
 ---
@@ -353,5 +354,20 @@ prioridad, con el motivo:
 | 2 | **P0 — `handicap_at_registration` carga dos conceptos distintos.** Para jugadores registrados guarda un course handicap de 18h ya resuelto; para invitados, el índice crudo. `computePlayerCourseHcp` lo trata como índice y le aplica la fórmula WHS de nuevo (doble conversión, conocida desde el 8-jun) y ahora también la mitad de 9h. | `src/app/api/torneos/[slug]/inscribirse/route.ts:44`, `.../players/route.ts:107`, `src/golf/core/compute-player-course-hcp.ts` | Arreglarlo toca el motor de INSCRIPCIÓN de torneos. CLAUDE.md: "nunca se ensancha el blast radius de un PR de display hacia el motor de creación". Se migra al tocar ese flujo (ver `project_inscripcion_unificacion`). |
 | 3 | **P1 — "Qué hoyos se juegan" contestado de dos formas.** `normalizedStrokeIndexByHole` filtra por `numero <= holeCount` SIN deduplicar; `parDeLosHoyosJugados` deduplica y hace `slice`. Sobre un catálogo con filas repetidas por recorrido operan sobre conjuntos distintos. | `src/golf/core/stroke-index.ts:224` vs `src/golf/core/course-handicap.ts` | Cambiar la normalización del SI altera el reparto de golpes en TODOS los torneos, incluidos los de 18h en curso. Necesita su propio PR con canario. |
 | 4 | **Datos sucios — C.G. Río Blanco.** `par_total` 35 con `rating` 55 en sus 4 tees y 0 filas en `course_holes`. La fórmula ahora es coherente, pero con esos datos devuelve 26 golpes para un índice 12. Es catálogo, no código. | tabla `courses` / `course_tees` | Corrección de datos, no de código. Requiere el CR real de 9 hoyos del club. |
-| 5 | **`scoring/page.tsx` sigue "sucio"** (1005 LOC, `supabase.from()` directo desde `src/app/` fuera de `api/`). | `src/app/organizador/[slug]/scoring/page.tsx` | Aplicó la excepción de bug bloqueante: el cambio fueron 3 líneas dentro del cálculo de handicap. Refactor pendiente. |
+| 5 | ~~**`scoring/page.tsx` sigue "sucio"**~~ | `src/app/organizador/[slug]/scoring/page.tsx` | ✅ CERRADO (2-ago-2026, `fix/organizador-resumen-claude`): 1007 → 219 LOC al estándar — datos en `lib/data/tournaments/scoring.ts`, lógica en `hooks/`, vista en `components/`. |
+
+### Resumen del organizador consume el motor del board — fix 2-ago-2026
+
+El tab "Resumen" de `/organizador/[slug]/scoring` era la CUARTA copia del concepto
+"quién va mejor en este torneo" con una TERCERA definición de "terminado", y las dos
+tarjetas mentían en prod: "N completos" filtraba `rounds.status === 'completed'` (la
+columna sólo toma `in_progress`/`closed` — contador clavado en 0) y "Mejor Neto" leía
+`rounds[0].total_net` con guard `n !== 0` (19/77 rondas de prod con la columna en 0 →
+"--" con el torneo jugado).
+
+| Sitio | Estado |
+|---|---|
+| `useResumenBoard` → `buildLeaderboardFromLegacy` con contexto idéntico al de `/torneo` (`fetchResumenBoardInputs` = `LEGACY_PLAYER_SELECT` + mismo filtro de status + `fetchLegacyHcpContext`) | ✅ el organizador y el público ven los MISMOS números |
+| `computeResumenCards` en `src/golf/leaderboard/resumen-cards.ts` — proyecta `computeTournamentResults` (podio) + `isFinishedCard` + `hasPlayData` | ✅ creada (2-ago) — cero re-derivación |
+| Tabla de jugadores del Resumen (orden, gross/neto/pts, estado) | ✅ proyecta el ranking del motor; "Completo" = `isFinishedCard` |
 

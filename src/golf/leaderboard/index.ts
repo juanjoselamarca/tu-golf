@@ -13,3 +13,6 @@ export { computeTournamentResults, computeTeamTournamentResults, buildTeamPodium
 export type { TeamStandingForPodium } from './compute-tournament-results'
 export { rankEntries } from './rank-entries'
 export type { RankingMode, RankEntriesOptions } from './rank-entries'
+export { computeResumenCards } from './resumen-cards'
+export type { ResumenCards } from './resumen-cards'
+export { isFinishedCard, hasPlayData } from './board-rules'
