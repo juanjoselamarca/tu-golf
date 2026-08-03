@@ -133,16 +133,23 @@ describe('computePlayerCourseHcp', () => {
   // vez un negativo — el mismo síntoma por el lado contrario.
   // Caso real de prod: C.G. Río Blanco, par_total 35, rating 55, slope 113,
   // sin front ratings. Índice 12 daba −1.
-  it('una cancha de 9 hoyos REALES no parte el CR al medio (Río Blanco, par 35)', () => {
+  it('un rating imposible no envenena el handicap por ningún lado (Río Blanco, par 35)', () => {
     const tournament = { tees: null, courses: { par_total: 35, slope_rating: 113, course_rating: 55 } }
     const player = { ...basePlayer, handicap_at_registration: 12 }
 
     const ch = computePlayerCourseHcp(player, tournament, [], 35, 9)
 
-    // ANTES: round(6 × 113/113 + (55/2 − 35)) = round(6 − 7.5) = −1.
-    // AHORA: round(6 × 113/113 + (55 − 35)) = round(26) = 26.
-    expect(ch).toBe(26)
+    // El rating 55 contra par 35 no es válido en NINGUNA escala: +20 sobre el
+    // par si fuera de 9, −15 si fuera de 18. Partirlo daba −1 (negativo);
+    // dejarlo tal cual daba 26, que son ~3 golpes por hoyo para un índice 12 —
+    // tan roto como el negativo, sólo que del otro lado. Con un dato imposible
+    // el término (CR − par) se anula y queda la parte que sí es confiable:
+    // 6 × (113/113) = 6.
+    expect(ch).toBe(6)
     expect(ch).toBeGreaterThan(0)
+    // Con techo, no sólo con piso: el bug de #289 daba 26 y pasaba un
+    // `toBeGreaterThan(0)` sin despeinarse.
+    expect(ch).toBeLessThanOrEqual(8)
   })
 
   it('un tee de cancha de 9 hoyos reales tampoco parte su rating', () => {

@@ -185,19 +185,50 @@ export function parEnEscalaDe9(par: number): number {
 }
 
 /**
+ * Cuánto puede alejarse del par un Course Rating real. Los ratings USGA caen a
+ * pocos golpes del par; más que esto no es una cancha difícil, es un dato en
+ * otra escala o directamente roto.
+ */
+const BANDA_RATING_VS_PAR = 6
+
+/**
  * Course Rating de la vuelta de 9 hoyos, en la MISMA escala que `parEnEscalaDe9`.
  *
- * ⚠️ Toma el par de la cancha como señal de escala, no su propia magnitud. Un
- * umbral propio sobre el CR (`rating > 50 ? /2 : rating`) parece razonable y es
- * falso: C.G. Río Blanco tiene par 35 (9 hoyos) con rating 55, así que un
- * umbral sobre el rating lo partiría a 27.5 contra un par de 35 y devolvería
- * `(27.5 − 35)` → course handicap NEGATIVO para un jugador de índice 12.
+ * El par NO alcanza como señal de escala, porque el catálogo tiene las dos
+ * columnas escaladas por separado. Las 9 filas donde pasa hoy NO son canchas de
+ * 9 hoyos: son los loops HIJOS de tres clubes de 27 (Rocas de Santo Domingo,
+ * Brisas, Marbella), cada uno con `par_total = 36` junto a
+ * `course_rating = 72`. Mirando sólo el par se concluye "ya es de 9" y el
+ * rating queda sin partir → `(72 − 36)` = **+36 golpes** en cada course
+ * handicap. Tampoco alcanza un umbral sobre la magnitud del rating: partir todo
+ * lo que pase de 50 devuelve `(27.5 − 35)` en una cancha par 35 → handicaps
+ * NEGATIVOS.
+ *
+ * OJO: quien consuma esos loops por el camino multi-recorrido (paso 0 de
+ * `resolverCourseData`) tiene que llamar a esta función POR CADA hijo antes de
+ * sumar los ratings. Sumarlos crudos reintroduce el mismo +36 (y +72 con dos
+ * loops) sin pasar por acá.
+ *
+ * La rama "ya viene en 9" no la ejercita ninguna fila del catálogo hoy (0 de
+ * 619): es el seguro para cuando entre una cancha de 9 hoyos bien cargada.
+ *
+ * La señal que sí sirve es la RELACIÓN entre los dos: un rating válido queda a
+ * menos de `BANDA_RATING_VS_PAR` golpes de su par. Se prueba la hipótesis
+ * "ya viene en 9" y después "viene en 18"; si ninguna cierra, el dato es
+ * imposible (C.G. Río Blanco: par 35 con rating 55, que no es válido en
+ * ninguna escala) y se devuelve el par para que el término `(CR − par)` se
+ * anule. Un handicap sin el ajuste de rating queda levemente aproximado; uno
+ * calculado sobre un rating imposible queda catastrófico.
  *
  * Si el tee publica `front_course_rating` usá ESE valor y no esta función: ya
  * es un CR de 9 hoyos medido, no una aproximación.
  */
 export function courseRatingEnEscalaDe9(courseRating: number, parDeLaCancha: number): number {
-  return esEscalaDe18Hoyos(parDeLaCancha) ? courseRating / 2 : courseRating
+  const par9 = parEnEscalaDe9(parDeLaCancha)
+  if (Math.abs(courseRating - par9) <= BANDA_RATING_VS_PAR) return courseRating
+  const mitad = courseRating / 2
+  if (Math.abs(mitad - par9) <= BANDA_RATING_VS_PAR) return mitad
+  return par9
 }
 
 /**
@@ -256,8 +287,31 @@ export async function resolverCourseData(
     if (children && children.length === recorridos.length) {
       // Sumar CR/par across loops; promediar slope ponderado por hoyos.
       // Asumimos que cada child es 9h (o 18h si tipo_recorrido lo define).
-      const crSum = children.reduce((s, c) => s + (c.course_rating ?? 0), 0)
+      // Cada loop aporta su rating YA NORMALIZADO a la escala de su propio par.
+      // Sumarlos crudos era el agujero grande: los 9 loops hijos del catálogo
+      // guardan `par_total = 36` con `course_rating = 72`, así que un recorrido
+      // de 1 loop sumaba 72 contra un par de 36 (+36 golpes) y uno de 2 loops
+      // sumaba 144 contra 72 (+72). Este paso 0 era el ÚNICO consumidor de la
+      // escala que no pasaba por el helper canónico.
+      const crSum = children.reduce(
+        (s, c) => s + (c.course_rating != null ? courseRatingEnEscalaDe9(c.course_rating, c.par_total ?? 36) : 0),
+        0,
+      )
       const parSum = children.reduce((s, c) => s + (c.par_total ?? 36), 0)
+
+      // `parSum` es el par AUTORITATIVO de los loops elegidos: sale de las
+      // filas hijas, así que ya está en la escala del recorrido. `parTotal`
+      // (derivado de course_holes) es más fino, pero sólo sirve si viene en
+      // la MISMA escala — y no siempre viene. Este paso era el único de los
+      // tres que lo tomaba a ciegas; mientras el CR tampoco se normalizaba,
+      // un par de 72 se cancelaba solo contra un CR de 72 y salía bien por
+      // accidente. Comparar las dos escalas cierra las DOS direcciones: un
+      // parTotal de 18 en un recorrido de 9 (daba −30) y uno de 9 en un
+      // recorrido de 18 (daba +108).
+      const parDeLosLoops =
+        parTotal != null && esEscalaDe18Hoyos(parTotal) === esEscalaDe18Hoyos(parSum)
+          ? parTotal
+          : parSum
       const slopeAvg = children.length > 0
         ? Math.round(children.reduce((s, c) => s + (c.slope_rating ?? 113), 0) / children.length)
         : 113
@@ -266,7 +320,12 @@ export async function resolverCourseData(
         return {
           slope: slopeAvg,
           courseRating: crSum,
-          par: parTotal ?? parSum,
+          // Un solo loop es una vuelta de 9: el par tiene que estar en esa
+          // escala. Este paso era el ÚNICO camino que confiaba en `parTotal` a
+          // ciegas (los otros dos pasan por `resolveNineHolePar`). Mientras el
+          // CR tampoco se normalizaba, un `parTotal` de 72 se cancelaba solo
+          // contra el CR de 72; al arreglar el CR quedó a la vista.
+          par: parDeLosLoops,
           is9Hole: recorridos.length === 1,
         }
       }
@@ -279,7 +338,15 @@ export async function resolverCourseData(
         .in('course_id', childIds)
         .ilike('nombre', `${teeNorm2}%`)
       if (teeRows && teeRows.length === children.length) {
-        const crSumTee = teeRows.reduce((s, t) => s + (t.front_course_rating ?? t.rating ?? 0), 0)
+        // Mismo criterio que `crSum`: `front_course_rating` ya es un CR de 9
+        // hoyos MEDIDO y se usa tal cual; el `rating` genérico del tee hay que
+        // normalizarlo contra el par de SU loop antes de sumarlo.
+        const parPorLoop = new Map(children.map((c) => [c.id, c.par_total ?? 36]))
+        const crSumTee = teeRows.reduce((s, t) => {
+          if (t.front_course_rating != null) return s + t.front_course_rating
+          if (t.rating == null) return s
+          return s + courseRatingEnEscalaDe9(t.rating, parPorLoop.get(t.course_id) ?? 36)
+        }, 0)
         const slopeAvgTee = Math.round(
           teeRows.reduce((s, t) => s + (t.front_slope_rating ?? t.slope ?? 113), 0) / teeRows.length
         )
@@ -287,7 +354,7 @@ export async function resolverCourseData(
           return {
             slope: slopeAvgTee,
             courseRating: crSumTee,
-            par: parTotal ?? parSum,
+            par: parDeLosLoops,
             is9Hole: recorridos.length === 1,
           }
         }
