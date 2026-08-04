@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   integracion:
-    name: Motor de golf vs Supabase prod (read-only)
+    name: Motor de golf vs Supabase prod
     runs-on: ubuntu-latest
     # Los secrets NO llegan a un pull_request que viene de un fork. Hoy todos los
     # PRs salen de ramas de este mismo repo, así que el job corre siempre; el día
