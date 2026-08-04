@@ -8,8 +8,10 @@
 # estuvo 3 días en producción. La encontró alguien corriendo los tests a mano
 # por casualidad. Este workflow cierra ese agujero.
 #
-# READ-ONLY. Ningún test de `src/__tests__/integration/` escribe ni borra nada en
-# producción. Si alguna vez uno necesita escribir, no va acá.
+# QUÉ NO CORRE ACÁ. `import-pipeline.test.ts` queda excluido: ya tiene workflow
+# propio (`import-canary.yml`) con su propio grupo de concurrencia. Correrlo
+# desde los dos lados hacía que dos runs mutaran el mismo usuario de prueba de
+# producción a la vez, y el canario fallaba por colisión, no por un bug.
 
 name: Integración (motor vs data real)
 
@@ -18,13 +20,19 @@ on:
     branches: [main]
   pull_request:
 
+# Grupo GLOBAL, no por rama. Varios de estos tests escriben en la BD de
+# producción (`score-upsert-merge` inserta y borra rondas). Con un grupo por
+# `github.ref`, un push a main y un PR abierto corren A LA VEZ sobre la misma
+# data y se pisan — la clase de falla que ya conocíamos del import canary. Se
+# serializan: `cancel-in-progress: false` los encola en vez de matarlos, porque
+# el job dura ~1.5 min y un run cancelado deja el estado a medio limpiar.
 concurrency:
-  group: integracion-${{ github.ref }}
-  cancel-in-progress: true
+  group: integracion-prod
+  cancel-in-progress: false
 
 jobs:
   integracion:
-    name: Motor de golf vs Supabase prod (read-only)
+    name: Motor de golf vs Supabase prod
     runs-on: ubuntu-latest
     # Los secrets NO llegan a un pull_request que viene de un fork. Hoy todos los
     # PRs salen de ramas de este mismo repo, así que el job corre siempre; el día
