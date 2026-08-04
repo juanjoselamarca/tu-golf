@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "node --env-file=.env.local node_modules/vitest/vitest.mjs run src/__tests__/integration",
+    "test:integration:ci": "vitest run src/__tests__/integration --retry=2",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:smoke": "playwright test --project=mobile-chromium e2e/smoke.spec.ts e2e/smoke-public-pages.spec.ts",
