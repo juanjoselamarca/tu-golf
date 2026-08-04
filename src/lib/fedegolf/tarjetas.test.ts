@@ -98,15 +98,23 @@ describe('truncarIndiceFedegolf', () => {
     expect(truncarIndiceFedegolf(12.99)).toBe(12.9)
   })
 
-  it('no se come un decimal por error de float (8.7 no puede volverse 8.6)', () => {
-    // 8.7 * 10 === 86.99999999999999 en varios motores; sin el epsilon,
-    // Math.floor lo bajaría a 8.6 y le regalaríamos un décimo al usuario.
-    for (const v of [8.7, 2.9, 5.7, 9.5, 10.3, 0.3, 1.1]) {
-      expect(truncarIndiceFedegolf(v)).toBe(v)
-    }
+  it('no se come un decimal por error de float al promediar', () => {
+    // El error NO está en `8.7 * 10` (V8 da 87 exacto): está en la suma y la
+    // división que producen el promedio crudo. Estos dos son promedios de
+    // diferenciales reales que sin el epsilon bajan un décimo — y además
+    // rompen el guard del modal, escondiendo la pantalla entera.
+    expect((15.5 + 37.1 + 24.2) / 3).not.toBe(25.6) // 25.599999999999998
+    expect(truncarIndiceFedegolf((15.5 + 37.1 + 24.2) / 3)).toBe(25.6)
+    expect(truncarIndiceFedegolf((17.3 + 7 + 33.8 + 12.4 + 4 + 16.1 + 0.6 + 22.6 + 7.7) / 9)).toBe(
+      13.5
+    )
   })
 
-  it('respeta el signo en índices bajo par (jugador plus)', () => {
+  it('con índices plus hace floor — convención de la fede NO verificada (TODO: medir)', () => {
+    // -1.25 → -1.3 es floor, no truncado hacia cero (que daría -1.2). La
+    // evidencia del 3-ago cubre sólo el lado positivo. Esto documenta lo que
+    // el código HACE, no lo que la fede hace: no tomarlo por spec. El modo de
+    // falla es seguro (el guard esconde la fórmula, el hero no miente).
     expect(truncarIndiceFedegolf(-1.25)).toBe(-1.3)
   })
 })

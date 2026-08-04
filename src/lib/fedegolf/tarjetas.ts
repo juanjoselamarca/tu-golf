@@ -136,9 +136,26 @@ export function procesarTarjetas(html: string): FedegolfTarjeta[] {
  * dan lo mismo — por eso el test pasaba con el código equivocado. El fixture
  * `listado-20-trunca.html` conserva el caso que sí distingue.
  *
- * Ojo con el float: `8.7 * 10` puede dar 86.99999999999999 y `Math.floor` lo
- * bajaría a 8.6. El epsilon salva el error de representación (~1e-14) sin
- * tapar una diferencia real (que en 1 decimal nunca es menor a 0.1).
+ * POR QUÉ EL EPSILON. No es por `literal * 10` — V8 da `8.7 * 10 === 87`
+ * exacto. El error aparece en la SUMA/DIVISIÓN que produce el promedio:
+ *
+ *   (15.5 + 37.1 + 24.2) / 3 === 25.599999999999998 → floor pelado da 25.5
+ *
+ * Sin epsilon eso le come un décimo al usuario Y rompe el guard del modal
+ * (el derivado deja de cuadrar con el oficial → se esconde la pantalla).
+ * Barriendo promedios realistas, pasa en ~2% de los casos.
+ *
+ * El epsilon no puede tapar una diferencia real en este dominio: con `S`
+ * múltiplo de 0.1 y `n` diferenciales, si el promedio no cae justo en un
+ * décimo, su distancia mínima al décimo es `1/(10n)` — 0.005 con n=20, nueve
+ * órdenes de magnitud sobre 1e-9. Correcto por construcción, no por suerte.
+ *
+ * OJO CON LOS NEGATIVOS (jugador plus): esto es `floor`, no truncado hacia
+ * cero — `-1.25` cae a `-1.3`, no a `-1.2`. La evidencia medida cubre sólo el
+ * lado positivo; cuál de las dos usa la fede para índices bajo par NO está
+ * verificado. Se deja floor porque el modo de falla es seguro: si no coincide,
+ * el guard esconde la fórmula y el hero sigue mostrando el número oficial.
+ * Antes de cambiarlo, medir contra un jugador plus real.
  */
 export function truncarIndiceFedegolf(valor: number): number {
   return Math.floor(valor * 10 + 1e-9) / 10
