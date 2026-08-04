@@ -8,6 +8,7 @@ import {
   procesarTarjetas,
   resumenIndiceOficial,
   fedegolfGetTarjetasIndice,
+  truncarIndiceFedegolf,
 } from './tarjetas'
 
 const fixtureHtml = readFileSync(
@@ -90,10 +91,36 @@ describe('procesarTarjetas', () => {
   })
 })
 
+describe('truncarIndiceFedegolf', () => {
+  it('trunca al primer decimal, no redondea', () => {
+    expect(truncarIndiceFedegolf(9.3625)).toBe(9.3)
+    expect(truncarIndiceFedegolf(9.19)).toBe(9.1)
+    expect(truncarIndiceFedegolf(12.99)).toBe(12.9)
+  })
+
+  it('no se come un decimal por error de float (8.7 no puede volverse 8.6)', () => {
+    // 8.7 * 10 === 86.99999999999999 en varios motores; sin el epsilon,
+    // Math.floor lo bajaría a 8.6 y le regalaríamos un décimo al usuario.
+    for (const v of [8.7, 2.9, 5.7, 9.5, 10.3, 0.3, 1.1]) {
+      expect(truncarIndiceFedegolf(v)).toBe(v)
+    }
+  })
+
+  it('respeta el signo en índices bajo par (jugador plus)', () => {
+    expect(truncarIndiceFedegolf(-1.25)).toBe(-1.3)
+  })
+})
+
 describe('resumenIndiceOficial', () => {
-  it('el promedio de los diferenciales que cuentan cuadra con el índice oficial (9.1)', () => {
-    const { promedio } = resumenIndiceOficial(procesarTarjetas(fixtureHtml))
-    expect(promedio).toBe(9.1)
+  it('el índice derivado cuadra con el índice oficial (9.1)', () => {
+    const { indiceDerivado } = resumenIndiceOficial(procesarTarjetas(fixtureHtml))
+    expect(indiceDerivado).toBe(9.1)
+  })
+
+  it('expone el promedio crudo aparte del derivado (para explicar el truncado)', () => {
+    const r = resumenIndiceOficial(procesarTarjetas(fixtureHtml))
+    expect(r.promedioCrudo).toBeCloseTo(9.1375, 6)
+    expect(r.indiceDerivado).toBe(9.1)
   })
 
   it('el campeonato aporta su diferencial dos veces (8 slots que cuentan sobre 20)', () => {
@@ -108,11 +135,49 @@ describe('resumenIndiceOficial', () => {
     expect(r.diferencialesQueCuentan[0]).toBe(7.2)
   })
 
-  it('sin tarjetas que cuenten → promedio null, sin crash', () => {
+  it('sin tarjetas que cuenten → derivado null, sin crash', () => {
     const r = resumenIndiceOficial([])
-    expect(r.promedio).toBeNull()
+    expect(r.promedioCrudo).toBeNull()
+    expect(r.indiceDerivado).toBeNull()
     expect(r.diferencialesQueCuentan).toEqual([])
     expect(r.slotsVentana).toBe(0)
+  })
+})
+
+/**
+ * CANARIO DISCRIMINANTE — el fixture de arriba (oficial 9.1) promedia 9.1375, y
+ * ahí redondear y truncar dan lo mismo: pasaba en verde con el código roto.
+ * Este fixture es el estado real del 3-ago-2026, donde las dos convenciones se
+ * separan, y es el único que puede volver a poner en rojo esta regresión.
+ */
+describe('convención de redondeo (fixture discriminante, oficial 9.3)', () => {
+  const htmlTrunca = readFileSync(
+    resolve(process.cwd(), 'src/lib/fedegolf/__fixtures__/listado-20-trunca.html'),
+    'utf8'
+  )
+  const INDICE_OFICIAL_MEDIDO = 9.3 // leído de fedegolf.cl en la misma corrida
+
+  it('el promedio crudo cae justo donde redondear y truncar difieren', () => {
+    const r = resumenIndiceOficial(procesarTarjetas(htmlTrunca))
+    expect(r.diferencialesQueCuentan).toEqual([7.2, 8.8, 8.9, 8.9, 9.5, 9.7, 10.5, 11.4])
+    expect(r.promedioCrudo).toBeCloseTo(9.3625, 6)
+    // Si esto dejara de cumplirse, el test ya no estaría probando nada.
+    expect(Math.round(r.promedioCrudo! * 10) / 10).not.toBe(INDICE_OFICIAL_MEDIDO)
+  })
+
+  it('el derivado es el índice oficial — truncando, no redondeando', () => {
+    const r = resumenIndiceOficial(procesarTarjetas(htmlTrunca))
+    expect(r.indiceDerivado).toBe(INDICE_OFICIAL_MEDIDO)
+  })
+
+  it('el guard del modal exige coincidencia exacta al decimal mostrado', () => {
+    const r = resumenIndiceOficial(procesarTarjetas(htmlTrunca))
+    // Réplica del predicado de FedegolfIndiceModal: con el derivado correcto
+    // cuadra, y con el redondeado (el bug) NO — que es lo que escondía la
+    // pantalla entera. Una tolerancia de ±0.1 daría true en ambos casos.
+    const cuadra = (derivado: number) => derivado.toFixed(1) === INDICE_OFICIAL_MEDIDO.toFixed(1)
+    expect(cuadra(r.indiceDerivado!)).toBe(true)
+    expect(cuadra(Math.round(r.promedioCrudo! * 10) / 10)).toBe(false)
   })
 })
 
