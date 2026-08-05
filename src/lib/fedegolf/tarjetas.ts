@@ -105,40 +105,80 @@ export function parseTarjetas(html: string): TarjetaCruda[] {
  * durante horas. Ambos números tienen que venir del mismo fetch o no hay
  * comparación válida.
  */
-export interface IndicePublicado {
-  /** El índice tal como lo publica fedegolf.cl en esta misma página. */
-  indice: number | null
-  /** "Nota: 8 tarjetas Utilizadas" — cuántos diferenciales dice haber usado. */
-  tarjetasUtilizadas: number | null
+/**
+ * El índice oficial NO se parsea de acá. Para eso está `fedegolfGetIndice()`
+ * (`src/lib/fedegolf/client.ts`): POST a `json.php` del MISMO módulo
+ * `modVeinteMejoresPalos`, que devuelve `{ indice: "9.1" }` tipado. Verificado
+ * el 4-ago-2026 que acepta la sesión de PÁGINA, así que el route del listado
+ * puede llamarlo con la sesión que ya tiene.
+ *
+ * Un regex sobre HTML no debe competir con un accessor que ya devuelve el dato
+ * estructurado (regla "un concepto, una fuente"). El costo de la segunda
+ * llamada es ~200ms en el mismo handler — contra las 24h de `profiles.indice`,
+ * la ventana de desfase deja de importar.
+ *
+ * Lo único que sí hay que raspar es el conteo, porque no lo expone ningún JSON.
+ */
+const VENTANA_INDICE_CHARS = 1500
+const SLOTS_VENTANA_MAX = 20
+
+/**
+ * "Nota: 8 tarjetas Utilizadas" — cuántos diferenciales dice la fede haber
+ * usado. Sirve de validación cruzada de NUESTRA selección: si elegimos otra
+ * cantidad, la selección está mal aunque el promedio dé bien de casualidad.
+ *
+ * Se ancla en "NDICE ACTUAL" (sin la Í, para no depender de UTF-8 vs
+ * `&Iacute;`) y mira sólo una ventana acotada: sin ese límite el "bloque" sería
+ * todo el resto del documento — incluida la sección EVOLUCIÓN ÍNDICE con su
+ * chart — y cualquier número de más abajo podría colarse.
+ *
+ * Devuelve null ante cualquier duda. El consumidor trata null como "no se pudo
+ * verificar" y no como error: la página de un socio puede no traer la nota (el
+ * fixture `listado-20.html` la trae vacía) y ser estricto ahí sería un apagón
+ * auto-infligido.
+ */
+export function parseTarjetasUtilizadas(html: string): number | null {
+  const anclaje = html.search(/NDICE\s+ACTUAL/i)
+  if (anclaje === -1) return null
+  const bloque = html.slice(anclaje, anclaje + VENTANA_INDICE_CHARS)
+  const m = /(\d+)\s*tarjetas?\s+utilizad[ao]s?/i.exec(bloque)
+  if (!m) return null
+  const n = Number.parseInt(m[1], 10)
+  // La ventana WHS son 20 slots (un campeonato aporta 2). Fuera de rango es
+  // basura de parseo, no un dato: mejor null que un conteo inventado.
+  return Number.isFinite(n) && n >= 1 && n <= SLOTS_VENTANA_MAX ? n : null
 }
 
 /**
- * Parsea el bloque "ÍNDICE ACTUAL" del listado.
+ * ¿Podemos MOSTRAR la fórmula, o hay que limitarse al número oficial?
  *
- * Estructura (verificada 4-ago-2026):
- *   <h3 class="code-title">ÍNDICE ACTUAL</h3>
- *   ... <strong class="h5">9.1&nbsp;&nbsp;&nbsp;</strong>
- *   ... <strong>Nota: </strong>8 tarjetas Utilizadas
+ * Pura y exportada a propósito: es la decisión que causaba el bug (la pantalla
+ * escondiéndose sola), así que tiene que ser testeable sin montar el modal.
  *
- * Se ancla en "NDICE ACTUAL" (sin la Í, para no depender de si viene en UTF-8
- * o como `&Iacute;`) y toma el primer `h5` que aparece DESPUÉS — así un número
- * suelto de más arriba en la página no se cuela.
+ * Dos condiciones, ambas fail-safe:
+ * - El conteo que publica la fede coincide con los diferenciales que elegimos.
+ *   `null` = no se pudo verificar → no bloquea.
+ * - El derivado coincide, AL DECIMAL MOSTRADO, con el oficial del MISMO
+ *   instante. Sin tolerancia: en un número de 1 decimal una discrepancia de
+ *   redondeo vale como máximo 0.1, así que tolerar ±0.1 era tolerar por
+ *   definición el único error que había que cazar.
+ *
+ * `oficialDelMismoInstante` null → no se compara contra nada. NO se cae a
+ * `profiles.indice`: ese tiene cooldown de 24h y compararlo contra una
+ * derivación en vivo es exactamente el bug que este guard provocaba.
  */
-export function parseIndicePublicado(html: string): IndicePublicado {
-  const anclaje = html.search(/NDICE\s+ACTUAL/i)
-  if (anclaje === -1) return { indice: null, tarjetasUtilizadas: null }
-  const bloque = html.slice(anclaje)
-
-  const mIndice = /<strong[^>]*class="[^"]*\bh5\b[^"]*"[^>]*>\s*(-?\d+(?:[.,]\d+)?)/i.exec(bloque)
-  const crudo = mIndice ? Number.parseFloat(mIndice[1].replace(',', '.')) : NaN
-
-  const mTarjetas = /(\d+)\s*tarjetas?\s+utilizadas/i.exec(bloque)
-  const usadas = mTarjetas ? Number.parseInt(mTarjetas[1], 10) : NaN
-
-  return {
-    indice: Number.isFinite(crudo) ? crudo : null,
-    tarjetasUtilizadas: Number.isFinite(usadas) ? usadas : null,
-  }
+export function formulaEsExplicable(args: {
+  indiceDerivado: number | null
+  oficialDelMismoInstante: number | null
+  tarjetasUtilizadas: number | null
+  diferencialesQueCuentan: number
+}): boolean {
+  const { indiceDerivado, oficialDelMismoInstante, tarjetasUtilizadas, diferencialesQueCuentan } =
+    args
+  if (indiceDerivado == null) return false
+  if (tarjetasUtilizadas != null && tarjetasUtilizadas !== diferencialesQueCuentan) return false
+  if (oficialDelMismoInstante == null) return true
+  return indiceDerivado.toFixed(1) === oficialDelMismoInstante.toFixed(1)
 }
 
 /** Filtro de sanidad: diferencial finito y en rango WHS (caza la basura sin tocar 9h). */
@@ -275,20 +315,19 @@ export function resumenIndiceOficial(tarjetas: FedegolfTarjeta[]): ResumenIndice
 }
 
 /**
- * Trae las ~20 tarjetas del índice del socio logueado, MÁS el índice que la
- * fede publica en esa misma página. El GET auto-scopea al socio de la sesión
- * (verificado) — no necesita club/usuario.
+ * Trae las ~20 tarjetas del índice del socio logueado, más el conteo de
+ * tarjetas que la fede declara haber usado. El GET auto-scopea al socio de la
+ * sesión (verificado) — no necesita club/usuario.
  *
- * Los dos datos salen del MISMO fetch a propósito: es lo que garantiza que el
- * número oficial y la derivación correspondan al mismo instante.
+ * El índice oficial NO viene de acá: lo trae `fedegolfGetIndice()` por JSON.
  */
 export async function fedegolfGetTarjetasIndice(
   session: FedegolfSession
-): Promise<{ tarjetas: FedegolfTarjeta[]; publicado: IndicePublicado }> {
+): Promise<{ tarjetas: FedegolfTarjeta[]; tarjetasUtilizadas: number | null }> {
   const res = await fetch(`${BASE_URL}${LISTADO_PATH}`, {
     redirect: 'manual',
     headers: { Cookie: session.cookie, 'User-Agent': USER_AGENT },
   })
   const html = await res.text()
-  return { tarjetas: procesarTarjetas(html), publicado: parseIndicePublicado(html) }
+  return { tarjetas: procesarTarjetas(html), tarjetasUtilizadas: parseTarjetasUtilizadas(html) }
 }
