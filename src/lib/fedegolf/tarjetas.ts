@@ -90,6 +90,57 @@ export function parseTarjetas(html: string): TarjetaCruda[] {
   return filas
 }
 
+/**
+ * El índice que la fede PUBLICA en la misma página del listado, y cuántas
+ * tarjetas dice haber usado para calcularlo.
+ *
+ * Por qué importa que salga de este HTML y no de `profiles.indice`: el índice
+ * guardado se sincroniza con cooldown de 24h (`SYNC_INDICE_COOLDOWN_HORAS`),
+ * así que cuando entra una tarjeta nueva el listado ya refleja el índice nuevo
+ * y el guardado todavía no. Comparar una derivación EN VIVO contra un número
+ * GUARDADO Y VIEJO garantiza que se contradigan durante esa ventana.
+ *
+ * Medido el 4-ago-2026: entró una tarjeta (diff 5.5), el listado y el índice
+ * publicado pasaron a 9.1 al instante, y `profiles.indice` siguió en 9.3
+ * durante horas. Ambos números tienen que venir del mismo fetch o no hay
+ * comparación válida.
+ */
+export interface IndicePublicado {
+  /** El índice tal como lo publica fedegolf.cl en esta misma página. */
+  indice: number | null
+  /** "Nota: 8 tarjetas Utilizadas" — cuántos diferenciales dice haber usado. */
+  tarjetasUtilizadas: number | null
+}
+
+/**
+ * Parsea el bloque "ÍNDICE ACTUAL" del listado.
+ *
+ * Estructura (verificada 4-ago-2026):
+ *   <h3 class="code-title">ÍNDICE ACTUAL</h3>
+ *   ... <strong class="h5">9.1&nbsp;&nbsp;&nbsp;</strong>
+ *   ... <strong>Nota: </strong>8 tarjetas Utilizadas
+ *
+ * Se ancla en "NDICE ACTUAL" (sin la Í, para no depender de si viene en UTF-8
+ * o como `&Iacute;`) y toma el primer `h5` que aparece DESPUÉS — así un número
+ * suelto de más arriba en la página no se cuela.
+ */
+export function parseIndicePublicado(html: string): IndicePublicado {
+  const anclaje = html.search(/NDICE\s+ACTUAL/i)
+  if (anclaje === -1) return { indice: null, tarjetasUtilizadas: null }
+  const bloque = html.slice(anclaje)
+
+  const mIndice = /<strong[^>]*class="[^"]*\bh5\b[^"]*"[^>]*>\s*(-?\d+(?:[.,]\d+)?)/i.exec(bloque)
+  const crudo = mIndice ? Number.parseFloat(mIndice[1].replace(',', '.')) : NaN
+
+  const mTarjetas = /(\d+)\s*tarjetas?\s+utilizadas/i.exec(bloque)
+  const usadas = mTarjetas ? Number.parseInt(mTarjetas[1], 10) : NaN
+
+  return {
+    indice: Number.isFinite(crudo) ? crudo : null,
+    tarjetasUtilizadas: Number.isFinite(usadas) ? usadas : null,
+  }
+}
+
 /** Filtro de sanidad: diferencial finito y en rango WHS (caza la basura sin tocar 9h). */
 export function filtrarSanidad(t: { diferencial: number }): boolean {
   return Number.isFinite(t.diferencial) && t.diferencial >= DIFF_MIN && t.diferencial <= DIFF_MAX
@@ -224,16 +275,20 @@ export function resumenIndiceOficial(tarjetas: FedegolfTarjeta[]): ResumenIndice
 }
 
 /**
- * Trae las ~20 tarjetas del índice del socio logueado. El GET auto-scopea al
- * socio de la sesión (verificado) — no necesita club/usuario.
+ * Trae las ~20 tarjetas del índice del socio logueado, MÁS el índice que la
+ * fede publica en esa misma página. El GET auto-scopea al socio de la sesión
+ * (verificado) — no necesita club/usuario.
+ *
+ * Los dos datos salen del MISMO fetch a propósito: es lo que garantiza que el
+ * número oficial y la derivación correspondan al mismo instante.
  */
 export async function fedegolfGetTarjetasIndice(
   session: FedegolfSession
-): Promise<FedegolfTarjeta[]> {
+): Promise<{ tarjetas: FedegolfTarjeta[]; publicado: IndicePublicado }> {
   const res = await fetch(`${BASE_URL}${LISTADO_PATH}`, {
     redirect: 'manual',
     headers: { Cookie: session.cookie, 'User-Agent': USER_AGENT },
   })
   const html = await res.text()
-  return procesarTarjetas(html)
+  return { tarjetas: procesarTarjetas(html), publicado: parseIndicePublicado(html) }
 }

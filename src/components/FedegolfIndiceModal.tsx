@@ -24,6 +24,10 @@ interface TarjetasResponse {
   promedioCrudo?: number | null
   /** Promedio ya truncado con la convención FedeGolf: debe coincidir con el índice oficial. */
   indiceDerivado?: number | null
+  /** Índice oficial del MISMO fetch que las tarjetas (no el guardado, que puede estar viejo). */
+  indicePublicado?: number | null
+  /** Cuántas tarjetas dice la fede haber usado — validación cruzada de nuestra selección. */
+  tarjetasUtilizadas?: number | null
   diferencialesQueCuentan?: number[]
   slotsVentana?: number
   rondasQueCuentan?: number
@@ -105,7 +109,13 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
   const diffsCuentan = data?.diferencialesQueCuentan ?? []
   const promedioCrudo = data?.promedioCrudo ?? null
   const indiceDerivado = data?.indiceDerivado ?? null
-  const hero = indiceOficial ?? indiceDerivado
+  const tarjetasUtilizadas = data?.tarjetasUtilizadas ?? null
+  // El oficial sale del MISMO fetch que las tarjetas. `indiceOficial`
+  // (profiles.indice) queda de respaldo: se sincroniza con cooldown de 24h, así
+  // que apenas entra una tarjeta nueva se queda viejo y contradice a la
+  // derivación en vivo — comparar contra él escondía la pantalla sola.
+  const oficial = data?.indicePublicado ?? indiceOficial
+  const hero = oficial ?? indiceDerivado
   const notLinked = data?.ok === false && data?.linked === false
   const failed = data?.ok === false && !notLinked
   // Defensa: si el derivado NO cuadra con el índice oficial (señal de que
@@ -116,9 +126,17 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
   // `Math.abs(dif) <= 0.1`: en un número de 1 decimal una discrepancia de
   // redondeo vale como máximo 0.1, así que esa tolerancia no podía cazar la
   // clase de error que existe para cazar — la toleraba por definición.
+  //
+  // Además del número, se cruza el CONTEO: la fede publica "8 tarjetas
+  // Utilizadas" en la misma página. Si elegimos otra cantidad de diferenciales
+  // que la que ella dice haber usado, nuestra selección está mal aunque el
+  // promedio dé por casualidad — y eso hay que verlo, no taparlo.
+  const conteoCuadra =
+    tarjetasUtilizadas == null || tarjetasUtilizadas === diffsCuentan.length
   const formulaCuadra =
     indiceDerivado != null &&
-    (indiceOficial == null || indiceDerivado.toFixed(1) === indiceOficial.toFixed(1))
+    conteoCuadra &&
+    (oficial == null || indiceDerivado.toFixed(1) === oficial.toFixed(1))
   // El promedio crudo (9.3625) y el índice (9.3) no son el mismo número: si no
   // lo decimos, el usuario que suma los chips y divide obtiene otra cosa.
   const muestraTruncado =

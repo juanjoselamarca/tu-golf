@@ -75,7 +75,7 @@ export async function POST() {
       return NextResponse.json({ ok: false, error: 'login-pagina' }, { status: 200 })
     }
 
-    const tarjetas = await fedegolfGetTarjetasIndice(session)
+    const { tarjetas } = await fedegolfGetTarjetasIndice(session)
     const { total } = await capturarTarjetas(supabase, user.id, tarjetas)
 
     return NextResponse.json({ ok: true, cached: false, capturadas: total })

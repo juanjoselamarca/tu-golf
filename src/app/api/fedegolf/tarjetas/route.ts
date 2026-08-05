@@ -58,7 +58,7 @@ export async function GET() {
       return NextResponse.json({ ok: false, linked: true, error: 'login-pagina' }, { status: 200 })
     }
 
-    const tarjetas = await fedegolfGetTarjetasIndice(session)
+    const { tarjetas, publicado } = await fedegolfGetTarjetasIndice(session)
     const resumen = resumenIndiceOficial(tarjetas)
 
     return NextResponse.json({
@@ -67,6 +67,13 @@ export async function GET() {
       tarjetas: resumen.tarjetas,
       promedioCrudo: resumen.promedioCrudo,
       indiceDerivado: resumen.indiceDerivado,
+      // El índice oficial del MISMO fetch que las tarjetas. El cliente tiene
+      // `profiles.indice`, pero ese se sincroniza con cooldown de 24h: cuando
+      // entra una tarjeta nueva queda viejo y contradice a la derivación en
+      // vivo. Este viaja para que la pantalla compare dos números del mismo
+      // instante en vez de uno vivo contra uno cacheado.
+      indicePublicado: publicado.indice,
+      tarjetasUtilizadas: publicado.tarjetasUtilizadas,
       diferencialesQueCuentan: resumen.diferencialesQueCuentan,
       slotsVentana: resumen.slotsVentana,
       rondasQueCuentan: resumen.rondasQueCuentan,

@@ -9,10 +9,16 @@ import {
   resumenIndiceOficial,
   fedegolfGetTarjetasIndice,
   truncarIndiceFedegolf,
+  parseIndicePublicado,
 } from './tarjetas'
 
 const fixtureHtml = readFileSync(
   resolve(process.cwd(), 'src/lib/fedegolf/__fixtures__/listado-20.html'),
+  'utf8'
+)
+
+const fixtureTrunca = readFileSync(
+  resolve(process.cwd(), 'src/lib/fedegolf/__fixtures__/listado-20-trunca.html'),
   'utf8'
 )
 
@@ -41,6 +47,54 @@ describe('parseTarjetas', () => {
     expect(camp.every((f) => f.fechaJuego === '2026-04-12')).toBe(true)
     expect(camp.some((f) => f.ticket === '6766119')).toBe(true)
     expect(camp.some((f) => f.ticket === null)).toBe(true)
+  })
+})
+
+describe('parseIndicePublicado', () => {
+  it('saca el índice del bloque "ÍNDICE ACTUAL"', () => {
+    // Este fixture es anterior a que la fede agregara la nota de conteo: su
+    // `fede-disclaimer` viene vacío. El parser tiene que dar el índice igual y
+    // devolver null en el conteo, no inventarlo.
+    expect(parseIndicePublicado(fixtureHtml)).toEqual({ indice: 9.1, tarjetasUtilizadas: null })
+  })
+
+  it('lee el otro fixture, con índice y conteo distintos, sin tocar el parser', () => {
+    expect(parseIndicePublicado(fixtureTrunca)).toEqual({ indice: 9.3, tarjetasUtilizadas: 8 })
+  })
+
+  it('el conteo que publica la fede coincide con los diferenciales que elegimos', () => {
+    // Validación cruzada: si la fede dice "8 tarjetas utilizadas" y nosotros
+    // seleccionamos otra cantidad, nuestra selección está mal aunque el
+    // promedio dé bien de casualidad.
+    const { tarjetasUtilizadas } = parseIndicePublicado(fixtureTrunca)
+    const { diferencialesQueCuentan } = resumenIndiceOficial(procesarTarjetas(fixtureTrunca))
+    expect(tarjetasUtilizadas).toBe(8)
+    expect(diferencialesQueCuentan).toHaveLength(tarjetasUtilizadas!)
+  })
+
+  it('el índice publicado es el mismo que derivamos de las tarjetas', () => {
+    const { indice } = parseIndicePublicado(fixtureHtml)
+    const { indiceDerivado } = resumenIndiceOficial(procesarTarjetas(fixtureHtml))
+    expect(indiceDerivado).toBe(indice)
+  })
+
+  it('no se cuelga ni inventa números si la fede cambia el HTML', () => {
+    expect(parseIndicePublicado('<html><body>otra cosa</body></html>')).toEqual({
+      indice: null,
+      tarjetasUtilizadas: null,
+    })
+    expect(parseIndicePublicado('')).toEqual({ indice: null, tarjetasUtilizadas: null })
+  })
+
+  it('se ancla en "ÍNDICE ACTUAL" y no agarra un h5 anterior de la página', () => {
+    const conRuido =
+      '<strong class="h5">99.9</strong><h3>ÍNDICE ACTUAL</h3><strong class="h5">7.4&nbsp;</strong>'
+    expect(parseIndicePublicado(conRuido).indice).toBe(7.4)
+  })
+
+  it('tolera la Í como entidad HTML y la coma decimal', () => {
+    const entidad = '<h3>&Iacute;NDICE ACTUAL</h3><strong class="h5">10,2&nbsp;</strong>'
+    expect(parseIndicePublicado(entidad).indice).toBe(10.2)
   })
 })
 
@@ -199,9 +253,11 @@ describe('fedegolfGetTarjetasIndice', () => {
     } as unknown as Response)
     vi.stubGlobal('fetch', fetchMock)
 
-    const tarjetas = await fedegolfGetTarjetasIndice({ cookie: 'PHPSESSID=abc' })
+    const { tarjetas, publicado } = await fedegolfGetTarjetasIndice({ cookie: 'PHPSESSID=abc' })
 
     expect(tarjetas).toHaveLength(19)
+    // El índice publicado sale del MISMO fetch — ése es el punto del cambio.
+    expect(publicado.indice).toBe(9.1)
     const [url, opts] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/publico/modVeinteMejoresPalos/listadoMejoresPalos.php')
     expect(opts.headers.Cookie).toBe('PHPSESSID=abc')
