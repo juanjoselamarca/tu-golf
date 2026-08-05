@@ -20,7 +20,10 @@ interface TarjetasResponse {
   ok: boolean
   linked?: boolean
   tarjetas?: FedegolfTarjeta[]
-  promedio?: number | null
+  /** Promedio sin redondear — sólo para mostrar de dónde sale el truncado (9.36 → 9.3). */
+  promedioCrudo?: number | null
+  /** Promedio ya truncado con la convención FedeGolf: debe coincidir con el índice oficial. */
+  indiceDerivado?: number | null
   diferencialesQueCuentan?: number[]
   slotsVentana?: number
   rondasQueCuentan?: number
@@ -100,15 +103,29 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
 
   const tarjetas = data?.tarjetas ?? []
   const diffsCuentan = data?.diferencialesQueCuentan ?? []
-  const promedio = data?.promedio ?? null
-  const hero = indiceOficial ?? promedio
+  const promedioCrudo = data?.promedioCrudo ?? null
+  const indiceDerivado = data?.indiceDerivado ?? null
+  const hero = indiceOficial ?? indiceDerivado
   const notLinked = data?.ok === false && data?.linked === false
   const failed = data?.ok === false && !notLinked
-  // Defensa: si el promedio derivado NO cuadra con el índice oficial (señal de que
+  // Defensa: si el derivado NO cuadra con el índice oficial (señal de que
   // fedegolf.cl cambió el HTML y el parseo quedó mal), no mostramos la fórmula —
   // el número oficial manda, no una derivación rota (chips que no suman al hero).
+  //
+  // La comparación es EXACTA al decimal que se muestra, a propósito. Antes era
+  // `Math.abs(dif) <= 0.1`: en un número de 1 decimal una discrepancia de
+  // redondeo vale como máximo 0.1, así que esa tolerancia no podía cazar la
+  // clase de error que existe para cazar — la toleraba por definición.
   const formulaCuadra =
-    promedio != null && (indiceOficial == null || Math.abs(promedio - indiceOficial) <= 0.1)
+    indiceDerivado != null &&
+    (indiceOficial == null || indiceDerivado.toFixed(1) === indiceOficial.toFixed(1))
+  // El promedio crudo (9.3625) y el índice (9.3) no son el mismo número: si no
+  // lo decimos, el usuario que suma los chips y divide obtiene otra cosa.
+  const muestraTruncado =
+    formulaCuadra &&
+    promedioCrudo != null &&
+    hero != null &&
+    promedioCrudo.toFixed(2) !== hero.toFixed(2)
 
   return createPortal(
     <div
@@ -250,7 +267,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                   <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '11px', color: 'var(--text-3)', alignSelf: 'center', padding: '0 2px' }}>
                     ÷{diffsCuentan.length} =
                   </span>
-                  {promedio != null && (
+                  {hero != null && (
                     <span
                       style={{
                         fontFamily: '"DM Mono", monospace',
@@ -263,10 +280,17 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                         padding: '3px 8px',
                       }}
                     >
-                      {promedio.toFixed(1)}
+                      {hero.toFixed(1)}
                     </span>
                   )}
                 </div>
+              )}
+
+              {muestraTruncado && promedioCrudo != null && hero != null && (
+                <p style={{ fontSize: '10.5px', color: 'var(--text-3)', margin: '9px 0 0', lineHeight: 1.5 }}>
+                  El promedio exacto es {promedioCrudo.toFixed(2)}. La Federación trunca al primer
+                  decimal, no redondea → {hero.toFixed(1)}.
+                </p>
               )}
             </div>
 
