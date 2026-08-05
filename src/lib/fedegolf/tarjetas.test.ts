@@ -9,10 +9,17 @@ import {
   resumenIndiceOficial,
   fedegolfGetTarjetasIndice,
   truncarIndiceFedegolf,
+  parseTarjetasUtilizadas,
+  formulaEsExplicable,
 } from './tarjetas'
 
 const fixtureHtml = readFileSync(
   resolve(process.cwd(), 'src/lib/fedegolf/__fixtures__/listado-20.html'),
+  'utf8'
+)
+
+const fixtureTrunca = readFileSync(
+  resolve(process.cwd(), 'src/lib/fedegolf/__fixtures__/listado-20-trunca.html'),
   'utf8'
 )
 
@@ -41,6 +48,107 @@ describe('parseTarjetas', () => {
     expect(camp.every((f) => f.fechaJuego === '2026-04-12')).toBe(true)
     expect(camp.some((f) => f.ticket === '6766119')).toBe(true)
     expect(camp.some((f) => f.ticket === null)).toBe(true)
+  })
+})
+
+describe('parseTarjetasUtilizadas', () => {
+  it('saca el conteo de la nota "N tarjetas Utilizadas"', () => {
+    expect(parseTarjetasUtilizadas(fixtureTrunca)).toBe(8)
+  })
+
+  it('devuelve null si la página no trae la nota (fixture anterior a que existiera)', () => {
+    // `listado-20.html` trae el `fede-disclaimer` VACÍO. null = "no se pudo
+    // verificar", no error: ser estricto acá sería un apagón auto-infligido.
+    expect(parseTarjetasUtilizadas(fixtureHtml)).toBeNull()
+  })
+
+  it('el conteo que publica la fede coincide con los diferenciales que elegimos', () => {
+    // Cruza SLOTS, no rondas físicas: el campeonato son 2 filas seleccionadas
+    // (7 tarjetas físicas → 8 slots) y la fede dice 8. Si alguien comparara
+    // contra `rondasQueCuentan` daría 7 ≠ 8 y este test se pondría rojo.
+    const r = resumenIndiceOficial(procesarTarjetas(fixtureTrunca))
+    expect(r.rondasQueCuentan).toBe(7)
+    expect(parseTarjetasUtilizadas(fixtureTrunca)).toBe(r.diferencialesQueCuentan.length)
+  })
+
+  // ── Con el anclaje PRESENTE y el markup roto ──────────────────────────────
+  // Estos son los que faltaban: los casos sin "ÍNDICE ACTUAL" cortan en el
+  // early-return y nunca llegan a ejecutar el regex, así que no prueban nada.
+
+  it('no se come un número de más abajo en la página (ventana acotada)', () => {
+    const lejos = '<h3>ÍNDICE ACTUAL</h3>' + 'x'.repeat(4000) + '<span>17 tarjetas Utilizadas</span>'
+    expect(parseTarjetasUtilizadas(lejos)).toBeNull()
+  })
+
+  it('rechaza un conteo fuera de la ventana WHS en vez de inventarlo', () => {
+    expect(parseTarjetasUtilizadas('<h3>ÍNDICE ACTUAL</h3> 2025 tarjetas Utilizadas')).toBeNull()
+    expect(parseTarjetasUtilizadas('<h3>ÍNDICE ACTUAL</h3> 0 tarjetas Utilizadas')).toBeNull()
+    expect(parseTarjetasUtilizadas('<h3>ÍNDICE ACTUAL</h3> 20 tarjetas Utilizadas')).toBe(20)
+  })
+
+  it('con el anclaje presente pero la nota ausente devuelve null, no NaN', () => {
+    const r = parseTarjetasUtilizadas('<h3>ÍNDICE ACTUAL</h3><strong class="h5">9.1</strong>')
+    expect(r).toBeNull()
+    expect(Number.isNaN(r as unknown as number)).toBe(false)
+  })
+
+  it('tolera la Í como entidad HTML y el singular', () => {
+    expect(parseTarjetasUtilizadas('<h3>&Iacute;NDICE ACTUAL</h3> 1 tarjeta Utilizada')).toBe(1)
+  })
+
+  it('sin el bloque de índice devuelve null', () => {
+    expect(parseTarjetasUtilizadas('<html><body>otra cosa</body></html>')).toBeNull()
+    expect(parseTarjetasUtilizadas('')).toBeNull()
+  })
+})
+
+describe('formulaEsExplicable', () => {
+  const base = {
+    indiceDerivado: 9.1,
+    oficialDelMismoInstante: 9.1,
+    tarjetasUtilizadas: 8,
+    diferencialesQueCuentan: 8,
+  }
+
+  it('todo cuadra → se explica', () => {
+    expect(formulaEsExplicable(base)).toBe(true)
+  })
+
+  it('sin derivado no hay nada que explicar', () => {
+    expect(formulaEsExplicable({ ...base, indiceDerivado: null })).toBe(false)
+  })
+
+  it('un décimo de diferencia basta para esconderla (sin tolerancia)', () => {
+    // Éste es EL bug: con `Math.abs(dif) <= 0.1` esto daba true y la pantalla
+    // mostraba 9.1 arriba y 9.2 al final de la fórmula.
+    expect(formulaEsExplicable({ ...base, indiceDerivado: 9.2 })).toBe(false)
+  })
+
+  it('si el conteo de la fede no cuadra, se esconde aunque el número dé', () => {
+    // Selección mal hecha que da el promedio correcto de casualidad.
+    expect(formulaEsExplicable({ ...base, tarjetasUtilizadas: 7 })).toBe(false)
+  })
+
+  it('conteo null no bloquea (no se pudo verificar ≠ está mal)', () => {
+    expect(formulaEsExplicable({ ...base, tarjetasUtilizadas: null })).toBe(true)
+  })
+
+  it('sin oficial del mismo instante NO se compara contra nada', () => {
+    // Nunca contra `profiles.indice`: tiene cooldown de 24h y compararlo contra
+    // una derivación en vivo es justamente el bug que este guard provocaba.
+    expect(formulaEsExplicable({ ...base, oficialDelMismoInstante: null })).toBe(true)
+    expect(
+      formulaEsExplicable({ ...base, indiceDerivado: 4.2, oficialDelMismoInstante: null })
+    ).toBe(true)
+  })
+
+  it('un índice 0 (scratch) se compara, no se trata como ausente', () => {
+    expect(
+      formulaEsExplicable({ ...base, indiceDerivado: 0, oficialDelMismoInstante: 0 })
+    ).toBe(true)
+    expect(
+      formulaEsExplicable({ ...base, indiceDerivado: 0.5, oficialDelMismoInstante: 0 })
+    ).toBe(false)
   })
 })
 
@@ -199,9 +307,14 @@ describe('fedegolfGetTarjetasIndice', () => {
     } as unknown as Response)
     vi.stubGlobal('fetch', fetchMock)
 
-    const tarjetas = await fedegolfGetTarjetasIndice({ cookie: 'PHPSESSID=abc' })
+    const { tarjetas, tarjetasUtilizadas } = await fedegolfGetTarjetasIndice({
+      cookie: 'PHPSESSID=abc',
+    })
 
     expect(tarjetas).toHaveLength(19)
+    // El conteo sale del MISMO fetch que las tarjetas (el índice oficial no:
+    // ése lo trae `fedegolfGetIndice` por JSON).
+    expect(tarjetasUtilizadas).toBeNull() // este fixture no trae la nota
     const [url, opts] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/publico/modVeinteMejoresPalos/listadoMejoresPalos.php')
     expect(opts.headers.Cookie).toBe('PHPSESSID=abc')

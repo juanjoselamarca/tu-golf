@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Trophy } from '@/components/icons'
 import type { FedegolfTarjeta } from '@/lib/fedegolf/types'
+import { formulaEsExplicable } from '@/lib/fedegolf/tarjetas'
 
 interface TarjetasResponse {
   ok: boolean
@@ -24,6 +25,10 @@ interface TarjetasResponse {
   promedioCrudo?: number | null
   /** Promedio ya truncado con la convención FedeGolf: debe coincidir con el índice oficial. */
   indiceDerivado?: number | null
+  /** Índice oficial del MISMO fetch que las tarjetas (no el guardado, que puede estar viejo). */
+  indicePublicado?: number | null
+  /** Cuántas tarjetas dice la fede haber usado — validación cruzada de nuestra selección. */
+  tarjetasUtilizadas?: number | null
   diferencialesQueCuentan?: number[]
   slotsVentana?: number
   rondasQueCuentan?: number
@@ -105,20 +110,26 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
   const diffsCuentan = data?.diferencialesQueCuentan ?? []
   const promedioCrudo = data?.promedioCrudo ?? null
   const indiceDerivado = data?.indiceDerivado ?? null
-  const hero = indiceOficial ?? indiceDerivado
+  const tarjetasUtilizadas = data?.tarjetasUtilizadas ?? null
+  // El oficial del mismo momento que las tarjetas (json.php de la fede).
+  const oficialVivo = data?.indicePublicado ?? null
+  // Orden a propósito: el número grande tiene que ser el mismo en el que termina
+  // la fórmula. Si no hay oficial en vivo, manda el derivado (sale del mismo
+  // fetch que los chips). `profiles.indice` queda de último recurso, y para
+  // cuando llega a usarse ya no hay fórmula que contradecir.
+  const hero = oficialVivo ?? indiceDerivado ?? indiceOficial
   const notLinked = data?.ok === false && data?.linked === false
   const failed = data?.ok === false && !notLinked
-  // Defensa: si el derivado NO cuadra con el índice oficial (señal de que
-  // fedegolf.cl cambió el HTML y el parseo quedó mal), no mostramos la fórmula —
-  // el número oficial manda, no una derivación rota (chips que no suman al hero).
-  //
-  // La comparación es EXACTA al decimal que se muestra, a propósito. Antes era
-  // `Math.abs(dif) <= 0.1`: en un número de 1 decimal una discrepancia de
-  // redondeo vale como máximo 0.1, así que esa tolerancia no podía cazar la
-  // clase de error que existe para cazar — la toleraba por definición.
-  const formulaCuadra =
-    indiceDerivado != null &&
-    (indiceOficial == null || indiceDerivado.toFixed(1) === indiceOficial.toFixed(1))
+  // La decisión vive en `src/lib/fedegolf/tarjetas.ts` (pura y testeada): si el
+  // derivado no cuadra con el oficial del mismo instante, o con el conteo que la
+  // fede declara, no mostramos la fórmula — el número oficial manda, no una
+  // derivación rota con chips que no suman al hero.
+  const formulaCuadra = formulaEsExplicable({
+    indiceDerivado,
+    oficialDelMismoInstante: oficialVivo,
+    tarjetasUtilizadas,
+    diferencialesQueCuentan: diffsCuentan.length,
+  })
   // El promedio crudo (9.3625) y el índice (9.3) no son el mismo número: si no
   // lo decimos, el usuario que suma los chips y divide obtiene otra cosa.
   const muestraTruncado =
