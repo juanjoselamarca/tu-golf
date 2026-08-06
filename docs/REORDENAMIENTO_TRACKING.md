@@ -186,7 +186,7 @@ NO se reusa `STANDARD_PARS` de `golf/coach/hole-pars`: es un layout par-72 concr
 propio doc avisa que miente en canchas par 70/71, varias de las nuestras) y no cubre los
 hoyos >18 de canchas multi-recorrido. Conceptos parecidos, no el mismo.
 
-### Concepto "¿es stableford?" — pendiente de fuente canónica
+### Concepto "¿es stableford?" → `isStablefordFormat()` en `src/golf/formats`
 
 Detectado el 30-jul por el code-reviewer. El predicado `formato_juego === 'stableford'`
 está reescrito inline en ~10 archivos productivos (`TeamLeaderboard`,
@@ -201,8 +201,9 @@ flujo.
 
 | Sitio | Estado |
 |---|---|
-| `src/golf/formats` — falta `isStablefordFormat()` | ⏳ pendiente — crear la canónica al tocar el primer flujo |
-| ~10 call-sites productivos con el predicado inline | ⏳ pendiente — migrar al tocar cada flujo |
+| `src/golf/formats` — `isStablefordFormat()` | ✅ creada (2-ago, refactor del scorer del organizador) |
+| Scorer del organizador (`useScoreEntry` + `ScorecardPanel`; además los puntos salen de `puntosStablefordHoyo`, no de la fórmula inline) | ✅ migrado (2-ago) |
+| ~8 call-sites productivos restantes con el predicado inline (`TeamLeaderboard`, `compute-tournament-results`, `lib/ronda/leaderboard`, `share-card`, `api/en-vivo`, los dos `IndividualLeaderboard`, …) | ⏳ pendiente — migrar al tocar cada flujo |
 
 ### P0 CERRADO (30-jul) — el board legacy usaba `handicap_at_registration` crudo como course handicap
 
@@ -304,10 +305,40 @@ radius de golpe hacia las páginas gigantes):
 |---|---|
 | `src/app/torneo/[slug]/en-vivo/LiveHeader.tsx` | ✅ cableado — elimina su maqueta propia + `FORMAT_LABEL` hardcodeado (duplicaba `src/golf/formats`) |
 | `src/app/torneo/[slug]/page.tsx` (cabecera serif + pill dorada + wordmark "Golfers +" redundante) | ⏳ pendiente — migrar al tocar el flujo del torneo público |
-| `src/app/organizador/[slug]/scoring/page.tsx` (bloque navy propio) | ⏳ pendiente — migrar al tocar scoring |
+| `src/app/organizador/[slug]/scoring/page.tsx` (bloque navy propio, hoy `components/ScoringHeader.tsx`) | ⏳ pendiente — el refactor 2-ago lo aisló en su componente, pero NO lo migró: lleva controles operativos (EN VIVO, Rn/N, guardando, deshacer) que `TorneoHeader` no modela, y el swap visual es decisión de diseño del hilo principal |
 | `src/app/ronda-libre/[codigo]` en-vivo (título genérico "Marcador en vivo", no el nombre del torneo) | ⏳ pendiente — migrar al tocar ronda-libre |
 
 ---
+
+## Corrección de #289 — la escala se decide por la RELACIÓN rating↔par (PR #293, 2-ago-2026)
+
+#289 cambió la señal de escala a "el par decide, el CR obedece". Eso rompió las
+9 filas del catálogo que guardan `par_total = 36` con `course_rating = 72`: no se
+partía el rating y quedaba `(72 − 36)` = **+36 golpes** en cada course handicap
+de 9 hoyos. En el gate, un índice 30 recibía 52 golpes en vez de 16, y como el
+reparto por hoyo topea en 3 los cuatro jugadores terminaban con 27 golpes
+iguales, un plus incluido.
+
+Esas 9 filas NO son canchas de 9 hoyos: son los **loops hijos** de Rocas de
+Santo Domingo, Brisas y Marbella (clubes de 27), sin tees propios.
+
+Ahora `courseRatingEnEscalaDe9` prueba "ya viene en 9" (`|cr − par9| ≤ 6`),
+después "viene en 18" (`|cr/2 − par9| ≤ 6`), y si ninguna cierra devuelve `par9`
+para anular el término. Las dos ventanas no se solapan mientras `par9 > 18`
+(test explícito).
+
+| Punto | Estado |
+|---|---|
+| `courseRatingEnEscalaDe9` decide por relación, no por par solo | ✅ (#293) |
+| `resolverCourseData` paso 0 (multi-recorrido) normaliza el rating de CADA loop antes de sumar — sumarlos crudos daba +36 con un loop y **+72 con dos**, y la UI preselecciona dos loops sola | ✅ (#293, finding bloqueante del code-reviewer) |
+| Canario del catálogo: las 600+ filas de `courses` + `course_tees` pasan por la función; el conjunto "imposible" queda fijado con `toEqual` (contarlas dejaba pasar un swap) | ✅ (#293, `src/__tests__/integration/catalogo-escala-rating.test.ts`) |
+| El paso 0 tomaba `parTotal` a ciegas — el único de los tres caminos. Ahora `parDeLosLoops` sólo lo acepta si viene en la MISMA escala que `parSum`; si no, manda el par de los loops. Cierra las dos direcciones: parTotal de 18 en recorrido de 9 (daba −30) y de 9 en recorrido de 18 (daba +108) | ✅ (#293) |
+| La rama de fallback por tee del paso 0 no la ejercitaba ningún test — y es la que corre con el catálogo degradado (children sin rating propio). Cubierta con el caso mixto: un loop con `front_course_rating` medido de 9h y otro con `rating` de 18h, que sumados crudos daban 107.5 contra par 72 | ✅ (#293) |
+| **La degradación por rating imposible es MUDA** — una cancha nueva mal cargada sirve handicaps aproximados sin avisar. Falta un check en `/api/admin/health-check` que liste los ratings que no cierran en ninguna escala. | ⏳ pendiente |
+| `src/lib/data/tee-resolver.ts:148-165` es una **cuarta** derivación de "rating de 9 hoyos" (usa `front_course_rating` o `cr − back_course_rating`, y devuelve `null` si no puede — es segura, pero es otra fuente del mismo concepto) | ⏳ pendiente — converger al tocar el flujo del coach |
+| `esEscalaDe18Hoyos(par) = par > 50` tiene borde en 50 exacto (un par-50 daría "es de 9"). No hay filas en 50. | ⏳ latente |
+| Los tests de integración **skipean en CI** (sin service-role key), que es por lo que #289 llegó a prod con la regresión. Decisión de producto/infra: exponerlos. | ⏳ decisión de Juanjo |
+| `gate-scorer-handicap.test.ts` no envuelve su carga desde prod en try/catch: un rechazo de red marca el archivo failed con los tests skipped (rojo intermitente que no dice nada). Mismo patrón ya arreglado en los otros dos. | ⏳ pendiente |
 
 ## Deuda anotada por PR #289 (handicap 9 hoyos) — 30-jul-2026
 
@@ -319,11 +350,26 @@ prioridad, con el motivo:
 
 | # | Deuda | Dónde | Por qué quedó fuera |
 |---|---|---|---|
-| 1 | **P0 — El board público no aplica el course handicap.** `buildLeaderboardFromLegacy` deriva el neto desde los gross con `handicap_at_registration` crudo: sin conversión WHS, sin mitad de 9h, sin gate de `hcp_calc_mode`. El scorer persiste un neto y `/torneo`, `/tv` y `/en-vivo` muestran otro. | `src/golf/leaderboard/build-from-legacy.ts:61`, `:199`, `:214` | Es la unificación del board del PR #288, deliberadamente excluida de este PR para no mezclar el arreglo de handicap con un refactor de display. **Bloquea correr un torneo de 9 hoyos.** |
+| 1 | ~~**P0 — El board público no aplica el course handicap.**~~ | `src/golf/leaderboard/build-from-legacy.ts:62` | ✅ **CERRADO (#290, 30-jul).** `courseHcpDe` resuelve con `resolveScoringCourseHcp` (misma cuenta que la tarjeta en cancha), y el par que entra a la fórmula es el de los hoyos jugados. Verificado en prod tras #293: Paty índice 30 → 16 golpes, Cacho 10 → 5, Nacho 18 → 10, Plus −2 → −1. |
 | 2 | **P0 — `handicap_at_registration` carga dos conceptos distintos.** Para jugadores registrados guarda un course handicap de 18h ya resuelto; para invitados, el índice crudo. `computePlayerCourseHcp` lo trata como índice y le aplica la fórmula WHS de nuevo (doble conversión, conocida desde el 8-jun) y ahora también la mitad de 9h. | `src/app/api/torneos/[slug]/inscribirse/route.ts:44`, `.../players/route.ts:107`, `src/golf/core/compute-player-course-hcp.ts` | Arreglarlo toca el motor de INSCRIPCIÓN de torneos. CLAUDE.md: "nunca se ensancha el blast radius de un PR de display hacia el motor de creación". Se migra al tocar ese flujo (ver `project_inscripcion_unificacion`). |
 | 3 | **P1 — "Qué hoyos se juegan" contestado de dos formas.** `normalizedStrokeIndexByHole` filtra por `numero <= holeCount` SIN deduplicar; `parDeLosHoyosJugados` deduplica y hace `slice`. Sobre un catálogo con filas repetidas por recorrido operan sobre conjuntos distintos. | `src/golf/core/stroke-index.ts:224` vs `src/golf/core/course-handicap.ts` | Cambiar la normalización del SI altera el reparto de golpes en TODOS los torneos, incluidos los de 18h en curso. Necesita su propio PR con canario. |
-| 4 | **Datos sucios — C.G. Río Blanco.** `par_total` 35 con `rating` 55 en sus 4 tees y 0 filas en `course_holes`. La fórmula ahora es coherente, pero con esos datos devuelve 26 golpes para un índice 12. Es catálogo, no código. | tabla `courses` / `course_tees` | Corrección de datos, no de código. Requiere el CR real de 9 hoyos del club. |
-| 5 | **`scoring/page.tsx` sigue "sucio"** (1005 LOC, `supabase.from()` directo desde `src/app/` fuera de `api/`). | `src/app/organizador/[slug]/scoring/page.tsx` | Aplicó la excepción de bug bloqueante: el cambio fueron 3 líneas dentro del cálculo de handicap. Refactor pendiente. |
+| 4 | **Datos sucios — C.G. Río Blanco.** `par_total` 35 con `rating` 55 en sus 4 tees y 0 filas en `course_holes`. Ese 55 no es válido en ninguna escala: +20 sobre el par si fuera de 9, −15 si fuera de 18. | tabla `courses` / `course_tees` | ⚠️ **Contenido desde #293**, no cerrado. El código ya no lo propaga: al no cerrar ninguna hipótesis de escala, el término `(CR − par)` se anula y un índice 12 recibe 6 golpes (antes de #293 daba 26; antes de #289, −1). Sigue siendo un handicap **aproximado** — le falta el ajuste real de rating. Cierra sólo con el CR de 9 hoyos verdadero del club. El canario `catalogo-escala-rating.test.ts` fija estas 4 filas como el conjunto conocido de ratings imposibles. |
+| 5 | ~~**`scoring/page.tsx` sigue "sucio"**~~ | `src/app/organizador/[slug]/scoring/page.tsx` | ✅ CERRADO (2-ago-2026, `fix/organizador-resumen-claude`): 1007 → 219 LOC al estándar — datos en `lib/data/tournaments/scoring.ts`, lógica en `hooks/`, vista en `components/`. |
+
+### Resumen del organizador consume el motor del board — fix 2-ago-2026
+
+El tab "Resumen" de `/organizador/[slug]/scoring` era la CUARTA copia del concepto
+"quién va mejor en este torneo" con una TERCERA definición de "terminado", y las dos
+tarjetas mentían en prod: "N completos" filtraba `rounds.status === 'completed'` (la
+columna sólo toma `in_progress`/`closed` — contador clavado en 0) y "Mejor Neto" leía
+`rounds[0].total_net` con guard `n !== 0` (19/77 rondas de prod con la columna en 0 →
+"--" con el torneo jugado).
+
+| Sitio | Estado |
+|---|---|
+| `useResumenBoard` → `buildLeaderboardFromLegacy` con contexto idéntico al de `/torneo` (`fetchResumenBoardInputs` = `LEGACY_PLAYER_SELECT` + mismo filtro de status + `fetchLegacyHcpContext`) | ✅ el organizador y el público ven los MISMOS números |
+| `computeResumenCards` en `src/golf/leaderboard/resumen-cards.ts` — proyecta `computeTournamentResults` (podio) + `isFinishedCard` + `hasPlayData` | ✅ creada (2-ago) — cero re-derivación |
+| Tabla de jugadores del Resumen (orden, gross/neto/pts, estado) | ✅ proyecta el ranking del motor; "Completo" = `isFinishedCard` |
 
 
 ---

@@ -90,6 +90,97 @@ export function parseTarjetas(html: string): TarjetaCruda[] {
   return filas
 }
 
+/**
+ * El índice que la fede PUBLICA en la misma página del listado, y cuántas
+ * tarjetas dice haber usado para calcularlo.
+ *
+ * Por qué importa que salga de este HTML y no de `profiles.indice`: el índice
+ * guardado se sincroniza con cooldown de 24h (`SYNC_INDICE_COOLDOWN_HORAS`),
+ * así que cuando entra una tarjeta nueva el listado ya refleja el índice nuevo
+ * y el guardado todavía no. Comparar una derivación EN VIVO contra un número
+ * GUARDADO Y VIEJO garantiza que se contradigan durante esa ventana.
+ *
+ * Medido el 4-ago-2026: entró una tarjeta (diff 5.5), el listado y el índice
+ * publicado pasaron a 9.1 al instante, y `profiles.indice` siguió en 9.3
+ * durante horas. Ambos números tienen que venir del mismo fetch o no hay
+ * comparación válida.
+ */
+/**
+ * El índice oficial NO se parsea de acá. Para eso está `fedegolfGetIndice()`
+ * (`src/lib/fedegolf/client.ts`): POST a `json.php` del MISMO módulo
+ * `modVeinteMejoresPalos`, que devuelve `{ indice: "9.1" }` tipado. Verificado
+ * el 4-ago-2026 que acepta la sesión de PÁGINA, así que el route del listado
+ * puede llamarlo con la sesión que ya tiene.
+ *
+ * Un regex sobre HTML no debe competir con un accessor que ya devuelve el dato
+ * estructurado (regla "un concepto, una fuente"). El costo de la segunda
+ * llamada es ~200ms en el mismo handler — contra las 24h de `profiles.indice`,
+ * la ventana de desfase deja de importar.
+ *
+ * Lo único que sí hay que raspar es el conteo, porque no lo expone ningún JSON.
+ */
+const VENTANA_INDICE_CHARS = 1500
+const SLOTS_VENTANA_MAX = 20
+
+/**
+ * "Nota: 8 tarjetas Utilizadas" — cuántos diferenciales dice la fede haber
+ * usado. Sirve de validación cruzada de NUESTRA selección: si elegimos otra
+ * cantidad, la selección está mal aunque el promedio dé bien de casualidad.
+ *
+ * Se ancla en "NDICE ACTUAL" (sin la Í, para no depender de UTF-8 vs
+ * `&Iacute;`) y mira sólo una ventana acotada: sin ese límite el "bloque" sería
+ * todo el resto del documento — incluida la sección EVOLUCIÓN ÍNDICE con su
+ * chart — y cualquier número de más abajo podría colarse.
+ *
+ * Devuelve null ante cualquier duda. El consumidor trata null como "no se pudo
+ * verificar" y no como error: la página de un socio puede no traer la nota (el
+ * fixture `listado-20.html` la trae vacía) y ser estricto ahí sería un apagón
+ * auto-infligido.
+ */
+export function parseTarjetasUtilizadas(html: string): number | null {
+  const anclaje = html.search(/NDICE\s+ACTUAL/i)
+  if (anclaje === -1) return null
+  const bloque = html.slice(anclaje, anclaje + VENTANA_INDICE_CHARS)
+  const m = /(\d+)\s*tarjetas?\s+utilizad[ao]s?/i.exec(bloque)
+  if (!m) return null
+  const n = Number.parseInt(m[1], 10)
+  // La ventana WHS son 20 slots (un campeonato aporta 2). Fuera de rango es
+  // basura de parseo, no un dato: mejor null que un conteo inventado.
+  return Number.isFinite(n) && n >= 1 && n <= SLOTS_VENTANA_MAX ? n : null
+}
+
+/**
+ * ¿Podemos MOSTRAR la fórmula, o hay que limitarse al número oficial?
+ *
+ * Pura y exportada a propósito: es la decisión que causaba el bug (la pantalla
+ * escondiéndose sola), así que tiene que ser testeable sin montar el modal.
+ *
+ * Dos condiciones, ambas fail-safe:
+ * - El conteo que publica la fede coincide con los diferenciales que elegimos.
+ *   `null` = no se pudo verificar → no bloquea.
+ * - El derivado coincide, AL DECIMAL MOSTRADO, con el oficial del MISMO
+ *   instante. Sin tolerancia: en un número de 1 decimal una discrepancia de
+ *   redondeo vale como máximo 0.1, así que tolerar ±0.1 era tolerar por
+ *   definición el único error que había que cazar.
+ *
+ * `oficialDelMismoInstante` null → no se compara contra nada. NO se cae a
+ * `profiles.indice`: ese tiene cooldown de 24h y compararlo contra una
+ * derivación en vivo es exactamente el bug que este guard provocaba.
+ */
+export function formulaEsExplicable(args: {
+  indiceDerivado: number | null
+  oficialDelMismoInstante: number | null
+  tarjetasUtilizadas: number | null
+  diferencialesQueCuentan: number
+}): boolean {
+  const { indiceDerivado, oficialDelMismoInstante, tarjetasUtilizadas, diferencialesQueCuentan } =
+    args
+  if (indiceDerivado == null) return false
+  if (tarjetasUtilizadas != null && tarjetasUtilizadas !== diferencialesQueCuentan) return false
+  if (oficialDelMismoInstante == null) return true
+  return indiceDerivado.toFixed(1) === oficialDelMismoInstante.toFixed(1)
+}
+
 /** Filtro de sanidad: diferencial finito y en rango WHS (caza la basura sin tocar 9h). */
 export function filtrarSanidad(t: { diferencial: number }): boolean {
   return Number.isFinite(t.diferencial) && t.diferencial >= DIFF_MIN && t.diferencial <= DIFF_MAX
@@ -119,19 +210,72 @@ export function procesarTarjetas(html: string): FedegolfTarjeta[] {
 }
 
 /**
+ * Convención de redondeo de FedeGolf al publicar el índice: **TRUNCA** al primer
+ * decimal, no redondea. Fuente ÚNICA de esta decisión (regla "un concepto, una
+ * fuente") — nadie más debe re-derivarla con `Math.round`.
+ *
+ * EVIDENCIA (medida el 3-ago-2026, ambos lados traídos de fedegolf.cl en la
+ * MISMA corrida, así que no hay margen para "el dato guardado estaba viejo"):
+ *
+ *   diferenciales que cuentan → [7.2, 8.8, 8.9, 8.9, 9.5, 9.7, 10.5, 11.4]
+ *   promedio crudo           → 9.3625
+ *   Math.round(·, 1)         → 9.4   ✗
+ *   truncar(·, 1)            → 9.3   ✓ == índice oficial publicado (9.3)
+ *
+ * Ese es el PRIMER caso discriminante que tuvimos: el fixture anterior
+ * (`listado-20.html`, oficial 9.1) promedia 9.1375, y ahí redondear y truncar
+ * dan lo mismo — por eso el test pasaba con el código equivocado. El fixture
+ * `listado-20-trunca.html` conserva el caso que sí distingue.
+ *
+ * POR QUÉ EL EPSILON. No es por `literal * 10` — V8 da `8.7 * 10 === 87`
+ * exacto. El error aparece en la SUMA/DIVISIÓN que produce el promedio:
+ *
+ *   (15.5 + 37.1 + 24.2) / 3 === 25.599999999999998 → floor pelado da 25.5
+ *
+ * Sin epsilon eso le come un décimo al usuario Y rompe el guard del modal
+ * (el derivado deja de cuadrar con el oficial → se esconde la pantalla).
+ * Barriendo promedios realistas, pasa en ~2% de los casos.
+ *
+ * El epsilon no puede tapar una diferencia real en este dominio: con `S`
+ * múltiplo de 0.1 y `n` diferenciales, si el promedio no cae justo en un
+ * décimo, su distancia mínima al décimo es `1/(10n)` — 0.005 con n=20, nueve
+ * órdenes de magnitud sobre 1e-9. Correcto por construcción, no por suerte.
+ *
+ * OJO CON LOS NEGATIVOS (jugador plus): esto es `floor`, no truncado hacia
+ * cero — `-1.25` cae a `-1.3`, no a `-1.2`. La evidencia medida cubre sólo el
+ * lado positivo; cuál de las dos usa la fede para índices bajo par NO está
+ * verificado. Se deja floor porque el modo de falla es seguro: si no coincide,
+ * el guard esconde la fórmula y el hero sigue mostrando el número oficial.
+ * Antes de cambiarlo, medir contra un jugador plus real.
+ */
+export function truncarIndiceFedegolf(valor: number): number {
+  return Math.floor(valor * 10 + 1e-9) / 10
+}
+
+/**
  * Resumen del índice oficial: cómo las tarjetas componen el número de la fede.
  *
- * Regla WHS chilena (verificada contra la cuenta real, promedio == índice
+ * Regla WHS chilena (verificada contra la cuenta real, el derivado == índice
  * oficial al decimal): el índice es el **promedio simple de los diferenciales
  * que cuentan** (los `cuenta:true` que trae el listado, `selected-row`), SIN
- * factor 0.96. Una tarjeta de campeonato (`valeDoble`) aporta su diferencial
- * DOS veces — tanto al promedio como al conteo de la ventana de 20.
+ * factor 0.96, truncado a 1 decimal. Una tarjeta de campeonato (`valeDoble`)
+ * aporta su diferencial DOS veces — tanto al promedio como al conteo de la
+ * ventana de 20.
  */
 export interface ResumenIndiceOficial {
   /** Rondas físicas de la ventana, orden del listado (más nueva primero). */
   tarjetas: FedegolfTarjeta[]
-  /** Promedio de los diferenciales que cuentan (campeonato ×2), 1 decimal. null si no hay ninguna que cuente. */
-  promedio: number | null
+  /**
+   * Promedio de los diferenciales que cuentan SIN redondear (precisión completa).
+   * Se expone aparte del derivado para poder mostrarle al usuario de dónde sale
+   * el truncado (9.36 → 9.3) en vez de dejar una resta que no le cuadra.
+   */
+  promedioCrudo: number | null
+  /**
+   * El índice que resulta de aplicar la convención FedeGolf al promedio crudo.
+   * Es el número que DEBE coincidir con `profiles.indice`. null si no cuenta ninguna.
+   */
+  indiceDerivado: number | null
   /** Diferenciales que cuentan, expandidos (campeonato dos veces) y ordenados asc — para mostrar la fórmula. */
   diferencialesQueCuentan: number[]
   /** Total de diferenciales en la ventana (campeonato cuenta 2) — normalmente 20. */
@@ -156,13 +300,14 @@ export function resumenIndiceOficial(tarjetas: FedegolfTarjeta[]): ResumenIndice
     .flatMap((t) => Array<number>(slotsDe(t)).fill(t.diferencial))
     .sort((a, b) => a - b)
   const slotsCuentan = diferencialesQueCuentan.length
-  const promedio =
+  const promedioCrudo =
     slotsCuentan > 0
-      ? Math.round((diferencialesQueCuentan.reduce((a, b) => a + b, 0) / slotsCuentan) * 10) / 10
+      ? diferencialesQueCuentan.reduce((a, b) => a + b, 0) / slotsCuentan
       : null
   return {
     tarjetas,
-    promedio,
+    promedioCrudo,
+    indiceDerivado: promedioCrudo != null ? truncarIndiceFedegolf(promedioCrudo) : null,
     diferencialesQueCuentan,
     slotsVentana: tarjetas.reduce((s, t) => s + slotsDe(t), 0),
     rondasQueCuentan: cuentan.length,
@@ -170,16 +315,19 @@ export function resumenIndiceOficial(tarjetas: FedegolfTarjeta[]): ResumenIndice
 }
 
 /**
- * Trae las ~20 tarjetas del índice del socio logueado. El GET auto-scopea al
- * socio de la sesión (verificado) — no necesita club/usuario.
+ * Trae las ~20 tarjetas del índice del socio logueado, más el conteo de
+ * tarjetas que la fede declara haber usado. El GET auto-scopea al socio de la
+ * sesión (verificado) — no necesita club/usuario.
+ *
+ * El índice oficial NO viene de acá: lo trae `fedegolfGetIndice()` por JSON.
  */
 export async function fedegolfGetTarjetasIndice(
   session: FedegolfSession
-): Promise<FedegolfTarjeta[]> {
+): Promise<{ tarjetas: FedegolfTarjeta[]; tarjetasUtilizadas: number | null }> {
   const res = await fetch(`${BASE_URL}${LISTADO_PATH}`, {
     redirect: 'manual',
     headers: { Cookie: session.cookie, 'User-Agent': USER_AGENT },
   })
   const html = await res.text()
-  return procesarTarjetas(html)
+  return { tarjetas: procesarTarjetas(html), tarjetasUtilizadas: parseTarjetasUtilizadas(html) }
 }

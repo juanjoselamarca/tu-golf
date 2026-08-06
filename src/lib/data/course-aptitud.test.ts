@@ -252,10 +252,14 @@ describe('evaluarCanchaDeRondaLibre — recorridos sueltos', () => {
     ],
     course_tees: [],
   }
+  // Rating IMPOSIBLE sobre par 36: +19 si ya fuera de 9, −8.5 si fuera de 18.
+  // Un 72 acá NO sirve de fixture — ése es el rating de 18 hoyos del loop y el
+  // motor lo recupera partiéndolo (#293), así que el gate lo deja pasar a
+  // propósito. Ver el caso de abajo.
   const HIJOS = {
     courses: [
-      { id: 'este', nombre: 'Este', par_total: 36, course_rating: 72, slope_rating: 130 },
-      { id: 'norte', nombre: 'Norte', par_total: 36, course_rating: 72, slope_rating: 130 },
+      { id: 'este', nombre: 'Este', par_total: 36, course_rating: 55, slope_rating: 130 },
+      { id: 'norte', nombre: 'Norte', par_total: 36, course_rating: 55, slope_rating: 130 },
     ],
     course_tees: [],
   }
@@ -270,6 +274,18 @@ describe('evaluarCanchaDeRondaLibre — recorridos sueltos', () => {
     const r = await evaluarCanchaDeRondaLibre(fakeSupabase(unHijo), PADRE, 9, ['Este'])
     expect(r!.apta).toBe(false)
     expect(r!.mensaje).toBe(MENSAJE_SIN_RATING_9H)
+  })
+
+  it('un recorrido con el rating de 18h NO se bloquea: el motor lo parte', async () => {
+    // Los 9 loops reales de Brisas / Marbella / Rocas (par 36, CR 72). Bloquear
+    // estos tres clubes sería un falso positivo: el motor produce el handicap
+    // correcto con ellos desde el #293.
+    const conRating18h = {
+      courses: [{ id: 'este', nombre: 'Este', par_total: 36, course_rating: 72, slope_rating: 130 }],
+      course_tees: [],
+    }
+    const r = await evaluarCanchaDeRondaLibre(fakeSupabase(conRating18h), PADRE, 9, ['Este'])
+    expect(r!.apta).toBe(true)
   })
 
   it('sin recorridos juzga la cancha simple', async () => {
@@ -295,7 +311,7 @@ describe('evaluarCanchaDeRondaLibre — recorridos sueltos', () => {
     // que cae el motor cuando un loop no tiene `course_rating`.
     const sinRatingConTeeRoto = {
       courses: [{ id: 'este', nombre: 'Este', par_total: 36, course_rating: null }],
-      course_tees: [{ course_id: 'este', rating: 72, front_course_rating: null }],
+      course_tees: [{ course_id: 'este', rating: 55, front_course_rating: null }],
     }
     const r = await evaluarCanchaDeRondaLibre(fakeSupabase(sinRatingConTeeRoto), PADRE, 9, ['Este'])
     expect(r!.apta).toBe(false)

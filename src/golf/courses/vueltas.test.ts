@@ -17,6 +17,7 @@ import {
   sumaDeVueltas,
   ratingDeVueltas,
   parDeVariasVueltas,
+  resolverRatingEnEscalaDe9,
 } from './vueltas'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
@@ -44,11 +45,30 @@ describe('escala de la cancha', () => {
   it('el par decide la escala, no la magnitud del rating', () => {
     expect(esEscalaDe18Hoyos(72)).toBe(true)
     expect(esEscalaDe18Hoyos(35)).toBe(false)
-    // Río Blanco: par 35 con rating 55 cargado. El 55 NO se parte.
-    expect(courseRatingEnEscalaDe9(55, 35)).toBe(55)
     expect(courseRatingEnEscalaDe9(71.6, 72)).toBe(35.8)
     expect(parEnEscalaDe9(71)).toBe(36)
     expect(parEnEscalaDe9(35)).toBe(35)
+  })
+
+  it('la escala se decide por la RELACIÓN rating↔par, y dice cuál de las dos fue', () => {
+    // Un rating que ya está en escala de 9 se respeta.
+    expect(resolverRatingEnEscalaDe9(35.8, 36)).toEqual({ courseRating: 35.8, escala: 'ya_en_9' })
+    // Los 9 loops de Brisas / Marbella / Rocas: 72 sobre par 36. La mitad cierra
+    // contra el par, así que el dato se RECUPERA — no miente, está mal escalado.
+    expect(resolverRatingEnEscalaDe9(72, 36)).toEqual({ courseRating: 36, escala: 'era_de_18' })
+    // C.G. Río Blanco: 55 sobre par 35. No cierra en ninguna escala (+20 si ya
+    // fuera de 9, −15 si fuera de 18). Se devuelve el par para que el término
+    // `(CR − par)` se anule, pero la escala queda marcada IMPOSIBLE para que el
+    // guardarrail no confunda ese 0 con un dato sano.
+    expect(resolverRatingEnEscalaDe9(55, 35)).toEqual({ courseRating: 35, escala: 'imposible' })
+  })
+
+  it('el valor de `courseRatingEnEscalaDe9` es el de `resolverRatingEnEscalaDe9`', () => {
+    // Un solo criterio de escala: si divergieran, el motor y el guardarrail
+    // clasificarían distinto el mismo rating.
+    for (const [cr, par] of [[35.8, 36], [72, 36], [55, 35], [71.6, 72], [64.4, 72]] as const) {
+      expect(courseRatingEnEscalaDe9(cr, par)).toBe(resolverRatingEnEscalaDe9(cr, par).courseRating)
+    }
   })
 
   it('hoyosDeUnaVuelta lee la misma señal', () => {

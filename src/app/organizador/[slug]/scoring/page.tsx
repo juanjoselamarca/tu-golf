@@ -1,367 +1,95 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+// Scorer del organizador — orquestador delgado (regla "el que toca, ordena").
+//   - Datos:   src/lib/data/tournaments/scoring.ts (cero supabase.from acá)
+//   - Lógica:  hooks/ (useScoringData, useScoreEntry, useResumenBoard, useHcpEditor)
+//   - Vista:   components/
+// El tab Resumen consume el MISMO motor que el board público
+// (`buildLeaderboardFromLegacy`), no recalcula nada por su cuenta.
+
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
 import { Flag, PersonStanding } from '@/components/icons'
-import { createClient } from '@/lib/supabase'
-import { useToast } from '@/hooks/useToast'
-import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
-import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
-import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
-import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
-import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
-import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { useScoringData } from './hooks/useScoringData'
+import { useScoreEntry } from './hooks/useScoreEntry'
+import { useResumenBoard } from './hooks/useResumenBoard'
+import { useHcpEditor } from './hooks/useHcpEditor'
+import { ScoringHeader } from './components/ScoringHeader'
+import { MultiRoundControls } from './components/MultiRoundControls'
+import { ResumenTab } from './components/ResumenTab'
+import { PlayerCards } from './components/PlayerCards'
+import { ScorecardPanel } from './components/ScorecardPanel'
 
-interface CourseHole { numero: number; par: number; stroke_index: number }
-interface Round { id: string; status: string; total_gross: number; total_net: number; total_points: number; round_number: number }
-interface Player {
-  id: string
-  handicap_at_registration: number | null
-  tee_id: string | null
-  profiles: { name: string }
-  rounds: Round[]
-}
-interface Tournament {
-  id: string
-  name: string
-  slug: string
-  format: string
-  hole_count: number
-  total_rounds: number
-  tees: string | null
-  hcp_calc_mode: string | null
-  courses: { id: string; nombre: string; par_total: number; slope_rating: number; course_rating: number } | null
-}
-
-function getInitials(name: string) {
-  return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
-}
-
-function scoreBackground(gross: number, par: number) {
-  const d = gross - par
-  if (d <= -2) return 'rgba(37,99,235,0.30)'
-  if (d === -1) return 'rgba(22,163,74,0.30)'
-  if (d === 0)  return 'rgba(100,116,139,0.10)'
-  if (d === 1)  return 'rgba(220,38,38,0.20)'
-  return 'rgba(220,38,38,0.40)'
-}
-
-function scoreBorder(gross: number, par: number) {
-  const d = gross - par
-  if (d <= -2) return '2px solid #2563eb'
-  if (d === -1) return '2px solid #16a34a'
-  if (d === 0)  return '1px solid #e2e8f0'
-  if (d === 1)  return '2px solid rgba(220,38,38,0.6)'
-  return '2px solid #dc2626'
+function CenteredScreen({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {children}
+    </div>
+  )
 }
 
 export default function ScoringPage() {
   const { slug } = useParams() as { slug: string }
-  const { showError, showSuccess, showWarning } = useToast()
+  const [activeTab, setActiveTab] = useState<'scoring' | 'resumen'>('scoring')
 
-  const [tournament,        setTournament]        = useState<Tournament | null>(null)
-  const [players,           setPlayers]           = useState<Player[]>([])
-  const [courseHoles,       setCourseHoles]       = useState<CourseHole[]>([])
-  const [selectedId,        setSelectedId]        = useState<string | null>(null)
-  const [currentScores,     setCurrentScores]     = useState<Record<number, number>>({})
-  const [errorHoles,        setErrorHoles]        = useState<Set<number>>(new Set())
-  const [saving,            setSaving]            = useState(false)
-  const [loading,           setLoading]           = useState(true)
-  const [activeTab,         setActiveTab]         = useState<'scoring' | 'resumen'>('scoring')
-  const [editingHcp,        setEditingHcp]        = useState<string | null>(null)
-  const [editHcpValue,      setEditHcpValue]      = useState('')
-  const [activeRoundNum,    setActiveRoundNum]    = useState(1)
-  const [startingNextRound, setStartingNextRound] = useState(false)
+  const data = useScoringData(slug)
+  const {
+    tournament, players, courseHoles, courseTees, loading, loadError, retryLoad,
+    holeCount, isMultiRound, totalRounds, activeRoundNum,
+  } = data
 
-  // Estadísticas adicionales por hoyo
-  const [showStats,    setShowStats]    = useState(false)
-  const [holePutts,    setHolePutts]    = useState<Record<number, number | null>>({})
-  const [holeFairway,  setHoleFairway]  = useState<Record<number, boolean | null>>({})
-  const [holeGir,      setHoleGir]      = useState<Record<number, boolean | null>>({})
+  const entry = useScoreEntry({
+    tournament,
+    players,
+    courseHoles,
+    courseTees,
+    holeCount,
+    getActiveRound: data.getActiveRound,
+    applyRoundTotals: data.applyRoundTotals,
+    reloadRoster: data.reloadRoster,
+  })
 
-  const [courseTees, setCourseTees] = useState<CourseTeeRow[]>([])
+  const resumen = useResumenBoard({
+    tournament,
+    courseHoles,
+    active: activeTab === 'resumen',
+  })
 
-  // Undo last score
-  const [lastAction, setLastAction] = useState<{
-    holeNumber: number; previousScore: number | undefined; playerId: string
-  } | null>(null)
-
-  // Load all data
-  useEffect(() => {
-    const load = async () => {
-      const supabase = createClient()
-
-      const { data: t } = await supabase
-        .from('tournaments')
-        .select('id, name, slug, format, hole_count, total_rounds, tees, hcp_calc_mode, courses(id, nombre, par_total, slope_rating, course_rating)')
-        .eq('slug', slug)
-        .single()
-
-      if (!t) { setLoading(false); return }
-      setTournament(t as unknown as Tournament)
-
-      const { data: p } = await supabase
-        .from('players')
-        // categories(default_tee_color) NO existe en prod → PostgREST 400 → players=[] (pantalla vacía).
-        // El default de tee por categoría nunca se cableó a la BD; se quita el embed roto.
-        .select('id, handicap_at_registration, tee_id, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
-        .eq('tournament_id', t.id)
-        .order('created_at')
-
-      const allPlayers = (p as unknown as Player[]) || []
-      setPlayers(allPlayers)
-
-      // Determine active round number: max round_number across all rounds
-      const maxRound = allPlayers.reduce((max, pl) => {
-        const pMax = pl.rounds?.reduce((m, r) => Math.max(m, r.round_number ?? 1), 0) ?? 0
-        return Math.max(max, pMax)
-      }, 1)
-      setActiveRoundNum(maxRound)
-
-      const courseId = (t.courses as unknown as { id: string } | null)?.id
-      if (courseId) {
-        const [{ data: holes }, { data: tees }] = await Promise.all([
-          supabase
-            .from('course_holes')
-            .select('numero, par, stroke_index')
-            .eq('course_id', courseId)
-            .order('numero'),
-          supabase
-            .from('course_tees')
-            // Fuente única de las columnas: si el scorer y el board pidieran
-            // listas distintas, calcularían el handicap con datos distintos.
-            .select(COURSE_TEE_COLUMNS)
-            .eq('course_id', courseId),
-        ])
-        // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en
-        // un torneo de 18 se recorre dos veces y los hoyos 10-18 son los 1-9
-        // otra vez, con su par y su dificultad reales (`@/golf/courses/vueltas`).
-        setCourseHoles(hoyosDeLaVuelta((holes as CourseHole[]) || [], t.hole_count || 18))
-        setCourseTees((tees as CourseTeeRow[]) || [])
-      }
-
-      setLoading(false)
-    }
-    load()
-  }, [slug])
-
-  // Load scores when player selected
-  // Get the round for a player matching the active round number
-  const getActiveRound = useCallback((player: Player | undefined) => {
-    if (!player?.rounds) return undefined
-    return player.rounds.find(r => (r.round_number ?? 1) === activeRoundNum) || player.rounds[0]
-  }, [activeRoundNum])
-
-  const loadScores = useCallback(async (playerId: string) => {
-    const player = players.find((p) => p.id === playerId)
-    const roundId = getActiveRound(player)?.id
-    if (!roundId) {
-      setCurrentScores({})
-      setHolePutts({})
-      setHoleFairway({})
-      setHoleGir({})
-      return
-    }
-
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('hole_scores')
-      .select('hole_number, gross_score, putts, fairway_hit, gir')
-      .eq('round_id', roundId)
-      .not('gross_score', 'is', null)
-
-    const scores:  Record<number, number>          = {}
-    const putts:   Record<number, number | null>   = {}
-    const fairway: Record<number, boolean | null>  = {}
-    const gir:     Record<number, boolean | null>  = {}
-
-    ;(data || []).forEach((s: {
-      hole_number: number
-      gross_score: number | null
-      putts:       number | null
-      fairway_hit: boolean | null
-      gir:         boolean | null
-    }) => {
-      if (s.gross_score != null) scores[s.hole_number]  = s.gross_score
-      putts[s.hole_number]   = s.putts   ?? null
-      fairway[s.hole_number] = s.fairway_hit ?? null
-      gir[s.hole_number]     = s.gir     ?? null
-    })
-
-    setCurrentScores(scores)
-    setHolePutts(putts)
-    setHoleFairway(fairway)
-    setHoleGir(gir)
-  }, [players, getActiveRound])
-
-  useEffect(() => {
-    if (selectedId) loadScores(selectedId)
-  }, [selectedId, loadScores, activeRoundNum])
-
-  const handleScoreBlur = async (holeNumber: number, value: string) => {
-    const gross = parseInt(value)
-    if (isNaN(gross) || !tournament || !selectedId) return
-
-    if (gross < 1 || gross > 19) {
-      showWarning('Score inválido', 'El score debe ser entre 1 y 19 golpes.')
-      return
-    }
-
-    const player = players.find((p) => p.id === selectedId)
-    if (!player) return
-    const round  = getActiveRound(player)
-    if (!round) return
-
-    const hole         = courseHoles.find((h) => h.numero === holeNumber)
-    const par          = hole?.par ?? 4
-    // SI normalizado (permutación 1..N) para alocar golpes (idempotente). Persiste el neto correcto.
-    const strokeIndex  = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNumber] ?? hole?.stroke_index ?? holeNumber
-    // Par de los hoyos que se juegan (no el de la cancha): con el CR de 9h y el
-    // par de 18 la fórmula WHS devolvía course handicaps NEGATIVOS.
-    // (siempre >0: completa a par 4 los hoyos que falten en el catálogo)
-    const parDeLaRonda = parDeLosHoyosJugados(courseHoles, tournament.hole_count || 18)
-    const courseHcp    = resolveScoringCourseHcp(tournament.hcp_calc_mode, player, tournament, courseTees, parDeLaRonda, tournament.hole_count || 18)
-    const strokes      = strokesRecibidosEnHoyo(courseHcp, strokeIndex, tournament.hole_count || 18)
-    const netScore     = gross - strokes
-
-    let points = 0
-    if (tournament.format === 'stableford') {
-      points = Math.max(0, 2 - (netScore - par))
-    }
-
-    // Save previous for undo
-    setLastAction({ holeNumber, previousScore: currentScores[holeNumber], playerId: selectedId })
-
-    // Optimistic update
-    setCurrentScores((prev) => ({ ...prev, [holeNumber]: gross }))
-    setErrorHoles((prev) => { const next = new Set(prev); next.delete(holeNumber); return next })
-
-    setSaving(true)
-    const res = await fetch('/api/game', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action:        'upsert_score',
-        tournament_id: tournament.id,
-        round_id:      round.id,
-        hole_number:   holeNumber,
-        par,
-        gross_score:   gross,
-        net_score:     netScore,
-        points,
-        putts:         holePutts[holeNumber]   ?? null,
-        fairway_hit:   holeFairway[holeNumber] ?? null,
-        gir:           holeGir[holeNumber]     ?? null,
-      }),
-    })
-    setSaving(false)
-
-    if (!res.ok) {
-      showError('Error al guardar', `No pudimos guardar el score del hoyo ${holeNumber}. Intenta nuevamente.`)
-      setErrorHoles((prev) => new Set(prev).add(holeNumber))
-      return
-    }
-
-    showSuccess('Score guardado', '', { duration: 1500 })
-
-    // Refresh round totals in local state
-    const supabase = createClient()
-    const { data: updatedRound } = await supabase
-      .from('rounds')
-      .select('total_gross, total_net, total_points')
-      .eq('id', round.id)
-      .single()
-
-    if (updatedRound) {
-      setPlayers((prev) =>
-        prev.map((p) => {
-          if (p.id !== selectedId) return p
-          const updatedRounds = (p.rounds || []).map(r =>
-            r.id === round.id ? { ...r, ...updatedRound } : r
-          )
-          return { ...p, rounds: updatedRounds }
-        })
-      )
-    }
-  }
-
-  const handleFinalize = async () => {
-    if (!tournament || !selectedId) return
-    const player = players.find((p) => p.id === selectedId)
-    const round  = getActiveRound(player)
-    if (!round) return
-
-    setSaving(true)
-    await fetch('/api/game', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action:        'finalize_round',
-        tournament_id: tournament.id,
-        round_id:      round.id,
-      }),
-    })
-    setSaving(false)
-
-    // Refresh players
-    const supabase = createClient()
-    const { data: p } = await supabase
-      .from('players')
-      // categories(default_tee_color) NO existe en prod → PostgREST 400 → players=[] (pantalla vacía).
-      .select('id, handicap_at_registration, tee_id, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
-      .eq('tournament_id', tournament.id)
-      .order('created_at')
-    setPlayers((p as unknown as Player[]) || [])
-    setSelectedId(null)
-    setCurrentScores({})
-    setHolePutts({})
-    setHoleFairway({})
-    setHoleGir({})
-  }
-
-  const handleHcpSave = async (playerId: string) => {
-    const value = parseFloat(editHcpValue)
-    if (isNaN(value) || value < 0 || value > 54) {
-      showWarning('Handicap inválido', 'Debe ser un número entre 0 y 54.')
-      setEditingHcp(null)
-      return
-    }
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('players')
-      .update({ handicap_at_registration: value })
-      .eq('id', playerId)
-    if (error) {
-      showError('Error', 'No se pudo actualizar el handicap.')
-    } else {
-      setPlayers((prev) =>
-        prev.map((p) => p.id === playerId ? { ...p, handicap_at_registration: value } : p)
-      )
-      showSuccess('Handicap actualizado', '', { duration: 1500 })
-    }
-    setEditingHcp(null)
-  }
+  const hcpEditor = useHcpEditor({
+    onSaved: (playerId, value) => {
+      data.setPlayerHandicap(playerId, value)
+      // El board reparte golpes con este número: se rearma con el motor.
+      resumen.reload()
+    },
+  })
 
   if (loading) {
+    return <CenteredScreen><div style={{ color: 'var(--text-2)' }}>Cargando torneo...</div></CenteredScreen>
+  }
+
+  if (loadError) {
     return (
-      <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: 'var(--text-2)' }}>Cargando torneo...</div>
-      </div>
+      <CenteredScreen>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ color: '#fca5a5', marginBottom: '16px' }}>No pudimos cargar el torneo.</div>
+          <button
+            onClick={retryLoad}
+            style={{ background: 'rgba(196,153,42,0.12)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}
+          >
+            Reintentar
+          </button>
+        </div>
+      </CenteredScreen>
     )
   }
 
   if (!tournament) {
-    return (
-      <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#fca5a5' }}>Torneo no encontrado.</div>
-      </div>
-    )
+    return <CenteredScreen><div style={{ color: '#fca5a5' }}>Torneo no encontrado.</div></CenteredScreen>
   }
 
   if (players.length === 0) {
     return (
-      <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <CenteredScreen>
         <div style={{ textAlign: 'center', padding: '40px 20px' }}>
           <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}><PersonStanding size={56} strokeWidth={1.5} /></div>
           <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', marginBottom: '10px' }}>
@@ -371,155 +99,34 @@ export default function ScoringPage() {
             Inscribe jugadores antes de ingresar scores
           </p>
           <button
-            onClick={() => window.location.href = `/organizador/${slug}/jugadores`}
+            onClick={() => (window.location.href = `/organizador/${slug}/jugadores`)}
             style={{ background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: 'pointer' }}
           >
             Inscribir jugadores →
           </button>
         </div>
-      </div>
+      </CenteredScreen>
     )
   }
 
-  const totalRounds    = tournament.total_rounds || 1
-  const isMultiRound   = totalRounds > 1
-  const holeCount      = tournament.hole_count || 18
-  const holes          = Array.from({ length: holeCount }, (_, i) => i + 1)
-  // SI normalizado (permutación 1..N) para alocar golpes de neto/stableford (idempotente).
-  const siAllocByHole  = normalizedStrokeIndexByHole(courseHoles, holeCount)
-  const selectedPlayer = players.find((p) => p.id === selectedId)
-  const selectedRound  = getActiveRound(selectedPlayer)
-
-  // Multi-round: check if all current rounds are closed
-  const allCurrentRoundsClosed = players.every(p => {
-    const r = p.rounds?.find(r => (r.round_number ?? 1) === activeRoundNum)
-    return r ? (r.status === 'closed' || r.status === 'official') : true
-  })
-  const canStartNextRound = isMultiRound && allCurrentRoundsClosed && activeRoundNum < totalRounds && players.length > 0
-
-  const handleStartNextRound = async () => {
-    if (!tournament || !canStartNextRound) return
-    setStartingNextRound(true)
-    const res = await fetch('/api/game', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'start_next_round',
-        tournament_id: tournament.id,
-      }),
-    })
-    const data = await res.json()
-    setStartingNextRound(false)
-
-    if (res.ok && data.roundNumber) {
-      setActiveRoundNum(data.roundNumber)
-      showSuccess('Ronda iniciada', `Se creo la ronda ${data.roundNumber} para ${data.playersCount} jugadores`)
-      // Refresh players
-      const supabase = createClient()
-      const { data: p } = await supabase
-        .from('players')
-        // categories(default_tee_color) NO existe en prod → PostgREST 400 → players=[] (pantalla vacía).
-        // El default de tee por categoría nunca se cableó a la BD; se quita el embed roto.
-        .select('id, handicap_at_registration, tee_id, profiles(name), rounds(id, status, total_gross, total_net, total_points, round_number)')
-        .eq('tournament_id', tournament.id)
-        .order('created_at')
-      setPlayers((p as unknown as Player[]) || [])
-      setSelectedId(null)
-      setCurrentScores({})
-    } else {
-      showError('Error', data.error || 'No se pudo iniciar la siguiente ronda')
-    }
-  }
-  const filledCount    = holes.filter((h) => currentScores[h] != null).length
-  const allFilled      = filledCount === holeCount
-
-  // Par acumulado SOLO de hoyos jugados (no del recorrido completo)
-  const parJugado = holes.reduce((s, h) => {
-    if (!currentScores[h]) return s
-    const hole = courseHoles.find((ch) => ch.numero === h)
-    return s + (hole?.par ?? 4)
-  }, 0)
-
-  const grossTotal = holes.reduce((s, h) => s + (currentScores[h] ?? 0), 0)
-  const outGross   = holes.filter(h => h <= 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
-  const inGross    = holes.filter(h => h > 9).reduce((s, h) => s + (currentScores[h] ?? 0), 0)
-  const selectedCourseHcp = selectedPlayer
-    ? resolveScoringCourseHcp(tournament.hcp_calc_mode, selectedPlayer, tournament, courseTees, parDeLosHoyosJugados(courseHoles, holeCount), holeCount)
-    : 0
-  const netTotal   = holes.reduce((s, h) => {
-    if (!currentScores[h]) return s
-    const hole        = courseHoles.find((ch) => ch.numero === h)
-    const par         = hole?.par ?? 4
-    const si          = siAllocByHole[h] ?? hole?.stroke_index ?? h
-    const strokes     = strokesRecibidosEnHoyo(selectedCourseHcp, si, holeCount)
-    return s + (currentScores[h] - strokes)
-  }, 0)
-
   return (
-    // La pantalla de scoring del organizador se diseñó dark-first (header + cards navy,
-    // estética "sala de control" broadcast). data-theme="dark" en el root la fija oscura
-    // y coherente en AMBOS temas: idéntica en dark, y en tema claro deja de romper el
-    // texto var(--text) que quedaba invisible sobre las islas navy. Reporte inbox e637b979.
+    // Pantalla dark-first (header + cards navy, estética "sala de control").
+    // data-theme="dark" en el root la fija oscura y coherente en AMBOS temas:
+    // en tema claro el texto var(--text) quedaba invisible sobre las islas navy.
+    // Reporte inbox e637b979.
     <div data-theme="dark" style={{ background: 'var(--bg-surface)', minHeight: '100vh' }}>
-
-      {/* Header */}
-      <div style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: 'var(--text)', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {tournament.name}
-            <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: 'rgba(22,163,74,0.15)', color: '#4ade80', border: '1px solid rgba(22,163,74,0.4)', padding: '3px 10px', borderRadius: '20px', animation: 'pulse 2s infinite' }}>
-              ● EN VIVO
-            </span>
-            {isMultiRound && (
-              <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: 'rgba(196,153,42,0.12)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.3)', padding: '3px 10px', borderRadius: '20px' }}>
-                R{activeRoundNum}/{totalRounds}
-              </span>
-            )}
-            {saving && <span style={{ fontSize: '12px', color: 'var(--text-2)', fontFamily: 'DM Sans, sans-serif' }}>Guardando...</span>}
-            {lastAction && !saving && (
-              <button
-                onClick={async () => {
-                  if (!lastAction || !tournament) return
-                  const player = players.find(p => p.id === lastAction.playerId)
-                  const round = getActiveRound(player)
-                  if (!round) return
-                  if (lastAction.previousScore !== undefined) {
-                    setCurrentScores(prev => ({ ...prev, [lastAction.holeNumber]: lastAction.previousScore! }))
-                    const hole = courseHoles.find(h => h.numero === lastAction.holeNumber)
-                    await fetch('/api/game', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
-                        hole_number: lastAction.holeNumber, par: hole?.par ?? 4,
-                        gross_score: lastAction.previousScore,
-                      }),
-                    })
-                  } else {
-                    setCurrentScores(prev => { const next = { ...prev }; delete next[lastAction.holeNumber]; return next })
-                  }
-                  showSuccess('Deshacer', `Hoyo ${lastAction.holeNumber} restaurado`, { duration: 1500 })
-                  setLastAction(null)
-                }}
-                style={{ fontSize: '12px', color: '#c4992a', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
-              >
-                Deshacer hoyo {lastAction.holeNumber}
-              </button>
-            )}
-          </h1>
-          <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
-        </div>
-        <Link
-          href={`/torneo/${tournament.slug}`}
-          target="_blank"
-          style={{ background: 'rgba(196,153,42,0.12)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.3)', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', textDecoration: 'none', fontWeight: 500 }}
-        >
-          Ver leaderboard público →
-        </Link>
-      </div>
+      <ScoringHeader
+        name={tournament.name}
+        slug={tournament.slug}
+        isMultiRound={isMultiRound}
+        activeRoundNum={activeRoundNum}
+        totalRounds={totalRounds}
+        saving={entry.saving}
+        lastAction={entry.lastAction}
+        onUndo={entry.undoLast}
+      />
 
       <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '28px 20px' }}>
-
         {/* Tab switcher */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'rgba(14,28,47,0.7)', borderRadius: '10px', padding: '4px', border: '1px solid rgba(122,143,168,0.15)' }}>
           {(['scoring', 'resumen'] as const).map((tab) => (
@@ -544,467 +151,56 @@ export default function ScoringPage() {
           ))}
         </div>
 
-        {/* Multi-round controls */}
         {isMultiRound && (
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {Array.from({ length: totalRounds }, (_, i) => i + 1).map(rn => {
-              const hasRound = players.some(p => p.rounds?.some(r => (r.round_number ?? 1) === rn))
-              return (
-                <button
-                  key={rn}
-                  onClick={() => { if (hasRound) { setActiveRoundNum(rn); setSelectedId(null); setCurrentScores({}) } }}
-                  disabled={!hasRound}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: activeRoundNum === rn ? 700 : 400,
-                    border: activeRoundNum === rn ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.25)',
-                    background: activeRoundNum === rn ? 'rgba(196,153,42,0.12)' : 'transparent',
-                    color: !hasRound ? '#3a4a5a' : activeRoundNum === rn ? '#c4992a' : '#4a5568',
-                    cursor: hasRound ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  Ronda {rn}
-                </button>
-              )
-            })}
-            {canStartNextRound && (
-              <button
-                onClick={handleStartNextRound}
-                disabled={startingNextRound}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  border: '2px solid #c4992a',
-                  background: '#c4992a',
-                  color: 'var(--text)',
-                  cursor: startingNextRound ? 'not-allowed' : 'pointer',
-                  opacity: startingNextRound ? 0.7 : 1,
-                  marginLeft: 'auto',
-                }}
-              >
-                {startingNextRound ? 'Creando...' : `Iniciar Ronda ${activeRoundNum + 1}`}
-              </button>
-            )}
-          </div>
+          <MultiRoundControls
+            totalRounds={totalRounds}
+            activeRoundNum={activeRoundNum}
+            players={players}
+            canStartNextRound={data.canStartNextRound}
+            startingNextRound={data.startingNextRound}
+            onSelectRound={(rn) => {
+              data.selectRound(rn)
+              entry.clearSelection()
+            }}
+            onStartNextRound={async () => {
+              const ok = await data.startNextRound()
+              if (ok) entry.clearSelection()
+            }}
+          />
         )}
 
-        {/* ── Resumen tab ── */}
         {activeTab === 'resumen' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Stats cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-              {(() => {
-                const completed = players.filter(p => p.rounds?.[0]?.status === 'completed').length
-                const withScores = players.filter(p => p.rounds?.[0]?.total_gross > 0).length
-                const bestGross = players.reduce((best, p) => {
-                  const g = p.rounds?.[0]?.total_gross
-                  return g && g > 0 && (!best || g < best.score) ? { name: p.profiles?.name, score: g } : best
-                }, null as { name: string; score: number } | null)
-                const bestNet = players.reduce((best, p) => {
-                  const n = p.rounds?.[0]?.total_net
-                  return n != null && n !== 0 && (!best || n < best.score) ? { name: p.profiles?.name, score: n } : best
-                }, null as { name: string; score: number } | null)
-
-                const cards = [
-                  { label: 'Jugadores', value: `${withScores}/${players.length}`, sub: `${completed} completos` },
-                  { label: 'Mejor Gross', value: bestGross ? String(bestGross.score) : '--', sub: bestGross?.name?.split(' ')[0] || '' },
-                  { label: 'Mejor Neto', value: bestNet ? String(bestNet.score) : '--', sub: bestNet?.name?.split(' ')[0] || '' },
-                ]
-
-                return cards.map((c) => (
-                  <div key={c.label} style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
-                    <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Playfair Display", serif' }}>{c.value}</div>
-                    {c.sub && <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>{c.sub}</div>}
-                  </div>
-                ))
-              })()}
-            </div>
-
-            {/* Player table with editable handicap */}
-            <div style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(196,153,42,0.1)' }}>
-                <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '16px', color: 'var(--text)' }}>Jugadores</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-2)', marginLeft: '8px' }}>Toca el handicap para editar</span>
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(122,143,168,0.15)' }}>
-                      {['Jugador', 'HCP', 'Gross', 'Neto', 'Pts', 'Estado'].map((h) => (
-                        <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '10px 12px', textAlign: h === 'Jugador' ? 'left' : 'center' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {players.map((p) => {
-                      const round = p.rounds?.[0]
-                      const isDone = round?.status === 'completed'
-                      const isEditingThis = editingHcp === p.id
-                      return (
-                        <tr key={p.id} style={{ borderBottom: '1px solid rgba(122,143,168,0.06)' }}>
-                          <td style={{ padding: '10px 12px', color: 'var(--text)', fontWeight: 500 }}>{p.profiles?.name || '--'}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                            {isEditingThis ? (
-                              <input
-                                type="number"
-                                step="0.1"
-                                min={0}
-                                max={54}
-                                autoFocus
-                                value={editHcpValue}
-                                onChange={(e) => setEditHcpValue(e.target.value)}
-                                onBlur={() => handleHcpSave(p.id)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') handleHcpSave(p.id); if (e.key === 'Escape') setEditingHcp(null) }}
-                                style={{ width: '56px', background: 'var(--bg)', border: '1px solid #c4992a', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none' }}
-                              />
-                            ) : (
-                              <button
-                                onClick={() => { setEditingHcp(p.id); setEditHcpValue(String(p.handicap_at_registration ?? '')) }}
-                                style={{ background: 'transparent', border: '1px solid transparent', borderRadius: '4px', color: '#c4992a', cursor: 'pointer', padding: '4px 8px', fontSize: '13px', fontWeight: 600 }}
-                                title="Editar handicap"
-                              >
-                                {p.handicap_at_registration ?? '--'}
-                              </button>
-                            )}
-                          </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)', fontWeight: 600 }}>{round?.total_gross || '--'}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)' }}>{round?.total_net || '--'}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text)' }}>{round?.total_points || '--'}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                            <span style={{
-                              fontSize: '11px',
-                              padding: '3px 8px',
-                              borderRadius: '12px',
-                              background: isDone ? 'rgba(22,163,74,0.15)' : 'rgba(122,143,168,0.1)',
-                              color: isDone ? '#4ade80' : '#4a5568',
-                              border: `1px solid ${isDone ? 'rgba(22,163,74,0.3)' : 'rgba(122,143,168,0.2)'}`,
-                            }}>
-                              {isDone ? 'Completo' : 'En juego'}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+          <ResumenTab board={resumen} roster={players} hcpEditor={hcpEditor} />
         )}
 
-        {/* ── Scoring tab ── */}
-        {activeTab === 'scoring' && <>
+        {activeTab === 'scoring' && (
+          <>
+            <PlayerCards
+              players={players}
+              selectedId={entry.selectedId}
+              holeCount={holeCount}
+              filledCount={entry.filledCount}
+              getActiveRound={data.getActiveRound}
+              hasScoresLoaded={Object.keys(entry.currentScores).length > 0}
+              onSelect={entry.selectPlayer}
+            />
 
-        {/* Player cards */}
-        <div style={{ overflowX: 'auto', marginBottom: '28px' }}>
-          <div style={{ display: 'flex', gap: '12px', padding: '4px 0' }}>
-            {players.map((p) => {
-              const round      = getActiveRound(p)
-              const isSelected = p.id === selectedId
-              const isDone     = round?.status === 'closed' || round?.status === 'official'
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => {
-                    setSelectedId(p.id)
-                    setCurrentScores({})
-                    setLastAction(null)
-                  }}
-                  style={{
-                    minWidth: '120px',
-                    padding: '14px 16px',
-                    background: isSelected ? 'rgba(196,153,42,0.12)' : 'rgba(14,28,47,0.9)',
-                    border: isSelected ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.2)',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    textAlign: 'center',
-                    transition: 'all 180ms',
-                    flexShrink: 0,
-                  }}
-                >
-                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? '#c4992a' : '#e2e8f0', color: isSelected ? 'var(--brand-dark)' : 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', margin: '0 auto 8px' }}>
-                    {getInitials(p.profiles?.name || '?')}
-                  </div>
-                  <div style={{ color: 'var(--text)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, marginBottom: '4px' }}>
-                    {p.profiles?.name?.split(' ')[0] || '—'}
-                  </div>
-                  <div style={{ fontSize: '11px', color: isDone ? '#4ade80' : '#4a5568' }}>
-                    {isDone ? '✓ Completo' : `${Object.keys(currentScores).length > 0 && isSelected ? filledCount : 0}/${holeCount}`}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Scorecard */}
-        {selectedPlayer ? (
-          <div style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.15)', borderRadius: '14px', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(196,153,42,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-              <div>
-                <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)' }}>{selectedPlayer.profiles?.name}</span>
-                <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '10px' }}>HCP {selectedPlayer.handicap_at_registration ?? '—'}</span>
-              </div>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
-                {holeCount === 18 && grossTotal > 0 && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', alignSelf: 'center' }}>
-                    {outGross}+{inGross}
-                  </div>
-                )}
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>GROSS</div>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)' }}>{grossTotal || '—'}</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>NET</div>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: netTotal < 0 ? '#4ade80' : netTotal > 0 ? '#f87171' : 'var(--text)' }}>
-                    {grossTotal ? (netTotal <= 0 ? netTotal : `+${netTotal}`) : '—'}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>vs PAR</div>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-2)' }}>
-                    {grossTotal ? (() => {
-                      const vp = grossTotal - parJugado
-                      return vp <= 0 ? String(vp) : `+${vp}`
-                    })() : '—'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Score grid */}
-            <div style={{ padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '8px' }}>
-              {holes.map((holeNum) => {
-                const hole    = courseHoles.find((h) => h.numero === holeNum)
-                const par     = hole?.par ?? 4
-                const gross   = currentScores[holeNum]
-                const haScore = gross != null
-                const hasErr  = errorHoles.has(holeNum)
-
-                return (
-                  <div
-                    key={holeNum}
-                    style={{
-                      background: hasErr ? 'rgba(220,38,38,0.15)' : haScore ? scoreBackground(gross, par) : '#f8f9fa',
-                      border:     hasErr ? '2px solid #dc2626' : haScore ? scoreBorder(gross, par) : '1px solid rgba(122,143,168,0.15)',
-                      borderRadius: '8px',
-                      padding: '8px 4px',
-                      textAlign: 'center',
-                      animation: hasErr ? 'pulse 1s ease-in-out 3' : 'none',
-                    }}
-                  >
-                    <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '2px' }}>H{holeNum}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '4px' }}>P{par}</div>
-                    <input
-                      type="number"
-                      min={1}
-                      max={19}
-                      inputMode="numeric"
-                      defaultValue={gross ?? ''}
-                      key={`${selectedId}-${holeNum}-${gross}`}
-                      onBlur={(e) => handleScoreBlur(holeNum, e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: 'transparent',
-                        border: 'none',
-                        outline: 'none',
-                        color: 'var(--text)',
-                        textAlign: 'center',
-                        fontSize: '18px',
-                        fontWeight: 700,
-                        padding: '2px 0',
-                        cursor: 'text',
-                        appearance: 'textfield',
-                      }}
-                      placeholder="—"
-                    />
-                    {haScore && tournament?.format === 'stableford' && (() => {
-                      const strokes = strokesRecibidosEnHoyo(selectedCourseHcp, siAllocByHole[holeNum] ?? courseHoles.find(h => h.numero === holeNum)?.stroke_index ?? holeNum, holeCount)
-                      const neto = gross - strokes
-                      const pts = Math.max(0, 2 - (neto - par))
-                      return (
-                        <div style={{ fontSize: '10px', color: pts >= 2 ? '#16a34a' : pts === 1 ? '#c4992a' : '#94a3b8', fontWeight: 600, marginTop: '2px' }}>
-                          {pts} pt{pts !== 1 ? 's' : ''}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* ── Estadísticas adicionales (colapsable) ── */}
-            <div style={{ borderTop: '1px solid rgba(122,143,168,0.1)' }}>
-              <button
-                type="button"
-                onClick={() => setShowStats(!showStats)}
-                style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-2)', fontSize: '13px' }}
-              >
-                <span style={{ transition: 'transform 200ms', transform: showStats ? 'rotate(90deg)' : 'rotate(0)', display: 'inline-block' }}>▶</span>
-                Estadísticas adicionales — Putts · Fairway · GIR (opcional)
-              </button>
-
-              {showStats && (
-                <div style={{ padding: '0 20px 20px', overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: '480px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(122,143,168,0.15)' }}>
-                        {['Hoyo', 'Gross', 'Putts (0-6)', 'Fairway hit', 'GIR'].map((h) => (
-                          <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {holes.map((h) => {
-                        const gross    = currentScores[h]
-                        const disabled = gross == null
-                        const hole     = courseHoles.find((ch) => ch.numero === h)
-                        const par      = hole?.par ?? 4
-                        const isFairwayApplicable = par >= 4
-
-                        return (
-                          <tr key={h} style={{ borderBottom: '1px solid rgba(122,143,168,0.06)', opacity: disabled ? 0.4 : 1 }}>
-                            <td style={{ textAlign: 'center', color: 'var(--text-2)', padding: '6px 8px', fontSize: '12px' }}>H{h} P{par}</td>
-                            <td style={{ textAlign: 'center', color: 'var(--text)', padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}>{gross ?? '—'}</td>
-
-                            {/* Putts */}
-                            <td style={{ textAlign: 'center', padding: '4px 6px' }}>
-                              <input
-                                type="number" min={0} max={6} inputMode="numeric"
-                                disabled={disabled}
-                                value={holePutts[h] ?? ''}
-                                onChange={(e) => {
-                                  const n = parseInt(e.target.value)
-                                  setHolePutts((prev) => ({ ...prev, [h]: isNaN(n) || n < 0 || n > 6 ? null : n }))
-                                }}
-                                onBlur={async () => {
-                                  if (disabled || !tournament || !selectedId) return
-                                  const player = players.find((p) => p.id === selectedId)
-                                  const round  = player?.rounds?.[0]
-                                  if (!round) return
-                                  await fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-                                    action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
-                                    hole_number: h, par, gross_score: gross,
-                                    putts: holePutts[h] ?? null,
-                                  })})
-                                }}
-                                style={{ width: '48px', background: 'var(--bg)', border: '1px solid rgba(122,143,168,0.2)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
-                                placeholder="—"
-                              />
-                            </td>
-
-                            {/* Fairway hit */}
-                            <td style={{ textAlign: 'center', padding: '4px 6px' }}>
-                              {isFairwayApplicable ? (
-                                <div style={{ display: 'inline-flex', gap: '4px' }}>
-                                  {([true, false, null] as (boolean | null)[]).map((v) => (
-                                    <button key={String(v)} type="button" disabled={disabled}
-                                      onClick={async () => {
-                                        if (disabled) return
-                                        setHoleFairway((prev) => ({ ...prev, [h]: v }))
-                                        const player = players.find((p) => p.id === selectedId)
-                                        const round  = player?.rounds?.[0]
-                                        if (!round || !tournament) return
-                                        await fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-                                          action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
-                                          hole_number: h, par, gross_score: gross,
-                                          fairway_hit: v,
-                                        })})
-                                      }}
-                                      style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
-                                        background:  holeFairway[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
-                                        borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#4a5568') : 'rgba(122,143,168,0.2)',
-                                        color:       holeFairway[h] === v ? 'var(--text)' : 'var(--text-2)',
-                                      }}>
-                                      {v === true ? 'Sí' : v === false ? 'No' : '—'}
-                                    </button>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span style={{ color: '#3a4a5a', fontSize: '12px' }}>N/A</span>
-                              )}
-                            </td>
-
-                            {/* GIR */}
-                            <td style={{ textAlign: 'center', padding: '4px 6px' }}>
-                              <div style={{ display: 'inline-flex', gap: '4px' }}>
-                                {([true, false, null] as (boolean | null)[]).map((v) => (
-                                  <button key={String(v)} type="button" disabled={disabled}
-                                    onClick={async () => {
-                                      if (disabled) return
-                                      setHoleGir((prev) => ({ ...prev, [h]: v }))
-                                      const player = players.find((p) => p.id === selectedId)
-                                      const round  = player?.rounds?.[0]
-                                      if (!round || !tournament) return
-                                      await fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-                                        action: 'upsert_score', tournament_id: tournament.id, round_id: round.id,
-                                        hole_number: h, par, gross_score: gross,
-                                        gir: v,
-                                      })})
-                                    }}
-                                    style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
-                                      background:  holeGir[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
-                                      borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#4a5568') : 'rgba(122,143,168,0.2)',
-                                      color:       holeGir[h] === v ? 'var(--text)' : 'var(--text-2)',
-                                    }}>
-                                    {v === true ? 'Sí' : v === false ? 'No' : '—'}
-                                  </button>
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Finalize button */}
-            {allFilled && selectedRound?.status !== 'completed' && selectedRound?.status !== 'closed' && selectedRound?.status !== 'official' && (
-              <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(196,153,42,0.1)', display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={handleFinalize}
-                  disabled={saving}
-                  style={{
-                    background: '#c4992a',
-                    color: 'var(--text)',
-                    fontWeight: 700,
-                    fontSize: '15px',
-                    padding: '12px 28px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                    opacity: saving ? 0.8 : 1,
-                  }}
-                >
-                  {saving ? 'Finalizando...' : 'Finalizar ronda ✓'}
-                </button>
+            {entry.selectedPlayer ? (
+              <ScorecardPanel
+                tournament={tournament}
+                courseHoles={courseHoles}
+                holeCount={holeCount}
+                entry={entry}
+              />
+            ) : (
+              <div style={{ background: 'rgba(14,28,47,0.7)', border: '1px solid rgba(122,143,168,0.15)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
+                <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Flag size={36} strokeWidth={1.5} /></div>
+                <div style={{ fontSize: '16px', color: 'var(--text)', marginBottom: '6px' }}>Selecciona un jugador arriba</div>
+                <div style={{ fontSize: '13px' }}>Luego ingresa los scores hoyo a hoyo.</div>
               </div>
             )}
-
-            {(selectedRound?.status === 'completed' || selectedRound?.status === 'closed' || selectedRound?.status === 'official') && (
-              <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(22,163,74,0.2)', background: 'rgba(22,163,74,0.05)', textAlign: 'center', color: '#4ade80', fontSize: '14px' }}>
-                ✓ Ronda finalizada
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ background: 'rgba(14,28,47,0.7)', border: '1px solid rgba(122,143,168,0.15)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
-            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Flag size={36} strokeWidth={1.5} /></div>
-            <div style={{ fontSize: '16px', color: 'var(--text)', marginBottom: '6px' }}>Selecciona un jugador arriba</div>
-            <div style={{ fontSize: '13px' }}>Luego ingresa los scores hoyo a hoyo.</div>
-          </div>
+          </>
         )}
-
-        </>}
       </div>
     </div>
   )

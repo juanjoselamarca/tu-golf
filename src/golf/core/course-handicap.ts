@@ -19,6 +19,7 @@ import {
   hoyosDeLaVuelta,
   parDeVariasVueltas,
   ratingDeVueltas,
+  resolverRatingEnEscalaDe9,
   sumaDeVueltas,
   vueltasDeLaRonda,
   type RatingDeLaRonda,
@@ -289,9 +290,19 @@ export function ratingsDe9DelTee(
   tee: TeeRatings,
   parDeLaCancha: number,
 ): { slope: number; courseRating: number } {
+  if (tee.front_course_rating != null) {
+    return { slope: tee.front_slope_rating ?? tee.slope, courseRating: tee.front_course_rating }
+  }
+  // Un `rating` IMPOSIBLE deja a este eslabón SIN dato utilizable, y hay que
+  // decirlo: `resolverRatingEnEscalaDe9` devuelve el par cuando se rinde, y ese
+  // valor pasa el guardarrail con delta 0 — el tee roto ganaba y la cadena de
+  // fallback hacia el rating de la cancha quedaba muerta. `NaN` es lo que ya
+  // significa "no hay rating" para `ratingEsCreible` (`Number.isFinite`), así
+  // que el eslabón de abajo corre igual que si el tee no publicara nada.
+  const { courseRating, escala } = resolverRatingEnEscalaDe9(tee.rating, parDeLaCancha)
   return {
     slope: tee.front_slope_rating ?? tee.slope,
-    courseRating: tee.front_course_rating ?? courseRatingEnEscalaDe9(tee.rating, parDeLaCancha),
+    courseRating: escala === 'imposible' ? NaN : courseRating,
   }
 }
 
@@ -362,8 +373,31 @@ export async function resolverCourseData(
     if (children && children.length === recorridos.length) {
       // Sumar CR/par across loops; promediar slope ponderado por hoyos.
       // Asumimos que cada child es 9h (o 18h si tipo_recorrido lo define).
-      const crSum = children.reduce((s, c) => s + (c.course_rating ?? 0), 0)
+      // Cada loop aporta su rating YA NORMALIZADO a la escala de su propio par.
+      // Sumarlos crudos era el agujero grande: los 9 loops hijos del catálogo
+      // guardan `par_total = 36` con `course_rating = 72`, así que un recorrido
+      // de 1 loop sumaba 72 contra un par de 36 (+36 golpes) y uno de 2 loops
+      // sumaba 144 contra 72 (+72). Este paso 0 era el ÚNICO consumidor de la
+      // escala que no pasaba por el helper canónico.
+      const crSum = children.reduce(
+        (s, c) => s + (c.course_rating != null ? courseRatingEnEscalaDe9(c.course_rating, c.par_total ?? 36) : 0),
+        0,
+      )
       const parSum = children.reduce((s, c) => s + (c.par_total ?? 36), 0)
+
+      // `parSum` es el par AUTORITATIVO de los loops elegidos: sale de las
+      // filas hijas, así que ya está en la escala del recorrido. `parTotal`
+      // (derivado de course_holes) es más fino, pero sólo sirve si viene en
+      // la MISMA escala — y no siempre viene. Este paso era el único de los
+      // tres que lo tomaba a ciegas; mientras el CR tampoco se normalizaba,
+      // un par de 72 se cancelaba solo contra un CR de 72 y salía bien por
+      // accidente. Comparar las dos escalas cierra las DOS direcciones: un
+      // parTotal de 18 en un recorrido de 9 (daba −30) y uno de 9 en un
+      // recorrido de 18 (daba +108).
+      const parDeLosLoops =
+        parTotal != null && esEscalaDe18Hoyos(parTotal) === esEscalaDe18Hoyos(parSum)
+          ? parTotal
+          : parSum
       const slopeAvg = children.length > 0
         ? Math.round(children.reduce((s, c) => s + (c.slope_rating ?? 113), 0) / children.length)
         : 113
@@ -388,7 +422,14 @@ export async function resolverCourseData(
        */
       const combinado = (cr: number, slope: number): CourseData | null => {
         const deLaRonda = ratingDeVueltas(cr, parSum, vueltasDeLoop)
-        const par = vueltasDeLoop > 1 ? deLaRonda.par : (parTotal ?? deLaRonda.par)
+        // Con UNA vuelta manda `parDeLosLoops`: el `parTotal` del caller sólo se
+        // acepta si viene en la misma escala que las filas hijas. Tomarlo a
+        // ciegas era el agujero que cerró el #293 en las dos direcciones (un
+        // parTotal de 18 en un recorrido de 9 daba −30; uno de 9 en uno de 18,
+        // +108). Con VARIAS vueltas el par ya salió de escalar el par de los
+        // loops, y el `parTotal` del caller no puede corregirlo: viene de
+        // `course_holes`, que para estas canchas está vacío.
+        const par = vueltasDeLoop > 1 ? deLaRonda.par : parDeLosLoops
         if (vueltasDeLoop > 1 && !ratingEsCreible({ courseRating: deLaRonda.courseRating, par, holes })) {
           return null
         }
@@ -413,7 +454,15 @@ export async function resolverCourseData(
         .in('course_id', childIds)
         .ilike('nombre', `${teeNorm2}%`)
       if (teeRows && teeRows.length === children.length) {
-        const crSumTee = teeRows.reduce((s, t) => s + (t.front_course_rating ?? t.rating ?? 0), 0)
+        // Mismo criterio que `crSum`: `front_course_rating` ya es un CR de 9
+        // hoyos MEDIDO y se usa tal cual; el `rating` genérico del tee hay que
+        // normalizarlo contra el par de SU loop antes de sumarlo.
+        const parPorLoop = new Map(children.map((c) => [c.id, c.par_total ?? 36]))
+        const crSumTee = teeRows.reduce((s, t) => {
+          if (t.front_course_rating != null) return s + t.front_course_rating
+          if (t.rating == null) return s
+          return s + courseRatingEnEscalaDe9(t.rating, parPorLoop.get(t.course_id) ?? 36)
+        }, 0)
         const slopeAvgTee = Math.round(
           teeRows.reduce((s, t) => s + (t.front_slope_rating ?? t.slope ?? 113), 0) / teeRows.length
         )

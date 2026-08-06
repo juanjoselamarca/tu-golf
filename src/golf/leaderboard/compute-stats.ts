@@ -1,19 +1,38 @@
 // src/golf/leaderboard/compute-stats.ts
 //
-// Estadísticas agregadas del torneo (best card, avg neto, eagles, birdies,
-// hoyo más difícil/fácil). Las stats vs par SOLO usan rondas terminadas:
-// una ronda parcial tiene total_gross/net parciales, y compararlos contra
-// parTotal completo produce números absurdos del tipo "líder a -28" cuando
-// en realidad nadie terminó. Las stats por hoyo (eagles, birdies, hole
-// difficulty) sí usan rondas parciales porque se calculan hoyo a hoyo.
+// Estadísticas agregadas del torneo (mejor tarjeta, promedio neto, eagles,
+// birdies, hoyo más difícil/fácil).
+//
+// Las stats vs par SOLO miran tarjetas terminadas: una ronda a medias comparada
+// contra la vuelta completa produce números absurdos del tipo "líder a −28" sin
+// que nadie haya terminado. Las stats por hoyo (eagles, birdies, dificultad) sí
+// usan rondas parciales, porque se calculan hoyo a hoyo.
+//
+// QUÉ SE RENDERIZA HOY, para no confundir al próximo que lea esto:
+// de todo lo que devuelve `TourneyStats`, la UI sólo consume `eagles` y
+// `birdies`, vía `computeTournamentResults`. La tarjeta de stats que mostraba
+// "mejor tarjeta / promedio neto / hoyo más difícil" se sacó en `a002ba12`, así
+// que `bestName`, `bestNet`, `avgNet`, `hardestHole` y `easiestHole` se
+// calculan y no se pintan en ninguna pantalla. Se mantienen correctos igual —
+// si la tarjeta vuelve, vuelve bien — pero NINGÚN usuario vio nunca un número
+// malo de estos campos.
+//
+// De dónde sale cada número:
+//  - Neto (mejor tarjeta, promedio): del RANKING que ya produjo el motor. Antes
+//    se leía de `rounds[0].total_net`, la columna denormalizada que sólo escribe
+//    /api/game y que queda en 0 si los scores entraron por otro camino. Además
+//    sólo miraba la ronda 1, así que en multi-ronda ignoraba el resto.
+//  - Por hoyo (eagles, birdies, dificultad): de `hole_scores`, que es el dato
+//    crudo y no depende de ninguna columna derivada. Ahora recorre TODAS las
+//    rondas del jugador, no sólo la primera — este sí llega a pantalla.
 
+import { isFinishedCard } from './board-rules'
+import type { Player } from '@/lib/golf-data'
 import type { CourseHole, TourneyStats } from './types'
 
 interface DBPlayerWithRounds {
   profiles: { name: string } | null
   rounds: {
-    total_gross: number
-    total_net: number
     hole_scores: { hole_number: number; gross_score: number | null }[]
   }[]
 }
@@ -21,41 +40,55 @@ interface DBPlayerWithRounds {
 export function computeStats(
   dbPlayers: DBPlayerWithRounds[],
   courseHoles: CourseHole[],
-  parTotal: number,
+  /** Ranking neto del MISMO motor que el board. Fuente del neto que se muestra. */
+  playersByNeto: Player[],
 ): TourneyStats | null {
-  const withScores = dbPlayers.filter((p) => p.rounds?.[0]?.hole_scores?.some((hs) => hs.gross_score != null))
+  const withScores = dbPlayers.filter((p) =>
+    p.rounds?.some((r) => r.hole_scores?.some((hs) => hs.gross_score != null)),
+  )
   if (withScores.length === 0) return null
 
+  // ── Neto: sale del ranking, no de una columna ──
+  // `isFinishedCard` es el MISMO portero que usa el podio: una sola definición
+  // de "tarjeta terminada" para las dos superficies que comparan jugadores.
+  const finished = playersByNeto.filter(isFinishedCard)
+
+  // `netTotal` son golpes netos absolutos; `total` es esos mismos golpes vs el
+  // par de los hoyos jugados. NO se toma `finished[0]`: el ranking está ordenado
+  // por vs par, no por neto absoluto, y el countback puede reordenar dentro de
+  // un empate. Con tarjetas de distinto largo el primero vs-par no es el de
+  // menos golpes. Se busca el mínimo explícito.
+  const best = finished.reduce<Player | null>(
+    (mejor, p) => (mejor == null || (p.netTotal ?? Infinity) < (mejor.netTotal ?? Infinity) ? p : mejor),
+    null,
+  )
+  const bestName = best?.name ?? '—'
+  const bestNet = best?.netTotal ?? 0
+
+  const avgNet = finished.length > 0
+    ? finished.reduce((sum, p) => sum + p.total, 0) / finished.length
+    : 0
+
+  // ── Por hoyo: del dato crudo, todas las rondas ──
   const parMap = new Map<number, number>()
   courseHoles.forEach((h) => parMap.set(h.numero, h.par))
-
-  const totalHoles = courseHoles.length || 18
-  const finished = withScores.filter((p) =>
-    (p.rounds[0].hole_scores?.length ?? 0) >= totalHoles
-    && p.rounds[0].total_net != null,
-  )
-
-  const bySortedNet = [...finished].sort((a, b) => (a.rounds[0].total_net ?? 999) - (b.rounds[0].total_net ?? 999))
-  const bestName = bySortedNet[0]?.profiles?.name ?? '—'
-  const bestNet  = bySortedNet[0]?.rounds[0].total_net ?? 0
-
-  const netVals = finished.map((p) => (p.rounds[0].total_net ?? 0) - parTotal)
-  const avgNet  = netVals.length > 0 ? netVals.reduce((s, v) => s + v, 0) / netVals.length : 0
 
   let eagles = 0, birdies = 0
   const holeSums: Record<number, { total: number; count: number }> = {}
 
   withScores.forEach((p) => {
-    p.rounds[0].hole_scores.forEach((hs) => {
-      if (hs.gross_score == null) return
-      const par = parMap.get(hs.hole_number)
-      if (par == null) return
-      const diff = hs.gross_score - par
-      if (diff <= -2) eagles++
-      if (diff === -1) birdies++
-      if (!holeSums[hs.hole_number]) holeSums[hs.hole_number] = { total: 0, count: 0 }
-      holeSums[hs.hole_number].total += diff
-      holeSums[hs.hole_number].count++
+    p.rounds.forEach((r) => {
+      ;(r.hole_scores || []).forEach((hs) => {
+        if (hs.gross_score == null) return
+        const par = parMap.get(hs.hole_number)
+        if (par == null) return
+        const diff = hs.gross_score - par
+        if (diff <= -2) eagles++
+        if (diff === -1) birdies++
+        if (!holeSums[hs.hole_number]) holeSums[hs.hole_number] = { total: 0, count: 0 }
+        holeSums[hs.hole_number].total += diff
+        holeSums[hs.hole_number].count++
+      })
     })
   })
 

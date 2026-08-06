@@ -79,3 +79,47 @@ export function parOfPlayedHoles(courseHoles: CourseHole[], playedHoleNumbers: n
 export function hasPlayData(entry: { holesPlayed: number }): boolean {
   return entry.holesPlayed > 0
 }
+
+/**
+ * ¿Esta tarjeta se puede comparar con las demás? FUENTE ÚNICA del predicado.
+ *
+ * Es el portero de todo lo que rankea jugadores entre sí para un resultado
+ * definitivo: el podio del torneo cerrado y las stats agregadas. Una tarjeta a
+ * medias comparada contra una entera produce el error de siempre — el que jugó
+ * menos parece mejor.
+ *
+ * Pide DOS cosas, porque ninguna alcanza sola:
+ *
+ *  1. `status === 'F'` — el jugador terminó. Necesario: sin esto, alguien que
+ *     va por el hoyo 18 entraría al podio.
+ *  2. Tarjeta COMPLETA — se cargaron todos los hoyos de la vuelta. Necesario
+ *     porque `status` significa cosas distintas según el origen: en ronda libre
+ *     lo pone la propia completitud, pero en el path legacy sale de
+ *     `rounds.status ∈ {closed, official}`, que es una acción del organizador y
+ *     no dice nada sobre cuántos hoyos se cargaron. En prod hay 3 rondas
+ *     `closed` con 9 de 18 hoyos: sólo con `status` entraban con media tarjeta.
+ *
+ * `scores` viene relleno a los hoyos de la vuelta (nulls incluidos), así que su
+ * largo ES el largo de la vuelta. Ojo: eso es cierto por CONVENCIÓN, no por
+ * construcción — los builders crean el array con `new Array(totalHoyos)` pero
+ * después escriben en `scores[hole_number - 1]`, y JS estira el array si algún
+ * día llega un `hole_number` fuera de rango (una vuelta de 9 hoyos numerada
+ * 10-18, como la que `a064b6d1` arregló para ronda libre). Si eso pasara acá, el
+ * predicado falla CERRADO: el jugador queda fuera del podio en silencio.
+ *
+ * En multi-ronda `holes` acumula (36) y `scores.length` es una vuelta (18) — de
+ * ahí el `>=`. Eso admite correctamente al que jugó las dos, pero TAMBIÉN al que
+ * jugó sólo la primera, que además tiende a ganar porque se mide contra el par
+ * jugado. Es preexistente y hoy no se alcanza (todos los torneos de prod son de
+ * una vuelta); el arreglo pide `roundsPlayed` en `Player`, que existe en
+ * `LeaderboardEntry` y `rankEntries` no propaga.
+ */
+export function isFinishedCard(p: {
+  status: string
+  holes: number
+  scores: ReadonlyArray<unknown>
+}): boolean {
+  if (p.status !== 'F' || p.holes <= 0) return false
+  const holesOfRound = p.scores.length
+  return holesOfRound === 0 ? false : p.holes >= holesOfRound
+}

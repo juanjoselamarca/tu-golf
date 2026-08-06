@@ -1,0 +1,86 @@
+# Tests de integración: el motor de golf contra la data REAL de producción.
+#
+# POR QUÉ EXISTE. Estos tests son los únicos que verifican que el motor devuelve
+# números correctos sobre el catálogo y los torneos que existen de verdad. Hasta
+# el 3-ago-2026 sólo corrían a mano, porque `npm run test` (el de CI) no los
+# incluye. Consecuencia real: el PR #289 introdujo una regresión que daba +36
+# golpes de handicap en toda vuelta de 9 hoyos, pasó los 7 checks en VERDE y
+# estuvo 3 días en producción. La encontró alguien corriendo los tests a mano
+# por casualidad. Este workflow cierra ese agujero.
+#
+# QUÉ NO CORRE ACÁ. `import-pipeline.test.ts` queda excluido: ya tiene workflow
+# propio (`import-canary.yml`) con su propio grupo de concurrencia. Correrlo
+# desde los dos lados hacía que dos runs mutaran el mismo usuario de prueba de
+# producción a la vez, y el canario fallaba por colisión, no por un bug.
+
+name: Integración (motor vs data real)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Grupo GLOBAL, no por rama. Varios de estos tests escriben en la BD de
+# producción (`score-upsert-merge` inserta y borra rondas). Con un grupo por
+# `github.ref`, un push a main y un PR abierto corren A LA VEZ sobre la misma
+# data y se pisan — la clase de falla que ya conocíamos del import canary. Se
+# serializan: `cancel-in-progress: false` los encola en vez de matarlos, porque
+# el job dura ~1.5 min y un run cancelado deja el estado a medio limpiar.
+concurrency:
+  group: integracion-prod
+  cancel-in-progress: false
+
+jobs:
+  integracion:
+    name: Motor de golf vs Supabase prod
+    runs-on: ubuntu-latest
+    # Los secrets NO llegan a un pull_request que viene de un fork. Hoy todos los
+    # PRs salen de ramas de este mismo repo, así que el job corre siempre; el día
+    # que llegue uno de un fork se saltea, en vez de correr sin credenciales y
+    # dar un verde falso (los tests skipean solos cuando faltan).
+    if: >-
+      github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Sin esta guarda el job es decoración: los `describe.skipIf(!hasCreds)`
+      # saltean en silencio y el check queda verde sin haber probado nada.
+      - name: Verificar que los secrets llegaron
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          faltan=""
+          [ -n "$SUPABASE_URL" ] || faltan="$faltan NEXT_PUBLIC_SUPABASE_URL"
+          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || faltan="$faltan SUPABASE_SERVICE_ROLE_KEY"
+          if [ -n "$faltan" ]; then
+            echo "::error::Faltan secrets:$faltan — los tests skipearían y este check daría un verde falso."
+            exit 1
+          fi
+          echo "Secrets presentes."
+
+      # `--retry=2` (en el script) porque estos tests hablan con Supabase por red
+      # y un rechazo transitorio marca el ARCHIVO como failed con sus tests
+      # skipped — un rojo que no dice nada. Medido a mano: ~1 de cada 8 corridas.
+      # El retry NO tapa fallas reales: un bug de verdad falla los 3 intentos.
+      # Un check que se pone rojo al azar enseña a ignorar los rojos, y estos son
+      # justo los que no hay que ignorar.
+      - name: Tests de integración
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          COACH_E2E_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+        run: npm run test:integration:ci

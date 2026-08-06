@@ -98,21 +98,25 @@ describe('evaluarAptitudTorneo — las canchas rotas del catálogo', () => {
     expect(evaluarAptitudTorneo(RIO_BLANCO_DAMAS, 9).apta).toBe(false)
   })
 
-  it('los 9 recorridos con rating de 18h no son aptos', () => {
-    const r = evaluarAptitudTorneo(RECORRIDO_9H_CON_RATING_18H, 9)
-    expect(r.apta).toBe(false)
-    expect(r.mensaje).toBe(MENSAJE_SIN_RATING_9H)
+  it('los 9 recorridos con rating de 18h SÍ son aptos: ese rating se recupera', () => {
+    // 72 contra par 36 no es un dato imposible: es el rating de 18 hoyos de ese
+    // loop, y la mitad (36) cierra contra su par. El motor lo parte desde el
+    // #293 y produce el handicap correcto (verificado en prod: índice 30 → 16),
+    // así que bloquear estos 9 recorridos sería un falso positivo — y dejaría a
+    // Brisas, Marbella y Rocas de Santo Domingo sin torneos netos sin motivo.
+    expect(evaluarAptitudTorneo(RECORRIDO_9H_CON_RATING_18H, 9).apta).toBe(true)
+    expect(evaluarAptitudTorneo(RECORRIDO_9H_CON_RATING_18H, 18).apta).toBe(true)
   })
 
-  it('una cancha de 9 con el rating ROTO sigue bloqueada en un torneo de 18', () => {
-    // Dos vueltas a un dato que miente sigue siendo un dato que miente.
-    for (const cancha of [RIO_BLANCO_VARONES, RECORRIDO_9H_CON_RATING_18H]) {
-      const r = evaluarAptitudTorneo(cancha, 18)
-      expect(r.apta).toBe(false)
-      expect(r.motivo).toBe('rating_incoherente')
-      // El dato que falta es el de 9 hoyos, aunque el torneo sea de 18.
-      expect(r.mensaje).toBe(MENSAJE_SIN_RATING_9H)
-    }
+  it('una cancha de 9 con el rating IMPOSIBLE sigue bloqueada en un torneo de 18', () => {
+    // Dos vueltas a un dato que miente sigue siendo un dato que miente. Río
+    // Blanco (55 contra par 35) no cierra en ninguna escala: +20 si fuera de 9,
+    // −15 si fuera de 18. No hay nada que recuperar y el club tiene que cargarlo.
+    const r = evaluarAptitudTorneo(RIO_BLANCO_VARONES, 18)
+    expect(r.apta).toBe(false)
+    expect(r.motivo).toBe('rating_incoherente')
+    // El dato que falta es el de 9 hoyos, aunque el torneo sea de 18.
+    expect(r.mensaje).toBe(MENSAJE_SIN_RATING_9H)
   })
 
   it('una cancha de 9 SANA sí se puede usar en un torneo de 18 (dos vueltas)', () => {
@@ -301,19 +305,24 @@ describe('aptitudPorHoyos', () => {
 })
 
 describe('evaluarAptitudRecorridos — canchas multi-recorrido (Brisas / Marbella / Rocas)', () => {
-  it('un solo recorrido con el rating de 18h no es apto', () => {
-    // El caso que el gate se comía: el selector ofrece la cancha PADRE (sana,
-    // 72.6 sobre par 72) y el motor combina los HIJOS (72 sobre par 36).
-    const r = evaluarAptitudRecorridos([LOOPS_BRISAS[0]])
-    expect(r.apta).toBe(false)
-    expect(r.mensaje).toBe(MENSAJE_SIN_RATING_9H)
+  it('un recorrido con el rating de 18h es apto: el motor lo parte antes de sumar', () => {
+    // 72 sobre par 36 es el rating de 18 hoyos de ese loop, no un dato imposible.
+    expect(evaluarAptitudRecorridos([LOOPS_BRISAS[0]]).apta).toBe(true)
   })
 
-  it('los 3 recorridos combinados tampoco: el error de escala se suma', () => {
-    // 3 × 72 = 216 contra par 108.
-    const r = evaluarAptitudRecorridos(LOOPS_BRISAS)
+  it('los 3 recorridos combinados: el gate suma lo MISMO que el motor', () => {
+    // El motor normaliza cada hijo contra su propio par y después suma
+    // (`resolverCourseData` paso 0, #293): 3 × 36 = 108 contra par 108. El gate
+    // sumaba los ratings CRUDOS — 216 contra 108 — y bloqueaba los tres clubes
+    // de 27 por un número que el motor nunca calcula.
+    expect(evaluarAptitudRecorridos(LOOPS_BRISAS).apta).toBe(true)
+  })
+
+  it('un recorrido cuyo rating no cierra en NINGUNA escala sigue bloqueado', () => {
+    // 55 sobre par 36: +19 si ya fuera de 9, −8.5 si fuera de 18. Imposible.
+    const r = evaluarAptitudRecorridos([{ par_total: 36, course_rating: 55 }])
     expect(r.apta).toBe(false)
-    expect(r.mensaje).toBe(MENSAJE_RATING_MAL_CARGADO)
+    expect(r.motivo).toBe('rating_incoherente')
   })
 
   it('con los ratings de 9h correctos, 1 y 3 recorridos son aptos', () => {
@@ -330,13 +339,12 @@ describe('evaluarAptitudRecorridos — canchas multi-recorrido (Brisas / Marbell
     expect(r.apta).toBe(true)
   })
 
-  it('un recorrido SIN rating propio pero con el tee roto se bloquea igual', () => {
+  it('un recorrido SIN rating propio pero con el tee IMPOSIBLE se bloquea igual', () => {
     // El agujero que tenía este gate: sin `course_rating` el motor no suma, se
-    // cae al lookup por tee de ESE hijo — y ahí estaba el 72 sobre par 36. Si
-    // sólo se mirara la suma, este caso pasaba y el torneo se armaba sobre el
-    // dato roto.
+    // cae al lookup por tee de ESE hijo. Si sólo se mirara la suma, un tee con
+    // el rating roto pasaba y el torneo se armaba sobre el dato roto.
     const r = evaluarAptitudRecorridos([
-      { par_total: 36, course_rating: null, tees: [{ rating: 72, front_course_rating: null }] },
+      { par_total: 36, course_rating: null, tees: [{ rating: 55, front_course_rating: null }] },
     ])
     expect(r.apta).toBe(false)
     expect(r.motivo).toBe('rating_incoherente')
@@ -345,14 +353,32 @@ describe('evaluarAptitudRecorridos — canchas multi-recorrido (Brisas / Marbell
 
   it('la SUMA de los recorridos se juzga aunque cada uno pase por separado', () => {
     // Sin `par_total` no hay nada que desmentir recorrido por recorrido (el par
-    // es la señal de escala), pero la suma sí es juzgable contra el par por
-    // defecto: CR 144 sobre par 72 es absurdo y el motor la usaría tal cual.
+    // es la señal de escala) y el paso 1 sale con "sin par", sin veredicto. La
+    // suma sí es juzgable contra el par por defecto (36 por loop), así que es el
+    // único lugar donde este dato se puede frenar.
+    //
+    // 55 sobre par 36 no cierra en ninguna escala: +19 si ya fuera de 9, −8.5 si
+    // fuera de 18. Entra crudo a la suma — 110 contra par 72 — y se bloquea. Si
+    // entrara normalizado daría 36 + 36 = 72 contra 72, un delta 0 perfecto que
+    // taparía el dato roto.
     const r = evaluarAptitudRecorridos([
-      { par_total: null, course_rating: 72, slope_rating: 130 },
-      { par_total: null, course_rating: 72, slope_rating: 130 },
+      { par_total: null, course_rating: 55, slope_rating: 130 },
+      { par_total: null, course_rating: 55, slope_rating: 130 },
     ])
     expect(r.apta).toBe(false)
     expect(r.mensaje).toBe(MENSAJE_RATING_MAL_CARGADO)
+  })
+
+  it('sin `par_total`, un rating de 18h por loop se asume de 9 y la suma cierra', () => {
+    // 72 sobre el par por defecto (36) es RECUPERABLE: el motor parte cada loop
+    // antes de sumar y le queda 36 + 36 = 72 contra par 72. Es exactamente lo
+    // que hace `resolverCourseData` paso 0 con `c.par_total ?? 36`.
+    expect(
+      evaluarAptitudRecorridos([
+        { par_total: null, course_rating: 72, slope_rating: 130 },
+        { par_total: null, course_rating: 72, slope_rating: 130 },
+      ]).apta,
+    ).toBe(true)
   })
 
   it('sin slope el motor no entra por la suma, y este gate tampoco', () => {

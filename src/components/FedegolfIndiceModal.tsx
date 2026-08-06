@@ -15,12 +15,20 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Trophy } from '@/components/icons'
 import type { FedegolfTarjeta } from '@/lib/fedegolf/types'
+import { formulaEsExplicable } from '@/lib/fedegolf/tarjetas'
 
 interface TarjetasResponse {
   ok: boolean
   linked?: boolean
   tarjetas?: FedegolfTarjeta[]
-  promedio?: number | null
+  /** Promedio sin redondear — sólo para mostrar de dónde sale el truncado (9.36 → 9.3). */
+  promedioCrudo?: number | null
+  /** Promedio ya truncado con la convención FedeGolf: debe coincidir con el índice oficial. */
+  indiceDerivado?: number | null
+  /** Índice oficial del MISMO fetch que las tarjetas (no el guardado, que puede estar viejo). */
+  indicePublicado?: number | null
+  /** Cuántas tarjetas dice la fede haber usado — validación cruzada de nuestra selección. */
+  tarjetasUtilizadas?: number | null
   diferencialesQueCuentan?: number[]
   slotsVentana?: number
   rondasQueCuentan?: number
@@ -100,15 +108,35 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
 
   const tarjetas = data?.tarjetas ?? []
   const diffsCuentan = data?.diferencialesQueCuentan ?? []
-  const promedio = data?.promedio ?? null
-  const hero = indiceOficial ?? promedio
+  const promedioCrudo = data?.promedioCrudo ?? null
+  const indiceDerivado = data?.indiceDerivado ?? null
+  const tarjetasUtilizadas = data?.tarjetasUtilizadas ?? null
+  // El oficial del mismo momento que las tarjetas (json.php de la fede).
+  const oficialVivo = data?.indicePublicado ?? null
+  // Orden a propósito: el número grande tiene que ser el mismo en el que termina
+  // la fórmula. Si no hay oficial en vivo, manda el derivado (sale del mismo
+  // fetch que los chips). `profiles.indice` queda de último recurso, y para
+  // cuando llega a usarse ya no hay fórmula que contradecir.
+  const hero = oficialVivo ?? indiceDerivado ?? indiceOficial
   const notLinked = data?.ok === false && data?.linked === false
   const failed = data?.ok === false && !notLinked
-  // Defensa: si el promedio derivado NO cuadra con el índice oficial (señal de que
-  // fedegolf.cl cambió el HTML y el parseo quedó mal), no mostramos la fórmula —
-  // el número oficial manda, no una derivación rota (chips que no suman al hero).
-  const formulaCuadra =
-    promedio != null && (indiceOficial == null || Math.abs(promedio - indiceOficial) <= 0.1)
+  // La decisión vive en `src/lib/fedegolf/tarjetas.ts` (pura y testeada): si el
+  // derivado no cuadra con el oficial del mismo instante, o con el conteo que la
+  // fede declara, no mostramos la fórmula — el número oficial manda, no una
+  // derivación rota con chips que no suman al hero.
+  const formulaCuadra = formulaEsExplicable({
+    indiceDerivado,
+    oficialDelMismoInstante: oficialVivo,
+    tarjetasUtilizadas,
+    diferencialesQueCuentan: diffsCuentan.length,
+  })
+  // El promedio crudo (9.3625) y el índice (9.3) no son el mismo número: si no
+  // lo decimos, el usuario que suma los chips y divide obtiene otra cosa.
+  const muestraTruncado =
+    formulaCuadra &&
+    promedioCrudo != null &&
+    hero != null &&
+    promedioCrudo.toFixed(2) !== hero.toFixed(2)
 
   return createPortal(
     <div
@@ -250,7 +278,7 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                   <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '11px', color: 'var(--text-3)', alignSelf: 'center', padding: '0 2px' }}>
                     ÷{diffsCuentan.length} =
                   </span>
-                  {promedio != null && (
+                  {hero != null && (
                     <span
                       style={{
                         fontFamily: '"DM Mono", monospace',
@@ -263,10 +291,17 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                         padding: '3px 8px',
                       }}
                     >
-                      {promedio.toFixed(1)}
+                      {hero.toFixed(1)}
                     </span>
                   )}
                 </div>
+              )}
+
+              {muestraTruncado && promedioCrudo != null && hero != null && (
+                <p style={{ fontSize: '10.5px', color: 'var(--text-3)', margin: '9px 0 0', lineHeight: 1.5 }}>
+                  El promedio exacto es {promedioCrudo.toFixed(2)}. La Federación trunca al primer
+                  decimal, no redondea → {hero.toFixed(1)}.
+                </p>
               )}
             </div>
 

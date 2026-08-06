@@ -37,7 +37,7 @@
 // y siempre 9 en una cancha de 9 — aunque el torneo sea de 18, porque ahí el
 // motor da dos vueltas y multiplica rating y par por igual.
 
-import { esEscalaDe18Hoyos, parEnEscalaDe9, courseRatingEnEscalaDe9 } from './vueltas'
+import { esEscalaDe18Hoyos, parEnEscalaDe9, resolverRatingEnEscalaDe9 } from './vueltas'
 import { evaluarRating } from './rating-coherente'
 
 /**
@@ -150,7 +150,17 @@ function ratingsQueUsariaElMotor(
   const par = cancha.par_total
   const enEscala = (rating: number | null | undefined): number | null | undefined => {
     if (rating == null) return rating
-    return holes === 9 && par != null ? courseRatingEnEscalaDe9(rating, par) : rating
+    if (holes !== 9 || par == null) return rating
+    const { courseRating, escala } = resolverRatingEnEscalaDe9(rating, par)
+    // Un rating IMPOSIBLE se juzga CRUDO. Normalizarlo devuelve el par (así el
+    // término `(CR − par)` se anula en la fórmula, que es lo correcto para el
+    // motor), pero eso le deja delta 0 y el gate vería SANO justo el dato que
+    // tiene que bloquear — C.G. Río Blanco, 55 contra par 35.
+    //
+    // Uno RECUPERADO (`era_de_18`) sí se juzga normalizado: no es un dato que
+    // mienta, es el mismo rating bien escalado, y con él el motor produce el
+    // handicap correcto. Bloquear esas canchas sería un falso positivo.
+    return escala === 'imposible' ? rating : courseRating
   }
 
   // El eslabón terminal está VIVO sólo si el motor lo puede usar, y los dos
@@ -300,7 +310,20 @@ export function evaluarAptitudRecorridos(loops: CanchaParaAptitud[]): AptitudTor
   if (!loops.every((l) => l.course_rating && l.slope_rating)) return APTA
 
   const parSum = loops.reduce((s, l) => s + (l.par_total ?? 36), 0)
-  const crSum = loops.reduce((s, l) => s + (l.course_rating ?? 0), 0)
+  // Cada loop se normaliza contra SU par antes de sumar, exactamente como el
+  // paso 0 de `resolverCourseData`. Sumarlos crudos era mirar un número que el
+  // motor no calcula: daba 216 contra par 108 y bloqueaba los tres clubes de 27
+  // por un error de escala que el motor ya sabe deshacer.
+  //
+  // Un loop IMPOSIBLE entra CRUDO, misma razón que en `ratingsQueUsariaElMotor`:
+  // normalizado devuelve el par y la suma cerraría perfecto contra `parSum`,
+  // tapando justo el dato que hay que bloquear. No alcanza con confiar en el
+  // paso 1 — un loop sin `par_total` sale de ahí como "sin par", sin veredicto.
+  const crSum = loops.reduce((s, l) => {
+    if (l.course_rating == null) return s
+    const { courseRating, escala } = resolverRatingEnEscalaDe9(l.course_rating, l.par_total ?? 36)
+    return s + (escala === 'imposible' ? l.course_rating : courseRating)
+  }, 0)
 
   // ⚠️ El motor prefiere el par de la RONDA (`parTotal ?? parSum`), derivado de
   // `course_holes`. Acá sólo tenemos `courses.par_total`. Coinciden mientras

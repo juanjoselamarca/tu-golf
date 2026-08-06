@@ -274,7 +274,12 @@ function Acciones() {
         }}
       >
         <Link
-          href="/torneo/nuevo"
+          // `/torneo/nuevo` NO existe como ruta. Caía en el catch-all
+          // `/torneo/[slug]`, que hasta el 20-jul rellenaba un torneo DEMO del
+          // TPC Sawgrass marcado EN VIVO y desde entonces devuelve 404: el CTA
+          // principal de la home nunca llevó al creador de torneos. La ruta real
+          // es la que ya usa el Navbar (`Navbar.tsx:625`).
+          href="/organizador/nuevo"
           style={{
             color: TEXT_2,
             fontWeight: 500,

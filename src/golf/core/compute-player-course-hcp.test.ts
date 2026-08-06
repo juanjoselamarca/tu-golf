@@ -131,45 +131,45 @@ describe('computePlayerCourseHcp', () => {
   // par se protegía contra la escala de 18, el Course Rating no. En una cancha
   // de 9 hoyos REALES el rating ya es de 9, y partirlo al medio devolvía otra
   // vez un negativo — el mismo síntoma por el lado contrario.
-  it('una cancha de 9 hoyos REALES no parte el CR al medio (par 35, rating de 9h)', () => {
-    // Rating de 9 hoyos COHERENTE con el par: la fórmula se aplica tal cual,
-    // sin dividir el CR. Es el caso que tendrá C.G. Río Blanco cuando el club
-    // publique su rating oficial de 9 hoyos.
-    // Slope 140 a propósito: con 113 la fórmula da 6 y el camino seguro también,
-    // así que el test pasaría igual con la cancha bloqueada.
-    const tournament = { tees: null, courses: { par_total: 35, slope_rating: 140, course_rating: 37 } }
-    const player = { ...basePlayer, handicap_at_registration: 12 }
-
-    const ch = computePlayerCourseHcp(player, tournament, [], 35, 9)
-
-    // round(6 × 140/113 + (37 − 35)) = round(9.43) = 9. Camino seguro: 6.
-    expect(ch).toBe(9)
-  })
-
-  // Guardarrail (Frente A): el dato REAL de prod hoy no es de 9 hoyos.
-  // C.G. Río Blanco tiene par_total 35 con rating 55 — cargado en escala de 18
-  // porque la validación de la base rechaza el rating real de 9 (~35).
-  it('un rating incoherente NO se usa: Río Blanco (par 35, rating 55) cae al camino seguro', () => {
+  // Caso real de prod: C.G. Río Blanco, par_total 35, rating 55, slope 113, sin
+  // front ratings. El dato REAL de hoy no está en escala de 9: se cargó en la de
+  // 18 porque la validación de la base rechaza el rating real (~35). Índice 12
+  // daba −1 partiendo el rating, y 26 sin partirlo.
+  it('un rating imposible no envenena el handicap por ningún lado (Río Blanco, par 35)', () => {
     const tournament = { tees: null, courses: { par_total: 35, slope_rating: 113, course_rating: 55 } }
     const player = { ...basePlayer, handicap_at_registration: 12 }
 
     const ch = computePlayerCourseHcp(player, tournament, [], 35, 9)
 
-    // ANTES del guardarrail: round(6 × 113/113 + (55 − 35)) = 26 golpes.
-    // AHORA: el rating miente (delta +20) → handicap = índice / 2 = 6.
+    // El rating 55 contra par 35 no es válido en NINGUNA escala: +20 sobre el
+    // par si fuera de 9, −15 si fuera de 18. Partirlo daba −1 (negativo);
+    // dejarlo tal cual daba 26, que son ~3 golpes por hoyo para un índice 12 —
+    // tan roto como el negativo, sólo que del otro lado. Con un dato imposible
+    // el término (CR − par) se anula y queda la parte que sí es confiable:
+    // 6 × (113/113) = 6.
     expect(ch).toBe(6)
     expect(ch).toBeGreaterThan(0)
-    expect(ch).toBeLessThan(36)
+    // Con techo, no sólo con piso: el bug de #289 daba 26 y pasaba un
+    // `toBeGreaterThan(0)` sin despeinarse.
+    expect(ch).toBeLessThanOrEqual(8)
   })
 
-  it('los 9 recorridos con rating de 18h (Brisas/Marbella/Rocas) caen al camino seguro', () => {
-    // par_total 36 con course_rating 72: delta +36. Índice 18 daba +45 golpes.
+  it('los 9 recorridos con rating de 18h (Brisas/Marbella/Rocas) se recuperan, no se degradan', () => {
+    // par_total 36 con course_rating 72. Índice 18 llegó a dar +45 golpes cuando
+    // el 72 se usaba crudo. Desde el #293 el rating se parte al medio — 36, que
+    // cierra contra el par — y la fórmula WHS corre completa, con el slope real
+    // del club. Degradar al camino seguro sería tirar un dato que SÍ sirve.
     const tournament = { tees: null, courses: { par_total: 36, slope_rating: 120, course_rating: 72 } }
     const player = { ...basePlayer, handicap_at_registration: 18 }
 
-    const ch = computePlayerCourseHcp(player, tournament, [], 36, 9)
+    // round((18/2) × 120/113 + (36 − 36)) = round(9.56) = 10.
+    // El camino seguro daría 9: el slope 120 del club vale ese golpe de más.
+    expect(computePlayerCourseHcp(player, tournament, [], 36, 9)).toBe(10)
 
-    expect(ch).toBe(9)
+    // La misma cancha en un torneo de 18 son DOS vueltas: rating y par se
+    // duplican los dos, así que el término se sigue anulando y el índice entra
+    // entero. round(18 × 120/113) = 19.
+    expect(computePlayerCourseHcp(player, tournament, [], 72, 18)).toBe(19)
   })
 
   it('si el tee miente pero la cancha no, usa el de la cancha (no el camino seguro)', () => {

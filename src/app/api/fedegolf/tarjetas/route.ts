@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { decrypt } from '@/lib/fedegolf/crypto'
 import { fedegolfPageLogin } from '@/lib/fedegolf/page-login'
 import { fedegolfGetTarjetasIndice, resumenIndiceOficial } from '@/lib/fedegolf/tarjetas'
+import { fedegolfGetIndice } from '@/lib/fedegolf/client'
 import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
@@ -58,14 +59,32 @@ export async function GET() {
       return NextResponse.json({ ok: false, linked: true, error: 'login-pagina' }, { status: 200 })
     }
 
-    const tarjetas = await fedegolfGetTarjetasIndice(session)
+    const { tarjetas, tarjetasUtilizadas } = await fedegolfGetTarjetasIndice(session)
     const resumen = resumenIndiceOficial(tarjetas)
+
+    // El índice oficial del mismo momento que las tarjetas. Se pide acá y no se
+    // usa `profiles.indice` porque ese se sincroniza con cooldown de 24h: apenas
+    // entra una tarjeta nueva queda viejo y contradice a la derivación en vivo,
+    // que es lo que escondía la pantalla sola. Con esta llamada la ventana de
+    // desfase pasa de 24h a lo que tarde el request.
+    //
+    // Fail-soft como todo el resto del handler: si json.php falla, viaja null y
+    // el cliente simplemente no compara contra nada.
+    let indicePublicado: number | null = null
+    try {
+      indicePublicado = (await fedegolfGetIndice(session, rut)).indice
+    } catch {
+      indicePublicado = null
+    }
 
     return NextResponse.json({
       ok: true,
       linked: true,
       tarjetas: resumen.tarjetas,
-      promedio: resumen.promedio,
+      promedioCrudo: resumen.promedioCrudo,
+      indiceDerivado: resumen.indiceDerivado,
+      indicePublicado,
+      tarjetasUtilizadas,
       diferencialesQueCuentan: resumen.diferencialesQueCuentan,
       slotsVentana: resumen.slotsVentana,
       rondasQueCuentan: resumen.rondasQueCuentan,

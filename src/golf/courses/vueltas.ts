@@ -72,19 +72,101 @@ export function parEnEscalaDe9(par: number): number {
 }
 
 /**
+ * Cuánto puede alejarse del par un Course Rating real. Los ratings USGA caen a
+ * pocos golpes del par; más que esto no es una cancha difícil, es un dato en
+ * otra escala o directamente roto.
+ */
+const BANDA_RATING_VS_PAR = 6
+
+/**
  * Course Rating de UNA vuelta de 9 hoyos, en la MISMA escala que `parEnEscalaDe9`.
  *
- * ⚠️ Toma el par de la cancha como señal de escala, no su propia magnitud. Un
- * umbral propio sobre el CR (`rating > 50 ? /2 : rating`) parece razonable y es
- * falso: C.G. Río Blanco tiene par 35 (9 hoyos) con rating 55, así que un
- * umbral sobre el rating lo partiría a 27.5 contra un par de 35 y devolvería
- * `(27.5 − 35)` → course handicap NEGATIVO para un jugador de índice 12.
+ * El par NO alcanza como señal de escala, porque el catálogo tiene las dos
+ * columnas escaladas por separado. Las 9 filas donde pasa hoy NO son canchas de
+ * 9 hoyos: son los loops HIJOS de tres clubes de 27 (Rocas de Santo Domingo,
+ * Brisas, Marbella), cada uno con `par_total = 36` junto a
+ * `course_rating = 72`. Mirando sólo el par se concluye "ya es de 9" y el
+ * rating queda sin partir → `(72 − 36)` = **+36 golpes** en cada course
+ * handicap. Tampoco alcanza un umbral sobre la magnitud del rating: partir todo
+ * lo que pase de 50 devuelve `(27.5 − 35)` en una cancha par 35 → handicaps
+ * NEGATIVOS.
+ *
+ * OJO: quien consuma esos loops por el camino multi-recorrido (paso 0 de
+ * `resolverCourseData`) tiene que llamar a esta función POR CADA hijo antes de
+ * sumar los ratings. Sumarlos crudos reintroduce el mismo +36 (y +72 con dos
+ * loops) sin pasar por acá.
+ *
+ * La rama "ya viene en 9" no la ejercita ninguna fila del catálogo hoy (0 de
+ * 619): es el seguro para cuando entre una cancha de 9 hoyos bien cargada.
+ *
+ * La señal que sí sirve es la RELACIÓN entre los dos: un rating válido queda a
+ * menos de `BANDA_RATING_VS_PAR` golpes de su par. Se prueba la hipótesis
+ * "ya viene en 9" y después "viene en 18"; si ninguna cierra, el dato es
+ * imposible (C.G. Río Blanco: par 35 con rating 55, que no es válido en
+ * ninguna escala) y se devuelve el par para que el término `(CR − par)` se
+ * anule. Un handicap sin el ajuste de rating queda levemente aproximado; uno
+ * calculado sobre un rating imposible queda catastrófico.
  *
  * Si el tee publica `front_course_rating` usá ESE valor y no esta función: ya
  * es un CR de 9 hoyos medido, no una aproximación.
  */
 export function courseRatingEnEscalaDe9(courseRating: number, parDeLaCancha: number): number {
-  return esEscalaDe18Hoyos(parDeLaCancha) ? courseRating / 2 : courseRating
+  return resolverRatingEnEscalaDe9(courseRating, parDeLaCancha).courseRating
+}
+
+/**
+ * En qué escala venía el rating, según cuál de las dos hipótesis cerró.
+ *
+ *  · `ya_en_9`    — el número ya era un rating de 9 hoyos. Se usa tal cual.
+ *  · `era_de_18`  — venía en escala de 18 y se partió al medio. RECUPERADO: el
+ *                   dato es bueno, sólo estaba mal escalado (los 9 loops de
+ *                   Brisas / Marbella / Rocas: 72 contra par 36 → 36).
+ *  · `imposible`  — no cierra en NINGUNA escala (C.G. Río Blanco: 55 contra par
+ *                   35; +20 si fuera de 9, −15 si fuera de 18). No hay nada que
+ *                   recuperar.
+ */
+export type EscalaDelRating = 'ya_en_9' | 'era_de_18' | 'imposible'
+
+export interface RatingEnEscalaDe9 {
+  /**
+   * El valor que va a la fórmula. Cuando la escala es `imposible` es el PAR, a
+   * propósito: así el término `(CR − par)` se anula y el handicap queda sin el
+   * ajuste de rating en vez de catastróficamente inflado.
+   */
+  courseRating: number
+  escala: EscalaDelRating
+}
+
+/**
+ * `courseRatingEnEscalaDe9` + POR QUÉ dio ese número.
+ *
+ * Existe porque el valor solo no alcanza para dos consumidores con preguntas
+ * distintas, y confundirlos dejó ciego al guardarrail:
+ *
+ *  · El MOTOR quiere un número usable. Le sirve el par cuando el dato es
+ *    imposible: el término se anula y el jugador recibe su índice.
+ *  · El GUARDARRAIL quiere saber si el dato MIENTE, para no dejar armar un
+ *    torneo sobre él. Preguntándole al valor ya normalizado siempre ve delta 0
+ *    en el caso imposible — justo el que tiene que bloquear. Tiene que mirar
+ *    `escala === 'imposible'`, no el delta del número corregido.
+ *
+ * Un rating RECUPERADO (`era_de_18`) no es un dato que mienta: es el mismo
+ * rating bien escalado, y el motor produce el handicap correcto con él. Esas
+ * canchas no se bloquean.
+ */
+export function resolverRatingEnEscalaDe9(
+  courseRating: number,
+  parDeLaCancha: number,
+): RatingEnEscalaDe9 {
+  const par9 = parEnEscalaDe9(parDeLaCancha)
+  if (Math.abs(courseRating - par9) <= BANDA_RATING_VS_PAR) {
+    return { courseRating, escala: 'ya_en_9' }
+  }
+  const mitad = courseRating / 2
+  if (Math.abs(mitad - par9) <= BANDA_RATING_VS_PAR) {
+    return { courseRating: mitad, escala: 'era_de_18' }
+  }
+  return { courseRating: par9, escala: 'imposible' }
 }
 
 /**
