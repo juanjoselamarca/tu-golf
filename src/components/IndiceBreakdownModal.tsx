@@ -214,7 +214,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
         {!loading && rounds && rounds.length === 0 && (
           <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0', lineHeight: 1.6 }}>
             Aún no tienes rondas con diferencial calculado.<br />
-            Importá tu historial desde FedeGolf, Garmin o un CSV.
+            Importa tu historial desde FedeGolf, Garmin o un CSV.
           </p>
         )}
 
@@ -229,13 +229,14 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
             la fila la manda un solo archivo (DESIGN.md P4). */}
         {!loading && rounds && rounds.length > 0 && (
           <BreakdownLista>
-            {rounds.map(r => (
+            {rounds.map((r, i) => (
               <BreakdownRow
                 key={r.id}
                 titulo={r.course_name}
                 meta={`${formatDateShort(r.played_at)} · ${r.holes_played ?? 18}h · ${r.total_gross ?? '—'}`}
                 valor={r.diferencial != null ? r.diferencial.toFixed(1) : '—'}
                 cuenta={usedIds.has(r.id)}
+                ultimo={i === rounds.length - 1}
               />
             ))}
           </BreakdownLista>

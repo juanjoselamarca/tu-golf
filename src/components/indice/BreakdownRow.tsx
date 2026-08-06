@@ -28,9 +28,11 @@ interface BreakdownRowProps {
   cuenta: boolean
   /** Marca inline junto al título (ej. el trofeo ×2 de una ronda de campeonato). */
   marca?: ReactNode
+  /** Última de la lista: sin hairline, que si no cuelga contra el padding del sheet. */
+  ultimo?: boolean
 }
 
-export default function BreakdownRow({ titulo, meta, valor, cuenta, marca }: BreakdownRowProps) {
+export default function BreakdownRow({ titulo, meta, valor, cuenta, marca, ultimo }: BreakdownRowProps) {
   return (
     <li
       style={{
@@ -38,7 +40,7 @@ export default function BreakdownRow({ titulo, meta, valor, cuenta, marca }: Bre
         alignItems: 'center',
         gap: '12px',
         padding: '11px 0 11px 11px',
-        borderBottom: '1px solid var(--border)',
+        borderBottom: ultimo ? undefined : '1px solid var(--border)',
         boxShadow: cuenta ? 'inset 2px 0 0 var(--brand-on-bg)' : undefined,
       }}
     >

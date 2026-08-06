@@ -182,6 +182,8 @@ export function formulaEsExplicable(args: {
 }
 
 export interface FilaCalculo {
+  /** Identidad del paso. La vista pregunta por esto, no hace match contra el copy. */
+  id: 'suma' | 'promedio' | 'truncado'
   etiqueta: string
   valor: string
 }
@@ -216,12 +218,25 @@ export function filasDelCalculo(args: {
   // el mismo set. Más que eso es que no estamos mirando los mismos números.
   if (Math.abs(suma / n - promedioCrudo) > 0.005) return []
 
+  // El paso de truncado se verifica sobre el promedio QUE SE MUESTRA, no sobre
+  // el crudo. Con residuo ≥0.95 (alcanzable desde n=20) `toFixed(2)` redondea
+  // hacia arriba mientras el truncado se queda abajo, y la pantalla diría
+  // "Dividido por 20 → 12.20 / Truncado al primer decimal → 12.1". Truncar
+  // 12.20 da 12.2. Es la lección de #299/#300: una pantalla que se contradice
+  // sola es peor que una que no explica.
+  const promedioMostrado = Number(promedioCrudo.toFixed(2))
+  if (truncarIndiceFedegolf(promedioMostrado) !== indice) return []
+
+  // `-0.0` no es un número que nadie escriba: un jugador plus puede dejar la
+  // suma en un negativo minúsculo.
+  const sumaFmt = suma.toFixed(1)
+
   const filas: FilaCalculo[] = [
-    { etiqueta: `Suma de los ${n} mejores`, valor: suma.toFixed(1) },
-    { etiqueta: `Dividido por ${n}`, valor: promedioCrudo.toFixed(2) },
+    { id: 'suma', etiqueta: `Suma de los ${n} mejores diferenciales`, valor: sumaFmt === '-0.0' ? '0.0' : sumaFmt },
+    { id: 'promedio', etiqueta: `Dividido por ${n}`, valor: promedioCrudo.toFixed(2) },
   ]
   if (promedioCrudo.toFixed(2) !== indice.toFixed(2)) {
-    filas.push({ etiqueta: 'Truncado al primer decimal', valor: indice.toFixed(1) })
+    filas.push({ id: 'truncado', etiqueta: 'Truncado al primer decimal', valor: indice.toFixed(1) })
   }
   return filas
 }

@@ -10,7 +10,9 @@
 
 Juanjo, sobre el modal "Tu índice oficial, explicado": *"que se vea más elegante, menos IA y más minimalista"* / *"más pro en línea con la app y menos IA infantil, más minimalista y elite"*.
 
-Al diagnosticar contra `DESIGN.md` apareció, además del problema estético, **un fallo de accesibilidad medible**: la pantalla usaba la constante local `GOLD = '#c4992a'` como color de **texto** sobre superficie clara. Medido en runtime sobre el DOM real a 390px: **25 nodos de texto reprobaban WCAG AA en tema claro** (2.30–2.65:1 contra un mínimo de 4.5, o de 3.0 para el hero de 52px). `globals.css:16` ya declaraba el remedio — `--brand-text: #8A6A16` — con el comentario "usar siempre que el oro sea texto". El modal no lo usaba.
+Al diagnosticar contra `DESIGN.md` apareció, además del problema estético, **un fallo de accesibilidad medible**: la pantalla usaba la constante local `GOLD = '#c4992a'` como color de **texto** sobre superficie clara. Medido en runtime sobre el DOM real a 390px: **25 nodos de texto reprobaban WCAG AA en tema claro** (2.30–2.65:1 contra un mínimo de 4.5, o de 3.0 para el hero de 52px). `globals.css` ya tenía el token correcto — `--brand-on-bg`, que resuelve #8A6A16 en claro y #C4992A en oscuro — y el modal no lo usaba.
+
+Había además un segundo token, `--brand-text: #8A6A16`, **fijo en ambos modos y sin un solo consumidor**. Era una trampa: fijo significa #8A6A16 sobre navy en dark (~3.35:1, reprueba AA) justo donde `--brand-on-bg` sí pasa. El code review lo cazó; se borró en este PR para que el concepto "oro accesible como texto" tenga una sola fuente.
 
 Los cuatro defectos estéticos, en el vocabulario del design system:
 
@@ -59,7 +61,7 @@ La estructura actual con sólo el contraste corregido. Sirve para aislar cuánto
 
 1. **La secuencia de chips se elimina, no se rediseña.** Esos 8 números ya están abajo en la lista, marcados. Mostrarlos arriba era la redundancia exacta que prohíbe `P6` — *"dos representaciones del mismo dato en una pantalla es redundancia, aunque la segunda sea la más linda"*. Sacarlos resuelve `P6`, `P7` y el envolvimiento móvil de una sola vez, en vez de tres parches.
 2. **El recibo de B explica mejor y no duplica nada**: `74.9 → 9.36 → 9.3` son tres números que no aparecen en ningún otro lugar de la pantalla.
-3. **El contraste no queda a criterio**: el dorado sale de `var(--brand-on-bg)` (#8A6A16 claro / #C4992A oscuro), no de un literal por componente. Verificado en runtime: 25 fallas → 0, en ambos temas, sobre 77 nodos de texto medidos.
+3. **El contraste no queda a criterio**: el dorado sale de `var(--brand-on-bg)` (#8A6A16 claro / #C4992A oscuro), no de un literal por componente. La misma migración se aplicó a `DualIndexCards.tsx` —la card de `/perfil` que abre estos dos modales, con 7 dorados de texto propios— porque si no, la card y el modal que abre muestran dos dorados distintos a un tap de distancia. Verificado en runtime: 25 fallas → 0, en ambos temas, sobre 77 nodos de texto medidos.
 4. **"Cuenta" pasa de 4 codificaciones a 2**, y las 2 son deliberadas: la regla dorada para escanear, la palabra `cuenta` para no depender del color (WCAG 1.4.1). La etiqueta `diff` de las otras 12 se elimina por no aportar nada.
 
 ## Lecciones / patrón reutilizable

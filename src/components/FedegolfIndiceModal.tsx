@@ -281,9 +281,14 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                       </div>
                     ))}
                   </div>
-                  <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'left' }}>
-                    La Federación trunca, no redondea.
-                  </p>
+                  {/* Sólo cuando el truncado efectivamente movió el número. Si el
+                      promedio ya venía en 9.30, enunciar la regla sin mostrarla
+                      operando es explicar algo que la pantalla no está haciendo. */}
+                  {filasCalculo.some((f) => f.id === 'truncado') && (
+                    <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'left' }}>
+                      La Federación trunca, no redondea.
+                    </p>
+                  )}
                 </>
               )}
             </div>
@@ -297,14 +302,20 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
                 nota={hayCampeonato ? 'Una ronda de campeonato aporta 2.' : undefined}
               />
             )}
+            {tarjetas.length === 0 && (
+              <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '24px 0', lineHeight: 1.6 }}>
+                Todavía no hay tarjetas en tu ventana oficial FedeGolf.
+              </p>
+            )}
             <BreakdownLista>
-              {tarjetas.map((t) => (
+              {tarjetas.map((t, i) => (
                 <BreakdownRow
                   key={t.ticket}
                   titulo={nombreCancha(t.clubCancha)}
                   meta={metaLinea(t)}
                   valor={t.diferencial.toFixed(1)}
                   cuenta={t.cuenta}
+                  ultimo={i === tarjetas.length - 1}
                   marca={
                     t.valeDoble ? (
                       <span

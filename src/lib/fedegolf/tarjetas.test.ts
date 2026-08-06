@@ -333,9 +333,9 @@ describe('filasDelCalculo', () => {
       indice: 9.3,
     })
     expect(filas).toEqual([
-      { etiqueta: 'Suma de los 8 mejores', valor: '74.9' },
-      { etiqueta: 'Dividido por 8', valor: '9.36' },
-      { etiqueta: 'Truncado al primer decimal', valor: '9.3' },
+      { id: 'suma', etiqueta: 'Suma de los 8 mejores diferenciales', valor: '74.9' },
+      { id: 'promedio', etiqueta: 'Dividido por 8', valor: '9.36' },
+      { id: 'truncado', etiqueta: 'Truncado al primer decimal', valor: '9.3' },
     ])
   })
 
@@ -346,7 +346,7 @@ describe('filasDelCalculo', () => {
       promedioCrudo: 9.0,
       indice: 9.0,
     })
-    expect(filas.map((f) => f.etiqueta)).toEqual(['Suma de los 4 mejores', 'Dividido por 4'])
+    expect(filas.map((f) => f.id)).toEqual(['suma', 'promedio'])
   })
 
   it('no explica nada si la suma mostrada no reproduce el promedio del servidor', () => {
@@ -367,6 +367,41 @@ describe('filasDelCalculo', () => {
     })
     expect(filas).toHaveLength(3)
     expect(filas[0].valor).toBe('74.9')
+  })
+
+
+  it('no explica cuando el promedio MOSTRADO contradice al truncado', () => {
+    // Residuo >=0.95 (alcanzable desde n=20): toFixed(2) sube 12.195 a "12.20"
+    // mientras el truncado se queda en 12.1. La pantalla diria "Dividido por 20
+    // = 12.20 / Truncado al primer decimal = 12.1", y truncar 12.20 da 12.2.
+    // Antes que mostrar eso, no se muestra nada. Misma leccion que #299/#300.
+    const bordes = [12.1, ...Array.from({ length: 19 }, () => 12.2)] // suma 243.9
+    expect((12.195).toFixed(2)).toBe('12.20') // el redondeo que causa la contradiccion
+    expect(filasDelCalculo({ diferencialesQueCuentan: bordes, promedioCrudo: 12.195, indice: 12.1 })).toEqual([])
+  })
+
+  it('un residuo que NO cruza el borde sigue explicandose', () => {
+    // Control del test anterior: si no discriminara, el guard nuevo estaria
+    // matando tambien los casos sanos.
+    const sanos = [12.1, 12.1, ...Array.from({ length: 18 }, () => 12.2)] // suma 243.8
+    expect((12.19).toFixed(2)).toBe('12.19')
+    const filas = filasDelCalculo({ diferencialesQueCuentan: sanos, promedioCrudo: 12.19, indice: 12.1 })
+    expect(filas.map((f) => f.id)).toEqual(['suma', 'promedio', 'truncado'])
+    expect(filas[2].valor).toBe('12.1')
+  })
+
+  it('normaliza el -0.0 de un jugador plus', () => {
+    // Un scratch/plus puede dejar la suma en un negativo del orden de 1e-17 por
+    // acumulacion de floats. `toFixed(1)` de eso es la cadena "-0.0", que no es
+    // un numero que nadie escriba.
+    const plus = [-0.1, -0.2, 0.3]
+    expect(plus.reduce((a, b) => a + b, 0).toFixed(1)).toBe('-0.0') // control: sin fix saldria esto
+    const filas = filasDelCalculo({
+      diferencialesQueCuentan: plus,
+      promedioCrudo: plus.reduce((a, b) => a + b, 0) / 3,
+      indice: 0,
+    })
+    expect(filas[0].valor).toBe('0.0')
   })
 
   it('devuelve vacío sin diferenciales, sin promedio o sin índice', () => {
@@ -391,7 +426,7 @@ describe('filasDelCalculo', () => {
       promedioCrudo: 12.0,
       indice: 12.0,
     })
-    expect(filas[0].etiqueta).toBe('Suma de los 3 mejores')
+    expect(filas[0].etiqueta).toBe('Suma de los 3 mejores diferenciales')
     expect(filas[1].etiqueta).toBe('Dividido por 3')
   })
 })
