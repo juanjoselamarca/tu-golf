@@ -52,6 +52,15 @@ const MAX_ROUTES = Number(args.maxroutes ?? 120)
 const INCLUDE_ADMIN = !!args.admin
 const HEADLESS = args.headed ? false : true
 const PROBE_WAIT_MS = Number(args.wait ?? 900)
+// Deadline global en minutos — salida limpia con reporte parcial antes del
+// timeout del workflow (30 min). Default 25 min deja 5 min de margen para el
+// upload de artefactos y cleanup. Configurable con --deadline=20.
+const DEADLINE_MS = Number(args.deadline ?? 25) * 60_000
+const DEADLINE_AT = Date.now() + DEADLINE_MS
+// Timeout por ruta en ms — si una ruta lleva más de esto, se salta y sigue
+// con la siguiente. Evita que una página pesada consuma todo el budget.
+// Configurable con --route-timeout=180 (segundos). Default 3 min.
+const ROUTE_TIMEOUT_MS = Number(args['route-timeout'] ?? 180) * 1000
 
 const ORIGIN = new URL(BASE).origin
 const HOST = new URL(BASE).host.replace(/[^a-z0-9.]/gi, '_')
@@ -222,7 +231,7 @@ async function snapshotElements(page) {
   }, MAX_ELEMENTS_PER_PAGE)
 }
 
-async function probeRoute(page, sink, route) {
+async function probeRoute(page, sink, route, routeStart = Date.now()) {
   const findings = []
   let snap
   try {
@@ -243,6 +252,14 @@ async function probeRoute(page, sink, route) {
 
   for (const el of snap) {
     if (el.disabled) continue
+    // Per-route timeout — pasar a la siguiente ruta si esta lleva demasiado
+    if (Date.now() - routeStart > ROUTE_TIMEOUT_MS) {
+      findings.push({ route, label: '(timeout de ruta)', kind: 'route-timeout',
+        detail: `Ruta excedió ${ROUTE_TIMEOUT_MS / 1000}s — elementos restantes no probados`, sev: 'info' })
+      break
+    }
+    // Global deadline — cortar limpiamente
+    if (Date.now() >= DEADLINE_AT) break
     // Un enlace de navegación (a[href] a una ruta) NO muta estado aunque su
     // texto matchee DESTRUCTIVE (ej. "Crear cuenta gratis" → /register). El
     // crawler ya maneja la navegación de forma segura, así que solo saltamos
@@ -286,7 +303,7 @@ async function probeRoute(page, sink, route) {
 
 // ---------------------------------------------------------------- main
 async function main() {
-  log(`BASE=${BASE} MODE=${MODE} DEPTH=${DEPTH} admin=${INCLUDE_ADMIN}`)
+  log(`BASE=${BASE} MODE=${MODE} DEPTH=${DEPTH} admin=${INCLUDE_ADMIN} deadline=${args.deadline ?? 25}min route-timeout=${args['route-timeout'] ?? 180}s`)
   const browser = await chromium.launch({ headless: HEADLESS })
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 }, // mobile-first, como el resto de los E2E
@@ -306,11 +323,19 @@ async function main() {
   log('Fase B: probando botones por ruta...')
   const allFindings = []
   let i = 0
+  let deadlineHit = false
   for (const r of routes) {
     i++
     if (r.status === -1 || SKIP_PATH.test(r.path)) continue
+    // Deadline global — salir limpiamente con lo que tengamos
+    if (Date.now() >= DEADLINE_AT) {
+      log(`⏰ Deadline alcanzado (${args.deadline ?? 25} min) — ${i-1}/${routes.length} rutas probadas. Generando reporte parcial.`)
+      deadlineHit = true
+      break
+    }
     log(`  (${i}/${routes.length}) ${r.path}`)
-    const f = await probeRoute(page, sink, r.path)
+    const routeStart = Date.now()
+    const f = await probeRoute(page, sink, r.path, routeStart)
     allFindings.push(...f)
   }
 
@@ -322,8 +347,9 @@ async function main() {
   const dir = 'qa-crawler-report'
   mkdirSync(dir, { recursive: true })
 
+  const routesProbed = deadlineHit ? i - 1 : routes.length
   const payload = {
-    meta: { base: BASE, mode: MODE, authed, depth: DEPTH, when: now(), routes: routes.length },
+    meta: { base: BASE, mode: MODE, authed, depth: DEPTH, when: now(), routes: routes.length, routesProbed, deadlineHit },
     counts: {
       P1: bySev('P1').length, P2: bySev('P2').length, P3: bySev('P3').length,
       skipped: bySev('skip').length, capped: bySev('info').length,
@@ -340,7 +366,7 @@ async function main() {
     .sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev])
   let md = `# QA Crawler — botones rotos\n\n`
   md += `- **Entorno:** ${BASE} (${authed ? 'autenticado' : 'anónimo'})\n`
-  md += `- **Modo:** ${MODE}  ·  **Rutas:** ${routes.length}  ·  **Fecha:** ${now()}\n`
+  md += `- **Modo:** ${MODE}  ·  **Rutas:** ${routesProbed}/${routes.length}${deadlineHit ? ' (parcial — deadline)' : ''}  ·  **Fecha:** ${now()}\n`
   md += `- **Hallazgos:** P1=${payload.counts.P1}  P2=${payload.counts.P2}  P3=${payload.counts.P3}`
   md += `  (saltados destructivos: ${payload.counts.skipped}, rutas con cap: ${payload.counts.capped})\n\n`
   md += `> P1 = roto (excepción JS / 5xx / 404 / error boundary) · P2 = click no responde · P3 = console.error\n\n`
