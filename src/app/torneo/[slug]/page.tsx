@@ -26,7 +26,6 @@ import { formatLabel, type ModoJuego, type FormatoJuego } from '@/golf/core/rule
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 
 import {
-  hoyosDelTorneo,
   fetchCourseHoles,
   fetchLegacyHcpContext,
   fetchLegacyPlayers,
@@ -56,6 +55,7 @@ import { TournamentWithdrawnList } from './components/TournamentWithdrawnList'
 import { TournamentEmptyState } from './components/TournamentEmptyState'
 import { TournamentFooter } from './components/TournamentFooter'
 import type { TournamentResultados, WithdrawnEntry } from './types'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 
 export default async function TorneoPage({ params }: { params: { slug: string } }) {
   const supabase = await createClient()
@@ -110,7 +110,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       })
     }
 
-    courseHoles = hoyosDelTorneo(
+    courseHoles = hoyosDeLaVuelta(
       tournament.courses?.id ? await fetchCourseHoles(supabase, tournament.courses.id) : [],
       totalHoyos,
     )

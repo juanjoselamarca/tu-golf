@@ -6,7 +6,8 @@ import { createClient } from '@/lib/supabase'
 import { Trophy } from '@/components/icons'
 import { fetchTVBoardData, type TVTournamentInfo, type TVWithdrawnEntry } from '@/lib/data/tournaments/tvBoard'
 import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy'
-import { hoyosDelTorneo, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
+import { sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { captureError } from '@/lib/error-tracking'
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
@@ -70,7 +71,7 @@ export default function TVPage() {
     // tenía su propio agregado (leía `rounds.total_net` almacenado y medía
     // contra el par de la vuelta completa), y por eso mostraba un ranking
     // distinto al de la landing durante la vuelta.
-    const holes = hoyosDelTorneo(courseHoles, t.hole_count)
+    const holes = hoyosDeLaVuelta(courseHoles, t.hole_count)
     const ctx: TournamentLeaderboardContext = {
       parTotal: sumParDedupByHole(holes),
       totalHoyos: t.hole_count,

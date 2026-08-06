@@ -14,6 +14,7 @@ import {
 import {
   courseRatingEnEscalaDe9,
   hoyosDeUnaVuelta,
+  parDeVariasVueltas,
   parEnEscalaDe9,
   sumaDeVueltas,
   vueltasDeLaRonda,
@@ -75,14 +76,12 @@ export function computePlayerCourseHcp(
   // inflado a par 4, el guardarrail lo leía como dato incoherente y toda la
   // cancha caía al índice crudo — aunque su dato estuviera perfecto.
   const vueltas = vueltasDeLaRonda(hoyosDeUnaVuelta(parDeLaCancha), holeCount)
-  // El par de la ronda entera. Los callers lo derivan de `course_holes` con
-  // `parDeLosHoyosJugados`, que ya repite la vuelta; si viniera de una cancha sin
-  // catálogo, se reconstruye desde el par propio de la cancha. Se prefiere el del
-  // caller para que este motor y `resolverCourseData` contesten SIEMPRE lo mismo:
-  // si cada uno derivara el par por su lado, el board y la tarjeta volverían a
-  // mostrar netos distintos para el mismo jugador.
-  const parDeLaRonda =
-    parTotal > 0 ? parTotal : sumaDeVueltas(parEnEscalaDe9(parDeLaCancha), vueltas)
+  // El par de la ronda cuando la cancha se recorre varias veces. MISMA fuente
+  // que `resolverCourseData` (`parDeVariasVueltas`): el par propio de la cancha
+  // por la cantidad de vueltas, no el `parTotal` que llega. Si cada motor se
+  // creyera el par que le pasan, el board y la tarjeta volverían a mostrar netos
+  // distintos para el mismo jugador. Ver el doc de `parDeVariasVueltas`.
+  const parDeLaRonda = parDeVariasVueltas(parDeLaCancha, vueltas)
 
   if (courseTees.length > 0) {
     const { tee } = resolvePlayerTee({

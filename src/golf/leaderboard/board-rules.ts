@@ -19,8 +19,8 @@ import type { CourseHole } from './types'
 // construcción de los hoyos de la vuelta (y quien lo aplica cuando falta un
 // hoyo). Se re-exporta para no romper los imports existentes: la DEFINICIÓN
 // está en un solo lado.
-export { PAR_FALLBACK } from '@/golf/courses/vueltas'
 import { PAR_FALLBACK } from '@/golf/courses/vueltas'
+export { PAR_FALLBACK }
 
 /** Forma mínima de la fila `players` que necesita la resolución de nombre. */
 export interface NameableLegacyPlayer {

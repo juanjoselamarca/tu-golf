@@ -77,21 +77,11 @@ export async function fetchCourseHoles(
   return (data as CourseHole[] | null) ?? []
 }
 
-/**
- * Los hoyos que se juegan en esta ronda, con par y stroke index resueltos.
- *
- * Reemplaza al viejo `buildFallbackCourseHoles`, que sólo sabía inventar una
- * cancha entera a par 4 y obligaba a cada pantalla a escribir el mismo
- * `courseHoles.length > 0 ? courseHoles : fallback(n)`. Ahora hay UNA función y
- * además cubre el caso que ninguna de esas copias cubría: una cancha de 9 hoyos
- * en un torneo de 18 se recorre DOS VECES (los hoyos 10-18 son los 1-9 otra
- * vez), en vez de rellenarse a par 4 con stroke index inventado.
- *
- * Ver `@/golf/courses/vueltas` para el detalle del modelo.
- */
-export function hoyosDelTorneo(courseHoles: CourseHole[], totalHoyos: number): CourseHole[] {
-  return hoyosDeLaVuelta(courseHoles, totalHoyos)
-}
+// El viejo `buildFallbackCourseHoles` (cancha entera a par 4) lo reemplaza
+// `hoyosDeLaVuelta` de `@/golf/courses/vueltas`, que además cubre el caso que
+// ninguna de las copias cubría: una cancha de 9 hoyos en un torneo de 18 se
+// recorre DOS VECES. Se importa de ahí en vez de re-exportarse con otro nombre:
+// dos nombres para la misma función son dos conceptos aparentes.
 
 /**
  * Par total deduplicado por nº de hoyo, para el cálculo de course handicap.

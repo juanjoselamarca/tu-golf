@@ -12,11 +12,11 @@ import {
   courseRatingEnEscalaDe9,
   hoyosDeUnaVuelta,
   vueltasDeLaRonda,
-  esRondaDeVariasVueltas,
   strokeIndexDeVuelta,
   hoyosDeLaVuelta,
   sumaDeVueltas,
   ratingDeVueltas,
+  parDeVariasVueltas,
 } from './vueltas'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
@@ -64,7 +64,7 @@ describe('escala de la cancha', () => {
 describe('vueltasDeLaRonda — LA decisión', () => {
   it('una cancha de 9 en una ronda de 18 se recorre dos veces', () => {
     expect(vueltasDeLaRonda(9, 18)).toBe(2)
-    expect(esRondaDeVariasVueltas(35, 18)).toBe(true)
+    expect(vueltasDeLaRonda(9, 27)).toBe(3)
   })
 
   it('todo lo demás es una sola vuelta', () => {
@@ -72,9 +72,15 @@ describe('vueltasDeLaRonda — LA decisión', () => {
     expect(vueltasDeLaRonda(18, 18)).toBe(1)
     // Media cancha de 18 NO es media vuelta: sigue siendo una pasada.
     expect(vueltasDeLaRonda(18, 9)).toBe(1)
-    expect(esRondaDeVariasVueltas(72, 18)).toBe(false)
-    expect(esRondaDeVariasVueltas(72, 9)).toBe(false)
-    expect(esRondaDeVariasVueltas(null, 18)).toBe(false)
+  })
+
+  it('sólo se repite si la ronda es múltiplo EXACTO de la vuelta', () => {
+    // Un catálogo de 15 hoyos en una ronda de 18 no son "1.2 vueltas": está
+    // incompleto. Repetirlo copiaría los hoyos 1-3 al final con un par
+    // plausible que nadie notaría.
+    expect(vueltasDeLaRonda(15, 18)).toBe(1)
+    expect(vueltasDeLaRonda(12, 18)).toBe(1)
+    expect(vueltasDeLaRonda(10, 18)).toBe(1)
   })
 
   it('no explota con entradas basura', () => {
@@ -127,10 +133,16 @@ describe('hoyosDeLaVuelta — los hoyos que se juegan de verdad', () => {
     expect(hoyosDeLaVuelta(CANCHA_18, 18)).toEqual(CANCHA_18)
   })
 
-  it('cancha de 18 en torneo de 9: los primeros 9', () => {
+  it('cancha de 18 en torneo de 9: NO recorta — la ronda puede jugar el Back 9', () => {
+    // `generarOrdenHoyos(10, 9)` da [10..18]. Si acá se devolvieran "los
+    // primeros 9", esos nueve hoyos quedarían sin par ni stroke index y se
+    // puntuarían contra par 4 con el neto igual al gross.
     const hoyos = hoyosDeLaVuelta(CANCHA_18, 9)
-    expect(hoyos).toHaveLength(9)
-    expect(hoyos.map((h) => h.numero)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+    expect(hoyos).toEqual(CANCHA_18)
+    const porNumero = new Map(hoyos.map((h) => [h.numero, h]))
+    for (const n of [10, 11, 12, 13, 14, 15, 16, 17, 18]) {
+      expect(porNumero.get(n)?.par, `hoyo ${n}`).toBe(CANCHA_18[n - 1].par)
+    }
   })
 
   it('sin catálogo: cancha neutra a par 4, igual que antes', () => {
@@ -140,17 +152,45 @@ describe('hoyosDeLaVuelta — los hoyos que se juegan de verdad', () => {
     expect(hoyos.map((h) => h.stroke_index)).toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
   })
 
-  it('catálogo incompleto (ni 9 ni 18): completa a par 4, comportamiento previo', () => {
+  it('catálogo incompleto (ni 9 ni 18): completa a par 4, NO repite la vuelta', () => {
+    // 15 hoyos en una ronda de 18: los que faltan salen a par 4. Repetirlos
+    // desde el hoyo 1 daría un par plausible y falso.
     const parcial = CANCHA_18.slice(0, 15)
     const hoyos = hoyosDeLaVuelta(parcial, 18)
     expect(hoyos).toHaveLength(18)
-    expect(hoyos[17].par).toBe(PAR_FALLBACK)
+    expect(hoyos.map((h) => h.numero)).toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
+    // Los hoyos 16, 17 y 18 son relleno neutro, no copias de los hoyos 1-3.
+    expect(hoyos.slice(15).map((h) => h.par)).toEqual([PAR_FALLBACK, PAR_FALLBACK, PAR_FALLBACK])
+    expect(hoyos.slice(15).map((h) => h.stroke_index)).toEqual([16, 17, 18])
     expect(hoyos[0].par).toBe(CANCHA_18[0].par)
+  })
+
+  it('un catálogo con filas repetidas por número NO se trata como cancha de 9', () => {
+    // Una cancha 27h puede venir como 27 filas numeradas 1..9 tres veces: son
+    // TRES recorridos distintos, no uno repetido. Repetir el primero dos veces
+    // daría un par plausible y equivocado.
+    const tresLoops = [
+      ...RIO_BLANCO_9,
+      ...RIO_BLANCO_9.map((h) => ({ ...h, par: 5 })),
+      ...RIO_BLANCO_9.map((h) => ({ ...h, par: 3 })),
+    ]
+    const hoyos = hoyosDeLaVuelta(tresLoops, 18)
+    // Se queda con la primera fila de cada número (9 hoyos) y completa a par 4.
+    expect(hoyos.slice(0, 9)).toEqual(RIO_BLANCO_9)
+    expect(hoyos.slice(9).every((h) => h.par === PAR_FALLBACK)).toBe(true)
   })
 
   it('dedup por número: una cancha multi-recorrido no infla el par', () => {
     const conDuplicados = [...RIO_BLANCO_9, { numero: 1, par: 4, stroke_index: 5 }]
     expect(hoyosDeLaVuelta(conDuplicados, 9).reduce((s, h) => s + h.par, 0)).toBe(35)
+  })
+
+  it('una cancha de 9 con el SI de la tarjeta de 18 (impares) igual da 1..18', () => {
+    // 166 canchas del catálogo publican el front-9 con SI 1,3,5…17. Sin
+    // normalizar, la tarjeta de dos vueltas llegaría a SI 33.
+    const siImpar = RIO_BLANCO_9.map((h, i) => ({ ...h, stroke_index: i * 2 + 1 }))
+    const sis = hoyosDeLaVuelta(siImpar, 18).map((h) => h.stroke_index).sort((a, b) => a - b)
+    expect(sis).toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
   })
 
   it('un hoyo sin par ni SI cargado no rompe la vuelta', () => {
@@ -192,5 +232,15 @@ describe('sumaDeVueltas / ratingDeVueltas', () => {
   it('a una vuelta devuelve el valor tal cual', () => {
     expect(sumaDeVueltas(71.6, 1)).toBe(71.6)
     expect(ratingDeVueltas(71.6, 72, 1)).toEqual({ courseRating: 71.6, par: 72 })
+  })
+
+  it('parDeVariasVueltas sale del par propio de la cancha, en su escala', () => {
+    expect(parDeVariasVueltas(35, 2)).toBe(70)
+    expect(parDeVariasVueltas(36, 2)).toBe(72)
+    // Una cancha de 18 nunca da dos vueltas, pero si se pidiera, el par de UNA
+    // vuelta es 72 — no 36.
+    expect(parDeVariasVueltas(72, 1)).toBe(72)
+    // Sin par de cancha se asume la vuelta estándar de 36.
+    expect(parDeVariasVueltas(null, 2)).toBe(72)
   })
 })

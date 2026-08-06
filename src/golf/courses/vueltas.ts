@@ -115,15 +115,12 @@ export function hoyosDeUnaVuelta(parDeLaCancha: number | null | undefined): 9 | 
 export function vueltasDeLaRonda(hoyosDeUnaVueltaDeLaCancha: number, roundHoles: number): number {
   if (!Number.isFinite(hoyosDeUnaVueltaDeLaCancha) || hoyosDeUnaVueltaDeLaCancha <= 0) return 1
   if (!Number.isFinite(roundHoles) || roundHoles <= hoyosDeUnaVueltaDeLaCancha) return 1
-  return Math.ceil(roundHoles / hoyosDeUnaVueltaDeLaCancha)
-}
-
-/** Atajo con nombre: ¿esta ronda repite la cancha? Lo usan los guardarrailes. */
-export function esRondaDeVariasVueltas(
-  parDeLaCancha: number | null | undefined,
-  roundHoles: number,
-): boolean {
-  return vueltasDeLaRonda(hoyosDeUnaVuelta(parDeLaCancha), roundHoles) > 1
+  // Sólo se repite si la ronda es un MÚLTIPLO exacto de la vuelta. Un catálogo
+  // de 15 hoyos en una ronda de 18 no son "1.2 vueltas": es un catálogo
+  // incompleto, y tratarlo como repetición inventaría los hoyos 16-18 copiando
+  // los tres primeros — con un par plausible que nadie notaría.
+  if (roundHoles % hoyosDeUnaVueltaDeLaCancha !== 0) return 1
+  return roundHoles / hoyosDeUnaVueltaDeLaCancha
 }
 
 /** Un hoyo tal como lo trae `course_holes` (par y SI pueden faltar). */
@@ -171,24 +168,29 @@ export function strokeIndexDeVuelta(strokeIndexDeLaCancha: number, vuelta: numbe
 }
 
 /**
- * Los hoyos que EFECTIVAMENTE se juegan en una ronda de `roundHoles`.
+ * Los hoyos que la ronda puede llegar a jugar, con par y stroke index resueltos.
  *
- * FUENTE ÚNICA. Sustituye el idiom que estaba copiado en las cuatro pantallas
- * de torneo (`courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(n)`)
- * y el `hole?.par ?? 4` suelto del scorer.
+ * FUENTE ÚNICA. Sustituye el idiom que estaba copiado en las pantallas de torneo
+ * (`courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(n)`).
  *
  * Tres casos, en este orden:
  *
- *  1. Catálogo vacío → cancha entera a par 4 con SI lineal. Es lo único
- *     honesto que se puede hacer sin datos, y es el comportamiento previo.
- *  2. Catálogo de 9 hoyos con ronda de 18 (o 27) → se REPITE la vuelta. Cada
- *     hoyo conserva su par real y recibe el stroke index de su vuelta.
- *  3. Cualquier otro caso → los `roundHoles` primeros hoyos del catálogo,
- *     completando a par 4 los que falten (catálogo incompleto).
+ *  1. Catálogo vacío → cancha entera a par 4 con SI lineal. Es lo único honesto
+ *     que se puede hacer sin datos, y es el comportamiento previo.
+ *  2. Catálogo cuya vuelta cabe un número ENTERO de veces en la ronda (una
+ *     cancha de 9 en 18, o en 27) → se REPITE la vuelta. Cada hoyo conserva su
+ *     par real y recibe el stroke index de su vuelta.
+ *  3. Cualquier otro caso → el catálogo tal cual, completando a par 4 sólo si
+ *     tiene MENOS hoyos que la ronda.
+ *
+ * ⚠️ NO recorta a `roundHoles`. Los consumidores buscan por número de hoyo, y
+ * una ronda de 9 hoyos puede empezar en el 10 (Back 9, `generarOrdenHoyos`):
+ * devolver "los primeros 9" le daría par 4 y stroke index inventado a los nueve
+ * hoyos que realmente se juegan. Quien necesita el par de los hoyos jugados usa
+ * `parDeLosHoyosJugados`, que sí acota.
  *
  * Dedup por `numero` quedándose con la PRIMERA fila: mismo criterio que tenía
- * `parDeLosHoyosJugados`. Las canchas multi-recorrido pueden traer filas
- * repetidas por recorrido y sumarlas todas inflaría el par.
+ * `parDeLosHoyosJugados`.
  */
 export function hoyosDeLaVuelta(catalogo: HoyoDeCatalogo[], roundHoles: number): HoyoJugado[] {
   const total = Math.max(0, Math.trunc(roundHoles) || 0)
@@ -211,8 +213,19 @@ export function hoyosDeLaVuelta(catalogo: HoyoDeCatalogo[], roundHoles: number):
   }
 
   // 2. La cancha se recorre más de una vez.
-  const vueltas = vueltasDeLaRonda(base.length, total)
+  //
+  // Se exige que el catálogo NO traiga filas repetidas por número de hoyo. Una
+  // cancha 27h puede venir como 27 filas numeradas 1..9 tres veces: ahí el
+  // dedup deja 9 números y esto parecería "una cancha de 9", cuando en realidad
+  // son tres recorridos distintos. Repetir el primero dos veces daría un par
+  // plausible y equivocado — peor que el relleno a par 4, porque nadie lo nota.
+  const catalogoLimpio = catalogo.length === base.length
+  const vueltas = catalogoLimpio ? vueltasDeLaRonda(base.length, total) : 1
   if (vueltas > 1) {
+    // El SI del catálogo se lleva a permutación 1..N antes de repartirlo entre
+    // las vueltas. Hay canchas de 9 que publican el SI de la tarjeta de 18
+    // (1,3,5…17); sin normalizar, la tarjeta de dos vueltas llegaría a SI 33.
+    const rango = rangoDeStrokeIndex(base)
     const out: HoyoJugado[] = []
     for (let vuelta = 1; vuelta <= vueltas; vuelta++) {
       base.forEach((h, i) => {
@@ -221,24 +234,40 @@ export function hoyosDeLaVuelta(catalogo: HoyoDeCatalogo[], roundHoles: number):
           // llegan los `hole_scores` y como los pinta la tarjeta.
           numero: (vuelta - 1) * base.length + i + 1,
           par: h.par ?? PAR_FALLBACK,
-          // SI del catálogo si lo hay; si no, la posición del hoyo en la vuelta.
-          stroke_index: strokeIndexDeVuelta(h.stroke_index ?? i + 1, vuelta, vueltas),
+          stroke_index: strokeIndexDeVuelta(rango[i], vuelta, vueltas),
         })
       })
     }
-    return out.slice(0, total)
+    return out
   }
 
-  // 3. Una sola vuelta: los hoyos del catálogo, completando los que falten.
-  const out: HoyoJugado[] = base.slice(0, total).map((h, i) => ({
+  // 3. El catálogo tal cual. Si tiene menos hoyos que la ronda, se completan a
+  //    par 4 (comportamiento previo: un catálogo incompleto no se inventa).
+  const out: HoyoJugado[] = base.map((h, i) => ({
     numero: h.numero,
     par: h.par ?? PAR_FALLBACK,
     stroke_index: h.stroke_index ?? i + 1,
   }))
-  for (let numero = out.length + 1; numero <= total; numero++) {
+  const ultimo = out.length > 0 ? out[out.length - 1].numero : 0
+  for (let numero = ultimo + 1; out.length < total; numero++) {
     out.push({ numero, par: PAR_FALLBACK, stroke_index: numero })
   }
   return out
+}
+
+/**
+ * El stroke index del catálogo llevado a permutación 1..N por rango.
+ *
+ * Mismo criterio de desempate que `normalizeStrokeIndexMap` (por número de
+ * hoyo) para que el SI que se MUESTRA y el que reparte golpes no discrepen.
+ * Un hoyo sin SI cargado se va al final.
+ */
+function rangoDeStrokeIndex(base: HoyoDeCatalogo[]): number[] {
+  const orden = base.map((h, i) => ({ i, si: h.stroke_index ?? Number.POSITIVE_INFINITY }))
+  orden.sort((a, b) => (a.si !== b.si ? a.si - b.si : a.i - b.i))
+  const rango = new Array<number>(base.length)
+  orden.forEach((o, puesto) => { rango[o.i] = puesto + 1 })
+  return rango
 }
 
 /**
@@ -254,6 +283,36 @@ export function hoyosDeLaVuelta(catalogo: HoyoDeCatalogo[], roundHoles: number):
  */
 export function sumaDeVueltas(valorDeUnaVuelta: number, vueltas: number): number {
   return valorDeUnaVuelta * vueltas
+}
+
+/**
+ * FUENTE ÚNICA del par de una ronda que da VARIAS VUELTAS a la misma cancha
+ * (una de 9 jugada a 18). Lo usan los DOS motores de handicap.
+ *
+ * Sale del par propio de la cancha (`courses.par_total`) y no del `parTotal` que
+ * manda el caller, por tres razones:
+ *
+ *  1. Los dos motores tienen que dar el MISMO número. Si cada uno se creyera el
+ *     par que le pasan, el board y la tarjeta volverían a mostrar netos
+ *     distintos para el mismo jugador — el modo de falla histórico del repo.
+ *  2. El `parTotal` del caller a veces está en otra escala:
+ *     `resolverHandicapDisplayDeRonda` pide a propósito el CourseData de 18
+ *     hoyos pasándole el par de la ronda de 9 (35). Creerle daría `(69.6 − 35)`
+ *     y el guardarrail tiraría un dato bueno.
+ *  3. C.G. Río Blanco — la cancha que motiva todo esto — tiene CERO filas en
+ *     `course_holes`, así que el par derivado del catálogo ni siquiera existe.
+ *
+ * `courses.par_total` está en el mismo escalón de autoridad que el rating que se
+ * está escalando, y que coincida con la suma de `course_holes` lo vigila el
+ * canario del catálogo.
+ */
+export function parDeVariasVueltas(parDeLaCancha: number | null | undefined, vueltas: number): number {
+  // Con una sola vuelta el par de la ronda es el par de la cancha, sin tocar.
+  // Sin esta guarda, pedirle el par de una cancha de 18 devolvería 36: sólo se
+  // llega a `vueltas > 1` en canchas de 9, pero una función que miente cuando la
+  // llaman "mal" es una trampa esperando a que alguien la pise.
+  if (vueltas <= 1) return parDeLaCancha ?? 72
+  return sumaDeVueltas(parDeLaCancha != null ? parEnEscalaDe9(parDeLaCancha) : 36, vueltas)
 }
 
 /** Course Rating y par de una cancha, escalados a las vueltas que se juegan. */

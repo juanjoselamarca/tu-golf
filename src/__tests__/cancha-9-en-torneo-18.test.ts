@@ -15,6 +15,7 @@ import { computePlayerCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import { parDeLosHoyosJugados, resolverCourseData, resolverCourseHandicap } from '@/golf/core/course-handicap'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { generarOrdenHoyos } from '@/lib/ronda/helpers'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -176,6 +177,71 @@ describe('cancha de 9 ROTA en torneo de 18 — sigue bloqueada', () => {
     // Camino seguro en 18 hoyos = el índice entero. Sin guardarrail:
     // 12 × 118/113 + (110 − 70) = +53 golpes.
     expect(hcp).toBe(12)
+  })
+})
+
+describe('lo que NO se puede romper al modelar la segunda vuelta', () => {
+  const CANCHA_18 = Array.from({ length: 18 }, (_, i) => ({
+    numero: i + 1,
+    par: i % 5 === 0 ? 5 : i % 4 === 0 ? 3 : 4,
+    stroke_index: i + 1,
+  }))
+
+  it('Back 9: una ronda de 9 que empieza en el hoyo 10 conserva par y stroke index', () => {
+    // `generarOrdenHoyos(10, 9)` da [10..18]. Si `hoyosDeLaVuelta` devolviera
+    // "los primeros 9", los nueve hoyos que se juegan de verdad quedarían sin
+    // par (par 4 fijo) y sin SI (neto = gross). Bug de campo, no teórico.
+    const hoyos = hoyosDeLaVuelta(CANCHA_18, 9)
+    const porNumero = new Map(hoyos.map((h) => [h.numero, h]))
+    for (const n of generarOrdenHoyos(10, 9)) {
+      expect(porNumero.get(n), `falta el hoyo ${n}`).toBeDefined()
+      expect(porNumero.get(n)!.par, `par del hoyo ${n}`).toBe(CANCHA_18[n - 1].par)
+      expect(porNumero.get(n)!.stroke_index, `SI del hoyo ${n}`).toBe(CANCHA_18[n - 1].stroke_index)
+    }
+  })
+
+  it('el par de una ronda de 9 sigue siendo el de 9 hoyos, no el de la cancha entera', () => {
+    const par9 = CANCHA_18.slice(0, 9).reduce((s, h) => s + h.par, 0)
+    expect(parDeLosHoyosJugados(CANCHA_18, 9)).toBe(par9)
+    expect(parDeLosHoyosJugados(CANCHA_18, 18)).toBe(CANCHA_18.reduce((s, h) => s + h.par, 0))
+  })
+
+  it('una cancha de 18 en un torneo de 18 no cambia en nada', () => {
+    expect(hoyosDeLaVuelta(CANCHA_18, 18)).toEqual(CANCHA_18)
+  })
+})
+
+describe('el scorer y el board contestan lo MISMO sobre la misma ronda', () => {
+  // El modo de falla histórico del repo: dos pantallas que derivan por su cuenta
+  // "qué hoyos juega esta ronda" y terminan con dos netos para el mismo jugador.
+  // Las tres capas arrancan del mismo `course_holes` crudo.
+  const catalogo = HOYOS_9
+
+  it('scorer, capa de datos y board arman los mismos 18 hoyos y el mismo par', () => {
+    const delScorer = hoyosDeLaVuelta(catalogo, 18)
+    const delBoard = hoyosDeLaVuelta(catalogo, 18)
+    expect(delScorer).toEqual(delBoard)
+
+    // El par que va a la fórmula, por los dos caminos que existen hoy:
+    // `parDeLosHoyosJugados` (board legacy + scorer organizador) y la suma
+    // deduplicada por hoyo (`sumParDedupByHole`, board público).
+    const porFormula = parDeLosHoyosJugados(catalogo, 18)
+    const porSuma = Array.from(
+      new Map(delBoard.map((h) => [h.numero, h.par])).values(),
+    ).reduce((s, p) => s + p, 0)
+    expect(porFormula).toBe(porSuma)
+    expect(porFormula).toBe(PAR_9 * 2)
+  })
+
+  it('el course handicap no depende de qué par le pase el caller', () => {
+    // Un caller que todavía mandara el par viejo (72, del relleno a par 4) o el
+    // de una sola vuelta (35) tiene que obtener el MISMO número: el par de una
+    // ronda de varias vueltas sale de la cancha, no del argumento.
+    const conParCorrecto = computePlayerCourseHcp(JUGADOR, torneoDe(TEE_SANO), [TEE_SANO], 70, 18)
+    const conParInflado = computePlayerCourseHcp(JUGADOR, torneoDe(TEE_SANO), [TEE_SANO], 72, 18)
+    const conParDeUnaVuelta = computePlayerCourseHcp(JUGADOR, torneoDe(TEE_SANO), [TEE_SANO], 35, 18)
+    expect(conParInflado).toBe(conParCorrecto)
+    expect(conParDeUnaVuelta).toBe(conParCorrecto)
   })
 })
 

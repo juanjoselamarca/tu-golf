@@ -11,6 +11,7 @@ import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/t
 import { getYardajeForTee } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData, resolverHandicapDisplayDeRonda, type CourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
+import { hoyosDeLaVuelta, vueltasDeLaRonda } from '@/golf/courses/vueltas'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { calcularScramble, calcularFoursome, teePlayerEnHoyo, isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
@@ -200,27 +201,37 @@ export default function ScoreGrupoPage() {
           const teeCol = getTeeYardageColumn(r.tees || 'azul')
           // Renumber: loop 1 = 1-9, loop 2 = 10-18 (for multi-loop)
           const isMultiLoop = recorridos && recorridos.length > 1
-          let holeNum = 1
-          for (const h of holes) {
-            const num = isMultiLoop ? holeNum : h.numero
-            pm2[num] = h.par
-            hdm2[num] = {
-              numero: num,
+          const base = holes.map((h, i) => ({
+            numero: isMultiLoop ? i + 1 : h.numero,
+            par: h.par,
+            stroke_index: h.stroke_index,
+            // Solo exponer yardajes auditados contra fuente primaria.
+            yardaje: (h as Record<string, unknown>).yardaje_verificado_at
+              ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
+              : null,
+            yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {
+              negras: (h as Record<string, unknown>).yardaje_negras as number | null ?? null,
+              azul: h.yardaje_azul ?? null,
+              blanco: h.yardaje_blanco ?? null,
+              rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
+            } : undefined,
+          }))
+          // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 en una
+          // ronda de 18 se recorre dos veces (`@/golf/courses/vueltas`). Esta
+          // pantalla, el scorer individual y el board tienen que contestar lo
+          // MISMO — si no, el mismo jugador ve dos netos según por dónde entre.
+          const vueltas = vueltasDeLaRonda(base.length, r.holes)
+          hoyosDeLaVuelta(base, r.holes).forEach((h, i) => {
+            const origen = i < base.length * vueltas ? base[i % base.length] : null
+            pm2[h.numero] = h.par
+            hdm2[h.numero] = {
+              numero: h.numero,
               par: h.par,
               stroke_index: h.stroke_index,
-              // Solo exponer yardajes auditados contra fuente primaria.
-              yardaje: (h as Record<string, unknown>).yardaje_verificado_at
-                ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
-                : null,
-              yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {
-                negras: (h as Record<string, unknown>).yardaje_negras as number | null ?? null,
-                azul: h.yardaje_azul ?? null,
-                blanco: h.yardaje_blanco ?? null,
-                rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
-              } : undefined,
+              yardaje: origen?.yardaje ?? null,
+              yardajes: origen?.yardajes,
             }
-            holeNum++
-          }
+          })
           setParMap(pm2)
           setHoleDataMap(hdm2)
           finalParTotal = Object.values(pm2).reduce((a, b) => a + b, 0)

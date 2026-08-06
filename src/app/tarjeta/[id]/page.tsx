@@ -18,6 +18,8 @@ import { ArrowLeft, Share2, Flag } from 'lucide-react'
 import { ShareSheet } from '@/components/share/ShareSheet'
 import { ShareToast } from '@/components/share/ShareToast'
 import { buildRoundShare } from '@/golf/share/payload'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 
 interface RoundData {
   id: string
@@ -155,9 +157,10 @@ export default function TarjetaPublicaPage() {
 
   // Build scorecard data
   const totalHoles = round.holes_played ?? 18
-  const scorecardHoles: ScorecardHole[] = courseHoles.length > 0
-    ? courseHoles.slice(0, totalHoles)
-    : Array.from({ length: totalHoles }, (_, i) => ({ numero: i + 1, par: null, stroke_index: i + 1 }))
+  // Fuente única `@/golf/courses/vueltas`: una cancha de 9 jugada a 18 se
+  // recorre dos veces, así que la tarjeta compartida muestra los 18 hoyos con su
+  // par real en vez de nueve y un vs-par corrido ~35 golpes.
+  const scorecardHoles: ScorecardHole[] = hoyosDeLaVuelta(courseHoles, totalHoles)
 
   const scoresRecord: Record<string, number> = {}
   if (round.scores) {
@@ -171,7 +174,7 @@ export default function TarjetaPublicaPage() {
     : ''
 
   // vs-par para el copy del share (solo cuando hay hoyos con par disponible)
-  const totalPar = courseHoles.reduce((sum: number, h: CourseHole) => sum + (h.par ?? 4), 0)
+  const totalPar = parDeLosHoyosJugados(courseHoles, totalHoles)
   const rawDiff = round.total_gross != null && courseHoles.length > 0 ? round.total_gross - totalPar : null
   const vsParLabel = rawDiff == null ? '' : rawDiff === 0 ? 'Par' : rawDiff > 0 ? `+${rawDiff}` : String(rawDiff)
   const sharePayload = buildRoundShare({

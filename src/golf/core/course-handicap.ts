@@ -11,11 +11,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ratingEsCreible } from '@/golf/courses/rating-coherente'
 import {
+  PAR_FALLBACK,
   esEscalaDe18Hoyos,
   courseRatingEnEscalaDe9,
   parEnEscalaDe9,
   hoyosDeUnaVuelta,
   hoyosDeLaVuelta,
+  parDeVariasVueltas,
   ratingDeVueltas,
   sumaDeVueltas,
   vueltasDeLaRonda,
@@ -232,37 +234,6 @@ async function resolveNineHolePar(
 }
 
 /**
- * Par de una ronda que da VARIAS VUELTAS a la misma cancha (una de 9 jugada a 18).
- *
- * Se deriva del catálogo y NO se confía en el `parTotal` que manda el caller: ese
- * es justamente el número que venía inflado (36 + 9×4 = 72 en vez de 35+35 = 70)
- * en todo camino que todavía rellenaba los hoyos que faltaban a par 4. Un par
- * inflado contra un Course Rating de 9 hoyos corre `(CR − par)` ~36 golpes y hace
- * que un dato SANO parezca incoherente — el bug que este módulo cierra.
- *
- * Mismo criterio que `resolveNineHolePar`: `course_holes` es la autoridad;
- * `courses.par_total` es la red de abajo.
- */
-async function resolveParDeVariasVueltas(
-  supabase: SupabaseClient,
-  courseId: string,
-  roundHoles: number,
-  parDeLaCancha: number | null,
-): Promise<number> {
-  const { data } = await supabase
-    .from('course_holes')
-    .select('numero, par')
-    .eq('course_id', courseId)
-    .order('numero')
-  if (data && data.length > 0) {
-    const par = parDeLosHoyosJugados(data as Array<{ numero: number; par: number | null }>, roundHoles)
-    if (par > 0) return par
-  }
-  const parDeUnaVuelta = parDeLaCancha != null ? parEnEscalaDe9(parDeLaCancha) : 36
-  return sumaDeVueltas(parDeUnaVuelta, vueltasDeLaRonda(hoyosDeUnaVuelta(parDeLaCancha), roundHoles))
-}
-
-/**
  * FUENTE ÚNICA del par que va en la fórmula WHS: el par de los hoyos que
  * EFECTIVAMENTE se juegan, deduplicado por nº de hoyo.
  *
@@ -279,12 +250,17 @@ async function resolveParDeVariasVueltas(
  * ronda de 18 la cancha se recorre DOS VECES, así que el par correcto es 2×35 =
  * 70 — no 36 + 9×4 = 72, que es lo que devolvía el relleno a par 4 y lo que
  * hacía que un Course Rating de 9 hoyos sano pareciera incoherente.
+ *
+ * El corte a `roundHoles` es de acá y no de `hoyosDeLaVuelta`: esa devuelve la
+ * cancha entera a propósito (una ronda de 9 puede jugar los hoyos 10-18).
  */
 export function parDeLosHoyosJugados(
   holes: Array<{ numero: number; par: number | null }>,
   roundHoles: number,
 ): number {
-  return hoyosDeLaVuelta(holes, roundHoles).reduce((sum, h) => sum + h.par, 0)
+  const hoyos = hoyosDeLaVuelta(holes, roundHoles).slice(0, roundHoles)
+  const faltantes = Math.max(0, roundHoles - hoyos.length)
+  return hoyos.reduce((sum, h) => sum + h.par, 0) + faltantes * PAR_FALLBACK
 }
 
 /** Lo que un tee publica sobre su rating. Forma común a los dos motores. */
@@ -395,21 +371,38 @@ export async function resolverCourseData(
       // Sin esto la ronda se calculaba con el CR y el par de UNA vuelta contra
       // 18 hoyos de score: `(CR − par)` corrido ~36 golpes, y encima `is9Hole`
       // en true le partía el índice al jugador en una vuelta de 18.
-      // Cada child es un loop de 9 (mismo supuesto que el `par_total ?? 36` de arriba).
-      const vueltasDeLoop = vueltasDeLaRonda(recorridos.length * 9, holes)
-      // El par de la ronda: el del caller si lo trae (lo deriva de `course_holes`
-      // con `parDeLosHoyosJugados`, que ya repite la vuelta), si no la suma de
-      // los loops escalada a las vueltas.
-      const parDeLaRonda = (deLaRonda: RatingDeLaRonda) => parTotal ?? deLaRonda.par
-      const allHaveRatings = children.every(c => c.course_rating && c.slope_rating)
-      if (allHaveRatings) {
-        const deLaRonda = ratingDeVueltas(crSum, parSum, vueltasDeLoop)
+      //
+      // Los hoyos que cubre la selección salen del par de cada hijo, no de un
+      // `× 9` fijo: el comentario de arriba admite que un hijo puede ser de 18,
+      // y ahí un `× 9` haría que una ronda de 18 pareciera dos vueltas y
+      // duplicaría el rating.
+      const hoyosDeLosLoops = children.reduce(
+        (s, c) => s + hoyosDeUnaVuelta(c.par_total ?? 36), 0,
+      )
+      const vueltasDeLoop = vueltasDeLaRonda(hoyosDeLosLoops, holes)
+      /**
+       * Devuelve el CourseData de esta rama, o null si el rating combinado no es
+       * creíble contra el par de la ronda. La validación sólo corre cuando hay
+       * más de una vuelta — ahí el error de escala se MULTIPLICA, y devolver un
+       * rating al doble sería +72 golpes.
+       */
+      const combinado = (cr: number, slope: number): CourseData | null => {
+        const deLaRonda = ratingDeVueltas(cr, parSum, vueltasDeLoop)
+        const par = vueltasDeLoop > 1 ? deLaRonda.par : (parTotal ?? deLaRonda.par)
+        if (vueltasDeLoop > 1 && !ratingEsCreible({ courseRating: deLaRonda.courseRating, par, holes })) {
+          return null
+        }
         return {
-          slope: slopeAvg,
+          slope,
           courseRating: deLaRonda.courseRating,
-          par: parDeLaRonda(deLaRonda),
+          par,
           is9Hole: recorridos.length === 1 && holes <= 9,
         }
+      }
+      const allHaveRatings = children.every(c => c.course_rating && c.slope_rating)
+      if (allHaveRatings) {
+        const cd = combinado(crSum, slopeAvg)
+        if (cd) return cd
       }
       // Fallback a tee-specific lookup sobre children individualmente.
       const teeNorm2 = tees.toLowerCase()
@@ -425,29 +418,35 @@ export async function resolverCourseData(
           teeRows.reduce((s, t) => s + (t.front_slope_rating ?? t.slope ?? 113), 0) / teeRows.length
         )
         if (crSumTee > 0 && slopeAvgTee > 0) {
-          const deLaRonda = ratingDeVueltas(crSumTee, parSum, vueltasDeLoop)
-          return {
-            slope: slopeAvgTee,
-            courseRating: deLaRonda.courseRating,
-            par: parDeLaRonda(deLaRonda),
-            is9Hole: recorridos.length === 1 && holes <= 9,
-          }
+          const cd = combinado(crSumTee, slopeAvgTee)
+          if (cd) return cd
         }
       }
       // Si data insuficiente en children → caer al flujo single-course.
     }
   }
 
-  // La fila de `courses` se lee UNA sola vez y ANTES que los tees: su
-  // `par_total` es la señal de escala que necesitan los DOS eslabones (¿es una
-  // cancha de 9?, ¿esta ronda la recorre dos veces?). Antes se leía dos veces —
-  // una para la escala del tee, otra como fallback — y el eslabón de 18 hoyos
-  // no la leía nunca, así que no podía saber que la cancha era de 9.
-  const { data: course } = await supabase
-    .from('courses')
-    .select('slope_rating, course_rating, par_total')
-    .eq('id', courseId)
-    .maybeSingle()
+  // La fila de `courses` se lee ANTES de decidir nada: su `par_total` es la
+  // señal de escala que necesitan los DOS eslabones (¿es una cancha de 9?,
+  // ¿esta ronda la recorre dos veces?). Antes se leía dos veces — una para la
+  // escala del tee, otra como fallback — y el eslabón de 18 hoyos no la leía
+  // nunca, así que no podía enterarse de que la cancha era de 9. Va en paralelo
+  // con la del tee para no agregar un viaje de ida y vuelta al board.
+  const teeNorm = tees.toLowerCase()
+  const [{ data: course }, { data: teeData }] = await Promise.all([
+    supabase
+      .from('courses')
+      .select('slope_rating, course_rating, par_total')
+      .eq('id', courseId)
+      .maybeSingle(),
+    supabase
+      .from('course_tees')
+      .select('rating, slope, front_course_rating, front_slope_rating')
+      .eq('course_id', courseId)
+      .ilike('nombre', `${teeNorm}%`)
+      .limit(1)
+      .maybeSingle(),
+  ])
 
   const parDeLaCancha: number | null = course?.par_total ?? null
   // Una cancha de 9 hoyos jugada a 18 se recorre DOS VECES: su Course Rating y
@@ -456,15 +455,6 @@ export async function resolverCourseData(
   const vueltas = vueltasDeLaRonda(hoyosDeUnaVuelta(parDeLaCancha), holes)
 
   // 1. Intentar CR/Slope específico del tee (más preciso)
-  const teeNorm = tees.toLowerCase()
-  const { data: teeData } = await supabase
-    .from('course_tees')
-    .select('rating, slope, front_course_rating, front_slope_rating')
-    .eq('course_id', courseId)
-    .ilike('nombre', `${teeNorm}%`)
-    .limit(1)
-    .maybeSingle()
-
   if (teeData?.rating && teeData?.slope) {
     if (holes <= 9) {
       // Ronda de 9h. Con ratings de front-9 publicados, usarlos tal cual. Sin
@@ -491,7 +481,7 @@ export async function resolverCourseData(
       // `front_course_rating` medido, o el `rating` que ya está en escala de 9
       // porque el par de la cancha lo es). Se suman las vueltas.
       const unaVuelta = ratingsDe9DelTee(teeData as TeeRatings, parDeLaCancha ?? 36)
-      const par = parTotal ?? (await resolveParDeVariasVueltas(supabase, courseId, holes, parDeLaCancha))
+      const par = parDeVariasVueltas(parDeLaCancha, vueltas)
       const courseRating = sumaDeVueltas(unaVuelta.courseRating, vueltas)
       if (ratingEsCreible({ courseRating, par, holes })) {
         return { slope: unaVuelta.slope, courseRating, par }
@@ -521,12 +511,18 @@ export async function resolverCourseData(
       }
     }
     if (vueltas > 1) {
-      const unaVuelta = courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha ?? 36)
-      return {
-        slope: course.slope_rating,
-        courseRating: sumaDeVueltas(unaVuelta, vueltas),
-        par: parTotal ?? (await resolveParDeVariasVueltas(supabase, courseId, holes, parDeLaCancha)),
+      const courseRating = sumaDeVueltas(
+        courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha ?? 36),
+        vueltas,
+      )
+      const par = parDeVariasVueltas(parDeLaCancha, vueltas)
+      // Se valida acá, igual que su gemela en `computePlayerCourseHcp`: si este
+      // eslabón miente, devolverlo taparía un tee sano de más arriba y los dos
+      // motores clasificarían distinto el mismo rating.
+      if (ratingEsCreible({ courseRating, par, holes })) {
+        return { slope: course.slope_rating, courseRating, par }
       }
+      return null
     }
     return {
       slope: course.slope_rating,
