@@ -70,7 +70,7 @@ beforeEach(() => {
 describe('useResumenBoard', () => {
   it('NO fetchea mientras el tab no está activo', () => {
     renderHook(() =>
-      useResumenBoard({ tournament: TOURNAMENT, courseHoles: COURSE_HOLES, active: false }),
+      useResumenBoard({ tournament: TOURNAMENT, courseHoles: COURSE_HOLES, parTotal: 72, active: false }),
     )
     expect(fetchResumenBoardInputs).not.toHaveBeenCalled()
   })
@@ -78,7 +78,7 @@ describe('useResumenBoard', () => {
   it('al activarse arma el board con el motor: completos y mejor neto correctos con total_net=0', async () => {
     const { result, rerender } = renderHook(
       ({ active }: { active: boolean }) =>
-        useResumenBoard({ tournament: TOURNAMENT, courseHoles: COURSE_HOLES, active }),
+        useResumenBoard({ tournament: TOURNAMENT, courseHoles: COURSE_HOLES, parTotal: 72, active }),
       { initialProps: { active: false } },
     )
     rerender({ active: true })
@@ -95,7 +95,7 @@ describe('useResumenBoard', () => {
 
   it('reload() vuelve a consultar (post-edición de handicap)', async () => {
     const { result } = renderHook(() =>
-      useResumenBoard({ tournament: TOURNAMENT, courseHoles: COURSE_HOLES, active: true }),
+      useResumenBoard({ tournament: TOURNAMENT, courseHoles: COURSE_HOLES, parTotal: 72, active: true }),
     )
     await waitFor(() => expect(result.current.cards).not.toBeNull())
     expect(fetchResumenBoardInputs).toHaveBeenCalledTimes(1)
@@ -106,7 +106,7 @@ describe('useResumenBoard', () => {
   it('error de fetch → estado de error visible, no un board vacío que parece "sin datos"', async () => {
     fetchResumenBoardInputs.mockRejectedValueOnce(new Error('boom'))
     const { result } = renderHook(() =>
-      useResumenBoard({ tournament: TOURNAMENT, courseHoles: COURSE_HOLES, active: true }),
+      useResumenBoard({ tournament: TOURNAMENT, courseHoles: COURSE_HOLES, parTotal: 72, active: true }),
     )
     await waitFor(() => expect(result.current.error).toBe(true))
     expect(result.current.rows).toEqual([])

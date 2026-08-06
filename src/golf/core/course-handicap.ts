@@ -264,6 +264,36 @@ export function parDeLosHoyosJugados(
   return hoyos.reduce((sum, h) => sum + h.par, 0) + faltantes * PAR_FALLBACK
 }
 
+/**
+ * FUENTE ÚNICA del par de una ronda de torneo, con o sin catálogo de hoyos.
+ *
+ * `parDeLosHoyosJugados` es la respuesta buena cuando `course_holes` tiene
+ * filas. Sin catálogo devuelve la cancha neutra (18 × par 4 = 72), que descarta
+ * el par REAL que la cancha sí publica en `courses.par_total` — y hoy los tres
+ * clubes de 27 tienen justamente 0 filas en `course_holes`.
+ *
+ * Existe porque el par del torneo estaba contestado de dos formas:
+ * `/torneo/[slug]` y el Resumen del organizador usaban `courses.par_total ?? 72`
+ * y `/en-vivo` y `/tv` usaban la suma del catálogo. Con una cancha de 18 par 71
+ * sin hoyos cargados ya discrepaban (71 contra 72); con una cancha de 9 en un
+ * torneo de 18 la diferencia salta a 35 golpes, porque `courses.par_total` es
+ * el par de UNA vuelta y la ronda da dos. Ese número es el que usa el board para
+ * las tarjetas cargadas sólo por totales: el vs-par del jugador quedaba corrido
+ * una vuelta entera, y las cuatro pantallas del mismo torneo mostraban cosas
+ * distintas según por dónde entrara el que mira.
+ */
+export function parDeLaRondaDelTorneo(
+  catalogo: Array<{ numero: number; par: number | null }>,
+  roundHoles: number,
+  parDeLaCancha: number | null | undefined,
+): number {
+  if (catalogo.length > 0) return parDeLosHoyosJugados(catalogo, roundHoles)
+  return parDeVariasVueltas(
+    parDeLaCancha,
+    vueltasDeLaRonda(hoyosDeUnaVuelta(parDeLaCancha), roundHoles),
+  )
+}
+
 /** Lo que un tee publica sobre su rating. Forma común a los dos motores. */
 export interface TeeRatings {
   rating: number

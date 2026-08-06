@@ -16,11 +16,11 @@ import {
   fetchCourseHoles,
   fetchLegacyHcpContext,
   fetchLegacyPlayers,
-  sumParDedupByHole,
 } from '@/lib/data/tournaments/leaderboard'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './scrambleTeamsToLive'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,8 +74,19 @@ export default async function LivePage({ params }: PageProps) {
     tournament_groups: Array<{ id: string; name: string }> | null
   }
 
-  const parTotal = tournament.courses?.par_total ?? 72
   const holeCount = tournament.hole_count ?? 18
+
+  // El catálogo se lee ACÁ y no más abajo porque el par de la ronda sale de él,
+  // y ese número lo necesitan las tres ramas de esta pantalla (el board
+  // individual, los equipos y la cabecera). Antes había DOS respuestas a la
+  // misma pregunta en este mismo archivo: `courses.par_total ?? 72` arriba y
+  // `sumParDedupByHole(boardHoles)` para el board. Discrepaban por 35 golpes en
+  // una cancha de 9 jugada a 18.
+  const [individualHoles, hcpContext] = await Promise.all([
+    tournament.course_id ? fetchCourseHoles(supabase, tournament.course_id) : Promise.resolve([]),
+    fetchLegacyHcpContext(supabase, tournament.id),
+  ])
+  const parTotal = parDeLaRondaDelTorneo(individualHoles, holeCount, tournament.courses?.par_total)
 
   // 2) Players (activos) — MISMA query y MISMO motor que el board de /torneo.
   //    Antes esta pantalla agregaba los scores por su cuenta y divergía: medía
@@ -120,13 +131,9 @@ export default async function LivePage({ params }: PageProps) {
   //     ya resuelve nombre (invitados incluidos), neto con stroke index normalizado,
   //     "a par" contra los hoyos jugados, orden y countback. Acá sólo se proyecta su
   //     salida al shape que consume LiveView, sin recalcular nada.
-  const [individualHoles, hcpContext] = await Promise.all([
-    tournament.course_id ? fetchCourseHoles(supabase, tournament.course_id) : Promise.resolve([]),
-    fetchLegacyHcpContext(supabase, tournament.id),
-  ])
   const boardHoles = hoyosDeLaVuelta(individualHoles, holeCount)
   const boardCtx: TournamentLeaderboardContext = {
-    parTotal: sumParDedupByHole(boardHoles),
+    parTotal,
     totalHoyos: holeCount,
     modoJuego: liveTournament.modo as ModoJuego,
     formatoJuego: normalizeFormat(rawFormat) as FormatoJuego,
@@ -171,8 +178,9 @@ export default async function LivePage({ params }: PageProps) {
   if ((liveTournament.format === 'scramble' || liveTournament.format === 'foursome') && tournament.course_id) {
     const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
     if (teams.length > 0) {
-      const courseHoles = await fetchCourseHoles(supabase, tournament.course_id)
-      const holes = hoyosDeLaVuelta(courseHoles, holeCount)
+      // Los MISMOS hoyos que el board individual: ya se leyeron arriba y volver
+      // a pedirlos era un viaje de más que además podía divergir.
+      const holes = boardHoles
       const formato = liveTournament.format as FormatoJuego
       const modo = liveTournament.modo as ModoJuego
       const ordered = liveTournament.format === 'foursome'
@@ -181,14 +189,12 @@ export default async function LivePage({ params }: PageProps) {
       liveTeams = scrambleResultsToLiveTeams(ordered, memberNames, liveTournament.modo)
     }
   } else if (liveTournament.format === 'best_ball' && tournament.course_id) {
-    const courseHoles = await fetchCourseHoles(supabase, tournament.course_id)
-    const holes = hoyosDeLaVuelta(courseHoles, holeCount)
-    // par para el course handicap = suma del par real de course_holes, deduplicado
-    // por nº de hoyo (igual que el scorer: pm[numero]=par). Evita inflar el par en
-    // canchas multi-recorrido (27/36h) con filas repetidas → mismo course handicap
-    // que la tarjeta en cancha.
-    const parForHcp = sumParDedupByHole(holes)
-    const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parForHcp)
+    const holes = boardHoles
+    // Mismo par que el board individual. Sale de `course_holes` deduplicado por
+    // nº de hoyo (evita inflarlo en canchas 27/36h con filas repetidas) y
+    // acotado a los hoyos que se juegan, así que el course handicap del equipo
+    // coincide con el de la tarjeta en cancha.
+    const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parTotal)
     if (teams.length > 0) {
       const formato = liveTournament.format as FormatoJuego
       const modo = liveTournament.modo as ModoJuego

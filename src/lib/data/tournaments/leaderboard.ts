@@ -83,17 +83,12 @@ export async function fetchCourseHoles(
 // recorre DOS VECES. Se importa de ahí en vez de re-exportarse con otro nombre:
 // dos nombres para la misma función son dos conceptos aparentes.
 
-/**
- * Par total deduplicado por nº de hoyo, para el cálculo de course handicap.
- * Espeja cómo el scorer arma `finalParTotal` (`pm[numero] = par`): si una cancha
- * multi-recorrido (27/36h) trae filas repetidas de `course_holes`, sumarlas todas
- * inflaría el par y desincronizaría el course handicap del board vs la tarjeta.
- */
-export function sumParDedupByHole(holes: CourseHole[]): number {
-  const parByHole = new Map<number, number>()
-  for (const h of holes) parByHole.set(h.numero, h.par)
-  return Array.from(parByHole.values()).reduce((s, p) => s + p, 0)
-}
+// El par de la ronda lo contesta `parDeLaRondaDelTorneo` (`@/golf/core/course-handicap`).
+// Acá vivía `sumParDedupByHole`, que deduplicaba por nº de hoyo pero NO acotaba
+// a los hoyos que se juegan (un torneo de 9 sobre una cancha de 18 medía contra
+// par 72) ni sabía caer al par de la cancha cuando `course_holes` está vacío
+// —el caso de los tres clubes de 27—. Dos funciones para "el par de esta ronda"
+// eran dos respuestas distintas en las mismas cuatro pantallas.
 
 interface HcpContextRow {
   tees: string | null

@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { evaluarAptitudTorneo } from '@/golf/courses/aptitud-torneo'
 import { computePlayerCourseHcp } from '@/golf/core/compute-player-course-hcp'
-import { parDeLosHoyosJugados, resolverCourseData, resolverCourseHandicap } from '@/golf/core/course-handicap'
+import { parDeLaRondaDelTorneo, parDeLosHoyosJugados, resolverCourseData, resolverCourseHandicap } from '@/golf/core/course-handicap'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { generarOrdenHoyos } from '@/lib/ronda/helpers'
@@ -222,15 +222,42 @@ describe('el scorer y el board contestan lo MISMO sobre la misma ronda', () => {
     const delBoard = hoyosDeLaVuelta(catalogo, 18)
     expect(delScorer).toEqual(delBoard)
 
-    // El par que va a la fórmula, por los dos caminos que existen hoy:
-    // `parDeLosHoyosJugados` (board legacy + scorer organizador) y la suma
-    // deduplicada por hoyo (`sumParDedupByHole`, board público).
+    // El par que va a la fórmula. Hoy hay UNA función para las cuatro pantallas
+    // (`parDeLaRondaDelTorneo`); antes había dos, y sobre esta cancha daban 70 y
+    // 35 — un board a −35 del otro para el mismo jugador.
     const porFormula = parDeLosHoyosJugados(catalogo, 18)
-    const porSuma = Array.from(
-      new Map(delBoard.map((h) => [h.numero, h.par])).values(),
-    ).reduce((s, p) => s + p, 0)
-    expect(porFormula).toBe(porSuma)
+    expect(parDeLaRondaDelTorneo(catalogo, 18, PAR_9)).toBe(porFormula)
     expect(porFormula).toBe(PAR_9 * 2)
+  })
+
+  it('sin catálogo el par sale de la cancha, escalado a las vueltas', () => {
+    // C.G. Río Blanco y los tres clubes de 27 tienen CERO filas en
+    // `course_holes`: acá el catálogo no puede contestar. `courses.par_total` es
+    // el par de UNA vuelta, así que un torneo de 18 son dos.
+    expect(parDeLaRondaDelTorneo([], 18, PAR_9)).toBe(PAR_9 * 2)
+    expect(parDeLaRondaDelTorneo([], 9, PAR_9)).toBe(PAR_9)
+    // Una cancha de 18 no se toca, y sin par tampoco se inventa nada raro.
+    expect(parDeLaRondaDelTorneo([], 18, 71)).toBe(71)
+    expect(parDeLaRondaDelTorneo([], 18, null)).toBe(72)
+  })
+
+  it('un torneo de 9 sobre una cancha de 18 mide contra el par de NUEVE hoyos', () => {
+    // La regresión que dejaba abierta la suma cruda del catálogo: como
+    // `hoyosDeLaVuelta` ya no recorta (una ronda de 9 puede jugar el Back 9),
+    // sumar todo lo que devuelve daba el par de la cancha entera. El jugador
+    // aparecía a −36 apenas cargaba su tarjeta.
+    const cancha18 = Array.from({ length: 18 }, (_, i) => ({
+      numero: i + 1,
+      par: i % 5 === 0 ? 5 : 4,
+      stroke_index: i + 1,
+    }))
+    const parDeLaCancha = cancha18.reduce((s, h) => s + h.par, 0)
+    const parDeNueve = cancha18.slice(0, 9).reduce((s, h) => s + h.par, 0)
+    const sumaCruda = hoyosDeLaVuelta(cancha18, 9).reduce((s, h) => s + h.par, 0)
+
+    expect(parDeLaRondaDelTorneo(cancha18, 9, parDeLaCancha)).toBe(parDeNueve)
+    expect(sumaCruda).toBe(parDeLaCancha)
+    expect(parDeLaRondaDelTorneo(cancha18, 9, parDeLaCancha)).not.toBe(sumaCruda)
   })
 
   it('el course handicap no depende de qué par le pase el caller', () => {

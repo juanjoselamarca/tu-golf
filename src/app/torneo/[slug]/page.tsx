@@ -32,8 +32,7 @@ import {
   fetchRondaLibreJugadoresConCourseHcp,
   fetchTournamentBySlug,
   fetchTournamentGroups,
-  fetchWithdrawnPlayers,
-  sumParDedupByHole,
+  fetchWithdrawnPlayers,
 } from '@/lib/data/tournaments/leaderboard'
 import {
   buildLeaderboardFromLegacy,
@@ -56,6 +55,7 @@ import { TournamentEmptyState } from './components/TournamentEmptyState'
 import { TournamentFooter } from './components/TournamentFooter'
 import type { TournamentResultados, WithdrawnEntry } from './types'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 
 export default async function TorneoPage({ params }: { params: { slug: string } }) {
   const supabase = await createClient()
@@ -97,7 +97,6 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   let teamMemberNames: Record<string, string[]> = {}
 
   {
-    parTotal       = tournament.courses?.par_total ?? 72
     modoJuego      = tournament.modo_juego ?? 'gross'
     formatoJuego   = tournament.formato_juego ?? 'stroke_play'
     totalHoyos     = tournament.hole_count ?? 18
@@ -110,10 +109,17 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       })
     }
 
-    courseHoles = hoyosDeLaVuelta(
-      tournament.courses?.id ? await fetchCourseHoles(supabase, tournament.courses.id) : [],
-      totalHoyos,
-    )
+    const catalogo = tournament.courses?.id
+      ? await fetchCourseHoles(supabase, tournament.courses.id)
+      : []
+    courseHoles = hoyosDeLaVuelta(catalogo, totalHoyos)
+    // El par de la RONDA, no el de la cancha. Fuente única compartida con /tv,
+    // /en-vivo y el Resumen del organizador: las cuatro pantallas del mismo
+    // torneo tienen que contestar el mismo número. `courses.par_total` es el par
+    // de UNA vuelta — en una cancha de 9 hoyos jugada a 18 deja el vs-par
+    // corrido 35 golpes — y la suma cruda del catálogo no acota a los hoyos que
+    // se juegan, así que un torneo de 9 sobre una cancha de 18 daba 72.
+    parTotal = parDeLaRondaDelTorneo(catalogo, totalHoyos, tournament.courses?.par_total)
 
     const groups = await fetchTournamentGroups(supabase, tournament.id)
     const hasRondaLibreGroups = groups.some((g) => g.ronda_libre_id != null)
@@ -137,10 +143,10 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       // Resuelve el handicap de cada jugador a COURSE HANDICAP por su tee (mismo
       // cálculo que la tarjeta en cancha) para que el neto/stableford de la tabla
       // coincida con el del jugador. En cancha estándar (slope 113, CR=par) o sin
-      // cancha vinculada es idéntico al índice → sin cambio. parTotal deduplicado
-      // por hoyo (lo que usa el scorer), no la columna courses.par_total.
-      const parParaHcp = sumParDedupByHole(courseHoles)
-      const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parParaHcp)
+      // cancha vinculada es idéntico al índice → sin cambio. El par que entra a
+      // la fórmula es el MISMO que mide el board (`parTotal`): con dos números
+      // distintos, el neto de la tabla y el del jugador vuelven a discrepar.
+      const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal)
       const out = buildLeaderboardFromRondaLibre(jugadores, ctx)
       players = out.players
       playersByGross = out.playersByGross
@@ -183,10 +189,9 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         teamMemberNames = memberNames
       }
     } else if (formatoJuego === 'best_ball') {
-      // par para el course handicap = suma del par de course_holes deduplicado por
-      // nº de hoyo (igual que el scorer; evita inflar el par en canchas 27/36h).
-      const parForHcp = sumParDedupByHole(courseHoles)
-      const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parForHcp)
+      // Mismo par que el board y que el scorer (`parTotal`): el course handicap
+      // del equipo no puede salir de una cuenta distinta a la del ranking.
+      const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parTotal)
       if (teams.length > 0) {
         const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego, totalHoyos)
         teamStandings = bestBallResultsToLiveTeams(ordered, memberNames, modoJuego)

@@ -29,8 +29,16 @@ import type { CourseHole } from '@/golf/leaderboard/types'
 
 interface UseResumenBoardArgs {
   tournament: ScoringTournament | null
-  /** Catálogo ya cargado por el scorer (mismo fetch ordenado por `numero`). */
+  /** Los hoyos de la RONDA, ya resueltos por `useScoringData`. */
   courseHoles: CourseHole[]
+  /**
+   * Par de la ronda, de la MISMA fuente que usa el board público
+   * (`parDeLaRondaDelTorneo`). Antes se derivaba acá con
+   * `courses.par_total ?? 72`: el par de UNA vuelta, que en una cancha de 9
+   * hoyos jugada a 18 deja el vs-par de las tarjetas cargadas sólo por
+   * totales corrido 35 golpes — y distinto del que muestra `/torneo`.
+   */
+  parTotal: number
   /** El tab Resumen está visible — el fetch sólo corre cuando hace falta. */
   active: boolean
 }
@@ -47,6 +55,7 @@ export interface UseResumenBoardReturn {
 export function useResumenBoard({
   tournament,
   courseHoles,
+  parTotal,
   active,
 }: UseResumenBoardArgs): UseResumenBoardReturn {
   const [out, setOut] = useState<LegacyLeaderboardOutput | null>(null)
@@ -54,7 +63,6 @@ export function useResumenBoard({
   const [error, setError] = useState(false)
   const [nonce, setNonce] = useState(0)
 
-  const parTotal = tournament?.courses?.par_total ?? 72
 
   useEffect(() => {
     if (!active || !tournament) return
