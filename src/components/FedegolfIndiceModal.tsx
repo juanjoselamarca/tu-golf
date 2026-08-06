@@ -15,7 +15,8 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Trophy } from '@/components/icons'
 import type { FedegolfTarjeta } from '@/lib/fedegolf/types'
-import { formulaEsExplicable } from '@/lib/fedegolf/tarjetas'
+import { formulaEsExplicable, filasDelCalculo } from '@/lib/fedegolf/tarjetas'
+import BreakdownRow, { BreakdownLista, BreakdownSeccion } from '@/components/indice/BreakdownRow'
 
 interface TarjetasResponse {
   ok: boolean
@@ -41,8 +42,6 @@ interface FedegolfIndiceModalProps {
   /** Índice oficial (profiles.indice) — la verdad; el fetch confirma cómo se compone. */
   indiceOficial: number | null
 }
-
-const GOLD = '#c4992a'
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 function fechaCorta(iso: string): string {
@@ -130,13 +129,13 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
     tarjetasUtilizadas,
     diferencialesQueCuentan: diffsCuentan.length,
   })
-  // El promedio crudo (9.3625) y el índice (9.3) no son el mismo número: si no
-  // lo decimos, el usuario que suma los chips y divide obtiene otra cosa.
-  const muestraTruncado =
-    formulaCuadra &&
-    promedioCrudo != null &&
-    hero != null &&
-    promedioCrudo.toFixed(2) !== hero.toFixed(2)
+  // Las líneas del cálculo (suma → ÷N → truncado). Pura y testeada: si la suma
+  // que mostraríamos no reproduce el promedio del servidor, devuelve [] y el
+  // modal se queda con el número oficial sin explicación inventada.
+  const filasCalculo = formulaCuadra
+    ? filasDelCalculo({ diferencialesQueCuentan: diffsCuentan, promedioCrudo, indice: hero })
+    : []
+  const hayCampeonato = tarjetas.some((t) => t.valeDoble)
 
   return createPortal(
     <div
@@ -221,170 +220,114 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
 
         {!loading && data?.ok && (
           <>
-            {/* Hero: número oficial + la fórmula en vivo */}
-            <div
-              style={{
-                background: 'linear-gradient(180deg, rgba(196,153,42,0.06), rgba(196,153,42,0.02))',
-                border: '1px solid rgba(196,153,42,0.28)',
-                borderRadius: '16px',
-                padding: '18px 16px',
-                textAlign: 'center',
-                marginBottom: '14px',
-              }}
-            >
+            {/* Hero: el número oficial, y debajo la aritmética que lleva a él.
+                Los N diferenciales NO se repiten acá en chips: ya están abajo en
+                la lista, marcados. Mostrarlos dos veces era decir lo mismo dos
+                veces en una pantalla (DESIGN.md P6). */}
+            <div style={{ textAlign: 'center', padding: '2px 0 0' }}>
               <p
                 style={{
                   fontSize: '10px',
-                  fontWeight: 700,
-                  letterSpacing: '0.12em',
+                  fontWeight: 500,
+                  letterSpacing: '0.14em',
                   textTransform: 'uppercase',
-                  color: GOLD,
+                  color: 'var(--text-3)',
                   fontFamily: '"DM Mono", monospace',
-                  margin: '0 0 6px',
+                  margin: '0 0 8px',
                 }}
               >
                 Índice Federación
               </p>
-              <p style={{ fontSize: '52px', fontWeight: 700, color: GOLD, fontFamily: '"Cormorant Garamond", serif', lineHeight: 0.95, margin: '0 0 6px' }}>
+              <p
+                style={{
+                  fontSize: '56px',
+                  fontWeight: 600,
+                  color: 'var(--brand-on-bg)',
+                  fontFamily: '"Playfair Display", serif',
+                  lineHeight: 1,
+                  margin: 0,
+                }}
+              >
                 {hero != null ? hero.toFixed(1) : '—'}
               </p>
-              <p style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.55, maxWidth: '300px', margin: '0 auto' }}>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-2)', lineHeight: 1.55, maxWidth: '290px', margin: '12px auto 0' }}>
                 {formulaCuadra ? (
-                  <>El promedio de tus <strong style={{ color: 'var(--text)' }}>{diffsCuentan.length} mejores diferenciales</strong> de la ventana oficial FedeGolf.</>
+                  <>El promedio de tus <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{diffsCuentan.length} mejores diferenciales</strong> de la ventana oficial FedeGolf.</>
                 ) : (
                   <>Tu índice oficial de la Federación Chilena de Golf.</>
                 )}
               </p>
 
-              {diffsCuentan.length > 0 && formulaCuadra && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', justifyContent: 'center', marginTop: '12px' }}>
-                  {diffsCuentan.map((d, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        fontFamily: '"DM Mono", monospace',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        color: GOLD,
-                        background: 'rgba(196,153,42,0.1)',
-                        border: '1px solid rgba(196,153,42,0.28)',
-                        borderRadius: '7px',
-                        padding: '3px 7px',
-                      }}
-                    >
-                      {d.toFixed(1)}
-                    </span>
-                  ))}
-                  <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '11px', color: 'var(--text-3)', alignSelf: 'center', padding: '0 2px' }}>
-                    ÷{diffsCuentan.length} =
-                  </span>
-                  {hero != null && (
-                    <span
-                      style={{
-                        fontFamily: '"DM Mono", monospace',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        color: GOLD,
-                        background: 'rgba(196,153,42,0.16)',
-                        border: '1px solid rgba(196,153,42,0.4)',
-                        borderRadius: '7px',
-                        padding: '3px 8px',
-                      }}
-                    >
-                      {hero.toFixed(1)}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {muestraTruncado && promedioCrudo != null && hero != null && (
-                <p style={{ fontSize: '10.5px', color: 'var(--text-3)', margin: '9px 0 0', lineHeight: 1.5 }}>
-                  El promedio exacto es {promedioCrudo.toFixed(2)}. La Federación trunca al primer
-                  decimal, no redondea → {hero.toFixed(1)}.
-                </p>
+              {filasCalculo.length > 0 && (
+                <>
+                  <div style={{ borderTop: '1px solid var(--border-md)', marginTop: '16px', paddingTop: '12px', textAlign: 'left' }}>
+                    {filasCalculo.map((f) => (
+                      <div
+                        key={f.etiqueta}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'baseline',
+                          gap: '12px',
+                          fontSize: '12.5px',
+                          color: 'var(--text-2)',
+                          padding: '3.5px 0',
+                        }}
+                      >
+                        <span>{f.etiqueta}</span>
+                        <span style={{ fontFamily: '"DM Mono", monospace', fontVariantNumeric: 'tabular-nums', color: 'var(--text)' }}>
+                          {f.valor}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'left' }}>
+                    La Federación trunca, no redondea.
+                  </p>
+                </>
               )}
             </div>
 
-            {tarjetas.length > 0 && formulaCuadra && (
-              <p style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', margin: '0 2px 12px', lineHeight: 1.5 }}>
-                {data.slotsVentana ?? tarjetas.length} diferenciales en tu ventana · los{' '}
-                <strong style={{ color: 'var(--text-2)' }}>{diffsCuentan.length} mejores</strong> definen tu índice.
-                {tarjetas.some((t) => t.valeDoble) && ' Una ronda de campeonato aporta 2.'}
-              </p>
-            )}
+            <div style={{ height: '22px' }} />
 
-            {/* Lista de rondas físicas (cronológica; las que cuentan, resaltadas) */}
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {/* Lista de rondas físicas (cronológica; las que cuentan, marcadas) */}
+            {tarjetas.length > 0 && (
+              <BreakdownSeccion
+                rotulo={`Tu ventana · ${data.slotsVentana ?? tarjetas.length} diferenciales`}
+                nota={hayCampeonato ? 'Una ronda de campeonato aporta 2.' : undefined}
+              />
+            )}
+            <BreakdownLista>
               {tarjetas.map((t) => (
-                <li
+                <BreakdownRow
                   key={t.ticket}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '11px 12px',
-                    border: `1px solid ${t.cuenta ? 'rgba(196,153,42,0.35)' : 'var(--border)'}`,
-                    background: t.cuenta ? 'rgba(196,153,42,0.045)' : 'var(--bg)',
-                    borderRadius: '11px',
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {nombreCancha(t.clubCancha)}
-                    </div>
-                    <div style={{ fontSize: '10.5px', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', marginTop: '2px', letterSpacing: '0.02em' }}>
-                      {metaLinea(t)}
-                    </div>
-                    {t.valeDoble && (
+                  titulo={nombreCancha(t.clubCancha)}
+                  meta={metaLinea(t)}
+                  valor={t.diferencial.toFixed(1)}
+                  cuenta={t.cuenta}
+                  marca={
+                    t.valeDoble ? (
                       <span
+                        aria-label="Ronda de campeonato: cuenta doble"
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '9.5px',
-                          fontWeight: 700,
-                          color: GOLD,
-                          background: 'rgba(196,153,42,0.12)',
-                          borderRadius: '5px',
-                          padding: '2px 6px',
-                          letterSpacing: '0.03em',
-                          textTransform: 'uppercase',
-                          marginTop: '5px',
+                          gap: '3px',
+                          flexShrink: 0,
+                          fontFamily: '"DM Mono", monospace',
+                          fontSize: '10px',
+                          color: 'var(--brand-on-bg)',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         <Trophy size={11} strokeWidth={1.9} />
-                        Campeonato · cuenta ×2
+                        ×2
                       </span>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div
-                      style={{
-                        fontFamily: '"DM Mono", monospace',
-                        fontSize: '19px',
-                        fontWeight: 600,
-                        color: t.cuenta ? GOLD : 'var(--text-3)',
-                        lineHeight: 1,
-                      }}
-                    >
-                      {t.diferencial.toFixed(1)}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '9px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                        fontFamily: '"DM Mono", monospace',
-                        marginTop: '3px',
-                        color: t.cuenta ? GOLD : 'var(--text-3)',
-                      }}
-                    >
-                      {t.cuenta ? 'cuenta' : 'diff'}
-                    </div>
-                  </div>
-                </li>
+                    ) : undefined
+                  }
+                />
               ))}
-            </ul>
+            </BreakdownLista>
           </>
         )}
       </div>

@@ -181,6 +181,51 @@ export function formulaEsExplicable(args: {
   return indiceDerivado.toFixed(1) === oficialDelMismoInstante.toFixed(1)
 }
 
+export interface FilaCalculo {
+  etiqueta: string
+  valor: string
+}
+
+/**
+ * Las líneas del cálculo que se le muestran al socio: suma → promedio → truncado.
+ *
+ * Reemplaza a la fila de chips con los N diferenciales. Esos números ya están en
+ * la lista de tarjetas de abajo, marcados; repetirlos arriba era mostrar el mismo
+ * dato dos veces en la misma pantalla.
+ *
+ * Es fail-safe por la misma razón que `formulaEsExplicable`: si la suma que
+ * mostramos, dividida por N, no reproduce el promedio que trae el servidor, no
+ * hay explicación que dar — el socio que haga la cuenta a mano encontraría otra
+ * cosa. En ese caso devuelve `[]` y el modal se queda con el número oficial solo.
+ *
+ * La última línea se omite cuando truncar no cambia nada (promedio 9.30 → 9.3):
+ * enunciar un paso que no movió el número lo hace parecer arbitrario.
+ */
+export function filasDelCalculo(args: {
+  diferencialesQueCuentan: number[]
+  promedioCrudo: number | null
+  indice: number | null
+}): FilaCalculo[] {
+  const { diferencialesQueCuentan, promedioCrudo, indice } = args
+  const n = diferencialesQueCuentan.length
+  if (n === 0 || promedioCrudo == null || indice == null) return []
+  if (!diferencialesQueCuentan.every((d) => Number.isFinite(d))) return []
+
+  const suma = diferencialesQueCuentan.reduce((a, b) => a + b, 0)
+  // Medio centésimo: lo que puede separar legítimamente a dos formas de promediar
+  // el mismo set. Más que eso es que no estamos mirando los mismos números.
+  if (Math.abs(suma / n - promedioCrudo) > 0.005) return []
+
+  const filas: FilaCalculo[] = [
+    { etiqueta: `Suma de los ${n} mejores`, valor: suma.toFixed(1) },
+    { etiqueta: `Dividido por ${n}`, valor: promedioCrudo.toFixed(2) },
+  ]
+  if (promedioCrudo.toFixed(2) !== indice.toFixed(2)) {
+    filas.push({ etiqueta: 'Truncado al primer decimal', valor: indice.toFixed(1) })
+  }
+  return filas
+}
+
 /** Filtro de sanidad: diferencial finito y en rango WHS (caza la basura sin tocar 9h). */
 export function filtrarSanidad(t: { diferencial: number }): boolean {
   return Number.isFinite(t.diferencial) && t.diferencial >= DIFF_MIN && t.diferencial <= DIFF_MAX

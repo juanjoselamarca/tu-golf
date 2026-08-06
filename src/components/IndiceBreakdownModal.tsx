@@ -20,7 +20,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase'
-import { X, Trophy } from '@/components/icons'
+import { X } from '@/components/icons'
+import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
 
 interface RoundForBreakdown {
   id: string
@@ -200,7 +201,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
           }}>
             De tus últimas <strong style={{ color: 'var(--text)' }}>{rounds.length}</strong> rondas con diferencial,
             las mejores <strong style={{ color: 'var(--text)' }}>{usedIds.size}</strong> entran al cálculo:
-            promedio × 0.96 = <strong style={{ color: '#c4992a' }}>{indice ?? '—'}</strong>.
+            promedio × 0.96 = <strong style={{ color: 'var(--brand-on-bg)' }}>{indice ?? '—'}</strong>.
           </div>
         )}
 
@@ -223,51 +224,21 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
           </p>
         )}
 
-        {/* Lista */}
+        {/* Lista — misma forma que el desglose del índice federado: los dos
+            sheets salen de /perfil y muestran la misma clase de objeto, así que
+            la fila la manda un solo archivo (DESIGN.md P4). */}
         {!loading && rounds && rounds.length > 0 && (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {rounds.map(r => {
-              const used = usedIds.has(r.id)
-              return (
-                <li
-                  key={r.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '12px',
-                    padding: '10px 12px',
-                    border: `1px solid ${used ? 'rgba(196,153,42,0.35)' : 'var(--border)'}`,
-                    background: used ? 'rgba(196,153,42,0.04)' : 'var(--bg)',
-                    borderRadius: '10px',
-                  }}
-                >
-                  {used && (
-                    <span aria-label="Usada en el cálculo" style={{ color: '#c4992a', display: 'inline-flex' }}>
-                      <Trophy size={14} strokeWidth={1.75} />
-                    </span>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: '13px', fontWeight: 600,
-                      color: 'var(--text)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {r.course_name}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
-                      {formatDateShort(r.played_at)} · {r.holes_played ?? 18}h · {r.total_gross ?? '—'}
-                    </div>
-                  </div>
-                  <div style={{
-                    fontSize: '13px', fontWeight: 700,
-                    fontFamily: '"DM Mono", monospace',
-                    color: used ? '#c4992a' : 'var(--text-2)',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}>
-                    {r.diferencial != null ? r.diferencial.toFixed(1) : '—'}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+          <BreakdownLista>
+            {rounds.map(r => (
+              <BreakdownRow
+                key={r.id}
+                titulo={r.course_name}
+                meta={`${formatDateShort(r.played_at)} · ${r.holes_played ?? 18}h · ${r.total_gross ?? '—'}`}
+                valor={r.diferencial != null ? r.diferencial.toFixed(1) : '—'}
+                cuenta={usedIds.has(r.id)}
+              />
+            ))}
+          </BreakdownLista>
         )}
 
         {/* Keyframes inyectados via useEffect (ver bloque arriba del componente).

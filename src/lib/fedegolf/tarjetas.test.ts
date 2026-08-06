@@ -11,6 +11,7 @@ import {
   truncarIndiceFedegolf,
   parseTarjetasUtilizadas,
   formulaEsExplicable,
+  filasDelCalculo,
 } from './tarjetas'
 
 const fixtureHtml = readFileSync(
@@ -318,5 +319,79 @@ describe('fedegolfGetTarjetasIndice', () => {
     const [url, opts] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/publico/modVeinteMejoresPalos/listadoMejoresPalos.php')
     expect(opts.headers.Cookie).toBe('PHPSESSID=abc')
+  })
+})
+
+describe('filasDelCalculo', () => {
+  // El caso real de Juanjo: 8 diffs que suman 74.9 → 9.3625 → truncado 9.3.
+  const OCHO = [7.2, 8.8, 8.9, 8.9, 9.5, 9.7, 10.5, 11.4]
+
+  it('arma suma → promedio → truncado con el caso real', () => {
+    const filas = filasDelCalculo({
+      diferencialesQueCuentan: OCHO,
+      promedioCrudo: 9.3625,
+      indice: 9.3,
+    })
+    expect(filas).toEqual([
+      { etiqueta: 'Suma de los 8 mejores', valor: '74.9' },
+      { etiqueta: 'Dividido por 8', valor: '9.36' },
+      { etiqueta: 'Truncado al primer decimal', valor: '9.3' },
+    ])
+  })
+
+  it('omite el truncado cuando truncar no mueve el número', () => {
+    // Enunciar un paso que no cambió nada lo hace parecer arbitrario.
+    const filas = filasDelCalculo({
+      diferencialesQueCuentan: [9.0, 9.0, 9.0, 9.0],
+      promedioCrudo: 9.0,
+      indice: 9.0,
+    })
+    expect(filas.map((f) => f.etiqueta)).toEqual(['Suma de los 4 mejores', 'Dividido por 4'])
+  })
+
+  it('no explica nada si la suma mostrada no reproduce el promedio del servidor', () => {
+    // El socio que haga la cuenta a mano tiene que llegar al mismo número.
+    // Si no llega, mejor no mostrar aritmética: es el mismo criterio fail-safe
+    // que formulaEsExplicable.
+    expect(
+      filasDelCalculo({ diferencialesQueCuentan: OCHO, promedioCrudo: 8.1, indice: 8.1 })
+    ).toEqual([])
+  })
+
+  it('tolera el ruido de punto flotante de sumar decimales', () => {
+    // 7.2+8.8+…: en float la suma no cae exacta en 74.9.
+    const filas = filasDelCalculo({
+      diferencialesQueCuentan: OCHO,
+      promedioCrudo: OCHO.reduce((a, b) => a + b, 0) / 8,
+      indice: 9.3,
+    })
+    expect(filas).toHaveLength(3)
+    expect(filas[0].valor).toBe('74.9')
+  })
+
+  it('devuelve vacío sin diferenciales, sin promedio o sin índice', () => {
+    expect(filasDelCalculo({ diferencialesQueCuentan: [], promedioCrudo: 9.3, indice: 9.3 })).toEqual([])
+    expect(filasDelCalculo({ diferencialesQueCuentan: OCHO, promedioCrudo: null, indice: 9.3 })).toEqual([])
+    expect(filasDelCalculo({ diferencialesQueCuentan: OCHO, promedioCrudo: 9.3625, indice: null })).toEqual([])
+  })
+
+  it('rechaza un diferencial no finito en vez de mostrar NaN', () => {
+    expect(
+      filasDelCalculo({
+        diferencialesQueCuentan: [9.0, Number.NaN, 9.0],
+        promedioCrudo: 9.0,
+        indice: 9.0,
+      })
+    ).toEqual([])
+  })
+
+  it('nombra la cantidad real, no un 8 fijo (una ventana corta cuenta menos)', () => {
+    const filas = filasDelCalculo({
+      diferencialesQueCuentan: [10.0, 12.0, 14.0],
+      promedioCrudo: 12.0,
+      indice: 12.0,
+    })
+    expect(filas[0].etiqueta).toBe('Suma de los 3 mejores')
+    expect(filas[1].etiqueta).toBe('Dividido por 3')
   })
 })
