@@ -4,6 +4,39 @@
 
 ---
 
+## 2026-08-06 · Modal del índice explicado — rediseño + 25 fallos de contraste (PR #301)
+
+Cierra la **entrega 2 de 2** de los reportes de inbox `5de1268e` / `a47db33a`
+("que se vea más elegante, menos IA"). La entrega 1 —exactitud del número— cerró
+el 4-ago vía #299 (la fede trunca, no redondea) y #300 (oficial y derivación del
+mismo instante).
+
+**Lo que el pedido estético tapaba.** La pantalla usaba `GOLD = '#c4992a'` como
+color de *texto* sobre superficie clara. Medido en runtime sobre el DOM real a
+390px: **25 nodos reprobaban WCAG AA** (2.30–2.65:1 contra 4.5). El token
+correcto, `--brand-on-bg`, ya existía y el modal no lo usaba.
+
+**Cambios**
+- La fila de 8 pastillas doradas se **elimina**, no se rediseña: esos números ya
+  estaban en la lista de abajo, marcados (`P6` — dos representaciones del mismo
+  dato es redundancia). En su lugar, el cálculo como recibo: suma → ÷N → truncado.
+- 20 tarjetas con borde propio → lista con hairline. "Cuenta" baja de 4
+  codificaciones a 2 (regla dorada + la palabra, para no depender del color).
+- Fila extraída a `src/components/indice/BreakdownRow.tsx`, adoptada también por
+  `IndiceBreakdownModal` (`P4`: los dos sheets salen de /perfil y muestran la
+  misma clase de objeto). `DualIndexCards.tsx` migra sus 7 dorados de texto.
+- Borrado `--brand-text` de `globals.css`: fijo en ambos modos, 0 consumidores,
+  y en dark reprobaba AA. Un solo token para "oro accesible como texto".
+- `filasDelCalculo()` pura y testeada, fail-safe: si la suma mostrada no
+  reproduce el promedio del servidor, o si el promedio mostrado contradice al
+  truncado, devuelve `[]` en vez de aritmética que el socio no puede rehacer.
+
+**Verificación:** 25 fallas de contraste → **0** en ambos temas (77 nodos), cero
+errores de consola, tsc 0, 3456 tests, build ok. 10 tests nuevos, mutación 4/4.
+Decision log: `docs/design-decisions/2026-08-06-indice-explicado-extracto.md`.
+
+---
+
 ## 2026-07-23 · Tarjetas del índice FedeGolf — Release 1 (Fase 1 datos + Fase 2 UI)
 
 Espeja las ~20 tarjetas oficiales que componen el índice FedeGolf de un socio
