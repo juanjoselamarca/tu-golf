@@ -11,7 +11,7 @@ import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/t
 import { getYardajeForTee } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData, resolverHandicapDisplayDeRonda, type CourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
-import { hoyosDeLaVuelta, vueltasDeLaRonda } from '@/golf/courses/vueltas'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { calcularScramble, calcularFoursome, teePlayerEnHoyo, isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
@@ -220,9 +220,13 @@ export default function ScoreGrupoPage() {
           // ronda de 18 se recorre dos veces (`@/golf/courses/vueltas`). Esta
           // pantalla, el scorer individual y el board tienen que contestar lo
           // MISMO — si no, el mismo jugador ve dos netos según por dónde entre.
-          const vueltas = vueltasDeLaRonda(base.length, r.holes)
-          hoyosDeLaVuelta(base, r.holes).forEach((h, i) => {
-            const origen = i < base.length * vueltas ? base[i % base.length] : null
+          // De qué hoyo del catálogo salió cada uno lo dice `hoyosDeLaVuelta`
+          // (`origen`). Re-derivarlo acá con `vueltasDeLaRonda` se saltaba su
+          // guarda de catálogo sucio: en una cancha 27h los dos cálculos
+          // divergen y los yardajes salen del hoyo equivocado.
+          const porNumero = new Map(base.map((h) => [h.numero, h]))
+          hoyosDeLaVuelta(base, r.holes).forEach((h) => {
+            const origen = h.origen != null ? porNumero.get(h.origen) ?? null : null
             pm2[h.numero] = h.par
             hdm2[h.numero] = {
               numero: h.numero,

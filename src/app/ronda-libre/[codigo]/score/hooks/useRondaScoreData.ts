@@ -7,7 +7,7 @@ import type { RondaLibre, HoleData } from '@/types/ronda'
 import { isTeamFormat } from '@/golf/formats'
 import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData, type CourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
-import { hoyosDeLaVuelta, vueltasDeLaRonda } from '@/golf/courses/vueltas'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { getTeeYardageColumn, generarOrdenHoyos } from '@/lib/ronda/helpers'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
 
@@ -136,9 +136,13 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
           // esto el mapa quedaba con 9 entradas para una ronda de 18 y
           // `finalParTotal` salía 35 en vez de 70 — con ese par el Course Rating
           // de la cancha parecía incoherente y el jugador perdía el handicap WHS.
-          const vueltas = vueltasDeLaRonda(base.length, r.holes)
-          hoyosDeLaVuelta(base, r.holes).forEach((h, i) => {
-            const origen = i < base.length * vueltas ? base[i % base.length] : null
+          // De qué hoyo del catálogo salió cada uno lo dice `hoyosDeLaVuelta`
+          // (`origen`). Re-derivarlo acá con `vueltasDeLaRonda` se saltaba su
+          // guarda de catálogo sucio: en una cancha 27h los dos cálculos
+          // divergen y los yardajes salen del hoyo equivocado.
+          const porNumero = new Map(base.map((h) => [h.numero, h]))
+          hoyosDeLaVuelta(base, r.holes).forEach((h) => {
+            const origen = h.origen != null ? porNumero.get(h.origen) ?? null : null
             pm2[h.numero] = h.par
             hdm2[h.numero] = {
               numero: h.numero,

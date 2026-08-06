@@ -197,7 +197,7 @@ interface CandidatosDelMotor {
 function veredictoDeRatings(
   candidatos: CandidatosDelMotor,
   par: number | null,
-  holes: 9 | 18,
+  holes: number,
 ): AptitudTorneo {
   const evaluar = (courseRating: number | null | undefined) =>
     evaluarRating({ courseRating, par, holes })
@@ -325,11 +325,19 @@ export function evaluarAptitudRecorridos(loops: CanchaParaAptitud[]): AptitudTor
     return s + (escala === 'imposible' ? l.course_rating : courseRating)
   }, 0)
 
+  // Los hoyos que cubre la SELECCIÓN, no un 18 fijo. `toleranciaRating` escala
+  // por encima de 18 (27 hoyos → ±15) y el motor la usa así: validar la suma de
+  // tres loops contra la tolerancia de 18 es MÁS estricto que el motor y
+  // bloquearía un club de 27 entero por deltas legítimos que el motor acepta.
+  // Tres loops con el máximo real medido (−3.9, Marbella) suman −11.7: pasan la
+  // de 27 y no la de 18.
+  const hoyosDeLaSeleccion = loops.length * 9
+
   // ⚠️ El motor prefiere el par de la RONDA (`parTotal ?? parSum`), derivado de
   // `course_holes`. Acá sólo tenemos `courses.par_total`. Coinciden mientras
   // las dos tablas estén sincronizadas; si se desincronizan, el canario del
   // catálogo es el que lo tiene que gritar.
-  return veredictoDeRatings({ tees: [], terminal: crSum }, parSum, holes)
+  return veredictoDeRatings({ tees: [], terminal: crSum }, parSum, hoyosDeLaSeleccion)
 }
 
 export interface AptitudPorHoyos {

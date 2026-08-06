@@ -18,7 +18,7 @@ import { ArrowLeft, Share2, Flag } from 'lucide-react'
 import { ShareSheet } from '@/components/share/ShareSheet'
 import { ShareToast } from '@/components/share/ShareToast'
 import { buildRoundShare } from '@/golf/share/payload'
-import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { hoyosDeLaTarjeta } from '@/golf/courses/vueltas'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 
 interface RoundData {
@@ -159,8 +159,9 @@ export default function TarjetaPublicaPage() {
   const totalHoles = round.holes_played ?? 18
   // Fuente única `@/golf/courses/vueltas`: una cancha de 9 jugada a 18 se
   // recorre dos veces, así que la tarjeta compartida muestra los 18 hoyos con su
-  // par real en vez de nueve y un vs-par corrido ~35 golpes.
-  const scorecardHoles: ScorecardHole[] = hoyosDeLaVuelta(courseHoles, totalHoles)
+  // par real en vez de nueve y un vs-par corrido ~35 golpes. Sin catálogo el par
+  // queda vacío, no en 4: la tarjeta no inventa la cancha.
+  const scorecardHoles: ScorecardHole[] = hoyosDeLaTarjeta(courseHoles, totalHoles)
 
   const scoresRecord: Record<string, number> = {}
   if (round.scores) {

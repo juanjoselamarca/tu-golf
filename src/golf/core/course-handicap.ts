@@ -18,6 +18,7 @@ import {
   hoyosDeUnaVuelta,
   hoyosDeLaVuelta,
   parDeVariasVueltas,
+  parEnLaMismaEscala,
   ratingDeVueltas,
   resolverRatingEnEscalaDe9,
   sumaDeVueltas,
@@ -424,10 +425,7 @@ export async function resolverCourseData(
       // accidente. Comparar las dos escalas cierra las DOS direcciones: un
       // parTotal de 18 en un recorrido de 9 (daba −30) y uno de 9 en un
       // recorrido de 18 (daba +108).
-      const parDeLosLoops =
-        parTotal != null && esEscalaDe18Hoyos(parTotal) === esEscalaDe18Hoyos(parSum)
-          ? parTotal
-          : parSum
+      const parDeLosLoops = parEnLaMismaEscala(parTotal, parSum)
       const slopeAvg = children.length > 0
         ? Math.round(children.reduce((s, c) => s + (c.slope_rating ?? 113), 0) / children.length)
         : 113
@@ -566,11 +564,14 @@ export async function resolverCourseData(
         return { slope: unaVuelta.slope, courseRating, par }
       }
       // El tee miente: se baja al eslabón de `courses`, igual que en 9 hoyos.
-    } else if (ratingEsCreible({ courseRating: teeData.rating, par: parTotal ?? 72, holes })) {
-      return {
-        slope: teeData.slope,
-        courseRating: teeData.rating,
-        par: parTotal ?? 72,
+    } else {
+      // El par del caller sólo si viene en la escala de la cancha. Sin esta
+      // guarda, el lookup de 18h que pide `resolverHandicapDisplayDeRonda`
+      // para una ronda de 9 recibía el par de la ronda (36) como par de 18:
+      // delta 35 contra el CR y la columna HCP caía al índice crudo.
+      const par = parEnLaMismaEscala(parTotal, parDeLaCancha)
+      if (ratingEsCreible({ courseRating: teeData.rating, par, holes })) {
+        return { slope: teeData.slope, courseRating: teeData.rating, par }
       }
     }
   }
@@ -603,10 +604,12 @@ export async function resolverCourseData(
       }
       return null
     }
+    // Misma regla que el eslabón del tee: el par propio de la cancha manda
+    // sobre el de la ronda cuando están en escalas distintas.
     return {
       slope: course.slope_rating,
       courseRating: course.course_rating,
-      par: parTotal ?? parDeLaCancha ?? 72,
+      par: parEnLaMismaEscala(parTotal, parDeLaCancha),
     }
   }
 

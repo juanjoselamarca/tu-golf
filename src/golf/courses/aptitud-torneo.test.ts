@@ -330,6 +330,18 @@ describe('evaluarAptitudRecorridos — canchas multi-recorrido (Brisas / Marbell
     expect(evaluarAptitudRecorridos(LOOPS_SANOS).apta).toBe(true)
   })
 
+  it('tres loops sanos no se bloquean por sumar sus deltas legítimos', () => {
+    // El gate juzgaba la suma de 3 loops con la tolerancia de 18 hoyos (±10),
+    // pero el motor la juzga con la de los hoyos que se juegan (27 → ±15). Tres
+    // loops con el delta legítimo más grande del catálogo (−3.9, Marbella)
+    // suman −11.7: pasan la del motor y no la de 18. Un club de 27 entero
+    // bloqueado por datos que el motor acepta.
+    const loops = [32.1, 32.1, 32.1].map((cr) => ({
+      par_total: 36, course_rating: cr, slope_rating: 120,
+    }))
+    expect(evaluarAptitudRecorridos(loops).apta).toBe(true)
+  })
+
   it('sin recorridos no hay veredicto que dar', () => {
     expect(evaluarAptitudRecorridos([]).apta).toBe(true)
   })

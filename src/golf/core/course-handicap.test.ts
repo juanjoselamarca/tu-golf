@@ -254,6 +254,41 @@ const loopsRocas = [
   { id: 'l-blanca', loop_nombre: 'Blanca', course_rating: 72, slope_rating: 120, par_total: 36 },
 ]
 
+describe('resolverCourseData — el par del caller no puede venir en otra escala', () => {
+  // El lookup de 18 hoyos que hace `resolverHandicapDisplayDeRonda` para una
+  // ronda de 9 le pasa a esta función el par de LA RONDA. Si se le cree a
+  // ciegas, ese 36 entra como par de 18 hoyos contra un CR de 71.5: delta 35.5,
+  // el guardarrail lo descarta y la columna HCP del board muestra el índice
+  // crudo en vez del course handicap. Le pasó a `/torneo/[slug]` cuando el par
+  // del board dejó de ser el de la cancha entera.
+  const CANCHA_18 = { slope_rating: 128, course_rating: 71.2, par_total: 72 }
+  const TEE_18 = { rating: 71.5, slope: 130, front_course_rating: null, front_slope_rating: null }
+
+  it('un par de 9 hoyos pedido a 18 se descarta: manda el par de la cancha', async () => {
+    const supa = mockSupabase({ tee: TEE_18, course: CANCHA_18 })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 18, 36, null)
+    expect(cd).toEqual({ slope: 130, courseRating: 71.5, par: 72 })
+    // Índice 15: round(15 × 130/113 + (71.5 − 72)) = 17. Creyéndole al 36, el
+    // guardarrail tiraba el dato y devolvía 15 — el índice pelado.
+    expect(resolverCourseHandicap(15, cd)).toBe(17)
+  })
+
+  it('un par de 18 más fino que el de la cancha SÍ se respeta', async () => {
+    // El caso normal: `course_holes` dice 71 y `courses.par_total` dice 72. Las
+    // dos están en escala de 18, así que gana el del caller, que es el medido.
+    const supa = mockSupabase({ tee: TEE_18, course: CANCHA_18 })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 18, 71, null)
+    expect(cd?.par).toBe(71)
+  })
+
+  it('sin tee, el eslabón de `courses` aplica la misma regla', async () => {
+    const supa = mockSupabase({ course: CANCHA_18 })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 18, 36, null)
+    expect(cd?.par).toBe(72)
+    expect((await resolverCourseData(supa, 'course-1', 'azul', 18, 71, null))?.par).toBe(71)
+  })
+})
+
 describe('resolverCourseData — multi-recorrido: el rating de cada loop se normaliza antes de sumar', () => {
   it('UN loop (9 hoyos) no suma el rating de 18 crudo', async () => {
     const supa = mockSupabaseLoops([loopsRocas[0]])

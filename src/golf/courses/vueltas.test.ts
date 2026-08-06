@@ -35,6 +35,9 @@ const RIO_BLANCO_9 = [
   { numero: 9, par: 4, stroke_index: 3 },
 ]
 
+/** El catálogo como sale de `hoyosDeLaVuelta` sin repetir: cada hoyo es su propio origen. */
+const conOrigenPropio = <T extends { numero: number }>(hoyos: T[]) =>
+  hoyos.map((h) => ({ ...h, origen: h.numero }))
 const CANCHA_18 = Array.from({ length: 18 }, (_, i) => ({
   numero: i + 1,
   par: i % 3 === 0 ? 5 : 4,
@@ -150,7 +153,7 @@ describe('hoyosDeLaVuelta — los hoyos que se juegan de verdad', () => {
   })
 
   it('cancha de 18 en torneo de 18: no toca nada', () => {
-    expect(hoyosDeLaVuelta(CANCHA_18, 18)).toEqual(CANCHA_18)
+    expect(hoyosDeLaVuelta(CANCHA_18, 18)).toEqual(conOrigenPropio(CANCHA_18))
   })
 
   it('cancha de 18 en torneo de 9: NO recorta — la ronda puede jugar el Back 9', () => {
@@ -158,7 +161,7 @@ describe('hoyosDeLaVuelta — los hoyos que se juegan de verdad', () => {
     // primeros 9", esos nueve hoyos quedarían sin par ni stroke index y se
     // puntuarían contra par 4 con el neto igual al gross.
     const hoyos = hoyosDeLaVuelta(CANCHA_18, 9)
-    expect(hoyos).toEqual(CANCHA_18)
+    expect(hoyos).toEqual(conOrigenPropio(CANCHA_18))
     const porNumero = new Map(hoyos.map((h) => [h.numero, h]))
     for (const n of [10, 11, 12, 13, 14, 15, 16, 17, 18]) {
       expect(porNumero.get(n)?.par, `hoyo ${n}`).toBe(CANCHA_18[n - 1].par)
@@ -196,7 +199,7 @@ describe('hoyosDeLaVuelta — los hoyos que se juegan de verdad', () => {
     ]
     const hoyos = hoyosDeLaVuelta(tresLoops, 18)
     // Se queda con la primera fila de cada número (9 hoyos) y completa a par 4.
-    expect(hoyos.slice(0, 9)).toEqual(RIO_BLANCO_9)
+    expect(hoyos.slice(0, 9)).toEqual(conOrigenPropio(RIO_BLANCO_9))
     expect(hoyos.slice(9).every((h) => h.par === PAR_FALLBACK)).toBe(true)
   })
 
@@ -216,7 +219,7 @@ describe('hoyosDeLaVuelta — los hoyos que se juegan de verdad', () => {
   it('un hoyo sin par ni SI cargado no rompe la vuelta', () => {
     const sucio = [{ numero: 1, par: null, stroke_index: null }, { numero: 2, par: 3 }]
     const hoyos = hoyosDeLaVuelta(sucio, 2)
-    expect(hoyos[0]).toEqual({ numero: 1, par: PAR_FALLBACK, stroke_index: 1 })
+    expect(hoyos[0]).toEqual({ numero: 1, origen: 1, par: PAR_FALLBACK, stroke_index: 1 })
     expect(hoyos[1].par).toBe(3)
   })
 })

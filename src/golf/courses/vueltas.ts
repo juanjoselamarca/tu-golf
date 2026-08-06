@@ -25,6 +25,8 @@
 //   2. ¿Cuántas vueltas da esta ronda?           → `vueltasDeLaRonda`
 //   3. ¿Qué hoyos se juegan exactamente?         → `hoyosDeLaVuelta`
 
+import { TOLERANCIA_RATING_9H } from './rating-coherente'
+
 /**
  * Par asumido para un hoyo que el catálogo de la cancha no tiene.
  *
@@ -72,11 +74,21 @@ export function parEnEscalaDe9(par: number): number {
 }
 
 /**
- * Cuánto puede alejarse del par un Course Rating real. Los ratings USGA caen a
- * pocos golpes del par; más que esto no es una cancha difícil, es un dato en
- * otra escala o directamente roto.
+ * Cuánto puede alejarse del par un Course Rating real, en una vuelta de 9.
+ *
+ * NO es una constante propia: es la MISMA tolerancia con la que el guardarrail
+ * decide si un rating es creíble (`@/golf/courses/rating-coherente`, medida
+ * contra el catálogo real). Tienen que ser el mismo número o las dos funciones
+ * se contradicen — con una banda más chica que la tolerancia, un rating que el
+ * guardarrail acepta como sano se clasifica `imposible` acá, y la cancha queda
+ * bloqueada por el mismo dato que acaba de declararse bueno.
+ *
+ * Con los dos números iguales la relación es limpia por construcción: todo lo
+ * que cierra en alguna escala es creíble, y todo lo `imposible` se juzga crudo.
+ * Si el catálogo suma canchas con deltas legítimos mayores, se sube la
+ * tolerancia allá y esto la sigue.
  */
-const BANDA_RATING_VS_PAR = 6
+const BANDA_RATING_VS_PAR = TOLERANCIA_RATING_9H
 
 /**
  * Course Rating de UNA vuelta de 9 hoyos, en la MISMA escala que `parEnEscalaDe9`.
@@ -217,6 +229,19 @@ export interface HoyoJugado {
   numero: number
   par: number
   stroke_index: number
+  /**
+   * Nº del hoyo del CATÁLOGO del que salió éste. Distinto de `numero` sólo en
+   * la segunda vuelta (el hoyo 10 tiene origen 1). `null` cuando el hoyo no
+   * existe en el catálogo y se completó a par 4.
+   *
+   * Existe para que nadie tenga que re-derivar la correspondencia por su
+   * cuenta. Los dos scorers de ronda libre lo hacían con su propio
+   * `vueltasDeLaRonda(base.length, holes)` para saber de qué hoyo sacar el
+   * yardaje, sin la guarda de catálogo sucio que sí aplica esta función: en
+   * una cancha 27h los dos cálculos divergen y los yardajes salen del hoyo
+   * equivocado.
+   */
+  origen: number | null
 }
 
 /**
@@ -291,6 +316,7 @@ export function hoyosDeLaVuelta(catalogo: HoyoDeCatalogo[], roundHoles: number):
       numero: i + 1,
       par: PAR_FALLBACK,
       stroke_index: i + 1,
+      origen: null,
     }))
   }
 
@@ -315,6 +341,7 @@ export function hoyosDeLaVuelta(catalogo: HoyoDeCatalogo[], roundHoles: number):
           // El nº de hoyo de la RONDA (10..18 en la segunda vuelta), que es como
           // llegan los `hole_scores` y como los pinta la tarjeta.
           numero: (vuelta - 1) * base.length + i + 1,
+          origen: h.numero,
           par: h.par ?? PAR_FALLBACK,
           stroke_index: strokeIndexDeVuelta(rango[i], vuelta, vueltas),
         })
@@ -327,12 +354,13 @@ export function hoyosDeLaVuelta(catalogo: HoyoDeCatalogo[], roundHoles: number):
   //    par 4 (comportamiento previo: un catálogo incompleto no se inventa).
   const out: HoyoJugado[] = base.map((h, i) => ({
     numero: h.numero,
+    origen: h.numero,
     par: h.par ?? PAR_FALLBACK,
     stroke_index: h.stroke_index ?? i + 1,
   }))
   const ultimo = out.length > 0 ? out[out.length - 1].numero : 0
   for (let numero = ultimo + 1; out.length < total; numero++) {
-    out.push({ numero, par: PAR_FALLBACK, stroke_index: numero })
+    out.push({ numero, origen: null, par: PAR_FALLBACK, stroke_index: numero })
   }
   return out
 }
@@ -350,6 +378,36 @@ function rangoDeStrokeIndex(base: HoyoDeCatalogo[]): number[] {
   const rango = new Array<number>(base.length)
   orden.forEach((o, puesto) => { rango[o.i] = puesto + 1 })
   return rango
+}
+
+/**
+ * Los hoyos para PINTAR una tarjeta. Igual que `hoyosDeLaVuelta`, salvo que sin
+ * catálogo devuelve el par en `null` en vez de par 4.
+ *
+ * La diferencia importa porque los consumidores son distintos: el motor NECESITA
+ * un número para puntuar y par 4 es el fallback honesto; una tarjeta que se
+ * MUESTRA no tiene por qué inventarlo — deja la celda vacía y el jugador ve que
+ * no hay dato en vez de creer que jugó una cancha de par 72 pareja.
+ *
+ * Existe con nombre propio porque la tarjeta pública y la del historial pintan
+ * la MISMA ronda: si cada una resolviera sus hoyos por su cuenta, mostrarían
+ * vs-par distintos para el mismo score (le pasó a este repo: la pública ya
+ * repetía la vuelta y la del historial sumaba sólo las 9 filas del catálogo,
+ * 35 golpes de diferencia).
+ */
+export function hoyosDeLaTarjeta(
+  catalogo: HoyoDeCatalogo[],
+  roundHoles: number,
+): Array<{ numero: number; par: number | null; stroke_index: number }> {
+  const total = Math.max(0, Math.trunc(roundHoles) || 0)
+  if (catalogo.length === 0) {
+    return Array.from({ length: total }, (_, i) => ({
+      numero: i + 1,
+      par: null,
+      stroke_index: i + 1,
+    }))
+  }
+  return hoyosDeLaVuelta(catalogo, total)
 }
 
 /**
@@ -388,6 +446,40 @@ export function sumaDeVueltas(valorDeUnaVuelta: number, vueltas: number): number
  * está escalando, y que coincida con la suma de `course_holes` lo vigila el
  * canario del catálogo.
  */
+/**
+ * Cuál de los dos pares mandan cuando hay dos candidatos: el que pasa el CALLER
+ * (derivado de `course_holes`, más fino) y el AUTORITATIVO de la cancha
+ * (`courses.par_total`, o la suma de los pares de los loops).
+ *
+ * Se acepta el del caller sólo si viene en la MISMA escala. Creerle a ciegas es
+ * un modo de falla que ya apareció dos veces:
+ *
+ *  · Paso 0 de `resolverCourseData`: un `parTotal` de 18 en un recorrido de 9
+ *    daba −30 golpes, y uno de 9 en un recorrido de 18, +108 (#293).
+ *  · `resolverHandicapDisplayDeRonda` pide a propósito el CourseData de 18
+ *    hoyos para una ronda de 9. Si el caller le pasa el par de la ronda (36),
+ *    ese 36 entra como par de 18 hoyos contra un CR de 71.5: delta 35.5, el
+ *    guardarrail lo descarta y la columna HCP muestra el índice crudo en vez
+ *    del course handicap.
+ *
+ * El par es la señal de escala más confiable que hay (un entero duro, 35-36 o
+ * 70-72), así que comparar las dos escalas cierra las dos direcciones sin tener
+ * que adivinar cuál de los dos números está bien.
+ */
+export function parEnLaMismaEscala(
+  parDelCaller: number | null | undefined,
+  parAutoritativo: number | null | undefined,
+): number {
+  if (parAutoritativo == null) return parDelCaller ?? 72
+  if (
+    parDelCaller != null &&
+    esEscalaDe18Hoyos(parDelCaller) === esEscalaDe18Hoyos(parAutoritativo)
+  ) {
+    return parDelCaller
+  }
+  return parAutoritativo
+}
+
 export function parDeVariasVueltas(parDeLaCancha: number | null | undefined, vueltas: number): number {
   // Con una sola vuelta el par de la ronda es el par de la cancha, sin tocar.
   // Sin esta guarda, pedirle el par de una cancha de 18 devolvería 36: sólo se

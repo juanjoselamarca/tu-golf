@@ -109,7 +109,14 @@ describe('cancha de 9 SANA en torneo de 18 — dos vueltas', () => {
   })
 
   it('los hoyos de la ronda son los de la tarjeta de 18 hecha a mano', () => {
-    expect(hoyos18).toEqual(HOYOS_18_MANUAL)
+    // `origen` dice de qué hoyo del catálogo salió cada uno: 1-9 en la primera
+    // vuelta, 1-9 otra vez en la segunda. Es lo que hace que los yardajes del
+    // hoyo 10 sean los del hoyo 1.
+    expect(hoyos18.map(({ origen, ...h }) => h)).toEqual(HOYOS_18_MANUAL)
+    expect(hoyos18.map((h) => h.origen)).toEqual([
+      ...HOYOS_9.map((h) => h.numero),
+      ...HOYOS_9.map((h) => h.numero),
+    ])
   })
 
   it('el course handicap es el mismo que sobre la cancha de 18 escrita a mano', () => {
@@ -207,7 +214,7 @@ describe('lo que NO se puede romper al modelar la segunda vuelta', () => {
   })
 
   it('una cancha de 18 en un torneo de 18 no cambia en nada', () => {
-    expect(hoyosDeLaVuelta(CANCHA_18, 18)).toEqual(CANCHA_18)
+    expect(hoyosDeLaVuelta(CANCHA_18, 18).map(({ origen, ...h }) => h)).toEqual(CANCHA_18)
   })
 })
 
