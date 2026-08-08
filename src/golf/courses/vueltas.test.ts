@@ -203,6 +203,36 @@ describe('hoyosDeLaVuelta — los hoyos que se juegan de verdad', () => {
     expect(hoyos.slice(9).every((h) => h.par === PAR_FALLBACK)).toBe(true)
   })
 
+  it('origen dice de qué hoyo del catálogo salió cada uno, en las cuatro ramas', () => {
+    // Es lo que usan los dos scorers de ronda libre para saber de qué hoyo sacar
+    // el yardaje. Antes lo re-derivaban con su propio `vueltasDeLaRonda`, sin la
+    // guarda de catálogo sucio: en una cancha 27h los dos cálculos divergen y el
+    // hoyo 10 mostraba el yardaje equivocado.
+
+    // 1. Sin catálogo: no hay origen que declarar.
+    expect(hoyosDeLaVuelta([], 18).every((h) => h.origen === null)).toBe(true)
+
+    // 2. Vuelta repetida: el hoyo 10 es el hoyo 1 otra vez.
+    const dosVueltas = hoyosDeLaVuelta(RIO_BLANCO_9, 18)
+    expect(dosVueltas.map((h) => h.origen)).toEqual([
+      ...RIO_BLANCO_9.map((h) => h.numero),
+      ...RIO_BLANCO_9.map((h) => h.numero),
+    ])
+    // Y el par del hoyo de origen es el mismo, que es lo que hace válida la
+    // correspondencia de yardajes.
+    for (const h of dosVueltas) {
+      expect(h.par).toBe(RIO_BLANCO_9.find((c) => c.numero === h.origen)!.par)
+    }
+
+    // 3. Sin repetir: cada hoyo es su propio origen.
+    expect(hoyosDeLaVuelta(CANCHA_18, 18).every((h) => h.origen === h.numero)).toBe(true)
+
+    // 4. Relleno de un catálogo incompleto: no salió de ningún hoyo real.
+    const parcial = hoyosDeLaVuelta(CANCHA_18.slice(0, 15), 18)
+    expect(parcial.slice(0, 15).every((h) => h.origen === h.numero)).toBe(true)
+    expect(parcial.slice(15).every((h) => h.origen === null)).toBe(true)
+  })
+
   it('dedup por número: una cancha multi-recorrido no infla el par', () => {
     const conDuplicados = [...RIO_BLANCO_9, { numero: 1, par: 4, stroke_index: 5 }]
     expect(hoyosDeLaVuelta(conDuplicados, 9).reduce((s, h) => s + h.par, 0)).toBe(35)

@@ -37,7 +37,7 @@
 // y siempre 9 en una cancha de 9 — aunque el torneo sea de 18, porque ahí el
 // motor da dos vueltas y multiplica rating y par por igual.
 
-import { esEscalaDe18Hoyos, parEnEscalaDe9, resolverRatingEnEscalaDe9 } from './vueltas'
+import { esEscalaDe18Hoyos, hoyosDeUnaVuelta, parEnEscalaDe9, resolverRatingEnEscalaDe9 } from './vueltas'
 import { evaluarRating } from './rating-coherente'
 
 /**
@@ -331,7 +331,12 @@ export function evaluarAptitudRecorridos(loops: CanchaParaAptitud[]): AptitudTor
   // bloquearía un club de 27 entero por deltas legítimos que el motor acepta.
   // Tres loops con el máximo real medido (−3.9, Marbella) suman −11.7: pasan la
   // de 27 y no la de 18.
-  const hoyosDeLaSeleccion = loops.length * 9
+  //
+  // Se derivan del par de cada loop y no de un `× 9` fijo, EXACTAMENTE como el
+  // motor (`hoyosDeLosLoops` en el paso 0). Hoy los 9 hijos del catálogo son de
+  // 9 hoyos y los dos cálculos coinciden; con un hijo de 18 divergirían, y el
+  // gate volvería a leer la escala distinto que el motor.
+  const hoyosDeLaSeleccion = loops.reduce((s, l) => s + hoyosDeUnaVuelta(l.par_total ?? 36), 0)
 
   // ⚠️ El motor prefiere el par de la RONDA (`parTotal ?? parSum`), derivado de
   // `course_holes`. Acá sólo tenemos `courses.par_total`. Coinciden mientras
