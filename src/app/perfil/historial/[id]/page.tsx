@@ -11,6 +11,8 @@ import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components
 import { ShareSheet } from '@/components/share/ShareSheet'
 import { ShareToast } from '@/components/share/ShareToast'
 import { buildRoundShare } from '@/golf/share/payload'
+import { hoyosDeLaTarjeta } from '@/golf/courses/vueltas'
+import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 
 /* ─── Types ────────────────────────────────────────────── */
 interface HistoricalRound {
@@ -160,17 +162,12 @@ export default function HistorialDetallePage() {
   /* ─── Build scorecard data ──────────────────────────── */
   const totalHoles = round.holes_played ?? 18
 
-  // Build a lookup from course holes
-  const courseHoleMap: Record<number, CourseHole> = {}
-  for (const h of courseHoles) {
-    courseHoleMap[h.numero] = h
-  }
-
-  const scorecardHoles: ScorecardHole[] = Array.from({ length: totalHoles }, (_, i) => ({
-    numero: i + 1,
-    par: courseHoleMap[i + 1]?.par ?? null,
-    stroke_index: courseHoleMap[i + 1]?.stroke_index ?? (i + 1),
-  }))
+  // Los hoyos de la RONDA, por la MISMA función que usa la tarjeta pública
+  // (`/tarjeta/[id]`). Las dos pintan la misma ronda: derivarlos por separado
+  // era mostrar dos vs-par distintos para el mismo score — en una cancha de 9
+  // jugada a 18, esta pantalla sumaba sólo las 9 filas del catálogo y dejaba
+  // los hoyos 10-18 sin par.
+  const scorecardHoles: ScorecardHole[] = hoyosDeLaTarjeta(courseHoles, totalHoles)
 
   const scorecardScores: Record<string, number> = Object.fromEntries(
     (round.scores ?? [])
@@ -184,8 +181,11 @@ export default function HistorialDetallePage() {
     round.modo_juego ?? null,
   )
 
-  // vs-par para el copy del share (solo cuando hay hoyos con par disponible)
-  const totalPar = courseHoles.reduce((sum: number, h: CourseHole) => sum + (h.par ?? 4), 0)
+  // vs-par para el copy del share (solo cuando hay hoyos con par disponible).
+  // `parDeLosHoyosJugados` y no la suma cruda: acota a los hoyos que se juegan
+  // y repite la vuelta cuando la cancha es de 9 — misma cuenta que la tarjeta
+  // pública, que muestra este mismo número.
+  const totalPar = parDeLosHoyosJugados(courseHoles, totalHoles)
   const rawDiff = round.total_gross != null && courseHoles.length > 0 ? round.total_gross - totalPar : null
   const vsParLabel = rawDiff == null ? '' : rawDiff === 0 ? 'Par' : rawDiff > 0 ? `+${rawDiff}` : String(rawDiff)
   const sharePayload = buildRoundShare({

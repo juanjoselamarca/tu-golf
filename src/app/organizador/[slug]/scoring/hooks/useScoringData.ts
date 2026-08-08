@@ -8,6 +8,8 @@ import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import {
   fetchScoringCourseContext,
   fetchScoringRoster,
@@ -27,6 +29,13 @@ export interface UseScoringDataReturn {
   tournament: ScoringTournament | null
   players: ScoringPlayer[]
   courseHoles: CourseHole[]
+  /**
+   * Par de la RONDA (fuente única `parDeLaRondaDelTorneo`). Se deriva acá,
+   * donde está el catálogo CRUDO: una vez resuelto en hoyos ya no se
+   * distingue "sin catálogo" de "cancha neutra a par 4", y ahí se pierde el
+   * par que la cancha sí publica en `courses.par_total`.
+   */
+  parTotal: number
   courseTees: CourseTeeRow[]
   loading: boolean
   loadError: boolean
@@ -57,6 +66,7 @@ export function useScoringData(slug: string): UseScoringDataReturn {
   const [tournament, setTournament] = useState<ScoringTournament | null>(null)
   const [players, setPlayers] = useState<ScoringPlayer[]>([])
   const [courseHoles, setCourseHoles] = useState<CourseHole[]>([])
+  const [parTotal, setParTotal] = useState(72)
   const [courseTees, setCourseTees] = useState<CourseTeeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -89,7 +99,13 @@ export function useScoringData(slug: string): UseScoringDataReturn {
         if (cancelled) return
 
         setPlayers(roster)
-        setCourseHoles(courseCtx.holes)
+        // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en
+        // un torneo de 18 se recorre dos veces y los hoyos 10-18 son los 1-9
+        // otra vez, con su par y su dificultad reales (`@/golf/courses/vueltas`).
+        setCourseHoles(hoyosDeLaVuelta(courseCtx.holes, t.hole_count || 18))
+        setParTotal(
+          parDeLaRondaDelTorneo(courseCtx.holes, t.hole_count || 18, t.courses?.par_total),
+        )
         setCourseTees(courseCtx.tees)
 
         // Ronda activa = mayor round_number existente en el field.
@@ -211,6 +227,7 @@ export function useScoringData(slug: string): UseScoringDataReturn {
     tournament,
     players,
     courseHoles,
+    parTotal,
     courseTees,
     loading,
     loadError,

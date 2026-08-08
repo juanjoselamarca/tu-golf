@@ -8,6 +8,7 @@ import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,10 +53,9 @@ export async function GET(
         .order('numero')
       holes = (ch as DBHole[]) || []
     }
-    // Fallback: default holes par 4, stroke_index = numero
-    if (holes.length === 0) {
-      for (let i = 1; i <= totalHoyos; i++) holes.push({ numero: i, par: 4, stroke_index: i })
-    }
+    // Los hoyos de la RONDA (fuente única `@/golf/courses/vueltas`): cubre la
+    // cancha sin catálogo y la de 9 hoyos jugada a 18 (dos vueltas).
+    holes = hoyosDeLaVuelta(holes, totalHoyos)
 
     const jugadores = ronda.ronda_libre_jugadores as DBJugador[]
 

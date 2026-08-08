@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
+import { canchasNoAptasParaTorneo } from '@/lib/data/course-aptitud'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,6 +59,20 @@ export async function POST(req: NextRequest) {
     // B5: Server-side format/mode rules
     const modoFinal = (body.format === 'match_play' || body.format === 'stableford')
       ? 'neto' : body.modo
+
+    // Guardarrail de datos de cancha — mismo gate que el wizard
+    // (`draft/[id]/create-tournament`). Este camino legacy no puede quedar
+    // como puerta trasera para crear un torneo sobre una cancha cuyo rating
+    // miente. Va DESPUÉS de `modoFinal`: match_play y stableford fuerzan neto,
+    // así que necesitan rating aunque el body diga gross.
+    const noAptas = await canchasNoAptasParaTorneo(
+      supabase,
+      [{ round_number: 1, course_id: body.course_id, hole_count: body.hole_count }],
+      { modo: modoFinal, use_handicap: body.use_handicap },
+    )
+    if (noAptas.length > 0) {
+      return NextResponse.json({ error: noAptas[0].mensaje, details: noAptas }, { status: 400 })
+    }
 
     // Generate slug
     const slug = body.name

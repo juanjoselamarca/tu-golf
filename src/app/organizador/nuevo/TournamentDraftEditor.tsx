@@ -16,6 +16,7 @@ import { useDraftStore, type CollaboratorInfo } from '@/lib/draft/store'
 import type { TournamentConfig, TournamentConfigPartial } from '@/lib/draft/types'
 import { DraftHeader } from './DraftHeader'
 import { DraftFooter } from './DraftFooter'
+import type { CourseOption } from './types'
 import { DraftPreviewModal } from './DraftPreviewModal'
 import { QueTorneoSection } from './sections/QueTorneoSection'
 import { ComoJueganSection } from './sections/ComoJueganSection'
@@ -52,11 +53,7 @@ const AssistantPanel = dynamic(
   },
 )
 
-export interface CourseOption {
-  id: string
-  nombre: string
-  ciudad: string
-}
+export type { CourseOption } from './types'
 
 export interface DraftSummary {
   id: string
@@ -373,6 +370,7 @@ export default function TournamentDraftEditor({
           <DraftFooter
             draftId={draftId}
             config={config}
+            courses={courses}
             onPreview={handlePreview}
             onCreate={handleCreate}
           />

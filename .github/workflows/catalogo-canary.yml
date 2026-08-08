@@ -1,0 +1,72 @@
+name: Catalogo Canary
+
+# Canario del catálogo de canchas contra la BD REAL de producción.
+#
+# Por qué existe: el 2026-07-30 se encontraron 11 canchas de 9 hoyos con el
+# Course Rating cargado en escala de 18 (Río Blanco: par 35 / rating 55). Con
+# ese dato la fórmula WHS sumaba +20 golpes de la nada. El guardarrail de
+# código evita el número absurdo, pero lo hace en silencio — este canario es el
+# que grita cuando entra un dato malo nuevo (import automático, carga manual,
+# sync FedeGolf).
+#
+# El `npm run test` de CI corre con credenciales placeholder → los integration
+# tests se SALTEAN ahí. Este workflow los corre con secrets reales para que un
+# PR que ensucie el catálogo NO se pueda mergear.
+#
+# Read-only: el test sólo hace SELECT. No escribe nada, no puede pisarse con
+# otro run ni con un torneo en curso.
+#
+# Triggers:
+#   - pull_request a main → bloquea el merge si el catálogo tiene deuda nueva.
+#   - push a main → atrapa drift apenas entra.
+#   - schedule diario → atrapa datos cargados fuera de un PR (admin, sync).
+#   - workflow_dispatch → manual.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '15 11 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: catalogo-canary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canary:
+    name: Vitest catalogo canary (rating coherente con el par)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    env:
+      # Mismo mapeo de secrets que import-canary.yml / scorer-smoke.yml.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sin secrets el test se SALTEA y el job quedaría verde: el centinela
+      # apagado sin que nadie se entere. Si el secret se rota, se renombra o el
+      # PR viene de un fork, esto falla acá y se ve.
+      - name: Verificar que hay credenciales reales
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Faltan los secrets de Supabase — el canario del catálogo NO corrió."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run catalogo canary (rating vs par, canchas + tees)
+        run: node ./node_modules/vitest/vitest.mjs run src/__tests__/integration/catalogo-rating-canary.test.ts

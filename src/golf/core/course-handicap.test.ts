@@ -254,6 +254,41 @@ const loopsRocas = [
   { id: 'l-blanca', loop_nombre: 'Blanca', course_rating: 72, slope_rating: 120, par_total: 36 },
 ]
 
+describe('resolverCourseData — el par del caller no puede venir en otra escala', () => {
+  // El lookup de 18 hoyos que hace `resolverHandicapDisplayDeRonda` para una
+  // ronda de 9 le pasa a esta función el par de LA RONDA. Si se le cree a
+  // ciegas, ese 36 entra como par de 18 hoyos contra un CR de 71.5: delta 35.5,
+  // el guardarrail lo descarta y la columna HCP del board muestra el índice
+  // crudo en vez del course handicap. Le pasó a `/torneo/[slug]` cuando el par
+  // del board dejó de ser el de la cancha entera.
+  const CANCHA_18 = { slope_rating: 128, course_rating: 71.2, par_total: 72 }
+  const TEE_18 = { rating: 71.5, slope: 130, front_course_rating: null, front_slope_rating: null }
+
+  it('un par de 9 hoyos pedido a 18 se descarta: manda el par de la cancha', async () => {
+    const supa = mockSupabase({ tee: TEE_18, course: CANCHA_18 })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 18, 36, null)
+    expect(cd).toEqual({ slope: 130, courseRating: 71.5, par: 72 })
+    // Índice 15: round(15 × 130/113 + (71.5 − 72)) = 17. Creyéndole al 36, el
+    // guardarrail tiraba el dato y devolvía 15 — el índice pelado.
+    expect(resolverCourseHandicap(15, cd)).toBe(17)
+  })
+
+  it('un par de 18 más fino que el de la cancha SÍ se respeta', async () => {
+    // El caso normal: `course_holes` dice 71 y `courses.par_total` dice 72. Las
+    // dos están en escala de 18, así que gana el del caller, que es el medido.
+    const supa = mockSupabase({ tee: TEE_18, course: CANCHA_18 })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 18, 71, null)
+    expect(cd?.par).toBe(71)
+  })
+
+  it('sin tee, el eslabón de `courses` aplica la misma regla', async () => {
+    const supa = mockSupabase({ course: CANCHA_18 })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 18, 36, null)
+    expect(cd?.par).toBe(72)
+    expect((await resolverCourseData(supa, 'course-1', 'azul', 18, 71, null))?.par).toBe(71)
+  })
+})
+
 describe('resolverCourseData — multi-recorrido: el rating de cada loop se normaliza antes de sumar', () => {
   it('UN loop (9 hoyos) no suma el rating de 18 crudo', async () => {
     const supa = mockSupabaseLoops([loopsRocas[0]])
@@ -372,6 +407,65 @@ describe('resolverCourseData — par de 9h (regresión neto>gross, 11-jun-2026)'
     })
     const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 72, null)
     expect(cd).toEqual({ slope: 130, courseRating: 35.5, par: 36, is9Hole: true })
+  })
+
+  it('si el tee MIENTE baja al rating de la cancha, igual que computePlayerCourseHcp', async () => {
+    // Los dos motores tienen que contestar lo mismo a "¿qué hago cuando un
+    // rating miente?". Antes `resolverCourseData` devolvía el tee roto tal cual
+    // y `resolverCourseHandicap` lo mandaba al camino seguro (índice/2), así que
+    // el mismo jugador en la misma cancha sacaba dos handicaps según la pantalla.
+    // El tee publica 55 sobre una cancha par 36: no cierra en NINGUNA escala
+    // (+19 si ya fuera de 9, −8.5 si fuera de 18). Un 72 acá NO serviría de
+    // fixture: ése es el rating de 18 hoyos del tee y el motor lo recupera
+    // partiéndolo (#293), así que el tee ganaría y este test no mordería.
+    const teeRoto = { rating: 55, slope: 130, front_course_rating: null, front_slope_rating: null }
+    const supa = mockSupabase({
+      tee: teeRoto,
+      holes9: frontNine,
+      // La cancha es de 9 hoyos REALES (par 36) y su rating sí es creíble.
+      course: { slope_rating: 128, course_rating: 35.6, par_total: 36 },
+    })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 36, null)
+    expect(cd).toEqual({ slope: 128, courseRating: 35.6, par: 36, is9Hole: true })
+  })
+
+  it('si el tee miente Y la cancha también, no se inventa nada: camino seguro', async () => {
+    const teeRoto = { rating: 55, slope: 130, front_course_rating: null, front_slope_rating: null }
+    const supa = mockSupabase({
+      tee: teeRoto,
+      holes9: frontNine,
+      course: { slope_rating: 128, course_rating: 55, par_total: 35 },
+    })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 36, null)
+    // Con los dos eslabones rotos el término `(CR − par)` queda anulado, así que
+    // el jugador recibe su índice de 9 hoyos y nada más: 12 / 2 = 6. Lo que no
+    // puede pasar NUNCA es que salga un número inflado por el dato roto.
+    expect(resolverCourseHandicap(12, cd, 9)).toBe(6)
+  })
+
+  it('un tee con el rating de 18h NO se descarta: se parte y gana al de la cancha', async () => {
+    // El caso de los 9 loops, un nivel más abajo. El 72 del tee es su rating de
+    // 18 hoyos; la mitad (36) cierra contra el par. Preferirlo al rating general
+    // de la cancha es más preciso, que es justo para lo que existen los tees.
+    const tee18h = { rating: 72, slope: 130, front_course_rating: null, front_slope_rating: null }
+    const supa = mockSupabase({
+      tee: tee18h,
+      holes9: frontNine,
+      course: { slope_rating: 128, course_rating: 35.6, par_total: 36 },
+    })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 9, 36, null)
+    expect(cd).toEqual({ slope: 130, courseRating: 36, par: 36, is9Hole: true })
+  })
+
+  it('un tee de 18h que miente tampoco se usa: baja a la cancha', async () => {
+    const teeRoto = { rating: 107, slope: 130, front_course_rating: null, front_slope_rating: null }
+    const supa = mockSupabase({
+      tee: teeRoto,
+      holes9: frontNine,
+      course: { slope_rating: 128, course_rating: 71.4, par_total: 72 },
+    })
+    const cd = await resolverCourseData(supa, 'course-1', 'azul', 18, 72, null)
+    expect(cd).toEqual({ slope: 128, courseRating: 71.4, par: 72 })
   })
 
   it('sin course_holes ni par-9 del caller: cae a la mitad del par-18', async () => {
@@ -627,5 +721,105 @@ describe('escala de 9 hoyos — el par decide, el CR obedece', () => {
     const cr9 = courseRatingEnEscalaDe9(72, 36)
     const ch = Math.round(indiceDe9Hoyos(30) * (120 / 113) + (cr9 - par9))
     expect(ch).toBe(16)
+  })
+})
+
+// ─── GUARDARRAIL de rating incoherente (Frente A) ───────────────────────────
+//
+// `resolverCourseHandicap` no le cree a un rating que no cuadra con su par.
+// Los números "antes" son los que producía main con los datos REALES de prod.
+
+describe('resolverCourseHandicap — guardarrail de dato incoherente', () => {
+  it('C.G. Río Blanco (par 35, rating 55, 9h): +26 golpes → índice/2', () => {
+    const rioBlanco: CourseData = { slope: 113, courseRating: 55, par: 35, is9Hole: true }
+    // ANTES: round(6 × 113/113 + (55 − 35)) = 26.
+    expect(resolverCourseHandicap(12, rioBlanco)).toBe(6)
+  })
+
+  it('los 9 recorridos con rating de 18h (par 36, CR 72): +45 golpes → índice/2', () => {
+    const loop: CourseData = { slope: 120, courseRating: 72, par: 36, is9Hole: true }
+    // ANTES: round(9 × 120/113 + (72 − 36)) = round(9.56 + 36) = 46.
+    expect(resolverCourseHandicap(18, loop)).toBe(9)
+  })
+
+  it('ningún jugador recibe un negativo ni un +36 con los datos rotos reales', () => {
+    const rotos: CourseData[] = [
+      { slope: 113, courseRating: 55, par: 35, is9Hole: true },
+      { slope: 120, courseRating: 72, par: 36, is9Hole: true },
+    ]
+    for (const cd of rotos) {
+      for (const index of [0, 5.4, 12, 18.3, 28, 36, 54]) {
+        const ch = resolverCourseHandicap(index, cd)
+        expect(ch).toBeGreaterThanOrEqual(0)
+        expect(ch).toBeLessThanOrEqual(27) // la mitad del índice máximo (54)
+        expect(Number.isInteger(ch)).toBe(true)
+      }
+    }
+  })
+
+  it('un rating SANO se sigue usando con la fórmula WHS (no hay sobre-bloqueo)', () => {
+    // Los números están elegidos para que la fórmula y el camino seguro NO
+    // coincidan: con slope 118 y CR 35.5 ambos dan 6, así que ese caso pasaría
+    // igual con la cancha bloqueada y no probaría nada.
+    const sana9h: CourseData = { slope: 140, courseRating: 38, par: 36, is9Hole: true }
+    // round(6 × 140/113 + (38 − 36)) = round(7.43 + 2) = 9. Camino seguro: 6.
+    expect(resolverCourseHandicap(12, sana9h)).toBe(9)
+
+    const sana18h: CourseData = { slope: 131, courseRating: 72.1, par: 72 }
+    // round(15 × 131/113 + 0.1) = round(17.49) = 17.
+    expect(resolverCourseHandicap(15, sana18h)).toBe(17)
+  })
+
+  it('un tee adelantado legítimo de 18h (par 72, CR 64.4) NO se bloquea', () => {
+    // C.G. La Serena tee dorado: el delta legítimo más grande del catálogo.
+    const laSerena: CourseData = { slope: 118, courseRating: 64.4, par: 72 }
+    expect(resolverCourseHandicap(12, laSerena)).toBe(5)
+  })
+
+  it('el camino "sin datos" reparte la mitad del índice en 9 hoyos', () => {
+    // Sin CR pero sabiendo que la vuelta es de 9: el índice entero le daría
+    // el doble de golpes (`strokesRecibidosEnHoyo` reparte sobre maxSI=9).
+    expect(resolverCourseHandicap(12, { slope: 113, courseRating: 0, par: 36, is9Hole: true })).toBe(6)
+  })
+
+  it('sin cancha vinculada, `roundHoles` es lo único que sabe que la vuelta es de 9', () => {
+    // `courseData` null no puede llevar `is9Hole`. Sin el parámetro, una ronda
+    // de 9 hoyos sin cancha repartía el índice ENTERO sobre 9 hoyos — el doble.
+    // Hay 50 canchas activas sin rating utilizable en el catálogo, más las
+    // rondas con `course_id` nulo.
+    expect(resolverCourseHandicap(12, null, 9)).toBe(6)
+    expect(resolverCourseHandicap(12, null, 18)).toBe(12)
+    // Sin el dato se conserva el comportamiento histórico (índice entero).
+    expect(resolverCourseHandicap(12, null)).toBe(12)
+  })
+
+  it('si `roundHoles` es lo único que dice que es de 9, la FÓRMULA también lo obedece', () => {
+    // Regresión: la validación de escala leía `roundHoles` y la fórmula leía
+    // `courseData.is9Hole`. Con un CourseData sin ese flag (lo arma cualquier
+    // caller a mano), la vuelta se validaba como de 9 y se calculaba como de
+    // 18 — el índice entero sobre 9 hoyos, o sea el doble de golpes.
+    // Slope 140 / CR 38 a propósito: la fórmula da 9 y el camino seguro 6, así
+    // que el test distingue las tres cosas (9h vs 18h, y fórmula vs degradado).
+    const sin9h: CourseData = { slope: 140, courseRating: 38, par: 36 }
+    // round(6 × 140/113 + 2) = 9. ANTES daba round(12 × 140/113 + 2) = 17.
+    expect(resolverCourseHandicap(12, sin9h, 9)).toBe(9)
+    expect(resolverCourseHandicap(12, { ...sin9h, is9Hole: true })).toBe(9)
+  })
+
+  it('`is9Hole` de courseData manda sobre `roundHoles` (es el que usó la fórmula)', () => {
+    const sana9h: CourseData = { slope: 113, courseRating: 35.5, par: 36, is9Hole: true }
+    expect(resolverCourseHandicap(12, sana9h, 18)).toBe(resolverCourseHandicap(12, sana9h))
+  })
+
+  it('el display de una ronda de 9h sin datos de 18h sigue mostrando el índice ENTERO', () => {
+    // Invariante del pedido: el número que se MUESTRA es siempre de 18 hoyos.
+    const cd9: CourseData = { slope: 113, courseRating: 35.5, par: 36, is9Hole: true }
+    expect(resolverCourseHandicapDisplay(12, cd9, null)).toBe(12)
+  })
+
+  it('un jugador plus conserva su handicap negativo cuando el dato es sano', () => {
+    // El guardarrail no clampea: −2 es un handicap legítimo, no un síntoma.
+    const sana: CourseData = { slope: 113, courseRating: 70, par: 72 }
+    expect(resolverCourseHandicap(-2, sana)).toBe(-4)
   })
 })

@@ -10,6 +10,7 @@ import { useScoreSync } from '@/hooks/useScoreSync'
 import { formatLabel } from '@/golf/core/rules'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 
 interface CourseHole { numero: number; par: number; stroke_index: number }
@@ -60,7 +61,13 @@ export default function PlayerScoringPage() {
       const courseId = (t as unknown as { courses: { id: string } | null }).courses?.id
       if (courseId) {
         const { data: holes } = await supabase.from('course_holes').select('numero, par, stroke_index').eq('course_id', courseId).order('numero')
-        setCourseHoles((holes as CourseHole[]) || [])
+        // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en un
+        // torneo de 18 se recorre dos veces y los hoyos 10-18 son los 1-9 otra
+        // vez, con su par y su dificultad reales (`@/golf/courses/vueltas`).
+        // Antes se pedían 18 a un catálogo de 9 y cada `find` fallaba: par 4 fijo
+        // y stroke index = número de hoyo, o sea birdies mal contados y golpes de
+        // handicap repartidos en el hoyo equivocado durante media vuelta.
+        setCourseHoles(hoyosDeLaVuelta((holes as CourseHole[]) || [], (t as unknown as Tournament).hole_count || 18))
       }
       setLoading(false)
     }

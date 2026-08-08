@@ -7,6 +7,7 @@ import { tournamentConfigSchema } from '@/lib/draft/schema'
 import { validateGolfRules } from '@/golf/tournament-config-validator'
 import { mapPrizeForInsert } from '@/lib/data/tournaments/prizes'
 import { mapTournamentForInsert } from '@/lib/data/tournaments/createTournament'
+import { canchasNoAptasParaTorneo } from '@/lib/data/course-aptitud'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +53,18 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const v = validateGolfRules(config)
   if (v.errors.length > 0) return NextResponse.json({ error: 'Reglas de golf', details: v.errors }, { status: 400 })
   if (!v.isReadyToCreate) return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 })
+
+  // Guardarrail de datos de cancha. Es el gate DURO: el wizard también avisa,
+  // pero acá pasan todos los caminos (wizard, draft duplicado, POST directo).
+  // Una cancha cuyo rating miente produce un torneo con handicaps injustos —
+  // el organizador se entera ahora, no en el hoyo 7.
+  const noAptas = await canchasNoAptasParaTorneo(supabase, config.rounds, config)
+  if (noAptas.length > 0) {
+    return NextResponse.json(
+      { error: noAptas[0].mensaje, details: noAptas },
+      { status: 400 },
+    )
+  }
 
   // Lock: status=creating
   await supabase.from('tournament_drafts').update({ status: 'creating' }).eq('id', params.id)

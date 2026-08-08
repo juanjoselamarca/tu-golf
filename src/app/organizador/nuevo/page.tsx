@@ -6,6 +6,12 @@
 import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
 import { redirect } from 'next/navigation'
+import {
+  aptitudDeCatalogo,
+  fetchTeesParaAptitud,
+  COLUMNAS_APTITUD_COURSES,
+  type CourseRowParaAptitud,
+} from '@/lib/data/course-aptitud'
 import TournamentDraftEditor, {
   type CourseOption,
   type DraftSummary,
@@ -23,8 +29,11 @@ export default async function NuevoTorneoPage({ searchParams }: NuevoTorneoPageP
   const user = await getPageUser(supabase)
   if (!user) redirect('/login?next=/organizador/nuevo')
 
-  const [coursesRes, draftsRes, tournamentsRes] = await Promise.all([
-    supabase.from('courses').select('id, nombre, ciudad').order('nombre'),
+  const [coursesRes, teesRes, draftsRes, tournamentsRes] = await Promise.all([
+    // par_total + course_rating viajan en la MISMA consulta que ya se hacía:
+    // el guardarrail no agrega un round-trip a la carga del wizard.
+    supabase.from('courses').select(`id, nombre, ciudad, ${COLUMNAS_APTITUD_COURSES}`).order('nombre'),
+    fetchTeesParaAptitud(supabase),
     supabase
       .from('tournament_drafts')
       .select('id, name, updated_at')
@@ -48,6 +57,20 @@ export default async function NuevoTorneoPage({ searchParams }: NuevoTorneoPageP
     updated_at: d.updated_at as string,
   }))
 
+  // Aptitud de cada cancha precalculada en el servidor. Al cliente le viaja el
+  // veredicto (2 booleanos + mensaje), no los ratings crudos de las ~477 filas
+  // de course_tees: sólo necesita saber si puede elegirla y por qué no.
+  const courseRows = (coursesRes.data ?? []) as unknown as Array<
+    CourseRowParaAptitud & { nombre: string; ciudad: string | null }
+  >
+  const aptitudes = aptitudDeCatalogo(courseRows, teesRes)
+  const courses: CourseOption[] = courseRows.map((c) => ({
+    id: c.id,
+    nombre: c.nombre,
+    ciudad: c.ciudad,
+    aptitud: aptitudes.get(c.id),
+  }))
+
   const tournaments: TournamentSummary[] = (tournamentsRes.data ?? []).map((t) => ({
     id: t.id as string,
     name: (t.name as string) ?? '',
@@ -59,7 +82,7 @@ export default async function NuevoTorneoPage({ searchParams }: NuevoTorneoPageP
   return (
     <TournamentDraftEditor
       userId={user.id}
-      courses={(coursesRes.data as CourseOption[]) || []}
+      courses={courses}
       existingDrafts={drafts}
       recentTournaments={tournaments}
       initialDraftId={searchParams.draft}

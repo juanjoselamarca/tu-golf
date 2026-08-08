@@ -9,8 +9,9 @@
 
 import { createClient } from '@/lib/supabase'
 import { parTotalEstandar } from '@/golf/core/round-score'
-import { resolverCourseHandicap, resolverCourseHandicapDisplay, cargarCourseData } from '@/golf/core/course-handicap'
+import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData, type CourseData } from '@/golf/core/course-handicap'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
@@ -57,13 +58,20 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
       const { data: holes } = await holeQuery.order('recorrido').order('numero')
       if (holes) {
         const isMultiLoop = !!recorridos && recorridos.length > 1
-        let holeNum = 1
-        ;(holes as CourseHole[]).forEach(h => {
-          const num = isMultiLoop ? holeNum : h.numero
-          parMap[num] = h.par
-          siMap[num] = h.stroke_index
-          holeNum++
-        })
+        // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en
+        // una ronda de 18 se recorre dos veces y los hoyos 10-18 son los 1-9
+        // otra vez (`@/golf/courses/vueltas`). Tiene que contestar LO MISMO que
+        // el scorer: si esta capa dijera par 35 y el scorer 70, el board y la
+        // tarjeta del jugador mostrarían netos distintos para la misma ronda.
+        const base = (holes as CourseHole[]).map((h, i) => ({
+          numero: isMultiLoop ? i + 1 : h.numero,
+          par: h.par,
+          stroke_index: h.stroke_index,
+        }))
+        for (const h of hoyosDeLaVuelta(base, ronda.holes)) {
+          parMap[h.numero] = h.par
+          siMap[h.numero] = h.stroke_index
+        }
         finalParTotal = Object.values(parMap).reduce((a, b) => a + b, 0)
       }
     }
@@ -101,7 +109,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
     //  - displayHcpMap  → el COMPLETO (18h) que se MUESTRA en la columna HCP, para
     //    que una ronda de 9h no muestre la mitad y pierda significado.
     const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
-    const courseDataFullByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
+    const courseDataFullByTee = new Map<string, CourseData | null>()
     const courseHcpMap: Record<string, number> = {}
     const displayHcpMap: Record<string, number> = {}
     for (const j of ronda.ronda_libre_jugadores) {
@@ -124,7 +132,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
         )
       }
       const courseData9h = courseDataByTee[playerTee]
-      courseHcpMap[j.id] = resolverCourseHandicap(index, courseData9h)
+      courseHcpMap[j.id] = resolverCourseHandicap(index, courseData9h, ronda.holes)
 
       // Display: en rondas de 9h cargamos los ratings de 18h del MISMO tee y
       // resolvemos el course handicap completo. `finalParTotal` ES el par de 18h
@@ -133,25 +141,17 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
       // `finalParTotal` es el par del loop (~36) y no podemos derivar el de 18h de
       // forma confiable → mostramos round(index) (handicap completo aprox), nunca
       // un valor inflado. Cacheado por tee.
-      let courseData18h = courseData9h
-      if (courseData9h?.is9Hole) {
-        const tieneRecorridos = !!(ronda.recorridos as string[] | null)?.length
-        if (tieneRecorridos) {
-          courseData18h = null // → resolverCourseHandicapDisplay cae a round(index)
-        } else {
-          if (!(playerTee in courseDataFullByTee)) {
-            courseDataFullByTee[playerTee] = await cargarCourseData(
-              ronda.course_id,
-              playerTee,
-              18,
-              finalParTotal,
-              null,
-            )
-          }
-          courseData18h = courseDataFullByTee[playerTee]
-        }
-      }
-      displayHcpMap[j.id] = resolverCourseHandicapDisplay(index, courseData9h, courseData18h)
+      displayHcpMap[j.id] = await resolverHandicapDisplayDeRonda(
+        index,
+        courseData9h,
+        {
+          courseId: ronda.course_id,
+          tee: playerTee,
+          finalParTotal,
+          tieneRecorridos: !!(ronda.recorridos as string[] | null)?.length,
+        },
+        courseDataFullByTee,
+      )
     }
 
     // Equipos (solo modalidades por equipo).

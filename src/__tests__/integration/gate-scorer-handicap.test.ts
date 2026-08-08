@@ -24,8 +24,6 @@ import {
 } from '@/golf/core/course-handicap'
 import {
   fetchCourseHoles,
-  sumParDedupByHole,
-  buildFallbackCourseHoles,
 } from '@/lib/data/tournaments/leaderboard'
 import { calcularMatchPlay } from '@/golf/formats/match-play'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
@@ -37,6 +35,8 @@ import {
   computeBestBallStandings,
 } from '@/golf/leaderboard/team-standings'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 
 const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -53,6 +53,7 @@ interface SeededTournament {
   hole_count: number | null
   course_id: string
   format: string
+  courses: { par_total: number | null } | null
 }
 
 // Tipos exactos que esperan las funciones canónicas (evita el mismatch de
@@ -68,7 +69,7 @@ async function resolverGate(
 ) {
   const { data, error } = await supabase
     .from('tournaments')
-    .select('id, slug, hole_count, course_id, format')
+    .select('id, slug, hole_count, course_id, format, courses(par_total)')
     .eq('slug', slug)
     .single()
   const t = data as SeededTournament | null
@@ -77,10 +78,12 @@ async function resolverGate(
   const courseId = t.course_id
   const holeCount = t.hole_count ?? 18
 
-  // parTotal = suma del par real por hoyo deduplicado (idéntico al board).
+  // El par de la ronda sale de la MISMA función que usan las pantallas. Si este
+  // gate lo derivara por su cuenta, mediría paridad contra un número que la app
+  // no calcula y podría pasar en verde con el board roto.
   const holes = await fetchCourseHoles(supabase as unknown as HolesClient, courseId)
-  const courseHoles = holes.length > 0 ? holes : buildFallbackCourseHoles(holeCount)
-  const parTotal = sumParDedupByHole(courseHoles)
+  const courseHoles = hoyosDeLaVuelta(holes, holeCount)
+  const parTotal = parDeLaRondaDelTorneo(holes, holeCount, t.courses?.par_total)
 
   const { data: players } = await supabase
     .from('players')
@@ -311,16 +314,17 @@ describe('Gate scorer — formatos por equipo sobre batch 2 (best_ball / scrambl
   async function ctxDe(slug: string): Promise<TeamTournamentCtx> {
     const { data, error } = await supabase
       .from('tournaments')
-      .select('id, hole_count, course_id, modo_juego, formato_juego')
+      .select('id, hole_count, course_id, modo_juego, formato_juego, courses(par_total)')
       .eq('slug', slug)
       .single()
     if (error || !data) throw new Error(`torneo ${slug} no encontrado: ${error?.message}`)
-    const t = data as {
+    const t = data as unknown as {
       id: string
       hole_count: number | null
       course_id: string
       modo_juego: string | null
       formato_juego: string | null
+      courses: { par_total: number | null } | null
     }
     const holes = await fetchCourseHoles(supabase as unknown as HolesClient, t.course_id)
     return {
@@ -329,7 +333,7 @@ describe('Gate scorer — formatos por equipo sobre batch 2 (best_ball / scrambl
       modo: (t.modo_juego ?? 'neto') as ModoJuego,
       formato: (t.formato_juego ?? 'best_ball') as FormatoJuego,
       holes,
-      parTotal: sumParDedupByHole(holes),
+      parTotal: parDeLaRondaDelTorneo(holes, t.hole_count ?? 18, t.courses?.par_total),
     }
   }
 

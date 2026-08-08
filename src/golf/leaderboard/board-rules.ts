@@ -15,22 +15,12 @@
 
 import type { CourseHole } from './types'
 
-/**
- * Par asumido para un hoyo que el catálogo de la cancha no tiene.
- *
- * Fuente única del fallback de par del board: la consume `parOfPlayedHoles` y
- * también `buildFallbackCourseHoles` (cancha entera sin catálogo). Tienen que
- * coincidir: si difirieran, una cancha sin catálogo y una cancha a la que le
- * falta UN hoyo puntuarían con criterios distintos.
- *
- * Decisión (29-jul-2026): NO se reusa `STANDARD_PARS` de `golf/coach/hole-pars`
- * aunque responda una pregunta parecida. Ese array es un layout par-72 concreto
- * y su propio doc avisa que miente en canchas par 70/71 — que son varias de las
- * nuestras (Los Leones, Sport Francés, Prince of Wales) —, además de no cubrir
- * los hoyos >18 de las canchas multi-recorrido. Acá hace falta un valor neutro
- * por hoyo, no un layout. Los dos conceptos se parecen y no son el mismo.
- */
-export const PAR_FALLBACK = 4
+// El par de relleno se mudó a `@/golf/courses/vueltas`, que es donde vive la
+// construcción de los hoyos de la vuelta (y quien lo aplica cuando falta un
+// hoyo). Se re-exporta para no romper los imports existentes: la DEFINICIÓN
+// está en un solo lado.
+import { PAR_FALLBACK } from '@/golf/courses/vueltas'
+export { PAR_FALLBACK }
 
 /** Forma mínima de la fila `players` que necesita la resolución de nombre. */
 export interface NameableLegacyPlayer {

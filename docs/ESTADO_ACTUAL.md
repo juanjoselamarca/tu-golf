@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-06-23 | Commit: `231d292`
+> Auto-generado: 2026-08-08 | Commit: `02a197e`
 
 ## Último deploy
 
-- **Commit:** `231d292` — Coach chat PR2 — fundación UX mobile (teclado, voseo/Shift+Enter, 👍/👎, degradación honesta) (#185)
-- **Fecha:** 2026-06-23
-- **Branch:** main (1262 commits total)
+- **Commit:** `02a197e` — fix(guardarrail): el gate de recorridos deriva los hoyos igual que el motor
+- **Fecha:** 2026-08-08
+- **Branch:** fix/guardarrail-rating-9h-claude (1411 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (53 páginas)
@@ -84,25 +84,25 @@
 
 ---
 
-## 2026-06-22 · Coach chat PR2 — fundación UX mobile (#185)
 
-Primer cambio **visible** del rediseño del chat del coach tAIger+ (plan
-`docs/superpowers/plans/2026-06-18-coach-chat-redesign-build.md`). Enfocado a uso
-real en cancha: una mano, guante, apuro. PR1 (refactor base) ya estaba en prod (#179).
+## 2026-08-06 · Una cancha de 9 hoyos en un torneo de 18 son DOS VUELTAS (PR #292)
 
-- **Teclado mobile (D7/E6):** `useVisualViewport` sube el input sobre el teclado
-  (visualViewport), con cleanup de listeners en unmount y guard contra doble offset
-  con `safe-area-inset-bottom`. `computeKeyboardInset` pura + testeada. Autoscroll en
-  streaming `behavior:'auto'` + throttle por frame (no smooth por token).
-- **Input:** `textarea` voseo ("Escribí tu mensaje…"), Enter envía / Shift+Enter salto
-  (`isSendKey` pura), font 16px (sin zoom iOS), auto-grow, touch 48px.
-- **👍/👎 por mensaje (D9/E2):** tabla nueva `taiger_message_feedback` + endpoint
-  `/api/taiger/message-feedback`. NO reusa el rating de estrellas (CHECK 1-5 por sesión).
-  Anclado a **hash de contenido** (`message_key`), NO a índice posicional — el
-  code-reviewer cazó que el backend reordena el array persistido (slice -20 + shift del
-  opener) y el voto se perdía al recargar. Verificado con recarga en smoke. Estrellas
-  retiradas de la UI; columna histórica intacta.
-- **Degradación honesta (D6):** distingue "no me pude conectar" de "la respuesta se
+El motor pedía 18 hoyos a un catálogo de 9, no encontraba los hoyos 10-18 y los
+completaba a par 4 con stroke index inventado. Todo en silencio: el par de la ronda
+salía 72 en vez de 70, ese 72 entraba a la fórmula WHS contra un Course Rating de 9
+hoyos —`(CR − par)` corrido ~36 golpes— y media vuelta se puntuaba contra par 4.
+Ahora la segunda vuelta se modela de verdad: los hoyos 10-18 son los 1-9 otra vez,
+con su par real y el stroke index de la tarjeta de 18 que imprime un club de 9.
+
+- **`src/golf/courses/vueltas.ts` — fuente única** de tres conceptos que estaban
+  re-derivados inline en cinco lugares: en qué escala está el dato, cuántas vueltas
+  da la ronda, y qué hoyos se juegan. Course Rating y par son aditivos por vuelta;
+  el slope no se escala. Cada hoyo declara de qué hoyo del catálogo salió (`origen`),
+  así nadie tiene que re-derivar la correspondencia para los yardajes.
+- **Guardarrail de rating (A1-A5).** Un rating que no cierra en ninguna escala ya no
+  produce handicaps absurdos: el motor anula el término `(CR − par)` y el organizador
+  se entera ANTES de crear el torneo, no en el hoyo 7.
+- **Reconciliación con el #293.** Ese PR aterrizó en `main` 18 horas después y cambió
 
 ---
 

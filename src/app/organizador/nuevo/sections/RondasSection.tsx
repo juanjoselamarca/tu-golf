@@ -8,11 +8,9 @@ import { useMemo } from 'react'
 import CourseSelector from '@/components/CourseSelector'
 import type { TournamentConfig, RoundConfig } from '@/lib/draft/types'
 
-export interface CourseOption {
-  id: string
-  nombre: string
-  ciudad?: string | null
-}
+import type { CourseOption } from '../types'
+
+export type { CourseOption }
 
 export interface RondasSectionProps {
   config: TournamentConfig
@@ -64,6 +62,13 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
       <div style={listStyle}>
         {rounds.map((round, idx) => {
           const selectedCourse = round.course_id ? courseMap.get(round.course_id) : null
+          // Guardarrail de rating: el veredicto depende de los hoyos elegidos,
+          // así que se relee en cada render del selector de hoyos. Una cancha
+          // creada durante la sesión no está en `courses` (viene del SSR): ahí
+          // no hay aviso y manda el gate del servidor.
+          const veredictoCancha = selectedCourse?.aptitud?.[round.hole_count]
+          const avisoBloqueante = veredictoCancha && !veredictoCancha.apta ? veredictoCancha.mensaje : null
+          const avisoLeve = veredictoCancha?.apta ? veredictoCancha.advertencia : null
           return (
             <div key={`r-${round.round_number}-${idx}`} style={rowStyle}>
               <div style={rowHeaderStyle}>
@@ -116,6 +121,24 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
                   </select>
                 </div>
               </div>
+
+              {avisoBloqueante && (
+                <div style={avisoCanchaStyle} role="alert">
+                  <span style={avisoIconStyle} aria-hidden="true">!</span>
+                  {/* El mensaje del dominio es el único texto: ya dice qué pasa
+                      y qué hacer. Prefijarlo repetía la mitad de la frase. */}
+                  <span>
+                    <strong>{selectedCourse?.nombre}</strong> — {avisoBloqueante}
+                  </span>
+                </div>
+              )}
+
+              {avisoLeve && (
+                <div style={avisoCanchaStyle}>
+                  <span style={avisoIconStyle} aria-hidden="true">!</span>
+                  <span>{avisoLeve}</span>
+                </div>
+              )}
             </div>
           )
         })}
@@ -222,6 +245,35 @@ const removeBtnStyle: React.CSSProperties = {
   fontFamily: '"DM Sans", sans-serif',
   fontSize: 12,
   cursor: 'pointer',
+}
+
+// Aviso de cancha no apta. Ámbar y no rojo: no es un error del organizador,
+// es un dato que le falta al club. Mismo lenguaje visual que el panel de
+// blockers del footer, que muestra este mismo motivo.
+const avisoCanchaStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 8,
+  padding: '10px 12px',
+  borderRadius: 8,
+  background: 'rgba(217, 119, 6, 0.10)',
+  border: '1px solid rgba(217, 119, 6, 0.35)',
+  color: 'var(--text-primary, #111827)',
+  fontSize: 12,
+  lineHeight: 1.4,
+}
+
+const avisoIconStyle: React.CSSProperties = {
+  flexShrink: 0,
+  width: 16,
+  height: 16,
+  borderRadius: 999,
+  background: '#d97706',
+  color: '#fff',
+  fontWeight: 700,
+  fontSize: 11,
+  lineHeight: '16px',
+  textAlign: 'center',
 }
 
 const addBtnStyle: React.CSSProperties = {

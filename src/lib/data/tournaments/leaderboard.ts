@@ -23,9 +23,10 @@ import {
   resolverCourseData,
   resolverCourseHandicap,
   resolverCourseHandicapDisplay,
+  resolverHandicapDisplayDeRonda,
   type CourseData,
 } from '@/golf/core/course-handicap'
-import { PAR_FALLBACK } from '@/golf/leaderboard/board-rules'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 
 /** Cliente Supabase server-side. Atado al createClient real para que el
  *  tipo coincida 1:1 con lo que devuelve `createClient()` en page.tsx.
@@ -76,28 +77,18 @@ export async function fetchCourseHoles(
   return (data as CourseHole[] | null) ?? []
 }
 
-/** Genera fallback par-4 / SI=índice cuando la cancha no tiene course_holes cargados.
- *  El par sale de `PAR_FALLBACK` — la misma constante que usa `parOfPlayedHoles`
- *  para un hoyo suelto ausente, así los dos caminos puntúan igual. */
-export function buildFallbackCourseHoles(totalHoyos: number): CourseHole[] {
-  const holes: CourseHole[] = []
-  for (let i = 1; i <= totalHoyos; i++) {
-    holes.push({ numero: i, par: PAR_FALLBACK, stroke_index: i })
-  }
-  return holes
-}
+// El viejo `buildFallbackCourseHoles` (cancha entera a par 4) lo reemplaza
+// `hoyosDeLaVuelta` de `@/golf/courses/vueltas`, que además cubre el caso que
+// ninguna de las copias cubría: una cancha de 9 hoyos en un torneo de 18 se
+// recorre DOS VECES. Se importa de ahí en vez de re-exportarse con otro nombre:
+// dos nombres para la misma función son dos conceptos aparentes.
 
-/**
- * Par total deduplicado por nº de hoyo, para el cálculo de course handicap.
- * Espeja cómo el scorer arma `finalParTotal` (`pm[numero] = par`): si una cancha
- * multi-recorrido (27/36h) trae filas repetidas de `course_holes`, sumarlas todas
- * inflaría el par y desincronizaría el course handicap del board vs la tarjeta.
- */
-export function sumParDedupByHole(holes: CourseHole[]): number {
-  const parByHole = new Map<number, number>()
-  for (const h of holes) parByHole.set(h.numero, h.par)
-  return Array.from(parByHole.values()).reduce((s, p) => s + p, 0)
-}
+// El par de la ronda lo contesta `parDeLaRondaDelTorneo` (`@/golf/core/course-handicap`).
+// Acá vivía `sumParDedupByHole`, que deduplicaba por nº de hoyo pero NO acotaba
+// a los hoyos que se juegan (un torneo de 9 sobre una cancha de 18 medía contra
+// par 72) ni sabía caer al par de la cancha cuando `course_holes` está vacío
+// —el caso de los tres clubes de 27—. Dos funciones para "el par de esta ronda"
+// eran dos respuestas distintas en las mismas cuatro pantallas.
 
 interface HcpContextRow {
   tees: string | null
@@ -250,10 +241,14 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
 
     const ronda = rondaById.get(j.ronda_id)
     const courseId = (ronda?.course_id as string | null) ?? null
+    // Fuera del `if`: el camino seguro de `resolverCourseHandicap` necesita
+    // saber si la vuelta es de 9 hoyos incluso cuando no hay cancha vinculada.
+    const holesN = (ronda?.holes as number | null) ?? 18
     let courseData: CourseData | null = null
-    let courseData18h: CourseData | null = null
+    // Sin cancha vinculada el número a mostrar es el índice entero, aunque la
+    // vuelta sea de 9. Se deriva de la fuente única, no a mano.
+    let handicapDisplay = resolverCourseHandicapDisplay(index, null, null)
     if (courseId) {
-      const holesN = (ronda?.holes as number | null) ?? 18
       const recorridos = (ronda?.recorridos as string[] | null) ?? null
       const tee = (j.tees || (ronda?.tees as string | null) || 'azul').toLowerCase()
       const key = `${courseId}|${tee}|${holesN}`
@@ -264,32 +259,29 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
         )
       }
       courseData = cache.get(key) ?? null
-      courseData18h = courseData
 
-      // Para MOSTRAR el HCP completo en rondas de 9h: cargamos los ratings de 18h
-      // del mismo tee (sin recorridos, para no re-dividir). `parTotal` ya es el par
-      // de 18h (sumParDedupByHole sobre course_holes completo). Con recorridos
-      // (multi-loop) no se puede derivar el par de 18h → cae a round(index).
-      if (courseData?.is9Hole) {
-        if (recorridos?.length) {
-          courseData18h = null
-        } else {
-          const key18 = `${courseId}|${tee}|18`
-          if (!cache.has(key18)) {
-            cache.set(
-              key18,
-              await resolverCourseData(supabase as unknown as SupabaseClient, courseId, tee, 18, parTotal, null),
-            )
-          }
-          courseData18h = cache.get(key18) ?? null
-        }
-      }
+      // El HCP a MOSTRAR sale de la fuente única que usan las tres pantallas de
+      // ronda libre. Acá corre server-side, así que se le inyecta el loader con
+      // el cliente del request en vez del cliente browser.
+      handicapDisplay = await resolverHandicapDisplayDeRonda(
+        index,
+        courseData,
+        {
+          courseId,
+          tee,
+          finalParTotal: parTotal,
+          tieneRecorridos: !!recorridos?.length,
+        },
+        cache,
+        (cid, t, holes, par) =>
+          resolverCourseData(supabase as unknown as SupabaseClient, cid!, t, holes, par, null),
+      )
     }
     out.push({
       ...j,
       handicap_index: index,
-      handicap: resolverCourseHandicap(index, courseData),
-      handicap_display: resolverCourseHandicapDisplay(index, courseData, courseData18h),
+      handicap: resolverCourseHandicap(index, courseData, holesN),
+      handicap_display: handicapDisplay,
     })
   }
   return out

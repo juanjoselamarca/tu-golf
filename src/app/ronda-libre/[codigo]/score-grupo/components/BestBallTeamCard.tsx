@@ -44,6 +44,8 @@ export interface BestBallTeamCardProps {
   jugadores: JugadorMinimal[]
   scores: Record<string, Record<number, number>>
   playerHcp: Record<string, number>
+  /** El HCP a MOSTRAR: siempre escala 18h, aunque la vuelta sea de 9. */
+  playerDisplayHcp?: Record<string, number>
   playerDotHcps: Record<string, number> // por isMatchPlay: hcps relativos
   modoJuego: 'gross' | 'neto'
   currentHole: number
@@ -64,6 +66,7 @@ export function BestBallTeamCard({
   jugadores,
   scores,
   playerHcp,
+  playerDisplayHcp,
   playerDotHcps,
   modoJuego,
   currentHole,
@@ -192,7 +195,8 @@ export function BestBallTeamCard({
           const net = gross != null ? gross - strokes : null
           const recibeGolpe = strokes > 0
           const isWinner = holeWinner?.winnerJugadorId === jid
-          const hcp = playerHcp[jid] ?? 0
+          // Sólo se muestra: por eso es el de 18h, no el que reparte golpes.
+          const hcp = playerDisplayHcp?.[jid] ?? playerHcp[jid] ?? 0
 
           return (
             <div

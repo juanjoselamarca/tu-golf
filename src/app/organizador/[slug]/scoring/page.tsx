@@ -34,7 +34,7 @@ export default function ScoringPage() {
 
   const data = useScoringData(slug)
   const {
-    tournament, players, courseHoles, courseTees, loading, loadError, retryLoad,
+    tournament, players, courseHoles, parTotal, courseTees, loading, loadError, retryLoad,
     holeCount, isMultiRound, totalRounds, activeRoundNum,
   } = data
 
@@ -52,6 +52,7 @@ export default function ScoringPage() {
   const resumen = useResumenBoard({
     tournament,
     courseHoles,
+    parTotal,
     active: activeTab === 'resumen',
   })
 

@@ -5,7 +5,21 @@
 
 import { resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { courseHandicap18h, courseHandicap9h } from '@/golf/core/stroke-index'
-import { indiceDe9Hoyos, parEnEscalaDe9, courseRatingEnEscalaDe9 } from '@/golf/core/course-handicap'
+import {
+  indiceDe9Hoyos,
+  handicapSinDatosDeCancha,
+  ratingsDe9DelTee,
+  type TeeRatings,
+} from '@/golf/core/course-handicap'
+import {
+  courseRatingEnEscalaDe9,
+  hoyosDeUnaVuelta,
+  parDeVariasVueltas,
+  parEnEscalaDe9,
+  sumaDeVueltas,
+  vueltasDeLaRonda,
+} from '@/golf/courses/vueltas'
+import { ratingEsCreible } from '@/golf/courses/rating-coherente'
 
 export interface PlayerForCourseHcp {
   handicap_at_registration: number | null
@@ -27,7 +41,17 @@ export interface TournamentForCourseHcp {
  * Fallback chain:
  *   1. Resolved tee slope/CR (manual → category → global)
  *   2. Course-level slope/CR (from tournament.courses)
- *   3. Raw handicap index (no conversion)
+ *   3. Camino seguro: el índice del jugador (la mitad si son 9 hoyos)
+ *
+ * GUARDARRAIL: cada eslabón se usa SÓLO si su rating es creíble contra el par
+ * a la misma escala (ver `@/golf/courses/rating-coherente`). Un rating que
+ * miente no se usa: se pasa al siguiente eslabón, y si ninguno sirve se cae al
+ * camino seguro. Nunca se inventa un número.
+ *
+ * Ejemplo real: C.G. Río Blanco (par 35) tiene sus 3 tees con rating 55 —
+ * cargado en escala de 18 hoyos porque la validación de la base rechaza el
+ * rating real de 9 (~35). Sin guardarrail, un jugador de índice 12 recibía
+ * `round(6 × 113/113 + (55 − 35))` = +26 golpes en una vuelta de 9 hoyos.
  */
 export function computePlayerCourseHcp(
   player: PlayerForCourseHcp,
@@ -46,6 +70,19 @@ export function computePlayerCourseHcp(
   // publicados el rating del tee y el de la cancha.
   const parDeLaCancha = tournament.courses?.par_total ?? parTotal
 
+  // Una cancha de 9 hoyos jugada a 18 se recorre DOS VECES. Su Course Rating y
+  // su par son los de UNA vuelta: hay que sumarlos, no medirlos contra 18 hoyos
+  // de score. Antes esta rama comparaba el rating de 9 contra un par de 18
+  // inflado a par 4, el guardarrail lo leía como dato incoherente y toda la
+  // cancha caía al índice crudo — aunque su dato estuviera perfecto.
+  const vueltas = vueltasDeLaRonda(hoyosDeUnaVuelta(parDeLaCancha), holeCount)
+  // El par de la ronda cuando la cancha se recorre varias veces. MISMA fuente
+  // que `resolverCourseData` (`parDeVariasVueltas`): el par propio de la cancha
+  // por la cantidad de vueltas, no el `parTotal` que llega. Si cada motor se
+  // creyera el par que le pasan, el board y la tarjeta volverían a mostrar netos
+  // distintos para el mismo jugador. Ver el doc de `parDeVariasVueltas`.
+  const parDeLaRonda = parDeVariasVueltas(parDeLaCancha, vueltas)
+
   if (courseTees.length > 0) {
     const { tee } = resolvePlayerTee({
       playerTeeId: player.tee_id,
@@ -56,12 +93,23 @@ export function computePlayerCourseHcp(
 
     if (tee?.slope && tee?.rating) {
       if (holeCount <= 9) {
-        // Use 9-hole specific ratings if available, otherwise halve the 18h CR
-        const slope9 = tee.front_slope_rating ?? tee.slope
-        const cr9 = tee.front_course_rating ?? courseRatingEnEscalaDe9(tee.rating, parDeLaCancha)
-        return courseHandicap9h(indiceDe9Hoyos(index), slope9, cr9, parEnEscalaDe9(parTotal))
+        // Fuente única con `resolverCourseData`: mismo criterio campo por campo.
+        const { slope: slope9, courseRating: cr9 } = ratingsDe9DelTee(tee as TeeRatings, parDeLaCancha)
+        const par9 = parEnEscalaDe9(parTotal)
+        if (ratingEsCreible({ courseRating: cr9, par: par9, holes: 9 })) {
+          return courseHandicap9h(indiceDe9Hoyos(index), slope9, cr9, par9)
+        }
+      } else if (vueltas > 1) {
+        // Cancha de 9 jugada a 18: CR de una vuelta, sumado. El índice va ENTERO
+        // (es una vuelta de 18) y el slope no se escala (es adimensional).
+        const unaVuelta = ratingsDe9DelTee(tee as TeeRatings, parDeLaCancha)
+        const cr = sumaDeVueltas(unaVuelta.courseRating, vueltas)
+        if (ratingEsCreible({ courseRating: cr, par: parDeLaRonda, holes: holeCount })) {
+          return courseHandicap18h(index, unaVuelta.slope, cr, parDeLaRonda)
+        }
+      } else if (ratingEsCreible({ courseRating: tee.rating, par: parTotal, holes: holeCount })) {
+        return courseHandicap18h(index, tee.slope, tee.rating, parTotal)
       }
-      return courseHandicap18h(index, tee.slope, tee.rating, parTotal)
     }
   }
 
@@ -70,17 +118,24 @@ export function computePlayerCourseHcp(
   if (course?.slope_rating && course?.course_rating) {
     if (holeCount <= 9) {
       // Halve course-level CR for 9-hole estimate — salvo que la cancha ya sea de 9.
-      return courseHandicap9h(
-        indiceDe9Hoyos(index),
-        course.slope_rating,
-        courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha),
-        parEnEscalaDe9(parTotal),
-      )
+      const cr9 = courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha)
+      const par9 = parEnEscalaDe9(parTotal)
+      if (ratingEsCreible({ courseRating: cr9, par: par9, holes: 9 })) {
+        return courseHandicap9h(indiceDe9Hoyos(index), course.slope_rating, cr9, par9)
+      }
+    } else if (vueltas > 1) {
+      const cr = sumaDeVueltas(courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha), vueltas)
+      if (ratingEsCreible({ courseRating: cr, par: parDeLaRonda, holes: holeCount })) {
+        return courseHandicap18h(index, course.slope_rating, cr, parDeLaRonda)
+      }
+    } else if (
+      ratingEsCreible({ courseRating: course.course_rating, par: parTotal, holes: holeCount })
+    ) {
+      return courseHandicap18h(index, course.slope_rating, course.course_rating, parTotal)
     }
-    return courseHandicap18h(index, course.slope_rating, course.course_rating, parTotal)
   }
 
-  return index
+  return handicapSinDatosDeCancha(index, holeCount <= 9)
 }
 
 /**

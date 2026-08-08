@@ -9,6 +9,7 @@ import Scorecard from '@/components/Scorecard'
 import type { ScorecardHole } from '@/components/Scorecard'
 import { ChevronDown } from '@/components/icons'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 
 /* ── Types ────────────────────────────────────────────────── */
 export interface GroupData {
@@ -131,14 +132,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
   // - resto = SCORE
   const scoreHeader = formato === 'stableford' && !supportsDualLeaderboard ? 'PUNTOS' : 'SCORE'
 
-  // Resolve holes for Scorecard: use courseHoles if provided, else generate defaults
-  const resolvedHoles: ScorecardHole[] = courseHoles && courseHoles.length > 0
-    ? courseHoles
-    : Array.from({ length: totalHoyos }, (_, i) => ({
-        numero: i + 1,
-        par: 4,
-        stroke_index: i + 1,
-      }))
+  // Los hoyos de la RONDA (fuente única `@/golf/courses/vueltas`): sin catálogo
+  // arma una cancha neutra, y con una cancha de 9 en un torneo de 18 repite la
+  // vuelta en vez de dejar los hoyos 10-18 en blanco.
+  const resolvedHoles: ScorecardHole[] = hoyosDeLaVuelta(courseHoles ?? [], totalHoyos)
 
   // Build map: playerId → Player
   const playerByDbId = useMemo(() => {

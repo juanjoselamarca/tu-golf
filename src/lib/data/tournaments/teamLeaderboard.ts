@@ -184,7 +184,7 @@ export async function fetchBestBallTeams(
         await resolverCourseData(supabase, courseId, teeNorm, holesN, parTotal, recorridos),
       )
     }
-    return resolverCourseHandicap(index, courseDataCache.get(key) ?? null)
+    return resolverCourseHandicap(index, courseDataCache.get(key) ?? null, holesN)
   }
 
   const teams: BestBallTeam[] = []

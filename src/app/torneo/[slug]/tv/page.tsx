@@ -6,7 +6,8 @@ import { createClient } from '@/lib/supabase'
 import { Trophy } from '@/components/icons'
 import { fetchTVBoardData, type TVTournamentInfo, type TVWithdrawnEntry } from '@/lib/data/tournaments/tvBoard'
 import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy'
-import { buildFallbackCourseHoles, sumParDedupByHole } from '@/lib/data/tournaments/leaderboard'
+import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { captureError } from '@/lib/error-tracking'
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
@@ -70,9 +71,12 @@ export default function TVPage() {
     // tenía su propio agregado (leía `rounds.total_net` almacenado y medía
     // contra el par de la vuelta completa), y por eso mostraba un ranking
     // distinto al de la landing durante la vuelta.
-    const holes = courseHoles.length > 0 ? courseHoles : buildFallbackCourseHoles(t.hole_count)
+    const holes = hoyosDeLaVuelta(courseHoles, t.hole_count)
     const ctx: TournamentLeaderboardContext = {
-      parTotal: sumParDedupByHole(holes),
+      // Fuente única compartida con /torneo, /en-vivo y el Resumen del
+      // organizador. La suma cruda de `holes` no acotaba a los hoyos jugados:
+      // un torneo de 9 sobre una cancha de 18 medía contra par 72.
+      parTotal: parDeLaRondaDelTorneo(courseHoles, t.hole_count, t.par_total),
       totalHoyos: t.hole_count,
       modoJuego: t.modo_juego,
       formatoJuego: t.formato_juego,

@@ -9,8 +9,9 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getYardajeForTee } from '@/types/ronda'
-import { resolverCourseHandicap, cargarCourseData } from '@/golf/core/course-handicap'
+import { resolverCourseHandicap, cargarCourseData, resolverHandicapDisplayDeRonda, type CourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { calcularScramble, calcularFoursome, teePlayerEnHoyo, isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
@@ -79,6 +80,8 @@ export default function ScoreGrupoPage() {
   const [parMap, setParMap] = useState<Record<number, number>>({})
   const [holeDataMap, setHoleDataMap] = useState<Record<number, HoleData>>({})
   const [playerHcp, setPlayerHcp] = useState<Record<string, number>>({})
+  /** El HCP que se MUESTRA: siempre en escala de 18 hoyos, aunque se jueguen 9. */
+  const [playerDisplayHcp, setPlayerDisplayHcp] = useState<Record<string, number>>({})
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [confirmFinalize, setConfirmFinalize] = useState(false)
@@ -198,27 +201,41 @@ export default function ScoreGrupoPage() {
           const teeCol = getTeeYardageColumn(r.tees || 'azul')
           // Renumber: loop 1 = 1-9, loop 2 = 10-18 (for multi-loop)
           const isMultiLoop = recorridos && recorridos.length > 1
-          let holeNum = 1
-          for (const h of holes) {
-            const num = isMultiLoop ? holeNum : h.numero
-            pm2[num] = h.par
-            hdm2[num] = {
-              numero: num,
+          const base = holes.map((h, i) => ({
+            numero: isMultiLoop ? i + 1 : h.numero,
+            par: h.par,
+            stroke_index: h.stroke_index,
+            // Solo exponer yardajes auditados contra fuente primaria.
+            yardaje: (h as Record<string, unknown>).yardaje_verificado_at
+              ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
+              : null,
+            yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {
+              negras: (h as Record<string, unknown>).yardaje_negras as number | null ?? null,
+              azul: h.yardaje_azul ?? null,
+              blanco: h.yardaje_blanco ?? null,
+              rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
+            } : undefined,
+          }))
+          // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 en una
+          // ronda de 18 se recorre dos veces (`@/golf/courses/vueltas`). Esta
+          // pantalla, el scorer individual y el board tienen que contestar lo
+          // MISMO — si no, el mismo jugador ve dos netos según por dónde entre.
+          // De qué hoyo del catálogo salió cada uno lo dice `hoyosDeLaVuelta`
+          // (`origen`). Re-derivarlo acá con `vueltasDeLaRonda` se saltaba su
+          // guarda de catálogo sucio: en una cancha 27h los dos cálculos
+          // divergen y los yardajes salen del hoyo equivocado.
+          const porNumero = new Map(base.map((h) => [h.numero, h]))
+          hoyosDeLaVuelta(base, r.holes).forEach((h) => {
+            const origen = h.origen != null ? porNumero.get(h.origen) ?? null : null
+            pm2[h.numero] = h.par
+            hdm2[h.numero] = {
+              numero: h.numero,
               par: h.par,
               stroke_index: h.stroke_index,
-              // Solo exponer yardajes auditados contra fuente primaria.
-              yardaje: (h as Record<string, unknown>).yardaje_verificado_at
-                ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
-                : null,
-              yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {
-                negras: (h as Record<string, unknown>).yardaje_negras as number | null ?? null,
-                azul: h.yardaje_azul ?? null,
-                blanco: h.yardaje_blanco ?? null,
-                rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
-              } : undefined,
+              yardaje: origen?.yardaje ?? null,
+              yardajes: origen?.yardajes,
             }
-            holeNum++
-          }
+          })
           setParMap(pm2)
           setHoleDataMap(hdm2)
           finalParTotal = Object.values(pm2).reduce((a, b) => a + b, 0)
@@ -231,7 +248,11 @@ export default function ScoreGrupoPage() {
 
       // Load handicaps: convertir índice → course handicap usando fórmula WHS
       const hcpMap: Record<string, number> = {}
+      // El HCP que se PUNTÚA y el que se MUESTRA son dos números distintos en
+      // una vuelta de 9: se puntúa con la mitad (WHS) y se muestra el completo.
+      const displayMap: Record<string, number> = {}
       const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
+      const courseData18hByTee = new Map<string, CourseData | null>()
       for (const j of r.ronda_libre_jugadores) {
         let index: number
         if (j.handicap != null) { index = j.handicap }
@@ -241,9 +262,21 @@ export default function ScoreGrupoPage() {
         if (!courseDataByTee[playerTee]) {
           courseDataByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, r.holes, finalParTotal, (r.recorridos as string[] | null) ?? null)
         }
-        hcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee])
+        hcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[playerTee], r.holes)
+        displayMap[j.id] = await resolverHandicapDisplayDeRonda(
+          index,
+          courseDataByTee[playerTee],
+          {
+            courseId: r.course_id ?? null,
+            tee: playerTee,
+            finalParTotal,
+            tieneRecorridos: !!(r.recorridos as string[] | null)?.length,
+          },
+          courseData18hByTee,
+        )
       }
       setPlayerHcp(hcpMap)
+      setPlayerDisplayHcp(displayMap)
 
       // Fetch team data for team formats.
       // scramble/foursome usan equipo.scores (compartido); best_ball lee la
@@ -944,6 +977,7 @@ export default function ScoreGrupoPage() {
                 jugadores={jugadores}
                 scores={scores}
                 playerHcp={playerHcp}
+                playerDisplayHcp={playerDisplayHcp}
                 playerDotHcps={playerDotHcps}
                 modoJuego={modoJuego}
                 currentHole={currentHole}
@@ -1127,7 +1161,7 @@ export default function ScoreGrupoPage() {
                     <div style={{ fontSize: '14px', fontWeight: 600, color: theme.text }}>{j.nombre}</div>
                     {showNetStableford && played > 0 && (
                       <div style={{ fontSize: '10px', color: theme.textFaint, marginTop: '1px' }}>
-                        HCP {hcp}
+                        HCP {playerDisplayHcp[j.id] ?? hcp}
                       </div>
                     )}
                   </div>

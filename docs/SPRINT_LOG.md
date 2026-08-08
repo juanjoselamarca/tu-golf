@@ -4,6 +4,43 @@
 
 ---
 
+## 2026-08-06 · Una cancha de 9 hoyos en un torneo de 18 son DOS VUELTAS (PR #292)
+
+El motor pedía 18 hoyos a un catálogo de 9, no encontraba los hoyos 10-18 y los
+completaba a par 4 con stroke index inventado. Todo en silencio: el par de la ronda
+salía 72 en vez de 70, ese 72 entraba a la fórmula WHS contra un Course Rating de 9
+hoyos —`(CR − par)` corrido ~36 golpes— y media vuelta se puntuaba contra par 4.
+Ahora la segunda vuelta se modela de verdad: los hoyos 10-18 son los 1-9 otra vez,
+con su par real y el stroke index de la tarjeta de 18 que imprime un club de 9.
+
+- **`src/golf/courses/vueltas.ts` — fuente única** de tres conceptos que estaban
+  re-derivados inline en cinco lugares: en qué escala está el dato, cuántas vueltas
+  da la ronda, y qué hoyos se juegan. Course Rating y par son aditivos por vuelta;
+  el slope no se escala. Cada hoyo declara de qué hoyo del catálogo salió (`origen`),
+  así nadie tiene que re-derivar la correspondencia para los yardajes.
+- **Guardarrail de rating (A1-A5).** Un rating que no cierra en ninguna escala ya no
+  produce handicaps absurdos: el motor anula el término `(CR − par)` y el organizador
+  se entera ANTES de crear el torneo, no en el hoyo 7.
+- **Reconciliación con el #293.** Ese PR aterrizó en `main` 18 horas después y cambió
+  la premisa: ahora el rating se **corrige** antes de usarlo. Auditando el número ya
+  corregido, el guardarrail veía sano justo el dato que tiene que bloquear.
+  `resolverRatingEnEscalaDe9` ahora dice **por qué** dio ese número (`ya_en_9` /
+  `era_de_18` / `imposible`): el motor usa el valor, el guardarrail mira la
+  clasificación. Resultado sobre el catálogo real: **de 11 canchas bloqueadas a 2**
+  (sólo Río Blanco DAMAS y VARONES), y **0 recorridos** — Brisas, Marbella y Rocas
+  de Santo Domingo vuelven a servir para torneo neto.
+- **"Un concepto, una fuente" ×5.** El par de la ronda lo contestaban dos funciones
+  con 35 golpes de diferencia (y `/en-vivo` tenía las dos en el mismo archivo) →
+  `parDeLaRondaDelTorneo`. El umbral rating↔par vivía en dos lados con valores
+  distintos → uno solo. La tarjeta pública y la del historial derivaban sus hoyos
+  por separado → `hoyosDeLaTarjeta`. Ver `docs/REORDENAMIENTO_TRACKING.md`.
+- **Code review**: FAIL con 2 bloqueantes + 2 importantes, todos cerrados con tests
+  verificados por mutación. El bloqueante real: la columna HCP se degradaba al índice
+  crudo en torneos de 9 hoyos porque el lookup de 18h recibía el par de la ronda.
+
+tsc 0 · 3638 tests unitarios · 57 de integración contra prod · build · lint 0.
+
+---
 ## 2026-08-06 · Modal del índice explicado — rediseño + 25 fallos de contraste (PR #301)
 
 Cierra la **entrega 2 de 2** de los reportes de inbox `5de1268e` / `a47db33a`
