@@ -384,10 +384,55 @@ usan las tres pantallas de ronda libre y el board de torneo. Lo que quedó fuera
 | # | Deuda | Dónde | Por qué quedó fuera |
 |---|---|---|---|
 | 1 | **P1 — Los dos motores derivan el par de 9 hoyos distinto.** `computePlayerCourseHcp` usa `parEnEscalaDe9(parTotal)` (la mitad del par de la ronda); `resolverCourseData` usa `resolveNineHolePar` (el par REAL del front-9 desde `course_holes`). En una cancha de par 71 dan 36 y 35. Con un delta de rating justo en el borde de la tolerancia, los dos motores pueden clasificar distinto el MISMO rating y separarse 1 golpe. | `src/golf/core/compute-player-course-hcp.ts` vs `src/golf/core/course-handicap.ts` | Preexistente, no lo introdujo este PR. Unificarlo obliga a que `computePlayerCourseHcp` consulte `course_holes` (hoy es una función sincrónica y pura). Se migra al tocar ese motor. |
-| 2 | **P2 — `evaluarAptitudTorneo` colapsa los hoyos a 9\|18, pero ronda libre acepta 27.** En una ronda de 27 el gate juzga a 18h contra `courses.par_total` mientras el motor evalúa contra el par de ~108 con tolerancia 15. | `src/golf/courses/aptitud-torneo.ts` | El desvío es en la dirección benigna (no se pinta el aviso; el motor igual degrada al camino seguro) y los torneos están tipados `9 \| 18`, así que no entra por ahí. |
+| 2 | ~~**P2 — `evaluarAptitudTorneo` colapsa los hoyos a 9\|18, pero ronda libre acepta 27.**~~ | `src/golf/courses/aptitud-torneo.ts` | ✅ **Cerrado (6-ago-2026).** `evaluarAptitudRecorridos` deriva los hoyos de la selección igual que el motor (`hoyosDeUnaVuelta` por hijo, sumado) y `veredictoDeRatings` acepta cualquier cantidad, así que la tolerancia escala con ella. Lo destapó el code-reviewer: no era benigno — tres loops con el delta legítimo más grande del catálogo (−3.9, Marbella) suman −11.7 y el gate bloqueaba el club de 27 entero contra la tolerancia de 18. |
 | 3 | **`score-grupo/page.tsx` sigue "sucio"** (1300+ LOC). | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | Aplicó la excepción de fix acotado: el cambio fue separar el HCP que se muestra del que puntúa (una regresión de este mismo PR). Refactor pendiente. |
 
 **Frente B (datos, no código):** cargar el `front_course_rating` /
-`front_slope_rating` real de los tees de Río Blanco (×2) y de los 9 recorridos de
-Brisas, Marbella y Rocas. Eso los desbloquea para torneo neto — y NO necesita la
-migración A5: la validación de esas columnas ya acepta el rango de 9 hoyos.
+`front_slope_rating` real de los tees de **Río Blanco (×2)**. Eso los desbloquea
+para torneo neto — y NO necesita la migración A5: la validación de esas columnas
+ya acepta el rango de 9 hoyos.
+
+Los 9 recorridos de Brisas, Marbella y Rocas **ya NO están bloqueados**: ver
+abajo. Cargar su rating real de 9 hoyos sigue siendo deseable (hoy el motor usa
+la mitad del de 18, que es una aproximación), pero dejó de ser bloqueante.
+
+### Reconciliación con el #293 al mergear (6-ago-2026)
+
+El #293 aterrizó en `main` 18 horas después del último commit de esta rama y
+cambió la premisa del guardarrail: ahora el rating se **corrige** antes de usarlo
+(prueba las dos hipótesis de escala y, si ninguna cierra, devuelve el par para que
+`(CR − par)` se anule). Auditando el número ya corregido, el gate quedaba ciego
+justo donde importaba.
+
+`resolverRatingEnEscalaDe9` ahora devuelve **por qué** dio ese número —
+`ya_en_9` / `era_de_18` (RECUPERADO) / `imposible` — y cada consumidor mira lo
+que le corresponde: el motor usa el valor, el guardarrail mira la clasificación y
+juzga el dato CRUDO cuando es imposible.
+
+Consecuencia sobre el catálogo real (193 canchas, medido el 6-ago):
+
+| | Antes del merge | Después |
+|---|---|---|
+| Canchas bloqueadas a 9 y a 18 | 11 | **2** (Río Blanco DAMAS y VARONES) |
+| Recorridos bloqueados | 3 clubes de 27 | **0** |
+| Advertencias | 1 (Rinconada) | 1 (Rinconada) |
+
+Los 9 loops (par 36 con `course_rating` 72) dejan de estar bloqueados porque su
+rating **sí se recupera**: 72 es el de 18 hoyos y la mitad cierra contra el par.
+Bloquearlos era un falso positivo que dejaba a tres clubes reales sin torneos
+netos. Río Blanco sigue bloqueado: 55 contra par 35 no cierra en ninguna escala.
+
+### Lo que se unificó de paso
+
+| Concepto | Antes | Ahora |
+|---|---|---|
+| Par de la ronda de torneo | `courses.par_total ?? 72` en `/torneo` y en el Resumen; `sumParDedupByHole(...)` en `/en-vivo` y `/tv` (y las dos en `/en-vivo`) | `parDeLaRondaDelTorneo`, una sola |
+| Umbral rating↔par | `BANDA_RATING_VS_PAR = 6` en `vueltas.ts` y `TOLERANCIA_RATING_9H = 5` en `rating-coherente.ts` | uno solo (`rating-coherente.ts`) |
+| Par cuando hay dos candidatos | regla inline en el paso 0 del #293, y `parTotal ?? 72` a ciegas en las ramas de 18h | `parEnLaMismaEscala`, en los tres lugares |
+| Hoyos de la tarjeta | idiom copiado en `/tarjeta/[id]` y `/perfil/historial/[id]`, con resultados distintos | `hoyosDeLaTarjeta` |
+| De qué hoyo del catálogo sale cada hoyo de la ronda | `vueltasDeLaRonda` re-derivado en los dos scorers, sin la guarda de catálogo sucio | campo `origen` de `hoyosDeLaVuelta` |
+
+**Deuda que este PR deja abierta:** `hoyosDeLaVuelta` reparte el stroke index de
+las dos vueltas asumiendo la convención chilena (impares la primera vuelta, pares
+la segunda). Es la que imprimen los clubes de 9 hoyos del catálogo, pero no es una
+regla universal — un club que publique otra tarjeta de 18 necesitaría cargarla.
