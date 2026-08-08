@@ -13,10 +13,12 @@
   --brand-hover: #A67D1E;
   --brand-dark:  #070D18;
   --brand-light: #FDF6E3;
-  /* --brand-text: oro accesible para uso COMO TEXTO sobre fondos claros.
-     #c4992a tiene 2.65:1 sobre #fff (FAIL WCAG AA). #8a6a16 da ~5.0:1.
-     Usar siempre que el oro sea texto, no superficie ni borde. */
-  --brand-text:  #8A6A16;
+  /* Oro COMO TEXTO → `--brand-on-bg` (definido por tema más abajo), nunca
+     #c4992a literal: da 2.65:1 sobre blanco y reprueba WCAG AA.
+     Hubo acá un `--brand-text: #8A6A16` fijo en ambos modos, sin un solo
+     consumidor. Era una trampa: fijo significa #8A6A16 sobre navy en dark
+     (~3.35:1, reprueba) justo donde `--brand-on-bg` sí pasa. Borrado el
+     6-ago-2026 para que quede un único token de este concepto. */
 
   /* Score colors — espejo de GARMIN_COLORS (src/components/ScoreSymbol.tsx), que es la
      fuente canónica en runtime. Garmin REAL: birdie celeste, doble+ rojo (el viejo

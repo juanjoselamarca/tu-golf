@@ -39,7 +39,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
                 aria-label="Ver cómo se calcula tu índice oficial"
                 style={{
                   marginTop: '10px', background: 'transparent', border: 'none', padding: '2px',
-                  fontSize: '11px', color: '#c4992a', cursor: 'pointer', fontWeight: 600,
+                  fontSize: '11px', color: 'var(--brand-on-bg)', cursor: 'pointer', fontWeight: 600,
                   fontFamily: '"DM Sans", system-ui, sans-serif',
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
                 }}
@@ -65,7 +65,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
                 fontSize: '11px',
                 fontWeight: 600,
                 fontFamily: '"DM Sans", system-ui, sans-serif',
-                color: fedegolf.refreshing ? 'var(--text-3)' : '#c4992a',
+                color: fedegolf.refreshing ? 'var(--text-3)' : 'var(--brand-on-bg)',
                 cursor: fedegolf.refreshing ? 'wait' : 'pointer',
                 letterSpacing: '0.02em',
                 display: 'inline-flex',
@@ -129,7 +129,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
               fontSize: '11px',
               fontWeight: 600,
               fontFamily: '"DM Sans", system-ui, sans-serif',
-              color: '#c4992a',
+              color: 'var(--brand-on-bg)',
               cursor: 'pointer',
               letterSpacing: '0.02em',
               display: 'inline-flex',
@@ -171,10 +171,10 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)' }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)' }}
         >
-          <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c4992a', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
+          <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
             Golfers+
           </p>
-          <p style={{ fontSize: '38px', fontWeight: 700, color: '#c4992a', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
+          <p style={{ fontSize: '38px', fontWeight: 700, color: 'var(--brand-on-bg)', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
             {profile.indice_golfers.toFixed(1)}
           </p>
           <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
@@ -185,13 +185,13 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
               Actualizado {formatRelativeTime(profile.indice_golfers_updated_at)}
             </p>
           )}
-          <p style={{ fontSize: '10px', color: '#c4992a', margin: '8px 0 0', fontWeight: 600 }}>
+          <p style={{ fontSize: '10px', color: 'var(--brand-on-bg)', margin: '8px 0 0', fontWeight: 600 }}>
             Ver qué rondas cuentan →
           </p>
         </button>
       ) : (
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
-          <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c4992a', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
+          <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
             Golfers+
           </p>
           <p style={{ fontSize: '28px', color: 'var(--text-3)', lineHeight: 1, margin: '0 0 4px' }}>—</p>
