@@ -15,7 +15,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   ordenarHoyosDeLosRecorridos,
-  renumerarSiEsMultiLoop,
   type HoyoDelCatalogo,
 } from '@/golf/courses/hoyos-de-la-ronda'
 
@@ -110,19 +109,23 @@ export async function resolverHoyosDeLaRonda(
   )
 
   if (filasPropias.length > 0) {
-    // Con varios loops el orden lo manda la selección, no el alfabeto que
-    // devolvió PostgREST. Se reordena acá para que las dos vías contesten igual.
-    const porRecorrido = agruparPorRecorrido(filasPropias)
-    if (loops.length > 1) {
+    // Con recorridos elegidos, el orden lo manda la selección y no el alfabeto
+    // que devolvió PostgREST — y el resultado pasa por el MISMO tratamiento que
+    // la vía 2 (orden, renumeración y normalización del stroke index). La rama
+    // de un solo loop entra acá igual: con los datos de hoy es indistinguible,
+    // pero en un módulo cuya tesis es "las dos vías contestan igual" una
+    // asimetría es una divergencia esperando datos que la despierten.
+    if (loops.length > 0) {
+      const porRecorrido = agruparPorRecorrido(filasPropias)
       return {
         hoyos: ordenarHoyosDeLosRecorridos(porRecorrido, loops),
         loopsResueltos: loops.filter((l) => porRecorrido.has(l)).length,
       }
     }
-    return {
-      hoyos: renumerarSiEsMultiLoop(filasPropias, loops.length),
-      loopsResueltos: loops.length,
-    }
+    // Sin recorridos elegidos no hay nada que componer: es la cancha tal cual la
+    // publica el club, con su numeración y su stroke index oficiales. Son 168 de
+    // las 186 canchas activas y este camino no las toca.
+    return { hoyos: filasPropias, loopsResueltos: 0 }
   }
 
   // Vía 2: es el club padre de un complejo y los hoyos cuelgan de los hijos.
