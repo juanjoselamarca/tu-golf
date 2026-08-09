@@ -21,7 +21,7 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 
 | # | Archivo | LOC antes | LOC después | Estado | PR | Fecha |
 |---|---|---|---|---|---|---|
-| 1 | `src/app/ronda-libre/nueva/page.tsx` | 2118 | — | ⏳ Pendiente | — | — |
+| 1 | `src/app/ronda-libre/nueva/page.tsx` | 2120 | 219 | ✅ Hecho | `c11f50ab` (hooks/components + `lib/data/ronda-libre-nueva.ts` + `src/golf/ronda-libre/`) | 9 ago |
 | 2 | `src/app/ronda-libre/[codigo]/page.tsx` | 2038 | 275 | ✅ Hecho | `3267d66` | 17-18 jun |
 | 3 | `src/app/perfil/historial/page.tsx` | 1408 | 54 | ✅ Hecho | PR #75 (hooks/components) + RSC jul-2026 (Server Component, capa `lib/data/historial.ts`, golf en `src/golf/stats/historial.ts`) | 28 may / 15 jul |
 | 4 | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | 1305 | — | ⏳ Pendiente | — | — |
