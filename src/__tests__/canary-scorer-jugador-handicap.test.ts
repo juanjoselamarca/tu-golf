@@ -148,6 +148,25 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
   })
 })
 
+describe('canario de fuente · el servidor no reescribe el neto con el índice', () => {
+  const RUTA = join(process.cwd(), 'src/app/api/game/actions.ts')
+  const fuente = readFileSync(RUTA, 'utf-8')
+
+  it('el fallback de neto/puntos usa el gate, no el índice crudo', () => {
+    // `upsert_score` recalcula neto y puntos cuando el caller manda sólo el
+    // gross — el "deshacer" del scorer y el guardado de putts/fairway/GIR.
+    // Con el índice crudo, marcar una estadística REESCRIBÍA el neto correcto
+    // que el scorer acababa de persistir.
+    expect(fuente).toMatch(/resolveScoringCourseHcp/)
+    expect(fuente).toMatch(/puntajeDeHoyo/)
+  })
+
+  it('no reparte golpes con las funciones crudas de scoring', () => {
+    // Si vuelven a aparecer acá, alguien esquivó `puntajeDeHoyo` y con él el gate.
+    expect(fuente).not.toMatch(/strokesRecibidosEnHoyo\(|puntosStablefordHoyo\(/)
+  })
+})
+
 describe('canario de fuente · el GWI del torneo reparte con el gate', () => {
   const RUTA = join(process.cwd(), 'src/app/api/gwi/torneo/[slug]/route.ts')
   const fuente = readFileSync(RUTA, 'utf-8')

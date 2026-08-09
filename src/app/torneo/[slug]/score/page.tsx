@@ -172,8 +172,9 @@ export default function PlayerScoringPage() {
     // aunque el SI sea 18h-impar en un loop de 9h. El SI mostrado se mantiene crudo.
     const si         = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNumber] ?? holeNumber
     const holeCount  = tournament.hole_count || 18
+    const hcpJugador = player.handicap_at_registration ?? 0
     const { neto: netScore, puntos: points } = puntajeDeHoyo({
-      gross, par, courseHandicap: courseHcpDe(player), strokeIndex: si, holeCount,
+      gross, par, courseHandicap: hcpJugador, strokeIndex: si, holeCount,
       formato: tournament,
     })
 
