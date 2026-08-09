@@ -468,6 +468,7 @@ describe('evaluarParPorHoyo — sin par por hoyo el motor no puede puntuar', () 
   const RESUELVE = {
     hoyosResueltos: 18,
     loopsElegidos: 0,
+    loopsResueltos: 0,
     recorridosDisponibles: 0,
     puedeElegirRecorridos: true,
     existe: true,
@@ -480,8 +481,27 @@ describe('evaluarParPorHoyo — sin par por hoyo el motor no puede puntuar', () 
   })
 
   it('Brisas 27h CON los recorridos elegidos es apta: la resolución los encuentra', () => {
-    const v = evaluarParPorHoyo({ ...RESUELVE, loopsElegidos: 2, recorridosDisponibles: 3 })
+    const v = evaluarParPorHoyo({
+      ...RESUELVE, loopsElegidos: 2, loopsResueltos: 2, recorridosDisponibles: 3,
+    })
     expect(v.apta).toBe(true)
+  })
+
+  it('si un recorrido elegido no aportó hoyos, NO es apta aunque el otro sí', () => {
+    // Media selección resuelta es peor que ninguna: `hoyosDeLaVuelta` trataría
+    // esos 9 hoyos como una cancha de 9 jugada dos veces, y los hoyos 10-18
+    // saldrían con el par y el stroke index del recorrido EQUIVOCADO. El total
+    // cierra igual (los nueves tienen el mismo par), así que nadie lo vería.
+    const v = evaluarParPorHoyo({
+      hoyosResueltos: 9,
+      loopsElegidos: 2,
+      loopsResueltos: 1,
+      recorridosDisponibles: 3,
+      puedeElegirRecorridos: true,
+      existe: true,
+    })
+    expect(v.apta).toBe(false)
+    expect(v.mensaje).toBe(MENSAJE_SIN_PAR_POR_HOYO)
   })
 
   it('Brisas 27h SIN recorridos elegidos no es apta, y el mensaje es accionable', () => {
@@ -490,6 +510,7 @@ describe('evaluarParPorHoyo — sin par por hoyo el motor no puede puntuar', () 
     const v = evaluarParPorHoyo({
       hoyosResueltos: 0,
       loopsElegidos: 0,
+      loopsResueltos: 0,
       recorridosDisponibles: 3,
       puedeElegirRecorridos: true,
       existe: true,
@@ -505,6 +526,7 @@ describe('evaluarParPorHoyo — sin par por hoyo el motor no puede puntuar', () 
     const v = evaluarParPorHoyo({
       hoyosResueltos: 0,
       loopsElegidos: 0,
+      loopsResueltos: 0,
       recorridosDisponibles: 3,
       puedeElegirRecorridos: false,
       existe: true,
@@ -517,6 +539,7 @@ describe('evaluarParPorHoyo — sin par por hoyo el motor no puede puntuar', () 
     const v = evaluarParPorHoyo({
       hoyosResueltos: 0,
       loopsElegidos: 2,
+      loopsResueltos: 2,
       recorridosDisponibles: 3,
       puedeElegirRecorridos: true,
       existe: true,
@@ -529,6 +552,7 @@ describe('evaluarParPorHoyo — sin par por hoyo el motor no puede puntuar', () 
     const v = evaluarParPorHoyo({
       hoyosResueltos: 0,
       loopsElegidos: 0,
+      loopsResueltos: 0,
       recorridosDisponibles: 0,
       puedeElegirRecorridos: true,
       existe: true,
@@ -544,6 +568,7 @@ describe('evaluarParPorHoyo — sin par por hoyo el motor no puede puntuar', () 
     const v = evaluarParPorHoyo({
       hoyosResueltos: 0,
       loopsElegidos: 0,
+      loopsResueltos: 0,
       recorridosDisponibles: 0,
       puedeElegirRecorridos: true,
       existe: true,
@@ -567,6 +592,7 @@ describe('combinarVeredictos — el primero que bloquea manda', () => {
     const sinPar = evaluarParPorHoyo({
       hoyosResueltos: 0,
       loopsElegidos: 0,
+      loopsResueltos: 0,
       recorridosDisponibles: 0,
       puedeElegirRecorridos: true,
       existe: true,

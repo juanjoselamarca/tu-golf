@@ -144,14 +144,19 @@ describe('fetchHoyosDeLaRonda — vía 2: los hoyos cuelgan de los recorridos hi
     expect(h).toEqual([])
   })
 
-  it('conserva el stroke index de cada hoyo, que es lo que reparte los golpes', async () => {
+  it('normaliza el stroke index a permutación 1..18 al concatenar dos nueves', async () => {
+    // Cada nueve publica SU stroke index 1..9, así que concatenados cada número
+    // aparecería DOS veces. Los sitios que reparten golpes ya normalizaban por
+    // su cuenta, pero los de DISPLAY usan el valor crudo: con hándicap 9 el
+    // jugador veía el punto de golpe en los 18 hoyos, y la tarjeta mostraba
+    // "SI 8" en el hoyo 1 y otra vez en el 10.
     const h = await fetchHoyosDeLaRonda(fakeSupabase(CATALOGO_BRISAS), BRISAS_PADRE, ['Norte', 'Sur'])
-    // El default del scorer era `stroke_index = i`, o sea 1..18 secuencial.
-    // El real viene del catálogo y NO es secuencial entre loops.
-    expect(h.map((x) => x.stroke_index)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9,
-      1, 2, 3, 4, 5, 6, 7, 8, 9,
-    ])
+    const sis = h.map((x) => x.stroke_index)
+    // Permutación completa, sin repetidos.
+    expect([...sis].sort((a, b) => (a as number) - (b as number)))
+      .toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
+    // Y alterna entre los dos nueves: el SI 1 de cada loop queda 1 y 2.
+    expect(sis).toEqual([1, 3, 5, 7, 9, 11, 13, 15, 17, 2, 4, 6, 8, 10, 12, 14, 16, 18])
   })
 })
 

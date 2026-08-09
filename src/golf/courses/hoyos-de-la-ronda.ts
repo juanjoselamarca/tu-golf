@@ -29,6 +29,8 @@
 // numeraba los hoyos al revés de como se jugaron. Con `['Norte','Sur']` salía
 // bien por casualidad alfabética.
 
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+
 /** Un hoyo del catálogo, como viene de `course_holes`. */
 export interface HoyoDelCatalogo {
   numero: number
@@ -58,7 +60,35 @@ export function ordenarHoyosDeLosRecorridos(
     if (!hoyos) continue
     for (const h of hoyos) out.push(h)
   }
-  return renumerarSiEsMultiLoop(out, recorridos.length)
+  return normalizarStrokeIndex(renumerarSiEsMultiLoop(out, recorridos.length))
+}
+
+/**
+ * Rankea el stroke index sobre los hoyos que se juegan, para que sea una
+ * permutación 1..N.
+ *
+ * Cada nueve publica SU stroke index 1..9, así que al concatenar dos loops cada
+ * número aparece DOS veces. Los sitios que reparten golpes ya normalizan por su
+ * cuenta (`normalizeStrokeIndexMap` en la capa de datos, `siAlloc` en el
+ * scoreboard), así que el neto salía bien — pero los de DISPLAY usan el valor
+ * crudo, y ahí un jugador con hándicap 9 veía el punto de golpe en los 18 hoyos
+ * cuando sólo 9 lo reciben, y la tarjeta mostraba "SI 8" en el hoyo 1 y otra vez
+ * en el 10.
+ *
+ * Antes esto no se veía porque en los complejos de 27 hoyos el catálogo devolvía
+ * 0 filas y el scorer inventaba un 1..18 secuencial — una permutación válida,
+ * pero falsa. Al empezar a devolver los hoyos reales, el problema se vuelve
+ * alcanzable, así que se normaliza acá: un solo lugar, todos los consumidores
+ * consistentes.
+ *
+ * Idempotente sobre un stroke index ya válido.
+ */
+function normalizarStrokeIndex(hoyos: HoyoDelCatalogo[]): HoyoDelCatalogo[] {
+  if (hoyos.length === 0) return hoyos
+  const normalizado = normalizedStrokeIndexByHole(
+    hoyos.map((h) => ({ numero: h.numero, stroke_index: h.stroke_index ?? h.numero })),
+  )
+  return hoyos.map((h) => ({ ...h, stroke_index: normalizado[h.numero] ?? h.stroke_index }))
 }
 
 /**

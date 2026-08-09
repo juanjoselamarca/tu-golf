@@ -31,6 +31,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
 
 const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -99,6 +100,7 @@ interface CourseRow {
   id: string
   nombre: string
   parent_id: string | null
+  loop_nombre: string | null
 }
 
 interface RondaRow {
@@ -162,7 +164,7 @@ describe('canario de catálogo — el par hoyo por hoyo existe', () => {
       paginar<CourseRow>('courses', (desde, hasta) =>
         supabase
           .from('courses')
-          .select('id, nombre, parent_id')
+          .select('id, nombre, parent_id, loop_nombre')
           .eq('activa', true)
           .order('id', { ascending: true })
           .range(desde, hasta),
@@ -261,6 +263,50 @@ describe('canario de catálogo — el par hoyo por hoyo existe', () => {
           + ` (09-ago-2026) tendría que haberlas frenado: si aparecen acá, el gate`
           + ` tiene un agujero. No se backfillean adivinando los recorridos.`,
     ).toEqual([])
+  })
+
+  it('el resolver devuelve los 18 hoyos REALES de cada complejo de 27', async () => {
+    // Los tests de arriba derivan "tiene par por hoyo" por su cuenta, así que
+    // son ciegos a lo único que ahora importa: que `fetchHoyosDeLaRonda` —la
+    // función que corren el scorer Y el gate— devuelva el conjunto correcto.
+    // Un bug de agrupación (loops duplicados, un loop asignado al otro) pasaría
+    // entero por los otros tests.
+    const { courses, conHoyos } = await leerCatalogo()
+    const padres = courses.filter(
+      (c) => !conHoyos.has(c.id) && courses.some((k) => k.parent_id === c.id && conHoyos.has(k.id)),
+    )
+    // Guarda de cardinalidad: hoy son Brisas, Rocas y Marbella.
+    expect(padres.length).toBeGreaterThanOrEqual(3)
+
+    for (const padre of padres) {
+      const loops = courses
+        .filter((c) => c.parent_id === padre.id && conHoyos.has(c.id))
+        .map((c) => c.loop_nombre)
+        .filter((l): l is string => !!l)
+        .sort()
+        .slice(0, 2)
+      expect(loops.length, `${padre.nombre} no tiene 2 recorridos con hoyos`).toBe(2)
+
+      const hoyos = await fetchHoyosDeLaRonda(supabase, padre.id, loops)
+      const detalle = `${padre.nombre} con [${loops.join(', ')}]`
+
+      // 18 hoyos, no 0 (el bug) ni 9 (un loop asignado dos veces).
+      expect(hoyos.length, `${detalle}: se esperaban 18 hoyos`).toBe(18)
+      // Numerados 1..18 sin repetir: si se pisan, el mapa por hoyo pierde media
+      // ronda y `hoyosDeLaVuelta` la deduplica en silencio.
+      expect(hoyos.map((h) => h.numero)).toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
+      // El stroke index tiene que ser permutación 1..18, o el display marca
+      // punto de golpe donde no corresponde.
+      expect(
+        [...hoyos.map((h) => h.stroke_index)].sort((a, b) => (a ?? 0) - (b ?? 0)),
+        `${detalle}: el stroke index no es permutación 1..18`,
+      ).toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
+      // Y pares REALES, no el par 4 de relleno que devolvía el default.
+      expect(
+        new Set(hoyos.map((h) => h.par)).size,
+        `${detalle}: todos los pares son iguales — huele a relleno`,
+      ).toBeGreaterThan(1)
+    }
   })
 
   it('la deuda de rondas viejas sigue acotada a las 4 conocidas', async () => {

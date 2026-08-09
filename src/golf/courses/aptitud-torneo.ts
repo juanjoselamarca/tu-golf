@@ -191,6 +191,16 @@ export interface ParPorHoyoDisponible {
   hoyosResueltos: number
   /** Cuántos recorridos eligió el jugador (`rondas_libres.recorridos`). */
   loopsElegidos: number
+  /**
+   * De los elegidos, cuántos aportaron hoyos.
+   *
+   * No alcanza con `hoyosResueltos > 0`: si se eligen dos recorridos y sólo uno
+   * tiene scorecard, la resolución devuelve 9 hoyos y `hoyosDeLaVuelta` los
+   * trata como una cancha de 9 jugada dos veces — los hoyos 10-18 salen con el
+   * par y el stroke index del recorrido EQUIVOCADO. El gate coincidiría con el
+   * runtime, pero en una respuesta mal.
+   */
+  loopsResueltos: number
   /** Cuántos recorridos hijos ofrece la cancha para elegir. */
   recorridosDisponibles: number
   /**
@@ -234,9 +244,6 @@ export function evaluarParPorHoyo(d: ParPorHoyoDisponible): AptitudTorneo {
   // `evaluarCanchaDeRondaLibre`, que para ese caso devuelve null.
   if (!d.existe) return APTA
 
-  // La resolución real devolvió hoyos: el scorer tiene con qué puntuar.
-  if (d.hoyosResueltos > 0) return APTA
-
   const noApta = (mensaje: string): AptitudTorneo => ({
     apta: false,
     motivo: 'sin_par_por_hoyo',
@@ -244,14 +251,19 @@ export function evaluarParPorHoyo(d: ParPorHoyoDisponible): AptitudTorneo {
     advertencia: null,
   })
 
-  // No hay par por hoyo. El mensaje depende de si el usuario tiene una salida
-  // desde donde está parado.
-  const hayRecorridos = d.recorridosDisponibles > 0
+  // La resolución real devolvió hoyos para TODOS los recorridos elegidos: el
+  // scorer tiene con qué puntuar. Se exigen todos y no "al menos uno" porque
+  // media selección resuelta es peor que ninguna: la ronda saldría con el par y
+  // el stroke index del recorrido equivocado en la segunda mitad, y nadie lo
+  // vería (el total cierra igual, los nueves tienen el mismo par).
+  if (d.hoyosResueltos > 0 && d.loopsResueltos === d.loopsElegidos) return APTA
 
-  // Ya eligió recorridos y aun así no salieron hoyos: los recorridos elegidos
-  // no tienen su scorecard cargado. Pedirle que "elija recorridos" otra vez
-  // sería mandarlo a repetir lo que ya hizo.
+  // Se eligieron recorridos y alguno no aportó hoyos: falta ese scorecard.
   if (d.loopsElegidos > 0) return noApta(MENSAJE_SIN_PAR_POR_HOYO)
+
+  // No eligió recorridos y no hay par por hoyo. El mensaje depende de si tiene
+  // una salida desde donde está parado.
+  const hayRecorridos = d.recorridosDisponibles > 0
 
   // La cancha ofrece recorridos y el camino permite elegirlos: ésa es la acción.
   if (hayRecorridos && d.puedeElegirRecorridos) return noApta(MENSAJE_FALTA_ELEGIR_RECORRIDOS)

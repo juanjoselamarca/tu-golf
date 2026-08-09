@@ -20,6 +20,7 @@ import {
 } from './course-aptitud'
 import {
   MENSAJE_SIN_RATING_9H,
+  MENSAJE_ELEGIR_COMBINACION_ARMADA,
   bloqueaRondaLibre,
   evaluarParPorHoyo,
 } from '@/golf/courses/aptitud-torneo'
@@ -412,10 +413,14 @@ describe('fetchParPorHoyoDisponible — de dónde sale el par de cada hoyo', () 
     expect(evaluarParPorHoyo(d).apta).toBe(true)
   })
 
-  it('un recorrido elegido que no existe en la BD no aporta hoyos', async () => {
+  it('un recorrido elegido que no existe en la BD bloquea: media selección no sirve', async () => {
     const d = await fetchParPorHoyoDisponible(fakeSupabase(CATALOGO_27H), BRISAS, ['Este', 'Oeste'], true)
     expect(d.hoyosResueltos).toBe(9)
-    expect(evaluarParPorHoyo(d).apta).toBe(true) // 9 hoyos es par por hoyo real
+    expect(d.loopsElegidos).toBe(2)
+    expect(d.loopsResueltos).toBe(1)
+    // 9 hoyos para una selección de 2 loops se convertirían en "cancha de 9
+    // jugada dos veces": la segunda mitad saldría con el par del loop errado.
+    expect(evaluarParPorHoyo(d).apta).toBe(false)
   })
 
   it('recorridos repetidos no cuentan doble', async () => {
@@ -447,6 +452,7 @@ describe('fetchParPorHoyoDisponible — de dónde sale el par de cada hoyo', () 
     expect(d).toEqual({
       hoyosResueltos: 0,
       loopsElegidos: 0,
+      loopsResueltos: 0,
       recorridosDisponibles: 0,
       puedeElegirRecorridos: true,
       existe: true,
@@ -545,8 +551,14 @@ describe('canchasNoAptasParaTorneo — el par por hoyo también es requisito', (
   const BRISAS_NORTE_SUR = 'brisas-norte-sur'
   const CATALOGO = {
     courses: [
-      { id: BRISAS_PADRE, nombre: 'Club de Golf Brisas de Santo Domingo', par_total: 72, course_rating: 72.6, slope_rating: 130, parent_id: null },
-      { id: BRISAS_NORTE_SUR, nombre: 'C.G. Las Brisas De Santo Domingo - Norte - Sur (VARONES)', par_total: 72, course_rating: 72.6, slope_rating: 130, parent_id: null },
+      { id: BRISAS_PADRE, nombre: 'Club de Golf Brisas de Santo Domingo', par_total: 72, course_rating: 72.6, slope_rating: 130, parent_id: null, loop_nombre: null },
+      { id: BRISAS_NORTE_SUR, nombre: 'C.G. Las Brisas De Santo Domingo - Norte - Sur (VARONES)', par_total: 72, course_rating: 72.6, slope_rating: 130, parent_id: null, loop_nombre: null },
+      // Los 3 recorridos hijos, como en producción: sin ellos
+      // `recorridosDisponibles` sale 0 y el mensaje que se ejerce no es el que
+      // ve el organizador de verdad.
+      { id: 'norte', nombre: 'Norte', par_total: 36, course_rating: 72, slope_rating: 130, parent_id: BRISAS_PADRE, loop_nombre: 'Norte' },
+      { id: 'sur', nombre: 'Sur', par_total: 36, course_rating: 72, slope_rating: 130, parent_id: BRISAS_PADRE, loop_nombre: 'Sur' },
+      { id: 'este', nombre: 'Este', par_total: 36, course_rating: 72, slope_rating: 130, parent_id: BRISAS_PADRE, loop_nombre: 'Este' },
     ],
     course_holes: Array.from({ length: 18 }, (_, i) => ({
       numero: i + 1, par: 4, stroke_index: i + 1, recorrido: null, course_id: BRISAS_NORTE_SUR,
@@ -562,6 +574,11 @@ describe('canchasNoAptasParaTorneo — el par por hoyo también es requisito', (
     )
     expect(r).toHaveLength(1)
     expect(r[0].motivo).toBe('sin_par_por_hoyo')
+    // El mensaje del camino TORNEO, no el de ronda libre: `tournaments` no
+    // tiene columna `recorridos`, así que "elige tus recorridos" mandaría al
+    // organizador a una afordancia que no existe.
+    expect(r[0].mensaje).toBe(MENSAJE_ELEGIR_COMBINACION_ARMADA)
+    expect(r[0].cancha).toBe('Club de Golf Brisas de Santo Domingo')
   })
 
   it('bloquea también un torneo GROSS: el par por hoyo no depende del modo', async () => {

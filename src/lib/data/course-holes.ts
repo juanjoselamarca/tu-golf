@@ -30,16 +30,42 @@ type MinimalClient = Pick<SupabaseClient, 'from'>
 export const COLUMNAS_HOYOS =
   'numero, par, stroke_index, recorrido, yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo, yardaje_verificado_at'
 
+/** Qué hacer cuando PostgREST falla. */
+export interface OpcionesHoyos {
+  columnas?: string
+  /**
+   * `true` = camino de GATE: un error de la BD LANZA.
+   *
+   * Sin esto el gate hereda el degradado de las pantallas de scoring y falla
+   * CERRADO en silencio: un timeout de `course_holes` devuelve `[]`, el gate
+   * lee "0 hoyos", bloquea la creación con un mensaje que miente ("esta cancha
+   * no tiene el par hoyo por hoyo cargado") y el `.catch()` de la ruta —que es
+   * quien reporta a Sentry y abre el paso— nunca corre. Un hipo de PostgREST
+   * dejaría al país entero sin poder empezar una ronda, sin una sola señal.
+   *
+   * Por defecto `false`: las cuatro pantallas de scoring TIENEN que degradar,
+   * no tumbar la tarjeta con el jugador parado en el tee.
+   */
+  lanzarSiFalla?: boolean
+}
+
+/** Los hoyos de la ronda más de cuántos recorridos salieron. */
+export interface HoyosDeLaRonda {
+  hoyos: HoyoDelCatalogo[]
+  /**
+   * Cuántos de los recorridos pedidos aportaron hoyos. El gate lo compara
+   * contra los que se eligieron: si un loop no tiene scorecard, la ronda
+   * quedaría con la mitad de los hoyos y `hoyosDeLaVuelta` repetiría el otro.
+   */
+  loopsResueltos: number
+}
+
 /**
  * Los hoyos que se juegan en esta ronda, en orden y renumerados.
  *
- * Devuelve `[]` cuando no hay dato — el caller decide su fallback (hoy los
- * cuatro caen a par 4, que es lo que este módulo existe para volver innecesario
- * en las canchas que sí tienen el dato).
- *
- * No lanza: es camino de LECTURA de una pantalla de scoring, no un gate. Un
- * hipo de PostgREST tiene que degradar como degradaba antes, no tumbar la
- * tarjeta con el jugador en el tee.
+ * Devuelve `[]` cuando no hay dato — el caller decide su fallback (hoy las
+ * pantallas caen a par 4, que es lo que este módulo existe para volver
+ * innecesario en las canchas que sí tienen el dato).
  */
 export async function fetchHoyosDeLaRonda(
   supabase: MinimalClient,
@@ -47,35 +73,71 @@ export async function fetchHoyosDeLaRonda(
   recorridos: string[] | null | undefined,
   columnas: string = COLUMNAS_HOYOS,
 ): Promise<HoyoDelCatalogo[]> {
-  const loops = (recorridos ?? []).filter((r): r is string => !!r)
+  const { hoyos } = await resolverHoyosDeLaRonda(supabase, courseId, recorridos, { columnas })
+  return hoyos
+}
+
+/**
+ * Igual que `fetchHoyosDeLaRonda`, con el detalle que necesita el gate y la
+ * opción de fallar CERRADO ante un error de la BD.
+ */
+export async function resolverHoyosDeLaRonda(
+  supabase: MinimalClient,
+  courseId: string,
+  recorridos: string[] | null | undefined,
+  opciones: OpcionesHoyos = {},
+): Promise<HoyosDeLaRonda> {
+  const columnas = opciones.columnas ?? COLUMNAS_HOYOS
+  const loops = Array.from(new Set((recorridos ?? []).filter((r): r is string => !!r)))
+
+  /** Aplica el contrato de error elegido por el caller. */
+  const filas = <T>(
+    { data, error }: { data: unknown; error: { message?: string } | null },
+    que: string,
+  ): T[] => {
+    if (error && opciones.lanzarSiFalla) {
+      throw new Error(`No se pudo leer ${que}: ${error.message ?? 'error desconocido'}`)
+    }
+    return (data ?? []) as T[]
+  }
 
   // Vía 1: la cancha elegida tiene sus propios hoyos.
   let q = supabase.from('course_holes').select(columnas).eq('course_id', courseId)
   if (loops.length > 0) q = q.in('recorrido', loops) as typeof q
-  const { data: propios } = await q.order('recorrido').order('numero')
+  const filasPropias = filas<HoyoDelCatalogo>(
+    await q.order('recorrido').order('numero'),
+    'los hoyos de la cancha',
+  )
 
-  const filasPropias = (propios ?? []) as unknown as HoyoDelCatalogo[]
   if (filasPropias.length > 0) {
     // Con varios loops el orden lo manda la selección, no el alfabeto que
     // devolvió PostgREST. Se reordena acá para que las dos vías contesten igual.
+    const porRecorrido = agruparPorRecorrido(filasPropias)
     if (loops.length > 1) {
-      return ordenarHoyosDeLosRecorridos(agruparPorRecorrido(filasPropias), loops)
+      return {
+        hoyos: ordenarHoyosDeLosRecorridos(porRecorrido, loops),
+        loopsResueltos: loops.filter((l) => porRecorrido.has(l)).length,
+      }
     }
-    return renumerarSiEsMultiLoop(filasPropias, loops.length)
+    return {
+      hoyos: renumerarSiEsMultiLoop(filasPropias, loops.length),
+      loopsResueltos: loops.length,
+    }
   }
 
   // Vía 2: es el club padre de un complejo y los hoyos cuelgan de los hijos.
   // Sin loops elegidos no hay nada que buscar: no se adivina qué se jugó.
-  if (loops.length === 0) return []
+  if (loops.length === 0) return { hoyos: [], loopsResueltos: 0 }
 
-  const { data: hijos } = await supabase
-    .from('courses')
-    .select('id, loop_nombre')
-    .eq('parent_id', courseId)
-    .in('loop_nombre', loops)
-
-  const filasHijos = (hijos ?? []) as Array<{ id: string; loop_nombre: string | null }>
-  if (filasHijos.length === 0) return []
+  const filasHijos = filas<{ id: string; loop_nombre: string | null }>(
+    await supabase
+      .from('courses')
+      .select('id, loop_nombre')
+      .eq('parent_id', courseId)
+      .in('loop_nombre', loops),
+    'los recorridos de la cancha',
+  )
+  if (filasHijos.length === 0) return { hoyos: [], loopsResueltos: 0 }
 
   // Se pide `course_id` explícito: es lo que ata cada hoyo a SU recorrido.
   // Agrupar por la columna `recorrido` sería más frágil — hoy los 9 hijos del
@@ -83,25 +145,29 @@ export async function fetchHoyosDeLaRonda(
   // puede desincronizarse, y si un hijo la tuviera con otro valor el filtro
   // devolvería vacío y volveríamos al par 4 de relleno. El `course_id` no puede
   // mentir: es la fila por la que preguntamos.
-  const { data: hoyosHijos } = await supabase
-    .from('course_holes')
-    .select(columnas.includes('course_id') ? columnas : `course_id, ${columnas}`)
-    .in('course_id', filasHijos.map((h) => h.id))
-    .order('numero')
-
-  const filas = (hoyosHijos ?? []) as unknown as Array<HoyoDelCatalogo & { course_id?: string }>
-  if (filas.length === 0) return []
+  const hoyosHijos = filas<HoyoDelCatalogo & { course_id?: string }>(
+    await supabase
+      .from('course_holes')
+      .select(columnas.includes('course_id') ? columnas : `course_id, ${columnas}`)
+      .in('course_id', filasHijos.map((h) => h.id))
+      .order('numero'),
+    'los hoyos de los recorridos',
+  )
+  if (hoyosHijos.length === 0) return { hoyos: [], loopsResueltos: 0 }
 
   const porLoop = new Map<string, HoyoDelCatalogo[]>()
   for (const hijo of filasHijos) {
     if (!hijo.loop_nombre) continue
-    const suyos = filas
+    const suyos = hoyosHijos
       .filter((h) => h.course_id === hijo.id)
       .sort((a, b) => a.numero - b.numero)
     if (suyos.length > 0) porLoop.set(hijo.loop_nombre, suyos)
   }
 
-  return ordenarHoyosDeLosRecorridos(porLoop, loops)
+  return {
+    hoyos: ordenarHoyosDeLosRecorridos(porLoop, loops),
+    loopsResueltos: loops.filter((l) => porLoop.has(l)).length,
+  }
 }
 
 /** Agrupa filas por su columna `recorrido`, conservando el orden por `numero`. */

@@ -8,7 +8,7 @@
 // ronda libre pregunten todos lo mismo, con las mismas columnas.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { fetchHoyosDeLaRonda } from './course-holes'
+import { resolverHoyosDeLaRonda } from './course-holes'
 import {
   evaluarAptitudTorneo,
   evaluarAptitudRecorridos,
@@ -50,7 +50,6 @@ export const COLUMNAS_APTITUD_TEES = 'course_id, rating, front_course_rating'
  * dejaría una cancha sana sin sus hoyos y el gate la bloquearía en silencio.
  */
 const MAX_TEES = 10_000
-const MAX_HOYOS = 10_000
 
 export interface CourseRowParaAptitud {
   id: string
@@ -259,18 +258,27 @@ export async function fetchParPorHoyoDisponible(
   // un veredicto distinto que la resolución real, que agrupa por loop.
   const loopsUnicos = Array.from(new Set(loopsPedidos))
 
-  const [hoyos, resHijos, resExiste] = await Promise.all([
+  const [resuelto, resHijos, resExiste] = await Promise.all([
     // LA MISMA función que corre en el scorer. Preguntarle a ella —y no volver
     // a derivarlo del catálogo— es lo que garantiza que el gate no pueda
     // contestar distinto que el motor.
-    fetchHoyosDeLaRonda(supabase, courseId, loopsUnicos, COLUMNAS_HOYOS_PARA_GATE),
+    //
+    // `lanzarSiFalla` es lo que mantiene el contrato de GATE: sin eso un
+    // timeout de `course_holes` devolvería `[]`, el gate leería "0 hoyos" y
+    // bloquearía la ronda con un mensaje que miente, sin pasar por el `.catch()`
+    // de la ruta que reporta a Sentry y abre el paso.
+    resolverHoyosDeLaRonda(supabase, courseId, loopsUnicos, {
+      columnas: COLUMNAS_HOYOS_PARA_GATE,
+      lanzarSiFalla: true,
+    }),
     supabase.from('courses').select('id').eq('parent_id', courseId),
     supabase.from('courses').select('id').eq('id', courseId),
   ])
 
   return {
-    hoyosResueltos: hoyos.length,
+    hoyosResueltos: resuelto.hoyos.length,
     loopsElegidos: loopsUnicos.length,
+    loopsResueltos: resuelto.loopsResueltos,
     recorridosDisponibles: exigirFilas<{ id: string }>(resHijos, 'los recorridos de la cancha')
       .length,
     puedeElegirRecorridos,
@@ -410,21 +418,27 @@ async function fetchParPorHoyoDeCanchas(
   courseIds: string[],
 ): Promise<Map<string, ParPorHoyoDisponible & { nombre: string }>> {
   const ids = Array.from(new Set(courseIds))
-  const [resCanchas, resHoyos, resHijos] = await Promise.all([
+  const [resCanchas, resHijos, resueltos] = await Promise.all([
     supabase.from('courses').select('id, nombre').in('id', ids),
-    // Un torneo no elige recorridos, así que la resolución real se reduce a
-    // "¿esta cancha tiene sus propios hoyos?" — la vía 1 de
-    // `fetchHoyosDeLaRonda` con `recorridos` vacío. Se consulta en batch porque
-    // el gate puede tener una cancha distinta por ronda.
-    supabase.from('course_holes').select('course_id').in('course_id', ids).range(0, MAX_HOYOS - 1),
     supabase.from('courses').select('id, parent_id').in('parent_id', ids),
+    // Un torneo no elige recorridos, así que cada cancha se resuelve con la
+    // vía 1 del MISMO resolver que usa el scorer. Contar filas de
+    // `course_holes` en batch daba hoy el mismo resultado, pero era la última
+    // derivación paralela que quedaba — y bastaba con que el resolver ganara
+    // una condición para que volvieran a divergir, que es el bug que este PR
+    // cierra. Un torneo tiene 1-4 rondas, así que el fan-out es trivial.
+    Promise.all(
+      ids.map((id) =>
+        resolverHoyosDeLaRonda(supabase, id, null, {
+          columnas: COLUMNAS_HOYOS_PARA_GATE,
+          lanzarSiFalla: true,
+        }).then((r) => [id, r.hoyos.length] as const),
+      ),
+    ),
   ])
 
   const existentes = exigirFilas<{ id: string; nombre: string | null }>(resCanchas, 'las canchas')
-  const hoyosPorCancha = new Map<string, number>()
-  for (const h of exigirFilas<{ course_id: string }>(resHoyos, 'los hoyos de las canchas')) {
-    hoyosPorCancha.set(h.course_id, (hoyosPorCancha.get(h.course_id) ?? 0) + 1)
-  }
+  const hoyosPorCancha = new Map(resueltos)
   const hijosPorPadre = new Map<string, number>()
   for (const h of exigirFilas<{ parent_id: string | null }>(resHijos, 'los recorridos de las canchas')) {
     if (h.parent_id) hijosPorPadre.set(h.parent_id, (hijosPorPadre.get(h.parent_id) ?? 0) + 1)
@@ -436,7 +450,9 @@ async function fetchParPorHoyoDeCanchas(
       {
         nombre: c.nombre ?? '',
         hoyosResueltos: hoyosPorCancha.get(c.id) ?? 0,
+        // Sin recorridos elegidos, "todos los elegidos resueltos" es trivial.
         loopsElegidos: 0,
+        loopsResueltos: 0,
         recorridosDisponibles: hijosPorPadre.get(c.id) ?? 0,
         // El wizard de torneos no tiene dónde elegir recorridos.
         puedeElegirRecorridos: false,
