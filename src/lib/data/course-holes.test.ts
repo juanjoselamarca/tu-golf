@@ -118,6 +118,22 @@ describe('fetchHoyosDeLaRonda — vía 2: los hoyos cuelgan de los recorridos hi
     expect(h.map((x) => x.par)).toEqual(PARES_NORTE)
   })
 
+  it('agrupa por course_id, no por la columna `recorrido` (que puede mentir)', async () => {
+    // `recorrido` es un dato redundante al lado de `course_id`. Si se
+    // desincroniza —o si alguien la deja en null— el par tiene que seguir
+    // saliendo bien, o volvemos al par 4 de relleno.
+    const desincronizado = {
+      courses: CATALOGO_BRISAS.courses,
+      course_holes: [
+        ...nueve('Norte', PARES_NORTE).map((h) => ({ ...h, recorrido: null, course_id: 'norte' })),
+        ...nueve('Sur', PARES_SUR).map((h) => ({ ...h, recorrido: 'otra-cosa', course_id: 'sur' })),
+      ],
+    }
+    const h = await fetchHoyosDeLaRonda(fakeSupabase(desincronizado), BRISAS_PADRE, ['Norte', 'Sur'])
+    expect(h).toHaveLength(18)
+    expect(h.map((x) => x.par)).toEqual([...PARES_NORTE, ...PARES_SUR])
+  })
+
   it('un recorrido elegido sin hoyos cargados no inventa: devuelve sólo lo que hay', async () => {
     const h = await fetchHoyosDeLaRonda(fakeSupabase(CATALOGO_BRISAS), BRISAS_PADRE, ['Norte', 'Este'])
     expect(h.map((x) => x.recorrido)).toEqual(Array(9).fill('Norte'))

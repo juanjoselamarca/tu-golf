@@ -77,26 +77,28 @@ export async function fetchHoyosDeLaRonda(
   const filasHijos = (hijos ?? []) as Array<{ id: string; loop_nombre: string | null }>
   if (filasHijos.length === 0) return []
 
+  // Se pide `course_id` explícito: es lo que ata cada hoyo a SU recorrido.
+  // Agrupar por la columna `recorrido` sería más frágil — hoy los 9 hijos del
+  // catálogo la tienen igual a su `loop_nombre`, pero es un dato redundante que
+  // puede desincronizarse, y si un hijo la tuviera con otro valor el filtro
+  // devolvería vacío y volveríamos al par 4 de relleno. El `course_id` no puede
+  // mentir: es la fila por la que preguntamos.
   const { data: hoyosHijos } = await supabase
     .from('course_holes')
-    .select(columnas)
+    .select(columnas.includes('course_id') ? columnas : `course_id, ${columnas}`)
     .in('course_id', filasHijos.map((h) => h.id))
     .order('numero')
 
   const filas = (hoyosHijos ?? []) as unknown as Array<HoyoDelCatalogo & { course_id?: string }>
   if (filas.length === 0) return []
 
-  // Cada hijo guarda su `loop_nombre` en la columna `recorrido` de sus hoyos,
-  // así que se agrupa por ahí y no hace falta arrastrar el `course_id`. Si
-  // algún hijo no la tuviera poblada, se cae a su nombre de loop.
   const porLoop = new Map<string, HoyoDelCatalogo[]>()
   for (const hijo of filasHijos) {
-    const loop = hijo.loop_nombre
-    if (!loop) continue
+    if (!hijo.loop_nombre) continue
     const suyos = filas
-      .filter((h) => (h.recorrido ?? loop) === loop)
+      .filter((h) => h.course_id === hijo.id)
       .sort((a, b) => a.numero - b.numero)
-    if (suyos.length > 0) porLoop.set(loop, suyos)
+    if (suyos.length > 0) porLoop.set(hijo.loop_nombre, suyos)
   }
 
   return ordenarHoyosDeLosRecorridos(porLoop, loops)
