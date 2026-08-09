@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isTeamFormat } from '@/golf/formats'
+import { fetchHoyosDeLaRonda } from './course-holes'
 
 export interface RondaMetadataJugador {
   nombre: string
@@ -47,27 +48,14 @@ export async function loadRondaMetadata(
   if (!data) return null
   const r = data as unknown as RondaMetadataLight & { id: string }
 
-  // Par por hoyo (sólo si la ronda está ligada a una cancha).
+  // Par por hoyo (sólo si la ronda está ligada a una cancha). Sale de la fuente
+  // única `fetchHoyosDeLaRonda`, que ya viene ordenada y renumerada: la query
+  // inline que había acá miraba sólo `course_id` de la ronda y devolvía 0 filas
+  // en los complejos de 27 hoyos, donde el par cuelga de los recorridos hijos.
   const parMap: Record<number, number> = {}
   if (r.course_id) {
-    let holeQuery = supabase
-      .from('course_holes')
-      .select('numero, par, recorrido')
-      .eq('course_id', r.course_id)
-    const recorridos = r.recorridos
-    if (recorridos && recorridos.length > 0) {
-      holeQuery = holeQuery.in('recorrido', recorridos)
-    }
-    const { data: holes } = await holeQuery.order('recorrido').order('numero')
-    if (holes) {
-      const isMultiLoop = !!recorridos && recorridos.length > 1
-      let holeNum = 1
-      for (const h of holes as Array<{ numero: number; par: number }>) {
-        const num = isMultiLoop ? holeNum : h.numero
-        parMap[num] = h.par
-        holeNum++
-      }
-    }
+    const hoyos = await fetchHoyosDeLaRonda(supabase, r.course_id, r.recorridos, 'numero, par, recorrido')
+    for (const h of hoyos) parMap[h.numero] = h.par
   }
 
   // Conteo de equipos por la FK correcta (ronda_id = id de la ronda, NO el código).

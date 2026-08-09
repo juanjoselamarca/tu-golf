@@ -12,6 +12,7 @@ import { parTotalEstandar } from '@/golf/core/round-score'
 import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData, type CourseData } from '@/golf/core/course-handicap'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { fetchHoyosDeLaRonda } from './course-holes'
 import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
@@ -47,24 +48,24 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
 
     // Par / stroke-index por hoyo (solo si la ronda está ligada a una cancha).
     if (ronda.course_id) {
-      let holeQuery = supabase
-        .from('course_holes')
-        .select('numero, par, stroke_index, recorrido')
-        .eq('course_id', ronda.course_id)
-      const recorridos = ronda.recorridos as string[] | null
-      if (recorridos && recorridos.length > 0) {
-        holeQuery = holeQuery.in('recorrido', recorridos)
-      }
-      const { data: holes } = await holeQuery.order('recorrido').order('numero')
-      if (holes) {
-        const isMultiLoop = !!recorridos && recorridos.length > 1
+      // Fuente única: ya viene ordenada por la selección de recorridos y
+      // renumerada. La query inline que había acá miraba sólo `course_id` de la
+      // ronda y devolvía 0 filas en los complejos de 27 hoyos, donde el par
+      // cuelga de los recorridos hijos.
+      const holes = await fetchHoyosDeLaRonda(
+        supabase,
+        ronda.course_id,
+        ronda.recorridos as string[] | null,
+        'numero, par, stroke_index, recorrido',
+      )
+      if (holes.length > 0) {
         // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en
         // una ronda de 18 se recorre dos veces y los hoyos 10-18 son los 1-9
         // otra vez (`@/golf/courses/vueltas`). Tiene que contestar LO MISMO que
         // el scorer: si esta capa dijera par 35 y el scorer 70, el board y la
         // tarjeta del jugador mostrarían netos distintos para la misma ronda.
-        const base = (holes as CourseHole[]).map((h, i) => ({
-          numero: isMultiLoop ? i + 1 : h.numero,
+        const base = (holes as unknown as CourseHole[]).map((h) => ({
+          numero: h.numero,
           par: h.par,
           stroke_index: h.stroke_index,
         }))

@@ -8,15 +8,19 @@
 // ronda libre pregunten todos lo mismo, con las mismas columnas.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolverHoyosDeLaRonda } from './course-holes'
 import {
   evaluarAptitudTorneo,
   evaluarAptitudRecorridos,
+  evaluarParPorHoyo,
+  combinarVeredictos,
   aptitudPorHoyos,
   requiereRatingDeCancha,
   type AptitudPorHoyos,
   type AptitudTorneo,
   type CanchaParaAptitud,
   type MotivoNoApta,
+  type ParPorHoyoDisponible,
 } from '@/golf/courses/aptitud-torneo'
 
 /**
@@ -30,10 +34,20 @@ export const COLUMNAS_APTITUD_COURSES = 'par_total, course_rating, slope_rating'
 export const COLUMNAS_APTITUD_TEES = 'course_id, rating, front_course_rating'
 
 /**
- * PostgREST corta en 1.000 filas por defecto. El catálogo tiene 477 tees hoy,
- * pero una lista truncada NO da error: deja canchas sin sus tees y el veredicto
- * cambia en silencio (mismo modo de falla que el bug de paginación del #254).
- * Se pide el rango explícito para que crecer el catálogo no rompa nada.
+ * ⚠️ Pedir un `.range()` grande NO levanta el techo de PostgREST: `db-max-rows`
+ * lo aplica el servidor y hoy corta en 1.000 filas, sin avisar. Medido contra
+ * producción: `GET /course_holes?select=id` con `Range: 0-9999` devuelve 1.000
+ * de 3.231 filas.
+ *
+ * Estos topes NO protegen de ese corte. Sirven sólo para que el pedido sea
+ * explícito y para documentar el orden de magnitud esperado. Lo que mantiene
+ * correctas a estas funciones es que TODAS filtran por un `in(...)` acotado a
+ * las canchas de la ronda o del torneo (1-4 canchas → ≤ 72 hoyos, ≤ ~20 tees),
+ * muy por debajo del techo.
+ *
+ * Si algún caller futuro pide el catálogo entero por acá, hay que paginar como
+ * hace `catalogo-par-por-hoyo.canary.test.ts`. Una lista truncada no da error:
+ * dejaría una cancha sana sin sus hoyos y el gate la bloquearía en silencio.
  */
 const MAX_TEES = 10_000
 
@@ -225,6 +239,95 @@ export async function evaluarCanchaDeRondaLibre(
   return cancha ? evaluarAptitudTorneo(cancha, holes) : null
 }
 
+/**
+ * De dónde puede salir el par hoyo por hoyo de esta ronda: de la cancha misma
+ * o de los recorridos elegidos.
+ *
+ * Camino de GATE: lanza si la BD falla. El caller decide si eso frena la ronda
+ * (creación de torneo, desde un escritorio) o si se deja pasar (ronda libre,
+ * con el jugador parado en el tee 1).
+ */
+export async function fetchParPorHoyoDisponible(
+  supabase: MinimalClient,
+  courseId: string,
+  recorridos: string[] | null,
+  puedeElegirRecorridos: boolean,
+): Promise<ParPorHoyoDisponible> {
+  const loopsPedidos = (recorridos ?? []).filter((r): r is string => !!r)
+  // Deduplicado: el schema acepta `['Este','Este']` y contarlo dos veces daría
+  // un veredicto distinto que la resolución real, que agrupa por loop.
+  const loopsUnicos = Array.from(new Set(loopsPedidos))
+
+  const [resuelto, resHijos, resExiste] = await Promise.all([
+    // LA MISMA función que corre en el scorer. Preguntarle a ella —y no volver
+    // a derivarlo del catálogo— es lo que garantiza que el gate no pueda
+    // contestar distinto que el motor.
+    //
+    // `lanzarSiFalla` es lo que mantiene el contrato de GATE: sin eso un
+    // timeout de `course_holes` devolvería `[]`, el gate leería "0 hoyos" y
+    // bloquearía la ronda con un mensaje que miente, sin pasar por el `.catch()`
+    // de la ruta que reporta a Sentry y abre el paso.
+    resolverHoyosDeLaRonda(supabase, courseId, loopsUnicos, {
+      columnas: COLUMNAS_HOYOS_PARA_GATE,
+      lanzarSiFalla: true,
+    }),
+    supabase.from('courses').select('id').eq('parent_id', courseId),
+    supabase.from('courses').select('id').eq('id', courseId),
+  ])
+
+  return {
+    hoyosResueltos: resuelto.hoyos.length,
+    loopsElegidos: loopsUnicos.length,
+    loopsResueltos: resuelto.loopsResueltos,
+    recorridosDisponibles: exigirFilas<{ id: string }>(resHijos, 'los recorridos de la cancha')
+      .length,
+    puedeElegirRecorridos,
+    existe: exigirFilas<{ id: string }>(resExiste, 'la cancha').length > 0,
+  }
+}
+
+/**
+ * El gate sólo necesita saber CUÁNTOS hoyos salen, no sus yardajes. Se pide el
+ * mínimo para no arrastrar 9 columnas por una pregunta que es un conteo.
+ */
+const COLUMNAS_HOYOS_PARA_GATE = 'numero, par, stroke_index, recorrido'
+
+/**
+ * ¿Puede empezar esta ronda libre?
+ *
+ * Junta las dos preguntas del guardarrail de cancha, que NO aplican en el mismo
+ * momento:
+ * - El par hoyo por hoyo hace falta SIEMPRE. Sin él no hay vs-par ni birdie en
+ *   el scorer, se juegue gross o neto.
+ * - El rating sólo hace falta cuando se juega NETO: en gross no entra en ningún
+ *   cálculo y bloquear por él sería un falso bloqueo.
+ *
+ * Se compone acá y no en la ruta para que un segundo camino de creación no
+ * tenga que volver a acordarse del matiz.
+ */
+export async function evaluarRondaLibre(
+  supabase: MinimalClient,
+  courseId: string,
+  holes: number,
+  recorridos: string[] | null,
+  opciones: { requiereRating: boolean },
+): Promise<AptitudTorneo> {
+  // El wizard de ronda libre SÍ ofrece elegir recorridos, así que el mensaje
+  // puede pedir esa acción.
+  const disponible = await fetchParPorHoyoDisponible(supabase, courseId, recorridos, true)
+  const porHoyo = evaluarParPorHoyo(disponible)
+
+  // El par por hoyo va primero: es el requisito más básico y su mensaje es el
+  // más accionable. Si ya bloquea, no se paga el fetch del rating — son 2
+  // round-trips más en una ruta que corre con el jugador parado en el tee 1.
+  if (!porHoyo.apta || !opciones.requiereRating) return porHoyo
+
+  return combinarVeredictos(
+    porHoyo,
+    await evaluarCanchaDeRondaLibre(supabase, courseId, holes, recorridos),
+  )
+}
+
 /** Lo mínimo que hace falta de una ronda para juzgar su cancha. */
 export interface RondaParaAptitud {
   round_number?: number
@@ -255,28 +358,107 @@ export async function canchasNoAptasParaTorneo(
   rounds: RondaParaAptitud[],
   torneo: { modo?: string | null; use_handicap?: boolean | null },
 ): Promise<RondaNoApta[]> {
-  if (!requiereRatingDeCancha(torneo)) return []
-
   const conCancha = rounds.filter((r): r is RondaParaAptitud & { course_id: string } => !!r.course_id)
   if (conCancha.length === 0) return []
 
-  const canchas = await fetchCanchasParaAptitud(supabase, conCancha.map((r) => r.course_id))
+  const ids = conCancha.map((r) => r.course_id)
+  // El rating sólo se juzga si el torneo lo usa; el par por hoyo, siempre. Sin
+  // el `if` los 9 torneos Gross de producción sobre canchas sin rating serían
+  // un falso bloqueo — y sin el segundo fetch, un torneo Gross sobre una cancha
+  // sin par por hoyo se crearía igual y rompería en el hoyo 1.
+  const [canchas, parPorHoyo] = await Promise.all([
+    requiereRatingDeCancha(torneo)
+      ? fetchCanchasParaAptitud(supabase, ids)
+      : Promise.resolve(new Map<string, CanchaConRatings>()),
+    fetchParPorHoyoDeCanchas(supabase, ids),
+  ])
 
   const out: RondaNoApta[] = []
   conCancha.forEach((ronda, idx) => {
-    const cancha = canchas.get(ronda.course_id)
+    const disponible = parPorHoyo.get(ronda.course_id)
     // Cancha inexistente: no es asunto de este guardarrail (la FK lo caza).
-    if (!cancha) return
-    const veredicto = evaluarAptitudTorneo(cancha, ronda.hole_count)
+    // `fetchParPorHoyoDeCanchas` sólo devuelve entrada para las que existen,
+    // que es lo que distingue "no está en la BD" de "está y no tiene hoyos".
+    if (!disponible) return
+
+    const cancha = canchas.get(ronda.course_id)
+    const veredicto = combinarVeredictos(
+      // Un torneo NO elige recorridos (`tournaments` no tiene la columna), así
+      // que el par tiene que salir de la cancha misma. Para los complejos de 27
+      // el catálogo ya ofrece la combinación armada ("Norte - Sur", 18 hoyos
+      // cargados); es ésa la que hay que elegir, no el club padre.
+      evaluarParPorHoyo(disponible),
+      cancha ? evaluarAptitudTorneo(cancha, ronda.hole_count) : null,
+    )
     if (!veredicto.apta && veredicto.motivo && veredicto.mensaje) {
       out.push({
         round_number: ronda.round_number ?? idx + 1,
         course_id: ronda.course_id,
-        cancha: cancha.nombre,
+        cancha: disponible.nombre,
         motivo: veredicto.motivo,
         mensaje: veredicto.mensaje,
       })
     }
   })
   return out
+}
+
+/**
+ * Par por hoyo de varias canchas de una vez, para el gate de torneo (que puede
+ * tener una cancha distinta por ronda). No mira recorridos: un torneo no los
+ * elige.
+ *
+ * Sólo devuelve entrada para las canchas que EXISTEN. Un id que no está en
+ * `courses` no es asunto de este guardarrail — de eso se ocupa la FK — y
+ * devolverlo como "sin par por hoyo" lo convertiría en un bloqueo con el
+ * mensaje equivocado.
+ */
+async function fetchParPorHoyoDeCanchas(
+  supabase: MinimalClient,
+  courseIds: string[],
+): Promise<Map<string, ParPorHoyoDisponible & { nombre: string }>> {
+  const ids = Array.from(new Set(courseIds))
+  const [resCanchas, resHijos, resueltos] = await Promise.all([
+    supabase.from('courses').select('id, nombre').in('id', ids),
+    supabase.from('courses').select('id, parent_id').in('parent_id', ids),
+    // Un torneo no elige recorridos, así que cada cancha se resuelve con la
+    // vía 1 del MISMO resolver que usa el scorer. Contar filas de
+    // `course_holes` en batch daba hoy el mismo resultado, pero era la última
+    // derivación paralela que quedaba — y bastaba con que el resolver ganara
+    // una condición para que volvieran a divergir, que es el bug que este PR
+    // cierra. Un torneo tiene 1-4 rondas, así que el fan-out es trivial.
+    Promise.all(
+      ids.map((id) =>
+        resolverHoyosDeLaRonda(supabase, id, null, {
+          columnas: COLUMNAS_HOYOS_PARA_GATE,
+          lanzarSiFalla: true,
+        }).then((r) => [id, r.hoyos.length] as const),
+      ),
+    ),
+  ])
+
+  const existentes = exigirFilas<{ id: string; nombre: string | null }>(resCanchas, 'las canchas')
+  const hoyosPorCancha = new Map(resueltos)
+  const hijosPorPadre = new Map<string, number>()
+  for (const h of exigirFilas<{ parent_id: string | null }>(resHijos, 'los recorridos de las canchas')) {
+    if (h.parent_id) hijosPorPadre.set(h.parent_id, (hijosPorPadre.get(h.parent_id) ?? 0) + 1)
+  }
+
+  return new Map(
+    existentes.map((c) => [
+      c.id,
+      {
+        nombre: c.nombre ?? '',
+        hoyosResueltos: hoyosPorCancha.get(c.id) ?? 0,
+        // Sin recorridos elegidos, "todos los elegidos resueltos" es trivial.
+        loopsElegidos: 0,
+        loopsResueltos: 0,
+        recorridosDisponibles: hijosPorPadre.get(c.id) ?? 0,
+        // El wizard de torneos no tiene dónde elegir recorridos.
+        puedeElegirRecorridos: false,
+        // La Map se arma sólo con las canchas que volvieron de `courses`.
+        existe: true,
+      },
+    ]),
+  )
 }

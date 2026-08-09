@@ -12,6 +12,7 @@ import { getYardajeForTee } from '@/types/ronda'
 import { resolverCourseHandicap, cargarCourseData, resolverHandicapDisplayDeRonda, type CourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { calcularScramble, calcularFoursome, teePlayerEnHoyo, isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
@@ -186,33 +187,28 @@ export default function ScoreGrupoPage() {
       let finalParTotal = parTotalEstandar(r.holes)  // se actualiza si hay course_holes
 
       if (r.course_id) {
-        let query = supabase.from('course_holes')
-          .select('numero, par, stroke_index, recorrido, yardaje_negras, yardaje_azul, yardaje_blanco, yardaje_rojo, yardaje_verificado_at')
-          .eq('course_id', r.course_id)
-        // Multi-loop: filter by selected recorridos
-        const recorridos = r.recorridos as string[] | null
-        if (recorridos && recorridos.length > 0) {
-          query = query.in('recorrido', recorridos)
-        }
-        const { data: holes } = await query.order('recorrido').order('numero')
-        if (holes && holes.length > 0) {
+        // Fuente única (`@/lib/data/course-holes`): ya viene en el orden en que
+        // se juegan los recorridos elegidos y renumerada. La query que había
+        // acá miraba sólo `course_id` de la ronda, así que en un complejo de 27
+        // hoyos devolvía 0 filas —el par cuelga de los recorridos hijos— y esta
+        // pantalla se quedaba con su default de par 4 y stroke index 1..18.
+        const holes = await fetchHoyosDeLaRonda(supabase, r.course_id, r.recorridos as string[] | null)
+        if (holes.length > 0) {
           const pm2: Record<number, number> = {}
           const hdm2: Record<number, HoleData> = {}
           const teeCol = getTeeYardageColumn(r.tees || 'azul')
-          // Renumber: loop 1 = 1-9, loop 2 = 10-18 (for multi-loop)
-          const isMultiLoop = recorridos && recorridos.length > 1
-          const base = holes.map((h, i) => ({
-            numero: isMultiLoop ? i + 1 : h.numero,
+          const base = holes.map((h) => ({
+            numero: h.numero,
             par: h.par,
-            stroke_index: h.stroke_index,
+            stroke_index: h.stroke_index as number,
             // Solo exponer yardajes auditados contra fuente primaria.
             yardaje: (h as Record<string, unknown>).yardaje_verificado_at
               ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
               : null,
             yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {
               negras: (h as Record<string, unknown>).yardaje_negras as number | null ?? null,
-              azul: h.yardaje_azul ?? null,
-              blanco: h.yardaje_blanco ?? null,
+              azul: (h as Record<string, unknown>).yardaje_azul as number | null ?? null,
+              blanco: (h as Record<string, unknown>).yardaje_blanco as number | null ?? null,
               rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
             } : undefined,
           }))

@@ -209,6 +209,14 @@ export function normalizeStrokeIndexMap(
  *
  * NO cambia el SI que se MUESTRA (eso es data de catálogo: qué hoyo es el más
  * difícil) — sólo el valor usado para repartir golpes.
+ *
+ * ⚠️ Una excepción con nombre: al COMPONER dos nueves en una ronda de 18
+ * (`@/golf/courses/hoyos-de-la-ronda`), el SI compuesto NO existe en el
+ * catálogo. El club publica uno por cada nueve, así que concatenarlos daría
+ * cada número dos veces — y ahí el valor que se muestra sí hay que derivarlo, o
+ * la tarjeta marca punto de golpe en los 18 hoyos. El entrelazado impar/par que
+ * produce este helper es además la convención WHS para una compuesta (el nueve
+ * de ida se queda los impares). Ese uso es correcto: no es un caso a "arreglar".
  */
 export function normalizedStrokeIndexByHole(
   holes: Array<{ numero: number; stroke_index: number }>,
