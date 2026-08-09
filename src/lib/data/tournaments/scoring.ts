@@ -48,6 +48,8 @@ export interface ScoringTournament {
   total_rounds: number
   tees: string | null
   hcp_calc_mode: string | null
+  /** Los torneos demo son spectator-only: el scorer del jugador redirige al board. */
+  es_demo: boolean | null
   courses: {
     id: string
     nombre: string
@@ -67,7 +69,7 @@ export interface HoleScoreRow {
 
 const SCORING_TOURNAMENT_SELECT =
   'id, name, slug, format, modo_juego, formato_juego, hole_count, total_rounds, ' +
-  'tees, hcp_calc_mode, courses(id, nombre, par_total, slope_rating, course_rating)'
+  'tees, hcp_calc_mode, es_demo, courses(id, nombre, par_total, slope_rating, course_rating)'
 
 // categories(default_tee_color) NO existe en prod → PostgREST 400 → players=[]
 // (pantalla vacía). El default de tee por categoría nunca se cableó a la BD.

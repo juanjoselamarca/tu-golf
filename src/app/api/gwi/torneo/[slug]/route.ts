@@ -5,6 +5,9 @@ import {
   puntosStablefordHoyo,
 } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
+import { fetchLegacyHcpContext } from '@/lib/data/tournaments/leaderboard'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
@@ -56,11 +59,16 @@ export async function GET(
     // cancha sin catálogo y la de 9 hoyos jugada a 18 (dos vueltas).
     holes = hoyosDeLaVuelta(holes, totalHoyos)
 
+    // Contexto del gate de handicap — la MISMA fuente que el board público
+    // (`fetchLegacyHcpContext`). Sin él, el GWI repartía golpes con el índice
+    // crudo y modelaba una carrera que no era la que mostraba el leaderboard.
+    const hcpCtx = await fetchLegacyHcpContext(supabase, t.id)
+
     // Players with rounds
     const { data: rawPlayers } = await supabase
       .from('players')
       .select(`
-        id, user_id, handicap_at_registration,
+        id, user_id, handicap_at_registration, tee_id,
         profiles(name, indice),
         rounds(id, status, total_gross, total_net, total_points,
           hole_scores(hole_number, gross_score))
@@ -75,9 +83,14 @@ export async function GET(
       id: string
       user_id: string
       handicap_at_registration: number | null
+      tee_id: string | null
       profiles: { name: string; indice: number | null } | null
       rounds: { id: string; total_gross: number; hole_scores: DBHScore[] }[]
     }[]
+
+    // El par de los hoyos que se JUEGAN: con el CR de 9h contra el par de 18 la
+    // fórmula WHS devuelve course handicaps negativos.
+    const parDeLaRonda = parDeLosHoyosJugados(holes, totalHoyos)
 
     // Batch: fetch all historical rounds and patterns in 2 queries instead of N+1
     const userIds = typedPlayers.map(p => p.user_id).filter(Boolean)
@@ -111,7 +124,19 @@ export async function GET(
     }
 
     const inputs: JugadorGWIInput[] = typedPlayers.map((p) => {
+      // Dos números distintos, a propósito (misma separación que el board):
+      // · `courseHcp` REPARTE los golpes — sale del gate por torneo.
+      // · `hcp` es el ÍNDICE de skill, y el GWI lo usa para modelar la varianza
+      //   del jugador. Ese sigue siendo el índice crudo.
       const hcp       = p.handicap_at_registration ?? (p.profiles?.indice ?? 18)
+      const courseHcp = resolveScoringCourseHcp(
+        hcpCtx.mode,
+        { handicap_at_registration: p.handicap_at_registration ?? hcp, tee_id: p.tee_id ?? null },
+        { tees: hcpCtx.tees, courses: hcpCtx.course },
+        hcpCtx.courseTees,
+        parDeLaRonda,
+        totalHoyos,
+      )
       const round     = p.rounds?.[0]
       const holeScores = round?.hole_scores ?? []
 
@@ -127,8 +152,8 @@ export async function GET(
         hoyosCompletados++
         const siHoyo = siAlloc[hole.numero] ?? hole.stroke_index
         overUnderGross  += hs.gross_score - hole.par
-        overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(hcp, siHoyo, totalHoyos)) - hole.par
-        totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, siHoyo, totalHoyos)
+        overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(courseHcp, siHoyo, totalHoyos)) - hole.par
+        totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, courseHcp, siHoyo, totalHoyos)
       }
 
       const currentScore = formato === 'stableford' ? totalStableford
