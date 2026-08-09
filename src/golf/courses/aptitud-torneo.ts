@@ -51,6 +51,22 @@ export const MENSAJE_SIN_RATING_9H =
 export const MENSAJE_RATING_MAL_CARGADO =
   'Esta cancha tiene el rating oficial mal cargado. Contacta al club o elige otra.'
 
+/**
+ * Falta el par hoyo por hoyo y no hay recorrido que elegir para conseguirlo:
+ * el club nunca cargó el scorecard. Hoy son 6 canchas (Iquique D/V, Barquito
+ * Chañaral D/V, Río Blanco D/V), ninguna con rondas.
+ */
+export const MENSAJE_SIN_PAR_POR_HOYO =
+  'Esta cancha no tiene el par hoyo por hoyo cargado. Contacta al club o elige otra.'
+
+/**
+ * El par SÍ existe, pero cuelga de los recorridos y todavía no se eligieron.
+ * El jugador puede resolverlo solo, así que el mensaje pide la acción en vez de
+ * mandarlo a hablar con el club.
+ */
+export const MENSAJE_FALTA_ELEGIR_RECORRIDOS =
+  'Elige qué recorridos vas a jugar: esta cancha tiene varios y el par cambia según cuáles juegues.'
+
 export interface TeeParaAptitud {
   rating: number | null
   front_course_rating?: number | null
@@ -72,7 +88,7 @@ export interface CanchaParaAptitud {
  * de verdad (par, stroke index, Course Rating y slope correctos), así que una
  * cancha de 9 SANA sirve para 18 hoyos y sólo queda el bloqueo por dato roto.
  */
-export type MotivoNoApta = 'rating_incoherente'
+export type MotivoNoApta = 'rating_incoherente' | 'sin_par_por_hoyo'
 
 export interface AptitudTorneo {
   apta: boolean
@@ -116,11 +132,17 @@ export function requiereRatingDeCancha(torneo: {
 /**
  * ¿Este veredicto frena una RONDA LIBRE?
  *
- * Sólo el dato que MIENTE, que hoy es el único motivo que existe. Se mantiene
- * como función con nombre (y no como `!veredicto.apta` inline) porque torneo y
- * ronda libre NO tienen por qué frenar por lo mismo: un torneo reparte premios
- * y una ronda entre amigos no. Si mañana vuelve a haber un motivo que sólo
+ * Se mantiene como función con nombre (y no como `!veredicto.apta` inline)
+ * porque torneo y ronda libre NO tienen por qué frenar por lo mismo: un torneo
+ * reparte premios y una ronda entre amigos no. Si mañana hay un motivo que sólo
  * aplica a torneos, se agrega acá y ninguna ruta se entera.
+ *
+ * Hoy frenan los dos motivos, pero por razones distintas:
+ * - `rating_incoherente` sólo importa cuando se juega NETO (el rating no entra
+ *   en el gross), así que la ruta lo pregunta dentro de ese camino.
+ * - `sin_par_por_hoyo` importa SIEMPRE. Sin el par de cada hoyo el scorer no
+ *   puede pintar birdie ni bogey, el vs-par no existe y el coach razona sobre
+ *   una ronda sin referencia. Una ronda gross también lo necesita.
  *
  * Vive acá y no inline en la ruta porque es una decisión de producto sobre el
  * dominio, no un detalle de una ruta: si mañana hay un segundo camino de
@@ -129,7 +151,97 @@ export function requiereRatingDeCancha(torneo: {
 export function bloqueaRondaLibre(
   veredicto: AptitudTorneo | null | undefined,
 ): veredicto is AptitudTorneo {
-  return veredicto?.motivo === 'rating_incoherente'
+  return veredicto?.motivo === 'rating_incoherente' || veredicto?.motivo === 'sin_par_por_hoyo'
+}
+
+/**
+ * ¿Este bloqueo se levanta jugando en modo Gross?
+ *
+ * Sí para el rating: en gross no entra en ningún cálculo, así que la ronda se
+ * puede jugar igual y el aviso ofrece esa salida. No para el par por hoyo: sin
+ * él no hay vs-par ni birdie en el scorer, y eso no depende del modo. Ofrecer
+ * "jugala en gross" ahí sería mandar al jugador a una ronda igual de rota.
+ */
+export function seArreglaJugandoGross(veredicto: AptitudTorneo): boolean {
+  return veredicto.motivo === 'rating_incoherente'
+}
+
+/**
+ * De dónde podría salir el par hoyo por hoyo de la ronda que se está por crear.
+ * Espeja los dos caminos que tiene el motor para conseguirlo.
+ */
+export interface ParPorHoyoDisponible {
+  /** La cancha elegida tiene filas propias en `course_holes`. */
+  hoyosPropios: boolean
+  /** Cuántos recorridos eligió el jugador (`rondas_libres.recorridos`). */
+  loopsElegidos: number
+  /** De los elegidos, cuántos tienen sus `course_holes` cargados. */
+  loopsConHoyos: number
+  /** Cuántos recorridos hijos ofrece la cancha para elegir. */
+  recorridosDisponibles: number
+}
+
+/**
+ * ¿Se puede saber el par de cada hoyo de esta ronda?
+ *
+ * El guardarrail de rating contesta si el HANDICAP va a salir bien. Éste
+ * contesta algo anterior: si el motor tiene contra qué comparar cada golpe. Sin
+ * `course_holes` no hay par por hoyo ni stroke index, así que no hay vs-par, no
+ * hay birdie/bogey en el scorer y el coach analiza una ronda sin referencia.
+ *
+ * El agujero que cierra es real y está en producción: 4 rondas libres
+ * finalizadas (marzo-abril 2026, 12 jugadores) apuntan al club PADRE de un
+ * complejo de 27 hoyos con `recorridos` en null. El padre no tiene hoyos
+ * propios —eso es correcto por diseño, los tiene cada hijo— pero sin loops
+ * elegidos no hay forma de saber cuáles se jugaron. Nadie las validó porque el
+ * único gate que existía miraba el rating y sólo corría en modo neto.
+ *
+ * No se adivina qué recorridos jugó el jugador: se le pide que los elija.
+ */
+export function evaluarParPorHoyo(d: ParPorHoyoDisponible): AptitudTorneo {
+  // La cancha trae su propio par por hoyo. Es el caso de 177 de las 186 canchas
+  // activas del catálogo.
+  if (d.hoyosPropios) return APTA
+
+  const noApta = (mensaje: string): AptitudTorneo => ({
+    apta: false,
+    motivo: 'sin_par_por_hoyo',
+    mensaje,
+    advertencia: null,
+  })
+
+  // Con loops elegidos el par sale de los hijos, pero sólo si están TODOS: el
+  // motor entra por la rama multi-recorrido con `children.length === recorridos.length`
+  // y si falta uno se cae al camino de cancha simple, que acá no tiene hoyos.
+  if (d.loopsElegidos > 0) {
+    return d.loopsConHoyos === d.loopsElegidos ? APTA : noApta(MENSAJE_SIN_PAR_POR_HOYO)
+  }
+
+  // Sin loops elegidos: si la cancha ofrece recorridos, el jugador lo resuelve
+  // eligiéndolos. Si no ofrece ninguno, falta el dato y no hay nada que hacer
+  // desde la app.
+  return noApta(
+    d.recorridosDisponibles > 0 ? MENSAJE_FALTA_ELEGIR_RECORRIDOS : MENSAJE_SIN_PAR_POR_HOYO,
+  )
+}
+
+/**
+ * Junta veredictos independientes en uno solo: gana el primero que bloquea, y
+ * si ninguno bloquea se conserva la primera advertencia.
+ *
+ * Existe para que las rutas no elijan a mano entre "¿el rating miente?" y
+ * "¿hay par por hoyo?" — que es justo el tipo de decisión que termina escrita
+ * de dos formas distintas en dos rutas. El orden en que se pasan define la
+ * prioridad del mensaje, y el caller lo decide una sola vez.
+ */
+export function combinarVeredictos(
+  ...veredictos: Array<AptitudTorneo | null | undefined>
+): AptitudTorneo {
+  const presentes = veredictos.filter((v): v is AptitudTorneo => v != null)
+  const bloquea = presentes.find((v) => !v.apta)
+  if (bloquea) return bloquea
+  const conAviso = presentes.find((v) => v.advertencia)
+  return conAviso ?? APTA
 }
 
 /** ¿El par de esta cancha es el de una vuelta de 9 hoyos? */

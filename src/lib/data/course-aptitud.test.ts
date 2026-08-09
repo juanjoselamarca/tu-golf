@@ -13,10 +13,16 @@ import {
   evaluarCanchaDeRondaLibre,
   fetchCanchasParaAptitud,
   fetchTeesParaAptitud,
+  fetchParPorHoyoDisponible,
+  evaluarRondaLibre,
   type CourseRowParaAptitud,
   type TeeRowParaAptitud,
 } from './course-aptitud'
-import { MENSAJE_SIN_RATING_9H } from '@/golf/courses/aptitud-torneo'
+import {
+  MENSAJE_SIN_RATING_9H,
+  bloqueaRondaLibre,
+  evaluarParPorHoyo,
+} from '@/golf/courses/aptitud-torneo'
 
 const RIO_BLANCO = 'rio-blanco-varones'
 const LOS_LEONES = 'los-leones'
@@ -54,16 +60,31 @@ function fakeSupabase(
     consultas: registro,
     from(tabla: string) {
       registro.push(tabla)
+      let resultado = (filas[tabla] ?? []) as Array<Record<string, unknown>>
+      // `.eq()` / `.in()` filtran DE VERDAD, pero sólo por columnas que los
+      // fixtures declaran. Los fixtures viejos no traen `parent_id` ni
+      // `loop_nombre` (el fake original ignoraba los filtros y devolvía todo),
+      // así que un filtro sobre una columna que nadie declara se deja pasar en
+      // vez de vaciar el resultado. Los fixtures que sí la declaran obtienen el
+      // filtrado real, que es lo que necesitan las consultas que distinguen
+      // padre de hijos.
+      const filtrable = (col: string) => resultado.some((f) => f[col] !== undefined)
       const builder = {
         select: () => builder,
-        in: () => builder,
-        eq: () => builder,
+        in: (col: string, vals: unknown[]) => {
+          if (filtrable(col)) resultado = resultado.filter((f) => vals.includes(f[col]))
+          return builder
+        },
+        eq: (col: string, val: unknown) => {
+          if (filtrable(col)) resultado = resultado.filter((f) => f[col] === val)
+          return builder
+        },
         range: () => builder,
         then: (resolve: (r: { data: unknown[] | null; error: { message: string } | null }) => unknown) =>
           resolve(
             tabla === fallaEn
               ? { data: null, error: { message: 'timeout' } }
-              : { data: filas[tabla] ?? [], error: null },
+              : { data: resultado, error: null },
           ),
       }
       return builder as never
@@ -147,7 +168,10 @@ describe('fetchTeesParaAptitud', () => {
 })
 
 describe('canchasNoAptasParaTorneo — el gate del servidor', () => {
-  const supabase = () => fakeSupabase({ courses: COURSES, course_tees: TEES })
+  // Las dos canchas tienen sus `course_holes` cargados, como en producción: lo
+  // que este describe prueba es el eslabón del RATING, no el del par por hoyo.
+  const HOYOS = [{ course_id: RIO_BLANCO }, { course_id: LOS_LEONES }]
+  const supabase = () => fakeSupabase({ courses: COURSES, course_tees: TEES, course_holes: HOYOS })
 
   it('bloquea la ronda cuya cancha tiene el rating en escala equivocada', async () => {
     const r = await canchasNoAptasParaTorneo(supabase(), [
@@ -204,17 +228,21 @@ describe('canchasNoAptasParaTorneo — el gate del servidor', () => {
     expect(r[0].round_number).toBe(1)
   })
 
-  it('un torneo Gross sin handicap no se bloquea ni consulta la BD', async () => {
+  it('un torneo Gross no se bloquea por el rating, y no pide los tees', async () => {
     // El Course Rating no entra en ningún cálculo de un torneo a golpes brutos.
     // Bloquearlo sería un falso bloqueo sobre canchas que sirven perfecto.
+    //
+    // Sí se consulta la BD: desde el 09-ago-2026 el par hoyo por hoyo se juzga
+    // en los dos modos. Lo que NO se pide es `course_tees`, que es el fetch
+    // caro y sólo sirve para el veredicto de rating.
     const consultas: string[] = []
     const r = await canchasNoAptasParaTorneo(
-      fakeSupabase({ courses: COURSES, course_tees: TEES }, consultas),
+      fakeSupabase({ courses: COURSES, course_tees: TEES, course_holes: HOYOS }, consultas),
       [{ round_number: 1, course_id: RIO_BLANCO, hole_count: 9 }],
       { modo: 'gross', use_handicap: false },
     )
     expect(r).toEqual([])
-    expect(consultas).toEqual([])
+    expect(consultas).not.toContain('course_tees')
   })
 
   it('un torneo Gross CON handicap sí se bloquea (hay premios neto)', async () => {
@@ -330,5 +358,190 @@ describe('evaluarCanchaDeRondaLibre — recorridos sueltos', () => {
   it('una cancha que no está en la BD no tiene rating que desmentir', async () => {
     const r = await evaluarCanchaDeRondaLibre(fakeSupabase({ courses: [], course_tees: [] }), PADRE, 18, null)
     expect(r).toBeNull()
+  })
+})
+
+describe('fetchParPorHoyoDisponible — de dónde sale el par de cada hoyo', () => {
+  // Brisas tal como está en producción: el club padre no tiene `course_holes`
+  // propios (correcto por diseño) y los tres nueves hijos sí.
+  const BRISAS = 'brisas-padre'
+  const CATALOGO_27H = {
+    courses: [
+      { id: BRISAS, nombre: 'Club de Golf Brisas de Santo Domingo', par_total: 72, course_rating: 72.6, slope_rating: 130, parent_id: null, loop_nombre: null },
+      { id: 'este', nombre: 'Este', par_total: 36, course_rating: 72, slope_rating: 130, parent_id: BRISAS, loop_nombre: 'Este' },
+      { id: 'norte', nombre: 'Norte', par_total: 36, course_rating: 72, slope_rating: 130, parent_id: BRISAS, loop_nombre: 'Norte' },
+      { id: 'sur', nombre: 'Sur', par_total: 36, course_rating: 72, slope_rating: 130, parent_id: BRISAS, loop_nombre: 'Sur' },
+    ],
+    course_holes: [{ course_id: 'este' }, { course_id: 'norte' }, { course_id: 'sur' }],
+    course_tees: [],
+  }
+
+  it('el club padre sin loops elegidos: el par existe pero cuelga de los hijos', async () => {
+    const d = await fetchParPorHoyoDisponible(fakeSupabase(CATALOGO_27H), BRISAS, null)
+    expect(d).toEqual({
+      hoyosPropios: false,
+      loopsElegidos: 0,
+      loopsConHoyos: 0,
+      recorridosDisponibles: 3,
+    })
+    expect(evaluarParPorHoyo(d).apta).toBe(false)
+  })
+
+  it('con los dos recorridos elegidos, el par es alcanzable', async () => {
+    const d = await fetchParPorHoyoDisponible(fakeSupabase(CATALOGO_27H), BRISAS, ['Este', 'Norte'])
+    expect(d.loopsElegidos).toBe(2)
+    expect(d.loopsConHoyos).toBe(2)
+    expect(evaluarParPorHoyo(d).apta).toBe(true)
+  })
+
+  it('un recorrido elegido que no existe en la BD no cuenta como resuelto', async () => {
+    const d = await fetchParPorHoyoDisponible(fakeSupabase(CATALOGO_27H), BRISAS, ['Este', 'Oeste'])
+    expect(d.loopsElegidos).toBe(2)
+    expect(d.loopsConHoyos).toBe(1)
+    expect(evaluarParPorHoyo(d).apta).toBe(false)
+  })
+
+  it('una cancha normal con sus hoyos propios es apta sin más consultas', async () => {
+    const catalogo = {
+      courses: [{ id: 'los-leones', par_total: 72, course_rating: 71.6, parent_id: null }],
+      course_holes: [{ course_id: 'los-leones' }],
+      course_tees: [],
+    }
+    const d = await fetchParPorHoyoDisponible(fakeSupabase(catalogo), 'los-leones', null)
+    expect(d.hoyosPropios).toBe(true)
+    expect(evaluarParPorHoyo(d).apta).toBe(true)
+  })
+
+  it('Iquique: sin hoyos propios y sin recorridos que elegir', async () => {
+    const catalogo = {
+      courses: [{ id: 'iquique', par_total: 72, course_rating: null, parent_id: null }],
+      course_holes: [],
+      course_tees: [],
+    }
+    const d = await fetchParPorHoyoDisponible(fakeSupabase(catalogo), 'iquique', null)
+    expect(d).toEqual({
+      hoyosPropios: false,
+      loopsElegidos: 0,
+      loopsConHoyos: 0,
+      recorridosDisponibles: 0,
+    })
+  })
+
+  it('falla CERRADO si la BD se cae: el caller decide si eso frena', async () => {
+    await expect(
+      fetchParPorHoyoDisponible(fakeSupabase(CATALOGO_27H, [], 'course_holes'), BRISAS, null),
+    ).rejects.toThrow(/hoyos/)
+  })
+})
+
+describe('evaluarRondaLibre — las dos preguntas, cada una en su momento', () => {
+  const BRISAS = 'brisas-padre'
+  const SIN_PAR_POR_HOYO = {
+    courses: [
+      { id: BRISAS, par_total: 72, course_rating: 72.6, slope_rating: 130, parent_id: null, loop_nombre: null },
+      { id: 'este', par_total: 36, course_rating: 72, slope_rating: 130, parent_id: BRISAS, loop_nombre: 'Este' },
+    ],
+    course_holes: [{ course_id: 'este' }],
+    course_tees: [],
+  }
+
+  it('una ronda GROSS en el club padre sin recorridos se frena igual', async () => {
+    // Éste es el bug: las 4 rondas rotas de producción son gross, y el gate de
+    // rating no corre en gross. El par por hoyo no depende del modo.
+    const v = await evaluarRondaLibre(fakeSupabase(SIN_PAR_POR_HOYO), BRISAS, 18, null, {
+      requiereRating: false,
+    })
+    expect(v.apta).toBe(false)
+    expect(v.motivo).toBe('sin_par_por_hoyo')
+    expect(bloqueaRondaLibre(v)).toBe(true)
+  })
+
+  it('con el recorrido elegido, la misma ronda gross pasa', async () => {
+    const v = await evaluarRondaLibre(fakeSupabase(SIN_PAR_POR_HOYO), BRISAS, 9, ['Este'], {
+      requiereRating: false,
+    })
+    expect(v.apta).toBe(true)
+  })
+
+  it('en gross no se juzga el rating: una cancha sin rating sano no frena', async () => {
+    const ratingRoto = {
+      courses: [{ id: 'rio-blanco', par_total: 35, course_rating: null, slope_rating: 130, parent_id: null }],
+      course_holes: [{ course_id: 'rio-blanco' }],
+      course_tees: [{ course_id: 'rio-blanco', rating: 55, front_course_rating: null }],
+    }
+    const v = await evaluarRondaLibre(fakeSupabase(ratingRoto), 'rio-blanco', 9, null, {
+      requiereRating: false,
+    })
+    expect(v.apta).toBe(true)
+  })
+
+  it('en neto la misma cancha sí se frena por el rating', async () => {
+    const ratingRoto = {
+      courses: [{ id: 'rio-blanco', par_total: 35, course_rating: null, slope_rating: 130, parent_id: null }],
+      course_holes: [{ course_id: 'rio-blanco' }],
+      course_tees: [{ course_id: 'rio-blanco', rating: 55, front_course_rating: null }],
+    }
+    const v = await evaluarRondaLibre(fakeSupabase(ratingRoto), 'rio-blanco', 9, null, {
+      requiereRating: true,
+    })
+    expect(v.apta).toBe(false)
+    expect(v.motivo).toBe('rating_incoherente')
+  })
+})
+
+describe('canchasNoAptasParaTorneo — el par por hoyo también es requisito', () => {
+  // Un torneo NO elige recorridos: `tournaments` no tiene esa columna. Así que
+  // el par tiene que salir de `course_holes` de la cancha elegida. Para los
+  // complejos de 27 hoyos el catálogo ya ofrece la combinación armada
+  // ("Norte - Sur", 18 hoyos cargados) — es ésa la que hay que elegir, no el
+  // club padre.
+  const BRISAS_PADRE = 'brisas-padre'
+  const BRISAS_NORTE_SUR = 'brisas-norte-sur'
+  const CATALOGO = {
+    courses: [
+      { id: BRISAS_PADRE, nombre: 'Club de Golf Brisas de Santo Domingo', par_total: 72, course_rating: 72.6, slope_rating: 130, parent_id: null },
+      { id: BRISAS_NORTE_SUR, nombre: 'C.G. Las Brisas De Santo Domingo - Norte - Sur (VARONES)', par_total: 72, course_rating: 72.6, slope_rating: 130, parent_id: null },
+    ],
+    course_holes: [{ course_id: BRISAS_NORTE_SUR }],
+    course_tees: [],
+  }
+
+  it('bloquea un torneo NETO sobre el club padre sin par por hoyo', async () => {
+    const r = await canchasNoAptasParaTorneo(
+      fakeSupabase(CATALOGO),
+      [{ round_number: 1, course_id: BRISAS_PADRE, hole_count: 18 }],
+      NETO,
+    )
+    expect(r).toHaveLength(1)
+    expect(r[0].motivo).toBe('sin_par_por_hoyo')
+  })
+
+  it('bloquea también un torneo GROSS: el par por hoyo no depende del modo', async () => {
+    // El gate de rating hace early-return en gross. El de par por hoyo no puede.
+    const r = await canchasNoAptasParaTorneo(
+      fakeSupabase(CATALOGO),
+      [{ round_number: 1, course_id: BRISAS_PADRE, hole_count: 18 }],
+      { modo: 'gross', use_handicap: false },
+    )
+    expect(r).toHaveLength(1)
+    expect(r[0].motivo).toBe('sin_par_por_hoyo')
+  })
+
+  it('la combinación ya armada del catálogo sí pasa', async () => {
+    const r = await canchasNoAptasParaTorneo(
+      fakeSupabase(CATALOGO),
+      [{ round_number: 1, course_id: BRISAS_NORTE_SUR, hole_count: 18 }],
+      NETO,
+    )
+    expect(r).toEqual([])
+  })
+
+  it('un torneo gross sobre una cancha sana no se bloquea por nada', async () => {
+    const r = await canchasNoAptasParaTorneo(
+      fakeSupabase(CATALOGO),
+      [{ round_number: 1, course_id: BRISAS_NORTE_SUR, hole_count: 18 }],
+      { modo: 'gross', use_handicap: false },
+    )
+    expect(r).toEqual([])
   })
 })

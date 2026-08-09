@@ -11,7 +11,11 @@ import {
   requiereRatingDeCancha,
   MENSAJE_SIN_RATING_9H,
   MENSAJE_RATING_MAL_CARGADO,
+  MENSAJE_SIN_PAR_POR_HOYO,
+  MENSAJE_FALTA_ELEGIR_RECORRIDOS,
   ADVERTENCIA_TEE_ROTO,
+  evaluarParPorHoyo,
+  combinarVeredictos,
 } from './aptitud-torneo'
 
 // ─── Canchas reales, tal como están en la BD hoy ────────────────────────────
@@ -449,5 +453,112 @@ describe('requiereRatingDeCancha — un torneo Gross no necesita rating', () => 
 
   it('sin datos no se asume que hace falta', () => {
     expect(requiereRatingDeCancha({})).toBe(false)
+  })
+})
+
+// ─── Par por hoyo ───────────────────────────────────────────────────────────
+//
+// Casos del catálogo REAL (snapshot 09-ago-2026): 186 canchas activas, 177 con
+// `course_holes` propios, 3 clubes de 27h que dependen de sus hijos, y 6 que no
+// tienen par por hoyo por ninguna vía.
+
+describe('evaluarParPorHoyo — sin par por hoyo el motor no puede puntuar', () => {
+  it('una cancha con sus propios hoyos es apta', () => {
+    const v = evaluarParPorHoyo({
+      hoyosPropios: true,
+      loopsElegidos: 0,
+      loopsConHoyos: 0,
+      recorridosDisponibles: 0,
+    })
+    expect(v.apta).toBe(true)
+    expect(v.motivo).toBeNull()
+  })
+
+  it('Brisas 27h CON los recorridos elegidos es apta: el par sale de los hijos', () => {
+    const v = evaluarParPorHoyo({
+      hoyosPropios: false,
+      loopsElegidos: 2,
+      loopsConHoyos: 2,
+      recorridosDisponibles: 3,
+    })
+    expect(v.apta).toBe(true)
+  })
+
+  it('Brisas 27h SIN recorridos elegidos no es apta, y el mensaje es accionable', () => {
+    // Las 4 rondas rotas de producción (marzo-abril 2026) son exactamente esto:
+    // `course_id` = el club padre, `recorridos` = null, `course_holes` vacío.
+    const v = evaluarParPorHoyo({
+      hoyosPropios: false,
+      loopsElegidos: 0,
+      loopsConHoyos: 0,
+      recorridosDisponibles: 3,
+    })
+    expect(v.apta).toBe(false)
+    expect(v.motivo).toBe('sin_par_por_hoyo')
+    expect(v.mensaje).toBe(MENSAJE_FALTA_ELEGIR_RECORRIDOS)
+  })
+
+  it('un recorrido elegido al que le faltan los hoyos tampoco pasa', () => {
+    const v = evaluarParPorHoyo({
+      hoyosPropios: false,
+      loopsElegidos: 2,
+      loopsConHoyos: 1,
+      recorridosDisponibles: 3,
+    })
+    expect(v.apta).toBe(false)
+    expect(v.motivo).toBe('sin_par_por_hoyo')
+    expect(v.mensaje).toBe(MENSAJE_SIN_PAR_POR_HOYO)
+  })
+
+  it('Iquique / Barquito / Río Blanco: sin hoyos y sin recorridos que elegir', () => {
+    const v = evaluarParPorHoyo({
+      hoyosPropios: false,
+      loopsElegidos: 0,
+      loopsConHoyos: 0,
+      recorridosDisponibles: 0,
+    })
+    expect(v.apta).toBe(false)
+    expect(v.motivo).toBe('sin_par_por_hoyo')
+    // No es culpa del jugador: no hay recorrido que elegir, falta el dato.
+    expect(v.mensaje).toBe(MENSAJE_SIN_PAR_POR_HOYO)
+  })
+
+  it('frena la ronda libre: sin par por hoyo no hay vs-par ni birdie en el scorer', () => {
+    // A diferencia del rating, el par por hoyo hace falta INCLUSO en gross.
+    const v = evaluarParPorHoyo({
+      hoyosPropios: false,
+      loopsElegidos: 0,
+      loopsConHoyos: 0,
+      recorridosDisponibles: 0,
+    })
+    expect(bloqueaRondaLibre(v)).toBe(true)
+  })
+})
+
+describe('combinarVeredictos — el primero que bloquea manda', () => {
+  it('sin veredictos que bloqueen, devuelve apta', () => {
+    expect(combinarVeredictos().apta).toBe(true)
+  })
+
+  it('conserva la advertencia de un veredicto que pasa', () => {
+    const conAviso = evaluarAptitudTorneo(RINCONADA, 9)
+    expect(conAviso.advertencia).toBe(ADVERTENCIA_TEE_ROTO)
+    expect(combinarVeredictos(conAviso).advertencia).toBe(ADVERTENCIA_TEE_ROTO)
+  })
+
+  it('el par por hoyo faltante gana sobre una cancha de rating sano', () => {
+    const sinPar = evaluarParPorHoyo({
+      hoyosPropios: false,
+      loopsElegidos: 0,
+      loopsConHoyos: 0,
+      recorridosDisponibles: 0,
+    })
+    const v = combinarVeredictos(evaluarAptitudTorneo(LOS_LEONES, 18), sinPar)
+    expect(v.apta).toBe(false)
+    expect(v.motivo).toBe('sin_par_por_hoyo')
+  })
+
+  it('null y undefined se ignoran', () => {
+    expect(combinarVeredictos(null, undefined).apta).toBe(true)
   })
 })

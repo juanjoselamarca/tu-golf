@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
 import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS } from '@/golf/formats'
-import { evaluarCanchaDeRondaLibre } from '@/lib/data/course-aptitud'
-import { bloqueaRondaLibre } from '@/golf/courses/aptitud-torneo'
+import { evaluarRondaLibre } from '@/lib/data/course-aptitud'
+import { bloqueaRondaLibre, seArreglaJugandoGross } from '@/golf/courses/aptitud-torneo'
 import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
@@ -85,39 +85,47 @@ export async function POST(req: NextRequest) {
           error: `Faltan handicap: ${nombres}. Modo neto requiere HCP para todos.`,
         }, { status: 400 })
       }
+    }
 
-      // Guardarrail de datos de cancha. En ronda libre NO se bloquea la cancha:
-      // se bloquea el NETO sobre ella, porque el neto es lo único que depende
-      // del rating. En Gross la ronda se juega igual — a diferencia de un
-      // torneo, acá no hay premio en juego y el jugador elige.
-      // Qué causa frena y cuál no lo decide `bloqueaRondaLibre`, no esta ruta.
-      //
-      // Falla ABIERTO, al revés que el gate de creación de torneos. Ese gate se
-      // usa desde un escritorio y se puede reintentar; este corre con el jugador
-      // parado en el tee 1. Un hipo de PostgREST no puede ser el motivo de que
-      // no pueda empezar a jugar — y el guardarrail de `resolverCourseHandicap`
-      // ya evita el número absurdo que este aviso sólo se adelanta a contar.
-      if (body.course_id) {
-        const veredicto = await evaluarCanchaDeRondaLibre(
-          supabase,
-          body.course_id,
-          body.holes,
-          body.recorridos ?? null,
-        ).catch((err) => {
-          // Se reporta SIEMPRE: este catch no distingue "se cayó PostgREST" de
-          // "nuestro código está roto", y sin rastro el guardarrail se apaga en
-          // silencio — que es peor que no tenerlo.
-          captureError(err, {
-            context: 'ronda-libre.gate-aptitud',
-            meta: { courseId: body.course_id },
-          })
-          return null
+    // Guardarrail de datos de cancha. Dos preguntas que NO aplican en el mismo
+    // momento, y por eso el gate vive FUERA del bloque de modo neto:
+    //
+    // - El par hoyo por hoyo hace falta SIEMPRE. Sin él no hay vs-par ni birdie
+    //   en el scorer y el coach analiza una ronda sin referencia. Hasta el
+    //   09-ago-2026 nadie lo preguntaba, y en producción quedaron 4 rondas
+    //   finalizadas (12 jugadores) sobre el club PADRE de un complejo de 27
+    //   hoyos con `recorridos` en null: el par no existía por ningún lado.
+    // - El rating sólo hace falta en NETO: en gross no entra en ningún cálculo
+    //   y bloquear por él sería un falso bloqueo.
+    //
+    // Falla ABIERTO, al revés que el gate de creación de torneos. Ese gate se
+    // usa desde un escritorio y se puede reintentar; este corre con el jugador
+    // parado en el tee 1. Un hipo de PostgREST no puede ser el motivo de que
+    // no pueda empezar a jugar — y el guardarrail de `resolverCourseHandicap`
+    // ya evita el número absurdo que este aviso sólo se adelanta a contar.
+    if (body.course_id) {
+      const veredicto = await evaluarRondaLibre(
+        supabase,
+        body.course_id,
+        body.holes,
+        body.recorridos ?? null,
+        { requiereRating: body.modo_juego === 'neto' },
+      ).catch((err) => {
+        // Se reporta SIEMPRE: este catch no distingue "se cayó PostgREST" de
+        // "nuestro código está roto", y sin rastro el guardarrail se apaga en
+        // silencio — que es peor que no tenerlo.
+        captureError(err, {
+          context: 'ronda-libre.gate-aptitud',
+          meta: { courseId: body.course_id },
         })
-        if (bloqueaRondaLibre(veredicto)) {
-          return NextResponse.json({
-            error: `${veredicto.mensaje} Mientras tanto puedes jugarla en modo Gross (sin handicap).`,
-          }, { status: 400 })
-        }
+        return null
+      })
+      if (bloqueaRondaLibre(veredicto)) {
+        // Sólo se ofrece el gross como salida cuando de verdad la destraba.
+        const salida = seArreglaJugandoGross(veredicto)
+          ? ' Mientras tanto puedes jugarla en modo Gross (sin handicap).'
+          : ''
+        return NextResponse.json({ error: `${veredicto.mensaje}${salida}` }, { status: 400 })
       }
     }
 
