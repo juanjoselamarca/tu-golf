@@ -13,6 +13,7 @@ import {
   MENSAJE_RATING_MAL_CARGADO,
   MENSAJE_SIN_PAR_POR_HOYO,
   MENSAJE_FALTA_ELEGIR_RECORRIDOS,
+  MENSAJE_ELEGIR_COMBINACION_ARMADA,
   ADVERTENCIA_TEE_ROTO,
   evaluarParPorHoyo,
   combinarVeredictos,
@@ -463,59 +464,74 @@ describe('requiereRatingDeCancha — un torneo Gross no necesita rating', () => 
 // tienen par por hoyo por ninguna vía.
 
 describe('evaluarParPorHoyo — sin par por hoyo el motor no puede puntuar', () => {
-  it('una cancha con sus propios hoyos es apta', () => {
-    const v = evaluarParPorHoyo({
-      hoyosPropios: true,
-      loopsElegidos: 0,
-      loopsConHoyos: 0,
-      recorridosDisponibles: 0,
-    })
+  /** Lo que devuelve la resolución real cuando encuentra los 18 hoyos. */
+  const RESUELVE = {
+    hoyosResueltos: 18,
+    loopsElegidos: 0,
+    recorridosDisponibles: 0,
+    puedeElegirRecorridos: true,
+    existe: true,
+  }
+
+  it('si la resolución real devolvió hoyos, la cancha es apta', () => {
+    const v = evaluarParPorHoyo(RESUELVE)
     expect(v.apta).toBe(true)
     expect(v.motivo).toBeNull()
   })
 
-  it('Brisas 27h CON los recorridos elegidos es apta: el par sale de los hijos', () => {
-    const v = evaluarParPorHoyo({
-      hoyosPropios: false,
-      loopsElegidos: 2,
-      loopsConHoyos: 2,
-      recorridosDisponibles: 3,
-    })
+  it('Brisas 27h CON los recorridos elegidos es apta: la resolución los encuentra', () => {
+    const v = evaluarParPorHoyo({ ...RESUELVE, loopsElegidos: 2, recorridosDisponibles: 3 })
     expect(v.apta).toBe(true)
   })
 
   it('Brisas 27h SIN recorridos elegidos no es apta, y el mensaje es accionable', () => {
     // Las 4 rondas rotas de producción (marzo-abril 2026) son exactamente esto:
-    // `course_id` = el club padre, `recorridos` = null, `course_holes` vacío.
+    // `course_id` = el club padre, `recorridos` = null, resolución = 0 hoyos.
     const v = evaluarParPorHoyo({
-      hoyosPropios: false,
+      hoyosResueltos: 0,
       loopsElegidos: 0,
-      loopsConHoyos: 0,
       recorridosDisponibles: 3,
+      puedeElegirRecorridos: true,
+      existe: true,
     })
     expect(v.apta).toBe(false)
     expect(v.motivo).toBe('sin_par_por_hoyo')
     expect(v.mensaje).toBe(MENSAJE_FALTA_ELEGIR_RECORRIDOS)
   })
 
-  it('un recorrido elegido al que le faltan los hoyos tampoco pasa', () => {
+  it('desde un TORNEO el mensaje manda a la combinación armada, no a elegir loops', () => {
+    // `tournaments` no tiene columna `recorridos`: pedirle al organizador que
+    // "elija sus recorridos" sería mandarlo a una afordancia que no existe.
     const v = evaluarParPorHoyo({
-      hoyosPropios: false,
-      loopsElegidos: 2,
-      loopsConHoyos: 1,
+      hoyosResueltos: 0,
+      loopsElegidos: 0,
       recorridosDisponibles: 3,
+      puedeElegirRecorridos: false,
+      existe: true,
     })
     expect(v.apta).toBe(false)
-    expect(v.motivo).toBe('sin_par_por_hoyo')
+    expect(v.mensaje).toBe(MENSAJE_ELEGIR_COMBINACION_ARMADA)
+  })
+
+  it('ya eligió recorridos y aun así no hay hoyos: no se le pide repetir la acción', () => {
+    const v = evaluarParPorHoyo({
+      hoyosResueltos: 0,
+      loopsElegidos: 2,
+      recorridosDisponibles: 3,
+      puedeElegirRecorridos: true,
+      existe: true,
+    })
+    expect(v.apta).toBe(false)
     expect(v.mensaje).toBe(MENSAJE_SIN_PAR_POR_HOYO)
   })
 
   it('Iquique / Barquito / Río Blanco: sin hoyos y sin recorridos que elegir', () => {
     const v = evaluarParPorHoyo({
-      hoyosPropios: false,
+      hoyosResueltos: 0,
       loopsElegidos: 0,
-      loopsConHoyos: 0,
       recorridosDisponibles: 0,
+      puedeElegirRecorridos: true,
+      existe: true,
     })
     expect(v.apta).toBe(false)
     expect(v.motivo).toBe('sin_par_por_hoyo')
@@ -526,10 +542,11 @@ describe('evaluarParPorHoyo — sin par por hoyo el motor no puede puntuar', () 
   it('frena la ronda libre: sin par por hoyo no hay vs-par ni birdie en el scorer', () => {
     // A diferencia del rating, el par por hoyo hace falta INCLUSO en gross.
     const v = evaluarParPorHoyo({
-      hoyosPropios: false,
+      hoyosResueltos: 0,
       loopsElegidos: 0,
-      loopsConHoyos: 0,
       recorridosDisponibles: 0,
+      puedeElegirRecorridos: true,
+      existe: true,
     })
     expect(bloqueaRondaLibre(v)).toBe(true)
   })
@@ -548,10 +565,11 @@ describe('combinarVeredictos — el primero que bloquea manda', () => {
 
   it('el par por hoyo faltante gana sobre una cancha de rating sano', () => {
     const sinPar = evaluarParPorHoyo({
-      hoyosPropios: false,
+      hoyosResueltos: 0,
       loopsElegidos: 0,
-      loopsConHoyos: 0,
       recorridosDisponibles: 0,
+      puedeElegirRecorridos: true,
+      existe: true,
     })
     const v = combinarVeredictos(evaluarAptitudTorneo(LOS_LEONES, 18), sinPar)
     expect(v.apta).toBe(false)

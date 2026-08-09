@@ -72,9 +72,11 @@ jobs:
         run: node ./node_modules/vitest/vitest.mjs run src/__tests__/integration/catalogo-rating-canary.test.ts
 
       # Hermano del anterior, un escalón más abajo: aquél vigila que el rating
-      # no mienta, éste que el par hoyo por hoyo EXISTA. Se corre aunque el
-      # primero falle (`if: always()`) para ver los dos problemas de una vez y
-      # no descubrir el segundo recién en el push siguiente.
+      # no mienta, éste que el par hoyo por hoyo EXISTA. Corre aunque el primero
+      # falle, para ver los dos problemas de una vez y no descubrir el segundo
+      # recién en el push siguiente. NO con `always()`: eso lo correría también
+      # cuando falla el checkout o el `npm ci`, produciendo un rojo confuso que
+      # no es del canario.
       - name: Run catalogo canary (par hoyo por hoyo)
-        if: always()
+        if: success() || failure()
         run: node ./node_modules/vitest/vitest.mjs run src/__tests__/integration/catalogo-par-por-hoyo.canary.test.ts

@@ -67,6 +67,15 @@ export const MENSAJE_SIN_PAR_POR_HOYO =
 export const MENSAJE_FALTA_ELEGIR_RECORRIDOS =
   'Elige qué recorridos vas a jugar: esta cancha tiene varios y el par cambia según cuáles juegues.'
 
+/**
+ * Mismo problema desde la creación de un TORNEO, donde no se pueden elegir
+ * recorridos (`tournaments` no tiene la columna). La salida es otra: el
+ * catálogo ya trae la combinación armada como cancha propia, con sus 18 hoyos
+ * cargados (ej. «C.G. Las Brisas De Santo Domingo - Norte - Sur»).
+ */
+export const MENSAJE_ELEGIR_COMBINACION_ARMADA =
+  'Este club tiene varios recorridos. Elige la combinación que vas a jugar (por ejemplo «Norte - Sur») en vez del club, para que el par de cada hoyo sea el correcto.'
+
 export interface TeeParaAptitud {
   rating: number | null
   front_course_rating?: number | null
@@ -167,18 +176,40 @@ export function seArreglaJugandoGross(veredicto: AptitudTorneo): boolean {
 }
 
 /**
- * De dónde podría salir el par hoyo por hoyo de la ronda que se está por crear.
- * Espeja los dos caminos que tiene el motor para conseguirlo.
+ * Lo que la resolución REAL de hoyos devolvió para esta ronda.
+ *
+ * `hoyosResueltos` NO se deriva de mirar el catálogo por separado: sale de
+ * llamar a la misma función que usa el scorer en runtime
+ * (`fetchHoyosDeLaRonda`). Es la única forma de que el gate no pueda contestar
+ * distinto que el motor — el modo de falla que hizo falta corregir acá mismo:
+ * una primera versión de este gate contaba "recorridos hijos con hoyos" y daba
+ * APTA a rondas que el scorer resolvía en 0 hoyos, porque el scorer buscaba en
+ * el club padre y los hoyos estaban en los hijos.
  */
 export interface ParPorHoyoDisponible {
-  /** La cancha elegida tiene filas propias en `course_holes`. */
-  hoyosPropios: boolean
+  /** Cuántos hoyos devolvió la resolución real. 0 = el scorer no tiene par. */
+  hoyosResueltos: number
   /** Cuántos recorridos eligió el jugador (`rondas_libres.recorridos`). */
   loopsElegidos: number
-  /** De los elegidos, cuántos tienen sus `course_holes` cargados. */
-  loopsConHoyos: number
   /** Cuántos recorridos hijos ofrece la cancha para elegir. */
   recorridosDisponibles: number
+  /**
+   * ¿El camino que llamó puede ofrecerle al usuario elegir recorridos?
+   *
+   * La ronda libre sí (el wizard los pide). El torneo NO: `tournaments` no
+   * tiene columna `recorridos`, así que decirle al organizador "elegí tus
+   * recorridos" sería mandarlo a una afordancia que no existe. Ahí la salida es
+   * elegir la combinación que el catálogo ya ofrece armada.
+   */
+  puedeElegirRecorridos: boolean
+  /**
+   * ¿La cancha existe en `courses`?
+   *
+   * Un `course_id` que no está en la tabla NO es asunto de este guardarrail: lo
+   * caza la foreign key al insertar. Bloquearlo acá con "no tiene el par hoyo
+   * por hoyo cargado" sería un mensaje que miente sobre lo que pasó.
+   */
+  existe: boolean
 }
 
 /**
@@ -199,9 +230,12 @@ export interface ParPorHoyoDisponible {
  * No se adivina qué recorridos jugó el jugador: se le pide que los elija.
  */
 export function evaluarParPorHoyo(d: ParPorHoyoDisponible): AptitudTorneo {
-  // La cancha trae su propio par por hoyo. Es el caso de 177 de las 186 canchas
-  // activas del catálogo.
-  if (d.hoyosPropios) return APTA
+  // Cancha que no está en el catálogo: la FK se ocupa. Espeja a
+  // `evaluarCanchaDeRondaLibre`, que para ese caso devuelve null.
+  if (!d.existe) return APTA
+
+  // La resolución real devolvió hoyos: el scorer tiene con qué puntuar.
+  if (d.hoyosResueltos > 0) return APTA
 
   const noApta = (mensaje: string): AptitudTorneo => ({
     apta: false,
@@ -210,19 +244,25 @@ export function evaluarParPorHoyo(d: ParPorHoyoDisponible): AptitudTorneo {
     advertencia: null,
   })
 
-  // Con loops elegidos el par sale de los hijos, pero sólo si están TODOS: el
-  // motor entra por la rama multi-recorrido con `children.length === recorridos.length`
-  // y si falta uno se cae al camino de cancha simple, que acá no tiene hoyos.
-  if (d.loopsElegidos > 0) {
-    return d.loopsConHoyos === d.loopsElegidos ? APTA : noApta(MENSAJE_SIN_PAR_POR_HOYO)
-  }
+  // No hay par por hoyo. El mensaje depende de si el usuario tiene una salida
+  // desde donde está parado.
+  const hayRecorridos = d.recorridosDisponibles > 0
 
-  // Sin loops elegidos: si la cancha ofrece recorridos, el jugador lo resuelve
-  // eligiéndolos. Si no ofrece ninguno, falta el dato y no hay nada que hacer
-  // desde la app.
-  return noApta(
-    d.recorridosDisponibles > 0 ? MENSAJE_FALTA_ELEGIR_RECORRIDOS : MENSAJE_SIN_PAR_POR_HOYO,
-  )
+  // Ya eligió recorridos y aun así no salieron hoyos: los recorridos elegidos
+  // no tienen su scorecard cargado. Pedirle que "elija recorridos" otra vez
+  // sería mandarlo a repetir lo que ya hizo.
+  if (d.loopsElegidos > 0) return noApta(MENSAJE_SIN_PAR_POR_HOYO)
+
+  // La cancha ofrece recorridos y el camino permite elegirlos: ésa es la acción.
+  if (hayRecorridos && d.puedeElegirRecorridos) return noApta(MENSAJE_FALTA_ELEGIR_RECORRIDOS)
+
+  // La cancha ofrece recorridos pero el camino NO permite elegirlos (torneo):
+  // la salida es la combinación que el catálogo ya tiene armada.
+  if (hayRecorridos) return noApta(MENSAJE_ELEGIR_COMBINACION_ARMADA)
+
+  // No hay recorridos que elegir: falta el dato y no hay nada que hacer desde
+  // la app.
+  return noApta(MENSAJE_SIN_PAR_POR_HOYO)
 }
 
 /**

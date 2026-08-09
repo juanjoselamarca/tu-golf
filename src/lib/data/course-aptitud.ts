@@ -8,6 +8,7 @@
 // ronda libre pregunten todos lo mismo, con las mismas columnas.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fetchHoyosDeLaRonda } from './course-holes'
 import {
   evaluarAptitudTorneo,
   evaluarAptitudRecorridos,
@@ -33,18 +34,22 @@ export const COLUMNAS_APTITUD_COURSES = 'par_total, course_rating, slope_rating'
 export const COLUMNAS_APTITUD_TEES = 'course_id, rating, front_course_rating'
 
 /**
- * PostgREST corta en 1.000 filas por defecto. El catálogo tiene 477 tees hoy,
- * pero una lista truncada NO da error: deja canchas sin sus tees y el veredicto
- * cambia en silencio (mismo modo de falla que el bug de paginación del #254).
- * Se pide el rango explícito para que crecer el catálogo no rompa nada.
+ * ⚠️ Pedir un `.range()` grande NO levanta el techo de PostgREST: `db-max-rows`
+ * lo aplica el servidor y hoy corta en 1.000 filas, sin avisar. Medido contra
+ * producción: `GET /course_holes?select=id` con `Range: 0-9999` devuelve 1.000
+ * de 3.231 filas.
+ *
+ * Estos topes NO protegen de ese corte. Sirven sólo para que el pedido sea
+ * explícito y para documentar el orden de magnitud esperado. Lo que mantiene
+ * correctas a estas funciones es que TODAS filtran por un `in(...)` acotado a
+ * las canchas de la ronda o del torneo (1-4 canchas → ≤ 72 hoyos, ≤ ~20 tees),
+ * muy por debajo del techo.
+ *
+ * Si algún caller futuro pide el catálogo entero por acá, hay que paginar como
+ * hace `catalogo-par-por-hoyo.canary.test.ts`. Una lista truncada no da error:
+ * dejaría una cancha sana sin sus hoyos y el gate la bloquearía en silencio.
  */
 const MAX_TEES = 10_000
-
-/**
- * Mismo motivo que `MAX_TEES`, para `course_holes`: 27 hoyos por complejo es el
- * máximo real, pero un corte silencioso acá haría que un recorrido con hoyos
- * pareciera no tenerlos y el gate bloquearía una cancha sana.
- */
 const MAX_HOYOS = 10_000
 
 export interface CourseRowParaAptitud {
@@ -247,45 +252,37 @@ export async function fetchParPorHoyoDisponible(
   supabase: MinimalClient,
   courseId: string,
   recorridos: string[] | null,
+  puedeElegirRecorridos: boolean,
 ): Promise<ParPorHoyoDisponible> {
-  const loopsPedidos = recorridos ?? []
+  const loopsPedidos = (recorridos ?? []).filter((r): r is string => !!r)
+  // Deduplicado: el schema acepta `['Este','Este']` y contarlo dos veces daría
+  // un veredicto distinto que la resolución real, que agrupa por loop.
+  const loopsUnicos = Array.from(new Set(loopsPedidos))
 
-  const [resHijos, resHoyosPropios] = await Promise.all([
-    supabase.from('courses').select('id, loop_nombre').eq('parent_id', courseId),
-    // Basta una fila para saber que la cancha tiene su par cargado.
-    supabase.from('course_holes').select('course_id').eq('course_id', courseId).range(0, 0),
+  const [hoyos, resHijos, resExiste] = await Promise.all([
+    // LA MISMA función que corre en el scorer. Preguntarle a ella —y no volver
+    // a derivarlo del catálogo— es lo que garantiza que el gate no pueda
+    // contestar distinto que el motor.
+    fetchHoyosDeLaRonda(supabase, courseId, loopsUnicos, COLUMNAS_HOYOS_PARA_GATE),
+    supabase.from('courses').select('id').eq('parent_id', courseId),
+    supabase.from('courses').select('id').eq('id', courseId),
   ])
 
-  const hijos = exigirFilas<{ id: string; loop_nombre: string | null }>(
-    resHijos,
-    'los recorridos de la cancha',
-  )
-  const hoyosPropios =
-    exigirFilas<{ course_id: string }>(resHoyosPropios, 'los hoyos de la cancha').length > 0
-
-  const base = {
-    hoyosPropios,
-    loopsElegidos: loopsPedidos.length,
-    recorridosDisponibles: hijos.length,
+  return {
+    hoyosResueltos: hoyos.length,
+    loopsElegidos: loopsUnicos.length,
+    recorridosDisponibles: exigirFilas<{ id: string }>(resHijos, 'los recorridos de la cancha')
+      .length,
+    puedeElegirRecorridos,
+    existe: exigirFilas<{ id: string }>(resExiste, 'la cancha').length > 0,
   }
-  if (loopsPedidos.length === 0) return { ...base, loopsConHoyos: 0 }
-
-  const elegidos = hijos.filter((h) => h.loop_nombre != null && loopsPedidos.includes(h.loop_nombre))
-  if (elegidos.length === 0) return { ...base, loopsConHoyos: 0 }
-
-  const resHoyosHijos = await supabase
-    .from('course_holes')
-    .select('course_id')
-    .in('course_id', elegidos.map((h) => h.id))
-    .range(0, MAX_HOYOS - 1)
-  const conHoyos = new Set(
-    exigirFilas<{ course_id: string }>(resHoyosHijos, 'los hoyos de los recorridos').map(
-      (h) => h.course_id,
-    ),
-  )
-
-  return { ...base, loopsConHoyos: elegidos.filter((h) => conHoyos.has(h.id)).length }
 }
+
+/**
+ * El gate sólo necesita saber CUÁNTOS hoyos salen, no sus yardajes. Se pide el
+ * mínimo para no arrastrar 9 columnas por una pregunta que es un conteo.
+ */
+const COLUMNAS_HOYOS_PARA_GATE = 'numero, par, stroke_index, recorrido'
 
 /**
  * ¿Puede empezar esta ronda libre?
@@ -307,12 +304,15 @@ export async function evaluarRondaLibre(
   recorridos: string[] | null,
   opciones: { requiereRating: boolean },
 ): Promise<AptitudTorneo> {
-  const disponible = await fetchParPorHoyoDisponible(supabase, courseId, recorridos)
+  // El wizard de ronda libre SÍ ofrece elegir recorridos, así que el mensaje
+  // puede pedir esa acción.
+  const disponible = await fetchParPorHoyoDisponible(supabase, courseId, recorridos, true)
   const porHoyo = evaluarParPorHoyo(disponible)
 
   // El par por hoyo va primero: es el requisito más básico y su mensaje es el
-  // más accionable de los dos ("elige tus recorridos").
-  if (!opciones.requiereRating) return porHoyo
+  // más accionable. Si ya bloquea, no se paga el fetch del rating — son 2
+  // round-trips más en una ruta que corre con el jugador parado en el tee 1.
+  if (!porHoyo.apta || !opciones.requiereRating) return porHoyo
 
   return combinarVeredictos(
     porHoyo,
@@ -412,14 +412,19 @@ async function fetchParPorHoyoDeCanchas(
   const ids = Array.from(new Set(courseIds))
   const [resCanchas, resHoyos, resHijos] = await Promise.all([
     supabase.from('courses').select('id, nombre').in('id', ids),
+    // Un torneo no elige recorridos, así que la resolución real se reduce a
+    // "¿esta cancha tiene sus propios hoyos?" — la vía 1 de
+    // `fetchHoyosDeLaRonda` con `recorridos` vacío. Se consulta en batch porque
+    // el gate puede tener una cancha distinta por ronda.
     supabase.from('course_holes').select('course_id').in('course_id', ids).range(0, MAX_HOYOS - 1),
     supabase.from('courses').select('id, parent_id').in('parent_id', ids),
   ])
 
   const existentes = exigirFilas<{ id: string; nombre: string | null }>(resCanchas, 'las canchas')
-  const conHoyos = new Set(
-    exigirFilas<{ course_id: string }>(resHoyos, 'los hoyos de las canchas').map((h) => h.course_id),
-  )
+  const hoyosPorCancha = new Map<string, number>()
+  for (const h of exigirFilas<{ course_id: string }>(resHoyos, 'los hoyos de las canchas')) {
+    hoyosPorCancha.set(h.course_id, (hoyosPorCancha.get(h.course_id) ?? 0) + 1)
+  }
   const hijosPorPadre = new Map<string, number>()
   for (const h of exigirFilas<{ parent_id: string | null }>(resHijos, 'los recorridos de las canchas')) {
     if (h.parent_id) hijosPorPadre.set(h.parent_id, (hijosPorPadre.get(h.parent_id) ?? 0) + 1)
@@ -430,10 +435,13 @@ async function fetchParPorHoyoDeCanchas(
       c.id,
       {
         nombre: c.nombre ?? '',
-        hoyosPropios: conHoyos.has(c.id),
+        hoyosResueltos: hoyosPorCancha.get(c.id) ?? 0,
         loopsElegidos: 0,
-        loopsConHoyos: 0,
         recorridosDisponibles: hijosPorPadre.get(c.id) ?? 0,
+        // El wizard de torneos no tiene dónde elegir recorridos.
+        puedeElegirRecorridos: false,
+        // La Map se arma sólo con las canchas que volvieron de `courses`.
+        existe: true,
       },
     ]),
   )
