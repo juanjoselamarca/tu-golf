@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-08-08 | Commit: `02a197e`
+> Auto-generado: 2026-08-11 | Commit: `3caa754`
 
 ## Último deploy
 
-- **Commit:** `02a197e` — fix(guardarrail): el gate de recorridos deriva los hoyos igual que el motor
-- **Fecha:** 2026-08-08
-- **Branch:** fix/guardarrail-rating-9h-claude (1411 commits total)
+- **Commit:** `3caa754` — fix(scorer): el par hoyo por hoyo no llegaba a los clubes de 27 hoyos, y nada lo chequeaba (#303)
+- **Fecha:** 2026-08-09
+- **Branch:** chore/cierre-catalogo-docs-claude (1402 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (53 páginas)
@@ -84,25 +84,25 @@
 
 ---
 
+## 2026-08-09 · El par hoyo por hoyo no llegaba a los clubes de 27 hoyos (PR #303)
 
-## 2026-08-06 · Una cancha de 9 hoyos en un torneo de 18 son DOS VUELTAS (PR #292)
+Sesión que empezó auditando el catálogo de canchas y terminó cerrando un bug de
+correctitud vivo en tres clubes reales.
 
-El motor pedía 18 hoyos a un catálogo de 9, no encontraba los hoyos 10-18 y los
-completaba a par 4 con stroke index inventado. Todo en silencio: el par de la ronda
-salía 72 en vez de 70, ese 72 entraba a la fórmula WHS contra un Course Rating de 9
-hoyos —`(CR − par)` corrido ~36 golpes— y media vuelta se puntuaba contra par 4.
-Ahora la segunda vuelta se modela de verdad: los hoyos 10-18 son los 1-9 otra vez,
-con su par real y el stroke index de la tarjeta de 18 que imprime un club de 9.
+**Lo que se encontró.** El guardarrail de cancha contestaba si el *rating* mentía,
+pero nunca si el par de cada hoyo EXISTE — y sólo corría en modo neto. Por ese
+hueco quedaron 4 rondas libres finalizadas (mar-abr 2026, 12 jugadores) apuntando
+al club padre de un complejo de 27 hoyos sin recorridos elegidos.
 
-- **`src/golf/courses/vueltas.ts` — fuente única** de tres conceptos que estaban
-  re-derivados inline en cinco lugares: en qué escala está el dato, cuántas vueltas
-  da la ronda, y qué hoyos se juegan. Course Rating y par son aditivos por vuelta;
-  el slope no se escala. Cada hoyo declara de qué hoyo del catálogo salió (`origen`),
-  así nadie tiene que re-derivar la correspondencia para los yardajes.
-- **Guardarrail de rating (A1-A5).** Un rating que no cierra en ninguna escala ya no
-  produce handicaps absurdos: el motor anula el término `(CR − par)` y el organizador
-  se entera ANTES de crear el torneo, no en el hoyo 7.
-- **Reconciliación con el #293.** Ese PR aterrizó en `main` 18 horas después y cambió
+**Lo que había debajo.** El code review destapó que era peor: había dos formas
+incompatibles de contestar "¿cuáles son los hoyos de esta ronda?". El motor de
+handicap leía los recorridos HIJOS (correcto); el de par por hoyo, escrito inline
+en cuatro pantallas, buscaba en el club PADRE — que tiene 0 filas en
+`course_holes`. Resultado: Brisas, Rocas y Marbella puntuaban con **18 hoyos par 4
+y stroke index inventado 1..18**.
+
+Nadie lo reportó en meses porque 18 × par 4 = 72, que es exactamente el par real de
+esas canchas. El agregado cerraba; lo que estaba mal era la distribución.
 
 ---
 

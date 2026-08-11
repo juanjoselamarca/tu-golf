@@ -4,6 +4,65 @@
 
 ---
 
+## 2026-08-09 · El par hoyo por hoyo no llegaba a los clubes de 27 hoyos (PR #303)
+
+Sesión que empezó auditando el catálogo de canchas y terminó cerrando un bug de
+correctitud vivo en tres clubes reales.
+
+**Lo que se encontró.** El guardarrail de cancha contestaba si el *rating* mentía,
+pero nunca si el par de cada hoyo EXISTE — y sólo corría en modo neto. Por ese
+hueco quedaron 4 rondas libres finalizadas (mar-abr 2026, 12 jugadores) apuntando
+al club padre de un complejo de 27 hoyos sin recorridos elegidos.
+
+**Lo que había debajo.** El code review destapó que era peor: había dos formas
+incompatibles de contestar "¿cuáles son los hoyos de esta ronda?". El motor de
+handicap leía los recorridos HIJOS (correcto); el de par por hoyo, escrito inline
+en cuatro pantallas, buscaba en el club PADRE — que tiene 0 filas en
+`course_holes`. Resultado: Brisas, Rocas y Marbella puntuaban con **18 hoyos par 4
+y stroke index inventado 1..18**.
+
+Nadie lo reportó en meses porque 18 × par 4 = 72, que es exactamente el par real de
+esas canchas. El agregado cerraba; lo que estaba mal era la distribución.
+
+**Tercer bug, del mismo hilo.** Al concatenar dos nueves cada stroke index aparecía
+dos veces (cada nueve publica el suyo 1..9). Los sitios que reparten golpes
+normalizaban, así que el neto salía bien — pero los de display no: con hándicap 9
+la tarjeta marcaba punto de golpe en los 18 hoyos.
+
+**El fix.** Una fuente única (`@/golf/courses/hoyos-de-la-ronda` +
+`@/lib/data/course-holes`) que mira las dos vías, ordena por la selección (no por
+el alfabeto) y normaliza el stroke index al componer. La usan las 4 pantallas, los
+2 gates y el canario. **El gate LLAMA a la misma función del runtime** en vez de
+espejarla — que es lo único que garantiza que no vuelvan a divergir.
+
+**Blast radius medido:** 168 de 186 canchas activas no cambian una línea de
+comportamiento. Bloquea 6 canchas sin scorecard (Iquique, Barquito Chañaral, Río
+Blanco D/V), todas con 0 rondas / 0 torneos / 0 histórico.
+
+**Hallazgo lateral:** `.range(0, 9999)` NO levanta el techo de PostgREST.
+`db-max-rows` corta en 1.000 filas del lado del servidor, sin avisar —
+`course_holes` tiene 3.231. Lo descubrió la guarda de cardinalidad del canario
+nuevo. Los canarios que leen tablas enteras ahora paginan.
+
+**Catálogo, de paso:** reauditado contra la BD. De las 23 anomalías de julio, 17
+estaban cerradas (los 13 par-mismatch, Marbella, el duplicado de Santa Martina).
+Quedan 6 canchas esperando scorecard de FedeGolf.
+
+**Proceso.** Cuatro rondas de `superpowers:code-reviewer`. La segunda encontró un
+bug que se había introducido arreglando el de la primera: al unificar el gate
+contra un lector que no lanza, se perdió el fail-abierto y un hipo de PostgREST
+habría bloqueado todas las rondas del país sin dejar rastro en Sentry.
+
+**Deuda abierta.** Las 4 rondas viejas quedan en allowlist explícita en el canario:
+no se backfillean adivinando qué recorrido se jugó (los tres nueves tienen el mismo
+par total, así que el par por hoyo es justo lo que no se puede inferir). Requiere
+que Juanjo o Leonardo confirmen.
+
+Verificación: tsc 0 errores · 3689 tests · build OK · 2 canarios verdes contra prod
+en CI · deploy `success` · smoke de rutas 200/307.
+
+---
+
 ## 2026-08-06 · Una cancha de 9 hoyos en un torneo de 18 son DOS VUELTAS (PR #292)
 
 El motor pedía 18 hoyos a un catálogo de 9, no encontraba los hoyos 10-18 y los

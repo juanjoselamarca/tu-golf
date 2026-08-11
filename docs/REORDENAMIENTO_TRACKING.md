@@ -436,3 +436,28 @@ netos. Río Blanco sigue bloqueado: 55 contra par 35 no cierra en ninguna escala
 las dos vueltas asumiendo la convención chilena (impares la primera vuelta, pares
 la segunda). Es la que imprimen los clubes de 9 hoyos del catálogo, pero no es una
 regla universal — un club que publique otra tarjeta de 18 necesitaría cargarla.
+
+---
+
+## PR #303 (09-ago-2026) — "los hoyos de esta ronda", un concepto que estaba en 5 lugares
+
+| Concepto | Antes | Ahora |
+|---|---|---|
+| Cuáles son los hoyos de esta ronda | la misma query inline en `useRondaScoreData`, `score-grupo/page`, `lib/data/ronda-libre` y `lib/data/ronda-metadata` — las 4 mirando `course_id` de la ronda, que en un complejo de 27 hoyos devuelve 0 filas | `fetchHoyosDeLaRonda` (`src/lib/data/course-holes.ts`), con las dos vías |
+| Orden de los recorridos elegidos | `.order('recorrido')` — alfabético, así que `['Sur','Norte']` numeraba al revés | el orden de la SELECCIÓN, en `ordenarHoyosDeLosRecorridos` |
+| Stroke index de dos nueves compuestos | crudo: cada número aparecía dos veces | normalizado al componer, en el módulo canónico |
+| ¿Hay par por hoyo? (gate) | derivado en paralelo, contestaba distinto que el runtime | el gate LLAMA a `resolverHoyosDeLaRonda` |
+
+**Capa de datos:** salen 2 `supabase.from('course_holes')` directos de `src/app/`
+(`score/hooks/useRondaScoreData.ts` y `score-grupo/page.tsx`). Quedan ~39 de los 41
+del informe original.
+
+**Principio que deja escrito** ([[reference_gate_llama_al_runtime_no_lo_espeja]]):
+un gate que ESPEJA la lógica del runtime diverge tarde o temprano, y un gate que
+certifica algo roto es peor que no tener gate. Tiene que llamar a la misma
+función — y pedir explícitamente el contrato de error que necesita, porque el del
+runtime (degradar) es lo contrario del que necesita el gate (fallar cerrado).
+
+**Deuda que este PR deja abierta:** `stroke_index as number` en las dos pantallas
+de scoring — la columna es nullable y el cast miente. Cambiarlo toca `HoleData` y
+sus consumidores; es otro PR.
