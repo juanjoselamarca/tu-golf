@@ -3,7 +3,7 @@
 // finalizar ronda. Toda la cuenta de golf sale de `src/golf/` (course handicap,
 // SI normalizado, strokes por hoyo, stableford) — acá sólo se orquesta.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
@@ -64,6 +64,9 @@ export function useScoreEntry({
   const [errorHoles, setErrorHoles] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
   const [lastAction, setLastAction] = useState<LastAction | null>(null)
+  /** Hoyos que ya avisaron que sus stats no se guardaron — un aviso por hoyo,
+   *  no uno por cada tap de putts/fairway/GIR. */
+  const statWarnedHolesRef = useRef<Set<number>>(new Set())
   const [holePutts, setHolePutts] = useState<Record<number, number | null>>({})
   const [holeFairway, setHoleFairway] = useState<Record<number, boolean | null>>({})
   const [holeGir, setHoleGir] = useState<Record<number, boolean | null>>({})
@@ -264,10 +267,9 @@ export function useScoreEntry({
     const round = getActiveRound(player)
     if (!round) return
     if (lastAction.previousScore !== undefined) {
-      setCurrentScores((prev) => ({ ...prev, [lastAction.holeNumber]: lastAction.previousScore! }))
       const hole = holeByNumero.get(lastAction.holeNumber)
       // La respuesta SE MIRA: este caller manda sólo el gross, así que el
-      // servidor deriva el neto — y esa derivación puede fallar. Sin este
+      // servidor deriva el neto — y esa derivación puede fallar (503). Sin el
       // chequeo, el deshacer se perdía en silencio y el organizador quedaba
       // creyendo que el score volvió atrás.
       const res = await fetch('/api/game', {
@@ -283,9 +285,15 @@ export function useScoreEntry({
         }),
       })
       if (!res.ok) {
-        showWarning('No se pudo deshacer', `El hoyo ${lastAction.holeNumber} quedó como estaba. Reintenta.`)
+        // La pantalla NO se toca si el servidor rechazó. Aplicar el undo
+        // optimista y no revertirlo dejaba el score viejo en pantalla y el
+        // nuevo en la base — la misma divergencia pantalla↔base que este PR
+        // existe para cerrar, reintroducida por el borde. `lastAction` queda
+        // vivo para poder reintentar.
+        showWarning('No pudimos deshacer', `El hoyo ${lastAction.holeNumber} sigue como estaba en el servidor. Reintenta.`)
         return
       }
+      setCurrentScores((prev) => ({ ...prev, [lastAction.holeNumber]: lastAction.previousScore! }))
     } else {
       setCurrentScores((prev) => {
         const next = { ...prev }
@@ -324,8 +332,16 @@ export function useScoreEntry({
         }),
       })
       if (!res.ok) {
-        showWarning('No se guardó', `La estadística del hoyo ${holeNumber} no quedó registrada. Reintenta.`)
+        // Un solo aviso por hoyo, no uno por stat: putts, fairway y GIR son
+        // tres taps sobre el MISMO hoyo, y con la red caída eso son tres
+        // toasts de 5s apilados sobre el del score — tapando la pantalla justo
+        // cuando el organizador tiene menos tiempo para leerlos.
+        if (statWarnedHolesRef.current.has(holeNumber)) return
+        statWarnedHolesRef.current.add(holeNumber)
+        showWarning('No se guardó', `Las estadísticas del hoyo ${holeNumber} no quedaron registradas. Reintenta.`)
+        return
       }
+      statWarnedHolesRef.current.delete(holeNumber)
     },
     [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning],
   )

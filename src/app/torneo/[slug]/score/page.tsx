@@ -142,19 +142,26 @@ export default function PlayerScoringPage() {
     const roundId = player?.rounds?.[0]?.id
     if (!roundId) { setCurrentScores({}); return }
     const map: Record<number, number> = {}
-    // Si la LECTURA falla, la pantalla se queda con lo que ya tiene y no se
-    // toca nada más. Vaciar `currentScores` con un mapa vacío borraría la
-    // tarjeta a la vista del jugador — sus hoyos están intactos en el
-    // servidor; lo único que falló fue mirarlos. Tampoco se marca "error":
-    // ese badge habla de los GUARDADOS, y acá no se guardó nada. El estado de
-    // los pendientes lo pone el bloque de `localStorage`, que sí lo sabe.
+    // Si la LECTURA falla NO se corta acá, y `map` se aplica igual aunque quede
+    // vacío. Es deliberado: esta pantalla es de teléfono compartido —"Cambiar
+    // jugador" está a un tap— y `loadScores` corre en cada cambio de jugador.
+    // Conservar los `currentScores` del jugador anterior mostraría la tarjeta
+    // de B llena con los hoyos de A, sin ninguna señal. Y no sería sólo
+    // display: el primer hoyo que cargue B hace `guardarLocal` del mapa
+    // COMPLETO bajo la clave de B, así que al volver la señal los golpes de A
+    // se escriben en la ronda de B.
+    //
+    // Una tarjeta vacía es la verdad ("no sé qué tiene este jugador"). Una
+    // tarjeta con los datos de otro es una mentira que además se persiste.
+    // Los pendientes propios los recupera el merge de abajo, que sí está
+    // indexado por `roundId`.
     try {
       const supabase = createClient()
       const data = await fetchRoundHoleScores(supabase, roundId)
       data.forEach((s) => { if (s.gross_score != null) map[s.hole_number] = s.gross_score })
     } catch (e) {
       void captureError(e, { context: 'torneo.score.loadScores', meta: { slug, roundId } })
-      return
+      // Sin `return`: el badge y los pendientes los pone el bloque de abajo.
     }
     // Merge pending local scores (offline/failed saves) so no input is lost on reload
     try {

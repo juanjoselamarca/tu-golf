@@ -17,9 +17,23 @@
  * torneo nuevo nace en el modo que lo dispara.
  *
  * Este canario fija las dos mitades del arreglo:
- *   1. NUMÉRICA  — el puntaje de un hoyo sale de una sola función para ambos.
- *   2. DE FUENTE — el scorer del jugador no puede volver a alimentar las
- *      funciones de scoring con `handicap_at_registration`.
+ *   1. DE CONDUCTA — el handicap y el puntaje salen de una sola función, y el
+ *      reparto cumple sus invariantes (Σ golpes == course handicap, los golpes
+ *      van a los hoyos difíciles primero). Estos SÍ prueban matemática.
+ *   2. DE FUENTE — que cada ruta esté cableada a la canónica.
+ *
+ * CUÁNTO CONFIAR EN LOS BLOQUES "DE FUENTE": son **alambre de tropiezo, no
+ * prueba**. Cazan el revert, el copy-paste y la recomposición a mano dentro de
+ * los archivos que leen. NO siguen el flujo de datos, así que no ven:
+ *   · un alias del campo aguas arriba (`{...p, hcp: p.handicap_at_registration}`
+ *     en la capa de datos) — la ruta dejaría de nombrarlo y quedarían verdes;
+ *   · una extracción a `src/golf/` o `src/lib/`, fuera de los paths que leen.
+ * Y hay un límite conceptual: en modo `raw` el gate devuelve el índice a
+ * propósito, así que el índice YA entra a la matemática sin aparecer en la ruta.
+ * Estos tests afirman "la ruta no lo nombra", nunca "el índice no llega al
+ * cálculo". El cierre real de eso es una aserción end-to-end contra un torneo
+ * `whs` de prod (índice 12 en Los Leones → neto persistido con 18 golpes), que
+ * pertenece a la suite de canarios contra prod, no acá.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -169,9 +183,12 @@ describe('canario de conducta · las tres rutas de escritura dan el MISMO neto',
     // compuesto (el de 18 contra el CR de 9) el resultado sale ≈ −27: el motor
     // trata al jugador como plus y le QUITA golpes.
     //
-    // Va fijado al número y no a un rango: con el par a 36 en vez de 35 —el
-    // off-by-one real de las canchas de 9— la cuenta da 10 en vez de 9, y un
-    // `toBeGreaterThan(0)` lo dejaría pasar.
+    // Va fijado al número y no a un rango: con el par a 35 en vez de 36 —el
+    // off-by-one real de las canchas de 9— la cuenta da 10 en vez de 9
+    // (`round(6 × 142/113 + (37.55 − 35))`), y un `toBeGreaterThan(0)` lo
+    // dejaría pasar. El 9 sale de la fórmula WHS, no de lo que devolvió el
+    // motor: `round(indiceDe9Hoyos(12) × slope/113 + (CR9 − par9))` =
+    // `round(6 × 142/113 + (37.55 − 36))` = `round(9.09)` = 9.
     const nueve = courseHandicapDeScoring({
       ...contexto,
       courseHoles: HOYOS_18.slice(0, 9),
@@ -237,7 +254,11 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
   // canario atado a `page.tsx` quedaría verde cubriendo nada — pasando, así que
   // nadie se enteraría.
   const DIR = join(process.cwd(), 'src/app/torneo/[slug]/score')
-  const fuente = archivosDe(DIR).map((f) => readFileSync(f, 'utf-8')).join('\n')
+  const ARCHIVOS = archivosDe(DIR).map((f) => ({
+    archivo: f.slice(f.indexOf('src')),
+    lineas: readFileSync(f, 'utf-8').split('\n'),
+  }))
+  const fuente = ARCHIVOS.map((a) => a.lineas.join('\n')).join('\n')
 
   it('el índice aparece exactamente 3 veces, y las tres son de display', () => {
     // Presupuesto de ocurrencias, no lista negra de patrones. La versión
@@ -270,12 +291,16 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
     // cálculo: el índice SÓLO puede aparecer dentro de JSX de display ("HCP
     // 12"), porque el jugador se identifica por su índice. Cualquier otro uso
     // —asignarlo a una variable, pasarlo a una función— es el bug volviendo.
-    const usos = fuente
-      .split('\n')
-      .map((linea, i) => ({ linea: linea.trim(), n: i + 1 }))
-      .filter(({ linea }) => /handicap_at_registration/.test(linea))
-      .filter(({ linea }) => !linea.startsWith('//') && !linea.startsWith('*'))
-      .filter(({ linea }) => !linea.includes('<'))
+    // La ubicación se arma por archivo, no sobre el blob concatenado: cuando
+    // esto dispare tras un split en `hooks/`, un número de línea global no
+    // mandaría a nadie a ninguna parte — que es justo cuando más se necesita.
+    const usos = ARCHIVOS.flatMap(({ archivo, lineas }) =>
+      lineas
+        .map((linea, i) => ({ donde: `${archivo}:${i + 1}`, linea: linea.trim() }))
+        .filter(({ linea }) => /handicap_at_registration/.test(linea))
+        .filter(({ linea }) => !linea.startsWith('//') && !linea.startsWith('*'))
+        .filter(({ linea }) => !linea.includes('<')),
+    )
 
     expect(usos).toEqual([])
   })
@@ -286,6 +311,36 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
 
   it('deriva el puntaje del hoyo de la fuente única', () => {
     expect(fuente).toMatch(/puntajeDeHoyo/)
+  })
+
+  it('cargar los hoyos de un jugador nunca conserva los del anterior', () => {
+    // Esta pantalla es de teléfono compartido: "Cambiar jugador" está a un tap
+    // y `loadScores` corre en cada cambio. Si la lectura falla y el catch corta
+    // antes de aplicar el mapa, `currentScores` queda con los hoyos del jugador
+    // ANTERIOR — y no es sólo display: el primer hoyo que cargue el nuevo hace
+    // `guardarLocal` del mapa completo bajo SU clave, así que al volver la
+    // señal los golpes del otro se escriben en su ronda, en la base.
+    //
+    // Tripwire directo sobre la forma que tuvo esa regresión: un `return` en
+    // el catch de la lectura. El mapa tiene que aplicarse siempre, aunque
+    // quede vacío — vacío es la verdad, "los de otro" es una mentira que además
+    // se persiste.
+    const cuerpo = fuente.slice(
+      fuente.indexOf('const loadScores'),
+      fuente.indexOf('const submitHoleScore'),
+    )
+    expect(cuerpo).toContain('setCurrentScores(map)')
+    const catchDeLectura = cuerpo
+      .slice(
+        cuerpo.indexOf('torneo.score.loadScores'),
+        cuerpo.indexOf('// Merge pending local scores'),
+      )
+      .split('\n')
+      // Los comentarios se descartan: el que documenta esta regla dice
+      // literalmente "sin `return`" y se cazaría a sí mismo.
+      .filter((l) => !l.trim().startsWith('//'))
+      .join('\n')
+    expect(catchDeLectura).not.toMatch(/\breturn\b/)
   })
 
   it('no arma sus propias queries de torneo/roster — usa la capa de datos', () => {
