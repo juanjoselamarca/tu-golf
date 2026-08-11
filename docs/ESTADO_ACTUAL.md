@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-08-11 | Commit: `3caa754`
+> Auto-generado: 2026-08-11 | Commit: `2e2ca6d`
 
 ## Último deploy
 
-- **Commit:** `3caa754` — fix(scorer): el par hoyo por hoyo no llegaba a los clubes de 27 hoyos, y nada lo chequeaba (#303)
-- **Fecha:** 2026-08-09
-- **Branch:** chore/cierre-catalogo-docs-claude (1402 commits total)
+- **Commit:** `2e2ca6d` — fix(scorer): cierra el PASS — el botón de deshacer no queda mudo y el dedupe no se come avisos ajenos
+- **Fecha:** 2026-08-10
+- **Branch:**  (1409 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (53 páginas)
@@ -84,25 +84,25 @@
 
 ---
 
-## 2026-08-09 · El par hoyo por hoyo no llegaba a los clubes de 27 hoyos (PR #303)
+## 2026-08-09 · Los cuatro caminos que escriben score repartían handicaps distintos (PR #302)
 
-Sesión que empezó auditando el catálogo de canchas y terminó cerrando un bug de
-correctitud vivo en tres clubes reales.
+El torneo tiene **cuatro** rutas que calculan el neto de un hoyo. Tres repartían con
+el **índice crudo** en vez del course handicap del gate: el scorer del jugador (el que
+se usa en cancha), el fallback del servidor en `upsert_score`, y el GWI. Las tres
+primeras **persisten** `net_score` y `points` — no era display, el número equivocado
+quedaba en la base.
 
-**Lo que se encontró.** El guardarrail de cancha contestaba si el *rating* mentía,
-pero nunca si el par de cada hoyo EXISTE — y sólo corría en modo neto. Por ese
-hueco quedaron 4 rondas libres finalizadas (mar-abr 2026, 12 jugadores) apuntando
-al club padre de un complejo de 27 hoyos sin recorridos elegidos.
+Con datos reales de prod (**Club de Golf Los Leones, slope 142 / CR 75.1, par 72**) un
+índice 12 recibe **18** golpes. Se repartían 12: **seis golpes por jugador** en un
+torneo neto.
 
-**Lo que había debajo.** El code review destapó que era peor: había dos formas
-incompatibles de contestar "¿cuáles son los hoyos de esta ronda?". El motor de
-handicap leía los recorridos HIJOS (correcto); el de par por hoyo, escrito inline
-en cuatro pantallas, buscaba en el club PADRE — que tiene 0 filas en
-`course_holes`. Resultado: Brisas, Rocas y Marbella puntuaban con **18 hoyos par 4
-y stroke index inventado 1..18**.
+El peor de los tres era el del servidor. Dos call sites del scorer **del organizador**
+mandan `upsert_score` sin neto —el "deshacer" y `saveHoleStat` (putts/fairway/GIR)—,
+así que el organizador scoreaba bien, alguien marcaba *"2 putts"* en ese hoyo, y el
+servidor **reescribía el neto correcto con el índice**. El dato bueno se corrompía
+solo, sin tocar el scorer del jugador y sin ninguna señal en pantalla.
 
-Nadie lo reportó en meses porque 18 × par 4 = 72, que es exactamente el par real de
-esas canchas. El agregado cerraba; lo que estaba mal era la distribución.
+**Por qué dejó de ser latente:** el bug dormía mientras todos los torneos eran
 
 ---
 
