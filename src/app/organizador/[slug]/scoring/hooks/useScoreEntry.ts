@@ -65,8 +65,13 @@ export function useScoreEntry({
   const [saving, setSaving] = useState(false)
   const [lastAction, setLastAction] = useState<LastAction | null>(null)
   /** Hoyos que ya avisaron que sus stats no se guardaron — un aviso por hoyo,
-   *  no uno por cada tap de putts/fairway/GIR. */
-  const statWarnedHolesRef = useRef<Set<number>>(new Set())
+   *  no uno por cada tap de putts/fairway/GIR.
+   *
+   *  La llave lleva jugador y ronda, no sólo el número de hoyo: con la clave
+   *  suelta, un fallo en el hoyo 5 del jugador A silenciaba el aviso del hoyo 5
+   *  de B. El dedupe se comía un aviso legítimo de pérdida de datos, que es
+   *  justo lo que el aviso existe para evitar. */
+  const statWarnedHolesRef = useRef<Set<string>>(new Set())
   const [holePutts, setHolePutts] = useState<Record<number, number | null>>({})
   const [holeFairway, setHoleFairway] = useState<Record<number, boolean | null>>({})
   const [holeGir, setHoleGir] = useState<Record<number, boolean | null>>({})
@@ -272,6 +277,12 @@ export function useScoreEntry({
       // servidor deriva el neto — y esa derivación puede fallar (503). Sin el
       // chequeo, el deshacer se perdía en silencio y el organizador quedaba
       // creyendo que el score volvió atrás.
+      //
+      // `saving` marca el round-trip: como la tarjeta ya no revierte de forma
+      // optimista, sin esto el botón queda vivo y aparentemente muerto durante
+      // 1-2s en 3G — pidiendo el segundo tap. `ScoringHeader` lo esconde con
+      // `lastAction && !saving` y muestra "Guardando…".
+      setSaving(true)
       const res = await fetch('/api/game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -284,6 +295,7 @@ export function useScoreEntry({
           gross_score: lastAction.previousScore,
         }),
       })
+      setSaving(false)
       if (!res.ok) {
         // La pantalla NO se toca si el servidor rechazó. Aplicar el undo
         // optimista y no revertirlo dejaba el score viejo en pantalla y el
@@ -316,6 +328,7 @@ export function useScoreEntry({
       const player = players.find((p) => p.id === selectedId)
       const round = getActiveRound(player)
       if (!round) return
+      const avisoKey = `${selectedId}:${round.id}:${holeNumber}`
       // Igual que el deshacer: manda sólo el gross, el servidor deriva el neto,
       // y si eso falla la stat se pierde. Antes se perdía sin decir nada.
       const res = await fetch('/api/game', {
@@ -336,12 +349,12 @@ export function useScoreEntry({
         // tres taps sobre el MISMO hoyo, y con la red caída eso son tres
         // toasts de 5s apilados sobre el del score — tapando la pantalla justo
         // cuando el organizador tiene menos tiempo para leerlos.
-        if (statWarnedHolesRef.current.has(holeNumber)) return
-        statWarnedHolesRef.current.add(holeNumber)
+        if (statWarnedHolesRef.current.has(avisoKey)) return
+        statWarnedHolesRef.current.add(avisoKey)
         showWarning('No se guardó', `Las estadísticas del hoyo ${holeNumber} no quedaron registradas. Reintenta.`)
         return
       }
-      statWarnedHolesRef.current.delete(holeNumber)
+      statWarnedHolesRef.current.delete(avisoKey)
     },
     [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning],
   )

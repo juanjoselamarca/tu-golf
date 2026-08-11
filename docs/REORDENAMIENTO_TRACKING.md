@@ -258,6 +258,15 @@ Ninguno con scores de jugadores reales todavía — daño armado, no consumado.
 | **El scorer del jugador escribe en `rounds[0]`, el organizador en `max(round_number)`** | ⏳ **abierto** — en un torneo de 2+ rondas los dos escritores pueden apuntar a rondas distintas. Misma familia de bug. Hoy **cero** exposición: 0 torneos multi-ronda en prod, 0 rondas con `round_number > 1`. No se metió en el PR para no ensanchar su blast radius hacia la selección de ronda; migrar al tocar ese flujo. |
 | **`parDeLosHoyosJugados` vs `parDeLaRondaDelTorneo` con catálogo vacío** | ⏳ **abierto** — sin `course_holes`, el primero devuelve `holeCount × 4` (72) y el segundo cae a `par_total × vueltas`. En una cancha par 71 sin catálogo eso da 1 golpe de diferencia board vs. scorers. Preexistente en `main` (el organizador ya lo tenía); hoy no muerde porque el único torneo `whs` sin catálogo tampoco tiene cancha. |
 
+#### Follow-ups nombrados del PR #302 (5 rondas de `superpowers:code-reviewer`)
+
+| Follow-up | Por qué no entró | Qué costaría |
+|---|---|---|
+| **Extraer `scoresParaMostrar(delServidor, pendientesLocales)`** de `torneo/[slug]/score/page.tsx` | El invariante "lectura fallida + sin pendientes → mapa vacío, NUNCA los del jugador anterior" hoy está defendido por un tripwire de texto. El reviewer encontró que se esquiva moviendo `setCurrentScores(map)` adentro del `try` — refactor que se le ocurre a cualquiera que ordene la función, y ningún regex lo tapa. | ~20 LOC. Un reductor casi puro, testeable de verdad, que jubila el tripwire. |
+| **El hueco del alias en los canarios de fuente** | Los bloques de fuente cuentan ocurrencias del símbolo en la ruta. Si alguien aliasea el campo aguas arriba (`{...p, hcp: p.handicap_at_registration}` en `scoring.ts`) o extrae la composición a `src/golf/`, quedan verdes cubriendo nada. Taparlo con un test puntual de `scoring.ts` cierra 1 de 3 huecos y da falsa sensación de cobertura — que es el problema original. | El cierre real es una aserción **e2e contra un torneo `whs` de prod** (índice 12 en Los Leones → neto persistido con 18 golpes, no 12). Va a la suite de canarios contra prod, no al archivo de canarios de fuente. |
+| **La rama `else` de `undoLast`** (`useScoreEntry.ts`) | Deshacer un hoyo que NO tenía score previo borra el valor **sólo en pantalla**: la fila sigue en `hole_scores` con el gross viejo y el leaderboard la cuenta. Misma familia pantalla↔base que cierra este PR, pero es preexistente y arreglarlo requiere una acción de borrado que hoy no existe en `/api/game`. | Endpoint nuevo + su verificación. |
+| **El scorer del jugador escribe en `rounds[0]`** | Ver fila de arriba. 0 torneos multi-ronda en prod. | 3 líneas, pero cambia la semántica de qué ronda se edita. |
+
 ### Concepto "par de un hoyo con fallback estándar" → `STANDARD_PARS` / `parForHoleWithFallback()` en `src/golf/coach/hole-pars.ts`
 
 | Sitio | Estado |

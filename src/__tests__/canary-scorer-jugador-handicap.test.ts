@@ -330,6 +330,13 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
       fuente.indexOf('const submitHoleScore'),
     )
     expect(cuerpo).toContain('setCurrentScores(map)')
+    // Las anclas se verifican ANTES de usarlas: con `indexOf` en -1, `slice`
+    // normaliza y devuelve una región vacía, sobre la que cualquier
+    // `not.toMatch` pasa. Renombrar el context string del `captureError` —el
+    // cambio más inocuo imaginable— dejaba este tripwire mudo y en verde, que
+    // es exactamente el modo de falla que venimos persiguiendo.
+    expect(cuerpo.indexOf('torneo.score.loadScores')).toBeGreaterThan(-1)
+    expect(cuerpo.indexOf('// Merge pending local scores')).toBeGreaterThan(-1)
     const catchDeLectura = cuerpo
       .slice(
         cuerpo.indexOf('torneo.score.loadScores'),
@@ -340,7 +347,10 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
       // literalmente "sin `return`" y se cazaría a sí mismo.
       .filter((l) => !l.trim().startsWith('//'))
       .join('\n')
-    expect(catchDeLectura).not.toMatch(/\breturn\b/)
+    // `throw` cuenta igual que `return`: el efecto que llama a `loadScores` no
+    // tiene `.catch()`, así que re-lanzar deja la promesa sin handler,
+    // `setCurrentScores(map)` no corre, y vuelve la contaminación idéntica.
+    expect(catchDeLectura).not.toMatch(/\breturn\b|\bthrow\b/)
   })
 
   it('no arma sus propias queries de torneo/roster — usa la capa de datos', () => {
