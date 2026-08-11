@@ -1,5 +1,29 @@
 # Catálogo de canchas — pendientes (no 100% cerrados)
 
+> **Reauditado contra la BD el 09-ago-2026.** El estado de julio quedó viejo: de
+> las 23 anomalías documentadas abajo, **17 ya están cerradas**. Lo que sigue
+> abierto son 6 canchas sin scorecard.
+>
+> | Categoría | Julio | Hoy |
+> |---|---|---|
+> | Par declarado ≠ suma de hoyos | 13 | **0** ✅ |
+> | Estructura mal etiquetada (Marbella + Olivos) | 5 | **0** ✅ |
+> | Duplicado con par en conflicto (Santa Martina) | 1 | **0** ✅ |
+> | Sin par hoyo por hoyo (necesitan FedeGolf) | 4 | **6** ⏳ |
+>
+> **Las 6 que faltan** — Iquique C.C. (D/V), C.G. Barquito Chañaral (D/V),
+> C.G. Río Blanco (D/V). Las 6 tienen `fedegolf_cancha_id` cargado y **0 rondas,
+> 0 torneos, 0 histórico**. Desde el PR #303 el gate impide empezar una ronda
+> ahí, y el canario `catalogo-par-por-hoyo` vigila que la lista no crezca.
+> Para cerrarlas hace falta el scorecard hoyo a hoyo de FedeGolf.
+>
+> **Hallazgo del #303 que este doc no tenía:** los 3 complejos de 27 hoyos
+> (Brisas, Rocas, Marbella) guardan sus hoyos en los recorridos HIJOS, no en el
+> club padre. El scorer buscaba en el padre y no encontraba nada, así que
+> pintaba 18 hoyos par 4 con stroke index inventado. Ya está arreglado.
+
+---
+
 **Estado:** 193 canchas · 187 con hoyos · **23 anomalías** (antes del batch: 34).
 **Cerrado hoy:** 11 recorridos DAMAS poblados (par copiado del hermano VARONES) + Bahía Coique DAMAS deduplicado. Fecha: 2026-07-02.
 
