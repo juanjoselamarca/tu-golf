@@ -23,8 +23,17 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
+
+/** Todos los .ts/.tsx de un directorio y sus subdirectorios. */
+function archivosDe(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = join(dir, e.name)
+    if (e.isDirectory()) return archivosDe(p)
+    return /\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name) ? [p] : []
+  })
+}
 
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
@@ -155,16 +164,20 @@ describe('canario de conducta · las tres rutas de escritura dan el MISMO neto',
     expect(courseHandicapDeScoring(contexto)).toBe(COURSE_HCP_ESPERADO)
   })
 
-  it('un torneo de 9 hoyos NO recibe el handicap de 18 — ni negativo', () => {
-    // Con el CR de 9 hoyos contra el par de 18, la fórmula WHS devuelve
-    // negativos: el motor trata al jugador como plus y le QUITA golpes.
+  it('un torneo de 9 hoyos recibe exactamente 9, ni el de 18 ni negativo', () => {
+    // Este es el caso que DISCRIMINA la composición del par. Con el par mal
+    // compuesto (el de 18 contra el CR de 9) el resultado sale ≈ −27: el motor
+    // trata al jugador como plus y le QUITA golpes.
+    //
+    // Va fijado al número y no a un rango: con el par a 36 en vez de 35 —el
+    // off-by-one real de las canchas de 9— la cuenta da 10 en vez de 9, y un
+    // `toBeGreaterThan(0)` lo dejaría pasar.
     const nueve = courseHandicapDeScoring({
       ...contexto,
       courseHoles: HOYOS_18.slice(0, 9),
       holeCount: 9,
     })
-    expect(nueve).toBeGreaterThan(0)
-    expect(nueve).toBeLessThan(COURSE_HCP_ESPERADO)
+    expect(nueve).toBe(9)
   })
 
   it('en modo raw las tres rutas caen al índice crudo, idéntico', () => {
@@ -176,18 +189,34 @@ describe('canario de conducta · las tres rutas de escritura dan el MISMO neto',
     )
   })
 
-  it('el neto de un hoyo es el mismo por las tres rutas, hoyo a hoyo', () => {
+  it('el neto baja de a un golpe por hoyo, y nunca dos veces en el mismo', () => {
+    // La versión anterior de este caso comparaba `puntajeDeHoyo(...).neto`
+    // contra `gross - strokesRecibidosEnHoyo(...)` — que es LA IMPLEMENTACIÓN
+    // de `puntajeDeHoyo`. Reimplementar la implementación y compararlas pasa
+    // con cualquier reparto, incluso roto. Esto mide el reparto en sí.
     const courseHcp = courseHandicapDeScoring(contexto)
-    // Lo que escribe el organizador, el jugador y el servidor para el mismo
-    // hoyo tiene que ser UN número. Se recorren los 18 para que un error de
-    // reparto en un solo hoyo (SI mal alocado) no pase desapercibido.
-    for (let hoyo = 1; hoyo <= HOLE_COUNT; hoyo++) {
-      const p = puntajeDeHoyo({
-        gross: 5, par: 4, courseHandicap: courseHcp, strokeIndex: hoyo,
+    const netos = Array.from({ length: HOLE_COUNT }, (_, i) =>
+      puntajeDeHoyo({
+        gross: 5, par: 4, courseHandicap: courseHcp, strokeIndex: i + 1,
         holeCount: HOLE_COUNT, formato: 'stroke_play',
-      })
-      expect(p.neto).toBe(5 - strokesRecibidosEnHoyo(courseHcp, hoyo, HOLE_COUNT))
-    }
+      }),
+    )
+
+    // Con course handicap 18 sobre 18 hoyos: exactamente un golpe en cada uno.
+    expect(netos.every((n) => n.strokesRecibidos === 1)).toBe(true)
+    expect(netos.every((n) => n.neto === 4)).toBe(true)
+
+    // Y con 9 golpes sobre 18 hoyos, los reciben los 9 hoyos más difíciles —
+    // ninguno dos veces, ninguno de los otros nueve.
+    const nueveGolpes = Array.from({ length: HOLE_COUNT }, (_, i) =>
+      puntajeDeHoyo({
+        gross: 5, par: 4, courseHandicap: 9, strokeIndex: i + 1,
+        holeCount: HOLE_COUNT, formato: 'stroke_play',
+      }).strokesRecibidos,
+    )
+    expect(nueveGolpes.filter((s) => s === 1)).toHaveLength(9)
+    expect(nueveGolpes.filter((s) => s === 0)).toHaveLength(9)
+    expect(nueveGolpes.slice(0, 9).every((s) => s === 1)).toBe(true)
   })
 
   it('reparte EXACTAMENTE el course handicap en la vuelta completa', () => {
@@ -203,8 +232,30 @@ describe('canario de conducta · las tres rutas de escritura dan el MISMO neto',
 })
 
 describe('canario de fuente · el scorer del jugador no vuelve al índice crudo', () => {
-  const RUTA = join(process.cwd(), 'src/app/torneo/[slug]/score/page.tsx')
-  const fuente = readFileSync(RUTA, 'utf-8')
+  // Se lee la RUTA COMPLETA, no un archivo suelto: "el que toca, ordena" manda
+  // extraer lógica a `<ruta>/hooks/`, y el día que `courseHcpDe` se mude ahí un
+  // canario atado a `page.tsx` quedaría verde cubriendo nada — pasando, así que
+  // nadie se enteraría.
+  const DIR = join(process.cwd(), 'src/app/torneo/[slug]/score')
+  const fuente = archivosDe(DIR).map((f) => readFileSync(f, 'utf-8')).join('\n')
+
+  it('el índice aparece exactamente 3 veces, y las tres son de display', () => {
+    // Presupuesto de ocurrencias, no lista negra de patrones. La versión
+    // anterior exigía "no tener `<` en la línea", y `<` aparece en TypeScript
+    // idiomático — `Array<number>`, `useState<number>(...)`, `new Map<string,
+    // number>(...)`. Un Map id→índice alimentando el cálculo es justo la forma
+    // que tomaría el bug al volver en una pantalla con varios jugadores, y
+    // pasaba limpio.
+    //
+    // Contar no depende de adivinar la forma: cualquier aparición nueva —con
+    // `<` o sin él— pone esto rojo y obliga a que alguien mire.
+    //
+    // Son 3 en 2 líneas: la ficha del jugador seleccionado lo usa una vez, y la
+    // del listado dos (la guarda `!= null` y el valor). Si este número tiene que
+    // cambiar, que sea con alguien mirando por qué.
+    const ocurrencias = fuente.match(/handicap_at_registration/g)?.length ?? 0
+    expect(ocurrencias).toBe(3)
+  })
 
   it('el índice sólo se MUESTRA — nunca entra a un cálculo', () => {
     // Versión anterior de este canario: exigía que la línea tuviera a la vez
@@ -242,6 +293,29 @@ describe('canario de fuente · el scorer del jugador no vuelve al índice crudo'
     // volviera a hacer su propio `.from('tournaments')`, podría dejar de traer
     // `hcp_calc_mode` o los tees y el gate caería en silencio al índice crudo.
     expect(fuente).not.toMatch(/\.from\(['"`]/)
+  })
+})
+
+describe('canario de fuente · el scorer del organizador sigue cableado a la canónica', () => {
+  // El del organizador era el ÚNICO que estaba bien antes de este PR — y por
+  // eso mismo era el único sin canario. Al migrarlo a `courseHandicapDeScoring`
+  // quedó tan expuesto a un revert como los otros tres: si alguien vuelve a
+  // componer el par a mano acá, ningún test lo vería.
+  const RUTA = join(
+    process.cwd(),
+    'src/app/organizador/[slug]/scoring/hooks/useScoreEntry.ts',
+  )
+  const fuente = readFileSync(RUTA, 'utf-8')
+
+  it('compone el handicap con la canónica, no a mano', () => {
+    expect(fuente).toMatch(/courseHandicapDeScoring/)
+    // `parDeLosHoyosJugados` suelto acá = la composición volvió a escribirse.
+    expect(fuente).not.toMatch(/parDeLosHoyosJugados/)
+    expect(fuente).not.toMatch(/resolveScoringCourseHcp/)
+  })
+
+  it('el neto y los puntos que PERSISTE salen de puntajeDeHoyo', () => {
+    expect(fuente).toMatch(/puntajeDeHoyo/)
   })
 })
 

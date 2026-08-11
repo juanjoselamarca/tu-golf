@@ -23,7 +23,8 @@ import {
   type ScoringTournament,
 } from '@/lib/data/tournaments/scoring'
 
-interface CourseHole { numero: number; par: number; stroke_index: number }
+import type { CourseHole } from '@/golf/leaderboard/types'
+
 type Player = ScoringPlayer
 type Tournament = ScoringTournament
 
@@ -141,17 +142,19 @@ export default function PlayerScoringPage() {
     const roundId = player?.rounds?.[0]?.id
     if (!roundId) { setCurrentScores({}); return }
     const map: Record<number, number> = {}
-    // Lo guardado en el servidor es best-effort: si la red falla, la pantalla
-    // sigue con lo que haya en local. Lo que NO puede pasar es que el error
-    // corte antes del merge de abajo y el jugador pierda de vista los hoyos
-    // que tiene en cola sin conexión.
+    // Si la LECTURA falla, la pantalla se queda con lo que ya tiene y no se
+    // toca nada más. Vaciar `currentScores` con un mapa vacío borraría la
+    // tarjeta a la vista del jugador — sus hoyos están intactos en el
+    // servidor; lo único que falló fue mirarlos. Tampoco se marca "error":
+    // ese badge habla de los GUARDADOS, y acá no se guardó nada. El estado de
+    // los pendientes lo pone el bloque de `localStorage`, que sí lo sabe.
     try {
       const supabase = createClient()
       const data = await fetchRoundHoleScores(supabase, roundId)
       data.forEach((s) => { if (s.gross_score != null) map[s.hole_number] = s.gross_score })
     } catch (e) {
       void captureError(e, { context: 'torneo.score.loadScores', meta: { slug, roundId } })
-      setSaveStatus(typeof navigator !== 'undefined' && navigator.onLine ? 'error' : 'offline')
+      return
     }
     // Merge pending local scores (offline/failed saves) so no input is lost on reload
     try {

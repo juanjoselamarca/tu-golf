@@ -29,8 +29,15 @@ export interface CourseHandicapDeScoringArgs {
   player: PlayerForCourseHcp
   tournament: TournamentForCourseHcp
   courseTees: CourseTeeRow[]
-  /** Los hoyos de la RONDA, ya expandidos por `hoyosDeLaVuelta`. */
-  courseHoles: Array<{ numero: number; par: number }>
+  /**
+   * Los hoyos de la RONDA, ya expandidos por `hoyosDeLaVuelta`.
+   *
+   * `par` acepta null porque así viene de `course_holes`: si esta firma fuera
+   * más estrecha que `parDeLosHoyosJugados`, el caller con el catálogo crudo no
+   * podría usar la canónica y terminaría componiendo a mano — justo lo que esta
+   * función existe para impedir.
+   */
+  courseHoles: Array<{ numero: number; par: number | null }>
   holeCount: number
 }
 

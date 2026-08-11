@@ -5,8 +5,7 @@ import {
   puntosStablefordHoyo,
 } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
-import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
+import { courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { fetchLegacyHcpContext } from '@/lib/data/tournaments/leaderboard'
 import { resolveFormatoJuego } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
@@ -94,10 +93,6 @@ export async function GET(
       rounds: { id: string; total_gross: number; hole_scores: DBHScore[] }[]
     }[]
 
-    // El par de los hoyos que se JUEGAN: con el CR de 9h contra el par de 18 la
-    // fórmula WHS devuelve course handicaps negativos.
-    const parDeLaRonda = parDeLosHoyosJugados(holes, totalHoyos)
-
     // Batch: fetch all historical rounds and patterns in 2 queries instead of N+1
     const userIds = typedPlayers.map(p => p.user_id).filter(Boolean)
 
@@ -135,14 +130,14 @@ export async function GET(
       // · `hcp` es el ÍNDICE de skill, y el GWI lo usa para modelar la varianza
       //   del jugador. Ese sigue siendo el índice crudo.
       const hcp       = p.handicap_at_registration ?? (p.profiles?.indice ?? 18)
-      const courseHcp = resolveScoringCourseHcp(
-        hcpCtx.mode,
-        { handicap_at_registration: p.handicap_at_registration ?? hcp, tee_id: p.tee_id ?? null },
-        { tees: hcpCtx.tees, courses: hcpCtx.course },
-        hcpCtx.courseTees,
-        parDeLaRonda,
-        totalHoyos,
-      )
+      const courseHcp = courseHandicapDeScoring({
+        mode: hcpCtx.mode,
+        player: { handicap_at_registration: p.handicap_at_registration ?? hcp, tee_id: p.tee_id ?? null },
+        tournament: { tees: hcpCtx.tees, courses: hcpCtx.course },
+        courseTees: hcpCtx.courseTees,
+        courseHoles: holes,
+        holeCount: totalHoyos,
+      })
       const round     = p.rounds?.[0]
       const holeScores = round?.hole_scores ?? []
 

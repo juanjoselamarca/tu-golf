@@ -64,10 +64,15 @@ export async function upsertScore(
 
   let { net_score, points } = body as { net_score: number | null; points: number | null }
 
-  // Derivar el neto es best-effort: si falla, se devuelve 409 y el cliente
-  // reintenta (y en el peor caso el hoyo queda en su cola offline). Lo que NO
-  // se hace es persistir un neto calculado a medias — un número silenciosamente
-  // equivocado en la tabla es peor que un save que avisa.
+  // Derivar el neto es best-effort: si falla, NO se persiste un neto calculado
+  // a medias — un número silenciosamente equivocado en la tabla es peor que un
+  // save que avisa.
+  //
+  // 503 y no 409 a propósito: los diez 409 de este archivo son conflictos de
+  // ESTADO donde reintentar es inútil (ronda cerrada, torneo finalizado). Éste
+  // es un fallo transitorio de infraestructura donde reintentar es exactamente
+  // lo correcto. Mezclarlos haría que un cliente que razone "409 = no insistas"
+  // abandone un save recuperable.
   try {
     if (gross_score != null && (net_score == null || points == null)) {
       const { data: roundData } = await svc
@@ -166,7 +171,7 @@ export async function upsertScore(
     captureGameError('upsertScore.derivarNeto', err, { round_id, hole_number })
     return NextResponse.json(
       { error: 'No pudimos calcular el neto del hoyo. Intenta de nuevo.' },
-      { status: 409 },
+      { status: 503 },
     )
   }
 

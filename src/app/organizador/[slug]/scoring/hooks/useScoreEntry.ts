@@ -266,7 +266,11 @@ export function useScoreEntry({
     if (lastAction.previousScore !== undefined) {
       setCurrentScores((prev) => ({ ...prev, [lastAction.holeNumber]: lastAction.previousScore! }))
       const hole = holeByNumero.get(lastAction.holeNumber)
-      await fetch('/api/game', {
+      // La respuesta SE MIRA: este caller manda sólo el gross, así que el
+      // servidor deriva el neto — y esa derivación puede fallar. Sin este
+      // chequeo, el deshacer se perdía en silencio y el organizador quedaba
+      // creyendo que el score volvió atrás.
+      const res = await fetch('/api/game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -278,6 +282,10 @@ export function useScoreEntry({
           gross_score: lastAction.previousScore,
         }),
       })
+      if (!res.ok) {
+        showWarning('No se pudo deshacer', `El hoyo ${lastAction.holeNumber} quedó como estaba. Reintenta.`)
+        return
+      }
     } else {
       setCurrentScores((prev) => {
         const next = { ...prev }
@@ -287,7 +295,7 @@ export function useScoreEntry({
     }
     showSuccess('Deshacer', `Hoyo ${lastAction.holeNumber} restaurado`, { duration: 1500 })
     setLastAction(null)
-  }, [lastAction, tournament, players, getActiveRound, holeByNumero, showSuccess])
+  }, [lastAction, tournament, players, getActiveRound, holeByNumero, showSuccess, showWarning])
 
   /** Persiste una stat opcional del hoyo (putts / fairway / GIR) contra la ronda
    *  ACTIVA — antes las stats escribían siempre contra `rounds[0]`, así que en
@@ -300,7 +308,9 @@ export function useScoreEntry({
       const player = players.find((p) => p.id === selectedId)
       const round = getActiveRound(player)
       if (!round) return
-      await fetch('/api/game', {
+      // Igual que el deshacer: manda sólo el gross, el servidor deriva el neto,
+      // y si eso falla la stat se pierde. Antes se perdía sin decir nada.
+      const res = await fetch('/api/game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -313,8 +323,11 @@ export function useScoreEntry({
           ...patch,
         }),
       })
+      if (!res.ok) {
+        showWarning('No se guardó', `La estadística del hoyo ${holeNumber} no quedó registrada. Reintenta.`)
+      }
     },
-    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero],
+    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning],
   )
 
   const finalizeRound = useCallback(async () => {
