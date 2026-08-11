@@ -8,6 +8,8 @@ import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import { fetchLegacyHcpContext } from '@/lib/data/tournaments/leaderboard'
+import { resolveFormatoJuego } from '@/golf/formats'
+import { captureError } from '@/lib/error-tracking'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
@@ -29,19 +31,23 @@ export async function GET(
     // Fetch tournament
     const { data: rawT } = await supabase
       .from('tournaments')
-      .select('id, name, hole_count, modo_juego, formato_juego, courses(id, par_total)')
+      .select('id, name, hole_count, modo_juego, formato_juego, format, courses(id, par_total)')
       .eq('slug', params.slug)
       .single()
 
     if (!rawT) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
     const t = rawT as unknown as {
-      id: string; name: string; hole_count: number; modo_juego: string | null; formato_juego: string | null
+      id: string; name: string; hole_count: number; modo_juego: string | null
+      formato_juego: string | null; format: string | null
       courses: { id: string; par_total: number } | null
     }
 
     const modo       = (t.modo_juego as 'gross' | 'neto') || 'gross'
-    const formato    = (t.formato_juego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') || 'stroke_play'
+    // Predicado canónico del formato — el mismo que usan el scorer y el board.
+    // El GWI decide con esto qué carrera modela (`currentScore` abajo); tenerlo
+    // resuelto de otra forma que el resto era pedirle que corriera otra carrera.
+    const formato    = resolveFormatoJuego(t) as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
     const totalHoyos = t.hole_count ?? 18
     const parTotal   = t.courses?.par_total ?? (totalHoyos === 9 ? 36 : 72)
 
@@ -210,7 +216,7 @@ export async function GET(
 
     return NextResponse.json({ inputs, totalHoyos, modoJuego: modo, formatoJuego: formato, parTotal })
   } catch (err) {
-    console.error('[GWI/torneo] Error interno:', err)
+    void captureError(err, { context: 'api.gwi.torneo', meta: { slug: params.slug } })
     return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
 }

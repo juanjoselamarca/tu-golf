@@ -5,12 +5,11 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { SCORE_STYLES, getScoreResult } from '@/golf/core/colors'
 import { createClient } from '@/lib/supabase'
+import { captureError } from '@/lib/error-tracking'
 import { addToast } from '@/hooks/useToast'
 import { useScoreSync } from '@/hooks/useScoreSync'
 import { formatLabel } from '@/golf/core/rules'
-import { puntajeDeHoyo } from '@/golf/core/hole-scoring'
-import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
-import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
+import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
@@ -42,6 +41,11 @@ export default function PlayerScoringPage() {
   const [saving,        setSaving]        = useState(false)
   const [saveError,     setSaveError]     = useState<string | null>(null)
   const [loading,       setLoading]       = useState(true)
+  // Falló la carga (red, no "torneo inexistente"). `loadNonce` re-dispara el
+  // efecto sin recargar la página: en cancha, recargar es perder el teclado
+  // abierto y varios segundos.
+  const [loadError,     setLoadError]     = useState(false)
+  const [loadNonce,     setLoadNonce]     = useState(0)
   const [savedHoles,    setSavedHoles]    = useState<Set<number>>(new Set())
   const [isOnline,      setIsOnline]      = useState(true)
   type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error'
@@ -67,57 +71,88 @@ export default function PlayerScoringPage() {
    */
   const courseHcpDe = useCallback((player: Player): number => {
     if (!tournament) return 0
-    const holeCount = tournament.hole_count || 18
-    return resolveScoringCourseHcp(
-      tournament.hcp_calc_mode,
+    return courseHandicapDeScoring({
+      mode: tournament.hcp_calc_mode,
       player,
       tournament,
       courseTees,
-      parDeLosHoyosJugados(courseHoles, holeCount),
-      holeCount,
-    )
+      courseHoles,
+      holeCount: tournament.hole_count || 18,
+    })
   }, [tournament, courseTees, courseHoles])
 
   useEffect(() => {
+    let cancelled = false
+    // La capa de datos PROPAGA los errores a propósito (un blip de red no puede
+    // volverse "torneo no encontrado"). Esta pantalla se usa entre hoyos, con
+    // señal mala: sin este try/catch la promesa quedaba sin handler y `loading`
+    // en true — "Cargando..." para siempre, sin mensaje ni reintento.
     const load = async () => {
-      // MISMAS queries que el scorer del organizador (`src/lib/data/tournaments/scoring.ts`).
-      // Las dos pantallas escriben el mismo `net_score`: si cada una trajera su
-      // propio subconjunto de columnas, volverían a repartir handicaps distintos
-      // — que es exactamente el bug que este fix cierra.
-      const supabase = createClient()
-      const t = await fetchScoringTournament(supabase, slug)
-      if (!t) { setLoading(false); return }
-      // Demo torneos son spectator-only — redirigir al leaderboard público.
-      if (t.es_demo) {
-        router.replace(`/torneo/${slug}`)
-        return
-      }
-      setTournament(t)
-      setPlayers(await fetchScoringRoster(supabase, t.id))
-      if (t.courses?.id) {
-        const { holes, tees } = await fetchScoringCourseContext(supabase, t.courses.id)
+      setLoading(true)
+      setLoadError(false)
+      try {
+        // MISMAS queries que el scorer del organizador (`src/lib/data/tournaments/scoring.ts`).
+        // Las dos pantallas escriben el mismo `net_score`: si cada una trajera su
+        // propio subconjunto de columnas, volverían a repartir handicaps distintos
+        // — que es exactamente el bug que este fix cierra.
+        const supabase = createClient()
+        const t = await fetchScoringTournament(supabase, slug)
+        if (cancelled) return
+        if (!t) { setLoading(false); return }
+        // Demo torneos son spectator-only — redirigir al leaderboard público.
+        if (t.es_demo) {
+          router.replace(`/torneo/${slug}`)
+          return
+        }
+        setTournament(t)
+
+        const [roster, courseCtx] = await Promise.all([
+          fetchScoringRoster(supabase, t.id),
+          t.courses?.id
+            ? fetchScoringCourseContext(supabase, t.courses.id)
+            : Promise.resolve({ holes: [] as CourseHole[], tees: [] as CourseTeeRow[] }),
+        ])
+        if (cancelled) return
+
+        setPlayers(roster)
         // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en un
         // torneo de 18 se recorre dos veces y los hoyos 10-18 son los 1-9 otra
         // vez, con su par y su dificultad reales (`@/golf/courses/vueltas`).
         // Antes se pedían 18 a un catálogo de 9 y cada `find` fallaba: par 4 fijo
         // y stroke index = número de hoyo, o sea birdies mal contados y golpes de
         // handicap repartidos en el hoyo equivocado durante media vuelta.
-        setCourseHoles(hoyosDeLaVuelta(holes, t.hole_count || 18))
-        setCourseTees(tees)
+        setCourseHoles(hoyosDeLaVuelta(courseCtx.holes, t.hole_count || 18))
+        setCourseTees(courseCtx.tees)
+        setLoading(false)
+      } catch (e) {
+        void captureError(e, { context: 'torneo.score.load', meta: { slug } })
+        if (!cancelled) {
+          setLoadError(true)
+          setLoading(false)
+        }
       }
-      setLoading(false)
     }
-    load()
-  }, [slug])
+    void load()
+    return () => { cancelled = true }
+  }, [slug, loadNonce])
 
   const loadScores = useCallback(async (playerId: string) => {
     const player = players.find(p => p.id === playerId)
     const roundId = player?.rounds?.[0]?.id
     if (!roundId) { setCurrentScores({}); return }
-    const supabase = createClient()
-    const data = await fetchRoundHoleScores(supabase, roundId)
     const map: Record<number, number> = {}
-    data.forEach((s) => { if (s.gross_score != null) map[s.hole_number] = s.gross_score })
+    // Lo guardado en el servidor es best-effort: si la red falla, la pantalla
+    // sigue con lo que haya en local. Lo que NO puede pasar es que el error
+    // corte antes del merge de abajo y el jugador pierda de vista los hoyos
+    // que tiene en cola sin conexión.
+    try {
+      const supabase = createClient()
+      const data = await fetchRoundHoleScores(supabase, roundId)
+      data.forEach((s) => { if (s.gross_score != null) map[s.hole_number] = s.gross_score })
+    } catch (e) {
+      void captureError(e, { context: 'torneo.score.loadScores', meta: { slug, roundId } })
+      setSaveStatus(typeof navigator !== 'undefined' && navigator.onLine ? 'error' : 'offline')
+    }
     // Merge pending local scores (offline/failed saves) so no input is lost on reload
     try {
       const raw = localStorage.getItem(`golfers_score_${slug}_${roundId}`)
@@ -172,9 +207,8 @@ export default function PlayerScoringPage() {
     // aunque el SI sea 18h-impar en un loop de 9h. El SI mostrado se mantiene crudo.
     const si         = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNumber] ?? holeNumber
     const holeCount  = tournament.hole_count || 18
-    const hcpJugador = player.handicap_at_registration ?? 0
     const { neto: netScore, puntos: points } = puntajeDeHoyo({
-      gross, par, courseHandicap: hcpJugador, strokeIndex: si, holeCount,
+      gross, par, courseHandicap: courseHcpDe(player), strokeIndex: si, holeCount,
       formato: tournament,
     })
 
@@ -250,19 +284,37 @@ export default function PlayerScoringPage() {
     window.addEventListener('online', up)
     window.addEventListener('offline', down)
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
-    // `courseHcpDe` va en las deps a propósito: sin él, el re-sync se quedaría
-    // con el closure del primer render — `courseTees` vacío — y los hoyos que
-    // quedaron en cola offline se sincronizarían con el índice crudo. El bug
-    // volvería justo en el peor momento: sin señal, a mitad de cancha.
+    // `courseHcpDe` va en las deps porque el efecto lo usa. No agrega disparos
+    // — sus tres dependencias se setean en el mismo `load()` y dos ya estaban
+    // acá — pero deja el closure atado explícitamente al handicap vigente en
+    // vez de depender de que otro dep lo refresque por casualidad.
   }, [tournament, roundIdForSync, selectedPlayerEarly, courseHoles, scoreSync, submitHoleScore, courseHcpDe])
 
   if (loading) return <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>Cargando...</div>
+  // Un fallo de red NO es "torneo no encontrado": el jugador tiene que poder
+  // reintentar sin recargar y sin creer que se equivocó de link.
+  if (loadError) return (
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '24px', textAlign: 'center' }}>
+      <p style={{ color: 'var(--text-2)', fontSize: '15px', margin: 0, maxWidth: '320px' }}>
+        No pudimos cargar el torneo. Revisa tu conexión — los hoyos que ya guardaste están a salvo.
+      </p>
+      <button type="button" onClick={() => setLoadNonce(n => n + 1)}
+        style={{ padding: '12px 24px', background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.35)', borderRadius: '10px', color: 'var(--brand-on-bg)', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>
+        Reintentar
+      </button>
+    </div>
+  )
   if (!tournament) return <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fca5a5' }}>Torneo no encontrado.</div>
 
   const selectedPlayer = players.find(p => p.id === selectedId)
   const holeCount = tournament.hole_count || 18
-  // Predicado canónico: `formato_juego` y `format` discrepan en 4 torneos de
-  // prod, y esta pantalla miraba sólo la primera.
+  // Predicado canónico, el mismo que usan el scorer del organizador y el board.
+  // HOY es equivalente a mirar `formato_juego` a secas (`resolveFormatoJuego` es
+  // `formato_juego ?? format`, y en prod `formato_juego` no es null en ninguna
+  // de las 29 filas). No se unifica por un bug vivo: se unifica para que la
+  // pregunta "¿es stableford?" tenga UNA respuesta en toda la app, y para que el
+  // día que una fila llegue con el canónico en null las tres pantallas hagan lo
+  // mismo en vez de tres cosas distintas.
   const esStableford = isStablefordFormat(resolveFormatoJuego(tournament))
   const holes = Array.from({ length: holeCount }, (_, i) => i + 1)
 
@@ -365,9 +417,6 @@ export default function PlayerScoringPage() {
                 const bg = gross != null ? ss.bg : 'var(--bg-surface)'
                 const border = gross != null ? `${ss.borderWidth} solid ${ss.border}` : '1px solid rgba(122,143,168,0.2)'
 
-                // Calculate Stableford points if it's stableford format and we have a score
-                // Los puntos que ve el jugador salen del MISMO cálculo que los
-                // que se persisten — antes esta vista los recomputaba aparte.
                 // Los puntos que ve el jugador salen del MISMO cálculo que los
                 // que se persisten — antes esta vista los recomputaba aparte, y
                 // con el índice crudo.

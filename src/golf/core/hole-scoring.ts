@@ -15,6 +15,47 @@
 
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from './scoring'
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
+import {
+  resolveScoringCourseHcp,
+  type PlayerForCourseHcp,
+  type TournamentForCourseHcp,
+} from './compute-player-course-hcp'
+import { parDeLosHoyosJugados } from './course-handicap'
+import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+
+export interface CourseHandicapDeScoringArgs {
+  /** `tournaments.hcp_calc_mode` — el gate. */
+  mode: string | null | undefined
+  player: PlayerForCourseHcp
+  tournament: TournamentForCourseHcp
+  courseTees: CourseTeeRow[]
+  /** Los hoyos de la RONDA, ya expandidos por `hoyosDeLaVuelta`. */
+  courseHoles: Array<{ numero: number; par: number }>
+  holeCount: number
+}
+
+/**
+ * FUENTE ÚNICA del course handicap con el que se reparten los golpes de un
+ * torneo. Las tres rutas que escriben score la llaman: el scorer del
+ * organizador, el del jugador y el fallback del servidor en `upsert_score`.
+ *
+ * Existe porque la composición —el gate más `parDeLosHoyosJugados`— estaba
+ * escrita tres veces. Y el par no es un detalle: con el CR de 9 hoyos contra un
+ * par de 18 la fórmula WHS devuelve course handicaps NEGATIVOS. Una copia que
+ * se olvidara de partir el par no fallaría ruidosamente: repartiría golpes al
+ * revés, en silencio, durante todo el torneo.
+ */
+export function courseHandicapDeScoring(args: CourseHandicapDeScoringArgs): number {
+  const { mode, player, tournament, courseTees, courseHoles, holeCount } = args
+  return resolveScoringCourseHcp(
+    mode,
+    player,
+    tournament,
+    courseTees,
+    parDeLosHoyosJugados(courseHoles, holeCount),
+    holeCount,
+  )
+}
 
 export interface PuntajeDeHoyo {
   /** Golpes de handicap que el jugador recibe EN ESTE hoyo. */

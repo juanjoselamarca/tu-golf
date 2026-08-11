@@ -14,9 +14,7 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { puntajeDeHoyo } from '@/golf/core/hole-scoring'
-import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
-import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
+import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import {
   fetchLegacyHcpContext,
@@ -66,94 +64,110 @@ export async function upsertScore(
 
   let { net_score, points } = body as { net_score: number | null; points: number | null }
 
-  if (gross_score != null && (net_score == null || points == null)) {
-    const { data: roundData } = await svc
-      .from('rounds')
-      .select('player_id, players(handicap_at_registration, tee_id, tournament_id)')
-      .eq('id', round_id)
-      .single()
-    const rd = roundData as unknown as {
-      player_id: string
-      players: {
-        handicap_at_registration: number | null
-        tee_id: string | null
-        tournament_id: string
-      } | null
-    } | null
-
-    if (rd?.players) {
-      // El `?? 18` histórico se conserva: es el índice con el que este endpoint
-      // viene calculando desde siempre para un jugador sin índice cargado.
-      // Entra al gate ya defaulteado para que en modo `raw` el resultado sea
-      // idéntico al de hoy, byte por byte.
-      const hcp = rd.players.handicap_at_registration ?? 18
-      const tournId = rd.players.tournament_id
-      const { data: chData } = await svc
-        .from('tournaments')
-        .select('hole_count, formato_juego, format, courses(id)')
-        .eq('id', tournId)
+  // Derivar el neto es best-effort: si falla, se devuelve 409 y el cliente
+  // reintenta (y en el peor caso el hoyo queda en su cola offline). Lo que NO
+  // se hace es persistir un neto calculado a medias — un número silenciosamente
+  // equivocado en la tabla es peor que un save que avisa.
+  try {
+    if (gross_score != null && (net_score == null || points == null)) {
+      const { data: roundData } = await svc
+        .from('rounds')
+        .select('player_id, players(handicap_at_registration, tee_id, tournament_id)')
+        .eq('id', round_id)
         .single()
-      const tournInfo = chData as unknown as {
-        hole_count: number | null
-        formato_juego: string | null
-        format: string | null
-        courses: { id: string } | null
+      const rd = roundData as unknown as {
+        player_id: string
+        players: {
+          handicap_at_registration: number | null
+          tee_id: string | null
+          tournament_id: string
+        } | null
       } | null
-      const courseId = tournInfo?.courses?.id
-      const roundHoles = tournInfo?.hole_count ?? 18
 
-      // SI normalizado (permutación 1..N) para ALOCAR golpes: se traen TODOS los
-      // hoyos del recorrido (1..roundHoles) y se normaliza, en vez de leer el SI
-      // crudo de un solo hoyo. Garantiza que el neto persistido reparta EXACTAMENTE
-      // el course handicap aunque el SI de catálogo sea 18h-impar en una ronda de 9h
-      // (bug "net +12"). Fallback al SI crudo si no hay data → nunca peor que antes.
-      let strokeIndex = hole_number as number
-      let courseHoles: Array<{ numero: number; par: number; stroke_index: number }> = []
-      if (courseId) {
-        const { data: holeRows } = await svc
-          .from('course_holes')
-          .select('numero, par, stroke_index')
-          .eq('course_id', courseId)
-          .lte('numero', roundHoles)
-        const rows =
-          (holeRows as Array<{ numero: number; par: number; stroke_index: number }> | null) ?? []
-        if (rows.length > 0) {
-          courseHoles = hoyosDeLaVuelta(rows, roundHoles)
-          const siAlloc = normalizedStrokeIndexByHole(
-            rows.map((r) => ({ numero: r.numero, stroke_index: r.stroke_index })),
-            roundHoles
-          )
-          strokeIndex = siAlloc[hole_number as number] ?? strokeIndex
+      if (rd?.players) {
+        // El `?? 18` histórico se conserva: es el índice con el que este endpoint
+        // viene calculando desde siempre para un jugador sin índice cargado.
+        // Entra al gate ya defaulteado para que en modo `raw` el resultado sea
+        // idéntico al de hoy, byte por byte.
+        const hcp = rd.players.handicap_at_registration ?? 18
+        const tournId = rd.players.tournament_id
+        // Las dos lecturas van en paralelo: esto corre en el camino caliente de
+        // escritura de CADA hoyo, y encadenarlas duplicaba la latencia del save.
+        const [{ data: chData }, hcpCtx] = await Promise.all([
+          svc
+            .from('tournaments')
+            .select('hole_count, formato_juego, format, courses(id)')
+            .eq('id', tournId)
+            .single(),
+          fetchLegacyHcpContext(svc as unknown as LeaderboardClient, tournId),
+        ])
+        const tournInfo = chData as unknown as {
+          hole_count: number | null
+          formato_juego: string | null
+          format: string | null
+          courses: { id: string } | null
+        } | null
+        const courseId = tournInfo?.courses?.id
+        const roundHoles = tournInfo?.hole_count ?? 18
+
+        // SI normalizado (permutación 1..N) para ALOCAR golpes: se traen TODOS los
+        // hoyos del recorrido (1..roundHoles) y se normaliza, en vez de leer el SI
+        // crudo de un solo hoyo. Garantiza que el neto persistido reparta EXACTAMENTE
+        // el course handicap aunque el SI de catálogo sea 18h-impar en una ronda de 9h
+        // (bug "net +12"). Fallback al SI crudo si no hay data → nunca peor que antes.
+        let strokeIndex = hole_number as number
+        let courseHoles: Array<{ numero: number; par: number; stroke_index: number }> = []
+        if (courseId) {
+          const { data: holeRows } = await svc
+            .from('course_holes')
+            .select('numero, par, stroke_index')
+            .eq('course_id', courseId)
+            .lte('numero', roundHoles)
+          const rows =
+            (holeRows as Array<{ numero: number; par: number; stroke_index: number }> | null) ?? []
+          if (rows.length > 0) {
+            courseHoles = hoyosDeLaVuelta(rows, roundHoles)
+            const siAlloc = normalizedStrokeIndexByHole(
+              rows.map((r) => ({ numero: r.numero, stroke_index: r.stroke_index })),
+              roundHoles
+            )
+            strokeIndex = siAlloc[hole_number as number] ?? strokeIndex
+          }
         }
+
+        // El MISMO gate que usan los dos scorers y el board. Este fallback existe
+        // para los callers que mandan sólo el gross — el "deshacer" del scorer y
+        // el guardado de putts/fairway/GIR. Con el índice crudo, marcar una
+        // estadística REESCRIBÍA el neto correcto que el scorer acababa de
+        // persistir: en un torneo WHS el dato bueno se corrompía solo.
+        const courseHcp = courseHandicapDeScoring({
+          mode: hcpCtx.mode,
+          player: { handicap_at_registration: hcp, tee_id: rd.players.tee_id ?? null },
+          tournament: { tees: hcpCtx.tees, courses: hcpCtx.course },
+          courseTees: hcpCtx.courseTees,
+          courseHoles,
+          holeCount: roundHoles,
+        })
+
+        const puntaje = puntajeDeHoyo({
+          gross: gross_score as number,
+          par: par as number,
+          courseHandicap: courseHcp,
+          strokeIndex,
+          holeCount: roundHoles,
+          formato: { formato_juego: tournInfo?.formato_juego, format: tournInfo?.format },
+        })
+
+        if (net_score == null) net_score = puntaje.neto
+        if (points == null) points = puntaje.puntos
       }
-
-      // El MISMO gate que usan los dos scorers y el board. Este fallback existe
-      // para los callers que mandan sólo el gross — el "deshacer" del scorer y
-      // el guardado de putts/fairway/GIR. Con el índice crudo, marcar una
-      // estadística REESCRIBÍA el neto correcto que el scorer acababa de
-      // persistir: en un torneo WHS el dato bueno se corrompía solo.
-      const hcpCtx = await fetchLegacyHcpContext(svc as unknown as LeaderboardClient, tournId)
-      const courseHcp = resolveScoringCourseHcp(
-        hcpCtx.mode,
-        { handicap_at_registration: hcp, tee_id: rd.players.tee_id ?? null },
-        { tees: hcpCtx.tees, courses: hcpCtx.course },
-        hcpCtx.courseTees,
-        parDeLosHoyosJugados(courseHoles, roundHoles),
-        roundHoles,
-      )
-
-      const puntaje = puntajeDeHoyo({
-        gross: gross_score as number,
-        par: par as number,
-        courseHandicap: courseHcp,
-        strokeIndex,
-        holeCount: roundHoles,
-        formato: { formato_juego: tournInfo?.formato_juego, format: tournInfo?.format },
-      })
-
-      if (net_score == null) net_score = puntaje.neto
-      if (points == null) points = puntaje.puntos
     }
+  } catch (err) {
+    captureGameError('upsertScore.derivarNeto', err, { round_id, hole_number })
+    return NextResponse.json(
+      { error: 'No pudimos calcular el neto del hoyo. Intenta de nuevo.' },
+      { status: 409 },
+    )
   }
 
   const upsertData: Record<string, unknown> = {

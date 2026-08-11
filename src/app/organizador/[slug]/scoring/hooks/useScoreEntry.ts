@@ -7,11 +7,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
-import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
-import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import {
@@ -159,14 +157,14 @@ export function useScoreEntry({
   // par de 18 la fórmula WHS devolvía course handicaps NEGATIVOS.
   const selectedCourseHcp =
     tournament && selectedPlayer
-      ? resolveScoringCourseHcp(
-          tournament.hcp_calc_mode,
-          selectedPlayer,
+      ? courseHandicapDeScoring({
+          mode: tournament.hcp_calc_mode,
+          player: selectedPlayer,
           tournament,
           courseTees,
-          parDeLosHoyosJugados(courseHoles, holeCount),
+          courseHoles,
           holeCount,
-        )
+        })
       : 0
 
   const netTotal = holes.reduce((s, h) => {
@@ -201,16 +199,14 @@ export function useScoreEntry({
       const hole = holeByNumero.get(holeNumber)
       const par = hole?.par ?? 4
       const si = siAllocByHole[holeNumber] ?? hole?.stroke_index ?? holeNumber
-      const parDeLaRonda = parDeLosHoyosJugados(courseHoles, holeCount)
-      const courseHcp = resolveScoringCourseHcp(
-        tournament.hcp_calc_mode, player, tournament, courseTees, parDeLaRonda, holeCount,
-      )
-      const strokes = strokesRecibidosEnHoyo(courseHcp, si, holeCount)
-      const netScore = gross - strokes
-      // Puntos con la canónica (capea albatross-o-mejor en 5, igual que el board).
-      const points = isStablefordFormat(resolveFormatoJuego(tournament))
-        ? puntosStablefordHoyo(gross, par, courseHcp, si, holeCount)
-        : 0
+      const courseHcp = courseHandicapDeScoring({
+        mode: tournament.hcp_calc_mode, player, tournament, courseTees, courseHoles, holeCount,
+      })
+      // Neto y puntos por la MISMA fuente que el scorer del jugador y el
+      // servidor: los tres escriben en las mismas columnas.
+      const { neto: netScore, puntos: points } = puntajeDeHoyo({
+        gross, par, courseHandicap: courseHcp, strokeIndex: si, holeCount, formato: tournament,
+      })
 
       setLastAction({ holeNumber, previousScore: currentScores[holeNumber], playerId: selectedId })
       setCurrentScores((prev) => ({ ...prev, [holeNumber]: gross }))
