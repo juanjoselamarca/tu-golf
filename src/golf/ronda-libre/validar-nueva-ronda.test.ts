@@ -160,6 +160,18 @@ describe('modo neto', () => {
   })
 })
 
+describe('nombres', () => {
+  it('un jugador sin nombre frena la ronda — la API valida min(1)', () => {
+    const problema = validarNuevaRonda(ronda({ jugadores: [{ nombre: '', indice: 12 }] }))
+    expect(problema?.titulo).toBe('Falta un nombre')
+  })
+
+  it('un nombre de puros espacios tampoco pasa', () => {
+    expect(validarNuevaRonda(ronda({ jugadores: [{ nombre: '   ', indice: 12 }] }))?.titulo)
+      .toBe('Falta un nombre')
+  })
+})
+
 describe('orden de los problemas', () => {
   it('la cancha se reclama antes que los jugadores', () => {
     const problema = validarNuevaRonda(

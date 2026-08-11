@@ -180,7 +180,7 @@ export function PasoJugadores(props: Props) {
       {props.esFormatoDeEquipo && props.llevaElScoreDelGrupo && props.jugadores.length >= 3 && (
         <AsignacionDeEquipos
           formato={props.formato}
-          nombres={props.jugadores.map(j => j.nombre)}
+          jugadores={props.jugadores}
           equipos={props.equipos}
           onEquipos={props.onEquipos}
         />

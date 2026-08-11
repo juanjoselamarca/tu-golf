@@ -66,6 +66,17 @@ function problemaDeCantidad({ formato, jugadores }: RondaAValidar): ProblemaDeLa
     return { titulo: 'Faltan jugadores', detalle: 'Agrega al menos un jugador para crear la ronda.' }
   }
 
+  // La API valida `nombre: z.string().min(1)`. El caso real no es un rival sin
+  // nombre — esos se filtran antes de llegar acá — sino el creador cuando su
+  // perfil todavía no cargó: con señal mala en cancha se puede llegar al botón
+  // antes que el nombre, y la ronda muere en un 400 sin explicación.
+  if (jugadores.some(j => !j.nombre.trim())) {
+    return {
+      titulo: 'Falta un nombre',
+      detalle: 'Todavía estamos cargando tu perfil. Espera un segundo e intenta de nuevo.',
+    }
+  }
+
   if (jugadores.length > MAX_JUGADORES_POR_RONDA) {
     return {
       titulo: 'Demasiados jugadores',

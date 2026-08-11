@@ -3,31 +3,30 @@
 import type { FormatoJuego } from '@/golf/core/rules'
 import { jugadoresPorEquipo, maxEquipos } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import type { EquipoDeLaRonda } from '../hooks/useFormularioDeRonda'
+import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
 import { colores, etiqueta, tarjeta } from './estilos'
 
 interface Props {
   formato: FormatoJuego
-  /** Nombres en el MISMO orden que consumen `jugadorIndices`. */
-  nombres: string[]
+  /** Jugadores de la ronda. Los equipos los referencian por `id`. */
+  jugadores: JugadorDeLaRonda[]
   equipos: EquipoDeLaRonda[]
   onEquipos: (equipos: EquipoDeLaRonda[]) => void
 }
 
 /** Reparte a los jugadores en equipos. Un jugador no puede estar en dos. */
-export function AsignacionDeEquipos({ formato, nombres, equipos, onEquipos }: Props) {
+export function AsignacionDeEquipos({ formato, jugadores, equipos, onEquipos }: Props) {
   const porEquipo = jugadoresPorEquipo(formato)
   const tope = maxEquipos(formato)
 
-  const alternar = (equipoIdx: number, jugadorIdx: number) => {
+  const alternar = (equipoIdx: number, jugadorId: string) => {
     onEquipos(
       equipos.map((e, i) => {
         if (i !== equipoIdx) return e
-        const dentro = e.jugadorIndices.includes(jugadorIdx)
+        const dentro = e.miembros.includes(jugadorId)
         return {
           ...e,
-          jugadorIndices: dentro
-            ? e.jugadorIndices.filter(x => x !== jugadorIdx)
-            : [...e.jugadorIndices, jugadorIdx],
+          miembros: dentro ? e.miembros.filter(id => id !== jugadorId) : [...e.miembros, jugadorId],
         }
       }),
     )
@@ -68,16 +67,16 @@ export function AsignacionDeEquipos({ formato, nombres, equipos, onEquipos }: Pr
             }}
           />
 
-          {nombres.map((nombre, pIdx) => {
-            const enEste = equipo.jugadorIndices.includes(pIdx)
-            const enOtro = equipos.some((e, i) => i !== eIdx && e.jugadorIndices.includes(pIdx))
+          {jugadores.map(jugador => {
+            const enEste = equipo.miembros.includes(jugador.id)
+            const enOtro = equipos.some((e, i) => i !== eIdx && e.miembros.includes(jugador.id))
             return (
               <button
-                key={pIdx}
+                key={jugador.id}
                 type="button"
                 disabled={enOtro}
                 aria-pressed={enEste}
-                onClick={() => alternar(eIdx, pIdx)}
+                onClick={() => alternar(eIdx, jugador.id)}
                 style={{
                   display: 'block', width: '100%', padding: '12px 14px',
                   marginBottom: '4px', borderRadius: '8px', minHeight: '44px',
@@ -90,7 +89,7 @@ export function AsignacionDeEquipos({ formato, nombres, equipos, onEquipos }: Pr
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
-                {nombre} {enEste && '✓'}
+                {jugador.nombre} {enEste && '✓'}
               </button>
             )
           })}
@@ -100,7 +99,7 @@ export function AsignacionDeEquipos({ formato, nombres, equipos, onEquipos }: Pr
       {equipos.length < tope && (
         <button
           type="button"
-          onClick={() => onEquipos([...equipos, { nombre: `Equipo ${equipos.length + 1}`, jugadorIndices: [] }])}
+          onClick={() => onEquipos([...equipos, { nombre: `Equipo ${equipos.length + 1}`, miembros: [] }])}
           style={{
             width: '100%', padding: '10px', borderRadius: '8px',
             border: `1px dashed ${colores.borde}`, background: 'transparent',

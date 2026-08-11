@@ -9,7 +9,7 @@ import { isTeamFormat } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { FormaDeLaRonda } from '@/golf/ronda-libre/forma-de-la-ronda'
-import type { EquipoDeLaRonda, RivalDelCreador } from './useFormularioDeRonda'
+import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from './useFormularioDeRonda'
 
 /**
  * Un jugador de la ronda, ya resuelto: el creador y los rivales con nombre, en
@@ -21,6 +21,8 @@ import type { EquipoDeLaRonda, RivalDelCreador } from './useFormularioDeRonda'
  * equivocado — y los equipos, que sí usaban la lista filtrada, apuntaban a otro.
  */
 export interface JugadorDeLaRonda {
+  /** Identidad estable del formulario. Los equipos referencian esto. */
+  id: string
   nombre: string
   indice: number | null
   tees: string
@@ -37,6 +39,7 @@ export function jugadoresDeLaRonda(args: {
   const { creador, teeGlobal, rivales } = args
   return [
     {
+      id: ID_DEL_CREADOR,
       nombre: creador.nombre,
       indice: creador.indice,
       tees: teeGlobal,
@@ -47,6 +50,7 @@ export function jugadoresDeLaRonda(args: {
     ...rivales
       .filter(r => r.nombre.trim())
       .map(r => ({
+        id: r.id,
         nombre: r.nombre.trim(),
         indice: r.handicap,
         tees: r.tees ?? teeGlobal,
@@ -55,6 +59,33 @@ export function jugadoresDeLaRonda(args: {
         telefono: r.telefono,
       })),
   ]
+}
+
+/**
+ * Traduce los equipos (que referencian jugadores por id) al `jugadorIndices`
+ * posicional que espera la API.
+ *
+ * La traducción ocurre acá, en el borde: adentro del formulario los equipos
+ * nunca guardan posiciones, así que agregar, quitar o dejar sin nombre a un
+ * rival no puede correr a nadie de equipo. El route handler indexa
+ * `insertedPlayers[idx]` con este mismo orden, que es el de `jugadores`.
+ *
+ * Un id que ya no resuelve (el rival se borró o se quedó sin nombre) se cae de
+ * la lista: el equipo queda incompleto y la validación lo frena antes de crear
+ * la ronda. Es el resultado correcto — mejor un equipo que falta que un
+ * jugador puntuando para el equipo equivocado.
+ */
+export function equiposConIndices(
+  equipos: EquipoDeLaRonda[],
+  jugadores: JugadorDeLaRonda[],
+): Array<{ nombre: string; jugadorIndices: number[] }> {
+  const posicionPorId = new Map(jugadores.map((j, i) => [j.id, i]))
+  return equipos.map(e => ({
+    nombre: e.nombre,
+    jugadorIndices: e.miembros
+      .map(id => posicionPorId.get(id))
+      .filter((i): i is number => i != null),
+  }))
 }
 
 interface Args {
@@ -83,12 +114,16 @@ export function useCrearRonda(args: Args) {
   const [creada, setCreada] = useState<RondaCreada | null>(null)
 
   /** Problema que impide crear la ronda, o `null` si está lista. */
+  // Los equipos se resuelven UNA vez y se usan para validar y para enviar: dos
+  // resoluciones distintas podrían aprobar una repartición y mandar otra.
+  const equipos = equiposConIndices(args.equipos, args.jugadores)
+
   const problema = validarNuevaRonda({
     cancha: args.cancha,
     formato: args.formato,
     modo: args.modo,
     jugadores: args.jugadores.map(j => ({ nombre: j.nombre, indice: j.indice })),
-    equipos: args.equipos,
+    equipos,
   })
 
   const crear = async () => {
@@ -124,9 +159,7 @@ export function useCrearRonda(args: Args) {
             telefono_invitado: j.esInvitado ? j.telefono || undefined : undefined,
             nombre_invitado: j.esInvitado ? j.nombre : undefined,
           })),
-          equipos: isTeamFormat(args.formato)
-            ? args.equipos.map(e => ({ nombre: e.nombre, jugadorIndices: e.jugadorIndices }))
-            : undefined,
+          equipos: isTeamFormat(args.formato) ? equipos : undefined,
         }),
       })
 

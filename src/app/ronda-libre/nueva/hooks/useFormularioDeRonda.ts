@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
+import { useRef, useState } from 'react'
+import { FORMAT_META, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isTeamFormat } from '@/golf/formats'
 import {
   EQUIPOS_MINIMOS,
@@ -14,7 +14,21 @@ import type { RondaReciente } from '@/lib/data/ronda-libre-nueva'
 
 export type PasoDelAsistente = 1 | 2 | 3 | 4
 
+/** Identidad del creador dentro de un equipo. Nunca cambia. */
+export const ID_DEL_CREADOR = 'creador'
+
 export interface RivalDelCreador {
+  /**
+   * Identidad estable del rival, viva sólo en el formulario.
+   *
+   * Los equipos referencian jugadores POR ID y no por posición. La lista de
+   * jugadores de la ronda se arma filtrando a los rivales sin nombre, así que
+   * su longitud cambia con cada tecla: con posiciones, borrar el nombre de un
+   * rival del medio movía a todos los de atrás y los equipos quedaban
+   * apuntando a otra persona sin que nada lo dijera. En cancha eso es un
+   * jugador puntuando para el equipo equivocado.
+   */
+  id: string
   tipo: 'cuenta' | 'invitado'
   nombre: string
   telefono: string
@@ -25,18 +39,29 @@ export interface RivalDelCreador {
 
 export interface EquipoDeLaRonda {
   nombre: string
-  jugadorIndices: number[]
-}
-
-function rivalVacio(nombre = ''): RivalDelCreador {
-  return { tipo: 'invitado', nombre, telefono: '', handicap: null, tees: null }
+  /** Ids de los integrantes (`ID_DEL_CREADOR` o el id de un rival). */
+  miembros: string[]
 }
 
 function equiposVacios(cantidad = EQUIPOS_MINIMOS): EquipoDeLaRonda[] {
   return Array.from({ length: cantidad }, (_, i) => ({
     nombre: `Equipo ${i + 1}`,
-    jugadorIndices: [],
+    miembros: [],
   }))
+}
+
+/**
+ * Modo con el que se puede jugar este formato. FUENTE ÚNICA de la coerción.
+ *
+ * `FORMAT_META.modosPermitidos` es la autoridad: Match Play sólo admite neto.
+ * Se aplica al elegir formato Y al repetir una ronda anterior — si sólo se
+ * aplicara en uno, repetir un Match Play viejo guardado como gross volvería a
+ * meter el modo prohibido.
+ */
+function modoQuePermiteElFormato(formato: FormatoJuego, deseado: ModoJuego): ModoJuego {
+  const permitidos = FORMAT_META[formato]?.modosPermitidos ?? []
+  if (permitidos.length === 0 || permitidos.includes(deseado)) return deseado
+  return permitidos[0]
 }
 
 function hoyDeChile(): string {
@@ -54,6 +79,15 @@ function hoyDeChile(): string {
  */
 export function useFormularioDeRonda() {
   const [paso, setPaso] = useState<PasoDelAsistente>(1)
+
+  // Contador y no `crypto.randomUUID()`: el id sólo tiene que ser único dentro
+  // de este formulario, y un contador da el mismo valor en el render del
+  // servidor y en la hidratación.
+  const ultimoId = useRef(0)
+  const rivalVacio = (nombre = ''): RivalDelCreador => {
+    ultimoId.current += 1
+    return { id: `rival-${ultimoId.current}`, tipo: 'invitado', nombre, telefono: '', handicap: null, tees: null }
+  }
 
   const [cancha, setCancha] = useState('')
   const [courseId, setCourseId] = useState<string | null>(null)
@@ -81,6 +115,15 @@ export function useFormularioDeRonda() {
    */
   const elegirFormato = (nuevo: FormatoJuego) => {
     setFormatoState(nuevo)
+
+    // El modo se ajusta a lo que el formato permite. Match Play sólo admite neto
+    // (cultura de golf en Chile, alineado con R&A 32.1b para Stableford) y por
+    // eso la pantalla le esconde el selector — pero esconderlo no cambiaba el
+    // valor guardado: quien venía de una ronda en Gross creaba un Match Play
+    // "gross", y el marcador no repartía la diferencia de handicap que la misma
+    // pantalla le había anunciado.
+    setModo(prev => modoQuePermiteElFormato(nuevo, prev))
+
     if (!exigeLlevarElScoreDelGrupo(nuevo)) return
 
     const necesarios = rivalesIniciales(nuevo)
@@ -109,18 +152,12 @@ export function useFormularioDeRonda() {
   }
 
   const quitarRival = (idx: number) => {
+    const quitado = rivales[idx]
     setRivales(prev => prev.filter((_, i) => i !== idx))
-    // Los equipos guardan ÍNDICES de la lista de jugadores. Al quitar a alguien
-    // del medio, los que estaban después se corren: sin re-mapear, un equipo
-    // termina apuntando a otro jugador o a un índice que ya no existe.
-    const jugadorQuitado = idx + 1
+    // Sacarlo de su equipo es una baja por ID: no hay posiciones que recalcular.
+    if (!quitado) return
     setEquipos(prev =>
-      prev.map(e => ({
-        ...e,
-        jugadorIndices: e.jugadorIndices
-          .filter(i => i !== jugadorQuitado)
-          .map(i => (i > jugadorQuitado ? i - 1 : i)),
-      })),
+      prev.map(e => ({ ...e, miembros: e.miembros.filter(id => id !== quitado.id) })),
     )
   }
 
@@ -170,11 +207,12 @@ export function useFormularioDeRonda() {
     setCourseId(r.course_id)
     setTees(r.tees)
     elegirHoyos(r.holes === 9 ? 9 : 18)
-    if (r.formato_juego) elegirFormato(r.formato_juego as FormatoJuego)
-    if (r.modo_juego) setModo(r.modo_juego as ModoJuego)
+    const formatoRepetido = (r.formato_juego as FormatoJuego) ?? 'stroke_play'
+    if (r.formato_juego) elegirFormato(formatoRepetido)
+    if (r.modo_juego) setModo(modoQuePermiteElFormato(formatoRepetido, r.modo_juego as ModoJuego))
     if (r.jugadores.length > 1) {
       setLlevaElScoreDelGrupo(true)
-      setRivales(r.jugadores.slice(1, 1 + maxRivales((r.formato_juego as FormatoJuego) ?? 'stroke_play')).map(n => rivalVacio(n)))
+      setRivales(r.jugadores.slice(1, 1 + maxRivales(formatoRepetido)).map(n => rivalVacio(n)))
     }
     setPaso(2)
   }
