@@ -4,6 +4,73 @@
 
 ---
 
+## 2026-08-09 · Los cuatro caminos que escriben score repartían handicaps distintos (PR #302)
+
+El torneo tiene **cuatro** rutas que calculan el neto de un hoyo. Tres repartían con
+el **índice crudo** en vez del course handicap del gate: el scorer del jugador (el que
+se usa en cancha), el fallback del servidor en `upsert_score`, y el GWI. Las tres
+primeras **persisten** `net_score` y `points` — no era display, el número equivocado
+quedaba en la base.
+
+Con datos reales de prod (**Club de Golf Los Leones, slope 142 / CR 75.1, par 72**) un
+índice 12 recibe **18** golpes. Se repartían 12: **seis golpes por jugador** en un
+torneo neto.
+
+El peor de los tres era el del servidor. Dos call sites del scorer **del organizador**
+mandan `upsert_score` sin neto —el "deshacer" y `saveHoleStat` (putts/fairway/GIR)—,
+así que el organizador scoreaba bien, alguien marcaba *"2 putts"* en ese hoyo, y el
+servidor **reescribía el neto correcto con el índice**. El dato bueno se corrompía
+solo, sin tocar el scorer del jugador y sin ninguna señal en pantalla.
+
+**Por qué dejó de ser latente:** el bug dormía mientras todos los torneos eran
+`hcp_calc_mode='raw'`, donde el gate devuelve el índice y todo coincide. El 30-jul el
+default pasó a `'whs'`. Hoy hay 10 torneos en ese modo, 9 con neto o stableford, todos
+de julio en adelante. Los únicos con scores son fixtures de test: **daño consumado
+cero, daño armado sí** — el próximo torneo real lo pisaba.
+
+- **`src/golf/core/hole-scoring.ts` — dos fuentes únicas.** `courseHandicapDeScoring()`
+  (la composición *gate + `parDeLosHoyosJugados`*, que estaba escrita cuatro veces) y
+  `puntajeDeHoyo()` (golpes recibidos, neto y puntos). El parámetro se llama
+  **`courseHandicap`, no `handicapIndex`**: mientras se llamó así, cuatro call sites le
+  pasaron índices durante meses sin que nada chillara.
+- **Las queries del scorer del jugador van a la capa de datos** compartida con el
+  organizador. Si cada pantalla trae su propio subconjunto de columnas, el gate se
+  queda sin `hcp_calc_mode` o sin tees y cae **en silencio** al índice crudo.
+- **`points` deja de escribirse fuera de stableford.** Verificado NO-OP en prod: de 843
+  `hole_scores` de stroke_play y 36 de match_play, **cero** tienen puntos distintos de 0.
+
+**Cinco rondas de `superpowers:code-reviewer`, y el motor de golf estuvo bien desde la
+primera.** Todo lo que falló fueron bordes — y dos de las peores cosas del PR aparecieron
+en commits que arreglaban el review anterior:
+
+- Al mover las queries a la capa de datos me llevé puesto el manejo de errores: la capa
+  propaga a propósito, y sin `try/catch` la pantalla quedaba en **"Cargando..." para
+  siempre** con señal mala, que es *el* escenario de un scorer en cancha.
+- El fix de eso introdujo un `return` en el catch de `loadScores` que abría **contaminación
+  entre jugadores**: teléfono compartido, tap en "Cambiar jugador", lectura fallida → la
+  tarjeta de B mostraba los hoyos de A → B cargaba un hoyo → el guardado local persistía el
+  mapa completo bajo la clave de B → al volver la señal, **los golpes de A se escribían en
+  la ronda de B**. Peor que el bug original, que al menos era consistente.
+- Y un canario mío se esquivaba con una variable intermedia. El reviewer lo demostró
+  mutando el archivo — y **esa mutación entró a un commit pusheado**, porque corrió en el
+  worktree donde yo estaba commiteando y el `git add -A` la capturó. Ver
+  `reference_code_reviewer_muta_el_worktree` (memoria).
+
+**Lección sobre canarios:** el que exige dos patrones *en la misma línea* no sirve; una
+variable intermedia lo parte en dos. Y "la línea no puede tener `<`" tampoco, porque `<`
+aparece en TypeScript idiomático (`new Map<string, number>`). Lo que aguanta es un
+**presupuesto de ocurrencias** — no adivina la forma, cuenta — más canarios de **conducta**
+que midan invariantes reales (Σ golpes repartidos == course handicap; los golpes van a los
+hoyos difíciles primero). Los de fuente quedaron documentados como lo que son: **alambre de
+tropiezo, no prueba**.
+
+**Verificación:** tsc 0 · 3671 tests · build OK · 57 de integración contra prod · canarios
+probados por mutación con los patrones que rompieron las versiones anteriores.
+
+**Follow-ups nombrados** en `docs/REORDENAMIENTO_TRACKING.md`: extraer `scoresParaMostrar`
+(jubila el tripwire), el hueco del alias (cierre real = aserción e2e contra un torneo `whs`
+de prod), la rama `else` de `undoLast` (borra en pantalla y no en la base), y `rounds[0]` vs
+`getActiveRound` en el scorer del jugador.
 ## 2026-08-09 · El par hoyo por hoyo no llegaba a los clubes de 27 hoyos (PR #303)
 
 Sesión que empezó auditando el catálogo de canchas y terminó cerrando un bug de

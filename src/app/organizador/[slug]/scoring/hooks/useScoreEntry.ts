@@ -3,15 +3,13 @@
 // finalizar ronda. Toda la cuenta de golf sale de `src/golf/` (course handicap,
 // SI normalizado, strokes por hoyo, stableford) — acá sólo se orquesta.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
-import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
-import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import {
@@ -66,6 +64,14 @@ export function useScoreEntry({
   const [errorHoles, setErrorHoles] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
   const [lastAction, setLastAction] = useState<LastAction | null>(null)
+  /** Hoyos que ya avisaron que sus stats no se guardaron — un aviso por hoyo,
+   *  no uno por cada tap de putts/fairway/GIR.
+   *
+   *  La llave lleva jugador y ronda, no sólo el número de hoyo: con la clave
+   *  suelta, un fallo en el hoyo 5 del jugador A silenciaba el aviso del hoyo 5
+   *  de B. El dedupe se comía un aviso legítimo de pérdida de datos, que es
+   *  justo lo que el aviso existe para evitar. */
+  const statWarnedHolesRef = useRef<Set<string>>(new Set())
   const [holePutts, setHolePutts] = useState<Record<number, number | null>>({})
   const [holeFairway, setHoleFairway] = useState<Record<number, boolean | null>>({})
   const [holeGir, setHoleGir] = useState<Record<number, boolean | null>>({})
@@ -159,14 +165,14 @@ export function useScoreEntry({
   // par de 18 la fórmula WHS devolvía course handicaps NEGATIVOS.
   const selectedCourseHcp =
     tournament && selectedPlayer
-      ? resolveScoringCourseHcp(
-          tournament.hcp_calc_mode,
-          selectedPlayer,
+      ? courseHandicapDeScoring({
+          mode: tournament.hcp_calc_mode,
+          player: selectedPlayer,
           tournament,
           courseTees,
-          parDeLosHoyosJugados(courseHoles, holeCount),
+          courseHoles,
           holeCount,
-        )
+        })
       : 0
 
   const netTotal = holes.reduce((s, h) => {
@@ -201,16 +207,14 @@ export function useScoreEntry({
       const hole = holeByNumero.get(holeNumber)
       const par = hole?.par ?? 4
       const si = siAllocByHole[holeNumber] ?? hole?.stroke_index ?? holeNumber
-      const parDeLaRonda = parDeLosHoyosJugados(courseHoles, holeCount)
-      const courseHcp = resolveScoringCourseHcp(
-        tournament.hcp_calc_mode, player, tournament, courseTees, parDeLaRonda, holeCount,
-      )
-      const strokes = strokesRecibidosEnHoyo(courseHcp, si, holeCount)
-      const netScore = gross - strokes
-      // Puntos con la canónica (capea albatross-o-mejor en 5, igual que el board).
-      const points = isStablefordFormat(resolveFormatoJuego(tournament))
-        ? puntosStablefordHoyo(gross, par, courseHcp, si, holeCount)
-        : 0
+      const courseHcp = courseHandicapDeScoring({
+        mode: tournament.hcp_calc_mode, player, tournament, courseTees, courseHoles, holeCount,
+      })
+      // Neto y puntos por la MISMA fuente que el scorer del jugador y el
+      // servidor: los tres escriben en las mismas columnas.
+      const { neto: netScore, puntos: points } = puntajeDeHoyo({
+        gross, par, courseHandicap: courseHcp, strokeIndex: si, holeCount, formato: tournament,
+      })
 
       setLastAction({ holeNumber, previousScore: currentScores[holeNumber], playerId: selectedId })
       setCurrentScores((prev) => ({ ...prev, [holeNumber]: gross }))
@@ -268,9 +272,18 @@ export function useScoreEntry({
     const round = getActiveRound(player)
     if (!round) return
     if (lastAction.previousScore !== undefined) {
-      setCurrentScores((prev) => ({ ...prev, [lastAction.holeNumber]: lastAction.previousScore! }))
       const hole = holeByNumero.get(lastAction.holeNumber)
-      await fetch('/api/game', {
+      // La respuesta SE MIRA: este caller manda sólo el gross, así que el
+      // servidor deriva el neto — y esa derivación puede fallar (503). Sin el
+      // chequeo, el deshacer se perdía en silencio y el organizador quedaba
+      // creyendo que el score volvió atrás.
+      //
+      // `saving` marca el round-trip: como la tarjeta ya no revierte de forma
+      // optimista, sin esto el botón queda vivo y aparentemente muerto durante
+      // 1-2s en 3G — pidiendo el segundo tap. `ScoringHeader` lo esconde con
+      // `lastAction && !saving` y muestra "Guardando…".
+      setSaving(true)
+      const res = await fetch('/api/game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -282,6 +295,17 @@ export function useScoreEntry({
           gross_score: lastAction.previousScore,
         }),
       })
+      setSaving(false)
+      if (!res.ok) {
+        // La pantalla NO se toca si el servidor rechazó. Aplicar el undo
+        // optimista y no revertirlo dejaba el score viejo en pantalla y el
+        // nuevo en la base — la misma divergencia pantalla↔base que este PR
+        // existe para cerrar, reintroducida por el borde. `lastAction` queda
+        // vivo para poder reintentar.
+        showWarning('No pudimos deshacer', `El hoyo ${lastAction.holeNumber} sigue como estaba en el servidor. Reintenta.`)
+        return
+      }
+      setCurrentScores((prev) => ({ ...prev, [lastAction.holeNumber]: lastAction.previousScore! }))
     } else {
       setCurrentScores((prev) => {
         const next = { ...prev }
@@ -291,7 +315,7 @@ export function useScoreEntry({
     }
     showSuccess('Deshacer', `Hoyo ${lastAction.holeNumber} restaurado`, { duration: 1500 })
     setLastAction(null)
-  }, [lastAction, tournament, players, getActiveRound, holeByNumero, showSuccess])
+  }, [lastAction, tournament, players, getActiveRound, holeByNumero, showSuccess, showWarning])
 
   /** Persiste una stat opcional del hoyo (putts / fairway / GIR) contra la ronda
    *  ACTIVA — antes las stats escribían siempre contra `rounds[0]`, así que en
@@ -304,7 +328,10 @@ export function useScoreEntry({
       const player = players.find((p) => p.id === selectedId)
       const round = getActiveRound(player)
       if (!round) return
-      await fetch('/api/game', {
+      const avisoKey = `${selectedId}:${round.id}:${holeNumber}`
+      // Igual que el deshacer: manda sólo el gross, el servidor deriva el neto,
+      // y si eso falla la stat se pierde. Antes se perdía sin decir nada.
+      const res = await fetch('/api/game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -317,8 +344,19 @@ export function useScoreEntry({
           ...patch,
         }),
       })
+      if (!res.ok) {
+        // Un solo aviso por hoyo, no uno por stat: putts, fairway y GIR son
+        // tres taps sobre el MISMO hoyo, y con la red caída eso son tres
+        // toasts de 5s apilados sobre el del score — tapando la pantalla justo
+        // cuando el organizador tiene menos tiempo para leerlos.
+        if (statWarnedHolesRef.current.has(avisoKey)) return
+        statWarnedHolesRef.current.add(avisoKey)
+        showWarning('No se guardó', `Las estadísticas del hoyo ${holeNumber} no quedaron registradas. Reintenta.`)
+        return
+      }
+      statWarnedHolesRef.current.delete(avisoKey)
     },
-    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero],
+    [tournament, selectedId, currentScores, players, getActiveRound, holeByNumero, showWarning],
   )
 
   const finalizeRound = useCallback(async () => {

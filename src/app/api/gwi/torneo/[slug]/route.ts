@@ -5,6 +5,10 @@ import {
   puntosStablefordHoyo,
 } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { courseHandicapDeScoring } from '@/golf/core/hole-scoring'
+import { fetchLegacyHcpContext } from '@/lib/data/tournaments/leaderboard'
+import { resolveFormatoJuego } from '@/golf/formats'
+import { captureError } from '@/lib/error-tracking'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
@@ -26,19 +30,23 @@ export async function GET(
     // Fetch tournament
     const { data: rawT } = await supabase
       .from('tournaments')
-      .select('id, name, hole_count, modo_juego, formato_juego, courses(id, par_total)')
+      .select('id, name, hole_count, modo_juego, formato_juego, format, courses(id, par_total)')
       .eq('slug', params.slug)
       .single()
 
     if (!rawT) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
     const t = rawT as unknown as {
-      id: string; name: string; hole_count: number; modo_juego: string | null; formato_juego: string | null
+      id: string; name: string; hole_count: number; modo_juego: string | null
+      formato_juego: string | null; format: string | null
       courses: { id: string; par_total: number } | null
     }
 
     const modo       = (t.modo_juego as 'gross' | 'neto') || 'gross'
-    const formato    = (t.formato_juego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') || 'stroke_play'
+    // Predicado canónico del formato — el mismo que usan el scorer y el board.
+    // El GWI decide con esto qué carrera modela (`currentScore` abajo); tenerlo
+    // resuelto de otra forma que el resto era pedirle que corriera otra carrera.
+    const formato    = resolveFormatoJuego(t) as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
     const totalHoyos = t.hole_count ?? 18
     const parTotal   = t.courses?.par_total ?? (totalHoyos === 9 ? 36 : 72)
 
@@ -56,11 +64,16 @@ export async function GET(
     // cancha sin catálogo y la de 9 hoyos jugada a 18 (dos vueltas).
     holes = hoyosDeLaVuelta(holes, totalHoyos)
 
+    // Contexto del gate de handicap — la MISMA fuente que el board público
+    // (`fetchLegacyHcpContext`). Sin él, el GWI repartía golpes con el índice
+    // crudo y modelaba una carrera que no era la que mostraba el leaderboard.
+    const hcpCtx = await fetchLegacyHcpContext(supabase, t.id)
+
     // Players with rounds
     const { data: rawPlayers } = await supabase
       .from('players')
       .select(`
-        id, user_id, handicap_at_registration,
+        id, user_id, handicap_at_registration, tee_id,
         profiles(name, indice),
         rounds(id, status, total_gross, total_net, total_points,
           hole_scores(hole_number, gross_score))
@@ -75,6 +88,7 @@ export async function GET(
       id: string
       user_id: string
       handicap_at_registration: number | null
+      tee_id: string | null
       profiles: { name: string; indice: number | null } | null
       rounds: { id: string; total_gross: number; hole_scores: DBHScore[] }[]
     }[]
@@ -111,7 +125,19 @@ export async function GET(
     }
 
     const inputs: JugadorGWIInput[] = typedPlayers.map((p) => {
+      // Dos números distintos, a propósito (misma separación que el board):
+      // · `courseHcp` REPARTE los golpes — sale del gate por torneo.
+      // · `hcp` es el ÍNDICE de skill, y el GWI lo usa para modelar la varianza
+      //   del jugador. Ese sigue siendo el índice crudo.
       const hcp       = p.handicap_at_registration ?? (p.profiles?.indice ?? 18)
+      const courseHcp = courseHandicapDeScoring({
+        mode: hcpCtx.mode,
+        player: { handicap_at_registration: p.handicap_at_registration ?? hcp, tee_id: p.tee_id ?? null },
+        tournament: { tees: hcpCtx.tees, courses: hcpCtx.course },
+        courseTees: hcpCtx.courseTees,
+        courseHoles: holes,
+        holeCount: totalHoyos,
+      })
       const round     = p.rounds?.[0]
       const holeScores = round?.hole_scores ?? []
 
@@ -127,8 +153,8 @@ export async function GET(
         hoyosCompletados++
         const siHoyo = siAlloc[hole.numero] ?? hole.stroke_index
         overUnderGross  += hs.gross_score - hole.par
-        overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(hcp, siHoyo, totalHoyos)) - hole.par
-        totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, hcp, siHoyo, totalHoyos)
+        overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(courseHcp, siHoyo, totalHoyos)) - hole.par
+        totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, courseHcp, siHoyo, totalHoyos)
       }
 
       const currentScore = formato === 'stableford' ? totalStableford
@@ -185,7 +211,7 @@ export async function GET(
 
     return NextResponse.json({ inputs, totalHoyos, modoJuego: modo, formatoJuego: formato, parTotal })
   } catch (err) {
-    console.error('[GWI/torneo] Error interno:', err)
+    void captureError(err, { context: 'api.gwi.torneo', meta: { slug: params.slug } })
     return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
 }

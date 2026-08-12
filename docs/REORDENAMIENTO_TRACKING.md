@@ -234,6 +234,39 @@ siendo el de inscripción.
 | **El gate `hcp_calc_mode` NO se consulta en los caminos hermanos** | ⏳ **abierto** — `fetchRondaLibreJugadoresConCourseHcp` y los standings por equipo (best_ball/scramble/foursome) convierten índice → course handicap incondicionalmente, en `/torneo` y en `/en-vivo`. Deuda preexistente, no la introduce este PR. Migrar al tocar cada flujo. |
 | **Catálogo: 9 de 11 canchas de 9 hoyos tienen `course_rating` de 18h** | ⏳ **P1 abierto** — `(CR − par)` infla el course handicap ~36 golpes en el scorer Y en el board (misma clase que el negativo de #289, por el otro lado). Hoy sólo apunta ahí el torneo semilla `gate-scorer-9h-individual`; ningún torneo real. Es data, no motor: se arregla en el catálogo, no acá. |
 
+### P0 CERRADO (09-ago) — los tres write-paths que quedaban repartían con el índice crudo
+
+Continuación directa del P0 de arriba. Ese cerró el camino de **lectura** (el board);
+quedaban vivos los de **escritura**. Detectado al auditar completitud: `git grep` de
+`strokesRecibidosEnHoyo` / `puntosStablefordHoyo` mostró tres call sites de torneo
+alimentados con `handicap_at_registration`.
+
+Evidencia (Club de Golf Los Leones, par 72 / slope 142 / CR 75.1, 18h): índice 12 → el
+course handicap correcto es **18**. Los tres repartían **12**. Seis golpes por jugador.
+
+Dejó de ser latente el **30-jul**, cuando el default de `hcp_calc_mode` pasó de `'raw'` a
+`'whs'`: 10 torneos en ese modo, 9 con neto o stableford, todos creados desde julio.
+Ninguno con scores de jugadores reales todavía — daño armado, no consumado.
+
+| Sitio | Estado |
+|---|---|
+| `torneo/[slug]/score/page.tsx` (scorer del JUGADOR — persiste `net_score` y `points`) | ✅ migrado (09-ago) |
+| `api/game/actions.ts::upsertScore` (fallback del SERVIDOR) | ✅ migrado (09-ago) — era el peor: `saveHoleStat` y el "deshacer" del organizador mandan sólo el gross, así que **marcar un putt reescribía con el índice el neto correcto que el scorer acababa de guardar** |
+| `api/gwi/torneo/[slug]/route.ts` (predicción GWI) | ✅ migrado (09-ago) — `courseHcp` reparte, `handicapIndex` sigue crudo para la varianza de skill |
+| `courseHandicapDeScoring()` en `src/golf/core/hole-scoring.ts` (canónica de la composición gate + `parDeLosHoyosJugados`) | ✅ creada (09-ago) — la consumen los tres write-paths **y** el scorer del organizador |
+| `puntajeDeHoyo()` en `src/golf/core/hole-scoring.ts` (canónica de neto + puntos de un hoyo) | ✅ creada (09-ago) — el parámetro se llama `courseHandicap`, no `handicapIndex`: ese nombre es lo que hizo que cuatro call sites le pasaran índices durante meses |
+| **El scorer del jugador escribe en `rounds[0]`, el organizador en `max(round_number)`** | ⏳ **abierto** — en un torneo de 2+ rondas los dos escritores pueden apuntar a rondas distintas. Misma familia de bug. Hoy **cero** exposición: 0 torneos multi-ronda en prod, 0 rondas con `round_number > 1`. No se metió en el PR para no ensanchar su blast radius hacia la selección de ronda; migrar al tocar ese flujo. |
+| **`parDeLosHoyosJugados` vs `parDeLaRondaDelTorneo` con catálogo vacío** | ⏳ **abierto** — sin `course_holes`, el primero devuelve `holeCount × 4` (72) y el segundo cae a `par_total × vueltas`. En una cancha par 71 sin catálogo eso da 1 golpe de diferencia board vs. scorers. Preexistente en `main` (el organizador ya lo tenía); hoy no muerde porque el único torneo `whs` sin catálogo tampoco tiene cancha. |
+
+#### Follow-ups nombrados del PR #302 (5 rondas de `superpowers:code-reviewer`)
+
+| Follow-up | Por qué no entró | Qué costaría |
+|---|---|---|
+| **Extraer `scoresParaMostrar(delServidor, pendientesLocales)`** de `torneo/[slug]/score/page.tsx` | El invariante "lectura fallida + sin pendientes → mapa vacío, NUNCA los del jugador anterior" hoy está defendido por un tripwire de texto. El reviewer encontró que se esquiva moviendo `setCurrentScores(map)` adentro del `try` — refactor que se le ocurre a cualquiera que ordene la función, y ningún regex lo tapa. | ~20 LOC. Un reductor casi puro, testeable de verdad, que jubila el tripwire. |
+| **El hueco del alias en los canarios de fuente** | Los bloques de fuente cuentan ocurrencias del símbolo en la ruta. Si alguien aliasea el campo aguas arriba (`{...p, hcp: p.handicap_at_registration}` en `scoring.ts`) o extrae la composición a `src/golf/`, quedan verdes cubriendo nada. Taparlo con un test puntual de `scoring.ts` cierra 1 de 3 huecos y da falsa sensación de cobertura — que es el problema original. | El cierre real es una aserción **e2e contra un torneo `whs` de prod** (índice 12 en Los Leones → neto persistido con 18 golpes, no 12). Va a la suite de canarios contra prod, no al archivo de canarios de fuente. |
+| **La rama `else` de `undoLast`** (`useScoreEntry.ts`) | Deshacer un hoyo que NO tenía score previo borra el valor **sólo en pantalla**: la fila sigue en `hole_scores` con el gross viejo y el leaderboard la cuenta. Misma familia pantalla↔base que cierra este PR, pero es preexistente y arreglarlo requiere una acción de borrado que hoy no existe en `/api/game`. | Endpoint nuevo + su verificación. |
+| **El scorer del jugador escribe en `rounds[0]`** | Ver fila de arriba. 0 torneos multi-ronda en prod. | 3 líneas, pero cambia la semántica de qué ronda se edita. |
+
 ### Concepto "par de un hoyo con fallback estándar" → `STANDARD_PARS` / `parForHoleWithFallback()` en `src/golf/coach/hole-pars.ts`
 
 | Sitio | Estado |
