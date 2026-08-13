@@ -4,9 +4,9 @@
 //
 // Sección "Admins": lista de collaborators del draft.
 // El padre pasa los collaborators desde la DB — la sección NO consulta directo.
-// Botón "+ Invitar admin" abre placeholder modal por ahora.
+// Botón "+ Invitar admin" abre modal con búsqueda de usuario y llamada a la API.
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { TournamentConfig } from '@/lib/draft/types'
 
 export interface Collaborator {
@@ -17,14 +17,92 @@ export interface Collaborator {
   avatar_url?: string | null
 }
 
+interface SearchResult {
+  id: string
+  name: string | null
+  email: string | null
+  indice: number | null
+}
+
 export interface AdminsSectionProps {
   config: TournamentConfig
   applyChange: (partial: Partial<TournamentConfig>) => void
   collaborators: Collaborator[]
+  draftId: string
 }
 
-export function AdminsSection({ collaborators }: AdminsSectionProps) {
+export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
   const [modalOpen, setModalOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<SearchResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [inviting, setInviting] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
+  // Optimistic list of users just invited in this session
+  const [locallyAdded, setLocallyAdded] = useState<Collaborator[]>([])
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Buscar usuarios cuando cambia el query
+  useEffect(() => {
+    if (!modalOpen) return
+    if (query.trim().length < 2) { setResults([]); return }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await fetch(`/api/profiles/search?q=${encodeURIComponent(query.trim())}`)
+        const data = await res.json()
+        setResults(data.results ?? [])
+      } catch {
+        setResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 350)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [query, modalOpen])
+
+  const allCollaborators = [...collaborators, ...locallyAdded.filter(
+    (l) => !collaborators.some((c) => c.user_id === l.user_id)
+  )]
+
+  const alreadyIn = new Set(allCollaborators.map((c) => c.user_id))
+
+  function closeModal() {
+    setModalOpen(false)
+    setQuery('')
+    setResults([])
+    setFeedback(null)
+    setInviting(null)
+  }
+
+  async function handleInvite(user: SearchResult) {
+    setInviting(user.id)
+    setFeedback(null)
+    try {
+      const res = await fetch(`/api/torneos/draft/${draftId}/collaborators`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id_to_add: user.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setFeedback({ type: 'err', msg: data.error ?? 'No se pudo invitar al usuario.' })
+      } else {
+        setLocallyAdded((prev) => [
+          ...prev,
+          { user_id: user.id, full_name: user.name, email: user.email, role: 'admin' },
+        ])
+        setFeedback({ type: 'ok', msg: `${user.name ?? user.email ?? 'Usuario'} agregado como admin.` })
+        setQuery('')
+        setResults([])
+      }
+    } catch {
+      setFeedback({ type: 'err', msg: 'Error de conexión. Intenta de nuevo.' })
+    } finally {
+      setInviting(null)
+    }
+  }
 
   return (
     <section style={cardStyle}>
@@ -34,10 +112,10 @@ export function AdminsSection({ collaborators }: AdminsSectionProps) {
       </p>
 
       <div style={listStyle}>
-        {collaborators.length === 0 && (
+        {allCollaborators.length === 0 && (
           <p style={emptyStyle}>Sin colaboradores aún.</p>
         )}
-        {collaborators.map((c) => (
+        {allCollaborators.map((c) => (
           <div key={c.user_id} style={rowStyle}>
             <div style={avatarStyle}>
               {c.full_name?.[0]?.toUpperCase() ?? c.email?.[0]?.toUpperCase() ?? '?'}
@@ -58,16 +136,66 @@ export function AdminsSection({ collaborators }: AdminsSectionProps) {
       </button>
 
       {modalOpen && (
-        <div style={modalBackdropStyle} onClick={() => setModalOpen(false)}>
+        <div style={modalBackdropStyle} onClick={closeModal}>
           <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-            <h3 style={modalTitleStyle}>Invitar admin</h3>
-            <p style={modalTextStyle}>
-              Próximamente: search de usuario o generar link compartible.
+            <h3 style={modalTitleStyle}>Invitar administrador</h3>
+            <p style={modalSubStyle}>
+              Busca por nombre o email. Solo usuarios con cuenta en Golfers+.
             </p>
+
+            <input
+              type="text"
+              placeholder="Nombre o email..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={searchInputStyle}
+              autoFocus
+            />
+
+            {searching && (
+              <p style={hintStyle}>Buscando…</p>
+            )}
+
+            {!searching && query.trim().length >= 2 && results.length === 0 && (
+              <p style={hintStyle}>Sin resultados para &ldquo;{query}&rdquo;.</p>
+            )}
+
+            {results.length > 0 && (
+              <div style={resultsListStyle}>
+                {results.map((r) => {
+                  const isIn = alreadyIn.has(r.id)
+                  const isInviting = inviting === r.id
+                  return (
+                    <div key={r.id} style={resultRowStyle}>
+                      <div style={avatarStyle}>
+                        {r.name?.[0]?.toUpperCase() ?? r.email?.[0]?.toUpperCase() ?? '?'}
+                      </div>
+                      <div style={infoStyle}>
+                        <span style={nameStyle}>{r.name ?? '(sin nombre)'}</span>
+                        {r.email && <span style={emailStyle}>{r.email}</span>}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isIn || isInviting}
+                        onClick={() => handleInvite(r)}
+                        style={inviteBtnStyle(isIn)}
+                      >
+                        {isInviting ? '…' : isIn ? 'Ya está' : 'Invitar'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {feedback && (
+              <p style={feedbackStyle(feedback.type)}>{feedback.msg}</p>
+            )}
+
             <button
               type="button"
               style={modalCloseStyle}
-              onClick={() => setModalOpen(false)}
+              onClick={closeModal}
             >
               Cerrar
             </button>
@@ -204,7 +332,7 @@ const modalStyle: React.CSSProperties = {
   background: 'var(--card-bg, #ffffff)',
   borderRadius: 14,
   padding: 24,
-  maxWidth: 420,
+  maxWidth: 440,
   width: 'calc(100% - 32px)',
   display: 'flex',
   flexDirection: 'column',
@@ -220,10 +348,75 @@ const modalTitleStyle: React.CSSProperties = {
   color: 'var(--text-primary, #111827)',
 }
 
-const modalTextStyle: React.CSSProperties = {
+const modalSubStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 14,
+  fontSize: 13,
   color: 'var(--text-secondary, #4b5563)',
+}
+
+const searchInputStyle: React.CSSProperties = {
+  padding: '10px 12px',
+  borderRadius: 10,
+  border: '1px solid var(--border, #e5e7eb)',
+  background: 'var(--input-bg, #ffffff)',
+  color: 'var(--text-primary, #111827)',
+  fontSize: 14,
+  fontFamily: '"DM Sans", sans-serif',
+  outline: 'none',
+  width: '100%',
+  boxSizing: 'border-box',
+}
+
+const hintStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 13,
+  color: 'var(--text-secondary, #4b5563)',
+  fontStyle: 'italic',
+}
+
+const resultsListStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+  maxHeight: 240,
+  overflowY: 'auto',
+}
+
+const resultRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '8px 10px',
+  borderRadius: 10,
+  border: '1px solid var(--border, #e5e7eb)',
+  background: 'var(--input-bg, #ffffff)',
+}
+
+function inviteBtnStyle(isIn: boolean): React.CSSProperties {
+  return {
+    padding: '5px 12px',
+    borderRadius: 8,
+    border: isIn ? '1px solid var(--border, #e5e7eb)' : '1px solid var(--brand-gold, #c4992a)',
+    background: 'transparent',
+    color: isIn ? 'var(--text-secondary, #4b5563)' : 'var(--brand-gold, #c4992a)',
+    fontFamily: '"DM Sans", sans-serif',
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: isIn ? 'default' : 'pointer',
+    flexShrink: 0,
+  }
+}
+
+function feedbackStyle(type: 'ok' | 'err'): React.CSSProperties {
+  return {
+    margin: 0,
+    fontSize: 13,
+    fontWeight: 500,
+    color: type === 'ok' ? '#16a34a' : '#dc2626',
+    padding: '8px 12px',
+    borderRadius: 8,
+    background: type === 'ok' ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)',
+  }
 }
 
 const modalCloseStyle: React.CSSProperties = {

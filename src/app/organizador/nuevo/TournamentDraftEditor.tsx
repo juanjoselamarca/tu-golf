@@ -365,6 +365,7 @@ export default function TournamentDraftEditor({
             config={config}
             applyChange={applyChangeManual}
             collaborators={adminCollaborators}
+            draftId={draftId}
           />
 
           <DraftFooter
