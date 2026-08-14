@@ -6,8 +6,10 @@
 // El padre pasa los collaborators desde la DB — la sección NO consulta directo.
 // Botón "+ Invitar admin" abre modal con búsqueda de usuario y llamada a la API.
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import type { TournamentConfig } from '@/lib/draft/types'
+import { useProfileSearch, type Profile } from '@/app/organizador/[slug]/jugadores/hooks/useProfileSearch'
+import { captureError } from '@/lib/error-tracking'
 
 export interface Collaborator {
   user_id: string
@@ -15,13 +17,6 @@ export interface Collaborator {
   email?: string | null
   role: 'owner' | 'admin'
   avatar_url?: string | null
-}
-
-interface SearchResult {
-  id: string
-  name: string | null
-  email: string | null
-  indice: number | null
 }
 
 export interface AdminsSectionProps {
@@ -33,34 +28,11 @@ export interface AdminsSectionProps {
 
 export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
   const [modalOpen, setModalOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SearchResult[]>([])
-  const [searching, setSearching] = useState(false)
+  const { search, setSearch, results, searching, reset: resetSearch } = useProfileSearch()
   const [inviting, setInviting] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
   // Optimistic list of users just invited in this session
   const [locallyAdded, setLocallyAdded] = useState<Collaborator[]>([])
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Buscar usuarios cuando cambia el query
-  useEffect(() => {
-    if (!modalOpen) return
-    if (query.trim().length < 2) { setResults([]); return }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(async () => {
-      setSearching(true)
-      try {
-        const res = await fetch(`/api/profiles/search?q=${encodeURIComponent(query.trim())}`)
-        const data = await res.json()
-        setResults(data.results ?? [])
-      } catch {
-        setResults([])
-      } finally {
-        setSearching(false)
-      }
-    }, 350)
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [query, modalOpen])
 
   const allCollaborators = [...collaborators, ...locallyAdded.filter(
     (l) => !collaborators.some((c) => c.user_id === l.user_id)
@@ -70,13 +42,13 @@ export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
 
   function closeModal() {
     setModalOpen(false)
-    setQuery('')
-    setResults([])
+    resetSearch()
     setFeedback(null)
     setInviting(null)
   }
 
-  async function handleInvite(user: SearchResult) {
+  async function handleInvite(user: Profile) {
+    if (!draftId) return
     setInviting(user.id)
     setFeedback(null)
     try {
@@ -94,10 +66,10 @@ export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
           { user_id: user.id, full_name: user.name, email: user.email, role: 'admin' },
         ])
         setFeedback({ type: 'ok', msg: `${user.name ?? user.email ?? 'Usuario'} agregado como admin.` })
-        setQuery('')
-        setResults([])
+        resetSearch()
       }
-    } catch {
+    } catch (err) {
+      captureError(err, { context: 'AdminsSection.invite', meta: { draftId, userId: user.id } })
       setFeedback({ type: 'err', msg: 'Error de conexión. Intenta de nuevo.' })
     } finally {
       setInviting(null)
@@ -146,8 +118,8 @@ export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
             <input
               type="text"
               placeholder="Nombre o email..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               style={searchInputStyle}
               autoFocus
             />
@@ -156,8 +128,8 @@ export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
               <p style={hintStyle}>Buscando…</p>
             )}
 
-            {!searching && query.trim().length >= 2 && results.length === 0 && (
-              <p style={hintStyle}>Sin resultados para &ldquo;{query}&rdquo;.</p>
+            {!searching && search.trim().length >= 2 && results.length === 0 && (
+              <p style={hintStyle}>Sin resultados para &ldquo;{search}&rdquo;.</p>
             )}
 
             {results.length > 0 && (
