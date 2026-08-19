@@ -104,11 +104,27 @@ export default function LeaderboardPage() {
             </span>
             <span className="font-sans text-xs text-gray-soft">Simulación automática &middot; Actualiza cada 20s</span>
           </div>
-          <h1 className="font-display font-bold text-ivory" style={{ fontSize: 'clamp(24px, 4vw, 42px)', lineHeight: 1.05 }}>
-            Copa Golfers+ Demo 2026
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <h1 className="font-display font-bold text-ivory" style={{ fontSize: 'clamp(24px, 4vw, 42px)', lineHeight: 1.05 }}>
+              Copa Golfers+ Demo 2026
+            </h1>
+            <span style={{
+              display: 'inline-block', padding: '4px 10px', fontSize: '11px', fontWeight: 700,
+              letterSpacing: '1px', textTransform: 'uppercase',
+              background: 'rgba(196,153,42,0.15)', color: 'var(--brand-on-bg)',
+              border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px',
+            }}>
+              Demostración
+            </span>
+          </div>
           <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace', marginTop: '8px' }}>
             Club de Golf Los Leones &middot; Par 72 &middot; Ronda {roundNumber} &middot; {playingCount} en cancha
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: '6px' }}>
+            Datos simulados.{' '}
+            <a href="/en-vivo" style={{ color: 'var(--brand-on-bg)', textDecoration: 'underline' }}>
+              Ver torneos reales →
+            </a>
           </div>
         </div>
       </div>
@@ -136,17 +152,33 @@ export default function LeaderboardPage() {
         </div>
 
         {/* Tournament name */}
-        <div style={{
-          fontFamily: '"Playfair Display", serif', fontSize: '24px', fontWeight: 700,
-          color: '#1a1d24', marginBottom: '4px', lineHeight: 1.15,
-        }}>
-          Copa Golfers+ Demo
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '4px' }}>
+          <div style={{
+            fontFamily: '"Playfair Display", serif', fontSize: '24px', fontWeight: 700,
+            color: '#1a1d24', lineHeight: 1.15,
+          }}>
+            Copa Golfers+ Demo
+          </div>
+          <span style={{
+            display: 'inline-block', padding: '4px 10px', fontSize: '11px', fontWeight: 700,
+            letterSpacing: '1px', textTransform: 'uppercase',
+            background: 'rgba(196,153,42,0.15)', color: 'var(--brand-on-bg)',
+            border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px',
+          }}>
+            Demostración
+          </span>
         </div>
         <div style={{
-          fontSize: '13px', color: '#5a6573', marginBottom: '14px',
+          fontSize: '13px', color: '#5a6573', marginBottom: '6px',
           fontFamily: 'var(--font-dm-mono), monospace',
         }}>
           Los Leones Golf Club · Par 72
+        </div>
+        <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '14px' }}>
+          Datos simulados.{' '}
+          <a href="/en-vivo" style={{ color: 'var(--brand-on-bg)', textDecoration: 'underline' }}>
+            Ver torneos reales →
+          </a>
         </div>
 
         {/* Stats row — minimal, elegant */}
