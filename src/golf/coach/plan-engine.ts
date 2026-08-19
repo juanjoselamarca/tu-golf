@@ -16,6 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { captureError } from '@/lib/error-tracking'
 
 export const PATTERN_IDS = [
   'back_nine_collapse',
@@ -164,7 +165,7 @@ export async function savePlan(
 
   if (evtErr) {
     // No fallar la tool por un error de auditoría — solo loggear. El plan ya se asignó.
-    console.error('[plan-engine] coach_events plan_assigned falló:', evtErr.message)
+    void captureError(evtErr, { context: 'plan_engine_audit_event' })
   }
 
   if (supersededId) {

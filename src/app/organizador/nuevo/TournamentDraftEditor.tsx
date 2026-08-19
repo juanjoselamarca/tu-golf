@@ -12,6 +12,7 @@
 import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { captureError } from '@/lib/error-tracking'
 import { useDraftStore, type CollaboratorInfo } from '@/lib/draft/store'
 import type { TournamentConfig, TournamentConfigPartial } from '@/lib/draft/types'
 import { DraftHeader } from './DraftHeader'
@@ -395,8 +396,7 @@ class AssistantErrorBoundary extends Component<
     return { hasError: true }
   }
   componentDidCatch(err: Error) {
-    // eslint-disable-next-line no-console
-    console.error('[AssistantErrorBoundary]', err)
+    captureError(err, { context: 'assistant_error_boundary' })
   }
   render() {
     if (this.state.hasError) {
