@@ -205,3 +205,61 @@ export function getFormatStrict(key: string): GolfFormat {
   }
   return fmt
 }
+
+// ─── Eligibilidad para índice de handicap ───────────────────────────────────
+//
+// Fuente ÚNICA del predicado "¿esta ronda cuenta para el cálculo del índice?".
+// Basado en reglas WHS: solo stroke play y stableford, con datos de cancha
+// (slope + CR), mínimo 9 hoyos, y sin exclusión manual del usuario.
+//
+// Consumidores: badge del historial (RoundCard), motor de cálculo de índice.
+
+export interface CuentaParaIndiceResult {
+  cuenta: boolean
+  razon: string
+}
+
+/**
+ * Determina si una ronda es elegible para el cálculo del índice de handicap.
+ *
+ * Orden de evaluación: exclusión manual → formato → datos de cancha → hoyos.
+ * La primera condición que falla produce la razón; si ninguna falla, cuenta.
+ */
+export function cuentaParaIndice(round: {
+  formato_juego?: string | null
+  excluded_from_handicap?: boolean
+  slope_rating?: number | null
+  course_rating?: number | null
+  holes_played?: number | null
+  scores?: (number | null)[] | null
+}): CuentaParaIndiceResult {
+  // 1. Exclusión manual del usuario (prioridad máxima: decisión explícita)
+  if (round.excluded_from_handicap) {
+    return { cuenta: false, razon: 'Excluida manualmente' }
+  }
+
+  // 2. Formato: solo stroke play y stableford cuentan para índice WHS
+  const fmt = round.formato_juego ?? 'stroke_play'
+  if (isTeamFormat(fmt)) {
+    const label = FORMATS[fmt]?.name ?? fmt
+    return { cuenta: false, razon: `${label} no cuenta para índice` }
+  }
+  if (fmt === 'match_play') {
+    return { cuenta: false, razon: 'Match Play no cuenta para índice' }
+  }
+
+  // 3. Datos de cancha necesarios para calcular diferencial
+  if (!round.slope_rating || !round.course_rating) {
+    return { cuenta: false, razon: 'Sin datos de cancha (slope/CR)' }
+  }
+
+  // 4. Mínimo 9 hoyos jugados (WHS acepta 9 y 18)
+  const holesPlayed = round.holes_played
+    ?? round.scores?.filter((s) => s != null).length
+    ?? 0
+  if (holesPlayed < 9) {
+    return { cuenta: false, razon: 'Menos de 9 hoyos' }
+  }
+
+  return { cuenta: true, razon: 'Cuenta para tu índice' }
+}
