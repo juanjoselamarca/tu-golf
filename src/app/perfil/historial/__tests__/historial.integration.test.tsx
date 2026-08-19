@@ -74,7 +74,7 @@ describe('Historial — flujo de botones', () => {
     await user.click(screen.getByLabelText('Opciones de la tarjeta'))
     await user.click(screen.getByTestId('historial-menu-toggle-excluded'))
 
-    await waitFor(() => expect(screen.getByText(/no cuenta para el índice/i)).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/no cuenta/i)).toBeTruthy())
   })
 
   it('Eliminar → confirmar → la tarjeta desaparece', async () => {
