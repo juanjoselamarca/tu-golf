@@ -191,8 +191,8 @@ describe('Separación conceptual Formato vs Modo', () => {
     expect(formatos.length).toBe(6)
   })
 
-  it('FORMAT_META.stableford permite gross y neto', () => {
-    expect(FORMAT_META.stableford.modosPermitidos).toEqual(['gross', 'neto'])
+  it('FORMAT_META.stableford permite solo neto (estándar Chile)', () => {
+    expect(FORMAT_META.stableford.modosPermitidos).toEqual(['neto'])
   })
 
   it('FORMAT_META.stroke_play permite gross y neto', () => {
@@ -258,8 +258,8 @@ describe('Separación conceptual Formato vs Modo', () => {
 })
 
 describe('Stableford Gross', () => {
-  it('FORMAT_META permite gross en stableford', () => {
-    expect(FORMAT_META.stableford.modosPermitidos).toContain('gross')
+  it('FORMAT_META permite solo neto en stableford (estándar Chile)', () => {
+    expect(FORMAT_META.stableford.modosPermitidos).not.toContain('gross')
     expect(FORMAT_META.stableford.modosPermitidos).toContain('neto')
   })
 
