@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatLabel } from '@/golf/core/rules'
 import { Radio, Flag } from '@/components/icons'
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 
 interface JugadorEnVivo {
   id: string
@@ -161,7 +162,7 @@ export default function EnVivoPage() {
       {/* Feed */}
       <div style={{ padding: '16px' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-3)' }}>Cargando...</div>
+          <LoadingSkeleton lines={4} />
         ) : fetchError ? (
           /* Error de conexión */
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>

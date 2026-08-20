@@ -45,16 +45,16 @@ type ViewMode = 'gross' | 'neto'
 
 /* ── Design tokens ────────────────────────────────────────── */
 const T = {
-  bg:        '#ffffff',
-  card:      '#f8f9fa',
-  gold:      '#c4992a',
-  ivory:     '#1a1a2e',
-  muted:     '#4a5568',
-  faint:     '#94a3b8',
-  border:    '#e2e8f0',
-  green:     '#16a34a',
-  red:       '#dc2626',
-  rowAlt:    'rgba(0,0,0,0.02)',
+  bg:        'var(--bg)',
+  card:      'var(--bg-surface)',
+  gold:      'var(--brand-on-bg)',
+  ivory:     'var(--text)',
+  muted:     'var(--text-2)',
+  faint:     'var(--text-3)',
+  border:    'var(--border)',
+  green:     'var(--status-live-fg)',
+  red:       'var(--status-closed-fg)',
+  rowAlt:    'var(--surface-soft)',
   leaderBg:  'rgba(196,153,42,0.04)',
   leaderBd:  'rgba(196,153,42,0.25)',
 } as const
@@ -96,12 +96,12 @@ function computePositions(players: Player[]): string[] {
 
 /* ── Group status dot ─────────────────────────────────────── */
 function groupStatusDot(groupPlayers: Player[], totalHoyos: number): { dot: string; color: string } {
-  if (groupPlayers.length === 0) return { dot: '\u26AA', color: '#94a8c0' }
+  if (groupPlayers.length === 0) return { dot: '\u26AA', color: T.faint }
   const allFinished = groupPlayers.every(p => p.status === 'F')
   const anyStarted = groupPlayers.some(p => hasPlayData({ holesPlayed: p.holes }))
   if (allFinished) return { dot: '\uD83D\uDFE2', color: T.green }
   if (anyStarted) return { dot: '\uD83D\uDFE1', color: T.gold }
-  return { dot: '\u26AA', color: '#94a8c0' }
+  return { dot: '\u26AA', color: T.faint }
 }
 
 /* ── Component ────────────────────────────────────────────── */
@@ -225,7 +225,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                         ? `1px solid ${T.gold}`
                         : `1px solid ${T.border}`,
                       background: active ? T.gold : 'transparent',
-                      color: active ? '#ffffff' : T.muted,
+                      color: active ? 'var(--bg)' : T.muted,
                       fontFamily: '"DM Sans", system-ui, sans-serif',
                       fontSize: '12px',
                       fontWeight: 600,
@@ -442,7 +442,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
-                  borderBottom: groupPlayers.length > 0 ? `1px solid #e2e8f0` : 'none',
+                  borderBottom: groupPlayers.length > 0 ? `1px solid ${T.border}` : 'none',
                 }}>
                   {group.teeTime && (
                     <span style={{

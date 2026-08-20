@@ -73,14 +73,14 @@ export function MiniScorecardGrid({
     const hasMark = ind != null && ind.shape !== 'none'
     const holeStrokeCount = modoJuego !== 'gross' && !isStrokePlayNeto && hasStrokeAdvantage(holeDataMap[h]?.stroke_index ?? h) ? 1 : 0
     return (
-      <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative' }}>
-        <div style={{ fontSize: '8px', color: isActive ? '#C4992A' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
+      <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '28px', padding: '4px 2px', cursor: 'pointer', position: 'relative' }}>
+        <div style={{ fontSize: '8px', color: isActive ? 'var(--brand)' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
         {s != null ? (
           <div style={{
             width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '11px', fontWeight: 600, lineHeight: 1,
             color: isAce ? '#ffffff' : hasMark ? ind!.color : theme.textMuted,
-            background: isAce ? '#c4992a' : 'transparent',
+            background: isAce ? 'var(--brand)' : 'transparent',
             border: !isAce && hasMark ? `1.5px solid ${ind!.color}` : 'none',
             borderRadius: isAce || isCircle ? '50%' : '3px',
             boxShadow: isActive ? '0 0 0 1.5px #C4992A' : (!isAce && isDoubleMark ? `inset 0 0 0 1.5px ${ind!.color}` : 'none'),
@@ -93,7 +93,7 @@ export function MiniScorecardGrid({
         {holeStrokeCount > 0 && (
           <div style={{ position: 'absolute', bottom: '-2px', right: '-1px', display: 'flex', gap: '1px' }}>
             {Array.from({ length: holeStrokeCount }, (_, i) => (
-              <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#c4992a', border: '0.5px solid rgba(255,255,255,0.8)' }} />
+              <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--brand)', border: '0.5px solid rgba(255,255,255,0.8)' }} />
             ))}
           </div>
         )}
@@ -128,7 +128,7 @@ export function MiniScorecardGrid({
           {showNet && totalGross > 0 && (
             <>
               <div style={{ fontSize: '7px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.06em', marginTop: '3px' }}>NET</div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5a6370' }}>{totalNet > 0 ? totalNet : '—'}</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-2)' }}>{totalNet > 0 ? totalNet : '—'}</div>
             </>
           )}
         </div>
