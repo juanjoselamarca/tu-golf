@@ -59,7 +59,6 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     })
   const handleInscribirBatch = async (entries: Array<{ name: string; hcp: number | null }>) =>
     inscribirBatch(entries, selectedCat)
-  const handleDesinscribir = withdrawPlayer
   const handleDescalificar = disqualifyPlayer
 
   const {
@@ -67,7 +66,16 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     creatingGroup, teeStartTime, setTeeStartTime, teeInterval, setTeeInterval,
     generatingTees, fetchGroups, handleCreateGroup, handleDeleteGroup,
     handleGenerateTeeTimes, handleAssignPlayer, getPlayerGroupId,
+    removePlayerAndRebalance,
   } = useGroups({ tournament, players })
+
+  // Desinscribir + rebalancear grupos automáticamente.
+  const handleDesinscribir = async (playerId: string) => {
+    await withdrawPlayer(playerId)
+    if (groups.length > 0) {
+      await removePlayerAndRebalance(playerId)
+    }
+  }
 
   const {
     starting, closing, opening, allRoundsClosed,

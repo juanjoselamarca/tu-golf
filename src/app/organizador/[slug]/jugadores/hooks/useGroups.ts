@@ -153,6 +153,88 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
     return ''
   }
 
+  /**
+   * Quita al jugador de su grupo y rebalancea los grupos restantes.
+   *
+   * Algoritmo:
+   * 1. Quitar al jugador de su grupo (DB).
+   * 2. Re-leer los grupos frescos desde DB.
+   * 3. Borrar grupos vacíos (0 jugadores).
+   * 4. Si algún grupo quedó con 1 solo jugador y hay otro grupo con 3+,
+   *    mover al jugador solitario al grupo más grande (para que quede
+   *    parejo). En formato por equipos (team_size fijo), no se rebalancea
+   *    porque el tamaño del equipo es contractual.
+   *
+   * Retorna true si hubo rebalanceo, false si solo se quitó.
+   */
+  const removePlayerAndRebalance = async (playerId: string): Promise<boolean> => {
+    const supabase = createClient()
+    const groupId = getPlayerGroupId(playerId)
+    if (!groupId) return false // jugador no estaba en ningún grupo
+
+    // 1. Quitar del grupo
+    await assignPlayerToGroup(supabase, playerId, null)
+
+    // 2. Re-leer grupos frescos
+    const freshRows = await listGroups(supabase, tournament.id)
+    const fresh: TournamentGroup[] = freshRows.map((g) => ({
+      id: g.id,
+      name: g.name,
+      tee_time: g.tee_time,
+      sort_order: g.sort_order || 0,
+      ronda_libre_id: g.ronda_libre_id,
+      players: (g.tournament_group_players ?? []).map((gp) => {
+        const p = players.find((pl) => pl.id === gp.player_id)
+        return { id: gp.id, player_id: gp.player_id, playerName: p?.profiles?.name || 'Jugador' }
+      }),
+    }))
+
+    // 3. Borrar grupos vacíos
+    const emptyGroups = fresh.filter((g) => g.players.length === 0)
+    for (const g of emptyGroups) {
+      await deleteGroup(supabase, g.id)
+    }
+
+    const remaining = fresh.filter((g) => g.players.length > 0)
+    if (remaining.length === 0) {
+      await fetchGroups()
+      return false
+    }
+
+    // 4. Rebalancear: en formato de equipos el tamaño es fijo, no mover.
+    const teamFmt = isTeamFormat(tournament.format)
+    let rebalanced = false
+
+    if (!teamFmt) {
+      // Buscar grupos con 1 solo jugador que puedan ser redistribuidos.
+      const soloGroups = remaining.filter((g) => g.players.length === 1)
+      for (const solo of soloGroups) {
+        // El grupo más grande (que no sea este mismo).
+        const largest = remaining
+          .filter((g) => g.id !== solo.id && g.players.length >= 3)
+          .sort((a, b) => b.players.length - a.players.length)[0]
+
+        if (largest) {
+          // Mover al jugador solitario al grupo más grande.
+          const lonePlayer = solo.players[0]
+          await assignPlayerToGroup(supabase, lonePlayer.player_id, largest.id)
+          // Borrar el grupo que quedó vacío.
+          await deleteGroup(supabase, solo.id)
+          rebalanced = true
+        }
+      }
+    }
+
+    await fetchGroups()
+
+    if (rebalanced || emptyGroups.length > 0) {
+      const noun = isTeamFormat(tournament.format) ? 'equipos' : 'grupos'
+      showSuccess('Grupos actualizados', `${noun.charAt(0).toUpperCase() + noun.slice(1)} rebalanceados automáticamente.`)
+    }
+
+    return rebalanced
+  }
+
   return {
     groups,
     newGroupName, setNewGroupName,
@@ -163,5 +245,6 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
     generatingTees,
     fetchGroups, handleCreateGroup, handleDeleteGroup,
     handleGenerateTeeTimes, handleAssignPlayer, getPlayerGroupId,
+    removePlayerAndRebalance,
   }
 }
