@@ -13,6 +13,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatLabel } from '@/golf/core/rules'
+import { cuentaParaIndice } from '@/golf/formats'
 import { parPerHoleArray } from '@/golf/core/compare'
 import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components/Scorecard'
 import HoleBar from '@/components/HoleBar'
@@ -227,24 +228,34 @@ export function RoundCard({
         </div>
       )}
 
-      {/* Badge "Excluida del índice" */}
-      {r.excluded_from_handicap && (
-        <div style={{ padding: '0 16px 10px' }}>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: '4px',
-            fontSize: '10px', fontWeight: 600,
-            padding: '3px 8px',
-            borderRadius: '6px',
-            background: 'rgba(148,168,192,0.12)',
-            color: 'var(--text-3)',
-            fontFamily: '"DM Mono", monospace',
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-          }}>
-            <span aria-hidden>&#8709;</span> no cuenta para el índice
-          </span>
-        </div>
-      )}
+      {/* Badge "Cuenta para índice" / "No cuenta" con razón */}
+      {(() => {
+        const { cuenta, razon } = cuentaParaIndice(r)
+        return (
+          <div style={{ padding: '0 16px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span
+              title={razon}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                fontSize: '10px', fontWeight: 600,
+                padding: '3px 8px',
+                borderRadius: '6px',
+                background: cuenta ? 'rgba(22,163,74,0.10)' : 'rgba(148,168,192,0.12)',
+                color: cuenta ? '#15803d' : 'var(--text-3)',
+                fontFamily: '"DM Mono", monospace',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+              }}
+            >
+              <span aria-hidden>{cuenta ? '✓' : '∅'}</span>
+              {cuenta ? 'cuenta para índice' : 'no cuenta'}
+            </span>
+            {!cuenta && (
+              <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{razon}</span>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Expanded scorecard */}
       {isOpen && (() => {

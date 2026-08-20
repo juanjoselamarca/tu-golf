@@ -2,8 +2,8 @@
 
 // src/app/torneo/[slug]/en-vivo/formats/MatchPlayBracket.tsx
 // Bracket de match-play para los modos single_elimination y round_robin.
-// MVP: no expande scorecard al click; solo console.log placeholder.
 
+import { useState } from 'react'
 import type { LiveMatch } from '../types'
 
 export interface MatchPlayBracketProps {
@@ -66,58 +66,98 @@ const cardStyle: React.CSSProperties = {
   transition: 'border-color 120ms ease, transform 120ms ease',
 }
 
-function MatchCard({ match }: { match: LiveMatch }) {
-  const { aBold, bBold } = pickWinnerColor(match)
+function MatchDetailPanel({ match }: { match: LiveMatch }) {
+  const statusText =
+    match.status === 'completed' && match.result
+      ? `Resultado: ${match.result}`
+      : match.status === 'in_progress'
+        ? 'En curso'
+        : 'Pendiente'
+
   return (
     <div
-      style={cardStyle}
-      onClick={() => {
-        // eslint-disable-next-line no-console
-        console.log('[live/match-play] expand match', match.id)
+      style={{
+        marginTop: '4px',
+        padding: '10px 14px',
+        borderRadius: '8px',
+        background: 'var(--bg-surface, #ffffff)',
+        border: '1px solid var(--border, #e5e7eb)',
+        fontSize: '13px',
+        color: 'var(--text, #111827)',
       }}
-      role="button"
-      tabIndex={0}
     >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '13px',
-          fontWeight: aBold ? 700 : 500,
-          color: 'var(--text-primary, #111827)',
-        }}
-      >
-        <span>{match.player_a.name}</span>
-        <span style={{ color: 'var(--text-secondary, #6b7280)', fontSize: '11px' }}>vs</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+        <span style={{ color: 'var(--text-2, #374151)', fontWeight: 500 }}>{match.player_a.name}</span>
+        <span style={{ color: 'var(--text-3, #6b7280)', fontSize: '11px' }}>vs</span>
+        <span style={{ color: 'var(--text-2, #374151)', fontWeight: 500 }}>{match.player_b.name}</span>
       </div>
+      <div style={{ color: 'var(--text-3, #6b7280)', fontSize: '12px', textAlign: 'center' }}>{statusText}</div>
+    </div>
+  )
+}
+
+function MatchCard({
+  match,
+  isExpanded,
+  onToggle,
+}: {
+  match: LiveMatch
+  isExpanded: boolean
+  onToggle: () => void
+}) {
+  const { aBold, bBold } = pickWinnerColor(match)
+  return (
+    <div>
       <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '13px',
-          fontWeight: bBold ? 700 : 500,
-          color: 'var(--text-primary, #111827)',
-          marginTop: '4px',
-        }}
+        style={cardStyle}
+        onClick={onToggle}
+        role="button"
+        tabIndex={0}
       >
-        <span>{match.player_b.name}</span>
-        <span
+        <div
           style={{
-            color: 'var(--brand-gold, #c4992a)',
-            fontSize: '12px',
-            fontWeight: 600,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '13px',
+            fontWeight: aBold ? 700 : 500,
+            color: 'var(--text-primary, #111827)',
           }}
         >
-          {statusLabel(match)}
-        </span>
+          <span>{match.player_a.name}</span>
+          <span style={{ color: 'var(--text-secondary, #6b7280)', fontSize: '11px' }}>vs</span>
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '13px',
+            fontWeight: bBold ? 700 : 500,
+            color: 'var(--text-primary, #111827)',
+            marginTop: '4px',
+          }}
+        >
+          <span>{match.player_b.name}</span>
+          <span
+            style={{
+              color: 'var(--brand-gold, #c4992a)',
+              fontSize: '12px',
+              fontWeight: 600,
+            }}
+          >
+            {statusLabel(match)}
+          </span>
+        </div>
       </div>
+      {isExpanded && <MatchDetailPanel match={match} />}
     </div>
   )
 }
 
 function SingleEliminationBracket({ matches }: { matches: LiveMatch[] }) {
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null)
+
   // Agrupar por round_number (inferido).
   const groups = new Map<number, LiveMatch[]>()
   matches.forEach((m, idx) => {
@@ -175,7 +215,12 @@ function SingleEliminationBracket({ matches }: { matches: LiveMatch[] }) {
             {roundLabel(r, idx)}
           </div>
           {groups.get(r)!.map((m) => (
-            <MatchCard key={m.id} match={m} />
+            <MatchCard
+              key={m.id}
+              match={m}
+              isExpanded={expandedMatchId === m.id}
+              onToggle={() => setExpandedMatchId((prev) => (prev === m.id ? null : m.id))}
+            />
           ))}
         </div>
       ))}
@@ -184,6 +229,8 @@ function SingleEliminationBracket({ matches }: { matches: LiveMatch[] }) {
 }
 
 function RoundRobinTable({ matches }: { matches: LiveMatch[] }) {
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null)
+
   // Construir lista de jugadores unicos a partir de los matches.
   const playerMap = new Map<string, { id: string; name: string }>()
   matches.forEach((m) => {
@@ -245,44 +292,58 @@ function RoundRobinTable({ matches }: { matches: LiveMatch[] }) {
         </thead>
         <tbody>
           {players.map((row) => (
-            <tr key={row.id}>
-              <td style={rowHeaderStyle}>{row.name}</td>
-              {players.map((col) => {
-                if (row.id === col.id) {
+            <>
+              <tr key={row.id}>
+                <td style={rowHeaderStyle}>{row.name}</td>
+                {players.map((col) => {
+                  if (row.id === col.id) {
+                    return (
+                      <td key={col.id} style={{ ...tdStyle, color: 'var(--text-secondary, #6b7280)' }}>
+                        —
+                      </td>
+                    )
+                  }
+                  const key = [row.id, col.id].sort().join('|')
+                  const m = cellMap.get(key)
+                  if (!m) {
+                    return (
+                      <td key={col.id} style={{ ...tdStyle, color: 'var(--text-secondary, #6b7280)' }}>
+                        -
+                      </td>
+                    )
+                  }
                   return (
-                    <td key={col.id} style={{ ...tdStyle, color: 'var(--text-secondary, #6b7280)' }}>
-                      —
+                    <td
+                      key={col.id}
+                      style={{
+                        ...tdStyle,
+                        cursor: 'pointer',
+                        fontWeight: 500,
+                        color: m.status === 'completed' ? 'var(--brand-gold, #c4992a)' : 'var(--text-primary, #111827)',
+                      }}
+                      onClick={() => setExpandedMatchId((prev) => (prev === m.id ? null : m.id))}
+                    >
+                      {statusLabel(m)}
                     </td>
                   )
-                }
-                const key = [row.id, col.id].sort().join('|')
-                const m = cellMap.get(key)
-                if (!m) {
-                  return (
-                    <td key={col.id} style={{ ...tdStyle, color: 'var(--text-secondary, #6b7280)' }}>
-                      -
+                })}
+              </tr>
+              {expandedMatchId !== null &&
+                players.some((col) => {
+                  const key = [row.id, col.id].sort().join('|')
+                  const m = cellMap.get(key)
+                  return m?.id === expandedMatchId
+                }) && (
+                  <tr key={`${row.id}-detail`}>
+                    <td colSpan={players.length + 1} style={{ padding: '0 8px 8px' }}>
+                      {(() => {
+                        const expandedMatch = matches.find((m) => m.id === expandedMatchId)
+                        return expandedMatch ? <MatchDetailPanel match={expandedMatch} /> : null
+                      })()}
                     </td>
-                  )
-                }
-                return (
-                  <td
-                    key={col.id}
-                    style={{
-                      ...tdStyle,
-                      cursor: 'pointer',
-                      fontWeight: 500,
-                      color: m.status === 'completed' ? 'var(--brand-gold, #c4992a)' : 'var(--text-primary, #111827)',
-                    }}
-                    onClick={() => {
-                      // eslint-disable-next-line no-console
-                      console.log('[live/match-play] expand match', m.id)
-                    }}
-                  >
-                    {statusLabel(m)}
-                  </td>
-                )
-              })}
-            </tr>
+                  </tr>
+                )}
+            </>
           ))}
         </tbody>
       </table>

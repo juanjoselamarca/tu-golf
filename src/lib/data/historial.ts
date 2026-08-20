@@ -38,6 +38,10 @@ export interface HistoricalRound {
   excluded_from_handicap?: boolean
   /** Diferencial WHS pre-calculado en BD — usado por modal "¿Qué rondas cuentan?" (inbox 82af3d48). */
   diferencial?: number | null
+  /** Slope rating del tee jugado — necesario para calcular diferencial y elegibilidad de índice. */
+  slope_rating?: number | null
+  /** Course rating del tee jugado — necesario para calcular diferencial y elegibilidad de índice. */
+  course_rating?: number | null
 }
 
 /**
@@ -46,7 +50,7 @@ export interface HistoricalRound {
  * (useHistorialRounds.reload) — evita que dos copias se desincronicen.
  */
 export const SELECT_COLUMNS =
-  'id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego, par_per_hole, excluded_from_handicap, diferencial'
+  'id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego, par_per_hole, excluded_from_handicap, diferencial, slope_rating, course_rating'
 
 // D8: las tarjetas FedeGolf no se muestran en el listado genérico ni cuentan en
 // las stats del historial (su hogar es el modal "Índice oficial explicado").

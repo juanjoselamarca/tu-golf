@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
+import { captureError } from '@/lib/error-tracking'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
@@ -86,7 +87,7 @@ export default function ScoreGrupoPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [confirmFinalize, setConfirmFinalize] = useState(false)
-  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [discarding, setDiscarding] = useState(false)
   const [anotadorNombre, setAnotadorNombre] = useState<string>('')
   // A1 anti-toque: pedir 2 taps para cambiar un score ya existente.
@@ -101,19 +102,22 @@ export default function ScoreGrupoPage() {
 
   const discardRound = async () => {
     if (!ronda || discarding) return
-    if (!confirmDiscard) {
-      setConfirmDiscard(true)
-      haptic([20, 40, 20])
-      setTimeout(() => setConfirmDiscard(false), 5000)
-      return
-    }
     setDiscarding(true)
+    setShowDiscardConfirm(false)
     haptic(30)
     const supabase = createClient()
     const { error: e1 } = await supabase.from('ronda_libre_jugadores').delete().eq('ronda_id', ronda.id)
-    if (e1) { setDiscarding(false); alert('Error descartando ronda: ' + e1.message); return }
+    if (e1) {
+      setDiscarding(false)
+      addToast({ type: 'error', title: 'Error descartando ronda', message: e1.message, duration: 5000 })
+      return
+    }
     const { error: e2 } = await supabase.from('rondas_libres').delete().eq('id', ronda.id)
-    if (e2) { setDiscarding(false); alert('Error descartando ronda: ' + e2.message); return }
+    if (e2) {
+      setDiscarding(false)
+      addToast({ type: 'error', title: 'Error descartando ronda', message: e2.message, duration: 5000 })
+      return
+    }
     router.push('/dashboard?discarded=1')
   }
   const [finalizing, setFinalizing] = useState(false)
@@ -658,7 +662,7 @@ export default function ScoreGrupoPage() {
             ? calcularDiferencial(grossTotal, cr, slope, actualHolesPlayed, nineHole)
             : null
 
-        await supabase.from('historical_rounds').insert({
+        const { error: insertErr } = await supabase.from('historical_rounds').insert({
           user_id: j.user_id,
           course_name: ronda.course_name,
           course_id: ronda.course_id ?? null,
@@ -674,6 +678,12 @@ export default function ScoreGrupoPage() {
           formato_juego: ronda.formato_juego ?? 'stroke_play',
           modo_juego: ronda.modo_juego ?? 'gross',
         })
+
+        if (insertErr) {
+          captureError(insertErr, { context: 'score_grupo_finalize_historical' })
+          addToast({ type: 'error', title: 'Error guardando tarjeta', message: 'Tus scores están seguros. Intenta de nuevo.', duration: 5000 })
+          return
+        }
 
         // Recalcular índice y nivel del jugador (non-blocking)
         supabase.rpc('calcular_indice_golfers', { p_user_id: j.user_id }).then(() => {})
@@ -691,7 +701,10 @@ export default function ScoreGrupoPage() {
     }
 
     // Finalizar ronda
-    await supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
+    const { error: updateErr } = await supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
+    if (updateErr) {
+      captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })
+    }
     router.push(`/ronda-libre/${codigo}?finished=true`)
   }
 
@@ -959,6 +972,17 @@ export default function ScoreGrupoPage() {
         onTouchEnd={handleTouchEnd}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Label contextual formato equipo */}
+          {isSharedBallFormat(formatoJuego) ? (
+            <p style={{ fontSize: '13px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '8px', fontStyle: 'italic' }}>
+              Ingresa el score del equipo por hoyo
+            </p>
+          ) : isTeamFormat(formatoJuego) ? (
+            <p style={{ fontSize: '13px', color: 'var(--text-2)', textAlign: 'center', marginBottom: '8px', fontStyle: 'italic' }}>
+              Ingresa el score de cada jugador
+            </p>
+          ) : null}
+
           {/* Best Ball — 1 score por jugador, agrupados por equipo */}
           {formatoJuego === 'best_ball' && teamEquipos.length > 0 && (() => {
             // Pre-compute dot HCPs y SI por hoyo (consumidos por el componente y sus helpers)
@@ -1365,26 +1389,80 @@ export default function ScoreGrupoPage() {
         )}
       </div>
 
-      {/* Descartar ronda — dos-pasos, destructivo sutil */}
+      {/* Descartar ronda */}
       <div style={{ padding: '0 16px 12px', textAlign: 'center' }}>
         <button
-          onClick={discardRound}
+          onClick={() => setShowDiscardConfirm(true)}
           disabled={discarding}
-          aria-label={confirmDiscard ? 'Confirmar descarte' : 'Descartar ronda'}
+          aria-label="Descartar ronda"
           style={{
-            background: confirmDiscard ? 'rgba(220,38,38,0.1)' : 'transparent',
-            border: confirmDiscard ? '1px solid rgba(220,38,38,0.5)' : '1px solid transparent',
-            color: confirmDiscard ? '#dc2626' : 'rgba(156,163,175,0.7)',
-            fontSize: '14px', fontWeight: confirmDiscard ? 600 : 400,
+            background: 'transparent',
+            border: '1px solid transparent',
+            color: 'rgba(156,163,175,0.7)',
+            fontSize: '14px', fontWeight: 400,
             padding: '8px 14px', borderRadius: '8px',
             cursor: discarding ? 'not-allowed' : 'pointer',
             opacity: discarding ? 0.5 : 1,
             letterSpacing: '0.02em',
             WebkitTapHighlightColor: 'transparent',
-            transition: 'all 0.2s ease',
           }}
-        >{discarding ? 'Descartando\u2026' : confirmDiscard ? 'Toca otra vez para borrar todo' : 'Descartar ronda'}</button>
+        >{discarding ? 'Descartando\u2026' : 'Descartar ronda'}</button>
       </div>
+
+      {/* Modal de confirmación de descarte */}
+      {showDiscardConfirm && (
+        <div
+          onClick={() => setShowDiscardConfirm(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '24px',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-surface)', borderRadius: '16px',
+              border: `1px solid var(--border)`,
+              padding: '24px', maxWidth: '340px', width: '100%',
+            }}
+          >
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
+              {'\u00BF'}Descartar esta ronda?
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '20px', lineHeight: 1.5 }}>
+              Se borrar{'\u00E1'}n todos los scores. Esta acci{'\u00F3'}n no se puede deshacer.
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setShowDiscardConfirm(false)}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '10px',
+                  background: 'transparent', border: `1px solid var(--border)`,
+                  color: 'var(--text-2)', fontSize: '14px', fontWeight: 500,
+                  cursor: 'pointer', minHeight: '44px',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={discardRound}
+                disabled={discarding}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '10px',
+                  background: '#dc2626', border: 'none',
+                  color: '#ffffff', fontSize: '14px', fontWeight: 600,
+                  cursor: discarding ? 'not-allowed' : 'pointer', minHeight: '44px',
+                  opacity: discarding ? 0.7 : 1,
+                }}
+              >
+                {discarding ? 'Descartando\u2026' : 'S\u00ED, descartar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Animations */}
       <style>{`

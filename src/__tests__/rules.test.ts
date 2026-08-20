@@ -19,8 +19,8 @@ describe('FORMAT_META completeness', () => {
     }
   })
 
-  it('stableford allows gross and neto', () => {
-    expect(FORMAT_META.stableford.modosPermitidos).toEqual(['gross', 'neto'])
+  it('stableford only allows neto (estándar Chile)', () => {
+    expect(FORMAT_META.stableford.modosPermitidos).toEqual(['neto'])
   })
 
   it('match_play only allows neto (culture Chile)', () => {

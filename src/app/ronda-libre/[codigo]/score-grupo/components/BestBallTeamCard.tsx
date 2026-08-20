@@ -190,7 +190,7 @@ export function BestBallTeamCard({
           const j = jugadores.find((x) => x.id === jid)
           if (!j) return null
           const gross = scores[jid]?.[currentHole]
-          const dotHcp = playerDotHcps[jid] ?? 0
+          const dotHcp = playerDotHcps[jid] ?? playerHcp[jid] ?? 0
           const strokes = modoJuego === 'neto' ? strokesRecibidosEnHoyo(dotHcp, siCurrentAlloc, totalHoles) : 0
           const net = gross != null ? gross - strokes : null
           const recibeGolpe = strokes > 0

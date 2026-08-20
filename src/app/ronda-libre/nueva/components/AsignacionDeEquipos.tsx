@@ -5,6 +5,7 @@ import { jugadoresPorEquipo, maxEquipos } from '@/golf/ronda-libre/plantilla-de-
 import type { EquipoDeLaRonda } from '../hooks/useFormularioDeRonda'
 import type { JugadorDeLaRonda } from '../hooks/useCrearRonda'
 import { colores, etiqueta, tarjeta } from './estilos'
+import { LEYENDAS } from './leyendas-de-formato'
 
 interface Props {
   formato: FormatoJuego
@@ -48,6 +49,12 @@ export function AsignacionDeEquipos({ formato, jugadores, equipos, onEquipos }: 
           </span>
         )}
       </label>
+
+      {LEYENDAS[formato] && (
+        <p style={{ fontSize: '13px', color: colores.texto3, marginBottom: '12px', lineHeight: '1.4', margin: '0 0 12px' }}>
+          {LEYENDAS[formato]!.explicacion('neto')}
+        </p>
+      )}
 
       {equipos.map((equipo, eIdx) => (
         <div key={eIdx} style={{

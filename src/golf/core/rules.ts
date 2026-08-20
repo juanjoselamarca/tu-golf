@@ -48,7 +48,8 @@ export const FORMAT_META: Record<FormatoJuego, {
     requiereEquipos: false,
     requiereParejas: false,
     jugadoresPorEquipo: null,
-    modosPermitidos: ['gross', 'neto'],
+    // Chile juega Stableford neto. Gross no tiene sentido competitivo.
+    modosPermitidos: ['neto'],
   },
   match_play: {
     category: 'head_to_head',

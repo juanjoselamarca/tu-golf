@@ -21,6 +21,8 @@ import { sendPushViaServer } from '@/lib/push-notifications'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { getMissingHoles, fillMissingHolesWithPar, haptic } from '@/lib/ronda/helpers'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
+import { calcularMatchPlay } from '@/golf/formats/match-play'
+import { isTeamFormat } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
 
 interface UseFinalizeRondaOptions {
@@ -174,6 +176,54 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         ? calcularDiferencial(grossTotal, courseRating, slopeRating, actualHolesPlayed, nineHoleRatings)
         : null
 
+      // Match result para match play: calcular el display ("3&2", "1 UP", "All Square")
+      let matchResult: string | null = null
+      if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2) {
+        const opponent = ronda.ronda_libre_jugadores.find(p => p.id !== activeJugadorId)
+        if (opponent && ronda.course_id) {
+          const { data: holeRows } = await supabase
+            .from('course_holes')
+            .select('numero, par, stroke_index')
+            .eq('course_id', ronda.course_id)
+            .order('numero')
+          if (holeRows && holeRows.length > 0) {
+            const opponentScores = scores[opponent.id] ?? {}
+            const matchCalc = calcularMatchPlay(
+              playerScores as Record<string, number>,
+              opponentScores as Record<string, number>,
+              holeRows,
+              {
+                courseHandicapA: activePlayer?.handicap ?? 0,
+                courseHandicapB: opponent.handicap ?? 0,
+                totalHoles: totalHolesForSave,
+                modo: ronda.modo_juego === 'gross' ? 'gross' : 'neto',
+              },
+              {
+                nombreA: activePlayer?.nombre,
+                nombreB: opponent.nombre,
+              }
+            )
+            matchResult = matchCalc.display
+          }
+        }
+      }
+
+      // Team name para formatos de equipo: buscar el equipo al que pertenece el jugador
+      let teamName: string | null = null
+      if (isTeamFormat(ronda.formato_juego)) {
+        const { data: equipoData } = await supabase
+          .from('ronda_equipo_jugadores')
+          .select('ronda_equipos!inner(nombre)')
+          .eq('jugador_id', activeJugadorId)
+          .eq('ronda_equipos.ronda_id', ronda.id)
+          .limit(1)
+          .single()
+        if (equipoData && (equipoData as Record<string, unknown>).ronda_equipos) {
+          const eq = (equipoData as Record<string, unknown>).ronda_equipos as { nombre: string }
+          teamName = eq.nombre ?? null
+        }
+      }
+
       // El historial pertenece al JUGADOR, no al dueno del dispositivo. Si el jugador
       // activo tiene cuenta propia, usar su user_id; si no (invitado), usar la sesion actual.
       const historicalUserId = activePlayer?.user_id ?? authUser?.id
@@ -193,6 +243,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         diferencial,
         formato_juego: ronda.formato_juego ?? 'stroke_play',
         modo_juego: ronda.modo_juego ?? 'gross',
+        match_result: matchResult,
+        team_name: teamName,
       }).select('id').single()
 
       if (insertedRound?.id) {
