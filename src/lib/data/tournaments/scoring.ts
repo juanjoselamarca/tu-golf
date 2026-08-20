@@ -30,6 +30,12 @@ export interface ScoringPlayer {
   id: string
   handicap_at_registration: number | null
   tee_id: string | null
+  /** user_id del jugador registrado. null para invitados. */
+  user_id: string | null
+  /** pending_user_id del invitado. null para registrados. */
+  pending_user_id: string | null
+  /** Nombre directo del invitado (tabla players). null para registrados. */
+  player_name: string | null
   profiles: { name: string } | null
   rounds: ScoringRound[]
 }
@@ -74,7 +80,7 @@ const SCORING_TOURNAMENT_SELECT =
 // categories(default_tee_color) NO existe en prod → PostgREST 400 → players=[]
 // (pantalla vacía). El default de tee por categoría nunca se cableó a la BD.
 const SCORING_ROSTER_SELECT =
-  'id, handicap_at_registration, tee_id, profiles(name), ' +
+  'id, handicap_at_registration, tee_id, user_id, pending_user_id, player_name, profiles(name), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number)'
 
 export async function fetchScoringTournament(

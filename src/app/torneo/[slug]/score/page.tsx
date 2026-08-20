@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { SCORE_STYLES, getScoreResult } from '@/golf/core/colors'
@@ -22,11 +22,17 @@ import {
   type ScoringPlayer,
   type ScoringTournament,
 } from '@/lib/data/tournaments/scoring'
+import { getGuestId, getGuestToken } from '@/lib/guest-session'
 
 import type { CourseHole } from '@/golf/leaderboard/types'
 
 type Player = ScoringPlayer
 type Tournament = ScoringTournament
+
+/** Nombre visible del jugador: registrado usa profiles.name, invitado usa player_name. */
+function playerDisplayName(p: Player): string {
+  return p.profiles?.name ?? p.player_name ?? 'Jugador'
+}
 
 export default function PlayerScoringPage() {
   const { slug } = useParams() as { slug: string }
@@ -52,6 +58,13 @@ export default function PlayerScoringPage() {
   type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error'
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const retryCountRef = useRef(0)
+  // Modal de registro post-ronda para invitados
+  const [showRegisterModal, setShowRegisterModal] = useState(false)
+
+  // Guest session info (read once on mount)
+  const guestId = useMemo(() => getGuestId(), [])
+  const guestTokenValue = useMemo(() => getGuestToken(), [])
+  const isGuest = !!guestId && !!guestTokenValue
 
   const selectedPlayerEarly = players.find(p => p.id === selectedId)
   const roundIdForSync = selectedPlayerEarly?.rounds?.[0]?.id ?? null
@@ -84,18 +97,10 @@ export default function PlayerScoringPage() {
 
   useEffect(() => {
     let cancelled = false
-    // La capa de datos PROPAGA los errores a propósito (un blip de red no puede
-    // volverse "torneo no encontrado"). Esta pantalla se usa entre hoyos, con
-    // señal mala: sin este try/catch la promesa quedaba sin handler y `loading`
-    // en true — "Cargando..." para siempre, sin mensaje ni reintento.
     const load = async () => {
       setLoading(true)
       setLoadError(false)
       try {
-        // MISMAS queries que el scorer del organizador (`src/lib/data/tournaments/scoring.ts`).
-        // Las dos pantallas escriben el mismo `net_score`: si cada una trajera su
-        // propio subconjunto de columnas, volverían a repartir handicaps distintos
-        // — que es exactamente el bug que este fix cierra.
         const supabase = createClient()
         const t = await fetchScoringTournament(supabase, slug)
         if (cancelled) return
@@ -116,14 +121,17 @@ export default function PlayerScoringPage() {
         if (cancelled) return
 
         setPlayers(roster)
-        // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en un
-        // torneo de 18 se recorre dos veces y los hoyos 10-18 son los 1-9 otra
-        // vez, con su par y su dificultad reales (`@/golf/courses/vueltas`).
-        // Antes se pedían 18 a un catálogo de 9 y cada `find` fallaba: par 4 fijo
-        // y stroke index = número de hoyo, o sea birdies mal contados y golpes de
-        // handicap repartidos en el hoyo equivocado durante media vuelta.
         setCourseHoles(hoyosDeLaVuelta(courseCtx.holes, t.hole_count || 18))
         setCourseTees(courseCtx.tees)
+
+        // Auto-select guest player if this device has a guest session
+        if (guestId) {
+          const guestPlayer = roster.find(p => p.pending_user_id === guestId)
+          if (guestPlayer) {
+            setSelectedId(guestPlayer.id)
+          }
+        }
+
         setLoading(false)
       } catch (e) {
         void captureError(e, { context: 'torneo.score.load', meta: { slug } })
@@ -135,33 +143,19 @@ export default function PlayerScoringPage() {
     }
     void load()
     return () => { cancelled = true }
-  }, [slug, loadNonce])
+  }, [slug, loadNonce, guestId])
 
   const loadScores = useCallback(async (playerId: string) => {
     const player = players.find(p => p.id === playerId)
     const roundId = player?.rounds?.[0]?.id
     if (!roundId) { setCurrentScores({}); return }
     const map: Record<number, number> = {}
-    // Si la LECTURA falla NO se corta acá, y `map` se aplica igual aunque quede
-    // vacío. Es deliberado: esta pantalla es de teléfono compartido —"Cambiar
-    // jugador" está a un tap— y `loadScores` corre en cada cambio de jugador.
-    // Conservar los `currentScores` del jugador anterior mostraría la tarjeta
-    // de B llena con los hoyos de A, sin ninguna señal. Y no sería sólo
-    // display: el primer hoyo que cargue B hace `guardarLocal` del mapa
-    // COMPLETO bajo la clave de B, así que al volver la señal los golpes de A
-    // se escriben en la ronda de B.
-    //
-    // Una tarjeta vacía es la verdad ("no sé qué tiene este jugador"). Una
-    // tarjeta con los datos de otro es una mentira que además se persiste.
-    // Los pendientes propios los recupera el merge de abajo, que sí está
-    // indexado por `roundId`.
     try {
       const supabase = createClient()
       const data = await fetchRoundHoleScores(supabase, roundId)
       data.forEach((s) => { if (s.gross_score != null) map[s.hole_number] = s.gross_score })
     } catch (e) {
       void captureError(e, { context: 'torneo.score.loadScores', meta: { slug, roundId } })
-      // Sin `return`: el badge y los pendientes los pone el bloque de abajo.
     }
     // Merge pending local scores (offline/failed saves) so no input is lost on reload
     try {
@@ -188,11 +182,18 @@ export default function PlayerScoringPage() {
     netScore: number,
     points: number,
   ): Promise<boolean> => {
+    // Headers base + headers de invitado si aplica
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (isGuest && guestId && guestTokenValue) {
+      headers['x-guest-id'] = guestId
+      headers['x-guest-token'] = guestTokenValue
+    }
+
     let attempts = 0
     while (attempts < 3) {
       try {
         const res = await fetch('/api/game', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers,
           body: JSON.stringify({ action: 'upsert_score', tournament_id: tourneyId, round_id: roundId, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }),
         })
         if (res.ok) return true
@@ -203,7 +204,7 @@ export default function PlayerScoringPage() {
       if (attempts < 3) await new Promise(r => setTimeout(r, 400 * attempts))
     }
     return false
-  }, [])
+  }, [isGuest, guestId, guestTokenValue])
 
   const handleScoreChange = async (holeNumber: number, value: string) => {
     const gross = parseInt(value)
@@ -213,8 +214,6 @@ export default function PlayerScoringPage() {
     if (!round) return
     const hole       = courseHoles.find(h => h.numero === holeNumber)
     const par        = hole?.par ?? 4
-    // SI normalizado (permutación 1..N) para alocar golpes: Σ == course handicap
-    // aunque el SI sea 18h-impar en un loop de 9h. El SI mostrado se mantiene crudo.
     const si         = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNumber] ?? holeNumber
     const holeCount  = tournament.hole_count || 18
     const { neto: netScore, puntos: points } = puntajeDeHoyo({
@@ -224,7 +223,6 @@ export default function PlayerScoringPage() {
 
     const nextScores = { ...currentScores, [holeNumber]: gross }
     setCurrentScores(nextScores)
-    // Backup local SIEMPRE primero (funciona sin internet)
     scoreSync.guardarLocal(nextScores)
     retryCountRef.current = 0
 
@@ -241,6 +239,14 @@ export default function PlayerScoringPage() {
       setSavedHoles(prev => new Set(prev).add(holeNumber))
       setSaveStatus('saved')
       scoreSync.marcarSincronizado()
+
+      // Si el invitado completó todos los hoyos, mostrar el modal de registro
+      if (isGuest) {
+        const allFilled = Object.keys({ ...nextScores }).length >= holeCount
+        if (allFilled) {
+          setShowRegisterModal(true)
+        }
+      }
     } else {
       setSaveStatus('error')
       addToast({ type: 'error', title: `Error hoyo ${holeNumber}`, message: 'Score guardado localmente. Se sincronizará al recuperar la conexión.', duration: 6000 })
@@ -294,15 +300,9 @@ export default function PlayerScoringPage() {
     window.addEventListener('online', up)
     window.addEventListener('offline', down)
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
-    // `courseHcpDe` va en las deps porque el efecto lo usa. No agrega disparos
-    // — sus tres dependencias se setean en el mismo `load()` y dos ya estaban
-    // acá — pero deja el closure atado explícitamente al handicap vigente en
-    // vez de depender de que otro dep lo refresque por casualidad.
   }, [tournament, roundIdForSync, selectedPlayerEarly, courseHoles, scoreSync, submitHoleScore, courseHcpDe])
 
   if (loading) return <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>Cargando...</div>
-  // Un fallo de red NO es "torneo no encontrado": el jugador tiene que poder
-  // reintentar sin recargar y sin creer que se equivocó de link.
   if (loadError) return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '24px', textAlign: 'center' }}>
       <p style={{ color: 'var(--text-2)', fontSize: '15px', margin: 0, maxWidth: '320px' }}>
@@ -318,21 +318,12 @@ export default function PlayerScoringPage() {
 
   const selectedPlayer = players.find(p => p.id === selectedId)
   const holeCount = tournament.hole_count || 18
-  // Predicado canónico, el mismo que usan el scorer del organizador y el board.
-  // HOY es equivalente a mirar `formato_juego` a secas (`resolveFormatoJuego` es
-  // `formato_juego ?? format`, y en prod `formato_juego` no es null en ninguna
-  // de las 29 filas). No se unifica por un bug vivo: se unifica para que la
-  // pregunta "¿es stableford?" tenga UNA respuesta en toda la app, y para que el
-  // día que una fila llegue con el canónico en null las tres pantallas hagan lo
-  // mismo en vez de tres cosas distintas.
   const esStableford = isStablefordFormat(resolveFormatoJuego(tournament))
   const holes = Array.from({ length: holeCount }, (_, i) => i + 1)
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '40px' }}>
-      {/* Header — superficie navy fija (hero broadcast): data-theme="dark" para que
-          los tokens de texto (nombre del torneo, link) resuelvan claros en tema claro
-          del usuario. Sin esto quedaban oscuros e invisibles sobre el navy. */}
+      {/* Header */}
       <div data-theme="dark" style={{ background: 'rgba(14,28,47,0.97)', borderBottom: '1px solid rgba(196,153,42,0.15)', padding: '16px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
           <Link href={`/torneo/${tournament.slug}`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Leaderboard</Link>
@@ -362,7 +353,7 @@ export default function PlayerScoringPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div>
             <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: '0 0 2px' }}>{tournament.name}</h1>
-            {selectedPlayer && <p style={{ fontSize: '13px', color: '#c4992a', margin: 0 }}>{selectedPlayer.profiles?.name} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}
+            {selectedPlayer && <p style={{ fontSize: '13px', color: '#c4992a', margin: 0 }}>{playerDisplayName(selectedPlayer)} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}
           </div>
           {tournament.formato_juego && (
             <span style={{
@@ -384,7 +375,7 @@ export default function PlayerScoringPage() {
       </div>
 
       <div style={{ padding: '24px 16px', maxWidth: '500px', margin: '0 auto' }}>
-        {/* Player select — card navy: data-theme="dark" para legibilidad en tema claro. */}
+        {/* Player select */}
         {!selectedId && (
           <div data-theme="dark" style={{ background: 'rgba(14,28,47,0.92)', border: '1px solid rgba(196,153,42,0.2)', borderRadius: '14px', padding: '24px', marginBottom: '24px' }}>
             <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: '0 0 16px' }}>¿Quién eres?</h2>
@@ -394,7 +385,7 @@ export default function PlayerScoringPage() {
                   style={{ padding: '14px 16px', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '10px', color: 'var(--text)', fontSize: '16px', fontWeight: 500, cursor: 'pointer', textAlign: 'left', transition: 'all 180ms' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#c4992a'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(122,143,168,0.2)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(7,13,24,0.5)' }}>
-                  {p.profiles?.name}
+                  {playerDisplayName(p)}
                   {p.handicap_at_registration != null && <span style={{ color: 'var(--text-2)', fontSize: '13px', marginLeft: '8px' }}>HCP {p.handicap_at_registration}</span>}
                 </button>
               ))}
@@ -413,23 +404,15 @@ export default function PlayerScoringPage() {
               {holes.map(holeNum => {
                 const hole    = courseHoles.find(h => h.numero === holeNum)
                 const par     = hole?.par ?? 4
-                // SI normalizado sólo para alocar golpes (stableford); el SI que se
-                // muestra abajo usa hole.stroke_index crudo.
                 const si      = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNum] ?? holeNum
                 const gross   = currentScores[holeNum]
                 const isSaved = savedHoles.has(holeNum)
                 const diff    = gross != null ? gross - par : null
                 const sr = getScoreResult(gross, par)
                 const ss = SCORE_STYLES[sr]
-                // Hoyo sin score: superficie neutra theme-aware (no navy hardcodeado —
-                // rompía el texto var(--text) en tema claro). En dark, --bg-surface ≈ el
-                // navy anterior, así que el look oscuro se preserva.
                 const bg = gross != null ? ss.bg : 'var(--bg-surface)'
                 const border = gross != null ? `${ss.borderWidth} solid ${ss.border}` : '1px solid rgba(122,143,168,0.2)'
 
-                // Los puntos que ve el jugador salen del MISMO cálculo que los
-                // que se persisten — antes esta vista los recomputaba aparte, y
-                // con el índice crudo.
                 let stablefordPoints = null
                 if (gross != null && selectedPlayer && esStableford) {
                   stablefordPoints = puntajeDeHoyo({
@@ -469,6 +452,64 @@ export default function PlayerScoringPage() {
           </>
         )}
       </div>
+
+      {/* Modal de registro post-ronda para invitados */}
+      {showRegisterModal && isGuest && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px',
+        }}>
+          <div style={{
+            background: 'var(--bg)', borderRadius: '16px', padding: '32px 24px',
+            maxWidth: '380px', width: '100%', textAlign: 'center',
+            border: '1px solid var(--surface-border)',
+          }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: 'rgba(196,153,42,0.15)', border: '1.5px solid rgba(196,153,42,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px', fontSize: '24px',
+            }}>
+              ⛳
+            </div>
+            <h2 style={{
+              fontFamily: '"Playfair Display", serif', fontSize: '22px',
+              color: 'var(--text)', fontWeight: 700, margin: '0 0 8px',
+            }}>
+              ¡Ronda completa!
+            </h2>
+            <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 24px', lineHeight: '1.5' }}>
+              Crea tu cuenta gratis para guardar tu historial, seguir tu handicap y activar tu coach de golf con IA.
+            </p>
+            <Link
+              href={`/register?next=/torneo/${slug}&guestId=${guestId}`}
+              style={{
+                display: 'block', width: '100%', padding: '14px',
+                background: '#c4992a', color: 'var(--brand-dark)',
+                fontWeight: 700, fontSize: '15px', borderRadius: '10px',
+                textDecoration: 'none', textAlign: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              Crear cuenta gratis
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowRegisterModal(false)}
+              style={{
+                background: 'none', border: 'none',
+                color: 'var(--text-2)', fontSize: '13px',
+                cursor: 'pointer', textDecoration: 'underline',
+                textUnderlineOffset: '3px',
+              }}
+            >
+              No, gracias — ver resultados
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

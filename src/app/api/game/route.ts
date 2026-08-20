@@ -3,6 +3,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer, disqualifyPlayer, openInscriptions, revertInscriptions, closeTournamentAction } from './actions'
+import { verifyGuestToken } from '@/lib/guest-token'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,16 +36,70 @@ function serviceClient() {
   )
 }
 
-export async function POST(request: NextRequest) {
-  const { user, supabase } = await getAuthUser()
-  if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
+/**
+ * Verifica que el guest token corresponda al guestId y que el guestId sea dueño
+ * del round_id declarado (vía pending_user_id en players). Retorna el playerId
+ * si todo pasa, null si algo falla.
+ */
+async function verifyGuestOwnership(
+  svc: ReturnType<typeof serviceClient>,
+  guestId: string,
+  guestToken: string,
+  roundId: string,
+): Promise<string | null> {
+  if (!verifyGuestToken(guestId, guestToken)) return null
+  const { data: round } = await svc
+    .from('rounds')
+    .select('player_id, players(pending_user_id)')
+    .eq('id', roundId)
+    .single()
+  const pendingUserId = (round?.players as unknown as { pending_user_id: string | null } | null)?.pending_user_id
+  if (pendingUserId !== guestId) return null
+  return round?.player_id ?? null
+}
 
+export async function POST(request: NextRequest) {
   const body = await request.json()
   const { action, tournament_id } = body
 
   if (!action || typeof action !== 'string') {
     return NextResponse.json({ error: 'Acción requerida o no válida' }, { status: 400 })
   }
+
+  // ── Guest scoring path (upsert_score ONLY) ──
+  // Invitados sin cuenta envían x-guest-id + x-guest-token en vez de cookies de auth.
+  // Solo se permite upsert_score — no acciones de organizador.
+  const guestId = request.headers.get('x-guest-id')
+  const guestToken = request.headers.get('x-guest-token')
+  if (guestId && guestToken && action === 'upsert_score') {
+    const svc = serviceClient()
+
+    // Verificar torneo
+    const { data: tournament } = await svc
+      .from('tournaments')
+      .select('organizer_id, status')
+      .eq('id', tournament_id)
+      .single()
+    if (!tournament) return NextResponse.json({ error: 'Torneo no encontrado' }, { status: 404 })
+
+    const scorableStatuses = ['active', 'in_progress']
+    if (!scorableStatuses.includes(tournament.status)) {
+      return NextResponse.json({ error: 'El torneo no está activo. No se pueden registrar scores.' }, { status: 409 })
+    }
+
+    // Verificar que el guest token es válido y que el guestId es dueño de esta ronda
+    const playerId = await verifyGuestOwnership(svc, guestId, guestToken, body.round_id)
+    if (!playerId) {
+      return NextResponse.json({ error: 'Token de invitado inválido o no autorizado' }, { status: 403 })
+    }
+
+    // El userId para el audit log usa un placeholder identificable
+    return upsertScore(svc, `guest:${guestId}`, body)
+  }
+
+  // ── Authenticated path (original) ──
+  const { user, supabase } = await getAuthUser()
+  if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
 
   // Verify tournament exists
   const { data: tournament } = await supabase

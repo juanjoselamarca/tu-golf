@@ -58,6 +58,8 @@ import { TournamentFooter } from './components/TournamentFooter'
 import type { TournamentResultados, WithdrawnEntry } from './types'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import { Suspense } from 'react'
+import { GuestClaim } from './components/GuestClaim'
 
 export default async function TorneoPage({ params }: { params: { slug: string } }) {
   const supabase = await createClient()
@@ -261,7 +263,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
               letterSpacing: '-0.01em',
             }}
           >
-            {viewer ? 'Unirme a este torneo' : 'Inicia sesión para unirte'}
+            Unirme a este torneo
           </Link>
         </div>
       )}
@@ -322,6 +324,11 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       {tournament && (
         <TournamentBottomSheet slug={tournament.slug} isLive={isLive} isDemo={!!tournament.es_demo} />
       )}
+
+      {/* Migrar datos de invitado a cuenta recién creada (invisible) */}
+      <Suspense fallback={null}>
+        <GuestClaim slug={params.slug} isAuthenticated={!!viewer} />
+      </Suspense>
     </div>
   )
 }
