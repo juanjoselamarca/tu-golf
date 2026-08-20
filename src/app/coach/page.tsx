@@ -149,17 +149,23 @@ export default async function CoachDashboard() {
   if (totalRounds === 0) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 100px' }}>
-        <TaigerHero subtitle="Tu coach de rendimiento con inteligencia artificial" />
-        <div style={{ background: 'var(--coach-brass-soft)', border: '1px solid var(--coach-brass)', borderRadius: '14px', padding: '20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px' }}>
-            Registra tu primera ronda para activar tu coach
+        <TaigerHero subtitle="Tu coach de juego mental. Cuéntame sobre tu golf y empezamos." />
+        <div style={{ background: 'var(--coach-brass-soft)', border: '1px solid var(--coach-brass)', borderRadius: '14px', padding: '24px', textAlign: 'center' }}>
+          <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
+            Bienvenido a tAIger+
           </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.6, marginBottom: '14px', maxWidth: '340px', marginLeft: 'auto', marginRight: 'auto' }}>
-            tAIger+ necesita conocer tu juego para hablarte con datos reales. Subí una tarjeta o juega una ronda libre y arrancamos la conversación.
+          <div style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.6, marginBottom: '18px', maxWidth: '340px', marginLeft: 'auto', marginRight: 'auto' }}>
+            Soy tu coach de rendimiento con inteligencia artificial. Conozco cada golpe, cada patrón, cada tendencia de tu juego. Háblame y empezamos a trabajar juntos.
           </div>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/ronda-libre/nueva" style={{ display: 'inline-block', background: 'var(--coach-brass)', color: 'var(--bg)', fontWeight: 700, fontSize: '13px', padding: '10px 20px', borderRadius: '10px', textDecoration: 'none' }}>Nueva ronda</Link>
-            <Link href="/perfil/historial" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: '13px', padding: '10px 20px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Importar historial</Link>
+          <Link
+            href="/coach/sesion/nueva"
+            style={{ display: 'inline-block', background: 'var(--coach-brass)', color: 'var(--bg)', fontWeight: 700, fontSize: '14px', padding: '12px 28px', borderRadius: '10px', textDecoration: 'none' }}
+          >
+            Hablar con mi coach
+          </Link>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '14px' }}>
+            <Link href="/ronda-libre/nueva" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: '13px', padding: '8px 16px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Nueva ronda</Link>
+            <Link href="/perfil/historial" style={{ display: 'inline-block', background: 'transparent', color: 'var(--coach-brass)', fontWeight: 600, fontSize: '13px', padding: '8px 16px', borderRadius: '10px', textDecoration: 'none', border: '1px solid var(--coach-brass)' }}>Importar historial</Link>
           </div>
         </div>
       </div>
@@ -185,12 +191,14 @@ export default async function CoachDashboard() {
     previousScore: null,
   })
 
-  const hasActiveSpiralPattern = patterns.some(p => p.pattern_type === 'post_bogey_spiral' && p.status === 'active')
-  // Costo Psicológico: TODO se calcula sobre UN solo universo (últimas 5 rondas).
-  // Antes había mismatch: evitables sobre 8 rondas, promedios sobre 5 → "36" inflado
-  // vs delta promedio. Ahora invariante: evitables === windowSize × (real − contenido).
+  const hasActivePatterns = patterns.some(p => p.status === 'active')
+  // Costo Psicológico: se calcula sobre UN solo universo (últimas 5 rondas).
+  // Antes se activaba SOLO para post_bogey_spiral — ahora se muestra cuando hay
+  // CUALQUIER patrón activo. strokesEvitables detecta secuencias de bogey
+  // consecutivos independientemente de qué patrón los cataloga.
+  // Invariante: evitables === windowSize × (real − contenido).
   // Ver mental-index.ts:calcularCostoPsicologico para la lógica.
-  const costoPsicologico = hasActiveSpiralPattern
+  const costoPsicologico = hasActivePatterns
     ? calcularCostoPsicologico(rounds.map(r => ({
         id: r.id,
         total_gross: r.total_gross,
