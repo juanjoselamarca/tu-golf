@@ -170,8 +170,66 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
     await fetchPlayers()
   }
 
+  /**
+   * Inscribe multiples invitados de una sola vez. Itera secuencialmente
+   * para respetar la validacion de cupo del servidor (si el torneo se llena
+   * a mitad de camino, los siguientes fallan con tournament_full y se
+   * reporta cuantos entraron). Retorna la cantidad efectivamente inscrita.
+   */
+  const inscribirBatch = async (
+    entries: Array<{ name: string; hcp: number | null }>,
+    selectedCat: string,
+  ): Promise<number> => {
+    if (entries.length === 0) return 0
+    setLoading(true)
+    const catId = selectedCat || categories[0]?.id || null
+    let added = 0
+    const errors: string[] = []
+
+    try {
+      for (const entry of entries) {
+        const name = entry.name.trim()
+        if (!name) continue
+
+        try {
+          const res = await fetch(`/api/torneos/${tournament.slug}/players`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'guest', guestName: name, handicapIndex: entry.hcp, categoryId: catId }),
+          })
+          if (res.ok) {
+            added++
+          } else {
+            const data = await res.json().catch(() => ({}))
+            if (data?.error === 'tournament_full') {
+              errors.push(`${name}: cupo lleno`)
+              // Stop trying — remaining players won't fit either
+              break
+            }
+            errors.push(`${name}: ${data?.message || 'error'}`)
+          }
+        } catch {
+          errors.push(`${name}: error de conexion`)
+        }
+      }
+
+      await fetchPlayers()
+
+      if (added > 0 && errors.length === 0) {
+        showSuccess('Jugadores agregados', `${added} invitado${added !== 1 ? 's' : ''} inscrito${added !== 1 ? 's' : ''} correctamente.`)
+      } else if (added > 0 && errors.length > 0) {
+        showWarning('Inscripcion parcial', `${added} agregado${added !== 1 ? 's' : ''}, ${errors.length} con error: ${errors[0]}`)
+      } else if (errors.length > 0) {
+        showError('Error', errors[0])
+      }
+    } finally {
+      setLoading(false)
+    }
+    return added
+  }
+
   return {
     players, setPlayers, loading,
-    fetchPlayers, inscribirPlayer, inscribirGuest, withdrawPlayer, disqualifyPlayer,
+    fetchPlayers, inscribirPlayer, inscribirGuest, inscribirBatch, withdrawPlayer, disqualifyPlayer,
   }
 }

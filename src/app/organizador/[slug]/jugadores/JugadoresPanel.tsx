@@ -48,7 +48,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
   const {
     players, setPlayers, loading,
-    fetchPlayers, inscribirPlayer, inscribirGuest, withdrawPlayer, disqualifyPlayer,
+    fetchPlayers, inscribirPlayer, inscribirGuest, inscribirBatch, withdrawPlayer, disqualifyPlayer,
   } = usePlayers({ tournament, categories, initialPlayers, tournamentStatus })
 
   const handleInscribir = () => inscribirPlayer(selectedProfile, selectedCat, resetSearch)
@@ -57,6 +57,8 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
       setGuestName('')
       setGuestHcp('')
     })
+  const handleInscribirBatch = async (entries: Array<{ name: string; hcp: number | null }>) =>
+    inscribirBatch(entries, selectedCat)
   const handleDesinscribir = withdrawPlayer
   const handleDescalificar = disqualifyPlayer
 
@@ -136,7 +138,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 24px' }}>
 
         {tournament.codigo && (
-          <TournamentInvitationCard slug={tournament.slug} codigo={tournament.codigo} />
+          <TournamentInvitationCard slug={tournament.slug} codigo={tournament.codigo} tournamentName={tournament.name} />
         )}
 
         <CupoSection
@@ -163,6 +165,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           guestHcp={guestHcp}
           setGuestHcp={setGuestHcp}
           onInscribirGuest={handleInscribirGuest}
+          onInscribirBatch={handleInscribirBatch}
         />
 
         <GroupsSection
