@@ -90,6 +90,7 @@ export default function Navbar() {
         { href: '/perfil/stats', icon: <TrendingUp size={18} />, label: 'Mi CPI' },
         { href: '/perfil/historial', icon: <ClipboardList size={18} />, label: 'Rondas' },
         { href: '/coach', icon: <TaigerIcon size={18} />, label: 'tAIger+', badge: 'AI' },
+        { href: '/organizador', icon: <Trophy size={18} />, label: 'Mis Torneos' },
         { href: '/importar', icon: <Upload size={18} />, label: 'Importar' },
       ],
     },
