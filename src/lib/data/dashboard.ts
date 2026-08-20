@@ -96,6 +96,31 @@ export async function loadUltimaRondaDetalle(
   }
 }
 
+// ─────────────────────────── ONBOARDING ───────────────────────────
+
+/**
+ * Lightweight check: does this user have ANY rounds (historical or libre)?
+ * Used to decide if the onboarding wizard should show instead of the dashboard.
+ * Two head-only count queries — fast and RLS-safe.
+ */
+export async function isNewUser(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<boolean> {
+  const [{ count: historicalCount }, { count: rondasCount }] = await Promise.all([
+    supabase
+      .from('historical_rounds')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .or(OR_EXCLUDE_FEDEGOLF),
+    supabase
+      .from('rondas_libres')
+      .select('*', { count: 'exact', head: true })
+      .eq('creador_id', userId),
+  ])
+  return (historicalCount ?? 0) === 0 && (rondasCount ?? 0) === 0
+}
+
 // ─────────────────────────── IDENTIDAD ───────────────────────────
 
 export type IdentidadData = {
