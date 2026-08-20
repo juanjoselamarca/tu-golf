@@ -258,8 +258,49 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         }).then(() => {}).catch(() => {})
       }
 
+      // ── Task 2.8: capturar índice ANTES del recálculo ──
+      const { data: beforeProfile } = await supabase
+        .from('profiles')
+        .select('indice')
+        .eq('id', historicalUserId)
+        .single()
+      const indiceBefore = beforeProfile?.indice as number | null | undefined
+
       // Recalcular Indice Golfers+ y nivel del dueno de la tarjeta (no del dispositivo)
-      supabase.rpc('calcular_indice_golfers', { p_user_id: historicalUserId }).then(() => {})
+      await supabase.rpc('calcular_indice_golfers', { p_user_id: historicalUserId })
+
+      // ── Task 2.8: capturar índice DESPUÉS y mostrar toast ──
+      const { data: afterProfile } = await supabase
+        .from('profiles')
+        .select('indice')
+        .eq('id', historicalUserId)
+        .single()
+      const indiceAfter = (afterProfile?.indice as number | null | undefined) ?? null
+
+      if (indiceBefore != null && indiceAfter != null && indiceBefore !== indiceAfter) {
+        const direction = indiceAfter < indiceBefore ? 'bajó' : 'subió'
+        addToast({
+          title: `Tu índice ${direction}`,
+          message: `${indiceBefore.toFixed(1)} → ${indiceAfter.toFixed(1)}`,
+          type: indiceAfter < indiceBefore ? 'success' : 'info',
+        })
+      } else if (indiceAfter != null) {
+        addToast({
+          title: 'Ronda guardada',
+          message: `Índice actual: ${indiceAfter.toFixed(1)}`,
+          type: 'success',
+        })
+      }
+
+      // ── Task 2.7: trigger coach analysis post-ronda (non-blocking) ──
+      if (insertedRound?.id) {
+        void fetch('/api/coach/post-round-trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roundId: insertedRound.id, userId: historicalUserId }),
+        }).catch(() => {})
+      }
+
       const hace90Dias = new Date()
       hace90Dias.setDate(hace90Dias.getDate() - 90)
       supabase

@@ -3,7 +3,7 @@ import { jugadoresDeLaRonda, equiposConIndices } from './useCrearRonda'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from './useFormularioDeRonda'
 
 function rival(id: string, nombre: string, over: Partial<RivalDelCreador> = {}): RivalDelCreador {
-  return { id, tipo: 'invitado', nombre, telefono: '', handicap: null, tees: null, ...over }
+  return { id, tipo: 'invitado', nombre, telefono: '', handicap: null, tees: null, profileId: null, ...over }
 }
 
 const CREADOR = { nombre: 'Juanjo', indice: 12.4 }
