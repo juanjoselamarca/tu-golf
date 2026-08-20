@@ -9,6 +9,7 @@
 //   - Queries Supabase → src/lib/data/tournaments/leaderboard.ts
 //   - Sub-componentes JSX → components/*
 
+import Link from 'next/link'
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
@@ -47,6 +48,7 @@ import {
   type TeamStandingForPodium,
 } from '@/golf/leaderboard'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
+import { esInscribible } from '@/lib/data/tournaments/joinFlow'
 
 import { TournamentHeader } from './components/TournamentHeader'
 import { TournamentResults } from './components/TournamentResults'
@@ -72,6 +74,19 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   // inventados y creía estar en otro torneo. Una app que inventa datos es peor
   // que una que dice "no existe" (CERO FALLOS, 20-jul-2026).
   if (!tournament) notFound()
+
+  // ── Check si el viewer ya está inscrito ─────────────────────────────
+  let viewerIsParticipant = false
+  if (viewer) {
+    const { data: existingPlayer } = await supabase
+      .from('players')
+      .select('id')
+      .eq('tournament_id', tournament.id)
+      .eq('user_id', viewer.id)
+      .maybeSingle()
+    viewerIsParticipant = !!existingPlayer
+  }
+  const canJoin = esInscribible(tournament.status ?? '') && !viewerIsParticipant
 
   // ── Defaults ────────────────────────────────────────────────────────
   let players: Player[]                       = []
@@ -226,6 +241,30 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         coverImageUrl={tournament?.cover_image_url ?? null}
         codigo={tournament?.codigo ?? null}
       />
+
+      {/* ── CTA "Unirme" — solo si el torneo acepta inscripciones ──── */}
+      {canJoin && (
+        <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '12px 16px 0' }}>
+          <Link
+            href={`/torneo/${params.slug}/unirse`}
+            style={{
+              display: 'block',
+              width: '100%',
+              background: '#c4992a',
+              color: '#070d18',
+              fontWeight: 700,
+              fontSize: '16px',
+              padding: '14px 24px',
+              borderRadius: '12px',
+              textDecoration: 'none',
+              textAlign: 'center',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {viewer ? 'Unirme a este torneo' : 'Inicia sesión para unirte'}
+          </Link>
+        </div>
+      )}
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
         {teamStandings.length > 0 ? (

@@ -48,7 +48,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
   const {
     players, setPlayers, loading,
-    fetchPlayers, inscribirPlayer, inscribirGuest, withdrawPlayer, disqualifyPlayer,
+    fetchPlayers, inscribirPlayer, inscribirGuest, inscribirBatch, withdrawPlayer, disqualifyPlayer,
   } = usePlayers({ tournament, categories, initialPlayers, tournamentStatus })
 
   const handleInscribir = () => inscribirPlayer(selectedProfile, selectedCat, resetSearch)
@@ -57,7 +57,8 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
       setGuestName('')
       setGuestHcp('')
     })
-  const handleDesinscribir = withdrawPlayer
+  const handleInscribirBatch = async (entries: Array<{ name: string; hcp: number | null }>) =>
+    inscribirBatch(entries, selectedCat)
   const handleDescalificar = disqualifyPlayer
 
   const {
@@ -65,7 +66,16 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     creatingGroup, teeStartTime, setTeeStartTime, teeInterval, setTeeInterval,
     generatingTees, fetchGroups, handleCreateGroup, handleDeleteGroup,
     handleGenerateTeeTimes, handleAssignPlayer, getPlayerGroupId,
+    removePlayerAndRebalance,
   } = useGroups({ tournament, players })
+
+  // Desinscribir + rebalancear grupos automáticamente.
+  const handleDesinscribir = async (playerId: string) => {
+    await withdrawPlayer(playerId)
+    if (groups.length > 0) {
+      await removePlayerAndRebalance(playerId)
+    }
+  }
 
   const {
     starting, closing, opening, allRoundsClosed,
@@ -136,7 +146,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 24px' }}>
 
         {tournament.codigo && (
-          <TournamentInvitationCard slug={tournament.slug} codigo={tournament.codigo} />
+          <TournamentInvitationCard slug={tournament.slug} codigo={tournament.codigo} tournamentName={tournament.name} />
         )}
 
         <CupoSection
@@ -163,6 +173,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           guestHcp={guestHcp}
           setGuestHcp={setGuestHcp}
           onInscribirGuest={handleInscribirGuest}
+          onInscribirBatch={handleInscribirBatch}
         />
 
         <GroupsSection

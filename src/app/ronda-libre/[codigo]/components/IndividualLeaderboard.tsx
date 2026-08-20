@@ -80,7 +80,7 @@ export function IndividualLeaderboard({
           ? (j.holesPlayed === 0 ? '#9ca3af' : '#c4992a')
           : whiteThemeScoreColor(j.vsPar, j.holesPlayed)
         const vsParStr = isStableford
-          ? (j.holesPlayed > 0 ? String(j.stablefordPts) : '—')
+          ? (j.holesPlayed > 0 ? `${j.stablefordPts} pts` : '—')
           : (j.holesPlayed > 0 ? formatOverUnder(j.vsPar) : '—')
         const holeNums = Array.from({ length: ronda.holes }, (_, i) => i + 1)
 
