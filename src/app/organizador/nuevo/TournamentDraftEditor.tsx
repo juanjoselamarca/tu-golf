@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { captureError } from '@/lib/error-tracking'
 import { useDraftStore, type CollaboratorInfo } from '@/lib/draft/store'
-import type { TournamentConfig, TournamentConfigPartial } from '@/lib/draft/types'
+import type { TournamentConfig, TournamentConfigPartial, TournamentFormat, ScoringMode } from '@/lib/draft/types'
 import { DraftHeader } from './DraftHeader'
 import { DraftFooter } from './DraftFooter'
 import type { CourseOption } from './types'
@@ -55,6 +55,23 @@ const AssistantPanel = dynamic(
 )
 
 export type { CourseOption } from './types'
+
+// ── Templates de formato rápido ──────────────────────────────────────
+interface TournamentTemplate {
+  name: string
+  description: string
+  format: TournamentFormat
+  modo: ScoringMode
+  holes: 9 | 18
+}
+
+const TOURNAMENT_TEMPLATES: TournamentTemplate[] = [
+  { name: 'Stroke Play 18 hoyos', description: 'El clásico: golpes netos sobre 18 hoyos', format: 'stroke_play', modo: 'neto', holes: 18 },
+  { name: 'Stableford 18 hoyos', description: 'Puntos por hoyo, ideal para todos los niveles', format: 'stableford', modo: 'neto', holes: 18 },
+  { name: 'Scramble equipos', description: 'Mejor tiro del equipo, diversión garantizada', format: 'scramble', modo: 'neto', holes: 18 },
+  { name: 'Best Ball parejas', description: 'Cada jugador su bola, cuenta la mejor', format: 'best_ball', modo: 'neto', holes: 18 },
+  { name: 'Match Play 1v1', description: 'Hoyo a hoyo, mano a mano', format: 'match_play', modo: 'neto', holes: 18 },
+]
 
 export interface DraftSummary {
   id: string
@@ -200,6 +217,51 @@ export default function TournamentDraftEditor({
     }
   }, [router])
 
+  // Crear draft con template pre-cargado
+  const handleStartFromTemplate = useCallback(async (template: TournamentTemplate) => {
+    setCreating(true)
+    setLoadError(null)
+    try {
+      const res = await fetch('/api/torneos/draft', { method: 'POST' })
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(j.error || `Error ${res.status}`)
+      }
+      const data = (await res.json()) as DraftApiResponse
+      setShowStartModal(false)
+      router.replace(`/organizador/nuevo?draft=${data.draft.id}`)
+      setActiveDraftId(data.draft.id)
+
+      // Aplicar template al store una vez inicializado. El useEffect de
+      // carga del draft ejecuta init() que setea config/draftId; usamos
+      // un microtask para que el template se aplique después del init.
+      const applyTemplate = () => {
+        const state = useDraftStore.getState()
+        if (state.draftId === data.draft.id && state.config) {
+          const partial: Partial<TournamentConfig> = {
+            format: template.format,
+            modo: template.modo,
+          }
+          // Fijar hoyos en la primera ronda
+          if (state.config.rounds.length > 0 && state.config.rounds[0].hole_count !== template.holes) {
+            partial.rounds = state.config.rounds.map((r, i) =>
+              i === 0 ? { ...r, hole_count: template.holes } : r,
+            )
+          }
+          state.applyChange(partial, 'manual')
+        } else {
+          // Init aún no corrió; reintentar en el próximo tick.
+          setTimeout(applyTemplate, 100)
+        }
+      }
+      setTimeout(applyTemplate, 50)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Error creando draft')
+    } finally {
+      setCreating(false)
+    }
+  }, [router])
+
   // Duplicar desde torneo existente
   const handleDuplicateFromTournament = useCallback(
     async (tournamentId: string) => {
@@ -309,6 +371,7 @@ export default function TournamentDraftEditor({
         recentTournaments={recentTournaments}
         existingDrafts={existingDrafts}
         onStartFromScratch={handleStartFromScratch}
+        onStartFromTemplate={handleStartFromTemplate}
         onDuplicateFromTournament={handleDuplicateFromTournament}
         onResumeDraft={handleResumeDraft}
         creating={creating}
@@ -481,6 +544,7 @@ interface StartModalProps {
   recentTournaments: TournamentSummary[]
   existingDrafts: DraftSummary[]
   onStartFromScratch: () => void
+  onStartFromTemplate: (template: TournamentTemplate) => void
   onDuplicateFromTournament: (id: string) => void
   onResumeDraft: (id: string) => void
   creating: boolean
@@ -491,6 +555,7 @@ function StartModal({
   recentTournaments,
   existingDrafts,
   onStartFromScratch,
+  onStartFromTemplate,
   onDuplicateFromTournament,
   onResumeDraft,
   creating,
@@ -521,6 +586,24 @@ function StartModal({
         >
           {creating ? 'Creando...' : '+ Empezar desde cero'}
         </button>
+
+        <section style={startSectionStyle}>
+          <h2 style={startSectionTitleStyle}>Empezar con plantilla</h2>
+          <div style={templateGridStyle}>
+            {TOURNAMENT_TEMPLATES.map((t) => (
+              <button
+                type="button"
+                key={t.format + t.holes}
+                style={templateCardStyle}
+                onClick={() => onStartFromTemplate(t)}
+                disabled={creating}
+              >
+                <span style={templateNameStyle}>{t.name}</span>
+                <span style={templateDescStyle}>{t.description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
 
         {existingDrafts.length > 0 && (
           <section style={startSectionStyle}>
@@ -753,4 +836,39 @@ const startListButtonStyle: React.CSSProperties = {
 const startListMetaStyle: React.CSSProperties = {
   fontSize: 12,
   color: 'var(--text-secondary, #6b7280)',
+}
+
+const templateGridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+  gap: 8,
+}
+
+const templateCardStyle: React.CSSProperties = {
+  appearance: 'none',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+  gap: 4,
+  padding: '12px 14px',
+  borderRadius: 10,
+  border: '1px solid var(--border, #e5e7eb)',
+  background: '#ffffff',
+  fontFamily: 'inherit',
+  fontSize: 14,
+  color: 'var(--text-primary, #111827)',
+  cursor: 'pointer',
+  textAlign: 'left',
+  transition: 'border-color 150ms ease, box-shadow 150ms ease',
+}
+
+const templateNameStyle: React.CSSProperties = {
+  fontWeight: 600,
+  fontSize: 14,
+}
+
+const templateDescStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: 'var(--text-secondary, #6b7280)',
+  lineHeight: 1.3,
 }
