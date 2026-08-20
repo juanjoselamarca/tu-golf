@@ -7,6 +7,7 @@ import {
   calcularBestBall, ordenarEquiposBestBall,
   calcularScramble, ordenarEquiposScramble,
   calcularFoursome, ordenarEquiposFoursome,
+  teePlayerEnHoyo,
 } from '@/golf/formats'
 import type { BestBallPlayer, ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
@@ -166,6 +167,66 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
     })
     const results = teams.map(t => calcularFoursome(t, holeData, parTotal))
     const sorted = ordenarEquiposFoursome(results, ronda.formato_juego, ronda.modo_juego)
+
+    // Expandable detail: scorecard with A/B tee-off indicators per hole.
+    const resultsByTeam = new Map(sorted.map(r => [r.teamId, r]))
+    const renderFoursomeDetail = (teamId: string) => {
+      const res = resultsByTeam.get(teamId)
+      if (!res) return null
+      return (
+        <div style={{ background: 'var(--bg)', padding: '8px 12px 12px' }}>
+          {/* Mini grid showing score + who teed off */}
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(ronda.holes, 9)}, 1fr)`, gap: '2px', fontSize: '10px' }}>
+            {/* Hole numbers */}
+            {res.holes.slice(0, Math.min(ronda.holes, 9)).map(h => (
+              <div key={`h-${h.numero}`} style={{ textAlign: 'center', color: 'var(--text-3)', fontWeight: 600 }}>{h.numero}</div>
+            ))}
+            {/* Scores */}
+            {res.holes.slice(0, Math.min(ronda.holes, 9)).map(h => (
+              <div key={`s-${h.numero}`} style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>
+                {h.gross ?? '—'}
+              </div>
+            ))}
+            {/* A/B indicator */}
+            {res.holes.slice(0, Math.min(ronda.holes, 9)).map(h => (
+              <div key={`t-${h.numero}`} style={{
+                textAlign: 'center', fontWeight: 600, fontSize: '9px',
+                color: h.teePlayer === res.nombreA ? '#c4992a' : '#6b7280',
+              }}>
+                {h.teePlayer === res.nombreA ? 'A' : 'B'}
+              </div>
+            ))}
+          </div>
+          {/* Back 9 if 18 holes */}
+          {ronda.holes > 9 && (
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(9, 1fr)`, gap: '2px', fontSize: '10px', marginTop: '6px' }}>
+              {res.holes.slice(9, 18).map(h => (
+                <div key={`h2-${h.numero}`} style={{ textAlign: 'center', color: 'var(--text-3)', fontWeight: 600 }}>{h.numero}</div>
+              ))}
+              {res.holes.slice(9, 18).map(h => (
+                <div key={`s2-${h.numero}`} style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>
+                  {h.gross ?? '—'}
+                </div>
+              ))}
+              {res.holes.slice(9, 18).map(h => (
+                <div key={`t2-${h.numero}`} style={{
+                  textAlign: 'center', fontWeight: 600, fontSize: '9px',
+                  color: h.teePlayer === res.nombreA ? '#c4992a' : '#6b7280',
+                }}>
+                  {h.teePlayer === res.nombreA ? 'A' : 'B'}
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Legend */}
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '6px', fontSize: '9px', color: 'var(--text-3)' }}>
+            <span><span style={{ color: '#c4992a', fontWeight: 700 }}>A</span> {res.nombreA}</span>
+            <span><span style={{ color: '#6b7280', fontWeight: 700 }}>B</span> {res.nombreB}</span>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <TeamLeaderboard
         teams={sorted.map(r => ({
@@ -184,6 +245,9 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
         formatoJuego={ronda.formato_juego}
         totalHoles={ronda.holes}
         formato="foursome"
+        expandedTeamId={expandedTeam}
+        onToggleTeam={onToggleTeam}
+        renderTeamDetail={renderFoursomeDetail}
       />
     )
   }

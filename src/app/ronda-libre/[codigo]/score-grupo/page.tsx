@@ -127,6 +127,8 @@ export default function ScoreGrupoPage() {
     jugadorIds: string[];
     jugadorNombres: string[];
   }>>([])
+  /** Foursome: invertir orden de salida por equipo (A→pares, B→impares) */
+  const [foursomeInvertido, setFoursomeInvertido] = useState<Record<string, boolean>>({})
   const swipeRef = useRef({ startX: 0, startY: 0 })
   const progressRef = useRef<HTMLDivElement>(null)
 
@@ -1064,8 +1066,26 @@ export default function ScoreGrupoPage() {
                       )}
                     </div>
                     {formatoJuego === 'foursome' && equipo.jugadorNombres.length === 2 && (
-                      <div style={{ fontSize: '10px', color: '#c4992a', marginTop: '2px' }}>
-                        Tira: {teePlayerEnHoyo(currentHole, equipo.jugadorNombres[0], equipo.jugadorNombres[1])}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                        <span style={{ fontSize: '10px', color: '#c4992a' }}>
+                          Tira: {teePlayerEnHoyo(currentHole, equipo.jugadorNombres[0], equipo.jugadorNombres[1], foursomeInvertido[equipo.id] ?? false)}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            haptic(15)
+                            setFoursomeInvertido(prev => ({ ...prev, [equipo.id]: !prev[equipo.id] }))
+                          }}
+                          style={{
+                            fontSize: '9px', fontWeight: 600, color: 'var(--text-3)',
+                            background: foursomeInvertido[equipo.id] ? 'rgba(196,153,42,0.12)' : 'rgba(0,0,0,0.04)',
+                            border: `1px solid ${foursomeInvertido[equipo.id] ? 'rgba(196,153,42,0.3)' : 'var(--border)'}`,
+                            borderRadius: '8px', padding: '2px 8px', cursor: 'pointer',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {foursomeInvertido[equipo.id] ? 'Orden invertido' : 'Invertir orden'}
+                        </button>
                       </div>
                     )}
                   </div>

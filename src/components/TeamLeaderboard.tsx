@@ -54,7 +54,7 @@ function primaryScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego): 
 }
 
 function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string {
-  if (formato === 'stableford') return String(team.totalStableford)
+  if (formato === 'stableford') return `${team.totalStableford} pts`
   if (!hasCourse) return String(modo === 'neto' ? team.totalNeto : team.totalGross)
   return formatOverUnder(modo === 'neto' ? team.overUnderNeto : team.overUnderGross)
 }
@@ -100,7 +100,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
         <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase' }}>#</span>
         <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase' }}>Equipo</span>
         <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'center' }}>
-          {hasCourse ? '+/- Par' : 'Score'}
+          {isStableford ? 'PTS' : hasCourse ? '+/- Par' : 'Score'}
         </span>
         <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
       </div>

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 // trackEvent moved to useFinalizeRonda hook
 import { Flame } from '@/components/icons'
-import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, type MatchResult } from '@/golf/formats/match-play'
+import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, CONCEDE, type MatchResult } from '@/golf/formats/match-play'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getYardajeForTee } from '@/types/ronda'
 import { parTotalEstandar } from '@/golf/core/round-score'
@@ -227,6 +227,18 @@ function ScorePageContent() {
       return next
     })
   }, [activeJugadorId, parMap, codigo])
+
+  /** Match Play: conceder el hoyo actual (score = CONCEDE = -1) */
+  const handleConcedeHole = useCallback(() => {
+    if (!activeJugadorId || ronda?.formato_juego !== 'match_play') return
+    haptic([20, 40, 20])
+    setScores(prev => {
+      const next = { ...prev, [activeJugadorId]: { ...(prev[activeJugadorId] ?? {}), [currentHole]: CONCEDE } }
+      setHasUnsaved(true)
+      lsSave(codigo, activeJugadorId, next[activeJugadorId])
+      return next
+    })
+  }, [activeJugadorId, ronda?.formato_juego, currentHole, codigo])
 
   /* ── Swipe ── */
   const handleTouchStart = (e: React.TouchEvent) => { swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY } }
@@ -816,6 +828,41 @@ function ScorePageContent() {
             </div>
           )
         })()}
+
+        {/* ── Match Play: dormie badge ── */}
+        {isMatchPlay && matchResult && matchResult.dormie && !matchResult.isFinished && (
+          <div style={{
+            display: 'flex', justifyContent: 'center', marginTop: '8px',
+          }}>
+            <span style={{
+              fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em',
+              color: '#c4992a', background: 'rgba(196,153,42,0.1)',
+              border: '1px solid rgba(196,153,42,0.3)',
+              padding: '4px 14px', borderRadius: '20px',
+              textTransform: 'uppercase',
+            }}>
+              DORMIE
+            </span>
+          </div>
+        )}
+
+        {/* ── Match Play: conceder hoyo ── */}
+        {isMatchPlay && matchResult && !matchResult.isFinished && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
+            <button
+              onClick={handleConcedeHole}
+              disabled={scores[activeJugadorId ?? '']?.[currentHole] === CONCEDE}
+              style={{
+                fontSize: '12px', fontWeight: 600, color: '#dc2626',
+                background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)',
+                borderRadius: '10px', padding: '6px 16px', cursor: 'pointer',
+                opacity: scores[activeJugadorId ?? '']?.[currentHole] === CONCEDE ? 0.4 : 1,
+              }}
+            >
+              {scores[activeJugadorId ?? '']?.[currentHole] === CONCEDE ? 'Hoyo concedido' : 'Conceder hoyo'}
+            </button>
+          </div>
+        )}
       </div>
 
       <HoleControlBar

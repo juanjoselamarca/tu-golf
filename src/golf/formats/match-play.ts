@@ -54,6 +54,12 @@ export interface MatchResult {
   holesWonA: number
   holesWonB: number
   holesHalved: number
+  /**
+   * Dormie: un jugador lidera por EXACTAMENTE la cantidad de hoyos restantes.
+   * Si pierde un solo hoyo, queda All Square; si gana uno, match terminado.
+   * null cuando no aplica (all square, match terminado, o diferencia < holesRemaining).
+   */
+  dormie: 'a' | 'b' | null
 }
 
 export interface MatchPlayConfig {
@@ -344,6 +350,11 @@ export function calcularMatchPlay(
     ? (matchState > 0 ? 'a' : matchState < 0 ? 'b' : null)
     : null
 
+  // Dormie: líder arriba por EXACTAMENTE los hoyos restantes (match no terminado)
+  const dormie: 'a' | 'b' | null = (!isFinished && holesRemaining > 0 && Math.abs(matchState) === holesRemaining)
+    ? (matchState > 0 ? 'a' : 'b')
+    : null
+
   return {
     holes: holeDetails,
     holesPlayed,
@@ -355,6 +366,7 @@ export function calcularMatchPlay(
     holesWonA,
     holesWonB,
     holesHalved,
+    dormie,
   }
 }
 

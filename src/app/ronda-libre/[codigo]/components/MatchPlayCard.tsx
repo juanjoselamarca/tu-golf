@@ -57,6 +57,18 @@ export function MatchPlayCard({ ronda, mr, courseHcpMap, displayHcpMap }: MatchP
             {mr.holesPlayed} de {ronda.holes} hoyos jugados
           </div>
         )}
+        {mr.dormie && !mr.isFinished && (
+          <div style={{
+            display: 'inline-block', marginTop: '6px',
+            fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em',
+            color: '#c4992a', background: 'rgba(196,153,42,0.1)',
+            border: '1px solid rgba(196,153,42,0.3)',
+            padding: '3px 12px', borderRadius: '16px',
+            textTransform: 'uppercase',
+          }}>
+            DORMIE
+          </div>
+        )}
       </div>
 
       {/* Stats row */}
