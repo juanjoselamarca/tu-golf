@@ -271,7 +271,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               Cancelar
             </Link>
             <button type="submit" disabled={loading}
-              style={{ flex: 2, background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', borderRadius: '8px', padding: '13px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
+              style={{ flex: 2, background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', borderRadius: '8px', padding: '13px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.5 : 1, transition: 'filter 200ms' }}
               onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.08)' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)' }}>
               {loading ? 'Guardando...' : 'Guardar cambios →'}

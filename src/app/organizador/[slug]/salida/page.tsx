@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { SITE_DOMAIN } from '@/lib/site-url'
 import { createClient } from '@/lib/supabase'
 import { copyToClipboard } from '@/lib/clipboard'
@@ -108,7 +109,7 @@ export default function HojaSalidaPage() {
     }
   }
 
-  if (loading) return <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>Cargando...</div>
+  if (loading) return <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSkeleton lines={4} /></div>
   if (!tournament) return <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>Torneo no encontrado</div>
 
   return (

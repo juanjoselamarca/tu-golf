@@ -79,13 +79,13 @@ export default function Navbar() {
   // Menú organizado en 3 bloques para usuarios autenticados
   const menuBlocks = user ? [
     {
-      label: 'COMUNIDAD',
+      label: 'EN VIVO',
       items: [
         { href: '/en-vivo', icon: <Radio size={18} />, label: 'En Vivo', badge: 'LIVE' },
       ],
     },
     {
-      label: 'MI JUEGO',
+      label: 'MI GOLF',
       items: [
         { href: '/perfil/stats', icon: <TrendingUp size={18} />, label: 'Mi CPI' },
         { href: '/perfil/historial', icon: <ClipboardList size={18} />, label: 'Rondas' },
@@ -95,7 +95,7 @@ export default function Navbar() {
       ],
     },
     {
-      label: 'LABORATORIO',
+      label: 'EXPLORAR',
       items: [
         { href: '/indices', icon: <Zap size={18} />, label: 'Intelligence' },
       ],

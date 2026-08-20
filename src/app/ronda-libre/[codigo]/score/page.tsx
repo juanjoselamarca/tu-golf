@@ -562,8 +562,8 @@ function ScorePageContent() {
         </div>
       </header>
       {/* Progress bar */}
-      <div style={{ height: '3px', background: '#e2e8f0', flexShrink: 0 }}>
-        <div style={{ height: '3px', background: '#C4992A', width: `${(holesPlayed / totalHoles) * 100}%`, transition: 'width 0.3s ease' }} />
+      <div style={{ height: '3px', background: 'var(--border)', flexShrink: 0 }}>
+        <div style={{ height: '3px', background: 'var(--brand)', width: `${(holesPlayed / totalHoles) * 100}%`, transition: 'width 0.3s ease' }} />
       </div>
 
       <MiniScorecardGrid
@@ -610,12 +610,12 @@ function ScorePageContent() {
 
       {/* ── Toggle Scorecard / Leaderboard (multi-player only) ── */}
       {jugadores.length > 1 && (
-        <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '20px', padding: '2px', margin: '5px 16px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', background: 'var(--surface-soft)', borderRadius: '20px', padding: '2px', margin: '5px 16px', flexShrink: 0 }}>
           {(['scorecard', 'leaderboard'] as const).map(v => (
             <button key={v} onClick={() => setView(v)} style={{
               flex: 1, padding: '6px', borderRadius: '16px', fontSize: '12px', fontWeight: 500,
               border: 'none', cursor: 'pointer',
-              background: view === v ? '#C4992A' : 'transparent',
+              background: view === v ? 'var(--brand)' : 'transparent',
               color: view === v ? '#ffffff' : theme.textFaint,
               transition: 'all 0.15s ease', WebkitTapHighlightColor: 'transparent',
             }}>
@@ -627,14 +627,14 @@ function ScorePageContent() {
 
       {/* ── Player tabs (only if NO specific player is selected — legacy/admin) ── */}
       {!selectedPlayer && jugadores.length > 1 && view === 'scorecard' && (
-        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid #e2e8f0`, WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
+        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid var(--border)`, WebkitOverflowScrolling: 'touch', flexShrink: 0, height: '36px' }}>
           {jugadores.map(j => {
             const active = j.id === activeJugadorId
             return (
               <button key={j.id} onClick={() => setActiveJugadorId(j.id)} style={{
                 padding: '0 16px', height: '36px', border: 'none',
-                borderBottom: active ? '2px solid #C4992A' : '2px solid transparent',
-                background: 'transparent', color: active ? '#C4992A' : theme.textFaint,
+                borderBottom: active ? '2px solid var(--brand)' : '2px solid transparent',
+                background: 'transparent', color: active ? 'var(--brand-on-bg)' : theme.textFaint,
                 fontWeight: active ? 600 : 400, fontSize: '13px',
                 cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, minHeight: 0, minWidth: 0,
               }}>{j.nombre}</button>
@@ -933,8 +933,8 @@ function ScorePageContent() {
             onClick={goToPrevHole}
             aria-label="Hoyo anterior"
             style={{
-              flex: 1, padding: '14px', background: 'transparent',
-              color: theme.textMuted, border: `1px solid #e2e8f0`,
+              flex: 1, padding: '14px', minHeight: '48px', background: 'transparent',
+              color: theme.textMuted, border: `1px solid var(--border)`,
               borderRadius: '12px', fontSize: '14px', fontWeight: 400,
               cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             }}
@@ -947,8 +947,8 @@ function ScorePageContent() {
             onClick={() => { setConfirmFinalize(false); goToNextHole() }}
             aria-label="Siguiente hoyo"
             style={{
-              flex: 2, padding: '14px',
-              background: '#C4992A', color: '#ffffff',
+              flex: 2, padding: '14px', minHeight: '48px',
+              background: 'var(--brand)', color: '#ffffff',
               border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
               cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
               touchAction: 'manipulation', letterSpacing: '0.01em',
@@ -963,8 +963,8 @@ function ScorePageContent() {
             aria-label={confirmFinalize ? 'Confirmar finalizacion' : 'Finalizar ronda'}
             style={{
               flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
-              background: confirmFinalize ? '#d97706' : isLastHole ? '#C4992A' : 'transparent',
-              color: confirmFinalize ? '#ffffff' : isLastHole ? '#ffffff' : '#C4992A',
+              background: confirmFinalize ? '#d97706' : isLastHole ? 'var(--brand)' : 'transparent',
+              color: confirmFinalize ? '#ffffff' : isLastHole ? '#ffffff' : 'var(--brand-on-bg)',
               border: isLastHole ? 'none' : '1px solid rgba(196,153,42,0.4)',
               borderRadius: '12px',
               fontSize: isLastHole ? '16px' : '13px',
@@ -1080,7 +1080,7 @@ function ScorePageContent() {
 
 export default function ScorePage() {
   return (
-    <Suspense fallback={<div style={{ background: 'var(--bg-surface)', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>Cargando...</div>}>
+    <Suspense fallback={<div style={{ background: 'var(--bg-surface)', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)' }}>Cargando...</div>}>
       <ScorePageContent />
     </Suspense>
   )

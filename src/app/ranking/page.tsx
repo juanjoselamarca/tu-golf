@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { NIVEL_LABELS } from '@/lib/indice-golfers'
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 
 /* ── Theme tokens (coherente con signup + score-grupo v2 white) ────── */
 const theme = {
@@ -132,9 +133,7 @@ export default function RankingPage() {
 
         {/* List */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted, fontSize: '14px' }}>
-            Cargando…
-          </div>
+          <LoadingSkeleton lines={6} />
         ) : players.length === 0 ? (
           <div style={{
             background: theme.card,

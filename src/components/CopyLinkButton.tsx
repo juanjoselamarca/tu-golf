@@ -22,7 +22,7 @@ export default function CopyLinkButton({ slug }: { slug: string }) {
         style={{
           background: copied ? 'rgba(34,197,94,0.15)' : 'var(--bg-surface)',
           border: `1px solid ${copied ? 'rgba(34,197,94,0.4)' : 'rgba(196,153,42,0.25)'}`,
-          color: copied ? '#86efac' : 'var(--text-2)',
+          color: copied ? 'var(--status-live-fg)' : 'var(--text-2)',
           padding: '12px 20px',
           minHeight: '44px',
           minWidth: '44px',
@@ -38,7 +38,7 @@ export default function CopyLinkButton({ slug }: { slug: string }) {
         onMouseEnter={(e) => {
           if (!copied) {
             ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(196,153,42,0.5)'
-            ;(e.currentTarget as HTMLButtonElement).style.color = '#c4992a'
+            ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--brand-on-bg)'
             ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,153,42,0.08)'
           }
         }}
@@ -52,7 +52,7 @@ export default function CopyLinkButton({ slug }: { slug: string }) {
       >
         {copied ? (
           <>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#86efac" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
             Link copiado
