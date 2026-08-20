@@ -35,6 +35,8 @@ export interface RivalDelCreador {
   handicap: number | null
   /** Tee propio. `null` = hereda el tee global de la ronda. */
   tees: string | null
+  /** UUID del perfil Golfers+ si se vinculó con búsqueda. `null` = jugador manual. */
+  profileId: string | null
 }
 
 export interface EquipoDeLaRonda {
@@ -86,7 +88,7 @@ export function useFormularioDeRonda() {
   const ultimoId = useRef(0)
   const rivalVacio = (nombre = ''): RivalDelCreador => {
     ultimoId.current += 1
-    return { id: `rival-${ultimoId.current}`, tipo: 'invitado', nombre, telefono: '', handicap: null, tees: null }
+    return { id: `rival-${ultimoId.current}`, tipo: 'invitado', nombre, telefono: '', handicap: null, tees: null, profileId: null }
   }
 
   const [cancha, setCancha] = useState('')
