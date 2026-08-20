@@ -13,8 +13,10 @@
  */
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import { parPerHoleArray } from '@/golf/core/compare'
+import { KNOWN_FORMAT_KEYS, FORMATS } from '@/golf/formats'
 import type { HistorialStats } from '@/golf/stats/historial'
 import { useHistorialRounds } from '../hooks/useHistorialRounds'
 import { useRoundActions } from '../hooks/useRoundActions'
@@ -31,6 +33,19 @@ import { groupByMonth, computeStats, formatOv, isMatchPlay, isCompleteRound } fr
 import { cardStyle } from '../lib/constants'
 import { useToast } from '@/hooks/useToast'
 import type { BestRound, HistoricalRound, Pill } from '../lib/types'
+
+/* ── Style for filter selects ── */
+const filterSelectStyle: React.CSSProperties = {
+  padding: '8px 12px',
+  borderRadius: '8px',
+  border: '1px solid var(--border)',
+  background: 'var(--bg-surface)',
+  color: 'var(--text)',
+  fontSize: '13px',
+}
+
+/* ── Lazy-loaded chart to avoid bundle bloat on initial load ── */
+const HandicapChart = dynamic(() => import('./HandicapChart'), { ssr: false })
 
 export interface HistorialViewProps {
   userId: string
@@ -56,6 +71,14 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
   const [showForm, setShowForm] = useState(initialShowForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
+
+  /* ── Filters (Task 2.10) ── */
+  const [filterCourse, setFilterCourse] = useState<string>('')
+  const [filterFormat, setFilterFormat] = useState<string>('')
+  const [filterDateRange, setFilterDateRange] = useState<'all' | '30d' | '90d' | '1y'>('all')
+
+  /* ── Chart (Task 2.11) ── */
+  const [showChart, setShowChart] = useState(false)
 
   /* ── Handlers con feedback visible (CERO FALLOS: nada falla en silencio) ── */
   // Subtítulo honesto: muestra el índice REAL recalculado, no una promesa vacía.
@@ -159,7 +182,37 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
     { label: 'Eagles',  value: String(stats?.totalEagles ?? aggEagles) },
   ]
   const progress = Math.min(totalRounds / Math.max(totalRounds, 1), 1)
-  const monthGroups = groupByMonth(rounds)
+
+  /* ── Filters + chart data (Tasks 2.10 & 2.11) ── */
+  const uniqueCourses = useMemo(
+    () => Array.from(new Set(rounds.map(r => r.course_name).filter(Boolean))).sort(),
+    [rounds],
+  )
+
+  const filteredRounds = useMemo(() => {
+    let result = rounds
+    if (filterCourse) result = result.filter(r => r.course_name === filterCourse)
+    if (filterFormat) result = result.filter(r => r.formato_juego === filterFormat)
+    if (filterDateRange !== 'all') {
+      const now = new Date()
+      const days = filterDateRange === '30d' ? 30 : filterDateRange === '90d' ? 90 : 365
+      const cutoff = new Date(now.getTime() - days * 86400000)
+      result = result.filter(r => new Date(r.played_at) >= cutoff)
+    }
+    return result
+  }, [rounds, filterCourse, filterFormat, filterDateRange])
+
+  const chartData = useMemo(() => {
+    return rounds
+      .filter(r => r.diferencial != null && r.played_at)
+      .sort((a, b) => new Date(a.played_at).getTime() - new Date(b.played_at).getTime())
+      .map(r => ({
+        date: new Date(r.played_at).toLocaleDateString('es-CL', { month: 'short', day: 'numeric' }),
+        diferencial: Number(r.diferencial!.toFixed(1)),
+      }))
+  }, [rounds])
+
+  const monthGroups = groupByMonth(filteredRounds)
 
   /* ── Guards ── */
   if (loadError && rounds.length === 0) {
@@ -180,6 +233,62 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
           bestRound18={stats?.bestRound18 ?? bestRound18}
           bestRound9={stats?.bestRound9 ?? bestRound9}
         />
+
+        {/* Handicap progression chart (Task 2.11) */}
+        {chartData.length >= 3 && (
+          <div style={{ marginBottom: '20px' }}>
+            <button
+              onClick={() => setShowChart(prev => !prev)}
+              type="button"
+              style={{ fontSize: '13px', color: 'var(--brand-on-bg)', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '8px', fontWeight: 600 }}
+            >
+              {showChart ? '▼ Ocultar progresión' : '▶ Ver progresión de diferencial'}
+            </button>
+            {showChart && <HandicapChart data={chartData} />}
+          </div>
+        )}
+
+        {/* Filters (Task 2.10) */}
+        {rounds.length > 0 && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'center' }}>
+            <select
+              value={filterCourse}
+              onChange={e => setFilterCourse(e.target.value)}
+              style={filterSelectStyle}
+            >
+              <option value="">Todas las canchas</option>
+              {uniqueCourses.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            <select
+              value={filterFormat}
+              onChange={e => setFilterFormat(e.target.value)}
+              style={filterSelectStyle}
+            >
+              <option value="">Todos los formatos</option>
+              {KNOWN_FORMAT_KEYS.map(k => (
+                <option key={k} value={k}>{FORMATS[k].name}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterDateRange}
+              onChange={e => setFilterDateRange(e.target.value as 'all' | '30d' | '90d' | '1y')}
+              style={filterSelectStyle}
+            >
+              <option value="all">Todo el historial</option>
+              <option value="30d">Últimos 30 días</option>
+              <option value="90d">Últimos 90 días</option>
+              <option value="1y">Último año</option>
+            </select>
+
+            {(filterCourse || filterFormat || filterDateRange !== 'all') && (
+              <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>
+                {filteredRounds.length} de {rounds.length} rondas
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Add round form */}
         {showForm && <AddRoundForm form={form} />}
@@ -228,7 +337,9 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
               </div>
             ))}
             <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-3)', marginTop: '20px' }}>
-              {rounds.length} tarjetas guardadas
+              {filteredRounds.length === rounds.length
+                ? `${rounds.length} tarjetas guardadas`
+                : `${filteredRounds.length} de ${rounds.length} tarjetas`}
             </p>
 
             {/* Borrado masivo — detrás de confirmación fuerte (acción destructiva) */}
