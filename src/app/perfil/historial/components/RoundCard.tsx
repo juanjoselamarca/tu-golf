@@ -160,6 +160,16 @@ export function RoundCard({
                 display: 'inline-block', flexShrink: 0,
               }} />
             )}
+            {r.match_result && (
+              <span style={{ fontSize: '12px', color: 'var(--brand-on-bg)', fontWeight: 600 }}>
+                {r.match_result}
+              </span>
+            )}
+            {r.team_name && (
+              <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+                Equipo: {r.team_name}
+              </span>
+            )}
           </div>
         </div>
 

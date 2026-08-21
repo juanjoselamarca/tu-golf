@@ -82,10 +82,10 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
         padding: '10px 14px', alignItems: 'center',
         background: '#f9fafb', borderBottom: '1px solid #e5e7eb',
       }}>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>POS</span>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>JUGADOR</span>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>THRU</span>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>TOT</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>POS</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>JUGADOR</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>THRU</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>TOT</span>
       </div>
 
       {/* Player rows */}
@@ -142,7 +142,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                 </span>
                 {player.positionDelta !== 0 && (
                   <span style={{
-                    display: 'block', fontSize: '9px', fontWeight: 700, fontFamily: M, lineHeight: 1,
+                    display: 'block', fontSize: '11px', fontWeight: 700, fontFamily: M, lineHeight: 1,
                     color: player.positionDelta > 0 ? '#16a34a' : '#dc2626',
                   }}>
                     {player.positionDelta > 0 ? `▲${player.positionDelta}` : `▼${Math.abs(player.positionDelta)}`}
@@ -204,7 +204,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                 }}>
                   {/* GWI Bloomberg */}
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', fontFamily: M, color: '#6B7280', letterSpacing: '0.05em' }}>GWI</span>
+                    <span style={{ fontSize: '11px', fontFamily: M, color: '#6B7280', letterSpacing: '0.05em' }}>GWI</span>
                     <span style={{ fontFamily: M, fontSize: '18px', fontWeight: 700, color: gwiClr(player.gwi, filtered.length) }}>
                       {player.gwi.toFixed(1)}
                     </span>
@@ -218,8 +218,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
 
                   {/* Birdies · Bogeys · Last hole */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '13px', color: '#166534', fontFamily: M, fontWeight: 600 }}>{birdies} <span style={{ fontSize: '10px', fontWeight: 400 }}>bir</span></span>
-                    <span style={{ fontSize: '13px', color: '#991b1b', fontFamily: M, fontWeight: 600 }}>{bogeys} <span style={{ fontSize: '10px', fontWeight: 400 }}>bog</span></span>
+                    <span style={{ fontSize: '13px', color: '#166534', fontFamily: M, fontWeight: 600 }}>{birdies} <span style={{ fontSize: '11px', fontWeight: 400 }}>bir</span></span>
+                    <span style={{ fontSize: '13px', color: '#991b1b', fontFamily: M, fontWeight: 600 }}>{bogeys} <span style={{ fontSize: '11px', fontWeight: 400 }}>bog</span></span>
                     {lastHole > 0 && (
                       <span style={{ fontSize: '14px' }}>{lastLabel}</span>
                     )}

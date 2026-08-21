@@ -140,8 +140,8 @@ function Scorecard({
               className="flex flex-col items-center justify-between flex-shrink-0"
               style={{ width: 50, height: 62, padding: '5px 3px' }}
             >
-              <span style={{ fontSize: 9, color: 'var(--text-2)', lineHeight: 1 }}>H.{hNum}</span>
-              <span style={{ fontSize: 9, color: 'var(--text-2)', lineHeight: 1 }}>par {par}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1 }}>H.{hNum}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1 }}>par {par}</span>
               <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                 {isDouble && (isCircle || isSquare) && (
                   <div style={{
@@ -175,17 +175,17 @@ function Scorecard({
   return (
     <div className="px-5 py-4" style={{ background: '#0a1525', borderTop: '1px solid rgba(196,153,42,0.1)' }}>
       <div className="overflow-x-auto">
-        <div style={{ minWidth: 520 }}>
+        <div style={{ minWidth: 360 }}>
 
           <div className="mb-3">
-            <p className="font-sans mb-2" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-2)', textTransform: 'uppercase' }}>
+            <p className="font-sans mb-2" style={{ fontSize: 11, letterSpacing: '0.08em', color: 'var(--text-2)', textTransform: 'uppercase' }}>
               Front 9 — par 35
             </p>
             {renderGroup(front, 0)}
           </div>
 
           <div className="mb-4">
-            <p className="font-sans mb-2" style={{ fontSize: 10, letterSpacing: '0.08em', color: 'var(--text-2)', textTransform: 'uppercase' }}>
+            <p className="font-sans mb-2" style={{ fontSize: 11, letterSpacing: '0.08em', color: 'var(--text-2)', textTransform: 'uppercase' }}>
               Back 9 — par 37
             </p>
             {renderGroup(back, 9)}
@@ -327,7 +327,7 @@ function ShareCard({
                 borderRadius: 3, ...hs,
               }}
             >
-              <span style={{ fontSize: 8, color: 'var(--text-2)', lineHeight: 1 }}>H{i + 1}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1 }}>H{i + 1}</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: played ? scoreColor(score! - par) : '#3a4a5a', lineHeight: 1.3 }}>
                 {played ? score : '—'}
               </span>
@@ -618,7 +618,7 @@ export default function LeaderboardTable({ players, modoJuego, formatoJuego }: {
       {/* ── Table ────────────────────────────────────────── */}
       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(196,153,42,0.13)' }}>
         <div className="overflow-x-auto">
-          <table className="w-full" style={{ minWidth: 660, borderCollapse: 'collapse' }}>
+          <table className="w-full" style={{ minWidth: 360, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(196,153,42,0.08)', borderBottom: '1px solid rgba(196,153,42,0.28)' }}>
                 {[
