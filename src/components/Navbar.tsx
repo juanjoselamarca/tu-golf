@@ -314,7 +314,7 @@ export default function Navbar() {
                           const isLive = b === 'LIVE'
                           return (
                             <span style={{
-                              fontSize: '9px', fontWeight: 700,
+                              fontSize: '11px', fontWeight: 700,
                               fontFamily: 'DM Mono, monospace',
                               letterSpacing: '0.08em',
                               padding: '2px 6px', borderRadius: '4px',
@@ -509,7 +509,7 @@ export default function Navbar() {
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
                 </button>
-                <span style={{ fontSize: '9px', fontFamily: 'var(--font-dm-mono), monospace', color: '#c4992a', fontWeight: 600, marginTop: '3px', letterSpacing: '0.08em' }}>JUGAR</span>
+                <span style={{ fontSize: '11px', fontFamily: 'var(--font-dm-mono), monospace', color: '#c4992a', fontWeight: 600, marginTop: '3px', letterSpacing: '0.08em' }}>JUGAR</span>
               </div>
 
               {/* Coach AI */}

@@ -22,7 +22,7 @@ export function GWICell({ gwi, delta, series, level, compact }: GWICellProps) {
         <span style={{ fontFamily: 'var(--font-cormorant), serif', fontSize: '15px', fontWeight: 300, color: numberColor }}>
           {gwi.toFixed(1)}
         </span>
-        <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '9px', color: deltaColor }}>
+        <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: deltaColor }}>
           {deltaIcon}
         </span>
       </div>
@@ -40,7 +40,7 @@ export function GWICell({ gwi, delta, series, level, compact }: GWICellProps) {
         {gwi.toFixed(1)}
       </span>
       <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-        <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: deltaColor }}>
+        <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: deltaColor }}>
           {deltaIcon} {deltaText}
         </span>
         {delta > 0 && (
