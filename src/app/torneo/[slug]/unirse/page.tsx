@@ -9,6 +9,12 @@ import type {
   JoinInfoProfile,
 } from '@/lib/data/tournaments/joinFlow'
 import type { CapacityInfo } from '@/lib/data/tournaments/enrollPlayer'
+import {
+  getOrCreateGuestId,
+  setGuestName as saveGuestName,
+  setGuestHandicap as saveGuestHandicap,
+  setGuestToken,
+} from '@/lib/guest-session'
 
 /**
  * `fetch` con timeout duro. Sin esto, una conexión que abre pero nunca responde
@@ -77,6 +83,11 @@ export default function UnirsePage() {
   /** La carga falló y no hay torneo que mostrar → ofrecer reintento, no una
    *  pantalla en blanco con un banner rojo huérfano. */
   const [loadFailed, setLoadFailed] = useState(false)
+
+  // Guest form state
+  const [guestName, setGuestName] = useState('')
+  const [guestHandicap, setGuestHandicap] = useState('')
+  const [guestJoining, setGuestJoining] = useState(false)
 
   const loadData = useCallback(async () => {
     setError(null)
@@ -164,6 +175,56 @@ export default function UnirsePage() {
       setError(body.message ?? 'No se pudo completar la inscripción. Intenta nuevamente.')
     }
     setInscribing(false)
+  }
+
+  const handleGuestJoin = async () => {
+    if (!tournament || guestJoining) return
+    const trimmedName = guestName.trim()
+    if (trimmedName.length < 2) {
+      setError('Ingresa tu nombre (al menos 2 caracteres).')
+      return
+    }
+    setGuestJoining(true)
+    setError(null)
+
+    const guestId = getOrCreateGuestId()
+    const handicapNum = guestHandicap ? parseFloat(guestHandicap) : undefined
+
+    let res: Awaited<ReturnType<typeof fetchJsonConTimeout>>
+    try {
+      res = await fetchJsonConTimeout(`/api/torneos/${encodeURIComponent(slug)}/guest-join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guestId,
+          name: trimmedName,
+          handicap: handicapNum != null && !isNaN(handicapNum) ? handicapNum : undefined,
+        }),
+      })
+    } catch {
+      setError('No pudimos confirmar tu inscripción. Revisa tu señal y vuelve a intentarlo.')
+      setGuestJoining(false)
+      return
+    }
+
+    if (res.ok) {
+      const body = res.body as { guestToken?: string }
+      // Guardar datos de sesión de invitado
+      saveGuestName(trimmedName)
+      if (handicapNum != null && !isNaN(handicapNum)) {
+        saveGuestHandicap(handicapNum)
+      }
+      if (body.guestToken) {
+        setGuestToken(body.guestToken)
+      }
+      // Redirigir directo al scorer
+      router.push(`/torneo/${slug}/score`)
+      return
+    }
+
+    const body = (res.body ?? {}) as { message?: string }
+    setError(body.message ?? 'No se pudo completar la inscripción. Intenta nuevamente.')
+    setGuestJoining(false)
   }
 
   if (success && tournament) {
@@ -384,36 +445,155 @@ export default function UnirsePage() {
             )}
 
             {!authenticated ? (
-              /* Visitor sin sesión — muestra info del torneo + CTA login */
-              <div style={{ textAlign: 'center' }}>
-                <Link
-                  href={`/login?next=/torneo/${slug}/unirse`}
+              /* Visitor sin sesión — guest scoring form + opción de login */
+              esInscribible(tournament.status) ? (
+                <div>
+                  {/* Guest form */}
+                  <div
+                    style={{
+                      background: 'var(--surface-soft)',
+                      border: '1px solid var(--surface-border)',
+                      borderRadius: '14px',
+                      padding: '24px',
+                      marginBottom: '20px',
+                    }}
+                  >
+                    <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
+                      Scorear como invitado
+                    </div>
+
+                    <div style={{ marginBottom: '16px' }}>
+                      <label htmlFor="guest-name" style={{ fontSize: '13px', color: 'var(--text-2)', display: 'block', marginBottom: '6px' }}>
+                        Tu nombre *
+                      </label>
+                      <input
+                        id="guest-name"
+                        type="text"
+                        value={guestName}
+                        onChange={(e) => setGuestName(e.target.value)}
+                        placeholder="Nombre y apellido"
+                        maxLength={100}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          background: 'var(--input-bg)',
+                          border: '1px solid var(--input-border)',
+                          borderRadius: '10px',
+                          color: 'var(--text)',
+                          fontSize: '15px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '20px' }}>
+                      <label htmlFor="guest-handicap" style={{ fontSize: '13px', color: 'var(--text-2)', display: 'block', marginBottom: '6px' }}>
+                        Índice de handicap (opcional)
+                      </label>
+                      <input
+                        id="guest-handicap"
+                        type="number"
+                        step="0.1"
+                        min="-10"
+                        max="54"
+                        value={guestHandicap}
+                        onChange={(e) => setGuestHandicap(e.target.value)}
+                        placeholder="Ej: 18.5"
+                        inputMode="decimal"
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          background: 'var(--input-bg)',
+                          border: '1px solid var(--input-border)',
+                          borderRadius: '10px',
+                          color: 'var(--text)',
+                          fontSize: '15px',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGuestJoin}
+                      disabled={guestJoining || guestName.trim().length < 2}
+                      style={{
+                        width: '100%',
+                        background: '#c4992a',
+                        color: 'var(--brand-dark)',
+                        fontWeight: 700,
+                        fontSize: '16px',
+                        padding: '16px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        cursor: guestJoining || guestName.trim().length < 2 ? 'not-allowed' : 'pointer',
+                        opacity: guestJoining || guestName.trim().length < 2 ? 0.7 : 1,
+                        transition: 'opacity 200ms',
+                      }}
+                    >
+                      {guestJoining ? 'Inscribiendo...' : 'Scorear como invitado'}
+                    </button>
+                  </div>
+
+                  {/* Separador */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--surface-border)' }} />
+                    <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>o</span>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--surface-border)' }} />
+                  </div>
+
+                  {/* Login option */}
+                  <div style={{ textAlign: 'center' }}>
+                    <Link
+                      href={`/login?next=/torneo/${slug}/unirse`}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        background: 'transparent',
+                        color: 'var(--text)',
+                        fontWeight: 600,
+                        fontSize: '15px',
+                        padding: '14px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--surface-border)',
+                        textDecoration: 'none',
+                        textAlign: 'center',
+                      }}
+                    >
+                      Iniciar sesión con mi cuenta
+                    </Link>
+                    <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
+                      Si ya tienes cuenta, ingresa para guardar tu historial y estadísticas
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* Torneo no inscribible y no autenticado */
+                <div
                   style={{
-                    display: 'block',
-                    width: '100%',
-                    background: '#c4992a',
-                    color: 'var(--brand-dark)',
-                    fontWeight: 700,
-                    fontSize: '16px',
-                    padding: '16px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    textDecoration: 'none',
+                    background: 'var(--surface-soft)',
+                    border: '1px solid var(--surface-border)',
+                    borderRadius: '12px',
+                    padding: '20px',
                     textAlign: 'center',
+                    marginBottom: '16px',
                   }}
                 >
-                  Iniciar sesión para inscribirme
-                </Link>
-                <p style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '10px' }}>
-                  Vuelves automáticamente al torneo después
-                </p>
-                <Link
-                  href={`/torneo/${slug}`}
-                  style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '3px', marginTop: '8px', display: 'inline-block' }}
-                >
-                  Ver leaderboard sin inscribirme →
-                </Link>
-              </div>
+                  <div style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600, marginBottom: '6px' }}>
+                    {tournament.status === 'draft'
+                      ? 'Las inscripciones de este torneo aún no están abiertas'
+                      : 'Las inscripciones de este torneo están cerradas'}
+                  </div>
+                  <Link
+                    href={`/torneo/${slug}`}
+                    style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+                  >
+                    Ver leaderboard →
+                  </Link>
+                </div>
+              )
             ) : alreadyRegistered ? (
               <div
                 style={{
