@@ -42,6 +42,10 @@ export interface HistoricalRound {
   slope_rating?: number | null
   /** Course rating del tee jugado — necesario para calcular diferencial y elegibilidad de índice. */
   course_rating?: number | null
+  /** Resultado de match play (ej. "3&2", "AS"). Guardado en BD pero no se leía. */
+  match_result?: string | null
+  /** Nombre del equipo en formatos por equipo. Guardado en BD pero no se leía. */
+  team_name?: string | null
 }
 
 /**
@@ -50,7 +54,7 @@ export interface HistoricalRound {
  * (useHistorialRounds.reload) — evita que dos copias se desincronicen.
  */
 export const SELECT_COLUMNS =
-  'id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego, par_per_hole, excluded_from_handicap, diferencial, slope_rating, course_rating'
+  'id, course_name, course_id, tee_color, played_at, scores, total_gross, holes_played, notes, privacy, created_at, formato_juego, modo_juego, par_per_hole, excluded_from_handicap, diferencial, slope_rating, course_rating, match_result, team_name'
 
 // D8: las tarjetas FedeGolf no se muestran en el listado genérico ni cuentan en
 // las stats del historial (su hogar es el modal "Índice oficial explicado").
