@@ -244,7 +244,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       // activo tiene cuenta propia, usar su user_id; si no (invitado), usar la sesion actual.
       const historicalUserId = activePlayer?.user_id ?? authUser?.id
       if (!historicalUserId) throw new Error('no-user-id-for-historical')
-      const { data: insertedRound } = await supabase.from('historical_rounds').insert({
+      const { data: insertedRound, error: insertErr } = await supabase.from('historical_rounds').insert({
         user_id: historicalUserId,
         course_name: ronda.course_name,
         course_id: ronda.course_id ?? null,
@@ -263,7 +263,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         team_name: teamName,
       }).select('id').single()
 
-      if (insertedRound?.id) {
+      // Duplicate entry (unique constraint): silently continue — round already saved
+      if (insertErr?.code === '23505') {
+        // Already saved from a previous finalization attempt — no-op
+      } else if (insertedRound?.id) {
         setHistoricalRoundId(insertedRound.id)
         // Cerebro v2 — wire plan outcomes para que el coach aprenda de la ronda.
         // Sin esto, plan_outcomes queda en 0 filas y el coach no aprende. Non-blocking.

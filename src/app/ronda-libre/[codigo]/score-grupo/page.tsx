@@ -697,6 +697,8 @@ export default function ScoreGrupoPage() {
         })
 
         if (insertErr) {
+          // Duplicate entry (unique constraint): silently continue — round already saved
+          if (insertErr.code === '23505') continue
           captureError(insertErr, { context: 'score_grupo_finalize_historical' })
           addToast({ type: 'error', title: 'Error guardando tarjeta', message: 'Tus scores están seguros. Intenta de nuevo.', duration: 5000 })
           return
