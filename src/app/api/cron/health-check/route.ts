@@ -40,6 +40,7 @@ import { captureError } from '@/lib/error-tracking'
 import { sendMessage } from '@/lib/telegram-inbox'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 interface CheckResult {
   name: string

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // Vercel: evitar timeout en 30s por defecto (SEC-5)
 
 export async function GET(req: NextRequest) {
   // Vercel Cron envia un header secreto
