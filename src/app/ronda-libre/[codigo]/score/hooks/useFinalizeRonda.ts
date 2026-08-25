@@ -23,6 +23,7 @@ import { getMissingHoles, fillMissingHolesWithPar, haptic } from '@/lib/ronda/he
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { calcularMatchPlay } from '@/golf/formats/match-play'
 import { isTeamFormat } from '@/golf/formats'
+import { captureError } from '@/lib/error-tracking'
 import type { RondaLibre } from '@/types/ronda'
 
 interface UseFinalizeRondaOptions {
@@ -97,6 +98,21 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     }
     setConfirmFinalize(false)
     haptic(30)
+
+    // Guard: verificar que la ronda no fue finalizada por otro dispositivo/jugador
+    const supabaseGuard = createClient()
+    const { data: currentRound } = await supabaseGuard
+      .from('rondas_libres')
+      .select('estado')
+      .eq('codigo', codigo)
+      .single()
+    if (currentRound?.estado === 'finalizada') {
+      addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+      setRoundDone(true)
+      setHasUnsaved(false)
+      return
+    }
+
     // Bug fix 30-abr-2026: el ultimo hoyo en par no se persistia. La UI mostraba
     // par como placeholder visual (sensacion de registrado), pero el state era
     // undefined porque sin tap +/- nunca se disparaba handleScoreChange. Y como
@@ -266,29 +282,50 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         .single()
       const indiceBefore = beforeProfile?.indice as number | null | undefined
 
-      // Recalcular Indice Golfers+ y nivel del dueno de la tarjeta (no del dispositivo)
-      await supabase.rpc('calcular_indice_golfers', { p_user_id: historicalUserId })
+      // Recalcular Indice Golfers+ con retry exponencial (no bloquea la finalización)
+      let rpcSucceeded = false
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { error: rpcErr } = await supabase.rpc('calcular_indice_golfers', { p_user_id: historicalUserId })
+        if (!rpcErr) { rpcSucceeded = true; break }
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))) // 1s, 2s
+        } else {
+          void captureError(rpcErr, {
+            context: 'finalize-ronda.calcular_indice_golfers',
+            level: 'error',
+            meta: { historicalUserId, attempts: 3 },
+          })
+        }
+      }
 
       // ── Task 2.8: capturar índice DESPUÉS y mostrar toast ──
-      const { data: afterProfile } = await supabase
-        .from('profiles')
-        .select('indice')
-        .eq('id', historicalUserId)
-        .single()
-      const indiceAfter = (afterProfile?.indice as number | null | undefined) ?? null
+      if (rpcSucceeded) {
+        const { data: afterProfile } = await supabase
+          .from('profiles')
+          .select('indice')
+          .eq('id', historicalUserId)
+          .single()
+        const indiceAfter = (afterProfile?.indice as number | null | undefined) ?? null
 
-      if (indiceBefore != null && indiceAfter != null && indiceBefore !== indiceAfter) {
-        const direction = indiceAfter < indiceBefore ? 'bajó' : 'subió'
-        addToast({
-          title: `Tu índice ${direction}`,
-          message: `${indiceBefore.toFixed(1)} → ${indiceAfter.toFixed(1)}`,
-          type: indiceAfter < indiceBefore ? 'success' : 'info',
-        })
-      } else if (indiceAfter != null) {
+        if (indiceBefore != null && indiceAfter != null && indiceBefore !== indiceAfter) {
+          const direction = indiceAfter < indiceBefore ? 'bajó' : 'subió'
+          addToast({
+            title: `Tu índice ${direction}`,
+            message: `${indiceBefore.toFixed(1)} → ${indiceAfter.toFixed(1)}`,
+            type: indiceAfter < indiceBefore ? 'success' : 'info',
+          })
+        } else if (indiceAfter != null) {
+          addToast({
+            title: 'Ronda guardada',
+            message: `Índice actual: ${indiceAfter.toFixed(1)}`,
+            type: 'success',
+          })
+        }
+      } else {
         addToast({
           title: 'Ronda guardada',
-          message: `Índice actual: ${indiceAfter.toFixed(1)}`,
-          type: 'success',
+          message: 'Tu índice se actualizará pronto',
+          type: 'info',
         })
       }
 
