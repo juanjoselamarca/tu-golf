@@ -587,6 +587,21 @@ export default function ScoreGrupoPage() {
     if (confirmTimeoutRef.current) { clearTimeout(confirmTimeoutRef.current); confirmTimeoutRef.current = null }
     setFinalizing(true)
     haptic(30)
+
+    // Guard: verificar que la ronda no fue finalizada por otro dispositivo/organizador
+    const supabaseGuard = createClient()
+    const { data: currentRound } = await supabaseGuard
+      .from('rondas_libres')
+      .select('estado')
+      .eq('codigo', codigo)
+      .single()
+    if (currentRound?.estado === 'finalizada') {
+      addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+      setFinalizing(false)
+      router.push(`/ronda-libre/${codigo}?finished=true`)
+      return
+    }
+
     // Bug fix 30-abr-2026: si el último hoyo se jugó en par y el usuario no
     // tap +/-, el state queda undefined (la UI mostraba par como placeholder
     // visual, dándole sensación de registrado). goToNextHole sí auto-rellena
