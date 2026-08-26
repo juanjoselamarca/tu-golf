@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { signGuestToken } from '@/lib/guest-token'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,18 @@ export const dynamic = 'force-dynamic'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(req: NextRequest, { params }: { params: { slug: string } }) {
+  // Rate limit: 10 joins/min por IP
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || req.headers.get('x-real-ip')
+    || 'unknown'
+  const rl = checkRateLimit(`guest-join:${ip}`, 10, 60_000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited', message: 'Demasiadas solicitudes. Espera un momento.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
+  }
+
   const body = await req.json().catch(() => null)
   if (!body) {
     return NextResponse.json({ error: 'invalid_body', message: 'Cuerpo inválido.' }, { status: 400 })

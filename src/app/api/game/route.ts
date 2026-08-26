@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer, disqualifyPlayer, openInscriptions, revertInscriptions, closeTournamentAction } from './actions'
 import { verifyGuestToken } from '@/lib/guest-token'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +73,16 @@ export async function POST(request: NextRequest) {
   const guestId = request.headers.get('x-guest-id')
   const guestToken = request.headers.get('x-guest-token')
   if (guestId && guestToken && action === 'upsert_score') {
+    // Rate limit: 120 requests/min por jugador-ronda invitado
+    const rlKey = `score-guest:${guestId}:${body.round_id}`
+    const rl = checkRateLimit(rlKey, 120, 60_000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados envíos. Espera un momento.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
+    }
+
     const svc = serviceClient()
 
     // Verificar torneo
@@ -93,6 +104,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token de invitado inválido o no autorizado' }, { status: 403 })
     }
 
+    // Verificar que el jugador no esté retirado/descalificado
+    const { data: guestPlayerStatus } = await svc
+      .from('rounds')
+      .select('player_id, players(status)')
+      .eq('id', body.round_id)
+      .single()
+    const guestPlayerSt = (guestPlayerStatus?.players as unknown as { status: string | null } | null)?.status
+    if (guestPlayerSt === 'withdrawn' || guestPlayerSt === 'disqualified') {
+      return NextResponse.json(
+        { error: 'Este jugador se ha retirado del torneo.' },
+        { status: 403 },
+      )
+    }
+
+    // Idempotencia: si el score ya existe con el mismo valor, retornar éxito sin re-insertar
+    const idempotencyKey = request.headers.get('x-idempotency-key')
+    if (idempotencyKey && body.gross_score != null) {
+      const { data: existing } = await svc
+        .from('hole_scores')
+        .select('gross_score')
+        .eq('round_id', body.round_id)
+        .eq('hole_number', body.hole_number)
+        .single()
+      if (existing && existing.gross_score === body.gross_score) {
+        return NextResponse.json({ success: true, idempotent: true })
+      }
+    }
+
     // El userId para el audit log usa un placeholder identificable
     return upsertScore(svc, `guest:${guestId}`, body)
   }
@@ -100,6 +139,18 @@ export async function POST(request: NextRequest) {
   // ── Authenticated path (original) ──
   const { user, supabase } = await getAuthUser()
   if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
+
+  // Rate limit para upsert_score: 120 requests/min por jugador-ronda
+  if (action === 'upsert_score') {
+    const rlKey = `score:${user.id}:${body.round_id}`
+    const rl = checkRateLimit(rlKey, 120, 60_000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados envíos. Espera un momento.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
+    }
+  }
 
   // Verify tournament exists
   const { data: tournament } = await supabase
@@ -125,14 +176,39 @@ export async function POST(request: NextRequest) {
     const { round_id } = body
     const { data: round } = await supabase
       .from('rounds')
-      .select('player_id, players(user_id)')
+      .select('player_id, players(user_id, status)')
       .eq('id', round_id)
       .single()
-    const playerUserId = (round?.players as unknown as { user_id: string } | null)?.user_id
-    isAllowed = playerUserId === user.id
+    const playerInfo = round?.players as unknown as { user_id: string; status: string | null } | null
+    isAllowed = playerInfo?.user_id === user.id
+
+    // Rechazar scores de jugador retirado/descalificado
+    if (isAllowed && (playerInfo?.status === 'withdrawn' || playerInfo?.status === 'disqualified')) {
+      return NextResponse.json(
+        { error: 'Este jugador se ha retirado del torneo.' },
+        { status: 403 },
+      )
+    }
   }
   if (!isAllowed && !selfAuthActions.includes(action)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+  }
+
+  // Idempotencia: si el score ya existe con el mismo valor, retornar éxito sin re-insertar
+  if (action === 'upsert_score') {
+    const idempotencyKey = request.headers.get('x-idempotency-key')
+    if (idempotencyKey && body.gross_score != null) {
+      const svcCheck = serviceClient()
+      const { data: existing } = await svcCheck
+        .from('hole_scores')
+        .select('gross_score')
+        .eq('round_id', body.round_id)
+        .eq('hole_number', body.hole_number)
+        .single()
+      if (existing && existing.gross_score === body.gross_score) {
+        return NextResponse.json({ success: true, idempotent: true })
+      }
+    }
   }
 
   const svc = serviceClient()

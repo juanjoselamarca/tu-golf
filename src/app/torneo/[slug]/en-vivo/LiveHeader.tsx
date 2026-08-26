@@ -6,8 +6,43 @@
 // hardcodeado (duplicaba src/golf/formats). Ahora solo aporta la "última
 // actualización" y el vocabulario de organizador (quien corre el torneo).
 
+import { useState, useEffect } from 'react'
 import type { LiveTournament } from './types'
 import { TorneoHeader } from '@/components/torneo/TorneoHeader'
+
+/* ── ConnectionStatus — indicador de conectividad en vivo ── */
+function ConnectionStatus() {
+  const [online, setOnline] = useState(true)
+
+  useEffect(() => {
+    // Sync initial state on mount (SSR-safe: defaults to true)
+    setOnline(navigator.onLine)
+    const onOnline = () => setOnline(true)
+    const onOffline = () => setOnline(false)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+    return () => {
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
+    }
+  }, [])
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '6px',
+      fontSize: '11px', fontWeight: 500, letterSpacing: '0.02em',
+      color: online ? '#16a34a' : '#dc2626',
+    }}>
+      <div style={{
+        width: '8px', height: '8px', borderRadius: '50%',
+        background: online ? '#16a34a' : '#dc2626',
+        boxShadow: online ? '0 0 4px rgba(22,163,106,0.4)' : '0 0 4px rgba(220,38,38,0.4)',
+        animation: online ? 'livePulse 2s ease-in-out infinite' : 'none',
+      }} />
+      {online ? 'En vivo' : 'Sin conexión'}
+    </div>
+  )
+}
 
 export interface LiveHeaderProps {
   tournament: LiveTournament
@@ -27,16 +62,21 @@ function formatLastUpdate(ts: number): string {
 
 export default function LiveHeader({ tournament, lastUpdate }: LiveHeaderProps) {
   return (
-    <TorneoHeader
-      name={tournament.name}
-      format={tournament.format}
-      modo={tournament.modo}
-      status={tournament.status}
-      live={tournament.live}
-      courseName={tournament.course_name}
-      holeCount={tournament.hole_count}
-      audience="organizer"
-      note={formatLastUpdate(lastUpdate)}
-    />
+    <div>
+      <TorneoHeader
+        name={tournament.name}
+        format={tournament.format}
+        modo={tournament.modo}
+        status={tournament.status}
+        live={tournament.live}
+        courseName={tournament.course_name}
+        holeCount={tournament.hole_count}
+        audience="organizer"
+        note={formatLastUpdate(lastUpdate)}
+      />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 4px', marginTop: '4px' }}>
+        <ConnectionStatus />
+      </div>
+    </div>
   )
 }
