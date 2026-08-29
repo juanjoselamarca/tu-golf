@@ -10,17 +10,27 @@ import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-fo
 
 /** Celda sin dato. Em dash, el mismo que usa `formatThru`. */
 const EMPTY = '—'
+/** Marcadores vacios de categoría que significan "sin categoría". */
+const EMPTY_CAT = new Set(['---', '—', '-', ''])
+
+/** Quitar marcadores de género "(M)" / "(F)" del nombre para mobile. */
+function stripGenderMarker(name: string): string {
+  return name.replace(/\s*\((M|F)\)\s*$/i, '').trim()
+}
 
 export interface IndividualLeaderboardProps {
   players: LivePlayer[]
   format: 'stroke_play' | 'stableford'
   modo: 'gross' | 'neto'
+  /** Mostrar nota "recién actualizado" con punto verde pulsante. */
+  recentlyUpdated?: boolean
 }
 
 export default function IndividualLeaderboard({
   players,
   format,
   modo,
+  recentlyUpdated,
 }: IndividualLeaderboardProps) {
   // El orden lo decide el motor (`buildLeaderboardFromLegacy` → `rankEntries`),
   // que ya aplicó countback y dejó a los que no scorearon al final. Re-ordenar
@@ -38,6 +48,13 @@ export default function IndividualLeaderboard({
       return isStableford ? (p.points_total ?? 0) : p.vs_par
     }),
   )
+
+  // Si TODAS las filas tienen categoría vacía, ocultar la columna CAT para no
+  // desperdiciar espacio horizontal (frecuente en torneos sin categorías).
+  const allCatsEmpty = sorted.every((p) => {
+    const cat = p.category_name ?? ''
+    return EMPTY_CAT.has(cat.trim())
+  })
 
   // Estilos inline para tokens con fallback hex (sin tocar Tailwind config).
   const tableStyle: React.CSSProperties = {
@@ -87,14 +104,40 @@ export default function IndividualLeaderboard({
 
   return (
     <div style={{ overflowX: 'auto' }}>
+      {/* Keyframes para punto pulsante */}
+      <style>{`
+        @keyframes leaderboardPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+      `}</style>
+
+      {recentlyUpdated && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '6px',
+          padding: '8px 12px', marginBottom: '4px',
+          fontSize: '12px', color: 'var(--text-3, #6B7280)',
+        }}>
+          <span style={{
+            display: 'inline-block', width: '7px', height: '7px',
+            borderRadius: '50%', background: '#22c55e',
+            animation: 'leaderboardPulse 2s ease-in-out infinite',
+          }} />
+          Recién actualizado
+        </div>
+      )}
+
       <table style={tableStyle}>
         <thead style={theadStyle}>
           <tr>
             <th style={thNumStyle}>Pos</th>
             <th style={thStyle}>Jugador</th>
-            <th style={thStyle}>Cat</th>
+            {!allCatsEmpty && <th style={thStyle}>Cat</th>}
             <th style={thNumStyle}>Bruto</th>
-            <th style={thNumStyle}>HCP Cancha</th>
+            <th style={{ ...thNumStyle }} className="leaderboard-hcp-header">
+              <span className="leaderboard-hcp-full">HCP Cancha</span>
+              <span className="leaderboard-hcp-short">HCP</span>
+            </th>
             {isStableford ? (
               <th style={thNumStyle}>Puntos</th>
             ) : (
@@ -111,19 +154,46 @@ export default function IndividualLeaderboard({
             // Sin hoyos jugados no hay score: se muestra "—", nunca un número
             // derivado de totales en cero (así aparecía un líder a −60).
             const played = hasPlayData({ holesPlayed: p.thru })
+            const isLeader = idx === 0 && played
+            const isEvenRow = idx % 2 === 1
+
+            const rowStyle: React.CSSProperties = {
+              borderLeft: isLeader ? '3px solid var(--brand-gold, #c4992a)' : undefined,
+              background: isLeader
+                ? 'var(--leader-row-bg, rgba(196,153,42,0.06))'
+                : isEvenRow
+                  ? 'var(--zebra-row-bg, rgba(128,128,128,0.04))'
+                  : undefined,
+            }
+
+            const shortName = stripGenderMarker(p.name)
+
             return (
-              <tr key={p.id}>
+              <tr key={p.id} style={rowStyle}>
                 <td style={tdNumStyle}>{played ? positions[idx] : EMPTY}</td>
-                <td style={{ ...tdStyle, fontWeight: 500 }}>{p.name}</td>
-                <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{p.category_name ?? EMPTY}</td>
+                <td style={{ ...tdStyle, fontWeight: isLeader ? 600 : 500 }}>
+                  {/* Desktop: nombre completo con marcador. Mobile: sin "(M)"/"(F)" */}
+                  <span className="leaderboard-name-full">{p.name}</span>
+                  <span className="leaderboard-name-short">{shortName}</span>
+                </td>
+                {!allCatsEmpty && (
+                  <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{p.category_name ?? EMPTY}</td>
+                )}
                 <td style={tdNumStyle}>{played ? p.gross_total : EMPTY}</td>
                 <td style={tdNumStyle}>{p.handicap_index}</td>
                 {isStableford ? (
-                  <td style={{ ...tdNumStyle, fontWeight: 600 }}>{played ? (p.points_total ?? 0) : EMPTY}</td>
+                  <td style={{ ...tdNumStyle, fontWeight: 600, fontSize: isLeader ? '16px' : undefined }}>
+                    {played ? (p.points_total ?? 0) : EMPTY}
+                  </td>
                 ) : (
                   <>
                     <td style={tdNumStyle}>{played && p.net_total != null ? p.net_total : EMPTY}</td>
-                    <td style={{ ...tdNumStyle, fontWeight: 600, color: played ? vsParColor(p.vs_par) : undefined }}>
+                    <td style={{
+                      ...tdNumStyle,
+                      fontWeight: isLeader ? 700 : 600,
+                      fontSize: isLeader ? '16px' : undefined,
+                      color: played ? vsParColor(p.vs_par) : undefined,
+                    }}>
                       {played ? formatVsPar(p.vs_par) : EMPTY}
                     </td>
                   </>
@@ -134,6 +204,20 @@ export default function IndividualLeaderboard({
           })}
         </tbody>
       </table>
+
+      {/* Mobile responsive: ocultar "(M)"/"(F)" y abreviar HCP header */}
+      <style>{`
+        .leaderboard-hcp-short { display: none; }
+        .leaderboard-hcp-full { display: inline; }
+        .leaderboard-name-short { display: none; }
+        .leaderboard-name-full { display: inline; }
+        @media (max-width: 639px) {
+          .leaderboard-hcp-short { display: inline; }
+          .leaderboard-hcp-full { display: none; }
+          .leaderboard-name-short { display: inline; }
+          .leaderboard-name-full { display: none; }
+        }
+      `}</style>
     </div>
   )
 }
