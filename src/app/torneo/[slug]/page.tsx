@@ -231,7 +231,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#ffffff' }}>
+    <div className="min-h-screen bg-white dark:bg-gray-950">
       <TournamentHeader
         tournamentName={tournamentName}
         courseName={tournament?.courses?.nombre ?? null}
@@ -254,8 +254,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             style={{
               display: 'block',
               width: '100%',
-              background: '#c4992a',
-              color: '#070d18',
+              background: 'var(--brand-gold, #c4992a)',
+              color: 'var(--brand-dark, #070d18)',
               fontWeight: 700,
               fontSize: '16px',
               padding: '14px 24px',

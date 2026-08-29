@@ -79,16 +79,35 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((t, idx) => (
-            <tr key={t.id}>
-              <td style={tdNumStyle}>{positions[idx]}</td>
-              <td style={{ ...tdStyle, fontWeight: 600 }}>{t.name}</td>
-              <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{joinPlayerNames(t)}</td>
-              <td style={tdNumStyle}>{t.team_total}</td>
-              <td style={{ ...tdNumStyle, fontWeight: 600, color: vsParColor(t.vs_par) }}>{formatVsPar(t.vs_par)}</td>
-              <td style={{ ...tdNumStyle, color: 'var(--text-2, #5a6573)' }}>{formatThru(t.thru)}</td>
-            </tr>
-          ))}
+          {sorted.map((t, idx) => {
+            const isLeader = idx === 0
+            const isEvenRow = idx % 2 === 1
+            const rowStyle: React.CSSProperties = {
+              borderLeft: isLeader ? '3px solid var(--brand-gold, #c4992a)' : undefined,
+              background: isLeader
+                ? 'var(--leader-row-bg, rgba(196,153,42,0.06))'
+                : isEvenRow
+                  ? 'var(--zebra-row-bg, rgba(128,128,128,0.04))'
+                  : undefined,
+            }
+            return (
+              <tr key={t.id} style={rowStyle}>
+                <td style={tdNumStyle}>{positions[idx]}</td>
+                <td style={{ ...tdStyle, fontWeight: isLeader ? 700 : 600 }}>{t.name}</td>
+                <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{joinPlayerNames(t)}</td>
+                <td style={tdNumStyle}>{t.team_total}</td>
+                <td style={{
+                  ...tdNumStyle,
+                  fontWeight: isLeader ? 700 : 600,
+                  fontSize: isLeader ? '16px' : undefined,
+                  color: vsParColor(t.vs_par),
+                }}>
+                  {formatVsPar(t.vs_par)}
+                </td>
+                <td style={{ ...tdNumStyle, color: 'var(--text-2, #5a6573)' }}>{formatThru(t.thru)}</td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

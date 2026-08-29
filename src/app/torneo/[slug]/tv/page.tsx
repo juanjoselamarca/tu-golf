@@ -43,11 +43,12 @@ export default function TVPage() {
   const params = useParams()
   const slug   = params.slug as string
 
-  const [players,    setPlayers]    = useState<TVPlayer[]>([])
+  const [allPlayers, setAllPlayers]  = useState<TVPlayer[]>([])
   const [tournament, setTournament] = useState<TVTournamentInfo | null>(null)
   const [loading,    setLoading]    = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [withdrawn,  setWithdrawn]  = useState<TVWithdrawnEntry[]>([])
+  const [currentPage, setCurrentPage] = useState(0)
 
   const fetchData = useCallback(async () => {
     // Si la carga falla no se pinta nada nuevo: se deja el board anterior (o la
@@ -90,9 +91,10 @@ export default function TVPage() {
 
     // Ranking PRIMARIO (el del modo/formato del torneo), no uno fijo por neto:
     // si el torneo se juega gross o stableford, un podio por neto en la pantalla
-    // grande contradice al de la landing.
-    setPlayers(
-      board.players.slice(0, 10).map((p) => ({
+    // grande contradice al de la landing. Sin límite de 10: el ciclo de páginas
+    // se encarga de paginar si hay más.
+    setAllPlayers(
+      board.players.map((p) => ({
         id: p.id ?? p.name,
         name: p.name,
         handicap: p.hcpDisplay ?? p.hcp,
@@ -128,6 +130,19 @@ export default function TVPage() {
     return () => clearInterval(interval)
   }, [fetchData])
 
+  // Paginación: ciclo automático cada 8s si hay más de 10 jugadores
+  const PAGE_SIZE = 10
+  const totalPages = Math.max(1, Math.ceil(allPlayers.length / PAGE_SIZE))
+  const players = allPlayers.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
+
+  useEffect(() => {
+    if (totalPages <= 1) return
+    const interval = setInterval(() => {
+      setCurrentPage((prev) => (prev + 1) % totalPages)
+    }, 8000)
+    return () => clearInterval(interval)
+  }, [totalPages])
+
   if (loading) {
     return (
       <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -151,9 +166,9 @@ export default function TVPage() {
 
       {/* ── Header ──────────────────────────────────────── */}
       <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginBottom: '16px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '36px', color: '#edeae4', fontWeight: 700 }}>Tu</span>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '36px', color: '#c4992a', fontWeight: 700 }}> Golf</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0', marginBottom: '16px' }}>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '36px', color: '#edeae4', fontWeight: 700 }}>Golfers</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '36px', color: 'var(--brand-gold, #c4992a)', fontWeight: 700 }}>+</span>
         </div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(28px, 4vw, 52px)', color: '#edeae4', margin: '0 0 12px', lineHeight: 1.1 }}>
           {tournament?.name || 'Torneo'}
@@ -205,7 +220,8 @@ export default function TVPage() {
                     gridTemplateColumns: '60px 1fr 120px 80px 100px',
                     padding: '20px 24px',
                     borderBottom: '1px solid rgba(122,143,168,0.08)',
-                    background: highlight ? 'rgba(196,153,42,0.06)' : 'transparent',
+                    background: highlight ? 'rgba(196,153,42,0.10)' : 'transparent',
+                    borderLeft: highlight ? '4px solid #c4992a' : '4px solid transparent',
                     alignItems: 'center',
                   }}
                 >
@@ -282,8 +298,29 @@ export default function TVPage() {
           </div>
         )}
 
-        {/* Footer */}
-        <div style={{ marginTop: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#94a8c0', fontSize: '14px' }}>
+        {/* Indicador de página */}
+        {totalPages > 1 && (
+          <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            {Array.from({ length: totalPages }, (_, i) => (
+              <span
+                key={i}
+                style={{
+                  width: currentPage === i ? '24px' : '8px',
+                  height: '8px',
+                  borderRadius: '4px',
+                  background: currentPage === i ? 'var(--brand-gold, #c4992a)' : 'rgba(148,168,192,0.3)',
+                  transition: 'all 0.3s ease',
+                }}
+              />
+            ))}
+            <span style={{ marginLeft: '8px', fontSize: '13px', color: '#94a8c0' }}>
+              {currentPage + 1}/{totalPages}
+            </span>
+          </div>
+        )}
+
+        {/* Footer — solo info de actualización, sin branding del sitio web */}
+        <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#94a8c0', fontSize: '14px' }}>
           <span style={{
             display: 'inline-block',
             width: '8px',

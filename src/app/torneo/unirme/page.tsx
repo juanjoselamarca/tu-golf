@@ -59,7 +59,7 @@ export default function UnirmePage() {
               lineHeight: 1.5,
             }}
           >
-            Ingresa el código que te compartió el organizador
+            Ingresa el código de 6 caracteres que te compartió el organizador
           </p>
         </div>
 
@@ -129,6 +129,25 @@ export default function UnirmePage() {
             Buscar torneo
           </button>
         </form>
+
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '1rem',
+            borderTop: '1px solid var(--border)',
+            marginTop: '0.5rem',
+          }}
+        >
+          <p
+            style={{
+              fontSize: '0.8rem',
+              color: 'var(--text-3)',
+              lineHeight: 1.5,
+            }}
+          >
+            ¿No tienes código? Pide el QR al organizador de tu torneo
+          </p>
+        </div>
       </div>
     </main>
   )
