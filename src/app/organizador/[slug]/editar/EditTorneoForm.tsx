@@ -7,20 +7,23 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { useFormErrors } from '@/hooks/useFormErrors'
 import type { CourseOption } from './page'
+import { FORMAT_META } from '@/golf/core/rules'
+import type { FormatoJuego } from '@/golf/core/rules'
 
 interface TournamentData {
   id: string; name: string; slug: string; format: string; hole_count: number
   tees: string; use_handicap: boolean; date_start: string | null
   cover_image_url: string | null; courses: { id: string; nombre: string } | null
   has_scores?: boolean
+  status?: string
 }
 
 interface Props { tournament: TournamentData; courses: CourseOption[] }
 
-const FORMATS = [
-  { value: 'stroke_play', label: 'Stroke Play', desc: 'Contar golpes totales' },
-  { value: 'stableford',  label: 'Stableford',  desc: 'Puntos por hoyo' },
-]
+/** Formatos derivados de FORMAT_META canónico (regla "un concepto, una fuente"). */
+const FORMATS = (Object.entries(FORMAT_META) as [FormatoJuego, typeof FORMAT_META[FormatoJuego]][]).map(
+  ([key, meta]) => ({ value: key, label: meta.label, desc: meta.description }),
+)
 const TEES = [
   { value: 'negras', label: 'Negras' },
   { value: 'azul',       label: 'Azul' },
@@ -171,17 +174,23 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
           {/* Formato */}
           <div>
             <label style={labelStyle}>Formato</label>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              {FORMATS.map((f) => (
-                <button key={f.value} type="button" onClick={() => setFormat(f.value)} disabled={tournament.has_scores}
-                  style={{ flex: 1, padding: '14px', border: format === f.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', background: format === f.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', cursor: tournament.has_scores ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 200ms', opacity: tournament.has_scores ? 0.5 : 1 }}>
-                  <div style={{ color: 'var(--text)', fontWeight: 600, fontSize: '14px' }}>{f.label}</div>
-                  <div style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
-                </button>
-              ))}
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              {FORMATS.map((f) => {
+                const formatLocked = !!tournament.has_scores || (tournament.status != null && tournament.status !== 'draft')
+                return (
+                  <button key={f.value} type="button" onClick={() => setFormat(f.value)} disabled={formatLocked}
+                    style={{ flex: '1 1 calc(50% - 6px)', minWidth: '140px', padding: '14px', border: format === f.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', background: format === f.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', cursor: formatLocked ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 200ms', opacity: formatLocked ? 0.5 : 1 }}>
+                    <div style={{ color: 'var(--text)', fontWeight: 600, fontSize: '14px' }}>{f.label}</div>
+                    <div style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
+                  </button>
+                )
+              })}
             </div>
             {tournament.has_scores && (
               <p style={{ fontSize: '12px', color: '#f87171', marginTop: '8px' }}>No se puede cambiar el formato después de que los jugadores comenzaron a scorear.</p>
+            )}
+            {!tournament.has_scores && tournament.status != null && tournament.status !== 'draft' && (
+              <p style={{ fontSize: '12px', color: '#f87171', marginTop: '8px' }}>No se puede cambiar el formato una vez que el torneo fue publicado.</p>
             )}
           </div>
 
