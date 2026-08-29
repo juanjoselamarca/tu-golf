@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Users } from '@/components/icons'
 import { inputStyle } from '../styles'
 import type { Player, TournamentGroup } from '../types'
@@ -20,6 +21,25 @@ export function PlayersTable({
   players, groups, tournamentStatus,
   getPlayerGroupId, onAssignPlayer, onWithdraw, onDisqualify,
 }: Props) {
+  const [loadingPlayerId, setLoadingPlayerId] = useState<string | null>(null)
+
+  const handleWithdraw = async (playerId: string) => {
+    setLoadingPlayerId(playerId)
+    try {
+      await onWithdraw(playerId)
+    } finally {
+      setLoadingPlayerId(null)
+    }
+  }
+
+  const handleDisqualify = async (playerId: string) => {
+    setLoadingPlayerId(playerId)
+    try {
+      await onDisqualify(playerId)
+    } finally {
+      setLoadingPlayerId(null)
+    }
+  }
   return (
     <div
       style={{
@@ -95,17 +115,33 @@ export function PlayersTable({
                     {tournamentStatus !== 'closed' && p.status !== 'withdrawn' && p.status !== 'disqualified' && (
                       <>
                         <button
-                          onClick={() => onWithdraw(p.id)}
+                          onClick={() => handleWithdraw(p.id)}
+                          disabled={loadingPlayerId === p.id}
                           title="Retirar (WD)"
-                          style={{ background: 'rgba(148,168,192,0.12)', border: '1px solid rgba(148,168,192,0.3)', color: 'var(--text-2)', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                          style={{
+                            background: 'rgba(148,168,192,0.12)', border: '1px solid rgba(148,168,192,0.3)',
+                            color: 'var(--text-2)', borderRadius: '6px', padding: '4px 10px',
+                            fontSize: '11px', fontWeight: 600,
+                            cursor: loadingPlayerId === p.id ? 'not-allowed' : 'pointer',
+                            opacity: loadingPlayerId === p.id ? 0.5 : 1,
+                            transition: 'opacity 150ms',
+                          }}
                         >
                           WD
                         </button>
                         {tournamentStatus === 'in_progress' && (
                           <button
-                            onClick={() => onDisqualify(p.id)}
+                            onClick={() => handleDisqualify(p.id)}
+                            disabled={loadingPlayerId === p.id}
                             title="Descalificar (DQ)"
-                            style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                            style={{
+                              background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)',
+                              color: '#fca5a5', borderRadius: '6px', padding: '4px 10px',
+                              fontSize: '11px', fontWeight: 600,
+                              cursor: loadingPlayerId === p.id ? 'not-allowed' : 'pointer',
+                              opacity: loadingPlayerId === p.id ? 0.5 : 1,
+                              transition: 'opacity 150ms',
+                            }}
                           >
                             DQ
                           </button>
