@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
+import { useConfirmModal } from '@/hooks/useConfirmModal'
 import type { Category, Player, Tournament } from '../types'
 import type { Profile } from './useProfileSearch'
 
@@ -20,6 +21,7 @@ interface UsePlayersArgs {
  */
 export function usePlayers({ tournament, categories, initialPlayers, tournamentStatus }: UsePlayersArgs) {
   const { showError, showWarning, showSuccess } = useToast()
+  const { confirm, modalProps } = useConfirmModal()
   const [players, setPlayers] = useState<Player[]>(initialPlayers)
   const [loading, setLoading] = useState(false)
 
@@ -125,7 +127,13 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
     const playerName = _pl?.profiles?.name ?? _pl?.player_name ?? 'este jugador'
 
     if (tournamentStatus === 'in_progress') {
-      if (!window.confirm(`Retirar a ${playerName} (WD)? Sus scores se conservan en el historial.`)) return
+      const ok = await confirm({
+        title: 'Retirar jugador (WD)',
+        description: `¿Retirar a ${playerName}? Sus scores se conservan en el historial.`,
+        confirmText: 'Retirar (WD)',
+        variant: 'warning',
+      })
+      if (!ok) return
       // Marca status='withdrawn' — preserva scores
       const res = await fetch('/api/game', {
         method: 'POST',
@@ -231,5 +239,6 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
   return {
     players, setPlayers, loading,
     fetchPlayers, inscribirPlayer, inscribirGuest, inscribirBatch, withdrawPlayer, disqualifyPlayer,
+    confirmModalProps: modalProps,
   }
 }
