@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { copyToClipboard } from '@/lib/clipboard'
+import { SITE_URL } from '@/lib/site-url'
 
 export default function InvitarAmigos({ userId }: { userId: string }) {
   const [copied, setCopied] = useState(false)
 
   const referralCode = userId.slice(0, 8)
-  const referralUrl = `https://golfersplus.vercel.app/register?ref=${referralCode}`
+  const referralUrl = `${SITE_URL}/register?ref=${referralCode}`
 
   const handleShare = async () => {
     const shareData = {
