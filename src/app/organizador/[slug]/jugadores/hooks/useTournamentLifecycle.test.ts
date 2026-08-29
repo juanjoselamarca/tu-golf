@@ -65,6 +65,12 @@ vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showError: vi.fn(), showSuccess: vi.fn() }),
 }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
+vi.mock('@/hooks/useConfirmModal', () => ({
+  useConfirmModal: () => ({
+    confirm: async () => true,
+    modalProps: { isOpen: false, onConfirm: vi.fn(), onCancel: vi.fn(), title: '', description: '', confirmText: '', variant: 'warning' as const },
+  }),
+}))
 
 import { useTournamentLifecycle } from './useTournamentLifecycle'
 import type { Player, Tournament, TournamentGroup } from '../types'

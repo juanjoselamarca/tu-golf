@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Flag } from '@/components/icons'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { useTees } from './hooks/useTees'
 import { useProfileSearch } from './hooks/useProfileSearch'
 import { usePlayers } from './hooks/usePlayers'
@@ -49,6 +50,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const {
     players, setPlayers, loading,
     fetchPlayers, inscribirPlayer, inscribirGuest, inscribirBatch, withdrawPlayer, disqualifyPlayer,
+    confirmModalProps: playersModalProps,
   } = usePlayers({ tournament, categories, initialPlayers, tournamentStatus })
 
   const handleInscribir = () => inscribirPlayer(selectedProfile, selectedCat, resetSearch)
@@ -82,6 +84,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     checkAllRoundsClosed, handleStartTournament,
     handleOpenInscriptions, handleRevertToDraft,
     handleCancelTournament, handleCloseTournament,
+    confirmModalProps: lifecycleModalProps,
   } = useTournamentLifecycle({ tournament, players, groups, setTournamentStatus })
 
   // Formato de equipos: el grupo de salida ES el equipo (modelo PM 2026-06-02).
@@ -245,6 +248,10 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
           />
         </div>
       )}
+
+      {/* Modales de confirmación (reemplazan window.confirm nativo) */}
+      <ConfirmModal {...lifecycleModalProps} />
+      <ConfirmModal {...playersModalProps} />
     </div>
   )
 }

@@ -169,6 +169,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'El torneo no está activo. No se pueden registrar scores.' }, { status: 409 })
   }
 
+  // Score freeze: torneo cerrado → ninguna acción que modifique scores o rondas
+  const scoreModifyingActions = ['upsert_score', 'finalize_round', 'start_next_round']
+  if (tournament.status === 'closed' && scoreModifyingActions.includes(action)) {
+    return NextResponse.json(
+      { error: 'El torneo ya fue cerrado. Los scores son definitivos.' },
+      { status: 403 },
+    )
+  }
+
   // Auth check: organizer or player of the round
   const selfAuthActions = ['cancel_tournament', 'withdraw_player']
   let isAllowed = tournament.organizer_id === user.id

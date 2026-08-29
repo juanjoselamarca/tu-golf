@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
+import { useConfirmModal } from '@/hooks/useConfirmModal'
 import { captureError } from '@/lib/error-tracking'
 import type { Player, Tournament, TournamentGroup } from '../types'
 import {
@@ -35,6 +36,7 @@ export function useTournamentLifecycle({
 }: UseTournamentLifecycleArgs) {
   const router = useRouter()
   const { showError, showSuccess } = useToast()
+  const { confirm, modalProps } = useConfirmModal()
 
   const [starting, setStarting] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -64,7 +66,13 @@ export function useTournamentLifecycle({
     const msg = n > 0
       ? `Este torneo tiene ${n} jugador${n !== 1 ? 'es' : ''} inscrito${n !== 1 ? 's' : ''}. Eliminarlo borra sus inscripciones de forma PERMANENTE (esto no se puede deshacer). Si solo quieres cerrar inscripciones, usa "Volver a borrador". ¿Eliminar igual?`
       : 'Eliminar este torneo? Esta acción no se puede deshacer.'
-    if (!window.confirm(msg)) return
+    const ok = await confirm({
+      title: n > 0 ? 'Eliminar torneo con jugadores' : 'Eliminar torneo',
+      description: msg,
+      confirmText: 'Eliminar',
+      variant: 'danger',
+    })
+    if (!ok) return
     const res = await fetch('/api/game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -113,7 +121,13 @@ export function useTournamentLifecycle({
   // Vuelve a borrador (open → draft) conservando los jugadores ya inscritos.
   const handleRevertToDraft = async () => {
     if (opening) return
-    if (!window.confirm('¿Volver a borrador? Las inscripciones se cierran pero los jugadores ya inscritos se conservan.')) return
+    const ok = await confirm({
+      title: 'Volver a borrador',
+      description: '¿Cerrar las inscripciones? Los jugadores ya inscritos se conservan.',
+      confirmText: 'Volver a borrador',
+      variant: 'warning',
+    })
+    if (!ok) return
     setOpening(true)
     try {
       const res = await fetch('/api/game', {
@@ -194,7 +208,13 @@ export function useTournamentLifecycle({
       }
     }
 
-    if (!window.confirm(`Iniciar torneo con ${players.length} jugador${players.length !== 1 ? 'es' : ''}? Se crearán las rondas para todos.`)) return
+    const ok = await confirm({
+      title: 'Iniciar torneo',
+      description: `¿Iniciar con ${players.length} jugador${players.length !== 1 ? 'es' : ''}? Se crearán las rondas para todos.`,
+      confirmText: 'Iniciar torneo',
+      variant: 'warning',
+    })
+    if (!ok) return
     setStarting(true)
     const supabase = createClient()
 
@@ -366,7 +386,13 @@ export function useTournamentLifecycle({
   }
 
   const handleCloseTournament = async () => {
-    if (!window.confirm('Cerrar el torneo? Los resultados seran definitivos.')) return
+    const ok = await confirm({
+      title: 'Cerrar torneo',
+      description: '¿Cerrar el torneo? Los resultados serán definitivos y los scores no podrán modificarse.',
+      confirmText: 'Cerrar torneo',
+      variant: 'danger',
+    })
+    if (!ok) return
     setClosing(true)
     // Vía /api/game (como open/revert/cancel): el server valida organizador y
     // CONGELA las rondas (individual + equipos) con el service client. El update
@@ -397,5 +423,6 @@ export function useTournamentLifecycle({
     checkAllRoundsClosed, handleStartTournament,
     handleOpenInscriptions, handleRevertToDraft,
     handleCancelTournament, handleCloseTournament,
+    confirmModalProps: modalProps,
   }
 }

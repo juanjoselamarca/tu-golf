@@ -9,7 +9,7 @@ interface TournamentData {
   id: string; name: string; slug: string; format: string; hole_count: number
   tees: string; use_handicap: boolean; date_start: string | null
   cover_image_url: string | null; courses: { id: string; nombre: string } | null
-  has_scores?: boolean
+  has_scores?: boolean; status?: string
 }
 
 export default async function EditarTorneoPage({ params }: { params: { slug: string } }) {
@@ -19,7 +19,7 @@ export default async function EditarTorneoPage({ params }: { params: { slug: str
 
   const { data: tournament } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, hole_count, tees, use_handicap, date_start, cover_image_url, organizer_id, courses(id, nombre)')
+    .select('id, name, slug, format, hole_count, tees, use_handicap, date_start, cover_image_url, organizer_id, status, courses(id, nombre)')
     .eq('slug', params.slug)
     .single()
 
