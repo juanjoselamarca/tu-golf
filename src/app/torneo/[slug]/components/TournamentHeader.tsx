@@ -9,6 +9,7 @@
 // 35f4ee89, may-27); la ruta /torneo/[slug]/tv sigue accesible por URL.
 
 import { TorneoHeader } from '@/components/torneo/TorneoHeader'
+import { TournamentShareButton } from './TournamentShareButton'
 
 export interface TournamentHeaderProps {
   tournamentName: string
@@ -24,10 +25,11 @@ export interface TournamentHeaderProps {
   dateDisplay: string
   coverImageUrl: string | null
   codigo: string | null
+  slug: string
 }
 
 export function TournamentHeader(props: TournamentHeaderProps) {
-  const { tournamentName, courseName, totalHoyos, format, modo, status, live, dateDisplay, coverImageUrl, codigo } = props
+  const { tournamentName, courseName, totalHoyos, format, modo, status, live, dateDisplay, coverImageUrl, codigo, slug } = props
 
   return (
     <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 0' }}>
@@ -61,6 +63,7 @@ export function TournamentHeader(props: TournamentHeaderProps) {
         holeCount={totalHoyos}
         dateStr={dateDisplay}
         audience="player"
+        right={<TournamentShareButton slug={slug} tournamentName={tournamentName} status={status} />}
       />
 
       {codigo && (
