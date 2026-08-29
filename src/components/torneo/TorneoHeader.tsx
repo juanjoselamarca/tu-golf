@@ -19,6 +19,15 @@ import { getFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
 import { tournamentStatusBadge, tournamentStatusTone } from '@/golf/tournament-status'
 import type { StatusAudience } from '@/golf/tournament-status'
 
+/** CSS keyframes para el punto pulsante del badge "En vivo". Inyectado inline
+ *  para no depender de globals.css ni de Tailwind @keyframes. */
+const LIVE_PULSE_KEYFRAMES = `
+@keyframes statusLivePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+`
+
 const MODO_LABEL: Record<'gross' | 'neto', string> = { gross: 'Bruto', neto: 'Neto' }
 
 export interface TorneoHeaderProps {
@@ -75,7 +84,13 @@ function StatusChip({ label, bg, fg, tone, onDark }: { label: string; bg: string
       }}
     >
       {tone === 'live' && (
-        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'currentColor' }} />
+        <>
+          <style>{LIVE_PULSE_KEYFRAMES}</style>
+          <span style={{
+            width: '7px', height: '7px', borderRadius: '50%', background: 'currentColor',
+            animation: 'statusLivePulse 2s ease-in-out infinite',
+          }} />
+        </>
       )}
       {label}
     </span>
