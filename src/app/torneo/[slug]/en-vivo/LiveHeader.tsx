@@ -49,6 +49,10 @@ function ConnectionStatus() {
 export interface LiveHeaderProps {
   tournament: LiveTournament
   lastUpdate: number
+  /** Numero de jugadores que terminaron su ronda (THRU = "F"). */
+  completedCount?: number
+  /** Total de jugadores activos (no WD/DQ). */
+  totalActivePlayers?: number
 }
 
 function formatLastUpdate(ts: number): string {
@@ -110,7 +114,9 @@ function LiveShareButton({ tournament }: { tournament: LiveTournament }) {
   )
 }
 
-export default function LiveHeader({ tournament, lastUpdate }: LiveHeaderProps) {
+export default function LiveHeader({ tournament, lastUpdate, completedCount, totalActivePlayers }: LiveHeaderProps) {
+  const showProgress = totalActivePlayers != null && totalActivePlayers > 0
+
   return (
     <div>
       <TorneoHeader
@@ -125,7 +131,41 @@ export default function LiveHeader({ tournament, lastUpdate }: LiveHeaderProps) 
         note={formatLastUpdate(lastUpdate)}
         right={<LiveShareButton tournament={tournament} />}
       />
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 4px', marginTop: '4px' }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '0 4px',
+        marginTop: '4px',
+      }}>
+        {/* Progress indicator */}
+        {showProgress && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            fontSize: '12px', color: 'var(--text-3, #6B7280)',
+            fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
+          }}>
+            <span>
+              {completedCount ?? 0} de {totalActivePlayers} rondas completadas
+            </span>
+            {/* Mini progress bar */}
+            <div style={{
+              width: '60px', height: '4px',
+              borderRadius: '2px',
+              background: 'var(--border, rgba(26,29,36,0.12))',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                width: `${totalActivePlayers > 0 ? ((completedCount ?? 0) / totalActivePlayers) * 100 : 0}%`,
+                height: '100%',
+                borderRadius: '2px',
+                background: 'var(--brand-gold, #c4992a)',
+                transition: 'width 300ms ease',
+              }} />
+            </div>
+          </div>
+        )}
+        {!showProgress && <div />}
         <ConnectionStatus />
       </div>
     </div>

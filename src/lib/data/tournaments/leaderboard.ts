@@ -36,7 +36,7 @@ export type Client = Awaited<ReturnType<typeof createClient>>
 
 const TOURNAMENT_SELECT =
   'id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, ' +
-  'date_start, date_end, status, codigo, afecta_estadisticas, es_demo, cover_image_url, ' +
+  'date_start, date_end, status, codigo, afecta_estadisticas, es_demo, cover_image_url, max_players, ' +
   'courses(id, nombre, ciudad, par_total, slope_rating, course_rating)'
 
 export async function fetchTournamentBySlug(
@@ -58,6 +58,36 @@ export async function fetchTournamentBySlug(
   if (error && error.code !== 'PGRST116') throw error
 
   return (data as unknown as DBTournament | null) ?? null
+}
+
+/** Cuenta jugadores activos (no withdrawn/disqualified) de un torneo. */
+export async function fetchEnrolledPlayerCount(
+  supabase: Client | SupabaseClient,
+  tournamentId: string,
+): Promise<number> {
+  const { count } = await supabase
+    .from('players')
+    .select('id', { count: 'exact', head: true })
+    .eq('tournament_id', tournamentId)
+    .not('status', 'in', '("withdrawn","disqualified")')
+  return count ?? 0
+}
+
+/** Nombres de jugadores inscritos (máx 50). Para la vista pública abierta. */
+export async function fetchEnrolledPlayerNames(
+  supabase: Client | SupabaseClient,
+  tournamentId: string,
+): Promise<string[]> {
+  const { data } = await supabase
+    .from('players')
+    .select('player_name, profiles(name)')
+    .eq('tournament_id', tournamentId)
+    .not('status', 'in', '("withdrawn","disqualified")')
+    .limit(50)
+  if (!data) return []
+  return (data as unknown as Array<{ player_name: string | null; profiles: { name: string } | null }>)
+    .map((p) => p.profiles?.name ?? p.player_name ?? 'Jugador')
+    .filter(Boolean)
 }
 
 export async function fetchCourseHoles(

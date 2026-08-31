@@ -24,6 +24,8 @@ export interface IndividualLeaderboardProps {
   modo: 'gross' | 'neto'
   /** Mostrar nota "recién actualizado" con punto verde pulsante. */
   recentlyUpdated?: boolean
+  /** Total de hoyos del torneo (para detectar THRU = "F"). Default 18. */
+  holeCount?: number
 }
 
 export default function IndividualLeaderboard({
@@ -31,6 +33,7 @@ export default function IndividualLeaderboard({
   format,
   modo,
   recentlyUpdated,
+  holeCount = 18,
 }: IndividualLeaderboardProps) {
   // El orden lo decide el motor (`buildLeaderboardFromLegacy` → `rankEntries`),
   // que ya aplicó countback y dejó a los que no scorearon al final. Re-ordenar
@@ -156,6 +159,8 @@ export default function IndividualLeaderboard({
             const played = hasPlayData({ holesPlayed: p.thru })
             const isLeader = idx === 0 && played
             const isEvenRow = idx % 2 === 1
+            const isFinished = p.thru >= holeCount
+            const notStarted = p.thru <= 0
 
             const rowStyle: React.CSSProperties = {
               borderLeft: isLeader ? '3px solid var(--brand-gold, #c4992a)' : undefined,
@@ -164,6 +169,8 @@ export default function IndividualLeaderboard({
                 : isEvenRow
                   ? 'var(--zebra-row-bg, rgba(128,128,128,0.04))'
                   : undefined,
+              // Jugadores que no empezaron: texto mas tenue
+              opacity: notStarted ? 0.5 : undefined,
             }
 
             const shortName = stripGenderMarker(p.name)
@@ -171,7 +178,7 @@ export default function IndividualLeaderboard({
             return (
               <tr key={p.id} style={rowStyle}>
                 <td style={tdNumStyle}>{played ? positions[idx] : EMPTY}</td>
-                <td style={{ ...tdStyle, fontWeight: isLeader ? 600 : 500 }}>
+                <td style={{ ...tdStyle, fontWeight: isLeader ? 700 : isFinished ? 600 : 400 }}>
                   {/* Desktop: nombre completo con marcador. Mobile: sin "(M)"/"(F)" */}
                   <span className="leaderboard-name-full">{p.name}</span>
                   <span className="leaderboard-name-short">{shortName}</span>
@@ -198,7 +205,17 @@ export default function IndividualLeaderboard({
                     </td>
                   </>
                 )}
-                <td style={{ ...tdNumStyle, color: 'var(--text-2, #5a6573)' }}>{formatThru(p.thru)}</td>
+                <td style={{
+                  ...tdNumStyle,
+                  color: isFinished
+                    ? 'var(--brand-on-bg, #c4992a)'
+                    : notStarted
+                      ? 'var(--text-3, #94a3b8)'
+                      : 'var(--text-2, #5a6573)',
+                  fontWeight: isFinished ? 600 : undefined,
+                }}>
+                  {formatThru(p.thru, holeCount)}
+                </td>
               </tr>
             )
           })}
