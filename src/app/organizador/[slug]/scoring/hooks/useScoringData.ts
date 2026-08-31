@@ -11,6 +11,7 @@ import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import {
+  fetchBulkRoundHoleCounts,
   fetchScoringCourseContext,
   fetchScoringRoster,
   fetchScoringTournament,
@@ -49,6 +50,10 @@ export interface UseScoringDataReturn {
     roundId: string,
     totals: Pick<ScoringRound, 'total_gross' | 'total_net' | 'total_points'>,
   ) => void
+  /** Hoyos con score completados por round_id (para progreso de todos los jugadores). */
+  roundHoleCounts: Map<string, number>
+  /** Refresca los conteos de hoyos (llamar tras guardar un score). */
+  refreshHoleCounts: () => Promise<void>
   // Multi-ronda
   totalRounds: number
   isMultiRound: boolean
@@ -73,6 +78,7 @@ export function useScoringData(slug: string): UseScoringDataReturn {
   const [loadNonce, setLoadNonce] = useState(0)
   const [activeRoundNum, setActiveRoundNum] = useState(1)
   const [startingNextRound, setStartingNextRound] = useState(false)
+  const [roundHoleCounts, setRoundHoleCounts] = useState<Map<string, number>>(new Map())
 
   useEffect(() => {
     let cancelled = false
@@ -99,6 +105,13 @@ export function useScoringData(slug: string): UseScoringDataReturn {
         if (cancelled) return
 
         setPlayers(roster)
+
+        // Progreso de TODOS los jugadores (batch): una sola query.
+        const allRoundIds = roster.flatMap((p) => (p.rounds ?? []).map((r) => r.id))
+        const holeCounts = await fetchBulkRoundHoleCounts(supabase, allRoundIds)
+        if (cancelled) return
+        setRoundHoleCounts(holeCounts)
+
         // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en
         // un torneo de 18 se recorre dos veces y los hoyos 10-18 son los 1-9
         // otra vez, con su par y su dificultad reales (`@/golf/courses/vueltas`).
@@ -134,13 +147,29 @@ export function useScoringData(slug: string): UseScoringDataReturn {
   const reloadRoster = useCallback(async () => {
     if (!tournament) return
     try {
-      const roster = await fetchScoringRoster(createClient(), tournament.id)
+      const supabase = createClient()
+      const roster = await fetchScoringRoster(supabase, tournament.id)
       setPlayers(roster)
+      // Refrescar conteos de hoyos junto con el roster.
+      const allRoundIds = roster.flatMap((p) => (p.rounds ?? []).map((r) => r.id))
+      const holeCounts = await fetchBulkRoundHoleCounts(supabase, allRoundIds)
+      setRoundHoleCounts(holeCounts)
     } catch (e) {
       void captureError(e, { context: 'scoring.useScoringData.reloadRoster', meta: { slug } })
       showError('Error', 'No pudimos refrescar la lista de jugadores.')
     }
   }, [tournament, slug, showError])
+
+  const refreshHoleCounts = useCallback(async () => {
+    const allRoundIds = players.flatMap((p) => (p.rounds ?? []).map((r) => r.id))
+    if (allRoundIds.length === 0) return
+    try {
+      const holeCounts = await fetchBulkRoundHoleCounts(createClient(), allRoundIds)
+      setRoundHoleCounts(holeCounts)
+    } catch (e) {
+      void captureError(e, { context: 'scoring.useScoringData.refreshHoleCounts' })
+    }
+  }, [players])
 
   const getActiveRound = useCallback(
     (player: ScoringPlayer | undefined) => {
@@ -236,6 +265,8 @@ export function useScoringData(slug: string): UseScoringDataReturn {
     getActiveRound,
     setPlayerHandicap,
     applyRoundTotals,
+    roundHoleCounts,
+    refreshHoleCounts,
     totalRounds,
     isMultiRound,
     holeCount,

@@ -48,12 +48,18 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
 
       {cats.length === 0 && (
         <p style={emptyStyle}>
-          Sin categorías. Agregá al menos una (ej. Damas, Caballeros, Senior).
+          Sin categorías. Agrega al menos una (ej. Damas, Caballeros, Senior).
         </p>
       )}
 
       <div style={listStyle}>
-        {cats.map((cat, idx) => (
+        {cats.map((cat, idx) => {
+          const hcpRangeInvalid =
+            cat.handicap_min != null &&
+            cat.handicap_max != null &&
+            cat.handicap_min >= cat.handicap_max
+
+          return (
           <div key={cat.id} style={rowStyle}>
             <div style={rowGridStyle}>
               <div style={fieldStyle}>
@@ -73,7 +79,10 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   id={`cat-hmin-${cat.id}`}
                   type="number"
                   step="0.1"
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    ...(hcpRangeInvalid ? { border: '1px solid #ef4444' } : {}),
+                  }}
                   value={cat.handicap_min ?? ''}
                   onChange={(e) =>
                     updateAt(idx, {
@@ -89,7 +98,10 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   id={`cat-hmax-${cat.id}`}
                   type="number"
                   step="0.1"
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    ...(hcpRangeInvalid ? { border: '1px solid #ef4444' } : {}),
+                  }}
                   value={cat.handicap_max ?? ''}
                   onChange={(e) =>
                     updateAt(idx, {
@@ -97,6 +109,11 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                     })
                   }
                 />
+                {hcpRangeInvalid && (
+                  <span style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>
+                    El mínimo debe ser menor al máximo
+                  </span>
+                )}
               </div>
 
               <div style={fieldStyle}>
@@ -140,7 +157,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
               Eliminar
             </button>
           </div>
-        ))}
+        )})}
       </div>
 
       <button type="button" style={addBtnStyle} onClick={addCategory}>

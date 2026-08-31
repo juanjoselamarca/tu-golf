@@ -183,6 +183,7 @@ export default function ScoringPage() {
               filledCount={entry.filledCount}
               getActiveRound={data.getActiveRound}
               hasScoresLoaded={Object.keys(entry.currentScores).length > 0}
+              roundHoleCounts={data.roundHoleCounts}
               onSelect={entry.selectPlayer}
             />
 

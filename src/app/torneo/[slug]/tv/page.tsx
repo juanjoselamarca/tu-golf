@@ -124,10 +124,33 @@ export default function TVPage() {
   // Initial load
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Auto-refresh every 30 seconds
+  // Auto-refresh every 30s — pausa cuando el tab no es visible (ahorro de
+  // bandwidth en TVs con pantalla en standby). Resume + fetch inmediato al volver.
   useEffect(() => {
-    const interval = setInterval(() => { fetchData() }, 30000)
-    return () => clearInterval(interval)
+    let interval: ReturnType<typeof setInterval> | null = null
+
+    const startPolling = () => {
+      if (interval) clearInterval(interval)
+      interval = setInterval(() => { fetchData() }, 30000)
+    }
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData() // fetch inmediato al volver
+        startPolling()
+      } else {
+        if (interval) { clearInterval(interval); interval = null }
+      }
+    }
+
+    // Iniciar sólo si visible
+    if (document.visibilityState === 'visible') startPolling()
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      if (interval) clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [fetchData])
 
   // Paginación: ciclo automático cada 8s si hay más de 10 jugadores

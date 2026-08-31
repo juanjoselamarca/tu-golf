@@ -11,9 +11,12 @@ interface PlayerCardsProps {
   players: ScoringPlayer[]
   selectedId: string | null
   holeCount: number
+  /** filledCount del jugador SELECCIONADO (real-time del scorer). */
   filledCount: number
   getActiveRound: (player: ScoringPlayer | undefined) => ScoringRound | undefined
   hasScoresLoaded: boolean
+  /** Conteos batch de hoyos por round_id (para progreso de TODOS los jugadores). */
+  roundHoleCounts: Map<string, number>
   onSelect: (playerId: string) => void
 }
 
@@ -24,6 +27,7 @@ export function PlayerCards({
   filledCount,
   getActiveRound,
   hasScoresLoaded,
+  roundHoleCounts,
   onSelect,
 }: PlayerCardsProps) {
   return (
@@ -56,7 +60,9 @@ export function PlayerCards({
                 {p.profiles?.name?.split(' ')[0] || '—'}
               </div>
               <div style={{ fontSize: '11px', color: isDone ? '#4ade80' : '#4a5568' }}>
-                {isDone ? '✓ Completo' : `${hasScoresLoaded && isSelected ? filledCount : 0}/${holeCount}`}
+                {isDone
+                  ? '✓ Completo'
+                  : `${isSelected && hasScoresLoaded ? filledCount : (round ? (roundHoleCounts.get(round.id) ?? 0) : 0)}/${holeCount}`}
               </div>
             </button>
           )
