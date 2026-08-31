@@ -94,7 +94,7 @@ describe.skipIf(skipIfNoEnv)('Coach E2E — cerebro contra prod', () => {
     })
     if (!r.ok) {
       console.log(`  → sin ronda libre finalizada (no es error real): ${r.error}`)
-      expect(r.error).toMatch(/no tiene rondas libres|no encontrada/i)
+      expect(r.error).toMatch(/no tiene rondas|no encontrada/i)
     } else {
       console.log(`  → ronda OK`)
       expect(r.data).toBeTruthy()

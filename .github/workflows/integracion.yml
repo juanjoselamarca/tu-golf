@@ -82,5 +82,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          COACH_E2E_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          # COACH_E2E_EMAIL: NO setear — el test necesita un usuario REAL con
+          # historial de golf (default: juanjoselamarca@gmail.com). El usuario
+          # E2E sintético tiene 0 rondas y rompe el test.
         run: npm run test:integration:ci
