@@ -151,6 +151,26 @@ export async function fetchRoundHoleScores(
   return (data as HoleScoreRow[] | null) ?? []
 }
 
+/** Cuenta de hoyos con score para múltiples rondas (batch).
+ *  Devuelve Map<round_id, filledHoleCount>. Una sola query. */
+export async function fetchBulkRoundHoleCounts(
+  supabase: SupabaseClient,
+  roundIds: string[],
+): Promise<Map<string, number>> {
+  if (roundIds.length === 0) return new Map()
+  const { data, error } = await supabase
+    .from('hole_scores')
+    .select('round_id, hole_number')
+    .in('round_id', roundIds)
+    .not('gross_score', 'is', null)
+  if (error) throw error
+  const counts = new Map<string, number>()
+  for (const row of data ?? []) {
+    counts.set(row.round_id, (counts.get(row.round_id) ?? 0) + 1)
+  }
+  return counts
+}
+
 /** Totales denormalizados de la ronda (para refrescar la ficha tras un save).
  *  Sólo UI del scorer: el Resumen NO los consume — deriva del motor. */
 export async function fetchRoundTotals(
