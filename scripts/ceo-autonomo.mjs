@@ -22,6 +22,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const REPO_ROOT = resolve(__dirname, '..');
 
+// Cargar .env.local para TELEGRAM_BOT_TOKEN y TELEGRAM_ADMIN_CHAT_ID
+const envPath = resolve(REPO_ROOT, '.env.local');
+if (existsSync(envPath)) {
+  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
+    const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (match && !process.env[match[1]]) {
+      process.env[match[1]] = match[2].replace(/^["']|["']$/g, '');
+    }
+  }
+}
+
 // ─── Configuración ─────────────────────────────────────────────────────────────
 
 const AGENTS = [
@@ -114,9 +125,42 @@ function cleanupWorktree(wtSlug, branch) {
 
 // ─── Ejecutar un agente ─────────────────────────────────────────────────────────
 
+async function checkAuth() {
+  try {
+    const out = sh('claude auth status --json');
+    const status = JSON.parse(out);
+    return status.loggedIn === true;
+  } catch {
+    return false;
+  }
+}
+
+async function sendTelegramAlert(msg) {
+  try {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+    if (!token || !chatId) return;
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: msg }),
+    });
+  } catch {}
+}
+
 async function runAgent(agent) {
   const startTime = Date.now();
   log(`═══ Iniciando agente ${agent.id}: ${agent.name} ═══`);
+
+  // Health check de autenticación antes de cada corrida
+  const authed = await checkAuth();
+  if (!authed) {
+    const msg = `🚨 CEO Autónomo — Auth caída.\nNo puedo correr ${agent.name}.\nAbrí una terminal y corré: claude\nDespués se retoma solo.`;
+    log(`✘ Auth check falló. Enviando alerta Telegram.`);
+    await sendTelegramAlert(msg);
+    savePartial({ agent: agent.name, status: 'auth-failed', duration: 0, timestamp: new Date().toISOString() });
+    return;
+  }
 
   // Pull main antes de cada corrida
   try { sh('git pull origin main'); } catch (e) { log(`⚠ git pull falló: ${e.message}`); }
