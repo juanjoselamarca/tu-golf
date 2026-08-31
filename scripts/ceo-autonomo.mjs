@@ -172,6 +172,7 @@ async function runAgent(agent) {
       '-p', prompt,
       '--output-format', 'text',
       '--max-turns', '50',
+      '--dangerously-skip-permissions',
       '--verbose',
     ], {
       cwd,
