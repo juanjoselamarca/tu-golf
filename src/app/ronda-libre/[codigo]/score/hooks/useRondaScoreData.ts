@@ -187,24 +187,24 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
         })
       )
 
-      // Paso 3: resolver handicaps en paralelo
-      await Promise.all(
-        jugadoresConIndice.map(async (j) => {
-          const courseData9h = courseDataByTee[j.playerTee]
-          hcpMap[j.id] = resolverCourseHandicap(j.index, courseData9h, r.holes)
-          displayMap[j.id] = await resolverHandicapDisplayDeRonda(
-            j.index,
-            courseData9h,
-            {
-              courseId: r.course_id ?? null,
-              tee: j.playerTee,
-              finalParTotal,
-              tieneRecorridos: !!(r.recorridos as string[] | null)?.length,
-            },
-            courseDataFullByTee,
-          )
-        })
-      )
+      // Paso 3: resolver handicaps secuencialmente (courseDataFullByTee es un cache
+      // compartido con check-then-act across await — no se puede paralelizar sin
+      // causar queries duplicadas). Course data ya está cargado, así que es rápido.
+      for (const j of jugadoresConIndice) {
+        const courseData9h = courseDataByTee[j.playerTee]
+        hcpMap[j.id] = resolverCourseHandicap(j.index, courseData9h, r.holes)
+        displayMap[j.id] = await resolverHandicapDisplayDeRonda(
+          j.index,
+          courseData9h,
+          {
+            courseId: r.course_id ?? null,
+            tee: j.playerTee,
+            finalParTotal,
+            tieneRecorridos: !!(r.recorridos as string[] | null)?.length,
+          },
+          courseDataFullByTee,
+        )
+      }
       setPlayerHcp(hcpMap)
       setPlayerDisplayHcp(displayMap)
 

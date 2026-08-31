@@ -4,7 +4,9 @@ import { calcularScoreRonda } from '@/golf/core/round-score'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 
-export const revalidate = 10
+// force-dynamic necesario porque createClient() usa cookies().
+// El cache se maneja vía Cache-Control headers (s-maxage=10) que Vercel CDN respeta.
+export const dynamic = 'force-dynamic'
 
 type RondaRow = {
   id: string

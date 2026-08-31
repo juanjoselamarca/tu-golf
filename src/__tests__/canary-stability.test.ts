@@ -131,7 +131,7 @@ describe('Canario: API routes tienen force-dynamic', () => {
           scanDir(fullPath)
         } else if (entry.name === 'route.ts') {
           const content = fs.readFileSync(fullPath, 'utf-8')
-          if (content.includes('supabase/server') && !content.includes('force-dynamic') && !content.includes('revalidate')) {
+          if (content.includes('supabase/server') && !content.includes('force-dynamic')) {
             missingDynamic.push(fullPath.replace(apiDir, 'api'))
           }
         }
