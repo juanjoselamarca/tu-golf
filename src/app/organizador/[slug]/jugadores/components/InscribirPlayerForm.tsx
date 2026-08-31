@@ -60,7 +60,9 @@ export function InscribirPlayerForm({
   mode, setMode, guestName, setGuestName, guestHcp, setGuestHcp, onInscribirGuest,
   onInscribirBatch,
 }: Props) {
-  const guestHcpValid = guestHcp.trim() !== '' && !Number.isNaN(Number(guestHcp))
+  // Handicap es opcional: si está vacío se inscribe con null.
+  // Si tiene valor, debe ser numérico válido.
+  const guestHcpValid = guestHcp.trim() === '' || !Number.isNaN(Number(guestHcp))
   const guestReady = guestName.trim() !== '' && guestHcpValid
 
   // Batch state
@@ -73,6 +75,22 @@ export function InscribirPlayerForm({
     .split('\n')
     .map(parseBatchLine)
     .filter((e): e is { name: string; hcp: number | null } => e !== null)
+
+  // Detectar nombres duplicados (case-insensitive)
+  const batchDuplicates: string[] = (() => {
+    const counts: Record<string, number> = {}
+    for (const entry of parsedBatch) {
+      const key = entry.name.toLowerCase().trim()
+      counts[key] = (counts[key] ?? 0) + 1
+    }
+    const dupeKeys = new Set(
+      Object.keys(counts).filter((k) => counts[k] > 1),
+    )
+    return parsedBatch
+      .filter((e) => dupeKeys.has(e.name.toLowerCase().trim()))
+      .map((e) => e.name)
+      .filter((name, i, arr) => arr.indexOf(name) === i)
+  })()
 
   const handleBatchSubmit = async () => {
     if (!onInscribirBatch || parsedBatch.length === 0) return
@@ -213,12 +231,12 @@ export function InscribirPlayerForm({
 
           {/* Handicap (indice) */}
           <div style={{ flex: '0 1 130px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap (indice)</label>
+            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Handicap (opcional)</label>
             <input
               type="number"
               inputMode="decimal"
               step="0.1"
-              placeholder="Ej: 18.4"
+              placeholder="Índice de handicap (opcional)"
               value={guestHcp}
               onChange={(e) => setGuestHcp(e.target.value)}
               style={inputStyle}
@@ -299,6 +317,19 @@ export function InscribirPlayerForm({
                   </div>
                 ))}
               </div>
+              {batchDuplicates.length > 0 && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'rgba(251,191,36,0.1)',
+                  border: '1px solid rgba(251,191,36,0.3)',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  color: '#fbbf24',
+                  marginBottom: '12px',
+                }}>
+                  <strong>Atención:</strong> hay {batchDuplicates.length} nombre{batchDuplicates.length !== 1 ? 's' : ''} repetido{batchDuplicates.length !== 1 ? 's' : ''} en la lista: {batchDuplicates.join(', ')}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setBatchConfirm(true)}
