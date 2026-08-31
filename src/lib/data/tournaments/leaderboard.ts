@@ -36,7 +36,7 @@ export type Client = Awaited<ReturnType<typeof createClient>>
 
 const TOURNAMENT_SELECT =
   'id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, ' +
-  'date_start, date_end, status, codigo, afecta_estadisticas, es_demo, cover_image_url, max_players, ' +
+  'date_start, date_end, status, codigo, afecta_estadisticas, es_demo, cover_image_url, max_players, organizer_id, ' +
   'courses(id, nombre, ciudad, par_total, slope_rating, course_rating)'
 
 export async function fetchTournamentBySlug(
