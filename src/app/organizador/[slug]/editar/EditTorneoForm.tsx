@@ -118,7 +118,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     }
 
     showSuccess('¡Torneo actualizado!', 'Los cambios fueron guardados correctamente.')
-    router.push('/dashboard')
+    router.push(`/organizador/${tournament.slug}/jugadores`)
   }
 
   return (
@@ -130,7 +130,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
           fuerza que TODOS los tokens hijos resuelvan a la paleta dark, coherente con el
           diseño hero. Fix sistémico (sin hardcodear colores). Reporte inbox e637b979. */}
       <div data-theme="dark" style={{ position: 'relative', zIndex: 10, background: 'rgba(14,28,47,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '16px', padding: '40px', maxWidth: '600px', width: '100%' }}>
-        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>← Volver al dashboard</Link>
+        <Link href={`/organizador/${tournament.slug}/jugadores`} style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>← Volver al torneo</Link>
         <div style={{ marginBottom: '28px' }}>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>Golfers+</div>
           <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: 0 }}>Editar torneo</h1>
@@ -275,7 +275,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
 
           {/* Buttons */}
           <div style={{ display: 'flex', gap: '12px' }}>
-            <Link href="/dashboard"
+            <Link href={`/organizador/${tournament.slug}/jugadores`}
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '13px', borderRadius: '8px', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: '15px', textDecoration: 'none', fontWeight: 500, textAlign: 'center' }}>
               Cancelar
             </Link>
