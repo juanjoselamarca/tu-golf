@@ -45,6 +45,7 @@ export interface DBTournament {
   es_demo: boolean | null
   cover_image_url: string | null
   max_players: number | null
+  organizer_id: string | null
   courses: {
     id: string
     nombre: string

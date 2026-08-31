@@ -188,7 +188,13 @@ export function GroupsSection({
                   )}
                   {tournamentStatus !== 'closed' && (
                     <button
-                      onClick={() => onDeleteGroup(g.id)}
+                      onClick={() => {
+                        const playerCount = g.players.length
+                        const msg = playerCount > 0
+                          ? `¿Eliminar "${g.name}"? ${playerCount} jugador${playerCount !== 1 ? 'es' : ''} asignado${playerCount !== 1 ? 's' : ''} quedará${playerCount !== 1 ? 'n' : ''} sin ${isTeam ? 'equipo' : 'grupo'}.`
+                          : `¿Eliminar "${g.name}"?`
+                        if (window.confirm(msg)) onDeleteGroup(g.id)
+                      }}
                       style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', borderRadius: '4px', padding: '2px 6px', fontSize: '11px', cursor: 'pointer' }}
                     >
                       X
